@@ -966,6 +966,225 @@ class RtpcBinding {
   }
 }
 
+// ============ P3.10: RTPC Macro System ============
+
+/// RTPC Macro - Groups multiple RTPC bindings under one control
+/// P3.10: Allows designers to control multiple parameters with a single knob
+class RtpcMacro {
+  final int id;
+  final String name;
+  final String description;
+  final double min;
+  final double max;
+  final double currentValue;
+
+  /// Bindings controlled by this macro
+  /// Each binding maps macro value → target parameter
+  final List<RtpcMacroBinding> bindings;
+
+  /// UI color for visual grouping
+  final Color color;
+
+  /// Enable/disable entire macro
+  final bool enabled;
+
+  const RtpcMacro({
+    required this.id,
+    required this.name,
+    this.description = '',
+    this.min = 0.0,
+    this.max = 1.0,
+    this.currentValue = 0.5,
+    this.bindings = const [],
+    this.color = const Color(0xFF4A9EFF),
+    this.enabled = true,
+  });
+
+  /// Get normalized value (0-1)
+  double get normalizedValue {
+    if (max == min) return 0.0;
+    return (currentValue - min) / (max - min);
+  }
+
+  /// Apply macro value to all bindings
+  Map<RtpcTargetParameter, double> evaluate() {
+    if (!enabled) return {};
+
+    final normalized = normalizedValue;
+    final results = <RtpcTargetParameter, double>{};
+
+    for (final binding in bindings) {
+      if (binding.enabled) {
+        results[binding.target] = binding.evaluate(normalized);
+      }
+    }
+
+    return results;
+  }
+
+  RtpcMacro copyWith({
+    int? id,
+    String? name,
+    String? description,
+    double? min,
+    double? max,
+    double? currentValue,
+    List<RtpcMacroBinding>? bindings,
+    Color? color,
+    bool? enabled,
+  }) {
+    return RtpcMacro(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      min: min ?? this.min,
+      max: max ?? this.max,
+      currentValue: currentValue ?? this.currentValue,
+      bindings: bindings ?? this.bindings,
+      color: color ?? this.color,
+      enabled: enabled ?? this.enabled,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'description': description,
+        'min': min,
+        'max': max,
+        'currentValue': currentValue,
+        'bindings': bindings.map((b) => b.toJson()).toList(),
+        'color': color.value,
+        'enabled': enabled,
+      };
+
+  factory RtpcMacro.fromJson(Map<String, dynamic> json) {
+    return RtpcMacro(
+      id: json['id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      min: (json['min'] as num?)?.toDouble() ?? 0.0,
+      max: (json['max'] as num?)?.toDouble() ?? 1.0,
+      currentValue: (json['currentValue'] as num?)?.toDouble() ?? 0.5,
+      bindings: (json['bindings'] as List<dynamic>?)
+              ?.map((b) => RtpcMacroBinding.fromJson(b as Map<String, dynamic>))
+              .toList() ??
+          [],
+      color: Color(json['color'] as int? ?? 0xFF4A9EFF),
+      enabled: json['enabled'] as bool? ?? true,
+    );
+  }
+}
+
+/// Single binding within an RTPC Macro
+class RtpcMacroBinding {
+  final int id;
+  final RtpcTargetParameter target;
+  final int? targetBusId;
+  final int? targetEventId;
+
+  /// Curve mapping: macro normalized value → target parameter value
+  final RtpcCurve curve;
+
+  /// Invert the curve
+  final bool inverted;
+
+  final bool enabled;
+
+  const RtpcMacroBinding({
+    required this.id,
+    required this.target,
+    this.targetBusId,
+    this.targetEventId,
+    required this.curve,
+    this.inverted = false,
+    this.enabled = true,
+  });
+
+  /// Evaluate binding - get output for normalized macro value (0-1)
+  double evaluate(double normalizedMacroValue) {
+    if (!enabled) {
+      final range = target.defaultRange;
+      return (range.$1 + range.$2) / 2.0;
+    }
+
+    final inputValue = inverted ? (1.0 - normalizedMacroValue) : normalizedMacroValue;
+    return curve.evaluate(inputValue);
+  }
+
+  RtpcMacroBinding copyWith({
+    int? id,
+    RtpcTargetParameter? target,
+    int? targetBusId,
+    int? targetEventId,
+    RtpcCurve? curve,
+    bool? inverted,
+    bool? enabled,
+  }) {
+    return RtpcMacroBinding(
+      id: id ?? this.id,
+      target: target ?? this.target,
+      targetBusId: targetBusId ?? this.targetBusId,
+      targetEventId: targetEventId ?? this.targetEventId,
+      curve: curve ?? this.curve,
+      inverted: inverted ?? this.inverted,
+      enabled: enabled ?? this.enabled,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'target': target.index,
+        'targetBusId': targetBusId,
+        'targetEventId': targetEventId,
+        'curve': curve.toJson(),
+        'inverted': inverted,
+        'enabled': enabled,
+      };
+
+  factory RtpcMacroBinding.fromJson(Map<String, dynamic> json) {
+    return RtpcMacroBinding(
+      id: json['id'] as int? ?? 0,
+      target: RtpcTargetParameterExtension.fromIndex(json['target'] as int? ?? 0),
+      targetBusId: json['targetBusId'] as int?,
+      targetEventId: json['targetEventId'] as int?,
+      curve: RtpcCurve.fromJson(json['curve'] as Map<String, dynamic>),
+      inverted: json['inverted'] as bool? ?? false,
+      enabled: json['enabled'] as bool? ?? true,
+    );
+  }
+}
+
+/// Preset macros for common audio scenarios
+const List<Map<String, dynamic>> kPresetMacros = [
+  {
+    'name': 'Big Win Intensity',
+    'description': 'Controls celebration audio intensity (volume, reverb, pitch)',
+    'bindings': [
+      {'target': 'volume', 'range': [0.7, 1.0]},
+      {'target': 'reverbSend', 'range': [0.1, 0.6]},
+      {'target': 'pitch', 'range': [0.0, 0.5]},
+    ],
+  },
+  {
+    'name': 'Tension Builder',
+    'description': 'Builds tension (LPF closes, pitch rises)',
+    'bindings': [
+      {'target': 'lowPassFilter', 'range': [20000, 2000], 'inverted': true},
+      {'target': 'pitch', 'range': [0.0, 1.0]},
+    ],
+  },
+  {
+    'name': 'Distance Attenuation',
+    'description': 'Simulates distance (volume, LPF, reverb)',
+    'bindings': [
+      {'target': 'volume', 'range': [1.0, 0.0], 'inverted': true},
+      {'target': 'lowPassFilter', 'range': [20000, 500], 'inverted': true},
+      {'target': 'reverbSend', 'range': [0.0, 0.8]},
+    ],
+  },
+];
+
 // ============ Predefined RTPC Definitions ============
 
 /// Common game audio RTPCs
@@ -987,6 +1206,388 @@ List<MiddlewareAction> generateDemoActions(String eventName) {
   // Return empty actions - user adds real sounds via Slot Lab or manually
   return [];
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// P3.11: PRESET MORPHING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Interpolation curve for morphing between presets
+enum MorphCurve {
+  linear,
+  easeIn,
+  easeOut,
+  easeInOut,
+  exponential,
+  logarithmic,
+  sCurve,
+  step,
+}
+
+extension MorphCurveExtension on MorphCurve {
+  String get displayName {
+    switch (this) {
+      case MorphCurve.linear: return 'Linear';
+      case MorphCurve.easeIn: return 'Ease In';
+      case MorphCurve.easeOut: return 'Ease Out';
+      case MorphCurve.easeInOut: return 'Ease In-Out';
+      case MorphCurve.exponential: return 'Exponential';
+      case MorphCurve.logarithmic: return 'Logarithmic';
+      case MorphCurve.sCurve: return 'S-Curve';
+      case MorphCurve.step: return 'Step';
+    }
+  }
+
+  /// Apply curve to normalized input (0.0-1.0)
+  double apply(double t) {
+    t = t.clamp(0.0, 1.0);
+    switch (this) {
+      case MorphCurve.linear:
+        return t;
+      case MorphCurve.easeIn:
+        return t * t;
+      case MorphCurve.easeOut:
+        return 1.0 - (1.0 - t) * (1.0 - t);
+      case MorphCurve.easeInOut:
+        return t < 0.5 ? 2.0 * t * t : 1.0 - math.pow(-2.0 * t + 2.0, 2) / 2.0;
+      case MorphCurve.exponential:
+        return t == 0 ? 0.0 : math.pow(2, 10 * t - 10).toDouble();
+      case MorphCurve.logarithmic:
+        return math.log(1.0 + t * (math.e - 1));
+      case MorphCurve.sCurve:
+        return (1.0 - math.cos(t * math.pi)) / 2.0;
+      case MorphCurve.step:
+        return t < 0.5 ? 0.0 : 1.0;
+    }
+  }
+
+  static MorphCurve fromString(String s) {
+    return MorphCurve.values.firstWhere(
+      (c) => c.name == s || c.displayName == s,
+      orElse: () => MorphCurve.linear,
+    );
+  }
+}
+
+/// P3.11: A morphable parameter with start and end values
+class MorphParameter {
+  final String name;
+  final RtpcTargetParameter target;
+  final int? targetBusId;
+  final int? targetEventId;
+  final double startValue;
+  final double endValue;
+  final MorphCurve curve;
+  final bool enabled;
+
+  const MorphParameter({
+    required this.name,
+    required this.target,
+    this.targetBusId,
+    this.targetEventId,
+    required this.startValue,
+    required this.endValue,
+    this.curve = MorphCurve.linear,
+    this.enabled = true,
+  });
+
+  /// Get interpolated value at position t (0.0-1.0)
+  double valueAt(double t) {
+    if (!enabled) return startValue;
+    final curved = curve.apply(t);
+    return startValue + (endValue - startValue) * curved;
+  }
+
+  MorphParameter copyWith({
+    String? name,
+    RtpcTargetParameter? target,
+    int? targetBusId,
+    int? targetEventId,
+    double? startValue,
+    double? endValue,
+    MorphCurve? curve,
+    bool? enabled,
+  }) {
+    return MorphParameter(
+      name: name ?? this.name,
+      target: target ?? this.target,
+      targetBusId: targetBusId ?? this.targetBusId,
+      targetEventId: targetEventId ?? this.targetEventId,
+      startValue: startValue ?? this.startValue,
+      endValue: endValue ?? this.endValue,
+      curve: curve ?? this.curve,
+      enabled: enabled ?? this.enabled,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'target': target.name,
+    'targetBusId': targetBusId,
+    'targetEventId': targetEventId,
+    'startValue': startValue,
+    'endValue': endValue,
+    'curve': curve.name,
+    'enabled': enabled,
+  };
+
+  factory MorphParameter.fromJson(Map<String, dynamic> json) {
+    return MorphParameter(
+      name: json['name'] as String,
+      target: RtpcTargetParameter.values.firstWhere(
+        (t) => t.name == json['target'],
+        orElse: () => RtpcTargetParameter.volume,
+      ),
+      targetBusId: json['targetBusId'] as int?,
+      targetEventId: json['targetEventId'] as int?,
+      startValue: (json['startValue'] as num).toDouble(),
+      endValue: (json['endValue'] as num).toDouble(),
+      curve: MorphCurveExtension.fromString(json['curve'] as String? ?? 'linear'),
+      enabled: json['enabled'] as bool? ?? true,
+    );
+  }
+}
+
+/// P3.11: Preset Morph configuration
+/// Allows smooth interpolation between two audio presets with per-parameter curves
+class PresetMorph {
+  final int id;
+  final String name;
+  final String description;
+  final String presetA;  // Source preset name
+  final String presetB;  // Target preset name
+  final List<MorphParameter> parameters;
+  final double position;  // Current morph position (0.0 = A, 1.0 = B)
+  final double durationMs;  // Auto-morph duration (0 = manual only)
+  final MorphCurve globalCurve;
+  final bool enabled;
+  final Color color;
+
+  const PresetMorph({
+    required this.id,
+    required this.name,
+    this.description = '',
+    required this.presetA,
+    required this.presetB,
+    this.parameters = const [],
+    this.position = 0.0,
+    this.durationMs = 0.0,
+    this.globalCurve = MorphCurve.linear,
+    this.enabled = true,
+    this.color = const Color(0xFF9C27B0),
+  });
+
+  /// Evaluate all parameters at current position
+  Map<RtpcTargetParameter, double> evaluate() {
+    if (!enabled) return {};
+    final results = <RtpcTargetParameter, double>{};
+    for (final param in parameters) {
+      if (param.enabled) {
+        results[param.target] = param.valueAt(position);
+      }
+    }
+    return results;
+  }
+
+  /// Evaluate at specific position
+  Map<RtpcTargetParameter, double> evaluateAt(double t) {
+    if (!enabled) return {};
+    final effectiveT = globalCurve.apply(t.clamp(0.0, 1.0));
+    final results = <RtpcTargetParameter, double>{};
+    for (final param in parameters) {
+      if (param.enabled) {
+        results[param.target] = param.valueAt(effectiveT);
+      }
+    }
+    return results;
+  }
+
+  /// Get progress towards preset B (0.0-1.0)
+  double get normalizedPosition => position.clamp(0.0, 1.0);
+
+  /// Is currently at preset A?
+  bool get isAtPresetA => position <= 0.0;
+
+  /// Is currently at preset B?
+  bool get isAtPresetB => position >= 1.0;
+
+  /// Is somewhere between presets?
+  bool get isMorphing => position > 0.0 && position < 1.0;
+
+  PresetMorph copyWith({
+    int? id,
+    String? name,
+    String? description,
+    String? presetA,
+    String? presetB,
+    List<MorphParameter>? parameters,
+    double? position,
+    double? durationMs,
+    MorphCurve? globalCurve,
+    bool? enabled,
+    Color? color,
+  }) {
+    return PresetMorph(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      presetA: presetA ?? this.presetA,
+      presetB: presetB ?? this.presetB,
+      parameters: parameters ?? this.parameters,
+      position: position ?? this.position,
+      durationMs: durationMs ?? this.durationMs,
+      globalCurve: globalCurve ?? this.globalCurve,
+      enabled: enabled ?? this.enabled,
+      color: color ?? this.color,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'description': description,
+    'presetA': presetA,
+    'presetB': presetB,
+    'parameters': parameters.map((p) => p.toJson()).toList(),
+    'position': position,
+    'durationMs': durationMs,
+    'globalCurve': globalCurve.name,
+    'enabled': enabled,
+    'color': color.value,
+  };
+
+  factory PresetMorph.fromJson(Map<String, dynamic> json) {
+    return PresetMorph(
+      id: json['id'] as int,
+      name: json['name'] as String,
+      description: json['description'] as String? ?? '',
+      presetA: json['presetA'] as String,
+      presetB: json['presetB'] as String,
+      parameters: (json['parameters'] as List<dynamic>?)
+          ?.map((p) => MorphParameter.fromJson(p as Map<String, dynamic>))
+          .toList() ?? [],
+      position: (json['position'] as num?)?.toDouble() ?? 0.0,
+      durationMs: (json['durationMs'] as num?)?.toDouble() ?? 0.0,
+      globalCurve: MorphCurveExtension.fromString(json['globalCurve'] as String? ?? 'linear'),
+      enabled: json['enabled'] as bool? ?? true,
+      color: Color(json['color'] as int? ?? 0xFF9C27B0),
+    );
+  }
+
+  /// Create a volume crossfade morph between two sounds
+  factory PresetMorph.volumeCrossfade(int id, String name, String soundA, String soundB) {
+    return PresetMorph(
+      id: id,
+      name: name,
+      presetA: soundA,
+      presetB: soundB,
+      parameters: [
+        MorphParameter(
+          name: 'Sound A Volume',
+          target: RtpcTargetParameter.volume,
+          startValue: 1.0,
+          endValue: 0.0,
+          curve: MorphCurve.sCurve,
+        ),
+        MorphParameter(
+          name: 'Sound B Volume',
+          target: RtpcTargetParameter.volume,
+          startValue: 0.0,
+          endValue: 1.0,
+          curve: MorphCurve.sCurve,
+        ),
+      ],
+    );
+  }
+
+  /// Create an EQ morph (filter sweep)
+  factory PresetMorph.filterSweep(int id, String name, {double startHz = 200, double endHz = 8000}) {
+    return PresetMorph(
+      id: id,
+      name: name,
+      presetA: 'Dark',
+      presetB: 'Bright',
+      parameters: [
+        MorphParameter(
+          name: 'LPF Cutoff',
+          target: RtpcTargetParameter.lowPassFilter,
+          startValue: startHz,
+          endValue: endHz,
+          curve: MorphCurve.exponential,
+        ),
+      ],
+    );
+  }
+
+  /// Create a tension builder morph
+  factory PresetMorph.tensionBuilder(int id, String name) {
+    return PresetMorph(
+      id: id,
+      name: name,
+      presetA: 'Calm',
+      presetB: 'Tense',
+      parameters: [
+        MorphParameter(
+          name: 'Volume',
+          target: RtpcTargetParameter.volume,
+          startValue: 0.6,
+          endValue: 1.0,
+          curve: MorphCurve.easeIn,
+        ),
+        MorphParameter(
+          name: 'LPF',
+          target: RtpcTargetParameter.lowPassFilter,
+          startValue: 2000,
+          endValue: 12000,
+          curve: MorphCurve.exponential,
+        ),
+        MorphParameter(
+          name: 'Reverb',
+          target: RtpcTargetParameter.reverbSend,
+          startValue: 0.1,
+          endValue: 0.5,
+          curve: MorphCurve.linear,
+        ),
+      ],
+    );
+  }
+}
+
+/// Preset morph animation state
+enum MorphAnimationState {
+  idle,
+  morphingToA,
+  morphingToB,
+  oscillating,
+}
+
+/// Preset morph templates
+const List<Map<String, dynamic>> kPresetMorphTemplates = [
+  {
+    'name': 'Volume Crossfade',
+    'description': 'Equal-power crossfade between two sounds',
+    'type': 'crossfade',
+  },
+  {
+    'name': 'Filter Sweep',
+    'description': 'Sweep lowpass filter from dark to bright',
+    'type': 'filter',
+  },
+  {
+    'name': 'Tension Builder',
+    'description': 'Build tension with volume, filter, and reverb',
+    'type': 'tension',
+  },
+  {
+    'name': 'Distance Fade',
+    'description': 'Simulate approaching/receding sound source',
+    'type': 'distance',
+  },
+  {
+    'name': 'Day/Night Cycle',
+    'description': 'Ambient transition for time of day',
+    'type': 'ambient',
+  },
+];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DUCKING MATRIX

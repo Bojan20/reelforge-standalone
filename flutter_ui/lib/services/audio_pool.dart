@@ -61,13 +61,16 @@ class AudioPoolConfig {
 // POOLED VOICE — Single voice instance with tracking
 // =============================================================================
 
+/// P1.10 FIX: Use int milliseconds instead of DateTime objects to avoid GC pressure
+/// Each DateTime.now() call allocates a new object on the heap.
+/// Using millisecondsSinceEpoch directly is allocation-free.
 class _PooledVoice {
   final int voiceId;
   final String eventKey;
   final int busId;
   double lastPan; // Track last used pan for potential reuse
   bool isPlaying;
-  DateTime lastUsed;
+  int lastUsedMs; // P1.10: milliseconds since epoch (no allocation)
 
   _PooledVoice({
     required this.voiceId,
@@ -75,21 +78,56 @@ class _PooledVoice {
     required this.busId,
     this.lastPan = 0.0,
     this.isPlaying = false,
-  }) : lastUsed = DateTime.now();
+  }) : lastUsedMs = DateTime.now().millisecondsSinceEpoch;
 
   void markPlaying() {
     isPlaying = true;
-    lastUsed = DateTime.now();
+    lastUsedMs = DateTime.now().millisecondsSinceEpoch;
   }
 
   void markStopped() {
     isPlaying = false;
-    lastUsed = DateTime.now();
+    lastUsedMs = DateTime.now().millisecondsSinceEpoch;
   }
 
   bool get isIdle => !isPlaying;
 
-  Duration get idleDuration => DateTime.now().difference(lastUsed);
+  /// P1.10: Returns idle duration in milliseconds (allocation-free)
+  int get idleDurationMs => DateTime.now().millisecondsSinceEpoch - lastUsedMs;
+}
+
+// =============================================================================
+// OVERFLOW VOICE — Temporary voice created when pool is full
+// =============================================================================
+
+/// P0.4 FIX: Track overflow voices to prevent memory leaks
+/// These are created when the pool is full and all voices are busy.
+/// They have an estimated duration and auto-release when done.
+/// P1.10 FIX: Use int milliseconds instead of DateTime/Duration objects
+class _OverflowVoice {
+  final int voiceId;
+  final String eventKey;
+  final int busId;
+  final int createdAtMs; // P1.10: milliseconds since epoch
+  final int estimatedDurationMs; // P1.10: milliseconds (not Duration object)
+
+  _OverflowVoice({
+    required this.voiceId,
+    required this.eventKey,
+    required this.busId,
+    this.estimatedDurationMs = 2000,
+  }) : createdAtMs = DateTime.now().millisecondsSinceEpoch;
+
+  /// Check if this overflow voice should be cleaned up
+  /// P1.10: Pure int comparison, no object allocations
+  bool get shouldCleanup {
+    // Add 500ms buffer to ensure playback completes
+    final thresholdMs = estimatedDurationMs + 500;
+    return DateTime.now().millisecondsSinceEpoch - createdAtMs > thresholdMs;
+  }
+
+  /// P1.10: Age in milliseconds (allocation-free)
+  int get ageMs => DateTime.now().millisecondsSinceEpoch - createdAtMs;
 }
 
 // =============================================================================
@@ -110,16 +148,24 @@ class AudioPool extends ChangeNotifier {
   // All active voices for quick lookup
   final Map<int, _PooledVoice> _activeVoices = {};
 
+  // P0.4 FIX: Track overflow voices separately to prevent memory leaks
+  // When pool is full and all voices are busy, we create temporary voices
+  // that must be tracked and auto-released when playback ends
+  final Map<int, _OverflowVoice> _overflowVoices = {};
+
   // Stats
   int _totalAcquires = 0;
   int _poolHits = 0;
   int _poolMisses = 0;
+  int _overflowCount = 0;  // Track overflow events for diagnostics
 
   // Cleanup timer
   Timer? _cleanupTimer;
+  Timer? _overflowCleanupTimer;  // Separate timer for overflow cleanup
 
   AudioPool._() {
     _startCleanupTimer();
+    _startOverflowCleanupTimer();
   }
 
   // ==========================================================================
@@ -182,7 +228,8 @@ class AudioPool extends ChangeNotifier {
     // Check max limit
     if (pool.length >= _config.maxVoicesPerEvent) {
       // Steal oldest idle voice if possible
-      pool.sort((a, b) => a.lastUsed.compareTo(b.lastUsed));
+      // P1.10: int comparison is allocation-free
+      pool.sort((a, b) => a.lastUsedMs.compareTo(b.lastUsedMs));
       for (final v in pool) {
         if (v.isIdle) {
           v.markPlaying();
@@ -192,9 +239,19 @@ class AudioPool extends ChangeNotifier {
           return v.voiceId;
         }
       }
-      // All voices busy - play anyway but don't pool
+      // P0.4 FIX: All voices busy - create overflow voice WITH tracking
       final tempVoiceId = _createAndPlayVoice(audioPath, volume, pan, busId);
-      debugPrint('[AudioPool] OVERFLOW: $normalizedKey (temp voice $tempVoiceId)');
+      if (tempVoiceId > 0) {
+        _overflowCount++;
+        _overflowVoices[tempVoiceId] = _OverflowVoice(
+          voiceId: tempVoiceId,
+          eventKey: normalizedKey,
+          busId: busId,
+          // P1.10: Use int milliseconds instead of Duration
+          estimatedDurationMs: 2000,
+        );
+      }
+      debugPrint('[AudioPool] OVERFLOW: $normalizedKey (voice $tempVoiceId, total overflow: $_overflowCount)');
       return tempVoiceId;
     }
 
@@ -246,8 +303,9 @@ class AudioPool extends ChangeNotifier {
     }
   }
 
-  /// Stop all pooled voices
+  /// Stop all pooled voices (including overflow)
   void stopAll() {
+    // Stop pooled voices
     for (final pool in _pools.values) {
       for (final voice in pool) {
         if (voice.isPlaying) {
@@ -260,6 +318,15 @@ class AudioPool extends ChangeNotifier {
         }
       }
     }
+    // P0.4: Also stop overflow voices
+    for (final voiceId in _overflowVoices.keys.toList()) {
+      try {
+        NativeFFI.instance.playbackStopOneShot(voiceId);
+      } catch (e) {
+        // Voice may already be stopped
+      }
+    }
+    _overflowVoices.clear();
   }
 
   // ==========================================================================
@@ -363,13 +430,14 @@ class AudioPool extends ChangeNotifier {
     );
   }
 
+  /// P1.10 FIX: Use int milliseconds comparison (no Duration allocation)
   void _cleanupIdleVoices() {
-    final timeout = Duration(milliseconds: _config.idleTimeoutMs);
+    final timeoutMs = _config.idleTimeoutMs;
     int cleaned = 0;
 
     for (final pool in _pools.values) {
       pool.removeWhere((voice) {
-        if (voice.isIdle && voice.idleDuration > timeout) {
+        if (voice.isIdle && voice.idleDurationMs > timeoutMs) {
           _activeVoices.remove(voice.voiceId);
           cleaned++;
           return true;
@@ -383,6 +451,55 @@ class AudioPool extends ChangeNotifier {
     }
   }
 
+  // P0.4 FIX: Separate cleanup for overflow voices
+  void _startOverflowCleanupTimer() {
+    _overflowCleanupTimer?.cancel();
+    // Check overflow voices every 500ms for quick cleanup
+    _overflowCleanupTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => _cleanupOverflowVoices(),
+    );
+  }
+
+  void _cleanupOverflowVoices() {
+    if (_overflowVoices.isEmpty) return;
+
+    final toRemove = <int>[];
+
+    for (final entry in _overflowVoices.entries) {
+      if (entry.value.shouldCleanup) {
+        toRemove.add(entry.key);
+        // Stop the voice to free engine resources
+        try {
+          NativeFFI.instance.playbackStopOneShot(entry.key);
+        } catch (e) {
+          // Voice may already be stopped, ignore
+        }
+      }
+    }
+
+    for (final voiceId in toRemove) {
+      _overflowVoices.remove(voiceId);
+    }
+
+    if (toRemove.isNotEmpty) {
+      debugPrint('[AudioPool] Cleaned ${toRemove.length} overflow voices (remaining: ${_overflowVoices.length})');
+    }
+  }
+
+  /// Manually release an overflow voice (call when audio completes)
+  void releaseOverflow(int voiceId) {
+    final overflow = _overflowVoices.remove(voiceId);
+    if (overflow != null) {
+      try {
+        NativeFFI.instance.playbackStopOneShot(voiceId);
+      } catch (e) {
+        // Voice may already be stopped
+      }
+      debugPrint('[AudioPool] Released overflow voice $voiceId');
+    }
+  }
+
   // ==========================================================================
   // STATS
   // ==========================================================================
@@ -390,6 +507,8 @@ class AudioPool extends ChangeNotifier {
   int get totalAcquires => _totalAcquires;
   int get poolHits => _poolHits;
   int get poolMisses => _poolMisses;
+  int get overflowCount => _overflowCount;  // P0.4: Track overflow events
+  int get pendingOverflowVoices => _overflowVoices.length;  // P0.4: Current overflow count
   double get hitRate => _totalAcquires > 0 ? _poolHits / _totalAcquires : 0.0;
 
   int get totalPooledVoices => _pools.values.fold(0, (sum, pool) => sum + pool.length);
@@ -402,7 +521,8 @@ class AudioPool extends ChangeNotifier {
   String get statsString {
     return 'AudioPool: acquires=$_totalAcquires, hits=$_poolHits, misses=$_poolMisses, '
         'hitRate=${(hitRate * 100).toStringAsFixed(1)}%, '
-        'pooled=$totalPooledVoices, active=$activeVoiceCount';
+        'pooled=$totalPooledVoices, active=$activeVoiceCount, '
+        'overflow=$_overflowCount (pending: ${_overflowVoices.length})';
   }
 
   // ==========================================================================
@@ -412,20 +532,38 @@ class AudioPool extends ChangeNotifier {
   @override
   void dispose() {
     _cleanupTimer?.cancel();
+    _overflowCleanupTimer?.cancel();  // P0.4: Cancel overflow timer
     stopAll();
+    _stopAllOverflowVoices();  // P0.4: Clean up overflow voices
     _pools.clear();
     _activeVoices.clear();
+    _overflowVoices.clear();  // P0.4: Clear overflow tracking
     super.dispose();
+  }
+
+  /// P0.4: Stop all overflow voices
+  void _stopAllOverflowVoices() {
+    for (final voiceId in _overflowVoices.keys) {
+      try {
+        NativeFFI.instance.playbackStopOneShot(voiceId);
+      } catch (e) {
+        // Voice may already be stopped
+      }
+    }
+    _overflowVoices.clear();
   }
 
   /// Reset pool (for testing or memory cleanup)
   void reset() {
     stopAll();
+    _stopAllOverflowVoices();  // P0.4: Clear overflow voices
     _pools.clear();
     _activeVoices.clear();
+    _overflowVoices.clear();  // P0.4: Clear overflow tracking
     _totalAcquires = 0;
     _poolHits = 0;
     _poolMisses = 0;
+    _overflowCount = 0;  // P0.4: Reset overflow counter
     debugPrint('[AudioPool] Reset');
   }
 }

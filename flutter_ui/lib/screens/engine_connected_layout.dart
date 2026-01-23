@@ -233,6 +233,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   bool _metronomeEnabled = false;
   bool _snapEnabled = true;
   double _snapValue = 1;
+  bool _tripletGrid = false; // P0.2: Triplet grid mode
 
   // Analog EQ state
   int _selectedAnalogEq = 0; // 0=Pultec, 1=API, 2=Neve
@@ -4249,6 +4250,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             // Handle DSP actions from Lower Zone
             debugPrint('[LowerZone] DSP action: $action, params: $params');
           },
+          // P0.2: Grid/Snap Settings
+          snapEnabled: _snapEnabled,
+          snapValue: _snapValue,
+          tripletGrid: _tripletGrid,
+          onSnapEnabledChanged: (v) => setState(() => _snapEnabled = v),
+          onSnapValueChanged: (v) => setState(() => _snapValue = v),
+          onTripletGridChanged: (v) => setState(() => _tripletGrid = v),
         );
       case EditorMode.middleware:
         return MiddlewareLowerZoneWidget(

@@ -1,0 +1,81 @@
+[package]
+name = "rf-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "FluxForge Studio WASM port for web-based audio middleware"
+authors = ["FluxForge Studio"]
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+# Enable wee_alloc for smaller WASM binary
+wee_alloc = ["dep:wee_alloc"]
+
+[dependencies]
+wasm-bindgen = "0.2.92"
+wasm-bindgen-futures = "0.4.42"
+js-sys = "0.3.69"
+web-sys = { version = "0.3.69", features = [
+    "console",
+    "Window",
+    "Document",
+    "AudioContext",
+    "AudioBuffer",
+    "AudioBufferSourceNode",
+    "GainNode",
+    "StereoPannerNode",
+    "AnalyserNode",
+    "AudioDestinationNode",
+    "OscillatorNode",
+    "BiquadFilterNode",
+    "DynamicsCompressorNode",
+    "ConvolverNode",
+    "DelayNode",
+    "WaveShaperNode",
+    "PeriodicWave",
+    "AudioParam",
+    "AudioWorklet",
+    "AudioWorkletNode",
+    "Blob",
+    "BlobPropertyBag",
+    "Url",
+    "Performance",
+    "PerformanceTiming",
+] }
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde-wasm-bindgen = "0.6"
+
+# Panic hook for better error messages in console
+console_error_panic_hook = { version = "0.1.7", optional = true }
+
+# Smaller allocator (optional, reduces binary size)
+wee_alloc = { version = "0.4.5", optional = true }
+
+# Logging
+log = "0.4"
+console_log = "1.0"
+
+# UUID generation
+uuid = { version = "1.8", features = ["v4", "js"] }
+
+# Reuse rf-engine types where possible
+# Note: In production, would share types via rf-core
+# rf-core = { path = "../rf-core", features = ["wasm"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.42"
+
+[profile.release]
+# Optimize for size in WASM
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os", "--enable-mutable-globals"]

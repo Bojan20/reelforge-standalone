@@ -24,10 +24,9 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
-        final curves = provider.attenuationCurves;
-
+    return Selector<MiddlewareProvider, List<AttenuationCurve>>(
+      selector: (_, p) => p.attenuationCurves,
+      builder: (context, curves, _) {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -38,7 +37,7 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(provider),
+              _buildHeader(),
               const SizedBox(height: 16),
               Expanded(
                 child: Row(
@@ -47,18 +46,18 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
                     // Curve list
                     SizedBox(
                       width: 240,
-                      child: _buildCurveList(curves, provider),
+                      child: _buildCurveList(context, curves),
                     ),
                     const SizedBox(width: 16),
                     // Curve editor
                     Expanded(
-                      child: _buildCurveEditor(provider),
+                      child: _buildCurveEditor(context, curves),
                     ),
                   ],
                 ),
               ),
               if (_showAddDialog)
-                _buildAddDialog(provider),
+                _buildAddDialog(context),
             ],
           ),
         );
@@ -66,7 +65,7 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
     );
   }
 
-  Widget _buildHeader(MiddlewareProvider provider) {
+  Widget _buildHeader() {
     return Row(
       children: [
         Icon(Icons.show_chart, color: Colors.indigo, size: 20),
@@ -126,7 +125,7 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
     );
   }
 
-  Widget _buildCurveList(List<AttenuationCurve> curves, MiddlewareProvider provider) {
+  Widget _buildCurveList(BuildContext context, List<AttenuationCurve> curves) {
     if (curves.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -157,6 +156,8 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
         ),
       );
     }
+
+    final provider = context.read<MiddlewareProvider>();
 
     return Container(
       decoration: BoxDecoration(
@@ -322,7 +323,7 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
     );
   }
 
-  Widget _buildCurveEditor(MiddlewareProvider provider) {
+  Widget _buildCurveEditor(BuildContext context, List<AttenuationCurve> curves) {
     if (_selectedCurveId == null) {
       return Container(
         decoration: BoxDecoration(
@@ -346,12 +347,13 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
       );
     }
 
-    final curve = provider.attenuationCurves
+    final curve = curves
         .where((c) => c.id == _selectedCurveId)
         .firstOrNull;
 
     if (curve == null) return const SizedBox.shrink();
 
+    final provider = context.read<MiddlewareProvider>();
     final typeColor = _getTypeColor(curve.attenuationType);
 
     return Container(
@@ -681,7 +683,8 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
     );
   }
 
-  Widget _buildAddDialog(MiddlewareProvider provider) {
+  Widget _buildAddDialog(BuildContext context) {
+    final provider = context.read<MiddlewareProvider>();
     return _AddAttenuationCurveDialog(
       onAdd: (name, type) {
         provider.addSimpleAttenuationCurve(name: name, type: type);

@@ -8,7 +8,8 @@ use rf_stage::StageEvent;
 
 use crate::features::{
     ActivationContext, CascadesChapter, FeatureCategory, FeatureChapter, FeatureRegistry,
-    FreeSpinsChapter, GambleChapter, HoldAndWinChapter, JackpotChapter, SpinContext,
+    FreeSpinsChapter, GambleChapter, HoldAndWinChapter, JackpotChapter, PickBonusChapter,
+    SpinContext,
 };
 use crate::model::{GameMode, GameModel};
 use crate::spin::{ForcedOutcome, SpinResult};
@@ -91,6 +92,9 @@ impl SlotEngineV2 {
                     }
                     "gamble" | "risk" => {
                         features.register(Box::new(GambleChapter::new()));
+                    }
+                    "pick_bonus" | "pick" | "pickbonus" => {
+                        features.register(Box::new(PickBonusChapter::new()));
                     }
                     _ => {}
                 }
@@ -559,6 +563,359 @@ impl SlotEngineV2 {
             .iter()
             .filter_map(|id| self.features.get(id))
             .collect()
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HOLD & WIN FEATURE ACCESSORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Check if Hold & Win feature is currently active
+    pub fn is_hold_and_win_active(&self) -> bool {
+        self.features
+            .get(&crate::features::FeatureId::new("hold_and_win"))
+            .map(|f| f.is_active())
+            .unwrap_or(false)
+    }
+
+    /// Get remaining respins in Hold & Win
+    pub fn hold_and_win_remaining_respins(&self) -> u8 {
+        self.features
+            .get(&crate::features::FeatureId::new("hold_and_win"))
+            .and_then(|f| {
+                let snapshot = f.snapshot();
+                snapshot.data.get("remaining_respins")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as u8)
+            })
+            .unwrap_or(0)
+    }
+
+    /// Get fill percentage of Hold & Win grid
+    pub fn hold_and_win_fill_percentage(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("hold_and_win"))
+            .map(|f| {
+                let snapshot = f.snapshot();
+                let locked = snapshot.data.get("locked_count")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as f64;
+                let grid_size = 15.0; // Default 5x3 grid
+                locked / grid_size
+            })
+            .unwrap_or(0.0)
+    }
+
+    /// Get number of locked symbols in Hold & Win
+    pub fn hold_and_win_locked_count(&self) -> usize {
+        self.features
+            .get(&crate::features::FeatureId::new("hold_and_win"))
+            .and_then(|f| {
+                let snapshot = f.snapshot();
+                snapshot.data.get("locked_count")
+                    .and_then(|v| v.as_u64())
+            })
+            .unwrap_or(0) as usize
+    }
+
+    /// Get Hold & Win feature state snapshot
+    pub fn hold_and_win_state(&self) -> Option<crate::features::FeatureSnapshot> {
+        self.features
+            .get(&crate::features::FeatureId::new("hold_and_win"))
+            .filter(|f| f.is_active())
+            .map(|f| f.snapshot())
+    }
+
+    /// Get locked symbols from Hold & Win
+    pub fn hold_and_win_locked_symbols(&self) -> Vec<crate::features::LockedSymbol> {
+        // Note: FeatureChapter trait doesn't expose locked_symbols directly
+        // This returns empty for now - would need trait extension or downcast
+        Vec::new()
+    }
+
+    /// Get total accumulated value in Hold & Win
+    pub fn hold_and_win_total_value(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("hold_and_win"))
+            .map(|f| f.snapshot().accumulated_win)
+            .unwrap_or(0.0)
+    }
+
+    /// Force trigger Hold & Win feature (for testing)
+    pub fn force_trigger_hold_and_win(&mut self) -> bool {
+        let activation_ctx = ActivationContext::new(6, self.current_bet);
+
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("hold_and_win")) {
+            if !feature.is_active() && feature.can_activate(&activation_ctx) {
+                feature.activate(&activation_ctx);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Add a locked symbol to Hold & Win (for testing)
+    pub fn hold_and_win_add_locked_symbol(
+        &mut self,
+        _position: u8,
+        _value: f64,
+        _symbol_type: crate::features::HoldSymbolType,
+    ) -> bool {
+        // Note: This would require trait extension to access HoldAndWinChapter directly
+        // For now, return false - real implementation would need downcast or extended trait
+        false
+    }
+
+    /// Complete Hold & Win and return final payout
+    pub fn hold_and_win_complete(&mut self) -> f64 {
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("hold_and_win")) {
+            if feature.is_active() {
+                let total = feature.snapshot().accumulated_win;
+                feature.deactivate();
+                return total;
+            }
+        }
+        0.0
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PICK BONUS FEATURE METHODS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    /// Check if Pick Bonus feature is currently active
+    pub fn is_pick_bonus_active(&self) -> bool {
+        self.features
+            .get(&crate::features::FeatureId::new("pick_bonus"))
+            .map(|f| f.is_active())
+            .unwrap_or(false)
+    }
+
+    /// Get Pick Bonus feature state snapshot
+    pub fn pick_bonus_state(&self) -> Option<crate::features::FeatureSnapshot> {
+        self.features
+            .get(&crate::features::FeatureId::new("pick_bonus"))
+            .filter(|f| f.is_active())
+            .map(|f| f.snapshot())
+    }
+
+    /// Get picks made so far
+    pub fn pick_bonus_picks_made(&self) -> u8 {
+        self.features
+            .get(&crate::features::FeatureId::new("pick_bonus"))
+            .map(|f| f.snapshot().current_step as u8)
+            .unwrap_or(0)
+    }
+
+    /// Get total items in pick bonus
+    pub fn pick_bonus_total_items(&self) -> u8 {
+        self.features
+            .get(&crate::features::FeatureId::new("pick_bonus"))
+            .and_then(|f| {
+                let snapshot = f.snapshot();
+                snapshot.total_steps.map(|s| s as u8)
+            })
+            .unwrap_or(12)
+    }
+
+    /// Get current multiplier in pick bonus
+    pub fn pick_bonus_multiplier(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("pick_bonus"))
+            .map(|f| f.snapshot().multiplier)
+            .unwrap_or(1.0)
+    }
+
+    /// Get total win accumulated in pick bonus
+    pub fn pick_bonus_total_win(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("pick_bonus"))
+            .map(|f| f.snapshot().accumulated_win)
+            .unwrap_or(0.0)
+    }
+
+    /// Force trigger Pick Bonus feature (for testing)
+    pub fn force_trigger_pick_bonus(&mut self) -> bool {
+        let activation_ctx = ActivationContext::new(6, self.current_bet);
+
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("pick_bonus")) {
+            if !feature.is_active() && feature.can_activate(&activation_ctx) {
+                feature.activate(&activation_ctx);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Process a pick in Pick Bonus (simulates player choice)
+    /// Returns (prize_type, prize_value, game_over)
+    pub fn pick_bonus_make_pick(&mut self) -> Option<(String, f64, bool)> {
+        use rand::Rng;
+
+        if !self.is_pick_bonus_active() {
+            return None;
+        }
+
+        // Use spin context to process a pick
+        let random: f64 = self.rng.r#gen();
+        let mut spin_ctx = SpinContext::new(self.current_bet);
+        spin_ctx.random = random;
+
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("pick_bonus")) {
+            let result = feature.process_spin(&mut spin_ctx);
+
+            let snapshot = feature.snapshot();
+            let game_over = !result.continues();
+
+            // Extract prize info from snapshot data
+            let prize_type = snapshot.data
+                .get("last_prize_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("coins")
+                .to_string();
+            let prize_value = snapshot.data
+                .get("last_prize_value")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+
+            Some((prize_type, prize_value, game_over))
+        } else {
+            None
+        }
+    }
+
+    /// Complete Pick Bonus and return final payout
+    pub fn pick_bonus_complete(&mut self) -> f64 {
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("pick_bonus")) {
+            if feature.is_active() {
+                let total = feature.snapshot().accumulated_win;
+                feature.deactivate();
+                return total;
+            }
+        }
+        0.0
+    }
+
+    /// Get Pick Bonus state as JSON string
+    pub fn pick_bonus_get_state_json(&self) -> Option<String> {
+        self.pick_bonus_state().map(|snapshot| {
+            serde_json::json!({
+                "is_active": snapshot.is_active,
+                "picks_made": snapshot.current_step,
+                "total_items": snapshot.total_steps,
+                "multiplier": snapshot.multiplier,
+                "total_win": snapshot.accumulated_win,
+                "extra_picks": snapshot.data.get("extra_picks").and_then(|v| v.as_u64()).unwrap_or(0),
+                "items_revealed": snapshot.data.get("items_revealed").and_then(|v| v.as_u64()).unwrap_or(0),
+            }).to_string()
+        })
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // GAMBLE FEATURE METHODS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    /// Check if Gamble feature is currently active
+    pub fn is_gamble_active(&self) -> bool {
+        self.features
+            .get(&crate::features::FeatureId::new("gamble"))
+            .map(|f| f.is_active())
+            .unwrap_or(false)
+    }
+
+    /// Get Gamble feature state snapshot
+    pub fn gamble_state(&self) -> Option<crate::features::FeatureSnapshot> {
+        self.features
+            .get(&crate::features::FeatureId::new("gamble"))
+            .filter(|f| f.is_active())
+            .map(|f| f.snapshot())
+    }
+
+    /// Get current stake in gamble
+    pub fn gamble_current_stake(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("gamble"))
+            .map(|f| f.snapshot().accumulated_win)
+            .unwrap_or(0.0)
+    }
+
+    /// Get attempts used in gamble
+    pub fn gamble_attempts_used(&self) -> u8 {
+        self.features
+            .get(&crate::features::FeatureId::new("gamble"))
+            .map(|f| f.snapshot().current_step as u8)
+            .unwrap_or(0)
+    }
+
+    /// Force trigger Gamble feature with initial stake
+    pub fn force_trigger_gamble(&mut self, initial_stake: f64) -> bool {
+        let mut activation_ctx = ActivationContext::new(6, initial_stake);
+        activation_ctx.trigger_data.insert(
+            "initial_stake".to_string(),
+            serde_json::Value::from(initial_stake),
+        );
+
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("gamble")) {
+            if !feature.is_active() && feature.can_activate(&activation_ctx) {
+                feature.activate(&activation_ctx);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Make a gamble choice (0=first option, 1=second option, etc.)
+    /// Returns (won, new_stake, game_over)
+    pub fn gamble_make_choice(&mut self, choice_index: u8) -> Option<(bool, f64, bool)> {
+        use rand::Rng;
+
+        if !self.is_gamble_active() {
+            return None;
+        }
+
+        let random: f64 = self.rng.r#gen();
+        let mut spin_ctx = SpinContext::new(self.current_bet);
+        // Use random as choice seed (would need better choice passing mechanism)
+        spin_ctx.random = (choice_index as f64 + random * 0.5) / 4.0;
+
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("gamble")) {
+            let result = feature.process_spin(&mut spin_ctx);
+            let snapshot = feature.snapshot();
+            let game_over = !result.continues();
+
+            let won = snapshot.data
+                .get("last_result")
+                .and_then(|v| v.as_str())
+                .map(|s| s == "win")
+                .unwrap_or(false);
+
+            Some((won, snapshot.accumulated_win, game_over))
+        } else {
+            None
+        }
+    }
+
+    /// Collect gamble winnings and end
+    pub fn gamble_collect(&mut self) -> f64 {
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("gamble")) {
+            if feature.is_active() {
+                let total = feature.snapshot().accumulated_win;
+                feature.deactivate();
+                return total;
+            }
+        }
+        0.0
+    }
+
+    /// Get Gamble state as JSON string
+    pub fn gamble_get_state_json(&self) -> Option<String> {
+        self.gamble_state().map(|snapshot| {
+            serde_json::json!({
+                "is_active": snapshot.is_active,
+                "current_stake": snapshot.accumulated_win,
+                "attempts_used": snapshot.current_step,
+                "max_attempts": snapshot.total_steps,
+                "multiplier": snapshot.multiplier,
+            }).to_string()
+        })
     }
 }
 

@@ -5,11 +5,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
 import '../../providers/subsystems/blend_containers_provider.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../common/audio_waveform_picker_dialog.dart';
 
 /// Blend Container Panel Widget
 class BlendContainerPanel extends StatefulWidget {
@@ -26,10 +26,9 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
-        final containers = provider.blendContainers;
-
+    return Selector<MiddlewareProvider, List<BlendContainer>>(
+      selector: (_, p) => p.blendContainers,
+      builder: (context, containers, _) {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -40,7 +39,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(provider),
+              _buildHeader(),
               const SizedBox(height: 16),
               Expanded(
                 child: Row(
@@ -49,18 +48,18 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                     // Container list
                     SizedBox(
                       width: 200,
-                      child: _buildContainerList(containers, provider),
+                      child: _buildContainerList(containers),
                     ),
                     const SizedBox(width: 16),
                     // Blend visualization
                     Expanded(
-                      child: _buildBlendVisualization(provider),
+                      child: _buildBlendVisualization(containers),
                     ),
                   ],
                 ),
               ),
               if (_showAddContainer)
-                _buildAddContainerDialog(provider),
+                _buildAddContainerDialog(),
             ],
           ),
         );
@@ -68,7 +67,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
     );
   }
 
-  Widget _buildHeader(MiddlewareProvider provider) {
+  Widget _buildHeader() {
     return Row(
       children: [
         Icon(Icons.blur_linear, color: Colors.purple, size: 20),
@@ -112,7 +111,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
     );
   }
 
-  Widget _buildContainerList(List<BlendContainer> containers, MiddlewareProvider provider) {
+  Widget _buildContainerList(List<BlendContainer> containers) {
     if (containers.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -191,7 +190,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                       ),
                       GestureDetector(
                         onTap: () {
-                          provider.updateBlendContainer(
+                          context.read<MiddlewareProvider>().updateBlendContainer(
                             container.copyWith(enabled: !container.enabled),
                           );
                         },
@@ -264,7 +263,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
     );
   }
 
-  Widget _buildBlendVisualization(MiddlewareProvider provider) {
+  Widget _buildBlendVisualization(List<BlendContainer> containers) {
     if (_selectedContainerId == null) {
       return Container(
         decoration: BoxDecoration(
@@ -281,7 +280,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
       );
     }
 
-    final container = provider.blendContainers
+    final container = containers
         .where((c) => c.id == _selectedContainerId)
         .firstOrNull;
 
@@ -304,7 +303,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                 padding: const EdgeInsets.only(right: 4),
                 child: GestureDetector(
                   onTap: () {
-                    provider.updateBlendContainer(
+                    context.read<MiddlewareProvider>().updateBlendContainer(
                       container.copyWith(crossfadeCurve: curve),
                     );
                   },
@@ -332,7 +331,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
             }),
             const Spacer(),
             GestureDetector(
-              onTap: () => _showAddChildDialog(provider, container),
+              onTap: () => _showAddChildDialog(container),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -415,13 +414,13 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
         // Child editor
         if (_selectedChildId != null) ...[
           const SizedBox(height: 12),
-          _buildChildEditor(provider, container),
+          _buildChildEditor(container),
         ],
       ],
     );
   }
 
-  Widget _buildChildEditor(MiddlewareProvider provider, BlendContainer container) {
+  Widget _buildChildEditor(BlendContainer container) {
     final child = container.children.where((c) => c.id == _selectedChildId).firstOrNull;
     if (child == null) return const SizedBox.shrink();
 
@@ -448,7 +447,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
               const Spacer(),
               GestureDetector(
                 onTap: () {
-                  provider.removeBlendChild(container.id, child.id);
+                  context.read<MiddlewareProvider>().removeBlendChild(container.id, child.id);
                   setState(() => _selectedChildId = null);
                 },
                 child: Container(
@@ -483,7 +482,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                       rtpcStart: values.start,
                       rtpcEnd: values.end,
                     );
-                    provider.updateBlendChild(container.id, updatedChild);
+                    context.read<MiddlewareProvider>().updateBlendChild(container.id, updatedChild);
                   },
                   activeColor: Colors.purple,
                   inactiveColor: FluxForgeTheme.surface,
@@ -512,7 +511,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
             color: Colors.purple,
             onChanged: (v) {
               final updatedChild = child.copyWith(crossfadeWidth: v);
-              provider.updateBlendChild(container.id, updatedChild);
+              context.read<MiddlewareProvider>().updateBlendChild(container.id, updatedChild);
             },
           ),
           const SizedBox(height: 8),
@@ -560,12 +559,12 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
         const SizedBox(width: 8),
         GestureDetector(
           onTap: () async {
-            final result = await FilePicker.platform.pickFiles(
-              type: FileType.custom,
-              allowedExtensions: ['wav', 'mp3', 'ogg', 'flac', 'aiff'],
+            final path = await AudioWaveformPickerDialog.show(
+              context,
+              title: 'Select Audio for Blend Child',
             );
-            if (result != null && result.files.single.path != null) {
-              blendProvider.updateChildAudioPath(containerId, child.id, result.files.single.path);
+            if (path != null) {
+              blendProvider.updateChildAudioPath(containerId, child.id, path);
             }
           },
           child: Container(
@@ -654,7 +653,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
     );
   }
 
-  void _showAddChildDialog(MiddlewareProvider provider, BlendContainer container) {
+  void _showAddChildDialog(BlendContainer container) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -680,7 +679,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
               style: TextStyle(color: FluxForgeTheme.textPrimary),
               onSubmitted: (name) {
                 if (name.isNotEmpty) {
-                  provider.addBlendChild(
+                  context.read<MiddlewareProvider>().addBlendChild(
                     container.id,
                     name: name,
                     rtpcStart: 0.0,
@@ -702,10 +701,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
     );
   }
 
-  Widget _buildAddContainerDialog(MiddlewareProvider provider) {
+  Widget _buildAddContainerDialog() {
     return _AddBlendContainerDialog(
       onAdd: (name, rtpcId) {
-        provider.addBlendContainer(name: name, rtpcId: rtpcId);
+        context.read<MiddlewareProvider>().addBlendContainer(name: name, rtpcId: rtpcId);
         setState(() => _showAddContainer = false);
       },
       onCancel: () => setState(() => _showAddContainer = false),

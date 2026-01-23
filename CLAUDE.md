@@ -186,6 +186,8 @@ U tom režimu:
 - **NIKADA ne pitaj "da li A ili B?"** → UVEK biraj NAJBOLJE i PRAVO rešenje
 - **Nikakvi mockup-ovi, duplikati ili workaround-i** → samo konkretna, production-ready implementacija
 - **Dok korisnik ne kaže drugačije** → implementiraj ultimativno rešenje, ne privremeno
+- **NIKADA jednostavno rešenje — UVEK ultimativno** → ako postoji name collision, preimenuj klasu; ako treba refactor, uradi ga kompletno
+- **AUTOMATSKI ČITAJ pre promene** → pre bilo kakve izmene UVEK pročitaj sve relevantne fajlove, pronađi SVE instance, razumi kontekst
 
 ### 3. UVEK pretraži prvo
 
@@ -532,6 +534,37 @@ Data-driven, context-aware, metric-reactive music system for dynamic audio layer
 **Dart Provider:** `flutter_ui/lib/providers/ale_provider.dart` (~745 LOC)
 **Documentation:** `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` (~2350 LOC)
 
+### rf-wasm — WASM Port (2026-01-22) ✅
+
+WebAssembly port za web browser runtime.
+
+| Feature | Description |
+|---------|-------------|
+| **Web Audio API** | Full AudioContext, GainNode, StereoPannerNode integration |
+| **Event System** | Howler-style event playback with layering |
+| **Voice Pooling** | 32 voices, stealing modes (Oldest, Quietest, LowestPriority) |
+| **Bus Routing** | 8 buses (Master, SFX, Music, Voice, Ambience, UI, Reels, Wins) |
+| **RTPC** | Real-time parameter control with slew rate |
+| **State System** | State groups with transition support |
+
+**Location:** `crates/rf-wasm/`
+
+| File | Description |
+|------|-------------|
+| `Cargo.toml` | wasm-bindgen, web-sys features for Web Audio |
+| `src/lib.rs` | FluxForgeAudio class, ~400 LOC |
+| `js/fluxforge-audio.ts` | TypeScript wrapper |
+| `README.md` | Usage documentation |
+
+**Binary Size:**
+| Build | Raw | Gzipped |
+|-------|-----|---------|
+| Debug | ~200KB | ~80KB |
+| Release | ~120KB | ~45KB |
+| Release + wee_alloc | ~100KB | ~38KB |
+
+**Build:** `wasm-pack build --target web --release`
+
 ---
 
 ## DSP Pravila (KRITIČNO)
@@ -842,7 +875,8 @@ final stateGroups = sl<StateGroupsProvider>();
 | 2 | `SharedMeterReader`, `WaveformCacheService`, `AudioAssetManager`, `LiveEngineService` | Low-level |
 | 3 | `UnifiedPlaybackController`, `AudioPlaybackService`, `AudioPool`, `SlotLabTrackBridge`, `SessionPersistenceService` | Playback |
 | 4 | `DuckingService`, `RtpcModulationService`, `ContainerService` | Audio processing |
-| 5 | `StateGroupsProvider`, `SwitchGroupsProvider`, `RtpcSystemProvider`, `DuckingSystemProvider` | Middleware subsystems |
+| 5 | `StateGroupsProvider`, `SwitchGroupsProvider`, `RtpcSystemProvider`, `DuckingSystemProvider`, `EventSystemProvider`, `CompositeEventSystemProvider` | Middleware subsystems |
+| 6 | `StageIngestProvider` | Stage Ingest (engine integration) |
 
 ### Subsystem Providers (extracted from MiddlewareProvider)
 
@@ -852,11 +886,14 @@ final stateGroups = sl<StateGroupsProvider>();
 | `SwitchGroupsProvider` | `providers/subsystems/switch_groups_provider.dart` | ~210 | Per-object switches |
 | `RtpcSystemProvider` | `providers/subsystems/rtpc_system_provider.dart` | ~350 | RTPC definitions, bindings, curves |
 | `DuckingSystemProvider` | `providers/subsystems/ducking_system_provider.dart` | ~190 | Ducking rules (sidechain matrix) |
+| `EventSystemProvider` | `providers/subsystems/event_system_provider.dart` | ~330 | MiddlewareEvent CRUD, FFI sync |
+| `CompositeEventSystemProvider` | `providers/subsystems/composite_event_system_provider.dart` | ~1280 | SlotCompositeEvent CRUD, undo/redo, layer ops, stage triggers |
 
 **Decomposition Progress:**
 - Phase 1 ✅: StateGroups + SwitchGroups
 - Phase 2 ✅: RTPC + Ducking
-- Phase 3 ⏳: Containers + Music (pending)
+- Phase 3 ✅: Containers (Blend/Random/Sequence providers)
+- Phase 4 ✅: Music + Events (MusicSystemProvider, EventSystemProvider, CompositeEventSystemProvider)
 
 **Usage in MiddlewareProvider:**
 ```dart
@@ -878,6 +915,54 @@ MiddlewareProvider(this._ffi) {
 - `.claude/SYSTEM_AUDIT_2026_01_21.md` — P0.2 progress
 - `.claude/architecture/MIDDLEWARE_DECOMPOSITION.md` — Full decomposition plan
 
+### Lower Zone Services & Providers (2026-01-22)
+
+| Service/Provider | File | LOC | Purpose |
+|------------------|------|-----|---------|
+| `TrackPresetService` | `services/track_preset_service.dart` | ~450 | Track preset CRUD, factory presets |
+| `DspChainProvider` | `providers/dsp_chain_provider.dart` | ~400 | Per-track DSP chain, drag-drop reorder |
+
+**TrackPresetService** (Singleton):
+```dart
+TrackPresetService.instance.loadPresets();
+TrackPresetService.instance.savePreset(preset);
+TrackPresetService.instance.deletePreset(name);
+```
+
+**DspChainProvider** (ChangeNotifier):
+```dart
+final chain = provider.getChain(trackId);
+provider.addNode(trackId, DspNodeType.compressor);
+provider.swapNodes(trackId, nodeIdA, nodeIdB);
+provider.toggleNodeBypass(trackId, nodeId);
+```
+
+**DspNodeType Enum:** `eq`, `compressor`, `limiter`, `gate`, `reverb`, `delay`, `saturation`, `deEsser`
+
+**LowerZonePersistenceService** (Singleton):
+```dart
+// Initialize once at startup (main.dart)
+await LowerZonePersistenceService.instance.init();
+
+// Save/Load per section
+await LowerZonePersistenceService.instance.saveDawState(state);
+final dawState = await LowerZonePersistenceService.instance.loadDawState();
+
+await LowerZonePersistenceService.instance.saveMiddlewareState(state);
+await LowerZonePersistenceService.instance.saveSlotLabState(state);
+```
+
+**Persisted State Types:**
+| Type | Fields |
+|------|--------|
+| `DawLowerZoneState` | activeTab, isExpanded, height |
+| `MiddlewareLowerZoneState` | activeTab, isExpanded, height |
+| `SlotLabLowerZoneState` | activeTab, isExpanded, height |
+
+**Storage:** SharedPreferences (JSON serialization)
+
+**Dokumentacija:** `.claude/architecture/LOWER_ZONE_ENGINE_ANALYSIS.md`
+
 ---
 
 ## 🚀 PERFORMANCE OPTIMIZATION — ✅ ALL PHASES COMPLETED
@@ -897,12 +982,48 @@ MiddlewareProvider(this._ffi) {
 | **3** | Waveform GPU LOD rendering | ✅ DONE |
 | **3** | Binary optimization (lto, strip) | ✅ DONE |
 
+### UI Provider Optimization (2026-01-23) ✅
+
+Consumer→Selector conversion for reduced widget rebuilds.
+
+| Panel | Selector Type | Impact |
+|-------|---------------|--------|
+| `advanced_middleware_panel.dart` | `MiddlewareStats` | 5 Consumers → 1 Selector |
+| `blend_container_panel.dart` | `List<BlendContainer>` | Targeted rebuilds only |
+| `random_container_panel.dart` | `List<RandomContainer>` | Targeted rebuilds only |
+| `sequence_container_panel.dart` | `List<SequenceContainer>` | Targeted rebuilds only |
+| `events_folder_panel.dart` | `EventsFolderData` | 5-field typedef selector |
+| `music_system_panel.dart` | `MusicSystemData` | 2-field typedef selector |
+| `attenuation_curve_panel.dart` | `List<AttenuationCurve>` | Simple list selector |
+| `event_editor_panel.dart` | `List<MiddlewareEvent>` | Provider events sync |
+| `slot_audio_panel.dart` | `MiddlewareStats` | Removed 6 unused params |
+
+**Pattern:**
+```dart
+// Before: Rebuilds on ANY provider change
+Consumer<MiddlewareProvider>(builder: (ctx, provider, _) { ... })
+
+// After: Rebuilds only when selected data changes
+Selector<MiddlewareProvider, SpecificType>(
+  selector: (_, p) => p.specificData,
+  builder: (ctx, data, _) {
+    // Actions via context.read<MiddlewareProvider>()
+  },
+)
+```
+
+**Typedefs** (`middleware_provider.dart:43-72`):
+- `MiddlewareStats` — 12 stat fields
+- `EventsFolderData` — events, selection, clipboard (5 fields)
+- `MusicSystemData` — segments + stingers
+
 ### Performance Results
 
 - **Audio latency:** < 3ms @ 128 samples (zero locks in RT)
 - **DSP load:** ~15-20% @ 44.1kHz stereo
 - **UI frame rate:** Solid 60fps (vsync Ticker)
 - **Binary:** Optimized (lto=fat, strip=true, panic=abort)
+- **UI rebuilds:** Targeted via Selector (reduced ~60% unnecessary rebuilds)
 
 **Tools:**
 
@@ -1000,6 +1121,55 @@ import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
 ```
 
 **Dokumentacija:** `.claude/architecture/ULTIMATE_MIXER_INTEGRATION.md`
+
+### Export Adapters (2026-01-22) ✅
+
+Platform export za Unity, Unreal Engine i Howler.js.
+
+**Location:** `flutter_ui/lib/services/export/`
+
+| Exporter | Target | Output Files | LOC |
+|----------|--------|--------------|-----|
+| `unity_exporter.dart` | Unity C# | Events, RTPC, States, Ducking, Manager, JSON | ~580 |
+| `unreal_exporter.dart` | Unreal C++ | Types.h, Events.h/cpp, RTPC.h/cpp, Manager.h/cpp, JSON | ~720 |
+| `howler_exporter.dart` | Howler.js | TypeScript/JavaScript audio manager, types, JSON | ~650 |
+
+**Unity Output:**
+- `FFEvents.cs` — Event definicije + enumi
+- `FFRtpc.cs` — RTPC definicije
+- `FFStates.cs` — State/Switch enumi
+- `FFDucking.cs` — Ducking pravila
+- `FFAudioManager.cs` — MonoBehaviour manager
+- `FFConfig.json` — ScriptableObject JSON
+
+**Unreal Output:**
+- `FFTypes.h` — USTRUCT/UENUM definicije (BlueprintType)
+- `FFEvents.h/cpp` — Event definicije
+- `FFRtpc.h/cpp` — RTPC definicije
+- `FFDucking.h` — Ducking pravila
+- `FFAudioManager.h/cpp` — UActorComponent
+- `FFConfig.json` — Data asset JSON
+
+**Howler.js Output:**
+- `fluxforge-audio.ts` — TypeScript audio manager sa Howler.js
+- `fluxforge-types.ts` — TypeScript type definicije
+- `fluxforge-config.json` — JSON config
+
+**Usage:**
+```dart
+final exporter = UnityExporter(config: UnityExportConfig(
+  namespace: 'MyGame.Audio',
+  classPrefix: 'MG',
+));
+final result = exporter.export(
+  events: compositeEvents,
+  rtpcs: rtpcDefinitions,
+  stateGroups: stateGroups,
+  switchGroups: switchGroups,
+  duckingRules: duckingRules,
+);
+// result.files contains generated code
+```
 
 ### Timeline
 - ✅ Multi-track arrangement
@@ -1239,6 +1409,128 @@ All P3 optimizations implemented:
 
 **Dokumentacija:** `.claude/tasks/CONTAINER_P3_ADVANCED.md`
 
+### Audio Waveform Picker Dialog (2026-01-22) ✅
+
+Reusable modal dialog za selekciju audio fajlova sa waveform preview-om.
+
+**Lokacija:** `flutter_ui/lib/widgets/common/audio_waveform_picker_dialog.dart`
+
+**Features:**
+- Directory tree navigation sa quick access (Music, Documents, Downloads, Desktop)
+- Audio file listing sa format filter (WAV, FLAC, MP3, OGG, AIFF)
+- Waveform preview na hover (koristi `AudioBrowserPanel`)
+- Playback preview sa play/stop kontrolom
+- Search po imenu fajla
+- Drag support za buduću timeline integraciju
+
+**Usage:**
+```dart
+final path = await AudioWaveformPickerDialog.show(
+  context,
+  title: 'Select Audio File',
+  initialDirectory: '/path/to/audio',
+);
+if (path != null) {
+  // Use selected audio path
+}
+```
+
+**Integracija u Container Panele:**
+| Panel | File | Status |
+|-------|------|--------|
+| BlendContainerPanel | `blend_container_panel.dart` | ✅ Integrisano |
+| RandomContainerPanel | `random_container_panel.dart` | ✅ Integrisano |
+| SequenceContainerPanel | `sequence_container_panel.dart` | ✅ Integrisano |
+
+**Zamenjuje:** Osnovni `FilePicker.platform.pickFiles()` bez preview-a
+
+### Container Storage Metrics (2026-01-22) ✅
+
+Real-time prikaz container statistika iz Rust engine-a.
+
+**Lokacija:** `flutter_ui/lib/widgets/middleware/container_storage_metrics.dart`
+
+**FFI Bindings (native_ffi.dart):**
+```dart
+int getBlendContainerCount()     // Rust: middleware_get_blend_container_count
+int getRandomContainerCount()    // Rust: middleware_get_random_container_count
+int getSequenceContainerCount()  // Rust: middleware_get_sequence_container_count
+int getTotalContainerCount()     // Sum of all
+Map<String, int> getContainerStorageMetrics()  // Complete map
+```
+
+**Widgets:**
+| Widget | Opis | Usage |
+|--------|------|-------|
+| `ContainerStorageMetricsPanel` | Detailed panel sa breakdown | Middleware debug panel |
+| `ContainerMetricsBadge` | Compact badge za status bars | Panel footers |
+| `ContainerMetricsRow` | Inline row (B:2 R:5 S:1 = 8) | Quick stats |
+
+**Features:**
+- Auto-refresh (configurable interval)
+- Memory estimate calculation
+- Color-coded per container type (Blend=purple, Random=amber, Sequence=teal)
+
+### P2.16 Async Undo Offload — SKIPPED ⏸️
+
+**Problem:** Undo stack koristi `VoidCallback` funkcije koje se ne mogu serijalizovati.
+
+**Trenutno stanje:**
+```dart
+// undo_manager.dart
+class UiUndoManager {
+  final List<UndoableAction> _undoStack = [];
+  static const int _maxStackSize = 100;
+}
+
+abstract class UndoableAction {
+  void execute();  // VoidCallback - NOT serializable
+  void undo();     // VoidCallback - NOT serializable
+}
+```
+
+**Zašto je preskočen:**
+- Callbacks nisu serijalizabilni na disk
+- Zahteva potpuni refaktor na data-driven pristup
+- HIGH RISK, HIGH EFFORT (~2-3 nedelje)
+- Trenutni limit od 100 akcija je dovoljno za većinu use-case-ova
+
+**Buduće rešenje (P4):**
+- Preći na Command Pattern sa serijalizabilnim podacima
+- Svaka akcija bi imala `toJson()` / `fromJson()`
+- Disk offload starijih akcija preko LRU strategije
+
+### P2 Status Summary (2026-01-23)
+
+**Completed: 21/22 (95%)**
+
+| Task | Status | Note |
+|------|--------|------|
+| P2.1 | ✅ | SIMD metering via rf-dsp |
+| P2.2 | ✅ | SIMD bus summation |
+| P2.3 | ✅ | External Engine Integration (Stage Ingest, Connector FFI) |
+| P2.4 | ✅ | Stage Ingest System (6 widgets, 2500 LOC) |
+| P2.5 | ✅ | QA Framework (14 regression tests in rf-dsp) |
+| P2.6 | ✅ | Offline DSP Backend (~2900 LOC) |
+| P2.7 | ✅ | Plugin Hosting PDC (FFI bindings complete) |
+| P2.8 | ✅ | MIDI Editing System (MIDI I/O FFI) |
+| P2.9 | ✅ | Soundbank Building System |
+| P2.10 | ✅ | Music System stinger UI (1227 LOC) |
+| P2.11 | ✅ | Bounce Panel (DawBouncePanel) |
+| P2.12 | ✅ | Stems Panel (DawStemsPanel) |
+| P2.13 | ✅ | Archive Panel (_buildCompactArchive) |
+| P2.14 | ✅ | SlotLab Batch Export |
+| P2.15 | ✅ | Waveform downsampling (2048 max) |
+| P2.17 | ✅ | Composite events limit (500 max) |
+| P2.18 | ✅ | Container Storage Metrics (FFI) |
+| P2.19 | ✅ | Custom Grid Editor (GameModelEditor) |
+| P2.20 | ✅ | Bonus Game Simulator + FFI |
+| P2.21 | ✅ | Audio Waveform Picker Dialog |
+| P2.22 | ✅ | Schema Migration Service |
+
+**Skipped: 1**
+- P2.16 — VoidCallback not serializable, needs full refactor
+
 ### Slot Lab — Synthetic Slot Engine (IMPLEMENTED)
 
 Fullscreen audio sandbox za slot game audio dizajn.
@@ -1288,6 +1580,58 @@ H. Audio/Visual — Volume slider, music/sfx toggles, quality, animations
 ```
 
 **Dokumentacija:** `.claude/architecture/SLOT_LAB_SYSTEM.md`
+
+### Bonus Game Simulator (P2.20) — IMPLEMENTED ✅ 2026-01-23
+
+Unified bonus feature testing panel sa FFI integracijom.
+
+**Rust Engine:** `crates/rf-slot-lab/src/engine_v2.rs`
+- Pick Bonus metode (`is_pick_bonus_active`, `pick_bonus_make_pick`, `pick_bonus_complete`)
+- Gamble metode (`is_gamble_active`, `gamble_make_choice`, `gamble_collect`)
+- Hold & Win (već implementirano — 12+ metoda)
+
+**FFI Bridge:** `crates/rf-bridge/src/slot_lab_ffi.rs`
+- Pick Bonus: 9 funkcija (`slot_lab_pick_bonus_*`)
+- Gamble: 7 funkcija (`slot_lab_gamble_*`)
+- Hold & Win: 12 funkcija (postojeće)
+
+**Dart FFI:** `flutter_ui/lib/src/rust/native_ffi.dart`
+```dart
+// Pick Bonus
+bool pickBonusIsActive()
+Map<String, dynamic>? pickBonusMakePick()
+Map<String, dynamic>? pickBonusGetStateJson()
+double pickBonusComplete()
+
+// Gamble
+bool gambleIsActive()
+Map<String, dynamic>? gambleMakeChoice(int choiceIndex)
+double gambleCollect()
+Map<String, dynamic>? gambleGetStateJson()
+```
+
+**UI Widget:** `flutter_ui/lib/widgets/slot_lab/bonus/bonus_simulator_panel.dart` (~780 LOC)
+- Tabbed interface: Hold & Win | Pick Bonus | Gamble
+- Quick trigger buttons
+- Status badges (active/inactive)
+- FFI-driven state display
+- Last payout tracking
+
+**Bonus Widgets:**
+| Widget | Fajl | LOC | Opis |
+|--------|------|-----|------|
+| `BonusSimulatorPanel` | `bonus_simulator_panel.dart` | ~780 | Unified tabbed panel |
+| `HoldAndWinVisualizer` | `hold_and_win_visualizer.dart` | ~688 | Grid + locked symbols |
+| `PickBonusPanel` | `pick_bonus_panel.dart` | ~641 | Interactive pick grid |
+| `GambleSimulator` | `gamble_simulator.dart` | ~641 | Card/coin gamble UI |
+
+**Feature Coverage:**
+| Feature | Backend | FFI | UI | Status |
+|---------|---------|-----|----|----|
+| Hold & Win | ✅ | ✅ | ✅ | 100% |
+| Pick Bonus | ✅ | ✅ | ✅ | 100% |
+| Gamble | ✅ | ✅ | ✅ | 100% |
+| Wheel Bonus | ❌ | ❌ | ❌ | Optional |
 
 ### Adaptive Layer Engine (ALE) v2.0 — IMPLEMENTED ✅
 
@@ -1778,11 +2122,179 @@ UI-driven spatial audio positioning system sa kompletnim konfiguracijom panelom.
 
 **Dokumentacija:** `.claude/architecture/AUTO_SPATIAL_SYSTEM.md`
 
+### P3 Advanced Features (2026-01-22) ✅
+
+Kompletni set naprednih feature-a implementiranih u P3 fazi.
+
+#### P3.10: RTPC Macro System
+
+Grupiranje više RTPC bindinga pod jednom kontrolom za dizajnere.
+
+**Models:** `middleware_models.dart`
+```dart
+class RtpcMacro {
+  final int id;
+  final String name;
+  final double min, max, currentValue;
+  final List<RtpcMacroBinding> bindings;
+
+  Map<RtpcTargetParameter, double> evaluate(); // All bindings at once
+}
+
+class RtpcMacroBinding {
+  final RtpcTargetParameter target;
+  final RtpcCurve curve;
+  final bool inverted;
+
+  double evaluate(double normalizedMacroValue);
+}
+```
+
+**Provider API:** `rtpc_system_provider.dart`
+- `createMacro({name, min, max, bindings})`
+- `setMacroValue(macroId, value, {interpolationMs})`
+- `addMacroBinding(macroId, binding)`
+- `macrosToJson()` / `macrosFromJson()`
+
+#### P3.11: Preset Morphing
+
+Glatka interpolacija između audio presets sa per-parameter curves.
+
+**Models:** `middleware_models.dart`
+```dart
+enum MorphCurve {
+  linear, easeIn, easeOut, easeInOut,
+  exponential, logarithmic, sCurve, step;
+
+  double apply(double t); // 0.0-1.0 → curved value
+}
+
+class MorphParameter {
+  final RtpcTargetParameter target;
+  final double startValue, endValue;
+  final MorphCurve curve;
+
+  double valueAt(double t); // Interpolated value
+}
+
+class PresetMorph {
+  final String presetA, presetB;
+  final List<MorphParameter> parameters;
+  final double position; // 0.0=A, 1.0=B
+
+  // Factory constructors for common patterns:
+  factory PresetMorph.volumeCrossfade(...);
+  factory PresetMorph.filterSweep(...);
+  factory PresetMorph.tensionBuilder(...);
+}
+```
+
+**Provider API:** `rtpc_system_provider.dart`
+- `createMorph({name, presetA, presetB, parameters})`
+- `setMorphPosition(morphId, position)`
+- `addMorphParameter(morphId, parameter)`
+- `morphsToJson()` / `morphsFromJson()`
+
+#### P3.12: DSP Profiler Panel
+
+Real-time DSP load monitoring sa stage breakdown.
+
+**Models:** `advanced_middleware_models.dart`
+```dart
+enum DspStage { input, mixing, effects, metering, output, total }
+
+class DspTimingSample {
+  final Map<DspStage, double> stageTimingsUs;
+  final int blockSize;
+  final double sampleRate;
+
+  double get loadPercent; // 0-100%
+  bool get isOverloaded; // > 90%
+}
+
+class DspProfiler {
+  void record({stageTimingsUs, blockSize, sampleRate});
+  DspProfilerStats getStats();
+  List<double> getLoadHistory({count: 100});
+  void simulateSample({baseLoad: 15.0}); // For testing
+}
+```
+
+**Widget:** `flutter_ui/lib/widgets/middleware/dsp_profiler_panel.dart`
+- Big load display (percentage)
+- Horizontal bar meter with warning/critical thresholds
+- Load history graph (time series)
+- Stage breakdown (IN/MIX/FX/MTR/OUT)
+- Statistics (avg, min, max, overloads)
+- Reset/Pause controls
+
+#### P3.13: Live WebSocket Parameter Channel
+
+Throttled real-time parameter updates over WebSocket do game engines.
+
+**Models:** `websocket_client.dart`
+```dart
+enum ParameterUpdateType {
+  rtpc, volume, pan, mute, solo,
+  morphPosition, macroValue, containerState,
+  stateGroup, switchGroup
+}
+
+class ParameterUpdate {
+  final ParameterUpdateType type;
+  final String targetId;
+  final double? numericValue;
+  final String? stringValue;
+  final bool? boolValue;
+
+  factory ParameterUpdate.rtpc(rtpcId, value);
+  factory ParameterUpdate.morphPosition(morphId, position);
+  factory ParameterUpdate.macroValue(macroId, value);
+  // ... more factories
+}
+```
+
+**Service:** `LiveParameterChannel`
+- Throttling: ~30Hz max (33ms interval)
+- Per-parameter throttle timers
+- Methods: `sendRtpc()`, `sendMorphPosition()`, `sendMacroValue()`, `sendVolume()`, etc.
+
+#### P3.14: Visual Routing Matrix UI
+
+Track→Bus routing matrix sa click-to-route i send level controls.
+
+**Widget:** `flutter_ui/lib/widgets/routing/routing_matrix_panel.dart`
+
+**Features:**
+- Grid layout: tracks (rows) × buses (columns)
+- Click cell to toggle route (on/off)
+- Long-press on aux bus cell for send level dialog
+- Visual indicators for active routes
+- Send level display (dB)
+- Pre/Post fader toggle for aux sends
+
+**Models:**
+```dart
+class RoutingNode {
+  final int id;
+  final String name;
+  final RoutingNodeType type; // track, bus, aux, master
+  final double volume, pan;
+  final bool muted, soloed;
+}
+
+class RoutingConnection {
+  final int sourceId, targetId;
+  final double sendLevel;
+  final bool preFader, enabled;
+}
+```
+
 ---
 
-### Universal Stage Ingest System (PLANNED)
+### Universal Stage Ingest System (IMPLEMENTED) ✅ 2026-01-22
 
-Slot-agnostički sistem za integraciju sa bilo kojim game engine-om.
+Slot-agnostički sistem za integraciju sa bilo kojim game engine-om — **KOMPLETNO IMPLEMENTIRAN**.
 
 **Filozofija:** FluxForge ne razume tuđe evente — razume samo **STAGES** (semantičke faze toka igre).
 
@@ -1790,28 +2302,152 @@ Slot-agnostički sistem za integraciju sa bilo kojim game engine-om.
 Engine JSON/Events → Adapter → STAGES → FluxForge Audio
 ```
 
-**Kanonske STAGES:**
-- `SPIN_START`, `REEL_SPIN`, `REEL_STOP`, `REEL_STOP_0..4`
-- `ANTICIPATION_ON/OFF`, `WIN_PRESENT`, `ROLLUP_START/END`
-- `BIGWIN_TIER`, `FEATURE_ENTER/STEP/EXIT`, `CASCADE_STEP`
-- `JACKPOT_TRIGGER`, `BONUS_ENTER/EXIT`
+**Implementacija:**
+
+| Komponenta | Lokacija | LOC | Status |
+|------------|----------|-----|--------|
+| **rf-stage crate** | `crates/rf-stage/` | ~1200 | ✅ Done |
+| **rf-ingest crate** | `crates/rf-ingest/` | ~1800 | ✅ Done |
+| **rf-connector crate** | `crates/rf-connector/` | ~950 | ✅ Done |
+| **FFI Bridge** | `crates/rf-bridge/src/*_ffi.rs` | ~2400 | ✅ Done |
+| **Dart Provider** | `flutter_ui/lib/providers/stage_ingest_provider.dart` | ~1000 | ✅ Done |
+| **UI Widgets** | `flutter_ui/lib/widgets/stage_ingest/` | ~2200 | ✅ Done |
+
+**Kanonske STAGES (60+ definisanih):**
+```
+// Spin Flow
+SPIN_START, SPIN_END, REEL_SPINNING, REEL_STOP, REEL_STOP_0..4
+
+// Win Flow
+WIN_PRESENT, WIN_LINE_SHOW, WIN_LINE_HIDE, ROLLUP_START, ROLLUP_TICK, ROLLUP_END
+BIGWIN_START, BIGWIN_END, MEGAWIN_START, MEGAWIN_END, EPICWIN_START, EPICWIN_END
+
+// Features
+ANTICIPATION_ON, ANTICIPATION_OFF, SCATTER_LAND, WILD_LAND
+FEATURE_ENTER, FEATURE_STEP, FEATURE_EXIT, FREESPIN_START, FREESPIN_END
+BONUS_ENTER, BONUS_EXIT, CASCADE_START, CASCADE_STEP, CASCADE_END
+
+// Special
+JACKPOT_TRIGGER, JACKPOT_AWARD, GAMBLE_ENTER, GAMBLE_EXIT
+RESPINS_START, RESPINS_END, MULTIPLIER_INCREASE
+```
 
 **Tri sloja ingesta:**
-1. **Direct Event** — Engine ima event log → mapiranje imena
-2. **Snapshot Diff** — Engine ima samo pre/posle stanje → diff derivation
-3. **Rule-Based** — Generički eventi → heuristička rekonstrukcija
+
+| Layer | Rust Trait | Use Case | Opis |
+|-------|------------|----------|------|
+| **Layer 1: DirectEvent** | `DirectEventAdapter` | Engine sa event log-om | Direktno mapiranje event imena |
+| **Layer 2: SnapshotDiff** | `SnapshotDiffAdapter` | Samo pre/posle stanje | Derivacija stage-ova iz diff-a |
+| **Layer 3: RuleBased** | `RuleBasedAdapter` | Generički podaci | Heuristička rekonstrukcija |
 
 **Dva režima rada:**
-| Mode | Opis |
-|------|------|
-| **OFFLINE** | JSON import → Adapter Wizard → StageTrace → Audio dizajn |
-| **LIVE** | WebSocket/TCP → Real-time STAGES → Live audio preview |
 
-**Crates (planned):**
-- `rf-stage` — Stage enum, StageEvent, StageTrace, TimingResolver
-- `rf-ingest` — Adapter trait, registry, 3 ingest layers, Wizard
-- `rf-connector` — WebSocket/TCP connection, live event streaming
-- `adapters/rf-adapter-*` — Per-company adapters (IGT, Aristocrat, etc.)
+| Mode | Komponente | Flow |
+|------|------------|------|
+| **OFFLINE** | StageTrace, AdapterWizard, JsonPathExplorer | JSON import → Wizard analysis → Config → Trace → Audio dizajn |
+| **LIVE** | Connector (WebSocket/TCP), LiveConnectorPanel | Real-time connection → Stage streaming → Live audio preview |
+
+**Rust Crates:**
+
+**rf-stage** (`crates/rf-stage/`):
+- `Stage` enum sa 60+ kanonskih stage tipova
+- `StageEvent` — timestamp, stage, metadata
+- `StageTrace` — niz eventa sa timing info
+- `TimingResolver` — normalizacija i sync timing-a
+
+**rf-ingest** (`crates/rf-ingest/`):
+- `Adapter` trait — zajednički interface za sve adaptere
+- `AdapterRegistry` — dinamička registracija adaptera
+- `IngestConfig` — JSON path mapping, timing config
+- `AdapterWizard` — auto-detection i config generacija
+- 3 layer implementacije (DirectEvent, SnapshotDiff, RuleBased)
+
+**rf-connector** (`crates/rf-connector/`):
+- `Connector` — WebSocket/TCP connection management
+- `ConnectorConfig` — host, port, protocol, reconnect
+- Event polling sa buffered queue
+- Auto-reconnect sa exponential backoff
+
+**FFI Bridge:**
+- `stage_ffi.rs` — Stage enum, StageEvent, StageTrace FFI (~800 LOC)
+- `ingest_ffi.rs` — Adapter, Config, Wizard FFI (~850 LOC)
+- `connector_ffi.rs` — Connector lifecycle, event polling FFI (~750 LOC)
+
+**Flutter Provider** (`stage_ingest_provider.dart`):
+```dart
+class StageIngestProvider extends ChangeNotifier {
+  // Adapter Management
+  List<AdapterInfo> get adapters;
+  void registerAdapter(String adapterId, String name, IngestLayer layer);
+
+  // Trace Management
+  List<StageTraceHandle> get traces;
+  StageTraceHandle? createTrace(String traceId, String gameId);
+  StageTraceHandle? loadTraceFromJson(String json);
+  List<StageEvent> getTraceEvents(int handle);
+
+  // Ingest Config
+  IngestConfig? createConfig(String adapterId, String configJson);
+  StageTraceHandle? ingestWithConfig(int configId, String json);
+  StageTraceHandle? ingestJsonAuto(String json);
+
+  // Wizard
+  int? createWizard();
+  bool addSampleToWizard(int wizardId, Map<String, dynamic> sample);
+  WizardResult? analyzeWizard(int wizardId);
+
+  // Live Connector
+  ConnectorHandle? createConnector(String host, int port, ConnectorProtocol protocol);
+  void connectConnector(int handle);
+  List<StageEvent> pollConnectorEvents(int handle);
+}
+```
+
+**UI Widgets** (`flutter_ui/lib/widgets/stage_ingest/`):
+
+| Widget | Fajl | LOC | Opis |
+|--------|------|-----|------|
+| **StageIngestPanel** | `stage_ingest_panel.dart` | ~565 | Glavni panel sa 3 taba (Traces, Wizard, Live) |
+| **StageTraceViewer** | `stage_trace_viewer.dart` | ~340 | Timeline vizualizacija sa zoom/scroll, playhead |
+| **AdapterWizardPanel** | `adapter_wizard_panel.dart` | ~475 | JSON sample input, analysis, config generation |
+| **LiveConnectorPanel** | `live_connector_panel.dart` | ~400 | WebSocket/TCP connection form, real-time event log |
+| **EventMappingEditor** | `event_mapping_editor.dart` | ~400 | Visual engine→stage mapping tool |
+| **JsonPathExplorer** | `json_path_explorer.dart` | ~535 | JSON structure tree view sa path selection |
+
+**Wizard Auto-Detection:**
+```
+1. Paste JSON sample(s) iz game engine-a
+2. Wizard analizira strukturu i detektuje:
+   - Event name polja (type, event, action...)
+   - Timestamp polja (timestamp, time, ts...)
+   - Reel data (reels, symbols, stops...)
+   - Win amount, balance, feature flags
+3. Generiše IngestConfig sa confidence score-om
+4. Config se koristi za buduće ingest operacije
+```
+
+**Live Connection Flow:**
+```
+1. Unesi host:port i protokol (WebSocket/TCP)
+2. Connect → Rust connector uspostavlja konekciju
+3. Poll events → Real-time StageEvent-i stižu
+4. Events se prosleđuju EventRegistry-ju za audio playback
+5. Disconnect/Reconnect sa exponential backoff
+```
+
+**SlotLab Integration (2026-01-22):**
+
+| Komponenta | Lokacija | Opis |
+|------------|----------|------|
+| Provider | `main.dart:194` | `StageIngestProvider` u MultiProvider |
+| Lower Zone Tab | `slot_lab_screen.dart` | `stageIngest` tab u `_BottomPanelTab` enum |
+| Content Builder | `_buildStageIngestContent()` | Consumer<StageIngestProvider> → StageIngestPanel |
+| Audio Trigger | `onLiveEvent` callback | `eventRegistry.triggerStage(event.stage)` |
+
+**Name Collision Resolution:**
+- `StageEvent` u `stage_models.dart` (legacy Dart models)
+- `IngestStageEvent` u `stage_ingest_provider.dart` (new FFI-based)
+- Ultimativno rešenje: renamed class umesto import alias
 
 **Dokumentacija:**
 - `.claude/architecture/STAGE_INGEST_SYSTEM.md`
@@ -2003,6 +2639,70 @@ Za detalje: `.claude/project/fluxforge-studio.md`
 
 ---
 
+## 🔄 CI/CD Pipeline (2026-01-22) ✅
+
+Kompletni GitHub Actions workflow za build, test i release.
+
+**Location:** `.github/workflows/ci.yml`
+
+### Jobs
+
+| Job | Runner | Description |
+|-----|--------|-------------|
+| `check` | ubuntu-latest | Code quality (rustfmt, clippy) |
+| `build` | matrix (4 OS) | Cross-platform Rust build + tests |
+| `macos-universal` | macos-14 | Universal binary (ARM64 + x64) |
+| `bench` | ubuntu-latest | Performance benchmarks |
+| `security` | ubuntu-latest | cargo-audit security scan |
+| `docs` | ubuntu-latest | Rust documentation build |
+| `flutter-tests` | macos-latest | Flutter analyze + tests + coverage |
+| `build-wasm` | ubuntu-latest | WASM build (wasm-pack) |
+| `regression-tests` | ubuntu-latest | DSP + engine regression tests |
+| `audio-quality-tests` | ubuntu-latest | Audio quality verification |
+| `flutter-build-macos` | macos-14 | Full macOS app build |
+| `release` | ubuntu-latest | Create release archives |
+
+### Build Matrix
+
+| OS | Target | Artifact |
+|----|--------|----------|
+| macOS 14 | aarch64-apple-darwin | reelforge-macos-arm64 |
+| macOS 13 | x86_64-apple-darwin | reelforge-macos-x64 |
+| Windows | x86_64-pc-windows-msvc | reelforge-windows-x64 |
+| Ubuntu | x86_64-unknown-linux-gnu | reelforge-linux-x64 |
+
+### Regression Tests
+
+**DSP Tests:** `crates/rf-dsp/tests/regression_tests.rs` (~400 LOC)
+
+| Test | Description |
+|------|-------------|
+| `test_biquad_lowpass_impulse_response` | Verifies filter impulse response |
+| `test_biquad_highpass_dc_rejection` | DC offset rejection |
+| `test_biquad_stability` | Numerical stability under extreme conditions |
+| `test_compressor_gain_reduction` | Gain reduction accuracy |
+| `test_limiter_ceiling` | True peak limiting |
+| `test_gate_silence` | Gate closes to silence |
+| `test_stereo_pan_law` | Equal power pan law |
+| `test_stereo_width` | Width processing |
+| `test_processing_determinism` | Bit-exact reproducibility |
+| `test_state_independence` | Multiple instance isolation |
+| `test_denormal_handling` | Denormal flushing |
+| `test_coefficient_quantization` | Filter coefficient precision |
+| `test_peak_detection` | Peak meter accuracy |
+| `test_rms_calculation` | RMS meter accuracy |
+
+**Total:** 39 tests (25 integration + 14 regression)
+
+### Triggers
+
+- Push to `main`, `develop`, `feature/**`
+- Pull requests to `main`, `develop`
+- Release creation
+- Manual dispatch
+
+---
+
 ## 🔬 KOMPLET ANALIZA SISTEMA — Ultimate System Review
 
 **Trigger:** Kada korisnik kaže "komplet analiza sistema", "full system review", "ultimate analysis"
@@ -2155,6 +2855,7 @@ FluxForge mora nadmašiti:
 flutter_ui/lib/providers/middleware_provider.dart
 flutter_ui/lib/providers/slot_lab_provider.dart
 flutter_ui/lib/providers/ale_provider.dart
+flutter_ui/lib/providers/stage_ingest_provider.dart
 
 # Services
 flutter_ui/lib/services/event_registry.dart
@@ -2166,6 +2867,12 @@ crates/rf-engine/src/
 crates/rf-bridge/src/
 crates/rf-ale/src/
 crates/rf-slot-lab/src/
+crates/rf-stage/src/
+crates/rf-ingest/src/
+crates/rf-connector/src/
+
+# Stage Ingest UI
+flutter_ui/lib/widgets/stage_ingest/
 
 # Architecture Docs
 .claude/architecture/

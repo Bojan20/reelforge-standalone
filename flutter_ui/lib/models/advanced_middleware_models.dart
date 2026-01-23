@@ -1899,3 +1899,273 @@ class EventProfiler {
     _currentSecondEvents = 0;
   }
 }
+
+// =============================================================================
+// P3.12: DSP PROFILER
+// =============================================================================
+
+/// DSP processing stage for profiling
+enum DspStage {
+  input,
+  mixing,
+  effects,
+  metering,
+  output,
+  total,
+}
+
+extension DspStageExtension on DspStage {
+  String get displayName {
+    switch (this) {
+      case DspStage.input: return 'Input';
+      case DspStage.mixing: return 'Mixing';
+      case DspStage.effects: return 'Effects';
+      case DspStage.metering: return 'Metering';
+      case DspStage.output: return 'Output';
+      case DspStage.total: return 'Total';
+    }
+  }
+
+  String get shortName {
+    switch (this) {
+      case DspStage.input: return 'IN';
+      case DspStage.mixing: return 'MIX';
+      case DspStage.effects: return 'FX';
+      case DspStage.metering: return 'MTR';
+      case DspStage.output: return 'OUT';
+      case DspStage.total: return 'TOT';
+    }
+  }
+}
+
+/// Single DSP timing sample
+class DspTimingSample {
+  final DateTime timestamp;
+  final Map<DspStage, double> stageTimingsUs;
+  final int blockSize;
+  final double sampleRate;
+  final int activeVoices;
+
+  const DspTimingSample({
+    required this.timestamp,
+    required this.stageTimingsUs,
+    required this.blockSize,
+    required this.sampleRate,
+    required this.activeVoices,
+  });
+
+  /// Total DSP time in microseconds
+  double get totalUs => stageTimingsUs[DspStage.total] ?? 0.0;
+
+  /// Available time for this block (microseconds)
+  double get availableUs => (blockSize / sampleRate) * 1000000.0;
+
+  /// DSP load as percentage (0-100)
+  double get loadPercent {
+    final available = availableUs;
+    if (available <= 0) return 0;
+    return (totalUs / available * 100).clamp(0.0, 100.0);
+  }
+
+  /// Is this sample showing overload?
+  bool get isOverloaded => loadPercent > 90;
+
+  /// Is this sample in warning zone?
+  bool get isWarning => loadPercent > 70 && loadPercent <= 90;
+}
+
+/// DSP profiler statistics
+class DspProfilerStats {
+  final double avgLoadPercent;
+  final double peakLoadPercent;
+  final double minLoadPercent;
+  final Map<DspStage, double> avgStageTimingsUs;
+  final Map<DspStage, double> peakStageTimingsUs;
+  final int totalSamples;
+  final int overloadCount;
+  final int warningCount;
+  final double avgBlockTimeUs;
+  final double peakBlockTimeUs;
+
+  const DspProfilerStats({
+    required this.avgLoadPercent,
+    required this.peakLoadPercent,
+    required this.minLoadPercent,
+    required this.avgStageTimingsUs,
+    required this.peakStageTimingsUs,
+    required this.totalSamples,
+    required this.overloadCount,
+    required this.warningCount,
+    required this.avgBlockTimeUs,
+    required this.peakBlockTimeUs,
+  });
+
+  /// Empty stats
+  factory DspProfilerStats.empty() => const DspProfilerStats(
+    avgLoadPercent: 0,
+    peakLoadPercent: 0,
+    minLoadPercent: 0,
+    avgStageTimingsUs: {},
+    peakStageTimingsUs: {},
+    totalSamples: 0,
+    overloadCount: 0,
+    warningCount: 0,
+    avgBlockTimeUs: 0,
+    peakBlockTimeUs: 0,
+  );
+}
+
+/// DSP Profiler - tracks real-time audio processing performance
+class DspProfiler {
+  final int maxSamples;
+  final List<DspTimingSample> _samples = [];
+
+  // Running stats
+  double _totalLoad = 0;
+  double _peakLoad = 0;
+  double _minLoad = double.infinity;
+  int _overloadCount = 0;
+  int _warningCount = 0;
+
+  // Stage-specific accumulators
+  final Map<DspStage, double> _stageTotals = {};
+  final Map<DspStage, double> _stagePeaks = {};
+
+  DspProfiler({this.maxSamples = 1000});
+
+  /// Record a new timing sample
+  void record({
+    required Map<DspStage, double> stageTimingsUs,
+    required int blockSize,
+    required double sampleRate,
+    required int activeVoices,
+  }) {
+    final sample = DspTimingSample(
+      timestamp: DateTime.now(),
+      stageTimingsUs: Map.from(stageTimingsUs),
+      blockSize: blockSize,
+      sampleRate: sampleRate,
+      activeVoices: activeVoices,
+    );
+
+    // Update running stats
+    _totalLoad += sample.loadPercent;
+    if (sample.loadPercent > _peakLoad) _peakLoad = sample.loadPercent;
+    if (sample.loadPercent < _minLoad) _minLoad = sample.loadPercent;
+    if (sample.isOverloaded) _overloadCount++;
+    if (sample.isWarning) _warningCount++;
+
+    // Update stage stats
+    for (final entry in stageTimingsUs.entries) {
+      _stageTotals[entry.key] = (_stageTotals[entry.key] ?? 0) + entry.value;
+      final current = _stagePeaks[entry.key] ?? 0;
+      if (entry.value > current) _stagePeaks[entry.key] = entry.value;
+    }
+
+    _samples.add(sample);
+
+    // Trim old samples
+    while (_samples.length > maxSamples) {
+      _samples.removeAt(0);
+    }
+  }
+
+  /// Get recent samples
+  List<DspTimingSample> getRecentSamples({int count = 100}) {
+    final start = _samples.length > count ? _samples.length - count : 0;
+    return _samples.sublist(start);
+  }
+
+  /// Get current load (from most recent sample)
+  double get currentLoad => _samples.isNotEmpty ? _samples.last.loadPercent : 0;
+
+  /// Get current block time
+  double get currentBlockTimeUs => _samples.isNotEmpty ? _samples.last.totalUs : 0;
+
+  /// Get statistics
+  DspProfilerStats getStats() {
+    if (_samples.isEmpty) return DspProfilerStats.empty();
+
+    final avgLoad = _totalLoad / _samples.length;
+    final avgStageTimings = <DspStage, double>{};
+    for (final stage in _stageTotals.keys) {
+      avgStageTimings[stage] = _stageTotals[stage]! / _samples.length;
+    }
+
+    // Calculate average block time
+    double totalBlockTime = 0;
+    double peakBlockTime = 0;
+    for (final sample in _samples) {
+      totalBlockTime += sample.totalUs;
+      if (sample.totalUs > peakBlockTime) peakBlockTime = sample.totalUs;
+    }
+
+    return DspProfilerStats(
+      avgLoadPercent: avgLoad,
+      peakLoadPercent: _peakLoad,
+      minLoadPercent: _minLoad == double.infinity ? 0 : _minLoad,
+      avgStageTimingsUs: avgStageTimings,
+      peakStageTimingsUs: Map.from(_stagePeaks),
+      totalSamples: _samples.length,
+      overloadCount: _overloadCount,
+      warningCount: _warningCount,
+      avgBlockTimeUs: totalBlockTime / _samples.length,
+      peakBlockTimeUs: peakBlockTime,
+    );
+  }
+
+  /// Get load history for graphing (last N samples)
+  List<double> getLoadHistory({int count = 100}) {
+    final samples = getRecentSamples(count: count);
+    return samples.map((s) => s.loadPercent).toList();
+  }
+
+  /// Get stage breakdown for current sample
+  Map<DspStage, double> getCurrentStageBreakdown() {
+    if (_samples.isEmpty) return {};
+    return Map.from(_samples.last.stageTimingsUs);
+  }
+
+  /// Clear all data
+  void clear() {
+    _samples.clear();
+    _totalLoad = 0;
+    _peakLoad = 0;
+    _minLoad = double.infinity;
+    _overloadCount = 0;
+    _warningCount = 0;
+    _stageTotals.clear();
+    _stagePeaks.clear();
+  }
+
+  /// Simulate sample for testing
+  void simulateSample({
+    double baseLoad = 15.0,
+    double variance = 10.0,
+    int blockSize = 256,
+    double sampleRate = 44100,
+    int activeVoices = 8,
+  }) {
+    final random = math.Random();
+    final load = baseLoad + (random.nextDouble() * variance * 2 - variance);
+    final availableUs = (blockSize / sampleRate) * 1000000.0;
+    final totalUs = availableUs * load / 100.0;
+
+    // Distribute time across stages
+    final stageTimings = <DspStage, double>{
+      DspStage.input: totalUs * 0.05,
+      DspStage.mixing: totalUs * 0.25,
+      DspStage.effects: totalUs * 0.50,
+      DspStage.metering: totalUs * 0.10,
+      DspStage.output: totalUs * 0.10,
+      DspStage.total: totalUs,
+    };
+
+    record(
+      stageTimingsUs: stageTimings,
+      blockSize: blockSize,
+      sampleRate: sampleRate,
+      activeVoices: activeVoices,
+    );
+  }
+}

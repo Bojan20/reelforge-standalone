@@ -23,10 +23,9 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
-        final rules = provider.duckingRules;
-
+    return Selector<MiddlewareProvider, List<DuckingRule>>(
+      selector: (_, p) => p.duckingRules,
+      builder: (context, rules, _) {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -37,14 +36,14 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(provider),
+              _buildHeader(),
               const SizedBox(height: 16),
               _buildMatrixView(rules),
               const SizedBox(height: 16),
               if (_selectedRuleId != null)
-                _buildRuleEditor(provider, rules),
+                _buildRuleEditor(rules),
               if (_showAddDialog)
-                _buildAddDialog(provider),
+                _buildAddDialog(),
             ],
           ),
         );
@@ -52,7 +51,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
     );
   }
 
-  Widget _buildHeader(MiddlewareProvider provider) {
+  Widget _buildHeader() {
     return Row(
       children: [
         Icon(Icons.grid_on, color: FluxForgeTheme.accentBlue, size: 20),
@@ -338,7 +337,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
     );
   }
 
-  Widget _buildRuleEditor(MiddlewareProvider provider, List<DuckingRule> rules) {
+  Widget _buildRuleEditor(List<DuckingRule> rules) {
     final rule = rules.where((r) => r.id == _selectedRuleId).firstOrNull;
     if (rule == null) return const SizedBox.shrink();
 
@@ -365,7 +364,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
               const Spacer(),
               GestureDetector(
                 onTap: () {
-                  provider.removeDuckingRule(rule.id);
+                  context.read<MiddlewareProvider>().removeDuckingRule(rule.id);
                   setState(() => _selectedRuleId = null);
                 },
                 child: Container(
@@ -391,7 +390,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
             value: '${rule.duckAmountDb.toStringAsFixed(1)} dB',
             sliderValue: (rule.duckAmountDb + 48) / 48,
             onChanged: (v) {
-              provider.saveDuckingRule(
+              context.read<MiddlewareProvider>().saveDuckingRule(
                 rule.copyWith(duckAmountDb: v * 48 - 48),
               );
             },
@@ -403,7 +402,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
             value: '${rule.attackMs.toStringAsFixed(0)} ms',
             sliderValue: rule.attackMs / 500,
             onChanged: (v) {
-              provider.saveDuckingRule(
+              context.read<MiddlewareProvider>().saveDuckingRule(
                 rule.copyWith(attackMs: v * 500),
               );
             },
@@ -415,7 +414,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
             value: '${rule.releaseMs.toStringAsFixed(0)} ms',
             sliderValue: rule.releaseMs / 2000,
             onChanged: (v) {
-              provider.saveDuckingRule(
+              context.read<MiddlewareProvider>().saveDuckingRule(
                 rule.copyWith(releaseMs: v * 2000),
               );
             },
@@ -427,7 +426,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
             value: rule.threshold.toStringAsFixed(3),
             sliderValue: rule.threshold,
             onChanged: (v) {
-              provider.saveDuckingRule(
+              context.read<MiddlewareProvider>().saveDuckingRule(
                 rule.copyWith(threshold: v),
               );
             },
@@ -450,7 +449,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
                     return Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          provider.saveDuckingRule(rule.copyWith(curve: curve));
+                          context.read<MiddlewareProvider>().saveDuckingRule(rule.copyWith(curve: curve));
                         },
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -537,10 +536,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
     );
   }
 
-  Widget _buildAddDialog(MiddlewareProvider provider) {
+  Widget _buildAddDialog() {
     return _AddDuckingRuleDialog(
       onAdd: (sourceBus, targetBus) {
-        provider.addDuckingRule(
+        context.read<MiddlewareProvider>().addDuckingRule(
           sourceBus: sourceBus,
           sourceBusId: kAllBuses.indexOf(sourceBus),
           targetBus: targetBus,

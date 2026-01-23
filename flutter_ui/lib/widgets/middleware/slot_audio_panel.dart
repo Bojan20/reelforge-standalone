@@ -150,8 +150,9 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
+    return Selector<MiddlewareProvider, MiddlewareStats>(
+      selector: (_, p) => p.stats,
+      builder: (context, stats, _) {
         return Container(
           decoration: BoxDecoration(
             color: FluxForgeTheme.bgDeep,
@@ -163,12 +164,12 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
           child: Column(
             children: [
               // Casino-style header
-              _buildHeader(provider),
+              _buildHeader(context, stats),
               // Category selector
               _buildCategorySelector(),
               // Main content
               Expanded(
-                child: _buildCategoryContent(provider),
+                child: _buildCategoryContent(),
               ),
             ],
           ),
@@ -181,8 +182,7 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
   // HEADER — Casino-style with gold accents
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildHeader(MiddlewareProvider provider) {
-    final stats = provider.stats;
+  Widget _buildHeader(BuildContext context, MiddlewareStats stats) {
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -264,7 +264,7 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
             label: 'Load Demo',
             color: SlotAudioColors.goldPrimary,
             onTap: () {
-              provider.loadSlotMachinePreset();
+              context.read<MiddlewareProvider>().loadSlotMachinePreset();
               _showSnackBar(context, 'Slot preset loaded!', SlotAudioColors.casinoGreen);
             },
           ),
@@ -274,7 +274,7 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
             label: 'Reset',
             color: SlotAudioColors.casinoRed,
             onTap: () {
-              provider.resetToDefaults();
+              context.read<MiddlewareProvider>().resetToDefaults();
               _showSnackBar(context, 'Reset to defaults', SlotAudioColors.goldPrimary);
             },
           ),
@@ -419,7 +419,7 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
   // CATEGORY CONTENT — Dynamic based on selection
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildCategoryContent(MiddlewareProvider provider) {
+  Widget _buildCategoryContent() {
     final category = _categories[_selectedCategoryIndex];
 
     return AnimatedSwitcher(
@@ -427,23 +427,23 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
       child: Container(
         key: ValueKey(category.id),
         padding: const EdgeInsets.all(16),
-        child: _getCategoryWidget(category.id, provider),
+        child: _getCategoryWidget(category.id),
       ),
     );
   }
 
-  Widget _getCategoryWidget(String categoryId, MiddlewareProvider provider) {
+  Widget _getCategoryWidget(String categoryId) {
     switch (categoryId) {
       case 'spin':
-        return _SpinCycleContent(provider: provider);
+        return const _SpinCycleContent();
       case 'wins':
-        return _WinsPayoutsContent(provider: provider);
+        return const _WinsPayoutsContent();
       case 'features':
-        return _FeaturesContent(provider: provider);
+        return const _FeaturesContent();
       case 'ambience':
-        return _AmbienceContent(provider: provider);
+        return const _AmbienceContent();
       case 'sync':
-        return _GameSyncContent(provider: provider);
+        return const _GameSyncContent();
       default:
         return const SizedBox.shrink();
     }
@@ -465,9 +465,7 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _SpinCycleContent extends StatelessWidget {
-  final MiddlewareProvider provider;
-
-  const _SpinCycleContent({required this.provider});
+  const _SpinCycleContent();
 
   @override
   Widget build(BuildContext context) {
@@ -513,9 +511,7 @@ class _SpinCycleContent extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _WinsPayoutsContent extends StatelessWidget {
-  final MiddlewareProvider provider;
-
-  const _WinsPayoutsContent({required this.provider});
+  const _WinsPayoutsContent();
 
   @override
   Widget build(BuildContext context) {
@@ -576,9 +572,7 @@ class _WinsPayoutsContent extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _FeaturesContent extends StatelessWidget {
-  final MiddlewareProvider provider;
-
-  const _FeaturesContent({required this.provider});
+  const _FeaturesContent();
 
   @override
   Widget build(BuildContext context) {
@@ -624,9 +618,7 @@ class _FeaturesContent extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _AmbienceContent extends StatelessWidget {
-  final MiddlewareProvider provider;
-
-  const _AmbienceContent({required this.provider});
+  const _AmbienceContent();
 
   @override
   Widget build(BuildContext context) {
@@ -684,9 +676,7 @@ class _AmbienceContent extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _GameSyncContent extends StatelessWidget {
-  final MiddlewareProvider provider;
-
-  const _GameSyncContent({required this.provider});
+  const _GameSyncContent();
 
   @override
   Widget build(BuildContext context) {
@@ -694,9 +684,9 @@ class _GameSyncContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Left: Stage events overview
-        Expanded(
+        const Expanded(
           flex: 2,
-          child: _StageEventsCard(provider: provider),
+          child: _StageEventsCard(),
         ),
         const SizedBox(width: 16),
         // Right: Engine connection
@@ -720,9 +710,7 @@ class _GameSyncContent extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _StageEventsCard extends StatelessWidget {
-  final MiddlewareProvider provider;
-
-  const _StageEventsCard({required this.provider});
+  const _StageEventsCard();
 
   @override
   Widget build(BuildContext context) {

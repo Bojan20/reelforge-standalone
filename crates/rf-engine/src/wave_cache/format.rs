@@ -22,6 +22,8 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
+use memmap2::Mmap;
+
 use super::WaveCacheError;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -420,6 +422,138 @@ impl WfcFile {
             .map(|l| l.byte_size())
             .sum();
         header_size + level_size
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEMORY-MAPPED WFC FILE (P3.4: Load only needed regions from disk)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Memory-mapped .wfc file for efficient large file access.
+/// P3.4: Only loads header into memory, tile data is read directly from disk via mmap.
+/// This reduces memory usage from O(file_size) to O(header_size) for large files.
+pub struct WfcFileMmap {
+    /// File header (always in memory - 64 bytes)
+    pub header: WfcHeader,
+    /// Memory-mapped file data
+    mmap: Mmap,
+}
+
+impl WfcFileMmap {
+    /// Open .wfc file with memory mapping
+    pub fn open(path: &Path) -> Result<Self, WaveCacheError> {
+        let file = File::open(path)
+            .map_err(|e| WaveCacheError::IoError(e.to_string()))?;
+
+        // Safety: The file must exist and be valid
+        let mmap = unsafe {
+            Mmap::map(&file)
+                .map_err(|e| WaveCacheError::IoError(format!("mmap failed: {}", e)))?
+        };
+
+        if mmap.len() < 64 {
+            return Err(WaveCacheError::InvalidFormat("File too small for header".to_string()));
+        }
+
+        // Parse header from mmap
+        let header = WfcHeader::from_bytes(&mmap[0..64])?;
+
+        Ok(Self { header, mmap })
+    }
+
+    /// Get tile data for a specific mip level, channel, and tile index.
+    /// P3.4: Reads directly from memory-mapped file without copying.
+    pub fn get_tile(&self, level: usize, channel: usize, tile_idx: usize) -> Option<TileData> {
+        if level >= NUM_MIP_LEVELS || channel >= self.header.channels as usize {
+            return None;
+        }
+
+        let num_tiles = self.header.tiles_at_level(level);
+        if tile_idx >= num_tiles {
+            return None;
+        }
+
+        let offset = self.header.mip_offsets[level] as usize;
+        let tiles_per_channel = num_tiles;
+
+        // Calculate byte offset: offset + (channel * tiles_per_channel + tile_idx) * 8
+        let tile_offset = offset + (channel * tiles_per_channel + tile_idx) * 8;
+
+        if tile_offset + 8 > self.mmap.len() {
+            return None;
+        }
+
+        let bytes: [u8; 8] = self.mmap[tile_offset..tile_offset + 8]
+            .try_into()
+            .ok()?;
+
+        Some(TileData::from_bytes(&bytes))
+    }
+
+    /// Get tiles for a range (optimized batch read)
+    /// P3.4: Returns an iterator that reads directly from mmap.
+    pub fn get_tiles_range(
+        &self,
+        level: usize,
+        channel: usize,
+        start_tile: usize,
+        end_tile: usize,
+    ) -> Vec<TileData> {
+        if level >= NUM_MIP_LEVELS || channel >= self.header.channels as usize {
+            return Vec::new();
+        }
+
+        let num_tiles = self.header.tiles_at_level(level);
+        let start = start_tile.min(num_tiles);
+        let end = end_tile.min(num_tiles);
+
+        if start >= end {
+            return Vec::new();
+        }
+
+        let offset = self.header.mip_offsets[level] as usize;
+        let tiles_per_channel = num_tiles;
+
+        let mut result = Vec::with_capacity(end - start);
+
+        for tile_idx in start..end {
+            let tile_offset = offset + (channel * tiles_per_channel + tile_idx) * 8;
+
+            if tile_offset + 8 > self.mmap.len() {
+                break;
+            }
+
+            if let Ok(bytes) = self.mmap[tile_offset..tile_offset + 8].try_into() {
+                result.push(TileData::from_bytes(&bytes));
+            }
+        }
+
+        result
+    }
+
+    /// Get optimal mip level for given zoom (same algorithm as WfcFile)
+    pub fn select_mip_level(&self, pixels_per_second: f64, sample_rate: u32) -> usize {
+        let samples_per_pixel = sample_rate as f64 / pixels_per_second;
+        let target_tile_samples = (samples_per_pixel * 2.0) as usize;
+
+        for (level, &tile_samples) in MIP_TILE_SAMPLES.iter().enumerate() {
+            if tile_samples >= target_tile_samples {
+                return level;
+            }
+        }
+
+        NUM_MIP_LEVELS - 1
+    }
+
+    /// Memory usage: Only header (64 bytes) + mmap overhead
+    /// P3.4: Actual file content is NOT in heap memory
+    pub fn memory_usage(&self) -> usize {
+        std::mem::size_of::<WfcHeader>() + std::mem::size_of::<Mmap>()
+    }
+
+    /// File size on disk
+    pub fn file_size(&self) -> usize {
+        self.mmap.len()
     }
 }
 

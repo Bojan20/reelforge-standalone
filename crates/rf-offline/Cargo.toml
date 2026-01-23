@@ -1,0 +1,38 @@
+[package]
+name = "rf-offline"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Offline DSP processing pipeline for FluxForge Studio"
+
+[dependencies]
+# Internal crates
+rf-core = { workspace = true }
+rf-dsp = { workspace = true }
+rf-file = { workspace = true }
+
+# Audio file I/O
+symphonia = { workspace = true }
+hound = { workspace = true }
+
+# DSP
+rustfft = { workspace = true }
+realfft = { workspace = true }
+
+# Concurrency
+rayon = { workspace = true }
+crossbeam-channel = { workspace = true }
+parking_lot = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Utilities
+thiserror = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

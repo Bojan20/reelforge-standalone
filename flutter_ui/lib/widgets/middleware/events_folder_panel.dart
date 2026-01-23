@@ -88,11 +88,17 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, middleware, _) {
-        final events = middleware.compositeEvents;
-        // Use provider's selected event as single source of truth
-        final selectedEvent = middleware.selectedCompositeEvent;
+    return Selector<MiddlewareProvider, EventsFolderData>(
+      selector: (_, p) => (
+        events: p.compositeEvents,
+        selectedEvent: p.selectedCompositeEvent,
+        selectedLayerIds: p.selectedLayerIds,
+        selectedLayerCount: p.selectedLayerCount,
+        hasLayerInClipboard: p.hasLayerInClipboard,
+      ),
+      builder: (context, data, _) {
+        final events = data.events;
+        final selectedEvent = data.selectedEvent;
         final filteredEvents = _filterEvents(events);
 
         // Group by category
@@ -104,7 +110,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
 
         return Focus(
           autofocus: true,
-          onKeyEvent: (node, event) => _handleKeyEvent(event, middleware, selectedEvent),
+          onKeyEvent: (node, event) => _handleKeyEvent(context, event, data, selectedEvent),
           child: Container(
           color: FluxforgeColors.deepBg,
           child: Column(
@@ -155,15 +161,15 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                     // Events folder tree
                     SizedBox(
                       width: _kFolderWidth,
-                      child: _buildEventFolder(grouped, middleware),
+                      child: _buildEventFolder(context, grouped),
                     ),
                     // Divider
                     Container(width: 1, color: FluxforgeColors.divider),
                     // Timeline area
                     Expanded(
                       child: selectedEvent != null
-                          ? _buildTimelineView(middleware, selectedEvent)
-                          : _buildEmptyStateWithDebug(middleware),
+                          ? _buildTimelineView(context, data, selectedEvent)
+                          : _buildEmptyStateWithDebug(),
                     ),
                   ],
                 ),
@@ -177,13 +183,15 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   /// Handle keyboard shortcuts for multi-select operations
-  KeyEventResult _handleKeyEvent(KeyEvent event, MiddlewareProvider middleware, SlotCompositeEvent? selectedEvent) {
+  KeyEventResult _handleKeyEvent(BuildContext context, KeyEvent event, EventsFolderData data, SlotCompositeEvent? selectedEvent) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     if (selectedEvent == null) return KeyEventResult.ignored;
 
     final isCmd = HardwareKeyboard.instance.isMetaPressed;
     final isCtrl = HardwareKeyboard.instance.isControlPressed;
     final isMod = isCmd || isCtrl;
+
+    final middleware = context.read<MiddlewareProvider>();
 
     // Cmd/Ctrl+A - Select all
     if (isMod && event.logicalKey == LogicalKeyboardKey.keyA) {
@@ -201,7 +209,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
     // Delete/Backspace - Delete selected
     if (event.logicalKey == LogicalKeyboardKey.delete ||
         event.logicalKey == LogicalKeyboardKey.backspace) {
-      if (middleware.selectedLayerCount > 0) {
+      if (data.selectedLayerCount > 0) {
         middleware.deleteSelectedLayers(selectedEvent.id);
         setState(() => _selectedLayerId = null);
         return KeyEventResult.handled;
@@ -210,7 +218,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
 
     // Cmd/Ctrl+D - Duplicate selected
     if (isMod && event.logicalKey == LogicalKeyboardKey.keyD) {
-      if (middleware.selectedLayerCount > 0) {
+      if (data.selectedLayerCount > 0) {
         middleware.duplicateSelectedLayers(selectedEvent.id);
         return KeyEventResult.handled;
       }
@@ -226,7 +234,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
 
     // Cmd/Ctrl+V - Paste
     if (isMod && event.logicalKey == LogicalKeyboardKey.keyV) {
-      if (middleware.hasLayerInClipboard) {
+      if (data.hasLayerInClipboard) {
         middleware.pasteLayer(selectedEvent.id);
         return KeyEventResult.handled;
       }
@@ -234,7 +242,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
 
     // M - Mute selected
     if (event.logicalKey == LogicalKeyboardKey.keyM) {
-      if (middleware.selectedLayerCount > 0) {
+      if (data.selectedLayerCount > 0) {
         middleware.muteSelectedLayers(selectedEvent.id, true);
         return KeyEventResult.handled;
       }
@@ -243,7 +251,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
     // Shift+M - Unmute selected
     if (HardwareKeyboard.instance.isShiftPressed &&
         event.logicalKey == LogicalKeyboardKey.keyM) {
-      if (middleware.selectedLayerCount > 0) {
+      if (data.selectedLayerCount > 0) {
         middleware.muteSelectedLayers(selectedEvent.id, false);
         return KeyEventResult.handled;
       }
@@ -251,7 +259,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
 
     // S - Solo selected
     if (event.logicalKey == LogicalKeyboardKey.keyS && !isMod) {
-      if (middleware.selectedLayerCount > 0) {
+      if (data.selectedLayerCount > 0) {
         middleware.soloSelectedLayers(selectedEvent.id, true);
         return KeyEventResult.handled;
       }
@@ -261,8 +269,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   Widget _buildEventFolder(
+    BuildContext context,
     Map<String, List<SlotCompositeEvent>> grouped,
-    MiddlewareProvider middleware,
   ) {
     return Column(
       children: [
@@ -276,7 +284,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             controller: _folderScrollController,
             padding: const EdgeInsets.symmetric(vertical: 4),
             children: grouped.entries.map((entry) {
-              return _buildCategorySection(entry.key, entry.value, middleware);
+              return _buildCategorySection(context, entry.key, entry.value);
             }).toList(),
           ),
         ),
@@ -347,9 +355,9 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   Widget _buildCategorySection(
+    BuildContext context,
     String category,
     List<SlotCompositeEvent> events,
-    MiddlewareProvider middleware,
   ) {
     final color = _colorForCategory(category);
 
@@ -396,12 +404,13 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             ),
           ],
         ),
-        children: events.map((event) => _buildEventTile(event, middleware)).toList(),
+        children: events.map((event) => _buildEventTile(context, event)).toList(),
       ),
     );
   }
 
-  Widget _buildEventTile(SlotCompositeEvent event, MiddlewareProvider middleware) {
+  Widget _buildEventTile(BuildContext context, SlotCompositeEvent event) {
+    final middleware = context.read<MiddlewareProvider>();
     final isSelected = middleware.selectedCompositeEventId == event.id;
 
     return InkWell(
@@ -467,7 +476,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
     );
   }
 
-  Widget _buildTimelineView(MiddlewareProvider middleware, SlotCompositeEvent event) {
+  Widget _buildTimelineView(BuildContext context, EventsFolderData data, SlotCompositeEvent event) {
     final duration = math.max(event.totalDurationSeconds, 2.0);
     final totalWidth = duration * _kPixelsPerSecond * _zoom;
 
@@ -501,7 +510,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             ),
           ),
           // Toolbar
-          _buildTimelineToolbar(event, middleware),
+          _buildTimelineToolbar(context, event),
           // Timeline ruler
           _buildTimelineRuler(event),
           // Tracks - ALWAYS show event header track (even with 0 layers)
@@ -512,17 +521,17 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                 controller: _tracksScrollController,
                 children: [
                   // Event header track (ALWAYS visible)
-                  _buildEventHeaderTrack(event, middleware, totalWidth),
+                  _buildEventHeaderTrack(context, event, totalWidth),
                   // Layer tracks (if any)
                   ...event.layers.map((layer) {
                     // Ensure key exists for scroll-to
                     _layerKeys.putIfAbsent(layer.id, () => GlobalKey());
-                    final isSelected = middleware.isLayerSelected(layer.id);
+                    final isSelected = data.selectedLayerIds.contains(layer.id);
                     return _buildTrack(
+                      context: context,
                       key: _layerKeys[layer.id],
                       layer: layer,
                       event: event,
-                      middleware: middleware,
                       isSelected: isSelected,
                       totalWidth: totalWidth,
                       duration: duration,
@@ -530,7 +539,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                   }),
                   // Empty state hint when no layers
                   if (event.layers.isEmpty)
-                    _buildAddLayerHint(event, middleware),
+                    _buildAddLayerHint(context, event),
                 ],
               ),
             ),
@@ -541,7 +550,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   /// Hint widget shown when event has no layers
-  Widget _buildAddLayerHint(SlotCompositeEvent event, MiddlewareProvider middleware) {
+  Widget _buildAddLayerHint(BuildContext context, SlotCompositeEvent event) {
     return Container(
       height: 80,
       margin: const EdgeInsets.all(16),
@@ -554,7 +563,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
         ),
       ),
       child: InkWell(
-        onTap: () => _showAddLayerDialog(event, middleware),
+        onTap: () => _showAddLayerDialog(context, event),
         borderRadius: BorderRadius.circular(8),
         child: Center(
           child: Row(
@@ -580,7 +589,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
     );
   }
 
-  Widget _buildTimelineToolbar(SlotCompositeEvent event, MiddlewareProvider middleware) {
+  Widget _buildTimelineToolbar(BuildContext context, SlotCompositeEvent event) {
     return Container(
       height: _kHeaderHeight,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -651,7 +660,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           const SizedBox(width: 8),
           // Add layer button
           TextButton.icon(
-            onPressed: () => _showAddLayerDialog(event, middleware),
+            onPressed: () => _showAddLayerDialog(context, event),
             icon: const Icon(Icons.add, size: 14),
             label: const Text('Add Layer', style: TextStyle(fontSize: 11)),
             style: TextButton.styleFrom(
@@ -689,7 +698,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   /// Event header track - always visible, shows event name and drop zone
-  Widget _buildEventHeaderTrack(SlotCompositeEvent event, MiddlewareProvider middleware, double totalWidth) {
+  Widget _buildEventHeaderTrack(BuildContext context, SlotCompositeEvent event, double totalWidth) {
     return Container(
       height: _kTrackHeight,
       decoration: BoxDecoration(
@@ -735,7 +744,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                 // Add layer button
                 IconButton(
                   icon: Icon(Icons.add, size: 16, color: event.color),
-                  onPressed: () => _showAddLayerDialog(event, middleware),
+                  onPressed: () => _showAddLayerDialog(context, event),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                   tooltip: 'Add layer',
@@ -804,14 +813,16 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   Widget _buildTrack({
+    required BuildContext context,
     Key? key,
     required SlotEventLayer layer,
     required SlotCompositeEvent event,
-    required MiddlewareProvider middleware,
     required bool isSelected,
     required double totalWidth,
     required double duration,
   }) {
+    final middleware = context.read<MiddlewareProvider>();
+
     return Container(
       key: key,
       height: _kTrackHeight,
@@ -874,7 +885,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                       size: 14,
                       color: layer.muted ? Colors.red : Colors.white54,
                     ),
-                    onPressed: () => _toggleLayerMute(event, layer, middleware),
+                    onPressed: () => _toggleLayerMute(context, event, layer),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                     tooltip: 'Mute',
@@ -885,7 +896,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                       size: 14,
                       color: layer.solo ? FluxforgeColors.accent : Colors.white54,
                     ),
-                    onPressed: () => _toggleLayerSolo(event, layer, middleware),
+                    onPressed: () => _toggleLayerSolo(context, event, layer),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                     tooltip: 'Solo',
@@ -985,7 +996,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   /// Empty timeline with grid and drop zone for adding layers
-  Widget _buildEmptyTimeline(SlotCompositeEvent event, MiddlewareProvider middleware) {
+  Widget _buildEmptyTimeline(BuildContext context, SlotCompositeEvent event) {
     return Container(
       color: FluxforgeColors.surfaceBg,
       child: Stack(
@@ -1039,7 +1050,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                   ),
                   const SizedBox(height: 16),
                   TextButton.icon(
-                    onPressed: () => _showAddLayerDialog(event, middleware),
+                    onPressed: () => _showAddLayerDialog(context, event),
                     icon: const Icon(Icons.add, size: 16),
                     label: const Text('Add Audio Layer'),
                     style: TextButton.styleFrom(
@@ -1089,7 +1100,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   /// Empty state when no event is selected
-  Widget _buildEmptyStateWithDebug(MiddlewareProvider middleware) {
+  Widget _buildEmptyStateWithDebug() {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1152,10 +1163,11 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   void _toggleLayerMute(
+    BuildContext context,
     SlotCompositeEvent event,
     SlotEventLayer layer,
-    MiddlewareProvider middleware,
   ) {
+    final middleware = context.read<MiddlewareProvider>();
     final updatedLayers = event.layers.map((l) {
       if (l.id == layer.id) {
         return l.copyWith(muted: !l.muted);
@@ -1167,10 +1179,11 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   void _toggleLayerSolo(
+    BuildContext context,
     SlotCompositeEvent event,
     SlotEventLayer layer,
-    MiddlewareProvider middleware,
   ) {
+    final middleware = context.read<MiddlewareProvider>();
     final updatedLayers = event.layers.map((l) {
       if (l.id == layer.id) {
         return l.copyWith(solo: !l.solo);
@@ -1181,7 +1194,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
     middleware.updateCompositeEvent(event.copyWith(layers: updatedLayers));
   }
 
-  void _showAddLayerDialog(SlotCompositeEvent event, MiddlewareProvider middleware) {
+  void _showAddLayerDialog(BuildContext context, SlotCompositeEvent event) {
+    final middleware = context.read<MiddlewareProvider>();
     showDialog(
       context: context,
       builder: (ctx) => _AddLayerDialog(

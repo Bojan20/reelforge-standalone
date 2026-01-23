@@ -1271,3 +1271,267 @@ class StageEventData {
         'payload': payload,
       };
 }
+
+// =============================================================================
+// P3.13: LIVE PARAMETER UPDATE CHANNEL
+// =============================================================================
+
+/// Type of parameter update
+enum ParameterUpdateType {
+  rtpc,
+  volume,
+  pan,
+  mute,
+  solo,
+  morphPosition,
+  macroValue,
+  containerState,
+  stateGroup,
+  switchGroup,
+}
+
+/// Live parameter update data
+class ParameterUpdate {
+  final ParameterUpdateType type;
+  final String targetId;
+  final double? numericValue;
+  final String? stringValue;
+  final bool? boolValue;
+  final Map<String, dynamic>? metadata;
+  final double timestampMs;
+
+  const ParameterUpdate({
+    required this.type,
+    required this.targetId,
+    this.numericValue,
+    this.stringValue,
+    this.boolValue,
+    this.metadata,
+    required this.timestampMs,
+  });
+
+  factory ParameterUpdate.rtpc(String rtpcId, double value) => ParameterUpdate(
+        type: ParameterUpdateType.rtpc,
+        targetId: rtpcId,
+        numericValue: value,
+        timestampMs: DateTime.now().millisecondsSinceEpoch.toDouble(),
+      );
+
+  factory ParameterUpdate.volume(String targetId, double value, {bool isBus = false}) =>
+      ParameterUpdate(
+        type: ParameterUpdateType.volume,
+        targetId: targetId,
+        numericValue: value,
+        metadata: {'is_bus': isBus},
+        timestampMs: DateTime.now().millisecondsSinceEpoch.toDouble(),
+      );
+
+  factory ParameterUpdate.pan(String targetId, double value) => ParameterUpdate(
+        type: ParameterUpdateType.pan,
+        targetId: targetId,
+        numericValue: value,
+        timestampMs: DateTime.now().millisecondsSinceEpoch.toDouble(),
+      );
+
+  factory ParameterUpdate.mute(String targetId, bool muted) => ParameterUpdate(
+        type: ParameterUpdateType.mute,
+        targetId: targetId,
+        boolValue: muted,
+        timestampMs: DateTime.now().millisecondsSinceEpoch.toDouble(),
+      );
+
+  factory ParameterUpdate.morphPosition(String morphId, double position) =>
+      ParameterUpdate(
+        type: ParameterUpdateType.morphPosition,
+        targetId: morphId,
+        numericValue: position,
+        timestampMs: DateTime.now().millisecondsSinceEpoch.toDouble(),
+      );
+
+  factory ParameterUpdate.macroValue(String macroId, double value) => ParameterUpdate(
+        type: ParameterUpdateType.macroValue,
+        targetId: macroId,
+        numericValue: value,
+        timestampMs: DateTime.now().millisecondsSinceEpoch.toDouble(),
+      );
+
+  factory ParameterUpdate.stateGroup(String groupId, String stateId) =>
+      ParameterUpdate(
+        type: ParameterUpdateType.stateGroup,
+        targetId: groupId,
+        stringValue: stateId,
+        timestampMs: DateTime.now().millisecondsSinceEpoch.toDouble(),
+      );
+
+  factory ParameterUpdate.switchGroup(String groupId, String objectId, String switchId) =>
+      ParameterUpdate(
+        type: ParameterUpdateType.switchGroup,
+        targetId: groupId,
+        stringValue: switchId,
+        metadata: {'object_id': objectId},
+        timestampMs: DateTime.now().millisecondsSinceEpoch.toDouble(),
+      );
+
+  factory ParameterUpdate.fromJson(Map<String, dynamic> json) => ParameterUpdate(
+        type: ParameterUpdateType.values.firstWhere(
+          (t) => t.name == json['type'],
+          orElse: () => ParameterUpdateType.rtpc,
+        ),
+        targetId: json['target_id'] as String,
+        numericValue: (json['numeric_value'] as num?)?.toDouble(),
+        stringValue: json['string_value'] as String?,
+        boolValue: json['bool_value'] as bool?,
+        metadata: json['metadata'] as Map<String, dynamic>?,
+        timestampMs: (json['timestamp_ms'] as num?)?.toDouble() ?? 0.0,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'type': type.name,
+        'target_id': targetId,
+        if (numericValue != null) 'numeric_value': numericValue,
+        if (stringValue != null) 'string_value': stringValue,
+        if (boolValue != null) 'bool_value': boolValue,
+        if (metadata != null) 'metadata': metadata,
+        'timestamp_ms': timestampMs,
+      };
+}
+
+/// P3.13: Live parameter update channel with throttling
+///
+/// Sends parameter changes in real-time to connected game engines.
+/// Supports throttling to prevent flooding with rapid slider movements.
+class LiveParameterChannel {
+  final UltimateWebSocketClient _client;
+  final String channelName;
+  final Duration throttleInterval;
+
+  StreamSubscription<WsMessage>? _subscription;
+  final _controller = StreamController<ParameterUpdate>.broadcast();
+
+  // Outgoing throttle
+  final Map<String, Timer> _throttleTimers = {};
+  final Map<String, ParameterUpdate> _pendingUpdates = {};
+
+  // Incoming handler
+  void Function(ParameterUpdate)? onRemoteUpdate;
+
+  LiveParameterChannel({
+    UltimateWebSocketClient? client,
+    this.channelName = 'parameters',
+    this.throttleInterval = const Duration(milliseconds: 33), // ~30Hz max
+    this.onRemoteUpdate,
+  }) : _client = client ?? UltimateWebSocketClient.instance;
+
+  Stream<ParameterUpdate> get stream => _controller.stream;
+
+  bool get isConnected => _client.isConnected;
+
+  /// Start listening for remote parameter updates
+  void start() {
+    _subscription = _client.subscribe(channelName).listen(_onMessage);
+  }
+
+  /// Stop listening
+  void stop() {
+    _subscription?.cancel();
+    _subscription = null;
+    for (final timer in _throttleTimers.values) {
+      timer.cancel();
+    }
+    _throttleTimers.clear();
+    _pendingUpdates.clear();
+  }
+
+  /// Send parameter update (throttled)
+  void send(ParameterUpdate update) {
+    final key = '${update.type.name}:${update.targetId}';
+    _pendingUpdates[key] = update;
+
+    if (!_throttleTimers.containsKey(key)) {
+      // Send immediately, then throttle subsequent updates
+      _sendUpdate(update);
+      _throttleTimers[key] = Timer(throttleInterval, () {
+        _throttleTimers.remove(key);
+        final pending = _pendingUpdates.remove(key);
+        if (pending != null && pending != update) {
+          _sendUpdate(pending);
+        }
+      });
+    }
+  }
+
+  void _sendUpdate(ParameterUpdate update) {
+    if (!_client.isConnected) return;
+
+    _client.send(WsMessage(
+      type: WsMessageType.custom,
+      channel: channelName,
+      payload: {
+        'action': 'update',
+        'update': update.toJson(),
+      },
+    ));
+  }
+
+  /// Send RTPC value
+  void sendRtpc(String rtpcId, double value) {
+    send(ParameterUpdate.rtpc(rtpcId, value));
+  }
+
+  /// Send volume
+  void sendVolume(String targetId, double value, {bool isBus = false}) {
+    send(ParameterUpdate.volume(targetId, value, isBus: isBus));
+  }
+
+  /// Send pan
+  void sendPan(String targetId, double value) {
+    send(ParameterUpdate.pan(targetId, value));
+  }
+
+  /// Send mute
+  void sendMute(String targetId, bool muted) {
+    send(ParameterUpdate.mute(targetId, muted));
+  }
+
+  /// Send morph position
+  void sendMorphPosition(String morphId, double position) {
+    send(ParameterUpdate.morphPosition(morphId, position));
+  }
+
+  /// Send macro value
+  void sendMacroValue(String macroId, double value) {
+    send(ParameterUpdate.macroValue(macroId, value));
+  }
+
+  /// Send state group change
+  void sendStateChange(String groupId, String stateId) {
+    send(ParameterUpdate.stateGroup(groupId, stateId));
+  }
+
+  /// Send switch change
+  void sendSwitchChange(String groupId, String objectId, String switchId) {
+    send(ParameterUpdate.switchGroup(groupId, objectId, switchId));
+  }
+
+  void _onMessage(WsMessage message) {
+    try {
+      final action = message.payload['action'] as String?;
+
+      if (action == 'update') {
+        final updateJson = message.payload['update'] as Map<String, dynamic>?;
+        if (updateJson != null) {
+          final update = ParameterUpdate.fromJson(updateJson);
+          _controller.add(update);
+          onRemoteUpdate?.call(update);
+        }
+      }
+    } catch (e) {
+      debugPrint('[LiveParam] Parse error: $e');
+    }
+  }
+
+  void dispose() {
+    stop();
+    _controller.close();
+  }
+}

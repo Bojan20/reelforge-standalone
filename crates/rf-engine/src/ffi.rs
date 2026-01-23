@@ -755,6 +755,201 @@ pub extern "C" fn engine_reorder_tracks(track_ids: *const u64, count: usize) -> 
     1
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P1.12: BATCH TRACK PARAMETERS — Single FFI call for multiple tracks
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Batch update track volumes (single FFI call instead of N calls)
+/// Arrays: track_ids[count], volumes[count]
+/// Returns number of tracks successfully updated
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_batch_set_track_volumes(
+    track_ids: *const u64,
+    volumes: *const f64,
+    count: usize,
+) -> usize {
+    if track_ids.is_null() || volumes.is_null() || count == 0 {
+        return 0;
+    }
+    if count > MAX_FFI_ARRAY_SIZE {
+        log::warn!("[FFI] batch_set_track_volumes: count {} exceeds max {}", count, MAX_FFI_ARRAY_SIZE);
+        return 0;
+    }
+
+    let ids = unsafe { std::slice::from_raw_parts(track_ids, count) };
+    let vols = unsafe { std::slice::from_raw_parts(volumes, count) };
+    let mut success_count = 0;
+
+    for (i, &track_id) in ids.iter().enumerate() {
+        let volume = vols[i].clamp(0.0, 2.0);
+        TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+            track.volume = volume;
+        });
+        success_count += 1;
+    }
+
+    log::trace!("[FFI] batch_set_track_volumes: {} tracks updated", success_count);
+    success_count
+}
+
+/// Batch update track pans (single FFI call instead of N calls)
+/// Arrays: track_ids[count], pans[count]
+/// Returns number of tracks successfully updated
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_batch_set_track_pans(
+    track_ids: *const u64,
+    pans: *const f64,
+    count: usize,
+) -> usize {
+    if track_ids.is_null() || pans.is_null() || count == 0 {
+        return 0;
+    }
+    if count > MAX_FFI_ARRAY_SIZE {
+        log::warn!("[FFI] batch_set_track_pans: count {} exceeds max {}", count, MAX_FFI_ARRAY_SIZE);
+        return 0;
+    }
+
+    let ids = unsafe { std::slice::from_raw_parts(track_ids, count) };
+    let pan_values = unsafe { std::slice::from_raw_parts(pans, count) };
+    let mut success_count = 0;
+
+    for (i, &track_id) in ids.iter().enumerate() {
+        let pan = pan_values[i].clamp(-1.0, 1.0);
+        TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+            track.pan = pan;  // Use correct field name
+        });
+        success_count += 1;
+    }
+
+    log::trace!("[FFI] batch_set_track_pans: {} tracks updated", success_count);
+    success_count
+}
+
+/// Batch update track mutes (single FFI call instead of N calls)
+/// Arrays: track_ids[count], muted[count] (0 = unmuted, non-zero = muted)
+/// Returns number of tracks successfully updated
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_batch_set_track_mutes(
+    track_ids: *const u64,
+    muted: *const i32,
+    count: usize,
+) -> usize {
+    if track_ids.is_null() || muted.is_null() || count == 0 {
+        return 0;
+    }
+    if count > MAX_FFI_ARRAY_SIZE {
+        log::warn!("[FFI] batch_set_track_mutes: count {} exceeds max {}", count, MAX_FFI_ARRAY_SIZE);
+        return 0;
+    }
+
+    let ids = unsafe { std::slice::from_raw_parts(track_ids, count) };
+    let mute_values = unsafe { std::slice::from_raw_parts(muted, count) };
+    let mut success_count = 0;
+
+    for (i, &track_id) in ids.iter().enumerate() {
+        let is_muted = mute_values[i] != 0;
+        TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+            track.muted = is_muted;
+        });
+        success_count += 1;
+    }
+
+    log::trace!("[FFI] batch_set_track_mutes: {} tracks updated", success_count);
+    success_count
+}
+
+/// Batch update track solos (single FFI call instead of N calls)
+/// Arrays: track_ids[count], solo[count] (0 = not soloed, non-zero = soloed)
+/// Returns number of tracks successfully updated
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_batch_set_track_solos(
+    track_ids: *const u64,
+    solo: *const i32,
+    count: usize,
+) -> usize {
+    if track_ids.is_null() || solo.is_null() || count == 0 {
+        return 0;
+    }
+    if count > MAX_FFI_ARRAY_SIZE {
+        log::warn!("[FFI] batch_set_track_solos: count {} exceeds max {}", count, MAX_FFI_ARRAY_SIZE);
+        return 0;
+    }
+
+    let ids = unsafe { std::slice::from_raw_parts(track_ids, count) };
+    let solo_values = unsafe { std::slice::from_raw_parts(solo, count) };
+    let mut success_count = 0;
+
+    for (i, &track_id) in ids.iter().enumerate() {
+        let is_soloed = solo_values[i] != 0;
+        TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+            track.soloed = is_soloed;  // Use correct field name
+        });
+        success_count += 1;
+    }
+
+    // Update solo state after batch update
+    TRACK_MANAGER.update_solo_state();
+
+    log::trace!("[FFI] batch_set_track_solos: {} tracks updated", success_count);
+    success_count
+}
+
+/// Batch update all track parameters at once (volume + pan + mute + solo)
+/// Most efficient when updating multiple parameters for multiple tracks
+/// Pass NULL for any array you don't want to update
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_batch_set_track_params(
+    track_ids: *const u64,
+    volumes: *const f64,      // Can be NULL
+    pans: *const f64,         // Can be NULL
+    muted: *const i32,        // Can be NULL
+    solo: *const i32,         // Can be NULL
+    count: usize,
+) -> usize {
+    if track_ids.is_null() || count == 0 {
+        return 0;
+    }
+    if count > MAX_FFI_ARRAY_SIZE {
+        log::warn!("[FFI] batch_set_track_params: count {} exceeds max {}", count, MAX_FFI_ARRAY_SIZE);
+        return 0;
+    }
+
+    let ids = unsafe { std::slice::from_raw_parts(track_ids, count) };
+    let vol_slice = if volumes.is_null() { None } else { Some(unsafe { std::slice::from_raw_parts(volumes, count) }) };
+    let pan_slice = if pans.is_null() { None } else { Some(unsafe { std::slice::from_raw_parts(pans, count) }) };
+    let mute_slice = if muted.is_null() { None } else { Some(unsafe { std::slice::from_raw_parts(muted, count) }) };
+    let solo_slice = if solo.is_null() { None } else { Some(unsafe { std::slice::from_raw_parts(solo, count) }) };
+
+    let mut success_count = 0;
+    let has_solo_changes = solo_slice.is_some();
+
+    for (i, &track_id) in ids.iter().enumerate() {
+        TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+            if let Some(vols) = vol_slice {
+                track.volume = vols[i].clamp(0.0, 2.0);
+            }
+            if let Some(pans) = pan_slice {
+                track.pan = pans[i].clamp(-1.0, 1.0);  // Use correct field name
+            }
+            if let Some(mutes) = mute_slice {
+                track.muted = mutes[i] != 0;
+            }
+            if let Some(solos) = solo_slice {
+                track.soloed = solos[i] != 0;  // Use correct field name
+            }
+        });
+        success_count += 1;
+    }
+
+    // Update solo state if we changed any solo values
+    if has_solo_changes {
+        TRACK_MANAGER.update_solo_state();
+    }
+
+    log::trace!("[FFI] batch_set_track_params: {} tracks updated", success_count);
+    success_count
+}
+
 /// Get track count
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_track_count() -> usize {
@@ -865,6 +1060,8 @@ pub extern "C" fn engine_get_all_track_peaks(
 /// Get all track stereo meters at once (most efficient for UI)
 /// Writes: out_ids[i], out_peak_l[i], out_peak_r[i], out_rms_l[i], out_rms_r[i], out_corr[i]
 /// Returns number of tracks written
+///
+/// P1.14 FIX: Uses write_all_track_meters_to_buffers() to avoid HashMap clone
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_all_track_meters(
     out_ids: *mut u64,
@@ -880,21 +1077,18 @@ pub extern "C" fn engine_get_all_track_meters(
         return 0;
     }
 
-    let meters = PLAYBACK_ENGINE.get_all_track_meters();
-    let count = meters.len().min(max_count);
-
+    // P1.14 FIX: Direct write to buffers without HashMap clone
     unsafe {
-        for (i, (&track_id, meter)) in meters.iter().take(count).enumerate() {
-            *out_ids.add(i) = track_id;
-            *out_peak_l.add(i) = meter.peak_l;
-            *out_peak_r.add(i) = meter.peak_r;
-            *out_rms_l.add(i) = meter.rms_l;
-            *out_rms_r.add(i) = meter.rms_r;
-            *out_corr.add(i) = meter.correlation;
-        }
+        PLAYBACK_ENGINE.write_all_track_meters_to_buffers(
+            out_ids,
+            out_peak_l,
+            out_peak_r,
+            out_rms_l,
+            out_rms_r,
+            out_corr,
+            max_count,
+        )
     }
-
-    count
 }
 
 /// Get track IDs (caller provides buffer)

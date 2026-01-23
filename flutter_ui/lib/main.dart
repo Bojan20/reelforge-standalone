@@ -53,8 +53,10 @@ import 'providers/plugin_provider.dart';
 import 'providers/control_room_provider.dart';
 import 'providers/middleware_provider.dart';
 import 'providers/stage_provider.dart';
+import 'providers/stage_ingest_provider.dart';
 import 'providers/slot_lab_provider.dart';
 import 'providers/ale_provider.dart';
+import 'providers/soundbank_provider.dart';
 import 'services/audio_asset_manager.dart';
 import 'services/service_locator.dart';
 import 'services/lower_zone_persistence_service.dart';
@@ -187,8 +189,11 @@ class FluxForgeApp extends StatelessWidget {
         // Middleware (States, Switches, RTPC, Ducking, Containers, Music System)
         ChangeNotifierProvider(create: (_) => MiddlewareProvider(NativeFFI.instance)),
 
-        // Stage Ingest System (Universal game engine integration)
+        // Stage Ingest System (Legacy — uses Dart models)
         ChangeNotifierProvider(create: (_) => StageProvider()),
+
+        // Stage Ingest System (New — FFI-based with rf-stage/rf-ingest/rf-connector)
+        ChangeNotifierProvider(create: (_) => StageIngestProvider(NativeFFI.instance)),
 
         // Slot Lab (Synthetic Slot Engine)
         ChangeNotifierProvider(create: (_) => SlotLabProvider()),
@@ -198,6 +203,9 @@ class FluxForgeApp extends StatelessWidget {
 
         // Unified Audio Asset Manager (SINGLE SOURCE OF TRUTH)
         ChangeNotifierProvider.value(value: AudioAssetManager.instance),
+
+        // Soundbank Building System
+        ChangeNotifierProvider(create: (_) => SoundbankProvider(NativeFFI.instance)),
       ],
       child: MaterialApp(
         title: 'FluxForge Studio',

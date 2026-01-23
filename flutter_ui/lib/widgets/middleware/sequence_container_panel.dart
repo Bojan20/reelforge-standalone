@@ -5,11 +5,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
 import '../../providers/subsystems/sequence_containers_provider.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../common/audio_waveform_picker_dialog.dart';
 
 /// Sequence Container Panel Widget
 class SequenceContainerPanel extends StatefulWidget {
@@ -26,10 +26,9 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
-        final containers = provider.sequenceContainers;
-
+    return Selector<MiddlewareProvider, List<SequenceContainer>>(
+      selector: (_, p) => p.sequenceContainers,
+      builder: (context, containers, _) {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -40,7 +39,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(provider),
+              _buildHeader(),
               const SizedBox(height: 16),
               Expanded(
                 child: Row(
@@ -49,18 +48,18 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                     // Container list
                     SizedBox(
                       width: 200,
-                      child: _buildContainerList(containers, provider),
+                      child: _buildContainerList(containers),
                     ),
                     const SizedBox(width: 16),
                     // Timeline view
                     Expanded(
-                      child: _buildTimelineView(provider),
+                      child: _buildTimelineView(containers),
                     ),
                   ],
                 ),
               ),
               if (_showAddContainer)
-                _buildAddContainerDialog(provider),
+                _buildAddContainerDialog(),
             ],
           ),
         );
@@ -68,7 +67,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
     );
   }
 
-  Widget _buildHeader(MiddlewareProvider provider) {
+  Widget _buildHeader() {
     return Row(
       children: [
         Icon(Icons.queue_music, color: Colors.teal, size: 20),
@@ -112,7 +111,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
     );
   }
 
-  Widget _buildContainerList(List<SequenceContainer> containers, MiddlewareProvider provider) {
+  Widget _buildContainerList(List<SequenceContainer> containers) {
     if (containers.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -193,7 +192,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                       _buildMiniToggle(
                         value: container.enabled,
                         onChanged: (v) {
-                          provider.updateSequenceContainer(
+                          context.read<MiddlewareProvider>().updateSequenceContainer(
                             container.copyWith(enabled: v),
                           );
                         },
@@ -300,7 +299,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
     );
   }
 
-  Widget _buildTimelineView(MiddlewareProvider provider) {
+  Widget _buildTimelineView(List<SequenceContainer> containers) {
     if (_selectedContainerId == null) {
       return Container(
         decoration: BoxDecoration(
@@ -324,7 +323,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
       );
     }
 
-    final container = provider.sequenceContainers
+    final container = containers
         .where((c) => c.id == _selectedContainerId)
         .firstOrNull;
 
@@ -334,22 +333,22 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Settings bar
-        _buildSettingsBar(provider, container),
+        _buildSettingsBar(container),
         const SizedBox(height: 12),
         // Timeline
         Expanded(
-          child: _buildTimeline(provider, container),
+          child: _buildTimeline(container),
         ),
         // Step editor
         if (_selectedStepIndex != null) ...[
           const SizedBox(height: 12),
-          _buildStepEditor(provider, container),
+          _buildStepEditor(container),
         ],
       ],
     );
   }
 
-  Widget _buildSettingsBar(MiddlewareProvider provider, SequenceContainer container) {
+  Widget _buildSettingsBar(SequenceContainer container) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -371,7 +370,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
               padding: const EdgeInsets.only(right: 4),
               child: GestureDetector(
                 onTap: () {
-                  provider.updateSequenceContainer(
+                  context.read<MiddlewareProvider>().updateSequenceContainer(
                     container.copyWith(endBehavior: behavior),
                   );
                 },
@@ -423,7 +422,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                 min: 0.25,
                 max: 4.0,
                 onChanged: (v) {
-                  provider.updateSequenceContainer(
+                  context.read<MiddlewareProvider>().updateSequenceContainer(
                     container.copyWith(speed: v),
                   );
                 },
@@ -441,7 +440,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
           const SizedBox(width: 16),
           // Add step button
           GestureDetector(
-            onTap: () => _showAddStepDialog(provider, container),
+            onTap: () => _showAddStepDialog(container),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -467,7 +466,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
     );
   }
 
-  Widget _buildTimeline(MiddlewareProvider provider, SequenceContainer container) {
+  Widget _buildTimeline(SequenceContainer container) {
     if (container.steps.isEmpty) {
       return Container(
         decoration: BoxDecoration(
@@ -487,7 +486,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
               ),
               const SizedBox(height: 8),
               GestureDetector(
-                onTap: () => _showAddStepDialog(provider, container),
+                onTap: () => _showAddStepDialog(container),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -635,7 +634,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
     );
   }
 
-  Widget _buildStepEditor(MiddlewareProvider provider, SequenceContainer container) {
+  Widget _buildStepEditor(SequenceContainer container) {
     if (_selectedStepIndex == null || _selectedStepIndex! >= container.steps.length) {
       return const SizedBox.shrink();
     }
@@ -667,7 +666,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
               const Spacer(),
               GestureDetector(
                 onTap: () {
-                  provider.removeSequenceStep(container.id, _selectedStepIndex!);
+                  context.read<MiddlewareProvider>().removeSequenceStep(container.id, _selectedStepIndex!);
                   setState(() => _selectedStepIndex = null);
                 },
                 child: Container(
@@ -698,7 +697,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                   color: Colors.orange,
                   onChanged: (v) {
                     final updated = step.copyWith(delayMs: v);
-                    provider.updateSequenceStep(container.id, _selectedStepIndex!, updated);
+                    context.read<MiddlewareProvider>().updateSequenceStep(container.id, _selectedStepIndex!, updated);
                   },
                 ),
               ),
@@ -712,7 +711,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                   color: Colors.teal,
                   onChanged: (v) {
                     final updated = step.copyWith(durationMs: v);
-                    provider.updateSequenceStep(container.id, _selectedStepIndex!, updated);
+                    context.read<MiddlewareProvider>().updateSequenceStep(container.id, _selectedStepIndex!, updated);
                   },
                 ),
               ),
@@ -730,7 +729,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                   color: Colors.green,
                   onChanged: (v) {
                     final updated = step.copyWith(fadeInMs: v);
-                    provider.updateSequenceStep(container.id, _selectedStepIndex!, updated);
+                    context.read<MiddlewareProvider>().updateSequenceStep(container.id, _selectedStepIndex!, updated);
                   },
                 ),
               ),
@@ -744,7 +743,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                   color: Colors.red,
                   onChanged: (v) {
                     final updated = step.copyWith(fadeOutMs: v);
-                    provider.updateSequenceStep(container.id, _selectedStepIndex!, updated);
+                    context.read<MiddlewareProvider>().updateSequenceStep(container.id, _selectedStepIndex!, updated);
                   },
                 ),
               ),
@@ -779,7 +778,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                       onChanged: (v) {
                         if (v != null) {
                           final updated = step.copyWith(loopCount: v);
-                          provider.updateSequenceStep(container.id, _selectedStepIndex!, updated);
+                          context.read<MiddlewareProvider>().updateSequenceStep(container.id, _selectedStepIndex!, updated);
                         }
                       },
                     ),
@@ -833,12 +832,12 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
         const SizedBox(width: 8),
         GestureDetector(
           onTap: () async {
-            final result = await FilePicker.platform.pickFiles(
-              type: FileType.custom,
-              allowedExtensions: ['wav', 'mp3', 'ogg', 'flac', 'aiff'],
+            final path = await AudioWaveformPickerDialog.show(
+              context,
+              title: 'Select Audio for Sequence Step',
             );
-            if (result != null && result.files.single.path != null) {
-              seqProvider.updateStepAudioPath(containerId, step.index, result.files.single.path);
+            if (path != null) {
+              seqProvider.updateStepAudioPath(containerId, step.index, path);
             }
           },
           child: Container(
@@ -922,7 +921,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
     );
   }
 
-  void _showAddStepDialog(MiddlewareProvider provider, SequenceContainer container) {
+  void _showAddStepDialog(SequenceContainer container) {
     final controller = TextEditingController();
 
     showDialog(
@@ -961,7 +960,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
           TextButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
-                provider.addSequenceStep(
+                context.read<MiddlewareProvider>().addSequenceStep(
                   container.id,
                   childId: container.steps.length,
                   childName: controller.text,
@@ -978,10 +977,10 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
     );
   }
 
-  Widget _buildAddContainerDialog(MiddlewareProvider provider) {
+  Widget _buildAddContainerDialog() {
     return _AddSequenceContainerDialog(
       onAdd: (name) {
-        provider.addSequenceContainer(name: name);
+        context.read<MiddlewareProvider>().addSequenceContainer(name: name);
         setState(() => _showAddContainer = false);
       },
       onCancel: () => setState(() => _showAddContainer = false),

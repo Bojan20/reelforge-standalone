@@ -37,8 +37,12 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
+    return Selector<MiddlewareProvider, MusicSystemData>(
+      selector: (_, p) => (
+        segments: p.musicSegments,
+        stingers: p.stingers,
+      ),
+      builder: (context, data, _) {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -57,8 +61,8 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildSegmentsTab(provider),
-                    _buildStingersTab(provider),
+                    _buildSegmentsTab(context, data.segments),
+                    _buildStingersTab(context, data.stingers),
                   ],
                 ),
               ),
@@ -134,32 +138,30 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
     );
   }
 
-  Widget _buildSegmentsTab(MiddlewareProvider provider) {
-    final segments = provider.musicSegments;
-
+  Widget _buildSegmentsTab(BuildContext context, List<MusicSegment> segments) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Segment list
         SizedBox(
           width: 250,
-          child: _buildSegmentList(segments, provider),
+          child: _buildSegmentList(context, segments),
         ),
         const SizedBox(width: 16),
         // Segment editor
         Expanded(
-          child: _buildSegmentEditor(provider),
+          child: _buildSegmentEditor(context, segments),
         ),
       ],
     );
   }
 
-  Widget _buildSegmentList(List<MusicSegment> segments, MiddlewareProvider provider) {
+  Widget _buildSegmentList(BuildContext context, List<MusicSegment> segments) {
     return Column(
       children: [
         // Add button
         GestureDetector(
-          onTap: () => _showAddSegmentDialog(provider),
+          onTap: () => _showAddSegmentDialog(context),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
@@ -262,16 +264,18 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
     );
   }
 
-  Widget _buildSegmentEditor(MiddlewareProvider provider) {
+  Widget _buildSegmentEditor(BuildContext context, List<MusicSegment> segments) {
     if (_selectedSegmentId == null) {
       return _buildEmptyState('Select a segment to edit', Icons.touch_app);
     }
 
-    final segment = provider.musicSegments
+    final segment = segments
         .where((s) => s.id == _selectedSegmentId)
         .firstOrNull;
 
     if (segment == null) return const SizedBox.shrink();
+
+    final provider = context.read<MiddlewareProvider>();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -451,7 +455,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
               ),
               const Spacer(),
               GestureDetector(
-                onTap: () => _showAddMarkerDialog(provider, segment),
+                onTap: () => _showAddMarkerDialog(context, segment),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -553,32 +557,30 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
     }
   }
 
-  Widget _buildStingersTab(MiddlewareProvider provider) {
-    final stingers = provider.stingers;
-
+  Widget _buildStingersTab(BuildContext context, List<Stinger> stingers) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Stinger list
         SizedBox(
           width: 250,
-          child: _buildStingerList(stingers, provider),
+          child: _buildStingerList(context, stingers),
         ),
         const SizedBox(width: 16),
         // Stinger editor
         Expanded(
-          child: _buildStingerEditor(provider),
+          child: _buildStingerEditor(context, stingers),
         ),
       ],
     );
   }
 
-  Widget _buildStingerList(List<Stinger> stingers, MiddlewareProvider provider) {
+  Widget _buildStingerList(BuildContext context, List<Stinger> stingers) {
     return Column(
       children: [
         // Add button
         GestureDetector(
-          onTap: () => _showAddStingerDialog(provider),
+          onTap: () => _showAddStingerDialog(context),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
@@ -679,16 +681,18 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
     );
   }
 
-  Widget _buildStingerEditor(MiddlewareProvider provider) {
+  Widget _buildStingerEditor(BuildContext context, List<Stinger> stingers) {
     if (_selectedStingerId == null) {
       return _buildEmptyState('Select a stinger to edit', Icons.touch_app);
     }
 
-    final stinger = provider.stingers
+    final stinger = stingers
         .where((s) => s.id == _selectedStingerId)
         .firstOrNull;
 
     if (stinger == null) return const SizedBox.shrink();
+
+    final provider = context.read<MiddlewareProvider>();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1051,12 +1055,13 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
     );
   }
 
-  void _showAddSegmentDialog(MiddlewareProvider provider) {
+  void _showAddSegmentDialog(BuildContext context) {
     final controller = TextEditingController();
+    final provider = context.read<MiddlewareProvider>();
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.surfaceDark,
         title: Text('Add Segment', style: TextStyle(color: FluxForgeTheme.textPrimary)),
         content: TextField(
@@ -1076,14 +1081,14 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
                 provider.addMusicSegment(name: controller.text, soundId: 0);
-                Navigator.pop(context);
+                Navigator.pop(ctx);
               }
             },
             child: Text('Add', style: TextStyle(color: Colors.pink)),
@@ -1093,12 +1098,13 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
     );
   }
 
-  void _showAddStingerDialog(MiddlewareProvider provider) {
+  void _showAddStingerDialog(BuildContext context) {
     final controller = TextEditingController();
+    final provider = context.read<MiddlewareProvider>();
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.surfaceDark,
         title: Text('Add Stinger', style: TextStyle(color: FluxForgeTheme.textPrimary)),
         content: TextField(
@@ -1118,14 +1124,14 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
                 provider.addStinger(name: controller.text, soundId: 0);
-                Navigator.pop(context);
+                Navigator.pop(ctx);
               }
             },
             child: Text('Add', style: TextStyle(color: Colors.orange)),
@@ -1135,14 +1141,15 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
     );
   }
 
-  void _showAddMarkerDialog(MiddlewareProvider provider, MusicSegment segment) {
+  void _showAddMarkerDialog(BuildContext context, MusicSegment segment) {
     final controller = TextEditingController();
+    final provider = context.read<MiddlewareProvider>();
     MarkerType selectedType = MarkerType.generic;
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
           backgroundColor: FluxForgeTheme.surfaceDark,
           title: Text('Add Marker', style: TextStyle(color: FluxForgeTheme.textPrimary)),
           content: Column(
@@ -1202,7 +1209,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(ctx),
               child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
             ),
             TextButton(
@@ -1214,7 +1221,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                     positionBars: 0.0,
                     markerType: selectedType,
                   );
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                 }
               },
               child: Text('Add', style: TextStyle(color: Colors.cyan)),

@@ -102,6 +102,8 @@ import '../widgets/slot_lab/auto_event_builder/audio_browser_panel.dart' as aeb;
 import '../widgets/slot_lab/auto_event_builder/droppable_slot_preview.dart';
 import '../widgets/slot_lab/auto_event_builder/drop_target_wrapper.dart';
 import '../models/auto_event_builder_models.dart';
+import '../providers/stage_ingest_provider.dart';
+import '../widgets/stage_ingest/stage_ingest_panel.dart';
 
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
@@ -272,6 +274,8 @@ enum _BottomPanelTab {
   eventList,
   meters,
   autoSpatial,
+  // Stage Ingest (Universal engine integration)
+  stageIngest,
 }
 
 // =============================================================================
@@ -2038,11 +2042,37 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // Only allow repeat for zoom and arrow keys
     if (event is KeyRepeatEvent && !isZoomKey && !isArrowKey) return KeyEventResult.ignored;
 
-    // Space = Play/Stop (no repeat)
+    // Space = Play/Pause (no repeat)
+    // Priority: Stage playback > Timeline playback
     if (key == LogicalKeyboardKey.space) {
-      debugPrint('[SlotLab] SPACE pressed - toggling playback, isPlaying=$_isPlaying');
+      // P0.3: First check if stage playback is active/paused
+      if (_hasSlotLabProvider && (_slotLabProvider.isPlayingStages || _slotLabProvider.isPaused)) {
+        debugPrint('[SlotLab] SPACE pressed - toggling stage pause, isPaused=${_slotLabProvider.isPaused}');
+        _slotLabProvider.togglePauseResume();
+        return KeyEventResult.handled;
+      }
+      // Otherwise toggle timeline playback
+      debugPrint('[SlotLab] SPACE pressed - toggling timeline playback, isPlaying=$_isPlaying');
       _togglePlayback();
       return KeyEventResult.handled;
+    }
+
+    // Escape = Stop all playback (stages and timeline)
+    if (key == LogicalKeyboardKey.escape) {
+      var handled = false;
+      // P0.3: Stop stage playback if active
+      if (_hasSlotLabProvider && (_slotLabProvider.isPlayingStages || _slotLabProvider.isPaused)) {
+        debugPrint('[SlotLab] ESCAPE pressed - stopping stage playback');
+        _slotLabProvider.stopStagePlayback();
+        handled = true;
+      }
+      // Stop timeline playback if active
+      if (_isPlaying) {
+        debugPrint('[SlotLab] ESCAPE pressed - stopping timeline playback');
+        _stopPlayback();
+        handled = true;
+      }
+      if (handled) return KeyEventResult.handled;
     }
 
     // G = Zoom Out (supports hold for continuous zoom)
@@ -8336,6 +8366,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                     _BottomPanelTab.eventList => 'Events',
                     _BottomPanelTab.meters => 'Meters',
                     _BottomPanelTab.autoSpatial => 'AutoSpatial',
+                    _BottomPanelTab.stageIngest => 'Stage Ingest',
                   };
 
                   return InkWell(
@@ -8414,7 +8445,25 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         return _buildMetersContent();
       case _BottomPanelTab.autoSpatial:
         return const AutoSpatialPanel();
+      case _BottomPanelTab.stageIngest:
+        return _buildStageIngestContent();
     }
+  }
+
+  Widget _buildStageIngestContent() {
+    return Consumer<StageIngestProvider>(
+      builder: (context, provider, _) => StageIngestPanel(
+        onTraceSelected: (traceHandle) {
+          // When a trace is selected, could trigger audio preview
+          debugPrint('[SlotLab] Trace selected: $traceHandle');
+        },
+        onLiveEvent: (event) {
+          // When live event arrives, trigger stage audio via global eventRegistry
+          debugPrint('[SlotLab] Live event: ${event.stage}');
+          eventRegistry.triggerStage(event.stage);
+        },
+      ),
+    );
   }
 
   Widget _buildEventLogContent() {
@@ -8446,9 +8495,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             ),
           ),
           const SizedBox(height: 4),
-          // Audio Pool Stats + Forced Outcome
+          // P0.3: Stage Playback Controls + Audio Pool Stats + Forced Outcome
           Row(
             children: [
+              // P0.3: Stage Playback Controls (Pause/Resume/Stop)
+              _buildStagePlaybackControls(),
+              const SizedBox(width: 8),
               // Audio Pool performance indicator
               ListenableBuilder(
                 listenable: AudioPool.instance,
@@ -8463,6 +8515,154 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               Expanded(child: QuickOutcomeBar(provider: _slotLabProvider)),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  /// P0.3: Stage playback control bar (Pause/Resume/Stop)
+  Widget _buildStagePlaybackControls() {
+    final isPlaying = _slotLabProvider.isPlayingStages;
+    final isPaused = _slotLabProvider.isPaused;
+    final isActive = isPlaying || isPaused;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isActive
+            ? const Color(0xFF1A1A22)
+            : const Color(0xFF121216),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isActive
+              ? const Color(0xFF4A9EFF).withOpacity(0.3)
+              : Colors.white.withOpacity(0.1),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Stage label
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? const Color(0xFF4A9EFF).withOpacity(0.2)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              'STAGE',
+              style: TextStyle(
+                color: isActive ? const Color(0xFF4A9EFF) : Colors.white38,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Play/Pause toggle
+          Tooltip(
+            message: isPaused ? 'Resume (Space)' : (isPlaying ? 'Pause (Space)' : 'No active stages'),
+            child: InkWell(
+              onTap: isActive
+                  ? () => _slotLabProvider.togglePauseResume()
+                  : null,
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: isPaused
+                      ? const Color(0xFFFF9040).withOpacity(0.2)
+                      : isPlaying
+                          ? const Color(0xFF40FF90).withOpacity(0.2)
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(
+                  isPaused ? Icons.play_arrow : Icons.pause,
+                  size: 16,
+                  color: isPaused
+                      ? const Color(0xFFFF9040)
+                      : isPlaying
+                          ? const Color(0xFF40FF90)
+                          : Colors.white24,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Stop button
+          Tooltip(
+            message: 'Stop (Esc)',
+            child: InkWell(
+              onTap: isActive
+                  ? () => _slotLabProvider.stopStagePlayback()
+                  : null,
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(
+                  Icons.stop,
+                  size: 16,
+                  color: isActive ? const Color(0xFFFF4060) : Colors.white24,
+                ),
+              ),
+            ),
+          ),
+          // Progress indicator (when playing)
+          if (isPlaying && !isPaused) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF40FF90).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                '${_slotLabProvider.currentStageIndex + 1}/${_slotLabProvider.lastStages.length}',
+                style: const TextStyle(
+                  color: Color(0xFF40FF90),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ],
+          // Paused indicator
+          if (isPaused) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF9040).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.pause, size: 10, color: Color(0xFFFF9040)),
+                  const SizedBox(width: 3),
+                  Text(
+                    'PAUSED @ ${_slotLabProvider.currentStageIndex + 1}',
+                    style: const TextStyle(
+                      color: Color(0xFFFF9040),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

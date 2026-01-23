@@ -51,6 +51,10 @@ pub mod slot_lab_ffi;
 pub mod ale_ffi;
 pub mod auto_spatial_ffi;
 pub mod container_ffi;
+pub mod stage_ffi;
+pub mod ingest_ffi;
+pub mod connector_ffi;
+pub mod offline_ffi;
 mod project;
 pub mod timestretch;
 mod transport;
@@ -326,3 +330,11 @@ pub use auto_spatial_ffi::*;
 
 // Re-export Container FFI (P2 optimization)
 pub use container_ffi::*;
+
+// Re-export Stage Ingest FFI (P5)
+pub use stage_ffi::*;
+pub use ingest_ffi::*;
+pub use connector_ffi::*;
+
+// Re-export Offline DSP FFI (P2.6)
+pub use offline_ffi::*;

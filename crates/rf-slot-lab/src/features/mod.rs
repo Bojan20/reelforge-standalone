@@ -38,6 +38,7 @@ mod free_spins;
 mod gamble;
 mod hold_and_win;
 mod jackpot;
+mod pick_bonus;
 
 pub use chapter::*;
 pub use context::*;
@@ -50,3 +51,4 @@ pub use free_spins::{FreeSpinsChapter, FreeSpinsConfig};
 pub use gamble::{GambleChapter, GambleChoice, GambleConfig, GambleOutcome, GambleType};
 pub use hold_and_win::{HoldAndWinChapter, HoldAndWinConfig, HoldSymbolType, LockedSymbol};
 pub use jackpot::{JackpotChapter, JackpotConfig, JackpotTierConfig};
+pub use pick_bonus::{PickBonusChapter, PickBonusConfig, PickBonusStyle, PickItem, PrizeType};

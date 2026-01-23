@@ -37,6 +37,7 @@ lazy_static = "1.5"
 dashmap = "6.1"
 smallvec = { version = "1.13", features = ["serde"] }
 cpal = { workspace = true }
+memmap2 = "0.9"
 
 # Audio file decoding (MP3, FLAC, OGG, AAC, WAV)
 symphonia = { version = "0.5", default-features = false, features = [

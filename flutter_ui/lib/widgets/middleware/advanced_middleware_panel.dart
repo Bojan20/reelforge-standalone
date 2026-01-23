@@ -10,6 +10,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'ducking_matrix_panel.dart';
@@ -100,8 +101,9 @@ class _AdvancedMiddlewarePanelState extends State<AdvancedMiddlewarePanel>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
+    return Selector<MiddlewareProvider, MiddlewareStats>(
+      selector: (_, p) => p.stats,
+      builder: (context, stats, _) {
         return Container(
           decoration: BoxDecoration(
             color: FluxForgeTheme.surfaceDark,
@@ -111,7 +113,7 @@ class _AdvancedMiddlewarePanelState extends State<AdvancedMiddlewarePanel>
           child: Column(
             children: [
               // Header
-              _buildHeader(provider),
+              _buildHeader(context, stats),
               // Tab bar
               _buildTabBar(),
               // Tab content
@@ -139,9 +141,7 @@ class _AdvancedMiddlewarePanelState extends State<AdvancedMiddlewarePanel>
     );
   }
 
-  Widget _buildHeader(MiddlewareProvider provider) {
-    final stats = provider.stats;
-
+  Widget _buildHeader(BuildContext context, MiddlewareStats stats) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -185,7 +185,7 @@ class _AdvancedMiddlewarePanelState extends State<AdvancedMiddlewarePanel>
             label: 'Load Slot Preset',
             color: Colors.amber,
             onTap: () {
-              provider.loadSlotMachinePreset();
+              context.read<MiddlewareProvider>().loadSlotMachinePreset();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Slot Machine preset loaded!'),
@@ -201,7 +201,7 @@ class _AdvancedMiddlewarePanelState extends State<AdvancedMiddlewarePanel>
             label: 'Reset',
             color: Colors.red,
             onTap: () {
-              provider.resetToDefaults();
+              context.read<MiddlewareProvider>().resetToDefaults();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Reset to defaults'),
@@ -347,10 +347,9 @@ class MiddlewareQuickPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
-        final stats = provider.stats;
-
+    return Selector<MiddlewareProvider, MiddlewareStats>(
+      selector: (_, p) => p.stats,
+      builder: (context, stats, _) {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -531,10 +530,9 @@ class _StateGroupsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
-        final stateGroups = provider.stateGroups;
-
+    return Selector<MiddlewareProvider, List<StateGroup>>(
+      selector: (_, p) => p.stateGroups,
+      builder: (context, stateGroups, _) {
         return Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -554,7 +552,7 @@ class _StateGroupsPanel extends StatelessWidget {
                   const Spacer(),
                   _AddButton(
                     label: 'Add State Group',
-                    onTap: () => _showAddStateGroupDialog(context, provider),
+                    onTap: () => _showAddStateGroupDialog(context),
                   ),
                 ],
               ),
@@ -579,8 +577,8 @@ class _StateGroupsPanel extends StatelessWidget {
                           return _StateGroupCard(
                             group: group,
                             currentState: group.currentStateName,
-                            onStateChange: (stateName) => provider.setStateByName(group.id, stateName),
-                            onDelete: () => provider.unregisterStateGroup(group.id),
+                            onStateChange: (stateName) => context.read<MiddlewareProvider>().setStateByName(group.id, stateName),
+                            onDelete: () => context.read<MiddlewareProvider>().unregisterStateGroup(group.id),
                           );
                         },
                       ),
@@ -592,7 +590,7 @@ class _StateGroupsPanel extends StatelessWidget {
     );
   }
 
-  void _showAddStateGroupDialog(BuildContext context, MiddlewareProvider provider) {
+  void _showAddStateGroupDialog(BuildContext context) {
     final nameController = TextEditingController();
     showDialog(
       context: context,
@@ -617,7 +615,7 @@ class _StateGroupsPanel extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               if (nameController.text.isNotEmpty) {
-                provider.registerStateGroupFromPreset(nameController.text, ['Default']);
+                context.read<MiddlewareProvider>().registerStateGroupFromPreset(nameController.text, ['Default']);
                 Navigator.pop(ctx);
               }
             },
@@ -713,10 +711,9 @@ class _SwitchGroupsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
-        final switchGroups = provider.switchGroups;
-
+    return Selector<MiddlewareProvider, List<SwitchGroup>>(
+      selector: (_, p) => p.switchGroups,
+      builder: (context, switchGroups, _) {
         return Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -736,7 +733,7 @@ class _SwitchGroupsPanel extends StatelessWidget {
                   const Spacer(),
                   _AddButton(
                     label: 'Add Switch Group',
-                    onTap: () => _showAddSwitchGroupDialog(context, provider),
+                    onTap: () => _showAddSwitchGroupDialog(context),
                   ),
                 ],
               ),
@@ -760,7 +757,7 @@ class _SwitchGroupsPanel extends StatelessWidget {
                           final group = switchGroups[index];
                           return _SwitchGroupCard(
                             group: group,
-                            onDelete: () => provider.unregisterSwitchGroup(group.id),
+                            onDelete: () => context.read<MiddlewareProvider>().unregisterSwitchGroup(group.id),
                           );
                         },
                       ),
@@ -772,7 +769,7 @@ class _SwitchGroupsPanel extends StatelessWidget {
     );
   }
 
-  void _showAddSwitchGroupDialog(BuildContext context, MiddlewareProvider provider) {
+  void _showAddSwitchGroupDialog(BuildContext context) {
     final nameController = TextEditingController();
     showDialog(
       context: context,
@@ -797,7 +794,7 @@ class _SwitchGroupsPanel extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               if (nameController.text.isNotEmpty) {
-                provider.registerSwitchGroupFromPreset(nameController.text, ['Default']);
+                context.read<MiddlewareProvider>().registerSwitchGroupFromPreset(nameController.text, ['Default']);
                 Navigator.pop(ctx);
               }
             },
@@ -879,10 +876,9 @@ class _RtpcPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
-        final rtpcs = provider.rtpcDefinitions;
-
+    return Selector<MiddlewareProvider, List<RtpcDefinition>>(
+      selector: (_, p) => p.rtpcDefinitions,
+      builder: (context, rtpcs, _) {
         return Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -902,7 +898,7 @@ class _RtpcPanel extends StatelessWidget {
                   const Spacer(),
                   _AddButton(
                     label: 'Add RTPC',
-                    onTap: () => _showAddRtpcDialog(context, provider),
+                    onTap: () => _showAddRtpcDialog(context),
                   ),
                 ],
               ),
@@ -927,8 +923,8 @@ class _RtpcPanel extends StatelessWidget {
                           return _RtpcCard(
                             rtpc: rtpc,
                             currentValue: rtpc.currentValue,
-                            onValueChange: (v) => provider.setRtpc(rtpc.id, v),
-                            onDelete: () => provider.unregisterRtpc(rtpc.id),
+                            onValueChange: (v) => context.read<MiddlewareProvider>().setRtpc(rtpc.id, v),
+                            onDelete: () => context.read<MiddlewareProvider>().unregisterRtpc(rtpc.id),
                           );
                         },
                       ),
@@ -940,7 +936,7 @@ class _RtpcPanel extends StatelessWidget {
     );
   }
 
-  void _showAddRtpcDialog(BuildContext context, MiddlewareProvider provider) {
+  void _showAddRtpcDialog(BuildContext context) {
     final nameController = TextEditingController();
     showDialog(
       context: context,
@@ -965,7 +961,7 @@ class _RtpcPanel extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               if (nameController.text.isNotEmpty) {
-                provider.registerRtpcFromPreset({
+                context.read<MiddlewareProvider>().registerRtpcFromPreset({
                   'id': DateTime.now().millisecondsSinceEpoch,
                   'name': nameController.text,
                   'min': 0.0,

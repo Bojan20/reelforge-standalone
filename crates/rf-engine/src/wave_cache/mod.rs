@@ -16,8 +16,8 @@ mod query;
 
 pub use builder::{WaveCacheBuilder, BuildProgress, BuildState, build_from_samples};
 pub use format::{
-    WfcFile, WfcHeader, MipLevel, TileData,
-    WFC_MAGIC, WFC_VERSION, NUM_MIP_LEVELS, BASE_TILE_SAMPLES,
+    WfcFile, WfcFileMmap, WfcHeader, MipLevel, TileData,
+    WFC_MAGIC, WFC_VERSION, NUM_MIP_LEVELS, BASE_TILE_SAMPLES, MIP_TILE_SAMPLES,
 };
 pub use query::{WaveCacheQuery, TileRequest, TileResponse, CachedTile, tiles_to_flat_array};
 
@@ -30,24 +30,109 @@ use std::sync::Arc;
 // WAVE CACHE MANAGER
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// P3.4: Threshold for using mmap instead of full load (10 MB)
+const MMAP_THRESHOLD_BYTES: u64 = 10 * 1024 * 1024;
+
+/// P3.4: Cached waveform - either fully loaded or memory-mapped
+#[derive(Clone)]
+pub enum CachedWaveform {
+    /// Fully loaded into heap memory (for small files)
+    Loaded(Arc<WfcFile>),
+    /// Memory-mapped (for large files - P3.4)
+    Mmap(Arc<WfcFileMmap>),
+}
+
+impl CachedWaveform {
+    /// Get memory usage (heap only, mmap doesn't count)
+    pub fn memory_usage(&self) -> usize {
+        match self {
+            CachedWaveform::Loaded(wfc) => wfc.memory_usage(),
+            CachedWaveform::Mmap(mmap) => mmap.memory_usage(), // Only ~100 bytes
+        }
+    }
+
+    /// Check if this is memory-mapped
+    pub fn is_mmap(&self) -> bool {
+        matches!(self, CachedWaveform::Mmap(_))
+    }
+
+    /// Get header
+    pub fn header(&self) -> &WfcHeader {
+        match self {
+            CachedWaveform::Loaded(wfc) => &wfc.header,
+            CachedWaveform::Mmap(mmap) => &mmap.header,
+        }
+    }
+
+    /// Get tile (works for both variants)
+    pub fn get_tile(&self, level: usize, channel: usize, tile_idx: usize) -> Option<TileData> {
+        match self {
+            CachedWaveform::Loaded(wfc) => {
+                wfc.mip_levels.get(level)?
+                    .get_tile(channel, tile_idx)
+                    .cloned()
+            }
+            CachedWaveform::Mmap(mmap) => mmap.get_tile(level, channel, tile_idx),
+        }
+    }
+
+    /// Get tiles range (works for both variants)
+    pub fn get_tiles_range(
+        &self,
+        level: usize,
+        channel: usize,
+        start: usize,
+        end: usize,
+    ) -> Vec<TileData> {
+        match self {
+            CachedWaveform::Loaded(wfc) => {
+                if let Some(mip) = wfc.mip_levels.get(level) {
+                    if let Some(channel_tiles) = mip.tiles.get(channel) {
+                        let s = start.min(channel_tiles.len());
+                        let e = end.min(channel_tiles.len());
+                        return channel_tiles[s..e].to_vec();
+                    }
+                }
+                Vec::new()
+            }
+            CachedWaveform::Mmap(mmap) => mmap.get_tiles_range(level, channel, start, end),
+        }
+    }
+
+    /// Select mip level for zoom
+    pub fn select_mip_level(&self, pixels_per_second: f64, sample_rate: u32) -> usize {
+        match self {
+            CachedWaveform::Loaded(wfc) => wfc.select_mip_level(pixels_per_second, sample_rate),
+            CachedWaveform::Mmap(mmap) => mmap.select_mip_level(pixels_per_second, sample_rate),
+        }
+    }
+}
+
 /// Central manager for all waveform caches
+/// P1.11 FIX: Properly enforces memory budget with LRU eviction
+/// P3.4: Uses mmap for large files (>10MB) to reduce memory usage
 pub struct WaveCacheManager {
     /// Cache directory path
     cache_dir: PathBuf,
 
-    /// In-memory cache of loaded .wfc files
-    loaded_caches: RwLock<HashMap<String, Arc<WfcFile>>>,
+    /// In-memory cache of loaded .wfc files (both full and mmap)
+    /// P3.4: Now stores CachedWaveform enum instead of Arc<WfcFile>
+    loaded_caches: RwLock<HashMap<String, CachedWaveform>>,
 
     /// Active builders (file_hash -> builder)
     active_builders: RwLock<HashMap<String, Arc<WaveCacheBuilder>>>,
 
-    /// Memory budget in bytes
-    #[allow(dead_code)]
-    memory_budget: usize,
+    /// P1.11: LRU order tracking (hash -> last_accessed_ms)
+    lru_order: RwLock<HashMap<String, u64>>,
 
-    /// Current memory usage
-    #[allow(dead_code)]
+    /// Memory budget in bytes (default 512MB)
+    memory_budget: std::sync::atomic::AtomicUsize,
+
+    /// Current memory usage in bytes
     memory_usage: std::sync::atomic::AtomicUsize,
+
+    /// P3.4: Threshold for mmap (configurable)
+    mmap_threshold: std::sync::atomic::AtomicUsize,
 }
 
 impl WaveCacheManager {
@@ -62,15 +147,84 @@ impl WaveCacheManager {
             cache_dir,
             loaded_caches: RwLock::new(HashMap::new()),
             active_builders: RwLock::new(HashMap::new()),
-            memory_budget: 512 * 1024 * 1024, // 512MB default
+            lru_order: RwLock::new(HashMap::new()),
+            memory_budget: std::sync::atomic::AtomicUsize::new(512 * 1024 * 1024), // 512MB default
             memory_usage: std::sync::atomic::AtomicUsize::new(0),
+            mmap_threshold: std::sync::atomic::AtomicUsize::new(MMAP_THRESHOLD_BYTES as usize),
         }
     }
 
     /// Set memory budget in bytes
-    pub fn set_memory_budget(&self, _bytes: usize) {
-        // Note: memory_budget is not atomic, but this is called rarely
-        // and we only need approximate enforcement
+    /// P1.11: Now properly enforced with atomic operations
+    pub fn set_memory_budget(&self, bytes: usize) {
+        self.memory_budget.store(bytes, std::sync::atomic::Ordering::Relaxed);
+        // Trigger eviction if currently over budget
+        self.enforce_budget();
+    }
+
+    /// P1.11: Get current memory usage
+    pub fn current_memory_usage(&self) -> usize {
+        self.memory_usage.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// P1.11: Get memory budget
+    pub fn get_memory_budget(&self) -> usize {
+        self.memory_budget.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// P1.11: Enforce memory budget by evicting LRU caches
+    fn enforce_budget(&self) {
+        let budget = self.memory_budget.load(std::sync::atomic::Ordering::Relaxed);
+        let mut current = self.memory_usage.load(std::sync::atomic::Ordering::Relaxed);
+
+        if current <= budget {
+            return;
+        }
+
+        // Get LRU order snapshot
+        let lru_snapshot: Vec<(String, u64)> = {
+            let lru = self.lru_order.read();
+            let mut entries: Vec<_> = lru.iter()
+                .map(|(k, &v)| (k.clone(), v))
+                .collect();
+            // Sort by access time (oldest first)
+            entries.sort_by_key(|(_, ts)| *ts);
+            entries
+        };
+
+        // Evict until under budget (target 80% to avoid thrashing)
+        let target = (budget * 80) / 100;
+        let mut evicted = 0;
+
+        for (hash, _) in lru_snapshot {
+            if current <= target {
+                break;
+            }
+
+            // Remove from cache
+            if let Some(cache) = self.loaded_caches.write().remove(&hash) {
+                let size = cache.memory_usage();
+                current = self.memory_usage.fetch_sub(size, std::sync::atomic::Ordering::Relaxed) - size;
+                self.lru_order.write().remove(&hash);
+                evicted += 1;
+                log::debug!("[WaveCache] Evicted {} ({} bytes, now {} MB)",
+                    hash, size, current / 1024 / 1024);
+            }
+        }
+
+        if evicted > 0 {
+            log::info!("[WaveCache] Budget enforcement: evicted {} caches, now {} MB / {} MB",
+                evicted, current / 1024 / 1024, budget / 1024 / 1024);
+        }
+    }
+
+    /// P1.11: Update LRU timestamp for a cache
+    fn touch_lru(&self, hash: &str) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        self.lru_order.write().insert(hash.to_string(), now);
     }
 
     /// Get cache file path for an audio file
@@ -95,8 +249,19 @@ impl WaveCacheManager {
         cache_path.exists()
     }
 
+    /// P3.4: Set mmap threshold (files larger than this use mmap)
+    pub fn set_mmap_threshold(&self, bytes: usize) {
+        self.mmap_threshold.store(bytes, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// P3.4: Get mmap threshold
+    pub fn get_mmap_threshold(&self) -> usize {
+        self.mmap_threshold.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     /// Load or create cache for audio file
     /// Returns immediately with existing cache or starts background build
+    /// P3.4: Uses mmap for files larger than mmap_threshold
     pub fn get_or_build(
         &self,
         audio_path: &str,
@@ -108,18 +273,59 @@ impl WaveCacheManager {
 
         // Check if already loaded
         if let Some(cache) = self.loaded_caches.read().get(&hash) {
-            return Ok(GetCacheResult::Ready(Arc::clone(cache)));
+            // P1.11: Update LRU on access
+            self.touch_lru(&hash);
+            return Ok(GetCacheResult::Ready(cache.clone()));
         }
 
         // Check if .wfc file exists on disk
         let cache_path = self.cache_path_for(audio_path);
         if cache_path.exists() {
-            // Load from disk
+            // P3.4: Check file size to decide between mmap and full load
+            let file_size = std::fs::metadata(&cache_path)
+                .map(|m| m.len())
+                .unwrap_or(0);
+
+            let mmap_threshold = self.mmap_threshold.load(std::sync::atomic::Ordering::Relaxed) as u64;
+
+            if file_size > mmap_threshold {
+                // P3.4: Use mmap for large files
+                match WfcFileMmap::open(&cache_path) {
+                    Ok(mmap) => {
+                        let size = mmap.memory_usage(); // Only ~100 bytes
+                        let cached = CachedWaveform::Mmap(Arc::new(mmap));
+
+                        self.memory_usage.fetch_add(size, std::sync::atomic::Ordering::Relaxed);
+                        self.touch_lru(&hash);
+                        self.loaded_caches.write().insert(hash.clone(), cached.clone());
+
+                        log::info!("[WaveCache] Opened {} via mmap ({:.2} MB file, {:.0} bytes heap)",
+                            audio_path, file_size as f64 / 1024.0 / 1024.0, size);
+
+                        return Ok(GetCacheResult::Ready(cached));
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to mmap cache {}: {:?}, falling back to full load", cache_path.display(), e);
+                        // Fall through to full load
+                    }
+                }
+            }
+
+            // Full load for small files (or mmap fallback)
             match WfcFile::load(&cache_path) {
                 Ok(wfc) => {
-                    let wfc = Arc::new(wfc);
-                    self.loaded_caches.write().insert(hash, Arc::clone(&wfc));
-                    return Ok(GetCacheResult::Ready(wfc));
+                    let size = wfc.memory_usage();
+                    let cached = CachedWaveform::Loaded(Arc::new(wfc));
+
+                    // P1.11: Track memory usage
+                    self.memory_usage.fetch_add(size, std::sync::atomic::Ordering::Relaxed);
+                    self.touch_lru(&hash);
+                    self.loaded_caches.write().insert(hash.clone(), cached.clone());
+
+                    // P1.11: Enforce budget after adding
+                    self.enforce_budget();
+
+                    return Ok(GetCacheResult::Ready(cached));
                 }
                 Err(e) => {
                     log::warn!("Failed to load cache {}: {:?}", cache_path.display(), e);
@@ -169,6 +375,7 @@ impl WaveCacheManager {
     }
 
     /// Query tiles for rendering
+    /// P3.4: Works with both loaded and mmap-backed caches
     pub fn query_tiles(
         &self,
         audio_path: &str,
@@ -182,28 +389,70 @@ impl WaveCacheManager {
         let cache = self.loaded_caches.read().get(&hash).cloned()
             .ok_or(WaveCacheError::NotLoaded)?;
 
-        let query = WaveCacheQuery::new(&cache);
-        Ok(query.get_tiles(start_frame, end_frame, pixels_per_second, sample_rate))
+        // P3.4: Use CachedWaveform's unified query interface
+        let mip_level = cache.select_mip_level(pixels_per_second, sample_rate);
+        let samples_per_tile = MIP_TILE_SAMPLES[mip_level];
+        let num_channels = cache.header().channels as usize;
+
+        let start_tile = (start_frame as usize) / samples_per_tile;
+        let end_tile = (end_frame as usize).div_ceil(samples_per_tile);
+
+        let mut channel_tiles: Vec<Vec<CachedTile>> = Vec::with_capacity(num_channels);
+
+        for ch in 0..num_channels {
+            let tile_data = cache.get_tiles_range(mip_level, ch, start_tile, end_tile);
+            let tiles: Vec<CachedTile> = tile_data
+                .into_iter()
+                .enumerate()
+                .map(|(i, td)| CachedTile {
+                    tile_index: start_tile + i,
+                    frame_offset: ((start_tile + i) * samples_per_tile) as u64,
+                    min: td.min,
+                    max: td.max,
+                })
+                .collect();
+            channel_tiles.push(tiles);
+        }
+
+        Ok(vec![TileResponse {
+            mip_level,
+            samples_per_tile,
+            first_tile_frame: (start_tile * samples_per_tile) as u64,
+            tiles: channel_tiles,
+        }])
     }
 
     /// Unload cache from memory (keeps .wfc file on disk)
+    /// P1.11: Properly tracks memory usage on unload
     pub fn unload(&self, audio_path: &str) {
         let hash = Self::hash_path(audio_path);
-        self.loaded_caches.write().remove(&hash);
+        if let Some(cache) = self.loaded_caches.write().remove(&hash) {
+            let size = cache.memory_usage();
+            self.memory_usage.fetch_sub(size, std::sync::atomic::Ordering::Relaxed);
+            self.lru_order.write().remove(&hash);
+        }
     }
 
     /// Delete cache file
+    /// P1.11: Properly tracks memory usage on delete
     pub fn delete_cache(&self, audio_path: &str) {
         let hash = Self::hash_path(audio_path);
-        self.loaded_caches.write().remove(&hash);
+        if let Some(cache) = self.loaded_caches.write().remove(&hash) {
+            let size = cache.memory_usage();
+            self.memory_usage.fetch_sub(size, std::sync::atomic::Ordering::Relaxed);
+            self.lru_order.write().remove(&hash);
+        }
 
         let cache_path = self.cache_path_for(audio_path);
         std::fs::remove_file(cache_path).ok();
     }
 
     /// Clear all caches
+    /// P1.11: Resets memory usage tracking
     pub fn clear_all(&self) {
         self.loaded_caches.write().clear();
+        self.lru_order.write().clear();
+        self.memory_usage.store(0, std::sync::atomic::Ordering::Relaxed);
 
         // Delete all .wfc files
         if let Ok(entries) = std::fs::read_dir(&self.cache_dir) {
@@ -239,16 +488,82 @@ impl Default for WaveCacheManager {
     }
 }
 
+// P1.11: Statistics for monitoring
+// P3.4: Extended with mmap statistics
+impl WaveCacheManager {
+    /// Get cache statistics
+    pub fn stats(&self) -> WaveCacheStats {
+        let caches = self.loaded_caches.read();
+        let mmap_count = caches.values().filter(|c| c.is_mmap()).count();
+
+        WaveCacheStats {
+            loaded_count: caches.len(),
+            mmap_count,
+            memory_usage_bytes: self.memory_usage.load(std::sync::atomic::Ordering::Relaxed),
+            memory_budget_bytes: self.memory_budget.load(std::sync::atomic::Ordering::Relaxed),
+            mmap_threshold_bytes: self.mmap_threshold.load(std::sync::atomic::Ordering::Relaxed),
+            active_builds: self.active_builders.read().len(),
+        }
+    }
+}
+
+/// P1.11/P3.4: Cache statistics
+#[derive(Debug, Clone)]
+pub struct WaveCacheStats {
+    pub loaded_count: usize,
+    /// P3.4: Number of caches using memory-mapping
+    pub mmap_count: usize,
+    pub memory_usage_bytes: usize,
+    pub memory_budget_bytes: usize,
+    /// P3.4: Threshold above which mmap is used
+    pub mmap_threshold_bytes: usize,
+    pub active_builds: usize,
+}
+
+impl WaveCacheStats {
+    pub fn usage_percent(&self) -> f64 {
+        if self.memory_budget_bytes == 0 {
+            return 0.0;
+        }
+        (self.memory_usage_bytes as f64 / self.memory_budget_bytes as f64) * 100.0
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // RESULT TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Result of get_or_build operation
+/// P3.4: Now returns CachedWaveform which may be mmap-backed
 pub enum GetCacheResult {
-    /// Cache is ready to use
-    Ready(Arc<WfcFile>),
+    /// Cache is ready to use (may be mmap for large files)
+    Ready(CachedWaveform),
     /// Cache is being built in background
     Building(Arc<WaveCacheBuilder>),
+}
+
+impl GetCacheResult {
+    /// Legacy helper: Get as WfcFile Arc if this is a loaded (non-mmap) cache
+    /// Returns None if mmap-backed or still building
+    pub fn as_loaded(&self) -> Option<Arc<WfcFile>> {
+        match self {
+            GetCacheResult::Ready(CachedWaveform::Loaded(wfc)) => Some(Arc::clone(wfc)),
+            _ => None,
+        }
+    }
+
+    /// Check if ready (either loaded or mmap)
+    pub fn is_ready(&self) -> bool {
+        matches!(self, GetCacheResult::Ready(_))
+    }
+
+    /// Get the cached waveform if ready
+    pub fn as_cached(&self) -> Option<&CachedWaveform> {
+        match self {
+            GetCacheResult::Ready(c) => Some(c),
+            GetCacheResult::Building(_) => None,
+        }
+    }
 }
 
 /// Wave cache errors

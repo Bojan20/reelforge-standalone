@@ -154,10 +154,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
   }
 
   /// Sync events FROM provider (Slot Lab events appear in Event Editor)
-  void _syncEventsFromProvider(MiddlewareProvider provider) {
+  void _syncEventsFromProviderList(List<MiddlewareEvent> providerEvents) {
     // Provider.events already contains MiddlewareEvents synced from Slot Lab composites
     // via _syncCompositeToMiddleware() in the provider
-    final providerEvents = provider.events;
 
     for (final event in providerEvents) {
       if (!_events.containsKey(event.id)) {
@@ -203,10 +202,11 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     return KeyboardListener(
       focusNode: _keyboardFocusNode,
       onKeyEvent: _handleKeyEvent,
-      child: Consumer<MiddlewareProvider>(
-        builder: (context, provider, _) {
+      child: Selector<MiddlewareProvider, List<MiddlewareEvent>>(
+        selector: (_, p) => p.events,
+        builder: (context, providerEvents, _) {
           // Sync events from provider (includes Slot Lab events)
-          _syncEventsFromProvider(provider);
+          _syncEventsFromProviderList(providerEvents);
 
           return Container(
             decoration: BoxDecoration(

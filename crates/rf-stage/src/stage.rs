@@ -216,6 +216,34 @@ pub enum Stage {
         total_win: f64,
     },
 
+    /// Bonus game starting (pick/wheel/etc)
+    BonusStart {
+        /// Type of bonus game
+        bonus_type: String,
+        /// Total picks available
+        #[serde(default)]
+        total_picks: u32,
+    },
+
+    /// Prize revealed in pick bonus
+    BonusPrizeReveal {
+        /// Type of prize (coins, multiplier, jackpot, etc)
+        prize_type: String,
+        /// Prize value
+        #[serde(default)]
+        prize_value: f64,
+    },
+
+    /// Bonus game complete (pick/wheel/etc)
+    BonusComplete {
+        /// Total win from bonus
+        #[serde(default)]
+        total_win: f64,
+        /// Picks used
+        #[serde(default)]
+        picks_used: u32,
+    },
+
     // ═══════════════════════════════════════════════════════════════════════
     // GAMBLE / RISK
     // ═══════════════════════════════════════════════════════════════════════
@@ -376,7 +404,10 @@ impl Stage {
             Stage::BonusEnter { .. }
             | Stage::BonusChoice { .. }
             | Stage::BonusReveal { .. }
-            | Stage::BonusExit { .. } => StageCategory::Bonus,
+            | Stage::BonusExit { .. }
+            | Stage::BonusStart { .. }
+            | Stage::BonusPrizeReveal { .. }
+            | Stage::BonusComplete { .. } => StageCategory::Bonus,
 
             Stage::GambleStart { .. }
             | Stage::GambleChoice { .. }
@@ -428,6 +459,9 @@ impl Stage {
             Stage::BonusChoice { .. } => "bonus_choice",
             Stage::BonusReveal { .. } => "bonus_reveal",
             Stage::BonusExit { .. } => "bonus_exit",
+            Stage::BonusStart { .. } => "bonus_start",
+            Stage::BonusPrizeReveal { .. } => "bonus_prize_reveal",
+            Stage::BonusComplete { .. } => "bonus_complete",
             Stage::GambleStart { .. } => "gamble_start",
             Stage::GambleChoice { .. } => "gamble_choice",
             Stage::GambleResultStage { .. } => "gamble_result",

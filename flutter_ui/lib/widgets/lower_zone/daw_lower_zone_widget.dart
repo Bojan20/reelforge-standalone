@@ -26,6 +26,10 @@ import '../../providers/mixer_provider.dart';
 import '../../providers/undo_manager.dart';
 import 'export_panels.dart';
 import 'daw_files_browser.dart';
+import '../../services/track_preset_service.dart';
+import '../../providers/dsp_chain_provider.dart';
+import '../../providers/plugin_provider.dart';
+import '../../providers/timeline_playback_provider.dart' show TimelineClipData;
 // Gate and Reverb are accessible via FX Chain panel
 
 class DawLowerZoneWidget extends StatefulWidget {
@@ -38,11 +42,54 @@ class DawLowerZoneWidget extends StatefulWidget {
   /// Callback when a DSP panel action is triggered
   final void Function(String action, Map<String, dynamic>? params)? onDspAction;
 
+  // ─── P0.2: Grid/Snap Settings ─────────────────────────────────────────────
+  /// Whether snap to grid is enabled
+  final bool snapEnabled;
+
+  /// Current snap value in beats (0.25=1/16, 0.5=1/8, 1.0=1/4, 2.0=1/2, 4.0=bar)
+  final double snapValue;
+
+  /// Whether triplet grid is enabled
+  final bool tripletGrid;
+
+  /// Callback when snap enabled changes
+  final ValueChanged<bool>? onSnapEnabledChanged;
+
+  /// Callback when snap value changes
+  final ValueChanged<double>? onSnapValueChanged;
+
+  /// Callback when triplet grid changes
+  final ValueChanged<bool>? onTripletGridChanged;
+
+  // ─── P1.3: Selected Clip for Clip Properties Panel ──────────────────────────
+  /// Currently selected clip for editing in Clips panel
+  /// If null, shows placeholder message
+  final TimelineClipData? selectedClip;
+
+  /// Callback when clip gain is changed (0-2, 1=unity)
+  final void Function(String clipId, double gain)? onClipGainChanged;
+
+  /// Callback when clip fade in is changed (seconds)
+  final void Function(String clipId, double fadeIn)? onClipFadeInChanged;
+
+  /// Callback when clip fade out is changed (seconds)
+  final void Function(String clipId, double fadeOut)? onClipFadeOutChanged;
+
   const DawLowerZoneWidget({
     super.key,
     required this.controller,
     this.selectedTrackId,
     this.onDspAction,
+    this.snapEnabled = true,
+    this.snapValue = 0.25,
+    this.tripletGrid = false,
+    this.onSnapEnabledChanged,
+    this.onSnapValueChanged,
+    this.onTripletGridChanged,
+    this.selectedClip,
+    this.onClipGainChanged,
+    this.onClipFadeInChanged,
+    this.onClipFadeOutChanged,
   });
 
   @override
@@ -339,31 +386,150 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  /// Compact presets browser
+  /// P0.1: Track Presets Browser with real service integration
   Widget _buildCompactPresetsBrowser() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildBrowserHeader('PRESETS', Icons.tune),
-          const SizedBox(height: 12),
-          _buildBrowserSearchBar(),
-          const SizedBox(height: 12),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                childAspectRatio: 2.5,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+    return ListenableBuilder(
+      listenable: TrackPresetService.instance,
+      builder: (context, _) {
+        final service = TrackPresetService.instance;
+        final presets = service.presets;
+
+        // Initialize presets if empty
+        if (presets.isEmpty && !service.isLoading) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            service.initializeFactoryPresets();
+          });
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with Save button
+              Row(
+                children: [
+                  _buildBrowserHeader('TRACK PRESETS', Icons.tune),
+                  const Spacer(),
+                  _buildPresetActionButton(
+                    Icons.add,
+                    'Save Current',
+                    _onSaveCurrentAsPreset,
+                  ),
+                ],
               ),
-              itemCount: 12,
-              itemBuilder: (context, index) {
-                final presets = ['Clean', 'Warm', 'Punch', 'Air', 'Vintage', 'Modern',
-                                 'Soft', 'Bright', 'Dark', 'Natural', 'Tight', 'Wide'];
-                return _buildPresetCard(presets[index]);
-              },
+              const SizedBox(height: 8),
+              // Category filter
+              _buildPresetCategoryFilter(),
+              const SizedBox(height: 8),
+              // Search bar
+              _buildBrowserSearchBar(),
+              const SizedBox(height: 8),
+              // Presets grid
+              Expanded(
+                child: service.isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: LowerZoneColors.dawAccent,
+                        ),
+                      )
+                    : presets.isEmpty
+                        ? _buildEmptyPresetsState()
+                        : GridView.builder(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              childAspectRatio: 2.2,
+                              crossAxisSpacing: 6,
+                              mainAxisSpacing: 6,
+                            ),
+                            itemCount: presets.length,
+                            itemBuilder: (context, index) {
+                              return _buildPresetCard(presets[index]);
+                            },
+                          ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// P0.1: Category filter chips
+  Widget _buildPresetCategoryFilter() {
+    return SizedBox(
+      height: 24,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _buildCategoryChip('All', null),
+          ...TrackPresetService.categories.map((c) => _buildCategoryChip(c, c)),
+        ],
+      ),
+    );
+  }
+
+  String? _selectedPresetCategory;
+
+  Widget _buildCategoryChip(String label, String? category) {
+    final isSelected = _selectedPresetCategory == category;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _selectedPresetCategory = category);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? LowerZoneColors.dawAccent
+                : LowerZoneColors.bgSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? LowerZoneColors.dawAccent
+                  : LowerZoneColors.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// P0.1: Empty presets state
+  Widget _buildEmptyPresetsState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.library_music_outlined,
+            size: 32,
+            color: LowerZoneColors.textTertiary,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'No presets yet',
+            style: TextStyle(
+              fontSize: 11,
+              color: LowerZoneColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Save your track settings as a preset',
+            style: TextStyle(
+              fontSize: 9,
+              color: LowerZoneColors.textTertiary,
             ),
           ),
         ],
@@ -371,56 +537,370 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  Widget _buildPresetCard(String name) {
-    return Container(
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgSurface,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: LowerZoneColors.border),
-      ),
-      child: Center(
-        child: Text(
-          name,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            color: LowerZoneColors.textPrimary,
+  /// P0.1: Preset action button
+  Widget _buildPresetActionButton(IconData icon, String tooltip, VoidCallback onTap) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: LowerZoneColors.dawAccent.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: LowerZoneColors.dawAccent.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 4),
+              Text(
+                tooltip,
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: LowerZoneColors.dawAccent,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  /// Compact plugins scanner
+  /// P0.1: Save current track as preset
+  void _onSaveCurrentAsPreset() {
+    // Show save dialog
+    showDialog(
+      context: context,
+      builder: (ctx) => _TrackPresetSaveDialog(
+        onSave: (name, category) async {
+          final preset = TrackPreset(
+            name: name,
+            category: category,
+            createdAt: DateTime.now(),
+            volume: 1.0, // TODO: Get from selected track
+            pan: 0.0,
+            outputBus: 'master',
+          );
+          final success = await TrackPresetService.instance.savePreset(preset);
+          if (success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Saved preset: $name'),
+                backgroundColor: Colors.green.shade700,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  /// P0.1: Preset card with load/delete actions
+  Widget _buildPresetCard(TrackPreset preset) {
+    return GestureDetector(
+      onTap: () => _onPresetSelected(preset),
+      onSecondaryTap: () => _showPresetContextMenu(preset),
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: LowerZoneColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    preset.name,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: LowerZoneColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (preset.category != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: _categoryColor(preset.category!).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Text(
+                      preset.category!.substring(0, math.min(3, preset.category!.length)),
+                      style: TextStyle(
+                        fontSize: 7,
+                        fontWeight: FontWeight.w600,
+                        color: _categoryColor(preset.category!),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (preset.description != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                preset.description!,
+                style: const TextStyle(
+                  fontSize: 8,
+                  color: LowerZoneColors.textTertiary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 2),
+            // Settings preview
+            Row(
+              children: [
+                _buildMiniIndicator(Icons.volume_up, '${(preset.volume * 100).toInt()}%'),
+                const SizedBox(width: 4),
+                _buildMiniIndicator(Icons.swap_horiz, '${(preset.pan * 100).toInt().abs()}${preset.pan >= 0 ? 'R' : 'L'}'),
+                if (preset.compressor.enabled) ...[
+                  const SizedBox(width: 4),
+                  Icon(Icons.compress, size: 8, color: LowerZoneColors.dawAccent),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniIndicator(IconData icon, String value) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 8, color: LowerZoneColors.textTertiary),
+        const SizedBox(width: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 7,
+            color: LowerZoneColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _categoryColor(String category) {
+    return switch (category) {
+      'Vocals' => const Color(0xFF4A9EFF),
+      'Drums' => const Color(0xFFFF6B6B),
+      'Bass' => const Color(0xFF845EF7),
+      'Guitar' => const Color(0xFFFF922B),
+      'Keys' => const Color(0xFF51CF66),
+      'Synth' => const Color(0xFF22B8CF),
+      'FX' => const Color(0xFFF06595),
+      'Ambience' => const Color(0xFF94D82D),
+      'Master' => const Color(0xFFFFD43B),
+      _ => const Color(0xFF748FFC),
+    };
+  }
+
+  void _onPresetSelected(TrackPreset preset) {
+    // Notify parent to apply preset
+    widget.onDspAction?.call('applyPreset', {'preset': preset.name});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Applied preset: ${preset.name}'),
+        backgroundColor: LowerZoneColors.dawAccent,
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _showPresetContextMenu(TrackPreset preset) {
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(100, 100, 100, 100),
+      items: [
+        const PopupMenuItem(value: 'apply', child: Text('Apply to Track')),
+        const PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
+        const PopupMenuItem(value: 'export', child: Text('Export...')),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: Text('Delete', style: TextStyle(color: Colors.red.shade300)),
+        ),
+      ],
+    ).then((value) async {
+      if (value == null) return;
+      switch (value) {
+        case 'apply':
+          _onPresetSelected(preset);
+          break;
+        case 'duplicate':
+          final newPreset = preset.copyWith(
+            name: '${preset.name} Copy',
+            createdAt: DateTime.now(),
+          );
+          await TrackPresetService.instance.savePreset(newPreset);
+          break;
+        case 'delete':
+          await TrackPresetService.instance.deletePreset(preset.name);
+          break;
+      }
+    });
+  }
+
+  /// P1.2: Plugins scanner — Connected to PluginProvider
   Widget _buildCompactPluginsScanner() {
+    // Try to get PluginProvider from context
+    PluginProvider? pluginProvider;
+    try {
+      pluginProvider = context.watch<PluginProvider>();
+    } catch (_) {
+      // Provider not available
+    }
+
+    if (pluginProvider == null) {
+      return _buildPluginsFallback();
+    }
+
+    final isScanning = pluginProvider.scanState == ScanState.scanning;
+    final plugins = pluginProvider.filteredPlugins;
+
+    // Group plugins by format
+    final vst3Plugins = plugins.where((p) => p.format == PluginFormat.vst3).toList();
+    final auPlugins = plugins.where((p) => p.format == PluginFormat.audioUnit).toList();
+    final clapPlugins = plugins.where((p) => p.format == PluginFormat.clap).toList();
+    final lv2Plugins = plugins.where((p) => p.format == PluginFormat.lv2).toList();
+
     return Container(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header with Rescan button
           Row(
             children: [
               _buildBrowserHeader('PLUGINS', Icons.extension),
+              const SizedBox(width: 8),
+              // Plugin count badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.dawAccent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${plugins.length}',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: LowerZoneColors.dawAccent,
+                  ),
+                ),
+              ),
               const Spacer(),
-              _buildActionChip(Icons.refresh, 'Rescan'),
+              // Rescan button
+              GestureDetector(
+                onTap: isScanning ? null : () => pluginProvider!.scanPlugins(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isScanning
+                        ? LowerZoneColors.dawAccent.withValues(alpha: 0.2)
+                        : LowerZoneColors.bgSurface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: isScanning ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isScanning)
+                        SizedBox(
+                          width: 10,
+                          height: 10,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            valueColor: AlwaysStoppedAnimation(LowerZoneColors.dawAccent),
+                          ),
+                        )
+                      else
+                        Icon(Icons.refresh, size: 12, color: LowerZoneColors.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        isScanning ? 'Scanning...' : 'Rescan',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: isScanning ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          _buildBrowserSearchBar(),
-          const SizedBox(height: 12),
+          // Search bar
+          _buildPluginSearchBar(pluginProvider),
+          const SizedBox(height: 8),
+          // Format filter chips
+          _buildPluginFormatFilters(pluginProvider),
+          const SizedBox(height: 8),
+          // Plugin list
           Expanded(
-            child: ListView(
+            child: plugins.isEmpty
+                ? _buildNoPluginsMessage(pluginProvider)
+                : ListView(
+                    children: [
+                      if (vst3Plugins.isNotEmpty)
+                        _buildPluginCategoryConnected('VST3', vst3Plugins, pluginProvider),
+                      if (auPlugins.isNotEmpty)
+                        _buildPluginCategoryConnected('AU', auPlugins, pluginProvider),
+                      if (clapPlugins.isNotEmpty)
+                        _buildPluginCategoryConnected('CLAP', clapPlugins, pluginProvider),
+                      if (lv2Plugins.isNotEmpty)
+                        _buildPluginCategoryConnected('LV2', lv2Plugins, pluginProvider),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Fallback when PluginProvider is not available
+  Widget _buildPluginsFallback() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBrowserHeader('PLUGINS', Icons.extension),
+          const SizedBox(height: 24),
+          const Center(
+            child: Column(
               children: [
-                _buildPluginCategory('VST3', [
-                  ('FabFilter Pro-Q 3', true),
-                  ('FabFilter Pro-C 2', true),
-                  ('FabFilter Pro-L 2', true),
-                  ('Waves SSL Channel', false),
-                ]),
-                _buildPluginCategory('AU', [
-                  ('Apple AUGraphicEQ', true),
-                  ('Apple AUPitch', true),
-                ]),
+                Icon(Icons.extension_off, size: 48, color: LowerZoneColors.textMuted),
+                SizedBox(height: 12),
+                Text(
+                  'Plugin Provider not available',
+                  style: TextStyle(fontSize: 12, color: LowerZoneColors.textMuted),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Add PluginProvider to widget tree',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textTertiary),
+                ),
               ],
             ),
           ),
@@ -429,29 +909,116 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  Widget _buildActionChip(IconData icon, String label) {
+  /// P1.2: Plugin search bar
+  Widget _buildPluginSearchBar(PluginProvider provider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      height: 28,
       decoration: BoxDecoration(
-        color: LowerZoneColors.bgSurface,
+        color: LowerZoneColors.bgDeepest,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: LowerZoneColors.border),
       ),
+      child: TextField(
+        onChanged: provider.setSearchQuery,
+        style: const TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary),
+        decoration: InputDecoration(
+          hintText: 'Search plugins...',
+          hintStyle: const TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
+          prefixIcon: const Icon(Icons.search, size: 14, color: LowerZoneColors.textMuted),
+          suffixIcon: provider.searchQuery.isNotEmpty
+              ? GestureDetector(
+                  onTap: () => provider.setSearchQuery(''),
+                  child: const Icon(Icons.clear, size: 14, color: LowerZoneColors.textMuted),
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        ),
+      ),
+    );
+  }
+
+  /// P1.2: Plugin format filter chips
+  Widget _buildPluginFormatFilters(PluginProvider provider) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: LowerZoneColors.textSecondary),
+          _buildFormatChip('All', null, provider),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary),
+          _buildFormatChip('VST3', PluginFormat.vst3, provider),
+          const SizedBox(width: 4),
+          _buildFormatChip('AU', PluginFormat.audioUnit, provider),
+          const SizedBox(width: 4),
+          _buildFormatChip('CLAP', PluginFormat.clap, provider),
+          const SizedBox(width: 4),
+          _buildFormatChip('LV2', PluginFormat.lv2, provider),
+          const SizedBox(width: 8),
+          // Favorites toggle
+          GestureDetector(
+            onTap: () => provider.setShowFavoritesOnly(!provider.showFavoritesOnly),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: provider.showFavoritesOnly
+                    ? LowerZoneColors.warning.withValues(alpha: 0.2)
+                    : LowerZoneColors.bgSurface,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: provider.showFavoritesOnly ? LowerZoneColors.warning : LowerZoneColors.border,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    provider.showFavoritesOnly ? Icons.star : Icons.star_border,
+                    size: 12,
+                    color: provider.showFavoritesOnly ? LowerZoneColors.warning : LowerZoneColors.textMuted,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    'Favorites',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: provider.showFavoritesOnly ? LowerZoneColors.warning : LowerZoneColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPluginCategory(String category, List<(String, bool)> plugins) {
+  Widget _buildFormatChip(String label, PluginFormat? format, PluginProvider provider) {
+    final isSelected = provider.formatFilter == format;
+    return GestureDetector(
+      onTap: () => provider.setFormatFilter(format),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isSelected ? LowerZoneColors.dawAccent.withValues(alpha: 0.2) : LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// P1.2: Plugin category with connected items
+  Widget _buildPluginCategoryConnected(String category, List<PluginInfo> plugins, PluginProvider provider) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -461,6 +1028,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Category header
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -488,30 +1056,110 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
               ],
             ),
           ),
-          ...plugins.map((p) => _buildPluginItem(p.$1, p.$2)),
+          // Plugin items
+          ...plugins.map((p) => _buildPluginItemConnected(p, provider)),
         ],
       ),
     );
   }
 
-  Widget _buildPluginItem(String name, bool isValid) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
+  Widget _buildPluginItemConnected(PluginInfo plugin, PluginProvider provider) {
+    return GestureDetector(
+      onTap: () {
+        // Add to recent when clicked
+        provider.addToRecent(plugin.id);
+        // TODO: Insert into track slot
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: LowerZoneColors.border.withValues(alpha: 0.3))),
+        ),
+        child: Row(
+          children: [
+            // Plugin icon based on category
+            Icon(
+              plugin.category == PluginCategory.instrument ? Icons.piano : Icons.tune,
+              size: 14,
+              color: LowerZoneColors.dawAccent,
+            ),
+            const SizedBox(width: 8),
+            // Plugin name
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plugin.name,
+                    style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    plugin.vendor,
+                    style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            // Favorite toggle
+            GestureDetector(
+              onTap: () => provider.toggleFavorite(plugin.id),
+              child: Icon(
+                plugin.isFavorite ? Icons.star : Icons.star_border,
+                size: 14,
+                color: plugin.isFavorite ? LowerZoneColors.warning : LowerZoneColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// P1.2: No plugins message
+  Widget _buildNoPluginsMessage(PluginProvider provider) {
+    final hasFilters = provider.searchQuery.isNotEmpty ||
+        provider.formatFilter != null ||
+        provider.showFavoritesOnly;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            isValid ? Icons.check_circle : Icons.error,
-            size: 12,
-            color: isValid ? LowerZoneColors.success : LowerZoneColors.error,
+            hasFilters ? Icons.search_off : Icons.extension_off,
+            size: 32,
+            color: LowerZoneColors.textMuted,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(height: 8),
           Text(
-            name,
-            style: TextStyle(
-              fontSize: 10,
-              color: isValid ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted,
-            ),
+            hasFilters ? 'No plugins match filters' : 'No plugins found',
+            style: const TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
           ),
+          if (hasFilters) ...[
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: provider.clearFilters,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.dawAccent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: LowerZoneColors.dawAccent),
+                ),
+                child: Text(
+                  'Clear Filters',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.dawAccent),
+                ),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            Text(
+              'Click "Rescan" to scan for plugins',
+              style: const TextStyle(fontSize: 9, color: LowerZoneColors.textTertiary),
+            ),
+          ],
         ],
       ),
     );
@@ -744,7 +1392,16 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
+  /// P2.1: Track list connected to MixerProvider
   Widget _buildTrackList() {
+    // Try to get MixerProvider from context
+    MixerProvider? mixerProvider;
+    try {
+      mixerProvider = context.watch<MixerProvider>();
+    } catch (_) {
+      // Provider not available
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: LowerZoneColors.bgDeepest,
@@ -754,10 +1411,99 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       child: ListView(
         padding: const EdgeInsets.all(4),
         children: [
-          _buildTrackListItem('Master', Icons.speaker, true),
-          _buildTrackListItem('Track 1', Icons.audiotrack, false),
-          _buildTrackListItem('Track 2', Icons.audiotrack, false),
-          _buildTrackListItem('Track 3', Icons.audiotrack, false),
+          // Master channel (always shown)
+          if (mixerProvider != null)
+            _buildMixerTrackItem(mixerProvider.master, isMaster: true)
+          else
+            _buildTrackListItem('Master', Icons.speaker, true),
+
+          // Divider
+          if (mixerProvider != null && mixerProvider.channels.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Divider(height: 1, color: LowerZoneColors.border),
+            ),
+
+          // Audio channels from MixerProvider
+          if (mixerProvider != null)
+            ...mixerProvider.channels.map((ch) => _buildMixerTrackItem(ch))
+          else ...[
+            _buildTrackListItem('Track 1', Icons.audiotrack, false),
+            _buildTrackListItem('Track 2', Icons.audiotrack, false),
+          ],
+
+          // Buses section
+          if (mixerProvider != null && mixerProvider.buses.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Text(
+                'BUSES',
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  color: LowerZoneColors.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            ...mixerProvider.buses.map((bus) => _buildMixerTrackItem(bus, isBus: true)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// P2.1: Build track item from MixerChannel
+  Widget _buildMixerTrackItem(MixerChannel channel, {bool isMaster = false, bool isBus = false}) {
+    final icon = isMaster
+        ? Icons.speaker
+        : isBus
+            ? Icons.call_split
+            : Icons.audiotrack;
+
+    final accentColor = isMaster
+        ? LowerZoneColors.dawAccent
+        : isBus
+            ? const Color(0xFF9B59B6)
+            : channel.color;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      margin: const EdgeInsets.only(bottom: 2),
+      decoration: BoxDecoration(
+        color: isMaster ? accentColor.withValues(alpha: 0.1) : null,
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Row(
+        children: [
+          // Color indicator
+          Container(
+            width: 3,
+            height: 12,
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+          Icon(icon, size: 12, color: isMaster ? accentColor : LowerZoneColors.textMuted),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              channel.name,
+              style: TextStyle(
+                fontSize: 9,
+                color: isMaster ? accentColor : LowerZoneColors.textPrimary,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Mute indicator
+          if (channel.muted)
+            Icon(Icons.volume_off, size: 10, color: LowerZoneColors.warning),
+          // Solo indicator
+          if (channel.soloed)
+            Icon(Icons.headphones, size: 10, color: LowerZoneColors.warning),
         ],
       ),
     );
@@ -804,27 +1550,96 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  /// Compact Clip Properties — Editable version
+  /// P1.3: Compact Clip Properties — Connected to selectedClip
   /// Displays and allows editing of selected clip properties
   Widget _buildCompactClipProperties() {
-    // For now we show editable controls with default values
-    // TODO: Connect to actual TimelineClip from selection provider
+    final clip = widget.selectedClip;
+
+    // No clip selected — show placeholder
+    if (clip == null) {
+      return _buildNoClipSelected();
+    }
+
+    // Show editable controls for selected clip
     return _EditableClipPanel(
-      clipName: 'audio_clip_01.wav',
-      startTime: 0.0,
-      duration: 5.234,
-      gain: 1.0, // Unity gain
-      fadeIn: 0.01, // 10ms
-      fadeOut: 0.05, // 50ms
+      clipName: clip.name,
+      startTime: clip.startTime,
+      duration: clip.duration,
+      gain: clip.trackVolume, // Use track volume as clip gain
+      fadeIn: 0.0, // TODO: Add fadeIn to TimelineClipData
+      fadeOut: 0.0, // TODO: Add fadeOut to TimelineClipData
       onGainChanged: (value) {
-        widget.onDspAction?.call('clip_gain', {'gain': value});
+        widget.onClipGainChanged?.call(clip.id, value);
+        // Also call legacy onDspAction for backwards compatibility
+        widget.onDspAction?.call('clip_gain', {'clipId': clip.id, 'gain': value});
       },
       onFadeInChanged: (value) {
-        widget.onDspAction?.call('clip_fade_in', {'duration': value});
+        widget.onClipFadeInChanged?.call(clip.id, value);
+        widget.onDspAction?.call('clip_fade_in', {'clipId': clip.id, 'duration': value});
       },
       onFadeOutChanged: (value) {
-        widget.onDspAction?.call('clip_fade_out', {'duration': value});
+        widget.onClipFadeOutChanged?.call(clip.id, value);
+        widget.onDspAction?.call('clip_fade_out', {'clipId': clip.id, 'duration': value});
       },
+    );
+  }
+
+  /// P1.3: Placeholder when no clip is selected
+  Widget _buildNoClipSelected() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.content_cut, size: 14, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 6),
+              Text(
+                'CLIP PROPERTIES',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: LowerZoneColors.dawAccent,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.touch_app,
+                    size: 48,
+                    color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'No Clip Selected',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: LowerZoneColors.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Select a clip on the timeline to edit',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: LowerZoneColors.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -869,7 +1684,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  /// Compact Grid Settings
+  /// P0.2: Interactive Grid Settings with actual snap control
   Widget _buildCompactGridSettings() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -882,10 +1697,27 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  _buildGridOption('Grid Type', 'Bars+Beats', Icons.music_note),
-                  _buildGridOption('Grid Resolution', '1/16', Icons.straighten),
-                  _buildGridOption('Snap Mode', 'Magnetic', Icons.adjust),
-                  _buildGridOption('Triplet Grid', 'Off', Icons.grid_3x3),
+                  // Snap Enable Toggle
+                  _buildGridToggle(
+                    label: 'Snap to Grid',
+                    value: widget.snapEnabled,
+                    icon: Icons.grid_on,
+                    onChanged: widget.onSnapEnabledChanged,
+                  ),
+                  const SizedBox(height: 8),
+                  // Grid Resolution Selector
+                  _buildGridResolutionSelector(),
+                  const SizedBox(height: 8),
+                  // Triplet Grid Toggle
+                  _buildGridToggle(
+                    label: 'Triplet Grid',
+                    value: widget.tripletGrid,
+                    icon: Icons.grid_3x3,
+                    onChanged: widget.onTripletGridChanged,
+                  ),
+                  const SizedBox(height: 12),
+                  // Visual indicator of current snap
+                  _buildSnapIndicator(),
                 ],
               ),
             ),
@@ -895,33 +1727,238 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  Widget _buildGridOption(String label, String value, IconData icon) {
+  /// P0.2: Grid toggle with on/off state
+  Widget _buildGridToggle({
+    required String label,
+    required bool value,
+    required IconData icon,
+    ValueChanged<bool>? onChanged,
+  }) {
+    final isEnabled = onChanged != null;
+    return GestureDetector(
+      onTap: isEnabled ? () => onChanged(!value) : null,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: value
+              ? LowerZoneColors.dawAccent.withOpacity(0.15)
+              : LowerZoneColors.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: value
+                ? LowerZoneColors.dawAccent.withOpacity(0.5)
+                : LowerZoneColors.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: value ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: value ? LowerZoneColors.textPrimary : LowerZoneColors.textSecondary,
+                ),
+              ),
+            ),
+            Container(
+              width: 36,
+              height: 20,
+              decoration: BoxDecoration(
+                color: value
+                    ? LowerZoneColors.dawAccent
+                    : LowerZoneColors.bgMid,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 150),
+                alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  margin: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: value ? Colors.white : LowerZoneColors.textTertiary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// P0.2: Grid resolution selector with common note values
+  Widget _buildGridResolutionSelector() {
+    const resolutions = [
+      (0.0625, '1/64'),
+      (0.125, '1/32'),
+      (0.25, '1/16'),
+      (0.5, '1/8'),
+      (1.0, '1/4'),
+      (2.0, '1/2'),
+      (4.0, 'Bar'),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(8),
-      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         color: LowerZoneColors.bgDeepest,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: LowerZoneColors.border),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 14, color: LowerZoneColors.dawAccent),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
+          Row(
+            children: [
+              const Icon(Icons.straighten, size: 14, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 8),
+              const Text(
+                'Grid Resolution',
+                style: TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
+              ),
+              const Spacer(),
+              Text(
+                _snapValueToLabel(widget.snapValue),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: LowerZoneColors.dawAccent,
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: LowerZoneColors.bgMid,
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Text(value, style: TextStyle(fontSize: 10, color: LowerZoneColors.dawAccent)),
+          const SizedBox(height: 8),
+          // Resolution chips
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: resolutions.map((r) {
+              final (value, label) = r;
+              final isSelected = (widget.snapValue - value).abs() < 0.001;
+              return GestureDetector(
+                onTap: widget.onSnapValueChanged != null
+                    ? () => widget.onSnapValueChanged!(value)
+                    : null,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? LowerZoneColors.dawAccent
+                        : LowerZoneColors.bgMid,
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: isSelected
+                          ? LowerZoneColors.dawAccent
+                          : LowerZoneColors.border,
+                    ),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
     );
+  }
+
+  /// P0.2: Visual snap indicator showing current grid lines
+  Widget _buildSnapIndicator() {
+    final snapLabel = _snapValueToLabel(widget.snapValue);
+    final isActive = widget.snapEnabled;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isActive
+            ? LowerZoneColors.dawAccent.withOpacity(0.1)
+            : LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isActive
+              ? LowerZoneColors.dawAccent.withOpacity(0.3)
+              : LowerZoneColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Grid preview
+          Container(
+            width: 60,
+            height: 24,
+            decoration: BoxDecoration(
+              color: LowerZoneColors.bgMid,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: CustomPaint(
+              painter: _GridPreviewPainter(
+                snapValue: widget.snapValue,
+                isActive: isActive,
+                accentColor: LowerZoneColors.dawAccent,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isActive ? 'Snap Active' : 'Snap Disabled',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
+                  ),
+                ),
+                Text(
+                  isActive
+                      ? 'Grid: $snapLabel${widget.tripletGrid ? ' (Triplet)' : ''}'
+                      : 'Free positioning enabled',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: LowerZoneColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            isActive ? Icons.lock : Icons.lock_open,
+            size: 16,
+            color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Convert snap value (beats) to display label
+  String _snapValueToLabel(double value) {
+    if (value <= 0.0625) return '1/64';
+    if (value <= 0.125) return '1/32';
+    if (value <= 0.25) return '1/16';
+    if (value <= 0.5) return '1/8';
+    if (value <= 1.0) return '1/4';
+    if (value <= 2.0) return '1/2';
+    return 'Bar';
   }
 
   Widget _buildSectionHeader(String title, IconData icon) {
@@ -1583,7 +2620,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     return FabFilterLimiterPanel(trackId: trackId);
   }
 
-  /// FX Chain — Shows all processors in chain
+  /// P0.4: FX Chain — Shows all processors in chain with reorder support
   Widget _buildFxChainPanel() {
     final trackId = widget.selectedTrackId;
     if (trackId == null) {
@@ -1593,69 +2630,417 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     return _buildFxChainView(trackId);
   }
 
-  /// FX Chain View — Horizontal chain of active processors
+  /// P0.4: FX Chain View with DspChainProvider integration
   Widget _buildFxChainView(int trackId) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
+    return ListenableBuilder(
+      listenable: DspChainProvider.instance,
+      builder: (context, _) {
+        final provider = DspChainProvider.instance;
+
+        // Initialize chain if not exists
+        if (!provider.hasChain(trackId)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            provider.initializeChain(trackId);
+          });
+        }
+
+        final chain = provider.getChain(trackId);
+        final sortedNodes = chain.sortedNodes;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.link, size: 16, color: LowerZoneColors.dawAccent),
-              const SizedBox(width: 8),
-              Text(
-                'FX CHAIN — Track $trackId',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: LowerZoneColors.dawAccent,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              const Spacer(),
-              _buildChainActionButton(Icons.add, 'Add', () {
-                widget.onDspAction?.call('addProcessor', {'trackId': trackId});
-              }),
-              const SizedBox(width: 8),
-              _buildChainActionButton(Icons.clear_all, 'Clear', () {
-                widget.onDspAction?.call('clearChain', {'trackId': trackId});
-              }),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Chain visualization
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
+              // Header
+              Row(
                 children: [
-                  // Input
-                  _buildChainNode('INPUT', Icons.input, isEndpoint: true),
-                  _buildChainConnector(),
-                  // Processors
-                  _buildChainProcessor('EQ', Icons.equalizer, true, () {
-                    widget.controller.setProcessSubTab(DawProcessSubTab.eq);
+                  Icon(Icons.link, size: 16, color: LowerZoneColors.dawAccent),
+                  const SizedBox(width: 8),
+                  Text(
+                    'FX CHAIN — Track $trackId',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: LowerZoneColors.dawAccent,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Chain bypass toggle
+                  _buildChainBypassToggle(trackId, chain.bypass),
+                  const Spacer(),
+                  // Add processor button with menu
+                  _buildAddProcessorButton(trackId),
+                  const SizedBox(width: 8),
+                  _buildChainActionButton(Icons.copy, 'Copy', () {
+                    provider.copyChain(trackId);
                   }),
-                  _buildChainConnector(),
-                  _buildChainProcessor('COMP', Icons.compress, true, () {
-                    widget.controller.setProcessSubTab(DawProcessSubTab.comp);
+                  if (provider.hasClipboard) ...[
+                    const SizedBox(width: 4),
+                    _buildChainActionButton(Icons.paste, 'Paste', () {
+                      provider.pasteChain(trackId);
+                    }),
+                  ],
+                  const SizedBox(width: 8),
+                  _buildChainActionButton(Icons.clear_all, 'Clear', () {
+                    provider.clearChain(trackId);
                   }),
-                  _buildChainConnector(),
-                  _buildChainProcessor('LIMIT', Icons.volume_up, false, () {
-                    widget.controller.setProcessSubTab(DawProcessSubTab.limiter);
-                  }),
-                  _buildChainConnector(),
-                  // Output
-                  _buildChainNode('OUTPUT', Icons.output, isEndpoint: true),
                 ],
               ),
-            ),
+              const SizedBox(height: 16),
+              // Chain visualization with reorder
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      // Input node
+                      _buildChainNode('INPUT', Icons.input, isEndpoint: true),
+                      _buildChainConnector(),
+                      // Processors (reorderable)
+                      if (sortedNodes.isEmpty)
+                        _buildEmptyChainPlaceholder(trackId)
+                      else
+                        ...sortedNodes.expand((node) => [
+                              _buildDraggableProcessor(trackId, node),
+                              _buildChainConnector(),
+                            ]),
+                      // Output node
+                      _buildChainNode('OUTPUT', Icons.output, isEndpoint: true),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  /// P0.4: Chain bypass toggle
+  Widget _buildChainBypassToggle(int trackId, bool bypassed) {
+    return GestureDetector(
+      onTap: () => DspChainProvider.instance.toggleChainBypass(trackId),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: bypassed
+              ? Colors.orange.withOpacity(0.2)
+              : LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: bypassed ? Colors.orange : LowerZoneColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              bypassed ? Icons.power_off : Icons.power,
+              size: 12,
+              color: bypassed ? Colors.orange : LowerZoneColors.textSecondary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              bypassed ? 'BYPASSED' : 'ACTIVE',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: bypassed ? Colors.orange : LowerZoneColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  /// P0.4: Add processor button with dropdown menu
+  Widget _buildAddProcessorButton(int trackId) {
+    return PopupMenuButton<DspNodeType>(
+      tooltip: 'Add Processor',
+      offset: const Offset(0, 30),
+      color: LowerZoneColors.bgMid,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(6),
+        side: const BorderSide(color: LowerZoneColors.border),
+      ),
+      onSelected: (type) {
+        DspChainProvider.instance.addNode(trackId, type);
+      },
+      itemBuilder: (context) => DspNodeType.values.map((type) {
+        return PopupMenuItem(
+          value: type,
+          child: Row(
+            children: [
+              Icon(_nodeTypeIcon(type), size: 14, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 8),
+              Text(
+                type.fullName,
+                style: const TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.dawAccent.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: LowerZoneColors.dawAccent.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, size: 12, color: LowerZoneColors.dawAccent),
+            const SizedBox(width: 4),
+            Text(
+              'Add',
+              style: TextStyle(
+                fontSize: 10,
+                color: LowerZoneColors.dawAccent,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// P0.4: Empty chain placeholder with drop zone
+  Widget _buildEmptyChainPlaceholder(int trackId) {
+    return DragTarget<DspNodeType>(
+      onAcceptWithDetails: (details) {
+        DspChainProvider.instance.addNode(trackId, details.data);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+        return Container(
+          width: 150,
+          height: 70,
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: isHovering
+                ? LowerZoneColors.dawAccent.withOpacity(0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isHovering
+                  ? LowerZoneColors.dawAccent
+                  : LowerZoneColors.border,
+              style: BorderStyle.solid,
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.add_circle_outline,
+                  size: 20,
+                  color: isHovering
+                      ? LowerZoneColors.dawAccent
+                      : LowerZoneColors.textTertiary,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Add processor',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: isHovering
+                        ? LowerZoneColors.dawAccent
+                        : LowerZoneColors.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// P0.4: Draggable processor node with bypass toggle
+  Widget _buildDraggableProcessor(int trackId, DspNode node) {
+    return Draggable<String>(
+      data: node.id,
+      feedback: Material(
+        color: Colors.transparent,
+        child: _buildProcessorCard(node, isDragging: true),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: _buildProcessorCard(node),
+      ),
+      child: DragTarget<String>(
+        onAcceptWithDetails: (details) {
+          final draggedId = details.data;
+          if (draggedId != node.id) {
+            DspChainProvider.instance.swapNodes(trackId, draggedId, node.id);
+          }
+        },
+        builder: (context, candidateData, rejectedData) {
+          final isHovering = candidateData.isNotEmpty;
+          return _buildProcessorCard(node, isDropTarget: isHovering, trackId: trackId);
+        },
+      ),
+    );
+  }
+
+  /// P0.4: Processor card with controls
+  Widget _buildProcessorCard(DspNode node, {bool isDragging = false, bool isDropTarget = false, int? trackId}) {
+    final isActive = !node.bypass;
+    return GestureDetector(
+      onTap: trackId != null ? () => _navigateToProcessor(node.type) : null,
+      child: Container(
+        width: 100,
+        height: 70,
+        decoration: BoxDecoration(
+          color: isDropTarget
+              ? LowerZoneColors.dawAccent.withOpacity(0.2)
+              : isActive
+                  ? LowerZoneColors.dawAccent.withOpacity(0.15)
+                  : LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDropTarget
+                ? LowerZoneColors.dawAccent
+                : isActive
+                    ? LowerZoneColors.dawAccent
+                    : LowerZoneColors.border,
+            width: isDropTarget ? 2 : 1,
+          ),
+          boxShadow: isDragging
+              ? [
+                  BoxShadow(
+                    color: LowerZoneColors.dawAccent.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
+        ),
+        child: Stack(
+          children: [
+            // Main content
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _nodeTypeIcon(node.type),
+                  size: 20,
+                  color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  node.type.shortName,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isActive ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted,
+                  ),
+                ),
+                if (node.wetDry < 1.0)
+                  Text(
+                    '${(node.wetDry * 100).toInt()}%',
+                    style: const TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary),
+                  ),
+              ],
+            ),
+            // Bypass toggle
+            if (trackId != null)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: GestureDetector(
+                  onTap: () => DspChainProvider.instance.toggleNodeBypass(trackId, node.id),
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: node.bypass
+                          ? Colors.orange.withOpacity(0.3)
+                          : LowerZoneColors.bgDeepest,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: node.bypass ? Colors.orange : LowerZoneColors.border,
+                      ),
+                    ),
+                    child: Icon(
+                      node.bypass ? Icons.power_off : Icons.power,
+                      size: 10,
+                      color: node.bypass ? Colors.orange : LowerZoneColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            // Remove button
+            if (trackId != null)
+              Positioned(
+                top: 4,
+                left: 4,
+                child: GestureDetector(
+                  onTap: () => DspChainProvider.instance.removeNode(trackId, node.id),
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: LowerZoneColors.bgDeepest,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: LowerZoneColors.border),
+                    ),
+                    child: const Icon(Icons.close, size: 10, color: LowerZoneColors.textMuted),
+                  ),
+                ),
+              ),
+            // Drag indicator
+            Positioned(
+              bottom: 4,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Icon(
+                  Icons.drag_indicator,
+                  size: 12,
+                  color: LowerZoneColors.textTertiary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Navigate to processor panel
+  void _navigateToProcessor(DspNodeType type) {
+    final subTab = switch (type) {
+      DspNodeType.eq => DawProcessSubTab.eq,
+      DspNodeType.compressor => DawProcessSubTab.comp,
+      DspNodeType.limiter => DawProcessSubTab.limiter,
+      _ => null,
+    };
+    if (subTab != null) {
+      widget.controller.setProcessSubTab(subTab);
+    }
+  }
+
+  /// Get icon for node type
+  IconData _nodeTypeIcon(DspNodeType type) {
+    return switch (type) {
+      DspNodeType.eq => Icons.equalizer,
+      DspNodeType.compressor => Icons.compress,
+      DspNodeType.limiter => Icons.volume_up,
+      DspNodeType.gate => Icons.door_front_door,
+      DspNodeType.reverb => Icons.waves,
+      DspNodeType.delay => Icons.timer,
+      DspNodeType.saturation => Icons.whatshot,
+      DspNodeType.deEsser => Icons.record_voice_over,
+    };
   }
 
   Widget _buildChainActionButton(IconData icon, String label, VoidCallback onTap) {
@@ -2712,6 +4097,233 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P0.2: GRID PREVIEW PAINTER
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Custom painter for grid preview visualization
+class _GridPreviewPainter extends CustomPainter {
+  final double snapValue;
+  final bool isActive;
+  final Color accentColor;
+
+  _GridPreviewPainter({
+    required this.snapValue,
+    required this.isActive,
+    required this.accentColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = isActive
+          ? accentColor.withOpacity(0.6)
+          : LowerZoneColors.textTertiary.withOpacity(0.3)
+      ..strokeWidth = 1;
+
+    // Calculate number of grid lines based on snap value
+    // Assume 4 beats visible in preview
+    final beatsVisible = 4.0;
+    final gridLines = (beatsVisible / snapValue).round().clamp(2, 16);
+    final spacing = size.width / gridLines;
+
+    // Draw vertical grid lines
+    for (int i = 0; i <= gridLines; i++) {
+      final x = i * spacing;
+      final isMajor = i % 4 == 0;
+      paint.strokeWidth = isMajor ? 1.5 : 0.5;
+      paint.color = isActive
+          ? accentColor.withOpacity(isMajor ? 0.8 : 0.4)
+          : LowerZoneColors.textTertiary.withOpacity(isMajor ? 0.5 : 0.2);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+
+    // Draw a sample "clip" to show snap behavior
+    if (isActive) {
+      final clipPaint = Paint()
+        ..color = accentColor.withOpacity(0.3)
+        ..style = PaintingStyle.fill;
+      final clipRect = Rect.fromLTWH(
+        spacing * 1.5,
+        size.height * 0.2,
+        spacing * 2,
+        size.height * 0.6,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(clipRect, const Radius.circular(2)),
+        clipPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GridPreviewPainter oldDelegate) {
+    return oldDelegate.snapValue != snapValue ||
+        oldDelegate.isActive != isActive ||
+        oldDelegate.accentColor != accentColor;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P0.1: TRACK PRESET SAVE DIALOG
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _TrackPresetSaveDialog extends StatefulWidget {
+  final void Function(String name, String? category) onSave;
+
+  const _TrackPresetSaveDialog({required this.onSave});
+
+  @override
+  State<_TrackPresetSaveDialog> createState() => _TrackPresetSaveDialogState();
+}
+
+class _TrackPresetSaveDialogState extends State<_TrackPresetSaveDialog> {
+  final _nameController = TextEditingController();
+  String? _selectedCategory;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: LowerZoneColors.bgDeep,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: LowerZoneColors.border),
+      ),
+      title: Row(
+        children: [
+          Icon(Icons.save_outlined, size: 20, color: LowerZoneColors.dawAccent),
+          const SizedBox(width: 8),
+          const Text(
+            'Save Track Preset',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: LowerZoneColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 300,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Name field
+            const Text(
+              'Preset Name',
+              style: TextStyle(
+                fontSize: 11,
+                color: LowerZoneColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _nameController,
+              autofocus: true,
+              style: const TextStyle(
+                fontSize: 12,
+                color: LowerZoneColors.textPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: 'My Track Preset',
+                hintStyle: const TextStyle(color: LowerZoneColors.textTertiary),
+                filled: true,
+                fillColor: LowerZoneColors.bgSurface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: LowerZoneColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: LowerZoneColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: LowerZoneColors.dawAccent),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Category selector
+            const Text(
+              'Category',
+              style: TextStyle(
+                fontSize: 11,
+                color: LowerZoneColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: TrackPresetService.categories.map((category) {
+                final isSelected = _selectedCategory == category;
+                return GestureDetector(
+                  onTap: () => setState(() {
+                    _selectedCategory = isSelected ? null : category;
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? LowerZoneColors.dawAccent
+                          : LowerZoneColors.bgSurface,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: isSelected
+                            ? LowerZoneColors.dawAccent
+                            : LowerZoneColors.border,
+                      ),
+                    ),
+                    child: Text(
+                      category,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: LowerZoneColors.textSecondary),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final name = _nameController.text.trim();
+            if (name.isEmpty) return;
+            widget.onSave(name, _selectedCategory);
+            Navigator.of(context).pop();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: LowerZoneColors.dawAccent,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

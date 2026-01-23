@@ -1389,6 +1389,435 @@ pub extern "C" fn slot_lab_gdd_to_model(gdd_json: *const c_char) -> *mut c_char 
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// HOLD & WIN — Feature State Access
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Hold & Win state for FFI export
+#[derive(serde::Serialize)]
+struct HoldAndWinStateJson {
+    is_active: bool,
+    remaining_respins: u8,
+    total_respins: u8,
+    locked_count: usize,
+    grid_size: u8,
+    fill_percentage: f64,
+    total_value: f64,
+    locked_symbols: Vec<LockedSymbolJson>,
+}
+
+#[derive(serde::Serialize)]
+struct LockedSymbolJson {
+    position: u8,
+    value: f64,
+    symbol_type: String,
+}
+
+/// Check if Hold & Win feature is currently active
+///
+/// Returns 1 if active, 0 otherwise
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_hold_and_win_is_active() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => {
+            if engine.is_hold_and_win_active() { 1 } else { 0 }
+        }
+        None => 0,
+    }
+}
+
+/// Get remaining respins in Hold & Win feature
+///
+/// Returns remaining respins count, or 0 if not active
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_hold_and_win_remaining_respins() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.hold_and_win_remaining_respins() as i32,
+        None => 0,
+    }
+}
+
+/// Get fill percentage of Hold & Win grid (0.0 - 1.0)
+///
+/// Returns fill percentage, or 0.0 if not active
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_hold_and_win_fill_percentage() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.hold_and_win_fill_percentage(),
+        None => 0.0,
+    }
+}
+
+/// Get number of locked symbols in Hold & Win grid
+///
+/// Returns locked symbol count, or 0 if not active
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_hold_and_win_locked_count() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.hold_and_win_locked_count() as i32,
+        None => 0,
+    }
+}
+
+/// Get complete Hold & Win state as JSON
+///
+/// Returns JSON with: is_active, remaining_respins, locked_count, fill_percentage,
+/// total_value, locked_symbols array (position, value, symbol_type)
+///
+/// CALLER MUST FREE the returned string using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_hold_and_win_get_state_json() -> *mut c_char {
+    let guard = ENGINE_V2.read();
+    let json = match &*guard {
+        Some(engine) => {
+            let state = engine.hold_and_win_state();
+            match state {
+                Some(snapshot) => {
+                    let state_json = HoldAndWinStateJson {
+                        is_active: snapshot.is_active,
+                        remaining_respins: snapshot.data.get("remaining_respins")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0) as u8,
+                        total_respins: snapshot.current_step as u8,
+                        locked_count: snapshot.data.get("locked_count")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0) as usize,
+                        grid_size: 15, // Default grid size
+                        fill_percentage: engine.hold_and_win_fill_percentage(),
+                        total_value: snapshot.accumulated_win,
+                        locked_symbols: engine.hold_and_win_locked_symbols()
+                            .iter()
+                            .map(|sym| LockedSymbolJson {
+                                position: sym.position,
+                                value: sym.value,
+                                symbol_type: format!("{:?}", sym.symbol_type),
+                            })
+                            .collect(),
+                    };
+                    serde_json::to_string(&state_json).unwrap_or_else(|_| "{}".to_string())
+                }
+                None => {
+                    // Not active, return empty state
+                    let empty = HoldAndWinStateJson {
+                        is_active: false,
+                        remaining_respins: 0,
+                        total_respins: 0,
+                        locked_count: 0,
+                        grid_size: 15,
+                        fill_percentage: 0.0,
+                        total_value: 0.0,
+                        locked_symbols: Vec::new(),
+                    };
+                    serde_json::to_string(&empty).unwrap_or_else(|_| "{}".to_string())
+                }
+            }
+        }
+        None => "{}".to_string(),
+    };
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get total accumulated value in current Hold & Win session
+///
+/// Returns accumulated value, or 0.0 if not active
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_hold_and_win_total_value() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.hold_and_win_total_value(),
+        None => 0.0,
+    }
+}
+
+/// Force trigger Hold & Win feature (for testing/demo)
+///
+/// Returns 1 on success, 0 if engine not initialized or feature already active
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_hold_and_win_force_trigger() -> i32 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => {
+            if engine.force_trigger_hold_and_win() { 1 } else { 0 }
+        }
+        None => 0,
+    }
+}
+
+/// Add a locked symbol to Hold & Win grid (for testing/demo)
+///
+/// position: 0-14 (for 5x3 grid)
+/// value: coin value
+/// symbol_type: 0=Normal, 1=Mini, 2=Minor, 3=Major, 4=Grand
+///
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_hold_and_win_add_locked_symbol(
+    position: u8,
+    value: f64,
+    symbol_type: i32,
+) -> i32 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => {
+            let sym_type = match symbol_type {
+                0 => rf_slot_lab::features::HoldSymbolType::Normal,
+                1 => rf_slot_lab::features::HoldSymbolType::Mini,
+                2 => rf_slot_lab::features::HoldSymbolType::Minor,
+                3 => rf_slot_lab::features::HoldSymbolType::Major,
+                4 => rf_slot_lab::features::HoldSymbolType::Grand,
+                _ => rf_slot_lab::features::HoldSymbolType::Normal,
+            };
+            if engine.hold_and_win_add_locked_symbol(position, value, sym_type) {
+                1
+            } else {
+                0
+            }
+        }
+        None => 0,
+    }
+}
+
+/// Complete Hold & Win feature and get final payout
+///
+/// Returns final payout value, or 0.0 if not active
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_hold_and_win_complete() -> f64 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => engine.hold_and_win_complete(),
+        None => 0.0,
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PICK BONUS FEATURE FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Check if Pick Bonus is active
+/// Returns 1 if active, 0 if not
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_pick_bonus_is_active() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => {
+            if engine.is_pick_bonus_active() { 1 } else { 0 }
+        }
+        None => 0,
+    }
+}
+
+/// Get picks made so far
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_pick_bonus_picks_made() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.pick_bonus_picks_made() as i32,
+        None => 0,
+    }
+}
+
+/// Get total items in pick bonus
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_pick_bonus_total_items() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.pick_bonus_total_items() as i32,
+        None => 0,
+    }
+}
+
+/// Get current multiplier
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_pick_bonus_multiplier() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.pick_bonus_multiplier(),
+        None => 1.0,
+    }
+}
+
+/// Get total win accumulated
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_pick_bonus_total_win() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.pick_bonus_total_win(),
+        None => 0.0,
+    }
+}
+
+/// Force trigger Pick Bonus (for testing)
+/// Returns 1 if triggered, 0 if failed
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_pick_bonus_force_trigger() -> i32 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => {
+            if engine.force_trigger_pick_bonus() { 1 } else { 0 }
+        }
+        None => 0,
+    }
+}
+
+/// Make a pick in Pick Bonus
+/// Returns JSON string with prize info or null if not active
+/// JSON: {"prize_type": "coins", "prize_value": 100.0, "game_over": false}
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_pick_bonus_make_pick() -> *mut c_char {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => {
+            if let Some((prize_type, prize_value, game_over)) = engine.pick_bonus_make_pick() {
+                let json = serde_json::json!({
+                    "prize_type": prize_type,
+                    "prize_value": prize_value,
+                    "game_over": game_over,
+                });
+                let json_str = serde_json::to_string(&json).unwrap_or_default();
+                CString::new(json_str).unwrap().into_raw()
+            } else {
+                std::ptr::null_mut()
+            }
+        }
+        None => std::ptr::null_mut(),
+    }
+}
+
+/// Get Pick Bonus state as JSON
+/// Returns JSON string or null
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_pick_bonus_get_state_json() -> *mut c_char {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => {
+            if let Some(json_str) = engine.pick_bonus_get_state_json() {
+                CString::new(json_str).unwrap().into_raw()
+            } else {
+                std::ptr::null_mut()
+            }
+        }
+        None => std::ptr::null_mut(),
+    }
+}
+
+/// Complete Pick Bonus and return final payout
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_pick_bonus_complete() -> f64 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => engine.pick_bonus_complete(),
+        None => 0.0,
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GAMBLE FEATURE FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Check if Gamble is active
+/// Returns 1 if active, 0 if not
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_gamble_is_active() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => {
+            if engine.is_gamble_active() { 1 } else { 0 }
+        }
+        None => 0,
+    }
+}
+
+/// Get current stake in gamble
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_gamble_current_stake() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.gamble_current_stake(),
+        None => 0.0,
+    }
+}
+
+/// Get attempts used in gamble
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_gamble_attempts_used() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.gamble_attempts_used() as i32,
+        None => 0,
+    }
+}
+
+/// Force trigger Gamble with initial stake
+/// Returns 1 if triggered, 0 if failed
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_gamble_force_trigger(initial_stake: f64) -> i32 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => {
+            if engine.force_trigger_gamble(initial_stake) { 1 } else { 0 }
+        }
+        None => 0,
+    }
+}
+
+/// Make a gamble choice
+/// choice_index: 0=first option, 1=second option, etc.
+/// Returns JSON: {"won": true, "new_stake": 200.0, "game_over": false}
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_gamble_make_choice(choice_index: i32) -> *mut c_char {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => {
+            if let Some((won, new_stake, game_over)) = engine.gamble_make_choice(choice_index as u8) {
+                let json = serde_json::json!({
+                    "won": won,
+                    "new_stake": new_stake,
+                    "game_over": game_over,
+                });
+                let json_str = serde_json::to_string(&json).unwrap_or_default();
+                CString::new(json_str).unwrap().into_raw()
+            } else {
+                std::ptr::null_mut()
+            }
+        }
+        None => std::ptr::null_mut(),
+    }
+}
+
+/// Collect gamble winnings and end
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_gamble_collect() -> f64 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => engine.gamble_collect(),
+        None => 0.0,
+    }
+}
+
+/// Get Gamble state as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_gamble_get_state_json() -> *mut c_char {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => {
+            if let Some(json_str) = engine.gamble_get_state_json() {
+                CString::new(json_str).unwrap().into_raw()
+            } else {
+                std::ptr::null_mut()
+            }
+        }
+        None => std::ptr::null_mut(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

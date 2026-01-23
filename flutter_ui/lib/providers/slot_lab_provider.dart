@@ -90,6 +90,22 @@ class SlotLabProvider extends ChangeNotifier {
   int _totalReels = 5; // Default, can be configured
   int _playbackGeneration = 0; // Incremented on each new spin to invalidate old timers
 
+  // ─── P0.3: Pause/Resume State ─────────────────────────────────────────────
+  /// True when stage playback is paused (suspended, not stopped)
+  bool _isPaused = false;
+
+  /// Timestamp when pause was initiated (for accurate resume timing)
+  int _pausedAtTimestampMs = 0;
+
+  /// Elapsed time at pause point (ms into current stage delay)
+  int _pausedElapsedMs = 0;
+
+  /// Remaining delay for the next stage when paused
+  int _pausedRemainingDelayMs = 0;
+
+  /// Scheduled next stage time (DateTime.now().millisecondsSinceEpoch + delayMs)
+  int _scheduledNextStageTimeMs = 0;
+
   // ─── Persistent UI State (survives screen switches) ───────────────────────
   /// Audio pool now comes from AudioAssetManager (single source of truth)
   /// This getter provides backwards compatibility for existing code
@@ -181,6 +197,12 @@ class SlotLabProvider extends ChangeNotifier {
   bool get isPlayingStages => _isPlayingStages;
   int get currentStageIndex => _currentStageIndex;
   bool get aleAutoSync => _aleAutoSync;
+
+  /// P0.3: True when stage playback is paused (can be resumed)
+  bool get isPaused => _isPaused;
+
+  /// P0.3: True when stages are playing and NOT paused
+  bool get isActivelyPlaying => _isPlayingStages && !_isPaused;
 
   /// P0.6: Anticipation pre-trigger offset in ms
   int get anticipationPreTriggerMs => _anticipationPreTriggerMs;
@@ -750,10 +772,15 @@ class SlotLabProvider extends ChangeNotifier {
       }
     }
 
-    _stagePlaybackTimer = Timer(Duration(milliseconds: delayMs.clamp(10, 5000)), () {
+    // P0.3: Store scheduled time for pause/resume calculation
+    final actualDelayMs = delayMs.clamp(10, 5000);
+    _scheduledNextStageTimeMs = DateTime.now().millisecondsSinceEpoch + actualDelayMs;
+
+    _stagePlaybackTimer = Timer(Duration(milliseconds: actualDelayMs), () {
       // Check if this timer belongs to the current playback session
-      if (!_isPlayingStages || _playbackGeneration != generation) {
-        debugPrint('[SlotLabProvider] Ignoring stale timer (gen: $generation, current: $_playbackGeneration)');
+      // P0.3: Also check if paused
+      if (!_isPlayingStages || _playbackGeneration != generation || _isPaused) {
+        debugPrint('[SlotLabProvider] Ignoring stale timer (gen: $generation, current: $_playbackGeneration, paused: $_isPaused)');
         return;
       }
 
@@ -1131,18 +1158,145 @@ class SlotLabProvider extends ChangeNotifier {
     return context;
   }
 
-  /// Stop stage playback
+  /// Stop stage playback (full reset)
   void stopStagePlayback() {
     _stagePlaybackTimer?.cancel();
     _audioPreTriggerTimer?.cancel();
     _isPlayingStages = false;
+    _isPaused = false; // P0.3: Reset pause state
+    _pausedAtTimestampMs = 0;
+    _pausedElapsedMs = 0;
+    _pausedRemainingDelayMs = 0;
+    _currentStageIndex = 0; // P0.3: Reset to beginning
     // Release SlotLab section
     UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
+    debugPrint('[SlotLabProvider] Stage playback STOPPED (full reset)');
     notifyListeners();
   }
 
   /// Alias for stopStagePlayback - used by mode switch isolation
   void stopAllPlayback() => stopStagePlayback();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0.3: PAUSE/RESUME SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Pause stage playback (suspend timers, preserve position)
+  ///
+  /// Unlike stop(), pause() preserves:
+  /// - Current stage index
+  /// - Playback generation
+  /// - Section acquisition
+  /// - Remaining delay for next stage
+  ///
+  /// Call [resumeStages()] to continue from paused position.
+  void pauseStages() {
+    if (!_isPlayingStages || _isPaused) {
+      debugPrint('[SlotLabProvider] pauseStages() ignored - not playing or already paused');
+      return;
+    }
+
+    // Calculate how much time has elapsed since we scheduled the next stage
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _pausedAtTimestampMs = now;
+
+    // Calculate remaining delay
+    if (_scheduledNextStageTimeMs > now) {
+      _pausedRemainingDelayMs = _scheduledNextStageTimeMs - now;
+    } else {
+      _pausedRemainingDelayMs = 0;
+    }
+
+    // Cancel timers but DON'T cancel generation (so we can resume)
+    _stagePlaybackTimer?.cancel();
+    _audioPreTriggerTimer?.cancel();
+
+    _isPaused = true;
+
+    // Pause Rust engine audio (delegates to UnifiedPlaybackController)
+    UnifiedPlaybackController.instance.pause();
+
+    debugPrint('[SlotLabProvider] Stages PAUSED at index $_currentStageIndex, remaining delay: ${_pausedRemainingDelayMs}ms');
+    notifyListeners();
+  }
+
+  /// Resume paused stage playback
+  ///
+  /// Continues from where pause() left off:
+  /// - Same stage index
+  /// - Uses remaining delay (not full delay)
+  /// - Restarts audio engine
+  void resumeStages() {
+    if (!_isPlayingStages || !_isPaused) {
+      debugPrint('[SlotLabProvider] resumeStages() ignored - not paused');
+      return;
+    }
+
+    _isPaused = false;
+
+    // Resume Rust engine audio
+    UnifiedPlaybackController.instance.play();
+
+    // If we have remaining delay, schedule the next stage with that delay
+    if (_pausedRemainingDelayMs > 0 && _currentStageIndex < _lastStages.length - 1) {
+      _scheduleNextStageWithDelay(_pausedRemainingDelayMs);
+      debugPrint('[SlotLabProvider] Stages RESUMED from index $_currentStageIndex with ${_pausedRemainingDelayMs}ms remaining');
+    } else if (_currentStageIndex < _lastStages.length - 1) {
+      // No remaining delay, just schedule normally
+      _scheduleNextStage();
+      debugPrint('[SlotLabProvider] Stages RESUMED from index $_currentStageIndex (no delay remaining)');
+    } else {
+      // We were at the last stage
+      _isPlayingStages = false;
+      UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
+      debugPrint('[SlotLabProvider] Stages RESUMED but already at end - completing');
+    }
+
+    _pausedRemainingDelayMs = 0;
+    _pausedAtTimestampMs = 0;
+
+    notifyListeners();
+  }
+
+  /// Toggle between paused and playing state
+  ///
+  /// Convenience method for UI buttons:
+  /// - If playing → pause
+  /// - If paused → resume
+  /// - If stopped → do nothing (use spin() to start)
+  void togglePauseResume() {
+    if (_isPaused) {
+      resumeStages();
+    } else if (_isPlayingStages) {
+      pauseStages();
+    }
+    // If not playing at all, do nothing - user needs to spin first
+  }
+
+  /// Schedule next stage with explicit delay (used for resume)
+  void _scheduleNextStageWithDelay(int delayMs) {
+    if (_currentStageIndex >= _lastStages.length - 1) {
+      _isPlayingStages = false;
+      UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
+      notifyListeners();
+      return;
+    }
+
+    final generation = _playbackGeneration;
+    _scheduledNextStageTimeMs = DateTime.now().millisecondsSinceEpoch + delayMs;
+
+    _stagePlaybackTimer = Timer(Duration(milliseconds: delayMs.clamp(10, 5000)), () {
+      // Check if playback was cancelled or paused
+      if (!_isPlayingStages || _playbackGeneration != generation || _isPaused) {
+        debugPrint('[SlotLabProvider] Timer fired but playback invalid (gen: $generation vs $_playbackGeneration, paused: $_isPaused)');
+        return;
+      }
+
+      _currentStageIndex++;
+      _triggerStage(_lastStages[_currentStageIndex]);
+      _scheduleNextStage();
+    });
+  }
 
   /// Manually trigger a specific stage event
   void triggerStageManually(int stageIndex) {

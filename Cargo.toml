@@ -26,6 +26,10 @@ members = [
     "crates/rf-slot-lab",
     # Adaptive Layer Engine
     "crates/rf-ale",
+    # Offline DSP Processing
+    "crates/rf-offline",
+    # WASM Port (standalone, edition 2021 for wasm-pack compatibility)
+    "crates/rf-wasm",
 ]
 
 [workspace.package]
@@ -60,6 +64,7 @@ rf-ingest = { path = "crates/rf-ingest" }
 rf-connector = { path = "crates/rf-connector" }
 rf-slot-lab = { path = "crates/rf-slot-lab" }
 rf-ale = { path = "crates/rf-ale" }
+rf-offline = { path = "crates/rf-offline" }
 
 # Plugin hosting
 vst3 = "0.3"

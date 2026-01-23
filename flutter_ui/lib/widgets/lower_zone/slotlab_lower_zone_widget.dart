@@ -17,6 +17,8 @@ import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../providers/middleware_provider.dart';
+import '../../src/rust/native_ffi.dart' show VolatilityPreset, TimingProfileType;
+import '../../models/slot_audio_events.dart' show SlotCompositeEvent;
 import '../slot_lab/stage_trace_widget.dart';
 import '../slot_lab/event_log_panel.dart';
 import '../slot_lab/bus_hierarchy_panel.dart';
@@ -41,6 +43,15 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
   /// Callback when audio is dropped on a stage
   final void Function(dynamic audio, String stageType)? onAudioDropped;
 
+  /// P0.3: Callback when Pause button is pressed
+  final VoidCallback? onPause;
+
+  /// P0.3: Callback when Resume button is pressed
+  final VoidCallback? onResume;
+
+  /// P0.3: Callback when Stop button is pressed
+  final VoidCallback? onStop;
+
   const SlotLabLowerZoneWidget({
     super.key,
     required this.controller,
@@ -48,6 +59,9 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
     this.onSpin,
     this.onForceOutcome,
     this.onAudioDropped,
+    this.onPause,
+    this.onResume,
+    this.onStop,
   });
 
   @override
@@ -56,14 +70,28 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
 
 class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   String _selectedOutcome = 'Random';
-  String _selectedVolatility = 'Medium';
-  String _selectedTiming = 'Normal';
+
+  // P1.1: Selected values now sync with SlotLabProvider
+  VolatilityPreset _selectedVolatility = VolatilityPreset.medium;
+  TimingProfileType _selectedTiming = TimingProfileType.normal;
   String _selectedGrid = '5×3';
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
+
+    // P1.1: Sync initial state from provider
+    _syncFromProvider();
+  }
+
+  /// P1.1: Sync dropdown states from SlotLabProvider
+  void _syncFromProvider() {
+    final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
+    if (provider != null) {
+      _selectedVolatility = provider.volatilityPreset;
+      _selectedTiming = provider.timingProfile;
+    }
   }
 
   @override
@@ -143,7 +171,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   /// Spin Control Bar — always visible in SlotLab
+  /// P1.1: Dropdowns now connected to SlotLabProvider
   Widget _buildSpinControlBar() {
+    final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
+
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -164,15 +195,15 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             ),
           ),
           const SizedBox(width: 8),
+          // Outcome dropdown (force outcome)
           _buildSpinDropdown('Outcome', _selectedOutcome,
               ['Random', 'SmallWin', 'BigWin', 'FreeSpins', 'Jackpot', 'Lose'],
               (v) => setState(() { _selectedOutcome = v; widget.onForceOutcome?.call(v); })),
-          _buildSpinDropdown('Volatility', _selectedVolatility,
-              ['Low', 'Medium', 'High', 'Studio'],
-              (v) => setState(() => _selectedVolatility = v)),
-          _buildSpinDropdown('Timing', _selectedTiming,
-              ['Normal', 'Turbo', 'Mobile', 'Studio'],
-              (v) => setState(() => _selectedTiming = v)),
+          // P1.1: Volatility dropdown — connected to provider
+          _buildVolatilityDropdown(provider),
+          // P1.1: Timing dropdown — connected to provider
+          _buildTimingDropdown(provider),
+          // Grid dropdown (currently UI-only, future: connect to provider)
           _buildSpinDropdown('Grid', _selectedGrid,
               ['5×3', '5×4', '6×4', 'Custom'],
               (v) => setState(() => _selectedGrid = v)),
@@ -180,9 +211,99 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           // Spin button
           _buildSpinButton(),
           const SizedBox(width: 8),
-          // Pause button
-          _buildPauseButton(),
+          // P0.3: Play/Pause/Stop controls
+          _buildPlaybackControls(),
         ],
+      ),
+    );
+  }
+
+  /// P1.1: Volatility dropdown connected to SlotLabProvider
+  Widget _buildVolatilityDropdown(SlotLabProvider? provider) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Container(
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: provider != null
+              ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1)
+              : LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: provider != null ? LowerZoneColors.slotLabAccent : LowerZoneColors.border,
+          ),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<VolatilityPreset>(
+            value: _selectedVolatility,
+            dropdownColor: LowerZoneColors.bgDeep,
+            isDense: true,
+            icon: Icon(Icons.arrow_drop_down, size: 14, color: LowerZoneColors.textMuted),
+            items: VolatilityPreset.values.map((v) => DropdownMenuItem(
+              value: v,
+              child: Text(
+                v.name[0].toUpperCase() + v.name.substring(1), // Capitalize
+                style: const TextStyle(fontSize: 10),
+              ),
+            )).toList(),
+            onChanged: (v) {
+              if (v != null) {
+                setState(() => _selectedVolatility = v);
+                provider?.setVolatilityPreset(v);
+              }
+            },
+            style: TextStyle(
+              fontSize: 10,
+              color: LowerZoneColors.slotLabAccent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// P1.1: Timing profile dropdown connected to SlotLabProvider
+  Widget _buildTimingDropdown(SlotLabProvider? provider) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Container(
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: provider != null
+              ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1)
+              : LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: provider != null ? LowerZoneColors.slotLabAccent : LowerZoneColors.border,
+          ),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<TimingProfileType>(
+            value: _selectedTiming,
+            dropdownColor: LowerZoneColors.bgDeep,
+            isDense: true,
+            icon: Icon(Icons.arrow_drop_down, size: 14, color: LowerZoneColors.textMuted),
+            items: TimingProfileType.values.map((t) => DropdownMenuItem(
+              value: t,
+              child: Text(
+                t.name[0].toUpperCase() + t.name.substring(1), // Capitalize
+                style: const TextStyle(fontSize: 10),
+              ),
+            )).toList(),
+            onChanged: (t) {
+              if (t != null) {
+                setState(() => _selectedTiming = t);
+                provider?.setTimingProfile(t);
+              }
+            },
+            style: TextStyle(
+              fontSize: 10,
+              color: LowerZoneColors.slotLabAccent,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -248,7 +369,125 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  Widget _buildPauseButton() {
+  /// P0.3: Professional Play/Pause/Stop controls with state awareness
+  Widget _buildPlaybackControls() {
+    final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
+    if (provider == null) {
+      return _buildPauseButtonDisabled();
+    }
+
+    final isPlaying = provider.isPlayingStages;
+    final isPaused = provider.isPaused;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Play/Pause toggle button
+        Tooltip(
+          message: isPaused ? 'Resume (Space)' : (isPlaying ? 'Pause (Space)' : 'No active playback'),
+          child: GestureDetector(
+            onTap: () {
+              if (isPaused) {
+                widget.onResume?.call();
+              } else if (isPlaying) {
+                widget.onPause?.call();
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isPlaying || isPaused
+                    ? (isPaused
+                        ? LowerZoneColors.warning.withValues(alpha: 0.2)
+                        : LowerZoneColors.success.withValues(alpha: 0.2))
+                    : LowerZoneColors.bgSurface,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isPlaying || isPaused
+                      ? (isPaused ? LowerZoneColors.warning : LowerZoneColors.success)
+                      : LowerZoneColors.border,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPaused ? Icons.play_arrow : Icons.pause,
+                    size: 14,
+                    color: isPlaying || isPaused
+                        ? (isPaused ? LowerZoneColors.warning : LowerZoneColors.success)
+                        : LowerZoneColors.textMuted,
+                  ),
+                  if (isPaused) ...[
+                    const SizedBox(width: 2),
+                    Text(
+                      'PAUSED',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        color: LowerZoneColors.warning,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Stop button
+        Tooltip(
+          message: 'Stop (Esc)',
+          child: GestureDetector(
+            onTap: isPlaying || isPaused ? widget.onStop : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isPlaying || isPaused
+                    ? LowerZoneColors.error.withValues(alpha: 0.1)
+                    : LowerZoneColors.bgSurface,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isPlaying || isPaused
+                      ? LowerZoneColors.error.withValues(alpha: 0.5)
+                      : LowerZoneColors.border,
+                ),
+              ),
+              child: Icon(
+                Icons.stop,
+                size: 14,
+                color: isPlaying || isPaused
+                    ? LowerZoneColors.error
+                    : LowerZoneColors.textMuted,
+              ),
+            ),
+          ),
+        ),
+        // Stage progress indicator
+        if (isPlaying && !isPaused) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: LowerZoneColors.bgDeepest,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              '${provider.currentStageIndex + 1}/${provider.lastStages.length}',
+              style: TextStyle(
+                fontSize: 9,
+                fontFamily: 'monospace',
+                color: LowerZoneColors.success,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Disabled pause button when provider is not available
+  Widget _buildPauseButtonDisabled() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -256,7 +495,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: LowerZoneColors.border),
       ),
-      child: Icon(Icons.pause, size: 14, color: LowerZoneColors.textSecondary),
+      child: Icon(Icons.pause, size: 14, color: LowerZoneColors.textMuted),
     );
   }
 
@@ -460,14 +699,32 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// Compact Event Timeline
+  /// P2.5: Compact Event Timeline — Connected to SlotLabProvider.lastStages
   Widget _buildCompactEventTimeline() {
+    final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
+    final stages = provider?.lastStages ?? [];
+
     return Container(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPanelHeader('EVENT TIMELINE', Icons.view_timeline),
+          Row(
+            children: [
+              _buildPanelHeader('EVENT TIMELINE', Icons.view_timeline),
+              const Spacer(),
+              if (stages.isNotEmpty)
+                Text(
+                  '${stages.length} stages',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
+                )
+              else
+                const Text(
+                  'No stages',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: Container(
@@ -476,13 +733,25 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: LowerZoneColors.border),
               ),
-              child: CustomPaint(
-                painter: _TimelinePainter(color: LowerZoneColors.slotLabAccent),
-                size: Size.infinite,
-              ),
+              child: stages.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Spin to see stages',
+                        style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(4),
+                      itemCount: stages.length,
+                      itemBuilder: (context, index) {
+                        final stage = stages[index];
+                        return _buildStageTimelineItem(stage, index);
+                      },
+                    ),
             ),
           ),
           const SizedBox(height: 8),
+          // Time markers (estimate based on typical spin duration)
           Row(
             children: [
               _buildTimelineMarker('0ms', true),
@@ -495,6 +764,57 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               const Spacer(),
               _buildTimelineMarker('2000ms', false),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// P2.5: Build single stage item for timeline
+  Widget _buildStageTimelineItem(dynamic stage, int index) {
+    // Stage is a map with 'stage_type', 'delay_ms', etc.
+    final stageType = stage['stage_type'] ?? 'UNKNOWN';
+    final delayMs = stage['delay_ms'] ?? 0;
+
+    // Color coding by stage type
+    Color stageColor = LowerZoneColors.slotLabAccent;
+    if (stageType.toString().contains('WIN')) {
+      stageColor = LowerZoneColors.success;
+    } else if (stageType.toString().contains('REEL')) {
+      stageColor = const Color(0xFF40C8FF);
+    } else if (stageType.toString().contains('FEATURE')) {
+      stageColor = const Color(0xFFFF9040);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: stageColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: stageColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: stageColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              stageType.toString(),
+              style: TextStyle(fontSize: 9, color: stageColor, fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            '${delayMs}ms',
+            style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
           ),
         ],
       ),
@@ -524,15 +844,44 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// Compact Symbols Panel
+  /// P2.6: Compact Symbols Panel — Connected to MiddlewareProvider for symbol-to-sound mapping
   Widget _buildCompactSymbolsPanel() {
+    final middleware = _tryGetMiddlewareProvider();
+
+    // Standard slot symbols
     final symbols = ['WILD', 'SCATTER', 'BONUS', '7', 'BAR', 'CHERRY', 'BELL', 'ORANGE'];
+
+    // Check which symbols have events mapped (via stage SYMBOL_LAND_xxx)
+    final mappedSymbols = <String>{};
+    if (middleware != null) {
+      for (final event in middleware.compositeEvents) {
+        for (final stage in event.triggerStages) {
+          if (stage.toUpperCase().startsWith('SYMBOL_LAND_')) {
+            final symbol = stage.substring('SYMBOL_LAND_'.length);
+            mappedSymbols.add(symbol.toUpperCase());
+          }
+        }
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPanelHeader('SYMBOL AUDIO', Icons.casino),
+          Row(
+            children: [
+              _buildPanelHeader('SYMBOL AUDIO', Icons.casino),
+              const Spacer(),
+              Text(
+                '${mappedSymbols.length}/${symbols.length} mapped',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: mappedSymbols.isNotEmpty ? LowerZoneColors.success : LowerZoneColors.textMuted,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: GridView.builder(
@@ -543,8 +892,18 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 mainAxisSpacing: 8,
               ),
               itemCount: symbols.length,
-              itemBuilder: (context, index) => _buildSymbolCard(symbols[index], index < 3),
+              itemBuilder: (context, index) {
+                final symbol = symbols[index];
+                final hasAudio = mappedSymbols.contains(symbol);
+                return _buildSymbolCard(symbol, hasAudio);
+              },
             ),
+          ),
+          const SizedBox(height: 8),
+          // Help text
+          Text(
+            'Map symbols via SYMBOL_LAND_xxx stages in Events',
+            style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
           ),
         ],
       ),
@@ -552,6 +911,15 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   Widget _buildSymbolCard(String symbol, bool hasAudio) {
+    // Symbol-specific icons
+    IconData symbolIcon = Icons.casino;
+    if (symbol == 'WILD') symbolIcon = Icons.star;
+    if (symbol == 'SCATTER') symbolIcon = Icons.scatter_plot;
+    if (symbol == 'BONUS') symbolIcon = Icons.card_giftcard;
+    if (symbol == '7') symbolIcon = Icons.filter_7;
+    if (symbol == 'CHERRY') symbolIcon = Icons.local_dining;
+    if (symbol == 'BELL') symbolIcon = Icons.notifications;
+
     return Container(
       decoration: BoxDecoration(
         color: hasAudio
@@ -566,7 +934,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.casino,
+            symbolIcon,
             size: 20,
             color: hasAudio ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
           ),
@@ -588,19 +956,96 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// Compact Event Folder
+  // ─── P1.4: Event Folder State ─────────────────────────────────────────────
+  String _selectedCategory = 'all';
+
+  /// P1.4: Compact Event Folder — Connected to MiddlewareProvider composite events
   Widget _buildCompactEventFolder() {
+    final middleware = _tryGetMiddlewareProvider();
+    if (middleware == null) {
+      return _buildNoProviderPanel('Event Folder', Icons.folder_special, 'MiddlewareProvider');
+    }
+
+    final events = middleware.compositeEvents;
+
+    // Group events by category
+    final categoryMap = <String, List<SlotCompositeEvent>>{};
+    for (final event in events) {
+      final cat = event.category.isNotEmpty ? event.category : 'uncategorized';
+      categoryMap.putIfAbsent(cat, () => []).add(event);
+    }
+
+    // Sort categories alphabetically, put 'all' first
+    final sortedCategories = categoryMap.keys.toList()..sort();
+
+    // Filter events based on selected category
+    final filteredEvents = _selectedCategory == 'all'
+        ? events
+        : categoryMap[_selectedCategory] ?? [];
+
     return Container(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPanelHeader('EVENT FOLDER', Icons.folder_special),
+          // Header with event count
+          Row(
+            children: [
+              _buildPanelHeader('EVENT FOLDER', Icons.folder_special),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${events.length}',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: LowerZoneColors.slotLabAccent,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // Add event button
+              GestureDetector(
+                onTap: () {
+                  // Create new composite event (use selected category or 'general')
+                  final category = _selectedCategory == 'all' ? 'general' : _selectedCategory;
+                  middleware.createCompositeEvent(
+                    name: 'New Event ${DateTime.now().millisecondsSinceEpoch % 1000}',
+                    category: category,
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: LowerZoneColors.slotLabAccent),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 12, color: LowerZoneColors.slotLabAccent),
+                      const SizedBox(width: 4),
+                      Text(
+                        'New Event',
+                        style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: Row(
               children: [
-                // Folder tree
+                // Folder tree (categories)
                 SizedBox(
                   width: 150,
                   child: Container(
@@ -612,11 +1057,23 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     child: ListView(
                       padding: const EdgeInsets.all(4),
                       children: [
-                        _buildFolderItem('Spins', Icons.folder_open, 12, true),
-                        _buildFolderItem('Wins', Icons.folder, 8, false),
-                        _buildFolderItem('Features', Icons.folder, 15, false),
-                        _buildFolderItem('UI', Icons.folder, 6, false),
-                        _buildFolderItem('Ambient', Icons.folder, 3, false),
+                        // "All" folder
+                        _buildFolderItemConnected(
+                          'All Events',
+                          Icons.folder_special,
+                          events.length,
+                          _selectedCategory == 'all',
+                          () => setState(() => _selectedCategory = 'all'),
+                        ),
+                        const Divider(height: 8, color: LowerZoneColors.border),
+                        // Category folders
+                        ...sortedCategories.map((cat) => _buildFolderItemConnected(
+                          cat[0].toUpperCase() + cat.substring(1), // Capitalize
+                          _selectedCategory == cat ? Icons.folder_open : Icons.folder,
+                          categoryMap[cat]!.length,
+                          _selectedCategory == cat,
+                          () => setState(() => _selectedCategory = cat),
+                        )),
                       ],
                     ),
                   ),
@@ -630,21 +1087,184 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: LowerZoneColors.border),
                     ),
-                    child: ListView(
-                      padding: const EdgeInsets.all(4),
-                      children: [
-                        _buildEventItem('SPIN_START', true),
-                        _buildEventItem('REEL_SPIN', true),
-                        _buildEventItem('REEL_STOP_0', true),
-                        _buildEventItem('REEL_STOP_1', true),
-                        _buildEventItem('REEL_STOP_2', true),
-                        _buildEventItem('ANTICIPATION_ON', false),
-                      ],
-                    ),
+                    child: filteredEvents.isEmpty
+                        ? _buildNoEventsMessage()
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(4),
+                            itemCount: filteredEvents.length,
+                            itemBuilder: (context, index) {
+                              final event = filteredEvents[index];
+                              return _buildEventItemConnected(event, middleware);
+                            },
+                          ),
                   ),
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// P1.4: Folder item connected to category selection
+  Widget _buildFolderItemConnected(String name, IconData icon, int count, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: isSelected ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1) : null,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                name,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.2)
+                    : LowerZoneColors.bgMid,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// P1.4: Event item connected to MiddlewareProvider
+  Widget _buildEventItemConnected(SlotCompositeEvent event, MiddlewareProvider middleware) {
+    final hasAudio = event.layers.isNotEmpty;
+    final isSelected = middleware.selectedCompositeEvent?.id == event.id;
+
+    return GestureDetector(
+      onTap: () => middleware.selectCompositeEvent(event.id),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.15)
+              : LowerZoneColors.bgMid,
+          borderRadius: BorderRadius.circular(4),
+          border: isSelected
+              ? Border.all(color: LowerZoneColors.slotLabAccent)
+              : null,
+        ),
+        child: Row(
+          children: [
+            // Audio indicator
+            Icon(
+              hasAudio ? Icons.volume_up : Icons.volume_off,
+              size: 12,
+              color: hasAudio ? LowerZoneColors.success : LowerZoneColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            // Event color dot
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: event.color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            // Event name
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.name,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (event.triggerStages.isNotEmpty)
+                    Text(
+                      event.triggerStages.take(2).join(', '),
+                      style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                    ),
+                ],
+              ),
+            ),
+            // Layer count badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: LowerZoneColors.bgDeepest,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '${event.layers.length}L',
+                style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // Play button
+            GestureDetector(
+              onTap: () {
+                // Trigger preview playback
+                // TODO: Connect to preview playback
+              },
+              child: Icon(
+                Icons.play_arrow,
+                size: 14,
+                color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// P1.4: No events placeholder
+  Widget _buildNoEventsMessage() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.event_busy,
+            size: 32,
+            color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'No events in this folder',
+            style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Click "New Event" to create one',
+            style: TextStyle(fontSize: 9, color: LowerZoneColors.textTertiary),
           ),
         ],
       ),
@@ -703,14 +1323,54 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// Compact Composite Editor
+  // P2.7: Selected event ID for composite editor
+  String? _selectedEventId;
+
+  /// P2.7: Compact Composite Editor — Connected to MiddlewareProvider.compositeEvents
   Widget _buildCompactCompositeEditor() {
+    final middleware = _tryGetMiddlewareProvider();
+    if (middleware == null) {
+      return _buildNoProviderPanel('Composite Editor', Icons.edit, 'MiddlewareProvider');
+    }
+
+    final events = middleware.compositeEvents;
+
+    // Find selected event
+    SlotCompositeEvent? selectedEvent;
+    if (_selectedEventId != null) {
+      selectedEvent = events.where((e) => e.id == _selectedEventId).firstOrNull;
+    }
+    // Fall back to first event
+    selectedEvent ??= events.firstOrNull;
+
     return Container(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPanelHeader('COMPOSITE EDITOR', Icons.edit),
+          Row(
+            children: [
+              _buildPanelHeader('COMPOSITE EDITOR', Icons.edit),
+              const Spacer(),
+              // Event selector dropdown
+              if (events.isNotEmpty)
+                DropdownButton<String>(
+                  value: selectedEvent?.id,
+                  hint: const Text('Select event', style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted)),
+                  dropdownColor: LowerZoneColors.bgMid,
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
+                  underline: const SizedBox(),
+                  isDense: true,
+                  items: events.map((e) => DropdownMenuItem(
+                    value: e.id,
+                    child: Text(e.name, overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: (id) {
+                    setState(() => _selectedEventId = id);
+                  },
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: Container(
@@ -719,46 +1379,81 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: LowerZoneColors.border),
               ),
-              child: Column(
-                children: [
-                  // Event name header
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(4),
-                        topRight: Radius.circular(4),
+              child: selectedEvent == null
+                  ? Center(
+                      child: Text(
+                        'No events. Create one in Events Folder.',
+                        style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
                       ),
-                    ),
-                    child: Row(
+                    )
+                  : Column(
                       children: [
-                        Text(
-                          'SPIN_START',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: LowerZoneColors.slotLabAccent,
+                        // Event name header
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(4),
+                              topRight: Radius.circular(4),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                selectedEvent.name,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: LowerZoneColors.slotLabAccent,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${selectedEvent.layers.length} layers',
+                                style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                              ),
+                              const Spacer(),
+                              // Stages badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: LowerZoneColors.bgDeepest,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  selectedEvent.triggerStages.join(', '),
+                                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const Spacer(),
-                        Icon(Icons.edit, size: 14, color: LowerZoneColors.textMuted),
+                        // Layers list
+                        Expanded(
+                          child: selectedEvent.layers.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'No layers. Add audio files.',
+                                    style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.all(4),
+                                  itemCount: selectedEvent.layers.length,
+                                  itemBuilder: (context, index) {
+                                    final layer = selectedEvent!.layers[index];
+                                    final audioName = layer.audioPath.split('/').last;
+                                    return _buildLayerItem(
+                                      'Layer ${index + 1}: $audioName',
+                                      layer.offsetMs,
+                                      layer.volume,
+                                    );
+                                  },
+                                ),
+                        ),
                       ],
                     ),
-                  ),
-                  // Layers list
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(4),
-                      children: [
-                        _buildLayerItem('Layer 1: spin_whoosh.wav', 0.0, 0.8),
-                        _buildLayerItem('Layer 2: reel_start.wav', 50.0, 1.0),
-                        _buildLayerItem('Layer 3: ambient_bed.wav', 0.0, 0.4),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],
@@ -799,8 +1494,37 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// Compact Voice Pool
+  /// P2.8: Compact Voice Pool — Connected to MiddlewareProvider.getVoicePoolStats()
   Widget _buildCompactVoicePool() {
+    final middleware = _tryGetMiddlewareProvider();
+
+    // Get voice pool stats from provider (VoicePoolStats class)
+    final stats = middleware?.getVoicePoolStats();
+
+    // Use VoicePoolStats fields or defaults
+    final totalVoices = stats?.maxVoices ?? 48;
+    final activeVoices = stats?.activeVoices ?? 0;
+    final virtualVoices = stats?.virtualVoices ?? 0;
+    final stealCount = stats?.stealCount ?? 0;
+
+    // Per-bus stats (not available in current model, use estimates)
+    // Distribute active voices across buses roughly
+    final sfxActive = (activeVoices * 0.35).round();
+    final musicActive = (activeVoices * 0.15).round();
+    final voiceActive = (activeVoices * 0.10).round();
+    final ambientActive = (activeVoices * 0.25).round();
+    final uiActive = activeVoices - sfxActive - musicActive - voiceActive - ambientActive;
+
+    final busStats = <String, (int, int)>{
+      'SFX': (sfxActive, 16),
+      'Music': (musicActive, 8),
+      'Voice': (voiceActive, 4),
+      'Ambient': (ambientActive, 12),
+      'UI': (uiActive, 8),
+    };
+
+    final usagePercent = totalVoices > 0 ? activeVoices / totalVoices : 0.0;
+
     return Container(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -810,7 +1534,23 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             children: [
               _buildPanelHeader('VOICE POOL', Icons.queue_music),
               const Spacer(),
-              Text('12 / 48 voices', style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent)),
+              // Voice count
+              Text(
+                '$activeVoices / $totalVoices voices',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: usagePercent > 0.8 ? LowerZoneColors.warning : LowerZoneColors.slotLabAccent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Stats row
+          Row(
+            children: [
+              _buildStatBadge('Virtual', '$virtualVoices', virtualVoices > 0 ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted),
+              const SizedBox(width: 8),
+              _buildStatBadge('Steals', '$stealCount', stealCount > 0 ? LowerZoneColors.warning : LowerZoneColors.textMuted),
             ],
           ),
           const SizedBox(height: 12),
@@ -823,10 +1563,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             ),
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
-              widthFactor: 12 / 48,
+              widthFactor: usagePercent,
               child: Container(
                 decoration: BoxDecoration(
-                  color: LowerZoneColors.slotLabAccent,
+                  color: usagePercent > 0.8 ? LowerZoneColors.warning : LowerZoneColors.slotLabAccent,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -835,13 +1575,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           const SizedBox(height: 12),
           Expanded(
             child: ListView(
-              children: [
-                _buildVoiceUsageRow('SFX', 5, 16),
-                _buildVoiceUsageRow('Music', 2, 8),
-                _buildVoiceUsageRow('Voice', 1, 4),
-                _buildVoiceUsageRow('Ambient', 3, 12),
-                _buildVoiceUsageRow('UI', 1, 8),
-              ],
+              children: busStats.entries.map((entry) {
+                final (used, limit) = entry.value;
+                return _buildVoiceUsageRow(entry.key, used, limit);
+              }).toList(),
             ),
           ),
         ],
@@ -849,7 +1586,27 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
+  Widget _buildStatBadge(String label, String value, Color valueColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+          const SizedBox(width: 4),
+          Text(value, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: valueColor)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildVoiceUsageRow(String busName, int used, int limit) {
+    final ratio = limit > 0 ? used / limit : 0.0;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -864,10 +1621,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
-                widthFactor: used / limit,
+                widthFactor: ratio,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: used / limit > 0.8 ? LowerZoneColors.warning : LowerZoneColors.slotLabAccent,
+                    color: ratio > 0.8 ? LowerZoneColors.warning : LowerZoneColors.slotLabAccent,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),

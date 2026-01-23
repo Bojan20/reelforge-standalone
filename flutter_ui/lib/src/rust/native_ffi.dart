@@ -12,6 +12,47 @@ import 'engine_api.dart' show TruePeak8xData, PsrData, CrestFactorData, Psychoac
 import '../../models/middleware_models.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// P0.3 FIX: Safe FFI String Handling Utilities
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Execute a function with a native UTF-8 string, ensuring cleanup.
+/// Prevents memory leaks from toNativeUtf8() allocations.
+T withNativeString<T>(String str, T Function(Pointer<Utf8>) fn) {
+  final ptr = str.toNativeUtf8();
+  try {
+    return fn(ptr);
+  } finally {
+    calloc.free(ptr);
+  }
+}
+
+/// Execute a function with two native UTF-8 strings, ensuring cleanup.
+T withNativeStrings2<T>(String s1, String s2, T Function(Pointer<Utf8>, Pointer<Utf8>) fn) {
+  final p1 = s1.toNativeUtf8();
+  final p2 = s2.toNativeUtf8();
+  try {
+    return fn(p1, p2);
+  } finally {
+    calloc.free(p1);
+    calloc.free(p2);
+  }
+}
+
+/// Execute a function with three native UTF-8 strings, ensuring cleanup.
+T withNativeStrings3<T>(String s1, String s2, String s3, T Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>) fn) {
+  final p1 = s1.toNativeUtf8();
+  final p2 = s2.toNativeUtf8();
+  final p3 = s3.toNativeUtf8();
+  try {
+    return fn(p1, p2, p3);
+  } finally {
+    calloc.free(p1);
+    calloc.free(p2);
+    calloc.free(p3);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // WAVEFORM DATA STRUCTURES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -191,6 +232,36 @@ typedef EngineSetTrackChannelsDart = int Function(int trackId, int channels);
 
 typedef EngineSetTrackBusNative = Int32 Function(Uint64 trackId, Uint32 busId);
 typedef EngineSetTrackBusDart = int Function(int trackId, int busId);
+
+// P1.12: Batch track operations
+typedef EngineBatchSetTrackVolumesNative = IntPtr Function(Pointer<Uint64> trackIds, Pointer<Double> volumes, IntPtr count);
+typedef EngineBatchSetTrackVolumesDart = int Function(Pointer<Uint64> trackIds, Pointer<Double> volumes, int count);
+
+typedef EngineBatchSetTrackPansNative = IntPtr Function(Pointer<Uint64> trackIds, Pointer<Double> pans, IntPtr count);
+typedef EngineBatchSetTrackPansDart = int Function(Pointer<Uint64> trackIds, Pointer<Double> pans, int count);
+
+typedef EngineBatchSetTrackMutesNative = IntPtr Function(Pointer<Uint64> trackIds, Pointer<Int32> muted, IntPtr count);
+typedef EngineBatchSetTrackMutesDart = int Function(Pointer<Uint64> trackIds, Pointer<Int32> muted, int count);
+
+typedef EngineBatchSetTrackSolosNative = IntPtr Function(Pointer<Uint64> trackIds, Pointer<Int32> solo, IntPtr count);
+typedef EngineBatchSetTrackSolosDart = int Function(Pointer<Uint64> trackIds, Pointer<Int32> solo, int count);
+
+typedef EngineBatchSetTrackParamsNative = IntPtr Function(
+  Pointer<Uint64> trackIds,
+  Pointer<Double> volumes,
+  Pointer<Double> pans,
+  Pointer<Int32> muted,
+  Pointer<Int32> solo,
+  IntPtr count,
+);
+typedef EngineBatchSetTrackParamsDart = int Function(
+  Pointer<Uint64> trackIds,
+  Pointer<Double> volumes,
+  Pointer<Double> pans,
+  Pointer<Int32> muted,
+  Pointer<Int32> solo,
+  int count,
+);
 
 typedef EngineGetTrackCountNative = IntPtr Function();
 typedef EngineGetTrackCountDart = int Function();
@@ -1837,6 +1908,77 @@ typedef AdapterGetInfoJsonNative = Pointer<Utf8> Function(Pointer<Utf8> adapterI
 typedef AdapterGetInfoJsonDart = Pointer<Utf8> Function(Pointer<Utf8> adapterId);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// OFFLINE DSP PROCESSING TYPEDEFS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Pipeline lifecycle
+typedef OfflinePipelineCreateNative = Uint64 Function();
+typedef OfflinePipelineCreateDart = int Function();
+
+typedef OfflinePipelineCreateWithConfigNative = Uint64 Function(Pointer<Utf8> configJson);
+typedef OfflinePipelineCreateWithConfigDart = int Function(Pointer<Utf8> configJson);
+
+typedef OfflinePipelineDestroyNative = Void Function(Uint64 handle);
+typedef OfflinePipelineDestroyDart = void Function(int handle);
+
+typedef OfflinePipelineSetNormalizationNative = Void Function(Uint64 handle, Int32 mode, Double target);
+typedef OfflinePipelineSetNormalizationDart = void Function(int handle, int mode, double target);
+
+typedef OfflinePipelineSetFormatNative = Void Function(Uint64 handle, Int32 format);
+typedef OfflinePipelineSetFormatDart = void Function(int handle, int format);
+
+// Job processing
+typedef OfflineProcessFileNative = Uint64 Function(Uint64 handle, Pointer<Utf8> inputPath, Pointer<Utf8> outputPath);
+typedef OfflineProcessFileDart = int Function(int handle, Pointer<Utf8> inputPath, Pointer<Utf8> outputPath);
+
+typedef OfflineProcessFileWithOptionsNative = Uint64 Function(Uint64 handle, Pointer<Utf8> optionsJson);
+typedef OfflineProcessFileWithOptionsDart = int Function(int handle, Pointer<Utf8> optionsJson);
+
+// Progress & status
+typedef OfflinePipelineGetProgressNative = Double Function(Uint64 handle);
+typedef OfflinePipelineGetProgressDart = double Function(int handle);
+
+typedef OfflinePipelineGetStateNative = Int32 Function(Uint64 handle);
+typedef OfflinePipelineGetStateDart = int Function(int handle);
+
+typedef OfflinePipelineGetProgressJsonNative = Pointer<Utf8> Function(Uint64 handle);
+typedef OfflinePipelineGetProgressJsonDart = Pointer<Utf8> Function(int handle);
+
+typedef OfflinePipelineCancelNative = Void Function(Uint64 handle);
+typedef OfflinePipelineCancelDart = void Function(int handle);
+
+// Job results
+typedef OfflineGetJobResultNative = Pointer<Utf8> Function(Uint64 jobId);
+typedef OfflineGetJobResultDart = Pointer<Utf8> Function(int jobId);
+
+typedef OfflineJobSucceededNative = Bool Function(Uint64 jobId);
+typedef OfflineJobSucceededDart = bool Function(int jobId);
+
+typedef OfflineGetJobErrorNative = Pointer<Utf8> Function(Uint64 jobId);
+typedef OfflineGetJobErrorDart = Pointer<Utf8> Function(int jobId);
+
+typedef OfflineClearJobResultNative = Void Function(Uint64 jobId);
+typedef OfflineClearJobResultDart = void Function(int jobId);
+
+// Batch processing
+typedef OfflineBatchProcessNative = Pointer<Utf8> Function(Pointer<Utf8> jobsJson);
+typedef OfflineBatchProcessDart = Pointer<Utf8> Function(Pointer<Utf8> jobsJson);
+
+// Error handling
+typedef OfflineGetLastErrorNative = Pointer<Utf8> Function();
+typedef OfflineGetLastErrorDart = Pointer<Utf8> Function();
+
+typedef OfflineFreeStringNative = Void Function(Pointer<Utf8> s);
+typedef OfflineFreeStringDart = void Function(Pointer<Utf8> s);
+
+// Utility
+typedef OfflineGetSupportedFormatsNative = Pointer<Utf8> Function();
+typedef OfflineGetSupportedFormatsDart = Pointer<Utf8> Function();
+
+typedef OfflineGetNormalizationModesNative = Pointer<Utf8> Function();
+typedef OfflineGetNormalizationModesDart = Pointer<Utf8> Function();
+
+// ═══════════════════════════════════════════════════════════════════════════
 // NATIVE FFI CLASS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1882,6 +2024,13 @@ class NativeFFI {
   late final EngineGetTrackMeterDart _getTrackMeter;
   late final EngineGetAllTrackPeaksDart _getAllTrackPeaks;
   late final EngineGetAllTrackMetersDart _getAllTrackMeters;
+
+  // P1.12: Batch track operations
+  late final EngineBatchSetTrackVolumesDart _batchSetTrackVolumes;
+  late final EngineBatchSetTrackPansDart _batchSetTrackPans;
+  late final EngineBatchSetTrackMutesDart _batchSetTrackMutes;
+  late final EngineBatchSetTrackSolosDart _batchSetTrackSolos;
+  late final EngineBatchSetTrackParamsDart _batchSetTrackParams;
 
   late final EngineImportAudioDart _importAudio;
 
@@ -2453,6 +2602,28 @@ class NativeFFI {
   late final AdapterGetIdAtDart _adapterGetIdAt;
   late final AdapterGetInfoJsonDart _adapterGetInfoJson;
 
+  // Offline DSP Processing
+  late final OfflinePipelineCreateDart _offlinePipelineCreate;
+  late final OfflinePipelineCreateWithConfigDart _offlinePipelineCreateWithConfig;
+  late final OfflinePipelineDestroyDart _offlinePipelineDestroy;
+  late final OfflinePipelineSetNormalizationDart _offlinePipelineSetNormalization;
+  late final OfflinePipelineSetFormatDart _offlinePipelineSetFormat;
+  late final OfflineProcessFileDart _offlineProcessFile;
+  late final OfflineProcessFileWithOptionsDart _offlineProcessFileWithOptions;
+  late final OfflinePipelineGetProgressDart _offlinePipelineGetProgress;
+  late final OfflinePipelineGetStateDart _offlinePipelineGetState;
+  late final OfflinePipelineGetProgressJsonDart _offlinePipelineGetProgressJson;
+  late final OfflinePipelineCancelDart _offlinePipelineCancel;
+  late final OfflineGetJobResultDart _offlineGetJobResult;
+  late final OfflineJobSucceededDart _offlineJobSucceeded;
+  late final OfflineGetJobErrorDart _offlineGetJobError;
+  late final OfflineClearJobResultDart _offlineClearJobResult;
+  late final OfflineBatchProcessDart _offlineBatchProcess;
+  late final OfflineGetLastErrorDart _offlineGetLastError;
+  late final OfflineFreeStringDart _offlineFreeString;
+  late final OfflineGetSupportedFormatsDart _offlineGetSupportedFormats;
+  late final OfflineGetNormalizationModesDart _offlineGetNormalizationModes;
+
   NativeFFI._();
 
   /// Try to load the native library
@@ -2486,6 +2657,13 @@ class NativeFFI {
     _setTrackVolume = _lib.lookupFunction<EngineSetTrackVolumeNative, EngineSetTrackVolumeDart>('engine_set_track_volume');
     _setTrackPan = _lib.lookupFunction<EngineSetTrackPanNative, EngineSetTrackPanDart>('engine_set_track_pan');
     _setTrackPanRight = _lib.lookupFunction<EngineSetTrackPanRightNative, EngineSetTrackPanRightDart>('engine_set_track_pan_right');
+
+    // P1.12: Batch track operations
+    _batchSetTrackVolumes = _lib.lookupFunction<EngineBatchSetTrackVolumesNative, EngineBatchSetTrackVolumesDart>('engine_batch_set_track_volumes');
+    _batchSetTrackPans = _lib.lookupFunction<EngineBatchSetTrackPansNative, EngineBatchSetTrackPansDart>('engine_batch_set_track_pans');
+    _batchSetTrackMutes = _lib.lookupFunction<EngineBatchSetTrackMutesNative, EngineBatchSetTrackMutesDart>('engine_batch_set_track_mutes');
+    _batchSetTrackSolos = _lib.lookupFunction<EngineBatchSetTrackSolosNative, EngineBatchSetTrackSolosDart>('engine_batch_set_track_solos');
+    _batchSetTrackParams = _lib.lookupFunction<EngineBatchSetTrackParamsNative, EngineBatchSetTrackParamsDart>('engine_batch_set_track_params');
     _getTrackChannels = _lib.lookupFunction<EngineGetTrackChannelsNative, EngineGetTrackChannelsDart>('engine_get_track_channels');
     _setTrackChannels = _lib.lookupFunction<EngineSetTrackChannelsNative, EngineSetTrackChannelsDart>('engine_set_track_channels');
     _setTrackBus = _lib.lookupFunction<EngineSetTrackBusNative, EngineSetTrackBusDart>('engine_set_track_bus');
@@ -3064,6 +3242,28 @@ class NativeFFI {
     _adapterGetCount = _lib.lookupFunction<AdapterGetCountNative, AdapterGetCountDart>('adapter_get_count');
     _adapterGetIdAt = _lib.lookupFunction<AdapterGetIdAtNative, AdapterGetIdAtDart>('adapter_get_id_at');
     _adapterGetInfoJson = _lib.lookupFunction<AdapterGetInfoJsonNative, AdapterGetInfoJsonDart>('adapter_get_info_json');
+
+    // Offline DSP Processing
+    _offlinePipelineCreate = _lib.lookupFunction<OfflinePipelineCreateNative, OfflinePipelineCreateDart>('offline_pipeline_create');
+    _offlinePipelineCreateWithConfig = _lib.lookupFunction<OfflinePipelineCreateWithConfigNative, OfflinePipelineCreateWithConfigDart>('offline_pipeline_create_with_config');
+    _offlinePipelineDestroy = _lib.lookupFunction<OfflinePipelineDestroyNative, OfflinePipelineDestroyDart>('offline_pipeline_destroy');
+    _offlinePipelineSetNormalization = _lib.lookupFunction<OfflinePipelineSetNormalizationNative, OfflinePipelineSetNormalizationDart>('offline_pipeline_set_normalization');
+    _offlinePipelineSetFormat = _lib.lookupFunction<OfflinePipelineSetFormatNative, OfflinePipelineSetFormatDart>('offline_pipeline_set_format');
+    _offlineProcessFile = _lib.lookupFunction<OfflineProcessFileNative, OfflineProcessFileDart>('offline_process_file');
+    _offlineProcessFileWithOptions = _lib.lookupFunction<OfflineProcessFileWithOptionsNative, OfflineProcessFileWithOptionsDart>('offline_process_file_with_options');
+    _offlinePipelineGetProgress = _lib.lookupFunction<OfflinePipelineGetProgressNative, OfflinePipelineGetProgressDart>('offline_pipeline_get_progress');
+    _offlinePipelineGetState = _lib.lookupFunction<OfflinePipelineGetStateNative, OfflinePipelineGetStateDart>('offline_pipeline_get_state');
+    _offlinePipelineGetProgressJson = _lib.lookupFunction<OfflinePipelineGetProgressJsonNative, OfflinePipelineGetProgressJsonDart>('offline_pipeline_get_progress_json');
+    _offlinePipelineCancel = _lib.lookupFunction<OfflinePipelineCancelNative, OfflinePipelineCancelDart>('offline_pipeline_cancel');
+    _offlineGetJobResult = _lib.lookupFunction<OfflineGetJobResultNative, OfflineGetJobResultDart>('offline_get_job_result');
+    _offlineJobSucceeded = _lib.lookupFunction<OfflineJobSucceededNative, OfflineJobSucceededDart>('offline_job_succeeded');
+    _offlineGetJobError = _lib.lookupFunction<OfflineGetJobErrorNative, OfflineGetJobErrorDart>('offline_get_job_error');
+    _offlineClearJobResult = _lib.lookupFunction<OfflineClearJobResultNative, OfflineClearJobResultDart>('offline_clear_job_result');
+    _offlineBatchProcess = _lib.lookupFunction<OfflineBatchProcessNative, OfflineBatchProcessDart>('offline_batch_process');
+    _offlineGetLastError = _lib.lookupFunction<OfflineGetLastErrorNative, OfflineGetLastErrorDart>('offline_get_last_error');
+    _offlineFreeString = _lib.lookupFunction<OfflineFreeStringNative, OfflineFreeStringDart>('offline_free_string');
+    _offlineGetSupportedFormats = _lib.lookupFunction<OfflineGetSupportedFormatsNative, OfflineGetSupportedFormatsDart>('offline_get_supported_formats');
+    _offlineGetNormalizationModes = _lib.lookupFunction<OfflineGetNormalizationModesNative, OfflineGetNormalizationModesDart>('offline_get_normalization_modes');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3140,6 +3340,164 @@ class NativeFFI {
   bool setTrackPan(int trackId, double pan) {
     if (!_loaded) return false;
     return _setTrackPan(trackId, pan) != 0;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P1.12: BATCH TRACK OPERATIONS — Single FFI call for multiple tracks
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Batch set track volumes (60→1 FFI calls when updating 60 tracks)
+  /// Returns number of tracks successfully updated
+  int batchSetTrackVolumes(List<int> trackIds, List<double> volumes) {
+    if (!_loaded || trackIds.isEmpty || trackIds.length != volumes.length) return 0;
+
+    final count = trackIds.length;
+    final idsPtr = calloc<Uint64>(count);
+    final volsPtr = calloc<Double>(count);
+
+    try {
+      for (int i = 0; i < count; i++) {
+        idsPtr[i] = trackIds[i];
+        volsPtr[i] = volumes[i];
+      }
+      return _batchSetTrackVolumes(idsPtr, volsPtr, count);
+    } finally {
+      calloc.free(idsPtr);
+      calloc.free(volsPtr);
+    }
+  }
+
+  /// Batch set track pans (60→1 FFI calls when updating 60 tracks)
+  /// Returns number of tracks successfully updated
+  int batchSetTrackPans(List<int> trackIds, List<double> pans) {
+    if (!_loaded || trackIds.isEmpty || trackIds.length != pans.length) return 0;
+
+    final count = trackIds.length;
+    final idsPtr = calloc<Uint64>(count);
+    final pansPtr = calloc<Double>(count);
+
+    try {
+      for (int i = 0; i < count; i++) {
+        idsPtr[i] = trackIds[i];
+        pansPtr[i] = pans[i];
+      }
+      return _batchSetTrackPans(idsPtr, pansPtr, count);
+    } finally {
+      calloc.free(idsPtr);
+      calloc.free(pansPtr);
+    }
+  }
+
+  /// Batch set track mutes (60→1 FFI calls when updating 60 tracks)
+  /// Returns number of tracks successfully updated
+  int batchSetTrackMutes(List<int> trackIds, List<bool> muted) {
+    if (!_loaded || trackIds.isEmpty || trackIds.length != muted.length) return 0;
+
+    final count = trackIds.length;
+    final idsPtr = calloc<Uint64>(count);
+    final mutedPtr = calloc<Int32>(count);
+
+    try {
+      for (int i = 0; i < count; i++) {
+        idsPtr[i] = trackIds[i];
+        mutedPtr[i] = muted[i] ? 1 : 0;
+      }
+      return _batchSetTrackMutes(idsPtr, mutedPtr, count);
+    } finally {
+      calloc.free(idsPtr);
+      calloc.free(mutedPtr);
+    }
+  }
+
+  /// Batch set track solos (60→1 FFI calls when updating 60 tracks)
+  /// Returns number of tracks successfully updated
+  int batchSetTrackSolos(List<int> trackIds, List<bool> solo) {
+    if (!_loaded || trackIds.isEmpty || trackIds.length != solo.length) return 0;
+
+    final count = trackIds.length;
+    final idsPtr = calloc<Uint64>(count);
+    final soloPtr = calloc<Int32>(count);
+
+    try {
+      for (int i = 0; i < count; i++) {
+        idsPtr[i] = trackIds[i];
+        soloPtr[i] = solo[i] ? 1 : 0;
+      }
+      return _batchSetTrackSolos(idsPtr, soloPtr, count);
+    } finally {
+      calloc.free(idsPtr);
+      calloc.free(soloPtr);
+    }
+  }
+
+  /// Batch set all track parameters at once (most efficient)
+  /// Pass null for any list you don't want to update
+  /// Returns number of tracks successfully updated
+  int batchSetTrackParams({
+    required List<int> trackIds,
+    List<double>? volumes,
+    List<double>? pans,
+    List<bool>? muted,
+    List<bool>? solo,
+  }) {
+    if (!_loaded || trackIds.isEmpty) return 0;
+
+    final count = trackIds.length;
+    final idsPtr = calloc<Uint64>(count);
+
+    Pointer<Double>? volsPtr;
+    Pointer<Double>? pansPtr;
+    Pointer<Int32>? mutedPtr;
+    Pointer<Int32>? soloPtr;
+
+    try {
+      for (int i = 0; i < count; i++) {
+        idsPtr[i] = trackIds[i];
+      }
+
+      if (volumes != null && volumes.length == count) {
+        final ptr = volsPtr = calloc<Double>(count);
+        for (int i = 0; i < count; i++) {
+          ptr[i] = volumes[i];
+        }
+      }
+
+      if (pans != null && pans.length == count) {
+        final ptr = pansPtr = calloc<Double>(count);
+        for (int i = 0; i < count; i++) {
+          ptr[i] = pans[i];
+        }
+      }
+
+      if (muted != null && muted.length == count) {
+        final ptr = mutedPtr = calloc<Int32>(count);
+        for (int i = 0; i < count; i++) {
+          ptr[i] = muted[i] ? 1 : 0;
+        }
+      }
+
+      if (solo != null && solo.length == count) {
+        final ptr = soloPtr = calloc<Int32>(count);
+        for (int i = 0; i < count; i++) {
+          ptr[i] = solo[i] ? 1 : 0;
+        }
+      }
+
+      return _batchSetTrackParams(
+        idsPtr,
+        volsPtr ?? nullptr,
+        pansPtr ?? nullptr,
+        mutedPtr ?? nullptr,
+        soloPtr ?? nullptr,
+        count,
+      );
+    } finally {
+      calloc.free(idsPtr);
+      if (volsPtr != null) calloc.free(volsPtr);
+      if (pansPtr != null) calloc.free(pansPtr);
+      if (mutedPtr != null) calloc.free(mutedPtr);
+      if (soloPtr != null) calloc.free(soloPtr);
+    }
   }
 
   /// Set track right channel pan (-1.0 to 1.0)
@@ -7098,10 +7456,12 @@ class NativeFFI {
   int bounceStart(String outputPath, int format, int bitDepth, int sampleRate,
       double startTime, double endTime, bool normalize, double normalizeTarget) {
     final pathPtr = outputPath.toNativeUtf8();
-    final result = _bounceStart(pathPtr, format, bitDepth, sampleRate, startTime,
-        endTime, normalize ? 1 : 0, normalizeTarget);
-    calloc.free(pathPtr);
-    return result;
+    try {
+      return _bounceStart(pathPtr, format, bitDepth, sampleRate, startTime,
+          endTime, normalize ? 1 : 0, normalizeTarget);
+    } finally {
+      calloc.free(pathPtr);
+    }
   }
 
   double bounceGetProgress() => _bounceGetProgress();
@@ -7157,16 +7517,20 @@ class NativeFFI {
 
   int inputBusCreateStereo(String name) {
     final namePtr = name.toNativeUtf8();
-    final result = _inputBusCreateStereo(namePtr);
-    calloc.free(namePtr);
-    return result;
+    try {
+      return _inputBusCreateStereo(namePtr);
+    } finally {
+      calloc.free(namePtr);
+    }
   }
 
   int inputBusCreateMono(String name, int hwChannel) {
     final namePtr = name.toNativeUtf8();
-    final result = _inputBusCreateMono(namePtr, hwChannel);
-    calloc.free(namePtr);
-    return result;
+    try {
+      return _inputBusCreateMono(namePtr, hwChannel);
+    } finally {
+      calloc.free(namePtr);
+    }
   }
 
   int inputBusDelete(int busId) => _inputBusDelete(busId);
@@ -7196,9 +7560,11 @@ class NativeFFI {
   int exportAudio(String outputPath, int format, int sampleRate,
       double startTime, double endTime, bool normalize) {
     final pathPtr = outputPath.toNativeUtf8();
-    final result = _exportAudio(pathPtr, format, sampleRate, startTime, endTime, normalize ? 1 : 0);
-    calloc.free(pathPtr);
-    return result;
+    try {
+      return _exportAudio(pathPtr, format, sampleRate, startTime, endTime, normalize ? 1 : 0);
+    } finally {
+      calloc.free(pathPtr);
+    }
   }
 
   double exportGetProgress() => _exportGetProgress();
@@ -7426,11 +7792,13 @@ class NativeFFI {
       double startTime, double endTime, bool normalize, bool includeBuses, String prefix) {
     final dirPtr = outputDir.toNativeUtf8();
     final prefixPtr = prefix.toNativeUtf8();
-    final result = _exportStems(dirPtr, format, sampleRate, startTime, endTime,
-        normalize ? 1 : 0, includeBuses ? 1 : 0, prefixPtr);
-    calloc.free(dirPtr);
-    calloc.free(prefixPtr);
-    return result;
+    try {
+      return _exportStems(dirPtr, format, sampleRate, startTime, endTime,
+          normalize ? 1 : 0, includeBuses ? 1 : 0, prefixPtr);
+    } finally {
+      calloc.free(dirPtr);
+      calloc.free(prefixPtr);
+    }
   }
 }
 
@@ -10920,9 +11288,11 @@ extension ExportPresetsAPI on NativeFFI {
   /// Delete export preset by ID
   bool exportPresetDelete(String presetId) {
     final idPtr = presetId.toNativeUtf8();
-    final result = _exportPresetDelete(idPtr);
-    calloc.free(idPtr);
-    return result == 1;
+    try {
+      return _exportPresetDelete(idPtr) == 1;
+    } finally {
+      calloc.free(idPtr);
+    }
   }
 
   /// Get default export path
@@ -13877,6 +14247,58 @@ extension ControlRoomAPI on NativeFFI {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONTAINER STORAGE METRICS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get blend container count from Rust storage
+  int getBlendContainerCount() {
+    if (!_loaded) return 0;
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('middleware_get_blend_container_count');
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get random container count from Rust storage
+  int getRandomContainerCount() {
+    if (!_loaded) return 0;
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('middleware_get_random_container_count');
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get sequence container count from Rust storage
+  int getSequenceContainerCount() {
+    if (!_loaded) return 0;
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('middleware_get_sequence_container_count');
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get total container count across all types
+  int getTotalContainerCount() {
+    return getBlendContainerCount() + getRandomContainerCount() + getSequenceContainerCount();
+  }
+
+  /// Get container storage metrics as a map
+  Map<String, int> getContainerStorageMetrics() {
+    return {
+      'blend': getBlendContainerCount(),
+      'random': getRandomContainerCount(),
+      'sequence': getSequenceContainerCount(),
+      'total': getTotalContainerCount(),
+    };
+  }
+
   /// Add music segment
   bool middlewareAddMusicSegment(MusicSegment segment) {
     if (!_loaded) return false;
@@ -15599,6 +16021,388 @@ extension SlotLabFFI on NativeFFI {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // HOLD & WIN FEATURE STATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Check if Hold & Win feature is currently active
+  bool holdAndWinIsActive() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_hold_and_win_is_active',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[HoldAndWin] holdAndWinIsActive error: $e');
+      return false;
+    }
+  }
+
+  /// Get remaining respins in Hold & Win feature
+  int holdAndWinRemainingRespins() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_hold_and_win_remaining_respins',
+      );
+      return fn();
+    } catch (e) {
+      print('[HoldAndWin] holdAndWinRemainingRespins error: $e');
+      return 0;
+    }
+  }
+
+  /// Get fill percentage of Hold & Win grid (0.0 - 1.0)
+  double holdAndWinFillPercentage() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_hold_and_win_fill_percentage',
+      );
+      return fn();
+    } catch (e) {
+      print('[HoldAndWin] holdAndWinFillPercentage error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get number of locked symbols in Hold & Win grid
+  int holdAndWinLockedCount() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_hold_and_win_locked_count',
+      );
+      return fn();
+    } catch (e) {
+      print('[HoldAndWin] holdAndWinLockedCount error: $e');
+      return 0;
+    }
+  }
+
+  /// Get complete Hold & Win state as JSON
+  String? holdAndWinGetStateJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_hold_and_win_get_state_json',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return json;
+    } catch (e) {
+      print('[HoldAndWin] holdAndWinGetStateJson error: $e');
+      return null;
+    }
+  }
+
+  /// Get total accumulated value in current Hold & Win session
+  double holdAndWinTotalValue() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_hold_and_win_total_value',
+      );
+      return fn();
+    } catch (e) {
+      print('[HoldAndWin] holdAndWinTotalValue error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Force trigger Hold & Win feature (for testing/demo)
+  bool holdAndWinForceTrigger() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_hold_and_win_force_trigger',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[HoldAndWin] holdAndWinForceTrigger error: $e');
+      return false;
+    }
+  }
+
+  /// Add a locked symbol to Hold & Win grid (for testing/demo)
+  /// position: 0-14 (for 5x3 grid)
+  /// symbolType: 0=Normal, 1=Mini, 2=Minor, 3=Major, 4=Grand
+  bool holdAndWinAddLockedSymbol(int position, double value, int symbolType) {
+    try {
+      final fn = _lib.lookupFunction<
+        Int32 Function(Uint8, Double, Int32),
+        int Function(int, double, int)
+      >('slot_lab_hold_and_win_add_locked_symbol');
+      return fn(position, value, symbolType) == 1;
+    } catch (e) {
+      print('[HoldAndWin] holdAndWinAddLockedSymbol error: $e');
+      return false;
+    }
+  }
+
+  /// Complete Hold & Win feature and get final payout
+  double holdAndWinComplete() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_hold_and_win_complete',
+      );
+      return fn();
+    } catch (e) {
+      print('[HoldAndWin] holdAndWinComplete error: $e');
+      return 0.0;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PICK BONUS FEATURE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Check if Pick Bonus is active
+  bool pickBonusIsActive() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_pick_bonus_is_active',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[PickBonus] pickBonusIsActive error: $e');
+      return false;
+    }
+  }
+
+  /// Get picks made so far
+  int pickBonusPicksMade() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_pick_bonus_picks_made',
+      );
+      return fn();
+    } catch (e) {
+      print('[PickBonus] pickBonusPicksMade error: $e');
+      return 0;
+    }
+  }
+
+  /// Get total items in pick bonus
+  int pickBonusTotalItems() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_pick_bonus_total_items',
+      );
+      return fn();
+    } catch (e) {
+      print('[PickBonus] pickBonusTotalItems error: $e');
+      return 0;
+    }
+  }
+
+  /// Get current multiplier
+  double pickBonusMultiplier() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_pick_bonus_multiplier',
+      );
+      return fn();
+    } catch (e) {
+      print('[PickBonus] pickBonusMultiplier error: $e');
+      return 1.0;
+    }
+  }
+
+  /// Get total win accumulated
+  double pickBonusTotalWin() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_pick_bonus_total_win',
+      );
+      return fn();
+    } catch (e) {
+      print('[PickBonus] pickBonusTotalWin error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Force trigger Pick Bonus (for testing)
+  bool pickBonusForceTrigger() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_pick_bonus_force_trigger',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[PickBonus] pickBonusForceTrigger error: $e');
+      return false;
+    }
+  }
+
+  /// Make a pick - returns prize info or null
+  /// JSON: {"prize_type": "coins", "prize_value": 100.0, "game_over": false}
+  Map<String, dynamic>? pickBonusMakePick() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_pick_bonus_make_pick',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final jsonStr = ptr.toDartString();
+      _freeString(ptr);
+
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      print('[PickBonus] pickBonusMakePick error: $e');
+      return null;
+    }
+  }
+
+  /// Get Pick Bonus state as JSON
+  Map<String, dynamic>? pickBonusGetStateJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_pick_bonus_get_state_json',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final jsonStr = ptr.toDartString();
+      _freeString(ptr);
+
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      print('[PickBonus] pickBonusGetStateJson error: $e');
+      return null;
+    }
+  }
+
+  /// Complete Pick Bonus and get final payout
+  double pickBonusComplete() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_pick_bonus_complete',
+      );
+      return fn();
+    } catch (e) {
+      print('[PickBonus] pickBonusComplete error: $e');
+      return 0.0;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GAMBLE FEATURE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Check if Gamble is active
+  bool gambleIsActive() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_gamble_is_active',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[Gamble] gambleIsActive error: $e');
+      return false;
+    }
+  }
+
+  /// Get current stake in gamble
+  double gambleCurrentStake() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_gamble_current_stake',
+      );
+      return fn();
+    } catch (e) {
+      print('[Gamble] gambleCurrentStake error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get attempts used in gamble
+  int gambleAttemptsUsed() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_gamble_attempts_used',
+      );
+      return fn();
+    } catch (e) {
+      print('[Gamble] gambleAttemptsUsed error: $e');
+      return 0;
+    }
+  }
+
+  /// Force trigger Gamble with initial stake
+  bool gambleForceTrigger(double initialStake) {
+    try {
+      final fn = _lib.lookupFunction<
+        Int32 Function(Double),
+        int Function(double)
+      >('slot_lab_gamble_force_trigger');
+      return fn(initialStake) == 1;
+    } catch (e) {
+      print('[Gamble] gambleForceTrigger error: $e');
+      return false;
+    }
+  }
+
+  /// Make a gamble choice (0=first, 1=second, etc.)
+  /// Returns: {"won": true, "new_stake": 200.0, "game_over": false}
+  Map<String, dynamic>? gambleMakeChoice(int choiceIndex) {
+    try {
+      final fn = _lib.lookupFunction<
+        Pointer<Utf8> Function(Int32),
+        Pointer<Utf8> Function(int)
+      >('slot_lab_gamble_make_choice');
+
+      final ptr = fn(choiceIndex);
+      if (ptr == nullptr) return null;
+
+      final jsonStr = ptr.toDartString();
+      _freeString(ptr);
+
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      print('[Gamble] gambleMakeChoice error: $e');
+      return null;
+    }
+  }
+
+  /// Collect gamble winnings and end
+  double gambleCollect() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_gamble_collect',
+      );
+      return fn();
+    } catch (e) {
+      print('[Gamble] gambleCollect error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get Gamble state as JSON
+  Map<String, dynamic>? gambleGetStateJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_gamble_get_state_json',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final jsonStr = ptr.toDartString();
+      _freeString(ptr);
+
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      print('[Gamble] gambleGetStateJson error: $e');
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // ADAPTIVE LAYER ENGINE (ALE)
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -16657,4 +17461,1296 @@ class SequenceTickResult {
 
   @override
   String toString() => 'SequenceTickResult(steps: $triggeredSteps, ended: $ended, looped: $looped)';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STAGE INGEST FFI — Universal Stage System
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// P5.5: Complete FFI bindings for rf-stage, rf-ingest, rf-connector
+// Enables slot-agnostic game engine integration via canonical STAGES.
+//
+// Three-layer architecture:
+// - Layer 1: Direct Event (engine has event log)
+// - Layer 2: Snapshot Diff (engine has pre/post state)
+// - Layer 3: Rule-Based (heuristic stage derivation)
+
+/// Stage Ingest FFI extension
+extension StageIngestFFI on NativeFFI {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STAGE FFI BINDINGS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static final _lib = _loadNativeLibrary();
+
+  // --- Stage creation ---
+  static final _stageCreateEventJson = _lib.lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>, Double),
+      Pointer<Utf8> Function(Pointer<Utf8>, double)>('stage_create_event_json');
+
+  static final _stageCreateSpinStart = _lib.lookupFunction<
+      Pointer<Utf8> Function(Double),
+      Pointer<Utf8> Function(double)>('stage_create_spin_start');
+
+  static final _stageCreateSpinEnd = _lib.lookupFunction<
+      Pointer<Utf8> Function(Double),
+      Pointer<Utf8> Function(double)>('stage_create_spin_end');
+
+  static final _stageCreateReelStop = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint8, Pointer<Utf8>, Double),
+      Pointer<Utf8> Function(int, Pointer<Utf8>, double)>('stage_create_reel_stop');
+
+  static final _stageCreateAnticipationOn = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint8, Pointer<Utf8>, Double),
+      Pointer<Utf8> Function(int, Pointer<Utf8>, double)>('stage_create_anticipation_on');
+
+  static final _stageCreateAnticipationOff = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint8, Double),
+      Pointer<Utf8> Function(int, double)>('stage_create_anticipation_off');
+
+  static final _stageCreateWinPresent = _lib.lookupFunction<
+      Pointer<Utf8> Function(Double, Uint32, Double),
+      Pointer<Utf8> Function(double, int, double)>('stage_create_win_present');
+
+  static final _stageCreateRollupStart = _lib.lookupFunction<
+      Pointer<Utf8> Function(Double, Double, Double),
+      Pointer<Utf8> Function(double, double, double)>('stage_create_rollup_start');
+
+  static final _stageCreateRollupEnd = _lib.lookupFunction<
+      Pointer<Utf8> Function(Double, Double),
+      Pointer<Utf8> Function(double, double)>('stage_create_rollup_end');
+
+  static final _stageCreateIdleStart = _lib.lookupFunction<
+      Pointer<Utf8> Function(Double),
+      Pointer<Utf8> Function(double)>('stage_create_idle_start');
+
+  // --- Trace management ---
+  static final _stageTraceCreate = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>, Pointer<Utf8>),
+      int Function(Pointer<Utf8>, Pointer<Utf8>)>('stage_trace_create');
+
+  static final _stageTraceDestroy = _lib.lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('stage_trace_destroy');
+
+  static final _stageTraceAddEvent = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>)>('stage_trace_add_event');
+
+  static final _stageTraceAddStage = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>, Double),
+      int Function(int, Pointer<Utf8>, double)>('stage_trace_add_stage');
+
+  static final _stageTraceEventCount = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('stage_trace_event_count');
+
+  static final _stageTraceDurationMs = _lib.lookupFunction<
+      Double Function(Uint64),
+      double Function(int)>('stage_trace_duration_ms');
+
+  static final _stageTraceTotalWin = _lib.lookupFunction<
+      Double Function(Uint64),
+      double Function(int)>('stage_trace_total_win');
+
+  static final _stageTraceHasFeature = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('stage_trace_has_feature');
+
+  static final _stageTraceHasJackpot = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('stage_trace_has_jackpot');
+
+  static final _stageTraceToJson = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('stage_trace_to_json');
+
+  static final _stageTraceFromJson = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('stage_trace_from_json');
+
+  static final _stageTraceValidate = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('stage_trace_validate');
+
+  static final _stageTraceSummary = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('stage_trace_summary');
+
+  static final _stageTraceEventsByType = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64, Pointer<Utf8>),
+      Pointer<Utf8> Function(int, Pointer<Utf8>)>('stage_trace_events_by_type');
+
+  static final _stageTraceGetEventsJson = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('stage_trace_get_events_json');
+
+  // --- Timing resolver ---
+  static final _stageTimingGetConfig = _lib.lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('stage_timing_get_config');
+
+  static final _stageTimingSetConfig = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('stage_timing_set_config');
+
+  static final _stageTimingResolve = _lib.lookupFunction<
+      Uint64 Function(Uint64, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>)>('stage_timing_resolve');
+
+  static final _stageTimedTraceDestroy = _lib.lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('stage_timed_trace_destroy');
+
+  static final _stageTimedTraceToJson = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('stage_timed_trace_to_json');
+
+  static final _stageTimedTraceDurationMs = _lib.lookupFunction<
+      Double Function(Uint64),
+      double Function(int)>('stage_timed_trace_duration_ms');
+
+  static final _stageTimedTraceEventsAt = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64, Double),
+      Pointer<Utf8> Function(int, double)>('stage_timed_trace_events_at');
+
+  static final _stageTimedTraceStageAt = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64, Double),
+      Pointer<Utf8> Function(int, double)>('stage_timed_trace_stage_at');
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INGEST FFI BINDINGS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // --- Adapter registry ---
+  static final _ingestRegisterAdapterToml = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('ingest_register_adapter_toml');
+
+  static final _ingestRegisterAdapterJson = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('ingest_register_adapter_json');
+
+  static final _ingestUnregisterAdapter = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('ingest_unregister_adapter');
+
+  static final _ingestListAdapters = _lib.lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('ingest_list_adapters');
+
+  static final _ingestGetAdapterInfo = _lib.lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('ingest_get_adapter_info');
+
+  static final _ingestDetectAdapter = _lib.lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('ingest_detect_adapter');
+
+  static final _ingestAdapterCount = _lib.lookupFunction<
+      Uint64 Function(),
+      int Function()>('ingest_adapter_count');
+
+  static final _ingestAdapterExists = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('ingest_adapter_exists');
+
+  // --- Ingest API ---
+  static final _ingestParseJson = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>, Pointer<Utf8>),
+      int Function(Pointer<Utf8>, Pointer<Utf8>)>('ingest_parse_json');
+
+  static final _ingestParseJsonAuto = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('ingest_parse_json_auto');
+
+  // --- Layer-specific ingest ---
+  static final _ingestLayer1Parse = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>, Uint64),
+      int Function(Pointer<Utf8>, int)>('ingest_layer1_parse');
+
+  static final _ingestLayer2Parse = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>, Uint64),
+      int Function(Pointer<Utf8>, int)>('ingest_layer2_parse');
+
+  static final _ingestLayer3CreateEngine = _lib.lookupFunction<
+      Uint64 Function(),
+      int Function()>('ingest_layer3_create_engine');
+
+  static final _ingestLayer3DestroyEngine = _lib.lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('ingest_layer3_destroy_engine');
+
+  static final _ingestLayer3Process = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64, Pointer<Utf8>, Double),
+      Pointer<Utf8> Function(int, Pointer<Utf8>, double)>('ingest_layer3_process');
+
+  static final _ingestLayer3Reset = _lib.lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('ingest_layer3_reset');
+
+  static final _ingestLayer3GetStages = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('ingest_layer3_get_stages');
+
+  static final _ingestLayer3BuildTrace = _lib.lookupFunction<
+      Uint64 Function(Uint64, Pointer<Utf8>, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>, Pointer<Utf8>)>('ingest_layer3_build_trace');
+
+  // --- Config management ---
+  static final _ingestConfigCreateJson = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('ingest_config_create_json');
+
+  static final _ingestConfigCreateToml = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('ingest_config_create_toml');
+
+  static final _ingestConfigCreateDefault = _lib.lookupFunction<
+      Uint64 Function(),
+      int Function()>('ingest_config_create_default');
+
+  static final _ingestConfigCreate = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>),
+      int Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)>('ingest_config_create');
+
+  static final _ingestConfigDestroy = _lib.lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('ingest_config_destroy');
+
+  static final _ingestConfigToJson = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('ingest_config_to_json');
+
+  static final _ingestConfigToToml = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('ingest_config_to_toml');
+
+  static final _ingestConfigAddEventMapping = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>, Pointer<Utf8>)>('ingest_config_add_event_mapping');
+
+  static final _ingestConfigSetPayloadPath = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>, Pointer<Utf8>)>('ingest_config_set_payload_path');
+
+  static final _ingestConfigSetSnapshotPath = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>, Pointer<Utf8>)>('ingest_config_set_snapshot_path');
+
+  static final _ingestConfigSetBigwinThresholds = _lib.lookupFunction<
+      Int32 Function(Uint64, Double, Double, Double, Double, Double),
+      int Function(int, double, double, double, double, double)>('ingest_config_set_bigwin_thresholds');
+
+  static final _ingestConfigValidate = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('ingest_config_validate');
+
+  // --- Wizard ---
+  static final _ingestWizardCreate = _lib.lookupFunction<
+      Uint64 Function(),
+      int Function()>('ingest_wizard_create');
+
+  static final _ingestWizardDestroy = _lib.lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('ingest_wizard_destroy');
+
+  static final _ingestWizardAddSample = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>)>('ingest_wizard_add_sample');
+
+  static final _ingestWizardAddSamples = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>)>('ingest_wizard_add_samples');
+
+  static final _ingestWizardClearSamples = _lib.lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('ingest_wizard_clear_samples');
+
+  static final _ingestWizardAnalyze = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('ingest_wizard_analyze');
+
+  static final _ingestWizardGenerateConfig = _lib.lookupFunction<
+      Uint64 Function(Uint64),
+      int Function(int)>('ingest_wizard_generate_config');
+
+  // --- Utilities ---
+  static final _ingestFreeString = _lib.lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('ingest_free_string');
+
+  static final _ingestGetLayers = _lib.lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('ingest_get_layers');
+
+  static final _ingestValidateJson = _lib.lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('ingest_validate_json');
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONNECTOR FFI BINDINGS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static final _connectorCreateWebsocket = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('connector_create_websocket');
+
+  static final _connectorCreateTcp = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>, Uint16),
+      int Function(Pointer<Utf8>, int)>('connector_create_tcp');
+
+  static final _connectorCreateConfig = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('connector_create_config');
+
+  static final _connectorDestroy = _lib.lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('connector_destroy');
+
+  static final _connectorConnect = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_connect');
+
+  static final _connectorDisconnect = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_disconnect');
+
+  static final _connectorGetState = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('connector_get_state');
+
+  static final _connectorIsConnected = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_is_connected');
+
+  static final _connectorSendCommand = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>)>('connector_send_command');
+
+  static final _connectorPlaySpin = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>)>('connector_play_spin');
+
+  static final _connectorPause = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_pause');
+
+  static final _connectorResume = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_resume');
+
+  static final _connectorStop = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_stop');
+
+  static final _connectorSeek = _lib.lookupFunction<
+      Int32 Function(Uint64, Double),
+      int Function(int, double)>('connector_seek');
+
+  static final _connectorSetSpeed = _lib.lookupFunction<
+      Int32 Function(Uint64, Double),
+      int Function(int, double)>('connector_set_speed');
+
+  static final _connectorSetTimingProfile = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>)>('connector_set_timing_profile');
+
+  static final _connectorGetEngineState = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_get_engine_state');
+
+  static final _connectorGetSpinList = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_get_spin_list');
+
+  static final _connectorRequestCapabilities = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_request_capabilities');
+
+  static final _connectorTriggerEvent = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>, Pointer<Utf8>)>('connector_trigger_event');
+
+  static final _connectorSetParameter = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>, Pointer<Utf8>)>('connector_set_parameter');
+
+  static final _connectorCustomCommand = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>, Pointer<Utf8>)>('connector_custom_command');
+
+  static final _connectorStartEventPolling = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_start_event_polling');
+
+  static final _connectorPollEvent = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('connector_poll_event');
+
+  static final _connectorEventCount = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('connector_event_count');
+
+  static final _connectorGetCapabilities = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('connector_get_capabilities');
+
+  static final _connectorSetCapabilities = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>)>('connector_set_capabilities');
+
+  static final _connectorSupportsCommand = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>)>('connector_supports_command');
+
+  static final _connectorFreeString = _lib.lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('connector_free_string');
+
+  static final _connectorListAll = _lib.lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('connector_list_all');
+
+  static final _connectorGetConfig = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('connector_get_config');
+
+  static final _connectorClearAll = _lib.lookupFunction<
+      Void Function(),
+      void Function()>('connector_clear_all');
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STAGE API — Public Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a stage event from JSON
+  String? stageCreateEventJson(String stageJson, double timestampMs) {
+    final ptr = stageJson.toNativeUtf8();
+    try {
+      final result = _stageCreateEventJson(ptr, timestampMs);
+      if (result == nullptr) return null;
+      final str = result.toDartString();
+      _ingestFreeString(result);
+      return str;
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  /// Create SpinStart event
+  String? stageCreateSpinStart(double timestampMs) {
+    final result = _stageCreateSpinStart(timestampMs);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  /// Create SpinEnd event
+  String? stageCreateSpinEnd(double timestampMs) {
+    final result = _stageCreateSpinEnd(timestampMs);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  /// Create ReelStop event
+  String? stageCreateReelStop(int reelIndex, List<String> symbols, double timestampMs) {
+    final symbolsJson = jsonEncode(symbols);
+    final symbolsPtr = symbolsJson.toNativeUtf8();
+    try {
+      final result = _stageCreateReelStop(reelIndex, symbolsPtr, timestampMs);
+      if (result == nullptr) return null;
+      final str = result.toDartString();
+      _ingestFreeString(result);
+      return str;
+    } finally {
+      calloc.free(symbolsPtr);
+    }
+  }
+
+  /// Create AnticipationOn event
+  String? stageCreateAnticipationOn(int reelIndex, String? reason, double timestampMs) {
+    final reasonPtr = reason?.toNativeUtf8() ?? nullptr;
+    try {
+      final result = _stageCreateAnticipationOn(reelIndex, reasonPtr, timestampMs);
+      if (result == nullptr) return null;
+      final str = result.toDartString();
+      _ingestFreeString(result);
+      return str;
+    } finally {
+      if (reasonPtr != nullptr) calloc.free(reasonPtr);
+    }
+  }
+
+  /// Create AnticipationOff event
+  String? stageCreateAnticipationOff(int reelIndex, double timestampMs) {
+    final result = _stageCreateAnticipationOff(reelIndex, timestampMs);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  /// Create WinPresent event
+  String? stageCreateWinPresent(double winAmount, int lineCount, double timestampMs) {
+    final result = _stageCreateWinPresent(winAmount, lineCount, timestampMs);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  /// Create RollupStart event
+  String? stageCreateRollupStart(double targetAmount, double startAmount, double timestampMs) {
+    final result = _stageCreateRollupStart(targetAmount, startAmount, timestampMs);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  /// Create RollupEnd event
+  String? stageCreateRollupEnd(double finalAmount, double timestampMs) {
+    final result = _stageCreateRollupEnd(finalAmount, timestampMs);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  /// Create IdleStart event
+  String? stageCreateIdleStart(double timestampMs) {
+    final result = _stageCreateIdleStart(timestampMs);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  // --- Trace management ---
+
+  /// Create a new stage trace
+  int stageTraceCreate(String traceId, String gameId) {
+    return withNativeStrings2(traceId, gameId, _stageTraceCreate);
+  }
+
+  /// Destroy a trace
+  void stageTraceDestroy(int handle) {
+    _stageTraceDestroy(handle);
+  }
+
+  /// Add event to trace (from JSON)
+  bool stageTraceAddEvent(int handle, String eventJson) {
+    return withNativeString(eventJson, (ptr) => _stageTraceAddEvent(handle, ptr) == 1);
+  }
+
+  /// Add event to trace (stage + timestamp)
+  bool stageTraceAddStage(int handle, String stageJson, double timestampMs) {
+    return withNativeString(stageJson, (ptr) => _stageTraceAddStage(handle, ptr, timestampMs) == 1);
+  }
+
+  /// Get trace event count
+  int stageTraceEventCount(int handle) => _stageTraceEventCount(handle);
+
+  /// Get trace duration in ms
+  double stageTraceDurationMs(int handle) => _stageTraceDurationMs(handle);
+
+  /// Get total win from trace
+  double stageTraceTotalWin(int handle) => _stageTraceTotalWin(handle);
+
+  /// Check if trace has feature
+  bool stageTraceHasFeature(int handle) => _stageTraceHasFeature(handle) == 1;
+
+  /// Check if trace has jackpot
+  bool stageTraceHasJackpot(int handle) => _stageTraceHasJackpot(handle) == 1;
+
+  /// Get trace as JSON
+  String? stageTraceToJson(int handle) {
+    final result = _stageTraceToJson(handle);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  /// Load trace from JSON
+  int stageTraceFromJson(String json) {
+    return withNativeString(json, _stageTraceFromJson);
+  }
+
+  /// Validate trace
+  Map<String, dynamic>? stageTraceValidate(int handle) {
+    final result = _stageTraceValidate(handle);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return jsonDecode(str) as Map<String, dynamic>;
+  }
+
+  /// Get trace summary
+  Map<String, dynamic>? stageTraceSummary(int handle) {
+    final result = _stageTraceSummary(handle);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return jsonDecode(str) as Map<String, dynamic>;
+  }
+
+  /// Get events by stage type
+  List<dynamic>? stageTraceEventsByType(int handle, String typeName) {
+    final typePtr = typeName.toNativeUtf8();
+    try {
+      final result = _stageTraceEventsByType(handle, typePtr);
+      if (result == nullptr) return null;
+      final str = result.toDartString();
+      _ingestFreeString(result);
+      return jsonDecode(str) as List<dynamic>;
+    } finally {
+      calloc.free(typePtr);
+    }
+  }
+
+  /// Get all events in trace
+  List<dynamic>? stageTraceGetEventsJson(int handle) {
+    final result = _stageTraceGetEventsJson(handle);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return jsonDecode(str) as List<dynamic>;
+  }
+
+  // --- Timing resolver ---
+
+  /// Get timing profile config
+  Map<String, dynamic>? stageTimingGetConfig(String profile) {
+    return withNativeString(profile, (ptr) {
+      final result = _stageTimingGetConfig(ptr);
+      if (result == nullptr) return null;
+      final str = result.toDartString();
+      _ingestFreeString(result);
+      return jsonDecode(str) as Map<String, dynamic>;
+    });
+  }
+
+  /// Set custom timing config
+  bool stageTimingSetConfig(Map<String, dynamic> config) {
+    final json = jsonEncode(config);
+    return withNativeString(json, (ptr) => _stageTimingSetConfig(ptr) == 1);
+  }
+
+  /// Resolve timing for a trace
+  int stageTimingResolve(int traceHandle, String profile) {
+    return withNativeString(profile, (ptr) => _stageTimingResolve(traceHandle, ptr));
+  }
+
+  /// Destroy timed trace
+  void stageTimedTraceDestroy(int handle) {
+    _stageTimedTraceDestroy(handle);
+  }
+
+  /// Get timed trace as JSON
+  String? stageTimedTraceToJson(int handle) {
+    final result = _stageTimedTraceToJson(handle);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  /// Get timed trace total duration
+  double stageTimedTraceDurationMs(int handle) => _stageTimedTraceDurationMs(handle);
+
+  /// Get events at a specific time
+  List<dynamic>? stageTimedTraceEventsAt(int handle, double timeMs) {
+    final result = _stageTimedTraceEventsAt(handle, timeMs);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return jsonDecode(str) as List<dynamic>;
+  }
+
+  /// Get stage at a specific time
+  Map<String, dynamic>? stageTimedTraceStageAt(int handle, double timeMs) {
+    final result = _stageTimedTraceStageAt(handle, timeMs);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return jsonDecode(str) as Map<String, dynamic>;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INGEST API — Public Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Register adapter from TOML
+  bool ingestRegisterAdapterToml(String tomlConfig) {
+    return withNativeString(tomlConfig, (ptr) => _ingestRegisterAdapterToml(ptr) == 1);
+  }
+
+  /// Register adapter from JSON
+  bool ingestRegisterAdapterJson(String jsonConfig) {
+    return withNativeString(jsonConfig, (ptr) => _ingestRegisterAdapterJson(ptr) == 1);
+  }
+
+  /// Unregister adapter
+  bool ingestUnregisterAdapter(String adapterId) {
+    return withNativeString(adapterId, (ptr) => _ingestUnregisterAdapter(ptr) == 1);
+  }
+
+  /// List registered adapters
+  List<String> ingestListAdapters() {
+    final result = _ingestListAdapters();
+    if (result == nullptr) return [];
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return (jsonDecode(str) as List).cast<String>();
+  }
+
+  /// Get adapter info
+  Map<String, dynamic>? ingestGetAdapterInfo(String adapterId) {
+    return withNativeString(adapterId, (ptr) {
+      final result = _ingestGetAdapterInfo(ptr);
+      if (result == nullptr) return null;
+      final str = result.toDartString();
+      _ingestFreeString(result);
+      return jsonDecode(str) as Map<String, dynamic>;
+    });
+  }
+
+  /// Auto-detect adapter for a JSON sample
+  String? ingestDetectAdapter(String sampleJson) {
+    return withNativeString(sampleJson, (ptr) {
+      final result = _ingestDetectAdapter(ptr);
+      if (result == nullptr) return null;
+      final str = result.toDartString();
+      _ingestFreeString(result);
+      return str;
+    });
+  }
+
+  /// Get adapter count
+  int ingestAdapterCount() => _ingestAdapterCount();
+
+  /// Check if adapter exists
+  bool ingestAdapterExists(String adapterId) {
+    return withNativeString(adapterId, (ptr) => _ingestAdapterExists(ptr) == 1);
+  }
+
+  /// Ingest JSON using a specific adapter
+  int ingestParseJson(String adapterId, String jsonData) {
+    return withNativeStrings2(adapterId, jsonData, _ingestParseJson);
+  }
+
+  /// Ingest JSON using auto-detected adapter
+  int ingestParseJsonAuto(String jsonData) {
+    return withNativeString(jsonData, _ingestParseJsonAuto);
+  }
+
+  // --- Layer-specific ingest ---
+
+  /// Parse JSON using Layer 1 (Direct Event)
+  int ingestLayer1Parse(String jsonData, int configId) {
+    return withNativeString(jsonData, (ptr) => _ingestLayer1Parse(ptr, configId));
+  }
+
+  /// Parse JSON using Layer 2 (Snapshot Diff)
+  int ingestLayer2Parse(String snapshotsJson, int configId) {
+    return withNativeString(snapshotsJson, (ptr) => _ingestLayer2Parse(ptr, configId));
+  }
+
+  /// Create a Rule Engine for Layer 3 processing
+  int ingestLayer3CreateEngine() => _ingestLayer3CreateEngine();
+
+  /// Destroy a Rule Engine
+  void ingestLayer3DestroyEngine(int engineId) => _ingestLayer3DestroyEngine(engineId);
+
+  /// Process a single data point through Rule Engine
+  List<dynamic>? ingestLayer3Process(int engineId, String jsonData, double timestampMs) {
+    return withNativeString(jsonData, (ptr) {
+      final result = _ingestLayer3Process(engineId, ptr, timestampMs);
+      if (result == nullptr) return null;
+      final str = result.toDartString();
+      _ingestFreeString(result);
+      return jsonDecode(str) as List<dynamic>;
+    });
+  }
+
+  /// Reset a Rule Engine state
+  void ingestLayer3Reset(int engineId) => _ingestLayer3Reset(engineId);
+
+  /// Get all detected stages from Rule Engine
+  List<dynamic>? ingestLayer3GetStages(int engineId) {
+    final result = _ingestLayer3GetStages(engineId);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return jsonDecode(str) as List<dynamic>;
+  }
+
+  /// Build a StageTrace from Rule Engine's detected stages
+  int ingestLayer3BuildTrace(int engineId, String traceId, String gameId) {
+    return withNativeStrings3(traceId, gameId, '', (p1, p2, _) {
+      return _ingestLayer3BuildTrace(engineId, p1, p2);
+    });
+  }
+
+  // --- Config management ---
+
+  /// Create config from JSON
+  int ingestConfigCreateJson(String jsonConfig) {
+    return withNativeString(jsonConfig, _ingestConfigCreateJson);
+  }
+
+  /// Create config from TOML
+  int ingestConfigCreateToml(String tomlConfig) {
+    return withNativeString(tomlConfig, _ingestConfigCreateToml);
+  }
+
+  /// Create default config
+  int ingestConfigCreateDefault() => _ingestConfigCreateDefault();
+
+  /// Create config with basic info
+  int ingestConfigCreate(String adapterId, String companyName, String engineName) {
+    return withNativeStrings3(adapterId, companyName, engineName, _ingestConfigCreate);
+  }
+
+  /// Destroy config
+  void ingestConfigDestroy(int configId) => _ingestConfigDestroy(configId);
+
+  /// Get config as JSON
+  String? ingestConfigToJson(int configId) {
+    final result = _ingestConfigToJson(configId);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  /// Get config as TOML
+  String? ingestConfigToToml(int configId) {
+    final result = _ingestConfigToToml(configId);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return str;
+  }
+
+  /// Add event mapping to config
+  bool ingestConfigAddEventMapping(int configId, String eventName, String stageName) {
+    return withNativeStrings2(eventName, stageName,
+      (p1, p2) => _ingestConfigAddEventMapping(configId, p1, p2) == 1);
+  }
+
+  /// Set payload path in config
+  bool ingestConfigSetPayloadPath(int configId, String pathType, String jsonPath) {
+    return withNativeStrings2(pathType, jsonPath,
+      (p1, p2) => _ingestConfigSetPayloadPath(configId, p1, p2) == 1);
+  }
+
+  /// Set snapshot path in config
+  bool ingestConfigSetSnapshotPath(int configId, String pathType, String jsonPath) {
+    return withNativeStrings2(pathType, jsonPath,
+      (p1, p2) => _ingestConfigSetSnapshotPath(configId, p1, p2) == 1);
+  }
+
+  /// Set big win thresholds in config
+  bool ingestConfigSetBigwinThresholds(int configId, double win, double bigWin,
+      double megaWin, double epicWin, double ultraWin) {
+    return _ingestConfigSetBigwinThresholds(configId, win, bigWin, megaWin, epicWin, ultraWin) == 1;
+  }
+
+  /// Validate config
+  bool ingestConfigValidate(int configId) => _ingestConfigValidate(configId) == 1;
+
+  // --- Wizard ---
+
+  /// Create wizard instance
+  int ingestWizardCreate() => _ingestWizardCreate();
+
+  /// Destroy wizard instance
+  void ingestWizardDestroy(int wizardId) => _ingestWizardDestroy(wizardId);
+
+  /// Add a sample to the wizard
+  bool ingestWizardAddSample(int wizardId, String sampleJson) {
+    return withNativeString(sampleJson, (ptr) => _ingestWizardAddSample(wizardId, ptr) == 1);
+  }
+
+  /// Add multiple samples to the wizard
+  int ingestWizardAddSamples(int wizardId, List<Map<String, dynamic>> samples) {
+    final json = jsonEncode(samples);
+    return withNativeString(json, (ptr) => _ingestWizardAddSamples(wizardId, ptr));
+  }
+
+  /// Clear all samples from wizard
+  void ingestWizardClearSamples(int wizardId) => _ingestWizardClearSamples(wizardId);
+
+  /// Run wizard analysis
+  Map<String, dynamic>? ingestWizardAnalyze(int wizardId) {
+    final result = _ingestWizardAnalyze(wizardId);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return jsonDecode(str) as Map<String, dynamic>;
+  }
+
+  /// Generate config from wizard
+  int ingestWizardGenerateConfig(int wizardId) => _ingestWizardGenerateConfig(wizardId);
+
+  // --- Utilities ---
+
+  /// Get supported ingest layers
+  List<String> ingestGetLayers() {
+    final result = _ingestGetLayers();
+    if (result == nullptr) return [];
+    final str = result.toDartString();
+    _ingestFreeString(result);
+    return (jsonDecode(str) as List).cast<String>();
+  }
+
+  /// Validate JSON structure
+  Map<String, dynamic>? ingestValidateJson(String jsonData) {
+    return withNativeString(jsonData, (ptr) {
+      final result = _ingestValidateJson(ptr);
+      if (result == nullptr) return null;
+      final str = result.toDartString();
+      _ingestFreeString(result);
+      return jsonDecode(str) as Map<String, dynamic>;
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONNECTOR API — Public Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create WebSocket connector
+  int connectorCreateWebsocket(String url) {
+    return withNativeString(url, _connectorCreateWebsocket);
+  }
+
+  /// Create TCP connector
+  int connectorCreateTcp(String host, int port) {
+    return withNativeString(host, (ptr) => _connectorCreateTcp(ptr, port));
+  }
+
+  /// Create connector with full config
+  int connectorCreateConfig(Map<String, dynamic> config) {
+    final json = jsonEncode(config);
+    return withNativeString(json, _connectorCreateConfig);
+  }
+
+  /// Destroy connector
+  void connectorDestroy(int connectorId) => _connectorDestroy(connectorId);
+
+  /// Connect to engine
+  bool connectorConnect(int connectorId) => _connectorConnect(connectorId) == 1;
+
+  /// Disconnect from engine
+  bool connectorDisconnect(int connectorId) => _connectorDisconnect(connectorId) == 1;
+
+  /// Get connection state
+  Map<String, dynamic>? connectorGetState(int connectorId) {
+    final result = _connectorGetState(connectorId);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _connectorFreeString(result);
+    return jsonDecode(str) as Map<String, dynamic>;
+  }
+
+  /// Check if connected
+  bool connectorIsConnected(int connectorId) => _connectorIsConnected(connectorId) == 1;
+
+  /// Send command (JSON)
+  bool connectorSendCommand(int connectorId, Map<String, dynamic> command) {
+    final json = jsonEncode(command);
+    return withNativeString(json, (ptr) => _connectorSendCommand(connectorId, ptr) == 1);
+  }
+
+  /// Send play spin command
+  bool connectorPlaySpin(int connectorId, String spinId) {
+    return withNativeString(spinId, (ptr) => _connectorPlaySpin(connectorId, ptr) == 1);
+  }
+
+  /// Send pause command
+  bool connectorPause(int connectorId) => _connectorPause(connectorId) == 1;
+
+  /// Send resume command
+  bool connectorResume(int connectorId) => _connectorResume(connectorId) == 1;
+
+  /// Send stop command
+  bool connectorStop(int connectorId) => _connectorStop(connectorId) == 1;
+
+  /// Send seek command
+  bool connectorSeek(int connectorId, double timestampMs) =>
+      _connectorSeek(connectorId, timestampMs) == 1;
+
+  /// Send set speed command
+  bool connectorSetSpeed(int connectorId, double speed) =>
+      _connectorSetSpeed(connectorId, speed) == 1;
+
+  /// Set timing profile
+  bool connectorSetTimingProfile(int connectorId, String profile) {
+    return withNativeString(profile, (ptr) => _connectorSetTimingProfile(connectorId, ptr) == 1);
+  }
+
+  /// Request engine state
+  bool connectorGetEngineState(int connectorId) => _connectorGetEngineState(connectorId) == 1;
+
+  /// Request spin list
+  bool connectorGetSpinList(int connectorId) => _connectorGetSpinList(connectorId) == 1;
+
+  /// Request capabilities
+  bool connectorRequestCapabilities(int connectorId) =>
+      _connectorRequestCapabilities(connectorId) == 1;
+
+  /// Trigger event (for testing)
+  bool connectorTriggerEvent(int connectorId, String eventName, Map<String, dynamic>? payload) {
+    final payloadJson = payload != null ? jsonEncode(payload) : null;
+    final eventPtr = eventName.toNativeUtf8();
+    final payloadPtr = payloadJson?.toNativeUtf8() ?? nullptr;
+    try {
+      return _connectorTriggerEvent(connectorId, eventPtr, payloadPtr) == 1;
+    } finally {
+      calloc.free(eventPtr);
+      if (payloadPtr != nullptr) calloc.free(payloadPtr);
+    }
+  }
+
+  /// Set parameter
+  bool connectorSetParameter(int connectorId, String name, dynamic value) {
+    final valueJson = jsonEncode(value);
+    return withNativeStrings2(name, valueJson,
+      (p1, p2) => _connectorSetParameter(connectorId, p1, p2) == 1);
+  }
+
+  /// Send custom command
+  bool connectorCustomCommand(int connectorId, String name, Map<String, dynamic>? data) {
+    final dataJson = data != null ? jsonEncode(data) : null;
+    final namePtr = name.toNativeUtf8();
+    final dataPtr = dataJson?.toNativeUtf8() ?? nullptr;
+    try {
+      return _connectorCustomCommand(connectorId, namePtr, dataPtr) == 1;
+    } finally {
+      calloc.free(namePtr);
+      if (dataPtr != nullptr) calloc.free(dataPtr);
+    }
+  }
+
+  /// Start event polling
+  bool connectorStartEventPolling(int connectorId) =>
+      _connectorStartEventPolling(connectorId) == 1;
+
+  /// Poll for next event (non-blocking)
+  Map<String, dynamic>? connectorPollEvent(int connectorId) {
+    final result = _connectorPollEvent(connectorId);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _connectorFreeString(result);
+    return jsonDecode(str) as Map<String, dynamic>;
+  }
+
+  /// Get pending event count
+  int connectorEventCount(int connectorId) => _connectorEventCount(connectorId);
+
+  /// Get cached capabilities
+  Map<String, dynamic>? connectorGetCapabilities(int connectorId) {
+    final result = _connectorGetCapabilities(connectorId);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _connectorFreeString(result);
+    return jsonDecode(str) as Map<String, dynamic>;
+  }
+
+  /// Set cached capabilities
+  bool connectorSetCapabilities(int connectorId, Map<String, dynamic> capabilities) {
+    final json = jsonEncode(capabilities);
+    return withNativeString(json, (ptr) => _connectorSetCapabilities(connectorId, ptr) == 1);
+  }
+
+  /// Check if engine supports command
+  bool connectorSupportsCommand(int connectorId, String commandName) {
+    return withNativeString(commandName,
+      (ptr) => _connectorSupportsCommand(connectorId, ptr) == 1);
+  }
+
+  /// List all active connectors
+  List<int> connectorListAll() {
+    final result = _connectorListAll();
+    if (result == nullptr) return [];
+    final str = result.toDartString();
+    _connectorFreeString(result);
+    return (jsonDecode(str) as List).cast<int>();
+  }
+
+  /// Get connector config
+  Map<String, dynamic>? connectorGetConfig(int connectorId) {
+    final result = _connectorGetConfig(connectorId);
+    if (result == nullptr) return null;
+    final str = result.toDartString();
+    _connectorFreeString(result);
+    return jsonDecode(str) as Map<String, dynamic>;
+  }
+
+  /// Clear all connectors
+  void connectorClearAll() => _connectorClearAll();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OFFLINE DSP PROCESSING API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a new offline processing pipeline
+  /// Returns pipeline handle (>0) or 0 on error
+  int offlinePipelineCreate() {
+    if (!_loaded) return 0;
+    return _offlinePipelineCreate();
+  }
+
+  /// Create a pipeline with custom config (JSON)
+  /// Returns pipeline handle (>0) or 0 on error
+  int offlinePipelineCreateWithConfig(String configJson) {
+    if (!_loaded) return 0;
+    return withNativeString(configJson, (ptr) => _offlinePipelineCreateWithConfig(ptr));
+  }
+
+  /// Destroy a pipeline
+  void offlinePipelineDestroy(int handle) {
+    if (!_loaded) return;
+    _offlinePipelineDestroy(handle);
+  }
+
+  /// Set normalization mode for pipeline
+  /// mode: 0=None, 1=Peak, 2=LUFS, 3=TruePeak, 4=NoClip
+  /// target: target level in dB (for Peak/TruePeak) or LUFS
+  void offlinePipelineSetNormalization(int handle, int mode, double target) {
+    if (!_loaded) return;
+    _offlinePipelineSetNormalization(handle, mode, target);
+  }
+
+  /// Set output format for pipeline
+  /// format: 0=WAV16, 1=WAV24, 2=WAV32F, 3=FLAC, 4=MP3_320
+  void offlinePipelineSetFormat(int handle, int format) {
+    if (!_loaded) return;
+    _offlinePipelineSetFormat(handle, format);
+  }
+
+  /// Process a single file
+  /// Returns job ID (>0) or 0 on error
+  int offlineProcessFile(int handle, String inputPath, String outputPath) {
+    if (!_loaded) return 0;
+    return withNativeStrings2(inputPath, outputPath,
+      (p1, p2) => _offlineProcessFile(handle, p1, p2));
+  }
+
+  /// Process a file with full options (JSON config)
+  /// Returns job ID (>0) or 0 on error
+  int offlineProcessFileWithOptions(int handle, String optionsJson) {
+    if (!_loaded) return 0;
+    return withNativeString(optionsJson, (ptr) => _offlineProcessFileWithOptions(handle, ptr));
+  }
+
+  /// Get pipeline progress (0.0 - 1.0)
+  double offlinePipelineGetProgress(int handle) {
+    if (!_loaded) return 0.0;
+    return _offlinePipelineGetProgress(handle);
+  }
+
+  /// Get pipeline state
+  /// Returns: 0=Idle, 1=Loading, 2=Analyzing, 3=Processing, 4=Normalizing,
+  ///          5=Converting, 6=Encoding, 7=Writing, 8=Complete, 9=Failed, 10=Cancelled, -1=NotFound
+  int offlinePipelineGetState(int handle) {
+    if (!_loaded) return -1;
+    return _offlinePipelineGetState(handle);
+  }
+
+  /// Get progress as JSON
+  String? offlinePipelineGetProgressJson(int handle) {
+    if (!_loaded) return null;
+    final ptr = _offlinePipelineGetProgressJson(handle);
+    if (ptr == nullptr) return null;
+    final str = ptr.toDartString();
+    _offlineFreeString(ptr);
+    return str;
+  }
+
+  /// Cancel pipeline processing
+  void offlinePipelineCancel(int handle) {
+    if (!_loaded) return;
+    _offlinePipelineCancel(handle);
+  }
+
+  /// Get job result as JSON
+  String? offlineGetJobResult(int jobId) {
+    if (!_loaded) return null;
+    final ptr = _offlineGetJobResult(jobId);
+    if (ptr == nullptr) return null;
+    final str = ptr.toDartString();
+    _offlineFreeString(ptr);
+    return str;
+  }
+
+  /// Check if job completed successfully
+  bool offlineJobSucceeded(int jobId) {
+    if (!_loaded) return false;
+    return _offlineJobSucceeded(jobId);
+  }
+
+  /// Get job error message
+  String? offlineGetJobError(int jobId) {
+    if (!_loaded) return null;
+    final ptr = _offlineGetJobError(jobId);
+    if (ptr == nullptr) return null;
+    final str = ptr.toDartString();
+    _offlineFreeString(ptr);
+    return str;
+  }
+
+  /// Clear job result from storage
+  void offlineClearJobResult(int jobId) {
+    if (!_loaded) return;
+    _offlineClearJobResult(jobId);
+  }
+
+  /// Process multiple files in batch
+  /// jobsJson: JSON array of job configs
+  /// Returns: JSON string with results array or null on error
+  String? offlineBatchProcess(String jobsJson) {
+    if (!_loaded) return null;
+    final ptr = withNativeString(jobsJson, (p) => _offlineBatchProcess(p));
+    if (ptr == nullptr) return null;
+    final str = ptr.toDartString();
+    _offlineFreeString(ptr);
+    return str;
+  }
+
+  /// Get last error message
+  String? offlineGetLastError() {
+    if (!_loaded) return null;
+    final ptr = _offlineGetLastError();
+    if (ptr == nullptr) return null;
+    final str = ptr.toDartString();
+    _offlineFreeString(ptr);
+    return str;
+  }
+
+  /// Get supported output formats as JSON
+  String? offlineGetSupportedFormats() {
+    if (!_loaded) return null;
+    final ptr = _offlineGetSupportedFormats();
+    if (ptr == nullptr) return null;
+    final str = ptr.toDartString();
+    _offlineFreeString(ptr);
+    return str;
+  }
+
+  /// Get supported normalization modes as JSON
+  String? offlineGetNormalizationModes() {
+    if (!_loaded) return null;
+    final ptr = _offlineGetNormalizationModes();
+    if (ptr == nullptr) return null;
+    final str = ptr.toDartString();
+    _offlineFreeString(ptr);
+    return str;
+  }
 }

@@ -871,13 +871,19 @@ class MidiProvider extends ChangeNotifier {
   }
 
   void _sendMidiNoteOn(int pitch, int velocity, int channel) {
-    // TODO: Send via FFI to audio engine
-    debugPrint('MIDI OUT: Note On ch$channel $pitch vel$velocity');
+    // Send via FFI to connected MIDI output device
+    final success = _ffi.midiSendNoteOn(channel, pitch, velocity);
+    if (!success) {
+      debugPrint('MIDI OUT: Failed to send Note On ch$channel $pitch vel$velocity (no output connected)');
+    }
   }
 
   void _sendMidiNoteOff(int pitch, int channel) {
-    // TODO: Send via FFI to audio engine
-    debugPrint('MIDI OUT: Note Off ch$channel $pitch');
+    // Send via FFI to connected MIDI output device
+    final success = _ffi.midiSendNoteOff(channel, pitch, 64); // Standard release velocity
+    if (!success) {
+      debugPrint('MIDI OUT: Failed to send Note Off ch$channel $pitch (no output connected)');
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1113,11 +1119,27 @@ class MidiProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   void _syncNoteToFFI(String clipId, MidiNoteData note) {
-    // Convert to piano roll format if clip has active editor
+    // Sync note to Rust piano roll when clip editor is open
+    // Only sync if this clip is currently being edited (has an active piano roll)
+    if (_editingClip?.id != clipId) return;
+
     try {
-      final clipIdInt = int.tryParse(clipId);
+      final clipIdInt = int.tryParse(clipId.replaceFirst('midi_', ''));
       if (clipIdInt != null) {
-        // TODO: Sync with FFI when piano roll is open
+        // Convert seconds to ticks (960 PPQN, assuming 120 BPM for conversion)
+        const ticksPerBeat = 960;
+        const beatsPerSecond = 120.0 / 60.0;
+        final startTick = (note.startTime * beatsPerSecond * ticksPerBeat).round();
+        final durationTicks = (note.duration * beatsPerSecond * ticksPerBeat).round();
+        final velocityMidi = (note.velocity * 127).round().clamp(1, 127);
+
+        _ffi.pianoRollAddNote(
+          clipIdInt,
+          note.pitch,
+          startTick,
+          durationTicks,
+          velocityMidi,
+        );
       }
     } catch (e) {
       debugPrint('Failed to sync note to FFI: $e');

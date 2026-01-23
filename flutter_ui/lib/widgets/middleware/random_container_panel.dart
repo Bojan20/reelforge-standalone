@@ -5,11 +5,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
 import '../../providers/subsystems/random_containers_provider.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../common/audio_waveform_picker_dialog.dart';
 
 /// Random Container Panel Widget
 class RandomContainerPanel extends StatefulWidget {
@@ -26,10 +26,9 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
-        final containers = provider.randomContainers;
-
+    return Selector<MiddlewareProvider, List<RandomContainer>>(
+      selector: (_, p) => p.randomContainers,
+      builder: (context, containers, _) {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -40,7 +39,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(provider),
+              _buildHeader(),
               const SizedBox(height: 16),
               Expanded(
                 child: Row(
@@ -49,18 +48,18 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                     // Container list
                     SizedBox(
                       width: 220,
-                      child: _buildContainerList(containers, provider),
+                      child: _buildContainerList(containers),
                     ),
                     const SizedBox(width: 16),
                     // Children and settings
                     Expanded(
-                      child: _buildContainerEditor(provider),
+                      child: _buildContainerEditor(containers),
                     ),
                   ],
                 ),
               ),
               if (_showAddContainer)
-                _buildAddContainerDialog(provider),
+                _buildAddContainerDialog(),
             ],
           ),
         );
@@ -68,7 +67,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
     );
   }
 
-  Widget _buildHeader(MiddlewareProvider provider) {
+  Widget _buildHeader() {
     return Row(
       children: [
         Icon(Icons.shuffle, color: Colors.amber, size: 20),
@@ -112,7 +111,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
     );
   }
 
-  Widget _buildContainerList(List<RandomContainer> containers, MiddlewareProvider provider) {
+  Widget _buildContainerList(List<RandomContainer> containers) {
     if (containers.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -192,7 +191,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                       _buildMiniToggle(
                         value: container.enabled,
                         onChanged: (v) {
-                          provider.updateRandomContainer(
+                          context.read<MiddlewareProvider>().updateRandomContainer(
                             container.copyWith(enabled: v),
                           );
                         },
@@ -283,7 +282,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
     );
   }
 
-  Widget _buildContainerEditor(MiddlewareProvider provider) {
+  Widget _buildContainerEditor(List<RandomContainer> containers) {
     if (_selectedContainerId == null) {
       return Container(
         decoration: BoxDecoration(
@@ -307,7 +306,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
       );
     }
 
-    final container = provider.randomContainers
+    final container = containers
         .where((c) => c.id == _selectedContainerId)
         .firstOrNull;
 
@@ -317,22 +316,22 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Mode selector and global settings
-        _buildContainerSettings(provider, container),
+        _buildContainerSettings(container),
         const SizedBox(height: 16),
         // Children list with weights
         Expanded(
-          child: _buildChildrenList(provider, container),
+          child: _buildChildrenList(container),
         ),
         // Selected child editor
         if (_selectedChildId != null) ...[
           const SizedBox(height: 12),
-          _buildChildEditor(provider, container),
+          _buildChildEditor(container),
         ],
       ],
     );
   }
 
-  Widget _buildContainerSettings(MiddlewareProvider provider, RandomContainer container) {
+  Widget _buildContainerSettings(RandomContainer container) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -357,7 +356,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                   padding: const EdgeInsets.only(right: 4),
                   child: GestureDetector(
                     onTap: () {
-                      provider.updateRandomContainer(
+                      context.read<MiddlewareProvider>().updateRandomContainer(
                         container.copyWith(mode: mode),
                       );
                     },
@@ -420,7 +419,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                       }).toList(),
                       onChanged: (v) {
                         if (v != null) {
-                          provider.updateRandomContainer(
+                          context.read<MiddlewareProvider>().updateRandomContainer(
                             container.copyWith(avoidRepeatCount: v),
                           );
                         }
@@ -456,7 +455,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                   unit: 'st',
                   color: Colors.cyan,
                   onChanged: (min, max) {
-                    provider.updateRandomContainer(
+                    context.read<MiddlewareProvider>().updateRandomContainer(
                       container.copyWith(
                         globalPitchMin: min,
                         globalPitchMax: max,
@@ -474,7 +473,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                   unit: 'dB',
                   color: Colors.orange,
                   onChanged: (min, max) {
-                    provider.updateRandomContainer(
+                    context.read<MiddlewareProvider>().updateRandomContainer(
                       container.copyWith(
                         globalVolumeMin: min,
                         globalVolumeMax: max,
@@ -532,7 +531,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
     );
   }
 
-  Widget _buildChildrenList(MiddlewareProvider provider, RandomContainer container) {
+  Widget _buildChildrenList(RandomContainer container) {
     return Container(
       decoration: BoxDecoration(
         color: FluxForgeTheme.surface.withValues(alpha: 0.3),
@@ -572,7 +571,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                         ),
                         const SizedBox(height: 8),
                         GestureDetector(
-                          onTap: () => _showAddChildDialog(provider, container),
+                          onTap: () => _showAddChildDialog(container),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
@@ -654,7 +653,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                                     value: child.weight / 10.0,
                                     onChanged: (v) {
                                       final updated = child.copyWith(weight: v * 10.0);
-                                      provider.updateRandomChild(container.id, updated);
+                                      context.read<MiddlewareProvider>().updateRandomChild(container.id, updated);
                                     },
                                   ),
                                 ),
@@ -701,7 +700,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                               // Delete button
                               GestureDetector(
                                 onTap: () {
-                                  provider.removeRandomChild(container.id, child.id);
+                                  context.read<MiddlewareProvider>().removeRandomChild(container.id, child.id);
                                   if (_selectedChildId == child.id) {
                                     setState(() => _selectedChildId = null);
                                   }
@@ -730,7 +729,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                 border: Border(top: BorderSide(color: FluxForgeTheme.border)),
               ),
               child: GestureDetector(
-                onTap: () => _showAddChildDialog(provider, container),
+                onTap: () => _showAddChildDialog(container),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -760,7 +759,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
     );
   }
 
-  Widget _buildChildEditor(MiddlewareProvider provider, RandomContainer container) {
+  Widget _buildChildEditor(RandomContainer container) {
     final child = container.children.where((c) => c.id == _selectedChildId).firstOrNull;
     if (child == null) return const SizedBox.shrink();
 
@@ -804,7 +803,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                   unit: 'st',
                   color: Colors.cyan,
                   onChanged: (min, max) {
-                    provider.updateRandomChild(
+                    context.read<MiddlewareProvider>().updateRandomChild(
                       container.id,
                       child.copyWith(pitchMin: min, pitchMax: max),
                     );
@@ -820,7 +819,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                   unit: 'dB',
                   color: Colors.orange,
                   onChanged: (min, max) {
-                    provider.updateRandomChild(
+                    context.read<MiddlewareProvider>().updateRandomChild(
                       container.id,
                       child.copyWith(volumeMin: min, volumeMax: max),
                     );
@@ -874,12 +873,12 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
         const SizedBox(width: 8),
         GestureDetector(
           onTap: () async {
-            final result = await FilePicker.platform.pickFiles(
-              type: FileType.custom,
-              allowedExtensions: ['wav', 'mp3', 'ogg', 'flac', 'aiff'],
+            final path = await AudioWaveformPickerDialog.show(
+              context,
+              title: 'Select Audio for Random Child',
             );
-            if (result != null && result.files.single.path != null) {
-              randomProvider.updateChildAudioPath(containerId, child.id, result.files.single.path);
+            if (path != null) {
+              randomProvider.updateChildAudioPath(containerId, child.id, path);
             }
           },
           child: Container(
@@ -921,7 +920,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
     );
   }
 
-  void _showAddChildDialog(MiddlewareProvider provider, RandomContainer container) {
+  void _showAddChildDialog(RandomContainer container) {
     final controller = TextEditingController();
 
     showDialog(
@@ -960,7 +959,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
           TextButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
-                provider.addRandomChild(
+                context.read<MiddlewareProvider>().addRandomChild(
                   container.id,
                   name: controller.text,
                   weight: 1.0,
@@ -975,10 +974,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
     );
   }
 
-  Widget _buildAddContainerDialog(MiddlewareProvider provider) {
+  Widget _buildAddContainerDialog() {
     return _AddRandomContainerDialog(
       onAdd: (name) {
-        provider.addRandomContainer(name: name);
+        context.read<MiddlewareProvider>().addRandomContainer(name: name);
         setState(() => _showAddContainer = false);
       },
       onCancel: () => setState(() => _showAddContainer = false),
