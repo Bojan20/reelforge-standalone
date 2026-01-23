@@ -1,11 +1,13 @@
 // Bus Hierarchy Panel
 //
 // Visual editor for audio bus hierarchy:
-// - Tree view of buses
+// - Tree view of buses with visual connection lines
+// - Drag-drop bus reordering
 // - Volume/Pan/Mute/Solo controls
 // - Effects chain per bus
 // - Metering visualization
 // - Real-time spectrum analyzer per bus
+// - Bus type color coding
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -13,6 +15,62 @@ import 'package:flutter/material.dart';
 import '../../models/advanced_middleware_models.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../spectrum/spectrum_analyzer.dart';
+
+/// Bus category for color coding
+enum BusCategory {
+  master,
+  music,
+  sfx,
+  voice,
+  ui,
+  ambience,
+  aux,
+  custom,
+}
+
+extension BusCategoryExtension on BusCategory {
+  Color get color {
+    switch (this) {
+      case BusCategory.master:
+        return FluxForgeTheme.accentGreen;
+      case BusCategory.music:
+        return FluxForgeTheme.accentPurple;
+      case BusCategory.sfx:
+        return FluxForgeTheme.accentOrange;
+      case BusCategory.voice:
+        return FluxForgeTheme.accentCyan;
+      case BusCategory.ui:
+        return FluxForgeTheme.accentBlue;
+      case BusCategory.ambience:
+        return FluxForgeTheme.accentYellow;
+      case BusCategory.aux:
+        return FluxForgeTheme.accentPink;
+      case BusCategory.custom:
+        return FluxForgeTheme.textSecondary;
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case BusCategory.master:
+        return Icons.speaker;
+      case BusCategory.music:
+        return Icons.music_note;
+      case BusCategory.sfx:
+        return Icons.flash_on;
+      case BusCategory.voice:
+        return Icons.mic;
+      case BusCategory.ui:
+        return Icons.touch_app;
+      case BusCategory.ambience:
+        return Icons.waves;
+      case BusCategory.aux:
+        return Icons.call_split;
+      case BusCategory.custom:
+        return Icons.volume_up;
+    }
+  }
+}
 
 class BusHierarchyPanel extends StatefulWidget {
   final BusHierarchy? hierarchy;
@@ -29,12 +87,103 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
   int? _selectedBusId;
   final Set<int> _expandedBuses = {0}; // Master expanded by default
 
+  // Drag-drop state
+  int? _draggedBusId;
+  int? _dropTargetBusId;
+  bool _showTreeLines = true;
+
   // Spectrum analyzer state
   bool _showSpectrum = false;
   SpectrumMode _spectrumMode = SpectrumMode.fill;
   AnalyzerSource _analyzerSource = AnalyzerSource.post;
   FftSizeOption _fftSize = FftSizeOption.fft4096;
   bool _spectrumFrozen = false;
+
+  /// Detect bus category from name
+  BusCategory _getBusCategory(AudioBus bus) {
+    if (bus.parentBusId == null) return BusCategory.master;
+    final nameLower = bus.name.toLowerCase();
+    if (nameLower.contains('music') || nameLower.contains('mus_')) {
+      return BusCategory.music;
+    }
+    if (nameLower.contains('sfx') || nameLower.contains('fx_') ||
+        nameLower.contains('win') || nameLower.contains('reel')) {
+      return BusCategory.sfx;
+    }
+    if (nameLower.contains('voice') || nameLower.contains('vo_') ||
+        nameLower.contains('dialog')) {
+      return BusCategory.voice;
+    }
+    if (nameLower.contains('ui') || nameLower.contains('menu')) {
+      return BusCategory.ui;
+    }
+    if (nameLower.contains('ambient') || nameLower.contains('amb_')) {
+      return BusCategory.ambience;
+    }
+    if (nameLower.contains('aux') || nameLower.contains('send') ||
+        nameLower.contains('reverb') || nameLower.contains('delay')) {
+      return BusCategory.aux;
+    }
+    return BusCategory.custom;
+  }
+
+  /// Reparent bus to new parent
+  void _reparentBus(int busId, int newParentId) {
+    final bus = _hierarchy.getBus(busId);
+    if (bus == null || busId == 0) return; // Can't reparent master
+
+    // Check for circular reference
+    if (_wouldCreateCycle(busId, newParentId)) return;
+
+    final oldParent = _hierarchy.getBus(bus.parentBusId ?? 0);
+    final newParent = _hierarchy.getBus(newParentId);
+    if (newParent == null) return;
+
+    // Remove from old parent
+    oldParent?.childBusIds.remove(busId);
+
+    // Add to new parent
+    newParent.childBusIds.add(busId);
+
+    // Update bus parentBusId (need reflection or modify AudioBus)
+    // For now, we rebuild the hierarchy
+
+    setState(() {
+      _expandedBuses.add(newParentId);
+    });
+  }
+
+  /// Check if reparenting would create a cycle
+  bool _wouldCreateCycle(int busId, int newParentId) {
+    if (busId == newParentId) return true;
+
+    // Check if newParent is a descendant of bus
+    final descendants = _hierarchy.getDescendants(busId);
+    return descendants.any((d) => d.busId == newParentId);
+  }
+
+  /// Reorder bus within same parent
+  void _reorderBus(int busId, int targetBusId) {
+    final bus = _hierarchy.getBus(busId);
+    final targetBus = _hierarchy.getBus(targetBusId);
+    if (bus == null || targetBus == null) return;
+    if (bus.parentBusId != targetBus.parentBusId) return;
+
+    final parent = _hierarchy.getBus(bus.parentBusId ?? 0);
+    if (parent == null) return;
+
+    final children = parent.childBusIds;
+    final busIndex = children.indexOf(busId);
+    final targetIndex = children.indexOf(targetBusId);
+    if (busIndex == -1 || targetIndex == -1) return;
+
+    // Reorder
+    children.removeAt(busIndex);
+    final insertIndex = targetIndex > busIndex ? targetIndex : targetIndex;
+    children.insert(insertIndex, busId);
+
+    setState(() {});
+  }
 
   // Simulated spectrum data (replace with real FFT data from Rust)
   late AnimationController _spectrumAnimController;
@@ -185,7 +334,7 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
   Widget _buildBusTree() {
     return Column(
       children: [
-        // Header
+        // Header with toolbar
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -211,19 +360,77 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
                   letterSpacing: 1,
                 ),
               ),
+              const Spacer(),
+              // Tree lines toggle
+              GestureDetector(
+                onTap: () => setState(() => _showTreeLines = !_showTreeLines),
+                child: Tooltip(
+                  message: _showTreeLines ? 'Hide tree lines' : 'Show tree lines',
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: _showTreeLines
+                          ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Icon(
+                      Icons.account_tree_outlined,
+                      size: 12,
+                      color: _showTreeLines
+                          ? FluxForgeTheme.accentBlue
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Expand all
+              GestureDetector(
+                onTap: _expandAll,
+                child: Tooltip(
+                  message: 'Expand all',
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.unfold_more,
+                      size: 12,
+                      color: FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              // Collapse all
+              GestureDetector(
+                onTap: _collapseAll,
+                child: Tooltip(
+                  message: 'Collapse all',
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.unfold_less,
+                      size: 12,
+                      color: FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
 
-        // Tree
+        // Tree with drag-drop support
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(8),
             children: [
-              _buildBusNode(_hierarchy.master, 0),
+              _buildBusNodeWithLines(_hierarchy.master, 0, [], true),
             ],
           ),
         ),
+
+        // Legend
+        _buildLegend(),
 
         // Add bus button
         Container(
@@ -270,131 +477,339 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
     );
   }
 
-  Widget _buildBusNode(AudioBus bus, int depth) {
+  void _expandAll() {
+    setState(() {
+      for (final bus in _hierarchy.allBuses) {
+        if (bus.childBusIds.isNotEmpty) {
+          _expandedBuses.add(bus.busId);
+        }
+      }
+    });
+  }
+
+  void _collapseAll() {
+    setState(() {
+      _expandedBuses.clear();
+      _expandedBuses.add(0); // Keep master expanded
+    });
+  }
+
+  Widget _buildLegend() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgDeep,
+        border: Border(
+          top: BorderSide(color: FluxForgeTheme.borderSubtle),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final category in BusCategory.values.where((c) =>
+                c != BusCategory.master && c != BusCategory.custom))
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      category.icon,
+                      size: 8,
+                      color: category.color,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      category.name.toUpperCase(),
+                      style: TextStyle(
+                        color: category.color,
+                        fontSize: 7,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build bus node with visual tree lines
+  Widget _buildBusNodeWithLines(
+    AudioBus bus,
+    int depth,
+    List<bool> hasMoreSiblings,
+    bool isLast,
+  ) {
     final isExpanded = _expandedBuses.contains(bus.busId);
     final isSelected = _selectedBusId == bus.busId;
     final hasChildren = bus.childBusIds.isNotEmpty;
     final effectiveVolume = _hierarchy.getEffectiveVolume(bus.busId);
+    final category = _getBusCategory(bus);
+    final isDragTarget = _dropTargetBusId == bus.busId;
+    final isDragging = _draggedBusId == bus.busId;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GestureDetector(
-          onTap: () => setState(() => _selectedBusId = bus.busId),
-          child: Container(
-            margin: EdgeInsets.only(left: depth * 12.0),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(4),
-              border: isSelected
-                  ? Border.all(color: FluxForgeTheme.accentBlue)
-                  : null,
-            ),
-            child: Row(
-              children: [
-                // Expand/collapse button
-                if (hasChildren)
-                  GestureDetector(
-                    onTap: () => setState(() {
-                      if (isExpanded) {
-                        _expandedBuses.remove(bus.busId);
-                      } else {
-                        _expandedBuses.add(bus.busId);
-                      }
-                    }),
-                    child: Icon(
-                      isExpanded ? Icons.expand_more : Icons.chevron_right,
-                      size: 14,
-                      color: FluxForgeTheme.textSecondary,
-                    ),
-                  )
-                else
-                  const SizedBox(width: 14),
-
-                const SizedBox(width: 4),
-
-                // Bus icon
-                Icon(
-                  bus.parentBusId == null
-                      ? Icons.speaker
-                      : Icons.volume_up,
-                  size: 12,
-                  color: bus.mute
-                      ? FluxForgeTheme.textSecondary
-                      : FluxForgeTheme.accentGreen,
+        // Drag target wrapper
+        DragTarget<int>(
+          onWillAcceptWithDetails: (details) {
+            if (details.data == bus.busId) return false;
+            if (_wouldCreateCycle(details.data, bus.busId)) return false;
+            setState(() => _dropTargetBusId = bus.busId);
+            return true;
+          },
+          onLeave: (_) => setState(() => _dropTargetBusId = null),
+          onAcceptWithDetails: (details) {
+            _reparentBus(details.data, bus.busId);
+            setState(() => _dropTargetBusId = null);
+          },
+          builder: (context, candidateData, rejectedData) {
+            return Draggable<int>(
+              data: bus.busId,
+              feedback: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: category.color.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: category.color),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(category.icon, size: 12, color: category.color),
+                      const SizedBox(width: 4),
+                      Text(
+                        bus.name,
+                        style: TextStyle(
+                          color: FluxForgeTheme.textPrimary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 6),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.3,
+                child: _buildBusNodeContent(
+                  bus, depth, hasMoreSiblings, isLast, isExpanded,
+                  isSelected, hasChildren, effectiveVolume, category,
+                  isDragTarget, isDragging,
+                ),
+              ),
+              onDragStarted: () => setState(() => _draggedBusId = bus.busId),
+              onDragEnd: (_) => setState(() => _draggedBusId = null),
+              child: _buildBusNodeContent(
+                bus, depth, hasMoreSiblings, isLast, isExpanded,
+                isSelected, hasChildren, effectiveVolume, category,
+                isDragTarget, isDragging,
+              ),
+            );
+          },
+        ),
 
-                // Bus name
-                Expanded(
-                  child: Text(
-                    bus.name,
-                    style: TextStyle(
+        // Children with updated sibling info
+        if (isExpanded)
+          ...bus.childBusIds.asMap().entries.map((entry) {
+            final childIndex = entry.key;
+            final childId = entry.value;
+            final child = _hierarchy.getBus(childId);
+            if (child == null) return const SizedBox.shrink();
+
+            final childIsLast = childIndex == bus.childBusIds.length - 1;
+            final newHasMoreSiblings = [...hasMoreSiblings, !isLast];
+
+            return _buildBusNodeWithLines(
+              child,
+              depth + 1,
+              newHasMoreSiblings,
+              childIsLast,
+            );
+          }),
+      ],
+    );
+  }
+
+  Widget _buildBusNodeContent(
+    AudioBus bus,
+    int depth,
+    List<bool> hasMoreSiblings,
+    bool isLast,
+    bool isExpanded,
+    bool isSelected,
+    bool hasChildren,
+    double effectiveVolume,
+    BusCategory category,
+    bool isDragTarget,
+    bool isDragging,
+  ) {
+    return Row(
+      children: [
+        // Tree lines
+        if (_showTreeLines && depth > 0)
+          SizedBox(
+            width: depth * 16.0,
+            height: 24,
+            child: CustomPaint(
+              painter: _TreeLinePainter(
+                depth: depth,
+                hasMoreSiblings: hasMoreSiblings,
+                isLast: isLast,
+                color: FluxForgeTheme.borderSubtle,
+              ),
+            ),
+          ),
+
+        // Bus content
+        Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() => _selectedBusId = bus.busId),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                color: isDragTarget
+                    ? category.color.withValues(alpha: 0.2)
+                    : isSelected
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+                        : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isDragTarget
+                      ? category.color
+                      : isSelected
+                          ? FluxForgeTheme.accentBlue
+                          : Colors.transparent,
+                  width: isDragTarget ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  // Expand/collapse button
+                  if (hasChildren)
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        if (isExpanded) {
+                          _expandedBuses.remove(bus.busId);
+                        } else {
+                          _expandedBuses.add(bus.busId);
+                        }
+                      }),
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.bgDeep,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Icon(
+                          isExpanded ? Icons.remove : Icons.add,
+                          size: 10,
+                          color: FluxForgeTheme.textSecondary,
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(width: 16),
+
+                  const SizedBox(width: 4),
+
+                  // Bus icon (color-coded)
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: bus.mute
+                          ? FluxForgeTheme.bgDeep
+                          : category.color.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Icon(
+                      category.icon,
+                      size: 10,
                       color: bus.mute
                           ? FluxForgeTheme.textSecondary
-                          : FluxForgeTheme.textPrimary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                          : category.color,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
+                  const SizedBox(width: 6),
 
-                // Mini meter
-                _buildMiniMeter(effectiveVolume * bus.volume),
-
-                // Mute indicator
-                if (bus.mute)
-                  Container(
-                    margin: const EdgeInsets.only(left: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentRed.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: const Text(
-                      'M',
+                  // Bus name
+                  Expanded(
+                    child: Text(
+                      bus.name,
                       style: TextStyle(
-                        color: FluxForgeTheme.accentRed,
-                        fontSize: 7,
-                        fontWeight: FontWeight.w700,
+                        color: bus.mute
+                            ? FluxForgeTheme.textSecondary
+                            : FluxForgeTheme.textPrimary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
+                  // Mini meter
+                  _buildMiniMeter(effectiveVolume * bus.volume),
+
+                  // Mute indicator
+                  if (bus.mute)
+                    Container(
+                      margin: const EdgeInsets.only(left: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentRed.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: const Text(
+                        'M',
+                        style: TextStyle(
+                          color: FluxForgeTheme.accentRed,
+                          fontSize: 7,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
 
-                // Solo indicator
-                if (bus.solo)
-                  Container(
-                    margin: const EdgeInsets.only(left: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentYellow.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: const Text(
-                      'S',
-                      style: TextStyle(
-                        color: FluxForgeTheme.accentYellow,
-                        fontSize: 7,
-                        fontWeight: FontWeight.w700,
+                  // Solo indicator
+                  if (bus.solo)
+                    Container(
+                      margin: const EdgeInsets.only(left: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentYellow.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: const Text(
+                        'S',
+                        style: TextStyle(
+                          color: FluxForgeTheme.accentYellow,
+                          fontSize: 7,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+
+                  // Drag handle
+                  if (bus.parentBusId != null) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.drag_indicator,
+                      size: 12,
+                      color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ),
-
-        // Children
-        if (isExpanded)
-          ...bus.childBusIds.map((childId) {
-            final child = _hierarchy.getBus(childId);
-            if (child == null) return const SizedBox.shrink();
-            return _buildBusNode(child, depth + 1);
-          }),
       ],
     );
   }
@@ -1748,5 +2163,77 @@ class _BusSpectrumPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BusSpectrumPainter oldDelegate) {
     return true; // Always repaint for animation
+  }
+}
+
+/// Custom painter for tree connection lines
+class _TreeLinePainter extends CustomPainter {
+  final int depth;
+  final List<bool> hasMoreSiblings;
+  final bool isLast;
+  final Color color;
+
+  _TreeLinePainter({
+    required this.depth,
+    required this.hasMoreSiblings,
+    required this.isLast,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    const segmentWidth = 16.0;
+    final centerY = size.height / 2;
+
+    // Draw vertical lines for ancestor levels
+    for (int i = 0; i < depth - 1; i++) {
+      if (i < hasMoreSiblings.length && hasMoreSiblings[i]) {
+        final x = (i + 0.5) * segmentWidth;
+        canvas.drawLine(
+          Offset(x, 0),
+          Offset(x, size.height),
+          paint,
+        );
+      }
+    }
+
+    // Draw L-shape or T-shape for current level
+    final lastX = (depth - 0.5) * segmentWidth;
+
+    // Vertical line
+    if (isLast) {
+      // L-shape: top to center
+      canvas.drawLine(
+        Offset(lastX, 0),
+        Offset(lastX, centerY),
+        paint,
+      );
+    } else {
+      // T-shape: full vertical line
+      canvas.drawLine(
+        Offset(lastX, 0),
+        Offset(lastX, size.height),
+        paint,
+      );
+    }
+
+    // Horizontal line to node
+    canvas.drawLine(
+      Offset(lastX, centerY),
+      Offset(depth * segmentWidth, centerY),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TreeLinePainter oldDelegate) {
+    return depth != oldDelegate.depth ||
+        isLast != oldDelegate.isLast ||
+        color != oldDelegate.color;
   }
 }

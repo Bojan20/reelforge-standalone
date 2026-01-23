@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../../providers/stage_ingest_provider.dart';
 import 'adapter_wizard_panel.dart';
 import 'live_connector_panel.dart';
+import 'mock_engine_panel.dart';
+import 'network_diagnostics_panel.dart';
 import 'stage_trace_viewer.dart';
 
 /// Main panel for Stage Ingest System
@@ -28,11 +30,12 @@ class _StageIngestPanelState extends State<StageIngestPanel>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int? _selectedTraceHandle;
+  int? _activeConnectorId;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -53,7 +56,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
           child: Column(
             children: [
               _buildHeader(provider),
-              _buildTabBar(),
+              _buildTabBar(provider),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
@@ -62,6 +65,8 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                     _buildTracesTab(provider),
                     _buildWizardTab(provider),
                     _buildLiveTab(provider),
+                    _buildStagingTab(provider),
+                    _buildDiagnosticsTab(provider),
                   ],
                 ),
               ),
@@ -93,6 +98,39 @@ class _StageIngestPanelState extends State<StageIngestPanel>
             ),
           ),
           const Spacer(),
+          // Staging mode badge
+          if (provider.isStagingMode)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.green.withOpacity(0.5)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'STAGING',
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Stats
           _buildStatBadge(Icons.extension, '${provider.adapterCount}', 'Adapters'),
           const SizedBox(width: 12),
@@ -123,7 +161,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
     );
   }
 
-  Widget _buildTabBar() {
+  Widget _buildTabBar(StageIngestProvider provider) {
     return Container(
       height: 36,
       decoration: const BoxDecoration(
@@ -139,10 +177,29 @@ class _StageIngestPanelState extends State<StageIngestPanel>
         labelColor: const Color(0xFF4a9eff),
         unselectedLabelColor: Colors.white.withOpacity(0.5),
         labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        tabs: const [
-          Tab(text: 'Traces'),
-          Tab(text: 'Wizard'),
-          Tab(text: 'Live'),
+        tabs: [
+          const Tab(text: 'Traces'),
+          const Tab(text: 'Wizard'),
+          const Tab(text: 'Live'),
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Staging'),
+                if (provider.isStagingMode)
+                  Container(
+                    margin: const EdgeInsets.only(left: 4),
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.green,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Tab(text: 'Diagnostics'),
         ],
       ),
     );
@@ -378,11 +435,115 @@ class _StageIngestPanelState extends State<StageIngestPanel>
   }
 
   Widget _buildLiveTab(StageIngestProvider provider) {
+    // Track the active connector from Live tab
+    final connectors = provider.connectors;
+    if (connectors.isNotEmpty && _activeConnectorId == null) {
+      _activeConnectorId = connectors.first.connectorId;
+    }
+
     return Padding(
       padding: const EdgeInsets.all(12),
       child: LiveConnectorPanel(
         provider: provider,
-        onEvent: widget.onLiveEvent,
+        onEvent: (event) {
+          widget.onLiveEvent?.call(event);
+          // Update active connector when events come in
+          final activeConnector = connectors.where((c) => provider.isConnected(c.connectorId)).firstOrNull;
+          if (activeConnector != null && _activeConnectorId != activeConnector.connectorId) {
+            setState(() => _activeConnectorId = activeConnector.connectorId);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildStagingTab(StageIngestProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          // Staging mode header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: provider.isStagingMode
+                  ? Colors.green.withOpacity(0.1)
+                  : Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: provider.isStagingMode
+                    ? Colors.green.withOpacity(0.5)
+                    : Colors.grey.withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  provider.isStagingMode ? Icons.developer_mode : Icons.developer_board_off,
+                  size: 20,
+                  color: provider.isStagingMode ? Colors.green : Colors.grey,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        provider.isStagingMode ? 'Staging Mode Active' : 'Staging Mode Disabled',
+                        style: TextStyle(
+                          color: provider.isStagingMode ? Colors.green : Colors.grey,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        provider.isStagingMode
+                            ? 'Mock engine events are being forwarded to audio system'
+                            : 'Enable to test audio without connecting to a real engine',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: provider.isStagingMode,
+                  onChanged: (value) {
+                    provider.toggleStagingMode();
+                  },
+                  activeColor: Colors.green,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Mock engine panel
+          Expanded(
+            child: MockEnginePanel(
+              onStageEvent: (event) {
+                // Forward mock events to parent callback
+                widget.onLiveEvent?.call(IngestStageEvent(
+                  stage: event.stage,
+                  timestampMs: event.timestampMs,
+                  data: event.data,
+                ));
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiagnosticsTab(StageIngestProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: NetworkDiagnosticsPanel(
+        provider: provider,
+        connectorId: _activeConnectorId,
       ),
     );
   }

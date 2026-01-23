@@ -408,7 +408,15 @@ fluxforge-studio/
 │   ├── rf-realtime/        # Zero-latency DSP core
 │   ├── rf-restore/         # Audio restoration suite
 │   ├── rf-script/          # Lua scripting API
-│   └── rf-video/           # Video playback engine
+│   ├── rf-video/           # Video playback engine
+│   │
+│   │   # ═══ QA & TESTING (M4) ═══
+│   ├── rf-fuzz/            # FFI fuzzing framework
+│   ├── rf-audio-diff/      # Spectral audio comparison
+│   ├── rf-bench/           # Performance benchmarks
+│   ├── rf-coverage/        # Code coverage reporting
+│   ├── rf-release/         # Release automation
+│   └── rf-offline/         # Batch audio processing
 │
 ├── flutter_ui/             # Flutter Desktop GUI
 │   ├── lib/
@@ -564,6 +572,118 @@ WebAssembly port za web browser runtime.
 | Release + wee_alloc | ~100KB | ~38KB |
 
 **Build:** `wasm-pack build --target web --release`
+
+---
+
+## M4: QA & Testing Infrastructure
+
+### rf-fuzz — FFI Fuzzing Framework
+
+Reproducible fuzzing for FFI boundary testing.
+
+| Feature | Description |
+|---------|-------------|
+| **Random Input** | ChaCha8Rng-based reproducible generation |
+| **Edge Cases** | NaN, Inf, denormals, boundary values |
+| **Panic Catching** | Catch and report panics without crashing |
+| **Property Testing** | Output validation with custom validators |
+
+**Usage:**
+```rust
+let result = quick_fuzz(1000, |bytes| unsafe { ffi_function(bytes.as_ptr()) });
+assert!(result.passed);
+```
+
+### rf-audio-diff — Spectral Audio Comparison
+
+FFT-based audio comparison for regression testing.
+
+| Feature | Description |
+|---------|-------------|
+| **Spectral Analysis** | FFT-based frequency domain comparison |
+| **Golden Files** | Reference audio storage and comparison |
+| **Quality Gates** | LUFS, true peak, dynamic range checks |
+| **Determinism** | Bit-exact reproducibility validation |
+
+**Usage:**
+```rust
+let result = quick_compare("reference.wav", "test.wav")?;
+assert!(result.is_pass());
+```
+
+### rf-bench — Performance Benchmarks
+
+Criterion-based benchmarking for DSP and SIMD.
+
+| Benchmark | Description |
+|-----------|-------------|
+| **DSP** | Filter, dynamics, gain processing |
+| **SIMD** | AVX2/SSE4.2 vs scalar comparisons |
+| **Buffer** | Memory throughput, interleaving |
+
+**Usage:**
+```bash
+cargo bench -p rf-bench -- dsp
+cargo bench -p rf-bench -- --save-baseline main
+```
+
+### rf-coverage — Code Coverage Reporting
+
+llvm-cov parsing and threshold enforcement.
+
+| Feature | Description |
+|---------|-------------|
+| **Parser** | llvm-cov JSON format support |
+| **Thresholds** | Configurable pass/fail criteria |
+| **Reports** | HTML, Markdown, JSON, Badge formats |
+| **Trends** | Historical coverage tracking |
+
+**Usage:**
+```bash
+cargo llvm-cov --json --output-path coverage.json
+cargo run -p rf-coverage -- check coverage.json --min-line 80
+```
+
+### rf-release — Release Automation
+
+Semantic versioning and release management.
+
+| Feature | Description |
+|---------|-------------|
+| **Versioning** | SemVer 2.0 with prerelease support |
+| **Changelog** | Conventional commit parsing |
+| **Packaging** | Multi-platform artifact generation |
+| **Manifest** | Release manifest (JSON/Markdown) |
+
+**Usage:**
+```rust
+let mut manager = ReleaseManager::new(config);
+manager.bump(BumpType::Minor);
+let plan = manager.prepare()?;
+```
+
+### rf-offline — Batch Audio Processing
+
+High-performance offline DSP pipeline.
+
+| Feature | Description |
+|---------|-------------|
+| **Bounce** | Session mixdown to various formats |
+| **Stems** | Multi-track stem export |
+| **Normalize** | LUFS/Peak/Dynamic range targeting |
+| **Formats** | WAV, FLAC, MP3 encoding |
+
+**Usage:**
+```rust
+let job = OfflineJob::new()
+    .input("source.wav")
+    .output("output.wav")
+    .normalize(NormalizationMode::Lufs { target: -14.0 })
+    .build();
+processor.process(job).await?;
+```
+
+**Documentation:** `.claude/docs/QA_TOOLS_GUIDE.md`, `.claude/architecture/QA_ARCHITECTURE.md`
 
 ---
 
@@ -1271,6 +1391,10 @@ Section-based playback isolation — svaka sekcija blokira ostale tokom playback
 - `sequence_container_panel.dart` — Timeline sequence editor
 - `music_system_panel.dart` — Music segments + stingers
 - `attenuation_curve_panel.dart` — Curve shape editor
+- `beat_grid_editor.dart` — Visual beat/bar grid editing (~900 LOC)
+- `music_transition_preview_panel.dart` — Segment transition preview (~750 LOC)
+- `stinger_preview_panel.dart` — Stinger playback preview (~650 LOC)
+- `music_segment_looping_panel.dart` — Loop region editor (~1000 LOC)
 
 ### Advanced Audio Systems (MiddlewareProvider Integration)
 
@@ -1531,19 +1655,227 @@ abstract class UndoableAction {
 **Skipped: 1**
 - P2.16 — VoidCallback not serializable, needs full refactor
 
-### Critical Weaknesses — M2 Roadmap (2026-01-23)
+### Critical Weaknesses — M2 Roadmap (2026-01-23) ✅ DONE
 
-Top 5 problems identified in Ultimate System Analysis:
+Top 5 problems identified in Ultimate System Analysis — **ALL RESOLVED**:
 
 | # | Problem | Priority | Status |
 |---|---------|----------|--------|
-| 1 | No audio preview in event editor | P1 | ⏳ TODO |
-| 2 | No event debugger/tracer panel | P1 | ⏳ TODO |
-| 3 | Scattered stage configuration | P2 | ⏳ TODO |
-| 4 | No GDD import wizard | P2 | ⏳ TODO |
-| 5 | Limited container visualization | P2 | ⏳ TODO |
+| 1 | No audio preview in event editor | P1 | ✅ DONE |
+| 2 | No event debugger/tracer panel | P1 | ✅ DONE |
+| 3 | Scattered stage configuration | P2 | ✅ DONE |
+| 4 | No GDD import wizard | P2 | ✅ DONE |
+| 5 | Limited container visualization | P2 | ✅ DONE |
 
 **Full analysis:** `.claude/reviews/ULTIMATE_SYSTEM_ANALYSIS_2026_01_23.md`
+**Documentation:** `.claude/docs/P3_CRITICAL_WEAKNESSES_2026_01_23.md`
+
+---
+
+### P3.1 — Audio Preview in Event Editor ✅ 2026-01-23
+
+Real-time audio preview system in SlotLab event editor.
+
+**Features:**
+- Click layer → instant playback via AudioPool
+- Auto-stop previous when clicking another
+- Visual feedback: playing indicator on active layer
+- Keyboard shortcut: Space to toggle play/stop
+
+**Implementation:**
+- `slot_lab_screen.dart` — `_playingPreviewLayerId` state, `_playPreviewLayer()` method
+- Uses `AudioPool.acquire()` for instant sub-ms playback
+- Stop via `AudioPlaybackService.stopVoice()`
+
+---
+
+### P3.2 — Event Debugger/Tracer Panel ✅ 2026-01-23
+
+Real-time stage→audio tracing with performance metrics.
+
+**UI Location:** SlotLab Lower Zone → "Event Debug" tab
+
+**Features:**
+- Live trace log: stage → event → voice ID → bus → latency
+- Filterable by stage type, event name, bus
+- Latency histogram visualization
+- Export to JSON for analysis
+
+**Components:**
+- `event_debug_panel.dart` — Main panel widget (~650 LOC)
+- `EventRegistry.onEventTriggered` stream for live events
+- Latency tracking: triggerTime → playbackTime delta
+
+---
+
+### P3.3 — StageConfigurationService ✅ 2026-01-23
+
+Centralized stage configuration — single source of truth for all stage definitions.
+
+**Service:** `flutter_ui/lib/services/stage_configuration_service.dart` (~650 LOC)
+
+**API:**
+```dart
+StageConfigurationService.instance.init();
+
+// Stage queries
+bool isPooled(String stage);           // Rapid-fire pooling
+int getPriority(String stage);          // 0-100 priority
+SpatialBus getBus(String stage);        // Audio bus routing
+String getSpatialIntent(String stage);  // AutoSpatial intent
+StageCategory getCategory(String stage); // Stage category
+
+// Stage registration
+void registerStage(StageDefinition def);
+void registerStages(List<StageDefinition> defs);
+List<StageDefinition> getStagesByCategory(StageCategory cat);
+```
+
+**StageDefinition Model:**
+```dart
+class StageDefinition {
+  final String stage;
+  final StageCategory category;
+  final int priority;
+  final SpatialBus bus;
+  final String spatialIntent;
+  final bool pooled;
+  final String? description;
+}
+```
+
+**Stage Categories:**
+| Category | Examples |
+|----------|----------|
+| `spin` | SPIN_START, SPIN_END, REEL_SPINNING |
+| `win` | WIN_PRESENT, WIN_LINE_SHOW, ROLLUP_* |
+| `feature` | FEATURE_ENTER, FREESPIN_*, BONUS_* |
+| `cascade` | CASCADE_START, CASCADE_STEP, CASCADE_END |
+| `jackpot` | JACKPOT_TRIGGER, JACKPOT_AWARD |
+| `hold` | HOLD_*, RESPINS_* |
+| `gamble` | GAMBLE_ENTER, GAMBLE_EXIT |
+| `ui` | UI_*, SYSTEM_* |
+| `music` | MUSIC_*, ATTRACT_* |
+| `symbol` | SYMBOL_LAND, WILD_*, SCATTER_* |
+| `custom` | User-defined stages |
+
+**EventRegistry Integration:**
+- Replaced 4 hardcoded functions with service delegation
+- `_shouldUsePool()` → `StageConfigurationService.instance.isPooled()`
+- `_stageToPriority()` → `StageConfigurationService.instance.getPriority()`
+- `_stageToBus()` → `StageConfigurationService.instance.getBus()`
+- `_stageToIntent()` → `StageConfigurationService.instance.getSpatialIntent()`
+
+**Initialization:** `main.dart` — `StageConfigurationService.instance.init();`
+
+---
+
+### P3.4 — GDD Import Wizard ✅ 2026-01-23
+
+Multi-step wizard for importing Game Design Documents with auto-stage generation.
+
+**Service:** `flutter_ui/lib/services/gdd_import_service.dart` (~650 LOC)
+
+**GDD Models:**
+```dart
+class GameDesignDocument {
+  final String name;
+  final String version;
+  final GddGridConfig grid;
+  final List<GddSymbol> symbols;
+  final List<GddFeature> features;
+  final List<GddWinTier> winTiers;
+  final GddMathModel? math;
+}
+
+class GddGridConfig {
+  final int reels;
+  final int rows;
+  final List<int>? variableRows; // e.g., [3,4,5,4,3]
+}
+
+class GddFeature {
+  final String id;
+  final String name;
+  final GddFeatureType type; // freeSpins, bonus, cascade, etc.
+  final Map<String, dynamic> config;
+}
+```
+
+**Wizard Widget:** `flutter_ui/lib/widgets/slot_lab/gdd_import_wizard.dart` (~780 LOC)
+
+**4-Step Flow:**
+| Step | Name | Actions |
+|------|------|---------|
+| 1 | **Input** | Paste JSON, Load file, Load sample |
+| 2 | **Preview** | Review parsed GDD, symbols, features |
+| 3 | **Stages** | View auto-generated stages |
+| 4 | **Confirm** | Import to StageConfigurationService |
+
+**Auto-Stage Generation:**
+- Per-reel stops: `REEL_STOP_0..N`
+- Per-symbol lands: `SYMBOL_LAND_[SYMBOL_ID]`
+- Per-feature stages: `[FEATURE]_ENTER`, `[FEATURE]_EXIT`, `[FEATURE]_STEP`
+- Win tier stages: `WIN_[TIER]_START`, `WIN_[TIER]_END`
+
+**Usage:**
+```dart
+// In SlotLab header
+IconButton(
+  icon: Icon(Icons.upload_file),
+  onPressed: () async {
+    final result = await GddImportWizard.show(context);
+    if (result != null) {
+      // result.gdd — parsed GameDesignDocument
+      // result.generatedStages — auto-generated StageDefinitions
+    }
+  },
+)
+```
+
+---
+
+### P3.5 — Container Visualization ✅ 2026-01-23
+
+Interactive visualizations for all container types.
+
+**Widgets:** `flutter_ui/lib/widgets/middleware/container_visualization_widgets.dart` (~970 LOC)
+
+**BlendRtpcSlider:**
+- Interactive RTPC slider with real-time volume preview
+- Shows active blend region with color gradient
+- Volume meters per child responding to RTPC position
+
+**RandomWeightPieChart:**
+- Pie chart showing weight distribution
+- Color-coded segments per child
+- Labels with percentage and name
+- CustomPainter implementation
+
+**RandomSelectionHistory:**
+- Last N selections visualized as bars
+- Shows randomness distribution over time
+- Highlights when selection matches weight expectation
+
+**SequenceTimelineVisualization:**
+- Horizontal timeline with step blocks
+- Play/Stop preview with progress indicator
+- Step timing visualization (delay + duration)
+- Loop/Hold/PingPong end behavior indicator
+- CustomPainter for timeline rendering
+
+**ContainerTypeBadge:**
+- Compact badge showing container type
+- Color-coded: Blend=purple, Random=amber, Sequence=teal
+
+**ContainerPreviewCard:**
+- Summary card for container lists
+- Shows type, child count, key parameters
+
+**Integration:**
+- `blend_container_panel.dart` — Added BlendRtpcSlider
+- `random_container_panel.dart` — Added RandomWeightPieChart
+- `sequence_container_panel.dart` — Added SequenceTimelineVisualization with play/stop
 
 ### Slot Lab — Synthetic Slot Engine (IMPLEMENTED)
 
@@ -2082,6 +2414,10 @@ ale_set_tempo() / ale_set_time_signature()
 | **RuleEditor** | `rule_editor.dart` | ~630 | Rule lista sa filterima, uslovima i akcijama |
 | **TransitionEditor** | `transition_editor.dart` | ~450 | Transition profili sa sync mode i fade curve preview |
 | **StabilityConfigPanel** | `stability_config_panel.dart` | ~300 | Stability konfiguracija (timing, hysteresis, inertia, decay) |
+| **SignalCatalogPanel** | `signal_catalog_panel.dart` | ~950 | Katalog 18+ signala, kategorije, normalization curves, test kontrole |
+| **RuleTestingSandbox** | `rule_testing_sandbox.dart` | ~1050 | Interaktivni sandbox za testiranje pravila, signal simulacija |
+| **StabilityVisualizationPanel** | `stability_visualization_panel.dart` | ~850 | Vizualizacija 7 stability mehanizama |
+| **ContextTransitionTimeline** | `context_transition_timeline.dart` | ~900 | Timeline context tranzicija, crossfade preview, beat sync |
 
 **Slot Lab Integration:**
 - `SlotLabProvider.connectAle()` — Povezuje ALE provider

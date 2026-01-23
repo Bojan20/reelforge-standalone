@@ -1,0 +1,27 @@
+[package]
+name = "rf-bench"
+version = "0.1.0"
+edition = "2021"
+description = "Performance benchmarks for FluxForge audio engine"
+publish = false
+
+[dependencies]
+rf-dsp = { path = "../rf-dsp" }
+rf-core = { path = "../rf-core" }
+rand = "0.9"
+rand_chacha = "0.9"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "dsp_benchmarks"
+harness = false
+
+[[bench]]
+name = "simd_benchmarks"
+harness = false
+
+[[bench]]
+name = "buffer_benchmarks"
+harness = false

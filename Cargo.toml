@@ -28,6 +28,12 @@ members = [
     "crates/rf-ale",
     # Offline DSP Processing
     "crates/rf-offline",
+    # QA & Testing Infrastructure
+    "crates/rf-audio-diff",
+    "crates/rf-fuzz",
+    "crates/rf-bench",
+    "crates/rf-coverage",
+    "crates/rf-release",
     # WASM Port (standalone, edition 2021 for wasm-pack compatibility)
     "crates/rf-wasm",
 ]
@@ -65,6 +71,7 @@ rf-connector = { path = "crates/rf-connector" }
 rf-slot-lab = { path = "crates/rf-slot-lab" }
 rf-ale = { path = "crates/rf-ale" }
 rf-offline = { path = "crates/rf-offline" }
+rf-audio-diff = { path = "crates/rf-audio-diff" }
 
 # Plugin hosting
 vst3 = "0.3"

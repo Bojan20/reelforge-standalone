@@ -10,6 +10,9 @@ import '../../providers/middleware_provider.dart';
 import '../../providers/subsystems/random_containers_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
+import 'container_ab_comparison_panel.dart';
+import 'container_preset_library_panel.dart';
+import 'container_visualization_widgets.dart';
 
 /// Random Container Panel Widget
 class RandomContainerPanel extends StatefulWidget {
@@ -70,7 +73,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.shuffle, color: Colors.amber, size: 20),
+        Icon(Icons.shuffle, color: Colors.orange, size: 20),
         const SizedBox(width: 8),
         Text(
           'Random Containers',
@@ -81,10 +84,48 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
           ),
         ),
         const Spacer(),
+        if (_selectedContainerId != null)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => ContainerABComparisonDialog.show(
+                context,
+                containerId: _selectedContainerId!,
+                containerType: 'random',
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.cyan.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.cyan),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.compare, size: 14, color: Colors.cyan),
+                    const SizedBox(width: 4),
+                    Text(
+                      'A/B',
+                      style: TextStyle(
+                        color: Colors.cyan,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         GestureDetector(
-          onTap: () => setState(() => _showAddContainer = true),
+          onTap: () => ContainerPresetLibraryDialog.show(
+            context,
+            targetContainerId: _selectedContainerId,
+            targetContainerType: 'random',
+          ),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.amber.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
@@ -93,12 +134,39 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.add, size: 14, color: Colors.amber),
+                Icon(Icons.library_music, size: 14, color: Colors.amber),
+                const SizedBox(width: 4),
+                Text(
+                  'Presets',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () => setState(() => _showAddContainer = true),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.orange),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add, size: 14, color: Colors.orange),
                 const SizedBox(width: 4),
                 Text(
                   'New Container',
                   style: TextStyle(
-                    color: Colors.amber,
+                    color: Colors.orange,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
@@ -318,9 +386,56 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
         // Mode selector and global settings
         _buildContainerSettings(container),
         const SizedBox(height: 16),
-        // Children list with weights
+        // Children list with weights + pie chart
         Expanded(
-          child: _buildChildrenList(container),
+          child: Row(
+            children: [
+              // Children list
+              Expanded(
+                flex: 3,
+                child: _buildChildrenList(container),
+              ),
+              const SizedBox(width: 12),
+              // Weight distribution pie chart
+              Expanded(
+                flex: 2,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.surface.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: FluxForgeTheme.border),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.pie_chart, size: 14, color: Colors.amber),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Weight Distribution',
+                            style: TextStyle(
+                              color: Colors.amber,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: RandomWeightPieChart(
+                          container: container,
+                          selectedChildId: _selectedChildId,
+                          onChildSelected: (id) => setState(() => _selectedChildId = id),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         // Selected child editor
         if (_selectedChildId != null) ...[

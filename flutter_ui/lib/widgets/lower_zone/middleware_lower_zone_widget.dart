@@ -23,7 +23,10 @@ import '../middleware/blend_container_panel.dart';
 import '../middleware/bus_hierarchy_panel.dart';
 import '../middleware/event_editor_panel.dart';
 import '../middleware/events_folder_panel.dart';
+import '../middleware/event_debugger_panel.dart';
 import '../middleware/rtpc_debugger_panel.dart';
+import '../middleware/dsp_profiler_panel.dart';
+import '../middleware/priority_tier_preset_panel.dart';
 // AuxSendPanel requires external dependencies, use placeholder for now
 
 class MiddlewareLowerZoneWidget extends StatefulWidget {
@@ -337,12 +340,11 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       MiddlewareEventsSubTab.browser => const EventsFolderPanel(),
       MiddlewareEventsSubTab.editor => const EventEditorPanel(),
       MiddlewareEventsSubTab.triggers => _buildTriggersPanel(),
-      MiddlewareEventsSubTab.actions => _buildActionsPanel(),
+      MiddlewareEventsSubTab.debug => const EventDebuggerPanel(),
     };
   }
 
   Widget _buildTriggersPanel() => _buildCompactTriggersPanel();
-  Widget _buildActionsPanel() => _buildCompactActionsPanel();
 
   /// Compact triggers panel
   Widget _buildCompactTriggersPanel() {
@@ -645,12 +647,11 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       MiddlewareRoutingSubTab.buses => const BusHierarchyPanel(),
       MiddlewareRoutingSubTab.ducking => const DuckingMatrixPanel(),
       MiddlewareRoutingSubTab.matrix => _buildMatrixPanel(),
-      MiddlewareRoutingSubTab.spatial => _buildSpatialPanel(),
+      MiddlewareRoutingSubTab.priority => const PriorityTierPresetPanel(),
     };
   }
 
   Widget _buildMatrixPanel() => _buildCompactRoutingMatrix();
-  Widget _buildSpatialPanel() => _buildCompactSpatialPanel();
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RTPC CONTENT — Partially integrated
@@ -661,8 +662,8 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
     return switch (subTab) {
       MiddlewareRtpcSubTab.curves => _buildCurvesPanel(),
       MiddlewareRtpcSubTab.bindings => _buildBindingsPanel(),
-      MiddlewareRtpcSubTab.meters => _buildMetersPanel(),
-      MiddlewareRtpcSubTab.debug => const RtpcDebuggerPanel(),
+      MiddlewareRtpcSubTab.meters => const RtpcDebuggerPanel(),
+      MiddlewareRtpcSubTab.profiler => const DspProfilerPanel(),
     };
   }
 
@@ -947,84 +948,6 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       child: isConnected
           ? Icon(Icons.check, size: 10, color: LowerZoneColors.bgDeep)
           : null,
-    );
-  }
-
-  /// Compact Spatial Panel
-  Widget _buildCompactSpatialPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('AUX SENDS / SPATIAL', Icons.spatial_audio),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              children: [
-                _buildSendBus('Reverb A', 0.5, LowerZoneColors.middlewareAccent),
-                _buildSendBus('Reverb B', 0.3, const Color(0xFF40C8FF)),
-                _buildSendBus('Delay', 0.4, const Color(0xFF40FF90)),
-                _buildSendBus('Slapback', 0.2, const Color(0xFFFF9040)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSendBus(String name, double level, Color color) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(
-          children: [
-            Text(
-              name,
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                color: LowerZoneColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Container(
-                width: 32,
-                decoration: BoxDecoration(
-                  color: LowerZoneColors.bgDeepest,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: LowerZoneColors.border),
-                ),
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    FractionallySizedBox(
-                      heightFactor: level,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [color, color.withValues(alpha: 0.5)],
-                          ),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${(level * 100).toInt()}%',
-              style: TextStyle(fontSize: 9, color: color),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

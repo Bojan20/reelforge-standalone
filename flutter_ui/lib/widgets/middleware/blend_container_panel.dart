@@ -10,6 +10,10 @@ import '../../providers/middleware_provider.dart';
 import '../../providers/subsystems/blend_containers_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
+import 'container_ab_comparison_panel.dart';
+import 'container_crossfade_preview_panel.dart';
+import 'container_preset_library_panel.dart';
+import 'container_visualization_widgets.dart';
 
 /// Blend Container Panel Widget
 class BlendContainerPanel extends StatefulWidget {
@@ -23,6 +27,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
   int? _selectedContainerId;
   int? _selectedChildId;
   bool _showAddContainer = false;
+  double _rtpcPreviewValue = 0.5; // For RTPC slider preview
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +86,106 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
           ),
         ),
         const Spacer(),
+        if (_selectedContainerId != null) ...[
+          // Crossfade preview button
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => ContainerCrossfadePreviewDialog.show(
+                context,
+                containerId: _selectedContainerId!,
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.green),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.graphic_eq, size: 14, color: Colors.green),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Preview',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // A/B comparison button
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => ContainerABComparisonDialog.show(
+                context,
+                containerId: _selectedContainerId!,
+                containerType: 'blend',
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.cyan.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.cyan),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.compare, size: 14, color: Colors.cyan),
+                    const SizedBox(width: 4),
+                    Text(
+                      'A/B',
+                      style: TextStyle(
+                        color: Colors.cyan,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+        GestureDetector(
+          onTap: () => ContainerPresetLibraryDialog.show(
+            context,
+            targetContainerId: _selectedContainerId,
+            targetContainerType: 'blend',
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.amber),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.library_music, size: 14, color: Colors.amber),
+                const SizedBox(width: 4),
+                Text(
+                  'Presets',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
         GestureDetector(
           onTap: () => setState(() => _showAddContainer = true),
           child: Container(
@@ -355,6 +460,16 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
           ],
         ),
         const SizedBox(height: 12),
+        // RTPC Preview Slider
+        BlendRtpcSlider(
+          container: container,
+          value: _rtpcPreviewValue,
+          onChanged: (v) => setState(() => _rtpcPreviewValue = v),
+          onPreview: () {
+            // TODO: Preview blend at current RTPC value
+          },
+        ),
+        const SizedBox(height: 12),
         // Visualization
         Expanded(
           child: Container(
@@ -368,6 +483,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                 children: container.children,
                 crossfadeCurve: container.crossfadeCurve,
                 selectedChildId: _selectedChildId,
+                currentRtpcValue: _rtpcPreviewValue,
               ),
               child: Stack(
                 children: [
@@ -854,11 +970,13 @@ class _BlendCurvePainter extends CustomPainter {
   final List<BlendChild> children;
   final CrossfadeCurve crossfadeCurve;
   final int? selectedChildId;
+  final double? currentRtpcValue;
 
   _BlendCurvePainter({
     required this.children,
     required this.crossfadeCurve,
     this.selectedChildId,
+    this.currentRtpcValue,
   });
 
   @override
@@ -955,6 +1073,27 @@ class _BlendCurvePainter extends CustomPainter {
       canvas.drawPath(path, paint);
     }
 
+    // Draw current RTPC position indicator
+    if (currentRtpcValue != null) {
+      final indicatorX = currentRtpcValue! * size.width;
+      final indicatorPaint = Paint()
+        ..color = Colors.purple
+        ..strokeWidth = 2;
+      canvas.drawLine(
+        Offset(indicatorX, 0),
+        Offset(indicatorX, size.height),
+        indicatorPaint,
+      );
+      // Draw diamond at bottom
+      final diamondPath = Path()
+        ..moveTo(indicatorX, size.height - 8)
+        ..lineTo(indicatorX - 6, size.height)
+        ..lineTo(indicatorX, size.height + 8)
+        ..lineTo(indicatorX + 6, size.height)
+        ..close();
+      canvas.drawPath(diamondPath, Paint()..color = Colors.purple);
+    }
+
     // Draw RTPC axis label
     final textPainter = TextPainter(
       text: TextSpan(
@@ -987,7 +1126,8 @@ class _BlendCurvePainter extends CustomPainter {
   bool shouldRepaint(covariant _BlendCurvePainter oldDelegate) {
     return oldDelegate.children != children ||
         oldDelegate.crossfadeCurve != crossfadeCurve ||
-        oldDelegate.selectedChildId != selectedChildId;
+        oldDelegate.selectedChildId != selectedChildId ||
+        oldDelegate.currentRtpcValue != currentRtpcValue;
   }
 }
 

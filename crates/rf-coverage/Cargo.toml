@@ -1,0 +1,13 @@
+[package]
+name = "rf-coverage"
+version = "0.1.0"
+edition = "2021"
+description = "Code coverage reporting and analysis for FluxForge"
+publish = false
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+walkdir = "2.5"
+regex = "1.11"

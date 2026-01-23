@@ -13,8 +13,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
-import '../../services/native_file_picker.dart';
+import '../../services/audio_playback_service.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../common/audio_waveform_picker_dialog.dart';
 
 // =============================================================================
 // THEME SHORTCUTS
@@ -638,6 +639,10 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               ),
             ),
           const Spacer(),
+          // Preview event button
+          if (event.layers.isNotEmpty)
+            _EventPreviewButton(event: event),
+          const SizedBox(width: 12),
           // Zoom controls
           IconButton(
             icon: const Icon(Icons.remove, size: 16),
@@ -878,6 +883,11 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               ),
               child: Row(
                 children: [
+                  // Preview button
+                  _LayerPreviewButton(
+                    layer: layer,
+                    accentColor: event.color,
+                  ),
                   // Mute/Solo
                   IconButton(
                     icon: Icon(
@@ -901,7 +911,6 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                     tooltip: 'Solo',
                   ),
-                  const SizedBox(width: 4),
                   // Layer name
                   Expanded(
                     child: Text(
@@ -1235,6 +1244,10 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
   final _nameController = TextEditingController();
   String? _selectedAudioPath;
   bool _isPickingFile = false;
+  bool _isPreviewing = false;
+  int? _previewVoiceId;
+  List<double>? _waveformData;
+  double? _audioDuration;
 
   @override
   void initState() {
@@ -1244,6 +1257,7 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
 
   @override
   void dispose() {
+    _stopPreview();
     _nameController.dispose();
     super.dispose();
   }
@@ -1252,23 +1266,95 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
     setState(() => _isPickingFile = true);
 
     try {
-      // Use native file picker
-      final files = await NativeFilePicker.pickAudioFiles();
-      if (files.isNotEmpty) {
+      // Use AudioWaveformPickerDialog for waveform preview during selection
+      final path = await AudioWaveformPickerDialog.show(
+        context,
+        title: 'Select Audio File',
+      );
+
+      if (path != null && mounted) {
         setState(() {
-          _selectedAudioPath = files.first;
+          _selectedAudioPath = path;
           // Auto-set name from filename
-          final filename = files.first.split('/').last;
+          final filename = path.split('/').last;
           final nameWithoutExt = filename.contains('.')
               ? filename.substring(0, filename.lastIndexOf('.'))
               : filename;
           _nameController.text = nameWithoutExt;
         });
+
+        // Load waveform data for preview
+        _loadWaveformData(path);
       }
     } catch (_) {
       // Ignore file picking errors
     } finally {
-      setState(() => _isPickingFile = false);
+      if (mounted) {
+        setState(() => _isPickingFile = false);
+      }
+    }
+  }
+
+  void _loadWaveformData(String path) {
+    // Generate simple placeholder waveform for preview
+    // Real waveform is computed async when layer is added to event
+    if (mounted) {
+      setState(() {
+        _waveformData = _generateSimpleWaveform(64);
+        // Estimate duration (will be computed accurately when added)
+        _audioDuration = 2.0; // Placeholder - actual duration loaded on add
+      });
+    }
+  }
+
+  List<double> _generateSimpleWaveform(int samples) {
+    // Generate a simple placeholder waveform
+    final random = math.Random();
+    return List.generate(samples, (i) {
+      final progress = i / samples;
+      final envelope = math.sin(progress * math.pi);
+      return (0.3 + random.nextDouble() * 0.7) * envelope;
+    });
+  }
+
+  void _togglePreview() {
+    if (_isPreviewing) {
+      _stopPreview();
+    } else {
+      _startPreview();
+    }
+  }
+
+  void _startPreview() {
+    if (_selectedAudioPath == null) return;
+
+    final voiceId = AudioPlaybackService.instance.previewFile(_selectedAudioPath!);
+    if (voiceId > 0) {
+      setState(() {
+        _isPreviewing = true;
+        _previewVoiceId = voiceId;
+      });
+
+      // Auto-stop after duration
+      if (_audioDuration != null) {
+        Future.delayed(Duration(milliseconds: (_audioDuration! * 1000).toInt()), () {
+          if (mounted && _isPreviewing) {
+            _stopPreview();
+          }
+        });
+      }
+    }
+  }
+
+  void _stopPreview() {
+    if (_previewVoiceId != null) {
+      AudioPlaybackService.instance.stopVoice(_previewVoiceId!);
+    }
+    if (mounted) {
+      setState(() {
+        _isPreviewing = false;
+        _previewVoiceId = null;
+      });
     }
   }
 
@@ -1280,14 +1366,17 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
         children: [
           Icon(Icons.add_circle, color: widget.event.color, size: 24),
           const SizedBox(width: 12),
-          Text(
-            'Add Layer to "${widget.event.name}"',
-            style: const TextStyle(fontSize: 16, color: Colors.white),
+          Expanded(
+            child: Text(
+              'Add Layer to "${widget.event.name}"',
+              style: const TextStyle(fontSize: 16, color: Colors.white),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
       content: SizedBox(
-        width: 400,
+        width: 480,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1309,64 +1398,153 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Audio file picker
-            Text(
-              'Audio File (optional)',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
+            // Audio file section
+            Row(
+              children: [
+                Text(
+                  'Audio File',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (_selectedAudioPath != null && _audioDuration != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: widget.event.color.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${_audioDuration!.toStringAsFixed(2)}s',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: widget.event.color,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
-            InkWell(
-              onTap: _isPickingFile ? null : _pickAudioFile,
-              child: Container(
-                padding: const EdgeInsets.all(12),
+
+            // File picker + preview button
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: _isPickingFile ? null : _pickAudioFile,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0a0a0c),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: _selectedAudioPath != null
+                              ? widget.event.color.withValues(alpha: 0.5)
+                              : Colors.white24,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _selectedAudioPath != null
+                                ? Icons.audio_file
+                                : Icons.folder_open,
+                            size: 20,
+                            color: _selectedAudioPath != null
+                                ? widget.event.color
+                                : Colors.white54,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _selectedAudioPath != null
+                                  ? _selectedAudioPath!.split('/').last
+                                  : 'Click to select audio file...',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _selectedAudioPath != null
+                                    ? Colors.white
+                                    : Colors.white54,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (_isPickingFile)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Preview button
+                if (_selectedAudioPath != null) ...[
+                  const SizedBox(width: 8),
+                  Material(
+                    color: _isPreviewing
+                        ? widget.event.color
+                        : const Color(0xFF0a0a0c),
+                    borderRadius: BorderRadius.circular(4),
+                    child: InkWell(
+                      onTap: _togglePreview,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: _isPreviewing
+                                ? widget.event.color
+                                : Colors.white24,
+                          ),
+                        ),
+                        child: Icon(
+                          _isPreviewing ? Icons.stop : Icons.play_arrow,
+                          color: _isPreviewing ? Colors.white : widget.event.color,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+
+            // Waveform preview
+            if (_selectedAudioPath != null && _waveformData != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                height: 48,
                 decoration: BoxDecoration(
                   color: const Color(0xFF0a0a0c),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: _selectedAudioPath != null
-                        ? widget.event.color.withValues(alpha: 0.5)
-                        : Colors.white24,
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: CustomPaint(
+                    painter: _WaveformPreviewPainter(
+                      waveformData: _waveformData!,
+                      color: widget.event.color,
+                      isPlaying: _isPreviewing,
+                    ),
+                    size: const Size(double.infinity, 48),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _selectedAudioPath != null
-                          ? Icons.audio_file
-                          : Icons.folder_open,
-                      size: 20,
-                      color: _selectedAudioPath != null
-                          ? widget.event.color
-                          : Colors.white54,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _selectedAudioPath != null
-                            ? _selectedAudioPath!.split('/').last
-                            : 'Click to select audio file...',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _selectedAudioPath != null
-                              ? Colors.white
-                              : Colors.white54,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (_isPickingFile)
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                  ],
-                ),
               ),
-            ),
+            ],
+
+            // Full path
             if (_selectedAudioPath != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -1384,12 +1562,16 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            _stopPreview();
+            Navigator.pop(context);
+          },
           child: const Text('Cancel'),
         ),
         ElevatedButton(
           onPressed: _nameController.text.trim().isNotEmpty && _selectedAudioPath != null
               ? () {
+                  _stopPreview();
                   widget.onAdd(_nameController.text.trim(), _selectedAudioPath!);
                   Navigator.pop(context);
                 }
@@ -1401,6 +1583,262 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
           child: const Text('Add Layer'),
         ),
       ],
+    );
+  }
+}
+
+/// Waveform preview painter for Add Layer dialog
+class _WaveformPreviewPainter extends CustomPainter {
+  final List<double> waveformData;
+  final Color color;
+  final bool isPlaying;
+
+  _WaveformPreviewPainter({
+    required this.waveformData,
+    required this.color,
+    this.isPlaying = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (waveformData.isEmpty) return;
+
+    final paint = Paint()
+      ..color = isPlaying ? color : color.withValues(alpha: 0.6)
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+
+    final centerY = size.height / 2;
+    final barWidth = size.width / waveformData.length;
+
+    for (var i = 0; i < waveformData.length; i++) {
+      final x = i * barWidth + barWidth / 2;
+      final amplitude = waveformData[i] * (size.height / 2 - 4);
+
+      canvas.drawLine(
+        Offset(x, centerY - amplitude),
+        Offset(x, centerY + amplitude),
+        paint,
+      );
+    }
+
+    // Draw center line
+    final linePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.1)
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      linePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveformPreviewPainter oldDelegate) {
+    return oldDelegate.isPlaying != isPlaying ||
+        oldDelegate.color != color;
+  }
+}
+
+// =============================================================================
+// LAYER PREVIEW BUTTON
+// =============================================================================
+
+/// Compact preview button for layer tracks
+class _LayerPreviewButton extends StatefulWidget {
+  final SlotEventLayer layer;
+  final Color accentColor;
+
+  const _LayerPreviewButton({
+    required this.layer,
+    required this.accentColor,
+  });
+
+  @override
+  State<_LayerPreviewButton> createState() => _LayerPreviewButtonState();
+}
+
+class _LayerPreviewButtonState extends State<_LayerPreviewButton> {
+  bool _isPlaying = false;
+  int? _voiceId;
+
+  @override
+  void dispose() {
+    _stopPreview();
+    super.dispose();
+  }
+
+  void _togglePreview() {
+    if (_isPlaying) {
+      _stopPreview();
+    } else {
+      _startPreview();
+    }
+  }
+
+  void _startPreview() {
+    if (widget.layer.audioPath.isEmpty) return;
+
+    final voiceId = AudioPlaybackService.instance.previewFile(widget.layer.audioPath);
+    if (voiceId > 0) {
+      setState(() {
+        _isPlaying = true;
+        _voiceId = voiceId;
+      });
+
+      // Auto-stop after duration
+      final duration = widget.layer.durationSeconds ?? 5.0;
+      Future.delayed(Duration(milliseconds: (duration * 1000).toInt()), () {
+        if (mounted && _isPlaying) {
+          _stopPreview();
+        }
+      });
+    }
+  }
+
+  void _stopPreview() {
+    if (_voiceId != null) {
+      AudioPlaybackService.instance.stopVoice(_voiceId!);
+    }
+    if (mounted) {
+      setState(() {
+        _isPlaying = false;
+        _voiceId = null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAudio = widget.layer.audioPath.isNotEmpty;
+
+    return IconButton(
+      icon: Icon(
+        _isPlaying ? Icons.stop : Icons.play_arrow,
+        size: 14,
+        color: !hasAudio
+            ? Colors.white24
+            : _isPlaying
+                ? widget.accentColor
+                : Colors.white54,
+      ),
+      onPressed: hasAudio ? _togglePreview : null,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+      tooltip: _isPlaying ? 'Stop Preview' : 'Preview Layer',
+    );
+  }
+}
+
+// =============================================================================
+// EVENT PREVIEW BUTTON (plays all layers)
+// =============================================================================
+
+/// Preview button for entire event (plays all layers simultaneously)
+class _EventPreviewButton extends StatefulWidget {
+  final SlotCompositeEvent event;
+
+  const _EventPreviewButton({required this.event});
+
+  @override
+  State<_EventPreviewButton> createState() => _EventPreviewButtonState();
+}
+
+class _EventPreviewButtonState extends State<_EventPreviewButton> {
+  bool _isPlaying = false;
+  final List<int> _activeVoiceIds = [];
+
+  @override
+  void dispose() {
+    _stopPreview();
+    super.dispose();
+  }
+
+  void _togglePreview() {
+    if (_isPlaying) {
+      _stopPreview();
+    } else {
+      _startPreview();
+    }
+  }
+
+  void _startPreview() {
+    if (widget.event.layers.isEmpty) return;
+
+    // Play all non-muted layers
+    double maxDuration = 0;
+    for (final layer in widget.event.layers) {
+      if (layer.muted || layer.audioPath.isEmpty) continue;
+
+      // Account for layer offset
+      final delay = layer.offsetMs;
+      final duration = (layer.durationSeconds ?? 1.0) + (delay / 1000);
+      if (duration > maxDuration) maxDuration = duration;
+
+      // Schedule layer playback with offset
+      if (delay > 0) {
+        Future.delayed(Duration(milliseconds: delay.toInt()), () {
+          if (mounted && _isPlaying) {
+            _playLayer(layer);
+          }
+        });
+      } else {
+        _playLayer(layer);
+      }
+    }
+
+    setState(() => _isPlaying = true);
+
+    // Auto-stop after max duration
+    Future.delayed(Duration(milliseconds: (maxDuration * 1000).toInt() + 100), () {
+      if (mounted && _isPlaying) {
+        _stopPreview();
+      }
+    });
+  }
+
+  void _playLayer(SlotEventLayer layer) {
+    final voiceId = AudioPlaybackService.instance.previewFile(
+      layer.audioPath,
+      volume: layer.volume,
+    );
+    if (voiceId > 0) {
+      _activeVoiceIds.add(voiceId);
+    }
+  }
+
+  void _stopPreview() {
+    for (final voiceId in _activeVoiceIds) {
+      AudioPlaybackService.instance.stopVoice(voiceId);
+    }
+    _activeVoiceIds.clear();
+    if (mounted) {
+      setState(() => _isPlaying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _togglePreview,
+      icon: Icon(
+        _isPlaying ? Icons.stop : Icons.play_arrow,
+        size: 14,
+        color: _isPlaying ? Colors.white : widget.event.color,
+      ),
+      label: Text(
+        _isPlaying ? 'Stop' : 'Preview',
+        style: TextStyle(
+          fontSize: 11,
+          color: _isPlaying ? Colors.white : widget.event.color,
+        ),
+      ),
+      style: TextButton.styleFrom(
+        backgroundColor: _isPlaying
+            ? widget.event.color
+            : widget.event.color.withValues(alpha: 0.15),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      ),
     );
   }
 }

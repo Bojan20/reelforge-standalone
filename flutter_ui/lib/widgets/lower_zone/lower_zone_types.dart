@@ -300,14 +300,14 @@ extension MiddlewareSuperTabX on MiddlewareSuperTab {
 
 // --- Middleware Sub-tabs ---
 
-enum MiddlewareEventsSubTab { browser, editor, triggers, actions }
+enum MiddlewareEventsSubTab { browser, editor, triggers, debug }
 enum MiddlewareContainersSubTab { random, sequence, blend, switchTab }
-enum MiddlewareRoutingSubTab { buses, ducking, matrix, spatial }
-enum MiddlewareRtpcSubTab { curves, bindings, meters, debug }
+enum MiddlewareRoutingSubTab { buses, ducking, matrix, priority }
+enum MiddlewareRtpcSubTab { curves, bindings, meters, profiler }
 enum MiddlewareDeliverSubTab { bake, soundbank, validate, package }
 
 extension MiddlewareEventsSubTabX on MiddlewareEventsSubTab {
-  String get label => ['Browser', 'Editor', 'Triggers', 'Actions'][index];
+  String get label => ['Browser', 'Editor', 'Triggers', 'Debug'][index];
   String get shortcut => ['Q', 'W', 'E', 'R'][index];
 }
 
@@ -317,12 +317,12 @@ extension MiddlewareContainersSubTabX on MiddlewareContainersSubTab {
 }
 
 extension MiddlewareRoutingSubTabX on MiddlewareRoutingSubTab {
-  String get label => ['Buses', 'Ducking', 'Matrix', 'Spatial'][index];
+  String get label => ['Buses', 'Ducking', 'Matrix', 'Priority'][index];
   String get shortcut => ['Q', 'W', 'E', 'R'][index];
 }
 
 extension MiddlewareRtpcSubTabX on MiddlewareRtpcSubTab {
-  String get label => ['Curves', 'Bindings', 'Meters', 'Debug'][index];
+  String get label => ['Curves', 'Bindings', 'Meters', 'Profiler'][index];
   String get shortcut => ['Q', 'W', 'E', 'R'][index];
 }
 

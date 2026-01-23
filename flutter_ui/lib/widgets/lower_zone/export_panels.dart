@@ -15,6 +15,8 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../services/export_service.dart';
+import '../../services/loudness_analysis_service.dart';
+import '../export/loudness_analysis_panel.dart';
 import 'lower_zone_types.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -41,6 +43,7 @@ class DawExportPanel extends StatefulWidget {
 
 class _DawExportPanelState extends State<DawExportPanel> {
   final ExportService _exportService = ExportService.instance;
+  final LoudnessAnalysisService _loudnessService = LoudnessAnalysisService.instance;
   StreamSubscription<ExportProgress>? _progressSub;
 
   // Export settings
@@ -56,6 +59,12 @@ class _DawExportPanelState extends State<DawExportPanel> {
   ExportProgress _progress = const ExportProgress();
   bool _isExporting = false;
 
+  // Loudness analysis state
+  LoudnessResult? _loudnessResult;
+  LoudnessTarget _loudnessTarget = LoudnessTarget.streaming;
+  bool _isAnalyzing = false;
+  double _analysisProgress = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -66,13 +75,46 @@ class _DawExportPanelState extends State<DawExportPanel> {
       }
     });
     _exportService.addListener(_onExportServiceChanged);
+    _loudnessService.addListener(_onLoudnessServiceChanged);
   }
 
   @override
   void dispose() {
     _progressSub?.cancel();
     _exportService.removeListener(_onExportServiceChanged);
+    _loudnessService.removeListener(_onLoudnessServiceChanged);
     super.dispose();
+  }
+
+  void _onLoudnessServiceChanged() {
+    setState(() {
+      _loudnessResult = _loudnessService.lastResult;
+      _isAnalyzing = _loudnessService.isAnalyzing;
+      _analysisProgress = _loudnessService.progress;
+    });
+  }
+
+  Future<void> _startLoudnessAnalysis() async {
+    // TODO: Pass actual audio buffer from project
+    // For now, simulate analysis with representative values
+    setState(() => _isAnalyzing = true);
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    final durationSeconds = (widget.endTime ?? 180.0) - (widget.startTime ?? 0.0);
+    setState(() {
+      _isAnalyzing = false;
+      // Simulated result for UI demo
+      _loudnessResult = LoudnessResult(
+        integratedLufs: -14.2,
+        shortTermLufs: -13.8,
+        momentaryLufs: -12.5,
+        truePeak: -0.8,
+        samplePeak: -1.2,
+        loudnessRange: 8.5,
+        duration: Duration(milliseconds: (durationSeconds * 1000).round()),
+        isValid: true,
+      );
+    });
   }
 
   void _onExportServiceChanged() {
@@ -421,6 +463,9 @@ class _DawExportPanelState extends State<DawExportPanel> {
           _buildPreviewRow('Est. Size', _exportService.formatFileSize(estimatedSize)),
           if (_normalization != NormalizationMode.none)
             _buildPreviewRow('Normalize', '${_normalization.label} @ ${_normalizationTarget.toStringAsFixed(1)}'),
+          const SizedBox(height: 8),
+          // Loudness Analysis Section
+          _buildLoudnessSection(),
           const Spacer(),
           Container(
             padding: const EdgeInsets.all(6),
@@ -441,6 +486,107 @@ class _DawExportPanelState extends State<DawExportPanel> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoudnessSection() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgMid,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.graphic_eq, size: 12, color: LowerZoneColors.textMuted),
+              const SizedBox(width: 6),
+              const Text(
+                'LOUDNESS',
+                style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: LowerZoneColors.textMuted),
+              ),
+              const Spacer(),
+              // Target selector
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.bgDeepest,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<LoudnessTarget>(
+                    value: _loudnessTarget,
+                    isDense: true,
+                    dropdownColor: LowerZoneColors.bgDeep,
+                    icon: Icon(Icons.arrow_drop_down, size: 12, color: widget.accentColor),
+                    items: LoudnessTarget.values.where((t) => t != LoudnessTarget.custom).map((target) {
+                      return DropdownMenuItem(
+                        value: target,
+                        child: Text(target.name, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textPrimary)),
+                      );
+                    }).toList(),
+                    onChanged: (t) => setState(() => _loudnessTarget = t ?? LoudnessTarget.streaming),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_isAnalyzing)
+            // Analyzing indicator
+            Row(
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    valueColor: AlwaysStoppedAnimation(widget.accentColor),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Analyzing... ${(_analysisProgress * 100).toInt()}%',
+                  style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                ),
+              ],
+            )
+          else if (_loudnessResult != null)
+            // Show result badge
+            LoudnessBadge(
+              result: _loudnessResult,
+              target: _loudnessTarget,
+              compact: true,
+            )
+          else
+            // Analyze button
+            GestureDetector(
+              onTap: _startLoudnessAnalysis,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: widget.accentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: widget.accentColor.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.analytics_outlined, size: 12, color: widget.accentColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Analyze Loudness',
+                      style: TextStyle(fontSize: 9, color: widget.accentColor),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

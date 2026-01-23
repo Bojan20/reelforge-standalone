@@ -10,6 +10,9 @@ import '../../providers/middleware_provider.dart';
 import '../../providers/subsystems/sequence_containers_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
+import 'container_ab_comparison_panel.dart';
+import 'container_preset_library_panel.dart';
+import 'container_visualization_widgets.dart';
 
 /// Sequence Container Panel Widget
 class SequenceContainerPanel extends StatefulWidget {
@@ -23,6 +26,8 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
   int? _selectedContainerId;
   int? _selectedStepIndex;
   bool _showAddContainer = false;
+  bool _isPlaying = false;
+  int? _currentPlayingStepIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +86,71 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
           ),
         ),
         const Spacer(),
+        if (_selectedContainerId != null)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => ContainerABComparisonDialog.show(
+                context,
+                containerId: _selectedContainerId!,
+                containerType: 'sequence',
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.cyan.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.cyan),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.compare, size: 14, color: Colors.cyan),
+                    const SizedBox(width: 4),
+                    Text(
+                      'A/B',
+                      style: TextStyle(
+                        color: Colors.cyan,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        GestureDetector(
+          onTap: () => ContainerPresetLibraryDialog.show(
+            context,
+            targetContainerId: _selectedContainerId,
+            targetContainerType: 'sequence',
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.amber),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.library_music, size: 14, color: Colors.amber),
+                const SizedBox(width: 4),
+                Text(
+                  'Presets',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
         GestureDetector(
           onTap: () => setState(() => _showAddContainer = true),
           child: Container(
@@ -335,9 +405,17 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
         // Settings bar
         _buildSettingsBar(container),
         const SizedBox(height: 12),
-        // Timeline
+        // Enhanced timeline visualization
         Expanded(
-          child: _buildTimeline(container),
+          child: SequenceTimelineVisualization(
+            container: container,
+            currentStepIndex: _currentPlayingStepIndex,
+            selectedStepIndex: _selectedStepIndex,
+            isPlaying: _isPlaying,
+            onStepSelected: (index) => setState(() => _selectedStepIndex = index),
+            onPlay: () => _startPreview(container),
+            onStop: _stopPreview,
+          ),
         ),
         // Step editor
         if (_selectedStepIndex != null) ...[
@@ -346,6 +424,45 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
         ],
       ],
     );
+  }
+
+  void _startPreview(SequenceContainer container) {
+    if (container.steps.isEmpty) return;
+    setState(() {
+      _isPlaying = true;
+      _currentPlayingStepIndex = 0;
+    });
+    _playNextStep(container, 0);
+  }
+
+  void _playNextStep(SequenceContainer container, int stepIndex) {
+    if (!_isPlaying || stepIndex >= container.steps.length) {
+      if (_isPlaying && container.endBehavior == SequenceEndBehavior.loop) {
+        // Loop back to start
+        setState(() => _currentPlayingStepIndex = 0);
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_isPlaying) _playNextStep(container, 0);
+        });
+      } else {
+        _stopPreview();
+      }
+      return;
+    }
+
+    setState(() => _currentPlayingStepIndex = stepIndex);
+    final step = container.steps[stepIndex];
+    final durationMs = (step.durationMs / container.speed).round();
+
+    Future.delayed(Duration(milliseconds: durationMs), () {
+      if (_isPlaying) _playNextStep(container, stepIndex + 1);
+    });
+  }
+
+  void _stopPreview() {
+    setState(() {
+      _isPlaying = false;
+      _currentPlayingStepIndex = null;
+    });
   }
 
   Widget _buildSettingsBar(SequenceContainer container) {

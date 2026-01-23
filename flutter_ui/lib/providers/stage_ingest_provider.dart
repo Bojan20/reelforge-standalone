@@ -23,6 +23,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/service_locator.dart';
+import '../services/mock_engine_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENUMS
@@ -262,6 +263,16 @@ class StageIngestProvider extends ChangeNotifier {
   Timer? _pollingTimer;
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // STAGING MODE STATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Whether staging mode (mock engine) is active
+  bool _isStagingMode = false;
+
+  /// Mock engine subscription
+  StreamSubscription<MockStageEvent>? _mockEngineSubscription;
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -279,6 +290,18 @@ class StageIngestProvider extends ChangeNotifier {
   /// Stream of live stage events
   Stream<IngestStageEvent> get liveEvents => _liveEventController.stream;
 
+  /// Whether staging mode is active
+  bool get isStagingMode => _isStagingMode;
+
+  /// Whether mock engine is running
+  bool get isMockEngineRunning => MockEngineService.instance.isRunning;
+
+  /// Mock engine mode
+  MockEngineMode get mockEngineMode => MockEngineService.instance.mode;
+
+  /// Mock engine context
+  MockGameContext get mockGameContext => MockEngineService.instance.currentContext;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // CONSTRUCTOR
   // ═══════════════════════════════════════════════════════════════════════════
@@ -293,6 +316,12 @@ class StageIngestProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    // Clean up staging mode
+    _mockEngineSubscription?.cancel();
+    if (_isStagingMode) {
+      MockEngineService.instance.stop();
+    }
+
     // Clean up all resources
     _pollingTimer?.cancel();
     _liveEventController.close();
@@ -1131,5 +1160,111 @@ class StageIngestProvider extends ChangeNotifier {
     _pollingTimer = null;
 
     notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STAGING MODE API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Enable staging mode (mock engine)
+  /// This disconnects any live connections and starts the mock engine
+  void enableStagingMode() {
+    if (_isStagingMode) return;
+
+    // Disconnect any live connectors
+    for (final connector in _connectors.values) {
+      disconnect(connector.connectorId);
+    }
+
+    _isStagingMode = true;
+
+    // Subscribe to mock engine events
+    _mockEngineSubscription = MockEngineService.instance.events.listen((event) {
+      // Convert MockStageEvent to IngestStageEvent and emit
+      final ingestEvent = IngestStageEvent(
+        stage: event.stage,
+        timestampMs: event.timestampMs,
+        data: event.data,
+      );
+      _liveEventController.add(ingestEvent);
+    });
+
+    notifyListeners();
+  }
+
+  /// Disable staging mode
+  void disableStagingMode() {
+    if (!_isStagingMode) return;
+
+    _isStagingMode = false;
+
+    // Stop mock engine
+    MockEngineService.instance.stop();
+
+    // Unsubscribe from mock events
+    _mockEngineSubscription?.cancel();
+    _mockEngineSubscription = null;
+
+    notifyListeners();
+  }
+
+  /// Toggle staging mode
+  void toggleStagingMode() {
+    if (_isStagingMode) {
+      disableStagingMode();
+    } else {
+      enableStagingMode();
+    }
+  }
+
+  /// Start mock engine (only if staging mode is enabled)
+  void startMockEngine() {
+    if (!_isStagingMode) {
+      enableStagingMode();
+    }
+    MockEngineService.instance.start();
+    notifyListeners();
+  }
+
+  /// Stop mock engine
+  void stopMockEngine() {
+    MockEngineService.instance.stop();
+    notifyListeners();
+  }
+
+  /// Set mock engine mode
+  void setMockEngineMode(MockEngineMode mode) {
+    MockEngineService.instance.setMode(mode);
+    notifyListeners();
+  }
+
+  /// Set mock engine context
+  void setMockEngineContext(MockGameContext context) {
+    MockEngineService.instance.setContext(context);
+    notifyListeners();
+  }
+
+  /// Set mock engine config
+  void setMockEngineConfig(MockEngineConfig config) {
+    MockEngineService.instance.config = config;
+    notifyListeners();
+  }
+
+  /// Trigger manual spin in mock engine
+  void triggerMockSpin() {
+    if (!_isStagingMode) return;
+    MockEngineService.instance.triggerSpin();
+  }
+
+  /// Trigger spin with specific outcome
+  void triggerMockSpinWithOutcome(MockWinTier outcome) {
+    if (!_isStagingMode) return;
+    MockEngineService.instance.triggerSpinWithOutcome(outcome);
+  }
+
+  /// Play predefined sequence
+  void playMockSequence(MockEventSequence sequence) {
+    if (!_isStagingMode) return;
+    MockEngineService.instance.playSequence(sequence);
   }
 }

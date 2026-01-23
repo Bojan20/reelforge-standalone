@@ -1,0 +1,13 @@
+[package]
+name = "rf-release"
+version = "0.1.0"
+edition = "2021"
+description = "Release automation for FluxForge Studio"
+publish = false
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+toml = "0.8"
+regex = "1.11"

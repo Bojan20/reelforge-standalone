@@ -1,0 +1,36 @@
+[package]
+name = "rf-audio-diff"
+version = "0.1.0"
+edition = "2021"
+description = "FFT-based spectral audio comparison for regression testing"
+license = "MIT"
+
+[dependencies]
+# FFT
+rustfft = { workspace = true }
+realfft = { workspace = true }
+
+# Audio file I/O
+symphonia = { workspace = true }
+hound = { workspace = true }
+
+# Math
+num-complex = "0.4"
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+log = { workspace = true }
+
+# Parallel processing
+rayon = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.10"
+approx = "0.5"

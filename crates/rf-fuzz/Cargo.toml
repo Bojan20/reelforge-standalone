@@ -1,0 +1,25 @@
+[package]
+name = "rf-fuzz"
+version = "0.1.0"
+edition = "2021"
+description = "FFI fuzzing framework for FluxForge audio engine"
+license = "MIT"
+
+[dependencies]
+# Random number generation
+rand = "0.9"
+rand_chacha = "0.9"
+
+# Serialization for reproducible tests
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+log = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.10"

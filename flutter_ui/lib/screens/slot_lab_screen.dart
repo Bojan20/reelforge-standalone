@@ -104,6 +104,7 @@ import '../widgets/slot_lab/auto_event_builder/drop_target_wrapper.dart';
 import '../models/auto_event_builder_models.dart';
 import '../providers/stage_ingest_provider.dart';
 import '../widgets/stage_ingest/stage_ingest_panel.dart';
+import '../widgets/slot_lab/gdd_import_wizard.dart';
 
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
@@ -2536,6 +2537,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           ),
           const SizedBox(width: 4),
           _buildGlassButton(
+            icon: Icons.upload_file,
+            onTap: _showGddImportWizard,
+            tooltip: 'Import GDD',
+          ),
+          const SizedBox(width: 4),
+          _buildGlassButton(
             icon: Icons.settings,
             onTap: _showSettingsDialog,
             tooltip: 'Settings',
@@ -2545,6 +2552,22 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         ],
       ),
     );
+  }
+
+  Future<void> _showGddImportWizard() async {
+    final result = await GddImportWizard.show(context);
+    if (result != null && mounted) {
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Imported GDD "${result.gdd.name}" with ${result.generatedStages.length} stages',
+          ),
+          backgroundColor: const Color(0xFF40FF90),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   void _showSettingsDialog() {
