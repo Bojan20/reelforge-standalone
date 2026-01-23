@@ -30,6 +30,8 @@ import '../../services/track_preset_service.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../providers/plugin_provider.dart';
 import '../../providers/timeline_playback_provider.dart' show TimelineClipData;
+import '../midi/piano_roll_widget.dart';
+import '../routing/routing_matrix_panel.dart';
 // Gate and Reverb are accessible via FX Chain panel
 
 class DawLowerZoneWidget extends StatefulWidget {
@@ -61,6 +63,22 @@ class DawLowerZoneWidget extends StatefulWidget {
   /// Callback when triplet grid changes
   final ValueChanged<bool>? onTripletGridChanged;
 
+  // ─── P1.4: Timeline Settings (Tempo, Time Signature, Markers) ───────────────
+  /// Current tempo in BPM
+  final double tempo;
+
+  /// Time signature numerator (beats per bar)
+  final int timeSignatureNumerator;
+
+  /// Time signature denominator (beat value: 2=half, 4=quarter, 8=eighth)
+  final int timeSignatureDenominator;
+
+  /// Callback when tempo changes
+  final ValueChanged<double>? onTempoChanged;
+
+  /// Callback when time signature changes (numerator, denominator)
+  final void Function(int numerator, int denominator)? onTimeSignatureChanged;
+
   // ─── P1.3: Selected Clip for Clip Properties Panel ──────────────────────────
   /// Currently selected clip for editing in Clips panel
   /// If null, shows placeholder message
@@ -86,6 +104,11 @@ class DawLowerZoneWidget extends StatefulWidget {
     this.onSnapEnabledChanged,
     this.onSnapValueChanged,
     this.onTripletGridChanged,
+    this.tempo = 120.0,
+    this.timeSignatureNumerator = 4,
+    this.timeSignatureDenominator = 4,
+    this.onTempoChanged,
+    this.onTimeSignatureChanged,
     this.selectedClip,
     this.onClipGainChanged,
     this.onClipFadeInChanged,
@@ -1353,14 +1376,14 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     final subTab = widget.controller.state.editSubTab;
     return switch (subTab) {
       DawEditSubTab.timeline => _buildTimelinePanel(),
-      DawEditSubTab.clips => _buildClipsPanel(),
+      DawEditSubTab.pianoRoll => _buildPianoRollPanel(),
       DawEditSubTab.fades => _buildFadesPanel(),
       DawEditSubTab.grid => _buildGridPanel(),
     };
   }
 
   Widget _buildTimelinePanel() => _buildCompactTimelineOverview();
-  Widget _buildClipsPanel() => _buildCompactClipProperties();
+  Widget _buildPianoRollPanel() => _buildMidiPianoRoll();
   Widget _buildFadesPanel() => _buildCompactFadeEditor();
   Widget _buildGridPanel() => _buildCompactGridSettings();
 
@@ -1550,6 +1573,105 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
+  /// MIDI Piano Roll — Full-featured MIDI note editor
+  Widget _buildMidiPianoRoll() {
+    final trackId = widget.selectedTrackId;
+
+    if (trackId == null) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader('PIANO ROLL', Icons.piano),
+            const SizedBox(height: 24),
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.piano,
+                      size: 48,
+                      color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No MIDI Track Selected',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: LowerZoneColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Select a MIDI track to edit notes',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: LowerZoneColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Full piano roll editor for selected MIDI track
+    // Use trackId as clipId for the piano roll
+    return Container(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with track info
+          Row(
+            children: [
+              Icon(Icons.piano, size: 14, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 6),
+              Text(
+                'PIANO ROLL — Track $trackId',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: LowerZoneColors.dawAccent,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Spacer(),
+              // Info: The piano roll widget has its own toolbar
+              Text(
+                'Use toolbar in editor to draw/select/erase notes',
+                style: TextStyle(
+                  fontSize: 9,
+                  color: LowerZoneColors.textTertiary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Piano Roll Widget with integrated toolbar and velocity lane
+          Expanded(
+            child: PianoRollWidget(
+              clipId: trackId, // Use track ID as clip ID
+              lengthBars: 4,
+              bpm: 120.0, // TODO: Get from TimelinePlaybackProvider
+              onNotesChanged: () {
+                widget.onDspAction?.call('midi_notes_changed', {
+                  'trackId': trackId,
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// P1.3: Compact Clip Properties — Connected to selectedClip
   /// Displays and allows editing of selected clip properties
   Widget _buildCompactClipProperties() {
@@ -1684,45 +1806,327 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  /// P0.2: Interactive Grid Settings with actual snap control
+  /// P0.2 + P1.4: Interactive Grid/Timeline Settings with tempo, time sig, snap
   Widget _buildCompactGridSettings() {
     return Container(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader('GRID SETTINGS', Icons.grid_on),
+          _buildSectionHeader('TIMELINE SETTINGS', Icons.settings),
           const SizedBox(height: 12),
           Expanded(
             child: SingleChildScrollView(
-              child: Column(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Snap Enable Toggle
-                  _buildGridToggle(
-                    label: 'Snap to Grid',
-                    value: widget.snapEnabled,
-                    icon: Icons.grid_on,
-                    onChanged: widget.onSnapEnabledChanged,
+                  // Left column: Tempo & Time Signature
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Tempo section
+                        _buildSubSectionHeader('TEMPO'),
+                        const SizedBox(height: 8),
+                        _buildTempoControl(),
+                        const SizedBox(height: 16),
+                        // Time Signature section
+                        _buildSubSectionHeader('TIME SIGNATURE'),
+                        const SizedBox(height: 8),
+                        _buildTimeSignatureControl(),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  // Grid Resolution Selector
-                  _buildGridResolutionSelector(),
-                  const SizedBox(height: 8),
-                  // Triplet Grid Toggle
-                  _buildGridToggle(
-                    label: 'Triplet Grid',
-                    value: widget.tripletGrid,
-                    icon: Icons.grid_3x3,
-                    onChanged: widget.onTripletGridChanged,
+                  const SizedBox(width: 24),
+                  // Right column: Grid Settings
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSubSectionHeader('GRID'),
+                        const SizedBox(height: 8),
+                        // Snap Enable Toggle
+                        _buildGridToggle(
+                          label: 'Snap to Grid',
+                          value: widget.snapEnabled,
+                          icon: Icons.grid_on,
+                          onChanged: widget.onSnapEnabledChanged,
+                        ),
+                        const SizedBox(height: 8),
+                        // Grid Resolution Selector
+                        _buildGridResolutionSelector(),
+                        const SizedBox(height: 8),
+                        // Triplet Grid Toggle
+                        _buildGridToggle(
+                          label: 'Triplet Grid',
+                          value: widget.tripletGrid,
+                          icon: Icons.grid_3x3,
+                          onChanged: widget.onTripletGridChanged,
+                        ),
+                        const SizedBox(height: 12),
+                        // Visual indicator of current snap
+                        _buildSnapIndicator(),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  // Visual indicator of current snap
-                  _buildSnapIndicator(),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// P1.4: Sub-section header
+  Widget _buildSubSectionHeader(String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 9,
+        fontWeight: FontWeight.bold,
+        color: LowerZoneColors.textMuted,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  /// P1.4: Tempo control with tap-to-edit and tap-tempo
+  Widget _buildTempoControl() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Row(
+        children: [
+          // Tempo display (tap to edit)
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _showTempoEditDialog(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.speed, size: 14, color: LowerZoneColors.dawAccent),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${widget.tempo.toStringAsFixed(1)} BPM',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: LowerZoneColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tap to edit',
+                    style: TextStyle(
+                      fontSize: 8,
+                      color: LowerZoneColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Tap tempo button
+          GestureDetector(
+            onTap: () {
+              // Tap tempo feature - could track tap intervals
+              // For now, just show a snackbar
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Tap Tempo - keep tapping to set BPM'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: LowerZoneColors.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: LowerZoneColors.border),
+              ),
+              child: Text(
+                'TAP',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: LowerZoneColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// P1.4: Show tempo edit dialog
+  void _showTempoEditDialog() {
+    final controller = TextEditingController(
+      text: widget.tempo.toStringAsFixed(1),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: LowerZoneColors.bgMid,
+        title: Text(
+          'Set Tempo',
+          style: TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
+          style: TextStyle(color: LowerZoneColors.textPrimary),
+          decoration: InputDecoration(
+            suffixText: 'BPM',
+            suffixStyle: TextStyle(color: LowerZoneColors.textMuted),
+          ),
+          onSubmitted: (value) {
+            final newTempo = double.tryParse(value);
+            if (newTempo != null && newTempo >= 20 && newTempo <= 999) {
+              widget.onTempoChanged?.call(newTempo);
+            }
+            Navigator.pop(ctx);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newTempo = double.tryParse(controller.text);
+              if (newTempo != null && newTempo >= 20 && newTempo <= 999) {
+                widget.onTempoChanged?.call(newTempo);
+              }
+              Navigator.pop(ctx);
+            },
+            child: Text('Set'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// P1.4: Time signature control
+  Widget _buildTimeSignatureControl() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.music_note, size: 14, color: LowerZoneColors.dawAccent),
+          const SizedBox(width: 8),
+          // Numerator dropdown
+          _buildTimeSignatureDropdown(
+            value: widget.timeSignatureNumerator,
+            items: [2, 3, 4, 5, 6, 7, 8, 9, 12],
+            onChanged: (v) => widget.onTimeSignatureChanged?.call(v, widget.timeSignatureDenominator),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              '/',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: LowerZoneColors.textPrimary,
+              ),
+            ),
+          ),
+          // Denominator dropdown
+          _buildTimeSignatureDropdown(
+            value: widget.timeSignatureDenominator,
+            items: [2, 4, 8, 16],
+            onChanged: (v) => widget.onTimeSignatureChanged?.call(widget.timeSignatureNumerator, v),
+          ),
+          const Spacer(),
+          // Common presets
+          _buildTimeSignaturePreset('4/4', 4, 4),
+          const SizedBox(width: 4),
+          _buildTimeSignaturePreset('3/4', 3, 4),
+          const SizedBox(width: 4),
+          _buildTimeSignaturePreset('6/8', 6, 8),
+        ],
+      ),
+    );
+  }
+
+  /// P1.4: Time signature dropdown
+  Widget _buildTimeSignatureDropdown({
+    required int value,
+    required List<int> items,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgMid,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: DropdownButton<int>(
+        value: items.contains(value) ? value : items.first,
+        items: items.map((i) => DropdownMenuItem(
+          value: i,
+          child: Text(
+            '$i',
+            style: TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
+          ),
+        )).toList(),
+        onChanged: (v) => v != null ? onChanged(v) : null,
+        dropdownColor: LowerZoneColors.bgMid,
+        underline: const SizedBox(),
+        isDense: true,
+        style: TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
+      ),
+    );
+  }
+
+  /// P1.4: Time signature preset button
+  Widget _buildTimeSignaturePreset(String label, int num, int denom) {
+    final isActive = widget.timeSignatureNumerator == num &&
+                     widget.timeSignatureDenominator == denom;
+    return GestureDetector(
+      onTap: () => widget.onTimeSignatureChanged?.call(num, denom),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: isActive
+              ? LowerZoneColors.dawAccent.withOpacity(0.2)
+              : LowerZoneColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: isActive
+                ? LowerZoneColors.dawAccent
+                : LowerZoneColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+            color: isActive
+                ? LowerZoneColors.dawAccent
+                : LowerZoneColors.textSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -2161,7 +2565,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  Widget _buildSendsPanel() => _buildCompactSendsPanel();
+  Widget _buildSendsPanel() => const RoutingMatrixPanel();
   Widget _buildPanPanel() => _buildCompactPannerPanel();
   Widget _buildAutomationPanel() => _buildCompactAutomationPanel();
 
@@ -2328,6 +2732,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
+  // P2.4: Pan law selection
+  String _selectedPanLaw = '-3dB';
+
   /// Compact surround panner connected to MixerProvider
   Widget _buildCompactPannerPanel() {
     // Try to get MixerProvider
@@ -2374,7 +2781,29 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          // P2.4: Pan Law selection row
+          Row(
+            children: [
+              Text(
+                'Pan Law:',
+                style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+              ),
+              const SizedBox(width: 8),
+              ..._buildPanLawChips(),
+              const Spacer(),
+              // Pan law info tooltip
+              Tooltip(
+                message: _getPanLawDescription(_selectedPanLaw),
+                child: Icon(
+                  Icons.info_outline,
+                  size: 14,
+                  color: LowerZoneColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Expanded(
             child: Center(
               child: _buildPannerWidget(
@@ -2397,6 +2826,68 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         ],
       ),
     );
+  }
+
+  // P2.4: Build pan law selection chips
+  List<Widget> _buildPanLawChips() {
+    const panLaws = ['0dB', '-3dB', '-4.5dB', '-6dB'];
+    return panLaws.map((law) {
+      final isSelected = _selectedPanLaw == law;
+      return Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              _selectedPanLaw = law;
+            });
+            // TODO: Apply pan law to MixerProvider when FFI is ready
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.bgSurface,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+                width: 1,
+              ),
+            ),
+            child: Text(
+              law,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  // P2.4: Get pan law description for tooltip
+  String _getPanLawDescription(String panLaw) {
+    switch (panLaw) {
+      case '0dB':
+        return 'Linear Pan Law (0dB)\n'
+            'No center attenuation. Sum of L+R at center = +6dB.\n'
+            'Use for: LCR panning, hard-panned sources.';
+      case '-3dB':
+        return 'Equal Power Pan Law (-3dB)\n'
+            'Center attenuated by -3dB. Constant perceived loudness.\n'
+            'Use for: Most mixing scenarios. Industry standard.';
+      case '-4.5dB':
+        return 'Compromise Pan Law (-4.5dB)\n'
+            'Between -3dB and -6dB. Good for dense mixes.\n'
+            'Use for: Film/TV, orchestral, ambient.';
+      case '-6dB':
+        return 'Linear Sum Pan Law (-6dB)\n'
+            'Center attenuated by -6dB. Linear voltage sum.\n'
+            'Use for: Broadcast, mastering, mono-compatible mixes.';
+      default:
+        return 'Pan law controls center channel attenuation.';
+    }
   }
 
   Widget _buildPannerWidget({
@@ -2509,13 +3000,24 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  /// Compact automation panel for Lower Zone
+  // P2.3: Automation panel state
+  String _automationMode = 'Read';
+  String _automationParameter = 'Volume';
+  List<Offset> _automationPoints = [];
+  int? _selectedAutomationPointIndex;
+
+  /// Compact automation panel for Lower Zone - P2.3 Enhanced
   Widget _buildCompactAutomationPanel() {
+    final selectedTrackName = widget.selectedTrackId != null
+        ? 'Track ${widget.selectedTrackId}'
+        : 'No Track Selected';
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header row
           Row(
             children: [
               Icon(Icons.auto_graph, size: 16, color: LowerZoneColors.dawAccent),
@@ -2529,51 +3031,220 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                   letterSpacing: 1.0,
                 ),
               ),
+              const SizedBox(width: 12),
+              // Track indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.bgSurface,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  selectedTrackName,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: widget.selectedTrackId != null
+                        ? LowerZoneColors.textPrimary
+                        : LowerZoneColors.textMuted,
+                  ),
+                ),
+              ),
               const Spacer(),
-              _buildAutomationModeChip('Read', true),
-              _buildAutomationModeChip('Write', false),
-              _buildAutomationModeChip('Touch', false),
+              _buildAutomationModeChip('Read', _automationMode == 'Read'),
+              _buildAutomationModeChip('Write', _automationMode == 'Write'),
+              _buildAutomationModeChip('Touch', _automationMode == 'Touch'),
             ],
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: LowerZoneColors.bgDeepest,
-                borderRadius: BorderRadius.circular(4),
+          const SizedBox(height: 8),
+          // Parameter selection row
+          Row(
+            children: [
+              Text(
+                'Parameter:',
+                style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
               ),
-              child: CustomPaint(
-                painter: _AutomationCurvePainter(
-                  color: LowerZoneColors.dawAccent,
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                initialValue: _automationParameter,
+                onSelected: (value) => setState(() => _automationParameter = value),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: LowerZoneColors.bgSurface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: LowerZoneColors.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _automationParameter,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: LowerZoneColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_drop_down, size: 14, color: LowerZoneColors.textMuted),
+                    ],
+                  ),
                 ),
-                size: Size.infinite,
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'Volume', child: Text('Volume')),
+                  const PopupMenuItem(value: 'Pan', child: Text('Pan')),
+                  const PopupMenuItem(value: 'Mute', child: Text('Mute')),
+                  const PopupMenuItem(value: 'Send 1', child: Text('Send 1')),
+                  const PopupMenuItem(value: 'Send 2', child: Text('Send 2')),
+                  const PopupMenuItem(value: 'EQ Gain', child: Text('EQ Gain')),
+                  const PopupMenuItem(value: 'EQ Freq', child: Text('EQ Freq')),
+                  const PopupMenuItem(value: 'Comp Threshold', child: Text('Comp Threshold')),
+                ],
               ),
-            ),
+              const SizedBox(width: 16),
+              // Clear button
+              TextButton.icon(
+                onPressed: widget.selectedTrackId != null
+                    ? () => setState(() => _automationPoints.clear())
+                    : null,
+                icon: Icon(Icons.clear, size: 14, color: LowerZoneColors.textMuted),
+                label: Text(
+                  'Clear',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                ),
+              ),
+              const Spacer(),
+              // Point count
+              if (_automationPoints.isNotEmpty)
+                Text(
+                  '${_automationPoints.length} points',
+                  style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Automation curve editor
+          Expanded(
+            child: widget.selectedTrackId == null
+                ? _buildNoTrackAutomationPlaceholder()
+                : _buildInteractiveAutomationEditor(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAutomationModeChip(String label, bool isActive) {
+  Widget _buildNoTrackAutomationPlaceholder() {
     return Container(
-      margin: const EdgeInsets.only(left: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: isActive
-            ? LowerZoneColors.dawAccent.withValues(alpha: 0.2)
-            : LowerZoneColors.bgSurface,
+        color: LowerZoneColors.bgDeepest,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.timeline,
+              size: 40,
+              color: LowerZoneColors.textMuted.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Select a track to edit automation',
+              style: TextStyle(
+                fontSize: 11,
+                color: LowerZoneColors.textMuted,
+              ),
+            ),
+          ],
         ),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-          color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
+    );
+  }
+
+  Widget _buildInteractiveAutomationEditor() {
+    return GestureDetector(
+      onTapDown: (details) {
+        if (_automationMode != 'Read') {
+          setState(() {
+            // Normalize point to 0-1 range
+            _automationPoints.add(details.localPosition);
+            // Sort by X position
+            _automationPoints.sort((a, b) => a.dx.compareTo(b.dx));
+          });
+        }
+      },
+      onPanStart: (details) {
+        // Find if we're near a point
+        for (int i = 0; i < _automationPoints.length; i++) {
+          if ((details.localPosition - _automationPoints[i]).distance < 12) {
+            setState(() => _selectedAutomationPointIndex = i);
+            break;
+          }
+        }
+      },
+      onPanUpdate: (details) {
+        if (_selectedAutomationPointIndex != null && _automationMode != 'Read') {
+          setState(() {
+            _automationPoints[_selectedAutomationPointIndex!] = details.localPosition;
+          });
+        }
+      },
+      onPanEnd: (_) {
+        if (_selectedAutomationPointIndex != null) {
+          setState(() {
+            // Re-sort after drag
+            _automationPoints.sort((a, b) => a.dx.compareTo(b.dx));
+            _selectedAutomationPointIndex = null;
+          });
+        }
+      },
+      onDoubleTap: () {
+        // Delete last point on double tap
+        if (_automationPoints.isNotEmpty && _automationMode != 'Read') {
+          setState(() => _automationPoints.removeLast());
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: LowerZoneColors.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: CustomPaint(
+          painter: _InteractiveAutomationCurvePainter(
+            color: LowerZoneColors.dawAccent,
+            points: _automationPoints,
+            selectedIndex: _selectedAutomationPointIndex,
+            isEditable: _automationMode != 'Read',
+          ),
+          size: Size.infinite,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAutomationModeChip(String label, bool isActive) {
+    return GestureDetector(
+      onTap: () => setState(() => _automationMode = label),
+      child: Container(
+        margin: const EdgeInsets.only(left: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: isActive
+              ? LowerZoneColors.dawAccent.withValues(alpha: 0.2)
+              : LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
+          ),
         ),
       ),
     );
@@ -3036,6 +3707,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DspNodeType.compressor => Icons.compress,
       DspNodeType.limiter => Icons.volume_up,
       DspNodeType.gate => Icons.door_front_door,
+      DspNodeType.expander => Icons.expand,
       DspNodeType.reverb => Icons.waves,
       DspNodeType.delay => Icons.timer,
       DspNodeType.saturation => Icons.whatshot,
@@ -3307,36 +3979,8 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // HELPER PANELS
+  // EMPTY STATE PANELS
   // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildPlaceholderPanel(String title, IconData icon) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 48, color: LowerZoneColors.textMuted),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: LowerZoneColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Coming soon...',
-            style: TextStyle(
-              fontSize: 11,
-              color: LowerZoneColors.textMuted,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildNoTrackSelectedPanel(String processorName, IconData icon) {
     return Center(
@@ -3415,11 +4059,73 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
   Widget _buildActionStrip() {
     final actions = switch (widget.controller.superTab) {
-      DawSuperTab.browse => DawActions.forBrowse(),
-      DawSuperTab.edit => DawActions.forEdit(),
-      DawSuperTab.mix => DawActions.forMix(),
-      DawSuperTab.process => DawActions.forProcess(),
-      DawSuperTab.deliver => DawActions.forDeliver(),
+      DawSuperTab.browse => DawActions.forBrowse(
+        onImport: () {
+          debugPrint('[DAW] Import audio file');
+        },
+        onDelete: () {
+          debugPrint('[DAW] Delete selected');
+        },
+        onPreview: () {
+          debugPrint('[DAW] Preview selected');
+        },
+        onAddToProject: () {
+          debugPrint('[DAW] Add to project');
+        },
+      ),
+      DawSuperTab.edit => DawActions.forEdit(
+        onAddTrack: () {
+          debugPrint('[DAW] Add track');
+        },
+        onSplit: () {
+          debugPrint('[DAW] Split clip');
+        },
+        onDuplicate: () {
+          debugPrint('[DAW] Duplicate selection');
+        },
+        onDelete: () {
+          debugPrint('[DAW] Delete selection');
+        },
+      ),
+      DawSuperTab.mix => DawActions.forMix(
+        onAddBus: () {
+          debugPrint('[DAW] Add bus');
+        },
+        onMuteAll: () {
+          debugPrint('[DAW] Mute all');
+        },
+        onSolo: () {
+          debugPrint('[DAW] Solo mode');
+        },
+        onReset: () {
+          debugPrint('[DAW] Reset mixer');
+        },
+      ),
+      DawSuperTab.process => DawActions.forProcess(
+        onAddBand: () {
+          debugPrint('[DAW] Add EQ band');
+        },
+        onRemove: () {
+          debugPrint('[DAW] Remove processor');
+        },
+        onCopy: () {
+          debugPrint('[DAW] Copy settings');
+        },
+        onBypass: () {
+          debugPrint('[DAW] Toggle bypass');
+        },
+      ),
+      DawSuperTab.deliver => DawActions.forDeliver(
+        onQuickExport: () {
+          debugPrint('[DAW] Quick export');
+        },
+        onBrowse: () {
+          debugPrint('[DAW] Browse export folder');
+        },
+        onExport: () {
+          debugPrint('[DAW] Export...');
+        },
+      ),
     };
 
     // Add track info to status when in PROCESS tab
@@ -3503,6 +4209,165 @@ class _AutomationCurvePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P2.3: INTERACTIVE AUTOMATION CURVE PAINTER
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _InteractiveAutomationCurvePainter extends CustomPainter {
+  final Color color;
+  final List<Offset> points;
+  final int? selectedIndex;
+  final bool isEditable;
+
+  _InteractiveAutomationCurvePainter({
+    required this.color,
+    required this.points,
+    this.selectedIndex,
+    this.isEditable = true,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw grid
+    _drawGrid(canvas, size);
+
+    // Draw value labels
+    _drawValueLabels(canvas, size);
+
+    if (points.isEmpty) {
+      // Draw placeholder text
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: isEditable
+              ? 'Click to add automation points\nDouble-click to delete last point'
+              : 'Switch to Write or Touch mode to edit',
+          style: TextStyle(
+            color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
+            fontSize: 11,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          (size.width - textPainter.width) / 2,
+          (size.height - textPainter.height) / 2,
+        ),
+      );
+      return;
+    }
+
+    final curvePaint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final fillPaint = Paint()
+      ..color = color.withValues(alpha: 0.1)
+      ..style = PaintingStyle.fill;
+
+    // Draw curve with fill
+    if (points.length >= 2) {
+      final path = Path();
+      final fillPath = Path();
+
+      path.moveTo(points[0].dx, points[0].dy);
+      fillPath.moveTo(points[0].dx, size.height);
+      fillPath.lineTo(points[0].dx, points[0].dy);
+
+      for (int i = 1; i < points.length; i++) {
+        // Cubic bezier for smooth curve
+        final cp1x = points[i - 1].dx + (points[i].dx - points[i - 1].dx) / 2;
+        final cp1y = points[i - 1].dy;
+        final cp2x = points[i - 1].dx + (points[i].dx - points[i - 1].dx) / 2;
+        final cp2y = points[i].dy;
+        path.cubicTo(cp1x, cp1y, cp2x, cp2y, points[i].dx, points[i].dy);
+        fillPath.cubicTo(cp1x, cp1y, cp2x, cp2y, points[i].dx, points[i].dy);
+      }
+
+      fillPath.lineTo(points.last.dx, size.height);
+      fillPath.close();
+
+      canvas.drawPath(fillPath, fillPaint);
+      canvas.drawPath(path, curvePaint);
+    }
+
+    // Draw points
+    final pointPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final selectedPointPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final pointOutlinePaint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < points.length; i++) {
+      final point = points[i];
+      final isSelected = i == selectedIndex;
+
+      if (isSelected) {
+        canvas.drawCircle(point, 8, selectedPointPaint);
+        canvas.drawCircle(point, 8, pointOutlinePaint);
+      } else {
+        canvas.drawCircle(point, 5, pointPaint);
+      }
+    }
+  }
+
+  void _drawGrid(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = LowerZoneColors.border.withValues(alpha: 0.3)
+      ..strokeWidth = 0.5;
+
+    // Horizontal lines (value grid)
+    for (int i = 0; i <= 4; i++) {
+      final y = i * size.height / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Vertical lines (time grid)
+    for (int i = 0; i <= 8; i++) {
+      final x = i * size.width / 8;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+  }
+
+  void _drawValueLabels(Canvas canvas, Size size) {
+    final labels = ['100%', '75%', '50%', '25%', '0%'];
+    for (int i = 0; i < labels.length; i++) {
+      final y = i * size.height / 4;
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: labels[i],
+          style: TextStyle(
+            color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
+            fontSize: 8,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(4, y + 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _InteractiveAutomationCurvePainter oldDelegate) {
+    return points != oldDelegate.points ||
+        selectedIndex != oldDelegate.selectedIndex ||
+        isEditable != oldDelegate.isEditable;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

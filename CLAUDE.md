@@ -994,9 +994,13 @@ final stateGroups = sl<StateGroupsProvider>();
 | 1 | `NativeFFI` | Core FFI |
 | 2 | `SharedMeterReader`, `WaveformCacheService`, `AudioAssetManager`, `LiveEngineService` | Low-level |
 | 3 | `UnifiedPlaybackController`, `AudioPlaybackService`, `AudioPool`, `SlotLabTrackBridge`, `SessionPersistenceService` | Playback |
-| 4 | `DuckingService`, `RtpcModulationService`, `ContainerService` | Audio processing |
+| 4 | `DuckingService`, `RtpcModulationService`, `ContainerService`, `DuckingPreviewService` | Audio processing |
 | 5 | `StateGroupsProvider`, `SwitchGroupsProvider`, `RtpcSystemProvider`, `DuckingSystemProvider`, `EventSystemProvider`, `CompositeEventSystemProvider` | Middleware subsystems |
-| 6 | `StageIngestProvider` | Stage Ingest (engine integration) |
+| 5.5 | `SlotLabProjectProvider` | SlotLab V6 project state (symbols, contexts, layers) |
+| 6 | `BusHierarchyProvider`, `AuxSendProvider` | Bus routing subsystems |
+| 7 | `StageIngestProvider` | Stage Ingest (engine integration) |
+| 8 | `WorkspacePresetService` | Layout presets (M3.2) |
+| 9 | `MathModelConnector` | Win tier → RTPC bridge (M4) |
 
 ### Subsystem Providers (extracted from MiddlewareProvider)
 
@@ -1008,12 +1012,21 @@ final stateGroups = sl<StateGroupsProvider>();
 | `DuckingSystemProvider` | `providers/subsystems/ducking_system_provider.dart` | ~190 | Ducking rules (sidechain matrix) |
 | `EventSystemProvider` | `providers/subsystems/event_system_provider.dart` | ~330 | MiddlewareEvent CRUD, FFI sync |
 | `CompositeEventSystemProvider` | `providers/subsystems/composite_event_system_provider.dart` | ~1280 | SlotCompositeEvent CRUD, undo/redo, layer ops, stage triggers |
+| `BusHierarchyProvider` | `providers/subsystems/bus_hierarchy_provider.dart` | ~360 | Audio bus hierarchy (Wwise-style routing) |
+| `AuxSendProvider` | `providers/subsystems/aux_send_provider.dart` | ~390 | Aux send/return routing (Reverb, Delay, Slapback) |
+| `VoicePoolProvider` | `providers/subsystems/voice_pool_provider.dart` | ~255 | Voice polyphony, stealing, virtual voices |
+| `AttenuationCurveProvider` | `providers/subsystems/attenuation_curve_provider.dart` | ~300 | Slot-specific attenuation curves |
+| `MemoryManagerProvider` | `providers/subsystems/memory_manager_provider.dart` | ~240 | Soundbank memory management, LRU unloading |
+| `EventProfilerProvider` | `providers/subsystems/event_profiler_provider.dart` | ~280 | Audio event profiling, latency tracking |
 
 **Decomposition Progress:**
 - Phase 1 ✅: StateGroups + SwitchGroups
 - Phase 2 ✅: RTPC + Ducking
 - Phase 3 ✅: Containers (Blend/Random/Sequence providers)
 - Phase 4 ✅: Music + Events (MusicSystemProvider, EventSystemProvider, CompositeEventSystemProvider)
+- Phase 5 ✅: Bus Routing (BusHierarchyProvider, AuxSendProvider)
+- Phase 6 ✅: VoicePool + AttenuationCurves
+- Phase 7 ✅: MemoryManager + EventProfiler
 
 **Usage in MiddlewareProvider:**
 ```dart
@@ -1022,12 +1035,24 @@ MiddlewareProvider(this._ffi) {
   _switchGroupsProvider = sl<SwitchGroupsProvider>();
   _rtpcSystemProvider = sl<RtpcSystemProvider>();
   _duckingSystemProvider = sl<DuckingSystemProvider>();
+  _busHierarchyProvider = sl<BusHierarchyProvider>();
+  _auxSendProvider = sl<AuxSendProvider>();
+  _voicePoolProvider = sl<VoicePoolProvider>();
+  _attenuationCurveProvider = sl<AttenuationCurveProvider>();
+  _memoryManagerProvider = sl<MemoryManagerProvider>();
+  _eventProfilerProvider = sl<EventProfilerProvider>();
 
   // Forward notifications from subsystems
   _stateGroupsProvider.addListener(notifyListeners);
   _switchGroupsProvider.addListener(notifyListeners);
   _rtpcSystemProvider.addListener(notifyListeners);
   _duckingSystemProvider.addListener(notifyListeners);
+  _busHierarchyProvider.addListener(notifyListeners);
+  _auxSendProvider.addListener(notifyListeners);
+  _voicePoolProvider.addListener(notifyListeners);
+  _attenuationCurveProvider.addListener(notifyListeners);
+  _memoryManagerProvider.addListener(notifyListeners);
+  _eventProfilerProvider.addListener(notifyListeners);
 }
 ```
 
@@ -1082,6 +1107,252 @@ await LowerZonePersistenceService.instance.saveSlotLabState(state);
 **Storage:** SharedPreferences (JSON serialization)
 
 **Dokumentacija:** `.claude/architecture/LOWER_ZONE_ENGINE_ANALYSIS.md`
+
+### Lower Zone Layout Architecture (2026-01-23) ✅
+
+Unified height calculation and overflow-safe layout system for all Lower Zone widgets.
+
+**Height Constants** (`lower_zone_types.dart`):
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `kLowerZoneMinHeight` | 150.0 | Minimum content height |
+| `kLowerZoneMaxHeight` | 600.0 | Maximum content height |
+| `kLowerZoneDefaultHeight` | 500.0 | Default content height |
+| `kContextBarHeight` | 60.0 | Super-tabs + sub-tabs (expanded) |
+| `kContextBarCollapsedHeight` | 32.0 | Super-tabs only (collapsed) |
+| `kActionStripHeight` | 36.0 | Bottom action buttons |
+| `kResizeHandleHeight` | 4.0 | Drag resize handle |
+| `kSpinControlBarHeight` | 32.0 | SlotLab spin controls |
+
+**Total Height Calculation** (`slotlab_lower_zone_controller.dart`):
+```dart
+double get totalHeight => isExpanded
+    ? height + kContextBarHeight + kActionStripHeight + kResizeHandleHeight + kSpinControlBarHeight
+    : kResizeHandleHeight + kContextBarCollapsedHeight;  // 32px when collapsed
+```
+
+**Layout Structure** (overflow-safe):
+```
+AnimatedContainer (totalHeight, clipBehavior: Clip.hardEdge)
+└── Column (NO mainAxisSize.min — fills container)
+    ├── ResizeHandle (4px fixed)
+    ├── ContextBar (32px collapsed / 60px expanded)
+    └── Expanded (only when expanded)
+        └── Column (NO mainAxisSize.min — fills Expanded)
+            ├── SpinControlBar (32px fixed, SlotLab only)
+            ├── Expanded → ClipRect → ContentPanel (flexible)
+            └── ActionStrip (36px fixed)
+```
+
+**Critical Layout Rules:**
+- **NEVER** use `mainAxisSize: MainAxisSize.min` on Column inside Expanded
+- Column inside AnimatedContainer with fixed height should fill the container
+- ContextBar height is dynamic: 32px collapsed, 60px expanded
+
+**Compact Panel Pattern**:
+```dart
+Widget _buildCompactPanel() {
+  return Padding(
+    padding: const EdgeInsets.all(8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header (fixed)
+        _buildPanelHeader('TITLE', Icons.icon),
+        const SizedBox(height: 8),
+        // Content (flexible, bounded)
+        Flexible(
+          fit: FlexFit.loose,
+          child: Container(
+            clipBehavior: Clip.hardEdge,
+            child: ListView.builder(shrinkWrap: true, ...),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+```
+
+**Key Rules**:
+- Always use `clipBehavior: Clip.hardEdge` on scroll containers
+- Use `Flexible(fit: FlexFit.loose)` instead of `Expanded` for content
+- Use `shrinkWrap: true` on ListView/GridView inside flexible containers
+- Use `LayoutBuilder` to pass available height to child panels
+- Never hardcode panel heights — use constraints from LayoutBuilder
+
+**Overflow Fixes (2026-01-23):**
+
+| Issue | Root Cause | Fix |
+|-------|------------|-----|
+| Empty space below tabs when collapsed | ContextBar had fixed 60px but showed only 32px | Dynamic height: `isExpanded ? 60 : 32` |
+| Layout conflict in nested Columns | `mainAxisSize: MainAxisSize.min` inside Expanded | Removed — Column fills Expanded |
+| Wrong totalHeight when collapsed | Used `kContextBarHeight` (60) | Use `kContextBarCollapsedHeight` (32) |
+
+**Files Changed:**
+- `lower_zone_types.dart` — Added `kContextBarCollapsedHeight = 32.0`
+- `lower_zone_context_bar.dart` — Dynamic height based on `isExpanded`
+- `slotlab_lower_zone_controller.dart` — Fixed collapsed totalHeight calculation
+- `slotlab_lower_zone_widget.dart` — Removed `mainAxisSize.min` from both Columns
+
+**SlotLab Connected Panels** (`slotlab_lower_zone_widget.dart`):
+
+| Panel | Provider | Data Source | Status |
+|-------|----------|-------------|--------|
+| Stage Trace | SlotLabProvider | `lastStages` | ✅ Connected |
+| Event Timeline | SlotLabProvider | `lastStages` | ✅ Connected |
+| Symbols Panel | MiddlewareProvider | `compositeEvents` (SYMBOL_LAND_*) | ✅ Connected |
+| Event Folder | MiddlewareProvider | `compositeEvents`, categories | ✅ Connected |
+| Composite Editor | MiddlewareProvider | `compositeEvents`, layers | ✅ Connected |
+| Event Log | SlotLab + Middleware | Both providers | ✅ Connected |
+| Voice Pool | MiddlewareProvider | `getVoicePoolStats()` | ✅ Connected |
+| Bus Hierarchy | (Standalone) | BusHierarchyPanel | ✅ Connected |
+| Aux Sends | (Standalone) | AuxSendsPanel | ✅ Connected |
+| Profiler | (Standalone) | ProfilerPanel | ✅ Connected |
+| Bus Meters | NativeFFI | Real-time metering | ✅ Connected |
+| Batch Export | MiddlewareProvider | Events export | ✅ Connected |
+| Stems Panel | Engine buses | Bus configuration | ✅ Connected |
+| Variations | MiddlewareProvider | `randomContainers` | ✅ Connected |
+| Package Panel | MiddlewareProvider | `compositeEvents.length` | ✅ Connected |
+| FabFilter DSP | FabFilter widgets | EQ, Compressor, Reverb | ✅ Connected |
+
+**No More Placeholders** — All panels connected to real data sources.
+
+### Lower Zone Action Strip Integration (2026-01-23) ✅
+
+All three Lower Zone widgets now have fully connected action buttons in their Action Strips.
+
+**Architecture:**
+```
+LowerZoneActionStrip
+├── actions: List<LowerZoneAction>
+│   ├── label: String
+│   ├── icon: IconData
+│   ├── onTap: VoidCallback?  ← MUST BE CONNECTED!
+│   ├── isPrimary: bool
+│   └── isDestructive: bool
+├── accentColor: Color
+└── statusText: String?
+```
+
+**SlotLab Action Strip** (`slotlab_lower_zone_widget.dart`):
+
+| Super Tab | Actions | Connected To |
+|-----------|---------|--------------|
+| **Stages** | Record, Stop, Clear, Export | `SlotLabProvider.startStageRecording()`, `stopStageRecording()`, `clearStages()` |
+| **Events** | Add Layer, Remove, Duplicate, Preview | `MiddlewareProvider.removeLayerFromEvent()`, `duplicateCompositeEvent()`, `previewCompositeEvent()` |
+| **Mix** | Mute, Solo, Reset, Meters | debugPrint + `controller.setSubTabIndex()` |
+| **DSP** | Insert, Remove, Reorder, Copy Chain | debugPrint (TODO: DspChainProvider) |
+| **Bake** | Validate, Bake All, Package | debugPrint (TODO: Export service) |
+
+**Middleware Action Strip** (`middleware_lower_zone_widget.dart`):
+
+| Super Tab | Actions | Connected To |
+|-----------|---------|--------------|
+| **Events** | New Event, Delete, Duplicate, Test | `MiddlewareProvider.createCompositeEvent()`, `deleteCompositeEvent()`, `duplicateCompositeEvent()`, `previewCompositeEvent()` |
+| **Containers** | Add Sound, Balance, Shuffle, Test | debugPrint (TODO: Container providers) |
+| **Routing** | Add Rule, Remove, Copy, Test | `MiddlewareProvider.addDuckingRule()` |
+| **RTPC** | Add Point, Remove, Reset, Preview | debugPrint (TODO: RtpcSystemProvider) |
+| **Deliver** | Validate, Bake, Package | debugPrint (TODO: Export service) |
+
+**DAW Action Strip** (`daw_lower_zone_widget.dart`):
+
+| Super Tab | Actions | Connected To |
+|-----------|---------|--------------|
+| **Browse** | Import, Delete, Preview, Add | debugPrint |
+| **Edit** | Add Track, Split, Duplicate, Delete | debugPrint |
+| **Mix** | Add Bus, Mute All, Solo, Reset | debugPrint |
+| **Process** | Add Band, Remove, Copy, Bypass | debugPrint |
+| **Deliver** | Quick Export, Browse, Export | debugPrint |
+
+**New Provider Methods (2026-01-23):**
+
+**SlotLabProvider:**
+```dart
+bool _isRecordingStages = false;
+bool get isRecordingStages => _isRecordingStages;
+
+void startStageRecording();   // Start recording stage events
+void stopStageRecording();    // Stop recording
+void clearStages();           // Clear all captured stages
+```
+
+**MiddlewareProvider:**
+```dart
+void duplicateCompositeEvent(String eventId);  // Copy event with all layers/stages
+void previewCompositeEvent(String eventId);    // Play event audio
+```
+
+**Key Files:**
+- `lower_zone_action_strip.dart` — Action definitions (`DawActions`, `MiddlewareActions`, `SlotLabActions`)
+- `slotlab_lower_zone_widget.dart:2199` — SlotLab action strip builder
+- `middleware_lower_zone_widget.dart:1492` — Middleware action strip builder
+- `daw_lower_zone_widget.dart:4088` — DAW action strip builder
+
+### Lower Zone Placeholder Cleanup (2026-01-23) ✅
+
+**Status:** All placeholder code removed — no "Coming soon..." panels.
+
+Uklonjene `_buildPlaceholderPanel` metode iz sva tri Lower Zone widgeta:
+
+| Widget | Lines Removed |
+|--------|---------------|
+| `slotlab_lower_zone_widget.dart` | ~26 LOC |
+| `middleware_lower_zone_widget.dart` | ~26 LOC + outdated comment |
+| `daw_lower_zone_widget.dart` | ~26 LOC |
+
+**Svi paneli su sada connected na real data sources** — nema više placeholder-a.
+
+### DAW Lower Zone Feature Improvements (2026-01-23) ✅
+
+Complete 18-task improvement plan for DAW section.
+
+#### P0: Critical Fixes (Completed)
+| Task | Description | File |
+|------|-------------|------|
+| P0.1 | DspChainProvider FFI sync | `dsp_chain_provider.dart` |
+| P0.2 | RoutingProvider FFI verification | `routing_provider.dart` |
+| P0.3 | MIDI piano roll in EDIT tab | `piano_roll_widget.dart` |
+| P0.4 | History panel with undo list | `daw_lower_zone_widget.dart` |
+| P0.5 | FX Chain editor in PROCESS tab | `daw_lower_zone_widget.dart` |
+
+#### P1: High Priority Features (Completed)
+| Task | Description | File |
+|------|-------------|------|
+| P1.1 | DspChainProvider ↔ MixerProvider sync | `dsp_chain_provider.dart` |
+| P1.2 | FabFilter panels use central DSP state | `fabfilter_panel_base.dart` |
+| P1.3 | Send Matrix in MIX > Sends | `routing_matrix_panel.dart` |
+| P1.4 | Timeline Settings (tempo, time sig) | `daw_lower_zone_widget.dart` |
+| P1.5 | Plugin search in BROWSE > Plugins | `plugin_provider.dart` |
+| P1.6 | Rubber band multi-clip selection | `timeline.dart` |
+
+#### P2: Medium Priority Features (Completed)
+| Task | Description | File |
+|------|-------------|------|
+| P2.1 | AudioAssetManager in Files browser | `daw_files_browser.dart` |
+| P2.2 | Favorites/bookmarks in Files browser | `daw_files_browser.dart` |
+| P2.3 | Interactive Automation Editor | `daw_lower_zone_widget.dart` |
+| P2.4 | Pan law selection (0/-3/-4.5/-6 dB) | `daw_lower_zone_widget.dart` |
+
+#### P3: Lower Priority Features (Completed)
+| Task | Description | File |
+|------|-------------|------|
+| P3.1 | Keyboard shortcuts overlay (? key) | `keyboard_shortcuts_overlay.dart` |
+| P3.2 | Save as Template menu item | `app_menu_bar.dart`, `layout_models.dart` |
+| P3.3 | Clip gain envelope visualization | `clip_widget.dart` |
+
+**New Widgets Created:**
+- `keyboard_shortcuts_overlay.dart` — Modal overlay with categorized shortcuts, search filtering
+- `_GainEnvelopePainter` — CustomPainter for clip gain visualization (dashed line, dB label)
+
+**New Callbacks:**
+- `MenuCallbacks.onSaveAsTemplate` — Save as Template menu action
+
+**Key Features:**
+- **Pan Laws:** Equal Power (-3dB), Linear (0dB), Compromise (-4.5dB), Linear Sum (-6dB)
+- **Keyboard Shortcuts:** Categorized by Transport/Edit/View/Tools/Mixer/Timeline/SlotLab/Global
+- **Gain Envelope:** Orange=boost, Cyan=cut, dB value at center
 
 ---
 
@@ -1153,6 +1424,48 @@ cargo bench --package rf-dsp   # DSP benchmarks
 flutter run --profile          # UI performance
 ```
 
+### UI Layout Fixes (2026-01-23) ✅
+
+Critical overflow fixes in Lower Zone and FabFilter panels.
+
+**FabFilter Panel Spacer Fix:**
+
+| Panel | Line | Problem | Fix |
+|-------|------|---------|-----|
+| `fabfilter_limiter_panel.dart` | 630 | `Spacer` in unbounded Column | `Flexible(child: SizedBox(height: 8))` |
+| `fabfilter_compressor_panel.dart` | 927 | `Spacer` in unbounded Column | `Flexible(child: SizedBox(height: 8))` |
+| `fabfilter_gate_panel.dart` | 498 | `Spacer` in unbounded Column | `Flexible(child: SizedBox(height: 8))` |
+| `fabfilter_reverb_panel.dart` | 467 | `Spacer` in unbounded Column | `Flexible(child: SizedBox(height: 8))` |
+
+**Root Cause:** `Spacer()` inside Column without bounded height tries to take infinite space → overflow when Lower Zone is resized small.
+
+**LowerZoneContextBar 1px Overflow Fix:**
+
+| File | Problem | Fix |
+|------|---------|-----|
+| `lower_zone_context_bar.dart` | `mainAxisSize: MainAxisSize.min` + border = 1px overflow | Removed min, wrapped sub-tabs in `Expanded` |
+
+**Before:**
+```dart
+Column(
+  mainAxisSize: MainAxisSize.min,  // ← Conflict with fixed parent height
+  children: [
+    _buildSuperTabs(),           // 32px
+    if (isExpanded) _buildSubTabs(),  // 28px
+  ],
+)
+```
+
+**After:**
+```dart
+Column(
+  children: [
+    _buildSuperTabs(),           // 32px fixed
+    if (isExpanded) Expanded(child: _buildSubTabs()),  // fills remaining 28px
+  ],
+)
+```
+
 ---
 
 ## 📊 IMPLEMENTED FEATURES STATUS
@@ -1203,6 +1516,78 @@ Professional DSP panel suite inspired by FabFilter's design language.
 **Files:**
 - `lower_zone_controller.dart` — Tab enums + keyboard shortcuts
 - `lower_zone.dart` — Panel instances in IndexedStack
+
+### 🟢 FabFilter Panels → DspChainProvider Integration (2026-01-23) ✅
+
+**Status:** FIXED — All DSP panels now use DspChainProvider + InsertProcessor chain.
+
+**Architecture (Correct):**
+```
+UI Panel → DspChainProvider.addNode() → insertLoadProcessor() → track_inserts → Audio Thread ✅
+         → insertSetParam(trackId, slotIndex, paramIndex, value) → Real-time parameter updates ✅
+```
+
+**Converted Panels:**
+| Panel | Wrapper | Status |
+|-------|---------|--------|
+| FabFilterCompressorPanel | CompressorWrapper | ✅ Done |
+| FabFilterLimiterPanel | LimiterWrapper | ✅ Done |
+| FabFilterGatePanel | GateWrapper | ✅ Done |
+| FabFilterReverbPanel | ReverbWrapper | ✅ Done |
+| DynamicsPanel | CompressorWrapper | ✅ Done |
+| DeEsserPanel | DeEsserWrapper | ✅ Done |
+
+**Deleted Ghost Code:**
+- `DYNAMICS_*` HashMaps from `ffi.rs` — ~650 LOC deleted
+- `DynamicsAPI` extension from `native_ffi.dart` — ~250 LOC deleted
+- Ghost FFI functions: `compressor_*`, `limiter_*`, `gate_*`, `expander_*`, `deesser_*`
+
+**Preserved:**
+- `CompressorType` enum (used by UI)
+- `DeEsserMode` enum (used by UI)
+
+**P1.7 Factory Function Bug (2026-01-23) — FIXED:**
+```rust
+// PROBLEM: api.rs:insert_load() used create_processor() which only supports EQ!
+// SOLUTION: Changed to create_processor_extended() which supports ALL processors
+
+// Supported by create_processor_extended():
+// EQ: "pro-eq", "ultra-eq", "pultec", "api550", "neve1073", "room-correction"
+// Dynamics: "compressor", "limiter", "gate", "expander", "deesser"
+// Effects: "reverb", "algorithmic-reverb"
+```
+
+**Documentation:** `.claude/architecture/DSP_ENGINE_INTEGRATION_CRITICAL.md`
+
+### DSP Debug Widgets (2026-01-23) ✅
+
+Debug widgets za vizualizaciju i debugging DSP insert chain-a.
+
+**Location:** `flutter_ui/lib/widgets/debug/`
+
+| Widget | File | LOC | Description |
+|--------|------|-----|-------------|
+| `InsertChainDebug` | `insert_chain_debug.dart` | ~270 | Shows loaded processors, slot indices, params, engine verification |
+| `SignalAnalyzerWidget` | `signal_analyzer_widget.dart` | ~510 | Signal flow viz: INPUT→Processors→OUTPUT with real-time metering |
+| `DspDebugPanel` | `dsp_debug_panel.dart` | ~50 | Combined panel (SignalAnalyzer + InsertChainDebug) |
+
+**Features:**
+- Real-time peak/RMS metering (30fps refresh)
+- Per-processor status (type, slot index, bypass state)
+- Color-coded processor nodes (EQ=blue, Comp=orange, Lim=red, etc.)
+- Engine-side parameter verification via `insertGetParam()`
+
+**Usage:**
+```dart
+// Full debug panel
+DspDebugPanel(trackId: 0)  // 0 = master bus
+
+// Signal flow only
+SignalAnalyzerWidget(trackId: 0, width: 600, height: 200)
+
+// Chain status only
+InsertChainDebug(trackId: 0)
+```
 
 ### UltimateMixer Integration (2026-01-22) ✅
 
@@ -1595,6 +1980,81 @@ Map<String, int> getContainerStorageMetrics()  // Complete map
 - Memory estimate calculation
 - Color-coded per container type (Blend=purple, Random=amber, Sequence=teal)
 
+### Determinism Seed Capture (2026-01-23) ✅
+
+RNG seed logging za deterministic replay RandomContainer selekcija.
+
+**Rust Implementation:** `crates/rf-engine/src/containers/random.rs`
+
+```rust
+// Global seed log (thread-safe)
+pub static SEED_LOG: Lazy<Mutex<SeedLog>> = Lazy::new(|| Mutex::new(SeedLog::new()));
+
+pub struct SeedLogEntry {
+    pub tick: u64,
+    pub container_id: ContainerId,
+    pub seed_before: u64,      // RNG state pre-selection
+    pub seed_after: u64,       // RNG state post-selection
+    pub selected_id: ChildId,  // Which child was selected
+    pub pitch_offset: f64,     // Applied pitch variation
+    pub volume_offset: f64,    // Applied volume variation
+}
+```
+
+**SeedLog API:**
+| Method | Description |
+|--------|-------------|
+| `enable()` / `disable()` | Toggle logging on/off |
+| `is_enabled()` | Check if logging is active |
+| `record(entry)` | Log a selection (ring buffer, 256 max) |
+| `clear()` | Clear all entries |
+| `len()` | Number of entries |
+| `entries()` | Get all entries |
+
+**FFI Functions:** `crates/rf-bridge/src/container_ffi.rs`
+```rust
+seed_log_enable(enabled: i32)           // Enable/disable logging
+seed_log_is_enabled() -> i32            // Check status
+seed_log_clear()                        // Clear log
+seed_log_get_count() -> usize           // Entry count
+seed_log_get_json() -> *const c_char    // Export all as JSON
+seed_log_get_last_n_json(n) -> *const c_char  // Export last N
+seed_log_replay_seed(container_id, seed) -> i32  // Restore RNG state
+seed_log_get_rng_state(container_id) -> u64     // Get current RNG state
+```
+
+**Dart FFI Bindings:** `flutter_ui/lib/src/rust/native_ffi.dart`
+```dart
+class SeedLogEntry {
+  final int tick;
+  final int containerId;
+  final String seedBefore;    // Hex string (u64)
+  final String seedAfter;     // Hex string (u64)
+  final int selectedId;
+  final double pitchOffset;
+  final double volumeOffset;
+
+  int get seedBeforeInt => int.tryParse(seedBefore, radix: 16) ?? 0;
+  int get seedAfterInt => int.tryParse(seedAfter, radix: 16) ?? 0;
+}
+
+// API
+void seedLogEnable(bool enabled)
+bool seedLogIsEnabled()
+void seedLogClear()
+int seedLogGetCount()
+List<SeedLogEntry> seedLogGetEntries()
+List<SeedLogEntry> seedLogGetLastN(int n)
+bool seedLogReplaySeed(int containerId, int seed)
+int seedLogGetRngState(int containerId)
+```
+
+**Use Cases:**
+- **QA Replay**: Reproduce exact random selections for bug reports
+- **A/B Testing**: Compare audio with identical random sequences
+- **Debugging**: Track which children were selected and why
+- **Session Recording**: Log all randomness for playback analysis
+
 ### P2.16 Async Undo Offload — SKIPPED ⏸️
 
 **Problem:** Undo stack koristi `VoidCallback` funkcije koje se ne mogu serijalizovati.
@@ -1669,6 +2129,30 @@ Top 5 problems identified in Ultimate System Analysis — **ALL RESOLVED**:
 
 **Full analysis:** `.claude/reviews/ULTIMATE_SYSTEM_ANALYSIS_2026_01_23.md`
 **Documentation:** `.claude/docs/P3_CRITICAL_WEAKNESSES_2026_01_23.md`
+
+---
+
+### 🔴 DAW Audio Flow Critical Gaps (2026-01-23) — IN PROGRESS
+
+Ultra-detaljna analiza DAW sekcije otkrila je **2 KRITIČNA GAPA** u audio flow-u:
+
+| Provider | FFI Status | Impact |
+|----------|------------|--------|
+| **DspChainProvider** | ❌ NO FFI | DSP nodes u UI ne utiču na audio |
+| **RoutingProvider** | ❌ NO FFI | Routing matrix je samo vizualni prikaz |
+
+**P0 Tasks (5):**
+| # | Task | Status |
+|---|------|--------|
+| P0.1 | DspChainProvider FFI sync | ❌ NOT STARTED |
+| P0.2 | RoutingProvider FFI sync | ❌ NOT STARTED |
+| P0.3 | MIDI piano roll (Lower Zone) | ❌ NOT STARTED |
+| P0.4 | History panel UI | ❌ NOT STARTED |
+| P0.5 | FX Chain editor UI | ❌ NOT STARTED |
+
+**Full task list (18 items):** `.claude/analysis/DAW_TODO_MASTER_LIST.md` (Section 14)
+**Analysis:** `.claude/reviews/DAW_SECTION_ULTIMATE_ANALYSIS_2026_01_23.md` (Section 8)
+**Routing Doc:** `.claude/architecture/DAW_AUDIO_ROUTING.md` (Sections 12-13)
 
 ---
 
@@ -1927,6 +2411,94 @@ H. Audio/Visual — Volume slider, music/sfx toggles, quality, animations
 
 **Dokumentacija:** `.claude/architecture/SLOT_LAB_SYSTEM.md`
 
+### SlotLab V6 Layout (2026-01-23) ✅ COMPLETE
+
+Reorganizovani Lower Zone, novi widgeti i 3-panel layout za V6.
+
+**3-Panel Layout:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ HEADER                                                               │
+├────────────┬──────────────────────────────────┬─────────────────────┤
+│            │                                  │                     │
+│  SYMBOL    │         CENTER                   │    EVENTS           │
+│  STRIP     │   (Timeline + Stage Trace +      │    PANEL            │
+│  (220px)   │    Slot Preview)                 │    (300px)          │
+│            │                                  │                     │
+│ - Symbols  │                                  │ - Events Folder     │
+│ - Music    │                                  │ - Selected Event    │
+│   Layers   │                                  │ - Audio Browser     │
+│            │                                  │                     │
+├────────────┴──────────────────────────────────┴─────────────────────┤
+│ LOWER ZONE (7 tabs + menu)                                          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Tab Reorganization (15 → 7 + menu):**
+
+| Tab | Sadrži | Keyboard |
+|-----|--------|----------|
+| Timeline | Stage trace, waveforms, layers | Ctrl+Shift+T |
+| Events | Event list + RTPC (merged) | Ctrl+Shift+E |
+| Mixer | Bus hierarchy + Aux sends (merged) | Ctrl+Shift+X |
+| Music/ALE | ALE rules, signals, transitions | Ctrl+Shift+A |
+| Meters | LUFS, peak, correlation | Ctrl+Shift+M |
+| Debug | Event log, trace history | Ctrl+Shift+D |
+| Engine | Profiler + resources + stage ingest | Ctrl+Shift+G |
+| [+] Menu | Game Config, AutoSpatial, Scenarios, Command Builder | — |
+
+**Novi Widgeti:**
+
+| Widget | Fajl | LOC | Opis |
+|--------|------|-----|------|
+| `SymbolStripWidget` | `widgets/slot_lab/symbol_strip_widget.dart` | ~400 | Symbols + Music Layers sa drag-drop |
+| `EventsPanelWidget` | `widgets/slot_lab/events_panel_widget.dart` | ~580 | Events folder + Audio browser + File/Folder import |
+| `CreateEventDialog` | `widgets/slot_lab/create_event_dialog.dart` | ~420 | Event creation popup sa stage selection |
+
+**EventsPanelWidget Features (V6.1):**
+- Events folder tree sa create/delete
+- Audio browser sa drag-drop
+- Pool mode toggle za DAW↔SlotLab sync
+- File import (📄) — Multiple audio files via FilePicker
+- Folder import (📁) — Rekurzivni scan direktorijuma
+- AudioAssetManager integration
+
+**Data Models:** `flutter_ui/lib/models/slot_lab_models.dart`
+- `SymbolDefinition` — Symbol type, emoji, contexts (land/win/expand)
+- `ContextDefinition` — Game chapter (base/freeSpins/holdWin/bonus)
+- `SymbolAudioAssignment` — Symbol→Audio mapping
+- `MusicLayerAssignment` — Context→Layer→Audio mapping
+- `SlotLabProject` — Complete project state for persistence
+
+**Provider:** `flutter_ui/lib/providers/slot_lab_project_provider.dart`
+- Symbol CRUD + audio assignments
+- Context CRUD + music layer assignments
+- Project save/load (JSON)
+- GDD import integration
+- ALE provider connection for music layer sync
+
+**Integration:**
+- `slot_lab_screen.dart` — 3-panel layout with Consumer<SlotLabProjectProvider>
+- Symbol audio drop → Syncs to EventRegistry for playback
+- Music layer drop → Syncs to SlotLabProjectProvider + ALE profile generation
+
+**ALE Sync Methods:**
+- `generateAleProfile()` — Export all contexts/layers as ALE-compatible JSON
+- `getContextAudioPaths()` — Get audio paths for a context (layer → path map)
+- `_syncMusicLayerToAle()` — Real-time sync on layer assignment
+
+**GetIt Registration:** Layer 5.5 — `sl.registerLazySingleton<SlotLabProjectProvider>(() => SlotLabProjectProvider());`
+
+**Implementation Status:** All 9 phases complete (2026-01-23)
+- Phase 1-5: Tab reorganization, Symbol Strip, Events Panel, Plus Menu
+- Phase 6: Data Models (slot_lab_models.dart)
+- Phase 7: Layout Integration (3-panel structure)
+- Phase 8: Provider Registration (GetIt Layer 5.5)
+- Phase 9: FFI Integration (EventRegistry sync, ALE profile generation)
+
+**Dokumentacija:** `.claude/tasks/SLOTLAB_V6_IMPLEMENTATION.md`
+
 ### Bonus Game Simulator (P2.20) — IMPLEMENTED ✅ 2026-01-23
 
 Unified bonus feature testing panel sa FFI integracijom.
@@ -2146,6 +2718,41 @@ notifyListeners()
 **Key Fix:** Sync calls moved to `_onMiddlewareChanged` listener (executes AFTER provider updates, not before).
 
 **Dokumentacija:** `.claude/architecture/EVENT_SYNC_SYSTEM.md`
+
+### SlotLab Drop Zone System (2026-01-23) ✅
+
+Drag-drop audio na mockup elemente → automatsko kreiranje eventa.
+
+**Arhitektura:**
+```
+Audio File (Browser) → Drop on Mockup Element → CommittedEvent
+                                                     ↓
+                                          SlotCompositeEvent
+                                                     ↓
+                                          MiddlewareProvider (SSoT)
+                                                     ↓
+                    ┌────────────────────────────────┼────────────────────────────────┐
+                    ▼                                ▼                                ▼
+              Timeline Track                  EventRegistry                   Events Folder
+              + Region + Layers              (stage trigger)                  (Middleware)
+```
+
+**Key Features:**
+- 35+ drop targets (ui.spin, reel.0-4, overlay.win.*, symbol.*, music.*, etc.)
+- Per-reel auto-pan: `(reelIndex - 2) * 0.4` (reel.0=-0.8, reel.2=0.0, reel.4=+0.8)
+- Automatic stage mapping (targetId → SPIN_START, REEL_STOP_0, WIN_BIG, etc.)
+- Bus routing (SFX, Reels, Wins, Music, UI, etc.)
+- Visual feedback (glow, pulse, event count badge)
+
+**Bridge Implementation:** `slot_lab_screen.dart:_onEventBuilderEventCreated()`
+
+**Edit Mode UI (V6.1):**
+- Enhanced mode toggle button sa glow efektom (active) i clear labels
+- "DROP ZONE ACTIVE" banner iznad slot grida kada je edit mode aktivan
+- EXIT button za brzi izlaz iz edit mode-a
+- Visual hierarchy: Banner → Slot Grid → Controls
+
+**Dokumentacija:** `.claude/architecture/SLOTLAB_DROP_ZONE_SPEC.md`
 
 ### Engine-Level Source Filtering (2026-01-21) ✅
 
@@ -2642,6 +3249,266 @@ class RoutingConnection {
 
 ---
 
+### Priority Features (2026-01-23) ✅
+
+Five priority features from Ultimate System Analysis — all implemented.
+
+**Documentation:** `.claude/architecture/PRIORITY_FEATURES_2026_01_23.md`
+
+| # | Feature | Role | Location | LOC |
+|---|---------|------|----------|-----|
+| 1 | Visual Reel Strip Editor | Slot Game Designer | `widgets/slot_lab/reel_strip_editor.dart` | ~800 |
+| 2 | In-Context Auditioning | Audio Designer | `widgets/slot_lab/in_context_audition.dart` | ~500 |
+| 3 | Visual State Machine Graph | Middleware Architect | `widgets/middleware/state_machine_graph.dart` | ~600 |
+| 4 | DSP Profiler Rust FFI | Engine Developer | `profiler_ffi.rs` + `native_ffi.dart` | ~400 |
+| 5 | Command Palette | Tooling Developer | `widgets/common/command_palette.dart` | ~750 |
+
+**Total:** ~3,050 LOC
+
+**Key Features:**
+
+1. **Reel Strip Editor:**
+   - Drag-drop symbol reordering
+   - Symbol palette (14 types)
+   - Statistics panel (distribution, frequency)
+   - Import/export JSON
+
+2. **In-Context Auditioning:**
+   - Timeline presets (spin, win, big win, free spins, cascade, bonus)
+   - A/B comparison mode
+   - Playhead scrubbing
+   - Quick audition buttons
+
+3. **State Machine Graph:**
+   - Node-based visual editor
+   - Transition arrows with animation
+   - Current state highlighting
+   - Zoom/pan canvas
+
+4. **DSP Profiler FFI:**
+   - Real Rust engine metrics
+   - Per-stage breakdown (input, mixing, effects, metering, output)
+   - Fallback simulation mode
+   - Rust: `profiler_get_current_load()`, `profiler_get_stage_breakdown_json()`
+
+5. **Command Palette:**
+   - VS Code-style Ctrl+Shift+P
+   - Fuzzy search with scoring
+   - Recent items tracking
+   - Pre-built FluxForge commands
+
+**Usage:**
+
+```dart
+// Reel Strip Editor
+ReelStripEditor(initialStrips: strips, onStripsChanged: callback)
+
+// In-Context Audition
+InContextAuditionPanel(eventRegistry: registry)
+QuickAuditionButton(context: AuditionContext.bigWin, eventRegistry: registry)
+
+// State Machine Graph
+StateMachineGraph(stateGroup: group, currentStateId: id, onStateSelected: callback)
+
+// Command Palette
+CommandPalette.show(context, commands: FluxForgeCommands.getDefaultCommands(...))
+```
+
+**Bug Fixes (2026-01-23):**
+- `Duration.clamp()` → manual clamping (Duration nema clamp metodu)
+- `PopupMenuDivider<void>()` → `PopupMenuDivider()` (nema type parameter)
+- `iconColor` → `Icon(color: ...)` (parameter ne postoji na IconButton)
+- `StateGroup.currentState` → `StateGroup.currentStateId` (ispravan API)
+- `_dylib` → `_loadNativeLibrary().lookupFunction<>()` (FFI pattern)
+- `EventRegistry` dependency → callback-based `onTriggerStage`
+
+**Verification:** `flutter analyze` — No errors (11 info-level only)
+
+---
+
+### M3.1 Sprint — Middleware Improvements (2026-01-23) ✅
+
+P1 priority tasks from middleware analysis completed.
+
+**TODO 1: RTPC Debugger Panel** ✅
+- Location: [rtpc_debugger_panel.dart](flutter_ui/lib/widgets/middleware/rtpc_debugger_panel.dart) (~1159 LOC)
+- Real-time value meters with sparkline history
+- Slider controls for live parameter adjustment
+- Binding visualization with output preview
+- Search, recording toggle, reset controls
+- Exported via middleware_exports.dart
+
+**TODO 2: Tab Categories in Lower Zone** ✅
+- Location: [lower_zone_controller.dart](flutter_ui/lib/controllers/slot_lab/lower_zone_controller.dart) (+100 LOC)
+- `LowerZoneCategory` enum: audio, routing, debug, advanced
+- `LowerZoneCategoryConfig` with label, icon, description
+- Category field added to `LowerZoneTabConfig`
+- Collapse state (advanced collapsed by default)
+- Helper functions: `getTabsInCategory()`, `getTabsByCategory()`, `getCategoryForTab()`
+- Actions: `toggleCategory()`, `setCategoryCollapsed()`, `expandAllCategories()`
+- Serialization includes category collapse state
+
+**TODO 3: Trace Export CSV** ✅
+- Location: [event_profiler_provider.dart](flutter_ui/lib/providers/subsystems/event_profiler_provider.dart) (+85 LOC)
+- `exportToCSV()` method with proper escaping
+- Format: `timestamp,eventId,type,description,soundId,busId,voiceId,latencyUs`
+- `exportToCSVCustom()` for custom column selection
+- `getCSVExportInfo()` for row count and file size estimation
+
+**Verification:** `flutter analyze` — No errors (11 info-level only)
+
+**Documentation:** `.claude/architecture/MIDDLEWARE_TODO_M3_2026_01_23.md`
+
+---
+
+### M3.2 Sprint — Middleware Improvements (2026-01-23) ✅
+
+P2 priority tasks from middleware analysis completed.
+
+**TODO 4: Waveform Trim Editor** ✅
+- Location: [waveform_trim_editor.dart](flutter_ui/lib/widgets/common/waveform_trim_editor.dart) (~380 LOC)
+- Draggable trim handles (start/end)
+- Fade in/out curve handles with visual feedback
+- Right-click context menu (Reset Trim, Zoom Selection, Normalize)
+- Non-destructive trim stored as `trimStartMs`, `trimEndMs` on SlotEventLayer
+- Model updates: [slot_audio_events.dart](flutter_ui/lib/models/slot_audio_events.dart)
+
+**TODO 5: Ducking Preview Mode** ✅
+- Service: [ducking_preview_service.dart](flutter_ui/lib/services/ducking_preview_service.dart) (~230 LOC)
+- Panel update: [ducking_matrix_panel.dart](flutter_ui/lib/widgets/middleware/ducking_matrix_panel.dart) (+150 LOC)
+- Preview button appears when rule is selected
+- Visual ducking curve with CustomPainter (`_DuckingCurvePainter`)
+- Real-time envelope visualization (ideal vs actual curve)
+- Phase indicators: Attack (orange), Sustain (cyan), Release (purple)
+- Progress bar and current duck level percentage
+
+**TODO 6: Workspace Presets** ✅
+- Model: [workspace_preset.dart](flutter_ui/lib/models/workspace_preset.dart) (~210 LOC)
+- Service: [workspace_preset_service.dart](flutter_ui/lib/services/workspace_preset_service.dart) (~280 LOC)
+- Dropdown: [workspace_preset_dropdown.dart](flutter_ui/lib/widgets/lower_zone/workspace_preset_dropdown.dart) (~340 LOC)
+- 5 built-in presets: Audio Design, Routing, Debug, Mixing, Spatial
+- Custom preset CRUD (create, update, delete, duplicate)
+- SharedPreferences persistence with JSON serialization
+- Export/Import JSON support for preset sharing
+- Integrated into `LowerZoneContextBar` via `presetDropdown` parameter
+
+**WorkspacePresetService** (Singleton):
+```dart
+// Initialize at startup (main.dart)
+await WorkspacePresetService.instance.init();
+
+// Get presets for section
+final presets = WorkspacePresetService.instance.getPresetsForSection(WorkspaceSection.slotLab);
+
+// Apply preset
+await WorkspacePresetService.instance.applyPreset(preset);
+
+// Create custom preset
+await WorkspacePresetService.instance.createPreset(
+  name: 'My Layout',
+  section: WorkspaceSection.slotLab,
+  activeTabs: ['events', 'blend'],
+  lowerZoneHeight: 350,
+);
+```
+
+**Verification:** `flutter analyze` — No errors (11 info-level only)
+
+**Documentation:** `.claude/architecture/MIDDLEWARE_TODO_M3_2026_01_23.md`
+
+---
+
+### M4 Sprint — Advanced Features (2026-01-23) ✅
+
+P3 priority tasks completed — all 10 TODO items from middleware analysis done.
+
+**TODO 7: Spectrum Analyzer** ✅ (Already Existed)
+- Location: [spectrum_analyzer.dart](flutter_ui/lib/widgets/spectrum/spectrum_analyzer.dart) (~1334 LOC)
+- Full-featured FFT display with multiple modes (bars, line, fill, waterfall, spectrogram)
+- Peak hold with decay, collision detection, zoom/pan, freeze frame
+- Multiple FFT sizes (1024-32768), color schemes
+- Integrated in BusHierarchyPanel
+
+**TODO 8: Determinism Mode** ✅
+- Model: [middleware_models.dart](flutter_ui/lib/models/middleware_models.dart) — `RandomContainer.seed`, `useDeterministicMode`
+- Provider: [random_containers_provider.dart](flutter_ui/lib/providers/subsystems/random_containers_provider.dart) (~120 LOC new)
+- Seeded Random instance per container for reproducible results
+- `DeterministicSelectionRecord` for QA tracing/replay
+- Global deterministic mode toggle
+- Selection history export to JSON
+
+```dart
+// Enable deterministic mode for a container
+provider.setDeterministicMode(containerId, true, seed: 12345);
+
+// Enable global deterministic mode (all containers)
+provider.setGlobalDeterministicMode(true);
+
+// Get selection history for replay
+final history = provider.getSelectionHistory(containerId);
+
+// Export history for QA
+final json = provider.exportSelectionHistoryToJson();
+```
+
+**TODO 9: Math Model Connector** ✅
+- Model: [win_tier_config.dart](flutter_ui/lib/models/win_tier_config.dart) (~280 LOC)
+- Service: [math_model_connector.dart](flutter_ui/lib/services/math_model_connector.dart) (~200 LOC)
+- `WinTier` enum (noWin, smallWin, mediumWin, bigWin, megaWin, epicWin, ultraWin, jackpots)
+- `WinTierThreshold` with RTPC value, trigger stage, rollup multiplier
+- `WinTierConfig` per game with tier thresholds
+- Auto-generate RTPC thresholds from paytable
+- `AttenuationCurveLink` for dynamic curve linking
+- Default configs: Standard, High Volatility, Jackpot
+
+```dart
+// Register config
+MathModelConnector.instance.registerConfig(DefaultWinTierConfigs.standard);
+
+// Process win and get audio parameters
+final result = MathModelConnector.instance.processWin('standard', winAmount, betAmount);
+// result.tier, result.rtpcValue, result.triggerStage, result.rollupDuration
+
+// Import from paytable JSON
+MathModelConnector.instance.importPaytable(paytableJson);
+```
+
+**TODO 10: Interactive Tutorials** ✅
+- Step Model: [tutorial_step.dart](flutter_ui/lib/widgets/tutorial/tutorial_step.dart) (~230 LOC)
+- Overlay: [tutorial_overlay.dart](flutter_ui/lib/widgets/tutorial/tutorial_overlay.dart) (~320 LOC)
+- Content: [first_event_tutorial.dart](flutter_ui/lib/data/tutorials/first_event_tutorial.dart) (~200 LOC)
+- `TutorialStep` with spotlight, tooltip position, actions
+- `TutorialOverlay` with dark overlay and spotlight cutout
+- `TutorialLauncher` widget for Help menu integration
+- Built-in tutorials: "Creating Your First Event", "Setting Up RTPC"
+- Categories: Basics, Events, Containers, RTPC, Mixing, Advanced
+- Difficulty levels: Beginner, Intermediate, Advanced
+
+```dart
+// Show tutorial overlay
+final completed = await TutorialOverlay.show(
+  context,
+  tutorial: FirstEventTutorial.tutorial,
+);
+
+// Get all tutorials
+final tutorials = BuiltInTutorials.all;
+```
+
+**Verification:** `flutter analyze` — No errors (11 info-level only)
+
+**Documentation:** `.claude/architecture/MIDDLEWARE_TODO_M3_2026_01_23.md`
+
+**M3-M4 Summary:**
+| Sprint | Tasks | LOC | Status |
+|--------|-------|-----|--------|
+| M3.1 | 3 (P1) | ~1,344 | ✅ DONE |
+| M3.2 | 3 (P2) | ~1,590 | ✅ DONE |
+| M4 | 4 (P3) | ~2,484 | ✅ DONE |
+| **Total** | **10** | **~5,418** | **✅ ALL DONE** |
+
+---
+
 ### Universal Stage Ingest System (IMPLEMENTED) ✅ 2026-01-22
 
 Slot-agnostički sistem za integraciju sa bilo kojim game engine-om — **KOMPLETNO IMPLEMENTIRAN**.
@@ -2868,6 +3735,44 @@ cp target/release/*.dylib flutter_ui/macos/Frameworks/
 2. Dodeli stage (npr. `SPIN_START`)
 3. Dodaj audio layer sa `.wav` fajlom
 4. Save
+
+#### 5. Double pozivi u QuickSheet flow-u (2026-01-23)
+
+**Simptom:**
+- Drop audio na slot element radi (QuickSheet se prikazuje)
+- Commit klik radi (popup se zatvara)
+- Ali event se NE kreira u Events panelu
+- Spin ne proizvodi zvuk
+
+**Uzrok #1:** `commitDraft()` se pozivao DVAPUT:
+1. Prvo u `quick_sheet.dart` onCommit handler
+2. Zatim u `drop_target_wrapper.dart` callback
+
+**Uzrok #2:** `createDraft()` se TAKOĐE pozivao DVAPUT:
+1. Prvo u `drop_target_wrapper.dart` _handleDrop()
+2. Zatim u `quick_sheet.dart` showQuickSheet()
+
+**Fix #1:** Uklonjen `commitDraft()` iz `quick_sheet.dart`
+**Fix #2:** Uklonjen `createDraft()` iz `drop_target_wrapper.dart`
+
+**Pravilan flow:**
+```
+showQuickSheet()           → createDraft() ← JEDINI POZIV
+DropTargetWrapper.onCommit → commitDraft() ← JEDINI POZIV
+```
+
+**Verifikacija:**
+1. Drop audio na SPIN dugme u Edit mode
+2. Klikni Commit u QuickSheet popup
+3. Event mora da se pojavi u Events panelu (desno)
+4. Klikni Spin → audio mora da svira
+5. Ponovi za druge elemente (reels, win overlays, itd.)
+
+**Ključni fajlovi:**
+- `flutter_ui/lib/widgets/slot_lab/auto_event_builder/quick_sheet.dart` — createDraft()
+- `flutter_ui/lib/widgets/slot_lab/auto_event_builder/drop_target_wrapper.dart` — commitDraft()
+
+**Detaljna dokumentacija:** `.claude/architecture/EVENT_SYNC_SYSTEM.md`
 
 ### Event Log Format (2026-01-21)
 

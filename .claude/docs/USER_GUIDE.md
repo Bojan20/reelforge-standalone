@@ -1,8 +1,8 @@
 # FluxForge Studio — User Guide
 
-**Version:** 0.1.0 (Alpha)
+**Version:** 0.2.0 (Alpha)
 **Platform:** macOS, Windows, Linux
-**Date:** 2026-01-22
+**Date:** 2026-01-23
 
 ---
 
@@ -15,7 +15,8 @@
 5. [Middleware](#middleware)
 6. [Audio Routing](#audio-routing)
 7. [Keyboard Shortcuts](#keyboard-shortcuts)
-8. [Troubleshooting](#troubleshooting)
+8. [Interactive Tutorials](#interactive-tutorials-m4)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -285,7 +286,61 @@ Configure sidechain sources in the compressor/gate panels.
 
 ---
 
-## 8. Troubleshooting
+## 8. Interactive Tutorials (M4)
+
+FluxForge Studio includes built-in interactive tutorials to help you learn the software.
+
+### Launching Tutorials
+
+1. Go to **Help → Tutorials**
+2. Select a tutorial from the list
+3. Follow the spotlight-guided steps
+
+### Available Tutorials
+
+| Tutorial | Duration | Difficulty | Description |
+|----------|----------|------------|-------------|
+| **Creating Your First Event** | ~5 min | Beginner | Learn basics of audio events, layers, and stage triggers |
+| **Setting Up RTPC** | ~7 min | Intermediate | Configure real-time parameter control for dynamic audio |
+
+### Tutorial Features
+
+- **Spotlight Highlighting** — Visual focus on target UI elements
+- **Step Navigation** — Next/Previous/Skip controls
+- **Progress Tracking** — Visual progress indicator
+- **Category Organization** — Tutorials grouped by topic (Events, RTPC, Mixing, etc.)
+
+### Creating Custom Tutorials
+
+Tutorials are defined in `flutter_ui/lib/data/tutorials/`:
+
+```dart
+class MyTutorial {
+  static Tutorial get tutorial => Tutorial(
+    id: 'my_tutorial',
+    name: 'My Custom Tutorial',
+    description: 'Learn something new.',
+    estimatedMinutes: 5,
+    category: TutorialCategory.basics,
+    difficulty: TutorialDifficulty.beginner,
+    steps: [
+      TutorialStep(
+        id: 'step1',
+        title: 'Welcome',
+        content: 'This tutorial will guide you through...',
+        icon: Icons.info,
+        tooltipPosition: TutorialTooltipPosition.center,
+        actions: [TutorialAction.skip, TutorialAction.next],
+      ),
+      // More steps...
+    ],
+  );
+}
+```
+
+---
+
+## 9. Troubleshooting
 
 ### Audio Not Playing
 

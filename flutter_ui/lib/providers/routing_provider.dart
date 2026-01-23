@@ -185,10 +185,20 @@ class RoutingProvider extends ChangeNotifier {
   }
 
   /// Update channel list from Rust
+  ///
+  /// NOTE (2026-01-23): FFI for routing operations (create, delete, volume, pan, etc.)
+  /// is fully implemented in ffi_routing.rs (requires `unified_routing` feature).
+  /// However, there's no `routing_get_all_channels()` FFI function to query the full
+  /// channel list from Rust. Channels are tracked locally when created via UI.
+  ///
+  /// For full sync, would need to add:
+  /// - Rust: `routing_get_all_channels(out_ids: *mut u32, max: usize) -> usize`
+  /// - Dart: routingGetAllChannels() binding
   void _updateChannelList() {
     final count = api.routingGetChannelCount();
-    // TODO: Implement channel list query when FFI supports it
-    // For now, just update count
+    // Channel list is populated by local createChannel() calls
+    // FFI query for full list not yet available
+    debugPrint('[RoutingProvider] Channel count from engine: $count, local: ${_channels.length}');
   }
 
   /// Refresh routing state

@@ -35,21 +35,32 @@ FluxForge Studio has **108 provider files**, which is significantly above the re
 
 | Provider | LOC | Status | Notes |
 |----------|-----|--------|-------|
-| `middleware_provider.dart` | 4714 | **DECOMPOSE** | Too large |
+| `middleware_provider.dart` | ~1900 | ✅ **DECOMPOSED** | 16 subsystems extracted |
 | `ale_provider.dart` | ~745 | Keep | ALE system |
 | `slot_lab_provider.dart` | ~800 | Keep | Slot simulation |
 | `stage_provider.dart` | ~200 | Keep | Stage events |
 
-**Subsystem Providers (extracted from MiddlewareProvider):**
-| Provider | LOC | Status |
-|----------|-----|--------|
-| `state_groups_provider.dart` | ~185 | ✅ Extracted |
-| `switch_groups_provider.dart` | ~210 | ✅ Extracted |
-| `rtpc_system_provider.dart` | ~350 | ✅ Extracted |
-| `ducking_system_provider.dart` | ~190 | ✅ Extracted |
-| `blend_containers_provider.dart` | ~200 | ✅ Extracted |
-| `random_containers_provider.dart` | ~200 | ✅ Extracted |
-| `sequence_containers_provider.dart` | ~200 | ✅ Extracted |
+**Subsystem Providers (extracted from MiddlewareProvider — ALL PHASES COMPLETE 2026-01-23):**
+| Provider | LOC | Phase | Status |
+|----------|-----|-------|--------|
+| `state_groups_provider.dart` | ~185 | 1 | ✅ Extracted |
+| `switch_groups_provider.dart` | ~210 | 1 | ✅ Extracted |
+| `rtpc_system_provider.dart` | ~350 | 2 | ✅ Extracted |
+| `ducking_system_provider.dart` | ~190 | 2 | ✅ Extracted |
+| `blend_containers_provider.dart` | ~280 | 3 | ✅ Extracted |
+| `random_containers_provider.dart` | ~260 | 3 | ✅ Extracted |
+| `sequence_containers_provider.dart` | ~270 | 3 | ✅ Extracted |
+| `music_system_provider.dart` | ~400 | 4 | ✅ Extracted |
+| `event_system_provider.dart` | ~330 | 4 | ✅ Extracted |
+| `composite_event_system_provider.dart` | ~1280 | 4 | ✅ Extracted |
+| `bus_hierarchy_provider.dart` | ~360 | 5 | ✅ Extracted |
+| `aux_send_provider.dart` | ~300 | 5 | ✅ Extracted |
+| `voice_pool_provider.dart` | ~255 | 6 | ✅ Extracted |
+| `attenuation_curve_provider.dart` | ~300 | 6 | ✅ Extracted |
+| `memory_manager_provider.dart` | ~240 | 7 | ✅ Extracted |
+| `event_profiler_provider.dart` | ~280 | 7 | ✅ Extracted |
+
+**Total:** 16 subsystem providers (~5,490 LOC extracted)
 
 ### Timeline/Editing (15)
 

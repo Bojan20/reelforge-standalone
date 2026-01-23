@@ -632,6 +632,18 @@ class _ClipWidgetState extends State<ClipWidget> {
                   ),
                 ),
 
+              // P3.3: Gain envelope visualization
+              // Shows a horizontal line indicating clip gain level (when != unity)
+              if (clip.gain != 1.0 && width > 30)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _GainEnvelopePainter(
+                      gain: clip.gain,
+                      clipColor: clipColor,
+                    ),
+                  ),
+                ),
+
               // Fade in handle (ON TOP of edge handle) - hidden when locked
               if (!clip.locked)
               _FadeHandle(
@@ -1706,6 +1718,133 @@ class _FadeOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(_FadeOverlayPainter oldDelegate) =>
       isLeft != oldDelegate.isLeft || curve != oldDelegate.curve;
+}
+
+// ============ P3.3: Gain Envelope Painter ============
+
+/// Draws a visual gain envelope line on clips
+/// Shows gain level as a horizontal line (unity = center, boost = higher, cut = lower)
+class _GainEnvelopePainter extends CustomPainter {
+  final double gain;
+  final Color clipColor;
+
+  _GainEnvelopePainter({
+    required this.gain,
+    required this.clipColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Convert gain (0-2) to Y position
+    // gain 1.0 = center, gain 2.0 = top, gain 0.0 = bottom
+    // Using logarithmic scale for better visualization
+    final centerY = size.height / 2;
+
+    // Calculate Y offset based on gain
+    // gain > 1: line moves up (boost)
+    // gain < 1: line moves down (cut)
+    // Max travel is half the height
+    double yOffset;
+    if (gain >= 1.0) {
+      // Boost: 1.0->2.0 maps to 0->-centerY*0.8
+      yOffset = -((gain - 1.0) / 1.0) * centerY * 0.8;
+    } else {
+      // Cut: 0.0->1.0 maps to centerY*0.8->0
+      yOffset = ((1.0 - gain) / 1.0) * centerY * 0.8;
+    }
+
+    final lineY = centerY + yOffset;
+
+    // Draw the gain line
+    final linePaint = Paint()
+      ..color = gain > 1.0
+          ? Colors.orange.withOpacity(0.8)  // Boost = orange
+          : Colors.cyan.withOpacity(0.8)    // Cut = cyan
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    // Draw dashed line
+    const dashWidth = 6.0;
+    const dashGap = 4.0;
+    double x = 4.0;
+    while (x < size.width - 4) {
+      canvas.drawLine(
+        Offset(x, lineY),
+        Offset((x + dashWidth).clamp(0, size.width - 4), lineY),
+        linePaint,
+      );
+      x += dashWidth + dashGap;
+    }
+
+    // Draw small indicator at edges
+    final indicatorPaint = Paint()
+      ..color = linePaint.color
+      ..style = PaintingStyle.fill;
+
+    // Left indicator triangle
+    final leftTriangle = Path()
+      ..moveTo(2, lineY)
+      ..lineTo(8, lineY - 4)
+      ..lineTo(8, lineY + 4)
+      ..close();
+    canvas.drawPath(leftTriangle, indicatorPaint);
+
+    // Right indicator triangle
+    final rightTriangle = Path()
+      ..moveTo(size.width - 2, lineY)
+      ..lineTo(size.width - 8, lineY - 4)
+      ..lineTo(size.width - 8, lineY + 4)
+      ..close();
+    canvas.drawPath(rightTriangle, indicatorPaint);
+
+    // Draw gain value label at center
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: _formatGainDb(gain),
+        style: TextStyle(
+          color: linePaint.color,
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'JetBrains Mono',
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+
+    // Background for text readability
+    final textBgRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(size.width / 2, lineY),
+        width: textPainter.width + 8,
+        height: textPainter.height + 4,
+      ),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(
+      textBgRect,
+      Paint()..color = Colors.black.withOpacity(0.6),
+    );
+
+    textPainter.paint(
+      canvas,
+      Offset(
+        (size.width - textPainter.width) / 2,
+        lineY - textPainter.height / 2,
+      ),
+    );
+  }
+
+  String _formatGainDb(double gain) {
+    if (gain <= 0) return '-∞';
+    final db = 20 * math.log(gain) / math.ln10;
+    if (db > 0) return '+${db.toStringAsFixed(1)}dB';
+    return '${db.toStringAsFixed(1)}dB';
+  }
+
+  @override
+  bool shouldRepaint(_GainEnvelopePainter oldDelegate) =>
+      gain != oldDelegate.gain || clipColor != oldDelegate.clipColor;
 }
 
 // ============ Fade Handle (Logic Pro + Cubase Style) ============

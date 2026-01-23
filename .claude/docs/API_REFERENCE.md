@@ -1,7 +1,7 @@
 # FluxForge Studio — API Reference
 
-**Version:** 0.1.0
-**Date:** 2026-01-22
+**Version:** 0.2.0
+**Date:** 2026-01-23
 
 ---
 
@@ -411,6 +411,91 @@ class UnifiedPlaybackController {
 enum PlaybackSection { daw, slotLab, middleware, browser }
 ```
 
+### MathModelConnector (M4)
+
+Connects slot game math model (paytable, win tiers) to audio RTPC parameters.
+
+```dart
+class MathModelConnector extends ChangeNotifier {
+  static final MathModelConnector instance;
+
+  // Configuration
+  void registerConfig(WinTierConfig config);
+  WinTierConfig? getConfig(String gameId);
+  List<WinTierConfig> get configs;
+  void loadDefaults();
+
+  // RTPC Threshold Generation
+  RtpcThresholdResult generateRtpcThresholds(WinTierConfig config);
+  double calculateRtpcValue(String gameId, double winAmount, double betAmount);
+
+  // Win Processing
+  WinProcessResult processWin(String gameId, double winAmount, double betAmount);
+
+  // Attenuation Curve Links
+  void addCurveLink(AttenuationCurveLink link);
+  List<AttenuationCurveLink> getCurveLinksForTier(WinTier tier);
+
+  // Paytable Import
+  WinTierConfig? importPaytable(String jsonString);
+
+  // Callbacks
+  ValueChanged<double>? onRtpcChanged;
+  ValueChanged<String>? onStageTrigger;
+}
+```
+
+### WorkspacePresetService (M3.2)
+
+Save and load workspace layout configurations.
+
+```dart
+class WorkspacePresetService {
+  static final WorkspacePresetService instance;
+
+  Future<void> init();
+
+  // CRUD
+  List<WorkspacePreset> getPresetsForSection(WorkspaceSection section);
+  Future<void> savePreset(WorkspacePreset preset);
+  Future<void> deletePreset(String name, WorkspaceSection section);
+  Future<void> applyPreset(WorkspacePreset preset);
+
+  // Factory presets
+  List<WorkspacePreset> get factoryPresets;
+
+  // Create from current state
+  Future<WorkspacePreset> createPreset({
+    required String name,
+    required WorkspaceSection section,
+    required Map<String, dynamic> currentState,
+  });
+}
+
+enum WorkspaceSection { daw, slotLab, middleware }
+```
+
+### TutorialOverlay (M4)
+
+Interactive tutorial system with spotlight overlays.
+
+```dart
+class TutorialOverlay extends StatefulWidget {
+  // Show tutorial modally
+  static Future<bool> show(
+    BuildContext context, {
+    required Tutorial tutorial,
+  });
+}
+
+class TutorialLauncher extends StatelessWidget {
+  // Widget showing grouped tutorials by category
+  // For Help menu integration
+  const TutorialLauncher({required this.onTutorialSelected});
+  final void Function(Tutorial) onTutorialSelected;
+}
+```
+
 ---
 
 ## 4. Models
@@ -508,12 +593,25 @@ class RandomContainer {
   final RandomMode mode;       // random, shuffle, roundRobin
   final double pitchVariation;
   final double volumeVariation;
+  final int? seed;             // M4: Determinism mode seed
+  final bool useDeterministicMode; // M4: Enable reproducible selection
+
+  static int generateSeed() => DateTime.now().microsecondsSinceEpoch;
 }
 
 class RandomChild {
   final String id;
   final String audioPath;
   final double weight;         // Selection weight
+}
+
+// M4: Deterministic selection record for QA replay
+class DeterministicSelectionRecord {
+  final int containerId;
+  final int selectedChildId;
+  final int seed;
+  final int sequenceIndex;
+  final DateTime timestamp;
 }
 ```
 
@@ -533,6 +631,109 @@ class SequenceStep {
   final String audioPath;
   final double durationBeats;
   final double delayBeats;
+}
+```
+
+### WinTierConfig (M4)
+
+```dart
+enum WinTier {
+  noWin, smallWin, mediumWin, bigWin, megaWin, epicWin, ultraWin,
+  jackpotMini, jackpotMinor, jackpotMajor, jackpotGrand;
+
+  String get displayName;
+  int get audioIntensity;  // 0-10
+}
+
+class WinTierThreshold {
+  final WinTier tier;
+  final double minXBet;          // Min bet multiplier
+  final double? maxXBet;         // Max bet multiplier (null = unlimited)
+  final double rtpcValue;        // 0.0-1.0
+  final String? triggerStage;    // Stage to trigger
+  final bool triggerCelebration;
+  final double rollupDurationMultiplier;
+}
+
+class WinTierConfig {
+  final String gameId;
+  final String gameName;
+  final List<WinTierThreshold> tiers;
+  final String rtpcParameterName;
+  final double defaultBaseBet;
+  final double? maxWinCap;
+  final bool useLogarithmicScaling;
+
+  WinTierThreshold? getTierForWin(double winAmount, double betAmount);
+  double getRtpcForWin(double winAmount, double betAmount);
+}
+
+class DefaultWinTierConfigs {
+  static WinTierConfig get standard;      // 5x3 video slot
+  static WinTierConfig get highVolatility;
+  static WinTierConfig get jackpot;
+}
+```
+
+### Tutorial (M4)
+
+```dart
+enum TutorialTooltipPosition { top, bottom, left, right, center }
+enum TutorialActionType { next, previous, skip, finish, custom }
+enum TutorialCategory { basics, events, containers, rtpc, mixing, advanced }
+enum TutorialDifficulty { beginner, intermediate, advanced }
+
+class TutorialAction {
+  final String label;
+  final TutorialActionType type;
+  final VoidCallback? onAction;
+  final bool isPrimary;
+
+  static const next, previous, skip, finish;
+}
+
+class TutorialStep {
+  final String id;
+  final String title;
+  final String content;
+  final IconData? icon;
+  final GlobalKey? targetKey;
+  final TutorialTooltipPosition tooltipPosition;
+  final List<TutorialAction> actions;
+  final bool showSpotlight;
+  final bool Function()? canProceed;
+}
+
+class Tutorial {
+  final String id;
+  final String name;
+  final String description;
+  final List<TutorialStep> steps;
+  final int estimatedMinutes;
+  final TutorialCategory category;
+  final TutorialDifficulty difficulty;
+  final List<String> prerequisites;
+}
+
+class BuiltInTutorials {
+  static List<Tutorial> get all;  // FirstEvent, RtpcSetup
+}
+```
+
+### WorkspacePreset (M3.2)
+
+```dart
+class WorkspacePreset {
+  final String name;
+  final WorkspaceSection section;
+  final List<String> activeTabs;
+  final Map<String, bool> expandedCategories;
+  final double lowerZoneHeight;
+  final bool isFactory;
+
+  factory WorkspacePreset.audioDesign();
+  factory WorkspacePreset.debugging();
+  factory WorkspacePreset.mixing();
 }
 ```
 

@@ -1,18 +1,20 @@
-/// DAW Files Browser — P3.1 Hover Preview Integration
+/// DAW Files Browser — P3.1 Hover Preview Integration + P2.1 AudioAssetManager
 ///
 /// Professional file browser for DAW lower zone with:
 /// - Audio hover preview (play on 500ms hover)
-/// - Folder tree navigation
+/// - Folder tree navigation (file system + project pool)
 /// - Format filtering
 /// - Drag-and-drop to timeline
 /// - Search with real-time filter
 /// - File metadata display
+/// - Integration with AudioAssetManager for project pool
 
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../../services/audio_asset_manager.dart';
 import '../slot_lab/audio_hover_preview.dart';
 import 'lower_zone_types.dart';
 
@@ -59,6 +61,15 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
   List<AudioFileInfo> _currentFiles = [];
   bool _isLoading = false;
 
+  // P2.1: Audio Pool integration
+  bool _isPoolMode = false;
+  String _selectedPoolFolder = '';
+  bool _isPoolExpanded = true;
+
+  // P2.2: Favorites/Bookmarks
+  final Set<String> _favoritePaths = {};
+  bool _isFavoritesExpanded = true;
+
   static const List<String> _supportedFormats = [
     'wav', 'flac', 'mp3', 'ogg', 'aiff', 'aif', 'm4a'
   ];
@@ -72,15 +83,80 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _initializeDirectory();
+    // P2.1: Listen to AudioAssetManager changes
+    AudioAssetManager.instance.addListener(_onAssetManagerChanged);
   }
 
   @override
   void dispose() {
+    AudioAssetManager.instance.removeListener(_onAssetManagerChanged);
     _searchController.dispose();
     _folderScrollController.dispose();
     _fileScrollController.dispose();
     super.dispose();
   }
+
+  /// P2.1: Called when AudioAssetManager changes
+  void _onAssetManagerChanged() {
+    if (mounted && _isPoolMode) {
+      _loadPoolFiles(_selectedPoolFolder);
+    }
+  }
+
+  /// P2.1: Load files from AudioAssetManager for given folder
+  void _loadPoolFiles(String folder) {
+    final manager = AudioAssetManager.instance;
+    final assets = folder.isEmpty
+        ? manager.assets
+        : manager.getByFolder(folder);
+
+    _currentFiles = assets.map((asset) => AudioFileInfo(
+      id: asset.id,
+      name: asset.name,
+      path: asset.path,
+      duration: Duration(milliseconds: (asset.duration * 1000).round()),
+      format: asset.format.toUpperCase(),
+      sampleRate: asset.sampleRate,
+      channels: asset.channels,
+      bitDepth: 24, // Default
+      tags: [],
+    )).toList();
+
+    if (mounted) setState(() {});
+  }
+
+  /// P2.1: Switch to pool mode and show pool folder
+  void _selectPoolFolder(String folder) {
+    setState(() {
+      _isPoolMode = true;
+      _selectedPoolFolder = folder;
+      _currentPath = 'Project Pool${folder.isNotEmpty ? ' / $folder' : ''}';
+    });
+    _loadPoolFiles(folder);
+  }
+
+  /// P2.1: Switch back to file system mode
+  void _switchToFileSystemMode() {
+    setState(() {
+      _isPoolMode = false;
+      _selectedPoolFolder = '';
+    });
+    _initializeDirectory();
+  }
+
+  /// P2.2: Toggle favorite status of a folder
+  void _toggleFavorite(String path) {
+    setState(() {
+      if (_favoritePaths.contains(path)) {
+        _favoritePaths.remove(path);
+      } else {
+        _favoritePaths.add(path);
+      }
+    });
+  }
+
+  /// P2.2: Check if path is favorited
+  bool _isFavorite(String path) => _favoritePaths.contains(path);
 
   void _initializeDirectory() {
     final initialDir = widget.initialDirectory ?? _getDefaultDirectory();
@@ -464,21 +540,302 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             )
-          : ListView.builder(
+          : ListView(
               controller: _folderScrollController,
               padding: const EdgeInsets.all(8),
-              itemCount: _folderTree.length,
-              itemBuilder: (context, index) {
-                final node = _folderTree[index];
-                return _buildFolderNode(node);
-              },
+              children: [
+                // P2.1: Project Pool section (always at top)
+                _buildProjectPoolSection(),
+                const Divider(height: 16, color: LowerZoneColors.border),
+                // P2.2: Favorites section
+                if (_favoritePaths.isNotEmpty) ...[
+                  _buildFavoritesSection(),
+                  const Divider(height: 16, color: LowerZoneColors.border),
+                ],
+                // File System section header
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.computer, size: 12, color: LowerZoneColors.textMuted),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'FILE SYSTEM',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: LowerZoneColors.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // File system folders
+                ..._folderTree.map((node) => _buildFolderNode(node)),
+              ],
             ),
     );
   }
 
-  Widget _buildFolderNode(_FolderNode node) {
+  /// P2.1: Build the Project Pool section with folders from AudioAssetManager
+  Widget _buildProjectPoolSection() {
+    final manager = AudioAssetManager.instance;
+    final folderNames = manager.folderNames;
+    final totalAssets = manager.assetCount;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Pool header
+        GestureDetector(
+          onTap: () => setState(() => _isPoolExpanded = !_isPoolExpanded),
+          child: Row(
+            children: [
+              Icon(
+                _isPoolExpanded
+                    ? Icons.keyboard_arrow_down
+                    : Icons.keyboard_arrow_right,
+                size: 12,
+                color: LowerZoneColors.textMuted,
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.folder_special, size: 14, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 6),
+              const Text(
+                'PROJECT POOL',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: LowerZoneColors.dawAccent,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.dawAccent.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$totalAssets',
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: LowerZoneColors.dawAccent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Pool folders (when expanded)
+        if (_isPoolExpanded) ...[
+          const SizedBox(height: 4),
+          // "All" folder
+          _buildPoolFolderNode('', 'All Files', totalAssets),
+          // Individual folders
+          ...folderNames.map((folder) {
+            final count = manager.getByFolder(folder).length;
+            return _buildPoolFolderNode(folder, folder, count);
+          }),
+        ],
+      ],
+    );
+  }
+
+  /// P2.2: Build the Favorites section with bookmarked folders
+  Widget _buildFavoritesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Favorites header
+        GestureDetector(
+          onTap: () => setState(() => _isFavoritesExpanded = !_isFavoritesExpanded),
+          child: Row(
+            children: [
+              Icon(
+                _isFavoritesExpanded
+                    ? Icons.keyboard_arrow_down
+                    : Icons.keyboard_arrow_right,
+                size: 12,
+                color: LowerZoneColors.textMuted,
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.star, size: 14, color: Colors.amber),
+              const SizedBox(width: 6),
+              const Text(
+                'FAVORITES',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${_favoritePaths.length}',
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Favorited folders (when expanded)
+        if (_isFavoritesExpanded) ...[
+          const SizedBox(height: 4),
+          ..._favoritePaths.map((path) => _buildFavoriteNode(path)),
+        ],
+      ],
+    );
+  }
+
+  /// P2.2: Build a single favorite folder node
+  Widget _buildFavoriteNode(String path) {
+    final name = p.basename(path);
+    final isSelected = !_isPoolMode && _currentPath == path;
+
     return GestureDetector(
-      onTap: () => _loadDirectory(node.path),
+      onTap: () {
+        setState(() => _isPoolMode = false);
+        _loadDirectory(path);
+      },
+      child: Container(
+        padding: const EdgeInsets.only(
+          left: 20,
+          top: 4,
+          bottom: 4,
+          right: 8,
+        ),
+        margin: const EdgeInsets.only(top: 2),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.amber.withOpacity(0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.folder,
+              size: 14,
+              color: isSelected
+                  ? Colors.amber
+                  : LowerZoneColors.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                name,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isSelected
+                      ? LowerZoneColors.textPrimary
+                      : LowerZoneColors.textSecondary,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // Remove from favorites button
+            GestureDetector(
+              onTap: () => _toggleFavorite(path),
+              child: const Icon(
+                Icons.star,
+                size: 12,
+                color: Colors.amber,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// P2.1: Build a single pool folder node
+  Widget _buildPoolFolderNode(String folderId, String name, int count) {
+    final isSelected = _isPoolMode && _selectedPoolFolder == folderId;
+
+    return GestureDetector(
+      onTap: () => _selectPoolFolder(folderId),
+      child: Container(
+        padding: const EdgeInsets.only(
+          left: 20,
+          top: 4,
+          bottom: 4,
+          right: 8,
+        ),
+        margin: const EdgeInsets.only(top: 2),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? LowerZoneColors.dawAccent.withOpacity(0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              folderId.isEmpty ? Icons.library_music : Icons.folder,
+              size: 14,
+              color: isSelected
+                  ? LowerZoneColors.dawAccent
+                  : LowerZoneColors.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                name,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isSelected
+                      ? LowerZoneColors.textPrimary
+                      : LowerZoneColors.textSecondary,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 9,
+                color: isSelected
+                    ? LowerZoneColors.dawAccent
+                    : LowerZoneColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderNode(_FolderNode node) {
+    // Only show as selected if not in pool mode and this folder is selected
+    final isSelected = !_isPoolMode && node.isSelected;
+    final isFavorited = _isFavorite(node.path);
+
+    return GestureDetector(
+      onTap: () {
+        // Clear pool mode when selecting file system folder
+        setState(() => _isPoolMode = false);
+        _loadDirectory(node.path);
+      },
       child: Container(
         padding: EdgeInsets.only(
           left: 8 + (node.indent * 12.0),
@@ -487,7 +844,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
           right: 8,
         ),
         decoration: BoxDecoration(
-          color: node.isSelected
+          color: isSelected
               ? LowerZoneColors.dawAccent.withOpacity(0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
@@ -505,7 +862,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
             Icon(
               node.isExpanded ? Icons.folder_open : Icons.folder,
               size: 14,
-              color: node.isSelected
+              color: isSelected
                   ? LowerZoneColors.dawAccent
                   : LowerZoneColors.textSecondary,
             ),
@@ -515,15 +872,28 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                 node.name,
                 style: TextStyle(
                   fontSize: 10,
-                  color: node.isSelected
+                  color: isSelected
                       ? LowerZoneColors.textPrimary
                       : LowerZoneColors.textSecondary,
-                  fontWeight: node.isSelected ? FontWeight.w500 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            // P2.2: Favorite toggle (only for actual folders, not "..")
+            if (node.name != '..') ...[
+              GestureDetector(
+                onTap: () => _toggleFavorite(node.path),
+                child: Icon(
+                  isFavorited ? Icons.star : Icons.star_border,
+                  size: 12,
+                  color: isFavorited
+                      ? Colors.amber
+                      : LowerZoneColors.textMuted.withOpacity(0.5),
+                ),
+              ),
+            ],
           ],
         ),
       ),

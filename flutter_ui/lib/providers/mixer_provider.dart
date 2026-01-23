@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import '../src/rust/native_ffi.dart';
 import '../src/rust/engine_api.dart';
 import '../models/layout_models.dart' show InsertSlot;
+import 'dsp_chain_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MIXER CHANNEL TYPES
@@ -338,6 +339,73 @@ class MixerProvider extends ChangeNotifier {
     _initializeDefaultBuses();
     _subscribeToMetering();
     _subscribeToTransport();
+    _subscribeToDspChainProvider();
+  }
+
+  /// P1.1: Subscribe to DspChainProvider for unified DSP state
+  void _subscribeToDspChainProvider() {
+    DspChainProvider.instance.addListener(_syncFromDspChainProvider);
+  }
+
+  /// P1.1: Sync insert slots from DspChainProvider when it changes
+  void _syncFromDspChainProvider() {
+    final dspProvider = DspChainProvider.instance;
+
+    // For each channel, sync its insert slots from DspChainProvider
+    for (final channel in _channels.values) {
+      final trackId = int.tryParse(channel.id.replaceAll('track_', ''));
+      if (trackId == null) continue;
+
+      if (!dspProvider.hasChain(trackId)) continue;
+
+      final chain = dspProvider.getChain(trackId);
+      final newInserts = _dspChainToInserts(chain);
+
+      // Only update if different
+      if (!_insertsEqual(channel.inserts, newInserts)) {
+        _channels[channel.id] = channel.copyWith(inserts: newInserts);
+      }
+    }
+
+    notifyListeners();
+  }
+
+  /// P1.1: Convert DspChain to InsertSlot list
+  List<InsertSlot> _dspChainToInserts(DspChain chain) {
+    final inserts = <InsertSlot>[];
+    final sortedNodes = chain.sortedNodes;
+
+    // DspChain has up to 8 nodes
+    for (int i = 0; i < 8; i++) {
+      if (i < sortedNodes.length) {
+        final node = sortedNodes[i];
+        inserts.add(InsertSlot(
+          id: node.id,
+          name: node.type.fullName,
+          type: node.type.name, // eq, compressor, limiter, etc.
+          isPreFader: i < 4, // First 4 are pre-fader
+          bypassed: node.bypass,
+          wetDry: node.wetDry,
+        ));
+      } else {
+        inserts.add(InsertSlot.empty(i, isPreFader: i < 4));
+      }
+    }
+
+    return inserts;
+  }
+
+  /// P1.1: Compare two insert lists for equality
+  bool _insertsEqual(List<InsertSlot> a, List<InsertSlot> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id ||
+          a[i].bypassed != b[i].bypassed ||
+          a[i].wetDry != b[i].wetDry) {
+        return false;
+      }
+    }
+    return true;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1647,6 +1715,7 @@ class MixerProvider extends ChangeNotifier {
     _meteringSub?.cancel();
     _transportSub?.cancel();
     _decayTimer?.cancel();
+    DspChainProvider.instance.removeListener(_syncFromDspChainProvider);
     super.dispose();
   }
 }

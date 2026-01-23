@@ -572,7 +572,7 @@ pub extern "C" fn connector_start_event_polling(connector_id: u64) -> i32 {
             match event_rx.recv().await {
                 Ok(event) => {
                     // Call the callback if set
-                    let callback = EVENT_CALLBACK.read().clone();
+                    let callback = *EVENT_CALLBACK.read();
                     if let Some(cb) = callback {
                         if let Ok(json) = serde_json::to_string(&event) {
                             if let Ok(cstr) = CString::new(json) {

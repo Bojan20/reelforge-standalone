@@ -1150,14 +1150,26 @@ impl InsertProcessor for ExpanderWrapper {
     }
 
     fn num_params(&self) -> usize {
-        4
+        5
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
+        // ExpanderWrapper param indices: 0=Threshold, 1=Ratio, 2=Knee, 3=Attack, 4=Release
         match index {
             0 => self.set_threshold(value),
             1 => self.set_ratio(value),
             2 => self.set_knee(value),
+            3 => {
+                // Store attack, but we need both attack and release to call set_times
+                // For now, just call set_times with this as attack and a default release
+                self.left.set_times(value, 50.0);
+                self.right.set_times(value, 50.0);
+            }
+            4 => {
+                // Store release - call set_times with default attack
+                self.left.set_times(5.0, value);
+                self.right.set_times(5.0, value);
+            }
             _ => {}
         }
     }
@@ -1167,7 +1179,8 @@ impl InsertProcessor for ExpanderWrapper {
             0 => "Threshold",
             1 => "Ratio",
             2 => "Knee",
-            3 => "Attack/Release",
+            3 => "Attack",
+            4 => "Release",
             _ => "",
         }
     }
@@ -1420,6 +1433,126 @@ impl InsertProcessor for LinearPhaseEqWrapper {
     }
 }
 
+// ============ Reverb Wrapper ============
+
+use rf_dsp::reverb::{AlgorithmicReverb, ReverbType};
+
+/// Algorithmic Reverb wrapper for insert chain
+pub struct ReverbWrapper {
+    reverb: AlgorithmicReverb,
+    sample_rate: f64,
+}
+
+impl ReverbWrapper {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            reverb: AlgorithmicReverb::new(sample_rate),
+            sample_rate,
+        }
+    }
+
+    pub fn set_room_size(&mut self, size: f64) {
+        self.reverb.set_room_size(size);
+    }
+
+    pub fn set_damping(&mut self, damping: f64) {
+        self.reverb.set_damping(damping);
+    }
+
+    pub fn set_width(&mut self, width: f64) {
+        self.reverb.set_width(width);
+    }
+
+    pub fn set_dry_wet(&mut self, mix: f64) {
+        self.reverb.set_dry_wet(mix);
+    }
+
+    pub fn set_predelay(&mut self, ms: f64) {
+        self.reverb.set_predelay(ms);
+    }
+
+    pub fn set_type(&mut self, reverb_type: ReverbType) {
+        self.reverb.set_type(reverb_type);
+    }
+}
+
+impl InsertProcessor for ReverbWrapper {
+    fn name(&self) -> &str {
+        "FluxForge Algorithmic Reverb"
+    }
+
+    fn process_stereo(&mut self, left: &mut [f64], right: &mut [f64]) {
+        use rf_dsp::StereoProcessor;
+        self.reverb.process_block(left, right);
+    }
+
+    fn reset(&mut self) {
+        use rf_dsp::Processor;
+        self.reverb.reset();
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        // AlgorithmicReverb doesn't have set_sample_rate, so recreate
+        self.sample_rate = sample_rate;
+        self.reverb = AlgorithmicReverb::new(sample_rate);
+    }
+
+    fn latency(&self) -> LatencySamples {
+        use rf_dsp::Processor;
+        self.reverb.latency() as LatencySamples
+    }
+
+    fn num_params(&self) -> usize {
+        6
+    }
+
+    fn set_param(&mut self, param_index: usize, value: f64) {
+        // Reverb param indices:
+        // 0 = Room Size (0.0-1.0)
+        // 1 = Damping (0.0-1.0)
+        // 2 = Width (0.0-1.0)
+        // 3 = Dry/Wet mix (0.0-1.0)
+        // 4 = Predelay (0-200 ms)
+        // 5 = Type (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring)
+        match param_index {
+            0 => self.set_room_size(value),
+            1 => self.set_damping(value),
+            2 => self.set_width(value),
+            3 => self.set_dry_wet(value),
+            4 => self.set_predelay(value),
+            5 => {
+                let rt = match value as u32 {
+                    0 => ReverbType::Room,
+                    1 => ReverbType::Hall,
+                    2 => ReverbType::Plate,
+                    3 => ReverbType::Chamber,
+                    4 => ReverbType::Spring,
+                    _ => ReverbType::Room,
+                };
+                self.set_type(rt);
+            }
+            _ => {}
+        }
+    }
+
+    fn get_param(&self, _param_index: usize) -> f64 {
+        // Not implemented for now
+        0.0
+    }
+
+    fn param_name(&self, param_index: usize) -> &str {
+        match param_index {
+            0 => "Room Size",
+            1 => "Damping",
+            2 => "Width",
+            3 => "Mix",
+            4 => "Predelay",
+            5 => "Type",
+            _ => "Unknown",
+        }
+    }
+}
+
 // ============ Extended Factory ============
 
 /// Create any processor by type name (extended version)
@@ -1443,6 +1576,9 @@ pub fn create_processor_extended(name: &str, sample_rate: f64) -> Option<Box<dyn
         "linear-phase-eq" | "linear_phase_eq" | "linearphase" => {
             Some(Box::new(LinearPhaseEqWrapper::new(sample_rate)))
         }
+        "reverb" | "algorithmic-reverb" | "algo-reverb" => {
+            Some(Box::new(ReverbWrapper::new(sample_rate)))
+        }
         _ => None,
     }
 }
@@ -1464,6 +1600,8 @@ pub fn available_processors() -> Vec<&'static str> {
         "gate",
         "expander",
         "deesser",
+        // Effects
+        "reverb",
     ]
 }
 

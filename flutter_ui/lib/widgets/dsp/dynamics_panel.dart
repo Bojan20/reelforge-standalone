@@ -1,8 +1,14 @@
 /// FluxForge Studio Professional Dynamics Panel
 ///
 /// Multi-mode dynamics processor with Compressor, Limiter, Gate, and Expander.
+///
+/// ARCHITECTURE (2026-01-23):
+/// Uses DspChainProvider for proper audio engine integration.
+/// All processors are loaded into the insert chain and parameters
+/// are set via insertSetParam() FFI calls.
 
 import 'package:flutter/material.dart';
+import '../../providers/dsp_chain_provider.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 
@@ -37,6 +43,15 @@ class DynamicsPanel extends StatefulWidget {
 }
 
 class _DynamicsPanelState extends State<DynamicsPanel> {
+  // FFI reference
+  final NativeFFI _ffi = NativeFFI.instance;
+
+  // DspChainProvider slot indices for each processor type
+  int _compressorSlot = -1;
+  int _limiterSlot = -1;
+  int _gateSlot = -1;
+  int _expanderSlot = -1;
+
   // Mode selection
   DynamicsMode _mode = DynamicsMode.compressor;
 
@@ -91,33 +106,43 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
 
   @override
   void dispose() {
-    NativeFFI.instance.compressorRemove(widget.trackId);
-    NativeFFI.instance.limiterRemove(widget.trackId);
-    NativeFFI.instance.gateRemove(widget.trackId);
-    NativeFFI.instance.expanderRemove(widget.trackId);
+    // Note: DspChainProvider manages processor lifecycle.
+    // We don't remove processors on dispose - they stay in the chain
+    // until explicitly removed via DspChainProvider.removeNode().
+    // This is intentional - processors should persist across widget rebuilds.
     super.dispose();
   }
 
   void _initializeProcessors() {
-    // Create all processor types
-    final compSuccess = NativeFFI.instance.compressorCreate(
-      widget.trackId,
-      sampleRate: widget.sampleRate,
-    );
-    final limSuccess = NativeFFI.instance.limiterCreate(
-      widget.trackId,
-      sampleRate: widget.sampleRate,
-    );
-    final gateSuccess = NativeFFI.instance.gateCreate(
-      widget.trackId,
-      sampleRate: widget.sampleRate,
-    );
-    final expSuccess = NativeFFI.instance.expanderCreate(
-      widget.trackId,
-      sampleRate: widget.sampleRate,
-    );
+    // Use DspChainProvider to add processors to the insert chain
+    final dsp = DspChainProvider.instance;
+    var chain = dsp.getChain(widget.trackId);
 
-    if (compSuccess || limSuccess || gateSuccess || expSuccess) {
+    // Helper to find or add a processor and return its slot index
+    int findOrAddProcessor(DspNodeType type) {
+      // Check if processor of this type already exists
+      for (int i = 0; i < chain.nodes.length; i++) {
+        if (chain.nodes[i].type == type) {
+          return i;
+        }
+      }
+      // Not found, add it
+      dsp.addNode(widget.trackId, type);
+      chain = dsp.getChain(widget.trackId); // Refresh chain
+      return chain.nodes.length - 1;
+    }
+
+    // Add all processor types
+    _compressorSlot = findOrAddProcessor(DspNodeType.compressor);
+    chain = dsp.getChain(widget.trackId); // Refresh after each add
+    _limiterSlot = findOrAddProcessor(DspNodeType.limiter);
+    chain = dsp.getChain(widget.trackId);
+    _gateSlot = findOrAddProcessor(DspNodeType.gate);
+    chain = dsp.getChain(widget.trackId);
+    _expanderSlot = findOrAddProcessor(DspNodeType.expander);
+
+    final success = _compressorSlot >= 0 || _limiterSlot >= 0 || _gateSlot >= 0 || _expanderSlot >= 0;
+    if (success) {
       setState(() => _initialized = true);
       _applyAllSettings();
     }
@@ -126,33 +151,47 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
   void _applyAllSettings() {
     if (!_initialized) return;
 
-    // Apply compressor settings
-    NativeFFI.instance.compressorSetType(widget.trackId, _compressorType);
-    NativeFFI.instance.compressorSetThreshold(widget.trackId, _compThreshold);
-    NativeFFI.instance.compressorSetRatio(widget.trackId, _compRatio);
-    NativeFFI.instance.compressorSetAttack(widget.trackId, _compAttack);
-    NativeFFI.instance.compressorSetRelease(widget.trackId, _compRelease);
-    NativeFFI.instance.compressorSetKnee(widget.trackId, _compKnee);
-    NativeFFI.instance.compressorSetMakeup(widget.trackId, _compMakeupGain);
-    NativeFFI.instance.compressorSetMix(widget.trackId, _compDryWet);
+    // Apply compressor settings via insertSetParam
+    // CompressorWrapper: 0=Threshold, 1=Ratio, 2=Attack, 3=Release, 4=Makeup, 5=Mix, 6=Link, 7=Type
+    if (_compressorSlot >= 0) {
+      _ffi.insertSetParam(widget.trackId, _compressorSlot, 0, _compThreshold);
+      _ffi.insertSetParam(widget.trackId, _compressorSlot, 1, _compRatio);
+      _ffi.insertSetParam(widget.trackId, _compressorSlot, 2, _compAttack);
+      _ffi.insertSetParam(widget.trackId, _compressorSlot, 3, _compRelease);
+      _ffi.insertSetParam(widget.trackId, _compressorSlot, 4, _compMakeupGain);
+      _ffi.insertSetParam(widget.trackId, _compressorSlot, 5, _compDryWet);
+      _ffi.insertSetParam(widget.trackId, _compressorSlot, 7, _compressorType.index.toDouble());
+      // Note: Knee is not exposed via CompressorWrapper param indices
+    }
 
-    // Apply limiter settings
-    NativeFFI.instance.limiterSetThreshold(widget.trackId, _limThreshold);
-    NativeFFI.instance.limiterSetRelease(widget.trackId, _limRelease);
-    NativeFFI.instance.limiterSetCeiling(widget.trackId, _limCeiling);
+    // Apply limiter settings via insertSetParam
+    // TruePeakLimiterWrapper: 0=Threshold, 1=Ceiling, 2=Release, 3=Oversampling
+    if (_limiterSlot >= 0) {
+      _ffi.insertSetParam(widget.trackId, _limiterSlot, 0, _limThreshold);
+      _ffi.insertSetParam(widget.trackId, _limiterSlot, 1, _limCeiling);
+      _ffi.insertSetParam(widget.trackId, _limiterSlot, 2, _limRelease);
+      // Note: Lookahead is not exposed via TruePeakLimiterWrapper param indices
+    }
 
-    // Apply gate settings
-    NativeFFI.instance.gateSetThreshold(widget.trackId, _gateThreshold);
-    NativeFFI.instance.gateSetRange(widget.trackId, _gateRange);
-    NativeFFI.instance.gateSetAttack(widget.trackId, _gateAttack);
-    NativeFFI.instance.gateSetHold(widget.trackId, _gateHold);
-    NativeFFI.instance.gateSetRelease(widget.trackId, _gateRelease);
+    // Apply gate settings via insertSetParam
+    // GateWrapper: 0=Threshold, 1=Range, 2=Attack, 3=Hold, 4=Release
+    if (_gateSlot >= 0) {
+      _ffi.insertSetParam(widget.trackId, _gateSlot, 0, _gateThreshold);
+      _ffi.insertSetParam(widget.trackId, _gateSlot, 1, _gateRange);
+      _ffi.insertSetParam(widget.trackId, _gateSlot, 2, _gateAttack);
+      _ffi.insertSetParam(widget.trackId, _gateSlot, 3, _gateHold);
+      _ffi.insertSetParam(widget.trackId, _gateSlot, 4, _gateRelease);
+    }
 
-    // Apply expander settings
-    NativeFFI.instance.expanderSetThreshold(widget.trackId, _expThreshold);
-    NativeFFI.instance.expanderSetRatio(widget.trackId, _expRatio);
-    NativeFFI.instance.expanderSetTimes(widget.trackId, _expAttack, _expRelease);
-    NativeFFI.instance.expanderSetKnee(widget.trackId, _expKnee);
+    // Apply expander settings via insertSetParam
+    // ExpanderWrapper: 0=Threshold, 1=Ratio, 2=Knee, 3=Attack, 4=Release
+    if (_expanderSlot >= 0) {
+      _ffi.insertSetParam(widget.trackId, _expanderSlot, 0, _expThreshold);
+      _ffi.insertSetParam(widget.trackId, _expanderSlot, 1, _expRatio);
+      _ffi.insertSetParam(widget.trackId, _expanderSlot, 2, _expKnee);
+      _ffi.insertSetParam(widget.trackId, _expanderSlot, 3, _expAttack);
+      _ffi.insertSetParam(widget.trackId, _expanderSlot, 4, _expRelease);
+    }
 
     widget.onSettingsChanged?.call();
   }
@@ -379,7 +418,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: (_compThreshold + 60) / 60,
             onChanged: (v) {
               setState(() => _compThreshold = v * 60 - 60);
-              NativeFFI.instance.compressorSetThreshold(widget.trackId, _compThreshold);
+              if (_compressorSlot >= 0) _ffi.insertSetParam(widget.trackId, _compressorSlot, 0, _compThreshold);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -394,7 +433,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: (_compRatio - 1) / 19,
             onChanged: (v) {
               setState(() => _compRatio = v * 19 + 1);
-              NativeFFI.instance.compressorSetRatio(widget.trackId, _compRatio);
+              if (_compressorSlot >= 0) _ffi.insertSetParam(widget.trackId, _compressorSlot, 1, _compRatio);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -409,7 +448,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _compAttack / 200,
             onChanged: (v) {
               setState(() => _compAttack = v * 200);
-              NativeFFI.instance.compressorSetAttack(widget.trackId, _compAttack);
+              if (_compressorSlot >= 0) _ffi.insertSetParam(widget.trackId, _compressorSlot, 2, _compAttack);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -424,14 +463,14 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _compRelease / 2000,
             onChanged: (v) {
               setState(() => _compRelease = v * 2000);
-              NativeFFI.instance.compressorSetRelease(widget.trackId, _compRelease);
+              if (_compressorSlot >= 0) _ffi.insertSetParam(widget.trackId, _compressorSlot, 3, _compRelease);
               widget.onSettingsChanged?.call();
             },
           ),
         ),
         const SizedBox(height: 8),
 
-        // Knee
+        // Knee (UI-only - not exposed via CompressorWrapper param indices)
         _buildParameterRow(
           label: 'Knee',
           value: '${_compKnee.toStringAsFixed(1)} dB',
@@ -439,7 +478,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _compKnee / 24,
             onChanged: (v) {
               setState(() => _compKnee = v * 24);
-              NativeFFI.instance.compressorSetKnee(widget.trackId, _compKnee);
+              // Note: Knee is UI-only - CompressorWrapper doesn't expose it via param index
               widget.onSettingsChanged?.call();
             },
           ),
@@ -454,7 +493,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: (_compMakeupGain + 12) / 36,
             onChanged: (v) {
               setState(() => _compMakeupGain = v * 36 - 12);
-              NativeFFI.instance.compressorSetMakeup(widget.trackId, _compMakeupGain);
+              if (_compressorSlot >= 0) _ffi.insertSetParam(widget.trackId, _compressorSlot, 4, _compMakeupGain);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -469,7 +508,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _compDryWet,
             onChanged: (v) {
               setState(() => _compDryWet = v);
-              NativeFFI.instance.compressorSetMix(widget.trackId, _compDryWet);
+              if (_compressorSlot >= 0) _ffi.insertSetParam(widget.trackId, _compressorSlot, 5, _compDryWet);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -507,7 +546,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
       child: GestureDetector(
         onTap: () {
           setState(() => _compressorType = type);
-          NativeFFI.instance.compressorSetType(widget.trackId, type);
+          // CompressorWrapper param index 7 = Type
+          if (_compressorSlot >= 0) _ffi.insertSetParam(widget.trackId, _compressorSlot, 7, type.index.toDouble());
           widget.onSettingsChanged?.call();
         },
         child: Container(
@@ -569,7 +609,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: (_limThreshold + 20) / 20,
             onChanged: (v) {
               setState(() => _limThreshold = v * 20 - 20);
-              NativeFFI.instance.limiterSetThreshold(widget.trackId, _limThreshold);
+              // TruePeakLimiterWrapper param index 0 = Threshold
+              if (_limiterSlot >= 0) _ffi.insertSetParam(widget.trackId, _limiterSlot, 0, _limThreshold);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -584,7 +625,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: (_limCeiling + 6) / 6,
             onChanged: (v) {
               setState(() => _limCeiling = v * 6 - 6);
-              NativeFFI.instance.limiterSetCeiling(widget.trackId, _limCeiling);
+              // TruePeakLimiterWrapper param index 1 = Ceiling
+              if (_limiterSlot >= 0) _ffi.insertSetParam(widget.trackId, _limiterSlot, 1, _limCeiling);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -599,7 +641,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _limRelease / 500,
             onChanged: (v) {
               setState(() => _limRelease = v * 500);
-              NativeFFI.instance.limiterSetRelease(widget.trackId, _limRelease);
+              // TruePeakLimiterWrapper param index 2 = Release
+              if (_limiterSlot >= 0) _ffi.insertSetParam(widget.trackId, _limiterSlot, 2, _limRelease);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -634,7 +677,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: (_gateThreshold + 80) / 80,
             onChanged: (v) {
               setState(() => _gateThreshold = v * 80 - 80);
-              NativeFFI.instance.gateSetThreshold(widget.trackId, _gateThreshold);
+              // GateWrapper param index 0 = Threshold
+              if (_gateSlot >= 0) _ffi.insertSetParam(widget.trackId, _gateSlot, 0, _gateThreshold);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -649,7 +693,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: (_gateRange + 80) / 80,
             onChanged: (v) {
               setState(() => _gateRange = v * 80 - 80);
-              NativeFFI.instance.gateSetRange(widget.trackId, _gateRange);
+              // GateWrapper param index 1 = Range
+              if (_gateSlot >= 0) _ffi.insertSetParam(widget.trackId, _gateSlot, 1, _gateRange);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -664,7 +709,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _gateAttack / 50,
             onChanged: (v) {
               setState(() => _gateAttack = v * 50);
-              NativeFFI.instance.gateSetAttack(widget.trackId, _gateAttack);
+              // GateWrapper param index 2 = Attack
+              if (_gateSlot >= 0) _ffi.insertSetParam(widget.trackId, _gateSlot, 2, _gateAttack);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -679,7 +725,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _gateHold / 500,
             onChanged: (v) {
               setState(() => _gateHold = v * 500);
-              NativeFFI.instance.gateSetHold(widget.trackId, _gateHold);
+              // GateWrapper param index 3 = Hold
+              if (_gateSlot >= 0) _ffi.insertSetParam(widget.trackId, _gateSlot, 3, _gateHold);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -694,7 +741,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _gateRelease / 1000,
             onChanged: (v) {
               setState(() => _gateRelease = v * 1000);
-              NativeFFI.instance.gateSetRelease(widget.trackId, _gateRelease);
+              // GateWrapper param index 4 = Release
+              if (_gateSlot >= 0) _ffi.insertSetParam(widget.trackId, _gateSlot, 4, _gateRelease);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -714,7 +762,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: (_expThreshold + 60) / 60,
             onChanged: (v) {
               setState(() => _expThreshold = v * 60 - 60);
-              NativeFFI.instance.expanderSetThreshold(widget.trackId, _expThreshold);
+              // ExpanderWrapper param index 0 = Threshold
+              if (_expanderSlot >= 0) _ffi.insertSetParam(widget.trackId, _expanderSlot, 0, _expThreshold);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -729,7 +778,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: (_expRatio - 1) / 9,
             onChanged: (v) {
               setState(() => _expRatio = v * 9 + 1);
-              NativeFFI.instance.expanderSetRatio(widget.trackId, _expRatio);
+              // ExpanderWrapper param index 1 = Ratio
+              if (_expanderSlot >= 0) _ffi.insertSetParam(widget.trackId, _expanderSlot, 1, _expRatio);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -744,7 +794,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _expAttack / 100,
             onChanged: (v) {
               setState(() => _expAttack = v * 100);
-              NativeFFI.instance.expanderSetTimes(widget.trackId, _expAttack, _expRelease);
+              // ExpanderWrapper param index 3 = Attack
+              if (_expanderSlot >= 0) _ffi.insertSetParam(widget.trackId, _expanderSlot, 3, _expAttack);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -759,7 +810,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _expRelease / 500,
             onChanged: (v) {
               setState(() => _expRelease = v * 500);
-              NativeFFI.instance.expanderSetTimes(widget.trackId, _expAttack, _expRelease);
+              // ExpanderWrapper param index 4 = Release
+              if (_expanderSlot >= 0) _ffi.insertSetParam(widget.trackId, _expanderSlot, 4, _expRelease);
               widget.onSettingsChanged?.call();
             },
           ),
@@ -774,7 +826,8 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             value: _expKnee / 12,
             onChanged: (v) {
               setState(() => _expKnee = v * 12);
-              NativeFFI.instance.expanderSetKnee(widget.trackId, _expKnee);
+              // ExpanderWrapper param index 2 = Knee
+              if (_expanderSlot >= 0) _ffi.insertSetParam(widget.trackId, _expanderSlot, 2, _expKnee);
               widget.onSettingsChanged?.call();
             },
           ),

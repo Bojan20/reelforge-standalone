@@ -73,6 +73,7 @@ import '../widgets/slot_lab/aux_sends_panel.dart';
 import '../widgets/slot_lab/stage_trace_widget.dart';
 import '../widgets/slot_lab/slot_preview_widget.dart';
 import '../widgets/slot_lab/premium_slot_preview.dart';
+import '../widgets/slot_lab/embedded_slot_mockup.dart';
 import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/audio_hover_preview.dart';
 import '../widgets/slot_lab/forced_outcome_panel.dart';
@@ -105,6 +106,11 @@ import '../models/auto_event_builder_models.dart';
 import '../providers/stage_ingest_provider.dart';
 import '../widgets/stage_ingest/stage_ingest_panel.dart';
 import '../widgets/slot_lab/gdd_import_wizard.dart';
+import '../widgets/ale/ale_panel.dart';
+import '../widgets/slot_lab/symbol_strip_widget.dart';
+import '../widgets/slot_lab/events_panel_widget.dart';
+import '../providers/slot_lab_project_provider.dart';
+import '../models/slot_lab_models.dart';
 
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
@@ -259,24 +265,24 @@ class _SlotAudioTrack {
 // BOTTOM PANEL TAB ENUM
 // =============================================================================
 
+/// V6 Layout: 7 core tabs + [+] menu
+/// Merged from 15 tabs based on role analysis (see SLOTLAB_LOWER_ZONE_ANALYSIS.md)
 enum _BottomPanelTab {
-  timeline,
-  busHierarchy,
-  profiler,
-  rtpc,
-  resources,
-  auxSends,
-  eventLog,
-  gameModel,
-  scenarios,
-  gddImport,
-  // Auto Event Builder tabs
-  commandBuilder,
-  eventList,
-  meters,
-  autoSpatial,
-  // Stage Ingest (Universal engine integration)
-  stageIngest,
+  timeline,   // Audio regions, layers, waveforms
+  events,     // Event list + RTPC (merged eventList + rtpc)
+  mixer,      // Bus hierarchy + Aux sends (merged)
+  musicAle,   // ALE rules, signals, transitions
+  meters,     // LUFS, peak, correlation
+  debug,      // Event log (renamed)
+  engine,     // Profiler + resources + stageIngest (merged)
+}
+
+/// Plus menu items (opened via popup, not in tab bar)
+enum _PlusMenuItem {
+  gameConfig,     // gameModel + gddImport
+  autoSpatial,    // AutoSpatial panel
+  scenarios,      // Scenarios panel
+  commandBuilder, // Command Builder
 }
 
 // =============================================================================
@@ -797,14 +803,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   /// Map LowerZoneTab to _BottomPanelTab
   /// Returns null for tabs that don't have a direct mapping
+  /// Map LowerZoneTab to _BottomPanelTab (V6 layout)
   _BottomPanelTab? _lowerZoneTabToBottomTab(LowerZoneTab tab) {
     switch (tab) {
       case LowerZoneTab.timeline:
         return _BottomPanelTab.timeline;
       case LowerZoneTab.commandBuilder:
-        return _BottomPanelTab.commandBuilder;
+        return null; // Now in [+] menu, opens as dialog
       case LowerZoneTab.eventList:
-        return _BottomPanelTab.eventList;
+        return _BottomPanelTab.events; // V6: eventList merged into events
       case LowerZoneTab.meters:
         return _BottomPanelTab.meters;
       // DSP panels don't map to _BottomPanelTab
@@ -816,16 +823,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     }
   }
 
-  /// Map _BottomPanelTab to LowerZoneTab (only for the 4 persisted tabs)
+  /// Map _BottomPanelTab to LowerZoneTab (V6 layout)
   /// Returns null for tabs that don't need persistence
   LowerZoneTab? _bottomTabToLowerZoneTab(_BottomPanelTab tab) {
     switch (tab) {
       case _BottomPanelTab.timeline:
         return LowerZoneTab.timeline;
-      case _BottomPanelTab.commandBuilder:
-        return LowerZoneTab.commandBuilder;
-      case _BottomPanelTab.eventList:
-        return LowerZoneTab.eventList;
+      case _BottomPanelTab.events:
+        return LowerZoneTab.eventList; // V6: events maps to legacy eventList
       case _BottomPanelTab.meters:
         return LowerZoneTab.meters;
       default:
@@ -1912,39 +1917,103 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               // Header
               _buildHeader(),
 
-              // Main area
+              // Main area - V6 3-Panel Layout
               Expanded(
                 child: Row(
                   children: [
-                    // Left: Game Spec & Paytable
-                    _buildLeftPanel(),
+                    // LEFT: Symbol Strip (V6)
+                    Consumer<SlotLabProjectProvider>(
+                      builder: (context, projectProvider, _) {
+                        return SizedBox(
+                          width: 220,
+                          child: SymbolStripWidget(
+                            symbols: projectProvider.symbols,
+                            contexts: projectProvider.contexts,
+                            symbolAudio: projectProvider.symbolAudio,
+                            musicLayers: projectProvider.musicLayers,
+                            onSymbolAudioDrop: (symbolId, contextName, audioPath) {
+                              projectProvider.assignSymbolAudio(
+                                symbolId,
+                                contextName,
+                                audioPath,
+                              );
+                              // Also sync to EventRegistry for playback
+                              final symbol = projectProvider.symbols.firstWhere(
+                                (s) => s.id == symbolId,
+                                orElse: () => defaultSymbols.first,
+                              );
+                              final stageName = symbol.stageName(contextName);
+                              eventRegistry.registerEvent(AudioEvent(
+                                id: 'symbol_${symbolId}_$contextName',
+                                name: '${symbol.name} $contextName',
+                                stage: stageName,
+                                layers: [
+                                  AudioLayer(
+                                    id: 'layer_${symbolId}_$contextName',
+                                    name: '${symbol.name} Audio',
+                                    audioPath: audioPath,
+                                    volume: 1.0,
+                                    pan: 0.0,
+                                    delay: 0.0,
+                                    busId: 1, // SFX bus
+                                  ),
+                                ],
+                              ));
+                            },
+                            onMusicLayerDrop: (contextId, layer, audioPath) {
+                              projectProvider.assignMusicLayer(
+                                contextId,
+                                layer,
+                                audioPath,
+                              );
+                            },
+                            onAddSymbol: () {
+                              // TODO: Show add symbol dialog
+                            },
+                            onAddContext: () {
+                              // TODO: Show add context dialog
+                            },
+                          ),
+                        );
+                      },
+                    ),
 
-                    // Center: Timeline + Stage Trace + Slot View
+                    // CENTER: Premium Slot Preview (DOMINANT) + Timeline below
                     Expanded(
                       flex: 3,
                       child: Column(
                         children: [
-                          // Audio Timeline (main work area)
+                          // SLOT MOCKUP - Main visual element (LARGE)
                           Expanded(
-                            flex: 2,
-                            child: _buildTimelineArea(),
+                            flex: 3,
+                            child: _buildMockSlot(),
                           ),
                           // Stage Trace Bar (animated stage progress)
                           StageProgressBar(
                             provider: _slotLabProvider,
-                            height: 28,
+                            height: 32,
                           ),
-                          // Mock Slot View with improved preview
+                          // Audio Timeline (compact below slot)
                           Expanded(
                             flex: 1,
-                            child: _buildMockSlot(),
+                            child: _buildTimelineArea(),
                           ),
                         ],
                       ),
                     ),
 
-                    // Right: Event Editor + Audio Browser
-                    _buildRightPanel(),
+                    // RIGHT: Events Panel (V6)
+                    // Uses context.watch<MiddlewareProvider>() internally
+                    SizedBox(
+                      width: 300,
+                      child: EventsPanelWidget(
+                        onAudioDragStarted: (audioPath) {
+                          setState(() {
+                            _draggingAudioPath = audioPath;
+                          });
+                        },
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2312,15 +2381,29 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         HardwareKeyboard.instance.isShiftPressed;
 
     if (isCtrlShift) {
-      // Ctrl+Shift+C = Command Builder tab
-      if (key == LogicalKeyboardKey.keyC) {
-        setState(() => _setBottomTab(_BottomPanelTab.commandBuilder));
+      // V6 Keyboard shortcuts for Lower Zone tabs
+
+      // Ctrl+Shift+T = Timeline tab
+      if (key == LogicalKeyboardKey.keyT) {
+        setState(() => _setBottomTab(_BottomPanelTab.timeline));
         return KeyEventResult.handled;
       }
 
       // Ctrl+Shift+E = Events tab
       if (key == LogicalKeyboardKey.keyE) {
-        setState(() => _setBottomTab(_BottomPanelTab.eventList));
+        setState(() => _setBottomTab(_BottomPanelTab.events));
+        return KeyEventResult.handled;
+      }
+
+      // Ctrl+Shift+X = Mixer tab
+      if (key == LogicalKeyboardKey.keyX) {
+        setState(() => _setBottomTab(_BottomPanelTab.mixer));
+        return KeyEventResult.handled;
+      }
+
+      // Ctrl+Shift+A = Music/ALE tab
+      if (key == LogicalKeyboardKey.keyA) {
+        setState(() => _setBottomTab(_BottomPanelTab.musicAle));
         return KeyEventResult.handled;
       }
 
@@ -2330,15 +2413,21 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         return KeyEventResult.handled;
       }
 
-      // Ctrl+Shift+T = Timeline tab
-      if (key == LogicalKeyboardKey.keyT) {
-        setState(() => _setBottomTab(_BottomPanelTab.timeline));
+      // Ctrl+Shift+D = Debug tab
+      if (key == LogicalKeyboardKey.keyD) {
+        setState(() => _setBottomTab(_BottomPanelTab.debug));
         return KeyEventResult.handled;
       }
 
-      // Ctrl+Shift+L = Event Log tab
-      if (key == LogicalKeyboardKey.keyL) {
-        setState(() => _setBottomTab(_BottomPanelTab.eventLog));
+      // Ctrl+Shift+G = Engine tab
+      if (key == LogicalKeyboardKey.keyG) {
+        setState(() => _setBottomTab(_BottomPanelTab.engine));
+        return KeyEventResult.handled;
+      }
+
+      // Ctrl+Shift+C = Command Builder (opens dialog)
+      if (key == LogicalKeyboardKey.keyC) {
+        _showCommandBuilderDialog();
         return KeyEventResult.handled;
       }
     }
@@ -5577,6 +5666,33 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     });
   }
 
+  /// Create a new track for a drop-created event (no setState - called from _rebuildRegionForEvent)
+  void _createTrackForNewEvent(SlotCompositeEvent event) {
+    // Use event color as track color
+    final trackColor = event.color;
+
+    // Create track in FFI engine for real audio playback
+    int ffiTrackId = 0;
+    try {
+      ffiTrackId = _ffi.createTrack(event.name, trackColor.value, event.targetBusId ?? SlotBusIds.sfx);
+      debugPrint('[SlotLab] Created FFI track for dropped event: $ffiTrackId → ${event.name}');
+    } catch (e) {
+      debugPrint('[SlotLab] FFI createTrack error: $e');
+    }
+
+    final newTrack = _SlotAudioTrack(
+      id: ffiTrackId > 0 ? 'ffi_$ffiTrackId' : 'track_${_tracks.length + 1}',
+      name: event.name,
+      color: trackColor,
+      outputBusId: event.targetBusId ?? SlotBusIds.sfx,
+    );
+
+    // Add track directly (no setState - called from _rebuildRegionForEvent which may be in _onMiddlewareChanged)
+    _tracks.add(newTrack);
+    _selectedTrackIndex = _tracks.length - 1;
+    debugPrint('[SlotLab] Track created: ${newTrack.name} (id=${newTrack.id})');
+  }
+
   void _toggleAllTracksExpanded() {
     setState(() {
       _allTracksExpanded = !_allTracksExpanded;
@@ -5598,48 +5714,44 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   Widget _buildMockSlot() {
     return Container(
       margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
-      child: Row(
+      child: Column(
         children: [
-          // Premium Slot Preview Widget - fills available space
-          // Wrap with droppable when in event builder mode
+          // Slot Preview Area - Same premium mockup in both modes
+          // Edit mode adds drop zone overlays via _buildDroppableSlotPreview()
           Expanded(
-            child: _eventBuilderMode
-                ? _buildDroppableSlotPreview()
-                : GlassSlotPreviewWrapper(
-                    isSpinning: _isSpinning,
-                    hasWin: _slotLabProvider.lastResult?.isWin ?? false,
-                    child: SlotPreviewWidget(
-                      provider: _slotLabProvider,
-                      reels: _reelCount,
-                      rows: _rowCount,
-                    ),
-                  ),
-          ),
-          // Compact Controls + Event Builder Toggle
-          Container(
-            width: 90,
-            padding: const EdgeInsets.all(4),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Row(
               children: [
-                // Event Builder Mode Toggle
-                _buildModeToggle(),
-                const SizedBox(height: 8),
-                _buildSlotButton('SPIN', const Color(0xFF40FF90), _handleSpin),
-                const SizedBox(height: 4),
-                if (_engineInitialized) ...[
-                  _buildSmallButton('BIG', const Color(0xFFFF9040),
-                      () => _handleEngineSpin(forcedOutcome: ForcedOutcome.bigWin)),
-                  const SizedBox(height: 3),
-                  _buildSmallButton('MEGA', const Color(0xFFFF4080),
-                      () => _handleEngineSpin(forcedOutcome: ForcedOutcome.megaWin)),
-                  const SizedBox(height: 3),
-                  _buildSmallButton('FREE', const Color(0xFF40C8FF),
-                      () => _handleEngineSpin(forcedOutcome: ForcedOutcome.freeSpins)),
-                  const SizedBox(height: 3),
-                  _buildSmallButton('JACK', const Color(0xFFFFD700),
-                      () => _handleEngineSpin(forcedOutcome: ForcedOutcome.jackpotGrand)),
-                ],
+                // Premium Embedded Slot Mockup - fills available space
+                Expanded(
+                  child: _eventBuilderMode
+                      ? _buildDroppableSlotPreview()
+                      : EmbeddedSlotMockup(
+                          provider: _slotLabProvider,
+                          reels: _reelCount,
+                          rows: _rowCount,
+                          onSpin: _handleSpin,
+                          onForcedSpin: (outcome) => _handleEngineSpin(forcedOutcome: outcome),
+                          // VISUAL-SYNC: Trigger stages exactly when visual events occur
+                          onSpinStart: () => _triggerVisualStage('SPIN_START'),
+                          onReelStop: (reelIdx) => _triggerVisualStage('REEL_STOP_$reelIdx', context: {'reel_index': reelIdx}),
+                          onAnticipation: () => _triggerVisualStage('ANTICIPATION_ON'),
+                          onReveal: () => _triggerVisualStage('SPIN_END'),
+                          onWinStart: (winType, amount) => _triggerWinStage(winType, amount),
+                          onWinEnd: () => _triggerVisualStage('WIN_END'),
+                        ),
+                ),
+                // Event Builder Mode Toggle (compact sidebar)
+                Container(
+                  width: 50,
+                  padding: const EdgeInsets.all(4),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Event Builder Mode Toggle
+                      _buildModeToggle(),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -5648,13 +5760,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
   }
 
-  /// Toggle button for Event Builder mode
+  /// Toggle button for Event Builder mode (DROP ZONE)
   Widget _buildModeToggle() {
     return GestureDetector(
       onTap: () => setState(() => _eventBuilderMode = !_eventBuilderMode),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -5668,23 +5780,35 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             color: _eventBuilderMode
                 ? const Color(0xFFAB7EF6)
                 : Colors.white.withOpacity(0.2),
+            width: _eventBuilderMode ? 2 : 1,
           ),
+          boxShadow: _eventBuilderMode
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF9333EA).withOpacity(0.5),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              _eventBuilderMode ? Icons.edit : Icons.edit_off,
-              size: 12,
+              _eventBuilderMode ? Icons.my_location : Icons.ads_click,
+              size: 16,
               color: _eventBuilderMode ? Colors.white : Colors.white54,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(height: 2),
             Text(
-              'DROP',
+              _eventBuilderMode ? 'DROP\nMODE' : 'EDIT\nMODE',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: _eventBuilderMode ? Colors.white : Colors.white54,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
+                height: 1.1,
               ),
             ),
           ],
@@ -5694,66 +5818,240 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Droppable Slot Preview - Active in Event Builder mode
+  /// Uses LayoutBuilder to position drop zones EXACTLY on mockup elements
   Widget _buildDroppableSlotPreview() {
-    return GlassSlotPreviewWrapper(
-      isSpinning: _isSpinning,
-      hasWin: _slotLabProvider.lastResult?.isWin ?? false,
-      child: Stack(
-        children: [
-          // Base slot preview with reel drop zones
-          DroppableReelFrame(
-            reelCount: _reelCount,
-            onSurfaceEventCreated: (event) => _onEventBuilderEventCreated(event, 'reel.surface'),
-            onReelEventCreated: (reelIndex, event) => _onEventBuilderEventCreated(event, 'reel.$reelIndex'),
-            child: SlotPreviewWidget(
+    // EmbeddedSlotMockup layout:
+    // Header: 72px, Jackpot: 100px, InfoBar: 52px, ControlBar: 100px
+    // Reel area fills remaining space
+    const headerH = 72.0;
+    const jackpotH = 100.0;
+    const infoBarH = 52.0;
+    const controlBarH = 100.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalH = constraints.maxHeight;
+        final totalW = constraints.maxWidth;
+
+        // Calculate reel area bounds
+        final reelTop = headerH + jackpotH;
+        final reelBottom = totalH - infoBarH - controlBarH;
+        final reelHeight = reelBottom - reelTop;
+
+        return Stack(
+          children: [
+            // EXACT SAME premium mockup as normal mode
+            EmbeddedSlotMockup(
               provider: _slotLabProvider,
               reels: _reelCount,
               rows: _rowCount,
+              onSpin: _handleSpin,
+              onForcedSpin: (outcome) => _handleEngineSpin(forcedOutcome: outcome),
+              // VISUAL-SYNC: Trigger stages exactly when visual events occur
+              onSpinStart: () => _triggerVisualStage('SPIN_START'),
+              onReelStop: (reelIdx) => _triggerVisualStage('REEL_STOP_$reelIdx', context: {'reel_index': reelIdx}),
+              onAnticipation: () => _triggerVisualStage('ANTICIPATION_ON'),
+              onReveal: () => _triggerVisualStage('SPIN_END'),
+              onWinStart: (winType, amount) => _triggerWinStage(winType, amount),
+              onWinEnd: () => _triggerVisualStage('WIN_END'),
             ),
-          ),
 
-          // Overlay drop zones (positioned at corners/edges)
-          Positioned(
-            top: 4,
-            left: 4,
-            right: 4,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // Jackpot drop zones
-                _buildMiniDropZone('MINI', 'overlay.jackpot.mini', const Color(0xFF4CAF50)),
-                _buildMiniDropZone('MINOR', 'overlay.jackpot.minor', const Color(0xFF8B5CF6)),
-                _buildMiniDropZone('MAJOR', 'overlay.jackpot.major', const Color(0xFFFF4080)),
-                _buildMiniDropZone('GRAND', 'overlay.jackpot.grand', const Color(0xFFFFD700)),
-              ],
+            // ═══════════════════════════════════════════════════════════════
+            // JACKPOT DROP ZONES - Exactly on jackpot bar (top 72-172)
+            // ═══════════════════════════════════════════════════════════════
+            Positioned(
+              top: headerH + 12, // Inside jackpot bar
+              left: 16,
+              right: 16,
+              height: jackpotH - 24,
+              child: Row(
+                children: [
+                  // MINI
+                  Expanded(
+                    child: _buildOverlayDropZone('overlay.jackpot.mini', const Color(0xFF00E676)),
+                  ),
+                  const SizedBox(width: 12),
+                  // MINOR
+                  Expanded(
+                    child: _buildOverlayDropZone('overlay.jackpot.minor', const Color(0xFF7C4DFF)),
+                  ),
+                  const SizedBox(width: 12),
+                  // MAJOR
+                  Expanded(
+                    child: _buildOverlayDropZone('overlay.jackpot.major', const Color(0xFFFF1744)),
+                  ),
+                  const SizedBox(width: 12),
+                  // GRAND (2x width)
+                  Expanded(
+                    flex: 2,
+                    child: _buildOverlayDropZone('overlay.jackpot.grand', const Color(0xFFFFD700)),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // Win overlay drop zones (bottom)
-          Positioned(
-            bottom: 4,
-            left: 4,
-            right: 4,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildMiniDropZone('WIN', 'overlay.win.small', const Color(0xFF40C8FF)),
-                _buildMiniDropZone('BIG', 'overlay.win.big', const Color(0xFF40FF90)),
-                _buildMiniDropZone('MEGA', 'overlay.win.mega', const Color(0xFFFFD700)),
-                _buildMiniDropZone('EPIC', 'overlay.win.epic', const Color(0xFFE040FB)),
-              ],
+            // ═══════════════════════════════════════════════════════════════
+            // REEL SURFACE DROP ZONE - Entire reel area
+            // ═══════════════════════════════════════════════════════════════
+            Positioned(
+              top: reelTop + 16,
+              left: 16,
+              right: 16,
+              height: reelHeight - 32,
+              child: _buildOverlayDropZone('reel.surface', const Color(0xFFFF9040)),
             ),
-          ),
 
-          // Event count summary (top right)
-          const Positioned(
-            top: 30,
-            right: 4,
-            child: SlotDropZoneSummary(),
-          ),
-        ],
+            // ═══════════════════════════════════════════════════════════════
+            // INDIVIDUAL REEL COLUMN DROP ZONES
+            // ═══════════════════════════════════════════════════════════════
+            Positioned(
+              top: reelTop + 26,
+              left: 26,
+              right: 26,
+              height: reelHeight - 52,
+              child: Row(
+                children: List.generate(_reelCount, (index) {
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: _buildOverlayDropZone('reel.$index', _getReelColor(index)),
+                    ),
+                  );
+                }),
+              ),
+            ),
+
+            // ═══════════════════════════════════════════════════════════════
+            // WIN OVERLAY DROP ZONES - Center of reel area
+            // ═══════════════════════════════════════════════════════════════
+            Positioned(
+              top: reelTop + (reelHeight / 2) - 20,
+              left: totalW * 0.15,
+              right: totalW * 0.15,
+              height: 40,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildMiniDropZone('WIN', 'overlay.win.small', const Color(0xFF42A5F5)),
+                  _buildMiniDropZone('BIG', 'overlay.win.big', const Color(0xFFFFCA28)),
+                  _buildMiniDropZone('MEGA', 'overlay.win.mega', const Color(0xFFFF7043)),
+                  _buildMiniDropZone('EPIC', 'overlay.win.epic', const Color(0xFFE040FB)),
+                ],
+              ),
+            ),
+
+            // ═══════════════════════════════════════════════════════════════
+            // CONTROL BAR DROP ZONES - Exactly on control buttons
+            // ═══════════════════════════════════════════════════════════════
+            // AUTO button (left side)
+            Positioned(
+              bottom: controlBarH - 80,
+              left: 20,
+              width: 70,
+              height: 50,
+              child: _buildOverlayDropZone('ui.autospin', const Color(0xFF00E676)),
+            ),
+
+            // TURBO button (after AUTO)
+            Positioned(
+              bottom: controlBarH - 80,
+              left: 102,
+              width: 70,
+              height: 50,
+              child: _buildOverlayDropZone('ui.turbo', const Color(0xFF00E676)),
+            ),
+
+            // SPIN button (center)
+            Positioned(
+              bottom: (controlBarH - 70) / 2,
+              left: (totalW - 120) / 2,
+              width: 120,
+              height: 70,
+              child: _buildOverlayDropZone('ui.spin', const Color(0xFF00E676)),
+            ),
+
+            // ═══════════════════════════════════════════════════════════════
+            // EDIT MODE BADGE
+            // ═══════════════════════════════════════════════════════════════
+            Positioned(
+              top: 8,
+              right: 60,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF9333EA), Color(0xFF7C3AED)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF9333EA).withOpacity(0.4),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.edit, size: 12, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text(
+                      'DROP ZONES ACTIVE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Overlay drop zone - transparent until drag hover
+  Widget _buildOverlayDropZone(String targetId, Color color) {
+    final targetType = targetId.startsWith('reel')
+        ? TargetType.reelSurface
+        : targetId.startsWith('ui')
+            ? TargetType.uiButton
+            : TargetType.overlay;
+
+    final target = DropTarget(
+      targetId: targetId,
+      targetType: targetType,
+      stageContext: StageContext.global,
+    );
+
+    return DropTargetWrapper(
+      target: target,
+      showBadge: false,
+      glowColor: color,
+      onEventCreated: (event) => _onEventBuilderEventCreated(event, targetId),
+      child: Container(
+        decoration: BoxDecoration(
+          // Semi-transparent to show drop zone boundaries
+          border: Border.all(color: color.withOpacity(0.3), width: 1),
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
     );
+  }
+
+  Color _getReelColor(int index) {
+    const colors = [
+      Color(0xFF4A9EFF),
+      Color(0xFF40C8FF),
+      Color(0xFF40FF90),
+      Color(0xFFFF9040),
+      Color(0xFFFF4060),
+    ];
+    return colors[index % colors.length];
   }
 
   /// Mini drop zone badge for compact overlay zones
@@ -5822,17 +6120,221 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Callback when event is created via drag-drop in Event Builder mode
+  /// CRITICAL: This bridges AutoEventBuilderProvider → MiddlewareProvider (SSoT)
   void _onEventBuilderEventCreated(CommittedEvent event, String targetId) {
-    debugPrint('[SlotLab] Event Builder: Created event ${event.eventId} for $targetId');
+    debugPrint('[SlotLab] Event Builder: Creating composite event for $targetId');
+
+    // Extract filename for display name
+    final fileName = event.assetPath.split('/').last;
+    final eventName = _generateEventNameFromTarget(targetId, fileName);
+
+    // Map targetId to stage name
+    final stage = _targetIdToStage(targetId);
+
+    // Map bus name to bus ID
+    final busId = _busNameToId(event.bus);
+
+    // Calculate pan from target (per-reel spatial positioning)
+    final pan = _calculatePanFromTarget(targetId, event.pan);
+
+    // Create SlotEventLayer from CommittedEvent
+    final layer = SlotEventLayer(
+      id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
+      name: fileName,
+      audioPath: event.assetPath,
+      volume: (event.parameters['volume'] as double?) ?? 1.0,
+      pan: pan,
+      offsetMs: (event.parameters['delayMs'] as double?) ?? 0.0,
+      fadeInMs: (event.parameters['fadeInMs'] as num?)?.toDouble() ?? 0.0,
+      fadeOutMs: (event.parameters['fadeOutMs'] as num?)?.toDouble() ?? 0.0,
+      muted: false,
+      solo: false,
+      busId: busId,
+    );
+
+    // Create SlotCompositeEvent
+    final now = DateTime.now();
+    final compositeEvent = SlotCompositeEvent(
+      id: event.eventId,
+      name: eventName,
+      category: _categoryFromTargetId(targetId),
+      color: _colorFromTargetId(targetId),
+      layers: [layer],
+      masterVolume: 1.0,
+      looping: false,
+      maxInstances: 1,
+      createdAt: now,
+      modifiedAt: now,
+      triggerStages: [stage],
+    );
+
+    // Add to MiddlewareProvider (Single Source of Truth)
+    // This will trigger _onMiddlewareChanged → timeline sync + EventRegistry sync
+    _middleware.addCompositeEvent(compositeEvent, select: true);
+
+    debugPrint('[SlotLab] ✅ Created composite event "${compositeEvent.name}" with stage "$stage"');
+    debugPrint('[SlotLab]    Layer: ${layer.name}, bus=$busId, pan=$pan');
 
     // Show feedback
     setState(() {
-      _lastDragStatus = '✅ Event created: ${event.eventId}';
+      _lastDragStatus = '✅ Event: $eventName → $stage';
       _lastDragStatusTime = DateTime.now();
     });
+  }
 
-    // The AutoEventBuilderProvider already handles the event creation
-    // EventRegistry sync can be added later if needed
+  /// Generate event name from target ID and filename
+  String _generateEventNameFromTarget(String targetId, String fileName) {
+    // Remove extension from filename
+    final baseName = fileName.contains('.') ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+
+    // Generate readable name based on target
+    if (targetId.startsWith('ui.spin')) return 'Spin $baseName';
+    if (targetId.startsWith('ui.')) return 'UI $baseName';
+    if (targetId.startsWith('reel.surface')) return 'Reel Spin $baseName';
+    if (targetId.startsWith('reel.')) {
+      final reelIndex = targetId.split('.').last;
+      return 'Reel $reelIndex $baseName';
+    }
+    if (targetId.startsWith('overlay.win.')) {
+      final tier = targetId.split('.').last;
+      return 'Win ${tier.toUpperCase()} $baseName';
+    }
+    if (targetId.startsWith('overlay.jackpot.')) {
+      final tier = targetId.split('.').last;
+      return 'Jackpot ${tier.toUpperCase()} $baseName';
+    }
+    if (targetId.startsWith('symbol.')) {
+      final symbolType = targetId.split('.').last;
+      return 'Symbol ${symbolType.toUpperCase()} $baseName';
+    }
+    if (targetId.startsWith('music.')) {
+      final context = targetId.split('.').last;
+      return 'Music ${context.toUpperCase()} $baseName';
+    }
+    if (targetId.startsWith('feature.')) {
+      final feature = targetId.split('.').last;
+      return 'Feature ${feature.toUpperCase()} $baseName';
+    }
+    if (targetId.startsWith('hud.')) {
+      final element = targetId.split('.').last;
+      return 'HUD ${element.toUpperCase()} $baseName';
+    }
+
+    return baseName;
+  }
+
+  /// Map targetId to canonical stage name
+  String _targetIdToStage(String targetId) {
+    // UI buttons
+    if (targetId == 'ui.spin') return 'SPIN_START';
+    if (targetId == 'ui.autospin') return 'AUTO_SPIN_ON';
+    if (targetId == 'ui.turbo') return 'TURBO_ON';
+    if (targetId == 'ui.maxbet') return 'MAX_BET_PRESS';
+    if (targetId.startsWith('ui.bet.')) return 'BET_CHANGE';
+
+    // Reels
+    if (targetId == 'reel.surface') return 'REEL_SPINNING';
+    if (targetId.startsWith('reel.')) {
+      final reelIndex = targetId.split('.').last;
+      return 'REEL_STOP_$reelIndex';
+    }
+
+    // Win overlays
+    if (targetId == 'overlay.win.small') return 'WIN_SMALL';
+    if (targetId == 'overlay.win.big') return 'WIN_BIG';
+    if (targetId == 'overlay.win.mega') return 'WIN_MEGA';
+    if (targetId == 'overlay.win.epic') return 'WIN_EPIC';
+
+    // Jackpot overlays
+    if (targetId == 'overlay.jackpot.mini') return 'JACKPOT_MINI';
+    if (targetId == 'overlay.jackpot.minor') return 'JACKPOT_MINOR';
+    if (targetId == 'overlay.jackpot.major') return 'JACKPOT_MAJOR';
+    if (targetId == 'overlay.jackpot.grand') return 'JACKPOT_GRAND';
+
+    // Symbols
+    if (targetId == 'symbol.wild') return 'WILD_LAND';
+    if (targetId == 'symbol.scatter') return 'SCATTER_LAND';
+    if (targetId == 'symbol.bonus') return 'BONUS_SYMBOL_LAND';
+    if (targetId.startsWith('symbol.hp')) return 'SYMBOL_LAND_HP';
+    if (targetId.startsWith('symbol.lp')) return 'SYMBOL_LAND_LP';
+
+    // Music zones
+    if (targetId == 'music.base') return 'MUSIC_BASE';
+    if (targetId == 'music.freespins') return 'MUSIC_FS';
+    if (targetId == 'music.bonus') return 'MUSIC_BONUS';
+    if (targetId == 'music.bigwin') return 'MUSIC_BIGWIN';
+    if (targetId == 'music.anticipation') return 'ANTICIPATION_MUSIC';
+
+    // Features
+    if (targetId.startsWith('feature.')) {
+      final feature = targetId.split('.').last.toUpperCase();
+      return '${feature}_ENTER';
+    }
+
+    // HUD
+    if (targetId == 'hud.balance') return 'BALANCE_CHANGE';
+    if (targetId == 'hud.win') return 'ROLLUP_START';
+
+    // Default: convert targetId to uppercase stage format
+    return targetId.replaceAll('.', '_').toUpperCase();
+  }
+
+  /// Map bus name to bus ID
+  int _busNameToId(String busName) {
+    final lower = busName.toLowerCase();
+    if (lower.contains('master')) return SlotBusIds.master;
+    if (lower.contains('music')) return SlotBusIds.music;
+    if (lower.contains('sfx')) return SlotBusIds.sfx;
+    if (lower.contains('voice')) return SlotBusIds.voice;
+    if (lower.contains('ui')) return SlotBusIds.ui;
+    if (lower.contains('reel')) return SlotBusIds.reels;
+    if (lower.contains('win')) return SlotBusIds.wins;
+    if (lower.contains('anticipation')) return SlotBusIds.anticipation;
+    return SlotBusIds.sfx; // Default to SFX
+  }
+
+  /// Calculate pan value from target (per-reel spatial positioning)
+  double _calculatePanFromTarget(String targetId, double defaultPan) {
+    // Per-reel auto-pan: reel.0 = -0.8, reel.2 = 0.0, reel.4 = +0.8
+    if (targetId.startsWith('reel.') && targetId != 'reel.surface') {
+      final indexStr = targetId.split('.').last;
+      final index = int.tryParse(indexStr);
+      if (index != null && index >= 0 && index <= 4) {
+        // Map 0-4 to -0.8 to +0.8 (centered at 2)
+        return (index - 2) * 0.4;
+      }
+    }
+    return defaultPan;
+  }
+
+  /// Get category from targetId
+  String _categoryFromTargetId(String targetId) {
+    if (targetId.startsWith('ui.spin')) return 'spin';
+    if (targetId.startsWith('ui.')) return 'ui';
+    if (targetId.startsWith('reel.')) return 'reelStop';
+    if (targetId.startsWith('overlay.win.')) return 'win';
+    if (targetId.startsWith('overlay.jackpot.')) return 'bigWin';
+    if (targetId.startsWith('symbol.')) return 'symbol';
+    if (targetId.startsWith('music.')) return 'music';
+    if (targetId.startsWith('feature.')) return 'feature';
+    if (targetId.startsWith('hud.')) return 'ui';
+    return 'general';
+  }
+
+  /// Get color from targetId
+  Color _colorFromTargetId(String targetId) {
+    final category = _categoryFromTargetId(targetId);
+    return switch (category) {
+      'spin' => const Color(0xFF4A9EFF),
+      'ui' => const Color(0xFF4A9EFF),
+      'reelStop' => const Color(0xFF9B59B6),
+      'win' => const Color(0xFFF1C40F),
+      'bigWin' => const Color(0xFFFF9040),
+      'symbol' => const Color(0xFF40FF90),
+      'music' => const Color(0xFF9333EA),
+      'feature' => const Color(0xFF40C8FF),
+      _ => const Color(0xFF888888),
+    };
   }
 
   Widget _buildReel(int reelIndex) {
@@ -5983,6 +6485,46 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // Fallback to mock spin
     _handleMockSpin();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VISUAL-SYNC: Trigger stages from visual mockup callbacks
+  // These ensure audio is perfectly synchronized with visual animations
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Trigger a stage directly from visual event (bypasses SlotLabProvider timing)
+  void _triggerVisualStage(String stage, {Map<String, dynamic>? context}) {
+    // Use EventRegistry directly for instant audio response
+    eventRegistry.triggerStage(stage, context: context);
+    debugPrint('[SlotLab] VISUAL-SYNC: $stage ${context ?? ''}');
+  }
+
+  /// Trigger appropriate win stages based on win type
+  void _triggerWinStage(WinType winType, double amount) {
+    final winStage = switch (winType) {
+      WinType.noWin => null,
+      WinType.smallWin => 'WIN_SMALL',
+      WinType.mediumWin => 'WIN_MEDIUM',
+      WinType.bigWin => 'WIN_BIG',
+      WinType.megaWin => 'WIN_MEGA',
+      WinType.epicWin => 'WIN_EPIC',
+    };
+
+    if (winStage != null) {
+      final multiplier = _bet > 0 ? amount / _bet : 0.0;
+      eventRegistry.triggerStage(winStage, context: {
+        'win_amount': amount,
+        'win_multiplier': multiplier,
+        'win_type': winType.name,
+      });
+      debugPrint('[SlotLab] VISUAL-SYNC: $winStage (${multiplier.toStringAsFixed(1)}x)');
+
+      // Also trigger rollup start
+      eventRegistry.triggerStage('ROLLUP_START', context: {
+        'win_amount': amount,
+        'win_multiplier': multiplier,
+      });
+    }
   }
 
   /// Spin using the Synthetic Slot Engine (real)
@@ -7078,10 +7620,18 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Rebuild region to exactly match event layers - called after ANY layer change
+  /// CRITICAL: Also creates track if not exists (for drop-created events)
   void _rebuildRegionForEvent(SlotCompositeEvent event) {
     // Find track with matching name
-    final trackIndex = _tracks.indexWhere((t) => t.name == event.name);
-    if (trackIndex < 0) return;
+    var trackIndex = _tracks.indexWhere((t) => t.name == event.name);
+
+    // If no track exists for this event, CREATE ONE (drop-created events)
+    if (trackIndex < 0) {
+      debugPrint('[SlotLab] Creating new track for dropped event: ${event.name}');
+      _createTrackForNewEvent(event);
+      trackIndex = _tracks.indexWhere((t) => t.name == event.name);
+      if (trackIndex < 0) return; // Failed to create track
+    }
 
     final track = _tracks[trackIndex];
 
@@ -8376,20 +8926,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                   final isSelected = _selectedBottomTab == tab;
                   final label = switch (tab) {
                     _BottomPanelTab.timeline => 'Timeline',
-                    _BottomPanelTab.busHierarchy => 'Bus Hierarchy',
-                    _BottomPanelTab.profiler => 'Profiler',
-                    _BottomPanelTab.rtpc => 'RTPC',
-                    _BottomPanelTab.resources => 'Resources',
-                    _BottomPanelTab.auxSends => 'Aux Sends',
-                    _BottomPanelTab.eventLog => 'Event Log',
-                    _BottomPanelTab.gameModel => 'Game Model',
-                    _BottomPanelTab.scenarios => 'Scenarios',
-                    _BottomPanelTab.gddImport => 'GDD Import',
-                    _BottomPanelTab.commandBuilder => 'Command Builder',
-                    _BottomPanelTab.eventList => 'Events',
+                    _BottomPanelTab.events => 'Events',
+                    _BottomPanelTab.mixer => 'Mixer',
+                    _BottomPanelTab.musicAle => 'Music/ALE',
                     _BottomPanelTab.meters => 'Meters',
-                    _BottomPanelTab.autoSpatial => 'AutoSpatial',
-                    _BottomPanelTab.stageIngest => 'Stage Ingest',
+                    _BottomPanelTab.debug => 'Debug',
+                    _BottomPanelTab.engine => 'Engine',
                   };
 
                   return InkWell(
@@ -8420,7 +8962,240 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               ),
             ),
           ),
+          // [+] Menu button for additional panels
+          _buildPlusMenuButton(),
         ],
+      ),
+    );
+  }
+
+  /// Plus menu button for additional panels (Game Config, AutoSpatial, etc.)
+  Widget _buildPlusMenuButton() {
+    return PopupMenuButton<_PlusMenuItem>(
+      icon: const Icon(Icons.add, size: 16, color: Colors.white54),
+      tooltip: 'More panels',
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      color: const Color(0xFF1E1E26),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: _PlusMenuItem.gameConfig,
+          child: Row(
+            children: [
+              Icon(Icons.settings_applications, size: 16, color: Colors.white70),
+              SizedBox(width: 8),
+              Text('Game Config', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: _PlusMenuItem.autoSpatial,
+          child: Row(
+            children: [
+              Icon(Icons.surround_sound, size: 16, color: Colors.white70),
+              SizedBox(width: 8),
+              Text('AutoSpatial', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: _PlusMenuItem.scenarios,
+          child: Row(
+            children: [
+              Icon(Icons.theaters, size: 16, color: Colors.white70),
+              SizedBox(width: 8),
+              Text('Scenarios', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: _PlusMenuItem.commandBuilder,
+          child: Row(
+            children: [
+              Icon(Icons.terminal, size: 16, color: Colors.white70),
+              SizedBox(width: 8),
+              Text('Command Builder', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ],
+          ),
+        ),
+      ],
+      onSelected: _onPlusMenuItemSelected,
+    );
+  }
+
+  /// Handle plus menu item selection — opens modal dialog
+  void _onPlusMenuItemSelected(_PlusMenuItem item) {
+    switch (item) {
+      case _PlusMenuItem.gameConfig:
+        _showGameConfigDialog();
+      case _PlusMenuItem.autoSpatial:
+        _showAutoSpatialDialog();
+      case _PlusMenuItem.scenarios:
+        _showScenariosDialog();
+      case _PlusMenuItem.commandBuilder:
+        _showCommandBuilderDialog();
+    }
+  }
+
+  void _showGameConfigDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 800,
+          height: 600,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D0D10),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.settings_applications, color: Colors.white70, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('Game Config', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Row(
+                  children: [
+                    // Game Model tab
+                    Expanded(child: _buildGameModelContent()),
+                    VerticalDivider(width: 1, color: Colors.white.withOpacity(0.1)),
+                    // GDD Import tab
+                    Expanded(child: _buildGddImportContent()),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAutoSpatialDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 900,
+          height: 650,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D0D10),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.surround_sound, color: Colors.white70, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('AutoSpatial', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Expanded(child: AutoSpatialPanel()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showScenariosDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 700,
+          height: 500,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D0D10),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.theaters, color: Colors.white70, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('Scenarios', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: _buildScenariosContent()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCommandBuilderDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 700,
+          height: 500,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D0D10),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.terminal, color: Colors.white70, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('Command Builder', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: _buildCommandBuilderContent()),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -8442,35 +9217,136 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     switch (_selectedBottomTab) {
       case _BottomPanelTab.timeline:
         return _buildTimelineTabContent();
-      case _BottomPanelTab.busHierarchy:
-        return _buildBusHierarchyContent();
-      case _BottomPanelTab.profiler:
-        return _buildProfilerContent();
-      case _BottomPanelTab.rtpc:
-        return _buildRtpcContent();
-      case _BottomPanelTab.resources:
-        return _buildResourcesContent();
-      case _BottomPanelTab.auxSends:
-        return _buildAuxSendsContent();
-      case _BottomPanelTab.eventLog:
-        return _buildEventLogContent();
-      case _BottomPanelTab.gameModel:
-        return _buildGameModelContent();
-      case _BottomPanelTab.scenarios:
-        return _buildScenariosContent();
-      case _BottomPanelTab.gddImport:
-        return _buildGddImportContent();
-      case _BottomPanelTab.commandBuilder:
-        return _buildCommandBuilderContent();
-      case _BottomPanelTab.eventList:
-        return _buildEventListContent();
+      case _BottomPanelTab.events:
+        return _buildEventsTabContent();
+      case _BottomPanelTab.mixer:
+        return _buildMixerTabContent();
+      case _BottomPanelTab.musicAle:
+        return _buildMusicAleTabContent();
       case _BottomPanelTab.meters:
         return _buildMetersContent();
-      case _BottomPanelTab.autoSpatial:
-        return const AutoSpatialPanel();
-      case _BottomPanelTab.stageIngest:
-        return _buildStageIngestContent();
+      case _BottomPanelTab.debug:
+        return _buildEventLogContent();
+      case _BottomPanelTab.engine:
+        return _buildEngineTabContent();
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V6 MERGED TAB CONTENTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Events Tab: Event list + RTPC bindings (merged)
+  Widget _buildEventsTabContent() {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          Container(
+            height: 28,
+            color: const Color(0xFF16161C),
+            child: const TabBar(
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white54,
+              indicatorColor: FluxForgeTheme.accentBlue,
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: TextStyle(fontSize: 10),
+              tabs: [
+                Tab(text: 'Events'),
+                Tab(text: 'RTPC'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildEventListContent(),
+                _buildRtpcContent(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Mixer Tab: Bus hierarchy + Aux sends (merged)
+  Widget _buildMixerTabContent() {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          Container(
+            height: 28,
+            color: const Color(0xFF16161C),
+            child: const TabBar(
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white54,
+              indicatorColor: FluxForgeTheme.accentBlue,
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: TextStyle(fontSize: 10),
+              tabs: [
+                Tab(text: 'Buses'),
+                Tab(text: 'Sends'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildBusHierarchyContent(),
+                _buildAuxSendsContent(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Music/ALE Tab: ALE panel with rules, signals, transitions
+  Widget _buildMusicAleTabContent() {
+    // AlePanel uses context.read<AleProvider>() internally
+    return const AlePanel();
+  }
+
+  /// Engine Tab: Profiler + Resources + Stage Ingest (merged)
+  Widget _buildEngineTabContent() {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          Container(
+            height: 28,
+            color: const Color(0xFF16161C),
+            child: const TabBar(
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white54,
+              indicatorColor: FluxForgeTheme.accentBlue,
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: TextStyle(fontSize: 10),
+              tabs: [
+                Tab(text: 'Profiler'),
+                Tab(text: 'Resources'),
+                Tab(text: 'Stage Ingest'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildProfilerContent(),
+                _buildResourcesContent(),
+                _buildStageIngestContent(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildStageIngestContent() {

@@ -20,11 +20,23 @@ const double kLowerZoneMaxHeight = 600.0;
 /// Default height of the lower zone content area (maximum by default)
 const double kLowerZoneDefaultHeight = 500.0;
 
-/// Height of the context bar (super-tabs + sub-tabs)
+/// Height of the context bar when expanded (super-tabs + sub-tabs)
 const double kContextBarHeight = 60.0;
+
+/// Height of the context bar when collapsed (super-tabs only)
+const double kContextBarCollapsedHeight = 32.0;
 
 /// Height of the action strip
 const double kActionStripHeight = 36.0;
+
+/// Height of the resize handle
+const double kResizeHandleHeight = 4.0;
+
+/// Height of the spin control bar (SlotLab only)
+const double kSpinControlBarHeight = 32.0;
+
+/// Height of the slot context bar (Middleware only)
+const double kSlotContextBarHeight = 28.0;
 
 /// Animation duration for expand/collapse
 const Duration kLowerZoneAnimationDuration = Duration(milliseconds: 200);
@@ -145,7 +157,7 @@ extension DawSuperTabX on DawSuperTab {
 // --- DAW Sub-tabs ---
 
 enum DawBrowseSubTab { files, presets, plugins, history }
-enum DawEditSubTab { timeline, clips, fades, grid }
+enum DawEditSubTab { timeline, pianoRoll, fades, grid }
 enum DawMixSubTab { mixer, sends, pan, automation }
 enum DawProcessSubTab { eq, comp, limiter, fxChain }
 enum DawDeliverSubTab { export, stems, bounce, archive }
@@ -156,7 +168,7 @@ extension DawBrowseSubTabX on DawBrowseSubTab {
 }
 
 extension DawEditSubTabX on DawEditSubTab {
-  String get label => ['Timeline', 'Clips', 'Fades', 'Grid'][index];
+  String get label => ['Timeline', 'Piano Roll', 'Fades', 'Grid'][index];
   String get shortcut => ['Q', 'W', 'E', 'R'][index];
 }
 

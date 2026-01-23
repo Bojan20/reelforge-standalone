@@ -8302,7 +8302,10 @@ extension DelayAPI on NativeFFI {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DYNAMICS API EXTENSION
+// DYNAMICS API EXTENSION — REMOVED (Ghost Code)
+// Use InsertProcessor chain via insertLoadProcessor() / insertSetParam() instead
+// See: DspChainProvider + dsp_wrappers.rs (CompressorWrapper, LimiterWrapper, etc.)
+// Enums below are still used by UI code.
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Compressor types
@@ -8318,258 +8321,6 @@ enum DeEsserMode {
   splitBand,  // 1 - Only reduce the sibilant frequency range
 }
 
-/// Extension to add Dynamics API to NativeFFI
-extension DynamicsAPI on NativeFFI {
-  // ============================================================
-  // COMPRESSOR
-  // ============================================================
-
-  static final _compressorCreate = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('compressor_create');
-  static final _compressorRemove = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('compressor_remove');
-  static final _compressorSetType = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Uint32), int Function(int, int)>('compressor_set_type');
-  static final _compressorSetThreshold = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('compressor_set_threshold');
-  static final _compressorSetRatio = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('compressor_set_ratio');
-  static final _compressorSetKnee = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('compressor_set_knee');
-  static final _compressorSetAttack = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('compressor_set_attack');
-  static final _compressorSetRelease = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('compressor_set_release');
-  static final _compressorSetMakeup = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('compressor_set_makeup');
-  static final _compressorSetMix = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('compressor_set_mix');
-  static final _compressorSetLink = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('compressor_set_link');
-  static final _compressorGetGainReduction = _loadNativeLibrary().lookupFunction<
-      Double Function(Uint32), double Function(int)>('compressor_get_gain_reduction');
-  static final _compressorReset = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('compressor_reset');
-
-  bool compressorCreate(int trackId, {double sampleRate = 48000.0}) => _compressorCreate(trackId, sampleRate) == 1;
-  bool compressorRemove(int trackId) => _compressorRemove(trackId) == 1;
-  bool compressorSetType(int trackId, CompressorType type) => _compressorSetType(trackId, type.index) == 1;
-  bool compressorSetThreshold(int trackId, double db) => _compressorSetThreshold(trackId, db.clamp(-60.0, 0.0)) == 1;
-  bool compressorSetRatio(int trackId, double ratio) => _compressorSetRatio(trackId, ratio.clamp(1.0, 100.0)) == 1;
-  bool compressorSetKnee(int trackId, double db) => _compressorSetKnee(trackId, db.clamp(0.0, 24.0)) == 1;
-  bool compressorSetAttack(int trackId, double ms) => _compressorSetAttack(trackId, ms.clamp(0.01, 500.0)) == 1;
-  bool compressorSetRelease(int trackId, double ms) => _compressorSetRelease(trackId, ms.clamp(1.0, 5000.0)) == 1;
-  bool compressorSetMakeup(int trackId, double db) => _compressorSetMakeup(trackId, db.clamp(-24.0, 24.0)) == 1;
-  bool compressorSetMix(int trackId, double mix) => _compressorSetMix(trackId, mix.clamp(0.0, 1.0)) == 1;
-  bool compressorSetLink(int trackId, double link) => _compressorSetLink(trackId, link.clamp(0.0, 1.0)) == 1;
-  double compressorGetGainReduction(int trackId) => _compressorGetGainReduction(trackId);
-  bool compressorReset(int trackId) => _compressorReset(trackId) == 1;
-
-  // ============================================================
-  // LIMITER
-  // ============================================================
-
-  static final _limiterCreate = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('limiter_create');
-  static final _limiterRemove = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('limiter_remove');
-  static final _limiterSetThreshold = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('limiter_set_threshold');
-  static final _limiterSetCeiling = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('limiter_set_ceiling');
-  static final _limiterSetRelease = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('limiter_set_release');
-  static final _limiterGetTruePeak = _loadNativeLibrary().lookupFunction<
-      Double Function(Uint32), double Function(int)>('limiter_get_true_peak');
-  static final _limiterGetGainReduction = _loadNativeLibrary().lookupFunction<
-      Double Function(Uint32), double Function(int)>('limiter_get_gain_reduction');
-  static final _limiterReset = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('limiter_reset');
-
-  bool limiterCreate(int trackId, {double sampleRate = 48000.0}) => _limiterCreate(trackId, sampleRate) == 1;
-  bool limiterRemove(int trackId) => _limiterRemove(trackId) == 1;
-  bool limiterSetThreshold(int trackId, double db) => _limiterSetThreshold(trackId, db.clamp(-24.0, 0.0)) == 1;
-  bool limiterSetCeiling(int trackId, double db) => _limiterSetCeiling(trackId, db.clamp(-6.0, 0.0)) == 1;
-  bool limiterSetRelease(int trackId, double ms) => _limiterSetRelease(trackId, ms.clamp(10.0, 1000.0)) == 1;
-  double limiterGetTruePeak(int trackId) => _limiterGetTruePeak(trackId);
-  double limiterGetGainReduction(int trackId) => _limiterGetGainReduction(trackId);
-  bool limiterReset(int trackId) => _limiterReset(trackId) == 1;
-
-  // ============================================================
-  // GATE
-  // ============================================================
-
-  static final _gateCreate = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('gate_create');
-  static final _gateRemove = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('gate_remove');
-  static final _gateSetThreshold = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('gate_set_threshold');
-  static final _gateSetRange = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('gate_set_range');
-  static final _gateSetAttack = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('gate_set_attack');
-  static final _gateSetHold = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('gate_set_hold');
-  static final _gateSetRelease = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('gate_set_release');
-  static final _gateReset = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('gate_reset');
-
-  bool gateCreate(int trackId, {double sampleRate = 48000.0}) => _gateCreate(trackId, sampleRate) == 1;
-  bool gateRemove(int trackId) => _gateRemove(trackId) == 1;
-  bool gateSetThreshold(int trackId, double db) => _gateSetThreshold(trackId, db.clamp(-80.0, 0.0)) == 1;
-  bool gateSetRange(int trackId, double db) => _gateSetRange(trackId, db.clamp(-80.0, 0.0)) == 1;
-  bool gateSetAttack(int trackId, double ms) => _gateSetAttack(trackId, ms.clamp(0.01, 100.0)) == 1;
-  bool gateSetHold(int trackId, double ms) => _gateSetHold(trackId, ms.clamp(0.0, 500.0)) == 1;
-  bool gateSetRelease(int trackId, double ms) => _gateSetRelease(trackId, ms.clamp(1.0, 1000.0)) == 1;
-  bool gateReset(int trackId) => _gateReset(trackId) == 1;
-
-  // ============================================================
-  // EXPANDER
-  // ============================================================
-
-  static final _expanderCreate = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('expander_create');
-  static final _expanderRemove = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('expander_remove');
-  static final _expanderSetThreshold = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('expander_set_threshold');
-  static final _expanderSetRatio = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('expander_set_ratio');
-  static final _expanderSetKnee = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('expander_set_knee');
-  static final _expanderSetTimes = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double, Double), int Function(int, double, double)>('expander_set_times');
-  static final _expanderReset = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('expander_reset');
-
-  bool expanderCreate(int trackId, {double sampleRate = 48000.0}) => _expanderCreate(trackId, sampleRate) == 1;
-  bool expanderRemove(int trackId) => _expanderRemove(trackId) == 1;
-  bool expanderSetThreshold(int trackId, double db) => _expanderSetThreshold(trackId, db.clamp(-80.0, 0.0)) == 1;
-  bool expanderSetRatio(int trackId, double ratio) => _expanderSetRatio(trackId, ratio.clamp(1.0, 20.0)) == 1;
-  bool expanderSetKnee(int trackId, double db) => _expanderSetKnee(trackId, db.clamp(0.0, 24.0)) == 1;
-  bool expanderSetTimes(int trackId, double attackMs, double releaseMs) => _expanderSetTimes(trackId, attackMs, releaseMs) == 1;
-  bool expanderReset(int trackId) => _expanderReset(trackId) == 1;
-
-  // ============================================================
-  // DE-ESSER
-  // ============================================================
-
-  static final _deesserCreate = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_create');
-  static final _deesserRemove = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('deesser_remove');
-  static final _deesserSetFrequency = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_frequency');
-  static final _deesserGetFrequency = _loadNativeLibrary().lookupFunction<
-      Double Function(Uint32), double Function(int)>('deesser_get_frequency');
-  static final _deesserSetBandwidth = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_bandwidth');
-  static final _deesserGetBandwidth = _loadNativeLibrary().lookupFunction<
-      Double Function(Uint32), double Function(int)>('deesser_get_bandwidth');
-  static final _deesserSetThreshold = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_threshold');
-  static final _deesserGetThreshold = _loadNativeLibrary().lookupFunction<
-      Double Function(Uint32), double Function(int)>('deesser_get_threshold');
-  static final _deesserSetRange = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_range');
-  static final _deesserGetRange = _loadNativeLibrary().lookupFunction<
-      Double Function(Uint32), double Function(int)>('deesser_get_range');
-  static final _deesserSetMode = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Uint32), int Function(int, int)>('deesser_set_mode');
-  static final _deesserGetMode = _loadNativeLibrary().lookupFunction<
-      Uint32 Function(Uint32), int Function(int)>('deesser_get_mode');
-  static final _deesserSetAttack = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_attack');
-  static final _deesserGetAttack = _loadNativeLibrary().lookupFunction<
-      Double Function(Uint32), double Function(int)>('deesser_get_attack');
-  static final _deesserSetRelease = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_release');
-  static final _deesserGetRelease = _loadNativeLibrary().lookupFunction<
-      Double Function(Uint32), double Function(int)>('deesser_get_release');
-  static final _deesserSetListen = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Int32), int Function(int, int)>('deesser_set_listen');
-  static final _deesserGetListen = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('deesser_get_listen');
-  static final _deesserSetBypass = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32, Int32), int Function(int, int)>('deesser_set_bypass');
-  static final _deesserGetBypass = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('deesser_get_bypass');
-  static final _deesserGetGainReduction = _loadNativeLibrary().lookupFunction<
-      Double Function(Uint32), double Function(int)>('deesser_get_gain_reduction');
-  static final _deesserReset = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Uint32), int Function(int)>('deesser_reset');
-
-  /// Create a de-esser for track
-  bool deesserCreate(int trackId, {double sampleRate = 48000.0}) => _deesserCreate(trackId, sampleRate) == 1;
-
-  /// Remove de-esser from track
-  bool deesserRemove(int trackId) => _deesserRemove(trackId) == 1;
-
-  /// Set detection frequency (2000-16000 Hz)
-  bool deesserSetFrequency(int trackId, double hz) => _deesserSetFrequency(trackId, hz.clamp(2000.0, 16000.0)) == 1;
-
-  /// Get detection frequency
-  double deesserGetFrequency(int trackId) => _deesserGetFrequency(trackId);
-
-  /// Set detection bandwidth in octaves (0.25-4.0)
-  bool deesserSetBandwidth(int trackId, double octaves) => _deesserSetBandwidth(trackId, octaves.clamp(0.25, 4.0)) == 1;
-
-  /// Get detection bandwidth
-  double deesserGetBandwidth(int trackId) => _deesserGetBandwidth(trackId);
-
-  /// Set threshold in dB (-60 to 0)
-  bool deesserSetThreshold(int trackId, double db) => _deesserSetThreshold(trackId, db.clamp(-60.0, 0.0)) == 1;
-
-  /// Get threshold in dB
-  double deesserGetThreshold(int trackId) => _deesserGetThreshold(trackId);
-
-  /// Set range (max gain reduction) in dB (0-24)
-  bool deesserSetRange(int trackId, double db) => _deesserSetRange(trackId, db.clamp(0.0, 24.0)) == 1;
-
-  /// Get range in dB
-  double deesserGetRange(int trackId) => _deesserGetRange(trackId);
-
-  /// Set mode (0=Wideband, 1=SplitBand)
-  bool deesserSetMode(int trackId, DeEsserMode mode) => _deesserSetMode(trackId, mode.index) == 1;
-
-  /// Get mode
-  DeEsserMode deesserGetMode(int trackId) {
-    final mode = _deesserGetMode(trackId);
-    return mode == 0 ? DeEsserMode.wideband : DeEsserMode.splitBand;
-  }
-
-  /// Set attack time in ms (0.1-50)
-  bool deesserSetAttack(int trackId, double ms) => _deesserSetAttack(trackId, ms.clamp(0.1, 50.0)) == 1;
-
-  /// Get attack time in ms
-  double deesserGetAttack(int trackId) => _deesserGetAttack(trackId);
-
-  /// Set release time in ms (10-500)
-  bool deesserSetRelease(int trackId, double ms) => _deesserSetRelease(trackId, ms.clamp(10.0, 500.0)) == 1;
-
-  /// Get release time in ms
-  double deesserGetRelease(int trackId) => _deesserGetRelease(trackId);
-
-  /// Set listen mode (monitor sidechain for tuning)
-  bool deesserSetListen(int trackId, bool listen) => _deesserSetListen(trackId, listen ? 1 : 0) == 1;
-
-  /// Get listen state
-  bool deesserGetListen(int trackId) => _deesserGetListen(trackId) == 1;
-
-  /// Set bypass
-  bool deesserSetBypass(int trackId, bool bypass) => _deesserSetBypass(trackId, bypass ? 1 : 0) == 1;
-
-  /// Get bypass state
-  bool deesserGetBypass(int trackId) => _deesserGetBypass(trackId) == 1;
-
-  /// Get current gain reduction in dB
-  double deesserGetGainReduction(int trackId) => _deesserGetGainReduction(trackId);
-
-  /// Reset de-esser state
-  bool deesserReset(int trackId) => _deesserReset(trackId) == 1;
-}
 
 // ============================================================================
 // SPATIAL PROCESSING API
@@ -17409,6 +17160,163 @@ extension ContainerFFI on NativeFFI {
     if (ptr == nullptr) return null;
     return ptr.toDartString();
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONTAINER VALIDATION FFI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static final _containerValidateGroup = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint32),
+      Pointer<Utf8> Function(int)>('container_validate_group');
+
+  static final _containerValidateAddChild = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Uint8, Uint32),
+      int Function(int, int, int)>('container_validate_add_child');
+
+  static final _containerGetMaxNestingDepth = _loadNativeLibrary().lookupFunction<
+      IntPtr Function(),
+      int Function()>('container_get_max_nesting_depth');
+
+  static final _containerValidateAllGroups = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('container_validate_all_groups');
+
+  /// Validate a container group for depth/cycle issues
+  /// Returns null if group doesn't exist
+  ContainerValidationResult? containerValidateGroup(int groupId) {
+    final ptr = _containerValidateGroup(groupId);
+    if (ptr == nullptr) return null;
+    try {
+      final jsonStr = ptr.toDartString();
+      final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+      return ContainerValidationResult.fromJson(json);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Validate proposed child addition without modifying storage
+  /// Returns null on success, error message on failure
+  String? containerValidateAddChild(int groupId, int childType, int childId) {
+    final result = _containerValidateAddChild(groupId, childType, childId);
+    if (result == 0) return null;
+    return switch (result) {
+      1 => 'Self-reference: group cannot contain itself',
+      2 => 'Missing container: referenced container does not exist',
+      3 => 'Cycle detected: would create circular reference',
+      4 => 'Max depth exceeded: nesting too deep',
+      5 => 'Too many children: group is full',
+      _ => 'Unknown validation error',
+    };
+  }
+
+  /// Get maximum allowed nesting depth
+  int containerGetMaxNestingDepth() => _containerGetMaxNestingDepth();
+
+  /// Validate all groups in storage
+  List<ContainerValidationResult> containerValidateAllGroups() {
+    final ptr = _containerValidateAllGroups();
+    if (ptr == nullptr) return [];
+    try {
+      final jsonStr = ptr.toDartString();
+      final jsonList = jsonDecode(jsonStr) as List<dynamic>;
+      return jsonList
+          .map((e) => ContainerValidationResult.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEED LOG FFI (DETERMINISM)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static final _seedLogEnable = _loadNativeLibrary().lookupFunction<
+      Void Function(Int32),
+      void Function(int)>('seed_log_enable');
+
+  static final _seedLogIsEnabled = _loadNativeLibrary().lookupFunction<
+      Int32 Function(),
+      int Function()>('seed_log_is_enabled');
+
+  static final _seedLogClear = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('seed_log_clear');
+
+  static final _seedLogGetCount = _loadNativeLibrary().lookupFunction<
+      IntPtr Function(),
+      int Function()>('seed_log_get_count');
+
+  static final _seedLogGetJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('seed_log_get_json');
+
+  static final _seedLogGetLastNJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(IntPtr),
+      Pointer<Utf8> Function(int)>('seed_log_get_last_n_json');
+
+  static final _seedLogReplaySeed = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Uint64),
+      int Function(int, int)>('seed_log_replay_seed');
+
+  static final _seedLogGetRngState = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(Uint32),
+      int Function(int)>('seed_log_get_rng_state');
+
+  /// Enable or disable seed logging for determinism capture
+  void seedLogEnable(bool enabled) => _seedLogEnable(enabled ? 1 : 0);
+
+  /// Check if seed logging is enabled
+  bool seedLogIsEnabled() => _seedLogIsEnabled() != 0;
+
+  /// Clear all seed log entries
+  void seedLogClear() => _seedLogClear();
+
+  /// Get count of seed log entries
+  int seedLogGetCount() => _seedLogGetCount();
+
+  /// Get all seed log entries as list
+  List<SeedLogEntry> seedLogGetAll() {
+    final ptr = _seedLogGetJson();
+    if (ptr == nullptr) return [];
+    try {
+      final jsonStr = ptr.toDartString();
+      final jsonList = jsonDecode(jsonStr) as List<dynamic>;
+      return jsonList
+          .map((e) => SeedLogEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Get last N seed log entries
+  List<SeedLogEntry> seedLogGetLastN(int n) {
+    final ptr = _seedLogGetLastNJson(n);
+    if (ptr == nullptr) return [];
+    try {
+      final jsonStr = ptr.toDartString();
+      final jsonList = jsonDecode(jsonStr) as List<dynamic>;
+      return jsonList
+          .map((e) => SeedLogEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Replay a seed into a random container (for determinism testing)
+  /// Returns true if seed was set successfully
+  bool seedLogReplaySeed(int containerId, int seed) {
+    return _seedLogReplaySeed(containerId, seed) != 0;
+  }
+
+  /// Get current RNG state from a random container
+  /// Returns 0 if container not found
+  int seedLogGetRngState(int containerId) {
+    return _seedLogGetRngState(containerId);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17461,6 +17369,92 @@ class SequenceTickResult {
 
   @override
   String toString() => 'SequenceTickResult(steps: $triggeredSteps, ended: $ended, looped: $looped)';
+}
+
+/// Result of container group validation
+class ContainerValidationResult {
+  final int? id;
+  final bool valid;
+  final int maxDepth;
+  final int totalContainers;
+  final List<String> errors;
+  final List<String> warnings;
+
+  const ContainerValidationResult({
+    this.id,
+    required this.valid,
+    required this.maxDepth,
+    required this.totalContainers,
+    this.errors = const [],
+    this.warnings = const [],
+  });
+
+  factory ContainerValidationResult.fromJson(Map<String, dynamic> json) {
+    return ContainerValidationResult(
+      id: json['id'] as int?,
+      valid: json['valid'] as bool? ?? false,
+      maxDepth: json['maxDepth'] as int? ?? 0,
+      totalContainers: json['total'] as int? ?? 0,
+      errors: (json['errors'] as List<dynamic>?)?.cast<String>() ?? [],
+      warnings: (json['warnings'] as List<dynamic>?)?.cast<String>() ?? [],
+    );
+  }
+
+  bool get hasErrors => errors.isNotEmpty;
+  bool get hasWarnings => warnings.isNotEmpty;
+
+  @override
+  String toString() => 'ContainerValidationResult('
+      'id: $id, valid: $valid, maxDepth: $maxDepth, '
+      'errors: ${errors.length}, warnings: ${warnings.length})';
+}
+
+/// Single entry from seed log (for determinism capture)
+class SeedLogEntry {
+  /// Monotonic tick counter
+  final int tick;
+  /// Container ID that made selection
+  final int containerId;
+  /// RNG state BEFORE selection (hex string)
+  final String seedBefore;
+  /// RNG state AFTER selection (hex string)
+  final String seedAfter;
+  /// Selected child ID
+  final int selectedId;
+  /// Pitch offset applied
+  final double pitchOffset;
+  /// Volume offset applied
+  final double volumeOffset;
+
+  const SeedLogEntry({
+    required this.tick,
+    required this.containerId,
+    required this.seedBefore,
+    required this.seedAfter,
+    required this.selectedId,
+    required this.pitchOffset,
+    required this.volumeOffset,
+  });
+
+  factory SeedLogEntry.fromJson(Map<String, dynamic> json) {
+    return SeedLogEntry(
+      tick: json['tick'] as int? ?? 0,
+      containerId: json['containerId'] as int? ?? 0,
+      seedBefore: json['seedBefore'] as String? ?? '0',
+      seedAfter: json['seedAfter'] as String? ?? '0',
+      selectedId: json['selectedId'] as int? ?? 0,
+      pitchOffset: (json['pitchOffset'] as num?)?.toDouble() ?? 0.0,
+      volumeOffset: (json['volumeOffset'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  /// Convert hex seed to int
+  int get seedBeforeInt => int.tryParse(seedBefore, radix: 16) ?? 0;
+  int get seedAfterInt => int.tryParse(seedAfter, radix: 16) ?? 0;
+
+  @override
+  String toString() => 'SeedLogEntry(tick: $tick, containerId: $containerId, '
+      'selected: $selectedId, seed: $seedBefore→$seedAfter)';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -18752,5 +18746,287 @@ extension StageIngestFFI on NativeFFI {
     final str = ptr.toDartString();
     _offlineFreeString(ptr);
     return str;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROFILER FFI — DSP Load Monitoring
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Extension for DSP Profiler FFI
+extension ProfilerFFI on NativeFFI {
+  // ─────────────────────────────────────────────────────────────────────────
+  // FFI BINDINGS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static final _profilerInit = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('profiler_init');
+
+  static final _profilerShutdown = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('profiler_shutdown');
+
+  static final _profilerGetCurrentLoad = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('profiler_get_current_load');
+
+  static final _profilerGetLoadHistoryJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint32),
+      Pointer<Utf8> Function(int)>('profiler_get_load_history_json');
+
+  static final _profilerGetStageBreakdownJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('profiler_get_stage_breakdown_json');
+
+  static final _profilerGetStatsJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('profiler_get_stats_json');
+
+  static final _profilerRecordStageTiming = _loadNativeLibrary().lookupFunction<
+      Void Function(Int32, Double),
+      void Function(int, double)>('profiler_record_stage_timing');
+
+  static final _profilerRecordFullSample = _loadNativeLibrary().lookupFunction<
+      Void Function(Double, Double, Double, Double, Double, Int32, Double),
+      void Function(double, double, double, double, double, int, double)>('profiler_record_full_sample');
+
+  static final _profilerClear = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('profiler_clear');
+
+  static final _profilerGetOverloadCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(),
+      int Function()>('profiler_get_overload_count');
+
+  static final _profilerFreeString = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('profiler_free_string');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PUBLIC API
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Initialize the profiler system
+  void profilerInit() => _profilerInit();
+
+  /// Shutdown the profiler system
+  void profilerShutdown() => _profilerShutdown();
+
+  /// Get current DSP load percentage (0.0 - 100.0)
+  double profilerGetCurrentLoad() => _profilerGetCurrentLoad();
+
+  /// Get load history as list of percentages
+  /// [count] - Number of samples to retrieve (default 100)
+  List<double> profilerGetLoadHistory({int count = 100}) {
+    final ptr = _profilerGetLoadHistoryJson(count);
+    if (ptr == nullptr) return [];
+    try {
+      final str = ptr.toDartString();
+      _profilerFreeString(ptr);
+      final list = jsonDecode(str) as List;
+      return list.cast<num>().map((n) => n.toDouble()).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Get stage breakdown as map of stage names to timing percentages
+  Map<String, double> profilerGetStageBreakdown() {
+    final ptr = _profilerGetStageBreakdownJson();
+    if (ptr == nullptr) return {};
+    try {
+      final str = ptr.toDartString();
+      _profilerFreeString(ptr);
+      final map = jsonDecode(str) as Map<String, dynamic>;
+      return map.map((k, v) => MapEntry(k, (v as num).toDouble()));
+    } catch (e) {
+      return {};
+    }
+  }
+
+  /// Get full profiler statistics
+  Map<String, dynamic>? profilerGetStats() {
+    final ptr = _profilerGetStatsJson();
+    if (ptr == nullptr) return null;
+    try {
+      final str = ptr.toDartString();
+      _profilerFreeString(ptr);
+      return jsonDecode(str) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Record timing for a specific DSP stage
+  /// [stage] - Stage index (0=input, 1=mixing, 2=effects, 3=metering, 4=output)
+  /// [timingUs] - Timing in microseconds
+  void profilerRecordStageTiming(int stage, double timingUs) =>
+      _profilerRecordStageTiming(stage, timingUs);
+
+  /// Record a complete sample with all stage timings
+  void profilerRecordFullSample({
+    required double inputUs,
+    required double mixingUs,
+    required double effectsUs,
+    required double meteringUs,
+    required double outputUs,
+    required int blockSize,
+    required double sampleRate,
+  }) => _profilerRecordFullSample(
+        inputUs, mixingUs, effectsUs, meteringUs, outputUs,
+        blockSize, sampleRate
+      );
+
+  /// Clear all profiler data
+  void profilerClear() => _profilerClear();
+
+  /// Get total overload count
+  int profilerGetOverloadCount() => _profilerGetOverloadCount();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VOICE POOL FFI — Engine Voice Monitoring
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Voice pool statistics from the audio engine (FFI version)
+/// Note: Use this for real-time engine stats, not the model version
+class NativeVoicePoolStats {
+  final int activeCount;
+  final int maxVoices;
+  final int loopingCount;
+  final double utilizationPercent;
+
+  // By source
+  final int dawVoices;
+  final int slotLabVoices;
+  final int middlewareVoices;
+  final int browserVoices;
+
+  // By bus
+  final int sfxVoices;
+  final int musicVoices;
+  final int voiceVoices;
+  final int ambienceVoices;
+  final int auxVoices;
+  final int masterVoices;
+
+  final DateTime timestamp;
+
+  const NativeVoicePoolStats({
+    required this.activeCount,
+    required this.maxVoices,
+    required this.loopingCount,
+    required this.utilizationPercent,
+    required this.dawVoices,
+    required this.slotLabVoices,
+    required this.middlewareVoices,
+    required this.browserVoices,
+    required this.sfxVoices,
+    required this.musicVoices,
+    required this.voiceVoices,
+    required this.ambienceVoices,
+    required this.auxVoices,
+    required this.masterVoices,
+    required this.timestamp,
+  });
+
+  factory NativeVoicePoolStats.empty() => NativeVoicePoolStats(
+        activeCount: 0,
+        maxVoices: 32,
+        loopingCount: 0,
+        utilizationPercent: 0.0,
+        dawVoices: 0,
+        slotLabVoices: 0,
+        middlewareVoices: 0,
+        browserVoices: 0,
+        sfxVoices: 0,
+        musicVoices: 0,
+        voiceVoices: 0,
+        ambienceVoices: 0,
+        auxVoices: 0,
+        masterVoices: 0,
+        timestamp: DateTime.now(),
+      );
+
+  factory NativeVoicePoolStats.fromJson(Map<String, dynamic> json) {
+    final bySource = json['by_source'] as Map<String, dynamic>? ?? {};
+    final byBus = json['by_bus'] as Map<String, dynamic>? ?? {};
+
+    return NativeVoicePoolStats(
+      activeCount: (json['active_count'] as num?)?.toInt() ?? 0,
+      maxVoices: (json['max_voices'] as num?)?.toInt() ?? 32,
+      loopingCount: (json['looping_count'] as num?)?.toInt() ?? 0,
+      utilizationPercent: (json['utilization_percent'] as num?)?.toDouble() ?? 0.0,
+      dawVoices: (bySource['daw'] as num?)?.toInt() ?? 0,
+      slotLabVoices: (bySource['slotlab'] as num?)?.toInt() ?? 0,
+      middlewareVoices: (bySource['middleware'] as num?)?.toInt() ?? 0,
+      browserVoices: (bySource['browser'] as num?)?.toInt() ?? 0,
+      sfxVoices: (byBus['sfx'] as num?)?.toInt() ?? 0,
+      musicVoices: (byBus['music'] as num?)?.toInt() ?? 0,
+      voiceVoices: (byBus['voice'] as num?)?.toInt() ?? 0,
+      ambienceVoices: (byBus['ambience'] as num?)?.toInt() ?? 0,
+      auxVoices: (byBus['aux'] as num?)?.toInt() ?? 0,
+      masterVoices: (byBus['master'] as num?)?.toInt() ?? 0,
+      timestamp: DateTime.now(),
+    );
+  }
+
+  /// Get health status based on utilization
+  String get healthStatus {
+    if (utilizationPercent >= 90) return 'critical';
+    if (utilizationPercent >= 70) return 'warning';
+    if (utilizationPercent >= 50) return 'elevated';
+    return 'healthy';
+  }
+}
+
+/// Extension for Voice Pool FFI
+extension VoicePoolFFI on NativeFFI {
+  // ─────────────────────────────────────────────────────────────────────────
+  // FFI BINDINGS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static final _voicePoolGetStatsJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('middleware_get_voice_pool_stats_json');
+
+  static final _voicePoolFreeString = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('middleware_free_string');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PUBLIC API
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Get voice pool statistics from the audio engine
+  NativeVoicePoolStats getVoicePoolStats() {
+    try {
+      final ptr = _voicePoolGetStatsJson();
+      if (ptr == nullptr) return NativeVoicePoolStats.empty();
+
+      final str = ptr.toDartString();
+      _voicePoolFreeString(ptr);
+
+      final json = jsonDecode(str) as Map<String, dynamic>;
+      return NativeVoicePoolStats.fromJson(json);
+    } catch (e) {
+      return NativeVoicePoolStats.empty();
+    }
+  }
+
+  /// Get raw voice pool stats as JSON map (for custom processing)
+  Map<String, dynamic>? getVoicePoolStatsRaw() {
+    try {
+      final ptr = _voicePoolGetStatsJson();
+      if (ptr == nullptr) return null;
+
+      final str = ptr.toDartString();
+      _voicePoolFreeString(ptr);
+
+      return jsonDecode(str) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
   }
 }

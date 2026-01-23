@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlotLab — Timeline + Stage Map (V2)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0c;
+            color: #e0e0e0;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           HEADER
+           ═══════════════════════════════════════════════════════════════════ */
+        .header {
+            background: #121216;
+            padding: 10px 20px;
+            border-bottom: 1px solid #2a2a30;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-size: 16px;
+            font-weight: 700;
+            color: #4a9eff;
+        }
+
+        .header-title {
+            font-size: 13px;
+            color: #888;
+        }
+
+        .header-spacer { flex: 1; }
+
+        .header-badge {
+            background: #40ff9020;
+            color: #40ff90;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           MAIN LAYOUT
+           ═══════════════════════════════════════════════════════════════════ */
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           AUDIO BROWSER (Left)
+           ═══════════════════════════════════════════════════════════════════ */
+        .audio-browser {
+            width: 240px;
+            background: #121216;
+            border-right: 1px solid #2a2a30;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .browser-header {
+            padding: 10px 14px;
+            background: #1a1a20;
+            border-bottom: 1px solid #2a2a30;
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .browser-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px;
+        }
+
+        .audio-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: #1a1a20;
+            border-radius: 5px;
+            margin-bottom: 4px;
+            cursor: grab;
+            transition: all 0.15s;
+            border: 1px solid transparent;
+        }
+
+        .audio-item:hover {
+            background: #242430;
+            border-color: #4a9eff40;
+        }
+
+        .audio-item.dragging {
+            opacity: 0.5;
+            border-color: #4a9eff;
+        }
+
+        .audio-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #4a9eff20, #4a9eff40);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .audio-info { flex: 1; }
+
+        .audio-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+
+        .audio-meta {
+            font-size: 10px;
+            color: #666;
+            margin-top: 1px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           CENTER PANEL
+           ═══════════════════════════════════════════════════════════════════ */
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           TIMELINE (TOP)
+           ═══════════════════════════════════════════════════════════════════ */
+        .timeline-panel {
+            height: 280px;
+            display: flex;
+            flex-direction: column;
+            background: #0d0d10;
+            border-bottom: 2px solid #4a9eff40;
+            flex-shrink: 0;
+        }
+
+        .timeline-tabs {
+            display: flex;
+            background: #121216;
+            border-bottom: 1px solid #2a2a30;
+            overflow-x: auto;
+            padding: 0 8px;
+            flex-shrink: 0;
+        }
+
+        .timeline-tab {
+            padding: 8px 14px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .timeline-tab:hover {
+            color: #888;
+            background: #1a1a2010;
+        }
+
+        .timeline-tab.active {
+            color: #4a9eff;
+            border-bottom-color: #4a9eff;
+        }
+
+        .timeline-tab .badge {
+            background: #333;
+            color: #888;
+            padding: 1px 5px;
+            border-radius: 8px;
+            font-size: 9px;
+            font-weight: 600;
+        }
+
+        .timeline-tab.has-events .badge {
+            background: #40ff9030;
+            color: #40ff90;
+        }
+
+        .timeline-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .time-ruler {
+            height: 24px;
+            background: #1a1a20;
+            border-bottom: 1px solid #2a2a30;
+            display: flex;
+            align-items: center;
+            padding-left: 120px;
+            flex-shrink: 0;
+        }
+
+        .time-marker {
+            width: 80px;
+            font-size: 9px;
+            color: #666;
+        }
+
+        .timeline-tracks {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .timeline-track {
+            display: flex;
+            height: 50px;
+            border-bottom: 1px solid #1a1a20;
+        }
+
+        .track-header {
+            width: 120px;
+            background: #121216;
+            border-right: 1px solid #2a2a30;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .track-name {
+            font-size: 11px;
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+
+        .track-meta {
+            font-size: 9px;
+            color: #666;
+            margin-top: 1px;
+        }
+
+        .track-content {
+            flex: 1;
+            position: relative;
+            background: repeating-linear-gradient(90deg, #0d0d10 0px, #0d0d10 79px, #1a1a2040 79px, #1a1a2040 80px);
+        }
+
+        .audio-clip {
+            position: absolute;
+            top: 6px;
+            height: 38px;
+            background: linear-gradient(180deg, #4a9eff40 0%, #4a9eff20 100%);
+            border: 1px solid #4a9eff;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            cursor: move;
+            overflow: hidden;
+        }
+
+        .audio-clip .waveform {
+            width: 100%;
+            height: 24px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30'%3E%3Cpath d='M0,15 Q5,5 10,15 T20,15 T30,15 T40,15 T50,15 T60,15 T70,15 T80,15 T90,15 T100,15' stroke='%234a9eff' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") repeat-x;
+            background-size: 40px 24px;
+            opacity: 0.6;
+        }
+
+        .audio-clip .clip-label {
+            position: absolute;
+            top: 2px;
+            left: 5px;
+            font-size: 9px;
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .empty-timeline {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            gap: 8px;
+        }
+
+        .empty-timeline .icon { font-size: 32px; opacity: 0.3; }
+        .empty-timeline .text { font-size: 12px; }
+        .empty-timeline .hint { font-size: 11px; color: #4a4a50; }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           STAGE MAP (BOTTOM) — All Drop Targets
+           ═══════════════════════════════════════════════════════════════════ */
+        .stage-map {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: linear-gradient(180deg, #0d0d10 0%, #121216 100%);
+        }
+
+        .stage-section {
+            margin-bottom: 20px;
+        }
+
+        .section-header {
+            font-size: 10px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            padding-left: 4px;
+            border-left: 3px solid #4a9eff;
+        }
+
+        .stage-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .stage-item {
+            padding: 12px 16px;
+            background: #1a1a20;
+            border: 2px dashed #3a3a40;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .stage-item:hover {
+            border-color: #4a4a50;
+            background: #242430;
+        }
+
+        .stage-item.drop-target {
+            border-color: #4a9eff;
+            border-style: solid;
+            background: linear-gradient(135deg, #4a9eff20, #4a9eff10);
+            color: #4a9eff;
+            box-shadow: 0 0 20px #4a9eff30;
+        }
+
+        .stage-item.has-event {
+            border-color: #40ff90;
+            border-style: solid;
+            background: #40ff9010;
+            color: #40ff90;
+        }
+
+        .stage-item .icon {
+            font-size: 18px;
+            margin-bottom: 4px;
+        }
+
+        .stage-item .label {
+            font-size: 10px;
+            color: inherit;
+        }
+
+        /* Reel Items — Wider */
+        .reel-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .reel-item {
+            flex: 1;
+            padding: 20px 10px;
+            background: linear-gradient(180deg, #1a1a20 0%, #121216 100%);
+            border: 2px dashed #3a3a40;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .reel-item:hover {
+            border-color: #4a4a50;
+        }
+
+        .reel-item.drop-target {
+            border-color: #4a9eff;
+            border-style: solid;
+            background: linear-gradient(180deg, #4a9eff15 0%, #4a9eff05 100%);
+            box-shadow: 0 0 20px #4a9eff30;
+        }
+
+        .reel-item.has-event {
+            border-color: #40ff90;
+            border-style: solid;
+        }
+
+        .reel-symbols {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .reel-symbol {
+            width: 40px;
+            height: 40px;
+            background: #242430;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .reel-label {
+            font-size: 10px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        /* Special large items */
+        .spin-button {
+            padding: 24px 60px;
+            font-size: 16px;
+            background: linear-gradient(135deg, #2a2a30, #1a1a20);
+        }
+
+        .spin-button.drop-target {
+            background: linear-gradient(135deg, #4a9eff30, #4a9eff15);
+        }
+
+        /* Win tiers with colors */
+        .stage-item.win-small { border-color: #4a9eff40; }
+        .stage-item.win-medium { border-color: #40ff9040; }
+        .stage-item.win-big { border-color: #ffff4040; }
+        .stage-item.win-mega { border-color: #ff904040; }
+        .stage-item.win-epic { border-color: #ff404040; }
+
+        .stage-item.win-small.has-event { background: #4a9eff20; border-color: #4a9eff; color: #4a9eff; }
+        .stage-item.win-medium.has-event { background: #40ff9020; border-color: #40ff90; color: #40ff90; }
+        .stage-item.win-big.has-event { background: #ffff4020; border-color: #ffff40; color: #ffff40; }
+        .stage-item.win-mega.has-event { background: #ff904020; border-color: #ff9040; color: #ff9040; }
+        .stage-item.win-epic.has-event { background: #ff404020; border-color: #ff4040; color: #ff4040; }
+
+        /* Jackpot colors */
+        .stage-item.jp-mini { border-color: #40c8ff40; }
+        .stage-item.jp-minor { border-color: #40ff9040; }
+        .stage-item.jp-major { border-color: #ff904040; }
+        .stage-item.jp-grand { border-color: #ff40ff40; }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           NOTIFICATIONS
+           ═══════════════════════════════════════════════════════════════════ */
+        .drag-feedback {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: #4a9eff;
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            display: none;
+            box-shadow: 0 4px 20px rgba(74, 158, 255, 0.3);
+            z-index: 1000;
+        }
+
+        .drag-feedback.visible {
+            display: block;
+            animation: slideIn 0.2s ease-out;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #40ff90;
+            color: #000;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            display: none;
+            box-shadow: 0 4px 20px rgba(64, 255, 144, 0.3);
+            z-index: 1000;
+        }
+
+        .notification.visible {
+            display: block;
+            animation: popIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes popIn {
+            0% { transform: translateX(-50%) scale(0.8); opacity: 0; }
+            100% { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">FluxForge</div>
+            <div class="header-title">SlotLab — Stage Map + Tab Timeline</div>
+            <div class="header-spacer"></div>
+            <div class="header-badge">MOCKUP V2</div>
+        </div>
+
+        <div class="main-layout">
+            <!-- Audio Browser (Left) -->
+            <div class="audio-browser">
+                <div class="browser-header">📁 Audio Browser</div>
+                <div class="browser-content">
+                    <div class="audio-item" draggable="true" data-audio="spin_whoosh.wav">
+                        <div class="audio-icon">🎵</div>
+                        <div class="audio-info">
+                            <div class="audio-name">spin_whoosh.wav</div>
+                            <div class="audio-meta">0.8s • SFX</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="reel_stop.wav">
+                        <div class="audio-icon">🎵</div>
+                        <div class="audio-info">
+                            <div class="audio-name">reel_stop.wav</div>
+                            <div class="audio-meta">0.3s • Reels</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="win_small.wav">
+                        <div class="audio-icon">🎵</div>
+                        <div class="audio-info">
+                            <div class="audio-name">win_small.wav</div>
+                            <div class="audio-meta">1.2s • Wins</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="win_big_fanfare.wav">
+                        <div class="audio-icon">🎵</div>
+                        <div class="audio-info">
+                            <div class="audio-name">win_big_fanfare.wav</div>
+                            <div class="audio-meta">3.5s • Wins</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="anticipation_riser.wav">
+                        <div class="audio-icon">🔊</div>
+                        <div class="audio-info">
+                            <div class="audio-name">anticipation_riser.wav</div>
+                            <div class="audio-meta">2.0s • Antic</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="jackpot_trigger.wav">
+                        <div class="audio-icon">💎</div>
+                        <div class="audio-info">
+                            <div class="audio-name">jackpot_trigger.wav</div>
+                            <div class="audio-meta">4.2s • JP</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="freespin_trigger.wav">
+                        <div class="audio-icon">⭐</div>
+                        <div class="audio-info">
+                            <div class="audio-name">freespin_trigger.wav</div>
+                            <div class="audio-meta">2.8s • Feature</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="cascade_pop.wav">
+                        <div class="audio-icon">💥</div>
+                        <div class="audio-info">
+                            <div class="audio-name">cascade_pop.wav</div>
+                            <div class="audio-meta">0.2s • Cascade</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="button_click.wav">
+                        <div class="audio-icon">🔘</div>
+                        <div class="audio-info">
+                            <div class="audio-name">button_click.wav</div>
+                            <div class="audio-meta">0.1s • UI</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="base_music_loop.wav">
+                        <div class="audio-icon">🎶</div>
+                        <div class="audio-info">
+                            <div class="audio-name">base_music_loop.wav</div>
+                            <div class="audio-meta">32s • Music</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Panel -->
+            <div class="center-panel">
+                <!-- TIMELINE (TOP) -->
+                <div class="timeline-panel">
+                    <div class="timeline-tabs" id="tabBar">
+                        <!-- Tabs will be generated dynamically -->
+                    </div>
+                    <div class="timeline-content">
+                        <div class="time-ruler">
+                            <div class="time-marker">0:00</div>
+                            <div class="time-marker">0:01</div>
+                            <div class="time-marker">0:02</div>
+                            <div class="time-marker">0:03</div>
+                            <div class="time-marker">0:04</div>
+                            <div class="time-marker">0:05</div>
+                        </div>
+                        <div class="timeline-tracks" id="timelineTracks">
+                            <div class="empty-timeline" id="emptyState">
+                                <div class="icon">🎵</div>
+                                <div class="text">No events yet</div>
+                                <div class="hint">Drop audio on any element below</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STAGE MAP (BOTTOM) — All Drop Targets -->
+                <div class="stage-map">
+                    <!-- BASE GAME -->
+                    <div class="stage-section">
+                        <div class="section-header">Base Game</div>
+                        <div class="stage-grid">
+                            <div class="stage-item spin-button" data-target="spin">
+                                <div class="icon">🎰</div>
+                                <div class="label">SPIN</div>
+                            </div>
+                            <div class="stage-item" data-target="spin-end">
+                                <div class="icon">⏹</div>
+                                <div class="label">Spin End</div>
+                            </div>
+                            <div class="stage-item" data-target="auto-spin">
+                                <div class="icon">🔄</div>
+                                <div class="label">Auto Spin</div>
+                            </div>
+                            <div class="stage-item" data-target="turbo">
+                                <div class="icon">⚡</div>
+                                <div class="label">Turbo</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- REELS -->
+                    <div class="stage-section">
+                        <div class="section-header">Reels</div>
+                        <div class="reel-row">
+                            <div class="reel-item" data-target="reel-0">
+                                <div class="reel-symbols">
+                                    <div class="reel-symbol">🍒</div>
+                                    <div class="reel-symbol">🍋</div>
+                                    <div class="reel-symbol">🍊</div>
+                                </div>
+                                <div class="reel-label">Reel 0</div>
+                            </div>
+                            <div class="reel-item" data-target="reel-1">
+                                <div class="reel-symbols">
+                                    <div class="reel-symbol">⭐</div>
+                                    <div class="reel-symbol">💎</div>
+                                    <div class="reel-symbol">7️⃣</div>
+                                </div>
+                                <div class="reel-label">Reel 1</div>
+                            </div>
+                            <div class="reel-item" data-target="reel-2">
+                                <div class="reel-symbols">
+                                    <div class="reel-symbol">🍇</div>
+                                    <div class="reel-symbol">🔔</div>
+                                    <div class="reel-symbol">🍀</div>
+                                </div>
+                                <div class="reel-label">Reel 2</div>
+                            </div>
+                            <div class="reel-item" data-target="reel-3">
+                                <div class="reel-symbols">
+                                    <div class="reel-symbol">💎</div>
+                                    <div class="reel-symbol">⭐</div>
+                                    <div class="reel-symbol">🍒</div>
+                                </div>
+                                <div class="reel-label">Reel 3</div>
+                            </div>
+                            <div class="reel-item" data-target="reel-4">
+                                <div class="reel-symbols">
+                                    <div class="reel-symbol">7️⃣</div>
+                                    <div class="reel-symbol">🍋</div>
+                                    <div class="reel-symbol">🔔</div>
+                                </div>
+                                <div class="reel-label">Reel 4</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WIN TIERS -->
+                    <div class="stage-section">
+                        <div class="section-header">Win Tiers</div>
+                        <div class="stage-grid">
+                            <div class="stage-item win-small" data-target="win-small">
+                                <div class="icon">💰</div>
+                                <div class="label">Small Win</div>
+                            </div>
+                            <div class="stage-item win-medium" data-target="win-medium">
+                                <div class="icon">💰</div>
+                                <div class="label">Medium Win</div>
+                            </div>
+                            <div class="stage-item win-big" data-target="win-big">
+                                <div class="icon">🎉</div>
+                                <div class="label">Big Win</div>
+                            </div>
+                            <div class="stage-item win-mega" data-target="win-mega">
+                                <div class="icon">🔥</div>
+                                <div class="label">Mega Win</div>
+                            </div>
+                            <div class="stage-item win-epic" data-target="win-epic">
+                                <div class="icon">💥</div>
+                                <div class="label">Epic Win</div>
+                            </div>
+                            <div class="stage-item" data-target="win-line">
+                                <div class="icon">📊</div>
+                                <div class="label">Win Line</div>
+                            </div>
+                            <div class="stage-item" data-target="rollup">
+                                <div class="icon">🔢</div>
+                                <div class="label">Rollup</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- JACKPOTS -->
+                    <div class="stage-section">
+                        <div class="section-header">Jackpots</div>
+                        <div class="stage-grid">
+                            <div class="stage-item jp-mini" data-target="jp-mini">
+                                <div class="icon">💎</div>
+                                <div class="label">Mini</div>
+                            </div>
+                            <div class="stage-item jp-minor" data-target="jp-minor">
+                                <div class="icon">💎</div>
+                                <div class="label">Minor</div>
+                            </div>
+                            <div class="stage-item jp-major" data-target="jp-major">
+                                <div class="icon">💎</div>
+                                <div class="label">Major</div>
+                            </div>
+                            <div class="stage-item jp-grand" data-target="jp-grand">
+                                <div class="icon">👑</div>
+                                <div class="label">Grand</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FEATURES -->
+                    <div class="stage-section">
+                        <div class="section-header">Features</div>
+                        <div class="stage-grid">
+                            <div class="stage-item" data-target="fs-trigger">
+                                <div class="icon">⭐</div>
+                                <div class="label">FS Trigger</div>
+                            </div>
+                            <div class="stage-item" data-target="fs-spin">
+                                <div class="icon">🔄</div>
+                                <div class="label">FS Spin</div>
+                            </div>
+                            <div class="stage-item" data-target="fs-end">
+                                <div class="icon">🏁</div>
+                                <div class="label">FS End</div>
+                            </div>
+                            <div class="stage-item" data-target="bonus-enter">
+                                <div class="icon">🎁</div>
+                                <div class="label">Bonus Enter</div>
+                            </div>
+                            <div class="stage-item" data-target="bonus-exit">
+                                <div class="icon">🚪</div>
+                                <div class="label">Bonus Exit</div>
+                            </div>
+                            <div class="stage-item" data-target="multiplier">
+                                <div class="icon">✖️</div>
+                                <div class="label">Multiplier</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CASCADE -->
+                    <div class="stage-section">
+                        <div class="section-header">Cascade / Tumble</div>
+                        <div class="stage-grid">
+                            <div class="stage-item" data-target="cascade-start">
+                                <div class="icon">💫</div>
+                                <div class="label">Cascade Start</div>
+                            </div>
+                            <div class="stage-item" data-target="cascade-step">
+                                <div class="icon">💥</div>
+                                <div class="label">Cascade Step</div>
+                            </div>
+                            <div class="stage-item" data-target="cascade-end">
+                                <div class="icon">✅</div>
+                                <div class="label">Cascade End</div>
+                            </div>
+                            <div class="stage-item" data-target="symbol-pop">
+                                <div class="icon">💨</div>
+                                <div class="label">Symbol Pop</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HOLD & WIN -->
+                    <div class="stage-section">
+                        <div class="section-header">Hold & Win / Respins</div>
+                        <div class="stage-grid">
+                            <div class="stage-item" data-target="hw-enter">
+                                <div class="icon">🔒</div>
+                                <div class="label">H&W Enter</div>
+                            </div>
+                            <div class="stage-item" data-target="hw-respin">
+                                <div class="icon">🔄</div>
+                                <div class="label">Respin</div>
+                            </div>
+                            <div class="stage-item" data-target="hw-lock">
+                                <div class="icon">📌</div>
+                                <div class="label">Lock Symbol</div>
+                            </div>
+                            <div class="stage-item" data-target="hw-exit">
+                                <div class="icon">🏁</div>
+                                <div class="label">H&W Exit</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ANTICIPATION -->
+                    <div class="stage-section">
+                        <div class="section-header">Anticipation</div>
+                        <div class="stage-grid">
+                            <div class="stage-item" data-target="antic-reel3">
+                                <div class="icon">⚡</div>
+                                <div class="label">Antic Reel 3</div>
+                            </div>
+                            <div class="stage-item" data-target="antic-reel4">
+                                <div class="icon">⚡</div>
+                                <div class="label">Antic Reel 4</div>
+                            </div>
+                            <div class="stage-item" data-target="antic-reel5">
+                                <div class="icon">⚡</div>
+                                <div class="label">Antic Reel 5</div>
+                            </div>
+                            <div class="stage-item" data-target="near-miss">
+                                <div class="icon">😮</div>
+                                <div class="label">Near Miss</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SYMBOLS -->
+                    <div class="stage-section">
+                        <div class="section-header">Special Symbols</div>
+                        <div class="stage-grid">
+                            <div class="stage-item" data-target="wild-land">
+                                <div class="icon">🃏</div>
+                                <div class="label">Wild Land</div>
+                            </div>
+                            <div class="stage-item" data-target="scatter-land">
+                                <div class="icon">⭐</div>
+                                <div class="label">Scatter Land</div>
+                            </div>
+                            <div class="stage-item" data-target="bonus-land">
+                                <div class="icon">🎁</div>
+                                <div class="label">Bonus Land</div>
+                            </div>
+                            <div class="stage-item" data-target="wild-expand">
+                                <div class="icon">📈</div>
+                                <div class="label">Wild Expand</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GAMBLE -->
+                    <div class="stage-section">
+                        <div class="section-header">Gamble</div>
+                        <div class="stage-grid">
+                            <div class="stage-item" data-target="gamble-enter">
+                                <div class="icon">🎲</div>
+                                <div class="label">Gamble Enter</div>
+                            </div>
+                            <div class="stage-item" data-target="gamble-win">
+                                <div class="icon">✅</div>
+                                <div class="label">Gamble Win</div>
+                            </div>
+                            <div class="stage-item" data-target="gamble-lose">
+                                <div class="icon">❌</div>
+                                <div class="label">Gamble Lose</div>
+                            </div>
+                            <div class="stage-item" data-target="gamble-collect">
+                                <div class="icon">💵</div>
+                                <div class="label">Collect</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- UI -->
+                    <div class="stage-section">
+                        <div class="section-header">UI Elements</div>
+                        <div class="stage-grid">
+                            <div class="stage-item" data-target="ui-click">
+                                <div class="icon">🔘</div>
+                                <div class="label">Button Click</div>
+                            </div>
+                            <div class="stage-item" data-target="ui-hover">
+                                <div class="icon">👆</div>
+                                <div class="label">Button Hover</div>
+                            </div>
+                            <div class="stage-item" data-target="menu-open">
+                                <div class="icon">📋</div>
+                                <div class="label">Menu Open</div>
+                            </div>
+                            <div class="stage-item" data-target="paytable">
+                                <div class="icon">📖</div>
+                                <div class="label">Paytable</div>
+                            </div>
+                            <div class="stage-item" data-target="settings">
+                                <div class="icon">⚙️</div>
+                                <div class="label">Settings</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MUSIC -->
+                    <div class="stage-section">
+                        <div class="section-header">Music</div>
+                        <div class="stage-grid">
+                            <div class="stage-item" data-target="music-base">
+                                <div class="icon">🎶</div>
+                                <div class="label">Base Music</div>
+                            </div>
+                            <div class="stage-item" data-target="music-feature">
+                                <div class="icon">🎸</div>
+                                <div class="label">Feature Music</div>
+                            </div>
+                            <div class="stage-item" data-target="music-bigwin">
+                                <div class="icon">🎺</div>
+                                <div class="label">Big Win Music</div>
+                            </div>
+                            <div class="stage-item" data-target="music-idle">
+                                <div class="icon">🎵</div>
+                                <div class="label">Idle Music</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="drag-feedback" id="dragFeedback">Dragging: <span id="dragFileName"></span></div>
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // All possible targets and their tab names
+        const TARGET_TABS = {
+            'spin': 'SPIN',
+            'spin-end': 'SPIN',
+            'auto-spin': 'SPIN',
+            'turbo': 'SPIN',
+            'reel-0': 'REEL 0',
+            'reel-1': 'REEL 1',
+            'reel-2': 'REEL 2',
+            'reel-3': 'REEL 3',
+            'reel-4': 'REEL 4',
+            'win-small': 'WINS',
+            'win-medium': 'WINS',
+            'win-big': 'WINS',
+            'win-mega': 'WINS',
+            'win-epic': 'WINS',
+            'win-line': 'WINS',
+            'rollup': 'WINS',
+            'jp-mini': 'JACKPOT',
+            'jp-minor': 'JACKPOT',
+            'jp-major': 'JACKPOT',
+            'jp-grand': 'JACKPOT',
+            'fs-trigger': 'FREESPIN',
+            'fs-spin': 'FREESPIN',
+            'fs-end': 'FREESPIN',
+            'bonus-enter': 'BONUS',
+            'bonus-exit': 'BONUS',
+            'multiplier': 'FEATURE',
+            'cascade-start': 'CASCADE',
+            'cascade-step': 'CASCADE',
+            'cascade-end': 'CASCADE',
+            'symbol-pop': 'CASCADE',
+            'hw-enter': 'HOLD&WIN',
+            'hw-respin': 'HOLD&WIN',
+            'hw-lock': 'HOLD&WIN',
+            'hw-exit': 'HOLD&WIN',
+            'antic-reel3': 'ANTIC',
+            'antic-reel4': 'ANTIC',
+            'antic-reel5': 'ANTIC',
+            'near-miss': 'ANTIC',
+            'wild-land': 'SYMBOLS',
+            'scatter-land': 'SYMBOLS',
+            'bonus-land': 'SYMBOLS',
+            'wild-expand': 'SYMBOLS',
+            'gamble-enter': 'GAMBLE',
+            'gamble-win': 'GAMBLE',
+            'gamble-lose': 'GAMBLE',
+            'gamble-collect': 'GAMBLE',
+            'ui-click': 'UI',
+            'ui-hover': 'UI',
+            'menu-open': 'UI',
+            'paytable': 'UI',
+            'settings': 'UI',
+            'music-base': 'MUSIC',
+            'music-feature': 'MUSIC',
+            'music-bigwin': 'MUSIC',
+            'music-idle': 'MUSIC'
+        };
+
+        // Get unique tabs
+        const TABS = [...new Set(Object.values(TARGET_TABS))];
+
+        // State
+        const state = {
+            currentTab: TABS[0],
+            events: {},
+            draggingAudio: null
+        };
+
+        // Initialize events object
+        TABS.forEach(tab => state.events[tab] = []);
+
+        // DOM
+        const tabBar = document.getElementById('tabBar');
+        const timelineTracks = document.getElementById('timelineTracks');
+        const emptyState = document.getElementById('emptyState');
+        const dragFeedback = document.getElementById('dragFeedback');
+        const dragFileName = document.getElementById('dragFileName');
+        const notification = document.getElementById('notification');
+
+        // Generate tabs
+        function renderTabs() {
+            tabBar.innerHTML = TABS.map(tab => `
+                <div class="timeline-tab ${tab === state.currentTab ? 'active' : ''} ${state.events[tab].length > 0 ? 'has-events' : ''}" data-tab="${tab}">
+                    ${tab}
+                    <span class="badge">${state.events[tab].length}</span>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            tabBar.querySelectorAll('.timeline-tab').forEach(tabEl => {
+                tabEl.addEventListener('click', () => {
+                    state.currentTab = tabEl.dataset.tab;
+                    renderTabs();
+                    renderTimeline();
+                });
+            });
+        }
+
+        // Render timeline
+        function renderTimeline() {
+            const events = state.events[state.currentTab];
+
+            if (events.length === 0) {
+                emptyState.style.display = 'flex';
+                emptyState.querySelector('.text').textContent = `No events for ${state.currentTab}`;
+                timelineTracks.querySelectorAll('.timeline-track').forEach(t => t.remove());
+            } else {
+                emptyState.style.display = 'none';
+                timelineTracks.querySelectorAll('.timeline-track').forEach(t => t.remove());
+
+                events.forEach((event, index) => {
+                    const track = document.createElement('div');
+                    track.className = 'timeline-track';
+                    track.innerHTML = `
+                        <div class="track-header">
+                            <div class="track-name">${event.audio}</div>
+                            <div class="track-meta">${event.target}</div>
+                        </div>
+                        <div class="track-content">
+                            <div class="audio-clip" style="left: ${event.offset}px; width: 120px;">
+                                <div class="clip-label">${event.audio}</div>
+                                <div class="waveform"></div>
+                            </div>
+                        </div>
+                    `;
+                    timelineTracks.appendChild(track);
+                });
+            }
+        }
+
+        // Audio drag
+        document.querySelectorAll('.audio-item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                state.draggingAudio = item.dataset.audio;
+                item.classList.add('dragging');
+                dragFileName.textContent = state.draggingAudio;
+                dragFeedback.classList.add('visible');
+            });
+
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                dragFeedback.classList.remove('visible');
+                state.draggingAudio = null;
+                document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+            });
+        });
+
+        // Drop targets
+        document.querySelectorAll('[data-target]').forEach(target => {
+            target.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                target.classList.add('drop-target');
+            });
+
+            target.addEventListener('dragleave', () => {
+                target.classList.remove('drop-target');
+            });
+
+            target.addEventListener('drop', (e) => {
+                e.preventDefault();
+                target.classList.remove('drop-target');
+
+                if (state.draggingAudio) {
+                    const targetId = target.dataset.target;
+                    const tabName = TARGET_TABS[targetId];
+
+                    // Add event
+                    state.events[tabName].push({
+                        id: Date.now(),
+                        audio: state.draggingAudio,
+                        target: targetId,
+                        offset: state.events[tabName].length * 60
+                    });
+
+                    // Mark as has event
+                    target.classList.add('has-event');
+
+                    // Switch to tab
+                    state.currentTab = tabName;
+                    renderTabs();
+                    renderTimeline();
+
+                    showNotification(`✅ ${targetId.toUpperCase()} → ${state.draggingAudio}`);
+                }
+            });
+        });
+
+        function showNotification(message) {
+            notification.textContent = message;
+            notification.classList.add('visible');
+            setTimeout(() => notification.classList.remove('visible'), 2500);
+        }
+
+        // Init
+        renderTabs();
+        renderTimeline();
+    </script>
+</body>
+</html>

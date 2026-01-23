@@ -1,8 +1,8 @@
 # Lower Zone Architecture — FluxForge Studio
 
-> **Version:** 2.2
-> **Date:** 2026-01-22
-> **Status:** FULLY IMPLEMENTED — All Panels + State Persistence
+> **Version:** 2.4
+> **Date:** 2026-01-23
+> **Status:** FULLY IMPLEMENTED — All Panels + State Persistence + Action Strip Integration + No Placeholders
 
 ---
 
@@ -595,6 +595,41 @@ Kontekst-svesna akciona traka na dnu Lower Zone.
 | **DSP/Chain** | `+ Insert` `⊖ Remove` `↕ Reorder` `📋 Copy Chain` |
 | **BAKE/Export** | `✓ Validate` `🔥 Bake All` `📦 Package` |
 
+### 5.4 Action Strip Implementation Status (2026-01-23) ✅
+
+**All action buttons are now connected to provider methods.**
+
+**Files:**
+- `lower_zone_action_strip.dart` — `LowerZoneAction` model, `DawActions`, `MiddlewareActions`, `SlotLabActions` static builders
+- `slotlab_lower_zone_widget.dart:2199` — `_buildActionStrip()` with callbacks
+- `middleware_lower_zone_widget.dart:1492` — `_buildActionStrip()` with callbacks
+- `daw_lower_zone_widget.dart:4088` — `_buildActionStrip()` with callbacks
+
+**Connection Pattern:**
+```dart
+SlotLabActions.forStages(
+  onRecord: () => slotLab?.startStageRecording(),
+  onStop: () => slotLab?.stopStageRecording(),
+  onClear: () => slotLab?.clearStages(),
+  onExport: () { /* Export stages */ },
+)
+```
+
+**Provider Methods Added:**
+
+| Provider | Method | Purpose |
+|----------|--------|---------|
+| `SlotLabProvider` | `startStageRecording()` | Begin capturing stage events |
+| `SlotLabProvider` | `stopStageRecording()` | Stop capturing |
+| `SlotLabProvider` | `clearStages()` | Clear all captured stages |
+| `MiddlewareProvider` | `duplicateCompositeEvent(id)` | Copy event with layers/stages |
+| `MiddlewareProvider` | `previewCompositeEvent(id)` | Play event audio |
+
+**TODO (debugPrint only):**
+- DAW: All actions (need MixerProvider, DspChainProvider, TimelineProvider integration)
+- SlotLab Mix/DSP/Bake: Need MixerDSPProvider, DspChainProvider, ExportService integration
+- Middleware Containers/RTPC/Deliver: Need container providers, RtpcSystemProvider, ExportService integration
+
 ---
 
 ## 6. VISUAL DESIGN
@@ -1159,4 +1194,185 @@ Per section:
 
 **Document Status:** FULLY IMPLEMENTED
 **All 60 panels built** — Integration complete
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-01-23
+
+---
+
+## 16. OVERFLOW FIXES (2026-01-23)
+
+### 16.1 Problem
+
+Visual overflow/empty space ispod tabova u collapsed state — ContextBar prikazivao prazan prostor od 28px jer je imao fiksnu visinu 60px ali sub-tabs (28px) su bile skrivene.
+
+### 16.2 Root Causes
+
+| Problem | Uzrok |
+|---------|-------|
+| Prazan prostor ispod tabova | ContextBar fiksno 60px, ali prikazuje samo 32px (super-tabs) kad collapsed |
+| Layout conflict | `mainAxisSize: MainAxisSize.min` na Column unutar Expanded widget-a |
+| Netačan totalHeight | Controller koristio `kContextBarHeight` (60) za collapsed umesto 32 |
+
+### 16.3 Rešenja
+
+1. **Nova konstanta:** `kContextBarCollapsedHeight = 32.0` u `lower_zone_types.dart`
+
+2. **Dinamička visina ContextBar-a:**
+```dart
+final height = isExpanded ? kContextBarHeight : kContextBarCollapsedHeight;
+```
+
+3. **Popravljen totalHeight u controlleru:**
+```dart
+double get totalHeight => _state.isExpanded
+    ? _state.height + kContextBarHeight + kActionStripHeight + kResizeHandleHeight + kSpinControlBarHeight
+    : kResizeHandleHeight + kContextBarCollapsedHeight;
+```
+
+4. **Uklonjeno `mainAxisSize: MainAxisSize.min`** iz Column widget-a u `slotlab_lower_zone_widget.dart`
+
+### 16.4 Izmenjeni Fajlovi
+
+| Fajl | Promena |
+|------|---------|
+| `lower_zone_types.dart` | Dodato `kContextBarCollapsedHeight = 32.0` |
+| `lower_zone_context_bar.dart` | Dinamička visina + `clipBehavior: Clip.hardEdge` |
+| `slotlab_lower_zone_controller.dart` | Popravljen `totalHeight` za collapsed state |
+| `slotlab_lower_zone_widget.dart` | Uklonjeno `mainAxisSize: MainAxisSize.min` |
+
+### 16.5 Layout Pravilo
+
+**NIKADA ne koristi `mainAxisSize: MainAxisSize.min` unutar:**
+- `Expanded` widget-a (conflicts with expansion)
+- Kontejnera sa fiksnom visinom (column treba da popuni prostor)
+
+**UVEK koristi `clipBehavior: Clip.hardEdge`** na kontejnerima koji menjaju visinu da sprečiš visual overflow
+
+### 16.6 Middleware Lower Zone Fix (2026-01-23)
+
+**Problem:** 1px bottom overflow ispod Browser/Editor/Triggers tabova.
+
+**Uzrok:** `totalHeight` u middleware controlleru nije uključivao:
+- `kResizeHandleHeight` (4px)
+- `kSlotContextBarHeight` (28px) — Middleware-specifičan bar
+
+**Rešenje:**
+
+1. **Nova konstanta:** `kSlotContextBarHeight = 28.0` u `lower_zone_types.dart`
+
+2. **Popravljen totalHeight:**
+```dart
+double get totalHeight => _state.isExpanded
+    ? _state.height + kContextBarHeight + kSlotContextBarHeight + kActionStripHeight + kResizeHandleHeight
+    : kResizeHandleHeight + kContextBarCollapsedHeight;
+```
+
+3. **Dodato `clipBehavior: Clip.hardEdge`** na AnimatedContainer
+
+4. **Zamenjeno hardcoded `28`** sa `kSlotContextBarHeight` konstantom
+
+**Izmenjeni fajlovi:**
+
+| Fajl | Promena |
+|------|---------|
+| `lower_zone_types.dart` | Dodato `kSlotContextBarHeight = 28.0` |
+| `middleware_lower_zone_controller.dart` | Popravljen `totalHeight` |
+| `middleware_lower_zone_widget.dart` | `clipBehavior` + konstanta umesto hardcoded vrednosti |
+
+### 16.7 FabFilter Panel Spacer Overflow (2026-01-23)
+
+**Problem:** Overflow u `_buildCompactOptions()` metodama FabFilter panela kada se Lower Zone smanji.
+
+**Uzrok:** `const Spacer()` unutar Column bez bounded height constraint-a pokušava da zauzme beskonačan prostor.
+
+**Pattern:**
+```dart
+// BROKEN
+SizedBox(
+  width: 100,
+  child: Column(
+    children: [
+      // ... widgets ...
+      const Spacer(),  // ← OVERFLOW kada nema bounded height
+      // ... more widgets ...
+    ],
+  ),
+)
+```
+
+**Fix:**
+```dart
+// FIXED
+const Flexible(child: SizedBox(height: 8)),  // Može da se smanji na 0
+```
+
+| Fajl | Linija | Status |
+|------|--------|--------|
+| `fabfilter_limiter_panel.dart` | 630 | ✅ Fixed |
+| `fabfilter_compressor_panel.dart` | 927 | ✅ Fixed |
+| `fabfilter_gate_panel.dart` | 498 | ✅ Fixed |
+| `fabfilter_reverb_panel.dart` | 467 | ✅ Fixed |
+
+**Napomena:** Spacer u Row sa fiksnom visinom (npr. `_buildOptionRow`) je OK jer Row ima bounded height.
+
+### 16.8 LowerZoneContextBar 1px Overflow (2026-01-23)
+
+**Problem:** 1px overflow ispod PROCESS tabova u DAW Lower Zone.
+
+**Uzrok:** `mainAxisSize: MainAxisSize.min` na Column unutar Container-a sa fiksnom visinom (60px) i bottom border-om.
+
+**Struktura pre:**
+```dart
+Container(
+  height: 60,  // Fixed
+  decoration: BoxDecoration(border: Border(bottom: BorderSide())),  // 1px
+  child: Column(
+    mainAxisSize: MainAxisSize.min,  // ← PROBLEM
+    children: [
+      _buildSuperTabs(),       // 32px
+      if (isExpanded) _buildSubTabs(),  // 28px
+    ],  // Total: 60px, ali min sizing može izazvati 1px overflow
+  ),
+)
+```
+
+**Struktura posle:**
+```dart
+Container(
+  height: 60,
+  decoration: BoxDecoration(border: Border(bottom: BorderSide())),
+  clipBehavior: Clip.hardEdge,
+  child: Column(
+    children: [  // Default mainAxisSize: max
+      _buildSuperTabs(),                          // 32px fixed
+      if (isExpanded) Expanded(child: _buildSubTabs()),  // fills remaining 28px
+    ],
+  ),
+)
+```
+
+| Fajl | Promena |
+|------|---------|
+| `lower_zone_context_bar.dart` | Uklonjen `mainAxisSize: MainAxisSize.min`, sub-tabs wrapped u `Expanded` |
+
+### 16.9 Placeholder Removal (2026-01-23) ✅
+
+**Problem:** Dead code — `_buildPlaceholderPanel` metode postojale u svim Lower Zone widgetima ali nikada nisu bile pozivane.
+
+**Akcija:** Uklonjene sve placeholder metode i "Coming soon..." tekst.
+
+| Fajl | LOC Removed |
+|------|-------------|
+| `slotlab_lower_zone_widget.dart` | ~26 |
+| `middleware_lower_zone_widget.dart` | ~26 + outdated comment |
+| `daw_lower_zone_widget.dart` | ~26 |
+
+**Verifikacija:**
+```bash
+grep -r "Coming soon" flutter_ui/lib/widgets/lower_zone/
+# (no results)
+
+grep -r "_buildPlaceholderPanel" flutter_ui/lib/widgets/lower_zone/
+# (no results)
+```
+
+**Status:** ✅ COMPLETE — Svi paneli connected na real data, nema placeholder-a

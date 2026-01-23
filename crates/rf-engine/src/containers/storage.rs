@@ -6,6 +6,7 @@
 use super::{
     BlendContainer, BlendResult, ChildId, Container, ContainerId, ContainerType, RandomContainer,
     RandomResult, SequenceContainer, SequenceResult, ContainerGroup,
+    group::{ContainerLookup, ValidationResult, ValidationError, validate_group_addition},
 };
 use dashmap::DashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -176,6 +177,21 @@ impl ContainerStorage {
         }
     }
 
+    /// Get RNG state from random container (for determinism capture)
+    pub fn get_random_rng_state(&self, id: ContainerId) -> Option<u64> {
+        self.random.get(&id).map(|container| container.get_rng_state())
+    }
+
+    /// Set RNG state on random container (for determinism replay)
+    pub fn set_random_rng_state(&self, id: ContainerId, state: u64) -> bool {
+        if let Some(mut container) = self.random.get_mut(&id) {
+            container.set_rng_state(state);
+            true
+        } else {
+            false
+        }
+    }
+
     /// Get random container count
     pub fn random_count(&self) -> usize {
         self.random.len()
@@ -331,6 +347,94 @@ impl ContainerStorage {
     /// Get group count
     pub fn group_count(&self) -> usize {
         self.group.len()
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Validate a group with full depth and cycle checking
+    pub fn validate_group(&self, id: ContainerId) -> Option<ValidationResult> {
+        self.group.get(&id).map(|g| g.validate(self))
+    }
+
+    /// Validate all groups in storage
+    pub fn validate_all_groups(&self) -> Vec<(ContainerId, ValidationResult)> {
+        self.group
+            .iter()
+            .map(|entry| (*entry.key(), entry.value().validate(self)))
+            .collect()
+    }
+
+    /// Check if adding a child to a group would be valid
+    pub fn validate_group_child_addition(
+        &self,
+        group_id: ContainerId,
+        child_type: ContainerType,
+        child_id: ContainerId,
+    ) -> Result<(), ValidationError> {
+        validate_group_addition(group_id, child_type, child_id, self)
+    }
+
+    /// Insert group with validation (returns error if invalid)
+    pub fn insert_group_validated(&self, group: ContainerGroup) -> Result<(), ValidationError> {
+        // Validate local constraints first
+        group.validate_local()?;
+
+        // Full validation
+        let result = group.validate(self);
+        if !result.valid {
+            return Err(result.errors.into_iter().next().unwrap());
+        }
+
+        self.group.insert(group.id, group);
+        Ok(())
+    }
+
+    /// Add child to group with validation
+    pub fn add_group_child_validated(
+        &self,
+        group_id: ContainerId,
+        child_type: ContainerType,
+        child_id: ContainerId,
+        name: impl Into<String>,
+    ) -> Result<(), ValidationError> {
+        // Pre-validate the addition
+        self.validate_group_child_addition(group_id, child_type, child_id)?;
+
+        // Add the child
+        if let Some(mut group) = self.group.get_mut(&group_id) {
+            group.add_child(super::group::GroupChild::new(child_type, child_id, name));
+            Ok(())
+        } else {
+            Err(ValidationError::MissingContainer {
+                container_type: ContainerType::Group,
+                container_id: group_id,
+            })
+        }
+    }
+}
+
+// =============================================================================
+// CONTAINER LOOKUP IMPLEMENTATION
+// =============================================================================
+
+impl ContainerLookup for ContainerStorage {
+    fn group_exists(&self, id: ContainerId) -> bool {
+        self.group.contains_key(&id)
+    }
+
+    fn get_group_children(&self, id: ContainerId) -> Option<Vec<(ContainerType, ContainerId)>> {
+        self.group.get(&id).map(|g| {
+            g.children
+                .iter()
+                .map(|c| (c.container_type, c.container_id))
+                .collect()
+        })
+    }
+
+    fn container_exists(&self, ctype: ContainerType, id: ContainerId) -> bool {
+        self.exists(ctype, id)
     }
 }
 

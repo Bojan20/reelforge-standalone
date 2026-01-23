@@ -30,9 +30,12 @@ class SlotLabLowerZoneController extends ChangeNotifier {
   int get currentSubTabIndex => _state.currentSubTabIndex;
   List<String> get subTabLabels => _state.subTabLabels;
 
+  /// Total height including all fixed-height elements
+  /// When expanded: content + context bar (60px) + action strip + resize handle + spin control bar
+  /// When collapsed: just resize handle + super-tabs row (32px, no sub-tabs)
   double get totalHeight => _state.isExpanded
-      ? _state.height + kContextBarHeight + kActionStripHeight
-      : kContextBarHeight;
+      ? _state.height + kContextBarHeight + kActionStripHeight + kResizeHandleHeight + kSpinControlBarHeight
+      : kResizeHandleHeight + kContextBarCollapsedHeight;
 
   Color get accentColor => LowerZoneColors.slotLabAccent;
 

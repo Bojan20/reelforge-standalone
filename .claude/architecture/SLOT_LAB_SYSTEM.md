@@ -2,6 +2,11 @@
 
 > Synthetic Slot Engine za audio dizajn i testiranje slot igara.
 
+**Related Documentation:**
+- [SLOTLAB_DROP_ZONE_SPEC.md](./SLOTLAB_DROP_ZONE_SPEC.md) — Drag-drop audio na mockup elemente
+- [SLOTLAB_AUTO_EVENT_BUILDER_FINAL.md](./SLOTLAB_AUTO_EVENT_BUILDER_FINAL.md) — Auto Event Builder specifikacija
+- [EVENT_SYNC_SYSTEM.md](./EVENT_SYNC_SYSTEM.md) — Bidirekciona sinhronizacija eventa
+
 ---
 
 ## Overview

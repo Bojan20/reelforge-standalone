@@ -137,6 +137,7 @@ impl KalmanState {
 
 /// Event tracker with Kalman filter
 #[derive(Debug, Clone)]
+#[derive(Default)]
 struct EventTracker {
     id: u64,
     intent: String,
@@ -146,18 +147,6 @@ struct EventTracker {
     bus_id: u8,
 }
 
-impl Default for EventTracker {
-    fn default() -> Self {
-        Self {
-            id: 0,
-            intent: String::new(),
-            kalman: KalmanState::default(),
-            output: SpatialOutput::default(),
-            active: false,
-            bus_id: 0,
-        }
-    }
-}
 
 /// Global engine state
 #[derive(Debug)]

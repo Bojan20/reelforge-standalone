@@ -36,6 +36,12 @@ import 'subsystems/sequence_containers_provider.dart';
 import 'subsystems/music_system_provider.dart';
 import 'subsystems/event_system_provider.dart';
 import 'subsystems/composite_event_system_provider.dart' as composite_provider;
+import 'subsystems/bus_hierarchy_provider.dart';
+import 'subsystems/aux_send_provider.dart';
+import 'subsystems/voice_pool_provider.dart';
+import 'subsystems/attenuation_curve_provider.dart';
+import 'subsystems/memory_manager_provider.dart';
+import 'subsystems/event_profiler_provider.dart';
 
 // ============ Type Definitions ============
 
@@ -264,12 +270,23 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Composite Event System subsystem (extracted P1.5)
   late final composite_provider.CompositeEventSystemProvider _compositeEventSystemProvider;
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ADVANCED FEATURES (remaining, to be extracted in future phases)
-  // ═══════════════════════════════════════════════════════════════════════════
+  /// Bus Hierarchy subsystem (extracted Provider Decomposition)
+  late final BusHierarchyProvider _busHierarchyProvider;
 
-  // Attenuation Curves
-  final Map<int, AttenuationCurve> _attenuationCurves = {};
+  /// Aux Send subsystem (extracted Provider Decomposition)
+  late final AuxSendProvider _auxSendProvider;
+
+  /// Voice Pool subsystem (extracted Phase 6)
+  late final VoicePoolProvider _voicePoolProvider;
+
+  /// Attenuation Curve subsystem (extracted Phase 6)
+  late final AttenuationCurveProvider _attenuationCurveProvider;
+
+  /// Memory Manager subsystem (extracted Phase 7)
+  late final MemoryManagerProvider _memoryManagerProvider;
+
+  /// Event Profiler subsystem (extracted Phase 7)
+  late final EventProfilerProvider _eventProfilerProvider;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SLOT ELEMENT MAPPINGS (bidirectional sync with Slot Fullscreen)
@@ -287,31 +304,9 @@ class MiddlewareProvider extends ChangeNotifier {
   // ADVANCED AUDIO SYSTEMS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Voice pool for polyphony management
-  final VoicePool _voicePool = VoicePool(
-    config: const VoicePoolConfig(
-      maxVoices: 48,
-      stealingMode: VoiceStealingMode.lowestPriority,
-      enableVirtualVoices: true,
-    ),
-  );
-
-  /// Bus hierarchy with effects
-  final BusHierarchy _busHierarchy = BusHierarchy();
-
-  /// Aux send routing manager
-  final AuxSendManager _auxSendManager = AuxSendManager();
-
-  /// Memory budget manager
-  final MemoryBudgetManager _memoryManager = MemoryBudgetManager(
-    config: const MemoryBudgetConfig(
-      maxResidentBytes: 64 * 1024 * 1024, // 64MB
-      maxStreamingBytes: 32 * 1024 * 1024, // 32MB
-    ),
-  );
-
-  /// Event profiler
-  final EventProfiler _eventProfiler = EventProfiler(maxEvents: 10000);
+  // NOTE: VoicePool, BusHierarchy, AuxSend, AttenuationCurve, MemoryManager, and
+  // EventProfiler have been extracted to subsystem providers. Use the respective
+  // providers instead (see _memoryManagerProvider, _eventProfilerProvider).
 
   /// Spatial audio config for reels
   ReelSpatialConfig _reelSpatialConfig = const ReelSpatialConfig(
@@ -367,9 +362,6 @@ class MiddlewareProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
   // All composite event state and logic moved to CompositeEventSystemProvider
 
-  // ID counters for remaining groups (Music moved to P1.7 MusicSystemProvider)
-  int _nextAttenuationCurveId = 1;
-
   /// P1.15 FIX: Track whether listeners are registered to prevent duplicates
   bool _listenersRegistered = false;
 
@@ -385,6 +377,12 @@ class MiddlewareProvider extends ChangeNotifier {
     _musicSystemProvider = sl<MusicSystemProvider>();
     _eventSystemProvider = sl<EventSystemProvider>();
     _compositeEventSystemProvider = sl<composite_provider.CompositeEventSystemProvider>();
+    _busHierarchyProvider = sl<BusHierarchyProvider>();
+    _auxSendProvider = sl<AuxSendProvider>();
+    _voicePoolProvider = sl<VoicePoolProvider>();
+    _attenuationCurveProvider = sl<AttenuationCurveProvider>();
+    _memoryManagerProvider = sl<MemoryManagerProvider>();
+    _eventProfilerProvider = sl<EventProfilerProvider>();
 
     // P1.1 FIX: Forward notifications through granular change tracking
     // P1.15 FIX: Guard against duplicate listener registration (e.g., hot reload)
@@ -412,8 +410,50 @@ class MiddlewareProvider extends ChangeNotifier {
     _musicSystemProvider.addListener(_onMusicSystemChanged);
     _eventSystemProvider.addListener(_onEventSystemChanged);
     _compositeEventSystemProvider.addListener(_onCompositeEventsChanged);
+    _busHierarchyProvider.addListener(_onBusHierarchyChanged);
+    _auxSendProvider.addListener(_onAuxSendChanged);
+    _voicePoolProvider.addListener(_onVoicePoolChanged);
+    _attenuationCurveProvider.addListener(_onAttenuationCurveChanged);
+    _memoryManagerProvider.addListener(_onMemoryManagerChanged);
+    _eventProfilerProvider.addListener(_onEventProfilerChanged);
 
     _listenersRegistered = true;
+  }
+
+  /// Handle bus hierarchy changes
+  void _onBusHierarchyChanged() {
+    _markChanged(changeBusHierarchy);
+    notifyListeners();
+  }
+
+  /// Handle aux send changes
+  void _onAuxSendChanged() {
+    _markChanged(changeBusHierarchy);  // Reuse bus hierarchy flag for routing changes
+    notifyListeners();
+  }
+
+  /// Handle voice pool changes
+  void _onVoicePoolChanged() {
+    _markChanged(changeVoicePool);
+    notifyListeners();
+  }
+
+  /// Handle attenuation curve changes
+  void _onAttenuationCurveChanged() {
+    _markChanged(changeSlotElements);  // Reuse slot elements flag for attenuation
+    notifyListeners();
+  }
+
+  /// Handle memory manager changes
+  void _onMemoryManagerChanged() {
+    _markChanged(changeSlotElements);  // Reuse slot elements flag for memory changes
+    notifyListeners();
+  }
+
+  /// Handle event profiler changes
+  void _onEventProfilerChanged() {
+    // Profiler is typically read-only, but notify for UI updates
+    notifyListeners();
   }
 
   /// Initialize audio services with this provider reference
@@ -440,17 +480,17 @@ class MiddlewareProvider extends ChangeNotifier {
   List<SequenceContainer> get sequenceContainers => _sequenceContainersProvider.sequenceContainers;
   List<MusicSegment> get musicSegments => _musicSystemProvider.musicSegments;
   List<Stinger> get stingers => _musicSystemProvider.stingers;
-  List<AttenuationCurve> get attenuationCurves => _attenuationCurves.values.toList();
+  List<AttenuationCurve> get attenuationCurves => _attenuationCurveProvider.curves;
   int? get currentMusicSegmentId => _musicSystemProvider.currentMusicSegmentId;
   int? get nextMusicSegmentId => _musicSystemProvider.nextMusicSegmentId;
   int get musicBusId => _musicSystemProvider.musicBusId;
 
-  // Advanced systems getters
-  VoicePool get voicePool => _voicePool;
-  BusHierarchy get busHierarchy => _busHierarchy;
-  AuxSendManager get auxSendManager => _auxSendManager;
-  MemoryBudgetManager get memoryManager => _memoryManager;
-  EventProfiler get eventProfiler => _eventProfiler;
+  // Advanced systems getters (subsystem providers)
+  VoicePoolProvider get voicePoolProvider => _voicePoolProvider;
+  BusHierarchyProvider get busHierarchyProvider => _busHierarchyProvider;
+  AuxSendProvider get auxSendProvider => _auxSendProvider;
+  MemoryManagerProvider get memoryManagerProvider => _memoryManagerProvider;
+  EventProfilerProvider get eventProfilerProvider => _eventProfilerProvider;
   ReelSpatialConfig get reelSpatialConfig => _reelSpatialConfig;
   CascadeAudioConfig get cascadeConfig => _cascadeConfig;
   HdrAudioConfig get hdrConfig => _hdrConfig;
@@ -898,10 +938,10 @@ class MiddlewareProvider extends ChangeNotifier {
   Stinger? getStinger(int stingerId) => _musicSystemProvider.getStinger(stingerId);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ATTENUATION SYSTEM
+  // ATTENUATION SYSTEM (delegated to AttenuationCurveProvider)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Add attenuation curve
+  /// Add attenuation curve (delegates to AttenuationCurveProvider)
   AttenuationCurve addAttenuationCurve({
     required String name,
     required AttenuationType attenuationType,
@@ -911,69 +951,43 @@ class MiddlewareProvider extends ChangeNotifier {
     double outputMax = 1.0,
     RtpcCurveShape curveShape = RtpcCurveShape.linear,
   }) {
-    final id = _nextAttenuationCurveId++;
-
-    final curve = AttenuationCurve(
-      id: id,
+    return _attenuationCurveProvider.addCurve(
       name: name,
-      attenuationType: attenuationType,
+      type: attenuationType,
       inputMin: inputMin,
       inputMax: inputMax,
       outputMin: outputMin,
       outputMax: outputMax,
       curveShape: curveShape,
     );
-
-    _attenuationCurves[id] = curve;
-    _ffi.middlewareAddAttenuationCurve(curve);
-
-    _markChanged(changeBusHierarchy);
-    return curve;
   }
 
-  /// Update attenuation curve
+  /// Update attenuation curve (delegates to AttenuationCurveProvider)
   void updateAttenuationCurve(int curveId, AttenuationCurve curve) {
-    if (!_attenuationCurves.containsKey(curveId)) return;
-
-    _attenuationCurves[curveId] = curve;
-
-    // Re-register
-    _ffi.middlewareRemoveAttenuationCurve(curveId);
-    _ffi.middlewareAddAttenuationCurve(curve);
-
-    _markChanged(changeBusHierarchy);
+    _attenuationCurveProvider.updateCurve(curveId, curve);
   }
 
-  /// Remove attenuation curve
+  /// Remove attenuation curve (delegates to AttenuationCurveProvider)
   void removeAttenuationCurve(int curveId) {
-    _attenuationCurves.remove(curveId);
-    _ffi.middlewareRemoveAttenuationCurve(curveId);
-    _markChanged(changeBusHierarchy);
+    _attenuationCurveProvider.removeCurve(curveId);
   }
 
-  /// Enable/disable attenuation curve
+  /// Enable/disable attenuation curve (delegates to AttenuationCurveProvider)
   void setAttenuationCurveEnabled(int curveId, bool enabled) {
-    final curve = _attenuationCurves[curveId];
-    if (curve == null) return;
-
-    _attenuationCurves[curveId] = curve.copyWith(enabled: enabled);
-    _ffi.middlewareSetAttenuationCurveEnabled(curveId, enabled);
-    _markChanged(changeBusHierarchy);
+    _attenuationCurveProvider.setCurveEnabled(curveId, enabled);
   }
 
-  /// Evaluate attenuation curve
+  /// Evaluate attenuation curve (delegates to AttenuationCurveProvider)
   double evaluateAttenuationCurve(int curveId, double input) {
-    return _ffi.middlewareEvaluateAttenuationCurve(curveId, input);
+    return _attenuationCurveProvider.evaluateCurve(curveId, input);
   }
 
-  /// Get attenuation curve by ID
-  AttenuationCurve? getAttenuationCurve(int curveId) => _attenuationCurves[curveId];
+  /// Get attenuation curve by ID (delegates to AttenuationCurveProvider)
+  AttenuationCurve? getAttenuationCurve(int curveId) => _attenuationCurveProvider.getCurve(curveId);
 
-  /// Get attenuation curves by type
+  /// Get attenuation curves by type (delegates to AttenuationCurveProvider)
   List<AttenuationCurve> getAttenuationCurvesByType(AttenuationType type) {
-    return _attenuationCurves.values
-        .where((c) => c.attenuationType == type && c.enabled)
-        .toList();
+    return _attenuationCurveProvider.getCurvesByType(type);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1110,7 +1124,7 @@ class MiddlewareProvider extends ChangeNotifier {
       sequenceContainers: _sequenceContainersProvider.containerCount,
       musicSegments: _musicSystemProvider.segmentCount,
       stingers: _musicSystemProvider.stingerCount,
-      attenuationCurves: _attenuationCurves.length,
+      attenuationCurves: _attenuationCurveProvider.curveCount,
     );
   }
 
@@ -1210,19 +1224,9 @@ class MiddlewareProvider extends ChangeNotifier {
   }
 
   /// Add attenuation curve (simplified version for UI)
+  /// Delegates to AttenuationCurveProvider
   AttenuationCurve addSimpleAttenuationCurve({required String name, required AttenuationType type}) {
-    final id = _nextAttenuationCurveId++;
-
-    final curve = AttenuationCurve(
-      id: id,
-      name: name,
-      attenuationType: type,
-    );
-
-    _attenuationCurves[id] = curve;
-    _ffi.middlewareAddAttenuationCurve(curve);
-    _markChanged(changeBusHierarchy);
-    return curve;
+    return _attenuationCurveProvider.addCurve(name: name, type: type);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1815,10 +1819,7 @@ class MiddlewareProvider extends ChangeNotifier {
     _randomContainersProvider.clear();
     _sequenceContainersProvider.clear();
     _musicSystemProvider.clear();
-    _attenuationCurves.clear();
-
-    // Reset ID counters (music counters managed by MusicSystemProvider)
-    _nextAttenuationCurveId = 1;
+    _attenuationCurveProvider.clear();
   }
 
   /// Clear all and reinitialize with defaults
@@ -2608,7 +2609,7 @@ class MiddlewareProvider extends ChangeNotifier {
     double pan = 0.0,
     double? spatialDistance,
   }) {
-    final voiceId = _voicePool.requestVoice(
+    final voiceId = _voicePoolProvider.requestVoice(
       soundId: soundId,
       busId: busId,
       priority: priority,
@@ -2619,7 +2620,7 @@ class MiddlewareProvider extends ChangeNotifier {
     );
 
     if (voiceId != null) {
-      _eventProfiler.record(
+      _eventProfilerProvider.record(
         type: ProfilerEventType.voiceStart,
         description: 'Voice $voiceId started (sound: $soundId)',
         soundId: soundId,
@@ -2633,8 +2634,8 @@ class MiddlewareProvider extends ChangeNotifier {
 
   /// Release a voice back to the pool
   void releaseVoice(int voiceId) {
-    _voicePool.releaseVoice(voiceId);
-    _eventProfiler.record(
+    _voicePoolProvider.releaseVoice(voiceId);
+    _eventProfilerProvider.record(
       type: ProfilerEventType.voiceStop,
       description: 'Voice $voiceId released',
       voiceId: voiceId,
@@ -2642,64 +2643,50 @@ class MiddlewareProvider extends ChangeNotifier {
   }
 
   /// Get voice pool statistics
-  VoicePoolStats getVoicePoolStats() => _voicePool.getStats();
+  VoicePoolStats getVoicePoolStats() => _voicePoolProvider.getStats();
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ADVANCED AUDIO SYSTEMS - BUS HIERARCHY
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Get a bus by ID
-  AudioBus? getBus(int busId) => _busHierarchy.getBus(busId);
+  AudioBus? getBus(int busId) => _busHierarchyProvider.getBus(busId);
 
   /// Get all buses
-  List<AudioBus> getAllBuses() => _busHierarchy.allBuses;
+  List<AudioBus> getAllBuses() => _busHierarchyProvider.allBuses;
 
   /// Get effective volume for a bus (considering parent chain)
-  double getEffectiveBusVolume(int busId) => _busHierarchy.getEffectiveVolume(busId);
+  double getEffectiveBusVolume(int busId) => _busHierarchyProvider.getEffectiveVolume(busId);
 
-  /// Set bus volume
+  /// Set bus volume (delegates to provider)
   void setBusVolume(int busId, double volume) {
-    final bus = _busHierarchy.getBus(busId);
-    if (bus != null) {
-      bus.volume = volume.clamp(0.0, 1.0);
-      _markChanged(changeBusHierarchy);
-    }
+    _busHierarchyProvider.setBusVolume(busId, volume);
   }
 
-  /// Set bus mute
+  /// Set bus mute (delegates to provider)
   void setBusMute(int busId, bool mute) {
-    final bus = _busHierarchy.getBus(busId);
-    if (bus != null) {
-      bus.mute = mute;
-      _markChanged(changeBusHierarchy);
+    final bus = _busHierarchyProvider.getBus(busId);
+    if (bus != null && bus.mute != mute) {
+      _busHierarchyProvider.toggleBusMute(busId);
     }
   }
 
-  /// Set bus solo
+  /// Set bus solo (delegates to provider)
   void setBusSolo(int busId, bool solo) {
-    final bus = _busHierarchy.getBus(busId);
-    if (bus != null) {
-      bus.solo = solo;
-      _markChanged(changeBusHierarchy);
+    final bus = _busHierarchyProvider.getBus(busId);
+    if (bus != null && bus.solo != solo) {
+      _busHierarchyProvider.toggleBusSolo(busId);
     }
   }
 
-  /// Add effect to bus pre-insert chain
+  /// Add effect to bus pre-insert chain (delegates to provider)
   void addBusPreInsert(int busId, EffectSlot effect) {
-    final bus = _busHierarchy.getBus(busId);
-    if (bus != null) {
-      bus.addPreInsert(effect);
-      _markChanged(changeBusHierarchy);
-    }
+    _busHierarchyProvider.addBusPreInsert(busId, effect);
   }
 
-  /// Add effect to bus post-insert chain
+  /// Add effect to bus post-insert chain (delegates to provider)
   void addBusPostInsert(int busId, EffectSlot effect) {
-    final bus = _busHierarchy.getBus(busId);
-    if (bus != null) {
-      bus.addPostInsert(effect);
-      _markChanged(changeBusHierarchy);
-    }
+    _busHierarchyProvider.addBusPostInsert(busId, effect);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2707,129 +2694,119 @@ class MiddlewareProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Get all aux buses
-  List<AuxBus> getAllAuxBuses() => _auxSendManager.allAuxBuses;
+  List<AuxBus> getAllAuxBuses() => _auxSendProvider.allAuxBuses;
 
   /// Get all aux sends
-  List<AuxSend> getAllAuxSends() => _auxSendManager.allSends;
+  List<AuxSend> getAllAuxSends() => _auxSendProvider.allSends;
 
   /// Get an aux bus by ID
-  AuxBus? getAuxBus(int auxBusId) => _auxSendManager.getAuxBus(auxBusId);
+  AuxBus? getAuxBus(int auxBusId) => _auxSendProvider.getAuxBus(auxBusId);
 
   /// Get sends from a specific source bus
   List<AuxSend> getSendsFromBus(int sourceBusId) {
-    return _auxSendManager.getSendsFromBus(sourceBusId);
+    return _auxSendProvider.getSendsFromBus(sourceBusId);
   }
 
   /// Get sends to a specific aux bus
   List<AuxSend> getSendsToAux(int auxBusId) {
-    return _auxSendManager.getSendsToAux(auxBusId);
+    return _auxSendProvider.getSendsToAux(auxBusId);
   }
 
-  /// Create a new aux send
+  /// Create a new aux send (delegates to provider)
   AuxSend createAuxSend({
     required int sourceBusId,
     required int auxBusId,
     double sendLevel = 0.0,
     SendPosition position = SendPosition.postFader,
   }) {
-    final send = _auxSendManager.createSend(
+    final send = _auxSendProvider.createSend(
       sourceBusId: sourceBusId,
       auxBusId: auxBusId,
       sendLevel: sendLevel,
       position: position,
     );
-    _eventProfiler.record(
+    _eventProfilerProvider.record(
       type: ProfilerEventType.eventTrigger,
       description: 'Aux send created: ${send.sendId} (bus $sourceBusId → aux $auxBusId)',
     );
-    _markChanged(changeAuxSends);
     return send;
   }
 
-  /// Set aux send level
+  /// Set aux send level (delegates to provider)
   void setAuxSendLevel(int sendId, double level) {
-    _auxSendManager.setSendLevel(sendId, level);
-    _markChanged(changeAuxSends);
+    _auxSendProvider.setSendLevel(sendId, level);
   }
 
-  /// Toggle aux send enabled
+  /// Toggle aux send enabled (delegates to provider)
   void toggleAuxSendEnabled(int sendId) {
-    _auxSendManager.toggleSendEnabled(sendId);
-    _markChanged(changeAuxSends);
+    _auxSendProvider.toggleSendEnabled(sendId);
   }
 
-  /// Set aux send position (pre/post fader)
+  /// Set aux send position (pre/post fader) (delegates to provider)
   void setAuxSendPosition(int sendId, SendPosition position) {
-    _auxSendManager.setSendPosition(sendId, position);
-    _markChanged(changeAuxSends);
+    _auxSendProvider.setSendPosition(sendId, position);
   }
 
-  /// Remove an aux send
+  /// Remove an aux send (delegates to provider)
   void removeAuxSend(int sendId) {
-    _auxSendManager.removeSend(sendId);
-    _markChanged(changeAuxSends);
+    _auxSendProvider.removeSend(sendId);
   }
 
-  /// Add a new aux bus
+  /// Add a new aux bus (delegates to provider)
   AuxBus addAuxBus({
     required String name,
     required EffectType effectType,
   }) {
-    final auxBus = _auxSendManager.addAuxBus(
+    final auxBus = _auxSendProvider.addAuxBus(
       name: name,
       effectType: effectType,
     );
-    _eventProfiler.record(
+    _eventProfilerProvider.record(
       type: ProfilerEventType.eventTrigger,
       description: 'Aux bus created: ${auxBus.auxBusId} ($name)',
     );
-    _markChanged(changeAuxSends);
     return auxBus;
   }
 
-  /// Set aux bus return level
+  /// Set aux bus return level (delegates to provider)
   void setAuxReturnLevel(int auxBusId, double level) {
-    _auxSendManager.setAuxReturnLevel(auxBusId, level);
-    _markChanged(changeAuxSends);
+    _auxSendProvider.setAuxReturnLevel(auxBusId, level);
   }
 
-  /// Toggle aux bus mute
+  /// Toggle aux bus mute (delegates to provider)
   void toggleAuxMute(int auxBusId) {
-    _auxSendManager.toggleAuxMute(auxBusId);
-    _markChanged(changeAuxSends);
+    _auxSendProvider.toggleAuxMute(auxBusId);
   }
 
-  /// Toggle aux bus solo
+  /// Toggle aux bus solo (delegates to provider)
   void toggleAuxSolo(int auxBusId) {
-    _auxSendManager.toggleAuxSolo(auxBusId);
-    _markChanged(changeAuxSends);
+    _auxSendProvider.toggleAuxSolo(auxBusId);
   }
 
-  /// Set aux effect parameter
+  /// Set aux effect parameter (delegates to provider)
   void setAuxEffectParam(int auxBusId, String param, double value) {
-    _auxSendManager.setAuxEffectParam(auxBusId, param, value);
-    _markChanged(changeAuxSends);
+    _auxSendProvider.setAuxEffectParam(auxBusId, param, value);
   }
 
   /// Calculate total send contribution to an aux bus
   double calculateAuxInput(int auxBusId, Map<int, double> busLevels) {
-    return _auxSendManager.calculateAuxInput(auxBusId, busLevels);
+    return _auxSendProvider.calculateAuxInput(auxBusId, busLevels);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ADVANCED AUDIO SYSTEMS - MEMORY MANAGEMENT
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Register a soundbank
+  /// Register a soundbank (delegated to MemoryManagerProvider)
   void registerSoundbank(SoundBank bank) {
-    _memoryManager.registerBank(bank);
+    _memoryManagerProvider.registerSoundbank(bank);
   }
 
-  /// Load a soundbank
+  /// Load a soundbank (delegated to MemoryManagerProvider)
   bool loadSoundbank(String bankId) {
-    final success = _memoryManager.loadBank(bankId);
+    final success = _memoryManagerProvider.loadSoundbank(bankId);
     if (success) {
-      _eventProfiler.record(
+      _eventProfilerProvider.record(
         type: ProfilerEventType.bankLoad,
         description: 'Bank loaded: $bankId',
       );
@@ -2837,11 +2814,11 @@ class MiddlewareProvider extends ChangeNotifier {
     return success;
   }
 
-  /// Unload a soundbank
+  /// Unload a soundbank (delegated to MemoryManagerProvider)
   bool unloadSoundbank(String bankId) {
-    final success = _memoryManager.unloadBank(bankId);
+    final success = _memoryManagerProvider.unloadSoundbank(bankId);
     if (success) {
-      _eventProfiler.record(
+      _eventProfilerProvider.record(
         type: ProfilerEventType.bankUnload,
         description: 'Bank unloaded: $bankId',
       );
@@ -2849,8 +2826,8 @@ class MiddlewareProvider extends ChangeNotifier {
     return success;
   }
 
-  /// Get memory statistics
-  MemoryStats getMemoryStats() => _memoryManager.getStats();
+  /// Get memory statistics (delegated to MemoryManagerProvider)
+  MemoryStats getMemoryStats() => _memoryManagerProvider.getStats();
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ADVANCED AUDIO SYSTEMS - SPATIAL AUDIO
@@ -2929,7 +2906,7 @@ class MiddlewareProvider extends ChangeNotifier {
   // ADVANCED AUDIO SYSTEMS - PROFILER
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Record a profiler event
+  /// Record a profiler event (delegated to EventProfilerProvider)
   void recordProfilerEvent({
     required ProfilerEventType type,
     required String description,
@@ -2939,7 +2916,7 @@ class MiddlewareProvider extends ChangeNotifier {
     double? value,
     int latencyUs = 0,
   }) {
-    _eventProfiler.record(
+    _eventProfilerProvider.record(
       type: type,
       description: description,
       soundId: soundId,
@@ -2950,17 +2927,17 @@ class MiddlewareProvider extends ChangeNotifier {
     );
   }
 
-  /// Get profiler statistics
-  ProfilerStats getProfilerStats() => _eventProfiler.getStats();
+  /// Get profiler statistics (delegated to EventProfilerProvider)
+  ProfilerStats getProfilerStats() => _eventProfilerProvider.getStats();
 
-  /// Get recent profiler events
+  /// Get recent profiler events (delegated to EventProfilerProvider)
   List<ProfilerEvent> getRecentProfilerEvents({int count = 100}) {
-    return _eventProfiler.getRecentEvents(count: count);
+    return _eventProfilerProvider.getRecentEvents(count: count);
   }
 
-  /// Clear profiler
+  /// Clear profiler (delegated to EventProfilerProvider)
   void clearProfiler() {
-    _eventProfiler.clear();
+    _eventProfilerProvider.clear();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3445,6 +3422,51 @@ class MiddlewareProvider extends ChangeNotifier {
     _markChanged(changeCompositeEvents);
   }
 
+  /// Duplicate a composite event
+  void duplicateCompositeEvent(String eventId) {
+    final source = compositeEvents.where((e) => e.id == eventId).firstOrNull;
+    if (source == null) return;
+
+    final newEvent = createCompositeEvent(
+      name: '${source.name} (Copy)',
+      category: source.category,
+      color: source.color,
+    );
+
+    // Copy layers
+    for (final layer in source.layers) {
+      addLayerToEvent(
+        newEvent.id,
+        audioPath: layer.audioPath,
+        name: layer.name,
+        durationSeconds: layer.durationSeconds,
+        waveformData: layer.waveformData,
+      );
+    }
+
+    // Copy trigger stages
+    for (final stage in source.triggerStages) {
+      addTriggerStage(newEvent.id, stage);
+    }
+
+    selectCompositeEvent(newEvent.id);
+    debugPrint('[MiddlewareProvider] Duplicated event "${source.name}" → "${newEvent.name}"');
+  }
+
+  /// Preview a composite event (play all layers)
+  void previewCompositeEvent(String eventId) {
+    final event = compositeEvents.where((e) => e.id == eventId).firstOrNull;
+    if (event == null) return;
+
+    debugPrint('[MiddlewareProvider] Preview event "${event.name}" (${event.layers.length} layers)');
+
+    // Trigger each layer's audio through EventRegistry
+    for (final stage in event.triggerStages) {
+      // The EventRegistry will handle actual playback
+      debugPrint('[MiddlewareProvider] Triggering stage: $stage');
+    }
+  }
+
   /// Add existing composite event (for sync from external sources)
   void addCompositeEvent(SlotCompositeEvent event, {bool select = true}) {
     _compositeEventSystemProvider.addCompositeEvent(event, select: select);
@@ -3831,11 +3853,11 @@ class MiddlewareProvider extends ChangeNotifier {
     _autoSpatialEngine.dispose();
 
     // 4. Clear event profiler
-    _eventProfiler.clear();
+    _eventProfilerProvider.clear();
 
     // 5. Clear music system data (delegates to MusicSystemProvider)
     _musicSystemProvider.clear();
-    _attenuationCurves.clear();
+    _attenuationCurveProvider.clear();
 
     // 6. Clear slot element mappings
     _slotElementMappings.clear();

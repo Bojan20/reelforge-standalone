@@ -9,9 +9,174 @@
 
 use super::{ChildId, Container, ContainerId, ContainerType};
 use smallvec::SmallVec;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Maximum children per random container (stack-allocated)
 const MAX_RANDOM_CHILDREN: usize = 16;
+
+/// Maximum entries in seed log (ring buffer)
+const MAX_SEED_LOG_ENTRIES: usize = 256;
+
+// =============================================================================
+// SEED LOGGING FOR DETERMINISM
+// =============================================================================
+
+/// Single entry in the seed log
+#[derive(Debug, Clone, Copy)]
+pub struct SeedLogEntry {
+    /// Timestamp (monotonic counter)
+    pub tick: u64,
+    /// Container ID that made selection
+    pub container_id: ContainerId,
+    /// RNG state BEFORE selection
+    pub seed_before: u64,
+    /// RNG state AFTER selection
+    pub seed_after: u64,
+    /// Selected child ID
+    pub selected_id: ChildId,
+    /// Pitch offset applied
+    pub pitch_offset: f64,
+    /// Volume offset applied
+    pub volume_offset: f64,
+}
+
+/// Global seed log for determinism capture
+pub struct SeedLog {
+    entries: SmallVec<[SeedLogEntry; MAX_SEED_LOG_ENTRIES]>,
+    tick_counter: u64,
+    enabled: AtomicBool,
+}
+
+impl SeedLog {
+    /// Create new empty log
+    pub fn new() -> Self {
+        Self {
+            entries: SmallVec::new(),
+            tick_counter: 0,
+            enabled: AtomicBool::new(false),
+        }
+    }
+
+    /// Enable/disable logging
+    pub fn set_enabled(&self, enabled: bool) {
+        self.enabled.store(enabled, Ordering::Relaxed);
+    }
+
+    /// Enable logging
+    pub fn enable(&self) {
+        self.set_enabled(true);
+    }
+
+    /// Disable logging
+    pub fn disable(&self) {
+        self.set_enabled(false);
+    }
+
+    /// Check if logging is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::Relaxed)
+    }
+
+    /// Add entry to log
+    pub fn record(&mut self, entry: SeedLogEntry) {
+        if !self.is_enabled() {
+            return;
+        }
+
+        // Ring buffer: remove oldest if full
+        if self.entries.len() >= MAX_SEED_LOG_ENTRIES {
+            self.entries.remove(0);
+        }
+
+        self.entries.push(entry);
+    }
+
+    /// Create entry with auto-tick
+    pub fn create_entry(
+        &mut self,
+        container_id: ContainerId,
+        seed_before: u64,
+        seed_after: u64,
+        selected_id: ChildId,
+        pitch_offset: f64,
+        volume_offset: f64,
+    ) -> SeedLogEntry {
+        self.tick_counter += 1;
+        SeedLogEntry {
+            tick: self.tick_counter,
+            container_id,
+            seed_before,
+            seed_after,
+            selected_id,
+            pitch_offset,
+            volume_offset,
+        }
+    }
+
+    /// Get all entries
+    pub fn entries(&self) -> &[SeedLogEntry] {
+        &self.entries
+    }
+
+    /// Get entries for specific container
+    pub fn entries_for_container(&self, container_id: ContainerId) -> Vec<SeedLogEntry> {
+        self.entries
+            .iter()
+            .filter(|e| e.container_id == container_id)
+            .copied()
+            .collect()
+    }
+
+    /// Clear log
+    pub fn clear(&mut self) {
+        self.entries.clear();
+        self.tick_counter = 0;
+    }
+
+    /// Get entry count
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Check if empty
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// Export to JSON string
+    pub fn to_json(&self) -> String {
+        let entries: Vec<_> = self.entries.iter().map(|e| {
+            serde_json::json!({
+                "tick": e.tick,
+                "containerId": e.container_id,
+                "seedBefore": e.seed_before.to_string(),
+                "seedAfter": e.seed_after.to_string(),
+                "selectedId": e.selected_id,
+                "pitchOffset": e.pitch_offset,
+                "volumeOffset": e.volume_offset,
+            })
+        }).collect();
+
+        serde_json::json!({
+            "entries": entries,
+            "count": self.entries.len(),
+            "tickCounter": self.tick_counter,
+        }).to_string()
+    }
+}
+
+impl Default for SeedLog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// Global seed log instance
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
+
+/// Global seed log for all random containers
+pub static SEED_LOG: Lazy<Mutex<SeedLog>> = Lazy::new(|| Mutex::new(SeedLog::new()));
 
 /// Random selection mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -217,6 +382,9 @@ impl RandomContainer {
             return None;
         }
 
+        // Capture seed BEFORE selection for determinism logging
+        let seed_before = self.rng_state;
+
         let selected_id = match self.mode {
             RandomMode::Random => self.select_random()?,
             RandomMode::Shuffle => self.select_shuffle()?,
@@ -243,6 +411,28 @@ impl RandomContainer {
         let global_volume = self.global_volume_min
             + global_volume_rand * (self.global_volume_max - self.global_volume_min);
 
+        let pitch_offset = child_pitch + global_pitch;
+        let volume_offset = child_volume + global_volume;
+
+        // Capture seed AFTER selection
+        let seed_after = self.rng_state;
+
+        // Log to global seed log if enabled
+        {
+            let mut log = SEED_LOG.lock();
+            if log.is_enabled() {
+                let entry = log.create_entry(
+                    self.id,
+                    seed_before,
+                    seed_after,
+                    selected_id,
+                    pitch_offset,
+                    volume_offset,
+                );
+                log.record(entry);
+            }
+        }
+
         // Update history
         self.last_selected = Some(selected_id);
         if self.avoid_repeat_count > 0 {
@@ -254,9 +444,19 @@ impl RandomContainer {
 
         Some(RandomResult {
             child_id: selected_id,
-            pitch_offset: child_pitch + global_pitch,
-            volume_offset: child_volume + global_volume,
+            pitch_offset,
+            volume_offset,
         })
+    }
+
+    /// Get current RNG state (for determinism)
+    pub fn get_rng_state(&self) -> u64 {
+        self.rng_state
+    }
+
+    /// Set RNG state directly (for replay)
+    pub fn set_rng_state(&mut self, state: u64) {
+        self.rng_state = state.max(1);
     }
 
     /// Weighted random selection

@@ -2,11 +2,13 @@
 ///
 /// Visual matrix editor for automatic volume ducking between buses.
 /// Source bus triggers → Target bus volume reduction.
+/// Includes preview mode with visual envelope curve.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
+import '../../services/ducking_preview_service.dart';
 import '../../theme/fluxforge_theme.dart';
 
 /// Ducking Matrix Panel Widget
@@ -20,6 +22,38 @@ class DuckingMatrixPanel extends StatefulWidget {
 class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
   int? _selectedRuleId;
   bool _showAddDialog = false;
+  bool _showPreviewCurve = false;
+
+  @override
+  void initState() {
+    super.initState();
+    DuckingPreviewService.instance.addListener(_onPreviewUpdate);
+  }
+
+  @override
+  void dispose() {
+    DuckingPreviewService.instance.removeListener(_onPreviewUpdate);
+    DuckingPreviewService.instance.stopPreview();
+    super.dispose();
+  }
+
+  void _onPreviewUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  void _startPreview(DuckingRule rule) {
+    setState(() => _showPreviewCurve = true);
+    DuckingPreviewService.instance.startPreview(
+      rule,
+      signal: PreviewSignalType.sine,
+      durationMs: 3000,
+    );
+  }
+
+  void _stopPreview() {
+    DuckingPreviewService.instance.stopPreview();
+    setState(() => _showPreviewCurve = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +78,8 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
                 _buildRuleEditor(rules),
               if (_showAddDialog)
                 _buildAddDialog(),
+              if (_showPreviewCurve)
+                _buildPreviewCurveWidget(),
             ],
           ),
         );
@@ -65,6 +101,30 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
           ),
         ),
         const Spacer(),
+        if (_selectedRuleId != null && !DuckingPreviewService.instance.isPreviewActive)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _buildHeaderButton(
+              icon: Icons.play_arrow,
+              label: 'Preview',
+              color: Colors.green,
+              onTap: () {
+                final rules = context.read<MiddlewareProvider>().duckingRules;
+                final rule = rules.where((r) => r.id == _selectedRuleId).firstOrNull;
+                if (rule != null) _startPreview(rule);
+              },
+            ),
+          ),
+        if (DuckingPreviewService.instance.isPreviewActive)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _buildHeaderButton(
+              icon: Icons.stop,
+              label: 'Stop',
+              color: Colors.red,
+              onTap: _stopPreview,
+            ),
+          ),
         _buildHeaderButton(
           icon: Icons.add,
           label: 'Add Rule',
@@ -78,25 +138,27 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    Color? color,
   }) {
+    final buttonColor = color ?? FluxForgeTheme.accentBlue;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
+          color: buttonColor.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: FluxForgeTheme.accentBlue),
+          border: Border.all(color: buttonColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: FluxForgeTheme.accentBlue),
+            Icon(icon, size: 14, color: buttonColor),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
-                color: FluxForgeTheme.accentBlue,
+                color: buttonColor,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
@@ -549,6 +611,261 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
       },
       onCancel: () => setState(() => _showAddDialog = false),
     );
+  }
+
+  Widget _buildPreviewCurveWidget() {
+    final service = DuckingPreviewService.instance;
+    final rule = service.currentRule;
+
+    if (rule == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.graphic_eq, color: Colors.green, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Preview: ${rule.sourceBus} → ${rule.targetBus}',
+                style: TextStyle(
+                  color: FluxForgeTheme.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Progress indicator
+              Expanded(
+                child: Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.surface,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: service.previewProgress,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Current duck level
+              Text(
+                '${(service.currentDuckLevel * 100).toStringAsFixed(0)}%',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _stopPreview,
+                child: Icon(Icons.close, size: 16, color: FluxForgeTheme.textSecondary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Ducking curve visualization
+          SizedBox(
+            height: 100,
+            child: CustomPaint(
+              size: const Size(double.infinity, 100),
+              painter: _DuckingCurvePainter(
+                idealEnvelope: service.generateIdealEnvelope(rule),
+                currentEnvelope: service.envelopeHistory,
+                currentPosition: service.previewProgress,
+                attackMs: rule.attackMs,
+                releaseMs: rule.releaseMs,
+                durationMs: service.previewDurationMs,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Phase labels
+          Row(
+            children: [
+              _buildPhaseLabel('Attack', rule.attackMs, Colors.orange),
+              const Spacer(),
+              _buildPhaseLabel('Sustain', (service.previewDurationMs - rule.attackMs - rule.releaseMs).clamp(0, double.infinity), Colors.cyan),
+              const Spacer(),
+              _buildPhaseLabel('Release', rule.releaseMs, Colors.purple),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhaseLabel(String label, double durationMs, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '$label: ${durationMs.toStringAsFixed(0)}ms',
+          style: TextStyle(
+            color: FluxForgeTheme.textSecondary,
+            fontSize: 10,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Custom painter for ducking envelope visualization
+class _DuckingCurvePainter extends CustomPainter {
+  final List<DuckingEnvelopePoint> idealEnvelope;
+  final List<DuckingEnvelopePoint> currentEnvelope;
+  final double currentPosition;
+  final double attackMs;
+  final double releaseMs;
+  final int durationMs;
+
+  _DuckingCurvePainter({
+    required this.idealEnvelope,
+    required this.currentEnvelope,
+    required this.currentPosition,
+    required this.attackMs,
+    required this.releaseMs,
+    required this.durationMs,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = FluxForgeTheme.border.withValues(alpha: 0.3)
+      ..strokeWidth = 1;
+
+    // Draw grid
+    for (int i = 0; i <= 4; i++) {
+      final y = size.height * i / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Draw phase regions
+    final attackWidth = (attackMs / durationMs) * size.width;
+    final releaseStart = ((durationMs - releaseMs) / durationMs) * size.width;
+
+    // Attack region
+    final attackPaint = Paint()
+      ..color = Colors.orange.withValues(alpha: 0.1);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, attackWidth, size.height),
+      attackPaint,
+    );
+
+    // Release region
+    final releasePaint = Paint()
+      ..color = Colors.purple.withValues(alpha: 0.1);
+    canvas.drawRect(
+      Rect.fromLTWH(releaseStart, 0, size.width - releaseStart, size.height),
+      releasePaint,
+    );
+
+    // Draw ideal envelope (gray)
+    if (idealEnvelope.isNotEmpty) {
+      final idealPath = Path();
+      for (int i = 0; i < idealEnvelope.length; i++) {
+        final point = idealEnvelope[i];
+        final x = (point.timeMs / durationMs) * size.width;
+        final y = size.height - (point.level * size.height);
+        if (i == 0) {
+          idealPath.moveTo(x, y);
+        } else {
+          idealPath.lineTo(x, y);
+        }
+      }
+
+      final idealPaint = Paint()
+        ..color = FluxForgeTheme.textSecondary.withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      canvas.drawPath(idealPath, idealPaint);
+    }
+
+    // Draw current envelope (green)
+    if (currentEnvelope.isNotEmpty) {
+      final currentPath = Path();
+      for (int i = 0; i < currentEnvelope.length; i++) {
+        final point = currentEnvelope[i];
+        final x = (point.timeMs / durationMs) * size.width;
+        final y = size.height - (point.level * size.height);
+        if (i == 0) {
+          currentPath.moveTo(x, y);
+        } else {
+          currentPath.lineTo(x, y);
+        }
+      }
+
+      final currentPaint = Paint()
+        ..color = Colors.green
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      canvas.drawPath(currentPath, currentPaint);
+    }
+
+    // Draw playhead
+    final playheadX = currentPosition * size.width;
+    final playheadPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 2;
+    canvas.drawLine(
+      Offset(playheadX, 0),
+      Offset(playheadX, size.height),
+      playheadPaint,
+    );
+
+    // Labels
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+    );
+
+    // 0% label
+    textPainter.text = TextSpan(
+      text: '0%',
+      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9),
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, Offset(2, size.height - 12));
+
+    // 100% label
+    textPainter.text = TextSpan(
+      text: '100%',
+      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9),
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, const Offset(2, 2));
+  }
+
+  @override
+  bool shouldRepaint(covariant _DuckingCurvePainter oldDelegate) {
+    return oldDelegate.currentEnvelope.length != currentEnvelope.length ||
+        oldDelegate.currentPosition != currentPosition;
   }
 }
 

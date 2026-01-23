@@ -37,6 +37,13 @@ import '../providers/subsystems/sequence_containers_provider.dart';
 import '../providers/subsystems/music_system_provider.dart';
 import '../providers/subsystems/event_system_provider.dart';
 import '../providers/subsystems/composite_event_system_provider.dart';
+import '../providers/subsystems/bus_hierarchy_provider.dart';
+import '../providers/subsystems/aux_send_provider.dart';
+import '../providers/subsystems/voice_pool_provider.dart';
+import '../providers/subsystems/attenuation_curve_provider.dart';
+import '../providers/subsystems/memory_manager_provider.dart';
+import '../providers/subsystems/event_profiler_provider.dart';
+import '../providers/slot_lab_project_provider.dart';
 import 'audio_pool.dart';
 import 'audio_playback_service.dart';
 import 'unified_playback_controller.dart';
@@ -150,9 +157,34 @@ class ServiceLocator {
         eventSystemProvider: sl<EventSystemProvider>(),
       ),
     );
+    sl.registerLazySingleton<BusHierarchyProvider>(
+      () => BusHierarchyProvider(ffi: sl<NativeFFI>()),
+    );
+    sl.registerLazySingleton<AuxSendProvider>(
+      () => AuxSendProvider(ffi: sl<NativeFFI>()),
+    );
+    sl.registerLazySingleton<VoicePoolProvider>(
+      () => VoicePoolProvider(),
+    );
+    sl.registerLazySingleton<AttenuationCurveProvider>(
+      () => AttenuationCurveProvider(ffi: sl<NativeFFI>()),
+    );
+    sl.registerLazySingleton<MemoryManagerProvider>(
+      () => MemoryManagerProvider(),
+    );
+    sl.registerLazySingleton<EventProfilerProvider>(
+      () => EventProfilerProvider(),
+    );
 
     // NOTE: EventRegistry is a ChangeNotifier created per-screen via Provider,
     // not registered here.
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.5: SlotLab Project Provider
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SlotLabProjectProvider>(
+      () => SlotLabProjectProvider(),
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 6: UX Services (search, recent/favorites)

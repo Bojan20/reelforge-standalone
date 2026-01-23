@@ -2168,4 +2168,66 @@ class DspProfiler {
       activeVoices: activeVoices,
     );
   }
+
+  /// Record sample from Rust FFI data
+  ///
+  /// [loadPercent] - Current load percentage (0-100)
+  /// [stageBreakdown] - Map of stage names to percentage breakdown
+  void recordFromFFI({
+    required double loadPercent,
+    required Map<String, double> stageBreakdown,
+    int blockSize = 256,
+    double sampleRate = 44100,
+    int activeVoices = 0,
+  }) {
+    // Calculate total available time for the block
+    final availableUs = (blockSize / sampleRate) * 1000000.0;
+    final totalUs = availableUs * loadPercent / 100.0;
+
+    // Convert string keys to DspStage enum
+    final stageTimings = <DspStage, double>{};
+
+    for (final entry in stageBreakdown.entries) {
+      final stage = _stageFromString(entry.key);
+      if (stage != null) {
+        // Convert percentage breakdown to microseconds
+        stageTimings[stage] = totalUs * entry.value / 100.0;
+      }
+    }
+
+    // Ensure we have a total
+    stageTimings[DspStage.total] = totalUs;
+
+    // Fill in any missing stages with zeros
+    for (final stage in DspStage.values) {
+      stageTimings.putIfAbsent(stage, () => 0.0);
+    }
+
+    record(
+      stageTimingsUs: stageTimings,
+      blockSize: blockSize,
+      sampleRate: sampleRate,
+      activeVoices: activeVoices,
+    );
+  }
+
+  /// Parse stage name from FFI to DspStage enum
+  static DspStage? _stageFromString(String name) {
+    switch (name.toLowerCase()) {
+      case 'input':
+        return DspStage.input;
+      case 'mixing':
+        return DspStage.mixing;
+      case 'effects':
+        return DspStage.effects;
+      case 'metering':
+        return DspStage.metering;
+      case 'output':
+        return DspStage.output;
+      case 'total':
+        return DspStage.total;
+      default:
+        return null;
+    }
+  }
 }

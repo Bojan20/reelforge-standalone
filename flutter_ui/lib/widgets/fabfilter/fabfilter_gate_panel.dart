@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../providers/dsp_chain_provider.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
@@ -66,6 +67,7 @@ class FabFilterGatePanel extends FabFilterPanelBase {
           title: 'Gate',
           icon: Icons.door_sliding,
           accentColor: FabFilterColors.green,
+          nodeType: DspNodeType.gate,
         );
 
   @override
@@ -118,6 +120,10 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   bool _initialized = false;
   Timer? _meterTimer;
 
+  // DspChainProvider integration
+  String? _nodeId;
+  int _slotIndex = -1;
+
   @override
   void initState() {
     super.initState();
@@ -134,29 +140,52 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   }
 
   void _initializeProcessor() {
-    final success = _ffi.gateCreate(widget.trackId, sampleRate: widget.sampleRate);
-    if (success) {
+    // Use DspChainProvider instead of ghost gateCreate()
+    final dsp = DspChainProvider.instance;
+    final chain = dsp.getChain(widget.trackId);
+
+    // Find existing gate node or add one
+    DspNode? gateNode;
+    for (final node in chain.nodes) {
+      if (node.type == DspNodeType.gate) {
+        gateNode = node;
+        break;
+      }
+    }
+
+    if (gateNode == null) {
+      // Add gate to insert chain (this calls insertLoadProcessor FFI)
+      dsp.addNode(widget.trackId, DspNodeType.gate);
+      final updatedChain = dsp.getChain(widget.trackId);
+      if (updatedChain.nodes.isNotEmpty) {
+        gateNode = updatedChain.nodes.last;
+      }
+    }
+
+    if (gateNode != null) {
+      _nodeId = gateNode.id;
+      _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       _initialized = true;
       _applyAllParameters();
     }
   }
 
   void _applyAllParameters() {
-    if (!_initialized) return;
-    _ffi.gateSetThreshold(widget.trackId, _threshold);
-    _ffi.gateSetRange(widget.trackId, _range);
-    _ffi.gateSetAttack(widget.trackId, _attack);
-    _ffi.gateSetHold(widget.trackId, _hold);
-    _ffi.gateSetRelease(widget.trackId, _release);
+    if (!_initialized || _slotIndex < 0) return;
+    // GateWrapper param indices: 0=Threshold, 1=Range, 2=Attack, 3=Hold, 4=Release
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);  // Threshold (dB)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _range);      // Range (dB)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _attack);     // Attack (ms)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _hold);       // Hold (ms)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _release);    // Release (ms)
   }
 
   @override
   void dispose() {
     _meterTimer?.cancel();
     _meterController.dispose();
-    if (_initialized) {
-      _ffi.gateRemove(widget.trackId);
-    }
+    // Don't remove from insert chain - node persists
+    // Ghost gateRemove() was here, now removed
     super.dispose();
   }
 
@@ -386,7 +415,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
           color: FabFilterColors.green,
           onChanged: (v) {
             setState(() => _threshold = v * 80 - 80);
-            _ffi.gateSetThreshold(widget.trackId, _threshold);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);
           },
         ),
         _buildSmallKnob(
@@ -396,7 +425,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
           color: FabFilterColors.orange,
           onChanged: (v) {
             setState(() => _range = v * 80 - 80);
-            _ffi.gateSetRange(widget.trackId, _range);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _range);
           },
         ),
         _buildSmallKnob(
@@ -406,7 +435,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
           color: FabFilterColors.cyan,
           onChanged: (v) {
             setState(() => _attack = 0.01 * math.pow(100 / 0.01, v).toDouble());
-            _ffi.gateSetAttack(widget.trackId, _attack);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _attack);
           },
         ),
         _buildSmallKnob(
@@ -416,7 +445,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
           color: FabFilterColors.blue,
           onChanged: (v) {
             setState(() => _hold = v * 500);
-            _ffi.gateSetHold(widget.trackId, _hold);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _hold);
           },
         ),
         _buildSmallKnob(
@@ -426,7 +455,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
           color: FabFilterColors.cyan,
           onChanged: (v) {
             setState(() => _release = 1 * math.pow(1000 / 1, v).toDouble());
-            _ffi.gateSetRelease(widget.trackId, _release);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _release);
           },
         ),
         if (showExpertMode)
@@ -466,7 +495,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
             const SizedBox(height: 4),
             _buildOptionRow('Aud', _sidechainAudition, (v) => setState(() => _sidechainAudition = v)),
           ],
-          const Spacer(),
+          const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0
           if (showExpertMode)
             _buildMiniSlider('Look', _lookahead / 10, '${_lookahead.toStringAsFixed(0)}ms', (v) => setState(() => _lookahead = v * 10)),
         ],

@@ -345,6 +345,7 @@ class MenuCallbacks {
   final VoidCallback? onOpenProject;
   final VoidCallback? onSaveProject;
   final VoidCallback? onSaveProjectAs;
+  final VoidCallback? onSaveAsTemplate;  // P3.2: Save as Template
   final VoidCallback? onImportJSON;
   final VoidCallback? onExportJSON;
   final VoidCallback? onImportAudioFolder;
@@ -398,6 +399,7 @@ class MenuCallbacks {
     this.onOpenProject,
     this.onSaveProject,
     this.onSaveProjectAs,
+    this.onSaveAsTemplate,  // P3.2
     this.onImportJSON,
     this.onExportJSON,
     this.onImportAudioFolder,

@@ -41,6 +41,7 @@ class _AppMenuBarState extends State<AppMenuBar> {
             const _MenuSeparator(),
             _MenuItem('Save', '⌘S', widget.callbacks?.onSaveProject),
             _MenuItem('Save As...', '⇧⌘S', widget.callbacks?.onSaveProjectAs),
+            _MenuItem('Save as Template...', '⌥⇧S', widget.callbacks?.onSaveAsTemplate),
             const _MenuSeparator(),
             _MenuItem('Import Routes JSON...', '⌘I', widget.callbacks?.onImportJSON),
             _MenuItem('Export Routes JSON...', '⇧⌘E', widget.callbacks?.onExportJSON),

@@ -656,5 +656,260 @@
 
 ---
 
+## 14. DAW UI AUDIO FLOW — CRITICAL GAPS (2026-01-23)
+
+Identifikovano tokom ultra-detaljne analize audio flowa za DAW sekciju.
+
+**Referentni dokument:** `.claude/reviews/DAW_SECTION_ULTIMATE_ANALYSIS_2026_01_23.md`
+
+---
+
+### 🔴 P0 — CRITICAL (Audio Flow Broken)
+
+| # | Task | Komponenta | Impact | Status |
+|---|------|------------|--------|--------|
+| P0.1 | **DspChainProvider nema FFI sync** | `providers/dsp_chain_provider.dart` | DSP nodes u UI ne utiču na audio — korisnik dodaje EQ/Comp ali audio ne prolazi kroz njih | ❌ NOT STARTED |
+| P0.2 | **RoutingProvider nema FFI poziva** | `providers/routing_provider.dart` | Routing matrix je samo vizualni prikaz, ne menja stvarno rutiranje | ❌ NOT STARTED |
+| P0.3 | **MIDI piano roll u Lower Zone** | `widgets/lower_zone/daw_lower_zone_widget.dart` | Audio designers sa MIDI ne mogu editovati u Lower Zone | ❌ NOT STARTED |
+| P0.4 | **History panel je prazan (stub)** | `widgets/lower_zone/daw_lower_zone_widget.dart` | QA, power users — nema undo history vizualizacije | ❌ NOT STARTED |
+| P0.5 | **FX Chain nema UI u Lower Zone** | `widgets/lower_zone/daw_lower_zone_widget.dart` | DSP engineers — nema visual chain editor | ❌ NOT STARTED |
+
+**P0.1 Details — DspChainProvider FFI Gap:**
+
+```
+Problem: DspChainProvider upravlja DSP node lancem u UI-u, ali NE šalje promene u Rust engine.
+
+Dokaz: grep -n "NativeFFI" dsp_chain_provider.dart → No matches found
+
+Akcija u UI          | DspChainProvider | MixerProvider | Rust Engine
+---------------------|------------------|---------------|-------------
+Add EQ node          | ✅ addNode()     | ❌ Ne poziva  | ❌ Nema DSP
+Bypass node          | ✅ toggleBypass()| ❌ Ne poziva  | ❌ Nema promene
+Remove node          | ✅ removeNode()  | ❌ Ne poziva  | ❌ Nema DSP
+Reorder nodes        | ✅ swapNodes()   | ❌ Ne poziva  | ❌ Nema promene
+
+FIX REQUIRED:
+- Import NativeFFI u dsp_chain_provider.dart
+- Pozivati insertLoadProcessor() pri addNode()
+- Pozivati insertUnload() pri removeNode()
+- Sync bypass state sa engine
+```
+
+---
+
+### 🟡 P1 — HIGH (Major Functionality Missing)
+
+| # | Task | Komponenta | Impact | Status |
+|---|------|------------|--------|--------|
+| P1.1 | **Sync DspChainProvider ↔ MixerProvider** | Both providers | Unified DSP state management | ❌ NOT STARTED |
+| P1.2 | **FabFilter panels → central DSP state** | `widgets/fabfilter/*.dart` | Dvostruko upravljanje DSP state-om, inkonsistencije | ❌ NOT STARTED |
+| P1.3 | **Visual Send Matrix u MIX > Sends** | `widgets/lower_zone/daw_lower_zone_widget.dart` | Mix engineers — potreban grid source×destination | ❌ NOT STARTED |
+| P1.4 | **Timeline Settings panel (tempo, time sig, markers)** | `widgets/lower_zone/daw_lower_zone_widget.dart` | All users — nedostaje tempo track editor | ❌ NOT STARTED |
+| P1.5 | **Plugin search u BROWSE > Plugins** | `widgets/lower_zone/daw_lower_zone_widget.dart` | All users — teško naći plugin bez search-a | ❌ NOT STARTED |
+| P1.6 | **Rubber band multi-clip selection** | `widgets/timeline/timeline.dart` | Power users — Shift+drag za range selection | ❌ NOT STARTED |
+
+---
+
+### 🟢 P2 — MEDIUM (Workflow Improvements)
+
+| # | Task | Komponenta | Impact | Status |
+|---|------|------------|--------|--------|
+| P2.1 | **Dynamic folder tree sa AudioAssetManager** | `widgets/layout/left_zone.dart` | Organization — trenutno statički | ❌ NOT STARTED |
+| P2.2 | **Favorites/bookmarks u Files browser** | `widgets/lower_zone/daw_lower_zone_widget.dart` | Workflow — brži pristup omiljenim folderima | ❌ NOT STARTED |
+| P2.3 | **Automation Editor panel** | `widgets/lower_zone/daw_lower_zone_widget.dart` | Automation users — dedicated curve editing | ❌ NOT STARTED |
+| P2.4 | **Pan law selection u MIX > Pan** | `widgets/lower_zone/daw_lower_zone_widget.dart` | Mix engineers — -3dB, -4.5dB, -6dB options | ❌ NOT STARTED |
+
+---
+
+### ⚪ P3 — LOW (Nice-to-have)
+
+| # | Task | Komponenta | Impact | Status |
+|---|------|------------|--------|--------|
+| P3.1 | **Keyboard shortcut overlay (? key)** | Global | Discoverability — help za shortcuts | ❌ NOT STARTED |
+| P3.2 | **Save as Template u File menu** | Hub screen | Project templates — ne postoji opcija | ❌ NOT STARTED |
+| P3.3 | **Clip gain envelope visible u Timeline** | `widgets/timeline/clip_widget.dart` | Visual feedback — envelope overlay na clip-u | ❌ NOT STARTED |
+
+---
+
+### Provider → FFI Connection Status (2026-01-23)
+
+| Provider | FFI Integration | Status |
+|----------|-----------------|--------|
+| **MixerProvider** | ✅ CONNECTED | `setTrackVolume/Pan/Mute/Solo`, `insertLoadProcessor` |
+| **PluginProvider** | ✅ CONNECTED | `pluginLoad`, `pluginInsertLoad`, `pluginSetParam` |
+| **MixerDspProvider** | ✅ CONNECTED | `busInsertLoadProcessor`, `setBusVolume/Pan` |
+| **AudioPlaybackService** | ✅ CONNECTED | `previewAudioFile`, `playFileToBus` |
+| **DspChainProvider** | ❌ NOT CONNECTED | Nema FFI poziva — **CRITICAL GAP** |
+| **RoutingProvider** | ❌ NOT CONNECTED | Nema FFI poziva — **CRITICAL GAP** |
+
+---
+
+### Audio Flow Coverage Summary
+
+| Komponenta | UI State | FFI Connected | Engine Processing | Overall |
+|------------|----------|---------------|-------------------|---------|
+| MixerProvider | ✅ | ✅ | ✅ | ✅ PASS |
+| PluginProvider | ✅ | ✅ | ✅ | ✅ PASS |
+| MixerDspProvider | ✅ | ✅ | ✅ | ✅ PASS |
+| AudioPlaybackService | ✅ | ✅ | ✅ | ✅ PASS |
+| DspChainProvider | ✅ | ❌ | ❌ | ❌ FAIL |
+| RoutingProvider | ✅ | ❌ | ❌ | ❌ FAIL |
+| FabFilter Panels | ✅ | ⚠️ Partial | ⚠️ Partial | ⚠️ PARTIAL |
+
+**OVERALL AUDIO FLOW: ⚠️ PARTIAL (70%)**
+
+---
+
+### Fix Implementation Guide
+
+#### P0.1 — DspChainProvider FFI Sync
+
+**File:** `flutter_ui/lib/providers/dsp_chain_provider.dart`
+
+```dart
+// REQUIRED CHANGES
+
+import '../src/rust/native_ffi.dart';
+
+class DspChainProvider extends ChangeNotifier {
+  final _ffi = NativeFFI.instance;
+
+  void addNode(int trackId, DspNodeType type) {
+    final chain = _chains[trackId];
+    if (chain == null) return;
+
+    final slotIndex = chain.nodes.length;
+    final processorName = _typeToProcessorName(type);
+
+    // 1. FFI sync — CRITICAL
+    final result = _ffi.insertLoadProcessor(trackId, slotIndex, processorName);
+    if (result < 0) {
+      debugPrint('[DspChain] Failed to load processor: $processorName');
+      return;
+    }
+
+    // 2. UI state (only on success)
+    final node = DspNode(
+      id: result, // use engine slot ID
+      type: type,
+      bypassed: false,
+    );
+    chain.nodes.add(node);
+
+    notifyListeners();
+  }
+
+  void removeNode(int trackId, int nodeId) {
+    final chain = _chains[trackId];
+    if (chain == null) return;
+
+    final nodeIndex = chain.nodes.indexWhere((n) => n.id == nodeId);
+    if (nodeIndex < 0) return;
+
+    // 1. FFI sync
+    _ffi.insertUnload(trackId, nodeIndex);
+
+    // 2. UI state
+    chain.nodes.removeAt(nodeIndex);
+
+    notifyListeners();
+  }
+
+  void toggleNodeBypass(int trackId, int nodeId) {
+    final chain = _chains[trackId];
+    if (chain == null) return;
+
+    final nodeIndex = chain.nodes.indexWhere((n) => n.id == nodeId);
+    if (nodeIndex < 0) return;
+
+    final node = chain.nodes[nodeIndex];
+    final newBypass = !node.bypassed;
+
+    // 1. FFI sync
+    _ffi.insertSetBypass(trackId, nodeIndex, newBypass);
+
+    // 2. UI state
+    chain.nodes[nodeIndex] = node.copyWith(bypassed: newBypass);
+
+    notifyListeners();
+  }
+
+  String _typeToProcessorName(DspNodeType type) {
+    return switch (type) {
+      DspNodeType.eq => 'pro-eq',
+      DspNodeType.compressor => 'compressor',
+      DspNodeType.limiter => 'limiter',
+      DspNodeType.gate => 'gate',
+      DspNodeType.reverb => 'reverb',
+      DspNodeType.delay => 'delay',
+      DspNodeType.saturation => 'saturation',
+      DspNodeType.deEsser => 'deesser',
+    };
+  }
+}
+```
+
+#### P1.2 — FabFilter Panels Central State
+
+**Pattern za sve FabFilter panels:**
+
+```dart
+// fabfilter_panel_base.dart — ADD SYNC
+
+void onParameterChange(int paramIndex, double value) {
+  // 1. Local state (immediate UI response)
+  _localParams[paramIndex] = value;
+
+  // 2. FFI sync (send to engine)
+  _ffi.insertSetParam(_trackId, _slotIndex, paramIndex, value);
+
+  // 3. Provider sync (for persistence)
+  // Option A: Use DspChainProvider
+  DspChainProvider.instance.setNodeParam(_trackId, _nodeId, paramIndex, value);
+
+  // Option B: Use MixerProvider
+  MixerProvider.instance.setInsertParam(_trackId, _slotIndex, paramIndex, value);
+
+  setState(() {});
+}
+```
+
+---
+
+### Prioritet Implementacije (DAW UI/Audio Flow)
+
+**Preporučeni redosled:**
+
+1. **P0.1** — DspChainProvider FFI sync (CRITICAL — audio ne radi)
+2. **P0.2** — RoutingProvider FFI (CRITICAL — routing ne radi)
+3. **P1.1** — Sync DspChain ↔ Mixer (consistency)
+4. **P1.2** — FabFilter central state (consistency)
+5. **P0.5** — FX Chain UI (DSP engineers)
+6. **P1.3** — Send Matrix UI (mix engineers)
+7. **P0.4** — History panel (QA)
+8. **P0.3** — MIDI piano roll (MIDI users)
+
+**Procena rada:**
+- P0 (5 tasks): ~3-5 dana
+- P1 (6 tasks): ~4-6 dana
+- P2 (4 tasks): ~2-3 dana
+- P3 (3 tasks): ~1-2 dana
+
+**Total:** ~10-16 dana za kompletiranje svih DAW UI/Audio Flow tasks
+
+---
+
+## UKUPNA STATISTIKA (2026-01-23)
+
+| Kategorija | Broj | Status |
+|------------|------|--------|
+| DSP/Engine tasks (sekcije 1-13) | 87 | ✅ 75+ done, ⚠️ 8 minor gaps |
+| DAW UI/Audio Flow (sekcija 14) | 18 | ❌ 0 done, sve novo |
+| **TOTAL** | 105 | ✅ 75+, ⚠️ 8, ❌ 18 |
+
+**Critical issues:** 2 (DspChainProvider, RoutingProvider FFI gaps)
+
+---
+
 *Generisano: 2026-01-20*
-*Poslednji update: 2026-01-20 (MAJOR AUDIT: 11 stavki verifikovano kao implementirano)*
+*Poslednji update: 2026-01-23 (DAW UI/Audio Flow Analysis — 18 novih zadataka, 2 CRITICAL gaps identifikovana)*

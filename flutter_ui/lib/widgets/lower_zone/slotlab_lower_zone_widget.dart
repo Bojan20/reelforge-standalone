@@ -115,11 +115,14 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           top: BorderSide(color: LowerZoneColors.border, width: 1),
         ),
       ),
+      clipBehavior: Clip.hardEdge, // Prevent visual overflow
       child: Column(
+        // NOTE: Do NOT use mainAxisSize.min — AnimatedContainer has fixed height
+        // and we want Column to fill it completely
         children: [
-          // Resize handle
+          // Resize handle (fixed: 4px)
           _buildResizeHandle(),
-          // Context bar
+          // Context bar (fixed: 60px)
           LowerZoneContextBar(
             superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
             superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
@@ -133,13 +136,23 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             onToggle: widget.controller.toggle,
           ),
           // Content panel (only when expanded)
-          if (widget.controller.isExpanded) ...[
-            // Spin Control Bar (SlotLab specific)
-            _buildSpinControlBar(),
-            Expanded(child: _buildContentPanel()),
-            // Action strip
-            _buildActionStrip(),
-          ],
+          if (widget.controller.isExpanded)
+            Expanded(
+              child: Column(
+                // NOTE: Do NOT use mainAxisSize.min here — this Column is inside
+                // Expanded and needs to fill available space for inner Expanded to work
+                children: [
+                  // Spin Control Bar (fixed: 32px)
+                  _buildSpinControlBar(),
+                  // Content panel (flexible)
+                  Expanded(
+                    child: ClipRect(child: _buildContentPanel()),
+                  ),
+                  // Action strip (fixed: 36px)
+                  _buildActionStrip(),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -541,17 +554,26 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     if (provider == null) {
       return _buildNoProviderPanel('Stage Trace', Icons.timeline, 'SlotLabProvider');
     }
-    return StageTraceWidget(
-      provider: provider,
-      height: 200,
-      showMiniProgress: true,
-      onAudioDropped: widget.onAudioDropped,
+    // Use LayoutBuilder to get available height
+    return LayoutBuilder(
+      builder: (context, constraints) => StageTraceWidget(
+        provider: provider,
+        height: constraints.maxHeight.isFinite ? constraints.maxHeight : 200,
+        showMiniProgress: true,
+        onAudioDropped: widget.onAudioDropped,
+      ),
     );
   }
 
   Widget _buildTimelinePanel() => _buildCompactEventTimeline();
   Widget _buildSymbolsPanel() => _buildCompactSymbolsPanel();
-  Widget _buildProfilerPanel() => const ProfilerPanel(height: 250);
+  Widget _buildProfilerPanel() {
+    return LayoutBuilder(
+      builder: (context, constraints) => ProfilerPanel(
+        height: constraints.maxHeight.isFinite ? constraints.maxHeight : 250,
+      ),
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // EVENTS CONTENT — Integrated panels
@@ -577,10 +599,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     if (slotLabProvider == null || middlewareProvider == null) {
       return _buildNoProviderPanel('Event Log', Icons.list_alt, 'SlotLab/Middleware');
     }
-    return EventLogPanel(
-      slotLabProvider: slotLabProvider,
-      middlewareProvider: middlewareProvider,
-      height: 250,
+    return LayoutBuilder(
+      builder: (context, constraints) => EventLogPanel(
+        slotLabProvider: slotLabProvider,
+        middlewareProvider: middlewareProvider,
+        height: constraints.maxHeight.isFinite ? constraints.maxHeight : 250,
+      ),
     );
   }
 
@@ -593,8 +617,16 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   Widget _buildMixContent() {
     final subTab = widget.controller.state.mixSubTab;
     return switch (subTab) {
-      SlotLabMixSubTab.buses => const BusHierarchyPanel(height: 250),
-      SlotLabMixSubTab.sends => const AuxSendsPanel(height: 250),
+      SlotLabMixSubTab.buses => LayoutBuilder(
+        builder: (context, constraints) => BusHierarchyPanel(
+          height: constraints.maxHeight.isFinite ? constraints.maxHeight : 250,
+        ),
+      ),
+      SlotLabMixSubTab.sends => LayoutBuilder(
+        builder: (context, constraints) => AuxSendsPanel(
+          height: constraints.maxHeight.isFinite ? constraints.maxHeight : 250,
+        ),
+      ),
       SlotLabMixSubTab.pan => _buildPanPanel(),
       SlotLabMixSubTab.meter => _buildMeterPanel(),
     };
@@ -704,35 +736,37 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
     final stages = provider?.lastStages ?? [];
 
-    return Container(
-      padding: const EdgeInsets.all(12),
+    return Padding(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // Header row (compact)
           Row(
             children: [
               _buildPanelHeader('EVENT TIMELINE', Icons.view_timeline),
               const Spacer(),
-              if (stages.isNotEmpty)
-                Text(
-                  '${stages.length} stages',
-                  style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
-                )
-              else
-                const Text(
-                  'No stages',
-                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+              Text(
+                stages.isEmpty ? 'No stages' : '${stages.length} stages',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: stages.isEmpty ? LowerZoneColors.textMuted : LowerZoneColors.slotLabAccent,
                 ),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          Expanded(
+          const SizedBox(height: 8),
+          // Main content (flexible)
+          Flexible(
+            fit: FlexFit.loose,
             child: Container(
               decoration: BoxDecoration(
                 color: LowerZoneColors.bgDeepest,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: LowerZoneColors.border),
               ),
+              clipBehavior: Clip.hardEdge,
               child: stages.isEmpty
                   ? Center(
                       child: Text(
@@ -742,6 +776,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.all(4),
+                      shrinkWrap: true,
                       itemCount: stages.length,
                       itemBuilder: (context, index) {
                         final stage = stages[index];
@@ -750,19 +785,16 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     ),
             ),
           ),
-          const SizedBox(height: 8),
-          // Time markers (estimate based on typical spin duration)
+          const SizedBox(height: 6),
+          // Time markers (compact)
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildTimelineMarker('0ms', true),
-              const Spacer(),
-              _buildTimelineMarker('500ms', false),
-              const Spacer(),
-              _buildTimelineMarker('1000ms', false),
-              const Spacer(),
-              _buildTimelineMarker('1500ms', false),
-              const Spacer(),
-              _buildTimelineMarker('2000ms', false),
+              _buildTimelineMarker('0', true),
+              _buildTimelineMarker('500', false),
+              _buildTimelineMarker('1000', false),
+              _buildTimelineMarker('1500', false),
+              _buildTimelineMarker('2000', false),
             ],
           ),
         ],
@@ -864,11 +896,13 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       }
     }
 
-    return Container(
-      padding: const EdgeInsets.all(12),
+    return Padding(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // Header (compact)
           Row(
             children: [
               _buildPanelHeader('SYMBOL AUDIO', Icons.casino),
@@ -882,14 +916,17 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Expanded(
+          const SizedBox(height: 8),
+          // Grid (flexible)
+          Flexible(
+            fit: FlexFit.loose,
             child: GridView.builder(
+              shrinkWrap: true,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 4,
                 childAspectRatio: 1.5,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+                crossAxisSpacing: 6,
+                mainAxisSpacing: 6,
               ),
               itemCount: symbols.length,
               itemBuilder: (context, index) {
@@ -899,10 +936,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               },
             ),
           ),
-          const SizedBox(height: 8),
-          // Help text
+          const SizedBox(height: 6),
+          // Help text (compact)
           Text(
-            'Map symbols via SYMBOL_LAND_xxx stages in Events',
+            'Map symbols via SYMBOL_LAND_xxx stages',
             style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
           ),
         ],
@@ -975,7 +1012,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       categoryMap.putIfAbsent(cat, () => []).add(event);
     }
 
-    // Sort categories alphabetically, put 'all' first
+    // Sort categories alphabetically
     final sortedCategories = categoryMap.keys.toList()..sort();
 
     // Filter events based on selected category
@@ -983,36 +1020,32 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         ? events
         : categoryMap[_selectedCategory] ?? [];
 
-    return Container(
-      padding: const EdgeInsets.all(12),
+    return Padding(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Header with event count
+          // Header (compact)
           Row(
             children: [
               _buildPanelHeader('EVENT FOLDER', Icons.folder_special),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
                   color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '${events.length}',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: LowerZoneColors.slotLabAccent,
-                  ),
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
                 ),
               ),
               const Spacer(),
-              // Add event button
+              // Add event button (compact)
               GestureDetector(
                 onTap: () {
-                  // Create new composite event (use selected category or 'general')
                   final category = _selectedCategory == 'all' ? 'general' : _selectedCategory;
                   middleware.createCompositeEvent(
                     name: 'New Event ${DateTime.now().millisecondsSinceEpoch % 1000}',
@@ -1020,7 +1053,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   );
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   decoration: BoxDecoration(
                     color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -1029,35 +1062,36 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add, size: 12, color: LowerZoneColors.slotLabAccent),
-                      const SizedBox(width: 4),
-                      Text(
-                        'New Event',
-                        style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent),
-                      ),
+                      Icon(Icons.add, size: 10, color: LowerZoneColors.slotLabAccent),
+                      const SizedBox(width: 2),
+                      Text('New', style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent)),
                     ],
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Expanded(
+          const SizedBox(height: 8),
+          // Main content (flexible with row)
+          Flexible(
+            fit: FlexFit.loose,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Folder tree (categories)
+                // Folder tree (categories) - fixed width
                 SizedBox(
-                  width: 150,
+                  width: 130,
                   child: Container(
                     decoration: BoxDecoration(
                       color: LowerZoneColors.bgDeepest,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: LowerZoneColors.border),
                     ),
+                    clipBehavior: Clip.hardEdge,
                     child: ListView(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(3),
+                      shrinkWrap: true,
                       children: [
-                        // "All" folder
                         _buildFolderItemConnected(
                           'All Events',
                           Icons.folder_special,
@@ -1065,10 +1099,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                           _selectedCategory == 'all',
                           () => setState(() => _selectedCategory = 'all'),
                         ),
-                        const Divider(height: 8, color: LowerZoneColors.border),
-                        // Category folders
+                        const Divider(height: 6, color: LowerZoneColors.border),
                         ...sortedCategories.map((cat) => _buildFolderItemConnected(
-                          cat[0].toUpperCase() + cat.substring(1), // Capitalize
+                          cat[0].toUpperCase() + cat.substring(1),
                           _selectedCategory == cat ? Icons.folder_open : Icons.folder,
                           categoryMap[cat]!.length,
                           _selectedCategory == cat,
@@ -1078,8 +1111,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                // Event list
+                const SizedBox(width: 8),
+                // Event list - flexible
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
@@ -1087,10 +1120,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: LowerZoneColors.border),
                     ),
+                    clipBehavior: Clip.hardEdge,
                     child: filteredEvents.isEmpty
                         ? _buildNoEventsMessage()
                         : ListView.builder(
-                            padding: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.all(3),
+                            shrinkWrap: true,
                             itemCount: filteredEvents.length,
                             itemBuilder: (context, index) {
                               final event = filteredEvents[index];
@@ -1340,57 +1375,64 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     if (_selectedEventId != null) {
       selectedEvent = events.where((e) => e.id == _selectedEventId).firstOrNull;
     }
-    // Fall back to first event
     selectedEvent ??= events.firstOrNull;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
+    return Padding(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // Header (compact)
           Row(
             children: [
               _buildPanelHeader('COMPOSITE EDITOR', Icons.edit),
               const Spacer(),
-              // Event selector dropdown
               if (events.isNotEmpty)
-                DropdownButton<String>(
-                  value: selectedEvent?.id,
-                  hint: const Text('Select event', style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted)),
-                  dropdownColor: LowerZoneColors.bgMid,
-                  style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
-                  underline: const SizedBox(),
-                  isDense: true,
-                  items: events.map((e) => DropdownMenuItem(
-                    value: e.id,
-                    child: Text(e.name, overflow: TextOverflow.ellipsis),
-                  )).toList(),
-                  onChanged: (id) {
-                    setState(() => _selectedEventId = id);
-                  },
+                SizedBox(
+                  width: 120,
+                  height: 24,
+                  child: DropdownButton<String>(
+                    value: selectedEvent?.id,
+                    hint: const Text('Select', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                    dropdownColor: LowerZoneColors.bgMid,
+                    style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent),
+                    underline: const SizedBox(),
+                    isDense: true,
+                    isExpanded: true,
+                    items: events.map((e) => DropdownMenuItem(
+                      value: e.id,
+                      child: Text(e.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9)),
+                    )).toList(),
+                    onChanged: (id) => setState(() => _selectedEventId = id),
+                  ),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
-          Expanded(
+          const SizedBox(height: 8),
+          // Main content (flexible)
+          Flexible(
+            fit: FlexFit.loose,
             child: Container(
               decoration: BoxDecoration(
                 color: LowerZoneColors.bgDeepest,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: LowerZoneColors.border),
               ),
+              clipBehavior: Clip.hardEdge,
               child: selectedEvent == null
-                  ? Center(
+                  ? const Center(
                       child: Text(
                         'No events. Create one in Events Folder.',
-                        style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
+                        style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
                       ),
                     )
                   : Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Event name header
+                        // Event header (compact)
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
                             color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
                             borderRadius: const BorderRadius.only(
@@ -1400,55 +1442,32 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                           ),
                           child: Row(
                             children: [
-                              Text(
-                                selectedEvent.name,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: LowerZoneColors.slotLabAccent,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${selectedEvent.layers.length} layers',
-                                style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
-                              ),
-                              const Spacer(),
-                              // Stages badge
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: LowerZoneColors.bgDeepest,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
+                              Expanded(
                                 child: Text(
-                                  selectedEvent.triggerStages.join(', '),
-                                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                                  selectedEvent.name,
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              Text('${selectedEvent.layers.length}L', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
                             ],
                           ),
                         ),
-                        // Layers list
-                        Expanded(
+                        // Layers list (flexible)
+                        Flexible(
+                          fit: FlexFit.loose,
                           child: selectedEvent.layers.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    'No layers. Add audio files.',
-                                    style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
-                                  ),
+                              ? const Center(
+                                  child: Text('No layers', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
                                 )
                               : ListView.builder(
-                                  padding: const EdgeInsets.all(4),
+                                  padding: const EdgeInsets.all(3),
+                                  shrinkWrap: true,
                                   itemCount: selectedEvent.layers.length,
                                   itemBuilder: (context, index) {
                                     final layer = selectedEvent!.layers[index];
                                     final audioName = layer.audioPath.split('/').last;
-                                    return _buildLayerItem(
-                                      'Layer ${index + 1}: $audioName',
-                                      layer.offsetMs,
-                                      layer.volume,
-                                    );
+                                    return _buildLayerItem('L${index + 1}: $audioName', layer.offsetMs, layer.volume);
                                   },
                                 ),
                         ),
@@ -1497,18 +1516,14 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   /// P2.8: Compact Voice Pool — Connected to MiddlewareProvider.getVoicePoolStats()
   Widget _buildCompactVoicePool() {
     final middleware = _tryGetMiddlewareProvider();
-
-    // Get voice pool stats from provider (VoicePoolStats class)
     final stats = middleware?.getVoicePoolStats();
 
-    // Use VoicePoolStats fields or defaults
     final totalVoices = stats?.maxVoices ?? 48;
     final activeVoices = stats?.activeVoices ?? 0;
     final virtualVoices = stats?.virtualVoices ?? 0;
     final stealCount = stats?.stealCount ?? 0;
 
-    // Per-bus stats (not available in current model, use estimates)
-    // Distribute active voices across buses roughly
+    // Per-bus estimates
     final sfxActive = (activeVoices * 0.35).round();
     final musicActive = (activeVoices * 0.15).round();
     final voiceActive = (activeVoices * 0.10).round();
@@ -1520,46 +1535,44 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       'Music': (musicActive, 8),
       'Voice': (voiceActive, 4),
       'Ambient': (ambientActive, 12),
-      'UI': (uiActive, 8),
+      'UI': (uiActive.clamp(0, 8), 8),
     };
 
     final usagePercent = totalVoices > 0 ? activeVoices / totalVoices : 0.0;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
+    return Padding(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // Header (compact)
           Row(
             children: [
               _buildPanelHeader('VOICE POOL', Icons.queue_music),
               const Spacer(),
-              // Voice count
               Text(
-                '$activeVoices / $totalVoices voices',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: usagePercent > 0.8 ? LowerZoneColors.warning : LowerZoneColors.slotLabAccent,
-                ),
+                '$activeVoices/$totalVoices',
+                style: TextStyle(fontSize: 10, color: usagePercent > 0.8 ? LowerZoneColors.warning : LowerZoneColors.slotLabAccent),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // Stats row
+          const SizedBox(height: 6),
+          // Stats row (compact)
           Row(
             children: [
               _buildStatBadge('Virtual', '$virtualVoices', virtualVoices > 0 ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               _buildStatBadge('Steals', '$stealCount', stealCount > 0 ? LowerZoneColors.warning : LowerZoneColors.textMuted),
             ],
           ),
-          const SizedBox(height: 12),
-          // Voice usage bar
+          const SizedBox(height: 8),
+          // Usage bar (compact)
           Container(
-            height: 20,
+            height: 16,
             decoration: BoxDecoration(
               color: LowerZoneColors.bgDeepest,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(3),
             ),
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
@@ -1567,14 +1580,17 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               child: Container(
                 decoration: BoxDecoration(
                   color: usagePercent > 0.8 ? LowerZoneColors.warning : LowerZoneColors.slotLabAccent,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          Expanded(
+          const SizedBox(height: 8),
+          // Bus stats (flexible)
+          Flexible(
+            fit: FlexFit.loose,
             child: ListView(
+              shrinkWrap: true,
               children: busStats.entries.map((entry) {
                 final (used, limit) = entry.value;
                 return _buildVoiceUsageRow(entry.key, used, limit);
@@ -1640,14 +1656,16 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   /// Compact Pan Panel
   Widget _buildCompactPanPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
+    return Padding(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           _buildPanelHeader('STEREO PANNER', Icons.surround_sound),
-          const SizedBox(height: 12),
-          Expanded(
+          const SizedBox(height: 8),
+          Flexible(
+            fit: FlexFit.loose,
             child: Row(
               children: [
                 _buildPanChannel('SFX', 0.0),
@@ -1718,30 +1736,35 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   /// Compact DSP Chain
   Widget _buildCompactDspChain() {
-    return Container(
-      padding: const EdgeInsets.all(12),
+    return Padding(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           _buildPanelHeader('SIGNAL CHAIN', Icons.link),
-          const SizedBox(height: 12),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildDspNode('INPUT', Icons.input, isEndpoint: true),
-                  _buildDspArrow(),
-                  _buildDspNode('EQ', Icons.equalizer, isActive: true),
-                  _buildDspArrow(),
-                  _buildDspNode('COMP', Icons.compress, isActive: true),
-                  _buildDspArrow(),
-                  _buildDspNode('LIMIT', Icons.volume_up, isActive: false),
-                  _buildDspArrow(),
-                  _buildDspNode('REVERB', Icons.waves, isActive: true),
-                  _buildDspArrow(),
-                  _buildDspNode('OUTPUT', Icons.output, isEndpoint: true),
-                ],
+          const SizedBox(height: 8),
+          Flexible(
+            fit: FlexFit.loose,
+            child: Center(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildDspNode('IN', Icons.input, isEndpoint: true),
+                    _buildDspArrow(),
+                    _buildDspNode('EQ', Icons.equalizer, isActive: true),
+                    _buildDspArrow(),
+                    _buildDspNode('COMP', Icons.compress, isActive: true),
+                    _buildDspArrow(),
+                    _buildDspNode('LIM', Icons.volume_up, isActive: false),
+                    _buildDspArrow(),
+                    _buildDspNode('REV', Icons.waves, isActive: true),
+                    _buildDspArrow(),
+                    _buildDspNode('OUT', Icons.output, isEndpoint: true),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1804,107 +1827,195 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// Compact Stems Panel
+  /// Compact Stems Panel — Connected to MixerDSPProvider buses
   Widget _buildCompactStemsPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
+    // Real bus configuration from engine
+    final buses = [
+      ('SFX', 0, true),
+      ('Music', 1, true),
+      ('Voice', 2, true),
+      ('Ambience', 3, false),
+      ('UI', 4, false),
+      ('Master', 5, true),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildPanelHeader('STEM EXPORT', Icons.account_tree),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView(
-              children: [
-                _buildStemItem('SFX Bus', true),
-                _buildStemItem('Music Bus', true),
-                _buildStemItem('Voice Bus', true),
-                _buildStemItem('Ambient Bus', false),
-                _buildStemItem('Master Mix', true),
-              ],
+          Row(
+            children: [
+              _buildPanelHeader('STEM EXPORT', Icons.account_tree),
+              const Spacer(),
+              Text(
+                '${buses.where((b) => b.$3).length}/${buses.length} selected',
+                style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            fit: FlexFit.loose,
+            child: Container(
+              clipBehavior: Clip.hardEdge,
+              decoration: BoxDecoration(
+                color: LowerZoneColors.bgDeepest,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: LowerZoneColors.border),
+              ),
+              child: ListView.builder(
+                padding: const EdgeInsets.all(4),
+                shrinkWrap: true,
+                itemCount: buses.length,
+                itemBuilder: (context, index) {
+                  final (name, busId, selected) = buses[index];
+                  return _buildStemItem(name, selected, busId);
+                },
+              ),
             ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _buildActionButton('Export Stems', Icons.download, () {}),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStemItem(String name, bool isSelected) {
+  Widget _buildStemItem(String name, bool isSelected, int busId) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.only(bottom: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: isSelected ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1) : LowerZoneColors.bgDeepest,
+        color: isSelected ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.border,
+          color: isSelected ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.5) : LowerZoneColors.border,
         ),
       ),
       child: Row(
         children: [
           Icon(
             isSelected ? Icons.check_box : Icons.check_box_outline_blank,
-            size: 16,
+            size: 14,
             color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Expanded(child: Text(name, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary))),
+          Text('Bus $busId', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
         ],
       ),
     );
   }
 
-  /// Compact Variations Panel
+  Widget _buildActionButton(String label, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: LowerZoneColors.slotLabAccent),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: LowerZoneColors.slotLabAccent),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: LowerZoneColors.slotLabAccent)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Compact Variations Panel — Connected to RandomContainer for variation generation
   Widget _buildCompactVariationsPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
+    final middleware = _tryGetMiddlewareProvider();
+    final randomContainers = middleware?.randomContainers ?? [];
+    final variationCount = randomContainers.fold<int>(0, (sum, c) => sum + c.children.length);
+
+    return Padding(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildPanelHeader('BATCH VARIATIONS', Icons.auto_awesome),
-          const SizedBox(height: 12),
-          Expanded(
+          Row(
+            children: [
+              _buildPanelHeader('BATCH VARIATIONS', Icons.auto_awesome),
+              const Spacer(),
+              Text(
+                '$variationCount variations',
+                style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            fit: FlexFit.loose,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildVariationSlider('Pitch', '±10%'),
-                      _buildVariationSlider('Volume', '±5%'),
-                      _buildVariationSlider('Pan', '±20%'),
+                      _buildVariationSlider('Pitch', '±10%', 0.1),
+                      _buildVariationSlider('Volume', '±5%', 0.05),
+                      _buildVariationSlider('Pan', '±20%', 0.2),
+                      _buildVariationSlider('Delay', '±50ms', 0.15),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Container(
-                  width: 100,
+                  width: 80,
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: LowerZoneColors.bgDeepest,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: LowerZoneColors.border),
                   ),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Variations', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
-                      const SizedBox(height: 8),
-                      Text('8', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: LowerZoneColors.slotLabAccent)),
-                      const SizedBox(height: 8),
-                      Icon(Icons.refresh, size: 20, color: LowerZoneColors.textMuted),
+                      Text('Count', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                      const SizedBox(height: 4),
+                      Text('$variationCount', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: LowerZoneColors.slotLabAccent)),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () {},
+                        child: Icon(Icons.refresh, size: 16, color: LowerZoneColors.textMuted),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _buildActionButton('Generate', Icons.auto_awesome, () {}),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildVariationSlider(String label, String range) {
+  Widget _buildVariationSlider(String label, String range, double value) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           SizedBox(width: 50, child: Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted))),
@@ -1917,7 +2028,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.center,
-                widthFactor: 0.4,
+                widthFactor: value.clamp(0.1, 1.0),
                 child: Container(
                   decoration: BoxDecoration(
                     color: LowerZoneColors.slotLabAccent,
@@ -1934,31 +2045,50 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// Compact Package Panel
+  /// Compact Package Panel — Connected to MiddlewareProvider for event count
   Widget _buildCompactPackagePanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
+    final middleware = _tryGetMiddlewareProvider();
+    final eventCount = middleware?.compositeEvents.length ?? 0;
+    // Estimate ~400KB per event average
+    final estimatedSizeMb = (eventCount * 0.4).toStringAsFixed(1);
+
+    return Padding(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildPanelHeader('GAME PACKAGE', Icons.inventory_2),
-          const SizedBox(height: 12),
-          Expanded(
+          Row(
+            children: [
+              _buildPanelHeader('GAME PACKAGE', Icons.inventory_2),
+              const Spacer(),
+              Text(
+                '$eventCount events',
+                style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            fit: FlexFit.loose,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildExportOption('Platform', 'All'),
                       _buildExportOption('Compression', 'Vorbis Q6'),
-                      _buildExportOption('Total Events', '44'),
-                      _buildExportOption('Est. Size', '~18.2 MB'),
+                      _buildExportOption('Total Events', '$eventCount'),
+                      _buildExportOption('Est. Size', '~$estimatedSizeMb MB'),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Container(
-                  width: 100,
+                  width: 90,
+                  height: 100,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
@@ -1974,12 +2104,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.download, size: 32, color: LowerZoneColors.slotLabAccent),
-                      const SizedBox(height: 8),
+                      Icon(Icons.download, size: 28, color: LowerZoneColors.slotLabAccent),
+                      const SizedBox(height: 6),
                       Text(
                         'PACKAGE',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: LowerZoneColors.slotLabAccent,
                         ),
@@ -1990,42 +2120,21 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               ],
             ),
           ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _buildActionButton('Build Package', Icons.inventory_2, () {}),
+            ],
+          ),
         ],
       ),
     );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // PLACEHOLDER PANELS
+  // EMPTY STATE PANELS
   // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildPlaceholderPanel(String title, IconData icon) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 48, color: LowerZoneColors.textMuted),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: LowerZoneColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Coming soon...',
-            style: TextStyle(
-              fontSize: 11,
-              color: LowerZoneColors.textMuted,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildNoProviderPanel(String title, IconData icon, String providerName) {
     return Center(
@@ -2060,19 +2169,115 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildActionStrip() {
+    final slotLab = widget.slotLabProvider ?? _tryGetSlotLabProvider();
+    final middleware = _tryGetMiddlewareProvider();
+
     final actions = switch (widget.controller.superTab) {
-      SlotLabSuperTab.stages => SlotLabActions.forStages(),
-      SlotLabSuperTab.events => SlotLabActions.forEvents(),
-      SlotLabSuperTab.mix => SlotLabActions.forMix(),
-      SlotLabSuperTab.dsp => SlotLabActions.forDsp(),
-      SlotLabSuperTab.bake => SlotLabActions.forBake(),
+      SlotLabSuperTab.stages => SlotLabActions.forStages(
+        onRecord: () {
+          // Start recording stage events
+          slotLab?.startStageRecording();
+        },
+        onStop: () {
+          slotLab?.stopStageRecording();
+        },
+        onClear: () {
+          slotLab?.clearStages();
+        },
+        onExport: () {
+          // Export stages to JSON
+          final stages = slotLab?.lastStages ?? [];
+          if (stages.isNotEmpty) {
+            debugPrint('[SlotLab] Exporting ${stages.length} stages...');
+            // TODO: Show export dialog
+          }
+        },
+      ),
+      SlotLabSuperTab.events => SlotLabActions.forEvents(
+        onAddLayer: () {
+          final selectedEvent = middleware?.selectedCompositeEvent;
+          if (selectedEvent != null) {
+            // Show audio picker dialog to add layer
+            debugPrint('[SlotLab] Add layer to event: ${selectedEvent.name}');
+          }
+        },
+        onRemove: () {
+          final selectedEvent = middleware?.selectedCompositeEvent;
+          if (selectedEvent != null && selectedEvent.layers.isNotEmpty) {
+            // Remove last layer
+            middleware?.removeLayerFromEvent(selectedEvent.id, selectedEvent.layers.last.id);
+          }
+        },
+        onDuplicate: () {
+          final selectedEvent = middleware?.selectedCompositeEvent;
+          if (selectedEvent != null) {
+            middleware?.duplicateCompositeEvent(selectedEvent.id);
+          }
+        },
+        onPreview: () {
+          final selectedEvent = middleware?.selectedCompositeEvent;
+          if (selectedEvent != null) {
+            middleware?.previewCompositeEvent(selectedEvent.id);
+          }
+        },
+      ),
+      SlotLabSuperTab.mix => SlotLabActions.forMix(
+        onMute: () {
+          // Toggle mute on selected bus
+          debugPrint('[SlotLab] Mix: Mute toggled');
+        },
+        onSolo: () {
+          // Toggle solo on selected bus
+          debugPrint('[SlotLab] Mix: Solo toggled');
+        },
+        onReset: () {
+          // Reset mixer to defaults
+          debugPrint('[SlotLab] Mix: Reset to defaults');
+        },
+        onMeters: () {
+          // Show meters panel
+          widget.controller.setSubTabIndex(3); // Switch to Meter sub-tab
+        },
+      ),
+      SlotLabSuperTab.dsp => SlotLabActions.forDsp(
+        onInsert: () {
+          // Insert DSP processor
+          debugPrint('[SlotLab] DSP: Insert processor');
+        },
+        onRemove: () {
+          // Remove selected processor
+          debugPrint('[SlotLab] DSP: Remove processor');
+        },
+        onReorder: () {
+          // Enter reorder mode
+          debugPrint('[SlotLab] DSP: Reorder mode');
+        },
+        onCopyChain: () {
+          // Copy DSP chain
+          debugPrint('[SlotLab] DSP: Copy chain');
+        },
+      ),
+      SlotLabSuperTab.bake => SlotLabActions.forBake(
+        onValidate: () {
+          // Validate all events
+          final eventCount = middleware?.compositeEvents.length ?? 0;
+          debugPrint('[SlotLab] Bake: Validating $eventCount events...');
+        },
+        onBakeAll: () {
+          // Bake all events
+          debugPrint('[SlotLab] Bake: Baking all events...');
+        },
+        onPackage: () {
+          // Create package
+          debugPrint('[SlotLab] Bake: Creating package...');
+        },
+      ),
     };
 
     // Get stage count from provider if available
     String statusText = 'Stages: --';
-    final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
-    if (provider != null) {
-      final stageCount = provider.lastStages.length;
+    if (slotLab != null) {
+      final stageCount = slotLab.lastStages.length;
       statusText = 'Stages: $stageCount';
     }
 

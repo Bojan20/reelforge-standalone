@@ -13,6 +13,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../providers/dsp_chain_provider.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
@@ -90,6 +91,7 @@ class FabFilterLimiterPanel extends FabFilterPanelBase {
           title: 'Limiter',
           icon: Icons.graphic_eq,
           accentColor: FabFilterColors.red,
+          nodeType: DspNodeType.limiter,
         );
 
   @override
@@ -103,8 +105,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
   // ─────────────────────────────────────────────────────────────────────────
 
   // Main parameters
-  double _gain = 0.0; // dB (input gain/drive)
+  double _gain = 0.0; // dB (input gain/drive) - boosts signal into limiter
   double _output = -0.3; // dB (output ceiling)
+  double _threshold = -10.0; // dB (limiting threshold, separate from ceiling)
   double _attack = 1.0; // ms (0.01 - 10)
   double _release = 100.0; // ms (1 - 1000)
   double _lookahead = 2.0; // ms (0 - 10)
@@ -144,10 +147,14 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
   // Unity gain (auto)
   bool _unityGain = false;
 
-  // FFI
+  // FFI & DspChainProvider integration
   final _ffi = NativeFFI.instance;
   bool _initialized = false;
   Timer? _meterTimer;
+
+  // DspChainProvider tracking (FIX: Use insert chain, not ghost DYNAMICS_LIMITERS)
+  String? _nodeId;
+  int _slotIndex = -1;
 
   @override
   void initState() {
@@ -164,49 +171,83 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     _meterController.repeat();
   }
 
+  /// Initialize processor via DspChainProvider (FIX: Uses insert chain, not ghost HashMap)
   void _initializeProcessor() {
-    final success = _ffi.limiterCreate(widget.trackId, sampleRate: widget.sampleRate);
-    if (success) {
+    final dsp = DspChainProvider.instance;
+    final chain = dsp.getChain(widget.trackId);
+
+    // Find existing limiter node or add one
+    DspNode? limiterNode;
+    for (final node in chain.nodes) {
+      if (node.type == DspNodeType.limiter) {
+        limiterNode = node;
+        break;
+      }
+    }
+
+    if (limiterNode == null) {
+      // Add limiter via DspChainProvider (this calls insertLoadProcessor → insert chain)
+      dsp.addNode(widget.trackId, DspNodeType.limiter);
+      final updatedChain = dsp.getChain(widget.trackId);
+      if (updatedChain.nodes.isNotEmpty) {
+        limiterNode = updatedChain.nodes.last;
+      }
+    }
+
+    if (limiterNode != null) {
+      _nodeId = limiterNode.id;
+      _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       _initialized = true;
+      debugPrint('[FabFilterLimiter] ✅ Initialized via DspChainProvider (track=${widget.trackId}, slot=$_slotIndex)');
       _applyAllParameters();
+    } else {
+      debugPrint('[FabFilterLimiter] ❌ Failed to initialize limiter for track ${widget.trackId}');
     }
   }
 
+  /// Apply all parameters to the insert chain limiter (FIX: Uses insertSetParam)
+  ///
+  /// Parameter indices for TruePeakLimiterWrapper in insert chain:
+  /// 0: Threshold (dB) - level at which limiting begins
+  /// 1: Ceiling (dB) - maximum output level
+  /// 2: Release (ms)
+  /// 3: Oversampling (0=X1, 1=X2, 2=X4, 3+=X8)
   void _applyAllParameters() {
-    if (!_initialized) return;
-    // Output ceiling maps to limiter threshold (negative value)
-    _ffi.limiterSetThreshold(widget.trackId, _output);
-    _ffi.limiterSetCeiling(widget.trackId, _output);
-    _ffi.limiterSetRelease(widget.trackId, _release);
+    if (!_initialized || _slotIndex < 0) return;
+
+    // Use insertSetParam to set parameters on the REAL insert chain processor
+    // FIX: Use separate threshold and ceiling values
+    // Threshold should be lower than ceiling for limiting to engage
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);  // Threshold
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _output);     // Ceiling
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _release);    // Release
+
+    debugPrint('[FabFilterLimiter] Applied params: threshold=${_threshold}dB, ceiling=${_output}dB, release=${_release}ms (slot=$_slotIndex)');
   }
 
   @override
   void dispose() {
     _meterTimer?.cancel();
     _meterController.dispose();
-    if (_initialized) {
-      _ffi.limiterRemove(widget.trackId);
-    }
+    // NOTE: Don't remove the limiter from DspChainProvider on dispose
+    // The node lifecycle is managed by DspChainProvider, not by this panel.
     super.dispose();
   }
 
   void _updateMeters() {
     setState(() {
-      // Get real data from FFI when processor is in audio path
-      // NOTE: LIMITERS HashMap is NOT connected to audio callback yet
-      // Processor shows real data only when connected to InsertChain
-      if (_initialized) {
-        _currentGainReduction = _ffi.limiterGetGainReduction(widget.trackId);
-        _currentTruePeak = _ffi.limiterGetTruePeak(widget.trackId);
-      }
+      // NOTE: GR and True Peak metering from insert chain requires additional FFI
+      // The InsertProcessor trait doesn't expose GR/TP directly.
+      // TODO: Add insert_get_limiter_gr() and insert_get_limiter_true_peak() FFI
+      _currentGainReduction = 0.0;
+      _currentTruePeak = -60.0;
 
       // NO FAKE DATA: All levels must come from real metering
-      // Show silence until connected to PLAYBACK_ENGINE InsertChain
       _currentInputPeak = -60.0;
       _currentOutputPeak = -60.0;
 
       // True peak clipping detection (only with real data)
-      _truePeakClipping = _initialized && _currentTruePeak > _output;
+      _truePeakClipping = false;
 
       // Track peak GR only if real data present
       if (_currentGainReduction.abs() > 0.01 && _currentGainReduction.abs() > _peakGainReduction.abs()) {
@@ -215,7 +256,6 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
 
       // NO FAKE LUFS: Must come from real loudness analyzer
       // TODO: Connect to PLAYBACK_ENGINE loudness metering
-      // _lufsMomentary, _lufsShortTerm, _lufsIntegrated stay at init values
 
       // Add to history only with real activity
       if (_currentGainReduction.abs() > 0.01) {
@@ -497,16 +537,34 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           display: '${_gain >= 0 ? '+' : ''}${_gain.toStringAsFixed(0)}dB',
           color: FabFilterColors.orange,
           onChanged: (v) => setState(() => _gain = v * 48 - 24),
+          // NOTE: Gain/drive is UI-only for now, doesn't map to insert chain limiter
         ),
+        // THRESHOLD: Level at which limiting begins (FIX: separate from ceiling)
         _buildSmallKnob(
-          value: (_output + 12) / 12,
-          label: 'OUTPUT',
+          value: (_threshold + 24) / 24, // Range: -24 to 0 dB
+          label: 'THRESH',
+          display: '${_threshold.toStringAsFixed(1)}dB',
+          color: FabFilterColors.red,
+          onChanged: (v) {
+            setState(() => _threshold = v * 24 - 24);
+            if (_slotIndex >= 0) {
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold); // Threshold
+              debugPrint('[FabFilterLimiter] Threshold → ${_threshold}dB');
+            }
+          },
+        ),
+        // OUTPUT/CEILING: Maximum output level
+        _buildSmallKnob(
+          value: (_output + 12) / 12, // Range: -12 to 0 dB
+          label: 'CEILING',
           display: '${_output.toStringAsFixed(1)}dB',
           color: FabFilterColors.blue,
           onChanged: (v) {
             setState(() => _output = v * 12 - 12);
-            _ffi.limiterSetCeiling(widget.trackId, _output);
-            _ffi.limiterSetThreshold(widget.trackId, _output);
+            if (_slotIndex >= 0) {
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _output); // Ceiling only
+              debugPrint('[FabFilterLimiter] Ceiling → ${_output}dB');
+            }
           },
         ),
         _buildSmallKnob(
@@ -516,7 +574,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           color: FabFilterColors.cyan,
           onChanged: (v) {
             setState(() => _release = 1 * math.pow(1000 / 1, v).toDouble());
-            _ffi.limiterSetRelease(widget.trackId, _release);
+            if (_slotIndex >= 0) {
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _release); // Release
+            }
           },
         ),
         if (showExpertMode) ...[
@@ -526,6 +586,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             display: _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µ' : '${_attack.toStringAsFixed(1)}ms',
             color: FabFilterColors.cyan,
             onChanged: (v) => setState(() => _attack = 0.01 * math.pow(10 / 0.01, v).toDouble()),
+            // NOTE: Attack is UI-only, insert chain limiter doesn't expose attack
           ),
           _buildSmallKnob(
             value: _lookahead / 10,
@@ -533,6 +594,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             display: '${_lookahead.toStringAsFixed(1)}ms',
             color: FabFilterColors.purple,
             onChanged: (v) => setState(() => _lookahead = v * 10),
+            // NOTE: Lookahead is UI-only for now
           ),
         ],
       ],
@@ -565,7 +627,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           _buildOptionRow('Link', _channelLink, (v) => setState(() => _channelLink = v)),
           const SizedBox(height: 4),
           _buildOptionRow('Unity', _unityGain, (v) => setState(() => _unityGain = v)),
-          const Spacer(),
+          const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0
           // Meter scale
           Container(
             padding: const EdgeInsets.all(4),

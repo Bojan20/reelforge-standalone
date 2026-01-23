@@ -53,6 +53,42 @@ impl From<u8> for PlaybackSource {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// VOICE POOL STATS — Exposed via FFI for UI monitoring
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Voice pool statistics for UI monitoring
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct VoicePoolStats {
+    /// Number of currently active voices
+    pub active_count: u32,
+    /// Maximum number of voices (pool size)
+    pub max_voices: u32,
+    /// Number of looping voices
+    pub looping_count: u32,
+    /// Voices from DAW source
+    pub daw_voices: u32,
+    /// Voices from SlotLab source
+    pub slotlab_voices: u32,
+    /// Voices from Middleware source
+    pub middleware_voices: u32,
+    /// Voices from Browser source
+    pub browser_voices: u32,
+    /// Voices routed to SFX bus
+    pub sfx_voices: u32,
+    /// Voices routed to Music bus
+    pub music_voices: u32,
+    /// Voices routed to Voice bus
+    pub voice_voices: u32,
+    /// Voices routed to Ambience bus
+    pub ambience_voices: u32,
+    /// Voices routed to Aux bus
+    pub aux_voices: u32,
+    /// Voices routed to Master bus
+    pub master_voices: u32,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // THREAD-LOCAL SCRATCH BUFFERS (Audio thread only - zero contention)
 // ═══════════════════════════════════════════════════════════════════════════
 thread_local! {
@@ -2550,6 +2586,67 @@ impl PlaybackEngine {
     pub fn stop_source_one_shots(&self, source: PlaybackSource) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
             let _ = tx.push(OneShotCommand::StopSource { source });
+        }
+    }
+
+    /// Get voice pool statistics
+    /// Returns (active_count, max_voices, voices_by_source, voices_by_bus)
+    pub fn get_voice_pool_stats(&self) -> VoicePoolStats {
+        let voices = match self.one_shot_voices.try_read() {
+            Some(v) => v,
+            None => return VoicePoolStats::default(),
+        };
+
+        let mut active_count = 0u32;
+        let mut looping_count = 0u32;
+        let mut daw_voices = 0u32;
+        let mut slotlab_voices = 0u32;
+        let mut middleware_voices = 0u32;
+        let mut browser_voices = 0u32;
+        let mut sfx_voices = 0u32;
+        let mut music_voices = 0u32;
+        let mut voice_voices = 0u32;
+        let mut ambience_voices = 0u32;
+        let mut aux_voices = 0u32;
+        let mut master_voices = 0u32;
+
+        for voice in voices.iter() {
+            if voice.active {
+                active_count += 1;
+                if voice.looping {
+                    looping_count += 1;
+                }
+                match voice.source {
+                    PlaybackSource::Daw => daw_voices += 1,
+                    PlaybackSource::SlotLab => slotlab_voices += 1,
+                    PlaybackSource::Middleware => middleware_voices += 1,
+                    PlaybackSource::Browser => browser_voices += 1,
+                }
+                match voice.bus {
+                    OutputBus::Sfx => sfx_voices += 1,
+                    OutputBus::Music => music_voices += 1,
+                    OutputBus::Voice => voice_voices += 1,
+                    OutputBus::Ambience => ambience_voices += 1,
+                    OutputBus::Aux => aux_voices += 1,
+                    OutputBus::Master => master_voices += 1,
+                }
+            }
+        }
+
+        VoicePoolStats {
+            active_count,
+            max_voices: MAX_ONE_SHOT_VOICES as u32,
+            looping_count,
+            daw_voices,
+            slotlab_voices,
+            middleware_voices,
+            browser_voices,
+            sfx_voices,
+            music_voices,
+            voice_voices,
+            ambience_voices,
+            aux_voices,
+            master_voices,
         }
     }
 

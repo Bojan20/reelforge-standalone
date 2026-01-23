@@ -370,6 +370,11 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   // Snap preview state
   double? _snapPreviewTime; // Time position where clip will snap to
 
+  // P1.6: Rubber band multi-clip selection state
+  bool _isRubberBandSelecting = false;
+  Offset? _rubberBandStart;
+  Offset? _rubberBandEnd;
+
   final FocusNode _focusNode = FocusNode();
   double _containerWidth = 800;
 
@@ -808,6 +813,149 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     // Request focus for keyboard shortcuts (G, H, L, etc.)
     _focusNode.requestFocus();
     // Playhead only moves when clicking ON clips, not empty space
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P1.6: RUBBER BAND MULTI-CLIP SELECTION (Cubase/Logic style)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Drag on empty timeline area to select multiple clips via marquee rectangle.
+  // Key features:
+  // - Start drag only on empty area (not on clips)
+  // - Visual selection rectangle with DAW-standard styling
+  // - Select all clips whose bounds intersect the rectangle
+  // - Shift+drag extends selection (doesn't clear previous)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _handleRubberBandStart(DragStartDetails details) {
+    // Only start rubber band if we're over the track content area (past header)
+    final localX = details.localPosition.dx;
+    if (localX <= _headerWidth) return;
+
+    // Check if we're clicking on an empty area (not on a clip)
+    // Convert position to time
+    final timeAtClick = widget.scrollOffset + (localX - _headerWidth) / _effectiveZoom;
+    final yInContent = details.localPosition.dy - _rulerHeight;
+    final trackIndex = (yInContent / _defaultTrackHeight).floor();
+
+    // Check if there's a clip under the click
+    if (trackIndex >= 0 && trackIndex < _visibleTracks.length) {
+      final track = _visibleTracks[trackIndex];
+      final clipsOnTrack = widget.clips.where((c) => c.trackId == track.id);
+
+      for (final clip in clipsOnTrack) {
+        if (timeAtClick >= clip.startTime && timeAtClick <= clip.startTime + clip.duration) {
+          // Clicking on a clip - don't start rubber band
+          return;
+        }
+      }
+    }
+
+    // Start rubber band selection
+    setState(() {
+      _isRubberBandSelecting = true;
+      _rubberBandStart = details.localPosition;
+      _rubberBandEnd = details.localPosition;
+    });
+  }
+
+  void _handleRubberBandUpdate(DragUpdateDetails details) {
+    if (!_isRubberBandSelecting) return;
+
+    setState(() {
+      _rubberBandEnd = details.localPosition;
+    });
+  }
+
+  void _handleRubberBandEnd(DragEndDetails details) {
+    if (!_isRubberBandSelecting) return;
+
+    // Calculate selected clips
+    final selectedClipIds = _getClipsInRubberBand();
+
+    // Notify parent about selections
+    // Check if Shift is held for additive selection
+    final isShiftHeld = HardwareKeyboard.instance.isShiftPressed;
+
+    for (final clipId in selectedClipIds) {
+      widget.onClipSelect?.call(clipId, isShiftHeld || selectedClipIds.length > 1);
+    }
+
+    // Clear rubber band state
+    setState(() {
+      _isRubberBandSelecting = false;
+      _rubberBandStart = null;
+      _rubberBandEnd = null;
+    });
+  }
+
+  /// Get all clip IDs that intersect with the rubber band rectangle
+  List<String> _getClipsInRubberBand() {
+    if (_rubberBandStart == null || _rubberBandEnd == null) return [];
+
+    // Calculate selection rectangle bounds in timeline coordinates
+    final startX = math.min(_rubberBandStart!.dx, _rubberBandEnd!.dx) - _headerWidth;
+    final endX = math.max(_rubberBandStart!.dx, _rubberBandEnd!.dx) - _headerWidth;
+    final startY = math.min(_rubberBandStart!.dy, _rubberBandEnd!.dy) - _rulerHeight;
+    final endY = math.max(_rubberBandStart!.dy, _rubberBandEnd!.dy) - _rulerHeight;
+
+    // Convert X to time
+    final timeStart = widget.scrollOffset + startX / _effectiveZoom;
+    final timeEnd = widget.scrollOffset + endX / _effectiveZoom;
+
+    // Convert Y to track indices
+    final trackIndexStart = (startY / _defaultTrackHeight).floor();
+    final trackIndexEnd = (endY / _defaultTrackHeight).floor();
+
+    final selectedClips = <String>[];
+
+    // Check each visible track
+    for (int i = math.max(0, trackIndexStart); i <= math.min(_visibleTracks.length - 1, trackIndexEnd); i++) {
+      final track = _visibleTracks[i];
+      final clipsOnTrack = widget.clips.where((c) => c.trackId == track.id);
+
+      for (final clip in clipsOnTrack) {
+        // Check if clip time range overlaps with selection time range
+        final clipStart = clip.startTime;
+        final clipEnd = clip.startTime + clip.duration;
+
+        if (clipEnd > timeStart && clipStart < timeEnd) {
+          selectedClips.add(clip.id);
+        }
+      }
+    }
+
+    return selectedClips;
+  }
+
+  /// Build the rubber band selection rectangle overlay
+  Widget _buildRubberBandOverlay() {
+    if (!_isRubberBandSelecting || _rubberBandStart == null || _rubberBandEnd == null) {
+      return const SizedBox.shrink();
+    }
+
+    final left = math.min(_rubberBandStart!.dx, _rubberBandEnd!.dx);
+    final top = math.min(_rubberBandStart!.dy, _rubberBandEnd!.dy);
+    final width = (_rubberBandEnd!.dx - _rubberBandStart!.dx).abs();
+    final height = (_rubberBandEnd!.dy - _rubberBandStart!.dy).abs();
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: IgnorePointer(
+        child: Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.15),
+            border: Border.all(
+              color: FluxForgeTheme.accentBlue.withValues(alpha: 0.8),
+              width: 1,
+            ),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
+    );
   }
 
   void _handlePlayheadDrag(DragUpdateDetails details) {
@@ -1761,6 +1909,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                       // to handle taps first. Only unhandled taps move the playhead.
                       behavior: HitTestBehavior.deferToChild,
                       onTapDown: _handleTimelineClick,
+                      // P1.6: Rubber band multi-clip selection
+                      onPanStart: _handleRubberBandStart,
+                      onPanUpdate: _handleRubberBandUpdate,
+                      onPanEnd: _handleRubberBandEnd,
                       child: Stack(
                         children: [
                           // Track rows (filter hidden tracks)
@@ -2011,6 +2163,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                 ),
                               ),
                             ),
+
+                          // P1.6: Rubber band selection overlay
+                          _buildRubberBandOverlay(),
                         ],
                       ),
                     ),

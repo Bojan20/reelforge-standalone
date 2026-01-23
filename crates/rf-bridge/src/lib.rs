@@ -55,6 +55,7 @@ pub mod stage_ffi;
 pub mod ingest_ffi;
 pub mod connector_ffi;
 pub mod offline_ffi;
+pub mod profiler_ffi;
 mod project;
 pub mod timestretch;
 mod transport;

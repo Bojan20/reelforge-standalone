@@ -549,6 +549,406 @@ final offsetPixels = (currentOffsetSeconds * pixelsPerSecond).clamp(0.0, infinit
 
 ---
 
+## CRITICAL FIX: QuickSheet Double Calls (2026-01-23)
+
+### Problem
+
+When dropping audio on slot element in Edit mode:
+- QuickSheet popup appears correctly
+- User clicks Commit
+- Popup closes
+- BUT event is NOT created in Events panel
+- Spin produces no audio
+
+### Root Cause #1: Double `commitDraft()`
+
+`provider.commitDraft()` was called **TWICE**:
+
+1. First call in `quick_sheet.dart` onCommit handler (line 63)
+2. Second call in `drop_target_wrapper.dart` callback (line 130)
+
+The first call consumed the draft and returned the `CommittedEvent`. The second call returned `null` because the draft was already consumed.
+
+### Root Cause #2: Double `createDraft()`
+
+`provider.createDraft()` was also called **TWICE**:
+
+1. First call in `drop_target_wrapper.dart` _handleDrop() (line 119)
+2. Second call in `quick_sheet.dart` showQuickSheet() (line 36)
+
+The second call overwrote the first draft with a new one (different event ID), causing inconsistent state.
+
+### Solution
+
+**Fix #1:** Removed `commitDraft()` from QuickSheet — let DropTargetWrapper handle it exclusively:
+
+```dart
+// quick_sheet.dart - FIXED:
+onCommit: () {
+  // NOTE: Don't call commitDraft() here!
+  // The onCommit callback (from DropTargetWrapper) handles commitDraft
+  // to properly capture the returned CommittedEvent.
+  Navigator.of(context).pop();
+  onCommit?.call();
+},
+```
+
+**Fix #2:** Removed `createDraft()` from DropTargetWrapper — let showQuickSheet handle it:
+
+```dart
+// drop_target_wrapper.dart - FIXED:
+void _handleDrop(AudioAsset asset, Offset globalPosition, AutoEventBuilderProvider provider) {
+  // NOTE: Don't call createDraft() here!
+  // showQuickSheet() handles draft creation internally to avoid double-create issues.
+  // The draft is created ONCE in showQuickSheet() and committed via onCommit callback.
+
+  showQuickSheet(
+    context: context,
+    provider: provider,
+    asset: asset,
+    target: widget.target,
+    position: globalPosition,
+    onCommit: () {
+      final event = provider.commitDraft();  // ← ONLY commitDraft call
+      if (event != null) {
+        _triggerPulse();
+        widget.onEventCreated?.call(event);
+      }
+    },
+    onCancel: provider.cancelDraft,
+  );
+}
+```
+
+### Complete Flow (Fixed)
+
+```
+1. User drops audio on slot element (Edit mode)
+   ↓
+2. DropTargetWrapper._handleDrop() called
+   ↓
+3. showQuickSheet() called (NO createDraft in _handleDrop!)
+   ↓
+4. showQuickSheet() internally calls provider.createDraft() ← ONLY call!
+   ↓
+5. QuickSheet popup displays with draft data
+   ↓
+6. User clicks "Commit" button
+   ↓
+7. QuickSheet onCommit:
+   - Navigator.pop() closes popup
+   - onCommit?.call() invokes DropTargetWrapper callback
+   ↓
+8. DropTargetWrapper onCommit callback:
+   - final event = provider.commitDraft()  ← ONLY call!
+   - event != null ✅
+   - _triggerPulse() for visual feedback
+   - widget.onEventCreated?.call(event)
+   ↓
+9. _onEventBuilderEventCreated(event, targetId)
+   - Creates SlotCompositeEvent
+   - _middleware.addCompositeEvent(compositeEvent)
+   ↓
+10. MiddlewareProvider.notifyListeners()
+    ↓
+11. _onMiddlewareChanged() listener fires
+    - _syncEventToRegistry(event)
+    - EventRegistry.registerEvent(audioEvent)
+    ↓
+12. User presses Spin (or any slot action)
+    ↓
+13. SlotLabProvider._triggerStage("SPIN_START")
+    ↓
+14. EventRegistry.triggerStage("SPIN_START")
+    - Finds registered event ✅
+    - AudioPlaybackService.playFileToBus()
+    ↓
+15. 🔊 Audio plays!
+```
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `flutter_ui/lib/widgets/slot_lab/auto_event_builder/quick_sheet.dart` | Removed `provider.commitDraft()` from onCommit handler |
+| `flutter_ui/lib/widgets/slot_lab/auto_event_builder/drop_target_wrapper.dart` | Removed `provider.createDraft()` from _handleDrop() |
+
+### Key Principle
+
+**Single Responsibility:**
+- `showQuickSheet()` → creates draft (line 36)
+- `DropTargetWrapper.onCommit` → commits draft (line 130)
+
+Each operation happens exactly ONCE in exactly ONE place.
+
+### Verification Checklist
+
+1. Drop audio on SPIN button in Edit mode
+2. QuickSheet popup appears → Click "Commit"
+3. ✅ Popup closes
+4. ✅ Event appears in Events panel (right side)
+5. ✅ Event has the dropped audio as a layer
+6. Click Spin button
+7. ✅ Audio plays
+8. Repeat for other slot elements (reels, win overlays, etc.)
+
+---
+
+## VISUAL-SYNC CALLBACKS (2026-01-23) ✅
+
+### Problem: Audio-Visual Desync
+
+**Simptomi:**
+- REEL_STOP stages fired at inconsistent times compared to visual reel stops
+- Audio felt "late" or "early" relative to visual animation
+- Different timing paths: SlotLabProvider vs EmbeddedSlotMockup animations
+
+**Root Cause:**
+EmbeddedSlotMockup had its own internal animation timing (`_scheduleReelStops()`) that was completely independent from SlotLabProvider's stage triggering system. Audio stages were triggered based on spin result data, not actual visual events.
+
+### Solution: Visual-Sync Callback Pattern
+
+Added callback hooks directly in visual animation widget that fire **exactly** when visual events occur:
+
+```dart
+// EmbeddedSlotMockup callbacks
+class EmbeddedSlotMockup extends StatefulWidget {
+  // VISUAL-SYNC CALLBACKS
+  final VoidCallback? onSpinStart;
+  final void Function(int reelIndex)? onReelStop;
+  final VoidCallback? onAnticipation;
+  final VoidCallback? onReveal;
+  final void Function(WinType winType, double amount)? onWinStart;
+  final VoidCallback? onWinEnd;
+  // ...
+}
+```
+
+### Implementation Details
+
+**EmbeddedSlotMockup._scheduleReelStops():**
+```dart
+void _scheduleReelStops() {
+  final baseDelay = _turbo ? 100 : 250;
+
+  for (int i = 0; i < widget.reels; i++) {
+    Future.delayed(Duration(milliseconds: baseDelay * (i + 1)), () {
+      if (!mounted) return;
+      setState(() {
+        _reelStopped[i] = true;  // Visual update
+      });
+
+      // VISUAL-SYNC: Trigger REEL_STOP_i stage IMMEDIATELY when visual stops
+      widget.onReelStop?.call(i);
+
+      // Check for anticipation on second-to-last reel
+      if (i == widget.reels - 2) {
+        if (_rng.nextDouble() < 0.2) {
+          setState(() => _gameState = GameState.anticipation);
+          widget.onAnticipation?.call();
+        }
+      }
+    });
+  }
+}
+```
+
+**SlotLabScreen helper methods:**
+```dart
+// VISUAL-SYNC helper - triggers stage directly to EventRegistry
+void _triggerVisualStage(String stage, {Map<String, dynamic>? context}) {
+  eventRegistry.triggerStage(stage, context: context);
+  debugPrint('[SlotLab] VISUAL-SYNC: $stage ${context ?? ''}');
+}
+
+// Win stage helper - determines win tier and triggers appropriate stages
+void _triggerWinStage(WinType winType, double amount) {
+  final winStage = switch (winType) {
+    WinType.noWin => null,
+    WinType.smallWin => 'WIN_SMALL',
+    WinType.mediumWin => 'WIN_MEDIUM',
+    WinType.bigWin => 'WIN_BIG',
+    WinType.megaWin => 'WIN_MEGA',
+    WinType.epicWin => 'WIN_EPIC',
+  };
+
+  if (winStage != null) {
+    final multiplier = _bet > 0 ? amount / _bet : 0.0;
+    eventRegistry.triggerStage(winStage, context: {
+      'win_amount': amount,
+      'win_multiplier': multiplier,
+      'win_type': winType.name,
+    });
+    eventRegistry.triggerStage('ROLLUP_START', context: {
+      'win_amount': amount,
+      'win_multiplier': multiplier,
+    });
+  }
+}
+```
+
+**Widget connection:**
+```dart
+EmbeddedSlotMockup(
+  provider: _slotLabProvider,
+  reels: _reelCount,
+  rows: _rowCount,
+  onSpin: _handleSpin,
+  onForcedSpin: (outcome) => _handleEngineSpin(forcedOutcome: outcome),
+  // VISUAL-SYNC callbacks:
+  onSpinStart: () => _triggerVisualStage('SPIN_START'),
+  onReelStop: (reelIdx) => _triggerVisualStage('REEL_STOP_$reelIdx', context: {'reel_index': reelIdx}),
+  onAnticipation: () => _triggerVisualStage('ANTICIPATION_ON'),
+  onReveal: () => _triggerVisualStage('SPIN_END'),
+  onWinStart: (winType, amount) => _triggerWinStage(winType, amount),
+  onWinEnd: () => _triggerVisualStage('WIN_END'),
+),
+```
+
+### Callback Flow
+
+```
+1. User presses Spin
+   ↓
+2. EmbeddedSlotMockup._spin() called
+   ↓
+3. setState: _gameState = GameState.spinning
+   ↓
+4. widget.onSpinStart?.call()  →  EventRegistry.triggerStage('SPIN_START')
+   ↓
+5. _scheduleReelStops() schedules Future.delayed for each reel
+   ↓
+6. [After 250ms] First reel stops visually
+   ↓
+7. widget.onReelStop?.call(0)  →  EventRegistry.triggerStage('REEL_STOP_0')
+   ↓
+8. [After 500ms] Second reel stops visually
+   ↓
+9. widget.onReelStop?.call(1)  →  EventRegistry.triggerStage('REEL_STOP_1')
+   ↓
+... (continues for all reels)
+   ↓
+N. All reels stopped → Win evaluation
+   ↓
+N+1. widget.onWinStart?.call(winType, amount)  →  EventRegistry.triggerStage('WIN_BIG')
+```
+
+### Key Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| **Perfect Sync** | Audio triggers exactly when visual event happens |
+| **Decoupled** | Visual widget doesn't know about audio system |
+| **Testable** | Can test visual animations without audio |
+| **Flexible** | Can add more callbacks as needed |
+| **Context Data** | Callbacks can pass relevant context (reel index, win amount) |
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `flutter_ui/lib/widgets/slot_lab/embedded_slot_mockup.dart` | Added 6 callback parameters, call sites in animation methods |
+| `flutter_ui/lib/screens/slot_lab_screen.dart` | Added `_triggerVisualStage()`, `_triggerWinStage()`, connected callbacks |
+
+---
+
+## QUICKSHEET DROPDOWN FALLBACK (2026-01-23) ✅
+
+### Problem: Dropdown Assertion Error
+
+**Error:**
+```
+flutter/src/material/dropdown.dart: failed assertion: line 1011 pos 10
+items == null || items.isEmpty
+```
+
+**Root Cause:**
+When dragging audio onto slot elements, `availableTriggers` list could be empty, causing DropdownButton to fail.
+
+### Solution: Fallback Constants
+
+```dart
+// quick_sheet.dart
+class _QuickSheetContentState extends State<_QuickSheetContent> {
+  // Fallback values for empty lists
+  static const _fallbackTriggers = ['press', 'release', 'hover'];
+  static const _fallbackPresetId = 'ui_click_secondary';
+
+  @override
+  void initState() {
+    super.initState();
+    final triggers = _getAvailableTriggers();
+    _selectedTrigger = triggers.contains(widget.draft.trigger)
+        ? widget.draft.trigger
+        : triggers.first;
+
+    final presets = widget.provider.presets;
+    _selectedPreset = presets.any((p) => p.presetId == widget.draft.presetId)
+        ? widget.draft.presetId
+        : (presets.isNotEmpty ? presets.first.presetId : _fallbackPresetId);
+  }
+
+  List<String> _getAvailableTriggers() {
+    final triggers = widget.draft.availableTriggers;
+    return triggers.isNotEmpty ? triggers : _fallbackTriggers;
+  }
+}
+```
+
+### Dropdown Build Safety
+
+```dart
+Widget _buildPresetDropdown() {
+  final presets = widget.provider.presets;
+  if (presets.isEmpty) {
+    return Text('No presets available', style: TextStyle(color: Colors.grey));
+  }
+  return DropdownButton<String>(
+    value: _selectedPreset,
+    items: presets.map((p) => DropdownMenuItem(...)).toList(),
+    onChanged: (val) => setState(() => _selectedPreset = val!),
+  );
+}
+```
+
+---
+
+## AUDIO PREVIEW ON COMMIT (2026-01-23) ✅
+
+### Problem: Sounds Feel "Cut Off"
+
+When dropping audio on slot elements, sounds felt truncated because hover preview stopped when drag started.
+
+### Solution: Play Confirmation Preview
+
+Added audio preview playback when event is successfully committed:
+
+```dart
+// drop_target_wrapper.dart
+onCommit: () {
+  final event = provider.commitDraft();
+  if (event != null) {
+    _triggerPulse();
+
+    // Play brief audio preview as confirmation feedback
+    AudioPlaybackService.instance.previewFile(
+      asset.path,
+      volume: 0.7,
+      source: PlaybackSource.browser, // Use browser for instant playback
+    );
+
+    widget.onEventCreated?.call(event);
+  }
+},
+```
+
+**Why PlaybackSource.browser?**
+- Browser source bypasses section filtering
+- Plays instantly regardless of active section
+- Perfect for UI feedback sounds
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management

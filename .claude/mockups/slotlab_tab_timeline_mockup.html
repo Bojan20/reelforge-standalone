@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlotLab Tab-Based Timeline — Visual Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0c;
+            color: #e0e0e0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           HEADER
+           ═══════════════════════════════════════════════════════════════════ */
+        .header {
+            background: #121216;
+            padding: 12px 20px;
+            border-bottom: 1px solid #2a2a30;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: #4a9eff;
+        }
+
+        .header-title {
+            font-size: 14px;
+            color: #888;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           MAIN CONTENT
+           ═══════════════════════════════════════════════════════════════════ */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           AUDIO BROWSER (Left Panel)
+           ═══════════════════════════════════════════════════════════════════ */
+        .audio-browser {
+            width: 280px;
+            background: #121216;
+            border-right: 1px solid #2a2a30;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .browser-header {
+            padding: 12px 16px;
+            background: #1a1a20;
+            border-bottom: 1px solid #2a2a30;
+            font-size: 12px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .browser-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .audio-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: #1a1a20;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            cursor: grab;
+            transition: all 0.15s;
+            border: 1px solid transparent;
+        }
+
+        .audio-item:hover {
+            background: #242430;
+            border-color: #4a9eff40;
+        }
+
+        .audio-item.dragging {
+            opacity: 0.5;
+            border-color: #4a9eff;
+        }
+
+        .audio-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #4a9eff20, #4a9eff40);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .audio-info {
+            flex: 1;
+        }
+
+        .audio-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+
+        .audio-meta {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           CENTER: SLOT PREVIEW + TIMELINE
+           ═══════════════════════════════════════════════════════════════════ */
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           SLOT PREVIEW (Drop Targets)
+           ═══════════════════════════════════════════════════════════════════ */
+        .slot-preview {
+            background: linear-gradient(180deg, #1a1a20 0%, #121216 100%);
+            padding: 30px;
+            border-bottom: 1px solid #2a2a30;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .preview-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Reels Grid */
+        .reels-container {
+            display: flex;
+            gap: 8px;
+            padding: 20px;
+            background: #0a0a0c;
+            border-radius: 12px;
+            border: 2px solid #2a2a30;
+        }
+
+        .reel {
+            width: 80px;
+            height: 180px;
+            background: linear-gradient(180deg, #1a1a20 0%, #121216 50%, #1a1a20 100%);
+            border-radius: 8px;
+            border: 2px dashed #3a3a40;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .reel.drop-target {
+            border-color: #4a9eff;
+            background: linear-gradient(180deg, #4a9eff10 0%, #4a9eff05 50%, #4a9eff10 100%);
+            box-shadow: 0 0 20px #4a9eff30;
+        }
+
+        .reel.drop-target::after {
+            content: 'DROP HERE';
+            position: absolute;
+            bottom: 10px;
+            font-size: 10px;
+            color: #4a9eff;
+            font-weight: 600;
+        }
+
+        .reel-label {
+            font-size: 11px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .symbol {
+            width: 50px;
+            height: 50px;
+            background: #242430;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        /* Controls Row */
+        .controls-row {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .control-button {
+            padding: 16px 40px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 2px dashed #3a3a40;
+            background: #1a1a20;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-button.spin {
+            padding: 20px 60px;
+            font-size: 16px;
+            background: linear-gradient(135deg, #2a2a30, #1a1a20);
+        }
+
+        .control-button.drop-target {
+            border-color: #4a9eff;
+            background: linear-gradient(135deg, #4a9eff20, #4a9eff10);
+            color: #4a9eff;
+            box-shadow: 0 0 20px #4a9eff30;
+        }
+
+        /* Win Display */
+        .win-display {
+            width: 200px;
+            height: 60px;
+            background: #1a1a20;
+            border: 2px dashed #3a3a40;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .win-display.drop-target {
+            border-color: #ff9040;
+            background: linear-gradient(135deg, #ff904020, #ff904010);
+            color: #ff9040;
+            box-shadow: 0 0 20px #ff904030;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           TAB-BASED TIMELINE
+           ═══════════════════════════════════════════════════════════════════ */
+        .timeline-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0d0d10;
+            overflow: hidden;
+        }
+
+        /* Tab Bar */
+        .timeline-tabs {
+            display: flex;
+            background: #121216;
+            border-bottom: 1px solid #2a2a30;
+            overflow-x: auto;
+            padding: 0 10px;
+        }
+
+        .timeline-tab {
+            padding: 12px 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .timeline-tab:hover {
+            color: #888;
+            background: #1a1a2010;
+        }
+
+        .timeline-tab.active {
+            color: #4a9eff;
+            border-bottom-color: #4a9eff;
+        }
+
+        .timeline-tab .badge {
+            background: #4a9eff30;
+            color: #4a9eff;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .timeline-tab.has-events .badge {
+            background: #40ff9030;
+            color: #40ff90;
+        }
+
+        /* Timeline Content */
+        .timeline-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Timeline Header (Time Ruler) */
+        .time-ruler {
+            height: 30px;
+            background: #1a1a20;
+            border-bottom: 1px solid #2a2a30;
+            display: flex;
+            align-items: center;
+            padding-left: 150px;
+        }
+
+        .time-marker {
+            width: 100px;
+            font-size: 10px;
+            color: #666;
+        }
+
+        /* Timeline Tracks */
+        .timeline-tracks {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .timeline-track {
+            display: flex;
+            height: 60px;
+            border-bottom: 1px solid #1a1a20;
+        }
+
+        .track-header {
+            width: 150px;
+            background: #121216;
+            border-right: 1px solid #2a2a30;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .track-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+
+        .track-meta {
+            font-size: 10px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .track-content {
+            flex: 1;
+            position: relative;
+            background: repeating-linear-gradient(
+                90deg,
+                #0d0d10 0px,
+                #0d0d10 99px,
+                #1a1a2040 99px,
+                #1a1a2040 100px
+            );
+        }
+
+        /* Audio Clips on Timeline */
+        .audio-clip {
+            position: absolute;
+            top: 8px;
+            height: 44px;
+            background: linear-gradient(180deg, #4a9eff40 0%, #4a9eff20 100%);
+            border: 1px solid #4a9eff;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            cursor: move;
+            overflow: hidden;
+        }
+
+        .audio-clip .waveform {
+            width: 100%;
+            height: 30px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30'%3E%3Cpath d='M0,15 Q5,5 10,15 T20,15 T30,15 T40,15 T50,15 T60,15 T70,15 T80,15 T90,15 T100,15' stroke='%234a9eff' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") repeat-x;
+            background-size: 50px 30px;
+            opacity: 0.6;
+        }
+
+        .audio-clip .clip-label {
+            position: absolute;
+            top: 2px;
+            left: 6px;
+            font-size: 10px;
+            color: #fff;
+            font-weight: 500;
+        }
+
+        /* Empty State */
+        .empty-timeline {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            gap: 10px;
+        }
+
+        .empty-timeline .icon {
+            font-size: 48px;
+            opacity: 0.3;
+        }
+
+        .empty-timeline .text {
+            font-size: 14px;
+        }
+
+        .empty-timeline .hint {
+            font-size: 12px;
+            color: #4a4a50;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           DRAG FEEDBACK OVERLAY
+           ═══════════════════════════════════════════════════════════════════ */
+        .drag-feedback {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4a9eff;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            display: none;
+            box-shadow: 0 4px 20px rgba(74, 158, 255, 0.3);
+            z-index: 1000;
+        }
+
+        .drag-feedback.visible {
+            display: block;
+            animation: slideIn 0.2s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           NOTIFICATION
+           ═══════════════════════════════════════════════════════════════════ */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #40ff90;
+            color: #000;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            display: none;
+            box-shadow: 0 4px 20px rgba(64, 255, 144, 0.3);
+            z-index: 1000;
+        }
+
+        .notification.visible {
+            display: block;
+            animation: popIn 0.3s ease-out;
+        }
+
+        @keyframes popIn {
+            0% {
+                transform: translateX(-50%) scale(0.8);
+                opacity: 0;
+            }
+            100% {
+                transform: translateX(-50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           FLOW DIAGRAM
+           ═══════════════════════════════════════════════════════════════════ */
+        .flow-diagram {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a20;
+            border: 1px solid #2a2a30;
+            border-radius: 12px;
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 100;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .flow-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .flow-step .number {
+            width: 28px;
+            height: 28px;
+            background: #4a9eff;
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .flow-step .label {
+            font-size: 11px;
+            color: #888;
+            text-align: center;
+            max-width: 80px;
+        }
+
+        .flow-arrow {
+            color: #4a9eff;
+            font-size: 20px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           INSTRUCTIONS PANEL
+           ═══════════════════════════════════════════════════════════════════ */
+        .instructions {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a20;
+            border: 1px solid #4a9eff40;
+            border-radius: 12px;
+            padding: 16px 24px;
+            font-size: 13px;
+            color: #888;
+            z-index: 50;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .instructions strong {
+            color: #4a9eff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">FluxForge Studio</div>
+            <div class="header-title">SlotLab — Tab-Based Timeline Concept</div>
+        </div>
+
+        <!-- Flow Diagram -->
+        <div class="flow-diagram">
+            <div class="flow-step">
+                <div class="number">1</div>
+                <div class="label">Drag audio from browser</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="number">2</div>
+                <div class="label">Drop on game element</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="number">3</div>
+                <div class="label">Event auto-created</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="number">4</div>
+                <div class="label">Appears on timeline tab</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="number">5</div>
+                <div class="label">Manipulate layers</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Audio Browser -->
+            <div class="audio-browser">
+                <div class="browser-header">📁 Audio Browser</div>
+                <div class="browser-content">
+                    <div class="audio-item" draggable="true" data-audio="spin_whoosh.wav">
+                        <div class="audio-icon">🎵</div>
+                        <div class="audio-info">
+                            <div class="audio-name">spin_whoosh.wav</div>
+                            <div class="audio-meta">0.8s • 44.1kHz</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="reel_stop_01.wav">
+                        <div class="audio-icon">🎵</div>
+                        <div class="audio-info">
+                            <div class="audio-name">reel_stop_01.wav</div>
+                            <div class="audio-meta">0.3s • 44.1kHz</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="reel_stop_02.wav">
+                        <div class="audio-icon">🎵</div>
+                        <div class="audio-info">
+                            <div class="audio-name">reel_stop_02.wav</div>
+                            <div class="audio-meta">0.35s • 44.1kHz</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="win_small.wav">
+                        <div class="audio-icon">🎵</div>
+                        <div class="audio-info">
+                            <div class="audio-name">win_small.wav</div>
+                            <div class="audio-meta">1.2s • 44.1kHz</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="win_big_fanfare.wav">
+                        <div class="audio-icon">🎵</div>
+                        <div class="audio-info">
+                            <div class="audio-name">win_big_fanfare.wav</div>
+                            <div class="audio-meta">3.5s • 44.1kHz</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="anticipation_loop.wav">
+                        <div class="audio-icon">🔁</div>
+                        <div class="audio-info">
+                            <div class="audio-name">anticipation_loop.wav</div>
+                            <div class="audio-meta">2.0s • Loop</div>
+                        </div>
+                    </div>
+                    <div class="audio-item" draggable="true" data-audio="jackpot_trigger.wav">
+                        <div class="audio-icon">🎵</div>
+                        <div class="audio-info">
+                            <div class="audio-name">jackpot_trigger.wav</div>
+                            <div class="audio-meta">4.2s • 44.1kHz</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Panel -->
+            <div class="center-panel">
+                <!-- Slot Preview (Drop Targets) -->
+                <div class="slot-preview">
+                    <div class="preview-label">Drop audio on any element to create event</div>
+
+                    <!-- Reels -->
+                    <div class="reels-container">
+                        <div class="reel" data-target="reel-0">
+                            <div class="symbol">🍒</div>
+                            <div class="symbol">🍋</div>
+                            <div class="symbol">🍊</div>
+                            <div class="reel-label">Reel 0</div>
+                        </div>
+                        <div class="reel" data-target="reel-1">
+                            <div class="symbol">⭐</div>
+                            <div class="symbol">💎</div>
+                            <div class="symbol">7️⃣</div>
+                            <div class="reel-label">Reel 1</div>
+                        </div>
+                        <div class="reel" data-target="reel-2">
+                            <div class="symbol">🍇</div>
+                            <div class="symbol">🔔</div>
+                            <div class="symbol">🍀</div>
+                            <div class="reel-label">Reel 2</div>
+                        </div>
+                        <div class="reel" data-target="reel-3">
+                            <div class="symbol">💎</div>
+                            <div class="symbol">⭐</div>
+                            <div class="symbol">🍒</div>
+                            <div class="reel-label">Reel 3</div>
+                        </div>
+                        <div class="reel" data-target="reel-4">
+                            <div class="symbol">7️⃣</div>
+                            <div class="symbol">🍋</div>
+                            <div class="symbol">🔔</div>
+                            <div class="reel-label">Reel 4</div>
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="controls-row">
+                        <div class="win-display" data-target="win">WIN DISPLAY</div>
+                        <div class="control-button spin" data-target="spin">🎰 SPIN</div>
+                        <div class="control-button" data-target="jackpot">💰 JACKPOT</div>
+                    </div>
+                </div>
+
+                <!-- Tab-Based Timeline -->
+                <div class="timeline-panel">
+                    <!-- Tabs -->
+                    <div class="timeline-tabs">
+                        <div class="timeline-tab active" data-tab="spin">
+                            SPIN
+                            <span class="badge">0</span>
+                        </div>
+                        <div class="timeline-tab" data-tab="reel-0">
+                            REEL 0
+                            <span class="badge">0</span>
+                        </div>
+                        <div class="timeline-tab" data-tab="reel-1">
+                            REEL 1
+                            <span class="badge">0</span>
+                        </div>
+                        <div class="timeline-tab" data-tab="reel-2">
+                            REEL 2
+                            <span class="badge">0</span>
+                        </div>
+                        <div class="timeline-tab" data-tab="reel-3">
+                            REEL 3
+                            <span class="badge">0</span>
+                        </div>
+                        <div class="timeline-tab" data-tab="reel-4">
+                            REEL 4
+                            <span class="badge">0</span>
+                        </div>
+                        <div class="timeline-tab" data-tab="win">
+                            WIN
+                            <span class="badge">0</span>
+                        </div>
+                        <div class="timeline-tab" data-tab="jackpot">
+                            JACKPOT
+                            <span class="badge">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Timeline Content -->
+                    <div class="timeline-content">
+                        <div class="time-ruler">
+                            <div class="time-marker">0:00</div>
+                            <div class="time-marker">0:01</div>
+                            <div class="time-marker">0:02</div>
+                            <div class="time-marker">0:03</div>
+                            <div class="time-marker">0:04</div>
+                            <div class="time-marker">0:05</div>
+                        </div>
+
+                        <div class="timeline-tracks" id="timelineTracks">
+                            <!-- Empty State -->
+                            <div class="empty-timeline" id="emptyState">
+                                <div class="icon">🎵</div>
+                                <div class="text">No events for SPIN</div>
+                                <div class="hint">Drag audio to SPIN button to create event</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drag Feedback -->
+    <div class="drag-feedback" id="dragFeedback">
+        Dragging: <span id="dragFileName"></span>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <!-- Instructions -->
+    <div class="instructions">
+        <strong>Try it:</strong> Drag an audio file from the browser on the left and drop it on any game element (reels, SPIN button, WIN display).
+        The event will be auto-created and appear on the corresponding tab.
+    </div>
+
+    <script>
+        // State
+        const state = {
+            currentTab: 'spin',
+            events: {
+                'spin': [],
+                'reel-0': [],
+                'reel-1': [],
+                'reel-2': [],
+                'reel-3': [],
+                'reel-4': [],
+                'win': [],
+                'jackpot': []
+            },
+            draggingAudio: null
+        };
+
+        // DOM Elements
+        const dragFeedback = document.getElementById('dragFeedback');
+        const dragFileName = document.getElementById('dragFileName');
+        const notification = document.getElementById('notification');
+        const timelineTracks = document.getElementById('timelineTracks');
+        const emptyState = document.getElementById('emptyState');
+
+        // Audio items drag
+        document.querySelectorAll('.audio-item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                state.draggingAudio = item.dataset.audio;
+                item.classList.add('dragging');
+                dragFileName.textContent = state.draggingAudio;
+                dragFeedback.classList.add('visible');
+            });
+
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                dragFeedback.classList.remove('visible');
+                state.draggingAudio = null;
+
+                // Remove all drop-target states
+                document.querySelectorAll('.drop-target').forEach(el => {
+                    el.classList.remove('drop-target');
+                });
+            });
+        });
+
+        // Drop targets
+        document.querySelectorAll('[data-target]').forEach(target => {
+            target.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                target.classList.add('drop-target');
+            });
+
+            target.addEventListener('dragleave', () => {
+                target.classList.remove('drop-target');
+            });
+
+            target.addEventListener('drop', (e) => {
+                e.preventDefault();
+                target.classList.remove('drop-target');
+
+                if (state.draggingAudio) {
+                    const targetId = target.dataset.target;
+                    createEvent(targetId, state.draggingAudio);
+                }
+            });
+        });
+
+        // Tab switching
+        document.querySelectorAll('.timeline-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.timeline-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                state.currentTab = tab.dataset.tab;
+                renderTimeline();
+            });
+        });
+
+        // Create event
+        function createEvent(targetId, audioFile) {
+            // Add to state
+            state.events[targetId].push({
+                id: Date.now(),
+                audio: audioFile,
+                offset: state.events[targetId].length * 80 // Stagger new clips
+            });
+
+            // Update tab badge
+            updateTabBadge(targetId);
+
+            // Switch to that tab
+            document.querySelectorAll('.timeline-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`[data-tab="${targetId}"]`).classList.add('active');
+            state.currentTab = targetId;
+
+            // Render timeline
+            renderTimeline();
+
+            // Show notification
+            showNotification(`✅ Event created: ${getTargetName(targetId)} → ${audioFile}`);
+        }
+
+        function updateTabBadge(targetId) {
+            const tab = document.querySelector(`[data-tab="${targetId}"]`);
+            const badge = tab.querySelector('.badge');
+            badge.textContent = state.events[targetId].length;
+
+            if (state.events[targetId].length > 0) {
+                tab.classList.add('has-events');
+            }
+        }
+
+        function getTargetName(targetId) {
+            const names = {
+                'spin': 'SPIN_START',
+                'reel-0': 'REEL_STOP_0',
+                'reel-1': 'REEL_STOP_1',
+                'reel-2': 'REEL_STOP_2',
+                'reel-3': 'REEL_STOP_3',
+                'reel-4': 'REEL_STOP_4',
+                'win': 'WIN_PRESENT',
+                'jackpot': 'JACKPOT_TRIGGER'
+            };
+            return names[targetId] || targetId.toUpperCase();
+        }
+
+        function renderTimeline() {
+            const events = state.events[state.currentTab];
+
+            if (events.length === 0) {
+                emptyState.style.display = 'flex';
+                emptyState.querySelector('.text').textContent = `No events for ${state.currentTab.toUpperCase().replace('-', ' ')}`;
+                emptyState.querySelector('.hint').textContent = `Drag audio to ${getTargetName(state.currentTab)} to create event`;
+
+                // Clear tracks
+                timelineTracks.querySelectorAll('.timeline-track').forEach(t => t.remove());
+            } else {
+                emptyState.style.display = 'none';
+
+                // Clear existing tracks
+                timelineTracks.querySelectorAll('.timeline-track').forEach(t => t.remove());
+
+                // Create tracks for each audio clip
+                events.forEach((event, index) => {
+                    const track = document.createElement('div');
+                    track.className = 'timeline-track';
+                    track.innerHTML = `
+                        <div class="track-header">
+                            <div class="track-name">${event.audio}</div>
+                            <div class="track-meta">Layer ${index + 1}</div>
+                        </div>
+                        <div class="track-content">
+                            <div class="audio-clip" style="left: ${event.offset}px; width: 150px;">
+                                <div class="clip-label">${event.audio}</div>
+                                <div class="waveform"></div>
+                            </div>
+                        </div>
+                    `;
+                    timelineTracks.appendChild(track);
+                });
+            }
+        }
+
+        function showNotification(message) {
+            notification.textContent = message;
+            notification.classList.add('visible');
+
+            setTimeout(() => {
+                notification.classList.remove('visible');
+            }, 3000);
+        }
+
+        // Initial render
+        renderTimeline();
+    </script>
+</body>
+</html>

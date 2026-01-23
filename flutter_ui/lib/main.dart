@@ -55,12 +55,14 @@ import 'providers/middleware_provider.dart';
 import 'providers/stage_provider.dart';
 import 'providers/stage_ingest_provider.dart';
 import 'providers/slot_lab_provider.dart';
+import 'providers/slot_lab_project_provider.dart';
 import 'providers/ale_provider.dart';
 import 'providers/soundbank_provider.dart';
 import 'services/audio_asset_manager.dart';
 import 'services/service_locator.dart';
 import 'services/lower_zone_persistence_service.dart';
 import 'services/stage_configuration_service.dart';
+import 'services/workspace_preset_service.dart';
 import 'src/rust/native_ffi.dart';
 
 void main() async {
@@ -74,6 +76,9 @@ void main() async {
 
   // Initialize Stage Configuration Service (centralized stage definitions)
   StageConfigurationService.instance.init();
+
+  // Initialize Workspace Preset Service (layout presets)
+  await WorkspacePresetService.instance.init();
 
   runApp(const FluxForgeApp());
 }
@@ -201,6 +206,9 @@ class FluxForgeApp extends StatelessWidget {
 
         // Slot Lab (Synthetic Slot Engine)
         ChangeNotifierProvider(create: (_) => SlotLabProvider()),
+
+        // Slot Lab Project (V6 Layout state)
+        ChangeNotifierProvider(create: (_) => SlotLabProjectProvider()),
 
         // Adaptive Layer Engine (ALE)
         ChangeNotifierProvider(create: (_) => AleProvider()),

@@ -1178,6 +1178,39 @@ class SlotLabProvider extends ChangeNotifier {
   void stopAllPlayback() => stopStagePlayback();
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // STAGE RECORDING SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  bool _isRecordingStages = false;
+
+  /// Whether stages are being recorded
+  bool get isRecordingStages => _isRecordingStages;
+
+  /// Start recording stage events
+  void startStageRecording() {
+    if (_isRecordingStages) return;
+    _isRecordingStages = true;
+    debugPrint('[SlotLabProvider] Stage recording STARTED');
+    notifyListeners();
+  }
+
+  /// Stop recording stage events
+  void stopStageRecording() {
+    if (!_isRecordingStages) return;
+    _isRecordingStages = false;
+    debugPrint('[SlotLabProvider] Stage recording STOPPED (${_lastStages.length} stages captured)');
+    notifyListeners();
+  }
+
+  /// Clear all captured stages
+  void clearStages() {
+    _lastStages = [];
+    _currentStageIndex = 0;
+    debugPrint('[SlotLabProvider] Stages cleared');
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // P0.3: PAUSE/RESUME SYSTEM
   // ═══════════════════════════════════════════════════════════════════════════
 

@@ -30,6 +30,31 @@ class RandomChildSelection {
   });
 }
 
+/// Record of deterministic selection for tracing/replay (M4)
+class DeterministicSelectionRecord {
+  final int containerId;
+  final int selectedChildId;
+  final int seed;
+  final int sequenceIndex;
+  final DateTime timestamp;
+
+  const DeterministicSelectionRecord({
+    required this.containerId,
+    required this.selectedChildId,
+    required this.seed,
+    required this.sequenceIndex,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'containerId': containerId,
+    'selectedChildId': selectedChildId,
+    'seed': seed,
+    'sequenceIndex': sequenceIndex,
+    'timestamp': timestamp.toIso8601String(),
+  };
+}
+
 /// Provider for managing random containers
 class RandomContainersProvider extends ChangeNotifier {
   final NativeFFI _ffi;
@@ -52,6 +77,29 @@ class RandomContainersProvider extends ChangeNotifier {
 
   /// Next available container ID
   int _nextContainerId = 1;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DETERMINISM MODE (M4)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Seeded Random instances per container (for deterministic mode)
+  final Map<int, Random> _seededRandoms = {};
+
+  /// Selection history for event tracing (containerId -> list of selection records)
+  final Map<int, List<DeterministicSelectionRecord>> _selectionHistory = {};
+
+  /// Global deterministic mode override (applies to all containers)
+  bool _globalDeterministicMode = false;
+
+  /// Get global deterministic mode state
+  bool get globalDeterministicMode => _globalDeterministicMode;
+
+  /// Set global deterministic mode (overrides per-container setting)
+  void setGlobalDeterministicMode(bool enabled) {
+    _globalDeterministicMode = enabled;
+    notifyListeners();
+    debugPrint('[RandomContainers] Global deterministic mode: $enabled');
+  }
 
   RandomContainersProvider({required NativeFFI ffi}) : _ffi = ffi;
 
@@ -312,27 +360,38 @@ class RandomContainersProvider extends ChangeNotifier {
       return null;
     }
 
+    // Determine which Random to use (seeded or default)
+    final useSeeded = _globalDeterministicMode || container.useDeterministicMode;
+    final rng = useSeeded ? _getSeededRandom(container) : _random;
+
     final selectedChild = switch (container.mode) {
-      RandomMode.random => _selectRandom(container),
-      RandomMode.shuffle => _selectShuffle(container),
-      RandomMode.shuffleWithHistory => _selectShuffleWithHistory(container),
+      RandomMode.random => _selectRandom(container, rng),
+      RandomMode.shuffle => _selectShuffle(container, rng),
+      RandomMode.shuffleWithHistory => _selectShuffleWithHistory(container, rng),
       RandomMode.roundRobin => _selectRoundRobin(container),
     };
 
     if (selectedChild == null) return null;
 
-    // Calculate randomization offsets
+    // Calculate randomization offsets using same RNG
     final pitchOffset = _randomInRange(
       container.globalPitchMin + selectedChild.pitchMin,
       container.globalPitchMax + selectedChild.pitchMax,
+      rng,
     );
     final volumeOffset = _randomInRange(
       container.globalVolumeMin + selectedChild.volumeMin,
       container.globalVolumeMax + selectedChild.volumeMax,
+      rng,
     );
 
     // Update history
     _updateHistory(containerId, selectedChild.id, container.avoidRepeatCount);
+
+    // Record selection for tracing (M4 Determinism)
+    if (useSeeded) {
+      _recordSelection(container, selectedChild.id);
+    }
 
     return RandomChildSelection(
       child: selectedChild,
@@ -341,7 +400,67 @@ class RandomContainersProvider extends ChangeNotifier {
     );
   }
 
-  RandomChild? _selectRandom(RandomContainer container) {
+  /// Get or create seeded Random for a container (M4 Determinism)
+  Random _getSeededRandom(RandomContainer container) {
+    if (!_seededRandoms.containsKey(container.id)) {
+      final seed = container.seed ?? RandomContainer.generateSeed();
+      _seededRandoms[container.id] = Random(seed);
+      debugPrint('[RandomContainers] Created seeded Random for ${container.name} with seed: $seed');
+    }
+    return _seededRandoms[container.id]!;
+  }
+
+  /// Record selection for event tracing (M4 Determinism)
+  void _recordSelection(RandomContainer container, int childId) {
+    _selectionHistory[container.id] ??= [];
+    final history = _selectionHistory[container.id]!;
+
+    history.add(DeterministicSelectionRecord(
+      containerId: container.id,
+      selectedChildId: childId,
+      seed: container.seed ?? 0,
+      sequenceIndex: history.length,
+      timestamp: DateTime.now(),
+    ));
+
+    // Keep last 100 records per container
+    if (history.length > 100) {
+      history.removeAt(0);
+    }
+  }
+
+  /// Get selection history for a container (M4 Determinism)
+  List<DeterministicSelectionRecord> getSelectionHistory(int containerId) {
+    return List.unmodifiable(_selectionHistory[containerId] ?? []);
+  }
+
+  /// Reset seeded random for a container (starts fresh from seed)
+  void resetSeededRandom(int containerId) {
+    _seededRandoms.remove(containerId);
+    _selectionHistory.remove(containerId);
+    debugPrint('[RandomContainers] Reset seeded Random for container $containerId');
+  }
+
+  /// Set deterministic mode for a specific container
+  void setDeterministicMode(int containerId, bool enabled, {int? seed}) {
+    final container = _containers[containerId];
+    if (container == null) return;
+
+    final newSeed = seed ?? (enabled ? RandomContainer.generateSeed() : null);
+    _containers[containerId] = container.copyWith(
+      useDeterministicMode: enabled,
+      seed: newSeed,
+    );
+
+    // Reset seeded random to use new seed
+    _seededRandoms.remove(containerId);
+    _selectionHistory.remove(containerId);
+
+    notifyListeners();
+    debugPrint('[RandomContainers] Deterministic mode for ${container.name}: $enabled (seed: $newSeed)');
+  }
+
+  RandomChild? _selectRandom(RandomContainer container, Random rng) {
     final history = _playHistory[container.id] ?? [];
     final availableChildren = container.children.where((c) {
       return !history.contains(c.id);
@@ -355,7 +474,7 @@ class RandomContainersProvider extends ChangeNotifier {
     final totalWeight = candidates.fold<double>(0, (sum, c) => sum + c.weight);
     if (totalWeight <= 0) return candidates.first;
 
-    var target = _random.nextDouble() * totalWeight;
+    var target = rng.nextDouble() * totalWeight;
     for (final child in candidates) {
       target -= child.weight;
       if (target <= 0) return child;
@@ -364,12 +483,12 @@ class RandomContainersProvider extends ChangeNotifier {
     return candidates.last;
   }
 
-  RandomChild? _selectShuffle(RandomContainer container) {
+  RandomChild? _selectShuffle(RandomContainer container, Random rng) {
     // Initialize shuffle order if needed
     if (!_shuffleOrder.containsKey(container.id) ||
         _shuffleOrder[container.id]!.length != container.children.length) {
       final order = List<int>.generate(container.children.length, (i) => i);
-      order.shuffle(_random);
+      order.shuffle(rng);
       _shuffleOrder[container.id] = order;
       _shuffleIndex[container.id] = 0;
     }
@@ -379,7 +498,7 @@ class RandomContainersProvider extends ChangeNotifier {
 
     // Reshuffle if at end
     if (index >= order.length) {
-      order.shuffle(_random);
+      order.shuffle(rng);
       index = 0;
     }
 
@@ -389,7 +508,7 @@ class RandomContainersProvider extends ChangeNotifier {
     return container.children[order[index]];
   }
 
-  RandomChild? _selectShuffleWithHistory(RandomContainer container) {
+  RandomChild? _selectShuffleWithHistory(RandomContainer container, Random rng) {
     // Similar to shuffle but tracks history to avoid repeats
     final history = _playHistory[container.id] ?? [];
     final availableChildren = container.children.where((c) {
@@ -399,11 +518,11 @@ class RandomContainersProvider extends ChangeNotifier {
     // If no available children, reset history and use all
     if (availableChildren.isEmpty) {
       _playHistory[container.id] = [];
-      return _selectRandom(container);
+      return _selectRandom(container, rng);
     }
 
     // Select randomly from available
-    return availableChildren[_random.nextInt(availableChildren.length)];
+    return availableChildren[rng.nextInt(availableChildren.length)];
   }
 
   RandomChild? _selectRoundRobin(RandomContainer container) {
@@ -429,9 +548,9 @@ class RandomContainersProvider extends ChangeNotifier {
     }
   }
 
-  double _randomInRange(double min, double max) {
+  double _randomInRange(double min, double max, Random rng) {
     if (min >= max) return 0.0;
-    return min + _random.nextDouble() * (max - min);
+    return min + rng.nextDouble() * (max - min);
   }
 
   /// Reset playback state (history, shuffle, etc.)
@@ -479,6 +598,23 @@ class RandomContainersProvider extends ChangeNotifier {
   // DISPOSE
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Export all selection history to JSON (M4 Determinism - for QA/debugging)
+  List<Map<String, dynamic>> exportSelectionHistoryToJson() {
+    final result = <Map<String, dynamic>>[];
+    for (final entry in _selectionHistory.entries) {
+      for (final record in entry.value) {
+        result.add(record.toJson());
+      }
+    }
+    return result;
+  }
+
+  /// Clear all selection history
+  void clearSelectionHistory() {
+    _selectionHistory.clear();
+    debugPrint('[RandomContainers] Cleared all selection history');
+  }
+
   @override
   void dispose() {
     _containers.clear();
@@ -486,6 +622,8 @@ class RandomContainersProvider extends ChangeNotifier {
     _shuffleIndex.clear();
     _shuffleOrder.clear();
     _roundRobinIndex.clear();
+    _seededRandoms.clear();
+    _selectionHistory.clear();
     super.dispose();
   }
 }

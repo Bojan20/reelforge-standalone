@@ -119,16 +119,26 @@ flutter_ui/lib/widgets/fabfilter/
 
 ---
 
-## FFI Integration
+## FFI Integration (Updated 2026-01-23)
 
-All panels connect to existing Rust DSP via `NativeFFI`:
+All panels now use `DspChainProvider` + `insertSetParam()` for REAL audio processing:
 
-| Panel | FFI Methods |
-|-------|-------------|
-| **Compressor** | `compressorCreate/Remove`, `compressorSet*` (threshold, ratio, attack, release, knee, makeup, style) |
-| **Limiter** | `limiterCreate/Remove`, `limiterSet*` (ceiling, output, release, lookahead, oversampling, style) |
-| **Gate** | `gateCreate/Remove`, `gateSet*` (threshold, range, attack, hold, release) |
-| **Reverb** | `algorithmicReverbCreate/Remove`, `algorithmicReverbSet*` (roomSize, damping, width, dryWet, predelay, type) |
+| Panel | Integration | Status |
+|-------|-------------|--------|
+| **Compressor** | `DspChainProvider.addNode(DspNodeType.compressor)` → `insertSetParam()` | ✅ FIXED |
+| **Limiter** | `DspChainProvider.addNode(DspNodeType.limiter)` → `insertSetParam()` | ✅ FIXED |
+| **Gate** | `DspChainProvider.addNode(DspNodeType.gate)` → `insertSetParam()` | ✅ FIXED |
+| **Reverb** | `DspChainProvider.addNode(DspNodeType.reverb)` → `insertSetParam()` | ✅ FIXED |
+
+**Parameter Indices (per InsertProcessor Wrapper):**
+| Wrapper | Params |
+|---------|--------|
+| CompressorWrapper | 0=Threshold, 1=Ratio, 2=Attack, 3=Release, 4=Makeup, 5=Mix, 6=Link, 7=Type |
+| LimiterWrapper | 0=Threshold, 1=Ceiling, 2=Release, 3=Oversampling |
+| GateWrapper | 0=Threshold, 1=Range, 2=Attack, 3=Hold, 4=Release |
+| ReverbWrapper | 0=RoomSize, 1=Damping, 2=Width, 3=DryWet, 4=Predelay, 5=Type |
+
+**Note:** Old ghost FFI (`compressorCreate`, etc.) was DELETED on 2026-01-23.
 
 ---
 

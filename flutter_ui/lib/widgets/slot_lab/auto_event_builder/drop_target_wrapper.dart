@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/auto_event_builder_models.dart';
 import '../../../providers/auto_event_builder_provider.dart';
+import '../../../services/audio_playback_service.dart';
 import '../../../theme/fluxforge_theme.dart';
 import 'quick_sheet.dart';
 
@@ -114,15 +115,16 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
     _pulseController.forward(from: 0);
   }
 
-  void _handleDrop(AudioAsset asset, Offset globalPosition) {
-    final provider = context.read<AutoEventBuilderProvider>();
+  void _handleDrop(AudioAsset asset, Offset globalPosition, AutoEventBuilderProvider provider) {
+    // NOTE: Don't call createDraft() here!
+    // showQuickSheet() handles draft creation internally to avoid double-create issues.
+    // The draft is created ONCE in showQuickSheet() and committed via onCommit callback.
 
-    // Create draft
-    provider.createDraft(asset, widget.target);
-
-    // Show QuickSheet popup
+    // Show QuickSheet popup - provider passed explicitly because showMenu
+    // creates an overlay OUTSIDE the provider tree
     showQuickSheet(
       context: context,
+      provider: provider,
       asset: asset,
       target: widget.target,
       position: globalPosition,
@@ -130,10 +132,38 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
         final event = provider.commitDraft();
         if (event != null) {
           _triggerPulse();
+
+          // Play brief audio preview as confirmation feedback
+          // This resolves the "cut off" feeling when drag stops hover preview
+          AudioPlaybackService.instance.previewFile(
+            asset.path,
+            volume: 0.7,
+            source: PlaybackSource.browser, // Use browser for instant playback
+          );
+
           widget.onEventCreated?.call(event);
         }
       },
       onCancel: provider.cancelDraft,
+    );
+  }
+
+  /// Convert a String path to AudioAsset
+  AudioAsset _pathToAudioAsset(String path) {
+    // Determine asset type from path or name
+    AssetType assetType = AssetType.sfx;
+    if (path.contains('music') || path.contains('bgm')) {
+      assetType = AssetType.music;
+    } else if (path.contains('vo') || path.contains('voice')) {
+      assetType = AssetType.vo;
+    } else if (path.contains('amb') || path.contains('ambient')) {
+      assetType = AssetType.amb;
+    }
+
+    return AudioAsset(
+      assetId: 'asset_${DateTime.now().millisecondsSinceEpoch}',
+      path: path,
+      assetType: assetType,
     );
   }
 
@@ -143,17 +173,33 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
       builder: (context, provider, _) {
         final eventCount = provider.getEventCountForTarget(widget.target.targetId);
 
-        return DragTarget<AudioAsset>(
+        // Wrap with DragTarget<Object> to accept both AudioAsset and String
+        return DragTarget<Object>(
           onWillAcceptWithDetails: (details) {
-            setState(() => _isDragOver = true);
-            return true;
+            // Accept AudioAsset or String (audio path)
+            if (details.data is AudioAsset || details.data is String) {
+              setState(() => _isDragOver = true);
+              return true;
+            }
+            return false;
           },
           onLeave: (_) {
             setState(() => _isDragOver = false);
           },
           onAcceptWithDetails: (details) {
             setState(() => _isDragOver = false);
-            _handleDrop(details.data, details.offset);
+
+            // Handle both AudioAsset and String drops
+            AudioAsset asset;
+            if (details.data is AudioAsset) {
+              asset = details.data as AudioAsset;
+            } else if (details.data is String) {
+              asset = _pathToAudioAsset(details.data as String);
+            } else {
+              return; // Unsupported type
+            }
+
+            _handleDrop(asset, details.offset, provider);
           },
           builder: (context, candidateData, rejectedData) {
             return Stack(

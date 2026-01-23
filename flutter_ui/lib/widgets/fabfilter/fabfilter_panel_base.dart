@@ -9,21 +9,72 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'fabfilter_theme.dart';
+import '../../providers/dsp_chain_provider.dart';
 
-/// State for A/B comparison
+// Re-export DspNodeType for convenience in panel implementations
+export '../../providers/dsp_chain_provider.dart' show DspNodeType;
+
+/// State for A/B comparison with full snapshot support
 class ABState<T> {
   T? stateA;
   T? stateB;
   bool isB = false;
+  bool _hasStoredA = false;
+  bool _hasStoredB = false;
 
-  void storeA(T state) => stateA = state;
-  void storeB(T state) => stateB = state;
+  /// Store current state to A slot
+  void storeA(T state) {
+    stateA = state;
+    _hasStoredA = true;
+  }
+
+  /// Store current state to B slot
+  void storeB(T state) {
+    stateB = state;
+    _hasStoredB = true;
+  }
+
+  /// Get current active state
   T? get current => isB ? stateB : stateA;
 
+  /// Check if A slot has stored state
+  bool get hasStoredA => _hasStoredA;
+
+  /// Check if B slot has stored state
+  bool get hasStoredB => _hasStoredB;
+
+  /// Toggle between A and B states
   void toggle() => isB = !isB;
 
-  void copyAToB() => stateB = stateA;
-  void copyBToA() => stateA = stateB;
+  /// Copy A state to B slot
+  void copyAToB() {
+    stateB = stateA;
+    _hasStoredB = _hasStoredA;
+  }
+
+  /// Copy B state to A slot
+  void copyBToA() {
+    stateA = stateB;
+    _hasStoredA = _hasStoredB;
+  }
+
+  /// Reset all states
+  void reset() {
+    stateA = null;
+    stateB = null;
+    isB = false;
+    _hasStoredA = false;
+    _hasStoredB = false;
+  }
+}
+
+/// Interface for DSP parameter snapshot
+abstract class DspParameterSnapshot {
+  /// Create deep copy of this snapshot
+  DspParameterSnapshot copy();
+
+  /// Compare with another snapshot
+  bool equals(DspParameterSnapshot other);
 }
 
 /// Base class for FabFilter-style DSP panels
@@ -43,6 +94,10 @@ abstract class FabFilterPanelBase extends StatefulWidget {
   /// Sample rate
   final double sampleRate;
 
+  /// DSP node type for syncing with DspChainProvider
+  /// When set, bypass state syncs with the central DSP chain
+  final DspNodeType? nodeType;
+
   /// Callback when settings change
   final VoidCallback? onSettingsChanged;
 
@@ -53,6 +108,7 @@ abstract class FabFilterPanelBase extends StatefulWidget {
     required this.trackId,
     this.accentColor = FabFilterColors.blue,
     this.sampleRate = 48000.0,
+    this.nodeType,
     this.onSettingsChanged,
   });
 }
@@ -65,29 +121,120 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
 
   // A/B state is managed by subclass
   bool _isStateB = false;
+  bool _hasStoredA = false;
+  bool _hasStoredB = false;
 
   bool get bypassed => _bypassed;
   bool get isFullScreen => _isFullScreen;
   bool get showExpertMode => _showExpertMode;
   bool get isStateB => _isStateB;
+  bool get hasStoredA => _hasStoredA;
+  bool get hasStoredB => _hasStoredB;
 
-  void toggleBypass() => setState(() => _bypassed = !_bypassed);
+  void toggleBypass() {
+    setState(() => _bypassed = !_bypassed);
+    onBypassChanged(_bypassed);
+  }
+
   void toggleFullScreen() => setState(() => _isFullScreen = !_isFullScreen);
   void toggleExpertMode() => setState(() => _showExpertMode = !_showExpertMode);
 
   void toggleAB() {
+    // Before switching, store current state to the active slot
+    if (_isStateB) {
+      storeStateB();
+    } else {
+      storeStateA();
+    }
+
     setState(() => _isStateB = !_isStateB);
+
+    // After switching, restore from the new active slot
+    if (_isStateB && _hasStoredB) {
+      restoreStateB();
+    } else if (!_isStateB && _hasStoredA) {
+      restoreStateA();
+    }
+
     onABToggle(_isStateB);
+  }
+
+  /// Copy current state to A and B (for initialization)
+  void initABFromCurrent() {
+    storeStateA();
+    storeStateB();
+    _hasStoredA = true;
+    _hasStoredB = true;
+  }
+
+  /// Copy active state to the other slot
+  void copyCurrentToOther() {
+    if (_isStateB) {
+      copyBToA();
+    } else {
+      copyAToB();
+    }
+  }
+
+  /// Override to handle bypass change
+  /// Default implementation syncs with DspChainProvider if nodeType is set
+  void onBypassChanged(bool bypassed) {
+    // Sync with central DSP state if nodeType is configured
+    if (widget.nodeType != null) {
+      _syncBypassToDspChain(bypassed);
+    }
+  }
+
+  /// Sync bypass state with DspChainProvider
+  void _syncBypassToDspChain(bool bypassed) {
+    final nodeType = widget.nodeType;
+    if (nodeType == null) return;
+
+    final dspProvider = DspChainProvider.instance;
+    final chain = dspProvider.getChain(widget.trackId);
+
+    // Find node by type
+    final node = chain.nodes.cast<DspNode?>().firstWhere(
+          (n) => n?.type == nodeType,
+          orElse: () => null,
+        );
+
+    if (node != null) {
+      // Only toggle if state is different (avoid infinite loops)
+      if (node.bypass != bypassed) {
+        dspProvider.toggleNodeBypass(widget.trackId, node.id);
+      }
+    }
   }
 
   /// Override to handle A/B toggle
   void onABToggle(bool isB) {}
 
-  /// Override to store state A
-  void storeStateA() {}
+  /// Override to capture current state to A slot
+  void storeStateA() {
+    _hasStoredA = true;
+  }
 
-  /// Override to store state B
-  void storeStateB() {}
+  /// Override to capture current state to B slot
+  void storeStateB() {
+    _hasStoredB = true;
+  }
+
+  /// Override to restore state from A slot
+  void restoreStateA() {}
+
+  /// Override to restore state from B slot
+  void restoreStateB() {}
+
+  /// Override to copy A state to B
+  void copyAToB() {
+    _hasStoredB = _hasStoredA;
+  }
+
+  /// Override to copy B state to A
+  void copyBToA() {
+    _hasStoredA = _hasStoredB;
+  }
 
   /// Build the main panel header
   Widget buildHeader() {
@@ -155,31 +302,48 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildABButton('A', !_isStateB, () {
+        _buildABButton('A', !_isStateB, _hasStoredA, () {
           if (_isStateB) toggleAB();
-        }, storeStateA),
+        }, () {
+          // Long press: force store current to A
+          storeStateA();
+          setState(() {});
+        }),
         const SizedBox(width: 4),
-        _buildABButton('B', _isStateB, () {
+        _buildABButton('B', _isStateB, _hasStoredB, () {
           if (!_isStateB) toggleAB();
-        }, storeStateB),
+        }, () {
+          // Long press: force store current to B
+          storeStateB();
+          setState(() {});
+        }),
         const SizedBox(width: 8),
-        // Copy button
-        GestureDetector(
-          onTap: () {
-            // Copy current to other
-            if (_isStateB) {
-              // Copy B to A would require subclass implementation
-            } else {
-              // Copy A to B
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: FabFilterDecorations.toggleInactive(),
-            child: const Icon(
-              Icons.copy,
-              size: 12,
-              color: FabFilterColors.textTertiary,
+        // Copy button: copies active state to the other slot
+        Tooltip(
+          message: _isStateB ? 'Copy B → A' : 'Copy A → B',
+          child: GestureDetector(
+            onTap: copyCurrentToOther,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: FabFilterDecorations.toggleInactive(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.content_copy,
+                    size: 12,
+                    color: FabFilterColors.textTertiary,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    _isStateB ? '→A' : '→B',
+                    style: const TextStyle(
+                      fontSize: 8,
+                      color: FabFilterColors.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -190,26 +354,51 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
   Widget _buildABButton(
     String label,
     bool isActive,
+    bool hasStored,
     VoidCallback onTap,
     VoidCallback onLongPress,
   ) {
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
-        width: 26,
-        height: 26,
-        decoration: isActive
-            ? FabFilterDecorations.toggleActive(widget.accentColor)
-            : FabFilterDecorations.toggleInactive(),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: isActive ? widget.accentColor : FabFilterColors.textTertiary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
+    return Tooltip(
+      message: hasStored
+          ? '$label: Stored (long-press to overwrite)'
+          : '$label: Empty (long-press to store)',
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Container(
+          width: 26,
+          height: 26,
+          decoration: isActive
+              ? FabFilterDecorations.toggleActive(widget.accentColor)
+              : FabFilterDecorations.toggleInactive(),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? widget.accentColor : FabFilterColors.textTertiary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              // Stored indicator dot
+              if (hasStored)
+                Positioned(
+                  right: 3,
+                  top: 3,
+                  child: Container(
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? widget.accentColor
+                          : FabFilterColors.textTertiary.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

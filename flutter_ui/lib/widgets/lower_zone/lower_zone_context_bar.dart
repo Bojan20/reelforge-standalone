@@ -40,6 +40,9 @@ class LowerZoneContextBar extends StatelessWidget {
   /// Callback when toggle button is pressed
   final VoidCallback onToggle;
 
+  /// Optional preset dropdown widget
+  final Widget? presetDropdown;
+
   const LowerZoneContextBar({
     super.key,
     required this.superTabLabels,
@@ -52,24 +55,29 @@ class LowerZoneContextBar extends StatelessWidget {
     required this.onSuperTabSelected,
     required this.onSubTabSelected,
     required this.onToggle,
+    this.presetDropdown,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Dynamic height: 32px (super-tabs only) when collapsed, 60px when expanded (+ sub-tabs 28px)
+    final height = isExpanded ? kContextBarHeight : kContextBarCollapsedHeight;
+
     return Container(
-      height: kContextBarHeight,
+      height: height,
       decoration: const BoxDecoration(
         color: LowerZoneColors.bgDeepest,
         border: Border(
           bottom: BorderSide(color: LowerZoneColors.borderSubtle),
         ),
       ),
+      clipBehavior: Clip.hardEdge,
       child: Column(
         children: [
           // Super-tabs row (32px)
           _buildSuperTabs(),
-          // Sub-tabs row (28px)
-          if (isExpanded) _buildSubTabs(),
+          // Sub-tabs row (28px) — only when expanded
+          if (isExpanded) Expanded(child: _buildSubTabs()),
         ],
       ),
     );
@@ -92,6 +100,11 @@ class LowerZoneContextBar extends StatelessWidget {
             );
           }),
           const Spacer(),
+          // Preset dropdown (optional)
+          if (presetDropdown != null) ...[
+            presetDropdown!,
+            const SizedBox(width: 8),
+          ],
           // Search (placeholder)
           _buildSearchField(),
         ],

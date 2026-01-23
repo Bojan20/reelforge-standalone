@@ -13,6 +13,57 @@ import 'package:flutter/widgets.dart';
 
 // ============ Types ============
 
+/// Tab categories for logical grouping (M3 Sprint - P1)
+enum LowerZoneCategory {
+  audio,    // Events, Event Log, Meters, Command Builder
+  routing,  // Buses, Aux Sends
+  debug,    // Timeline, Profiler, RTPC, Resources
+  advanced, // AutoSpatial, Stage Ingest, GDD Import, Game Model, Scenarios
+}
+
+/// Configuration for tab categories
+class LowerZoneCategoryConfig {
+  final LowerZoneCategory category;
+  final String label;
+  final String icon;
+  final String description;
+
+  const LowerZoneCategoryConfig({
+    required this.category,
+    required this.label,
+    required this.icon,
+    required this.description,
+  });
+}
+
+/// Category configurations
+const Map<LowerZoneCategory, LowerZoneCategoryConfig> kLowerZoneCategoryConfigs = {
+  LowerZoneCategory.audio: LowerZoneCategoryConfig(
+    category: LowerZoneCategory.audio,
+    label: 'Audio',
+    icon: '🎵',
+    description: 'Events, containers, meters',
+  ),
+  LowerZoneCategory.routing: LowerZoneCategoryConfig(
+    category: LowerZoneCategory.routing,
+    label: 'Routing',
+    icon: '🔀',
+    description: 'Buses, sends, hierarchy',
+  ),
+  LowerZoneCategory.debug: LowerZoneCategoryConfig(
+    category: LowerZoneCategory.debug,
+    label: 'Debug',
+    icon: '🐛',
+    description: 'Profiler, RTPC, timeline',
+  ),
+  LowerZoneCategory.advanced: LowerZoneCategoryConfig(
+    category: LowerZoneCategory.advanced,
+    label: 'Advanced',
+    icon: '⚙️',
+    description: 'Spatial, ingest, GDD',
+  ),
+};
+
 /// Available tabs in the SlotLab lower zone
 enum LowerZoneTab {
   timeline,       // Stage trace timeline
@@ -33,6 +84,7 @@ class LowerZoneTabConfig {
   final String icon;
   final String shortcutKey;
   final String description;
+  final LowerZoneCategory category;
 
   const LowerZoneTabConfig({
     required this.tab,
@@ -40,6 +92,7 @@ class LowerZoneTabConfig {
     required this.icon,
     required this.shortcutKey,
     required this.description,
+    required this.category,
   });
 }
 
@@ -52,6 +105,7 @@ const Map<LowerZoneTab, LowerZoneTabConfig> kLowerZoneTabConfigs = {
     icon: '⏱',
     shortcutKey: '1',
     description: 'Stage trace timeline',
+    category: LowerZoneCategory.debug,
   ),
   LowerZoneTab.commandBuilder: LowerZoneTabConfig(
     tab: LowerZoneTab.commandBuilder,
@@ -59,6 +113,7 @@ const Map<LowerZoneTab, LowerZoneTabConfig> kLowerZoneTabConfigs = {
     icon: '🔧',
     shortcutKey: '2',
     description: 'Auto Event Builder',
+    category: LowerZoneCategory.audio,
   ),
   LowerZoneTab.eventList: LowerZoneTabConfig(
     tab: LowerZoneTab.eventList,
@@ -66,6 +121,7 @@ const Map<LowerZoneTab, LowerZoneTabConfig> kLowerZoneTabConfigs = {
     icon: '📋',
     shortcutKey: '3',
     description: 'Event list browser',
+    category: LowerZoneCategory.audio,
   ),
   LowerZoneTab.meters: LowerZoneTabConfig(
     tab: LowerZoneTab.meters,
@@ -73,6 +129,7 @@ const Map<LowerZoneTab, LowerZoneTabConfig> kLowerZoneTabConfigs = {
     icon: '📊',
     shortcutKey: '4',
     description: 'Audio bus meters',
+    category: LowerZoneCategory.audio,
   ),
   // DSP Panels (FabFilter-style)
   LowerZoneTab.dspCompressor: LowerZoneTabConfig(
@@ -81,6 +138,7 @@ const Map<LowerZoneTab, LowerZoneTabConfig> kLowerZoneTabConfigs = {
     icon: '🎚',
     shortcutKey: '5',
     description: 'Pro-C style compressor',
+    category: LowerZoneCategory.audio,
   ),
   LowerZoneTab.dspLimiter: LowerZoneTabConfig(
     tab: LowerZoneTab.dspLimiter,
@@ -88,6 +146,7 @@ const Map<LowerZoneTab, LowerZoneTabConfig> kLowerZoneTabConfigs = {
     icon: '🔊',
     shortcutKey: '6',
     description: 'Pro-L style limiter',
+    category: LowerZoneCategory.audio,
   ),
   LowerZoneTab.dspGate: LowerZoneTabConfig(
     tab: LowerZoneTab.dspGate,
@@ -95,6 +154,7 @@ const Map<LowerZoneTab, LowerZoneTabConfig> kLowerZoneTabConfigs = {
     icon: '🚪',
     shortcutKey: '7',
     description: 'Pro-G style gate',
+    category: LowerZoneCategory.audio,
   ),
   LowerZoneTab.dspReverb: LowerZoneTabConfig(
     tab: LowerZoneTab.dspReverb,
@@ -102,8 +162,32 @@ const Map<LowerZoneTab, LowerZoneTabConfig> kLowerZoneTabConfigs = {
     icon: '🌊',
     shortcutKey: '8',
     description: 'Pro-R style reverb',
+    category: LowerZoneCategory.audio,
   ),
 };
+
+// ============ Category Helpers ============
+
+/// Get all tabs in a specific category
+List<LowerZoneTabConfig> getTabsInCategory(LowerZoneCategory category) {
+  return kLowerZoneTabConfigs.values
+      .where((config) => config.category == category)
+      .toList();
+}
+
+/// Get tabs grouped by category
+Map<LowerZoneCategory, List<LowerZoneTabConfig>> getTabsByCategory() {
+  final result = <LowerZoneCategory, List<LowerZoneTabConfig>>{};
+  for (final category in LowerZoneCategory.values) {
+    result[category] = getTabsInCategory(category);
+  }
+  return result;
+}
+
+/// Get category for a specific tab
+LowerZoneCategory? getCategoryForTab(LowerZoneTab tab) {
+  return kLowerZoneTabConfigs[tab]?.category;
+}
 
 // ============ Constants ============
 
@@ -126,12 +210,20 @@ const Duration kLowerZoneAnimationDuration = Duration(milliseconds: 200);
 
 /// Controller for SlotLab's lower zone panel
 ///
-/// Manages tab state, expand/collapse, and resizable height.
+/// Manages tab state, expand/collapse, resizable height, and category collapse state.
 /// Follows the same pattern as EditorModeProvider.
 class LowerZoneController extends ChangeNotifier {
   LowerZoneTab _activeTab;
   bool _isExpanded;
   double _height;
+
+  /// Category collapse state (M3 Sprint - P1)
+  final Map<LowerZoneCategory, bool> _categoryCollapsed = {
+    LowerZoneCategory.audio: false,
+    LowerZoneCategory.routing: false,
+    LowerZoneCategory.debug: false,
+    LowerZoneCategory.advanced: true, // Advanced collapsed by default
+  };
 
   LowerZoneController({
     LowerZoneTab initialTab = LowerZoneTab.timeline,
@@ -163,6 +255,32 @@ class LowerZoneController extends ChangeNotifier {
 
   /// Whether a specific tab is active
   bool isTabActive(LowerZoneTab tab) => _activeTab == tab;
+
+  // ============ Category Getters (M3 Sprint - P1) ============
+
+  /// Get collapse state for a category
+  bool isCategoryCollapsed(LowerZoneCategory category) =>
+      _categoryCollapsed[category] ?? false;
+
+  /// Get all category collapse states
+  Map<LowerZoneCategory, bool> get categoryCollapseStates =>
+      Map.unmodifiable(_categoryCollapsed);
+
+  /// Get tabs in a category
+  List<LowerZoneTabConfig> tabsInCategory(LowerZoneCategory category) =>
+      getTabsInCategory(category);
+
+  /// Get all category configurations
+  List<LowerZoneCategoryConfig> get categoryConfigs =>
+      kLowerZoneCategoryConfigs.values.toList();
+
+  /// Get category config for a category
+  LowerZoneCategoryConfig getCategoryConfig(LowerZoneCategory category) =>
+      kLowerZoneCategoryConfigs[category]!;
+
+  /// Get category for the active tab
+  LowerZoneCategory? get activeTabCategory =>
+      kLowerZoneTabConfigs[_activeTab]?.category;
 
   // ============ Actions ============
 
@@ -230,6 +348,38 @@ class LowerZoneController extends ChangeNotifier {
   /// Adjust height by delta (for drag resize)
   void adjustHeight(double delta) {
     setHeight(_height + delta);
+  }
+
+  // ============ Category Actions (M3 Sprint - P1) ============
+
+  /// Toggle collapse state for a category
+  void toggleCategory(LowerZoneCategory category) {
+    _categoryCollapsed[category] = !(_categoryCollapsed[category] ?? false);
+    notifyListeners();
+  }
+
+  /// Set collapse state for a category
+  void setCategoryCollapsed(LowerZoneCategory category, bool collapsed) {
+    if (_categoryCollapsed[category] != collapsed) {
+      _categoryCollapsed[category] = collapsed;
+      notifyListeners();
+    }
+  }
+
+  /// Expand all categories
+  void expandAllCategories() {
+    for (final category in LowerZoneCategory.values) {
+      _categoryCollapsed[category] = false;
+    }
+    notifyListeners();
+  }
+
+  /// Collapse all categories
+  void collapseAllCategories() {
+    for (final category in LowerZoneCategory.values) {
+      _categoryCollapsed[category] = true;
+    }
+    notifyListeners();
   }
 
   // ============ Keyboard Shortcuts ============
@@ -315,6 +465,10 @@ class LowerZoneController extends ChangeNotifier {
         'activeTab': _activeTab.index,
         'isExpanded': _isExpanded,
         'height': _height,
+        'categoryCollapsed': {
+          for (final entry in _categoryCollapsed.entries)
+            entry.key.name: entry.value,
+        },
       };
 
   /// Import state from persistence
@@ -327,6 +481,17 @@ class LowerZoneController extends ChangeNotifier {
     _isExpanded = json['isExpanded'] as bool? ?? true;
     _height = (json['height'] as num?)?.toDouble() ?? kLowerZoneDefaultHeight;
     _height = _height.clamp(kLowerZoneMinHeight, kLowerZoneMaxHeight);
+
+    // Restore category collapse state
+    final categoryJson = json['categoryCollapsed'] as Map<String, dynamic>?;
+    if (categoryJson != null) {
+      for (final category in LowerZoneCategory.values) {
+        final collapsed = categoryJson[category.name] as bool?;
+        if (collapsed != null) {
+          _categoryCollapsed[category] = collapsed;
+        }
+      }
+    }
 
     notifyListeners();
   }

@@ -27,7 +27,6 @@ import '../middleware/event_debugger_panel.dart';
 import '../middleware/rtpc_debugger_panel.dart';
 import '../middleware/dsp_profiler_panel.dart';
 import '../middleware/priority_tier_preset_panel.dart';
-// AuxSendPanel requires external dependencies, use placeholder for now
 
 class MiddlewareLowerZoneWidget extends StatefulWidget {
   final MiddlewareLowerZoneController controller;
@@ -84,6 +83,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
     return AnimatedContainer(
       duration: kLowerZoneAnimationDuration,
       height: widget.controller.totalHeight,
+      clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(
         color: LowerZoneColors.bgDeep,
         border: Border(
@@ -145,10 +145,10 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
     );
   }
 
-  /// Slot Context Bar — always visible in Middleware
+  /// Slot Context Bar — always visible in Middleware when expanded
   Widget _buildSlotContextBar() {
     return Container(
-      height: 28,
+      height: kSlotContextBarHeight,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: const BoxDecoration(
         color: LowerZoneColors.bgMid,
@@ -1453,57 +1453,112 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // HELPER PANELS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildPlaceholderPanel(String title, IconData icon) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 48, color: LowerZoneColors.textMuted),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: LowerZoneColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Coming soon...',
-            style: TextStyle(
-              fontSize: 11,
-              color: LowerZoneColors.textMuted,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // ACTION STRIP
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildActionStrip() {
+    MiddlewareProvider? middleware;
+    try {
+      middleware = context.read<MiddlewareProvider>();
+    } catch (_) {
+      // Provider not available
+    }
+
     final actions = switch (widget.controller.superTab) {
-      MiddlewareSuperTab.events => MiddlewareActions.forEvents(),
-      MiddlewareSuperTab.containers => MiddlewareActions.forContainers(),
-      MiddlewareSuperTab.routing => MiddlewareActions.forRouting(),
-      MiddlewareSuperTab.rtpc => MiddlewareActions.forRtpc(),
-      MiddlewareSuperTab.deliver => MiddlewareActions.forDeliver(),
+      MiddlewareSuperTab.events => MiddlewareActions.forEvents(
+        onNewEvent: () {
+          middleware?.createCompositeEvent(
+            name: 'New Event ${DateTime.now().millisecondsSinceEpoch % 1000}',
+            category: 'general',
+          );
+        },
+        onDelete: () {
+          final selectedId = middleware?.selectedCompositeEvent?.id;
+          if (selectedId != null) {
+            middleware?.deleteCompositeEvent(selectedId);
+          }
+        },
+        onDuplicate: () {
+          final selectedId = middleware?.selectedCompositeEvent?.id;
+          if (selectedId != null) {
+            middleware?.duplicateCompositeEvent(selectedId);
+          }
+        },
+        onTest: () {
+          final selectedId = middleware?.selectedCompositeEvent?.id;
+          if (selectedId != null) {
+            middleware?.previewCompositeEvent(selectedId);
+          }
+        },
+      ),
+      MiddlewareSuperTab.containers => MiddlewareActions.forContainers(
+        onAddSound: () {
+          // Based on current container sub-tab
+          final subTab = widget.controller.state.containersSubTab;
+          debugPrint('[Middleware] Add sound to $subTab container');
+        },
+        onBalance: () {
+          debugPrint('[Middleware] Balance container weights');
+        },
+        onShuffle: () {
+          debugPrint('[Middleware] Shuffle container');
+        },
+        onTest: () {
+          debugPrint('[Middleware] Test container');
+        },
+      ),
+      MiddlewareSuperTab.routing => MiddlewareActions.forRouting(
+        onAddRule: () {
+          middleware?.addDuckingRule(
+            sourceBus: 'SFX',
+            sourceBusId: 0,
+            targetBus: 'Master',
+            targetBusId: 5,
+            duckAmountDb: -12.0,
+          );
+        },
+        onRemove: () {
+          debugPrint('[Middleware] Remove routing rule');
+        },
+        onCopy: () {
+          debugPrint('[Middleware] Copy routing rule');
+        },
+        onTest: () {
+          debugPrint('[Middleware] Test routing');
+        },
+      ),
+      MiddlewareSuperTab.rtpc => MiddlewareActions.forRtpc(
+        onAddPoint: () {
+          debugPrint('[Middleware] Add RTPC point');
+        },
+        onRemove: () {
+          debugPrint('[Middleware] Remove RTPC point');
+        },
+        onReset: () {
+          debugPrint('[Middleware] Reset RTPC curve');
+        },
+        onPreview: () {
+          debugPrint('[Middleware] Preview RTPC');
+        },
+      ),
+      MiddlewareSuperTab.deliver => MiddlewareActions.forDeliver(
+        onValidate: () {
+          final eventCount = middleware?.compositeEvents.length ?? 0;
+          debugPrint('[Middleware] Validating $eventCount events...');
+        },
+        onBake: () {
+          debugPrint('[Middleware] Baking audio...');
+        },
+        onPackage: () {
+          debugPrint('[Middleware] Creating package...');
+        },
+      ),
     };
 
     // Get event count from provider if available
     String statusText = 'Events: --';
-    try {
-      final mw = context.read<MiddlewareProvider>();
-      statusText = 'Events: ${mw.compositeEvents.length}';
-    } catch (_) {
-      // Provider not available
+    if (middleware != null) {
+      statusText = 'Events: ${middleware.compositeEvents.length}';
     }
 
     return LowerZoneActionStrip(

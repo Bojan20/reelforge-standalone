@@ -4113,13 +4113,15 @@ pub struct InsertSlotInfo {
 /// Load processor into insert slot
 #[flutter_rust_bridge::frb(sync)]
 pub fn insert_load(track_id: u32, slot_index: usize, processor_name: String) -> bool {
-    use rf_engine::create_processor;
+    // FIX: Use create_processor_extended to support ALL processors (compressor, limiter, gate, reverb, etc.)
+    // The old create_processor only supported EQ processors
+    use rf_engine::create_processor_extended;
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
         // Create processor by name
         let sample_rate = e.config.sample_rate.as_f64();
-        if let Some(processor) = create_processor(&processor_name, sample_rate) {
+        if let Some(processor) = create_processor_extended(&processor_name, sample_rate) {
             // Load into track's insert chain via PlaybackEngine
             let success =
                 e.playback_engine()

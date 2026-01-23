@@ -28,6 +28,7 @@ import '../widgets/glass/glass_control_bar.dart';
 import '../widgets/glass/glass_panels.dart';
 import '../widgets/glass/glass_left_zone.dart';
 import '../providers/theme_mode_provider.dart';
+import '../widgets/common/keyboard_shortcuts_overlay.dart';
 
 class MainLayout extends StatefulWidget {
   // PERFORMANCE: Custom control bar widget that handles its own provider listening
@@ -315,8 +316,14 @@ class _MainLayoutState extends State<MainLayout>
     } else if (key == LogicalKeyboardKey.comma) {
       widget.onRewind?.call();
       return KeyEventResult.handled;
-    } else if (key == LogicalKeyboardKey.slash) {
+    } else if (key == LogicalKeyboardKey.slash && !isShift) {
       widget.onForward?.call();
+      return KeyEventResult.handled;
+    }
+
+    // P3.1: Keyboard shortcuts overlay (? key = Shift + /)
+    if (isShift && key == LogicalKeyboardKey.slash) {
+      KeyboardShortcutsOverlay.show(context);
       return KeyEventResult.handled;
     }
 

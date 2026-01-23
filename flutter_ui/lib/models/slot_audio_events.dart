@@ -1455,6 +1455,8 @@ class SlotEventLayer {
   final double offsetMs; // Delay offset in milliseconds
   final double fadeInMs; // Fade in duration
   final double fadeOutMs; // Fade out duration
+  final double trimStartMs; // Non-destructive trim start (M3.2)
+  final double trimEndMs; // Non-destructive trim end (M3.2) - 0 means no trim
   final bool muted;
   final bool solo;
   final List<double>? waveformData;
@@ -1471,6 +1473,8 @@ class SlotEventLayer {
     this.offsetMs = 0.0,
     this.fadeInMs = 0.0,
     this.fadeOutMs = 0.0,
+    this.trimStartMs = 0.0,
+    this.trimEndMs = 0.0,
     this.muted = false,
     this.solo = false,
     this.waveformData,
@@ -1488,6 +1492,8 @@ class SlotEventLayer {
     double? offsetMs,
     double? fadeInMs,
     double? fadeOutMs,
+    double? trimStartMs,
+    double? trimEndMs,
     bool? muted,
     bool? solo,
     List<double>? waveformData,
@@ -1504,6 +1510,8 @@ class SlotEventLayer {
       offsetMs: offsetMs ?? this.offsetMs,
       fadeInMs: fadeInMs ?? this.fadeInMs,
       fadeOutMs: fadeOutMs ?? this.fadeOutMs,
+      trimStartMs: trimStartMs ?? this.trimStartMs,
+      trimEndMs: trimEndMs ?? this.trimEndMs,
       muted: muted ?? this.muted,
       solo: solo ?? this.solo,
       waveformData: waveformData ?? this.waveformData,
@@ -1526,6 +1534,8 @@ class SlotEventLayer {
     'offsetMs': offsetMs,
     'fadeInMs': fadeInMs,
     'fadeOutMs': fadeOutMs,
+    'trimStartMs': trimStartMs,
+    'trimEndMs': trimEndMs,
     'muted': muted,
     'solo': solo,
     'durationSeconds': durationSeconds,
@@ -1545,6 +1555,8 @@ class SlotEventLayer {
       offsetMs: (json['offsetMs'] as num?)?.toDouble() ?? 0.0,
       fadeInMs: (json['fadeInMs'] as num?)?.toDouble() ?? 0.0,
       fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 0.0,
+      trimStartMs: (json['trimStartMs'] as num?)?.toDouble() ?? 0.0,
+      trimEndMs: (json['trimEndMs'] as num?)?.toDouble() ?? 0.0,
       muted: json['muted'] as bool? ?? false,
       solo: json['solo'] as bool? ?? false,
       durationSeconds: (json['durationSeconds'] as num?)?.toDouble(),

@@ -875,6 +875,245 @@ fn parse_group_container(json: &str) -> Result<ContainerGroup, String> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VALIDATION FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Validate a container group for depth/cycle issues
+/// Returns JSON: {"valid": bool, "maxDepth": int, "total": int, "errors": [...]}
+/// Returns null pointer on error
+#[unsafe(no_mangle)]
+pub extern "C" fn container_validate_group(group_id: u32) -> *const c_char {
+    static RESULT_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+    match STORAGE.validate_group(group_id) {
+        Some(result) => {
+            let json = serde_json::json!({
+                "valid": result.valid,
+                "maxDepth": result.max_depth_found,
+                "total": result.total_containers,
+                "errors": result.errors.iter().map(|e| e.to_string()).collect::<Vec<_>>(),
+                "warnings": result.warnings,
+            });
+
+            let json_str = serde_json::to_string(&json).unwrap_or_else(|_| "{}".into());
+            let mut buf = RESULT_BUF.lock();
+            buf.clear();
+            buf.extend_from_slice(json_str.as_bytes());
+            buf.push(0);
+            buf.as_ptr() as *const c_char
+        }
+        None => std::ptr::null(),
+    }
+}
+
+/// Validate proposed child addition without modifying storage
+/// Returns 0 on success, error code on failure:
+/// - 1: Self-reference
+/// - 2: Missing container
+/// - 3: Cycle detected
+/// - 4: Max depth exceeded
+/// - 5: Too many children
+/// - 99: Unknown error
+#[unsafe(no_mangle)]
+pub extern "C" fn container_validate_add_child(
+    group_id: u32,
+    child_type: u8,
+    child_id: u32,
+) -> i32 {
+    use rf_engine::containers::group::ValidationError;
+
+    match STORAGE.validate_group_child_addition(
+        group_id,
+        ContainerType::from_u8(child_type),
+        child_id,
+    ) {
+        Ok(()) => 0,
+        Err(e) => match e {
+            ValidationError::SelfReference { .. } => 1,
+            ValidationError::MissingContainer { .. } => 2,
+            ValidationError::CycleDetected { .. } => 3,
+            ValidationError::MaxDepthExceeded { .. } => 4,
+            ValidationError::TooManyChildren { .. } => 5,
+        },
+    }
+}
+
+/// Get maximum allowed nesting depth
+#[unsafe(no_mangle)]
+pub extern "C" fn container_get_max_nesting_depth() -> usize {
+    rf_engine::containers::group::MAX_NESTING_DEPTH
+}
+
+/// Validate all groups in storage
+/// Returns JSON array: [{"id": int, "valid": bool, "errors": [...]}]
+#[unsafe(no_mangle)]
+pub extern "C" fn container_validate_all_groups() -> *const c_char {
+    static RESULT_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+    let results: Vec<serde_json::Value> = STORAGE
+        .validate_all_groups()
+        .iter()
+        .map(|(id, result)| {
+            serde_json::json!({
+                "id": id,
+                "valid": result.valid,
+                "maxDepth": result.max_depth_found,
+                "errors": result.errors.iter().map(|e| e.to_string()).collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+
+    let json_str = serde_json::to_string(&results).unwrap_or_else(|_| "[]".into());
+    let mut buf = RESULT_BUF.lock();
+    buf.clear();
+    buf.extend_from_slice(json_str.as_bytes());
+    buf.push(0);
+    buf.as_ptr() as *const c_char
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SEED LOG (DETERMINISM)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Enable or disable seed logging for determinism capture
+/// enabled: 1 = enable, 0 = disable
+#[unsafe(no_mangle)]
+pub extern "C" fn seed_log_enable(enabled: i32) {
+    use rf_engine::containers::random::SEED_LOG;
+
+    let log = SEED_LOG.lock();
+    if enabled != 0 {
+        log.enable();
+    } else {
+        log.disable();
+    }
+}
+
+/// Check if seed logging is enabled
+/// Returns 1 if enabled, 0 if disabled
+#[unsafe(no_mangle)]
+pub extern "C" fn seed_log_is_enabled() -> i32 {
+    use rf_engine::containers::random::SEED_LOG;
+
+    let log = SEED_LOG.lock();
+    if log.is_enabled() { 1 } else { 0 }
+}
+
+/// Clear all seed log entries
+#[unsafe(no_mangle)]
+pub extern "C" fn seed_log_clear() {
+    use rf_engine::containers::random::SEED_LOG;
+
+    let mut log = SEED_LOG.lock();
+    log.clear();
+}
+
+/// Get count of seed log entries
+#[unsafe(no_mangle)]
+pub extern "C" fn seed_log_get_count() -> usize {
+    use rf_engine::containers::random::SEED_LOG;
+
+    let log = SEED_LOG.lock();
+    log.len()
+}
+
+/// Get seed log as JSON array
+/// Returns pointer to null-terminated JSON string, or null on empty
+/// Format: [{"tick": u64, "containerId": u32, "seedBefore": "hex", "seedAfter": "hex",
+///           "selectedId": u32, "pitchOffset": f64, "volumeOffset": f64}, ...]
+#[unsafe(no_mangle)]
+pub extern "C" fn seed_log_get_json() -> *const c_char {
+    use rf_engine::containers::random::SEED_LOG;
+
+    static SEED_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+    let log = SEED_LOG.lock();
+    let entries: Vec<serde_json::Value> = log.entries()
+        .iter()
+        .map(|e| {
+            serde_json::json!({
+                "tick": e.tick,
+                "containerId": e.container_id,
+                "seedBefore": format!("{:016x}", e.seed_before),
+                "seedAfter": format!("{:016x}", e.seed_after),
+                "selectedId": e.selected_id,
+                "pitchOffset": e.pitch_offset,
+                "volumeOffset": e.volume_offset,
+            })
+        })
+        .collect();
+
+    if entries.is_empty() {
+        return std::ptr::null();
+    }
+
+    let json_str = serde_json::to_string(&entries).unwrap_or_else(|_| "[]".into());
+    let mut buf = SEED_BUF.lock();
+    buf.clear();
+    buf.extend_from_slice(json_str.as_bytes());
+    buf.push(0);
+    buf.as_ptr() as *const c_char
+}
+
+/// Get the last N seed log entries as JSON
+/// Returns pointer to null-terminated JSON string, or null on empty
+#[unsafe(no_mangle)]
+pub extern "C" fn seed_log_get_last_n_json(n: usize) -> *const c_char {
+    use rf_engine::containers::random::SEED_LOG;
+
+    static LAST_N_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+    let log = SEED_LOG.lock();
+    let all_entries = log.entries();
+    let start = if all_entries.len() > n { all_entries.len() - n } else { 0 };
+
+    let entries: Vec<serde_json::Value> = all_entries[start..]
+        .iter()
+        .map(|e| {
+            serde_json::json!({
+                "tick": e.tick,
+                "containerId": e.container_id,
+                "seedBefore": format!("{:016x}", e.seed_before),
+                "seedAfter": format!("{:016x}", e.seed_after),
+                "selectedId": e.selected_id,
+                "pitchOffset": e.pitch_offset,
+                "volumeOffset": e.volume_offset,
+            })
+        })
+        .collect();
+
+    if entries.is_empty() {
+        return std::ptr::null();
+    }
+
+    let json_str = serde_json::to_string(&entries).unwrap_or_else(|_| "[]".into());
+    let mut buf = LAST_N_BUF.lock();
+    buf.clear();
+    buf.extend_from_slice(json_str.as_bytes());
+    buf.push(0);
+    buf.as_ptr() as *const c_char
+}
+
+/// Replay a seed into a random container (for determinism testing)
+/// This allows setting exact RNG state for reproducibility
+/// seed: The seed value to set (hex string was converted to u64)
+#[unsafe(no_mangle)]
+pub extern "C" fn seed_log_replay_seed(container_id: u32, seed: u64) -> i32 {
+    if STORAGE.set_random_rng_state(container_id, seed) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Get current RNG state from a random container
+/// Returns the seed value, or 0 if container not found
+#[unsafe(no_mangle)]
+pub extern "C" fn seed_log_get_rng_state(container_id: u32) -> u64 {
+    STORAGE.get_random_rng_state(container_id).unwrap_or(0)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════════
 

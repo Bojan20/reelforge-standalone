@@ -5,14 +5,20 @@
 // - Per-stage breakdown (Input, Mixing, Effects, Metering, Output)
 // - Peak/average statistics
 // - Overload warnings
+//
+// Connected to Rust FFI (profiler_ffi.rs) for real engine data
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/advanced_middleware_models.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../src/rust/native_ffi.dart';
 
 class DspProfilerPanel extends StatefulWidget {
-  const DspProfilerPanel({super.key});
+  /// Use Rust FFI for real data (false = simulated data for testing)
+  final bool useRustFFI;
+
+  const DspProfilerPanel({super.key, this.useRustFFI = true});
 
   @override
   State<DspProfilerPanel> createState() => _DspProfilerPanelState();
@@ -23,24 +29,63 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
   Timer? _updateTimer;
   bool _isRecording = true;
   bool _showStageBreakdown = true;
+  bool _rustFFIAvailable = false;
 
   @override
   void initState() {
     super.initState();
+    _checkRustFFI();
     _startUpdateTimer();
+  }
+
+  void _checkRustFFI() {
+    if (widget.useRustFFI) {
+      try {
+        // Check if FFI is available by trying to get current load
+        NativeFFI.instance.profilerGetCurrentLoad();
+        _rustFFIAvailable = true;
+        debugPrint('[DspProfiler] Rust FFI connected');
+      } catch (e) {
+        debugPrint('[DspProfiler] Rust FFI not available, using simulation: $e');
+        _rustFFIAvailable = false;
+      }
+    }
   }
 
   void _startUpdateTimer() {
     _updateTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (mounted && _isRecording) {
-        // Simulate DSP data (in production, this comes from FFI)
-        _profiler.simulateSample(
-          baseLoad: 12.0 + (_profiler.getStats().totalSamples % 100) * 0.05,
-          variance: 8.0,
-        );
+        if (_rustFFIAvailable && widget.useRustFFI) {
+          _updateFromRustFFI();
+        } else {
+          // Fallback to simulation
+          _profiler.simulateSample(
+            baseLoad: 12.0 + (_profiler.getStats().totalSamples % 100) * 0.05,
+            variance: 8.0,
+          );
+        }
         setState(() {});
       }
     });
+  }
+
+  void _updateFromRustFFI() {
+    try {
+      // Get current load from Rust FFI
+      final currentLoad = NativeFFI.instance.profilerGetCurrentLoad();
+
+      // Get stage breakdown from Rust FFI (returns Map<String, double> directly)
+      final stageBreakdown = NativeFFI.instance.profilerGetStageBreakdown();
+
+      // Update internal profiler stats
+      _profiler.recordFromFFI(
+        loadPercent: currentLoad,
+        stageBreakdown: stageBreakdown,
+      );
+    } catch (e) {
+      // Silent fail - FFI might not be ready yet
+      debugPrint('[DspProfiler] FFI update error: $e');
+    }
   }
 
   @override

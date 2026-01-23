@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../providers/dsp_chain_provider.dart';
 
 /// Professional De-Esser Panel Widget
 class DeEsserPanel extends StatefulWidget {
@@ -34,6 +35,10 @@ class DeEsserPanel extends StatefulWidget {
 }
 
 class _DeEsserPanelState extends State<DeEsserPanel> {
+  // FFI and DspChainProvider
+  final NativeFFI _ffi = NativeFFI.instance;
+  int _deesserSlot = -1;
+
   // Parameters
   double _frequency = 6000.0;
   double _bandwidth = 1.0;
@@ -59,17 +64,28 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
   @override
   void dispose() {
     _meterTimer?.cancel();
-    NativeFFI.instance.deesserRemove(widget.trackId);
+    // Note: Don't remove processor here - DspChainProvider manages lifecycle
     super.dispose();
   }
 
   void _initialize() {
-    final success = NativeFFI.instance.deesserCreate(
-      widget.trackId,
-      sampleRate: widget.sampleRate,
-    );
+    // Use DspChainProvider to add de-esser to insert chain
+    final dsp = DspChainProvider.instance;
+    var chain = dsp.getChain(widget.trackId);
 
-    if (success) {
+    // Find existing or add new de-esser
+    int findOrAddProcessor(DspNodeType type) {
+      for (int i = 0; i < chain.nodes.length; i++) {
+        if (chain.nodes[i].type == type) return i;
+      }
+      dsp.addNode(widget.trackId, type);
+      chain = dsp.getChain(widget.trackId);
+      return chain.nodes.length - 1;
+    }
+
+    _deesserSlot = findOrAddProcessor(DspNodeType.deEsser);
+
+    if (_deesserSlot >= 0) {
       setState(() => _initialized = true);
       _applyAllSettings();
       _startMetering();
@@ -77,27 +93,32 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
   }
 
   void _startMetering() {
+    // Note: GR metering not available via InsertProcessor trait
+    // InsertProcessor only exposes get_param/set_param, not metering
+    // For now, show 0 GR - real metering would require extending the trait
     _meterTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (!_initialized) return;
-      final gr = NativeFFI.instance.deesserGetGainReduction(widget.trackId);
-      if (mounted && gr != _gainReduction) {
-        setState(() => _gainReduction = gr);
-      }
+      // GR would require additional FFI - currently not wired
+      // final gr = _ffi.insertGetDeEsserGainReduction(widget.trackId, _deesserSlot);
     });
   }
 
   void _applyAllSettings() {
-    if (!_initialized) return;
+    if (!_initialized || _deesserSlot < 0) return;
 
-    NativeFFI.instance.deesserSetFrequency(widget.trackId, _frequency);
-    NativeFFI.instance.deesserSetBandwidth(widget.trackId, _bandwidth);
-    NativeFFI.instance.deesserSetThreshold(widget.trackId, _threshold);
-    NativeFFI.instance.deesserSetRange(widget.trackId, _range);
-    NativeFFI.instance.deesserSetMode(widget.trackId, _mode);
-    NativeFFI.instance.deesserSetAttack(widget.trackId, _attack);
-    NativeFFI.instance.deesserSetRelease(widget.trackId, _release);
-    NativeFFI.instance.deesserSetListen(widget.trackId, _listen);
-    NativeFFI.instance.deesserSetBypass(widget.trackId, _bypass);
+    // DeEsserWrapper param indices:
+    // 0=Frequency, 1=Bandwidth, 2=Threshold, 3=Range,
+    // 4=Mode (0.0=Wideband, 1.0=SplitBand), 5=Attack, 6=Release,
+    // 7=Listen (0.0=off, 1.0=on), 8=Bypass (0.0=off, 1.0=on)
+    _ffi.insertSetParam(widget.trackId, _deesserSlot, 0, _frequency);
+    _ffi.insertSetParam(widget.trackId, _deesserSlot, 1, _bandwidth);
+    _ffi.insertSetParam(widget.trackId, _deesserSlot, 2, _threshold);
+    _ffi.insertSetParam(widget.trackId, _deesserSlot, 3, _range);
+    _ffi.insertSetParam(widget.trackId, _deesserSlot, 4, _mode == DeEsserMode.wideband ? 0.0 : 1.0);
+    _ffi.insertSetParam(widget.trackId, _deesserSlot, 5, _attack);
+    _ffi.insertSetParam(widget.trackId, _deesserSlot, 6, _release);
+    _ffi.insertSetParam(widget.trackId, _deesserSlot, 7, _listen ? 1.0 : 0.0);
+    _ffi.insertSetParam(widget.trackId, _deesserSlot, 8, _bypass ? 1.0 : 0.0);
 
     widget.onSettingsChanged?.call();
   }
@@ -150,7 +171,9 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
         GestureDetector(
           onTap: () {
             setState(() => _listen = !_listen);
-            NativeFFI.instance.deesserSetListen(widget.trackId, _listen);
+            if (_deesserSlot >= 0) {
+              _ffi.insertSetParam(widget.trackId, _deesserSlot, 7, _listen ? 1.0 : 0.0);
+            }
             widget.onSettingsChanged?.call();
           },
           child: Container(
@@ -180,7 +203,9 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
         GestureDetector(
           onTap: () {
             setState(() => _bypass = !_bypass);
-            NativeFFI.instance.deesserSetBypass(widget.trackId, _bypass);
+            if (_deesserSlot >= 0) {
+              _ffi.insertSetParam(widget.trackId, _deesserSlot, 8, _bypass ? 1.0 : 0.0);
+            }
             widget.onSettingsChanged?.call();
           },
           child: Container(
@@ -254,7 +279,9 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
       child: GestureDetector(
         onTap: () {
           setState(() => _mode = mode);
-          NativeFFI.instance.deesserSetMode(widget.trackId, _mode);
+          if (_deesserSlot >= 0) {
+            _ffi.insertSetParam(widget.trackId, _deesserSlot, 4, mode == DeEsserMode.wideband ? 0.0 : 1.0);
+          }
           widget.onSettingsChanged?.call();
         },
         child: Container(
@@ -355,7 +382,9 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
             value: (_frequency - 2000) / 14000,
             onChanged: (v) {
               setState(() => _frequency = v * 14000 + 2000);
-              NativeFFI.instance.deesserSetFrequency(widget.trackId, _frequency);
+              if (_deesserSlot >= 0) {
+                _ffi.insertSetParam(widget.trackId, _deesserSlot, 0, _frequency);
+              }
               widget.onSettingsChanged?.call();
             },
           ),
@@ -370,7 +399,9 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
             value: (_bandwidth - 0.25) / 3.75,
             onChanged: (v) {
               setState(() => _bandwidth = v * 3.75 + 0.25);
-              NativeFFI.instance.deesserSetBandwidth(widget.trackId, _bandwidth);
+              if (_deesserSlot >= 0) {
+                _ffi.insertSetParam(widget.trackId, _deesserSlot, 1, _bandwidth);
+              }
               widget.onSettingsChanged?.call();
             },
           ),
@@ -399,7 +430,9 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
             value: (_threshold + 60) / 60,
             onChanged: (v) {
               setState(() => _threshold = v * 60 - 60);
-              NativeFFI.instance.deesserSetThreshold(widget.trackId, _threshold);
+              if (_deesserSlot >= 0) {
+                _ffi.insertSetParam(widget.trackId, _deesserSlot, 2, _threshold);
+              }
               widget.onSettingsChanged?.call();
             },
           ),
@@ -414,7 +447,9 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
             value: _range / 24,
             onChanged: (v) {
               setState(() => _range = v * 24);
-              NativeFFI.instance.deesserSetRange(widget.trackId, _range);
+              if (_deesserSlot >= 0) {
+                _ffi.insertSetParam(widget.trackId, _deesserSlot, 3, _range);
+              }
               widget.onSettingsChanged?.call();
             },
           ),
@@ -429,7 +464,9 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
             value: (_attack - 0.1) / 49.9,
             onChanged: (v) {
               setState(() => _attack = v * 49.9 + 0.1);
-              NativeFFI.instance.deesserSetAttack(widget.trackId, _attack);
+              if (_deesserSlot >= 0) {
+                _ffi.insertSetParam(widget.trackId, _deesserSlot, 5, _attack);
+              }
               widget.onSettingsChanged?.call();
             },
           ),
@@ -444,7 +481,9 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
             value: (_release - 10) / 490,
             onChanged: (v) {
               setState(() => _release = v * 490 + 10);
-              NativeFFI.instance.deesserSetRelease(widget.trackId, _release);
+              if (_deesserSlot >= 0) {
+                _ffi.insertSetParam(widget.trackId, _deesserSlot, 6, _release);
+              }
               widget.onSettingsChanged?.call();
             },
           ),

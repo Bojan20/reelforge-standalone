@@ -1964,6 +1964,14 @@ class RandomContainer {
   final double globalVolumeMax;
   final bool enabled;
 
+  /// Seed for deterministic random selection (M4 Determinism Mode)
+  /// When useDeterministicMode is true, this seed ensures reproducible results
+  final int? seed;
+
+  /// Enable deterministic mode for reproducible random selection (M4)
+  /// When true, uses seed for all random operations
+  final bool useDeterministicMode;
+
   const RandomContainer({
     required this.id,
     required this.name,
@@ -1975,6 +1983,8 @@ class RandomContainer {
     this.globalVolumeMin = 0.0,
     this.globalVolumeMax = 0.0,
     this.enabled = true,
+    this.seed,
+    this.useDeterministicMode = false,
   });
 
   RandomContainer copyWith({
@@ -1988,6 +1998,8 @@ class RandomContainer {
     double? globalVolumeMin,
     double? globalVolumeMax,
     bool? enabled,
+    int? seed,
+    bool? useDeterministicMode,
   }) {
     return RandomContainer(
       id: id ?? this.id,
@@ -2000,6 +2012,8 @@ class RandomContainer {
       globalVolumeMin: globalVolumeMin ?? this.globalVolumeMin,
       globalVolumeMax: globalVolumeMax ?? this.globalVolumeMax,
       enabled: enabled ?? this.enabled,
+      seed: seed ?? this.seed,
+      useDeterministicMode: useDeterministicMode ?? this.useDeterministicMode,
     );
   }
 
@@ -2014,6 +2028,8 @@ class RandomContainer {
     'globalVolumeMin': globalVolumeMin,
     'globalVolumeMax': globalVolumeMax,
     'enabled': enabled,
+    'seed': seed,
+    'useDeterministicMode': useDeterministicMode,
   };
 
   factory RandomContainer.fromJson(Map<String, dynamic> json) {
@@ -2030,8 +2046,13 @@ class RandomContainer {
       globalVolumeMin: (json['globalVolumeMin'] as num?)?.toDouble() ?? 0.0,
       globalVolumeMax: (json['globalVolumeMax'] as num?)?.toDouble() ?? 0.0,
       enabled: json['enabled'] as bool? ?? true,
+      seed: json['seed'] as int?,
+      useDeterministicMode: json['useDeterministicMode'] as bool? ?? false,
     );
   }
+
+  /// Generate a new random seed
+  static int generateSeed() => DateTime.now().microsecondsSinceEpoch;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

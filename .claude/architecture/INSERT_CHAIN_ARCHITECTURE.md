@@ -428,6 +428,65 @@ fn stress_test_param_flood() {
 
 ---
 
+## Processor Factory Functions (2026-01-23 FIX)
+
+### Problem
+
+The FFI `insert_load()` function in `api.rs` was using `create_processor()` which only supports EQ processors:
+
+```rust
+// BROKEN - only matches EQ processors:
+pub fn create_processor(name: &str, sample_rate: f64) -> Option<Box<dyn InsertProcessor>> {
+    match name.to_lowercase().as_str() {
+        "pro-eq" | "proeq" | "eq" => Some(Box::new(ProEqWrapper::new(sample_rate))),
+        "ultra-eq" => Some(Box::new(UltraEqWrapper::new(sample_rate))),
+        "pultec" => Some(Box::new(PultecWrapper::new(sample_rate))),
+        // ... more EQ types
+        _ => None  // Returns None for "compressor", "limiter", "gate", etc!
+    }
+}
+```
+
+### Solution
+
+Changed `api.rs:insert_load()` to use `create_processor_extended()` which supports ALL processor types:
+
+```rust
+// FIXED - supports all processors:
+pub fn create_processor_extended(name: &str, sample_rate: f64) -> Option<Box<dyn InsertProcessor>> {
+    // First try basic factory (EQ processors)
+    if let Some(proc) = create_processor(name, sample_rate) {
+        return Some(proc);
+    }
+
+    // Extended processors
+    match name.to_lowercase().as_str() {
+        "compressor" | "comp" => Some(Box::new(CompressorWrapper::new(sample_rate))),
+        "limiter" | "true-peak" | "truepeak" => Some(Box::new(TruePeakLimiterWrapper::new(sample_rate))),
+        "gate" | "noise-gate" => Some(Box::new(GateWrapper::new(sample_rate))),
+        "expander" => Some(Box::new(ExpanderWrapper::new(sample_rate))),
+        "deesser" | "de-esser" => Some(Box::new(DeEsserWrapper::new(sample_rate))),
+        "reverb" | "algorithmic-reverb" => Some(Box::new(ReverbWrapper::new(sample_rate))),
+        _ => None
+    }
+}
+```
+
+### Supported Processors
+
+| Category | Names | Wrapper |
+|----------|-------|---------|
+| EQ | `pro-eq`, `ultra-eq`, `pultec`, `api550`, `neve1073`, `room-correction`, `linear-phase` | ProEqWrapper, etc. |
+| Dynamics | `compressor`, `limiter`, `gate`, `expander`, `deesser` | CompressorWrapper, TruePeakLimiterWrapper, GateWrapper, ExpanderWrapper, DeEsserWrapper |
+| Effects | `reverb`, `algorithmic-reverb` | ReverbWrapper |
+
+### Files
+
+- `crates/rf-engine/src/dsp_wrappers.rs` — Factory functions
+- `crates/rf-bridge/src/api.rs` — FFI entry point (fixed at line 4116)
+
+---
+
 ## References
 
 - [rtrb - Real-Time Ring Buffer](https://github.com/mgeier/rtrb)

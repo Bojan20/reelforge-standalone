@@ -26,15 +26,20 @@
 //! - Microsecond-accurate sequence timing
 
 mod blend;
-mod group;
-mod random;
+pub mod group;
+pub mod random;
 mod sequence;
 mod storage;
 
 pub use blend::{BlendChild, BlendContainer, BlendCurve, BlendResult};
-pub use group::{ContainerGroup, GroupChild, GroupChildRef, GroupEvaluationMode, GroupResult};
+pub use group::{
+    ContainerGroup, GroupChild, GroupChildRef, GroupEvaluationMode, GroupResult,
+    ContainerLookup, ValidationError, ValidationResult, MAX_NESTING_DEPTH,
+    validate_group_addition,
+};
 pub use random::{
     RandomChild, RandomContainer, RandomMode, RandomResult, RandomVariation,
+    SeedLog, SeedLogEntry, SEED_LOG,
 };
 pub use sequence::{
     SequenceContainer, SequenceEndBehavior, SequenceResult, SequenceState, SequenceStep,

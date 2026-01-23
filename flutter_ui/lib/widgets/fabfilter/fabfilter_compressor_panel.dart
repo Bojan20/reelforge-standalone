@@ -14,6 +14,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../providers/dsp_chain_provider.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
@@ -88,6 +89,78 @@ class LevelSample {
   });
 }
 
+/// Snapshot of compressor parameters for A/B comparison
+class CompressorSnapshot implements DspParameterSnapshot {
+  final double threshold;
+  final double ratio;
+  final double knee;
+  final double attack;
+  final double release;
+  final double range;
+  final double mix;
+  final double output;
+  final CompressionStyle style;
+  final CharacterMode character;
+  final double drive;
+  final bool sidechainEnabled;
+  final double sidechainHpf;
+  final double sidechainLpf;
+
+  const CompressorSnapshot({
+    required this.threshold,
+    required this.ratio,
+    required this.knee,
+    required this.attack,
+    required this.release,
+    required this.range,
+    required this.mix,
+    required this.output,
+    required this.style,
+    required this.character,
+    required this.drive,
+    required this.sidechainEnabled,
+    required this.sidechainHpf,
+    required this.sidechainLpf,
+  });
+
+  @override
+  CompressorSnapshot copy() => CompressorSnapshot(
+    threshold: threshold,
+    ratio: ratio,
+    knee: knee,
+    attack: attack,
+    release: release,
+    range: range,
+    mix: mix,
+    output: output,
+    style: style,
+    character: character,
+    drive: drive,
+    sidechainEnabled: sidechainEnabled,
+    sidechainHpf: sidechainHpf,
+    sidechainLpf: sidechainLpf,
+  );
+
+  @override
+  bool equals(DspParameterSnapshot other) {
+    if (other is! CompressorSnapshot) return false;
+    return threshold == other.threshold &&
+        ratio == other.ratio &&
+        knee == other.knee &&
+        attack == other.attack &&
+        release == other.release &&
+        range == other.range &&
+        mix == other.mix &&
+        output == other.output &&
+        style == other.style &&
+        character == other.character &&
+        drive == other.drive &&
+        sidechainEnabled == other.sidechainEnabled &&
+        sidechainHpf == other.sidechainHpf &&
+        sidechainLpf == other.sidechainLpf;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN PANEL WIDGET
 // ═══════════════════════════════════════════════════════════════════════════
@@ -100,6 +173,7 @@ class FabFilterCompressorPanel extends FabFilterPanelBase {
           title: 'Compressor',
           icon: Icons.compress,
           accentColor: FabFilterColors.orange,
+          nodeType: DspNodeType.compressor,
         );
 
   @override
@@ -116,7 +190,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   // Main parameters
   double _threshold = -18.0; // dB
   double _ratio = 4.0; // :1
-  double _knee = 12.0; // dB
+  double _knee = 12.0; // dB (NOTE: Not supported in insert chain, UI-only)
   double _attack = 10.0; // ms
   double _release = 100.0; // ms
   double _range = -40.0; // dB
@@ -151,13 +225,21 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   // Auto threshold
   bool _autoThreshold = false;
 
+  // A/B comparison snapshots
+  CompressorSnapshot? _snapshotA;
+  CompressorSnapshot? _snapshotB;
+
   // Host sync
   bool _hostSync = false;
 
-  // FFI
+  // FFI & DspChainProvider integration
   final _ffi = NativeFFI.instance;
   bool _initialized = false;
   Timer? _meterTimer;
+
+  // DspChainProvider tracking (FIX: Use insert chain, not ghost DYNAMICS_COMPRESSORS)
+  String? _nodeId;
+  int _slotIndex = -1;
 
   @override
   void initState() {
@@ -187,44 +269,89 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     _meterController.repeat();
   }
 
+  /// Initialize processor via DspChainProvider (FIX: Uses insert chain, not ghost HashMap)
+  ///
+  /// This ensures the compressor is in the actual audio signal path.
+  /// Previous implementation used compressorCreate() which created a ghost
+  /// instance that was NEVER processed by the audio thread.
   void _initializeProcessor() {
-    final success = _ffi.compressorCreate(widget.trackId, sampleRate: widget.sampleRate);
-    if (success) {
+    final dsp = DspChainProvider.instance;
+    final chain = dsp.getChain(widget.trackId);
+
+    // Find existing compressor node or add one
+    DspNode? compNode;
+    for (final node in chain.nodes) {
+      if (node.type == DspNodeType.compressor) {
+        compNode = node;
+        break;
+      }
+    }
+
+    if (compNode == null) {
+      // Add compressor via DspChainProvider (this calls insertLoadProcessor → insert chain)
+      dsp.addNode(widget.trackId, DspNodeType.compressor);
+      final updatedChain = dsp.getChain(widget.trackId);
+      if (updatedChain.nodes.isNotEmpty) {
+        compNode = updatedChain.nodes.last;
+      }
+    }
+
+    if (compNode != null) {
+      _nodeId = compNode.id;
+      _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       _initialized = true;
+      debugPrint('[FabFilterCompressor] ✅ Initialized via DspChainProvider (track=${widget.trackId}, slot=$_slotIndex)');
       _applyAllParameters();
+    } else {
+      debugPrint('[FabFilterCompressor] ❌ Failed to initialize compressor for track ${widget.trackId}');
     }
   }
 
+  /// Apply all parameters to the insert chain compressor (FIX: Uses insertSetParam)
+  ///
+  /// Parameter indices for CompressorWrapper in insert chain:
+  /// 0: Threshold (dB)
+  /// 1: Ratio (:1)
+  /// 2: Attack (ms)
+  /// 3: Release (ms)
+  /// 4: Makeup/Output (dB)
+  /// 5: Mix (0-1)
+  /// 6: Link (0-1)
+  /// 7: Type (0=VCA, 1=Opto, 2=FET)
   void _applyAllParameters() {
-    if (!_initialized) return;
-    _ffi.compressorSetThreshold(widget.trackId, _threshold);
-    _ffi.compressorSetRatio(widget.trackId, _ratio);
-    _ffi.compressorSetKnee(widget.trackId, _knee);
-    _ffi.compressorSetAttack(widget.trackId, _attack);
-    _ffi.compressorSetRelease(widget.trackId, _release);
-    _ffi.compressorSetMakeup(widget.trackId, _output);
-    _ffi.compressorSetMix(widget.trackId, _mix / 100.0);
-    // Map style to CompressorType
-    _ffi.compressorSetType(widget.trackId, _styleToCompressorType(_style));
+    if (!_initialized || _slotIndex < 0) return;
+
+    // Use insertSetParam to set parameters on the REAL insert chain processor
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);     // Threshold
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _ratio);         // Ratio
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _attack);        // Attack
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _release);       // Release
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _output);        // Makeup/Output
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _mix / 100.0);   // Mix (0-1)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _styleToTypeIndex(_style).toDouble()); // Type
+
+    // NOTE: Knee parameter is not supported in the insert chain compressor
+    // It's kept for UI display only
   }
 
-  CompressorType _styleToCompressorType(CompressionStyle style) {
-    // Map FabFilter styles to engine CompressorType (vca, opto, fet)
+  /// Map FabFilter style to insert chain compressor type index
+  /// 0 = VCA, 1 = Opto, 2 = FET
+  int _styleToTypeIndex(CompressionStyle style) {
     return switch (style) {
-      CompressionStyle.clean => CompressorType.vca,      // Transparent
-      CompressionStyle.classic => CompressorType.vca,    // Classic VCA
-      CompressionStyle.opto => CompressorType.opto,      // Optical
-      CompressionStyle.vocal => CompressorType.opto,     // Smooth for vocals
-      CompressionStyle.mastering => CompressorType.vca,  // Clean mastering
-      CompressionStyle.bus => CompressorType.vca,        // Glue
-      CompressionStyle.punch => CompressorType.fet,      // Punchy FET
-      CompressionStyle.pumping => CompressorType.fet,    // Aggressive
-      CompressionStyle.versatile => CompressorType.vca,  // General
-      CompressionStyle.smooth => CompressorType.opto,    // Smooth optical
-      CompressionStyle.upward => CompressorType.vca,     // Upward
-      CompressionStyle.ttm => CompressorType.fet,        // Aggressive multiband
-      CompressionStyle.variMu => CompressorType.opto,    // Tube-like (use opto)
-      CompressionStyle.elOp => CompressorType.opto,      // Optical
+      CompressionStyle.clean => 0,       // VCA - Transparent
+      CompressionStyle.classic => 0,     // VCA - Classic VCA
+      CompressionStyle.opto => 1,        // Opto - Optical
+      CompressionStyle.vocal => 1,       // Opto - Smooth for vocals
+      CompressionStyle.mastering => 0,   // VCA - Clean mastering
+      CompressionStyle.bus => 0,         // VCA - Glue
+      CompressionStyle.punch => 2,       // FET - Punchy
+      CompressionStyle.pumping => 2,     // FET - Aggressive
+      CompressionStyle.versatile => 0,   // VCA - General
+      CompressionStyle.smooth => 1,      // Opto - Smooth optical
+      CompressionStyle.upward => 0,      // VCA - Upward
+      CompressionStyle.ttm => 2,         // FET - Aggressive multiband
+      CompressionStyle.variMu => 1,      // Opto - Tube-like
+      CompressionStyle.elOp => 1,        // Opto - Optical
     };
   }
 
@@ -232,24 +359,111 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   void dispose() {
     _meterTimer?.cancel();
     _meterController.dispose();
-    if (_initialized) {
-      _ffi.compressorRemove(widget.trackId);
-    }
+    // NOTE: Don't remove the compressor from DspChainProvider on dispose
+    // The node lifecycle is managed by DspChainProvider, not by this panel.
+    // The panel is just a UI for an existing insert chain processor.
     super.dispose();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // A/B COMPARISON — State capture and restoration
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Create a snapshot of current parameters
+  CompressorSnapshot _createSnapshot() {
+    return CompressorSnapshot(
+      threshold: _threshold,
+      ratio: _ratio,
+      knee: _knee,
+      attack: _attack,
+      release: _release,
+      range: _range,
+      mix: _mix,
+      output: _output,
+      style: _style,
+      character: _character,
+      drive: _drive,
+      sidechainEnabled: _sidechainEnabled,
+      sidechainHpf: _sidechainHpf,
+      sidechainLpf: _sidechainLpf,
+    );
+  }
+
+  /// Restore parameters from a snapshot
+  void _restoreSnapshot(CompressorSnapshot snapshot) {
+    setState(() {
+      _threshold = snapshot.threshold;
+      _ratio = snapshot.ratio;
+      _knee = snapshot.knee;
+      _attack = snapshot.attack;
+      _release = snapshot.release;
+      _range = snapshot.range;
+      _mix = snapshot.mix;
+      _output = snapshot.output;
+      _style = snapshot.style;
+      _character = snapshot.character;
+      _drive = snapshot.drive;
+      _sidechainEnabled = snapshot.sidechainEnabled;
+      _sidechainHpf = snapshot.sidechainHpf;
+      _sidechainLpf = snapshot.sidechainLpf;
+    });
+    _applyAllParameters();
+  }
+
+  @override
+  void storeStateA() {
+    _snapshotA = _createSnapshot();
+    super.storeStateA();
+  }
+
+  @override
+  void storeStateB() {
+    _snapshotB = _createSnapshot();
+    super.storeStateB();
+  }
+
+  @override
+  void restoreStateA() {
+    if (_snapshotA != null) {
+      _restoreSnapshot(_snapshotA!);
+    }
+  }
+
+  @override
+  void restoreStateB() {
+    if (_snapshotB != null) {
+      _restoreSnapshot(_snapshotB!);
+    }
+  }
+
+  @override
+  void copyAToB() {
+    _snapshotB = _snapshotA?.copy();
+    super.copyAToB();
+  }
+
+  @override
+  void copyBToA() {
+    _snapshotA = _snapshotB?.copy();
+    super.copyBToA();
+  }
+
+  @override
+  void onBypassChanged(bool bypassed) {
+    // Bypass is handled visually - actual bypass would be at routing level
+    // TODO: Connect to DSP chain bypass when insert chain is implemented
   }
 
   void _updateMeters() {
     setState(() {
-      // Get real gain reduction from FFI when processor is in audio path
-      // NOTE: COMPRESSORS HashMap is NOT connected to audio callback yet
-      // Processor shows real data only when connected to InsertChain
-      if (_initialized) {
-        _currentGainReduction = _ffi.compressorGetGainReduction(widget.trackId);
-      }
+      // NOTE: Gain reduction metering from insert chain requires additional FFI
+      // The InsertProcessor trait doesn't expose GR, only set_param/get_param.
+      // For now, GR display will show 0 until we add dedicated GR metering FFI.
+      // TODO: Add insert_get_compressor_gr() FFI function for real-time GR metering
+      _currentGainReduction = 0.0;
 
       // NO FAKE DATA: Levels must come from real metering
-      // Show silence until connected to PLAYBACK_ENGINE InsertChain
-      // TODO: Connect to real metering when processor is active
+      // TODO: Connect to real metering via track meter FFI
       _currentInputLevel = -60.0;
       _currentOutputLevel = -60.0;
 
@@ -364,7 +578,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           onChanged: (v) {
             if (v != null) {
               setState(() => _style = v);
-              _ffi.compressorSetType(widget.trackId, _styleToCompressorType(v));
+              if (_slotIndex >= 0) {
+                _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _styleToTypeIndex(v).toDouble());
+              }
             }
           },
         ),
@@ -376,34 +592,97 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildMiniButton('A', !isStateB, () { if (isStateB) toggleAB(); }),
+        _buildMiniABButton('A', !isStateB, hasStoredA, () {
+          if (isStateB) toggleAB();
+        }, () {
+          storeStateA();
+          setState(() {});
+        }),
         const SizedBox(width: 2),
-        _buildMiniButton('B', isStateB, () { if (!isStateB) toggleAB(); }),
+        _buildMiniABButton('B', isStateB, hasStoredB, () {
+          if (!isStateB) toggleAB();
+        }, () {
+          storeStateB();
+          setState(() {});
+        }),
+        const SizedBox(width: 4),
+        // Copy button
+        Tooltip(
+          message: isStateB ? 'Copy B → A' : 'Copy A → B',
+          child: GestureDetector(
+            onTap: copyCurrentToOther,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: FabFilterColors.bgMid,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: FabFilterColors.border),
+              ),
+              child: const Icon(
+                Icons.content_copy,
+                size: 10,
+                color: FabFilterColors.textTertiary,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildMiniButton(String label, bool active, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 20,
-        height: 20,
-        decoration: BoxDecoration(
-          color: active ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(
-            color: active ? widget.accentColor : FabFilterColors.border,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: active ? widget.accentColor : FabFilterColors.textTertiary,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+  Widget _buildMiniABButton(
+    String label,
+    bool active,
+    bool hasStored,
+    VoidCallback onTap,
+    VoidCallback onLongPress,
+  ) {
+    return Tooltip(
+      message: hasStored
+          ? '$label: Stored (long-press to overwrite)'
+          : '$label: Empty (long-press to store)',
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            color: active ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(
+              color: active ? widget.accentColor : FabFilterColors.border,
             ),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: active ? widget.accentColor : FabFilterColors.textTertiary,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              // Stored indicator dot
+              if (hasStored)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: active
+                          ? widget.accentColor
+                          : FabFilterColors.textTertiary.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -529,7 +808,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 color: FabFilterColors.orange,
                 onChanged: (v) {
                   setState(() => _threshold = v * 60 - 60);
-                  _ffi.compressorSetThreshold(widget.trackId, _threshold);
+                  if (_slotIndex >= 0) {
+                    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);
+                  }
                 },
               ),
               _buildSmallKnob(
@@ -539,7 +820,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 color: FabFilterColors.orange,
                 onChanged: (v) {
                   setState(() => _ratio = v * 19 + 1);
-                  _ffi.compressorSetRatio(widget.trackId, _ratio);
+                  if (_slotIndex >= 0) {
+                    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _ratio);
+                  }
                 },
               ),
               _buildSmallKnob(
@@ -548,8 +831,8 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 display: '${_knee.toStringAsFixed(0)} dB',
                 color: FabFilterColors.blue,
                 onChanged: (v) {
+                  // NOTE: Knee is UI-only, not supported in insert chain compressor
                   setState(() => _knee = v * 24);
-                  _ffi.compressorSetKnee(widget.trackId, _knee);
                 },
               ),
               _buildSmallKnob(
@@ -559,7 +842,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 color: FabFilterColors.cyan,
                 onChanged: (v) {
                   setState(() => _attack = 0.01 * math.pow(500 / 0.01, v).toDouble());
-                  _ffi.compressorSetAttack(widget.trackId, _attack);
+                  if (_slotIndex >= 0) {
+                    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _attack);
+                  }
                 },
               ),
               _buildSmallKnob(
@@ -569,7 +854,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 color: FabFilterColors.cyan,
                 onChanged: (v) {
                   setState(() => _release = 5 * math.pow(5000 / 5, v).toDouble());
-                  _ffi.compressorSetRelease(widget.trackId, _release);
+                  if (_slotIndex >= 0) {
+                    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _release);
+                  }
                 },
               ),
               _buildSmallKnob(
@@ -579,7 +866,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 color: FabFilterColors.blue,
                 onChanged: (v) {
                   setState(() => _mix = v * 100);
-                  _ffi.compressorSetMix(widget.trackId, _mix / 100.0);
+                  if (_slotIndex >= 0) {
+                    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _mix / 100.0);
+                  }
                 },
               ),
               _buildSmallKnob(
@@ -589,7 +878,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 color: FabFilterColors.green,
                 onChanged: (v) {
                   setState(() => _output = v * 48 - 24);
-                  _ffi.compressorSetMakeup(widget.trackId, _output);
+                  if (_slotIndex >= 0) {
+                    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _output);
+                  }
                 },
               ),
             ],
@@ -633,7 +924,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
             _buildMiniSlider('LP', math.log(_sidechainLpf / 1000) / math.log(20000 / 1000),
               '${(_sidechainLpf / 1000).toStringAsFixed(0)}k', (v) => setState(() => _sidechainLpf = 1000 * math.pow(20000 / 1000, v).toDouble())),
           ],
-          const Spacer(),
+          const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0
           // Character
           if (showExpertMode) ...[
             Text('CHARACTER', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),

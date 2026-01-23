@@ -1,8 +1,160 @@
 # FluxForge Studio — Current Status & Roadmap
 
-**Last Updated:** 2026-01-20
-**Session:** P0 Critical Fixes Complete
-**Commit:** `bb936c0c` — feat: Action Type dropdown + batch audio import optimization
+**Last Updated:** 2026-01-23
+**Session:** Lower Zone Placeholder Cleanup Complete
+**Previous Commit:** `bb936c0c` — feat: Action Type dropdown + batch audio import optimization
+
+---
+
+## 🟢 SESSION 2026-01-23 (Part 3): LOWER ZONE PLACEHOLDER REMOVAL
+
+### Problem
+Dead code (`_buildPlaceholderPanel` metode) postojao u svim Lower Zone widgetima — nikada se nije pozivao ali je zauzimao prostor u kodu.
+
+### Rešenje
+Uklonjene sve `_buildPlaceholderPanel` metode i "Coming soon..." placeholder tekst iz sva tri Lower Zone widgeta.
+
+### Promenjeni Fajlovi
+
+| File | Lines Removed | Change |
+|------|---------------|--------|
+| `slotlab_lower_zone_widget.dart` | 2139-2165 (~26 LOC) | Removed `_buildPlaceholderPanel` |
+| `middleware_lower_zone_widget.dart` | 1460-1486 (~26 LOC) | Removed `_buildPlaceholderPanel` + outdated comment |
+| `daw_lower_zone_widget.dart` | 3985-4011 (~26 LOC) | Removed `_buildPlaceholderPanel` |
+
+### Verifikacija
+
+```bash
+flutter analyze
+# Analyzing flutter_ui...
+# No issues found! (ran in 3.4s)
+```
+
+**Grep za "Coming soon":**
+```bash
+grep -r "Coming soon" flutter_ui/lib/widgets/lower_zone/
+# (no results)
+```
+
+### Status
+
+✅ **COMPLETE** — Svi placeholder-i uklonjeni, svi paneli su sada connected na real data sources.
+
+---
+
+## 🟢 SESSION 2026-01-23 (Part 2): LOWER ZONE ACTION STRIP INTEGRATION
+
+### Problem
+Svi action strip dugmići u Lower Zone widgetima imali su `onTap: null` — bili su vidljivi ali nefunkcionalni.
+
+### Rešenje
+Povezani svi action buttons na odgovarajuće provider metode.
+
+### Promenjeni Fajlovi
+
+| File | Changes |
+|------|---------|
+| `slotlab_lower_zone_widget.dart:2199` | Connected SlotLab actions (Stages, Events, Mix, DSP, Bake) |
+| `middleware_lower_zone_widget.dart:1492` | Connected Middleware actions (Events, Containers, Routing, RTPC, Deliver) |
+| `daw_lower_zone_widget.dart:4088` | Connected DAW actions (Browse, Edit, Mix, Process, Deliver) |
+| `slot_lab_provider.dart` | Added `startStageRecording()`, `stopStageRecording()`, `clearStages()` |
+| `middleware_provider.dart` | Added `duplicateCompositeEvent()`, `previewCompositeEvent()` |
+
+### Nova Provider Metode
+
+**SlotLabProvider:**
+```dart
+bool _isRecordingStages = false;
+bool get isRecordingStages;
+void startStageRecording();
+void stopStageRecording();
+void clearStages();
+```
+
+**MiddlewareProvider:**
+```dart
+void duplicateCompositeEvent(String eventId);
+void previewCompositeEvent(String eventId);
+```
+
+### Status
+
+| Lower Zone | Fully Connected | TODO (debugPrint) |
+|------------|-----------------|-------------------|
+| **SlotLab** | Stages: ✅, Events: ✅ | Mix, DSP, Bake |
+| **Middleware** | Events: ✅, Routing: ✅ | Containers, RTPC, Deliver |
+| **DAW** | — | All (needs provider integration) |
+
+### Dokumentacija Ažurirana
+- `CLAUDE.md` — Added "Lower Zone Action Strip Integration" section
+- `.claude/architecture/LOWER_ZONE_ARCHITECTURE.md` — Added section 5.4, version 2.3
+
+---
+
+## 🔴 SESSION 2026-01-23: DAW AUDIO FLOW CRITICAL GAPS
+
+### Analiza Rezultati
+
+Ultra-detaljna analiza DAW sekcije otkrila je **2 KRITIČNA GAPA** u audio flow-u:
+
+| Provider | FFI Status | Impact |
+|----------|------------|--------|
+| **DspChainProvider** | ❌ NO FFI | DSP nodes u UI ne utiču na audio |
+| **RoutingProvider** | ❌ NO FFI | Routing matrix je samo vizualni prikaz |
+
+#### Problem 1: DspChainProvider (CRITICAL)
+
+**Lokacija:** `flutter_ui/lib/providers/dsp_chain_provider.dart`
+
+```bash
+grep -n "NativeFFI" dsp_chain_provider.dart
+# Rezultat: No matches found
+```
+
+**Impakt:**
+- Korisnik dodaje EQ/Compressor/Limiter u FX Chain panel
+- Node se prikazuje u UI ✅
+- Audio NE prolazi kroz processor ❌
+
+#### Problem 2: RoutingProvider (HIGH)
+
+**Lokacija:** `flutter_ui/lib/providers/routing_provider.dart`
+
+Routing matrix UI ne šalje stvarne promene u engine.
+
+### Nova TODO Lista (18 stavki)
+
+**P0 — Critical (5):**
+1. DspChainProvider FFI sync
+2. RoutingProvider FFI sync
+3. MIDI piano roll u Lower Zone
+4. History panel UI
+5. FX Chain editor UI
+
+**P1 — High (6):**
+1. Sync DspChain ↔ Mixer
+2. FabFilter central state
+3. Send Matrix visual
+4. Timeline Settings panel
+5. Plugin search
+6. Rubber band selection
+
+**P2 — Medium (4):**
+1. Dynamic folder tree
+2. Favorites in Files
+3. Automation Editor
+4. Pan law selection
+
+**P3 — Low (3):**
+1. Keyboard shortcut overlay
+2. Save as Template
+3. Clip gain envelope
+
+### Dokumentacija
+
+- **Analiza:** `.claude/reviews/DAW_SECTION_ULTIMATE_ANALYSIS_2026_01_23.md`
+- **TODO Lista:** `.claude/analysis/DAW_TODO_MASTER_LIST.md` (Section 14)
+- **Routing Doc:** `.claude/architecture/DAW_AUDIO_ROUTING.md` (Section 12-13)
 
 ---
 
@@ -153,36 +305,34 @@ flutter analyze: OK (0 issues)
 
 **Total:** ~6,400 LOC
 
-#### FFI Integration
+#### FFI Integration (Updated 2026-01-23)
 
-All panels connected to Rust backend via `NativeFFI`:
+All panels use `DspChainProvider` + `insertSetParam()` for real audio processing:
 
 ```dart
-// Compressor
-_ffi.compressorCreate(trackId, sampleRate)
-_ffi.compressorSetThreshold(trackId, threshold)
-_ffi.compressorSetRatio(trackId, ratio)
-_ffi.compressorSetType(trackId, CompressorType)
-_ffi.compressorGetGainReduction(trackId)
+// All DSP panels now use DspChainProvider (single source of truth)
+final dsp = DspChainProvider.instance;
+dsp.addNode(trackId, DspNodeType.compressor);  // → insertLoadProcessor FFI
+final slotIndex = dsp.getChain(trackId).nodes.length - 1;
 
-// Limiter
-_ffi.limiterCreate(trackId, sampleRate)
-_ffi.limiterSetCeiling(trackId, ceiling)
-_ffi.limiterSetRelease(trackId, release)
-_ffi.limiterGetGainReduction(trackId)
-_ffi.limiterGetTruePeak(trackId)
-
-// Gate
-_ffi.gateCreate(trackId, sampleRate)
-_ffi.gateSetThreshold(trackId, threshold)
-_ffi.gateSetRange(trackId, range)
-_ffi.gateGetGainReduction(trackId)
-
-// Reverb (via send system)
-_ffi.reverbSetDecay(trackId, decay)
-_ffi.reverbSetPreDelay(trackId, preDelay)
-_ffi.reverbSetDamping(trackId, damping)
+// Parameter updates via insertSetParam (REAL audio path)
+_ffi.insertSetParam(trackId, slotIndex, 0, threshold);  // Threshold
+_ffi.insertSetParam(trackId, slotIndex, 1, ratio);      // Ratio
+_ffi.insertSetParam(trackId, slotIndex, 2, attack);     // Attack
+_ffi.insertSetParam(trackId, slotIndex, 3, release);    // Release
+// ... etc.
 ```
+
+**Wrapper Parameter Indices:**
+| Wrapper | Params |
+|---------|--------|
+| CompressorWrapper | 0=Threshold, 1=Ratio, 2=Attack, 3=Release, 4=Makeup, 5=Mix, 6=Link, 7=Type |
+| LimiterWrapper | 0=Threshold, 1=Ceiling, 2=Release, 3=Oversampling |
+| GateWrapper | 0=Threshold, 1=Range, 2=Attack, 3=Hold, 4=Release |
+| ReverbWrapper | 0=RoomSize, 1=Damping, 2=Width, 3=DryWet, 4=Predelay, 5=Type |
+| DeEsserWrapper | 0=Frequency, 1=Bandwidth, 2=Threshold, 3=Range, 4=Mode, 5=Attack, 6=Release, 7=Listen, 8=Bypass |
+
+**Note:** Ghost FFI (`compressorCreate`, `limiterCreate`, etc.) was DELETED on 2026-01-23.
 
 #### Lower Zone Fixes
 

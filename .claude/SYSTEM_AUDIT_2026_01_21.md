@@ -394,10 +394,16 @@ features/
 ### Sprint 3-4 — ✅ COMPLETED
 - [x] P0.2: Phase 1 — StateGroups + SwitchGroups extracted ✅
 - [x] P0.2: Phase 2 — RTPC + Ducking extracted ✅
-- [ ] P1.1: Implement CompositeEventRepository
+- [x] P1.1: Implement CompositeEventRepository ✅
 
-### Sprint 5+
-- [ ] P0.2: Phase 3 — Containers + Music extraction
+### Sprint 5-7 — ✅ COMPLETED (2026-01-23)
+- [x] P0.2: Phase 3 — Containers (Blend/Random/Sequence) ✅
+- [x] P0.2: Phase 4 — Music + Events ✅
+- [x] P0.2: Phase 5 — Bus Routing (BusHierarchy/AuxSend) ✅
+- [x] P0.2: Phase 6 — VoicePool + AttenuationCurves ✅
+- [x] P0.2: Phase 7 — MemoryManager + EventProfiler ✅
+
+### Future
 - [ ] P1.4: Unit test suite za core systems
 - [ ] A3: Full state management refactor
 
@@ -437,15 +443,21 @@ features/
 
 **MiddlewareProvider LOC reduction:** ~5200 → ~4250 (saved ~950 LOC)
 
-### Phase 3 — PENDING
+### Phase 3-7 — ✅ ALL COMPLETED (2026-01-23)
 
-| Subsystem | Estimated LOC | Priority |
-|-----------|---------------|----------|
-| Blend Containers | ~350 | P1 |
-| Random Containers | ~300 | P1 |
-| Sequence Containers | ~400 | P1 |
-| Music System | ~500 | P1 |
-| Attenuation Curves | ~250 | P2 |
+| Phase | Subsystems | LOC | Status |
+|-------|-----------|-----|--------|
+| Phase 3 | Blend, Random, Sequence Containers | ~810 | ✅ Done |
+| Phase 4 | Music, Events, CompositeEvents | ~2010 | ✅ Done |
+| Phase 5 | BusHierarchy, AuxSend | ~750 | ✅ Done |
+| Phase 6 | VoicePool, AttenuationCurve | ~555 | ✅ Done |
+| Phase 7 | MemoryManager, EventProfiler | ~520 | ✅ Done |
+
+**Total Extracted:** 16 subsystem providers (~5,490 LOC)
+
+**MiddlewareProvider Final LOC:** ~1,900 (reduced from ~5,200)
+
+**Documentation:** `.claude/architecture/MIDDLEWARE_DECOMPOSITION.md`
 
 ---
 

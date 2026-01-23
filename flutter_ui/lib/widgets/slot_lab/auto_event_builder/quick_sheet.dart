@@ -19,8 +19,12 @@ import '../../../controllers/slot_lab/lower_zone_controller.dart';
 import '../../../theme/fluxforge_theme.dart';
 
 /// Show quick sheet popup at drop position
+///
+/// [provider] MUST be passed explicitly because showMenu creates an overlay
+/// that is rendered outside the provider tree.
 void showQuickSheet({
   required BuildContext context,
+  required AutoEventBuilderProvider provider,
   required AudioAsset asset,
   required DropTarget target,
   required Offset position,
@@ -28,8 +32,7 @@ void showQuickSheet({
   VoidCallback? onExpand,
   VoidCallback? onCancel,
 }) {
-  // Create draft in provider
-  final provider = context.read<AutoEventBuilderProvider>();
+  // Create draft in provider (provider is passed explicitly)
   final draft = provider.createDraft(asset, target);
 
   // Show popup menu
@@ -55,8 +58,11 @@ void showQuickSheet({
         padding: EdgeInsets.zero,
         child: _QuickSheetContent(
           draft: draft,
+          provider: provider,
           onCommit: () {
-            provider.commitDraft();
+            // NOTE: Don't call commitDraft() here!
+            // The onCommit callback (from DropTargetWrapper) handles commitDraft
+            // to properly capture the returned CommittedEvent.
             Navigator.of(context).pop();
             onCommit?.call();
           },
@@ -87,12 +93,14 @@ void showQuickSheet({
 
 class _QuickSheetContent extends StatefulWidget {
   final EventDraft draft;
+  final AutoEventBuilderProvider provider;
   final VoidCallback onCommit;
   final VoidCallback onExpand;
   final VoidCallback onCancel;
 
   const _QuickSheetContent({
     required this.draft,
+    required this.provider,
     required this.onCommit,
     required this.onExpand,
     required this.onCancel,
@@ -107,15 +115,34 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
   late String _selectedPreset;
   final FocusNode _focusNode = FocusNode();
 
+  // Fallback values for empty lists
+  static const _fallbackTriggers = ['press', 'release', 'hover'];
+  static const _fallbackPresetId = 'ui_click_secondary';
+
   @override
   void initState() {
     super.initState();
-    _selectedTrigger = widget.draft.trigger;
-    _selectedPreset = widget.draft.presetId;
+    // Safe initialization with fallbacks for empty lists
+    final triggers = _getAvailableTriggers();
+    _selectedTrigger = triggers.contains(widget.draft.trigger)
+        ? widget.draft.trigger
+        : triggers.first;
+
+    final presets = widget.provider.presets;
+    _selectedPreset = presets.any((p) => p.presetId == widget.draft.presetId)
+        ? widget.draft.presetId
+        : (presets.isNotEmpty ? presets.first.presetId : _fallbackPresetId);
+
     // Auto-focus for keyboard shortcuts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
+  }
+
+  /// Get triggers with fallback
+  List<String> _getAvailableTriggers() {
+    final triggers = widget.draft.availableTriggers;
+    return triggers.isNotEmpty ? triggers : _fallbackTriggers;
   }
 
   @override
@@ -183,7 +210,12 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
             // Preset dropdown
             _buildPresetDropdown(),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            // Keyboard hints bar
+            _buildKeyboardHints(),
+
+            const SizedBox(height: 12),
 
             // Actions
             _buildActions(),
@@ -272,11 +304,13 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
   }
 
   Widget _buildTriggerDropdown() {
+    final triggers = _getAvailableTriggers();
+
     return _FieldRow(
       label: 'Trigger',
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _selectedTrigger,
+          value: triggers.contains(_selectedTrigger) ? _selectedTrigger : triggers.first,
           isDense: true,
           isExpanded: true,
           dropdownColor: FluxForgeTheme.bgMid,
@@ -284,7 +318,7 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
             color: FluxForgeTheme.textPrimary,
             fontSize: 12,
           ),
-          items: widget.draft.availableTriggers.map((trigger) {
+          items: triggers.map((trigger) {
             return DropdownMenuItem(
               value: trigger,
               child: Text(trigger),
@@ -293,7 +327,7 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
           onChanged: (value) {
             if (value != null) {
               setState(() => _selectedTrigger = value);
-              context.read<AutoEventBuilderProvider>().updateDraft(trigger: value);
+              widget.provider.updateDraft(trigger: value);
             }
           },
         ),
@@ -332,13 +366,32 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
   }
 
   Widget _buildPresetDropdown() {
-    final presets = context.read<AutoEventBuilderProvider>().presets;
+    final presets = widget.provider.presets;
+
+    // Handle empty presets list - show disabled text instead of empty dropdown
+    if (presets.isEmpty) {
+      return _FieldRow(
+        label: 'Preset',
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Text(
+            'Default',
+            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+          ),
+        ),
+      );
+    }
+
+    // Ensure selected value exists in list
+    final selectedValue = presets.any((p) => p.presetId == _selectedPreset)
+        ? _selectedPreset
+        : presets.first.presetId;
 
     return _FieldRow(
       label: 'Preset',
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _selectedPreset,
+          value: selectedValue,
           isDense: true,
           isExpanded: true,
           dropdownColor: FluxForgeTheme.bgMid,
@@ -355,10 +408,33 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
           onChanged: (value) {
             if (value != null) {
               setState(() => _selectedPreset = value);
-              context.read<AutoEventBuilderProvider>().updateDraft(presetId: value);
+              widget.provider.updateDraft(presetId: value);
             }
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildKeyboardHints() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgDeep.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _KeyHint(keyLabel: 'Enter', action: 'Commit'),
+          const SizedBox(width: 12),
+          _KeyHint(keyLabel: 'Tab', action: 'More'),
+          const SizedBox(width: 12),
+          _KeyHint(keyLabel: 'Esc', action: 'Cancel'),
+        ],
       ),
     );
   }
@@ -405,12 +481,26 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             minimumSize: Size.zero,
           ),
-          child: Text(
-            'Cancel',
-            style: TextStyle(
-              color: FluxForgeTheme.textMuted,
-              fontSize: 11,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Cancel',
+                style: TextStyle(
+                  color: FluxForgeTheme.textMuted,
+                  fontSize: 11,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '[Esc]',
+                style: TextStyle(
+                  color: FluxForgeTheme.textMuted.withValues(alpha: 0.6),
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
           ),
         ),
 
@@ -495,6 +585,56 @@ class _FieldRow extends StatelessWidget {
           ),
         ),
         Expanded(child: child),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// KEYBOARD HINT WIDGET
+// =============================================================================
+
+class _KeyHint extends StatelessWidget {
+  final String keyLabel;
+  final String action;
+
+  const _KeyHint({
+    required this.keyLabel,
+    required this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.bgMid,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(
+              color: FluxForgeTheme.borderSubtle,
+            ),
+          ),
+          child: Text(
+            keyLabel,
+            style: const TextStyle(
+              color: FluxForgeTheme.textSecondary,
+              fontSize: 9,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          action,
+          style: TextStyle(
+            color: FluxForgeTheme.textMuted,
+            fontSize: 9,
+          ),
+        ),
       ],
     );
   }

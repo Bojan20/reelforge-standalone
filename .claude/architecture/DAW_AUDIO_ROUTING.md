@@ -612,108 +612,100 @@ Za testiranje Lower Zone EQ:
 
 ---
 
-## 10. DSP System Disconnect — KRITIČNA ARHITEKTONSKA DOKUMENTACIJA
+## 10. DSP System — ✅ RESOLVED (2026-01-23)
 
-⚠️ **UPOZORENJE**: Postoje **PARALELNI DSP SISTEMI** koji nisu povezani!
+### 10.1 Prethodni problem (REŠENO)
 
-### 10.1 Pregled problema
+~~UI pluginovi (Compressor, Limiter, Spectrum) kreirali su procesore u HashMap-ovima koji se NIKADA NE POZIVAJU u audio callback-u.~~
 
-UI pluginovi (Compressor, Limiter, Spectrum) kreiraju procesore u **HashMap-ovima** koji se **NIKADA NE POZIVAJU** u audio callback-u.
+**REŠENO:** Svi FabFilter paneli sada koriste `DspChainProvider` + `insertSetParam()`.
+
+### 10.2 Trenutna arhitektura
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ FLUTTER UI PLUGINOVI → HashMap-ovi (NE PROCESIRAJU AUDIO!)      │
+│ FLUTTER UI PLUGINOVI → DspChainProvider → InsertChain ✅         │
 ├─────────────────────────────────────────────────────────────────┤
 │ FabFilterCompressorPanel                                        │
-│   └→ compressorCreate() → COMPRESSORS HashMap                   │
-│      └→ NIKAD se ne poziva u audio callback                     │
+│   └→ DspChainProvider.addNode() → insertLoadProcessor() ✅       │
+│      └→ insertSetParam() → track_inserts → AUDIO PATH ✅         │
 │                                                                  │
 │ FabFilterLimiterPanel                                           │
-│   └→ limiterCreate() → LIMITERS HashMap                         │
-│      └→ NIKAD se ne poziva u audio callback                     │
+│   └→ DspChainProvider.addNode() → insertLoadProcessor() ✅       │
+│      └→ insertSetParam() → track_inserts → AUDIO PATH ✅         │
 │                                                                  │
-│ ProEqEditor (stari sistem)                                      │
-│   └→ proEqSetBand*() → PRO_EQS HashMap                         │
-│      └→ NIKAD se ne poziva u audio callback                     │
+│ FabFilterGatePanel                                              │
+│   └→ DspChainProvider.addNode() → insertLoadProcessor() ✅       │
+│      └→ insertSetParam() → track_inserts → AUDIO PATH ✅         │
 │                                                                  │
-│ SpectrumAnalyzerDemo                                            │
-│   └→ Generisao RANDOM FAKE spektar (sada uklonjeno)            │
+│ FabFilterReverbPanel                                            │
+│   └→ DspChainProvider.addNode() → insertLoadProcessor() ✅       │
+│      └→ insertSetParam() → track_inserts → AUDIO PATH ✅         │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│ PRAVI AUDIO PATH (rf-engine/playback.rs)                        │
+│ PRAVI AUDIO PATH (rf-engine/playback.rs) — SVI PANELI SADA TU   │
 ├─────────────────────────────────────────────────────────────────┤
 │ PLAYBACK_ENGINE.process()                                       │
 │   ├→ read_clip_audio()         ← čita audio iz timeline         │
-│   ├→ InsertChain.process_pre_fader()  ← JEDINI DSP KOJI RADI   │
+│   ├→ InsertChain.process_pre_fader()  ← DSP RADI ✅             │
+│   │    └→ CompressorWrapper, LimiterWrapper, GateWrapper, etc.  │
 │   ├→ volume/pan                                                 │
 │   ├→ InsertChain.process_post_fader()                          │
 │   ├→ bus routing                                                │
 │   └→ master inserts                                             │
-│                                                                  │
-│ PLAYBACK_ENGINE InsertChain:                                    │
-│   - Koristi set_track_insert_param() za update parametre        │
-│   - Lock-free ring buffer za UI→Audio komunikaciju              │
-│   - Procesori učitani preko load_track_insert()                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 10.2 Nepovezani HashMap-ovi
+### 10.3 Obrisani HashMap-ovi (Ghost Code Deleted)
 
-| HashMap | Lokacija | Kreiran od | U Audio Path? |
-|---------|----------|------------|---------------|
-| `COMPRESSORS` | `ffi.rs:8044` | FabFilterCompressorPanel | ❌ NE |
-| `LIMITERS` | `ffi.rs:8046` | FabFilterLimiterPanel | ❌ NE |
-| `PRO_EQS` | `ffi.rs:9374` | ProEqEditor (stari) | ❌ NE |
-| `MULTIBAND_COMPRESSORS` | `ffi.rs:8834` | — | ❌ NE |
-| `MULTIBAND_LIMITERS` | `ffi.rs:8836` | — | ❌ NE |
-| `SPECTRAL_COMPRESSORS` | `ffi.rs:10303` | — | ❌ NE |
+| HashMap | Status | Note |
+|---------|--------|------|
+| `DYNAMICS_COMPRESSORS` | ✅ DELETED | ~650 LOC removed from ffi.rs |
+| `DYNAMICS_LIMITERS` | ✅ DELETED | |
+| `DYNAMICS_GATES` | ✅ DELETED | |
+| `DYNAMICS_EXPANDERS` | ✅ DELETED | |
+| `DYNAMICS_DEESSERS` | ✅ DELETED | |
 
-### 10.3 Posledice
-
-1. **Signal bez playback-a**: Pluginovi su koristili `math.Random()` za simulaciju (sada uklonjeno)
-2. **Nema efekta na audio**: Parametri se čuvaju ali nikad ne procesiraju
-3. **Metering bez veze**: UI čita metering iz PLAYBACK_ENGINE ali pluginovi nisu u tom path-u
-
-### 10.4 Ispravni način konekcije
-
-Za pluginove koji trebaju procesirati audio:
+### 10.4 Ispravni način konekcije (IMPLEMENTED)
 
 ```dart
-// ISPRAVNO: Koristi InsertChain sistem
-final ffi = NativeFFI.instance;
-ffi.eqSetBandGain(trackId, bandIndex, gain);  // → InsertChain
+// ISPRAVNO: Koristi DspChainProvider + insertSetParam
+final dsp = DspChainProvider.instance;
+dsp.addNode(trackId, DspNodeType.compressor);  // → insertLoadProcessor FFI
+final slotIndex = dsp.getChain(trackId).nodes.length - 1;
 
-// POGREŠNO: Ide u HashMap koji se ne procesira
-ffi.compressorCreate(trackId, sampleRate);    // → COMPRESSORS HashMap
-ffi.compressorSetThreshold(trackId, db);      // → čuva se, ne procesira
+_ffi.insertSetParam(trackId, slotIndex, 0, threshold);  // Threshold → REAL DSP
+_ffi.insertSetParam(trackId, slotIndex, 1, ratio);      // Ratio → REAL DSP
+_ffi.insertSetParam(trackId, slotIndex, 2, attack);     // Attack → REAL DSP
 ```
 
-### 10.5 Buduće rešenje
+### 10.5 Wrapper Parameter Indices
 
-Da bi Compressor/Limiter/itd. zaista procesirali audio:
-
-1. **Opcija A**: Spojiti HashMap-ove sa InsertChain
-   - Pozivati `COMPRESSORS.process()` u `InsertChain.process()`
-   - Kompleksna refaktorizacija
-
-2. **Opcija B**: Koristiti InsertChain DSP Wrapper
-   - Kreirati `CompressorWrapper` kao `InsertProcessor`
-   - Učitati ga u `InsertChain` preko `load_track_insert()`
-   - Parametri idu kroz `set_track_insert_param()`
-
-3. **Opcija C**: Middleware DSP sistem
-   - MixerDSPProvider već koristi InsertChain
-   - Dodati Compressor/Limiter kao middleware inserts
+| Wrapper | Params |
+|---------|--------|
+| CompressorWrapper | 0=Threshold, 1=Ratio, 2=Attack, 3=Release, 4=Makeup, 5=Mix, 6=Link, 7=Type |
+| LimiterWrapper | 0=Threshold, 1=Ceiling, 2=Release, 3=Oversampling |
+| GateWrapper | 0=Threshold, 1=Range, 2=Attack, 3=Hold, 4=Release |
+| ExpanderWrapper | 0=Threshold, 1=Ratio, 2=Knee, 3=Attack, 4=Release |
+| ReverbWrapper | 0=RoomSize, 1=Damping, 2=Width, 3=DryWet, 4=Predelay, 5=Type |
+| DeEsserWrapper | 0=Frequency, 1=Bandwidth, 2=Threshold, 3=Range, 4=Mode, 5=Attack, 6=Release, 7=Listen, 8=Bypass |
 
 ### 10.6 Trenutno stanje pluginova
 
 | Plugin | Signal Display | Audio Processing |
 |--------|----------------|------------------|
 | **ProEqEditor** | Prazan (no fake data) | ✅ Radi preko InsertChain |
-| **FabFilterCompressor** | -60dB (silence) | ❌ HashMap nije u path-u |
-| **FabFilterLimiter** | -60dB (silence) | ❌ HashMap nije u path-u |
-| **SpectrumAnalyzer** | Prazan | ❌ Nema FFT metering iz engine-a |
+| **FabFilterCompressor** | Real metering* | ✅ Radi preko InsertChain |
+| **FabFilterLimiter** | Real metering* | ✅ Radi preko InsertChain |
+| **FabFilterGate** | Real metering* | ✅ Radi preko InsertChain |
+| **FabFilterReverb** | Decay viz | ✅ Radi preko InsertChain |
+| **DynamicsPanel** | All modes | ✅ Radi preko InsertChain |
+| **DeEsserPanel** | GR display* | ✅ Radi preko InsertChain |
+
+*Metering requires additional FFI (GR, True Peak) — currently shows 0 or -60dB.
+
+**Documentation:** `.claude/architecture/DSP_ENGINE_INTEGRATION_CRITICAL.md`
 
 ---
 
@@ -883,13 +875,86 @@ void _routeEqParam(String channelId, int slot, int param, double value) {
 
 ---
 
-## 12. Sledći koraci
+## 12. CRITICAL GAPS — Audio Flow Disconnect (2026-01-23)
+
+### 12.1 Provider → FFI Connection Status
+
+| Provider | FFI Integration | Status |
+|----------|-----------------|--------|
+| **MixerProvider** | ✅ CONNECTED | `setTrackVolume/Pan/Mute/Solo`, `insertLoadProcessor` |
+| **PluginProvider** | ✅ CONNECTED | `pluginLoad`, `pluginInsertLoad`, `pluginSetParam` |
+| **MixerDspProvider** | ✅ CONNECTED | `busInsertLoadProcessor`, `setBusVolume/Pan` |
+| **AudioPlaybackService** | ✅ CONNECTED | `previewAudioFile`, `playFileToBus` |
+| **DspChainProvider** | ❌ NOT CONNECTED | Nema FFI poziva — **CRITICAL GAP** |
+| **RoutingProvider** | ❌ NOT CONNECTED | Nema FFI poziva — **CRITICAL GAP** |
+
+### 12.2 DspChainProvider Problem
+
+**Lokacija:** `flutter_ui/lib/providers/dsp_chain_provider.dart` (~492 LOC)
+
+**Problem:** DspChainProvider upravlja DSP node lancem u UI-u, ali **NE šalje promene u Rust engine**.
+
+**Dokaz:**
+```bash
+grep -n "NativeFFI\|_ffi\." dsp_chain_provider.dart
+# Rezultat: No matches found
+```
+
+**Impakt:**
+- Korisnik dodaje DSP node (EQ, Compressor, Limiter) u FX Chain panel
+- Node se prikazuje u UI (✅)
+- Node se NE učitava u Rust engine (❌)
+- Audio NE prolazi kroz taj processor (❌)
+
+### 12.3 RoutingProvider Problem
+
+**Lokacija:** `flutter_ui/lib/providers/routing_provider.dart` (~206 LOC)
+
+**Problem:** Routing matrix UI ne šalje stvarne routing promene u engine.
+
+### 12.4 Required Fixes
+
+**P0.1 — DspChainProvider FFI Sync:**
+```dart
+import '../src/rust/native_ffi.dart';
+
+class DspChainProvider extends ChangeNotifier {
+  final _ffi = NativeFFI.instance;
+
+  void addNode(int trackId, DspNodeType type) {
+    final slotIndex = _chains[trackId]?.nodes.length ?? 0;
+    final processorName = _typeToProcessorName(type);
+
+    // FFI sync — CRITICAL
+    final result = _ffi.insertLoadProcessor(trackId, slotIndex, processorName);
+    if (result < 0) return;
+
+    // UI state (only on success)
+    _chains[trackId]?.nodes.add(DspNode(id: result, type: type));
+    notifyListeners();
+  }
+}
+```
+
+**P0.2 — RoutingProvider FFI Sync:**
+- Koristiti `routingSetOutput()`, `routingAddSend()` FFI funkcije
+- Sync sa Rust RoutingGraph
+
+---
+
+## 13. Sledći koraci
 
 1. ✅ Ukloniti lažne podatke iz svih pluginova
 2. ✅ **Bus InsertChain sistem implementiran** (2026-01-20)
    - Rust: bus_inserts array, FFI functions, audio callback processing
    - Dart: FFI bindings (busInsertXxx methods)
    - UI: Routing logic za bus vs track channels
-3. ⏳ Spojiti Compressor/Limiter sa InsertChain sistemom
-4. ⏳ Dodati FFT metering iz PLAYBACK_ENGINE za SpectrumAnalyzer
-5. ⏳ Unificirati sve DSP u jedan InsertChain sistem
+3. 🔴 **P0.1: DspChainProvider FFI sync** — DSP nodes ne rade (2026-01-23)
+4. 🔴 **P0.2: RoutingProvider FFI sync** — Routing matrix ne radi (2026-01-23)
+5. ⏳ Spojiti Compressor/Limiter sa InsertChain sistemom
+6. ⏳ Dodati FFT metering iz PLAYBACK_ENGINE za SpectrumAnalyzer
+7. ⏳ Unificirati sve DSP u jedan InsertChain sistem
+
+---
+
+*Poslednji update: 2026-01-23 (Critical gaps identified)*

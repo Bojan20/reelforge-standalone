@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../providers/dsp_chain_provider.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
@@ -73,6 +74,7 @@ class FabFilterReverbPanel extends FabFilterPanelBase {
           title: 'Reverb',
           icon: Icons.waves,
           accentColor: FabFilterColors.purple,
+          nodeType: DspNodeType.reverb,
         );
 
   @override
@@ -123,6 +125,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   bool _initialized = false;
   Timer? _meterTimer;
 
+  // DspChainProvider integration
+  String? _nodeId;
+  int _slotIndex = -1;
+
   @override
   void initState() {
     super.initState();
@@ -148,33 +154,58 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   }
 
   void _initializeProcessor() {
-    final success = _ffi.algorithmicReverbCreate(widget.trackId, sampleRate: widget.sampleRate);
-    if (success) {
+    // Use DspChainProvider instead of ghost algorithmicReverbCreate()
+    final dsp = DspChainProvider.instance;
+    final chain = dsp.getChain(widget.trackId);
+
+    // Find existing reverb node or add one
+    DspNode? reverbNode;
+    for (final node in chain.nodes) {
+      if (node.type == DspNodeType.reverb) {
+        reverbNode = node;
+        break;
+      }
+    }
+
+    if (reverbNode == null) {
+      // Add reverb to insert chain (this calls insertLoadProcessor FFI)
+      dsp.addNode(widget.trackId, DspNodeType.reverb);
+      final updatedChain = dsp.getChain(widget.trackId);
+      if (updatedChain.nodes.isNotEmpty) {
+        reverbNode = updatedChain.nodes.last;
+      }
+    }
+
+    if (reverbNode != null) {
+      _nodeId = reverbNode.id;
+      _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       _initialized = true;
       _applyAllParameters();
     }
   }
 
   void _applyAllParameters() {
-    if (!_initialized) return;
-    _ffi.algorithmicReverbSetRoomSize(widget.trackId, _size);
-    _ffi.algorithmicReverbSetDamping(widget.trackId, _dampingHigh);
-    _ffi.algorithmicReverbSetWidth(widget.trackId, _width / 100.0);
-    _ffi.algorithmicReverbSetDryWet(widget.trackId, _mix / 100.0);
-    _ffi.algorithmicReverbSetPredelay(widget.trackId, _predelay);
-    _ffi.algorithmicReverbSetType(widget.trackId, _spaceToReverbType(_space));
+    if (!_initialized || _slotIndex < 0) return;
+    // ReverbWrapper param indices: 0=RoomSize, 1=Damping, 2=Width, 3=DryWet, 4=Predelay, 5=Type
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _size);                        // Room Size
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _dampingHigh);                 // Damping
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _width / 100.0);               // Width
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _mix / 100.0);                 // Dry/Wet
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _predelay);                    // Predelay (ms)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _spaceToTypeIndex(_space).toDouble()); // Type
   }
 
-  ReverbType _spaceToReverbType(ReverbSpace space) {
+  int _spaceToTypeIndex(ReverbSpace space) {
+    // Maps ReverbSpace to ReverbType index: 0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring
     return switch (space) {
-      ReverbSpace.room => ReverbType.room,
-      ReverbSpace.studio => ReverbType.room,
-      ReverbSpace.hall => ReverbType.hall,
-      ReverbSpace.chamber => ReverbType.chamber,
-      ReverbSpace.plate => ReverbType.plate,
-      ReverbSpace.cathedral => ReverbType.hall,
-      ReverbSpace.vintage => ReverbType.chamber,
-      ReverbSpace.shimmer => ReverbType.hall,
+      ReverbSpace.room => 0,      // Room
+      ReverbSpace.studio => 0,    // Room
+      ReverbSpace.hall => 1,      // Hall
+      ReverbSpace.chamber => 3,   // Chamber
+      ReverbSpace.plate => 2,     // Plate
+      ReverbSpace.cathedral => 1, // Hall
+      ReverbSpace.vintage => 3,   // Chamber
+      ReverbSpace.shimmer => 1,   // Hall
     };
   }
 
@@ -182,9 +213,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   void dispose() {
     _meterTimer?.cancel();
     _decayController.dispose();
-    if (_initialized) {
-      _ffi.algorithmicReverbRemove(widget.trackId);
-    }
+    // Don't remove from insert chain - node persists
+    // Ghost algorithmicReverbRemove() was here, now removed
     super.dispose();
   }
 
@@ -277,7 +307,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           onChanged: (v) {
             if (v != null) {
               setState(() => _space = v);
-              _ffi.algorithmicReverbSetType(widget.trackId, _spaceToReverbType(v));
+              if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _spaceToTypeIndex(v).toDouble());
             }
           },
         ),
@@ -360,7 +390,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           color: FabFilterColors.purple,
           onChanged: (v) {
             setState(() => _size = v);
-            _ffi.algorithmicReverbSetRoomSize(widget.trackId, v);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 0, v);
           },
         ),
         _buildSmallKnob(
@@ -377,7 +407,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           color: FabFilterColors.cyan,
           onChanged: (v) {
             setState(() => _brightness = v);
-            _ffi.algorithmicReverbSetDamping(widget.trackId, 1 - v);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 1, 1 - v);
           },
         ),
         _buildSmallKnob(
@@ -387,7 +417,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           color: FabFilterColors.blue,
           onChanged: (v) {
             setState(() => _predelay = 1 * math.pow(200 / 1, v).toDouble());
-            _ffi.algorithmicReverbSetPredelay(widget.trackId, _predelay);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _predelay);
           },
         ),
         _buildSmallKnob(
@@ -397,7 +427,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           color: FabFilterColors.green,
           onChanged: (v) {
             setState(() => _mix = v * 100);
-            _ffi.algorithmicReverbSetDryWet(widget.trackId, v);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 3, v);
           },
         ),
         _buildSmallKnob(
@@ -407,7 +437,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           color: FabFilterColors.cyan,
           onChanged: (v) {
             setState(() => _width = v * 200);
-            _ffi.algorithmicReverbSetWidth(widget.trackId, v * 2);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 2, v * 2);
           },
         ),
       ],
@@ -434,7 +464,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           _buildMiniSlider('Dist', _distance / 100, '${_distance.toStringAsFixed(0)}%', (v) => setState(() => _distance = v * 100)),
           const SizedBox(height: 4),
           _buildMiniSlider('Diff', _diffusion / 100, '${_diffusion.toStringAsFixed(0)}%', (v) => setState(() => _diffusion = v * 100)),
-          const Spacer(),
+          const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0
           // Damping (expert)
           if (showExpertMode) ...[
             Text('DAMPING', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
@@ -442,7 +472,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
             _buildMiniSlider('Lo', _dampingLow, '${(_dampingLow * 100).toStringAsFixed(0)}%', (v) => setState(() => _dampingLow = v)),
             _buildMiniSlider('Hi', _dampingHigh, '${(_dampingHigh * 100).toStringAsFixed(0)}%', (v) {
               setState(() => _dampingHigh = v);
-              _ffi.algorithmicReverbSetDamping(widget.trackId, v);
+              if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 1, v);
             }),
           ],
         ],

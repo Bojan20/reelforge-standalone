@@ -30,9 +30,12 @@ class MiddlewareLowerZoneController extends ChangeNotifier {
   int get currentSubTabIndex => _state.currentSubTabIndex;
   List<String> get subTabLabels => _state.subTabLabels;
 
+  /// Total height including all fixed-height elements
+  /// When expanded: resize handle + context bar + slot context bar + content + action strip
+  /// When collapsed: resize handle + collapsed context bar (super-tabs only)
   double get totalHeight => _state.isExpanded
-      ? _state.height + kContextBarHeight + kActionStripHeight
-      : kContextBarHeight;
+      ? _state.height + kContextBarHeight + kSlotContextBarHeight + kActionStripHeight + kResizeHandleHeight
+      : kResizeHandleHeight + kContextBarCollapsedHeight;
 
   Color get accentColor => LowerZoneColors.middlewareAccent;
 

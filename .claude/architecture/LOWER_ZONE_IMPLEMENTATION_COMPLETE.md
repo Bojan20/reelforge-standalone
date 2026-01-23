@@ -1,7 +1,7 @@
 # Lower Zone Implementation Complete
 
-**Date:** 2026-01-22 (Updated)
-**Status:** ✅ ALL P0/P1/P2 TASKS COMPLETED
+**Date:** 2026-01-23 (Updated)
+**Status:** ✅ ALL P0/P1/P2/P3 TASKS COMPLETED
 
 ---
 
@@ -384,3 +384,76 @@ String? _selectedEventId;
 1. ✅ `LOWER_ZONE_ENGINE_ANALYSIS.md` — Full analysis with implementation status
 2. ✅ `LOWER_ZONE_IMPLEMENTATION_COMPLETE.md` — This document (updated for P2)
 3. ✅ `CLAUDE.md` — Added new services/providers section
+
+---
+
+## P3: Overflow Fixes (2026-01-23) ✅
+
+### Problem
+Visual overflow/empty space below tabs when Lower Zone is collapsed.
+
+### Root Causes
+
+| Issue | Cause |
+|-------|-------|
+| Empty space below tabs | ContextBar had fixed 60px height but only showed 32px (super-tabs) when collapsed |
+| Layout conflict | `mainAxisSize: MainAxisSize.min` on Column inside Expanded widget |
+| Wrong totalHeight | Controller used `kContextBarHeight` (60) for collapsed instead of 32 |
+
+### Solutions
+
+1. **New constant:** `kContextBarCollapsedHeight = 32.0` in `lower_zone_types.dart`
+2. **Dynamic height:** ContextBar height now `isExpanded ? 60 : 32`
+3. **Fixed totalHeight:** Controller uses correct constant for collapsed state
+4. **Removed conflicting `mainAxisSize`:** Column no longer uses `mainAxisSize.min` inside Expanded
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `lower_zone_types.dart` | Added `kContextBarCollapsedHeight = 32.0` |
+| `lower_zone_context_bar.dart` | Dynamic height + `clipBehavior: Clip.hardEdge` |
+| `slotlab_lower_zone_controller.dart` | Fixed collapsed `totalHeight` calculation |
+| `slotlab_lower_zone_widget.dart` | Removed `mainAxisSize.min` from both Columns |
+
+### Layout Best Practice
+
+**NEVER use `mainAxisSize: MainAxisSize.min` inside:**
+- `Expanded` widgets
+- Fixed-height containers
+
+**ALWAYS use `clipBehavior: Clip.hardEdge`** on containers that change height.
+
+---
+
+### Middleware Lower Zone Fix (2026-01-23) ✅
+
+**Problem:** 1px bottom overflow below Browser/Editor/Triggers tabs.
+
+**Root Cause:** `totalHeight` in middleware controller missing:
+- `kResizeHandleHeight` (4px)
+- `kSlotContextBarHeight` (28px) — Middleware-specific Slot Context Bar
+
+**Solution:**
+
+1. **New constant:** `kSlotContextBarHeight = 28.0` in `lower_zone_types.dart`
+2. **Fixed totalHeight:**
+```dart
+double get totalHeight => _state.isExpanded
+    ? _state.height + kContextBarHeight + kSlotContextBarHeight + kActionStripHeight + kResizeHandleHeight
+    : kResizeHandleHeight + kContextBarCollapsedHeight;
+```
+3. **Added `clipBehavior: Clip.hardEdge`** to AnimatedContainer
+4. **Replaced hardcoded `28`** with `kSlotContextBarHeight` constant
+
+**Files Changed:**
+
+| File | Change |
+|------|--------|
+| `lower_zone_types.dart` | Added `kSlotContextBarHeight = 28.0` |
+| `middleware_lower_zone_controller.dart` | Fixed `totalHeight` calculation |
+| `middleware_lower_zone_widget.dart` | `clipBehavior` + constant instead of hardcoded value |
+
+---
+
+*Last Updated: 2026-01-23*

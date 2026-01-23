@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../providers/dsp_chain_provider.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_panel_base.dart';
 
@@ -148,6 +149,7 @@ class FabFilterEqPanel extends FabFilterPanelBase {
           title: 'PRO-Q 64',
           icon: Icons.equalizer,
           accentColor: FabFilterColors.blue,
+          nodeType: DspNodeType.eq,
         );
 
   @override
@@ -158,6 +160,23 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     with FabFilterPanelMixin<FabFilterEqPanel> {
   final _ffi = NativeFFI.instance;
   bool _initialized = false;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DSPCHAINPROVIDER INTEGRATION (FIX: Uses real insert chain)
+  // ═══════════════════════════════════════════════════════════════════════════
+  String _nodeId = '';
+  int _slotIndex = -1;
+
+  /// Parameter index formula for ProEqWrapper:
+  /// index = band_index * 11 + param_index
+  /// Params per band:
+  ///   0: Frequency (10-30000 Hz)
+  ///   1: Gain (-30 to +30 dB)
+  ///   2: Q (0.05 to 50)
+  ///   3: Enabled (0 or 1)
+  ///   4: Shape (0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut, 5=Notch, 6=Bandpass, 7=TiltShelf, 8=Allpass, 9=Brickwall)
+  ///   5-10: Dynamic EQ params (enabled, threshold, ratio, attack, release, knee)
+  static const int _paramsPerBand = 11;
 
   // EQ Bands
   final List<EqBand> _bands = [];
@@ -189,15 +208,43 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   @override
   void dispose() {
     _spectrumTimer?.cancel();
-    _ffi.proEqDestroy(widget.trackId);
+    // NOTE: Don't remove the EQ from DspChainProvider on dispose
+    // The node lifecycle is managed by DspChainProvider, not by this panel.
+    // Old ghost FFI cleanup removed: _ffi.proEqDestroy(widget.trackId);
     super.dispose();
   }
 
+  /// Initialize EQ processor via DspChainProvider (FIX: Uses real insert chain)
   void _initializeProcessor() {
-    final success = _ffi.proEqCreate(widget.trackId, sampleRate: widget.sampleRate);
-    if (success) {
+    final dsp = DspChainProvider.instance;
+    final chain = dsp.getChain(widget.trackId);
+
+    // Find existing EQ node or add one
+    DspNode? eqNode;
+    for (final node in chain.nodes) {
+      if (node.type == DspNodeType.eq) {
+        eqNode = node;
+        break;
+      }
+    }
+
+    if (eqNode == null) {
+      // Add EQ via DspChainProvider (calls insertLoadProcessor FFI)
+      dsp.addNode(widget.trackId, DspNodeType.eq);
+      final updatedChain = dsp.getChain(widget.trackId);
+      if (updatedChain.nodes.isNotEmpty) {
+        eqNode = updatedChain.nodes.last;
+      }
+    }
+
+    if (eqNode != null) {
+      _nodeId = eqNode.id;
+      _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       setState(() => _initialized = true);
       _startSpectrumUpdate();
+      debugPrint('[FabFilterEQ] ✅ Initialized via DspChainProvider (track=${widget.trackId}, slot=$_slotIndex)');
+    } else {
+      debugPrint('[FabFilterEQ] ❌ Failed to initialize EQ for track ${widget.trackId}');
     }
   }
 
@@ -852,21 +899,21 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   // BAND OPERATIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Add a new EQ band (FIX: Uses insertSetParam)
   void _addBand(double freq, EqFilterShape shape) {
-    if (_bands.length >= 64) return;
+    if (_bands.length >= 64 || _slotIndex < 0) return;
 
     final bandIndex = _bands.length;
     final band = EqBand(index: bandIndex, freq: freq, shape: shape);
 
-    _ffi.proEqSetBand(
-      widget.trackId,
-      bandIndex,
-      freq: freq,
-      gainDb: 0.0,
-      q: 1.0,
-      shape: _shapeToProEq(shape),
-    );
-    _ffi.proEqSetBandEnabled(widget.trackId, bandIndex, true);
+    // Set band parameters via insert chain
+    _setBandParam(bandIndex, 0, freq);       // Frequency
+    _setBandParam(bandIndex, 1, 0.0);        // Gain
+    _setBandParam(bandIndex, 2, 1.0);        // Q
+    _setBandParam(bandIndex, 3, 1.0);        // Enabled
+    _setBandParam(bandIndex, 4, _shapeToParamValue(shape)); // Shape
+
+    debugPrint('[FabFilterEQ] Added band $bandIndex: freq=$freq, shape=$shape');
 
     setState(() {
       _bands.add(band);
@@ -875,38 +922,38 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     widget.onSettingsChanged?.call();
   }
 
+  /// Update an existing EQ band (FIX: Uses insertSetParam)
   void _updateBand(int index) {
-    final band = _bands[index];
-    _ffi.proEqSetBand(
-      widget.trackId,
-      band.index,
-      freq: band.freq,
-      gainDb: band.gain,
-      q: band.q,
-      shape: _shapeToProEq(band.shape),
-    );
-    _ffi.proEqSetBandPlacement(widget.trackId, band.index, _placementToProEq(band.placement));
-    _ffi.proEqSetBandSlope(widget.trackId, band.index, _slopeToProEq(band.slope));
-    _ffi.proEqSetBandEnabled(widget.trackId, band.index, band.enabled);
+    if (_slotIndex < 0 || index >= _bands.length) return;
 
-    if (band.dynamicEnabled) {
-      _ffi.proEqSetBandDynamic(
-        widget.trackId,
-        band.index,
-        enabled: true,
-        thresholdDb: band.dynamicThreshold,
-        ratio: band.dynamicRatio,
-        attackMs: band.dynamicAttack,
-        releaseMs: band.dynamicRelease,
-      );
-    }
+    final band = _bands[index];
+
+    // Set band parameters via insert chain
+    _setBandParam(band.index, 0, band.freq);  // Frequency
+    _setBandParam(band.index, 1, band.gain);  // Gain
+    _setBandParam(band.index, 2, band.q);     // Q
+    _setBandParam(band.index, 3, band.enabled ? 1.0 : 0.0); // Enabled
+    _setBandParam(band.index, 4, _shapeToParamValue(band.shape)); // Shape
+
+    // Dynamic EQ params (if enabled)
+    _setBandParam(band.index, 5, band.dynamicEnabled ? 1.0 : 0.0); // Dynamic enabled
+    _setBandParam(band.index, 6, band.dynamicThreshold);  // Threshold
+    _setBandParam(band.index, 7, band.dynamicRatio);      // Ratio
+    _setBandParam(band.index, 8, band.dynamicAttack);     // Attack
+    _setBandParam(band.index, 9, band.dynamicRelease);    // Release
+    // Note: Placement and Slope not exposed via InsertProcessor API
 
     widget.onSettingsChanged?.call();
   }
 
+  /// Remove an EQ band (FIX: Uses insertSetParam to disable)
   void _removeBand(int index) {
+    if (_slotIndex < 0 || index >= _bands.length) return;
+
     final band = _bands[index];
-    _ffi.proEqSetBandEnabled(widget.trackId, band.index, false);
+    // Disable the band instead of removing (InsertProcessor doesn't support band removal)
+    _setBandParam(band.index, 3, 0.0); // Disable band
+
     setState(() {
       _bands.removeAt(index);
       _selectedBandIndex = _bands.isEmpty ? null : math.max(0, index - 1);
@@ -914,13 +961,44 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     widget.onSettingsChanged?.call();
   }
 
+  /// Reset all EQ bands (FIX: Uses insertSetParam to disable all)
   void _resetEq() {
-    _ffi.proEqReset(widget.trackId);
+    if (_slotIndex < 0) return;
+
+    // Disable all bands
+    for (int i = 0; i < 64; i++) {
+      _setBandParam(i, 3, 0.0); // Disable
+      _setBandParam(i, 1, 0.0); // Zero gain
+    }
+
     setState(() {
       _bands.clear();
       _selectedBandIndex = null;
     });
     widget.onSettingsChanged?.call();
+  }
+
+  /// Helper: Set a single band parameter via insertSetParam
+  void _setBandParam(int bandIndex, int paramIndex, double value) {
+    if (_slotIndex < 0) return;
+    final index = bandIndex * _paramsPerBand + paramIndex;
+    _ffi.insertSetParam(widget.trackId, _slotIndex, index, value);
+  }
+
+  /// Convert EqFilterShape to ProEqWrapper param value
+  double _shapeToParamValue(EqFilterShape shape) {
+    return switch (shape) {
+      EqFilterShape.bell => 0.0,
+      EqFilterShape.lowShelf => 1.0,
+      EqFilterShape.highShelf => 2.0,
+      EqFilterShape.lowCut => 3.0,
+      EqFilterShape.highCut => 4.0,
+      EqFilterShape.notch => 5.0,
+      EqFilterShape.bandPass => 6.0,
+      EqFilterShape.tiltShelf => 7.0,
+      EqFilterShape.allPass => 8.0,
+      EqFilterShape.brickwall => 9.0,
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

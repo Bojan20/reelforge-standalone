@@ -372,7 +372,7 @@ pub extern "C" fn ale_update_signal(signal_id: *const c_char, value: f64) -> i32
 /// Force a specific layer level (manual override)
 #[unsafe(no_mangle)]
 pub extern "C" fn ale_force_level(level: i32) -> i32 {
-    if level < 0 || level > 7 {
+    if !(0..=7).contains(&level) {
         return 0;
     }
 

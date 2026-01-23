@@ -1417,6 +1417,117 @@ pub extern "C" fn middleware_clear_attenuation_curves() {
     ATTENUATION_SYSTEM.write().curves.clear();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// VOICE POOL STATS — Engine voice monitoring for UI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Voice pool statistics (C-compatible)
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct VoicePoolStatsFFI {
+    pub active_count: u32,
+    pub max_voices: u32,
+    pub looping_count: u32,
+    pub daw_voices: u32,
+    pub slotlab_voices: u32,
+    pub middleware_voices: u32,
+    pub browser_voices: u32,
+    pub sfx_voices: u32,
+    pub music_voices: u32,
+    pub voice_voices: u32,
+    pub ambience_voices: u32,
+    pub aux_voices: u32,
+    pub master_voices: u32,
+}
+
+/// Get voice pool statistics
+/// Returns stats via output pointer (C-compatible)
+#[unsafe(no_mangle)]
+pub extern "C" fn middleware_get_voice_pool_stats(stats_out: *mut VoicePoolStatsFFI) -> i32 {
+    if stats_out.is_null() {
+        return 0;
+    }
+
+    // Access engine bridge to get playback engine
+    let engine_guard = crate::ENGINE.read();
+    if let Some(ref bridge) = *engine_guard {
+        let stats = bridge.playback_engine.get_voice_pool_stats();
+        unsafe {
+            *stats_out = VoicePoolStatsFFI {
+                active_count: stats.active_count,
+                max_voices: stats.max_voices,
+                looping_count: stats.looping_count,
+                daw_voices: stats.daw_voices,
+                slotlab_voices: stats.slotlab_voices,
+                middleware_voices: stats.middleware_voices,
+                browser_voices: stats.browser_voices,
+                sfx_voices: stats.sfx_voices,
+                music_voices: stats.music_voices,
+                voice_voices: stats.voice_voices,
+                ambience_voices: stats.ambience_voices,
+                aux_voices: stats.aux_voices,
+                master_voices: stats.master_voices,
+            };
+        }
+        return 1;
+    }
+    0
+}
+
+/// Get voice pool statistics as JSON string
+/// Caller must free the returned string with middleware_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn middleware_get_voice_pool_stats_json() -> *mut c_char {
+    let engine_guard = crate::ENGINE.read();
+    if let Some(ref bridge) = *engine_guard {
+        let stats = bridge.playback_engine.get_voice_pool_stats();
+        let json = serde_json::json!({
+            "active_count": stats.active_count,
+            "max_voices": stats.max_voices,
+            "looping_count": stats.looping_count,
+            "utilization_percent": if stats.max_voices > 0 {
+                (stats.active_count as f64 / stats.max_voices as f64 * 100.0).round()
+            } else { 0.0 },
+            "by_source": {
+                "daw": stats.daw_voices,
+                "slotlab": stats.slotlab_voices,
+                "middleware": stats.middleware_voices,
+                "browser": stats.browser_voices,
+            },
+            "by_bus": {
+                "sfx": stats.sfx_voices,
+                "music": stats.music_voices,
+                "voice": stats.voice_voices,
+                "ambience": stats.ambience_voices,
+                "aux": stats.aux_voices,
+                "master": stats.master_voices,
+            },
+        });
+
+        if let Ok(json_str) = serde_json::to_string(&json) {
+            if let Ok(c_str) = std::ffi::CString::new(json_str) {
+                return c_str.into_raw();
+            }
+        }
+    }
+
+    // Return empty JSON on error
+    if let Ok(c_str) = std::ffi::CString::new("{}") {
+        return c_str.into_raw();
+    }
+    std::ptr::null_mut()
+}
+
+/// Free a string allocated by middleware FFI
+#[unsafe(no_mangle)]
+pub extern "C" fn middleware_free_string(ptr: *mut c_char) {
+    if !ptr.is_null() {
+        unsafe {
+            drop(std::ffi::CString::from_raw(ptr));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
