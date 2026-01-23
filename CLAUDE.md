@@ -1531,6 +1531,20 @@ abstract class UndoableAction {
 **Skipped: 1**
 - P2.16 — VoidCallback not serializable, needs full refactor
 
+### Critical Weaknesses — M2 Roadmap (2026-01-23)
+
+Top 5 problems identified in Ultimate System Analysis:
+
+| # | Problem | Priority | Status |
+|---|---------|----------|--------|
+| 1 | No audio preview in event editor | P1 | ⏳ TODO |
+| 2 | No event debugger/tracer panel | P1 | ⏳ TODO |
+| 3 | Scattered stage configuration | P2 | ⏳ TODO |
+| 4 | No GDD import wizard | P2 | ⏳ TODO |
+| 5 | Limited container visualization | P2 | ⏳ TODO |
+
+**Full analysis:** `.claude/reviews/ULTIMATE_SYSTEM_ANALYSIS_2026_01_23.md`
+
 ### Slot Lab — Synthetic Slot Engine (IMPLEMENTED)
 
 Fullscreen audio sandbox za slot game audio dizajn.
