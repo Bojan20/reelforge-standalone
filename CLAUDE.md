@@ -2502,26 +2502,26 @@ Fullscreen audio sandbox za slot game audio dizajn.
 - Auto-triggers MiddlewareProvider events
 
 **UI Widgets:** `flutter_ui/lib/widgets/slot_lab/`
-- `premium_slot_preview.dart` — Fullscreen premium UI (~3,728 LOC)
-- `slot_preview_widget.dart` — Reel animation system (~1,485 LOC)
+- `premium_slot_preview.dart` — Fullscreen premium UI (~4,100 LOC)
+- `slot_preview_widget.dart` — Reel animation system (~1,500 LOC)
 - `stage_trace_widget.dart` — Animated timeline kroz stage evente
 - `event_log_panel.dart` — Real-time log audio eventa
 - `forced_outcome_panel.dart` — Test buttons (keyboard shortcuts 1-0)
 - `audio_hover_preview.dart` — Browser sa hover preview
 
-**Premium Preview Mode (2026-01-24) — 95% Complete, P1 Done:**
+**Premium Preview Mode (2026-01-24) — 100% Complete, P1+P2+P3 Done:**
 ```
 A. Header Zone — Menu, logo, balance, VIP, audio, settings, exit     ✅ 100%
 B. Jackpot Zone — 4-tier tickers + progressive meter                  ✅ 100%
 C. Main Game Zone — Reels, paylines, win overlay, anticipation        ✅ 100%
-D. Win Presenter — Rollup animation, tier badges, coin particles      ✅ 80%
+D. Win Presenter — Rollup, gamble, tier badges, coin particles        ✅ 100%
 E. Feature Indicators — Free spins, bonus meter, multiplier           ✅ 100%
 F. Control Bar — Lines/Coin/Bet selectors, Auto-spin, Turbo, Spin    ✅ 100%
-G. Info Panels — Paytable, rules, history, stats                      ✅ 100%
-H. Audio/Visual — Volume slider, music/sfx toggles                    ✅ 100%
+G. Info Panels — Paytable, rules, history, stats (from engine)       ✅ 100%
+H. Audio/Visual — Volume slider, music/sfx toggles (persisted)       ✅ 100%
 ```
 
-**✅ P1 Completed (2026-01-24):**
+**✅ P1 Completed — Critical (Audio Testing):**
 
 | Feature | Solution | Status |
 |---------|----------|--------|
@@ -2530,14 +2530,23 @@ H. Audio/Visual — Volume slider, music/sfx toggles                    ✅ 100%
 | Scatter collection | `_ScatterCollectOverlay` — flying diamonds with trails | ✅ Done |
 | Audio toggles | Connected to `NativeFFI.setBusMute()` (bus 1=SFX, 2=Music) | ✅ Done |
 
-**⚠️ P2 Remaining (Needs Implementation):**
+**✅ P2 Completed — Realism:**
 
-| Feature | Problem | Priority |
-|---------|---------|----------|
-| Collect/Gamble | Click exists, no logic | P2 |
-| Paytable | Mock data, not from math model | P2 |
-| RNG connection | Random 1-5, not engine RNG | P2 |
-| Jackpot growth | Hardcoded, not from bet math | P2 |
+| Feature | Solution | Status |
+|---------|----------|--------|
+| Collect/Gamble | Full gamble flow with double-or-nothing, card pick | ✅ Done |
+| Paytable | `_PaytablePanel` connected via `slotLabExportPaytable()` FFI | ✅ Done |
+| RNG connection | `_getEngineRandomGrid()` via `slotLabSpin()` FFI | ✅ Done |
+| Jackpot growth | `_tickJackpots()` uses `_progressiveContribution` from bet math | ✅ Done |
+
+**✅ P3 Completed — Polish:**
+
+| Feature | Solution | Status |
+|---------|----------|--------|
+| Menu functionality | `_MenuPanel` with Paytable/Rules/History/Stats/Settings/Help | ✅ Done |
+| Rules from config | `_GameRulesConfig.fromJson()` via `slotLabExportConfig()` FFI | ✅ Done |
+| Settings persistence | SharedPreferences for turbo/music/sfx/volume/quality/animations | ✅ Done |
+| Theme consolidation | `_SlotTheme` documented with FluxForgeTheme color mappings | ✅ Done |
 
 **Keyboard Shortcuts:**
 | Key | Action |
@@ -2557,7 +2566,7 @@ H. Audio/Visual — Volume slider, music/sfx toggles                    ✅ 100%
 6-FreeSpins, 7-JackpotGrand, 8-NearMiss, 9-Cascade, 0-UltraWin
 ```
 
-**Dokumentacija:** `.claude/architecture/SLOT_LAB_SYSTEM.md`, `.claude/MASTER_TODO_2026_01_22.md`
+**Dokumentacija:** `.claude/architecture/SLOT_LAB_SYSTEM.md`, `.claude/architecture/PREMIUM_SLOT_PREVIEW.md`
 
 ### SlotLab V6 Layout (2026-01-23) ✅ COMPLETE
 
