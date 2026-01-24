@@ -1,7 +1,7 @@
 # UltimateMixer Integration — Complete Documentation
 
-> **Version:** 1.0
-> **Date:** 2026-01-22
+> **Version:** 1.1
+> **Date:** 2026-01-24
 > **Status:** IMPLEMENTED & TESTED
 
 ---
@@ -319,6 +319,7 @@ Widget _buildMixerPanel() {
 | `onSendMuteToggle` | ✅ | — | — | — | — |
 | `onOutputChange` | ✅ | — | — | — | — |
 | `onPhaseToggle` | ✅ | — | — | — | — |
+| `onChannelReorder` | ✅ | ✅ | ✅ | ✅ | — |
 
 ### 3.2 Now Connected (Added 2026-01-22)
 
@@ -329,6 +330,7 @@ Widget _buildMixerPanel() {
 | `onGainChange` | `setInputGain()` | ✅ CONNECTED |
 | `onAddBus` | `createBus()` | ✅ CONNECTED |
 | `onInsertClick` | — | ⚠️ Requires plugin hosting UI |
+| `onChannelReorder` | `reorderChannel()` | ✅ CONNECTED (2026-01-24) |
 
 ### 3.3 MixerProvider New Methods
 
@@ -454,6 +456,95 @@ final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
 // - No blur
 ```
 
+### 4.7 Bidirectional Channel/Track Reorder (2026-01-24)
+
+UltimateMixer podržava drag-drop reorder kanala sa bidirekcionom sinhronizacijom sa DAW timeline trakama.
+
+**Flow:**
+```
+MIXER                          TIMELINE
+  │                               │
+  ├── Drag channel A→B            │
+  │     └── reorderChannel()      │
+  │           └── notifyListeners │
+  │                 └─────────────┼── onChannelOrderChanged
+  │                               │     └── reorder tracks
+  │                               │
+  │   onChannelOrderChanged ◄─────┤── Drag track X→Y
+  │     └── setChannelOrder()     │     └── reorder tracks
+  │           └── notifyListeners │
+  │                               │
+```
+
+**MixerProvider API:**
+
+```dart
+/// Channel order (list of channel IDs in display order)
+List<String> get channelOrder;
+
+/// Callback za obaveštavanje timeline-a o promeni redosleda
+void Function(List<String> channelIds)? onChannelOrderChanged;
+
+/// Premesti kanal sa oldIndex na newIndex
+void reorderChannel(int oldIndex, int newIndex);
+
+/// Postavi redosled kanala (koristi timeline za sync)
+/// notifyTimeline=false sprečava feedback loop
+void setChannelOrder(List<String> newOrder, {bool notifyTimeline = false});
+```
+
+**UltimateMixer callback:**
+
+```dart
+/// Drag-drop reorder callback
+final void Function(int oldIndex, int newIndex)? onChannelReorder;
+```
+
+**Timeline API:**
+
+```dart
+/// Track reorder callback (syncs bidirectionally with mixer)
+final void Function(int oldIndex, int newIndex)? onTrackReorder;
+```
+
+**Channel-Track ID Mapping:**
+- Mixer channel ID format: `ch_<trackId>` (npr. `ch_0`, `ch_1`)
+- Konverzija: `channelId.substring(3)` → trackId
+
+**Integracija u engine_connected_layout.dart:**
+
+```dart
+// initState: postavi callback
+final mixerProvider = context.read<MixerProvider>();
+mixerProvider.onChannelOrderChanged = _onMixerChannelOrderChanged;
+
+// dispose: ukloni callback
+mixerProvider.onChannelOrderChanged = null;
+
+// Mixer → Timeline sync
+void _onMixerChannelOrderChanged(List<String> channelIds) {
+  final trackIds = channelIds
+      .where((id) => id.startsWith('ch_'))
+      .map((id) => id.substring(3))
+      .toList();
+  // Reorder _tracks to match order, then setState
+}
+
+// Timeline → Mixer sync
+void _handleTrackReorder(int oldIndex, int newIndex) {
+  setState(() {
+    final track = _tracks.removeAt(oldIndex);
+    _tracks.insert(newIndex, track);
+  });
+  final newChannelOrder = _tracks.map((t) => 'ch_${t.id}').toList();
+  mixerProvider.setChannelOrder(newChannelOrder, notifyTimeline: false);
+}
+```
+
+**Drag Axis:**
+- **Mixer:** `Axis.horizontal` — horizontalni drag levo/desno
+- **Timeline:** `Axis.vertical` — vertikalni drag gore/dole
+
 ---
 
 ## 5. ULTIMATEMIXER API
@@ -502,6 +593,9 @@ const UltimateMixer({
   VoidCallback? onAddBus,
   VoidCallback? onAddAux,
   VoidCallback? onAddVca,
+
+  // Callbacks - Reorder (2026-01-24)
+  void Function(int oldIndex, int newIndex)? onChannelReorder,
 });
 ```
 
@@ -647,6 +741,7 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 5. **Namespace conflict resolved** — Using `as ultimate` import alias
 6. **Added MixerProvider methods** — `toggleAuxSendPreFader()`, `setAuxSendDestination()`, `setInputGain()`
 7. **Added MixerChannel.inputGain field** — Input gain/trim support
+8. **Bidirectional channel/track reorder (2026-01-24)** — Drag-drop mixer→timeline sync
 
 ### Benefits
 
@@ -663,5 +758,5 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 ---
 
 **Document Status:** COMPLETE
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-01-24
 **Author:** Claude (Audio Architect)

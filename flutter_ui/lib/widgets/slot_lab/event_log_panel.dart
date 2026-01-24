@@ -43,6 +43,8 @@ class EventLogEntry {
   final String? containerName;
   /// Container integration - number of children/steps in container
   final int? containerChildCount;
+  /// Stage timestamp from Rust (for correct ordering display)
+  final double stageTimestampMs;
 
   EventLogEntry({
     required this.timestamp,
@@ -54,6 +56,7 @@ class EventLogEntry {
     this.containerType,
     this.containerName,
     this.containerChildCount,
+    this.stageTimestampMs = 0.0,
   });
 
   /// Returns true if this entry used a container for playback
@@ -234,6 +237,8 @@ class _EventLogPanelState extends State<EventLogPanel> {
       final containerType = eventRegistry.lastContainerType;
       final containerName = eventRegistry.lastContainerName;
       final containerChildCount = eventRegistry.lastContainerChildCount;
+      // Get stage timestamp for correct ordering display
+      final stageTimestampMs = eventRegistry.lastStageTimestampMs;
 
       _addEntry(EventLogEntry(
         timestamp: DateTime.now(),
@@ -245,6 +250,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
         containerType: containerType != ContainerType.none ? containerType : null,
         containerName: containerName,
         containerChildCount: containerChildCount,
+        stageTimestampMs: stageTimestampMs,
       ));
     }
 
@@ -370,7 +376,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
   }
 
   List<EventLogEntry> get _filteredEntries {
-    return _entries.where((entry) {
+    final filtered = _entries.where((entry) {
       // Type filter
       if (!_activeFilters.contains(entry.type)) return false;
 
@@ -383,6 +389,20 @@ class _EventLogPanelState extends State<EventLogPanel> {
 
       return true;
     }).toList();
+
+    // Sort by stage timestamp (Rust planned order) for correct display
+    // Entries with stageTimestampMs > 0 are sorted by that value
+    // Entries without stage timestamp (middleware events, etc.) keep their wall-clock order
+    filtered.sort((a, b) {
+      // If both have stage timestamps, sort by those
+      if (a.stageTimestampMs > 0 && b.stageTimestampMs > 0) {
+        return a.stageTimestampMs.compareTo(b.stageTimestampMs);
+      }
+      // Otherwise sort by wall-clock timestamp
+      return a.timestamp.compareTo(b.timestamp);
+    });
+
+    return filtered;
   }
 
   @override
@@ -797,13 +817,18 @@ class _EventLogPanelState extends State<EventLogPanel> {
 
           const SizedBox(width: 8),
 
-          // Timestamp (right-aligned, compact)
+          // Stage timestamp (right-aligned, compact)
+          // Shows the PLANNED order from Rust (not wall-clock time)
+          // This helps verify correct stage ordering even if async callbacks arrive out-of-order
           Text(
-            entry.formattedTime.substring(0, 8), // HH:MM:SS without ms
+            entry.stageTimestampMs > 0
+                ? '${entry.stageTimestampMs.toStringAsFixed(0)}ms'
+                : entry.formattedTime.substring(0, 8), // Fallback to wall-clock
             style: TextStyle(
-              color: Colors.white24,
+              color: entry.stageTimestampMs > 0 ? Colors.white38 : Colors.white24,
               fontSize: 9,
               fontFamily: 'monospace',
+              fontWeight: entry.stageTimestampMs > 0 ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ],

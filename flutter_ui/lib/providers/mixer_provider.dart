@@ -320,6 +320,13 @@ class MixerProvider extends ChangeNotifier {
   final Map<String, VcaFader> _vcas = {};
   final Map<String, MixerGroup> _groups = {};
 
+  // Channel order (list of channel IDs in display order)
+  // Supports bidirectional sync with timeline track order
+  final List<String> _channelOrder = [];
+
+  // Callback for notifying timeline when channel order changes
+  void Function(List<String> channelIds)? onChannelOrderChanged;
+
   // Master channel
   late MixerChannel _master;
 
@@ -412,7 +419,28 @@ class MixerProvider extends ChangeNotifier {
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  List<MixerChannel> get channels => _channels.values.toList();
+  /// Returns channels in display order (respects drag-drop reordering)
+  List<MixerChannel> get channels {
+    // Return channels in order, filtering out any stale IDs
+    final ordered = <MixerChannel>[];
+    for (final id in _channelOrder) {
+      final channel = _channels[id];
+      if (channel != null) {
+        ordered.add(channel);
+      }
+    }
+    // Add any channels not in order list (shouldn't happen, but defensive)
+    for (final channel in _channels.values) {
+      if (!_channelOrder.contains(channel.id)) {
+        ordered.add(channel);
+      }
+    }
+    return ordered;
+  }
+
+  /// Returns channel order as list of IDs
+  List<String> get channelOrder => List.unmodifiable(_channelOrder);
+
   List<MixerChannel> get buses => _buses.values.toList();
   List<MixerChannel> get auxes => _auxes.values.toList();
   List<VcaFader> get vcas => _vcas.values.toList();
@@ -432,6 +460,55 @@ class MixerProvider extends ChangeNotifier {
 
   /// Bus count
   int get busCount => _buses.length;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CHANNEL REORDERING (Bidirectional sync with Timeline)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Reorder a channel from oldIndex to newIndex
+  /// Called when user drags a fader in the mixer
+  void reorderChannel(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _channelOrder.length) return;
+    if (newIndex < 0 || newIndex >= _channelOrder.length) return;
+    if (oldIndex == newIndex) return;
+
+    final channelId = _channelOrder.removeAt(oldIndex);
+    _channelOrder.insert(newIndex, channelId);
+
+    // Notify timeline to sync track order
+    onChannelOrderChanged?.call(List.unmodifiable(_channelOrder));
+
+    notifyListeners();
+  }
+
+  /// Set channel order from external source (e.g., timeline track reorder)
+  /// Called when user drags a track header in the timeline
+  void setChannelOrder(List<String> newOrder, {bool notifyTimeline = false}) {
+    // Validate all IDs exist
+    final validOrder = newOrder.where((id) => _channels.containsKey(id)).toList();
+
+    // Add any missing channels at the end
+    for (final channel in _channels.values) {
+      if (!validOrder.contains(channel.id)) {
+        validOrder.add(channel.id);
+      }
+    }
+
+    _channelOrder.clear();
+    _channelOrder.addAll(validOrder);
+
+    // Optionally notify timeline (used when order set programmatically)
+    if (notifyTimeline) {
+      onChannelOrderChanged?.call(List.unmodifiable(_channelOrder));
+    }
+
+    notifyListeners();
+  }
+
+  /// Get channel index in display order
+  int getChannelIndex(String channelId) {
+    return _channelOrder.indexOf(channelId);
+  }
 
   /// Clear all solo states
   void clearAllSolo() {
@@ -583,6 +660,7 @@ class MixerProvider extends ChangeNotifier {
     );
 
     _channels[id] = channel;
+    _channelOrder.add(id); // Maintain order list
     notifyListeners();
     return channel;
   }
@@ -627,7 +705,29 @@ class MixerProvider extends ChangeNotifier {
     );
 
     _channels[id] = channel;
+    _channelOrder.add(id); // Maintain order list
     notifyListeners();
+    return channel;
+  }
+
+  /// Create channel from timeline at specific index (for ordered track creation)
+  MixerChannel createChannelFromTrackAtIndex(
+    String trackId,
+    String trackName,
+    Color trackColor,
+    int index, {
+    int channels = 2,
+  }) {
+    final channel = createChannelFromTrack(trackId, trackName, trackColor, channels: channels);
+
+    // Move to correct position if not at end
+    final currentIndex = _channelOrder.indexOf(channel.id);
+    if (currentIndex != -1 && currentIndex != index && index < _channelOrder.length) {
+      _channelOrder.removeAt(currentIndex);
+      _channelOrder.insert(index.clamp(0, _channelOrder.length), channel.id);
+      notifyListeners();
+    }
+
     return channel;
   }
 
@@ -650,6 +750,7 @@ class MixerProvider extends ChangeNotifier {
     }
 
     _channels.remove(id);
+    _channelOrder.remove(id); // Maintain order list
     _soloedChannels.remove(id);
     notifyListeners();
   }

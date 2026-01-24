@@ -1431,10 +1431,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   void _initializeSlotEngine() {
+    debugPrint('[SlotLabScreen] _initializeSlotEngine() called');
     // Get or create SlotLabProvider
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('[SlotLabScreen] postFrameCallback executing...');
       try {
         _slotLabProviderNullable = Provider.of<SlotLabProvider>(context, listen: false);
+        debugPrint('[SlotLabScreen] Got SlotLabProvider: ${_slotLabProviderNullable != null}');
+        debugPrint('[SlotLabScreen] Provider already initialized: ${_slotLabProvider.initialized}');
 
         // Migrate local cache to provider (in case anything was cached before init)
         if (_localWaveformCache.isNotEmpty) {
@@ -1447,7 +1451,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         }
 
         // Initialize engine for audio testing mode
+        debugPrint('[SlotLabScreen] Calling provider.initialize(audioTestMode: true)...');
         _engineInitialized = _slotLabProvider.initialize(audioTestMode: true);
+        debugPrint('[SlotLabScreen] initialize() returned: $_engineInitialized');
+        debugPrint('[SlotLabScreen] provider.initialized now: ${_slotLabProvider.initialized}');
 
         if (_engineInitialized) {
           // Connect to middleware for audio triggering

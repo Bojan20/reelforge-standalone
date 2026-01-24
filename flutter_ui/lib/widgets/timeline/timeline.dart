@@ -171,6 +171,9 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onTrackDelete;
   /// Context menu callback for tracks (pass track ID and position)
   final void Function(String trackId, Offset position)? onTrackContextMenu;
+  /// Track reorder callback (drag-drop to change track order)
+  /// Syncs bidirectionally with mixer channel order
+  final void Function(int oldIndex, int newIndex)? onTrackReorder;
   /// Currently selected track ID (controlled from parent)
   final String? selectedTrackId;
 
@@ -282,6 +285,7 @@ class Timeline extends StatefulWidget {
     this.onTrackDuplicate,
     this.onTrackDelete,
     this.onTrackContextMenu,
+    this.onTrackReorder,
     this.selectedTrackId,
     this.onTrackAutomationToggle,
     this.onAutomationLaneChanged,
@@ -374,6 +378,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   bool _isRubberBandSelecting = false;
   Offset? _rubberBandStart;
   Offset? _rubberBandEnd;
+
+  // Track reorder drag state (for bidirectional sync with mixer)
+  int? _draggedTrackIndex;
+  int? _dropTargetTrackIndex;
 
   final FocusNode _focusNode = FocusNode();
   double _containerWidth = 800;
@@ -1098,6 +1106,14 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       _isDroppingPoolFile = false;
       _poolDropPosition = null;
     });
+  }
+
+  /// Handle track reorder via drag-drop (bidirectional sync with mixer)
+  void _handleTrackReorder(int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
+    // Adjust for removal if moving down
+    final adjustedNewIndex = oldIndex < newIndex ? newIndex - 1 : newIndex;
+    widget.onTrackReorder?.call(oldIndex, adjustedNewIndex);
   }
 
   KeyEventResult _handleKeyEvent(KeyEvent event) {
@@ -1979,13 +1995,39 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                   ? track.visibleAutomationLanes
                                   : <AutomationLaneData>[];
 
-                              return _buildTrackWithAutomation(
-                                track: track,
-                                trackClips: trackClips,
-                                trackCrossfades: trackCrossfades,
-                                isEmpty: isEmpty,
-                                visibleAutomationLanes: visibleAutomationLanes,
-                                trackIndex: index,
+                              final trackHeight = track.height > 0 ? track.height : _defaultTrackHeight;
+
+                              // Wrap track with draggable for reordering
+                              // (bidirectional sync with mixer channels)
+                              return _DraggableTrackRow(
+                                index: index,
+                                trackId: track.id,
+                                isDragging: _draggedTrackIndex == index,
+                                isDropTarget: _dropTargetTrackIndex == index,
+                                trackHeight: trackHeight,
+                                onDragStarted: () {
+                                  setState(() => _draggedTrackIndex = index);
+                                },
+                                onDragEnded: () {
+                                  setState(() => _draggedTrackIndex = null);
+                                },
+                                onDragTargetEnter: (targetIndex) {
+                                  setState(() => _dropTargetTrackIndex = targetIndex);
+                                },
+                                onDragTargetLeave: () {
+                                  setState(() => _dropTargetTrackIndex = null);
+                                },
+                                onDragAccepted: (fromIndex) {
+                                  _handleTrackReorder(fromIndex, index);
+                                },
+                                child: _buildTrackWithAutomation(
+                                  track: track,
+                                  trackClips: trackClips,
+                                  trackCrossfades: trackCrossfades,
+                                  isEmpty: isEmpty,
+                                  visibleAutomationLanes: visibleAutomationLanes,
+                                  trackIndex: index,
+                                ),
                               );
                             },
                           ),
@@ -2761,6 +2803,99 @@ class _PlayheadOverlayState extends State<PlayheadOverlay> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Draggable wrapper for track rows (enables vertical drag-drop reordering)
+/// Used for bidirectional sync between timeline tracks and mixer channels.
+class _DraggableTrackRow extends StatelessWidget {
+  final int index;
+  final String trackId;
+  final bool isDragging;
+  final bool isDropTarget;
+  final double trackHeight;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragEnded;
+  final void Function(int targetIndex) onDragTargetEnter;
+  final VoidCallback onDragTargetLeave;
+  final void Function(int fromIndex) onDragAccepted;
+  final Widget child;
+
+  const _DraggableTrackRow({
+    required this.index,
+    required this.trackId,
+    required this.isDragging,
+    required this.isDropTarget,
+    required this.trackHeight,
+    required this.onDragStarted,
+    required this.onDragEnded,
+    required this.onDragTargetEnter,
+    required this.onDragTargetLeave,
+    required this.onDragAccepted,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) {
+        if (details.data == index) return false;
+        onDragTargetEnter(index);
+        return true;
+      },
+      onLeave: (_) => onDragTargetLeave(),
+      onAcceptWithDetails: (details) {
+        onDragAccepted(details.data);
+        onDragTargetLeave();
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drop indicator (shows above the track when dragging over)
+            if (isDropTarget)
+              Container(
+                height: 3,
+                color: FluxForgeTheme.accentBlue,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+              ),
+            LongPressDraggable<int>(
+              data: index,
+              axis: Axis.vertical,
+              delay: const Duration(milliseconds: 150),
+              onDragStarted: onDragStarted,
+              onDragEnd: (_) => onDragEnded(),
+              feedback: Material(
+                elevation: 8,
+                color: Colors.transparent,
+                child: Container(
+                  width: 300,
+                  height: trackHeight,
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.bgMid.withValues(alpha: 0.9),
+                    border: Border.all(color: FluxForgeTheme.accentBlue, width: 2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Track ${index + 1}',
+                      style: FluxForgeTheme.bodySmall.copyWith(
+                        color: FluxForgeTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.3,
+                child: child,
+              ),
+              child: RepaintBoundary(child: child),
+            ),
+          ],
+        );
+      },
     );
   }
 }

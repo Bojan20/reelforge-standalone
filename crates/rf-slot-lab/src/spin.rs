@@ -147,14 +147,13 @@ impl SpinResult {
         // 1. Spin Start
         events.push(StageEvent::new(Stage::SpinStart, timing.current()));
 
-        // 2. Reel Spinning events
+        // 2. Reel Spinning event (SINGLE event for all reels starting together)
+        // This is a loop sound that plays while reels are spinning
         let reel_count = self.grid.len() as u8;
-        for reel in 0..reel_count {
-            events.push(StageEvent::new(
-                Stage::ReelSpinning { reel_index: reel },
-                timing.reel_spin(reel),
-            ));
-        }
+        events.push(StageEvent::new(
+            Stage::ReelSpinning { reel_index: 0 }, // Single event, reel_index 0 indicates "all reels"
+            timing.reel_spin(0),
+        ));
 
         // 3. Reel Stop events (with anticipation if applicable)
         for reel in 0..reel_count {
@@ -217,6 +216,13 @@ impl SpinResult {
 
         // 9. Spin End
         events.push(StageEvent::new(Stage::SpinEnd, timing.advance(100.0)));
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // CRITICAL: Sort events by timestamp to ensure correct playback order
+        // Without this, events are returned in code order which may not match timing
+        // Example: EVALUATE_WINS might appear before REEL_STOP_4 in array
+        // ═══════════════════════════════════════════════════════════════════════════
+        events.sort_by(|a, b| a.timestamp_ms.partial_cmp(&b.timestamp_ms).unwrap_or(std::cmp::Ordering::Equal));
 
         events
     }
@@ -476,5 +482,98 @@ mod tests {
             ForcedOutcome::JackpotGrand.jackpot_tier(),
             Some(JackpotTier::Grand)
         );
+    }
+
+    #[test]
+    fn test_stage_ordering_after_sorting() {
+        // Create a winning spin result to ensure we get WIN_PRESENT and other win stages
+        let grid = vec![
+            vec![1, 1, 1],  // 5 reels x 3 rows
+            vec![1, 1, 1],
+            vec![1, 1, 1],
+            vec![2, 2, 2],
+            vec![2, 2, 2],
+        ];
+
+        let mut result = SpinResult::new("order-test".into(), grid, 1.0);
+        result.total_win = 50.0;
+        result.win_ratio = 50.0;
+        result.big_win_tier = Some(BigWinTier::MegaWin);
+        result.line_wins.push(LineWin {
+            line_index: 0,
+            symbol_id: 1,
+            symbol_name: "High".into(),
+            match_count: 5,
+            win_amount: 50.0,
+            positions: vec![(0, 1), (1, 1), (2, 1), (3, 1), (4, 1)],
+            wild_positions: vec![],
+        });
+
+        let config = TimingConfig::normal();
+        let mut timing = crate::timing::TimestampGenerator::new(config);
+        let stages = result.generate_stages(&mut timing);
+
+        // Find key stage timestamps
+        let mut last_reel_stop_ts = 0.0_f64;
+        let mut evaluate_wins_ts = None;
+        let mut win_present_ts = None;
+
+        for stage in &stages {
+            match &stage.stage {
+                Stage::ReelStop { reel_index, .. } => {
+                    // Track the latest REEL_STOP timestamp
+                    if stage.timestamp_ms > last_reel_stop_ts {
+                        last_reel_stop_ts = stage.timestamp_ms;
+                    }
+                    println!("REEL_STOP_{}: {}ms", reel_index, stage.timestamp_ms);
+                }
+                Stage::EvaluateWins => {
+                    evaluate_wins_ts = Some(stage.timestamp_ms);
+                    println!("EVALUATE_WINS: {}ms", stage.timestamp_ms);
+                }
+                Stage::WinPresent { .. } => {
+                    win_present_ts = Some(stage.timestamp_ms);
+                    println!("WIN_PRESENT: {}ms", stage.timestamp_ms);
+                }
+                _ => {}
+            }
+        }
+
+        // CRITICAL ASSERTIONS:
+        // 1. All REEL_STOP events must have timestamps BEFORE EVALUATE_WINS
+        let eval_ts = evaluate_wins_ts.expect("Should have EVALUATE_WINS stage");
+        assert!(
+            last_reel_stop_ts < eval_ts,
+            "Last REEL_STOP ({}) must be before EVALUATE_WINS ({})",
+            last_reel_stop_ts,
+            eval_ts
+        );
+
+        // 2. EVALUATE_WINS must have timestamp BEFORE WIN_PRESENT
+        let win_ts = win_present_ts.expect("Should have WIN_PRESENT stage for winning spin");
+        assert!(
+            eval_ts < win_ts,
+            "EVALUATE_WINS ({}) must be before WIN_PRESENT ({})",
+            eval_ts,
+            win_ts
+        );
+
+        // 3. Verify stages are sorted by timestamp
+        let mut prev_ts = 0.0_f64;
+        for (i, stage) in stages.iter().enumerate() {
+            assert!(
+                stage.timestamp_ms >= prev_ts,
+                "Stage {} has timestamp {} but previous was {} - NOT SORTED!",
+                i,
+                stage.timestamp_ms,
+                prev_ts
+            );
+            prev_ts = stage.timestamp_ms;
+        }
+
+        println!("\n✅ Stage ordering is CORRECT:");
+        println!("   Last REEL_STOP: {}ms", last_reel_stop_ts);
+        println!("   EVALUATE_WINS: {}ms", eval_ts);
+        println!("   WIN_PRESENT: {}ms", win_ts);
     }
 }

@@ -2800,6 +2800,7 @@ class _ControlBar extends StatelessWidget {
   final int maxBetLevel;
   final double totalBet;
   final bool isSpinning;
+  final bool showStopButton; // True ONLY during actual reel spinning
   final bool isAutoSpin;
   final int autoSpinCount;
   final bool isTurbo;
@@ -2822,6 +2823,7 @@ class _ControlBar extends StatelessWidget {
     required this.maxBetLevel,
     required this.totalBet,
     required this.isSpinning,
+    required this.showStopButton,
     required this.isAutoSpin,
     required this.autoSpinCount,
     required this.isTurbo,
@@ -2930,6 +2932,7 @@ class _ControlBar extends StatelessWidget {
           // Main spin/stop button
           _SpinButton(
             isSpinning: isSpinning,
+            showStopButton: showStopButton,
             canSpin: canSpin,
             onSpin: onSpin,
             onStop: onStop,
@@ -3201,12 +3204,14 @@ class _ControlButtonState extends State<_ControlButton> {
 
 class _SpinButton extends StatefulWidget {
   final bool isSpinning;
+  final bool showStopButton; // True ONLY while reels are visually spinning
   final bool canSpin;
   final VoidCallback onSpin;
   final VoidCallback onStop;
 
   const _SpinButton({
     required this.isSpinning,
+    required this.showStopButton,
     required this.canSpin,
     required this.onSpin,
     required this.onStop,
@@ -3238,7 +3243,10 @@ class _SpinButtonState extends State<_SpinButton>
 
   @override
   Widget build(BuildContext context) {
-    final isEnabled = widget.canSpin || widget.isSpinning;
+    // Button is enabled when can spin OR when STOP button should be shown
+    final isEnabled = widget.canSpin || widget.showStopButton;
+    // Show STOP button ONLY during actual reel spinning (not during win presentation)
+    final showStop = widget.showStopButton;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -3246,7 +3254,7 @@ class _SpinButtonState extends State<_SpinButton>
       cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: () {
-          if (widget.isSpinning) {
+          if (showStop) {
             widget.onStop();
           } else if (widget.canSpin) {
             widget.onSpin();
@@ -3255,7 +3263,7 @@ class _SpinButtonState extends State<_SpinButton>
         child: AnimatedBuilder(
           animation: _pulseController,
           builder: (context, _) {
-            final pulse = widget.isSpinning
+            final pulse = showStop
                 ? 1.0
                 : (0.95 + _pulseController.value * 0.1);
 
@@ -3269,14 +3277,14 @@ class _SpinButtonState extends State<_SpinButton>
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: widget.isSpinning
+                    colors: showStop
                         ? [FluxForgeTheme.accentRed, const Color(0xFFCC2040)]
                         : (isEnabled
                             ? _SlotTheme.spinGradient
                             : [_SlotTheme.bgSurface, _SlotTheme.bgPanel]),
                   ),
                   border: Border.all(
-                    color: widget.isSpinning
+                    color: showStop
                         ? FluxForgeTheme.accentRed
                         : (isEnabled
                             ? FluxForgeTheme.accentBlue
@@ -3286,7 +3294,7 @@ class _SpinButtonState extends State<_SpinButton>
                   boxShadow: [
                     if (isEnabled)
                       BoxShadow(
-                        color: (widget.isSpinning
+                        color: (showStop
                                 ? FluxForgeTheme.accentRed
                                 : FluxForgeTheme.accentBlue)
                             .withOpacity(_isHovered ? 0.6 : 0.4),
@@ -3296,7 +3304,7 @@ class _SpinButtonState extends State<_SpinButton>
                   ],
                 ),
                 child: Center(
-                  child: widget.isSpinning
+                  child: showStop
                       ? const Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -5062,8 +5070,26 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   void _handleSpin(SlotLabProvider provider) {
-    if (provider.isPlayingStages) return;
-    if (_balance < _totalBetAmount) return;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEBUG LOGGING — Trace spin flow
+    // ═══════════════════════════════════════════════════════════════════════════
+    debugPrint('[PremiumSlotPreview] 🎰 _handleSpin called');
+    debugPrint('[PremiumSlotPreview]   initialized=${provider.initialized}');
+    debugPrint('[PremiumSlotPreview]   isPlayingStages=${provider.isPlayingStages}');
+    debugPrint('[PremiumSlotPreview]   balance=$_balance, totalBet=$_totalBetAmount');
+
+    if (!provider.initialized) {
+      debugPrint('[PremiumSlotPreview] ❌ BLOCKED: Provider not initialized!');
+      return;
+    }
+    if (provider.isPlayingStages) {
+      debugPrint('[PremiumSlotPreview] ❌ BLOCKED: Already playing stages');
+      return;
+    }
+    if (_balance < _totalBetAmount) {
+      debugPrint('[PremiumSlotPreview] ❌ BLOCKED: Insufficient balance');
+      return;
+    }
 
     setState(() {
       _balance -= _totalBetAmount;
@@ -5085,11 +5111,17 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // ═══════════════════════════════════════════════════════════════════════
     _scheduleVisualSyncCallbacks(null);
 
+    debugPrint('[PremiumSlotPreview] ✅ Calling provider.spin()...');
     provider.spin().then((result) {
       if (result != null && mounted) {
+        debugPrint('[PremiumSlotPreview] ✅ spin() returned result: ${result.spinId}');
+        debugPrint('[PremiumSlotPreview]   stages count: ${provider.lastStages.length}');
+        debugPrint('[PremiumSlotPreview]   isPlayingStages: ${provider.isPlayingStages}');
         // Store result for win stage triggering (used by _onAllReelsStopped)
         _pendingResultForWinStage = result;
         _processResult(result);
+      } else {
+        debugPrint('[PremiumSlotPreview] ❌ spin() returned NULL! Provider may not be initialized.');
       }
     });
   }
@@ -5542,8 +5574,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SlotLabProvider>();
+    // isSpinning: True during all stages (spin + win presentation) — for disabling Spin button
     final isSpinning = provider.isPlayingStages;
-    final canSpin = _balance >= _totalBetAmount && !isSpinning;
+    // isReelsSpinning: True ONLY while reels are visually spinning — for STOP button
+    final isReelsActuallySpinning = provider.isReelsSpinning;
+    final isInitialized = provider.initialized;
+    final canSpin = isInitialized && _balance >= _totalBetAmount && !isSpinning;
     final sessionRtp = _totalBet > 0 ? (_totalWin / _totalBet * 100) : 0.0;
 
     return Focus(
@@ -5609,6 +5645,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   maxBetLevel: 10,
                   totalBet: _totalBetAmount,
                   isSpinning: isSpinning,
+                  showStopButton: isReelsActuallySpinning, // STOP only during reel spinning
                   isAutoSpin: _isAutoSpin,
                   autoSpinCount: _autoSpinRemaining,
                   isTurbo: _isTurbo,

@@ -128,6 +128,14 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   Ticker? _animationTicker;
   final Set<int> _reelStoppedFlags = {}; // Track which reels have triggered audio
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // IGT-STYLE SEQUENTIAL REEL STOP BUFFER
+  // Animation callbacks can fire OUT OF ORDER. We must trigger audio SEQUENTIALLY.
+  // If Reel 4 finishes before Reel 3, we buffer it and wait for Reel 3.
+  // ═══════════════════════════════════════════════════════════════════════════
+  int _nextExpectedReelIndex = 0; // Which reel we're waiting for (0, 1, 2, 3, 4)
+  final Set<int> _pendingReelStops = {}; // Buffered out-of-order reel stops
+
   // Legacy controllers (kept for win effects)
   late AnimationController _winPulseController;
   late Animation<double> _winPulseAnimation;
@@ -162,6 +170,7 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   bool _isSpinning = false;
   bool _spinFinalized = false; // Prevents re-trigger after finalize
   String? _lastProcessedSpinId; // Track which spin result we've processed
+  int _spinStartTimeMs = 0; // Timestamp when spin started (for Event Log ordering)
   Set<int> _winningReels = {};
   Set<String> _winningPositions = {}; // "reel,row" format
 
@@ -175,6 +184,40 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   bool _isCascading = false;
   Set<String> _cascadePopPositions = {}; // Positions being popped
   int _cascadeStep = 0;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V2: LANDING IMPACT EFFECT — Industry standard "punch" on reel stop
+  // ═══════════════════════════════════════════════════════════════════════════
+  final Map<int, double> _landingFlashProgress = {}; // Per-reel flash (0.0 - 1.0)
+  final Map<int, double> _landingPopScale = {}; // Per-reel scale pop (1.0 - 1.05 - 1.0)
+  bool _screenShakeActive = false; // Screen shake on last reel (big wins only)
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V6: ENHANCED SYMBOL HIGHLIGHT — Staggered popup for winning symbols
+  // Industry standard: individual symbol "pop" on first highlight
+  // ═══════════════════════════════════════════════════════════════════════════
+  final Map<String, double> _symbolPopScale = {}; // Per-position popup scale (1.0 → 1.15 → 1.0)
+  final Map<String, double> _symbolPopRotation = {}; // Micro-rotation wiggle (radians)
+  static const double _symbolPopMaxScale = 1.15; // Peak popup scale
+  static const int _symbolPopStaggerMs = 50; // Delay between each symbol's popup
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V7: ROLLUP VISUAL FEEDBACK — Meter + counter shake for engaging rollup
+  // Industry standard: visual feedback makes rollup feel substantial
+  // ═══════════════════════════════════════════════════════════════════════════
+  double _rollupProgress = 0.0; // 0.0 to 1.0 for progress meter
+  double _counterShakeScale = 1.0; // Scale pulse on tick (1.0 → 1.08 → 1.0)
+  bool _isRollingUp = false; // Currently in rollup phase
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V8: ENHANCED WIN PLAQUE — Screen flash, dramatic entrance, particles
+  // Industry standard: NetEnt, Pragmatic Play dramatic win celebration
+  // ═══════════════════════════════════════════════════════════════════════════
+  late AnimationController _screenFlashController;
+  late Animation<double> _screenFlashOpacity;
+  late AnimationController _plaqueGlowController;
+  late Animation<double> _plaqueGlowPulse;
+  bool _showScreenFlash = false; // True during initial flash
 
   // Win display state
   double _displayedWinAmount = 0;
@@ -228,10 +271,11 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     'ULTRA': 4,    // Maximum
   };
 
-  // Currency formatter for win display
+  // Currency formatter for win display — Industry standard: 2 decimal places
+  // Examples: 1234.50 → "1,234.50" | 50.00 → "50.00" | 1234567.89 → "1,234,567.89"
   static final _currencyFormatter = NumberFormat.currency(
     symbol: '',
-    decimalDigits: 0,
+    decimalDigits: 2,
     locale: 'en_US',
   );
 
@@ -352,6 +396,27 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       CurvedAnimation(parent: _cascadePopController, curve: Curves.easeInBack),
     );
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V8: SCREEN FLASH + PLAQUE GLOW — Dramatic entrance animations
+    // Industry standard: Flash on entrance, pulsing glow during display
+    // ═══════════════════════════════════════════════════════════════════════════
+    _screenFlashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _screenFlashOpacity = Tween<double>(begin: 0.8, end: 0.0).animate(
+      CurvedAnimation(parent: _screenFlashController, curve: Curves.easeOut),
+    );
+
+    // Pulsing glow effect for plaque (faster than win pulse)
+    _plaqueGlowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..repeat(reverse: true);
+    _plaqueGlowPulse = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(parent: _plaqueGlowController, curve: Curves.easeInOut),
+    );
+
     _spinSymbols = List.generate(
       widget.reels,
       (_) => List.generate(20, (_) => _random.nextInt(10)),
@@ -404,13 +469,19 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _anticipationController.dispose();
     _nearMissController.dispose();
     _cascadePopController.dispose();
+
+    // V8: Dispose enhanced plaque controllers
+    _screenFlashController.dispose();
+    _plaqueGlowController.dispose();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // VISUAL-SYNC CALLBACKS — Audio triggers on VISUAL reel stop
+  // IGT STANDARD: Reels MUST stop in order 0→1→2→3→4, audio fires sequentially
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Called when a reel VISUALLY stops - triggers audio for that reel
+  /// Called when a reel VISUALLY stops - uses IGT-style sequential buffer
+  /// Animation callbacks can fire OUT OF ORDER. We must trigger audio SEQUENTIALLY.
   void _onReelStopVisual(int reelIndex) {
     if (!mounted) return;
 
@@ -430,17 +501,137 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
     });
 
-    // Trigger the audio event for this specific reel
-    // The EventRegistry will play the audio with correct pan
-    debugPrint('[SlotPreview] 🎰 REEL $reelIndex STOPPED → triggering REEL_STOP_$reelIndex');
-    eventRegistry.triggerStage('REEL_STOP_$reelIndex');
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V2: LANDING IMPACT EFFECT — Flash + Scale Pop on reel stop
+    // Industry standard "punch" visual when reel lands
+    // ═══════════════════════════════════════════════════════════════════════════
+    _triggerLandingImpact(reelIndex);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IGT-STYLE SEQUENTIAL BUFFER
+    // If this reel is the next expected one, trigger audio immediately
+    // If not, buffer it and wait for the expected one
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (reelIndex == _nextExpectedReelIndex) {
+      // This is the next expected reel — trigger immediately
+      _triggerReelStopAudio(reelIndex);
+      _nextExpectedReelIndex++;
+
+      // Flush any buffered reels that are now in sequence
+      _flushPendingReelStops();
+    } else {
+      // Out of order — buffer it for later
+      debugPrint('[SlotPreview] 📦 REEL $reelIndex BUFFERED (waiting for reel $_nextExpectedReelIndex)');
+      _pendingReelStops.add(reelIndex);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V2: LANDING IMPACT — Industry standard visual "punch" on reel landing
+  // Flash overlay (50ms) + Scale pop (1.05x over 100ms)
+  // ═══════════════════════════════════════════════════════════════════════════
+  void _triggerLandingImpact(int reelIndex) {
+    // Start flash at full intensity
+    setState(() {
+      _landingFlashProgress[reelIndex] = 1.0;
+      _landingPopScale[reelIndex] = 1.08; // Start at peak scale
+    });
+
+    // Animate flash decay (50ms)
+    Future.delayed(const Duration(milliseconds: 20), () {
+      if (!mounted) return;
+      setState(() => _landingFlashProgress[reelIndex] = 0.6);
+    });
+    Future.delayed(const Duration(milliseconds: 40), () {
+      if (!mounted) return;
+      setState(() => _landingFlashProgress[reelIndex] = 0.3);
+    });
+    Future.delayed(const Duration(milliseconds: 60), () {
+      if (!mounted) return;
+      setState(() => _landingFlashProgress[reelIndex] = 0.0);
+    });
+
+    // Animate scale pop decay (100ms)
+    Future.delayed(const Duration(milliseconds: 30), () {
+      if (!mounted) return;
+      setState(() => _landingPopScale[reelIndex] = 1.05);
+    });
+    Future.delayed(const Duration(milliseconds: 60), () {
+      if (!mounted) return;
+      setState(() => _landingPopScale[reelIndex] = 1.02);
+    });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted) return;
+      setState(() => _landingPopScale[reelIndex] = 1.0);
+    });
+
+    // Screen shake on LAST REEL for potential big wins
+    if (reelIndex == widget.reels - 1) {
+      _triggerScreenShake();
+    }
+  }
+
+  /// Brief screen shake when last reel lands (anticipation effect)
+  void _triggerScreenShake() {
+    if (!mounted) return;
+    setState(() => _screenShakeActive = true);
+    Future.delayed(const Duration(milliseconds: 80), () {
+      if (!mounted) return;
+      setState(() => _screenShakeActive = false);
+    });
+  }
+
+  /// Triggers REEL_STOP audio for a specific reel with correct timestamp
+  void _triggerReelStopAudio(int reelIndex) {
+    // Get RUST PLANNED timestamp for correct Event Log ordering
+    double timestampMs = 0.0;
+    try {
+      final stages = widget.provider.lastStages;
+      final matchingStage = stages.firstWhere(
+        (s) => s.stageType.toUpperCase() == 'REEL_STOP' && s.rawStage['reel_index'] == reelIndex,
+        orElse: () => stages.firstWhere(
+          (s) => s.stageType.toUpperCase() == 'REEL_STOP',
+          orElse: () => throw StateError('No REEL_STOP stage found'),
+        ),
+      );
+      timestampMs = matchingStage.timestampMs;
+    } catch (e) {
+      // Fallback to elapsed time if stage not found
+      timestampMs = (DateTime.now().millisecondsSinceEpoch - _spinStartTimeMs).toDouble();
+    }
+
+    debugPrint('[SlotPreview] 🎰 REEL $reelIndex STOPPED → triggering REEL_STOP_$reelIndex (rust_ts: ${timestampMs.toStringAsFixed(0)}ms)');
+    eventRegistry.triggerStage('REEL_STOP_$reelIndex', context: {'timestamp_ms': timestampMs});
+  }
+
+  /// Flush buffered reel stops that are now in sequence
+  void _flushPendingReelStops() {
+    while (_pendingReelStops.contains(_nextExpectedReelIndex)) {
+      final reelToFlush = _nextExpectedReelIndex;
+      _pendingReelStops.remove(reelToFlush);
+      debugPrint('[SlotPreview] 📤 FLUSHING BUFFERED REEL $reelToFlush');
+      _triggerReelStopAudio(reelToFlush);
+      _nextExpectedReelIndex++;
+    }
   }
 
   /// Called when ALL reels have stopped - trigger win evaluation
   void _onAllReelsStoppedVisual() {
     if (!mounted) return;
 
+    // CRITICAL: Guard against multiple calls (stopImmediately also fires this callback)
+    if (_spinFinalized || !_isSpinning) {
+      debugPrint('[SlotPreview] ⚠️ _onAllReelsStoppedVisual SKIPPED: already finalized=$_spinFinalized, spinning=$_isSpinning');
+      return;
+    }
+
     debugPrint('[SlotPreview] ✅ ALL REELS STOPPED → finalize spin');
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NOTIFY PROVIDER: Reels no longer spinning (for STOP button visibility)
+    // This MUST be called before any win presentation starts
+    // ═══════════════════════════════════════════════════════════════════════════
+    widget.provider.onAllReelsVisualStop();
 
     // Now finalize with the result
     final result = widget.provider.lastResult;
@@ -465,6 +656,23 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final result = widget.provider.lastResult;
     final isPlaying = widget.provider.isPlayingStages;
     final stages = widget.provider.lastStages;
+    final spinId = result?.spinId;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DETAILED DEBUG — Track every state change
+    // ═══════════════════════════════════════════════════════════════════════════
+    debugPrint('╔══════════════════════════════════════════════════════════════╗');
+    debugPrint('║ [SlotPreview] _onProviderUpdate                              ║');
+    debugPrint('╠══════════════════════════════════════════════════════════════╣');
+    debugPrint('║ Provider state:');
+    debugPrint('║   isPlayingStages = $isPlaying');
+    debugPrint('║   stages.length = ${stages.length}');
+    debugPrint('║   result.spinId = $spinId');
+    debugPrint('║ Widget state:');
+    debugPrint('║   _isSpinning = $_isSpinning');
+    debugPrint('║   _spinFinalized = $_spinFinalized');
+    debugPrint('║   _lastProcessedSpinId = $_lastProcessedSpinId');
+    debugPrint('╚══════════════════════════════════════════════════════════════╝');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SPIN START LOGIC — Guard against re-triggering after finalize
@@ -475,22 +683,52 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // 3. We're not already spinning
     // 4. We haven't just finalized this spin (prevents double-trigger)
     // 5. This is a NEW spin result (different spinId)
-    if (isPlaying && stages.isNotEmpty && !_isSpinning && !_spinFinalized) {
+
+    final canStartSpin = isPlaying && stages.isNotEmpty && !_isSpinning && !_spinFinalized;
+    debugPrint('[SlotPreview] canStartSpin=$canStartSpin (isPlaying=$isPlaying, stages=${stages.length}, !spinning=${!_isSpinning}, !finalized=${!_spinFinalized})');
+
+    if (canStartSpin) {
       final hasSpinStart = stages.any((s) => s.stageType == 'spin_start');
-      final spinId = result?.spinId;
+
+      // DEBUG: Log stage types for verification
+      if (stages.isNotEmpty) {
+        debugPrint('[SlotPreview] Stage types: ${stages.map((s) => s.stageType).take(5).join(", ")}...');
+      }
+      debugPrint('[SlotPreview] hasSpinStart=$hasSpinStart, spinId=$spinId, lastProcessed=$_lastProcessedSpinId');
 
       // Only start if this is a genuinely new spin
       if (hasSpinStart && spinId != null && spinId != _lastProcessedSpinId) {
-        debugPrint('[SlotPreview] 🆕 New spin detected: $spinId (last: $_lastProcessedSpinId)');
+        debugPrint('[SlotPreview] 🆕 NEW SPIN DETECTED: $spinId');
         _lastProcessedSpinId = spinId;
         _startSpin(result);
+      } else if (!hasSpinStart) {
+        debugPrint('[SlotPreview] ⚠️ BLOCKED: No spin_start stage found!');
+      } else if (spinId == _lastProcessedSpinId) {
+        debugPrint('[SlotPreview] ⚠️ BLOCKED: Same spinId as last processed ($spinId)');
+      } else if (spinId == null) {
+        debugPrint('[SlotPreview] ⚠️ BLOCKED: spinId is null');
       }
+    } else {
+      // Log WHY we can't start spin
+      if (!isPlaying) debugPrint('[SlotPreview] ⏸️ Not starting: isPlaying=false');
+      if (stages.isEmpty) debugPrint('[SlotPreview] ⏸️ Not starting: stages empty');
+      if (_isSpinning) debugPrint('[SlotPreview] ⏸️ Not starting: already spinning');
+      if (_spinFinalized) debugPrint('[SlotPreview] ⏸️ Not starting: spinFinalized=true');
     }
 
     // Reset finalized flag when provider stops playing (ready for next spin)
     if (!isPlaying && _spinFinalized) {
-      debugPrint('[SlotPreview] 🔄 Reset finalized flag — ready for next spin');
+      debugPrint('[SlotPreview] 🔄 RESET: spinFinalized false → ready for next spin');
       _spinFinalized = false;
+    }
+
+    // CRITICAL: Also reset _isSpinning if provider stopped but we're still "spinning"
+    // This handles edge case where animation finished but state wasn't cleaned up
+    if (!isPlaying && _isSpinning && stages.isEmpty) {
+      debugPrint('[SlotPreview] 🔧 FORCE RESET: _isSpinning was stuck true, resetting');
+      setState(() {
+        _isSpinning = false;
+      });
     }
 
     // Check for anticipation events
@@ -530,16 +768,31 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
     }
 
-    if (!isPlaying && result != null && _isSpinning) {
-      _finalizeSpin(result);
-    }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REMOVED: Early finalize when provider stops playing
+    // REASON: Visual animation may still be running!
+    // CORRECT: Only call _finalizeSpin() from _onAllReelsStoppedVisual()
+    // This ensures ALL reels land visually BEFORE win evaluation starts
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OLD CODE (WRONG):
+    // if (!isPlaying && result != null && _isSpinning) {
+    //   _finalizeSpin(result);
+    // }
   }
 
   void _startSpin(SlotLabSpinResult? result) {
-    if (_isSpinning) return;
+    debugPrint('[SlotPreview] 🎬 _startSpin() called, _isSpinning=$_isSpinning');
+    if (_isSpinning) {
+      debugPrint('[SlotPreview] ❌ _startSpin BLOCKED: already spinning!');
+      return;
+    }
+    debugPrint('[SlotPreview] ✅ _startSpin PROCEEDING — will set _isSpinning=true');
 
     // Stop any previous win line presentation
     _stopWinLinePresentation();
+
+    // Capture spin start time for Event Log timestamp ordering
+    _spinStartTimeMs = DateTime.now().millisecondsSinceEpoch;
 
     setState(() {
       _isSpinning = true;
@@ -558,6 +811,9 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _nearMissPositions = {};
       // Clear reel stopped flags for new spin
       _reelStoppedFlags.clear();
+      // Reset IGT-style sequential buffer for new spin
+      _nextExpectedReelIndex = 0;
+      _pendingReelStops.clear();
     });
 
     // Hide win overlay
@@ -596,10 +852,21 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   void _finalizeSpin(SlotLabSpinResult result) {
-    debugPrint('[SlotPreview] ✅ FINALIZE SPIN — setting spinFinalized=true');
+    debugPrint('[SlotPreview] ✅ FINALIZE SPIN — _isSpinning=$_isSpinning, _spinFinalized=$_spinFinalized');
 
-    // Stop visual animation immediately (in case of external stop via SPACE)
-    _reelAnimController.stopImmediately();
+    // Guard against double finalize
+    if (_spinFinalized) {
+      debugPrint('[SlotPreview] ⚠️ _finalizeSpin SKIPPED: already finalized');
+      return;
+    }
+
+    // Stop visual animation ONLY if still spinning (avoid duplicate callback from stopImmediately)
+    if (_reelAnimController.isSpinning) {
+      debugPrint('[SlotPreview] Stopping animation controller...');
+      _reelAnimController.stopImmediately();
+    } else {
+      debugPrint('[SlotPreview] Animation already stopped, skipping stopImmediately()');
+    }
 
     // Stop any existing win line presentation
     _stopWinLinePresentation();
@@ -632,63 +899,81 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _winTier = _getWinTier(result.totalWin);
 
         // ═══════════════════════════════════════════════════════════════════════
-        // WIN AUDIO FLOW — Simplified sequential presentation (NO plaque)
-        // Phase 1: SYMBOL_HIGHLIGHT (1050ms) — Winning symbols glow/bounce
-        // Phase 2: TIER PLAQUE + COIN COUNTER ROLLUP (tier-based) — "BIG WIN!" + counter
-        // Phase 3: WIN_LINE_SHOW (cycling) — Visual lines ONLY, no symbol info
+        // SEQUENTIAL WIN FLOW — Professional slot standard
+        // Phase 1: Symbol highlight animation (shows winning symbols glow/bounce)
+        // Phase 2: Total Win plaque + counter rollup (dramatic reveal)
+        // Phase 3: Win lines cycling (one line at a time)
         // ═══════════════════════════════════════════════════════════════════════
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // PHASE 1: SYMBOL HIGHLIGHT (0ms - 1050ms)
-        // 3 pulse cycles × 350ms = 1050ms total
-        // ═══════════════════════════════════════════════════════════════════════
-        eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
-        debugPrint('[SlotPreview] 🔊 PHASE 1: WIN_SYMBOL_HIGHLIGHT (tier: $_winTier)');
-
-        // Start symbol pulse animation (repeats 3 times)
-        _startSymbolPulseAnimation();
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // PHASE 2: TIER PLAQUE + COIN COUNTER ROLLUP (starts after Phase 1: 1050ms)
-        // Duration: tier-based (1500ms SMALL → 20000ms ULTRA)
-        // Prikazuje: "BIG WIN!" + coin counter sa rollup animacijom
-        // NE prikazuje: info o simbolima (npr. "3x Grapes = $50")
-        // ═══════════════════════════════════════════════════════════════════════
         final rollupDuration = _rollupDurationByTier[_winTier] ?? 1500;
 
-        Future.delayed(const Duration(milliseconds: _symbolHighlightDurationMs), () {
+        // Tier-based symbol highlight duration (bigger wins = longer celebration)
+        final symbolHighlightMs = switch (_winTier) {
+          'ULTRA' => 2500,
+          'EPIC' => 2000,
+          'MEGA' => 1800,
+          'SUPER' => 1500,
+          'BIG' => 1200,
+          _ => 800, // SMALL
+        };
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // PHASE 1: SYMBOL HIGHLIGHT (0ms → symbolHighlightMs)
+        // Winning symbols glow and pulse - builds anticipation
+        // ═══════════════════════════════════════════════════════════════════════
+        eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
+        _startSymbolPulseAnimation();
+
+        debugPrint('[SlotPreview] 🎰 PHASE 1: Symbol highlight (tier: $_winTier, duration: ${symbolHighlightMs}ms)');
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // PHASE 2: TOTAL WIN PLAQUE + COUNTER (after symbolHighlightMs)
+        // Dramatic plaque entrance with screen flash + counter rollup
+        // ═══════════════════════════════════════════════════════════════════════
+        Future.delayed(Duration(milliseconds: symbolHighlightMs), () {
           if (!mounted) return;
 
-          // Trigger tier-specific fanfare
+          // Trigger tier-specific fanfare audio
           final tierStage = _winTier.isNotEmpty ? 'WIN_PRESENT_$_winTier' : 'WIN_PRESENT';
           eventRegistry.triggerStage(tierStage);
-          debugPrint('[SlotPreview] 🔊 PHASE 2: $tierStage (tier plaque + counter)');
 
-          // Show tier plaque + coin counter overlay
+          // V8: Trigger screen flash for dramatic entrance (BIG+ tiers only)
+          if (_winTier != 'SMALL') {
+            setState(() => _showScreenFlash = true);
+            _screenFlashController.forward(from: 0).then((_) {
+              if (mounted) setState(() => _showScreenFlash = false);
+            });
+          }
+
+          // Show plaque with dramatic animation
           _winAmountController.forward(from: 0);
 
-          // Start counter rollup with tier-specific duration
+          // V8: Spawn extra celebration particles for BIG+ tiers
+          if (_winTier != 'SMALL') {
+            _spawnPlaqueCelebrationParticles(_winTier);
+          }
+
+          // Start counter rollup
           _startTierBasedRollup(_winTier);
+
+          debugPrint('[SlotPreview] 🎰 PHASE 2: Plaque + counter (tier: $_winTier, rollup: ${rollupDuration}ms)');
         });
 
-        // Spawn particles for bigger wins
+        // Spawn particles for bigger wins (during symbol highlight)
         if (_winTier != 'SMALL') {
           _spawnWinParticles(_winTier);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // PHASE 3: WIN LINE PRESENTATION (STRICT SEQUENTIAL — after rollup ends)
-        // ALL tiers: Win lines start ONLY after rollup completes
-        // Prikazuje: SAMO vizualne linije između dobitnih simbola
-        // NE prikazuje: info o simbolima (npr. "Line 3: 3x Grapes = $50")
+        // PHASE 3: WIN LINE PRESENTATION — After Phase 1 + Phase 2 complete
+        // Total delay = symbolHighlight + rollupDuration
         // ═══════════════════════════════════════════════════════════════════════
         if (result.lineWins.isNotEmpty) {
-          // Phase 3 starts strictly AFTER rollup ends
-          final totalDelay = _symbolHighlightDurationMs + rollupDuration;
+          final totalDelayBeforeLines = symbolHighlightMs + rollupDuration;
 
-          Future.delayed(Duration(milliseconds: totalDelay), () {
+          Future.delayed(Duration(milliseconds: totalDelayBeforeLines), () {
             if (!mounted) return;
-            debugPrint('[SlotPreview] 🔊 PHASE 3: WIN_LINE_SHOW starting (after rollup, delay: ${totalDelay}ms)');
+            debugPrint('[SlotPreview] 🎰 PHASE 3: Win lines (after ${totalDelayBeforeLines}ms total)');
             _startWinLinePresentation(result.lineWins);
           });
         }
@@ -739,13 +1024,24 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _currentLinePositions = {};
   }
 
-  /// Advance to next win line in the cycle
+  /// Advance to next win line — NO LOOPING, single pass through all lines
   void _advanceToNextWinLine() {
     if (_lineWinsForPresentation.isEmpty) return;
 
+    final nextIndex = _currentPresentingLineIndex + 1;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL: NO LOOPING — stop after showing all unique lines ONCE
+    // When last line is reached, stop the timer and end presentation
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (nextIndex >= _lineWinsForPresentation.length) {
+      debugPrint('[SlotPreview] 🏁 Win line presentation COMPLETE (${_lineWinsForPresentation.length} lines shown once)');
+      _stopWinLinePresentation();
+      return;
+    }
+
     setState(() {
-      _currentPresentingLineIndex =
-          (_currentPresentingLineIndex + 1) % _lineWinsForPresentation.length;
+      _currentPresentingLineIndex = nextIndex;
       _showCurrentWinLine(); // Audio triggered inside _showCurrentWinLine()
     });
   }
@@ -844,9 +1140,77 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   int _symbolPulseCount = 0;
 
   /// Start symbol pulse animation with 3 cycles (industry standard)
+  /// V6: Now includes staggered popup effect for winning symbols
   void _startSymbolPulseAnimation() {
     _symbolPulseCount = 0;
+
+    // V6: Start staggered popup for each winning position
+    _triggerStaggeredSymbolPopups();
+
     _runSymbolPulseCycle();
+  }
+
+  /// V6: Trigger staggered popup animations for winning symbols
+  /// Each symbol pops 50ms after the previous one (left to right, top to bottom)
+  void _triggerStaggeredSymbolPopups() {
+    // Sort win positions for consistent left-to-right, top-to-bottom order
+    // Format is "reel,row"
+    final sortedPositions = _winningPositions.toList()..sort((a, b) {
+      final partsA = a.split(',').map(int.parse).toList();
+      final partsB = b.split(',').map(int.parse).toList();
+      // Sort by reel (column) first, then row
+      if (partsA[0] != partsB[0]) return partsA[0].compareTo(partsB[0]);
+      return partsA[1].compareTo(partsB[1]);
+    });
+
+    // Clear any previous popup state
+    _symbolPopScale.clear();
+    _symbolPopRotation.clear();
+
+    // Trigger staggered popups
+    for (int i = 0; i < sortedPositions.length; i++) {
+      final position = sortedPositions[i];
+      final delay = i * _symbolPopStaggerMs;
+
+      Future.delayed(Duration(milliseconds: delay), () {
+        if (!mounted) return;
+        _animateSymbolPop(position);
+      });
+    }
+  }
+
+  /// V6: Animate a single symbol popup (scale 1.0 → 1.15 → 1.0 with micro-wiggle)
+  void _animateSymbolPop(String position) {
+    // Phase 1: Scale up to max (60ms)
+    setState(() {
+      _symbolPopScale[position] = _symbolPopMaxScale;
+      _symbolPopRotation[position] = 0.03; // Small rotation (radians)
+    });
+
+    // Phase 2: Wiggle (40ms)
+    Future.delayed(const Duration(milliseconds: 60), () {
+      if (!mounted) return;
+      setState(() {
+        _symbolPopRotation[position] = -0.03; // Wiggle other direction
+      });
+    });
+
+    // Phase 3: Scale back to normal (100ms)
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted) return;
+      setState(() {
+        _symbolPopScale[position] = 1.05; // Ease down
+        _symbolPopRotation[position] = 0.015;
+      });
+    });
+
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (!mounted) return;
+      setState(() {
+        _symbolPopScale[position] = 1.0;
+        _symbolPopRotation[position] = 0.0;
+      });
+    });
   }
 
   /// Run single pulse cycle, repeats until 3 cycles complete
@@ -873,6 +1237,7 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Start tier-based rollup with appropriate duration and tick rate
+  /// V7: Now includes visual feedback (progress meter + counter shake)
   void _startTierBasedRollup(String tier) {
     final duration = _rollupDurationByTier[tier] ?? 1500;
     final tickRate = _rollupTickRateByTier[tier] ?? 10;
@@ -880,6 +1245,12 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final totalTicks = (duration / tickIntervalMs).round();
 
     debugPrint('[SlotPreview] 🔊 ROLLUP_START (tier: $tier, duration: ${duration}ms, ticks: $totalTicks)');
+
+    // V7: Initialize rollup visual state
+    setState(() {
+      _isRollingUp = true;
+      _rollupProgress = 0.0;
+    });
 
     // Update counter controller duration dynamically
     _winCounterController.duration = Duration(milliseconds: duration);
@@ -894,6 +1265,12 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       if (!mounted || _rollupTickCount >= totalTicks) {
         timer.cancel();
         if (mounted) {
+          // V7: End rollup visual state
+          setState(() {
+            _isRollingUp = false;
+            _rollupProgress = 1.0;
+            _counterShakeScale = 1.0;
+          });
           eventRegistry.triggerStage('ROLLUP_END');
           debugPrint('[SlotPreview] 🔊 ROLLUP_END (completed $totalTicks ticks)');
         }
@@ -901,14 +1278,29 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
 
       _rollupTickCount++;
+
+      // V7: Update progress and trigger counter shake
+      setState(() {
+        _rollupProgress = _rollupTickCount / totalTicks;
+        _counterShakeScale = 1.08; // Pulse up
+      });
+
+      // V7: Counter shake decay (quick pulse down)
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mounted) {
+          setState(() => _counterShakeScale = 1.0);
+        }
+      });
+
       eventRegistry.triggerStage('ROLLUP_TICK');
     });
   }
 
-  /// Format win amount with currency-style thousand separators
-  /// Examples: 1234 → "1,234" | 50 → "50" | 1234567 → "1,234,567"
+  /// Format win amount with currency-style thousand separators + 2 decimals
+  /// Industry standard: NetEnt, Pragmatic Play, IGT all use 2 decimal places
+  /// Examples: 1234.50 → "1,234.50" | 50.00 → "50.00" | 1234567.89 → "1,234,567.89"
   String _formatWinAmount(double amount) {
-    return _currencyFormatter.format(amount.toInt());
+    return _currencyFormatter.format(amount);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1050,6 +1442,41 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _particleController.forward(from: 0);
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V8: PLAQUE CELEBRATION PARTICLES — Burst from center on plaque entrance
+  // Industry standard: explosion of gold coins and sparkles for dramatic effect
+  // ═══════════════════════════════════════════════════════════════════════════
+  void _spawnPlaqueCelebrationParticles(String tier) {
+    final particleCount = switch (tier) {
+      'ULTRA' => 80,
+      'EPIC' => 60,
+      'MEGA' => 45,
+      'SUPER' => 30,
+      'BIG' => 20,
+      _ => 10,
+    };
+
+    // Burst from center outward in all directions
+    for (int i = 0; i < particleCount; i++) {
+      final angle = _random.nextDouble() * math.pi * 2;
+      final speed = 0.02 + _random.nextDouble() * 0.03;
+
+      _particles.add(_particlePool.acquire(
+        x: 0.5, // Center X
+        y: 0.45, // Center Y (slightly above middle for plaque position)
+        vx: math.cos(angle) * speed,
+        vy: math.sin(angle) * speed - 0.01, // Slight upward bias
+        size: _random.nextDouble() * 10 + 5,
+        color: _getParticleColor(tier),
+        type: i % 3 == 0 ? _ParticleType.coin : _ParticleType.sparkle,
+        rotation: _random.nextDouble() * math.pi * 2,
+        rotationSpeed: (_random.nextDouble() - 0.5) * 0.4,
+      ));
+    }
+
+    _particleController.forward(from: 0);
+  }
+
   Color _getParticleColor(String tier) {
     final colors = switch (tier) {
       'ULTRA' => [const Color(0xFFFF4080), const Color(0xFFFF66FF), const Color(0xFFFFD700)],
@@ -1086,7 +1513,15 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   ? FluxForgeTheme.accentBlue.withOpacity(0.4)
                   : const Color(0xFF2A2A38);
 
-          return ClipRRect(
+          // ═══════════════════════════════════════════════════════════════════════
+          // V2: Screen Shake — subtle shake when last reel lands
+          // ═══════════════════════════════════════════════════════════════════════
+          final shakeOffsetX = _screenShakeActive ? (_random.nextDouble() - 0.5) * 4 : 0.0;
+          final shakeOffsetY = _screenShakeActive ? (_random.nextDouble() - 0.5) * 3 : 0.0;
+
+          return Transform.translate(
+          offset: Offset(shakeOffsetX, shakeOffsetY),
+          child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Stack(
             children: [
@@ -1118,6 +1553,29 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 ),
               ),
 
+              // ═══════════════════════════════════════════════════════════════════════
+              // V5: BIG WIN BACKGROUND EFFECT — Industry standard celebration atmosphere
+              // Vignette (dark edges) + Color wash (tier-colored glow)
+              // Only shows for BIG tier and above
+              // ═══════════════════════════════════════════════════════════════════════
+              if (_winTier.isNotEmpty && _winTier != 'SMALL' && !reduceMotion)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _winPulseAnimation,
+                      builder: (context, child) {
+                        return CustomPaint(
+                          painter: _BigWinBackgroundPainter(
+                            tier: _winTier,
+                            pulseValue: _winPulseAnimation.value,
+                            tierColor: _getWinGlowColor(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
               // Win line layer — draws connecting lines between winning symbols
               if (_isShowingWinLines && _currentPresentingLine != null)
                 Positioned.fill(
@@ -1140,6 +1598,33 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   ),
                 ),
 
+              // ═══════════════════════════════════════════════════════════════════════
+              // V8: SCREEN FLASH — Dramatic entrance effect for BIG+ wins
+              // Quick white/gold flash when plaque appears
+              // ═══════════════════════════════════════════════════════════════════════
+              if (_showScreenFlash && !reduceMotion)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _screenFlashOpacity,
+                      builder: (context, _) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            gradient: RadialGradient(
+                              center: Alignment.center,
+                              radius: 0.8,
+                              colors: [
+                                _getWinGlowColor().withOpacity(_screenFlashOpacity.value * 0.7),
+                                Colors.white.withOpacity(_screenFlashOpacity.value * 0.3),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
               // Win amount overlay
               if (_winTier.isNotEmpty)
                 Positioned.fill(
@@ -1147,7 +1632,8 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 ),
             ],
           ),
-        );
+        ),
+        ); // Close Transform.translate for screen shake
         },
       ),
     );
@@ -1158,10 +1644,10 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     if (_isSpinning) {
       debugPrint('[SlotPreview] ⏹ SPACE pressed — stopping all reels immediately');
 
-      // Immediately stop all reels via animation controller
+      // 1. Stop visual animation immediately
       _reelAnimController.stopImmediately();
 
-      // Update display grid to target (final) values
+      // 2. Update display grid to target (final) values
       setState(() {
         for (int r = 0; r < widget.reels && r < _targetGrid.length; r++) {
           for (int row = 0; row < widget.rows && row < _targetGrid[r].length; row++) {
@@ -1170,11 +1656,17 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
       });
 
-      // Get the final result to finalize with
+      // 3. Finalize spin (sets _spinFinalized = true, _isSpinning = false)
       final result = widget.provider.lastResult;
       if (result != null) {
         _finalizeSpin(result);
       }
+
+      // 4. THEN stop provider stage timers (notifies listeners)
+      // CRITICAL ORDER: _finalizeSpin() MUST be called BEFORE stopStagePlayback()!
+      // This way _onProviderUpdate() sees _spinFinalized = true when !isPlaying,
+      // allowing it to reset _spinFinalized = false for the next spin.
+      widget.provider.stopStagePlayback();
     }
   }
 
@@ -1201,16 +1693,65 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   Widget _buildWinOverlay(BoxConstraints constraints) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_winAmountScale, _winAmountOpacity]),
+      animation: Listenable.merge([
+        _winAmountScale,
+        _winAmountOpacity,
+        _winPulseAnimation,
+        _plaqueGlowPulse, // V8: Enhanced glow animation
+      ]),
       builder: (context, child) {
         if (_winAmountOpacity.value < 0.01) return const SizedBox.shrink();
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // V8: ENHANCED PLAQUE ENTRANCE — More dramatic slide + scale + glow
+        // Industry standard: NetEnt, Pragmatic Play dramatic celebration
+        // ═══════════════════════════════════════════════════════════════════════
+
+        // Slide from above: starts at -80px for BIG+, -50px for SMALL
+        final slideDistance = _winTier != 'SMALL' ? -80.0 : -50.0;
+        final slideProgress = Curves.elasticOut.transform(_winAmountScale.value.clamp(0.0, 1.0));
+        final slideOffset = (1.0 - slideProgress) * slideDistance;
+
+        // V8: Scale with tier-based overshoot (bigger tiers = bigger overshoot)
+        final scaleMultiplier = switch (_winTier) {
+          'ULTRA' => 1.25,
+          'EPIC' => 1.2,
+          'MEGA' => 1.15,
+          'SUPER' => 1.12,
+          'BIG' => 1.1,
+          _ => 1.0,
+        };
+        final scale = _winAmountScale.value * scaleMultiplier;
+
+        // V8: Pulsing scale effect during display (subtle breathing)
+        final pulseScale = 1.0 + (_plaqueGlowPulse.value - 0.85) * 0.03;
 
         return Opacity(
           opacity: _winAmountOpacity.value,
           child: Center(
-            child: Transform.scale(
-              scale: _winAmountScale.value,
-              child: _buildWinDisplay(),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // V4: BURST EFFECT — Radiating lines behind plaque (BIG+ only)
+                if (_winTier != 'SMALL' && _winAmountScale.value > 0.5)
+                  CustomPaint(
+                    size: Size(constraints.maxWidth * 0.8, constraints.maxHeight * 0.6),
+                    painter: _PlaqueBurstPainter(
+                      progress: _winAmountScale.value,
+                      pulseValue: _winPulseAnimation.value,
+                      tierColor: _getWinGlowColor(),
+                      rayCount: _winTier == 'ULTRA' || _winTier == 'EPIC' ? 16 : 12,
+                    ),
+                  ),
+                // Main plaque with slide + scale + pulse
+                Transform.translate(
+                  offset: Offset(0, slideOffset),
+                  child: Transform.scale(
+                    scale: (scale * pulseScale).clamp(0.0, 1.35), // Allow larger scale for dramatic effect
+                    child: _buildWinDisplay(),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -1264,41 +1805,68 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // TIER PLAKETA + COIN COUNTER
-    // Prikazuje: "BIG WIN!" + "$250.00"
-    // NE prikazuje: info o simbolima (npr. "3x Grapes = $50")
+    // V8: ENHANCED TIER PLAKETA + COIN COUNTER
+    // Pulsing glow, dramatic shadows, professional presentation
+    // Industry standard: NetEnt, Pragmatic Play, Big Time Gaming
     // ═══════════════════════════════════════════════════════════════════════════
+
+    // V8: Animated glow intensity based on plaque pulse
+    final glowIntensity = _plaqueGlowPulse.value;
+    final borderOpacity = 0.6 + (glowIntensity * 0.4); // 0.6 to 1.0
+    final shadowIntensity = 0.3 + (glowIntensity * 0.4); // 0.3 to 0.7
+
+    // V8: Tier-based glow radius (bigger tiers = bigger glow)
+    final baseGlowRadius = switch (_winTier) {
+      'ULTRA' => 50.0,
+      'EPIC' => 45.0,
+      'MEGA' => 40.0,
+      'SUPER' => 35.0,
+      'BIG' => 30.0,
+      _ => 20.0,
+    };
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
       decoration: BoxDecoration(
-        // Gradient background za premium izgled
+        // V8: Enhanced gradient background with more depth
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.black.withOpacity(0.85),
-            tierColors.first.withOpacity(0.3),
-            Colors.black.withOpacity(0.85),
+            Colors.black.withOpacity(0.9),
+            tierColors.first.withOpacity(0.25),
+            tierColors.length > 1 ? tierColors[1].withOpacity(0.15) : tierColors.first.withOpacity(0.15),
+            Colors.black.withOpacity(0.9),
           ],
+          stops: const [0.0, 0.3, 0.7, 1.0],
         ),
-        borderRadius: BorderRadius.circular(16),
-        // Border u tier boji
+        borderRadius: BorderRadius.circular(20),
+        // V8: Pulsing border with animated opacity
         border: Border.all(
-          color: tierColors.first.withOpacity(0.8),
-          width: 3,
+          color: tierColors.first.withOpacity(borderOpacity),
+          width: 4,
         ),
-        // Glow efekat
+        // V8: Enhanced pulsing glow effect
         boxShadow: [
+          // Inner glow
           BoxShadow(
-            color: tierColors.first.withOpacity(0.5),
-            blurRadius: 30,
-            spreadRadius: 5,
+            color: tierColors.first.withOpacity(shadowIntensity * 0.8),
+            blurRadius: baseGlowRadius,
+            spreadRadius: 3,
           ),
+          // Outer glow (pulsing)
           BoxShadow(
-            color: tierColors.first.withOpacity(0.3),
-            blurRadius: 60,
-            spreadRadius: 10,
+            color: tierColors.first.withOpacity(shadowIntensity * 0.5),
+            blurRadius: baseGlowRadius * 2 * glowIntensity,
+            spreadRadius: 8 * glowIntensity,
           ),
+          // Dramatic ambient glow (tier-colored)
+          if (_winTier != 'SMALL')
+            BoxShadow(
+              color: tierColors.first.withOpacity(shadowIntensity * 0.3),
+              blurRadius: baseGlowRadius * 3,
+              spreadRadius: 15,
+            ),
         ],
       ),
       child: Column(
@@ -1325,28 +1893,113 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          // Coin counter sa rollup animacijom
-          ShaderMask(
-            shaderCallback: (bounds) => LinearGradient(
-              colors: [Colors.white, tierColors.first, Colors.white],
-            ).createShader(bounds),
-            child: Text(
-              _formatWinAmount(_displayedWinAmount),
-              style: TextStyle(
-                fontSize: counterFontSize,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                letterSpacing: 2,
-                shadows: [
-                  Shadow(
-                    color: tierColors.first.withOpacity(0.8),
-                    blurRadius: 20,
-                  ),
+          const SizedBox(height: 12),
+          // V8: Enhanced coin counter with dramatic pulsing and glow
+          Transform.scale(
+            scale: _counterShakeScale * (1.0 + (_plaqueGlowPulse.value - 0.85) * 0.05),
+            child: ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [
+                  Colors.white,
+                  tierColors.first,
+                  tierColors.length > 1 ? tierColors[1] : tierColors.first,
+                  Colors.white,
                 ],
+                stops: const [0.0, 0.35, 0.65, 1.0],
+              ).createShader(bounds),
+              child: Text(
+                _formatWinAmount(_displayedWinAmount),
+                style: TextStyle(
+                  fontSize: counterFontSize,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 3,
+                  shadows: [
+                    // Primary glow
+                    Shadow(
+                      color: tierColors.first.withOpacity(0.9),
+                      blurRadius: 25,
+                    ),
+                    // Secondary glow for depth
+                    Shadow(
+                      color: Colors.white.withOpacity(0.5),
+                      blurRadius: 10,
+                    ),
+                    // Pulsing outer glow
+                    Shadow(
+                      color: tierColors.first.withOpacity(glowIntensity * 0.6),
+                      blurRadius: 40 * glowIntensity,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+          // ═══════════════════════════════════════════════════════════════════════
+          // V7: ROLLUP PROGRESS METER — Visual feedback during counter animation
+          // ═══════════════════════════════════════════════════════════════════════
+          if (_isRollingUp) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: 200,
+              height: 6,
+              child: Stack(
+                children: [
+                  // Background track
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(
+                        color: tierColors.first.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  // Fill bar
+                  FractionallySizedBox(
+                    widthFactor: _rollupProgress.clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: tierColors,
+                        ),
+                        borderRadius: BorderRadius.circular(3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: tierColors.first.withOpacity(0.6),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Sparkle at end of progress bar
+                  if (_rollupProgress > 0.05)
+                    Positioned(
+                      left: (_rollupProgress * 200) - 4,
+                      top: -2,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: tierColors.first,
+                              blurRadius: 10,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1478,10 +2131,24 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
           ];
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // V2: Landing Impact — Get landing scale for this reel
+        // ═══════════════════════════════════════════════════════════════════════
+        final landingScale = _landingPopScale[reelIndex] ?? 1.0;
+        final flashIntensity = _landingFlashProgress[reelIndex] ?? 0.0;
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // V6: Enhanced Symbol Highlight — Staggered popup scale + micro-rotation
+        // ═══════════════════════════════════════════════════════════════════════
+        final symbolPopScale = _symbolPopScale[posKey] ?? 1.0;
+        final symbolPopRotation = _symbolPopRotation[posKey] ?? 0.0;
+
         return Transform.translate(
           offset: Offset(shakeOffset, bounceOffset),
-          child: Transform.scale(
-            scale: cascadeScale,
+          child: Transform.rotate(
+            angle: symbolPopRotation, // V6: Micro-rotation wiggle
+            child: Transform.scale(
+              scale: cascadeScale * landingScale * symbolPopScale, // V2 + V6: Combined scales
             child: Opacity(
               opacity: cascadeOpacity,
               child: Container(
@@ -1508,18 +2175,34 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       : shadows,
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: isReelSpinning
-                    ? _buildProfessionalSpinningContent(
-                        reelIndex, rowIndex, symbolSize, reelState,
-                        isAnticipation: isAnticipationReel && _isAnticipation,
-                      )
-                    : _buildStaticSymbolContent(
-                        reelIndex, rowIndex, symbolSize, isWinningPosition,
-                        isNearMiss: isNearMissPosition && _isNearMiss,
+                child: Stack(
+                  children: [
+                    // Main symbol content
+                    isReelSpinning
+                        ? _buildProfessionalSpinningContent(
+                            reelIndex, rowIndex, symbolSize, reelState,
+                            isAnticipation: isAnticipationReel && _isAnticipation,
+                          )
+                        : _buildStaticSymbolContent(
+                            reelIndex, rowIndex, symbolSize, isWinningPosition,
+                            isNearMiss: isNearMissPosition && _isNearMiss,
+                          ),
+                    // V2: Landing Flash Overlay — white flash on reel stop
+                    if (flashIntensity > 0)
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.white.withOpacity(flashIntensity * 0.7),
+                          ),
+                        ),
                       ),
+                  ],
+                ),
               ),
             ),
-          ),
+          ), // V6: Close Transform.rotate
+        ),
         );
       },
     );
@@ -2217,6 +2900,195 @@ class _WinLinePainter extends CustomPainter {
   bool shouldRepaint(covariant _WinLinePainter oldDelegate) {
     return oldDelegate.pulseValue != pulseValue ||
            oldDelegate.positions != positions;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// V4: PLAQUE BURST PAINTER — Radiating lines behind win plaque
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _PlaqueBurstPainter extends CustomPainter {
+  final double progress;
+  final double pulseValue;
+  final Color tierColor;
+  final int rayCount;
+
+  _PlaqueBurstPainter({
+    required this.progress,
+    required this.pulseValue,
+    required this.tierColor,
+    required this.rayCount,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerX = size.width / 2;
+    final centerY = size.height / 2;
+
+    // Ray length grows with progress
+    final maxRayLength = math.max(size.width, size.height) * 0.6;
+    final rayLength = maxRayLength * progress;
+
+    // Opacity fades in then pulses
+    final baseOpacity = (progress * 0.3).clamp(0.0, 0.3);
+    final opacity = baseOpacity * (0.6 + pulseValue * 0.4);
+
+    final rayPaint = Paint()
+      ..color = tierColor.withOpacity(opacity)
+      ..strokeWidth = 3 + pulseValue * 2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+    // Draw radiating rays
+    for (int i = 0; i < rayCount; i++) {
+      final angle = (i / rayCount) * 2 * math.pi - math.pi / 2; // Start from top
+      final startRadius = 30.0; // Start away from center for donut effect
+      final startX = centerX + math.cos(angle) * startRadius;
+      final startY = centerY + math.sin(angle) * startRadius;
+      final endX = centerX + math.cos(angle) * rayLength;
+      final endY = centerY + math.sin(angle) * rayLength;
+
+      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), rayPaint);
+    }
+
+    // Inner glow circle
+    final glowPaint = Paint()
+      ..color = tierColor.withOpacity(opacity * 0.5)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
+    canvas.drawCircle(Offset(centerX, centerY), 40 + pulseValue * 10, glowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlaqueBurstPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+           oldDelegate.pulseValue != pulseValue ||
+           oldDelegate.tierColor != tierColor;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// V5: BIG WIN BACKGROUND PAINTER — Vignette + Color wash for celebration
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _BigWinBackgroundPainter extends CustomPainter {
+  final String tier;
+  final double pulseValue;
+  final Color tierColor;
+
+  _BigWinBackgroundPainter({
+    required this.tier,
+    required this.pulseValue,
+    required this.tierColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // ═══════════════════════════════════════════════════════════════════════
+    // VIGNETTE — Dark gradient at edges (more intense for higher tiers)
+    // ═══════════════════════════════════════════════════════════════════════
+    final vignetteIntensity = switch (tier) {
+      'ULTRA' => 0.6,
+      'EPIC' => 0.5,
+      'MEGA' => 0.4,
+      'SUPER' => 0.3,
+      'BIG' => 0.2,
+      _ => 0.15,
+    };
+
+    final vignetteOpacity = vignetteIntensity * (0.7 + pulseValue * 0.3);
+
+    final vignettePaint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 1.2,
+        colors: [
+          Colors.transparent,
+          Colors.transparent,
+          Colors.black.withOpacity(vignetteOpacity * 0.3),
+          Colors.black.withOpacity(vignetteOpacity),
+        ],
+        stops: const [0.0, 0.5, 0.75, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), vignettePaint);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // COLOR WASH — Tier-colored glow pulsing from center
+    // ═══════════════════════════════════════════════════════════════════════
+    final colorWashIntensity = switch (tier) {
+      'ULTRA' => 0.25,
+      'EPIC' => 0.20,
+      'MEGA' => 0.18,
+      'SUPER' => 0.12,
+      'BIG' => 0.08,
+      _ => 0.05,
+    };
+
+    final colorWashOpacity = colorWashIntensity * (0.6 + pulseValue * 0.4);
+
+    final colorWashPaint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 0.8 + pulseValue * 0.2,
+        colors: [
+          tierColor.withOpacity(colorWashOpacity),
+          tierColor.withOpacity(colorWashOpacity * 0.5),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.4, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), colorWashPaint);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // LIGHT RAYS — Subtle rays from center (MEGA and above)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (tier == 'ULTRA' || tier == 'EPIC' || tier == 'MEGA') {
+      final rayOpacity = switch (tier) {
+        'ULTRA' => 0.15,
+        'EPIC' => 0.10,
+        'MEGA' => 0.08,
+        _ => 0.05,
+      };
+
+      final rayCount = switch (tier) {
+        'ULTRA' => 12,
+        'EPIC' => 8,
+        'MEGA' => 6,
+        _ => 4,
+      };
+
+      final rayPaint = Paint()
+        ..color = tierColor.withOpacity(rayOpacity * (0.5 + pulseValue * 0.5))
+        ..strokeWidth = 2 + pulseValue * 2
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+      final centerX = size.width / 2;
+      final centerY = size.height / 2;
+      final maxRadius = math.max(size.width, size.height) * 0.8;
+
+      for (int i = 0; i < rayCount; i++) {
+        final angle = (i / rayCount) * 2 * math.pi + (pulseValue * math.pi * 0.1);
+        final endX = centerX + math.cos(angle) * maxRadius;
+        final endY = centerY + math.sin(angle) * maxRadius;
+
+        canvas.drawLine(
+          Offset(centerX, centerY),
+          Offset(endX, endY),
+          rayPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BigWinBackgroundPainter oldDelegate) {
+    return oldDelegate.pulseValue != pulseValue ||
+           oldDelegate.tier != tier ||
+           oldDelegate.tierColor != tierColor;
   }
 }
 

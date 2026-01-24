@@ -1858,12 +1858,13 @@ InsertChainDebug(trackId: 0)
 | VCA Faders | ✅ | Group volume control |
 | Add Bus | ✅ | Dynamic bus creation |
 | Glass/Classic Mode | ✅ | Auto-detected via ThemeModeProvider |
+| **Channel Reorder** | ✅ | Drag-drop reorder with bidirectional Timeline sync |
 
 **Key Files:**
-- `ultimate_mixer.dart` — Main mixer widget (~2167 LOC)
+- `ultimate_mixer.dart` — Main mixer widget (~2250 LOC)
 - `daw_lower_zone_widget.dart` — Full MixerProvider integration
 - `glass_mixer.dart` — Thin wrapper (ThemeAwareMixer)
-- `mixer_provider.dart` — Added `toggleAuxSendPreFader()`, `setAuxSendDestination()`, `setInputGain()`
+- `mixer_provider.dart` — Channel order management, `reorderChannel()`, `setChannelOrder()`
 
 **Deleted Files:**
 - `pro_daw_mixer.dart` — Removed (~1000 LOC duplicate)
@@ -1875,6 +1876,61 @@ import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
 ```
 
 **Dokumentacija:** `.claude/architecture/ULTIMATE_MIXER_INTEGRATION.md`
+
+### Bidirectional Channel/Track Reorder (2026-01-24) ✅
+
+Drag-drop reorder za mixer kanale i timeline track-ove sa automatskom sinhronizacijom.
+
+**Arhitektura:**
+```
+Mixer Drag → MixerProvider.reorderChannel() → onChannelOrderChanged → Timeline._tracks update
+Timeline Drag → _handleTrackReorder() → MixerProvider.setChannelOrder() → channels getter update
+```
+
+**MixerProvider API:**
+```dart
+// Channel order tracking
+List<String> get channelOrder;                    // Current order (IDs)
+List<MixerChannel> get channels;                  // Channels in display order
+
+// Reorder methods
+void reorderChannel(int oldIndex, int newIndex);  // From mixer drag
+void setChannelOrder(List<String> newOrder, {bool notifyTimeline});  // From timeline
+int getChannelIndex(String channelId);            // Get display index
+
+// Callback for sync
+void Function(List<String>)? onChannelOrderChanged;  // Notifies timeline
+```
+
+**Timeline API:**
+```dart
+// Callback
+final void Function(int oldIndex, int newIndex)? onTrackReorder;
+
+// Widget: _DraggableTrackRow
+// - LongPressDraggable for vertical drag
+// - DragTarget for drop zone
+// - Visual feedback (drop indicator)
+```
+
+**UltimateMixer API:**
+```dart
+// Callback
+final void Function(int oldIndex, int newIndex)? onChannelReorder;
+
+// Widget: _DraggableChannelStrip
+// - LongPressDraggable for horizontal drag
+// - DragTarget for drop zone
+// - Visual feedback (opacity, drop indicator)
+```
+
+**Key Files:**
+| File | Changes |
+|------|---------|
+| `mixer_provider.dart` | `_channelOrder`, `reorderChannel()`, `setChannelOrder()`, `onChannelOrderChanged` |
+| `ultimate_mixer.dart` | `onChannelReorder`, `_DraggableChannelStrip` widget |
+| `timeline.dart` | `onTrackReorder`, `_DraggableTrackRow` widget |
+| `engine_connected_layout.dart` | `_handleTrackReorder()`, `_onMixerChannelOrderChanged()` |
 
 ### Export Adapters (2026-01-22) ✅
 
@@ -3194,6 +3250,54 @@ H. Audio/Visual — Volume slider, music/sfx toggles (persisted)       ✅ 100%
 - **Fix:** Changed `professional_reel_animation.dart:tick()` to fire `onReelStop` when entering `bouncing` phase
 - **Impact:** Audio now plays precisely when reel visually lands
 - **Analysis:** `.claude/analysis/AUDIO_VISUAL_SYNC_ANALYSIS_2026_01_24.md`
+
+**IGT-Style Sequential Reel Stop Buffer (2026-01-25) ✅:**
+- **Problem:** Animation callbacks fire out-of-order (Reel 4 might complete before Reel 3)
+- **Root Cause:** Each reel animation runs independently, completion order is non-deterministic
+- **Solution:** Sequential buffer pattern — audio triggers ONLY in order 0→1→2→3→4
+- **Implementation:** `_nextExpectedReelIndex` + `_pendingReelStops` buffer in `slot_preview_widget.dart`
+- **Flow:** If Reel 4 finishes before Reel 3, it gets buffered. When Reel 3 finishes, both 3 and 4 are flushed in order.
+
+**V8: Enhanced Win Plaque Animation (2026-01-25) ✅:**
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Screen Flash** | 150ms white/gold flash on plaque entrance | ✅ Done |
+| **Plaque Glow Pulse** | 400ms pulsing glow during display | ✅ Done |
+| **Particle Burst** | 10-80 particles based on tier (ULTRA=80, EPIC=60, MEGA=45, SUPER=30, BIG=20, SMALL=10) | ✅ Done |
+| **Tier Scale Multiplier** | ULTRA=1.25x, EPIC=1.2x, MEGA=1.15x, SUPER=1.1x, BIG=1.05x | ✅ Done |
+| **Enhanced Slide** | 80px slide distance for BIG+ tiers | ✅ Done |
+
+**Controllers added:**
+- `_screenFlashController` — 150ms flash animation
+- `_screenFlashOpacity` — 0.8→0.0 fade
+- `_plaqueGlowController` — 400ms repeating pulse
+- `_plaqueGlowPulse` — 0.7→1.0 intensity
+
+**STOP Button Control System (2026-01-25) ✅:**
+- **Problem:** STOP button showed during win presentation, not just reel spinning
+- **Solution:** Separate `isReelsSpinning` from `isPlayingStages`
+- **Implementation:**
+  - `SlotLabProvider.isReelsSpinning` — true ONLY during reel animation
+  - `SlotLabProvider.onAllReelsVisualStop()` — called by slot_preview_widget
+  - `_ControlBar.showStopButton` — new parameter for STOP visibility
+- **Flow:** SPIN_START → `isReelsSpinning=true` → All reels stop → `isReelsSpinning=false` → Win presentation continues
+- **Analysis:** `.claude/analysis/SLOTLAB_EVENT_FLOW_ANALYSIS_2026_01_25.md`
+
+**6-Phase Reel Animation System (Industry Standard):**
+
+| Phase | Duration | Easing | Description |
+|-------|----------|--------|-------------|
+| IDLE | — | — | Stationary, čeka spin |
+| ACCELERATING | 100ms | easeOutQuad | 0 → puna brzina |
+| SPINNING | 560ms+ | linear | Konstantna brzina |
+| DECELERATING | 300ms | easeInQuad | Usporava |
+| BOUNCING | 200ms | elasticOut | 15% overshoot |
+| STOPPED | — | — | Mirovanje |
+
+**Per-Reel Stagger (Studio Profile):** 370ms između reelova = 2220ms total
+
+**Animation Specification:** `.claude/architecture/SLOT_ANIMATION_INDUSTRY_STANDARD.md`
 
 **Industry-Standard Win Presentation Flow (2026-01-24) ✅:**
 

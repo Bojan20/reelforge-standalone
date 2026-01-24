@@ -295,8 +295,13 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
   /// Start spin animation
   void startSpin() {
-    if (_isSpinning) return;
+    debugPrint('[ReelAnimController] startSpin() called, _isSpinning=$_isSpinning');
+    if (_isSpinning) {
+      debugPrint('[ReelAnimController] ❌ startSpin BLOCKED: already spinning!');
+      return;
+    }
 
+    debugPrint('[ReelAnimController] ✅ Starting spin animation');
     _isSpinning = true;
     _startTime = DateTime.now().millisecondsSinceEpoch;
 
@@ -350,19 +355,44 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
     // Check if all reels stopped (after bounce completes)
     if (!anyStillSpinning && _isSpinning) {
+      debugPrint('[ReelAnimController] 🏁 All reels stopped naturally, setting _isSpinning=false');
       _isSpinning = false;
       onAllReelsStopped?.call();
     }
   }
 
-  /// Stop all reels immediately (for turbo skip)
+  /// Stop all reels immediately (for turbo skip / STOP button)
   void stopImmediately() {
-    for (final state in _reelStates) {
+    debugPrint('[ReelAnimController] stopImmediately() called, _isSpinning=$_isSpinning');
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL: Fire callbacks for each reel that was still spinning
+    // This ensures audio plays for all reel stops and win evaluation triggers
+    // ═══════════════════════════════════════════════════════════════════════════
+    int stillMovingCount = 0;
+    for (int i = 0; i < _reelStates.length; i++) {
+      final state = _reelStates[i];
+      final wasStillMoving = state.phase != ReelPhase.stopped
+                          && state.phase != ReelPhase.idle
+                          && state.phase != ReelPhase.bouncing;
+
       state.phase = ReelPhase.stopped;
       state.velocity = 0;
+
+      // Fire callback for reels that were still spinning
+      if (wasStillMoving) {
+        stillMovingCount++;
+        onReelStop?.call(i);
+      }
     }
+
+    debugPrint('[ReelAnimController] stopImmediately: $stillMovingCount reels were still moving');
     _isSpinning = false;
     notifyListeners();
+
+    // Fire all-stopped callback
+    debugPrint('[ReelAnimController] Firing onAllReelsStopped callback');
+    onAllReelsStopped?.call();
   }
 
   /// Reset to initial state

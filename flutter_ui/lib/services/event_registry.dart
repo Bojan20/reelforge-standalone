@@ -451,6 +451,8 @@ class EventRegistry extends ChangeNotifier {
   ContainerType _lastContainerType = ContainerType.none;
   String? _lastContainerName;
   int _lastContainerChildCount = 0;
+  // Stage timestamp from Rust (for correct ordering in Event Log)
+  double _lastStageTimestampMs = 0.0;
 
   String get lastTriggeredEventName => _lastTriggeredEventName;
   String get lastTriggeredStage => _lastTriggeredStage;
@@ -460,6 +462,7 @@ class EventRegistry extends ChangeNotifier {
   ContainerType get lastContainerType => _lastContainerType;
   String? get lastContainerName => _lastContainerName;
   int get lastContainerChildCount => _lastContainerChildCount;
+  double get lastStageTimestampMs => _lastStageTimestampMs;
 
   /// Get all registered stages (for debugging)
   Iterable<String> get registeredStages => _stageToEvent.keys;
@@ -1036,6 +1039,8 @@ class EventRegistry extends ChangeNotifier {
       _lastTriggeredLayers = [];
       _lastTriggerSuccess = false;
       _lastTriggerError = 'No audio event configured';
+      // Extract stage timestamp from context (for correct Event Log ordering)
+      _lastStageTimestampMs = (context?['timestamp_ms'] as num?)?.toDouble() ?? 0.0;
 
       // P1.4: Record in history
       _recordTrigger(
@@ -1094,6 +1099,8 @@ class EventRegistry extends ChangeNotifier {
         .where((l) => l.audioPath.isNotEmpty)
         .map((l) => l.audioPath.split('/').last) // Just filename
         .toList();
+    // Extract stage timestamp from context (for correct Event Log ordering)
+    _lastStageTimestampMs = (context?['timestamp_ms'] as num?)?.toDouble() ?? 0.0;
     // Reset container info (not using container for this event)
     _lastContainerType = ContainerType.none;
     _lastContainerName = null;
@@ -1120,6 +1127,25 @@ class EventRegistry extends ChangeNotifier {
     // Reset success tracking
     _lastTriggerSuccess = true;
     _lastTriggerError = '';
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FIX: For looping events, stop existing instances before starting new one
+    // This prevents voice accumulation (e.g., REEL_SPIN hitting limit after 8 spins)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (event.loop) {
+      final existingInstances = _playingInstances.where((i) => i.eventId == eventId).toList();
+      if (existingInstances.isNotEmpty) {
+        debugPrint('[EventRegistry] 🔄 Stopping ${existingInstances.length} existing loop instance(s) of "${event.name}"');
+        for (final instance in existingInstances) {
+          for (final voiceId in instance.voiceIds) {
+            try {
+              NativeFFI.instance.playbackStopOneShot(voiceId);
+            } catch (_) {}
+          }
+        }
+        _playingInstances.removeWhere((i) => i.eventId == eventId);
+      }
+    }
 
     // P1.2: Check voice limit before spawning new voices
     final activeVoices = _countActiveVoices(eventId);

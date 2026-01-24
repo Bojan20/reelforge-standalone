@@ -613,6 +613,41 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
       // Listen to MiddlewareProvider for Events Folder selection sync
       middleware.addListener(_onMiddlewareSelectionChanged);
+
+      // Set up bidirectional sync: Mixer channel order → Timeline track order
+      final mixerProvider = context.read<MixerProvider>();
+      mixerProvider.onChannelOrderChanged = _onMixerChannelOrderChanged;
+    });
+  }
+
+  /// Handle mixer channel reorder → sync to timeline tracks
+  void _onMixerChannelOrderChanged(List<String> channelIds) {
+    if (!mounted) return;
+    // Map channel IDs back to track IDs (ch_xxx → xxx)
+    final trackIds = channelIds
+        .where((id) => id.startsWith('ch_'))
+        .map((id) => id.substring(3)) // Remove 'ch_' prefix
+        .toList();
+
+    // Reorder _tracks to match the new channel order
+    final newTracks = <timeline.TimelineTrack>[];
+    for (final trackId in trackIds) {
+      final track = _tracks.firstWhere(
+        (t) => t.id == trackId,
+        orElse: () => _tracks.first,
+      );
+      newTracks.add(track);
+    }
+
+    // Add any tracks that aren't in the channel order (shouldn't happen, but defensive)
+    for (final track in _tracks) {
+      if (!newTracks.contains(track)) {
+        newTracks.add(track);
+      }
+    }
+
+    setState(() {
+      _tracks = newTracks;
     });
   }
 
@@ -801,6 +836,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     try {
       final middleware = context.read<MiddlewareProvider>();
       middleware.removeListener(_onMiddlewareSelectionChanged);
+    } catch (_) {
+      // Provider may not be available during dispose
+    }
+    // Remove MixerProvider channel order callback
+    try {
+      final mixerProvider = context.read<MixerProvider>();
+      mixerProvider.onChannelOrderChanged = null;
     } catch (_) {
       // Provider may not be available during dispose
     }
@@ -1148,6 +1190,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Delete track by ID (alias for timeline callback)
   void _handleDeleteTrackById(String trackId) => _handleDeleteTrack(trackId);
+
+  /// Handle track reorder (bidirectional sync with mixer channels)
+  void _handleTrackReorder(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _tracks.length) return;
+    if (newIndex < 0 || newIndex >= _tracks.length) return;
+    if (oldIndex == newIndex) return;
+
+    // Reorder tracks list
+    setState(() {
+      final track = _tracks.removeAt(oldIndex);
+      _tracks.insert(newIndex, track);
+    });
+
+    // Sync to MixerProvider (bidirectional sync with mixer)
+    // Channel IDs are prefixed with 'ch_' followed by track ID
+    final mixerProvider = context.read<MixerProvider>();
+    final newChannelOrder = _tracks.map((t) => 'ch_${t.id}').toList();
+    mixerProvider.setChannelOrder(newChannelOrder, notifyTimeline: false);
+  }
 
   /// Sync track deletion to middleware event (removes corresponding action)
   void _syncTrackDeletionToEvent(String trackId) {
@@ -5045,6 +5106,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Track duplicate/delete
       onTrackDuplicate: (trackId) => _handleDuplicateTrack(trackId),
       onTrackDelete: (trackId) => _handleDeleteTrackById(trackId),
+      // Track reorder (bidirectional sync with mixer)
+      onTrackReorder: (oldIndex, newIndex) => _handleTrackReorder(oldIndex, newIndex),
       // Track selection for Channel tab - auto switch to Channel tab
       // Also auto-select first clip on this track to show Gain & Fades section
       onTrackSelect: (trackId) {
@@ -7595,6 +7658,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         if (id != 'master') {
           mixerProvider.togglePhaseInvert(id);
         }
+      },
+      // Channel reorder (bidirectional sync with timeline tracks)
+      onChannelReorder: (oldIndex, newIndex) {
+        mixerProvider.reorderChannel(oldIndex, newIndex);
       },
     );
   }

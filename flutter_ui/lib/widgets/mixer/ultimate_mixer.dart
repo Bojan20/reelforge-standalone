@@ -189,6 +189,9 @@ class UltimateMixer extends StatefulWidget {
   final void Function(String channelId)? onPhaseToggle;
   final void Function(String channelId, double gain)? onGainChange;
   final VoidCallback? onAddBus;
+  /// Called when channel is reordered via drag-drop
+  /// Syncs bidirectionally with timeline track order
+  final void Function(int oldIndex, int newIndex)? onChannelReorder;
 
   const UltimateMixer({
     super.key,
@@ -217,6 +220,7 @@ class UltimateMixer extends StatefulWidget {
     this.onPhaseToggle,
     this.onGainChange,
     this.onAddBus,
+    this.onChannelReorder,
   });
 
   @override
@@ -226,10 +230,24 @@ class UltimateMixer extends StatefulWidget {
 class _UltimateMixerState extends State<UltimateMixer> {
   final ScrollController _scrollController = ScrollController();
 
+  // Drag-drop state for channel reordering
+  int? _draggedIndex;
+  int? _dropTargetIndex;
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Handle channel reorder drop
+  void _handleChannelReorder(int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
+
+    // Adjust newIndex if dropping after the dragged item
+    final adjustedNewIndex = oldIndex < newIndex ? newIndex - 1 : newIndex;
+
+    widget.onChannelReorder?.call(oldIndex, adjustedNewIndex);
   }
 
   @override
@@ -267,38 +285,60 @@ class _UltimateMixerState extends State<UltimateMixer> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(width: 4),
-                  // Track channels
+                  // Track channels with drag-drop reordering
                   // NOTE: RepaintBoundary isolates meter repaints from affecting other strips
                   if (widget.channels.isNotEmpty) ...[
                     _SectionHeader(label: 'TRACKS', color: FluxForgeTheme.accentBlue),
-                    ...widget.channels.map((ch) => RepaintBoundary(
-                      key: ValueKey('rb_${ch.id}'),
-                      child: _UltimateChannelStrip(
-                        key: ValueKey(ch.id),
-                        channel: ch,
-                        width: stripWidth,
-                        compact: widget.compact,
-                        showInserts: widget.showInserts,
-                        showSends: widget.showSends,
-                        showInput: widget.showInput,
-                        hasSoloActive: hasSolo,
-                        isGlassMode: isGlassMode,
-                        onVolumeChange: (v) => widget.onVolumeChange?.call(ch.id, v),
-                        onPanChange: (p) => widget.onPanChange?.call(ch.id, p),
-                        onPanRightChange: (p) => widget.onPanRightChange?.call(ch.id, p),
-                        onMuteToggle: () => widget.onMuteToggle?.call(ch.id),
-                        onSoloToggle: () => widget.onSoloToggle?.call(ch.id),
-                        onArmToggle: () => widget.onArmToggle?.call(ch.id),
-                        onSelect: () => widget.onChannelSelect?.call(ch.id),
-                        onSendLevelChange: (idx, lvl) => widget.onSendLevelChange?.call(ch.id, idx, lvl),
-                        onSendMuteToggle: (idx, muted) => widget.onSendMuteToggle?.call(ch.id, idx, muted),
-                        onSendPreFaderToggle: (idx, pre) => widget.onSendPreFaderToggle?.call(ch.id, idx, pre),
-                        onSendDestChange: (idx, dest) => widget.onSendDestChange?.call(ch.id, idx, dest),
-                        onInsertClick: (idx) => widget.onInsertClick?.call(ch.id, idx),
-                        onPhaseToggle: () => widget.onPhaseToggle?.call(ch.id),
-                        onGainChange: (g) => widget.onGainChange?.call(ch.id, g),
-                      ),
-                    )),
+                    ...widget.channels.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final ch = entry.value;
+                      final isDragging = _draggedIndex == index;
+                      final isDropTarget = _dropTargetIndex == index;
+
+                      return _DraggableChannelStrip(
+                        key: ValueKey('draggable_${ch.id}'),
+                        index: index,
+                        channelId: ch.id,
+                        isDragging: isDragging,
+                        isDropTarget: isDropTarget,
+                        stripWidth: stripWidth,
+                        onDragStarted: () => setState(() => _draggedIndex = index),
+                        onDragEnded: () => setState(() {
+                          _draggedIndex = null;
+                          _dropTargetIndex = null;
+                        }),
+                        onDragTargetEnter: (targetIndex) =>
+                            setState(() => _dropTargetIndex = targetIndex),
+                        onDragTargetLeave: () =>
+                            setState(() => _dropTargetIndex = null),
+                        onDragAccepted: (fromIndex) =>
+                            _handleChannelReorder(fromIndex, index),
+                        child: _UltimateChannelStrip(
+                          channel: ch,
+                          width: stripWidth,
+                          compact: widget.compact,
+                          showInserts: widget.showInserts,
+                          showSends: widget.showSends,
+                          showInput: widget.showInput,
+                          hasSoloActive: hasSolo,
+                          isGlassMode: isGlassMode,
+                          onVolumeChange: (v) => widget.onVolumeChange?.call(ch.id, v),
+                          onPanChange: (p) => widget.onPanChange?.call(ch.id, p),
+                          onPanRightChange: (p) => widget.onPanRightChange?.call(ch.id, p),
+                          onMuteToggle: () => widget.onMuteToggle?.call(ch.id),
+                          onSoloToggle: () => widget.onSoloToggle?.call(ch.id),
+                          onArmToggle: () => widget.onArmToggle?.call(ch.id),
+                          onSelect: () => widget.onChannelSelect?.call(ch.id),
+                          onSendLevelChange: (idx, lvl) => widget.onSendLevelChange?.call(ch.id, idx, lvl),
+                          onSendMuteToggle: (idx, muted) => widget.onSendMuteToggle?.call(ch.id, idx, muted),
+                          onSendPreFaderToggle: (idx, pre) => widget.onSendPreFaderToggle?.call(ch.id, idx, pre),
+                          onSendDestChange: (idx, dest) => widget.onSendDestChange?.call(ch.id, idx, dest),
+                          onInsertClick: (idx) => widget.onInsertClick?.call(ch.id, idx),
+                          onPhaseToggle: () => widget.onPhaseToggle?.call(ch.id),
+                          onGainChange: (g) => widget.onGainChange?.call(ch.id, g),
+                        ),
+                      );
+                    }),
                     const _SectionDivider(),
                   ],
                   // Aux returns
@@ -2161,6 +2201,111 @@ class _ToolbarToggle extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAGGABLE CHANNEL STRIP WRAPPER
+// Enables drag-drop reordering of mixer channels (syncs with timeline)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _DraggableChannelStrip extends StatelessWidget {
+  final int index;
+  final String channelId;
+  final bool isDragging;
+  final bool isDropTarget;
+  final double stripWidth;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragEnded;
+  final void Function(int targetIndex) onDragTargetEnter;
+  final VoidCallback onDragTargetLeave;
+  final void Function(int fromIndex) onDragAccepted;
+  final Widget child;
+
+  const _DraggableChannelStrip({
+    super.key,
+    required this.index,
+    required this.channelId,
+    required this.isDragging,
+    required this.isDropTarget,
+    required this.stripWidth,
+    required this.onDragStarted,
+    required this.onDragEnded,
+    required this.onDragTargetEnter,
+    required this.onDragTargetLeave,
+    required this.onDragAccepted,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) {
+        if (details.data == index) return false;
+        onDragTargetEnter(index);
+        return true;
+      },
+      onLeave: (_) => onDragTargetLeave(),
+      onAcceptWithDetails: (details) {
+        onDragAccepted(details.data);
+        onDragTargetLeave();
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drop indicator (left side)
+            if (isDropTarget)
+              Container(
+                width: 3,
+                height: double.infinity,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.accentBlue,
+                  borderRadius: BorderRadius.circular(1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: FluxForgeTheme.accentBlue.withOpacity(0.5),
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+              ),
+            // Draggable channel strip
+            LongPressDraggable<int>(
+              data: index,
+              axis: Axis.horizontal,
+              delay: const Duration(milliseconds: 150),
+              onDragStarted: onDragStarted,
+              onDragEnd: (_) => onDragEnded(),
+              onDraggableCanceled: (_, __) => onDragEnded(),
+              feedback: Material(
+                elevation: 8,
+                shadowColor: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+                child: Opacity(
+                  opacity: 0.9,
+                  child: SizedBox(
+                    width: stripWidth,
+                    child: child,
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.3,
+                child: RepaintBoundary(
+                  child: child,
+                ),
+              ),
+              child: RepaintBoundary(
+                child: child,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

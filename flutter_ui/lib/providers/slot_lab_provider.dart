@@ -89,6 +89,11 @@ class SlotLabProvider extends ChangeNotifier {
   int _currentStageIndex = 0;
   bool _isPlayingStages = false;
   int _totalReels = 5; // Default, can be configured
+
+  // ─── Reel Spinning State (for STOP button) ────────────────────────────────
+  /// True ONLY while reels are visually spinning (SPIN_START → all REEL_STOP)
+  /// Used by STOP button - should NOT include win presentation phase
+  bool _isReelsSpinning = false;
   int _playbackGeneration = 0; // Incremented on each new spin to invalidate old timers
   bool _baseMusicStarted = false; // Track if base music has been triggered
 
@@ -205,6 +210,10 @@ class SlotLabProvider extends ChangeNotifier {
   int get currentStageIndex => _currentStageIndex;
   bool get aleAutoSync => _aleAutoSync;
 
+  /// True ONLY while reels are visually spinning (SPIN_START → all REEL_STOP)
+  /// Use this for STOP button visibility - does NOT include win presentation
+  bool get isReelsSpinning => _isReelsSpinning;
+
   /// P0.3: True when stage playback is paused (can be resumed)
   bool get isPaused => _isPaused;
 
@@ -217,6 +226,15 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// P0.3: True when stages are playing and NOT paused
   bool get isActivelyPlaying => _isPlayingStages && !_isPaused;
+
+  /// Called by slot_preview_widget when ALL reels have visually stopped
+  /// Sets isReelsSpinning = false so STOP button hides during win presentation
+  void onAllReelsVisualStop() {
+    if (_isReelsSpinning) {
+      _isReelsSpinning = false;
+      notifyListeners();
+    }
+  }
 
   /// P0.6: Anticipation pre-trigger offset in ms
   int get anticipationPreTriggerMs => _anticipationPreTriggerMs;
@@ -452,14 +470,24 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// Execute a random spin
   Future<SlotLabSpinResult?> spin() async {
-    if (!_initialized || _isSpinning) return null;
+    // DEBUG: Trace entry conditions
+    debugPrint('[SlotLabProvider] spin() called: initialized=$_initialized, isSpinning=$_isSpinning');
+
+    if (!_initialized || _isSpinning) {
+      debugPrint('[SlotLabProvider] ❌ spin() BLOCKED: initialized=$_initialized, isSpinning=$_isSpinning');
+      return null;
+    }
 
     _isSpinning = true;
     notifyListeners();
 
     try {
+      debugPrint('[SlotLabProvider] Calling FFI slotLabSpin()...');
       final spinId = _ffi.slotLabSpin();
+      debugPrint('[SlotLabProvider] FFI returned spinId=$spinId');
+
       if (spinId == 0) {
+        debugPrint('[SlotLabProvider] ❌ spinId=0, aborting');
         _isSpinning = false;
         notifyListeners();
         return null;
@@ -468,6 +496,17 @@ class SlotLabProvider extends ChangeNotifier {
       _spinCount++;
       _lastResult = _ffi.slotLabGetSpinResult();
       _lastStages = _ffi.slotLabGetStages();
+
+      // DEBUG: Log stage details
+      debugPrint('[SlotLabProvider] Got ${_lastStages.length} stages:');
+      for (int i = 0; i < _lastStages.length && i < 10; i++) {
+        final s = _lastStages[i];
+        debugPrint('[SlotLabProvider]   [$i] type="${s.stageType}", ts=${s.timestampMs}ms');
+      }
+      if (_lastStages.length > 10) {
+        debugPrint('[SlotLabProvider]   ... and ${_lastStages.length - 10} more');
+      }
+
       _updateFreeSpinsState();
       _updateStats();
 
@@ -680,10 +719,15 @@ class SlotLabProvider extends ChangeNotifier {
 
     // Acquire SlotLab section in UnifiedPlaybackController
     final controller = UnifiedPlaybackController.instance;
+    debugPrint('[SlotLabProvider] 🔒 Attempting to acquire SlotLab section...');
+    debugPrint('[SlotLabProvider]   activeSection=${controller.activeSection}');
+
     if (!controller.acquireSection(PlaybackSection.slotLab)) {
-      debugPrint('[SlotLabProvider] Failed to acquire SlotLab section');
+      debugPrint('[SlotLabProvider] ❌ Failed to acquire SlotLab section!');
+      debugPrint('[SlotLabProvider]   isRecording=${controller.isRecording}');
       return;
     }
+    debugPrint('[SlotLabProvider] ✅ SlotLab section acquired');
 
     // CRITICAL: Start the audio stream WITHOUT starting transport
     // SlotLab uses one-shot voices (playFileToBus), not timeline clips
@@ -697,7 +741,10 @@ class SlotLabProvider extends ChangeNotifier {
     _currentStageIndex = 0;
     _isPlayingStages = true;
 
+    debugPrint('[SlotLabProvider] 🎬 Starting stage playback: _isPlayingStages=$_isPlayingStages');
+
     // Trigeruj prvi stage odmah
+    debugPrint('[SlotLabProvider] Triggering first stage: ${_lastStages[0].stageType}');
     _triggerStage(_lastStages[0]);
 
     if (_lastStages.length > 1) {
@@ -707,6 +754,7 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+    debugPrint('[SlotLabProvider] notifyListeners() called, _isPlayingStages=$_isPlayingStages');
   }
 
   void _scheduleNextStage() {
@@ -793,7 +841,7 @@ class SlotLabProvider extends ChangeNotifier {
 
       // AUTO-TRIGGER SPIN_END immediately after last reel stop
       if (eventRegistry.hasEventForStage('SPIN_END')) {
-        final context = {...stage.payload, ...stage.rawStage};
+        final context = {...stage.payload, ...stage.rawStage, 'timestamp_ms': stage.timestampMs};
         eventRegistry.triggerStage('SPIN_END', context: context);
         debugPrint('[SlotLabProvider] ✅ AUTO: SPIN_END triggered (UI-only path)');
       } else {
@@ -810,7 +858,8 @@ class SlotLabProvider extends ChangeNotifier {
     final reelIndex = stage.rawStage['reel_index'];
 
     String effectiveStage = stageType;
-    Map<String, dynamic> context = {...stage.payload, ...stage.rawStage};
+    // CRITICAL: Include timestamp_ms for Event Log ordering display
+    Map<String, dynamic> context = {...stage.payload, ...stage.rawStage, 'timestamp_ms': stage.timestampMs};
 
     if (stageType == 'REEL_STOP' && reelIndex != null) {
       effectiveStage = 'REEL_STOP_$reelIndex';
@@ -904,7 +953,12 @@ class SlotLabProvider extends ChangeNotifier {
     final stageType = stage.stageType.toUpperCase();
     // CRITICAL: reel_index and symbols are in rawStage (from stage JSON), not payload
     final reelIndex = stage.rawStage['reel_index'];
-    Map<String, dynamic> context = {...stage.payload, ...stage.rawStage};
+    // CRITICAL: Include timestamp_ms for Event Log ordering display
+    Map<String, dynamic> context = {
+      ...stage.payload,
+      ...stage.rawStage,
+      'timestamp_ms': stage.timestampMs,
+    };
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VISUAL-SYNC MODE: Skip REEL_STOP in provider — handled by animation callback
@@ -1026,6 +1080,15 @@ class SlotLabProvider extends ChangeNotifier {
     // Za SPIN_START, trigeruj i REEL_SPIN (loop audio dok se vrti)
     if (stageType == 'SPIN_START' && eventRegistry.hasEventForStage('REEL_SPIN')) {
       eventRegistry.triggerStage('REEL_SPIN', context: context);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REEL SPINNING STATE — For STOP button visibility
+    // Set true at SPIN_START, set false via onAllReelsVisualStop() callback
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stageType == 'SPIN_START') {
+      _isReelsSpinning = true;
+      notifyListeners();
     }
 
     // MUSIC AUTO-TRIGGER: Start base music on first SPIN_START
