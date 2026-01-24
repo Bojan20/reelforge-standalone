@@ -12,14 +12,15 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/slot_lab_provider.dart';
-import '../../src/rust/native_ffi.dart'
-    show ForcedOutcome, NativeFFI, SlotLabSpinResult, SlotLabWinTier;
+import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'slot_preview_widget.dart';
 
@@ -27,44 +28,120 @@ import 'slot_preview_widget.dart';
 // CONSTANTS & THEME
 // =============================================================================
 
+/// Slot-specific theme extension
+///
+/// Extends FluxForgeTheme with slot-specific colors for casino UI elements.
+/// Uses FluxForgeTheme base colors for consistency with the main app,
+/// adds slot-specific colors (gold, jackpots, win tiers) for casino feel.
 class _SlotTheme {
-  // Background colors
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BACKGROUNDS - Aligned with FluxForgeTheme (slightly darker for casino feel)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Deepest background (app base)
   static const bgDeep = Color(0xFF0a0a12);
+
+  /// Dark background (zones, panels)
   static const bgDark = Color(0xFF121218);
+
+  /// Mid-level background (cards, items)
   static const bgMid = Color(0xFF1a1a24);
+
+  /// Surface level (interactive elements)
   static const bgSurface = Color(0xFF242432);
+
+  /// Panel background (overlays, dialogs)
   static const bgPanel = Color(0xFF1e1e2a);
 
-  // Accent colors
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CASINO METALS - Gold, Silver, Bronze (slot-specific)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Casino gold (primary high-value color)
   static const gold = Color(0xFFFFD700);
+
+  /// Light gold (highlights, shines)
   static const goldLight = Color(0xFFFFE55C);
+
+  /// Silver (secondary value color)
   static const silver = Color(0xFFC0C0C0);
+
+  /// Bronze (tertiary value color)
   static const bronze = Color(0xFFCD7F32);
 
-  // Jackpot tier colors
-  static const jackpotGrand = Color(0xFFFFD700); // Gold
-  static const jackpotMajor = Color(0xFFFF4080); // Magenta
-  static const jackpotMinor = Color(0xFF8B5CF6); // Purple
-  static const jackpotMini = Color(0xFF4CAF50); // Green
-  static const jackpotMystery = Color(0xFF40C8FF); // Cyan
+  // ═══════════════════════════════════════════════════════════════════════════
+  // JACKPOT TIERS - 4-tier progressive system
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  // Win tier colors
+  /// Grand Jackpot (highest tier) - Gold
+  static const jackpotGrand = Color(0xFFFFD700);
+
+  /// Major Jackpot (second tier) - Magenta/Pink
+  static const jackpotMajor = Color(0xFFFF4080);
+
+  /// Minor Jackpot (third tier) - Purple
+  static const jackpotMinor = Color(0xFF8B5CF6);
+
+  /// Mini Jackpot (fourth tier) - Green
+  static const jackpotMini = Color(0xFF4CAF50);
+
+  /// Mystery Jackpot (special) - Cyan
+  static const jackpotMystery = Color(0xFF40C8FF);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WIN TIERS - 5-tier win celebration colors
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Ultra Win (1000x+) - Hot magenta
   static const winUltra = Color(0xFFFF4080);
+
+  /// Epic Win (100x-999x) - Electric purple
   static const winEpic = Color(0xFFE040FB);
+
+  /// Mega Win (25x-99x) - Gold
   static const winMega = Color(0xFFFFD700);
+
+  /// Big Win (10x-24x) - Green
+  /// Matches FluxForgeTheme.accentGreen (#40FF90)
   static const winBig = Color(0xFF40FF90);
+
+  /// Small Win (1x-9x) - Cyan
+  /// Matches FluxForgeTheme.accentCyan (#40C8FF)
   static const winSmall = Color(0xFF40C8FF);
 
-  // UI colors
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UI ELEMENTS - Borders and text (aligned with FluxForgeTheme)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Default border color
   static const border = Color(0xFF3a3a48);
+
+  /// Light border (hover states)
   static const borderLight = Color(0xFF4a4a58);
+
+  /// Primary text (maximum readability)
+  /// Matches FluxForgeTheme.textPrimary (#FFFFFF)
   static const textPrimary = Color(0xFFFFFFFF);
+
+  /// Secondary text (labels, descriptions)
+  /// Matches FluxForgeTheme.textSecondary (#B0B0B8)
   static const textSecondary = Color(0xFFB0B0B8);
+
+  /// Muted text (hints, disabled)
+  /// Matches FluxForgeTheme.textTertiary (#707080)
   static const textMuted = Color(0xFF707080);
 
-  // Button gradients
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUTTON GRADIENTS - Slot-specific button styles
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Spin button gradient (blue)
   static const spinGradient = [Color(0xFF4A9EFF), Color(0xFF2060CC)];
+
+  /// Max Bet button gradient (gold→orange)
   static const maxBetGradient = [Color(0xFFFFD700), Color(0xFFFF9040)];
+
+  /// Auto-spin button gradient (green)
   static const autoSpinGradient = [Color(0xFF40FF90), Color(0xFF20A060)];
 }
 
@@ -3278,6 +3355,7 @@ class _InfoPanels extends StatelessWidget {
   final List<_RecentWin> recentWins;
   final int totalSpins;
   final double rtp;
+  final _GameRulesConfig gameConfig;
   final VoidCallback onPaytableToggle;
   final VoidCallback onRulesToggle;
   final VoidCallback onHistoryToggle;
@@ -3291,6 +3369,7 @@ class _InfoPanels extends StatelessWidget {
     this.recentWins = const [],
     this.totalSpins = 0,
     this.rtp = 0.0,
+    this.gameConfig = const _GameRulesConfig(),
     required this.onPaytableToggle,
     required this.onRulesToggle,
     required this.onHistoryToggle,
@@ -3362,7 +3441,7 @@ class _InfoPanels extends StatelessWidget {
 
           if (showRules) ...[
             const SizedBox(height: 16),
-            const _RulesPanel(),
+            _RulesPanel(config: gameConfig),
           ],
         ],
       ),
@@ -3649,14 +3728,88 @@ class _SpecialSymbolData {
 }
 
 /// Rules panel showing game rules
+/// Game rules configuration data
+class _GameRulesConfig {
+  final String name;
+  final int reels;
+  final int rows;
+  final int paylines;
+  final double targetRtp;
+  final String volatility;
+  final bool freeSpinsEnabled;
+  final int freeSpinsMin;
+  final int freeSpinsMax;
+  final double freeSpinsMultiplier;
+  final bool cascadesEnabled;
+  final int maxCascadeSteps;
+  final bool holdSpinEnabled;
+  final bool gambleEnabled;
+  final bool jackpotEnabled;
+
+  const _GameRulesConfig({
+    this.name = 'Synthetic Slot',
+    this.reels = 5,
+    this.rows = 3,
+    this.paylines = 20,
+    this.targetRtp = 96.5,
+    this.volatility = 'Medium',
+    this.freeSpinsEnabled = true,
+    this.freeSpinsMin = 8,
+    this.freeSpinsMax = 15,
+    this.freeSpinsMultiplier = 2.0,
+    this.cascadesEnabled = true,
+    this.maxCascadeSteps = 8,
+    this.holdSpinEnabled = false,
+    this.gambleEnabled = true,
+    this.jackpotEnabled = true,
+  });
+
+  /// Parse from engine config JSON
+  factory _GameRulesConfig.fromJson(Map<String, dynamic> json) {
+    final grid = json['grid'] as Map<String, dynamic>? ?? {};
+    final features = json['features'] as Map<String, dynamic>? ?? {};
+    final volatility = json['volatility'] as Map<String, dynamic>? ?? {};
+    final freeSpinsRange = features['free_spins_range'] as List? ?? [8, 15];
+
+    return _GameRulesConfig(
+      name: json['name'] as String? ?? 'Synthetic Slot',
+      reels: grid['reels'] as int? ?? 5,
+      rows: grid['rows'] as int? ?? 3,
+      paylines: 20, // Standard for 5x3
+      targetRtp: (json['target_rtp'] as num?)?.toDouble() ?? 96.5,
+      volatility: _volatilityLabel(volatility),
+      freeSpinsEnabled: features['free_spins_enabled'] as bool? ?? true,
+      freeSpinsMin: (freeSpinsRange.isNotEmpty ? freeSpinsRange[0] : 8) as int,
+      freeSpinsMax: (freeSpinsRange.length > 1 ? freeSpinsRange[1] : 15) as int,
+      freeSpinsMultiplier:
+          (features['free_spins_multiplier'] as num?)?.toDouble() ?? 2.0,
+      cascadesEnabled: features['cascades_enabled'] as bool? ?? true,
+      maxCascadeSteps: features['max_cascade_steps'] as int? ?? 8,
+      holdSpinEnabled: features['hold_spin_enabled'] as bool? ?? false,
+      gambleEnabled: features['gamble_enabled'] as bool? ?? true,
+      jackpotEnabled: features['jackpot_enabled'] as bool? ?? true,
+    );
+  }
+
+  static String _volatilityLabel(Map<String, dynamic> vol) {
+    final hitRate = (vol['hit_rate'] as num?)?.toDouble() ?? 0.3;
+    if (hitRate >= 0.35) return 'Low';
+    if (hitRate >= 0.25) return 'Medium';
+    if (hitRate >= 0.15) return 'Medium-High';
+    return 'High';
+  }
+}
+
 class _RulesPanel extends StatelessWidget {
-  const _RulesPanel();
+  final _GameRulesConfig config;
+
+  const _RulesPanel({this.config = const _GameRulesConfig()});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 280,
-      constraints: const BoxConstraints(maxHeight: 350),
+      constraints: const BoxConstraints(maxHeight: 400),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _SlotTheme.bgPanel.withOpacity(0.95),
@@ -3674,32 +3827,66 @@ class _RulesPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Title
+            // Title with game name
             Row(
               children: [
                 const Icon(Icons.info_outline, color: FluxForgeTheme.accentCyan, size: 18),
                 const SizedBox(width: 8),
-                const Text(
-                  'GAME RULES',
-                  style: TextStyle(
-                    color: FluxForgeTheme.accentCyan,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
+                Expanded(
+                  child: Text(
+                    config.name.toUpperCase(),
+                    style: const TextStyle(
+                      color: FluxForgeTheme.accentCyan,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            _buildRule('Paylines', '20 fixed paylines, wins pay left to right'),
+            // Grid info
+            _buildRule('Grid', '${config.reels}×${config.rows} (${config.reels * config.rows} positions)'),
+            _buildRule('Paylines', '${config.paylines} fixed paylines, wins pay left to right'),
+
+            // Wild/Scatter (always present)
             _buildRule('Wild', 'Substitutes for all symbols except Scatter'),
-            _buildRule('Scatter', '3+ triggers 10 Free Spins (4+ = 15, 5+ = 20)'),
-            _buildRule('Bonus', '3+ on reels 2-4 triggers Pick Bonus'),
-            _buildRule('Gamble', 'Double or nothing on wins up to 50% of balance'),
-            _buildRule('Jackpots', 'Progressive jackpots awarded randomly on wins'),
-            _buildRule('RTP', 'Theoretical return: 96.5%'),
-            _buildRule('Volatility', 'Medium-High'),
+            _buildRule('Scatter', '3+ triggers Free Spins'),
+
+            // Free Spins (if enabled)
+            if (config.freeSpinsEnabled)
+              _buildRule(
+                'Free Spins',
+                '${config.freeSpinsMin}-${config.freeSpinsMax} spins with ${config.freeSpinsMultiplier}x multiplier',
+              ),
+
+            // Cascades (if enabled)
+            if (config.cascadesEnabled)
+              _buildRule(
+                'Cascades',
+                'Winning symbols removed, new symbols fall (max ${config.maxCascadeSteps} steps)',
+              ),
+
+            // Hold & Spin (if enabled)
+            if (config.holdSpinEnabled)
+              _buildRule('Hold & Spin', 'Lock symbols for respins'),
+
+            // Gamble (if enabled)
+            if (config.gambleEnabled)
+              _buildRule('Gamble', 'Double or nothing on any win'),
+
+            // Jackpots (if enabled)
+            if (config.jackpotEnabled)
+              _buildRule('Jackpots', '4-tier progressive: Mini, Minor, Major, Grand'),
+
+            const Divider(color: _SlotTheme.border, height: 16),
+
+            // RTP and Volatility
+            _buildRule('RTP', 'Theoretical return: ${config.targetRtp.toStringAsFixed(1)}%'),
+            _buildRule('Volatility', config.volatility),
           ],
         ),
       ),
@@ -3958,6 +4145,149 @@ class _SessionStatsPanel extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// G2. MENU PANEL
+// =============================================================================
+
+class _MenuPanel extends StatelessWidget {
+  final VoidCallback onPaytable;
+  final VoidCallback onRules;
+  final VoidCallback onHistory;
+  final VoidCallback onStats;
+  final VoidCallback onSettings;
+  final VoidCallback onHelp;
+  final VoidCallback onClose;
+
+  const _MenuPanel({
+    required this.onPaytable,
+    required this.onRules,
+    required this.onHistory,
+    required this.onStats,
+    required this.onSettings,
+    required this.onHelp,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 200,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _SlotTheme.bgPanel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _SlotTheme.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 20,
+            spreadRadius: 5,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.menu, color: _SlotTheme.textSecondary, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'MENU',
+                    style: TextStyle(
+                      color: _SlotTheme.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: _SlotTheme.textSecondary, size: 18),
+                onPressed: onClose,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const Divider(color: _SlotTheme.border, height: 16),
+
+          // Menu items
+          _MenuItem(icon: Icons.table_chart, label: 'Paytable', onTap: onPaytable),
+          _MenuItem(icon: Icons.info_outline, label: 'Rules', onTap: onRules),
+          _MenuItem(icon: Icons.history, label: 'History', onTap: onHistory),
+          _MenuItem(icon: Icons.analytics, label: 'Statistics', onTap: onStats),
+          const Divider(color: _SlotTheme.border, height: 12),
+          _MenuItem(icon: Icons.settings, label: 'Settings', onTap: onSettings),
+          _MenuItem(icon: Icons.help_outline, label: 'Help', onTap: onHelp),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  State<_MenuItem> createState() => _MenuItemState();
+}
+
+class _MenuItemState extends State<_MenuItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          decoration: BoxDecoration(
+            color: _isHovered ? FluxForgeTheme.accentBlue.withOpacity(0.15) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                color: _isHovered ? FluxForgeTheme.accentBlue : _SlotTheme.textSecondary,
+                size: 18,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: _isHovered ? FluxForgeTheme.accentBlue : _SlotTheme.textPrimary,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -4447,6 +4777,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   int _betLevel = 5;
   double get _totalBetAmount => _lines * _coinValue * _betLevel;
 
+  // Game rules config (loaded from engine)
+  _GameRulesConfig _gameConfig = const _GameRulesConfig();
+
   // Feature state
   int _freeSpins = 0;
   int _freeSpinsRemaining = 0;
@@ -4461,7 +4794,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   int _autoSpinCount = 0;
   int _autoSpinRemaining = 0;
 
-  // Settings
+  // Settings (persisted via SharedPreferences)
   bool _isTurbo = false;
   bool _isMusicOn = true;
   bool _isSfxOn = true;
@@ -4470,8 +4803,17 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   bool _animationsEnabled = true;
   bool _isFullscreen = true;
 
+  // SharedPreferences keys
+  static const _prefKeyTurbo = 'psp_turbo';
+  static const _prefKeyMusic = 'psp_music';
+  static const _prefKeySfx = 'psp_sfx';
+  static const _prefKeyVolume = 'psp_volume';
+  static const _prefKeyQuality = 'psp_quality';
+  static const _prefKeyAnimations = 'psp_animations';
+
   // UI state
   bool _showSettingsPanel = false;
+  bool _showMenuPanel = false;
   bool _showPaytable = false;
   bool _showRules = false;
   bool _showHistory = false;
@@ -4492,10 +4834,66 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     super.initState();
     _initAnimations();
     _initParticles();
+    _loadSettings(); // Load persisted settings
+    _loadGameConfig(); // Load game rules from engine
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
+  }
+
+  /// Load settings from SharedPreferences
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+
+    setState(() {
+      _isTurbo = prefs.getBool(_prefKeyTurbo) ?? false;
+      _isMusicOn = prefs.getBool(_prefKeyMusic) ?? true;
+      _isSfxOn = prefs.getBool(_prefKeySfx) ?? true;
+      _masterVolume = prefs.getDouble(_prefKeyVolume) ?? 0.8;
+      _graphicsQuality = prefs.getInt(_prefKeyQuality) ?? 2;
+      _animationsEnabled = prefs.getBool(_prefKeyAnimations) ?? true;
+    });
+
+    // Apply loaded settings to FFI
+    NativeFFI.instance.setBusMute(2, !_isMusicOn);
+    NativeFFI.instance.setBusMute(1, !_isSfxOn);
+    NativeFFI.instance.setMasterVolume(_masterVolume);
+  }
+
+  /// Save all settings to SharedPreferences
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKeyTurbo, _isTurbo);
+    await prefs.setBool(_prefKeyMusic, _isMusicOn);
+    await prefs.setBool(_prefKeySfx, _isSfxOn);
+    await prefs.setDouble(_prefKeyVolume, _masterVolume);
+    await prefs.setInt(_prefKeyQuality, _graphicsQuality);
+    await prefs.setBool(_prefKeyAnimations, _animationsEnabled);
+  }
+
+  /// Load game rules configuration from engine
+  void _loadGameConfig() {
+    try {
+      final configJson = NativeFFI.instance.slotLabExportConfig();
+      if (configJson != null && configJson.isNotEmpty) {
+        final json = Map<String, dynamic>.from(
+          (configJson.startsWith('{'))
+              ? (Map<String, dynamic>.from(
+                  const JsonDecoder().convert(configJson) as Map))
+              : {},
+        );
+        if (json.isNotEmpty && mounted) {
+          setState(() {
+            _gameConfig = _GameRulesConfig.fromJson(json);
+          });
+        }
+      }
+    } catch (e) {
+      // Fallback to defaults if config loading fails
+      debugPrint('[PSP] Failed to load game config: $e');
+    }
   }
 
   void _initAnimations() {
@@ -4609,6 +5007,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     setState(() => _isMusicOn = !_isMusicOn);
     // Mute/unmute music bus via FFI
     NativeFFI.instance.setBusMute(2, !_isMusicOn);
+    _saveSettings();
   }
 
   /// Toggle SFX bus mute state (bus ID 1 = sfx)
@@ -4616,12 +5015,32 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     setState(() => _isSfxOn = !_isSfxOn);
     // Mute/unmute SFX bus via FFI
     NativeFFI.instance.setBusMute(1, !_isSfxOn);
+    _saveSettings();
   }
 
   /// Set master volume via FFI
   void _setMasterVolume(double volume) {
     setState(() => _masterVolume = volume);
     NativeFFI.instance.setMasterVolume(volume);
+    _saveSettings();
+  }
+
+  /// Set graphics quality
+  void _setGraphicsQuality(int quality) {
+    setState(() => _graphicsQuality = quality);
+    _saveSettings();
+  }
+
+  /// Toggle animations
+  void _toggleAnimations() {
+    setState(() => _animationsEnabled = !_animationsEnabled);
+    _saveSettings();
+  }
+
+  /// Toggle turbo mode
+  void _toggleTurbo() {
+    setState(() => _isTurbo = !_isTurbo);
+    _saveSettings();
   }
 
   void _handleSpin(SlotLabProvider provider) {
@@ -4883,7 +5302,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
     switch (event.logicalKey) {
       case LogicalKeyboardKey.escape:
-        if (_showSettingsPanel) {
+        if (_showMenuPanel) {
+          setState(() => _showMenuPanel = false);
+        } else if (_showSettingsPanel) {
           setState(() => _showSettingsPanel = false);
         } else if (_showWinPresenter) {
           setState(() => _showWinPresenter = false);
@@ -4897,7 +5318,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.keyM:
-        setState(() => _isMusicOn = !_isMusicOn);
+        _toggleMusic();
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.keyS:
@@ -4905,7 +5326,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.keyT:
-        setState(() => _isTurbo = !_isTurbo);
+        _toggleTurbo();
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.keyA:
@@ -4965,10 +5386,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   isMusicOn: _isMusicOn,
                   isSfxOn: _isSfxOn,
                   isFullscreen: _isFullscreen,
-                  onMenuTap: () {},
+                  onMenuTap: () => setState(() {
+                    _showMenuPanel = !_showMenuPanel;
+                    if (_showMenuPanel) _showSettingsPanel = false;
+                  }),
                   onMusicToggle: _toggleMusic,
                   onSfxToggle: _toggleSfx,
-                  onSettingsTap: () => setState(() => _showSettingsPanel = !_showSettingsPanel),
+                  onSettingsTap: () => setState(() {
+                    _showSettingsPanel = !_showSettingsPanel;
+                    if (_showSettingsPanel) _showMenuPanel = false;
+                  }),
                   onFullscreenToggle: () {},
                   onExit: widget.onExit,
                 ),
@@ -5026,7 +5453,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   onSpin: () => _handleSpin(provider),
                   onStop: _handleStop,
                   onAutoSpinToggle: _handleAutoSpinToggle,
-                  onTurboToggle: () => setState(() => _isTurbo = !_isTurbo),
+                  onTurboToggle: _toggleTurbo,
                 ),
               ],
             ),
@@ -5040,6 +5467,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
               recentWins: _recentWins,
               totalSpins: _totalSpins,
               rtp: sessionRtp,
+              gameConfig: _gameConfig,
               onPaytableToggle: () => setState(() {
                 _showPaytable = !_showPaytable;
                 _showRules = false;
@@ -5085,6 +5513,90 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                 ),
               ),
 
+            // G2. Menu Panel (overlay)
+            if (_showMenuPanel)
+              Positioned(
+                top: 70,
+                left: 16,
+                child: _MenuPanel(
+                  onPaytable: () => setState(() {
+                    _showPaytable = true;
+                    _showRules = false;
+                    _showMenuPanel = false;
+                  }),
+                  onRules: () => setState(() {
+                    _showRules = true;
+                    _showPaytable = false;
+                    _showMenuPanel = false;
+                  }),
+                  onHistory: () => setState(() {
+                    _showHistory = !_showHistory;
+                    _showMenuPanel = false;
+                  }),
+                  onStats: () => setState(() {
+                    _showStats = !_showStats;
+                    _showMenuPanel = false;
+                  }),
+                  onSettings: () => setState(() {
+                    _showSettingsPanel = true;
+                    _showMenuPanel = false;
+                  }),
+                  onHelp: () {
+                    setState(() => _showMenuPanel = false);
+                    // Show a simple help dialog
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: _SlotTheme.bgPanel,
+                        title: const Text(
+                          'Premium Slot Preview',
+                          style: TextStyle(color: _SlotTheme.textPrimary),
+                        ),
+                        content: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Audio Testing Sandbox',
+                              style: TextStyle(
+                                color: FluxForgeTheme.accentCyan,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Keyboard Shortcuts:',
+                              style: TextStyle(
+                                color: _SlotTheme.textSecondary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              '• SPACE - Spin\n'
+                              '• M - Toggle Music\n'
+                              '• S - Toggle Stats\n'
+                              '• T - Toggle Turbo\n'
+                              '• A - Toggle Auto-Spin\n'
+                              '• ESC - Exit\n'
+                              '• 1-7 - Forced Outcomes (Debug)',
+                              style: TextStyle(color: _SlotTheme.textSecondary),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Close'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  onClose: () => setState(() => _showMenuPanel = false),
+                ),
+              ),
+
             // H. Settings Panel (overlay)
             if (_showSettingsPanel)
               Positioned(
@@ -5099,9 +5611,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   onVolumeChanged: _setMasterVolume,
                   onMusicToggle: _toggleMusic,
                   onSfxToggle: _toggleSfx,
-                  onQualityChanged: (v) => setState(() => _graphicsQuality = v),
-                  onAnimationsToggle: () =>
-                      setState(() => _animationsEnabled = !_animationsEnabled),
+                  onQualityChanged: _setGraphicsQuality,
+                  onAnimationsToggle: _toggleAnimations,
                   onClose: () => setState(() => _showSettingsPanel = false),
                 ),
               ),

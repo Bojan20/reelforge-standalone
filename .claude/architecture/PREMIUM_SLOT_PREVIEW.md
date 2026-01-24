@@ -1,8 +1,8 @@
 # Premium Slot Preview — Architecture Document
 
 **Date:** 2026-01-24
-**Status:** 95% Complete
-**LOC:** ~5,213 total (3,728 + 1,485)
+**Status:** 100% Complete (P1+P2+P3 Done)
+**LOC:** ~5,600 total (4,100 + 1,500)
 
 ---
 
@@ -269,23 +269,23 @@ final canSpin = _balance >= _totalBetAmount && !isSpinning;
 | PSP-P1.3 | Scatter collection | `_ScatterCollectOverlay` — flying diamonds with trails | ✅ Done |
 | PSP-P1.4 | Audio toggles | Connected to `NativeFFI.setBusMute()` (bus 1=SFX, 2=Music) | ✅ Done |
 
-### P2: High (Realism)
+### ✅ P2: High (Realism) — COMPLETE
 
-| # | Task | Effort |
-|---|------|--------|
-| PSP-P2.1 | Collect/Gamble logic | 2-3h |
-| PSP-P2.2 | Paytable from math model | 2-3h |
-| PSP-P2.3 | RNG from engine | 2-3h |
-| PSP-P2.4 | Jackpot growth from bet | 2-3h |
+| # | Task | Solution | Status |
+|---|------|----------|--------|
+| PSP-P2.1 | Collect/Gamble logic | Full gamble flow with double-or-nothing, card pick | ✅ Done |
+| PSP-P2.2 | Paytable from math model | `_PaytablePanel` connected to engine via `slotLabExportPaytable()` | ✅ Done |
+| PSP-P2.3 | RNG from engine | `_getEngineRandomGrid()` via `slotLabSpin()` FFI | ✅ Done |
+| PSP-P2.4 | Jackpot growth from bet | `_tickJackpots()` uses `_progressiveContribution` from bet math | ✅ Done |
 
-### P3: Medium (Polish)
+### ✅ P3: Medium (Polish) — COMPLETE
 
-| # | Task | Effort |
-|---|------|--------|
-| PSP-P3.1 | Menu functionality | 2-3h |
-| PSP-P3.2 | Rules from game config | 1-2h |
-| PSP-P3.3 | Settings persistence | 1-2h |
-| PSP-P3.4 | Theme consolidation | 2-3h |
+| # | Task | Solution | Status |
+|---|------|----------|--------|
+| PSP-P3.1 | Menu functionality | `_MenuPanel` with Paytable/Rules/History/Stats/Settings/Help access | ✅ Done |
+| PSP-P3.2 | Rules from game config | `_GameRulesConfig.fromJson()` via `slotLabExportConfig()` FFI | ✅ Done |
+| PSP-P3.3 | Settings persistence | SharedPreferences for turbo/music/sfx/volume/quality/animations | ✅ Done |
+| PSP-P3.4 | Theme consolidation | `_SlotTheme` documented with FluxForgeTheme color mappings | ✅ Done |
 
 ---
 
@@ -319,4 +319,4 @@ jackpotMini:     #4CAF50  (green)
 ---
 
 *Generated: 2026-01-24*
-*Status: 95% UI Complete, 4/12 TODO items done (P1 Complete), 8 remaining*
+*Status: 100% UI Complete, 12/12 TODO items done (P1+P2+P3 Complete)*
