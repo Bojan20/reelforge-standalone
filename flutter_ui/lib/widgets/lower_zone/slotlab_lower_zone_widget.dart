@@ -8,6 +8,10 @@
 // - Resizable height
 // - Integrated SlotLab panels (StageTrace, EventLog, BusHierarchy, Profiler)
 
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -16,12 +20,14 @@ import 'lower_zone_types.dart';
 import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
 import '../../providers/slot_lab_provider.dart';
+import '../../providers/slot_lab_project_provider.dart';
 import '../../providers/middleware_provider.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../providers/mixer_dsp_provider.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
 import '../../models/middleware_models.dart' show ActionType;
+import '../../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../../services/audio_playback_service.dart';
 import '../slot_lab/stage_trace_widget.dart';
 import '../slot_lab/event_log_panel.dart';
@@ -30,6 +36,7 @@ import '../slot_lab/profiler_panel.dart';
 import '../slot_lab/aux_sends_panel.dart';
 import '../slot_lab/slot_automation_panel.dart';
 import '../fabfilter/fabfilter.dart';
+import '../common/audio_waveform_picker_dialog.dart';
 import 'realtime_bus_meters.dart';
 import 'export_panels.dart';
 
@@ -939,117 +946,158 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   /// P2.6: Compact Symbols Panel — Connected to MiddlewareProvider for symbol-to-sound mapping
   Widget _buildCompactSymbolsPanel() {
-    final middleware = _tryGetMiddlewareProvider();
+    // Use SlotLabProjectProvider for symbol definitions
+    return Consumer<SlotLabProjectProvider>(
+      builder: (context, projectProvider, _) {
+        final symbols = projectProvider.symbols;
+        final symbolAudio = projectProvider.symbolAudio;
 
-    // Standard slot symbols
-    final symbols = ['WILD', 'SCATTER', 'BONUS', '7', 'BAR', 'CHERRY', 'BELL', 'ORANGE'];
+        // Count symbols with any audio assignment
+        final mappedSymbolIds = symbolAudio.map((a) => a.symbolId).toSet();
+        final mappedCount = symbols.where((s) => mappedSymbolIds.contains(s.id)).length;
 
-    // Check which symbols have events mapped (via stage SYMBOL_LAND_xxx)
-    final mappedSymbols = <String>{};
-    if (middleware != null) {
-      for (final event in middleware.compositeEvents) {
-        for (final stage in event.triggerStages) {
-          if (stage.toUpperCase().startsWith('SYMBOL_LAND_')) {
-            final symbol = stage.substring('SYMBOL_LAND_'.length);
-            mappedSymbols.add(symbol.toUpperCase());
-          }
-        }
-      }
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header (compact)
-          Row(
+        return Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildPanelHeader('SYMBOL AUDIO', Icons.casino),
-              const Spacer(),
-              Text(
-                '${mappedSymbols.length}/${symbols.length} mapped',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: mappedSymbols.isNotEmpty ? LowerZoneColors.success : LowerZoneColors.textMuted,
+              // Header (compact)
+              Row(
+                children: [
+                  _buildPanelHeader('SYMBOL AUDIO', Icons.casino),
+                  const Spacer(),
+                  Text(
+                    '$mappedCount/${symbols.length} mapped',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: mappedCount > 0 ? LowerZoneColors.success : LowerZoneColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Grid (flexible)
+              Flexible(
+                fit: FlexFit.loose,
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    childAspectRatio: 1.5,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
+                  ),
+                  itemCount: symbols.length,
+                  itemBuilder: (context, index) {
+                    final symbol = symbols[index];
+                    final hasAudio = mappedSymbolIds.contains(symbol.id);
+                    final audioCount = symbolAudio.where((a) => a.symbolId == symbol.id).length;
+                    return _buildSymbolCard(symbol, hasAudio, audioCount);
+                  },
                 ),
+              ),
+              const SizedBox(height: 6),
+              // Help text (compact)
+              Row(
+                children: [
+                  Text(
+                    'Drop audio to assign • ',
+                    style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                  ),
+                  GestureDetector(
+                    onTap: () => projectProvider.addSymbol(SymbolDefinition(
+                      id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                      name: 'New Symbol',
+                      emoji: '🎰',
+                      type: SymbolType.low,
+                    )),
+                    child: Text(
+                      '+ Add Symbol',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: LowerZoneColors.slotLabAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // Grid (flexible)
-          Flexible(
-            fit: FlexFit.loose,
-            child: GridView.builder(
-              shrinkWrap: true,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                childAspectRatio: 1.5,
-                crossAxisSpacing: 6,
-                mainAxisSpacing: 6,
-              ),
-              itemCount: symbols.length,
-              itemBuilder: (context, index) {
-                final symbol = symbols[index];
-                final hasAudio = mappedSymbols.contains(symbol);
-                return _buildSymbolCard(symbol, hasAudio);
-              },
-            ),
-          ),
-          const SizedBox(height: 6),
-          // Help text (compact)
-          Text(
-            'Map symbols via SYMBOL_LAND_xxx stages',
-            style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSymbolCard(String symbol, bool hasAudio) {
-    // Symbol-specific icons
-    IconData symbolIcon = Icons.casino;
-    if (symbol == 'WILD') symbolIcon = Icons.star;
-    if (symbol == 'SCATTER') symbolIcon = Icons.scatter_plot;
-    if (symbol == 'BONUS') symbolIcon = Icons.card_giftcard;
-    if (symbol == '7') symbolIcon = Icons.filter_7;
-    if (symbol == 'CHERRY') symbolIcon = Icons.local_dining;
-    if (symbol == 'BELL') symbolIcon = Icons.notifications;
+  Widget _buildSymbolCard(SymbolDefinition symbol, bool hasAudio, int audioCount) {
+    // Icon based on symbol type
+    IconData symbolIcon;
+    switch (symbol.type) {
+      case SymbolType.wild:
+        symbolIcon = Icons.star;
+      case SymbolType.scatter:
+        symbolIcon = Icons.scatter_plot;
+      case SymbolType.bonus:
+        symbolIcon = Icons.card_giftcard;
+      case SymbolType.high:
+        symbolIcon = Icons.diamond;
+      case SymbolType.multiplier:
+        symbolIcon = Icons.close;
+      case SymbolType.collector:
+        symbolIcon = Icons.monetization_on;
+      case SymbolType.mystery:
+        symbolIcon = Icons.help;
+      case SymbolType.low:
+        symbolIcon = Icons.casino;
+    }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: hasAudio
-            ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1)
-            : LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: hasAudio ? LowerZoneColors.slotLabAccent : LowerZoneColors.border,
+    return Tooltip(
+      message: '${symbol.name}\nContexts: ${symbol.contexts.join(", ")}\n${hasAudio ? "$audioCount audio assigned" : "No audio"}',
+      child: Container(
+        decoration: BoxDecoration(
+          color: hasAudio
+              ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1)
+              : LowerZoneColors.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: hasAudio ? LowerZoneColors.slotLabAccent : LowerZoneColors.border,
+          ),
         ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            symbolIcon,
-            size: 20,
-            color: hasAudio ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            symbol,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: hasAudio ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Emoji or icon
+            Text(
+              symbol.emoji,
+              style: const TextStyle(fontSize: 16),
             ),
-          ),
-          if (hasAudio) ...[
             const SizedBox(height: 2),
-            Icon(Icons.volume_up, size: 10, color: LowerZoneColors.success),
+            Text(
+              symbol.name.length > 8 ? '${symbol.name.substring(0, 8)}…' : symbol.name,
+              style: TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+                color: hasAudio ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (hasAudio) ...[
+              const SizedBox(height: 1),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.volume_up, size: 8, color: LowerZoneColors.success),
+                  const SizedBox(width: 2),
+                  Text(
+                    '$audioCount',
+                    style: TextStyle(fontSize: 8, color: LowerZoneColors.success),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -2183,8 +2231,21 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   /// Compact Variations Panel — Connected to RandomContainer for variation generation
   Widget _buildCompactVariationsPanel() {
     final middleware = _tryGetMiddlewareProvider();
-    final randomContainers = middleware?.randomContainers ?? [];
+    if (middleware == null) {
+      return const Center(child: Text('No middleware', style: TextStyle(color: LowerZoneColors.textMuted)));
+    }
+
+    final randomContainers = middleware.randomContainers;
     final variationCount = randomContainers.fold<int>(0, (sum, c) => sum + c.children.length);
+
+    // Get global variation values from first container or use defaults
+    final firstContainer = randomContainers.isNotEmpty ? randomContainers.first : null;
+    final pitchRange = firstContainer != null
+        ? (firstContainer.globalPitchMax - firstContainer.globalPitchMin).abs()
+        : 0.1;
+    final volumeRange = firstContainer != null
+        ? (firstContainer.globalVolumeMax - firstContainer.globalVolumeMin).abs()
+        : 0.05;
 
     return Padding(
       padding: const EdgeInsets.all(8),
@@ -2196,9 +2257,16 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             children: [
               _buildPanelHeader('BATCH VARIATIONS', Icons.auto_awesome),
               const Spacer(),
-              Text(
-                '$variationCount variations',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${randomContainers.length} containers',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
+                ),
               ),
             ],
           ),
@@ -2212,10 +2280,20 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildVariationSlider('Pitch', '±10%', 0.1),
-                      _buildVariationSlider('Volume', '±5%', 0.05),
-                      _buildVariationSlider('Pan', '±20%', 0.2),
-                      _buildVariationSlider('Delay', '±50ms', 0.15),
+                      _buildInteractiveVariationSlider(
+                        'Pitch',
+                        pitchRange,
+                        maxRange: 0.24, // ±12 semitones = 24% range
+                        onChanged: (value) => _applyVariationToAll(middleware, pitchRange: value),
+                        formatValue: (v) => '±${(v * 100 / 2).toStringAsFixed(0)}%',
+                      ),
+                      _buildInteractiveVariationSlider(
+                        'Volume',
+                        volumeRange,
+                        maxRange: 0.2, // ±10dB = 20% range
+                        onChanged: (value) => _applyVariationToAll(middleware, volumeRange: value),
+                        formatValue: (v) => '±${(v * 100 / 2).toStringAsFixed(0)}%',
+                      ),
                     ],
                   ),
                 ),
@@ -2231,13 +2309,16 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Count', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                      Text('Children', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
                       const SizedBox(height: 4),
                       Text('$variationCount', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: LowerZoneColors.slotLabAccent)),
                       const SizedBox(height: 4),
                       GestureDetector(
-                        onTap: () {},
-                        child: Icon(Icons.refresh, size: 16, color: LowerZoneColors.textMuted),
+                        onTap: () => _resetVariations(middleware),
+                        child: Tooltip(
+                          message: 'Reset all variations to zero',
+                          child: Icon(Icons.refresh, size: 16, color: LowerZoneColors.textMuted),
+                        ),
                       ),
                     ],
                   ),
@@ -2249,7 +2330,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _buildActionButton('Generate', Icons.auto_awesome, () {}),
+              Text(
+                randomContainers.isEmpty ? 'No containers' : 'Applies to all containers',
+                style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+              ),
             ],
           ),
         ],
@@ -2257,33 +2341,81 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  Widget _buildVariationSlider(String label, String range, double value) {
+  /// Apply variation settings to all random containers
+  void _applyVariationToAll(MiddlewareProvider middleware, {double? pitchRange, double? volumeRange}) {
+    for (final container in middleware.randomContainers) {
+      final currentPitch = pitchRange ?? (container.globalPitchMax - container.globalPitchMin).abs();
+      final currentVolume = volumeRange ?? (container.globalVolumeMax - container.globalVolumeMin).abs();
+
+      middleware.randomContainerSetGlobalVariation(
+        container.id,
+        pitchMin: -currentPitch / 2,
+        pitchMax: currentPitch / 2,
+        volumeMin: -currentVolume / 2,
+        volumeMax: currentVolume / 2,
+      );
+    }
+  }
+
+  /// Reset all variations to zero
+  void _resetVariations(MiddlewareProvider middleware) {
+    for (final container in middleware.randomContainers) {
+      middleware.randomContainerSetGlobalVariation(
+        container.id,
+        pitchMin: 0,
+        pitchMax: 0,
+        volumeMin: 0,
+        volumeMax: 0,
+      );
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('All variations reset to zero'),
+        duration: Duration(milliseconds: 800),
+      ),
+    );
+  }
+
+  Widget _buildInteractiveVariationSlider(
+    String label,
+    double value, {
+    required double maxRange,
+    required ValueChanged<double> onChanged,
+    required String Function(double) formatValue,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           SizedBox(width: 50, child: Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted))),
           Expanded(
-            child: Container(
-              height: 4,
-              decoration: BoxDecoration(
-                color: LowerZoneColors.bgDeepest,
-                borderRadius: BorderRadius.circular(2),
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                activeTrackColor: LowerZoneColors.slotLabAccent,
+                inactiveTrackColor: LowerZoneColors.bgDeepest,
+                thumbColor: LowerZoneColors.slotLabAccent,
+                overlayColor: LowerZoneColors.slotLabAccent.withValues(alpha: 0.2),
               ),
-              child: FractionallySizedBox(
-                alignment: Alignment.center,
-                widthFactor: value.clamp(0.1, 1.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: LowerZoneColors.slotLabAccent,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+              child: Slider(
+                value: value.clamp(0.0, maxRange),
+                min: 0.0,
+                max: maxRange,
+                onChanged: onChanged,
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Text(range, style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent)),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 35,
+            child: Text(
+              formatValue(value),
+              style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent),
+              textAlign: TextAlign.right,
+            ),
+          ),
         ],
       ),
     );
@@ -2368,12 +2500,105 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _buildActionButton('Build Package', Icons.inventory_2, () {}),
+              _buildActionButton('Build Package', Icons.inventory_2, () => _buildPackageExport(middleware)),
             ],
           ),
         ],
       ),
     );
+  }
+
+  /// Export package with all events, symbols, and contexts
+  Future<void> _buildPackageExport(MiddlewareProvider? middleware) async {
+    if (middleware == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No middleware provider')),
+      );
+      return;
+    }
+
+    final events = middleware.compositeEvents;
+    if (events.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No events to export')),
+      );
+      return;
+    }
+
+    // Get project provider for full export
+    final projectProvider = context.read<SlotLabProjectProvider>();
+
+    // Build package JSON
+    final packageData = {
+      'version': '1.0',
+      'timestamp': DateTime.now().toIso8601String(),
+      'project': {
+        'name': projectProvider.projectName,
+        'symbols': projectProvider.symbols.map((s) => {
+          'id': s.id,
+          'name': s.name,
+          'emoji': s.emoji,
+          'type': s.type.name,
+        }).toList(),
+        'contexts': projectProvider.contexts.map((c) => {
+          'id': c.id,
+          'name': c.displayName,
+          'type': c.type.name,
+          'layerCount': c.layerCount,
+        }).toList(),
+      },
+      'events': events.map((e) => {
+        'id': e.id,
+        'name': e.name,
+        'stages': e.triggerStages,
+        'layers': e.layers.map((l) => {
+          'id': l.id,
+          'name': l.name,
+          'audioPath': l.audioPath,
+          'volume': l.volume,
+          'pan': l.pan,
+          'offsetMs': l.offsetMs,
+          'busId': l.busId,
+        }).toList(),
+      }).toList(),
+      'containers': {
+        'blend': middleware.blendContainers.length,
+        'random': middleware.randomContainers.length,
+        'sequence': middleware.sequenceContainers.length,
+      },
+    };
+
+    // Convert to JSON string
+    final jsonString = const JsonEncoder.withIndent('  ').convert(packageData);
+
+    // Try to save to file
+    try {
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Package',
+        fileName: '${projectProvider.projectName.toLowerCase().replaceAll(' ', '_')}_package.json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (result != null) {
+        final file = File(result);
+        await file.writeAsString(jsonString);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Package saved: ${events.length} events'),
+            backgroundColor: Colors.green[700],
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Export failed: $e'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2412,6 +2637,21 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   // ACTION STRIP
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Helper to get icon for DSP processor type
+  IconData _dspTypeIcon(DspNodeType type) {
+    return switch (type) {
+      DspNodeType.eq => Icons.equalizer,
+      DspNodeType.compressor => Icons.compress,
+      DspNodeType.limiter => Icons.vertical_align_top,
+      DspNodeType.gate => Icons.door_sliding_outlined,
+      DspNodeType.expander => Icons.expand,
+      DspNodeType.reverb => Icons.waves,
+      DspNodeType.delay => Icons.timer,
+      DspNodeType.saturation => Icons.whatshot,
+      DspNodeType.deEsser => Icons.record_voice_over,
+    };
+  }
+
   Widget _buildActionStrip() {
     final slotLab = widget.slotLabProvider ?? _tryGetSlotLabProvider();
     final middleware = _tryGetMiddlewareProvider();
@@ -2438,11 +2678,37 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         },
       ),
       SlotLabSuperTab.events => SlotLabActions.forEvents(
-        onAddLayer: () {
+        onAddLayer: () async {
           final selectedEvent = middleware?.selectedCompositeEvent;
           if (selectedEvent != null) {
-            // Show audio picker dialog to add layer
-            debugPrint('[SlotLab] Add layer to event: ${selectedEvent.name}');
+            // Show audio picker dialog
+            final audioPath = await AudioWaveformPickerDialog.show(
+              context,
+              title: 'Select audio for ${selectedEvent.name}',
+            );
+            if (audioPath != null && middleware != null) {
+              // Extract filename for layer name
+              final fileName = audioPath.split('/').last.split('.').first;
+              // Add layer using named parameters
+              middleware.addLayerToEvent(
+                selectedEvent.id,
+                audioPath: audioPath,
+                name: fileName,
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Added audio layer to ${selectedEvent.name}'),
+                  duration: const Duration(milliseconds: 800),
+                ),
+              );
+            }
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Select an event first'),
+                duration: Duration(milliseconds: 800),
+              ),
+            );
           }
         },
         onRemove: () {
@@ -2467,16 +2733,37 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       ),
       SlotLabSuperTab.mix => SlotLabActions.forMix(
         onMute: () {
-          // Toggle mute on selected bus
-          debugPrint('[SlotLab] Mix: Mute toggled');
+          // Toggle mute on SFX bus (primary slot audio bus)
+          final mixer = context.read<MixerDSPProvider>();
+          mixer.toggleMute('sfx');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('SFX bus mute: ${mixer.buses.firstWhere((b) => b.id == "sfx").muted ? "ON" : "OFF"}'),
+              duration: const Duration(milliseconds: 800),
+            ),
+          );
         },
         onSolo: () {
-          // Toggle solo on selected bus
-          debugPrint('[SlotLab] Mix: Solo toggled');
+          // Toggle solo on SFX bus
+          final mixer = context.read<MixerDSPProvider>();
+          mixer.toggleSolo('sfx');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('SFX bus solo: ${mixer.buses.firstWhere((b) => b.id == "sfx").solo ? "ON" : "OFF"}'),
+              duration: const Duration(milliseconds: 800),
+            ),
+          );
         },
         onReset: () {
           // Reset mixer to defaults
-          debugPrint('[SlotLab] Mix: Reset to defaults');
+          final mixer = context.read<MixerDSPProvider>();
+          mixer.reset();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Mixer reset to defaults'),
+              duration: Duration(milliseconds: 800),
+            ),
+          );
         },
         onMeters: () {
           // Show meters panel
@@ -2484,36 +2771,165 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         },
       ),
       SlotLabSuperTab.dsp => SlotLabActions.forDsp(
-        onInsert: () {
-          // Insert DSP processor
-          debugPrint('[SlotLab] DSP: Insert processor');
+        onInsert: () async {
+          // Show popup menu to select DSP processor type
+          final RenderBox button = context.findRenderObject() as RenderBox;
+          final position = button.localToGlobal(Offset.zero);
+
+          final selected = await showMenu<DspNodeType>(
+            context: context,
+            position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 200, position.dy),
+            items: DspNodeType.values.map((type) => PopupMenuItem<DspNodeType>(
+              value: type,
+              child: Row(
+                children: [
+                  Icon(_dspTypeIcon(type), size: 16),
+                  const SizedBox(width: 8),
+                  Text(type.fullName),
+                ],
+              ),
+            )).toList(),
+          );
+
+          if (selected != null) {
+            final dspChain = context.read<DspChainProvider>();
+            dspChain.addNode(0, selected); // Track 0 = master bus
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Added ${selected.fullName} to DSP chain'),
+                duration: const Duration(milliseconds: 800),
+              ),
+            );
+          }
         },
         onRemove: () {
-          // Remove selected processor
-          debugPrint('[SlotLab] DSP: Remove processor');
+          // Remove last processor from chain
+          final dspChain = context.read<DspChainProvider>();
+          final chain = dspChain.getChain(0); // Track 0 = master bus
+          if (chain.nodes.isNotEmpty) {
+            final lastNode = chain.nodes.last;
+            dspChain.removeNode(0, lastNode.id);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Removed ${lastNode.name} from DSP chain'),
+                duration: const Duration(milliseconds: 800),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('DSP chain is empty'),
+                duration: Duration(milliseconds: 800),
+              ),
+            );
+          }
         },
         onReorder: () {
-          // Enter reorder mode
-          debugPrint('[SlotLab] DSP: Reorder mode');
+          // Show reorder info - drag-drop reorder is available in DSP panel
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Use drag-drop in DSP panel to reorder processors'),
+              duration: Duration(seconds: 2),
+            ),
+          );
         },
         onCopyChain: () {
-          // Copy DSP chain
-          debugPrint('[SlotLab] DSP: Copy chain');
+          // Copy DSP chain configuration to clipboard
+          final dspChain = context.read<DspChainProvider>();
+          final chain = dspChain.getChain(0);
+          final chainInfo = chain.nodes.map((n) => n.type.shortName).join(' → ');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('DSP Chain: ${chainInfo.isEmpty ? "(empty)" : chainInfo}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
         },
       ),
       SlotLabSuperTab.bake => SlotLabActions.forBake(
         onValidate: () {
-          // Validate all events
-          final eventCount = middleware?.compositeEvents.length ?? 0;
-          debugPrint('[SlotLab] Bake: Validating $eventCount events...');
+          // Validate all events - check if audio paths exist
+          final events = middleware?.compositeEvents ?? [];
+          int valid = 0;
+          int invalid = 0;
+          final issues = <String>[];
+
+          for (final event in events) {
+            bool eventValid = true;
+            for (final layer in event.layers) {
+              if (layer.audioPath.isEmpty) {
+                eventValid = false;
+                issues.add('${event.name}: Layer missing audio');
+              }
+            }
+            if (event.layers.isEmpty) {
+              eventValid = false;
+              issues.add('${event.name}: No layers');
+            }
+            if (eventValid) {
+              valid++;
+            } else {
+              invalid++;
+            }
+          }
+
+          if (events.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No events to validate'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          } else if (invalid == 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ All $valid events valid!'),
+                backgroundColor: Colors.green[700],
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ $valid valid, $invalid invalid: ${issues.take(2).join(", ")}'),
+                backgroundColor: Colors.orange[700],
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
         },
         onBakeAll: () {
-          // Bake all events
-          debugPrint('[SlotLab] Bake: Baking all events...');
+          // Bake all events - show export panel
+          final eventCount = middleware?.compositeEvents.length ?? 0;
+          if (eventCount == 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No events to bake'),
+                duration: Duration(milliseconds: 800),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Baking $eventCount events... (Use Batch Export panel)'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+            // Switch to Batch Export sub-tab
+            widget.controller.setSubTabIndex(0);
+          }
         },
         onPackage: () {
-          // Create package
-          debugPrint('[SlotLab] Bake: Creating package...');
+          // Create package - show package panel
+          final eventCount = middleware?.compositeEvents.length ?? 0;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Creating package with $eventCount events... (Use Package panel)'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          // Switch to Package sub-tab
+          widget.controller.setSubTabIndex(2);
         },
       ),
     };

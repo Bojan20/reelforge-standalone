@@ -3,6 +3,8 @@
 /// RTPC-based crossfade between sounds.
 /// Smooth transitions controlled by game parameters.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
@@ -1118,7 +1120,8 @@ class _BlendCurvePainter extends CustomPainter {
       case CrossfadeCurve.sCurve:
         return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
       case CrossfadeCurve.sinCos:
-        return 0.5 - 0.5 * (t * 3.14159).cos();
+        // P1.1 FIX: Use real math.cos for accurate sin/cos crossfade
+        return 0.5 - 0.5 * math.cos(t * math.pi);
     }
   }
 
@@ -1131,14 +1134,5 @@ class _BlendCurvePainter extends CustomPainter {
   }
 }
 
-extension on double {
-  double cos() => Math.cos(this);
-}
-
-class Math {
-  static double cos(double x) {
-    // Simple cosine approximation
-    x = x % (2 * 3.14159);
-    return 1 - (x * x / 2) + (x * x * x * x / 24);
-  }
-}
+// P1.1 FIX: Removed custom Math class with inaccurate Taylor series approximation.
+// Now using dart:math for accurate trigonometric functions.

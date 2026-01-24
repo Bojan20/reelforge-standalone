@@ -8,17 +8,23 @@
 /// - Virtual voice tracking (inaudible voices)
 /// - Voice parameter updates (volume, pitch, pan)
 /// - Pool statistics for monitoring
+/// - Real-time engine stats via FFI (syncFromEngine)
 ///
-/// Note: This is a Dart-only voice tracking system. Actual audio playback
-/// is handled by AudioPlaybackService which communicates with the Rust engine.
+/// Integration: Syncs with Rust engine via NativeFFI.getVoicePoolStats()
 
 import 'package:flutter/foundation.dart';
 import '../../models/advanced_middleware_models.dart';
+import '../../src/rust/native_ffi.dart';
 
 /// Provider for managing voice pool polyphony
 class VoicePoolProvider extends ChangeNotifier {
-  /// Internal voice pool
+  final NativeFFI _ffi;
+
+  /// Internal voice pool (Dart-side tracking)
   late VoicePool _voicePool;
+
+  /// Cached engine stats from FFI
+  NativeVoicePoolStats _engineStats = NativeVoicePoolStats.empty();
 
   /// Peak voice count (for statistics)
   int _peakVoices = 0;
@@ -27,9 +33,12 @@ class VoicePoolProvider extends ChangeNotifier {
   int _stealCount = 0;
 
   VoicePoolProvider({
+    required NativeFFI ffi,
     VoicePoolConfig config = const VoicePoolConfig(),
-  }) {
+  }) : _ffi = ffi {
     _voicePool = VoicePool(config: config);
+    // Initial sync from engine
+    syncFromEngine();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -59,6 +68,55 @@ class VoicePoolProvider extends ChangeNotifier {
 
   /// Total steal count
   int get stealCount => _stealCount;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ENGINE STATS (FFI)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Cached engine stats
+  NativeVoicePoolStats get engineStats => _engineStats;
+
+  /// Engine active voice count (from FFI)
+  int get engineActiveCount => _engineStats.activeCount;
+
+  /// Engine max voices
+  int get engineMaxVoices => _engineStats.maxVoices;
+
+  /// Engine looping voice count
+  int get engineLoopingCount => _engineStats.loopingCount;
+
+  /// Engine utilization percent (0-100)
+  double get engineUtilization => _engineStats.utilizationPercent;
+
+  /// Voices by source
+  int get dawVoices => _engineStats.dawVoices;
+  int get slotLabVoices => _engineStats.slotLabVoices;
+  int get middlewareVoices => _engineStats.middlewareVoices;
+  int get browserVoices => _engineStats.browserVoices;
+
+  /// Voices by bus
+  int get sfxVoices => _engineStats.sfxVoices;
+  int get musicVoices => _engineStats.musicVoices;
+  int get voiceVoices => _engineStats.voiceVoices;
+  int get ambienceVoices => _engineStats.ambienceVoices;
+  int get auxVoices => _engineStats.auxVoices;
+  int get masterVoices => _engineStats.masterVoices;
+
+  /// Sync stats from Rust engine via FFI
+  void syncFromEngine() {
+    try {
+      _engineStats = _ffi.getVoicePoolStats();
+
+      // Update peak from engine if higher
+      if (_engineStats.activeCount > _peakVoices) {
+        _peakVoices = _engineStats.activeCount;
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[VoicePoolProvider] FFI sync error: $e');
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // VOICE ALLOCATION
@@ -184,15 +242,44 @@ class VoicePoolProvider extends ChangeNotifier {
   // STATISTICS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Get pool statistics
+  /// Get pool statistics (combined Dart + Engine)
   VoicePoolStats getStats() {
+    // Prefer engine stats if available
+    final engineActive = _engineStats.activeCount;
+    final dartActive = _voicePool.activeCount;
+
     return VoicePoolStats(
-      activeVoices: _voicePool.activeCount,
+      activeVoices: engineActive > 0 ? engineActive : dartActive,
       virtualVoices: _voicePool.virtualCount,
-      maxVoices: config.maxVoices,
+      maxVoices: _engineStats.maxVoices > 0 ? _engineStats.maxVoices : config.maxVoices,
       peakVoices: _peakVoices,
       stealCount: _stealCount,
     );
+  }
+
+  /// Get extended engine statistics
+  Map<String, dynamic> getEngineStatsMap() {
+    return {
+      'activeCount': _engineStats.activeCount,
+      'maxVoices': _engineStats.maxVoices,
+      'loopingCount': _engineStats.loopingCount,
+      'utilization': _engineStats.utilizationPercent,
+      'bySource': {
+        'daw': _engineStats.dawVoices,
+        'slotLab': _engineStats.slotLabVoices,
+        'middleware': _engineStats.middlewareVoices,
+        'browser': _engineStats.browserVoices,
+      },
+      'byBus': {
+        'sfx': _engineStats.sfxVoices,
+        'music': _engineStats.musicVoices,
+        'voice': _engineStats.voiceVoices,
+        'ambience': _engineStats.ambienceVoices,
+        'aux': _engineStats.auxVoices,
+        'master': _engineStats.masterVoices,
+      },
+      'timestamp': _engineStats.timestamp.toIso8601String(),
+    };
   }
 
   /// Reset statistics

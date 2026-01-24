@@ -6,11 +6,14 @@
 // - Binding visualization (what parameters are affected)
 // - Value history (sparklines)
 // - Curve preview
+//
+// Connected to RtpcSystemProvider for real FFI sync (2026-01-24)
 
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
+import '../../providers/subsystems/rtpc_system_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 
 class RtpcDebuggerPanel extends StatefulWidget {
@@ -21,18 +24,12 @@ class RtpcDebuggerPanel extends StatefulWidget {
 }
 
 class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
-  // RTPC definitions
-  final List<RtpcDefinition> _rtpcs = [];
-
-  // Live values
+  // Live values (synced from provider)
   final Map<int, double> _liveValues = {};
 
   // Value history for sparklines (last 100 samples)
   final Map<int, List<double>> _valueHistory = {};
   static const int _historyLength = 100;
-
-  // Bindings
-  final List<RtpcBinding> _bindings = [];
 
   // UI state
   int? _selectedRtpcId;
@@ -40,17 +37,18 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
   bool _showBindings = true;
   String _searchQuery = '';
 
-  // Descriptions (stored separately since RtpcDefinition doesn't have description field)
-  final Map<int, String> _rtpcDescriptions = {};
-
   Timer? _updateTimer;
-  final math.Random _rng = math.Random();
 
   @override
   void initState() {
     super.initState();
-    _initDemoData();
     _startUpdateTimer();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncFromProvider();
   }
 
   @override
@@ -59,198 +57,141 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
     super.dispose();
   }
 
-  void _initDemoData() {
-    // Create slot-focused RTPC definitions
-    _rtpcs.addAll([
-      const RtpcDefinition(
-        id: 1,
-        name: 'WinAmount',
-        min: 0,
-        max: 10000,
-        defaultValue: 0,
-      ),
-      const RtpcDefinition(
-        id: 2,
-        name: 'BetMultiplier',
-        min: 1,
-        max: 100,
-        defaultValue: 1,
-      ),
-      const RtpcDefinition(
-        id: 3,
-        name: 'ReelSpeed',
-        min: 0,
-        max: 1,
-        defaultValue: 0.5,
-      ),
-      const RtpcDefinition(
-        id: 4,
-        name: 'NearWinProximity',
-        min: 0,
-        max: 1,
-        defaultValue: 0,
-      ),
-      const RtpcDefinition(
-        id: 5,
-        name: 'FeatureProgress',
-        min: 0,
-        max: 100,
-        defaultValue: 0,
-      ),
-      const RtpcDefinition(
-        id: 6,
-        name: 'Tension',
-        min: 0,
-        max: 1,
-        defaultValue: 0,
-      ),
-      const RtpcDefinition(
-        id: 7,
-        name: 'ComboMultiplier',
-        min: 1,
-        max: 20,
-        defaultValue: 1,
-      ),
-      const RtpcDefinition(
-        id: 8,
-        name: 'JackpotTier',
-        min: 0,
-        max: 4,
-        defaultValue: 0,
-      ),
-    ]);
-
-    // Store descriptions separately for UI
-    _rtpcDescriptions.addAll({
-      1: 'Current win amount in credits',
-      2: 'Bet multiplier level',
-      3: 'Reel spin velocity (0=slow, 1=turbo)',
-      4: 'How close to a big win (anticipation)',
-      5: 'Progress through bonus feature (%)',
-      6: 'Global tension level for music',
-      7: 'Cascading wins combo multiplier',
-      8: 'Current jackpot tier (0=none, 4=grand)',
-    });
-
-    // Initialize live values and history
-    for (final rtpc in _rtpcs) {
-      _liveValues[rtpc.id] = rtpc.defaultValue;
-      _valueHistory[rtpc.id] = List.filled(_historyLength, rtpc.defaultValue);
+  /// Sync RTPC values from provider (real data, not demo)
+  void _syncFromProvider() {
+    final provider = context.read<RtpcSystemProvider>();
+    for (final rtpc in provider.rtpcDefinitions) {
+      // Initialize history if not exists
+      if (!_valueHistory.containsKey(rtpc.id)) {
+        _valueHistory[rtpc.id] = List.filled(_historyLength, rtpc.defaultValue);
+      }
+      // Get current value from provider
+      _liveValues[rtpc.id] = provider.getRtpcValue(rtpc.id);
     }
-
-    // Create demo bindings
-    _bindings.addAll([
-      RtpcBinding.linear(1, 1, RtpcTargetParameter.volume), // WinAmount → Volume
-      RtpcBinding.linear(2, 4, RtpcTargetParameter.lowPassFilter), // NearWin → LPF
-      RtpcBinding.linear(3, 6, RtpcTargetParameter.pitch), // Tension → Pitch
-      RtpcBinding.forBus(4, 3, RtpcTargetParameter.volume, 1), // ReelSpeed → Bus1 Vol
-    ]);
   }
 
   void _startUpdateTimer() {
     _updateTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (mounted && _isRecording) {
-        _updateSimulatedValues();
+        _updateValuesFromProvider();
         setState(() {});
       }
     });
   }
 
-  void _updateSimulatedValues() {
-    // Simulate subtle value changes for demo
-    for (final rtpc in _rtpcs) {
-      final current = _liveValues[rtpc.id] ?? rtpc.defaultValue;
-
-      // Small random walk
-      double change = (_rng.nextDouble() - 0.5) * (rtpc.max - rtpc.min) * 0.02;
-      double newValue = (current + change).clamp(rtpc.min, rtpc.max);
-
-      _liveValues[rtpc.id] = newValue;
+  void _updateValuesFromProvider() {
+    final provider = context.read<RtpcSystemProvider>();
+    for (final rtpc in provider.rtpcDefinitions) {
+      final currentValue = provider.getRtpcValue(rtpc.id);
+      _liveValues[rtpc.id] = currentValue;
 
       // Update history
       final history = _valueHistory[rtpc.id] ?? [];
       if (history.length >= _historyLength) {
         history.removeAt(0);
       }
-      history.add(newValue);
+      history.add(currentValue);
       _valueHistory[rtpc.id] = history;
     }
   }
 
+  /// Set RTPC value via provider (syncs to FFI)
   void _setRtpcValue(int rtpcId, double value) {
-    final rtpc = _rtpcs.firstWhere((r) => r.id == rtpcId);
-    _liveValues[rtpcId] = value.clamp(rtpc.min, rtpc.max);
+    final provider = context.read<RtpcSystemProvider>();
+    final rtpc = provider.getRtpc(rtpcId);
+    if (rtpc == null) return;
+
+    final clampedValue = value.clamp(rtpc.min, rtpc.max);
+
+    // Call provider which syncs to FFI
+    provider.setRtpc(rtpcId, clampedValue);
+
+    // Update local state for UI
+    _liveValues[rtpcId] = clampedValue;
 
     // Update history
     final history = _valueHistory[rtpcId] ?? [];
     if (history.length >= _historyLength) {
       history.removeAt(0);
     }
-    history.add(_liveValues[rtpcId]!);
+    history.add(clampedValue);
     _valueHistory[rtpcId] = history;
 
     setState(() {});
   }
 
+  /// Reset RTPC to default via provider (syncs to FFI)
   void _resetRtpc(int rtpcId) {
-    final rtpc = _rtpcs.firstWhere((r) => r.id == rtpcId);
-    _setRtpcValue(rtpcId, rtpc.defaultValue);
+    final provider = context.read<RtpcSystemProvider>();
+    provider.resetRtpc(rtpcId);
   }
 
+  /// Reset all RTPCs to defaults via provider (syncs to FFI)
   void _resetAllRtpcs() {
-    for (final rtpc in _rtpcs) {
+    final provider = context.read<RtpcSystemProvider>();
+    for (final rtpc in provider.rtpcDefinitions) {
+      provider.resetRtpc(rtpc.id);
       _liveValues[rtpc.id] = rtpc.defaultValue;
       _valueHistory[rtpc.id] = List.filled(_historyLength, rtpc.defaultValue);
     }
     setState(() {});
   }
 
-  List<RtpcDefinition> get _filteredRtpcs {
-    if (_searchQuery.isEmpty) return _rtpcs;
-    return _rtpcs
+  List<RtpcDefinition> _getFilteredRtpcs(List<RtpcDefinition> rtpcs) {
+    if (_searchQuery.isEmpty) return rtpcs;
+    return rtpcs
         .where((r) => r.name.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
   }
 
   List<RtpcBinding> _getBindingsForRtpc(int rtpcId) {
-    return _bindings.where((b) => b.rtpcId == rtpcId).toList();
+    final provider = context.read<RtpcSystemProvider>();
+    return provider.rtpcBindings.where((b) => b.rtpcId == rtpcId).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: FluxForgeTheme.bgDeep,
-      child: Column(
-        children: [
-          // Toolbar
-          _buildToolbar(),
+    return Selector<RtpcSystemProvider, List<RtpcDefinition>>(
+      selector: (_, p) => p.rtpcDefinitions,
+      builder: (context, rtpcs, _) {
+        final filteredRtpcs = _getFilteredRtpcs(rtpcs);
+        final selectedRtpc = _selectedRtpcId != null
+            ? rtpcs.where((r) => r.id == _selectedRtpcId).firstOrNull
+            : null;
 
-          // Main content
-          Expanded(
-            child: Row(
-              children: [
-                // RTPC list
-                SizedBox(
-                  width: 280,
-                  child: _buildRtpcList(),
+        return Container(
+          color: FluxForgeTheme.bgDeep,
+          child: Column(
+            children: [
+              // Toolbar
+              _buildToolbar(),
+
+              // Main content
+              Expanded(
+                child: Row(
+                  children: [
+                    // RTPC list
+                    SizedBox(
+                      width: 280,
+                      child: _buildRtpcList(filteredRtpcs),
+                    ),
+
+                    // Divider
+                    Container(width: 1, color: FluxForgeTheme.borderSubtle),
+
+                    // Details panel
+                    Expanded(
+                      child: selectedRtpc != null
+                          ? _buildRtpcDetails(selectedRtpc)
+                          : _buildEmptyState(),
+                    ),
+                  ],
                 ),
-
-                // Divider
-                Container(width: 1, color: FluxForgeTheme.borderSubtle),
-
-                // Details panel
-                Expanded(
-                  child: _selectedRtpcId != null
-                      ? _buildRtpcDetails(_rtpcs.firstWhere(
-                          (r) => r.id == _selectedRtpcId,
-                        ))
-                      : _buildEmptyState(),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -435,8 +376,7 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
     );
   }
 
-  Widget _buildRtpcList() {
-    final rtpcs = _filteredRtpcs;
+  Widget _buildRtpcList(List<RtpcDefinition> rtpcs) {
 
     return Column(
       children: [
@@ -692,14 +632,14 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (_rtpcDescriptions.containsKey(rtpc.id))
-                    Text(
-                      _rtpcDescriptions[rtpc.id]!,
-                      style: const TextStyle(
-                        color: FluxForgeTheme.textSecondary,
-                        fontSize: 10,
-                      ),
+                  // Description would go here if RtpcDefinition had a description field
+                  Text(
+                    'Range: ${rtpc.min.toStringAsFixed(1)} – ${rtpc.max.toStringAsFixed(1)}',
+                    style: const TextStyle(
+                      color: FluxForgeTheme.textSecondary,
+                      fontSize: 10,
                     ),
+                  ),
                 ],
               ),
               const Spacer(),

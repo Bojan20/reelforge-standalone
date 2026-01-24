@@ -7,6 +7,7 @@
 /// Supports drag-drop audio assignment from browser.
 
 import 'package:flutter/material.dart';
+import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_lab_models.dart';
 import '../../theme/fluxforge_theme.dart';
 
@@ -352,10 +353,27 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: DragTarget<String>(
-        onWillAcceptWithDetails: (details) => true,
+      // Accept BOTH AudioAsset and String for backward compatibility
+      child: DragTarget<Object>(
+        onWillAcceptWithDetails: (details) {
+          // Accept AudioAsset, List<AudioAsset>, or String
+          return details.data is AudioAsset ||
+              details.data is List<AudioAsset> ||
+              details.data is String;
+        },
         onAcceptWithDetails: (details) {
-          onDrop?.call(details.data);
+          String? path;
+          if (details.data is AudioAsset) {
+            path = (details.data as AudioAsset).path;
+          } else if (details.data is List<AudioAsset>) {
+            final list = details.data as List<AudioAsset>;
+            if (list.isNotEmpty) path = list.first.path;
+          } else if (details.data is String) {
+            path = details.data as String;
+          }
+          if (path != null) {
+            onDrop?.call(path);
+          }
         },
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;

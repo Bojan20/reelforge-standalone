@@ -219,6 +219,7 @@ class MiddlewareAction {
   final FadeCurve fadeCurve;
   final double fadeTime; // in seconds
   final double gain; // 0.0 - 1.0 (multiplier)
+  final double pan; // -1.0 (left) to +1.0 (right), 0.0 = center
   final double delay; // in seconds
   final bool loop;
   final bool selected;
@@ -233,6 +234,7 @@ class MiddlewareAction {
     this.fadeCurve = FadeCurve.linear,
     this.fadeTime = 0.1,
     this.gain = 1.0,
+    this.pan = 0.0,
     this.delay = 0.0,
     this.loop = false,
     this.selected = false,
@@ -248,6 +250,7 @@ class MiddlewareAction {
     FadeCurve? fadeCurve,
     double? fadeTime,
     double? gain,
+    double? pan,
     double? delay,
     bool? loop,
     bool? selected,
@@ -262,6 +265,7 @@ class MiddlewareAction {
       fadeCurve: fadeCurve ?? this.fadeCurve,
       fadeTime: fadeTime ?? this.fadeTime,
       gain: gain ?? this.gain,
+      pan: pan ?? this.pan,
       delay: delay ?? this.delay,
       loop: loop ?? this.loop,
       selected: selected ?? this.selected,
@@ -278,6 +282,7 @@ class MiddlewareAction {
     'fadeCurve': fadeCurve.displayName,
     'fadeTime': fadeTime,
     'gain': gain,
+    'pan': pan,
     'delay': delay,
     'loop': loop,
   };
@@ -293,6 +298,7 @@ class MiddlewareAction {
       fadeCurve: FadeCurveExtension.fromString(json['fadeCurve'] as String? ?? 'Linear'),
       fadeTime: (json['fadeTime'] as num?)?.toDouble() ?? 0.1,
       gain: (json['gain'] as num?)?.toDouble() ?? 1.0,
+      pan: (json['pan'] as num?)?.toDouble() ?? 0.0,
       delay: (json['delay'] as num?)?.toDouble() ?? 0.0,
       loop: json['loop'] as bool? ?? false,
     );

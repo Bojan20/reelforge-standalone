@@ -227,7 +227,7 @@ class AudioPlaybackService extends ChangeNotifier {
 
   /// P0.2: Play looping audio through a specific bus (REEL_SPIN, ambience loops, etc.)
   /// Loops seamlessly until explicitly stopped with stopOneShotVoice()
-  /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// busId: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
   /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
   /// Returns voice_id on success, -1 on error
   int playLoopingToBus(

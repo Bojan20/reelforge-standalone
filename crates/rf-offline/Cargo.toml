@@ -16,6 +16,7 @@ rf-file = { workspace = true }
 # Audio file I/O
 symphonia = { workspace = true }
 hound = { workspace = true }
+flac-bound = { workspace = true }
 
 # DSP
 rustfft = { workspace = true }
@@ -33,6 +34,7 @@ serde_json = { workspace = true }
 # Utilities
 thiserror = { workspace = true }
 log = { workspace = true }
+rand = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

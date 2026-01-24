@@ -26,6 +26,7 @@ class ChannelInspectorPanel extends StatefulWidget {
   final void Function(String channelId)? onSoloToggle;
   final void Function(String channelId)? onArmToggle;
   final void Function(String channelId)? onMonitorToggle;
+  final void Function(String channelId)? onPhaseInvertToggle;
   final void Function(String channelId, int slotIndex)? onInsertClick;
   final void Function(String channelId, int sendIndex)? onSendClick;
   final void Function(String channelId, int sendIndex, double level)? onSendLevelChange;
@@ -53,6 +54,7 @@ class ChannelInspectorPanel extends StatefulWidget {
     this.onSoloToggle,
     this.onArmToggle,
     this.onMonitorToggle,
+    this.onPhaseInvertToggle,
     this.onInsertClick,
     this.onSendClick,
     this.onSendLevelChange,
@@ -470,6 +472,16 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                   active: ch.inputMonitor,
                   activeColor: FluxForgeTheme.accentBlue,
                   onTap: () => widget.onMonitorToggle?.call(ch.id),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _StateButton(
+                  label: 'Ø',
+                  tooltip: 'Phase Invert',
+                  active: ch.phaseInverted,
+                  activeColor: FluxForgeTheme.accentPurple,
+                  onTap: () => widget.onPhaseInvertToggle?.call(ch.id),
                 ),
               ),
             ],

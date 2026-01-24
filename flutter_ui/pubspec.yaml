@@ -40,6 +40,9 @@ dependencies:
   web_socket_channel: ^3.0.3
   get_it: ^9.2.0
 
+  # Archive (ZIP) support for soundbank building
+  archive: ^4.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

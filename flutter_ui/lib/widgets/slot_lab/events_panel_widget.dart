@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/audio_asset_manager.dart';
@@ -21,11 +22,15 @@ import 'create_event_dialog.dart';
 class EventsPanelWidget extends StatefulWidget {
   final double? height;
   final Function(String audioPath)? onAudioDragStarted;
+  final String? selectedEventId;
+  final Function(String? eventId)? onSelectionChanged;
 
   const EventsPanelWidget({
     super.key,
     this.height,
     this.onAudioDragStarted,
+    this.selectedEventId,
+    this.onSelectionChanged,
   });
 
   @override
@@ -33,7 +38,9 @@ class EventsPanelWidget extends StatefulWidget {
 }
 
 class _EventsPanelWidgetState extends State<EventsPanelWidget> {
-  String? _selectedEventId;
+  // Note: _selectedEventId is now controlled via widget.selectedEventId + widget.onSelectionChanged
+  // Keep a local fallback for when parent doesn't provide selection management
+  String? _localSelectedEventId;
   String _currentDirectory = '';
   List<FileSystemEntity> _audioFiles = [];
   bool _showBrowser = true;
@@ -44,6 +51,19 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   String? _editingEventId;
   final TextEditingController _editController = TextEditingController();
   final FocusNode _editFocusNode = FocusNode();
+
+  // Effective selected event ID (prefers parent control)
+  String? get _selectedEventId => widget.selectedEventId ?? _localSelectedEventId;
+
+  void _setSelectedEventId(String? eventId) {
+    if (widget.onSelectionChanged != null) {
+      widget.onSelectionChanged!(eventId);
+    } else {
+      setState(() {
+        _localSelectedEventId = eventId;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -366,8 +386,8 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   );
                   middleware.addCompositeEvent(newEvent);
                   // Select the new event
+                  _setSelectedEventId(newEvent.id);
                   setState(() {
-                    _selectedEventId = newEvent.id;
                     _showBrowser = false;
                   });
                 }
@@ -476,8 +496,8 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     return GestureDetector(
       onTap: () {
         if (isEditing) return; // Don't interfere with editing
+        _setSelectedEventId(event.id);
         setState(() {
-          _selectedEventId = event.id.toString();
           _showBrowser = false; // Switch to event editor
         });
       },
@@ -726,12 +746,28 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     final hasAudio = layer.audioPath.isNotEmpty;
     final fileName = hasAudio ? layer.audioPath.split('/').last : 'No audio';
 
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (details) => true,
+    // Accept BOTH AudioAsset and String for drag-drop compatibility
+    return DragTarget<Object>(
+      onWillAcceptWithDetails: (details) {
+        return details.data is AudioAsset ||
+            details.data is List<AudioAsset> ||
+            details.data is String;
+      },
       onAcceptWithDetails: (details) {
-        final middleware = context.read<MiddlewareProvider>();
-        final updatedLayer = layer.copyWith(audioPath: details.data);
-        middleware.updateEventLayer(event.id, updatedLayer);
+        String? path;
+        if (details.data is AudioAsset) {
+          path = (details.data as AudioAsset).path;
+        } else if (details.data is List<AudioAsset>) {
+          final list = details.data as List<AudioAsset>;
+          if (list.isNotEmpty) path = list.first.path;
+        } else if (details.data is String) {
+          path = details.data as String;
+        }
+        if (path != null) {
+          final middleware = context.read<MiddlewareProvider>();
+          final updatedLayer = layer.copyWith(audioPath: path);
+          middleware.updateEventLayer(event.id, updatedLayer);
+        }
       },
       builder: (ctx, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;

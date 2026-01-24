@@ -11,123 +11,13 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../models/layout_models.dart';
 import '../../theme/fluxforge_theme.dart';
-
-// ============ Types ============
-
-/// Insert slot data
-class InsertSlotData {
-  final String id;
-  final String? pluginName;
-  final bool bypassed;
-
-  const InsertSlotData({
-    required this.id,
-    this.pluginName,
-    this.bypassed = false,
-  });
-}
-
-/// Send slot data
-class SendSlotData {
-  final String id;
-  final String? destination;
-  final double level; // -inf to +6 dB
-  final bool preFader;
-  final bool bypassed;
-
-  const SendSlotData({
-    required this.id,
-    this.destination,
-    this.level = double.negativeInfinity,
-    this.preFader = false,
-    this.bypassed = false,
-  });
-}
-
-/// EQ band data
-class EQBandData {
-  final double frequency;
-  final double gain;
-  final double q;
-  final String type; // 'lowshelf', 'highshelf', 'peak', 'lowpass', 'highpass'
-  final bool enabled;
-
-  const EQBandData({
-    required this.frequency,
-    this.gain = 0,
-    this.q = 1,
-    this.type = 'peak',
-    this.enabled = true,
-  });
-}
-
-/// LUFS metering data
-class LUFSData {
-  final double momentary;
-  final double shortTerm;
-  final double integrated;
-  final double truePeak;
-  final double? range;
-
-  const LUFSData({
-    required this.momentary,
-    required this.shortTerm,
-    required this.integrated,
-    required this.truePeak,
-    this.range,
-  });
-}
-
-/// Full channel strip data
-class ChannelStripFullData {
-  final String id;
-  final String name;
-  final String type; // 'audio', 'instrument', 'bus', 'fx', 'master'
-  final Color? color;
-  final double volume; // -inf to +12 dB
-  final double pan; // -100 to +100
-  final bool mute;
-  final bool solo;
-  final double meterL;
-  final double meterR;
-  final double peakL;
-  final double peakR;
-  final List<InsertSlotData> inserts;
-  final List<SendSlotData> sends;
-  final bool eqEnabled;
-  final List<EQBandData> eqBands;
-  final String input;
-  final String output;
-  final LUFSData? lufs;
-
-  const ChannelStripFullData({
-    required this.id,
-    required this.name,
-    required this.type,
-    this.color,
-    this.volume = 0,
-    this.pan = 0,
-    this.mute = false,
-    this.solo = false,
-    this.meterL = 0,
-    this.meterR = 0,
-    this.peakL = 0,
-    this.peakR = 0,
-    this.inserts = const [],
-    this.sends = const [],
-    this.eqEnabled = false,
-    this.eqBands = const [],
-    this.input = 'No Input',
-    this.output = 'Stereo Out',
-    this.lufs,
-  });
-}
 
 // ============ Channel Strip Widget ============
 
 class ChannelStrip extends StatelessWidget {
-  final ChannelStripFullData? channel;
+  final ChannelStripData? channel;
   final bool collapsed;
   final VoidCallback? onToggleCollapse;
   final void Function(String channelId, double volume)? onVolumeChange;
@@ -235,7 +125,7 @@ class ChannelStrip extends StatelessWidget {
     );
   }
 
-  Widget _buildChannelContent(ChannelStripFullData ch) {
+  Widget _buildChannelContent(ChannelStripData ch) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(8),
       child: Column(
@@ -249,7 +139,7 @@ class ChannelStrip extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               border: Border(
                 left: BorderSide(
-                  color: ch.color ?? FluxForgeTheme.accentBlue,
+                  color: ch.color,
                   width: 3,
                 ),
               ),
@@ -301,8 +191,8 @@ class ChannelStrip extends StatelessWidget {
           _Section(
             title: 'Pan',
             child: _PanKnob(
-              value: ch.pan,
-              onChanged: (v) => onPanChange?.call(ch.id, v),
+              value: ch.pan * 100, // Convert -1..1 to -100..100
+              onChanged: (v) => onPanChange?.call(ch.id, v / 100), // Convert back
             ),
           ),
           const SizedBox(height: 12),
@@ -697,7 +587,7 @@ class _FaderPainter extends CustomPainter {
 }
 
 class _InsertRack extends StatelessWidget {
-  final List<InsertSlotData> inserts;
+  final List<InsertSlot> inserts;
   final void Function(int index)? onInsertClick;
   final void Function(int index)? onInsertBypassToggle;
 
@@ -714,7 +604,7 @@ class _InsertRack extends StatelessWidget {
       child: Column(
         children: List.generate(
           inserts.length.clamp(0, 8),
-          (i) => _InsertSlot(
+          (i) => _InsertSlotWidget(
             index: i,
             insert: i < inserts.length ? inserts[i] : null,
             onTap: () => onInsertClick?.call(i),
@@ -726,13 +616,13 @@ class _InsertRack extends StatelessWidget {
   }
 }
 
-class _InsertSlot extends StatelessWidget {
+class _InsertSlotWidget extends StatelessWidget {
   final int index;
-  final InsertSlotData? insert;
+  final InsertSlot? insert;
   final VoidCallback? onTap;
   final VoidCallback? onBypassToggle;
 
-  const _InsertSlot({
+  const _InsertSlotWidget({
     required this.index,
     this.insert,
     this.onTap,
@@ -741,7 +631,7 @@ class _InsertSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasPlugin = insert?.pluginName != null;
+    final hasPlugin = insert != null && !insert!.isEmpty;
     final bypassed = insert?.bypassed ?? false;
 
     return GestureDetector(
@@ -772,7 +662,7 @@ class _InsertSlot extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                insert?.pluginName ?? '—',
+                hasPlugin ? insert!.name : '—',
                 style: FluxForgeTheme.bodySmall.copyWith(
                   color: hasPlugin
                       ? (bypassed ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary)
@@ -804,7 +694,7 @@ class _InsertSlot extends StatelessWidget {
 }
 
 class _SendRack extends StatelessWidget {
-  final List<SendSlotData> sends;
+  final List<SendSlot> sends;
   final void Function(int index, double level)? onSendLevelChange;
 
   const _SendRack({
@@ -819,7 +709,7 @@ class _SendRack extends StatelessWidget {
       child: Column(
         children: List.generate(
           sends.length.clamp(0, 8),
-          (i) => _SendSlot(
+          (i) => _SendSlotWidget(
             index: i,
             send: i < sends.length ? sends[i] : null,
             onLevelChange: (level) => onSendLevelChange?.call(i, level),
@@ -830,12 +720,12 @@ class _SendRack extends StatelessWidget {
   }
 }
 
-class _SendSlot extends StatelessWidget {
+class _SendSlotWidget extends StatelessWidget {
   final int index;
-  final SendSlotData? send;
+  final SendSlot? send;
   final ValueChanged<double>? onLevelChange;
 
-  const _SendSlot({
+  const _SendSlotWidget({
     required this.index,
     this.send,
     this.onLevelChange,
@@ -843,7 +733,7 @@ class _SendSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasDestination = send?.destination != null;
+    final hasDestination = send != null && !send!.isEmpty;
 
     return Container(
       height: 24,
@@ -864,7 +754,7 @@ class _SendSlot extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              send?.destination ?? '—',
+              hasDestination ? (send!.destination ?? '') : '—',
               style: FluxForgeTheme.bodySmall.copyWith(
                 color: hasDestination
                     ? FluxForgeTheme.textSecondary
@@ -882,9 +772,9 @@ class _SendSlot extends StatelessWidget {
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
                 ),
                 child: Slider(
-                  value: send!.level.clamp(-60, 6),
-                  min: -60,
-                  max: 6,
+                  value: send!.level.clamp(0, 1),
+                  min: 0,
+                  max: 1,
                   onChanged: onLevelChange,
                 ),
               ),
@@ -905,7 +795,7 @@ class _SendSlot extends StatelessWidget {
 }
 
 class _EQPreview extends StatelessWidget {
-  final List<EQBandData> bands;
+  final List<EQBand> bands;
   final bool enabled;
   final VoidCallback? onToggle;
 
@@ -963,7 +853,7 @@ class _EQPreview extends StatelessWidget {
 }
 
 class _EQCurvePainter extends CustomPainter {
-  final List<EQBandData> bands;
+  final List<EQBand> bands;
   final bool enabled;
 
   _EQCurvePainter({required this.bands, required this.enabled});
@@ -1127,29 +1017,31 @@ class _LUFSValue extends StatelessWidget {
 
 // ============ Factory Functions ============
 
-List<InsertSlotData> createEmptyInserts({int count = 8}) {
+List<InsertSlot> createEmptyInserts({int count = 8}) {
   return List.generate(
     count,
-    (i) => InsertSlotData(id: 'insert-$i'),
+    (i) => InsertSlot.empty(i),
   );
 }
 
-List<SendSlotData> createEmptySends({int count = 8}) {
+List<SendSlot> createEmptySends({int count = 8}) {
   return List.generate(
     count,
-    (i) => SendSlotData(id: 'send-$i'),
+    (i) => SendSlot(id: 'send_$i'),
   );
 }
 
-ChannelStripFullData createDefaultChannelStrip({
+ChannelStripData createDefaultChannelStrip({
   required String id,
   required String name,
   String type = 'audio',
+  Color color = FluxForgeTheme.accentBlue,
 }) {
-  return ChannelStripFullData(
+  return ChannelStripData(
     id: id,
     name: name,
     type: type,
+    color: color,
     inserts: createEmptyInserts(),
     sends: createEmptySends(),
   );

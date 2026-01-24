@@ -65,6 +65,7 @@ class GlassLeftZone extends StatefulWidget {
   final void Function(String channelId)? onChannelSoloToggle;
   final void Function(String channelId)? onChannelArmToggle;
   final void Function(String channelId)? onChannelMonitorToggle;
+  final void Function(String channelId)? onChannelPhaseInvertToggle;
   final void Function(String channelId, int slotIndex)? onChannelInsertClick;
   final void Function(String channelId, int sendIndex)? onChannelSendClick;
   final void Function(String channelId, int sendIndex, double level)? onChannelSendLevelChange;
@@ -103,6 +104,7 @@ class GlassLeftZone extends StatefulWidget {
     this.onChannelSoloToggle,
     this.onChannelArmToggle,
     this.onChannelMonitorToggle,
+    this.onChannelPhaseInvertToggle,
     this.onChannelInsertClick,
     this.onChannelSendClick,
     this.onChannelSendLevelChange,
@@ -843,6 +845,16 @@ class _GlassLeftZoneState extends State<GlassLeftZone> {
                   active: ch.inputMonitor,
                   activeColor: LiquidGlassTheme.accentBlue,
                   onTap: () => widget.onChannelMonitorToggle?.call(ch.id),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _GlassStateButton(
+                  label: 'Ø',
+                  tooltip: 'Phase Invert',
+                  active: ch.phaseInverted,
+                  activeColor: LiquidGlassTheme.accentPurple,
+                  onTap: () => widget.onChannelPhaseInvertToggle?.call(ch.id),
                 ),
               ),
             ],

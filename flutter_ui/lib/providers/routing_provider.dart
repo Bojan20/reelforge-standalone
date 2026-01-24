@@ -6,6 +6,7 @@
 /// - Pre/post fader sends
 /// - Channel properties (volume, pan, mute, solo)
 
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../src/rust/engine_api.dart' as api;
 
@@ -43,7 +44,7 @@ class ChannelInfo {
 
 class RoutingProvider extends ChangeNotifier {
   final Map<int, ChannelInfo> _channels = {};
-  final Map<int, int> _pendingCreations = {}; // callback_id -> expected_kind
+  final Map<int, ({int kind, String name})> _pendingCreations = {}; // callback_id -> (kind, name)
 
   // Getters
   int get channelCount => _channels.length;
@@ -67,7 +68,7 @@ class RoutingProvider extends ChangeNotifier {
   Future<int> createChannel(ChannelKind kind, String name) async {
     final callbackId = api.routingCreateChannel(kind.value, name);
     if (callbackId > 0) {
-      _pendingCreations[callbackId] = kind.value;
+      _pendingCreations[callbackId] = (kind: kind.value, name: name);
     }
     return callbackId;
   }
@@ -77,9 +78,19 @@ class RoutingProvider extends ChangeNotifier {
   Future<int> pollChannelCreation(int callbackId) async {
     final channelId = api.routingPollResponse(callbackId);
     if (channelId > 0) {
-      // Channel created successfully
-      _pendingCreations.remove(callbackId);
-      _updateChannelList();
+      // Channel created successfully - add to local cache
+      final pending = _pendingCreations.remove(callbackId);
+      if (pending != null) {
+        final kind = ChannelKind.values.firstWhere(
+          (k) => k.value == pending.kind,
+          orElse: () => ChannelKind.audio,
+        );
+        _channels[channelId] = ChannelInfo(
+          id: channelId,
+          kind: kind,
+          name: pending.name,
+        );
+      }
       notifyListeners();
     } else if (channelId == -1) {
       // Error
@@ -184,21 +195,44 @@ class RoutingProvider extends ChangeNotifier {
     return false;
   }
 
-  /// Update channel list from Rust
+  /// Update channel list from Rust engine
   ///
-  /// NOTE (2026-01-23): FFI for routing operations (create, delete, volume, pan, etc.)
-  /// is fully implemented in ffi_routing.rs (requires `unified_routing` feature).
-  /// However, there's no `routing_get_all_channels()` FFI function to query the full
-  /// channel list from Rust. Channels are tracked locally when created via UI.
-  ///
-  /// For full sync, would need to add:
-  /// - Rust: `routing_get_all_channels(out_ids: *mut u32, max: usize) -> usize`
-  /// - Dart: routingGetAllChannels() binding
+  /// UPDATED (2026-01-24): Full FFI sync now available via routing_get_channels_json()
+  /// Queries engine for complete channel list and syncs local state.
   void _updateChannelList() {
     final count = api.routingGetChannelCount();
-    // Channel list is populated by local createChannel() calls
-    // FFI query for full list not yet available
-    debugPrint('[RoutingProvider] Channel count from engine: $count, local: ${_channels.length}');
+
+    // Try to get full channel list from engine (JSON format)
+    final json = api.routingGetChannelsJson();
+    if (json != null && json.isNotEmpty) {
+      try {
+        final List<dynamic> channelList = jsonDecode(json);
+        _channels.clear();
+
+        for (final ch in channelList) {
+          final id = ch['id'] as int;
+          final kindValue = ch['kind'] as int;
+          final name = ch['name'] as String? ?? 'Channel $id';
+
+          final kind = ChannelKind.values.firstWhere(
+            (k) => k.value == kindValue,
+            orElse: () => ChannelKind.audio,
+          );
+
+          _channels[id] = ChannelInfo(id: id, kind: kind, name: name);
+        }
+
+        debugPrint('[RoutingProvider] Synced ${_channels.length} channels from engine');
+        return;
+      } catch (e) {
+        debugPrint('[RoutingProvider] JSON parse error: $e');
+      }
+    }
+
+    // Fallback: just log count mismatch
+    if (count != _channels.length) {
+      debugPrint('[RoutingProvider] Channel count mismatch - engine: $count, local: ${_channels.length}');
+    }
   }
 
   /// Refresh routing state
@@ -211,5 +245,15 @@ class RoutingProvider extends ChangeNotifier {
       await pollChannelCreation(callbackId);
     }
   }
+
+  /// Force sync channel list from engine
+  /// Clears local cache and queries engine for current state
+  void syncFromEngine() {
+    _updateChannelList();
+    notifyListeners();
+  }
+
+  /// Get engine channel count (may differ from local during async operations)
+  int get engineChannelCount => api.routingGetChannelCount();
 
 }

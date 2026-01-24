@@ -13,6 +13,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
@@ -147,23 +148,33 @@ class SoundbankProvider extends ChangeNotifier {
     final bytes = await file.readAsBytes();
     final checksum = sha256.convert(bytes).toString();
 
-    // Get audio metadata
-    // TODO: Implement FFI method to read audio file metadata
-    // For now, use placeholder values
-    double duration = 0.0;
-    int sampleRate = 48000;
-    int channels = 2;
+    // Get audio metadata via FFI
+    final audioInfo = _ffi.offlineGetAudioInfo(filePath);
 
-    // Try to estimate duration from file size (rough estimate for WAV)
-    // Assumes 16-bit stereo WAV at 48kHz
-    final estimatedBytesPerSecond = sampleRate * channels * 2; // 16-bit = 2 bytes
-    if (estimatedBytesPerSecond > 0) {
-      duration = (stat.size - 44) / estimatedBytesPerSecond; // 44 = WAV header
-      if (duration < 0) duration = 0;
+    double duration;
+    int sampleRate;
+    int channels;
+
+    if (audioInfo != null) {
+      // Parse FFI response
+      duration = audioInfo['duration_seconds'] as double? ?? 0.0;
+      sampleRate = audioInfo['sample_rate'] as int? ?? 48000;
+      channels = audioInfo['channels'] as int? ?? 2;
+    } else {
+      // Fallback: estimate from file size (WAV assumption)
+      sampleRate = 48000;
+      channels = 2;
+      final estimatedBytesPerSecond = sampleRate * channels * 2;
+      if (estimatedBytesPerSecond > 0) {
+        duration = (stat.size - 44) / estimatedBytesPerSecond;
+        if (duration < 0) duration = 0;
+      } else {
+        duration = 0.0;
+      }
     }
 
     final fileName = path.basename(filePath);
-    final relativePath = 'audio/${fileName}';
+    final relativePath = 'audio/$fileName';
 
     final asset = SoundbankAsset(
       id: 'asset_${DateTime.now().millisecondsSinceEpoch}_${_banks[bankId]!.assets.length}',
@@ -582,42 +593,89 @@ class SoundbankProvider extends ChangeNotifier {
     Directory outputDir,
     void Function(double, String)? onProgress,
   ) async {
-    // Create subdirectories
-    final audioDir = Directory(path.join(outputDir.path, 'audio'));
-    final configDir = Directory(path.join(outputDir.path, 'config'));
+    // Create temp directory for staging files before optional ZIP
+    final tempDir = config.compressArchive
+        ? await Directory.systemTemp.createTemp('soundbank_export_')
+        : outputDir;
+
+    final audioDir = Directory(path.join(tempDir.path, 'audio'));
+    final configDir = Directory(path.join(tempDir.path, 'config'));
     await audioDir.create(recursive: true);
     await configDir.create(recursive: true);
+
+    // Determine if format conversion is needed
+    final needsConversion = config.audioFormat != bank.manifest.defaultAudioFormat;
+
+    // Create offline pipeline for format conversion if needed
+    int? pipelineHandle;
+    if (needsConversion) {
+      pipelineHandle = _ffi.offlinePipelineCreate();
+      if (pipelineHandle > 0) {
+        // Set output format
+        final formatId = _getFormatId(config.audioFormat);
+        _ffi.offlinePipelineSetFormat(pipelineHandle, formatId);
+      }
+    }
 
     // Export assets
     for (int i = 0; i < bank.assets.length; i++) {
       final asset = bank.assets[i];
       final progress = (i + 1) / bank.assets.length;
-      _exportProgress = progress * 0.8; // 80% for assets
-      _exportStatus = 'Copying ${asset.name}...';
+      _exportProgress = progress * 0.7; // 70% for assets
+      _exportStatus = needsConversion
+          ? 'Converting ${asset.name}...'
+          : 'Copying ${asset.name}...';
       onProgress?.call(_exportProgress, _exportStatus!);
       notifyListeners();
 
       final sourceFile = File(asset.sourcePath);
       if (await sourceFile.exists()) {
-        final destPath = path.join(audioDir.path, path.basename(asset.relativePath));
-        await sourceFile.copy(destPath);
+        // Determine output filename with correct extension
+        final outputExt = config.audioFormat.extension;
+        final baseName = path.basenameWithoutExtension(asset.relativePath);
+        final destPath = path.join(audioDir.path, '$baseName.$outputExt');
+
+        if (needsConversion && pipelineHandle != null && pipelineHandle > 0) {
+          // Process through offline pipeline for format conversion
+          final jobId = _ffi.offlineProcessFile(
+            pipelineHandle,
+            asset.sourcePath,
+            destPath,
+          );
+          if (jobId == 0) {
+            // Conversion failed, fall back to copy
+            debugPrint(
+                'Warning: Format conversion failed for ${asset.name}, copying original');
+            await sourceFile.copy(destPath.replaceAll(
+                '.$outputExt',
+                '.${path.extension(asset.sourcePath).replaceFirst('.', '')}'));
+          }
+        } else {
+          // Direct copy (no conversion needed)
+          await sourceFile.copy(destPath);
+        }
       }
+    }
+
+    // Cleanup pipeline
+    if (pipelineHandle != null && pipelineHandle > 0) {
+      _ffi.offlinePipelineDestroy(pipelineHandle);
     }
 
     // Export manifest
     _exportStatus = 'Writing manifest...';
-    _exportProgress = 0.85;
+    _exportProgress = 0.75;
     onProgress?.call(_exportProgress, _exportStatus!);
     notifyListeners();
 
-    final manifestFile = File(path.join(outputDir.path, 'manifest.json'));
+    final manifestFile = File(path.join(tempDir.path, 'manifest.json'));
     await manifestFile.writeAsString(
       const JsonEncoder.withIndent('  ').convert(bank.manifest.toJson()),
     );
 
     // Export events config
     _exportStatus = 'Writing configuration...';
-    _exportProgress = 0.90;
+    _exportProgress = 0.80;
     onProgress?.call(_exportProgress, _exportStatus!);
     notifyListeners();
 
@@ -645,9 +703,62 @@ class SoundbankProvider extends ChangeNotifier {
       const JsonEncoder.withIndent('  ').convert(assetsManifest),
     );
 
+    // Create ZIP archive if requested
+    if (config.compressArchive) {
+      _exportStatus = 'Creating archive...';
+      _exportProgress = 0.90;
+      onProgress?.call(_exportProgress, _exportStatus!);
+      notifyListeners();
+
+      await _createZipArchive(
+        tempDir,
+        path.join(outputDir.path, '${bank.manifest.name}.ffbank'),
+      );
+
+      // Cleanup temp directory
+      await tempDir.delete(recursive: true);
+    }
+
     _exportProgress = 1.0;
     _exportStatus = 'Export complete';
     onProgress?.call(_exportProgress, _exportStatus!);
+  }
+
+  /// Create ZIP archive from directory
+  Future<void> _createZipArchive(Directory sourceDir, String outputPath) async {
+    final archive = Archive();
+
+    await for (final entity in sourceDir.list(recursive: true)) {
+      if (entity is File) {
+        final relativePath = path.relative(entity.path, from: sourceDir.path);
+        final bytes = await entity.readAsBytes();
+
+        archive.addFile(ArchiveFile(
+          relativePath,
+          bytes.length,
+          bytes,
+        ));
+      }
+    }
+
+    final zipData = ZipEncoder().encode(archive);
+    await File(outputPath).writeAsBytes(zipData);
+  }
+
+  /// Get format ID for offline pipeline
+  int _getFormatId(SoundbankAudioFormat format) {
+    return switch (format) {
+      SoundbankAudioFormat.wav16 => 0,
+      SoundbankAudioFormat.wav24 => 1,
+      SoundbankAudioFormat.wav32f => 2,
+      SoundbankAudioFormat.flac => 3,
+      SoundbankAudioFormat.mp3High => 4,
+      SoundbankAudioFormat.mp3Medium => 4,
+      SoundbankAudioFormat.mp3Low => 4,
+      SoundbankAudioFormat.ogg => 4, // Use MP3 encoder for now
+      SoundbankAudioFormat.webm => 4,
+      SoundbankAudioFormat.aac => 4,
+    };
   }
 
   Future<void> _exportUnity(

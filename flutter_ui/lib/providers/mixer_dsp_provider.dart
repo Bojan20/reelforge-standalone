@@ -210,16 +210,17 @@ const List<PluginInfo> kAvailablePlugins = [
 // ============ Bus ID Mapping ============
 
 /// Map string bus ID to engine bus index
-/// Engine buses: 0=SFX, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+/// Engine buses: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
+/// MUST match Rust playback.rs bus processing loop (lines 3313-3319)
 int _busIdToEngineIndex(String busId) {
   return switch (busId) {
-    'sfx' => 0,
+    'master' => 0,
     'music' => 1,
-    'voice' => 2,
-    'ambience' => 3,
-    'aux' => 4,
-    'master' => 5,
-    _ => 0, // Default to SFX
+    'sfx' => 2,
+    'voice' => 3,
+    'ambience' => 4,
+    'aux' => 5,
+    _ => 2, // Default to SFX
   };
 }
 

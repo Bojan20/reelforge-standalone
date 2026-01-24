@@ -153,11 +153,13 @@ impl TimingConfig {
     }
 
     /// Studio mode (optimized for audio testing - visible reel stops with good sync)
+    /// CRITICAL: These values MUST match premium_slot_preview.dart visual animation!
+    /// Visual formula: stopTime = 1000 + i * 370 (baseAnimDuration + i * (staggerDelay + baseDelay))
     pub fn studio() -> Self {
         Self {
             profile: TimingProfile::Studio,
-            reel_spin_duration_ms: 600.0,  // Longer initial spin to hear REEL_SPIN loop
-            reel_stop_interval_ms: 350.0,  // Enough gap between reel stops for audio sync
+            reel_spin_duration_ms: 1000.0, // Matches visual: first reel stops at 1000ms
+            reel_stop_interval_ms: 370.0,  // Matches visual: 120ms stagger + 250ms base delay
             anticipation_duration_ms: 500.0,
             win_reveal_delay_ms: 100.0,
             win_line_duration_ms: 200.0,

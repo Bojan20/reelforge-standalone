@@ -60,6 +60,7 @@ import '../services/audio_playback_service.dart';
 import '../services/service_locator.dart';
 import '../services/unified_search_service.dart';
 
+import '../providers/dsp_chain_provider.dart';
 import '../providers/engine_provider.dart';
 import '../providers/global_shortcuts_provider.dart';
 import '../providers/meter_provider.dart';
@@ -114,6 +115,7 @@ import '../widgets/dsp/channel_strip_panel.dart';
 import '../widgets/dsp/ml_processor_panel.dart';
 import '../widgets/dsp/mastering_panel.dart';
 import '../widgets/dsp/restoration_panel.dart';
+import '../widgets/dsp/internal_processor_editor_window.dart';
 import '../widgets/fabfilter/fabfilter.dart';
 import '../widgets/midi/piano_roll_widget.dart';
 import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
@@ -2888,9 +2890,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
   }
 
-  /// Show snackbar message - DISABLED
-  void _showSnackBar(String message) {
-    // Disabled - no snackbar notifications
+  /// Show snackbar message
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? const Color(0xFFFF4060) : null,
+        duration: Duration(milliseconds: isError ? 2000 : 1500),
+      ),
+    );
   }
 
   /// Open file picker dialog to import audio files to Pool
@@ -4075,6 +4084,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 });
               }
             },
+            onChannelPhaseInvertToggle: (channelId) {
+              final mixerProvider = context.read<MixerProvider>();
+              mixerProvider.togglePhaseInvert(channelId);
+            },
             onChannelSendClick: (channelId, sendIndex) {
               _onSendClick(channelId, sendIndex);
             },
@@ -4102,8 +4115,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             },
             onChannelInsertOpenEditor: (channelId, slotIndex) {
               final trackId = int.tryParse(channelId.replaceFirst('ch_', '')) ?? 0;
-              // Open plugin editor window via FFI
-              NativeFFI.instance.insertOpenEditor(trackId, slotIndex);
+
+              // Check if this is an internal processor (from DspChainProvider)
+              final chain = DspChainProvider.instance.getChain(trackId);
+              if (slotIndex < chain.nodes.length) {
+                final node = chain.nodes[slotIndex];
+                // Show internal processor editor window
+                InternalProcessorEditorWindow.show(
+                  context: context,
+                  trackId: trackId,
+                  slotIndex: slotIndex,
+                  node: node,
+                );
+              } else {
+                // External plugin - open via FFI
+                NativeFFI.instance.insertOpenEditor(trackId, slotIndex);
+              }
             },
 
             // Center zone - uses Selector internally for playhead
@@ -4255,8 +4282,72 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           controller: _dawLowerZoneController,
           selectedTrackId: selectedTrackId,
           onDspAction: (action, params) {
-            // Handle DSP actions from Lower Zone
             debugPrint('[LowerZone] DSP action: $action, params: $params');
+            switch (action) {
+              case 'splitClip':
+                // Split selected clip at playhead
+                final selectedClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+                  (c) => c?.selected == true,
+                  orElse: () => null,
+                );
+                if (selectedClip != null) {
+                  final transport = context.read<EngineProvider>().transport;
+                  final splitTime = transport.positionSeconds;
+                  if (splitTime > selectedClip.startTime && splitTime < selectedClip.endTime) {
+                    final newClipId = engine.splitClip(clipId: selectedClip.id, atTime: splitTime);
+                    if (newClipId != null) {
+                      final leftDuration = splitTime - selectedClip.startTime;
+                      final rightDuration = selectedClip.endTime - splitTime;
+                      final rightOffset = selectedClip.sourceOffset + leftDuration;
+                      setState(() {
+                        _clips = _clips.where((c) => c.id != selectedClip.id).toList();
+                        _clips.add(selectedClip.copyWith(duration: leftDuration));
+                        _clips.add(timeline.TimelineClip(
+                          id: newClipId,
+                          trackId: selectedClip.trackId,
+                          name: '${selectedClip.name} (2)',
+                          startTime: splitTime,
+                          duration: rightDuration,
+                          color: selectedClip.color,
+                          waveform: selectedClip.waveform,
+                          sourceOffset: rightOffset,
+                          sourceDuration: selectedClip.sourceDuration,
+                          eventId: selectedClip.eventId,
+                        ));
+                      });
+                      _showSnackBar('Split clip at ${splitTime.toStringAsFixed(2)}s');
+                    }
+                  }
+                }
+              case 'duplicateSelection':
+                // Duplicate all selected clips
+                final selectedClips = _clips.where((c) => c.selected).toList();
+                for (final clip in selectedClips) {
+                  final newClipId = engine.duplicateClip(clip.id);
+                  if (newClipId != null) {
+                    setState(() {
+                      _clips.add(timeline.TimelineClip(
+                        id: newClipId,
+                        trackId: clip.trackId,
+                        name: '${clip.name} (copy)',
+                        startTime: clip.endTime,
+                        duration: clip.duration,
+                        color: clip.color,
+                        waveform: clip.waveform,
+                        sourceOffset: clip.sourceOffset,
+                        sourceDuration: clip.sourceDuration,
+                        eventId: clip.eventId,
+                      ));
+                    });
+                  }
+                }
+                if (selectedClips.isNotEmpty) {
+                  _showSnackBar('Duplicated ${selectedClips.length} clip(s)');
+                }
+              case 'deleteSelection':
+                // Delete all selected clips
+                _handleDelete();
+            }
           },
           // P0.2: Grid/Snap Settings
           snapEnabled: _snapEnabled,
@@ -7212,6 +7303,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       solo: channel?.soloed ?? false,
       armed: channel?.armed ?? false,
       inputMonitor: channel?.monitorInput ?? false,
+      phaseInverted: channel?.phaseInverted ?? false,
       meterL: channel?.rmsL ?? 0.0,
       meterR: channel?.rmsR ?? 0.0,
       peakL: channel?.peakL ?? 0.0,
@@ -7878,18 +7970,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     setState(() {
       _busMuted[busId] = !(_busMuted[busId] ?? false);
     });
-    // TODO: Send to Rust engine via FFI
-    // engine.setBusMute(busId, _busMuted[busId]);
-    debugPrint('[Mixer] Bus $busId muted: ${_busMuted[busId]}');
+    // Send to Rust engine via FFI
+    final engineIdx = _busIdToIndex(busId);
+    if (engineIdx >= 0) {
+      NativeFFI.instance.setBusMute(engineIdx, _busMuted[busId] ?? false);
+    }
+    debugPrint('[Mixer] Bus $busId muted: ${_busMuted[busId]} (engine idx: $engineIdx)');
   }
 
   void _onBusSoloToggle(String busId) {
     setState(() {
       _busSoloed[busId] = !(_busSoloed[busId] ?? false);
     });
-    // TODO: Send to Rust engine via FFI
-    // engine.setBusSolo(busId, _busSoloed[busId]);
-    debugPrint('[Mixer] Bus $busId soloed: ${_busSoloed[busId]}');
+    // Send to Rust engine via FFI
+    final engineIdx = _busIdToIndex(busId);
+    if (engineIdx >= 0) {
+      NativeFFI.instance.setBusSolo(engineIdx, _busSoloed[busId] ?? false);
+    }
+    debugPrint('[Mixer] Bus $busId soloed: ${_busSoloed[busId]} (engine idx: $engineIdx)');
   }
 
   void _onBusPanChange(String busId, double pan) {
@@ -7918,8 +8016,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     try {
       final busIndex = _busIdToIndex(busId);
       if (busIndex >= 0) {
-        // TODO: Implement R channel pan in Rust engine
-        // engine.mixerSetBusPanRight(busIndex, pan);
+        NativeFFI.instance.mixerSetBusPanRight(busIndex, pan);
       }
     } catch (e) {
       // Engine not ready yet
@@ -8053,11 +8150,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Extract FX bus index from "FX N - Name" format
       final fxIndex = int.tryParse(result.split(' ')[1]) ?? 1;
       final fromChannelId = _busIdToChannelId(channelId);
-      routingAddSend(fromChannelId, fxIndex, 0);
-      debugPrint('[Mixer] Channel $channelId send $sendIndex routed to $result');
+      final success = routingAddSend(fromChannelId, fxIndex, 0);
+      if (success == 1) {
+        debugPrint('[Mixer] Channel $channelId send $sendIndex routed to $result');
+        _showSnackBar('Send $sendIndex → $result');
+      } else {
+        debugPrint('[Mixer] FAILED: Channel $channelId send $sendIndex route to $result');
+        _showSnackBar('Failed to route send $sendIndex', isError: true);
+      }
     } else if (result == 'None') {
-      // Remove send (TODO: Implement routing_remove_send in FFI when unified_routing enabled)
-      debugPrint('[Mixer] Channel $channelId send $sendIndex cleared (FFI pending)');
+      // Remove send via FFI
+      final fromChannelId = _busIdToChannelId(channelId);
+      final success = routingRemoveSend(fromChannelId, sendIndex);
+      if (success == 1) {
+        debugPrint('[Mixer] Channel $channelId send $sendIndex removed');
+        _showSnackBar('Send $sendIndex removed');
+      } else {
+        debugPrint('[Mixer] FAILED: Channel $channelId send $sendIndex removal');
+        _showSnackBar('Failed to remove send $sendIndex', isError: true);
+      }
     }
   }
 
@@ -8101,7 +8212,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         debugPrint('[Mixer] Send slot $slotIndex to AUX $targetId');
         final fromChannelId = _busIdToChannelId(busId);
         final toChannelId = int.tryParse(targetId) ?? 0;
-        routingAddSend(fromChannelId, toChannelId, 0);
+        final success = routingAddSend(fromChannelId, toChannelId, 0);
+        if (success != 1) {
+          _showSnackBar('Failed to route to AUX', isError: true);
+        }
         break;
 
       case SlotDestinationType.bus:

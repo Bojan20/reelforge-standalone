@@ -335,7 +335,23 @@ class StageConfigurationService extends ChangeNotifier {
       _register('WIN_TIER_$i', StageCategory.win, priority, SpatialBus.sfx, intent, ducksMusic: i >= 4);
     }
 
-    // Rollup (pooled for rapid fire)
+    // ─────────────────────────────────────────────────────────────────────────
+    // WIN PRESENTATION FLOW (Industry-Standard Tier System)
+    // Based on Zynga, NetEnt, Pragmatic Play research:
+    // - BIG WIN is FIRST major tier (5x-15x) — not middle tier!
+    // - SUPER WIN is second tier (15x-30x) — replaces non-standard "NICE"
+    // - MEGA WIN is third tier (30x-60x)
+    // - EPIC WIN is fourth tier (60x-100x)
+    // - ULTRA WIN is maximum (100x+)
+    // ─────────────────────────────────────────────────────────────────────────
+    _register('WIN_PRESENT_SMALL', StageCategory.win, 50, SpatialBus.sfx, 'WIN_SMALL');
+    _register('WIN_PRESENT_BIG', StageCategory.win, 55, SpatialBus.sfx, 'WIN_BIG');
+    _register('WIN_PRESENT_SUPER', StageCategory.win, 65, SpatialBus.sfx, 'WIN_SUPER', ducksMusic: true);
+    _register('WIN_PRESENT_MEGA', StageCategory.win, 75, SpatialBus.sfx, 'WIN_MEGA', ducksMusic: true);
+    _register('WIN_PRESENT_EPIC', StageCategory.win, 85, SpatialBus.sfx, 'WIN_EPIC', ducksMusic: true);
+    _register('WIN_PRESENT_ULTRA', StageCategory.win, 95, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
+
+    // Rollup counter (pooled for rapid fire)
     _register('ROLLUP_START', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
     _register('ROLLUP_TICK', StageCategory.win, 25, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('ROLLUP_TICK_FAST', StageCategory.win, 25, SpatialBus.sfx, 'DEFAULT', isPooled: true);

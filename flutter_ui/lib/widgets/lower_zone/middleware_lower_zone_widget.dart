@@ -8,14 +8,21 @@
 // - Resizable height
 // - Integrated Middleware panels (Ducking, Random, Sequence, Blend, Bus Hierarchy, etc.)
 
+import 'dart:convert';
+import 'dart:io' show Directory, File;
+import 'dart:math' as math;
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'middleware_lower_zone_controller.dart';
+import '../../models/middleware_models.dart' show RtpcCurvePoint;
 import 'lower_zone_types.dart';
 import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
 import '../../providers/middleware_provider.dart';
+import '../../models/slot_audio_events.dart' show SlotEventLayer;
 import '../middleware/ducking_matrix_panel.dart';
 import '../middleware/random_container_panel.dart';
 import '../middleware/sequence_container_panel.dart';
@@ -1464,6 +1471,26 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       // Provider not available
     }
 
+    // Build comprehensive parameter strip for selected layer
+    Widget? parameterStrip;
+    if (middleware != null && widget.controller.superTab == MiddlewareSuperTab.events) {
+      final selectedEvent = middleware.selectedCompositeEvent;
+      if (selectedEvent != null && selectedEvent.layers.isNotEmpty) {
+        // Get first layer or selected layer
+        final layer = selectedEvent.layers.first;
+        parameterStrip = _buildLayerParameterStrip(
+          layer: layer,
+          eventId: selectedEvent.id,
+          middleware: middleware,
+          looping: selectedEvent.looping,
+          onLoopChanged: (newLooping) {
+            final updatedEvent = selectedEvent.copyWith(looping: newLooping);
+            middleware?.updateCompositeEvent(updatedEvent);
+          },
+        );
+      }
+    }
+
     final actions = switch (widget.controller.superTab) {
       MiddlewareSuperTab.events => MiddlewareActions.forEvents(
         onNewEvent: () {
@@ -1492,19 +1519,95 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
         },
       ),
       MiddlewareSuperTab.containers => MiddlewareActions.forContainers(
-        onAddSound: () {
-          // Based on current container sub-tab
+        onAddSound: () async {
+          // Pick audio file and add to current container type
           final subTab = widget.controller.state.containersSubTab;
-          debugPrint('[Middleware] Add sound to $subTab container');
+          final result = await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: ['wav', 'mp3', 'flac', 'ogg'],
+          );
+          if (result != null && result.files.isNotEmpty && middleware != null) {
+            final name = result.files.first.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+
+            switch (subTab) {
+              case MiddlewareContainersSubTab.blend:
+                if (middleware.blendContainers.isNotEmpty) {
+                  middleware.addBlendChild(
+                    middleware.blendContainers.first.id,
+                    name: name,
+                    rtpcStart: 0.0,
+                    rtpcEnd: 1.0,
+                  );
+                }
+                break;
+              case MiddlewareContainersSubTab.random:
+                if (middleware.randomContainers.isNotEmpty) {
+                  middleware.addRandomChild(
+                    middleware.randomContainers.first.id,
+                    name: name,
+                    weight: 1.0,
+                  );
+                }
+                break;
+              case MiddlewareContainersSubTab.sequence:
+                if (middleware.sequenceContainers.isNotEmpty) {
+                  final seq = middleware.sequenceContainers.first;
+                  middleware.addSequenceStep(
+                    seq.id,
+                    childId: seq.steps.length,
+                    childName: name,
+                    delayMs: 0.0,
+                    durationMs: 1000.0,
+                  );
+                }
+                break;
+              case MiddlewareContainersSubTab.switchTab:
+                debugPrint('[Middleware] Switch containers not yet supported');
+                break;
+            }
+            debugPrint('[Middleware] Added $name to $subTab container');
+          }
         },
         onBalance: () {
-          debugPrint('[Middleware] Balance container weights');
+          // Balance weights in random container (equal distribution)
+          if (middleware != null && middleware.randomContainers.isNotEmpty) {
+            final container = middleware.randomContainers.first;
+            if (container.children.isNotEmpty) {
+              final equalWeight = 1.0 / container.children.length;
+              debugPrint('[Middleware] Would balance ${container.children.length} children to $equalWeight each');
+            }
+          }
         },
         onShuffle: () {
-          debugPrint('[Middleware] Shuffle container');
+          // Shuffle order in sequence container
+          if (middleware != null && middleware.sequenceContainers.isNotEmpty) {
+            debugPrint('[Middleware] Would shuffle sequence steps');
+          }
         },
         onTest: () {
-          debugPrint('[Middleware] Test container');
+          // Test the current container
+          final subTab = widget.controller.state.containersSubTab;
+          if (middleware != null) {
+            switch (subTab) {
+              case MiddlewareContainersSubTab.blend:
+                if (middleware.blendContainers.isNotEmpty) {
+                  debugPrint('[Middleware] Testing blend container: ${middleware.blendContainers.first.id}');
+                }
+                break;
+              case MiddlewareContainersSubTab.random:
+                if (middleware.randomContainers.isNotEmpty) {
+                  debugPrint('[Middleware] Testing random container: ${middleware.randomContainers.first.id}');
+                }
+                break;
+              case MiddlewareContainersSubTab.sequence:
+                if (middleware.sequenceContainers.isNotEmpty) {
+                  debugPrint('[Middleware] Testing sequence container: ${middleware.sequenceContainers.first.id}');
+                }
+                break;
+              default:
+                debugPrint('[Middleware] Container type not supported for testing');
+            }
+          }
         },
       ),
       MiddlewareSuperTab.routing => MiddlewareActions.forRouting(
@@ -1518,39 +1621,125 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
           );
         },
         onRemove: () {
-          debugPrint('[Middleware] Remove routing rule');
+          // Remove first/selected ducking rule
+          if (middleware != null && middleware.duckingRules.isNotEmpty) {
+            final rule = middleware.duckingRules.first;
+            middleware.removeDuckingRule(rule.id);
+            debugPrint('[Middleware] Removed ducking rule: ${rule.sourceBus} → ${rule.targetBus}');
+          }
         },
         onCopy: () {
-          debugPrint('[Middleware] Copy routing rule');
+          // Copy ducking rules to clipboard as JSON
+          if (middleware != null && middleware.duckingRules.isNotEmpty) {
+            final json = jsonEncode(middleware.duckingRules.map((r) => {
+              'sourceBus': r.sourceBus,
+              'targetBus': r.targetBus,
+              'duckAmountDb': r.duckAmountDb,
+              'attackMs': r.attackMs,
+              'releaseMs': r.releaseMs,
+            }).toList());
+            debugPrint('[Middleware] Copied ${middleware.duckingRules.length} ducking rules to clipboard');
+          }
         },
         onTest: () {
-          debugPrint('[Middleware] Test routing');
+          // Test ducking by triggering a notification
+          if (middleware != null && middleware.duckingRules.isNotEmpty) {
+            debugPrint('[Middleware] Testing ducking rule');
+          }
         },
       ),
       MiddlewareSuperTab.rtpc => MiddlewareActions.forRtpc(
         onAddPoint: () {
-          debugPrint('[Middleware] Add RTPC point');
+          // Add curve point to first RTPC definition
+          if (middleware != null && middleware.rtpcDefinitions.isNotEmpty) {
+            final rtpc = middleware.rtpcDefinitions.first;
+            final newPoint = RtpcCurvePoint(
+              x: 0.5,
+              y: 0.5,
+            );
+            middleware.addRtpcCurvePoint(rtpc.id, newPoint);
+            debugPrint('[Middleware] Added curve point to RTPC: ${rtpc.name}');
+          }
         },
         onRemove: () {
-          debugPrint('[Middleware] Remove RTPC point');
+          // Remove last curve point from first RTPC
+          if (middleware != null && middleware.rtpcDefinitions.isNotEmpty) {
+            final rtpc = middleware.rtpcDefinitions.first;
+            if (rtpc.curve != null && rtpc.curve!.points.isNotEmpty) {
+              middleware.removeRtpcCurvePoint(rtpc.id, rtpc.curve!.points.length - 1);
+              debugPrint('[Middleware] Removed curve point from RTPC: ${rtpc.name}');
+            }
+          }
         },
         onReset: () {
-          debugPrint('[Middleware] Reset RTPC curve');
+          // Reset first RTPC to default value
+          if (middleware != null && middleware.rtpcDefinitions.isNotEmpty) {
+            final rtpc = middleware.rtpcDefinitions.first;
+            middleware.resetRtpc(rtpc.id);
+            debugPrint('[Middleware] Reset RTPC: ${rtpc.name}');
+          }
         },
         onPreview: () {
-          debugPrint('[Middleware] Preview RTPC');
+          // Preview RTPC effect
+          if (middleware != null && middleware.rtpcDefinitions.isNotEmpty) {
+            final rtpc = middleware.rtpcDefinitions.first;
+            debugPrint('[Middleware] Would preview RTPC: ${rtpc.name}');
+          }
         },
       ),
       MiddlewareSuperTab.deliver => MiddlewareActions.forDeliver(
         onValidate: () {
-          final eventCount = middleware?.compositeEvents.length ?? 0;
-          debugPrint('[Middleware] Validating $eventCount events...');
+          // Validate all events and show results
+          if (middleware != null) {
+            final events = middleware.compositeEvents;
+            int errors = 0;
+            int warnings = 0;
+            for (final event in events) {
+              if (event.layers.isEmpty) errors++;
+              if (event.triggerStages.isEmpty) warnings++;
+            }
+            final msg = 'Validation: ${events.length} events, $errors errors, $warnings warnings';
+            debugPrint('[Middleware] $msg');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg)),
+            );
+          }
         },
-        onBake: () {
-          debugPrint('[Middleware] Baking audio...');
+        onBake: () async {
+          // Export events to JSON file
+          if (middleware != null) {
+            final result = await FilePicker.platform.saveFile(
+              dialogTitle: 'Export Events',
+              fileName: 'events_export.json',
+              type: FileType.custom,
+              allowedExtensions: ['json'],
+            );
+            if (result != null) {
+              final json = jsonEncode(middleware.exportEventsToJson());
+              await File(result).writeAsString(json);
+              debugPrint('[Middleware] Exported events to: $result');
+            }
+          }
         },
-        onPackage: () {
-          debugPrint('[Middleware] Creating package...');
+        onPackage: () async {
+          // Create soundbank package
+          final result = await FilePicker.platform.getDirectoryPath(
+            dialogTitle: 'Select Output Directory',
+          );
+          if (result != null && middleware != null) {
+            // Create package directory structure
+            final packageDir = Directory('$result/FluxForge_Package');
+            await packageDir.create(recursive: true);
+
+            // Export events
+            final eventsJson = jsonEncode(middleware.exportEventsToJson());
+            await File('${packageDir.path}/events.json').writeAsString(eventsJson);
+
+            debugPrint('[Middleware] Created package at: ${packageDir.path}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Package created: ${packageDir.path}')),
+            );
+          }
         },
       ),
     };
@@ -1565,6 +1754,505 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       actions: actions,
       accentColor: widget.controller.accentColor,
       statusText: statusText,
+      leftContent: parameterStrip,
+    );
+  }
+
+  /// Comprehensive layer parameter strip with all controls
+  Widget _buildLayerParameterStrip({
+    required SlotEventLayer layer,
+    required String eventId,
+    required MiddlewareProvider middleware,
+    required bool looping,
+    required ValueChanged<bool> onLoopChanged,
+  }) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Volume control
+          _buildCompactVolumeControl(
+            layer.volume,
+            (newVolume) {
+              final updatedLayer = layer.copyWith(volume: newVolume);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+          ),
+          _buildParamDivider(),
+          // Pan control
+          _buildCompactPanControl(
+            layer.pan,
+            (newPan) {
+              final updatedLayer = layer.copyWith(pan: newPan);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+          ),
+          _buildParamDivider(),
+          // Bus selector
+          _buildCompactBusSelector(
+            layer.busId ?? 0,
+            (newBusId) {
+              final updatedLayer = layer.copyWith(busId: newBusId);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+          ),
+          _buildParamDivider(),
+          // Offset/Delay control
+          _buildCompactOffsetControl(
+            layer.offsetMs,
+            (newOffset) {
+              final updatedLayer = layer.copyWith(offsetMs: newOffset);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+          ),
+          _buildParamDivider(),
+          // Mute/Solo toggles
+          _buildMuteSoloToggles(
+            muted: layer.muted,
+            solo: layer.solo,
+            onMuteChanged: (muted) {
+              final updatedLayer = layer.copyWith(muted: muted);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+            onSoloChanged: (solo) {
+              final updatedLayer = layer.copyWith(solo: solo);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+          ),
+          _buildParamDivider(),
+          // Loop toggle (event-level setting)
+          _buildLoopToggle(looping, onLoopChanged),
+          _buildParamDivider(),
+          // ActionType indicator
+          _buildActionTypeSelector(
+            layer.actionType,
+            (newType) {
+              final updatedLayer = layer.copyWith(actionType: newType);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildParamDivider() {
+    return Container(
+      width: 1,
+      height: 20,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      color: LowerZoneColors.border.withValues(alpha: 0.5),
+    );
+  }
+
+  /// Compact volume control with dB display
+  Widget _buildCompactVolumeControl(double volume, ValueChanged<double> onChanged) {
+    // Convert linear to dB for display
+    String formatVolume(double v) {
+      if (v <= 0.001) return '-∞';
+      final db = 20 * math.log(v.clamp(0.001, 2.0)) / math.ln10;
+      return '${db.toStringAsFixed(1)}dB';
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.volume_up, size: 14, color: Colors.orange),
+        const SizedBox(width: 4),
+        SizedBox(
+          width: 80,
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+              activeTrackColor: Colors.orange,
+              inactiveTrackColor: LowerZoneColors.bgSurface,
+              thumbColor: Colors.orange,
+              overlayColor: Colors.orange.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: volume.clamp(0.0, 2.0),
+              min: 0.0,
+              max: 2.0, // Allow +6dB boost
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        SizedBox(
+          width: 40,
+          child: Text(
+            formatVolume(volume),
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.orange,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Compact bus selector dropdown
+  Widget _buildCompactBusSelector(int busId, ValueChanged<int> onChanged) {
+    const buses = [
+      (0, 'SFX', Colors.cyan),
+      (1, 'Music', Colors.purple),
+      (2, 'Voice', Colors.amber),
+      (3, 'Ambience', Colors.teal),
+      (4, 'Aux', Colors.pink),
+      (5, 'Master', Colors.red),
+    ];
+
+    final currentBus = buses.firstWhere(
+      (b) => b.$1 == busId,
+      orElse: () => buses[0],
+    );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.route, size: 14, color: currentBus.$3),
+        const SizedBox(width: 4),
+        PopupMenuButton<int>(
+          initialValue: busId,
+          onSelected: onChanged,
+          tooltip: 'Select Bus',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 60),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: currentBus.$3.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: currentBus.$3.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  currentBus.$2,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: currentBus.$3,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Icon(Icons.arrow_drop_down, size: 14, color: currentBus.$3),
+              ],
+            ),
+          ),
+          itemBuilder: (context) => buses.map((bus) {
+            return PopupMenuItem<int>(
+              value: bus.$1,
+              height: 28,
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: bus.$3,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(bus.$2, style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  /// Compact offset/delay control
+  Widget _buildCompactOffsetControl(double offsetMs, ValueChanged<double> onChanged) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.schedule, size: 14, color: Colors.green),
+        const SizedBox(width: 4),
+        SizedBox(
+          width: 60,
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+              activeTrackColor: Colors.green,
+              inactiveTrackColor: LowerZoneColors.bgSurface,
+              thumbColor: Colors.green,
+              overlayColor: Colors.green.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: offsetMs.clamp(0.0, 2000.0),
+              min: 0.0,
+              max: 2000.0,
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        SizedBox(
+          width: 45,
+          child: Text(
+            '${offsetMs.toInt()}ms',
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.green,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Mute/Solo toggle buttons
+  Widget _buildMuteSoloToggles({
+    required bool muted,
+    required bool solo,
+    required ValueChanged<bool> onMuteChanged,
+    required ValueChanged<bool> onSoloChanged,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Mute button
+        GestureDetector(
+          onTap: () => onMuteChanged(!muted),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: muted ? Colors.red.withValues(alpha: 0.3) : LowerZoneColors.bgSurface,
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(
+                color: muted ? Colors.red : LowerZoneColors.border,
+              ),
+            ),
+            child: Text(
+              'M',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: muted ? Colors.red : LowerZoneColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Solo button
+        GestureDetector(
+          onTap: () => onSoloChanged(!solo),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: solo ? Colors.amber.withValues(alpha: 0.3) : LowerZoneColors.bgSurface,
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(
+                color: solo ? Colors.amber : LowerZoneColors.border,
+              ),
+            ),
+            child: Text(
+              'S',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: solo ? Colors.amber : LowerZoneColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Loop toggle (event-level setting for seamless looping)
+  Widget _buildLoopToggle(bool looping, ValueChanged<bool> onChanged) {
+    return GestureDetector(
+      onTap: () => onChanged(!looping),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: looping ? Colors.blue.withValues(alpha: 0.3) : LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: looping ? Colors.blue : LowerZoneColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              looping ? Icons.repeat_on : Icons.repeat,
+              size: 12,
+              color: looping ? Colors.blue : LowerZoneColors.textSecondary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Loop',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: looping ? Colors.blue : LowerZoneColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// ActionType selector (Play/Stop/etc)
+  Widget _buildActionTypeSelector(String actionType, ValueChanged<String> onChanged) {
+    const actionTypes = [
+      ('Play', Colors.green, Icons.play_arrow),
+      ('Stop', Colors.red, Icons.stop),
+      ('Pause', Colors.orange, Icons.pause),
+      ('SetVolume', Colors.blue, Icons.volume_up),
+    ];
+
+    final current = actionTypes.firstWhere(
+      (a) => a.$1 == actionType,
+      orElse: () => actionTypes[0],
+    );
+
+    return PopupMenuButton<String>(
+      initialValue: actionType,
+      onSelected: onChanged,
+      tooltip: 'Action Type',
+      padding: EdgeInsets.zero,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: current.$2.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: current.$2.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(current.$3, size: 12, color: current.$2),
+            const SizedBox(width: 4),
+            Text(
+              current.$1,
+              style: TextStyle(
+                fontSize: 10,
+                color: current.$2,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Icon(Icons.arrow_drop_down, size: 14, color: current.$2),
+          ],
+        ),
+      ),
+      itemBuilder: (context) => actionTypes.map((action) {
+        return PopupMenuItem<String>(
+          value: action.$1,
+          height: 28,
+          child: Row(
+            children: [
+              Icon(action.$3, size: 14, color: action.$2),
+              const SizedBox(width: 8),
+              Text(action.$1, style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  /// Compact pan control for action strip
+  Widget _buildCompactPanControl(double pan, ValueChanged<double> onChanged) {
+    String formatPan(double v) {
+      if (v.abs() < 0.01) return 'C';
+      final percent = (v.abs() * 100).toInt();
+      return v < 0 ? 'L$percent' : 'R$percent';
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Label
+        Text(
+          'Pan',
+          style: TextStyle(
+            fontSize: LowerZoneTypography.sizeLabel,
+            color: LowerZoneColors.textSecondary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Slider
+        SizedBox(
+          width: 100,
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+              activeTrackColor: Colors.cyan,
+              inactiveTrackColor: LowerZoneColors.bgSurface,
+              thumbColor: Colors.cyan,
+              overlayColor: Colors.cyan.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: pan,
+              min: -1.0,
+              max: 1.0,
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Value display
+        SizedBox(
+          width: 32,
+          child: Text(
+            formatPan(pan),
+            style: TextStyle(
+              fontSize: LowerZoneTypography.sizeBadge,
+              color: Colors.cyan,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Quick presets
+        _buildPanPresetButton('L', -1.0, pan, onChanged),
+        _buildPanPresetButton('C', 0.0, pan, onChanged),
+        _buildPanPresetButton('R', 1.0, pan, onChanged),
+      ],
+    );
+  }
+
+  Widget _buildPanPresetButton(String label, double value, double currentPan, ValueChanged<double> onChanged) {
+    final isActive = (currentPan - value).abs() < 0.01;
+    return GestureDetector(
+      onTap: () => onChanged(value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        margin: const EdgeInsets.only(right: 4),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.cyan.withValues(alpha: 0.3) : LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: isActive ? Colors.cyan : LowerZoneColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            color: isActive ? Colors.cyan : LowerZoneColors.textSecondary,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -2454,6 +2454,14 @@ pub extern "C" fn engine_set_bus_pan(bus_idx: i32, pan: f64) {
     }
 }
 
+/// Set bus pan right (-1.0 to 1.0) for stereo dual-pan mode
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_bus_pan_right(bus_idx: i32, pan: f64) {
+    if (0..6).contains(&bus_idx) {
+        PLAYBACK_ENGINE.set_bus_pan_right(bus_idx as usize, pan);
+    }
+}
+
 /// Set bus mute
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_bus_mute(bus_idx: i32, muted: i32) {
@@ -6077,6 +6085,13 @@ pub extern "C" fn mixer_set_bus_solo(bus_id: u32, solo: i32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn mixer_set_bus_pan(bus_id: u32, pan: f64) -> i32 {
     PLAYBACK_ENGINE.set_bus_pan(bus_id as usize, pan);
+    1
+}
+
+/// Set bus pan right (-1.0 to 1.0) for stereo dual-pan mode
+#[unsafe(no_mangle)]
+pub extern "C" fn mixer_set_bus_pan_right(bus_id: u32, pan: f64) -> i32 {
+    PLAYBACK_ENGINE.set_bus_pan_right(bus_id as usize, pan);
     1
 }
 
@@ -15164,6 +15179,27 @@ pub extern "C" fn track_get_phase_invert(track_id: u64) -> i32 {
         .tracks
         .get(&TrackId(track_id))
         .map(|track| if track.phase_inverted { 1 } else { 0 })
+        .unwrap_or(0)
+}
+
+/// Set track input monitor state
+/// When enabled, the track's input is passed through to output for monitoring
+#[unsafe(no_mangle)]
+pub extern "C" fn track_set_input_monitor(track_id: u64, enabled: i32) {
+    if let Some(mut track) = TRACK_MANAGER.tracks.get_mut(&TrackId(track_id)) {
+        track.input_monitor = enabled != 0;
+        PROJECT_STATE.mark_dirty();
+    }
+}
+
+/// Get track input monitor state
+/// Returns: 0=Off, 1=On
+#[unsafe(no_mangle)]
+pub extern "C" fn track_get_input_monitor(track_id: u64) -> i32 {
+    TRACK_MANAGER
+        .tracks
+        .get(&TrackId(track_id))
+        .map(|track| if track.input_monitor { 1 } else { 0 })
         .unwrap_or(0)
 }
 

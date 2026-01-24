@@ -16,11 +16,19 @@ class LowerZoneContextBar extends StatelessWidget {
   /// Super-tab icons
   final List<IconData> superTabIcons;
 
+  /// Keyboard shortcut hints for super-tabs (e.g., ['⌘⇧T', '⌘⇧E', ...])
+  /// If null, shows index number (1, 2, 3...)
+  final List<String>? superTabShortcuts;
+
   /// Currently selected super-tab index
   final int selectedSuperTab;
 
   /// Sub-tab labels for current super-tab
   final List<String> subTabLabels;
+
+  /// Keyboard shortcut hints for sub-tabs (e.g., ['Q', 'W', 'E', 'R'])
+  /// If null, uses default Q, W, E, R
+  final List<String>? subTabShortcuts;
 
   /// Currently selected sub-tab index
   final int selectedSubTab;
@@ -47,8 +55,10 @@ class LowerZoneContextBar extends StatelessWidget {
     super.key,
     required this.superTabLabels,
     required this.superTabIcons,
+    this.superTabShortcuts,
     required this.selectedSuperTab,
     required this.subTabLabels,
+    this.subTabShortcuts,
     required this.selectedSubTab,
     required this.accentColor,
     required this.isExpanded,
@@ -163,11 +173,26 @@ class LowerZoneContextBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            Text(
-              '${index + 1}',
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeTiny,
-                color: isSelected ? accentColor.withValues(alpha: 0.6) : LowerZoneColors.textMuted,
+            // Show keyboard shortcut hint
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? accentColor.withValues(alpha: 0.2)
+                    : LowerZoneColors.bgMid,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Text(
+                superTabShortcuts != null && index < superTabShortcuts!.length
+                    ? superTabShortcuts![index]
+                    : '${index + 1}',
+                style: TextStyle(
+                  fontSize: LowerZoneTypography.sizeTiny,
+                  fontFamily: 'monospace',
+                  color: isSelected
+                      ? accentColor.withValues(alpha: 0.8)
+                      : LowerZoneColors.textMuted,
+                ),
               ),
             ),
           ],
@@ -228,7 +253,12 @@ class LowerZoneContextBar extends StatelessWidget {
 
   Widget _buildSubTab(int index) {
     final isSelected = index == selectedSubTab;
-    final shortcuts = ['Q', 'W', 'E', 'R'];
+    // Default shortcuts if not provided
+    final defaultShortcuts = ['Q', 'W', 'E', 'R'];
+    final shortcut = subTabShortcuts != null && index < subTabShortcuts!.length
+        ? subTabShortcuts![index]
+        : (index < defaultShortcuts.length ? defaultShortcuts[index] : '');
+
     return GestureDetector(
       onTap: () => onSubTabSelected(index),
       child: Container(
@@ -254,14 +284,28 @@ class LowerZoneContextBar extends StatelessWidget {
                 color: isSelected ? accentColor : LowerZoneColors.textSecondary,
               ),
             ),
-            const SizedBox(width: 4),
-            Text(
-              shortcuts[index],
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeTiny,
-                color: isSelected ? accentColor.withValues(alpha: 0.5) : LowerZoneColors.textMuted,
+            if (shortcut.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? accentColor.withValues(alpha: 0.15)
+                      : LowerZoneColors.bgMid,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(
+                  shortcut,
+                  style: TextStyle(
+                    fontSize: LowerZoneTypography.sizeTiny,
+                    fontFamily: 'monospace',
+                    color: isSelected
+                        ? accentColor.withValues(alpha: 0.7)
+                        : LowerZoneColors.textMuted,
+                  ),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

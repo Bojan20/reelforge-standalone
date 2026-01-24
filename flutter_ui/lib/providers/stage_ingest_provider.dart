@@ -273,6 +273,50 @@ class StageIngestProvider extends ChangeNotifier {
   StreamSubscription<MockStageEvent>? _mockEngineSubscription;
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // P2.2 URL VALIDATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Validate WebSocket URL for security and format compliance
+  bool _validateWebSocketUrl(String url) {
+    if (url.isEmpty) {
+      debugPrint('[StageIngest] ⚠️ Empty WebSocket URL');
+      return false;
+    }
+
+    // Must have valid scheme
+    final lowerUrl = url.toLowerCase();
+    if (!lowerUrl.startsWith('ws://') && !lowerUrl.startsWith('wss://')) {
+      debugPrint('[StageIngest] ⚠️ Invalid WebSocket scheme (must be ws:// or wss://): $url');
+      return false;
+    }
+
+    // Try to parse as URI
+    try {
+      final uri = Uri.parse(url);
+      if (uri.host.isEmpty) {
+        debugPrint('[StageIngest] ⚠️ Empty host in WebSocket URL: $url');
+        return false;
+      }
+      // Validate port if specified
+      if (uri.port < 0 || uri.port > 65535) {
+        debugPrint('[StageIngest] ⚠️ Invalid port in WebSocket URL: $url');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[StageIngest] ⛔ Malformed WebSocket URL: $url ($e)');
+      return false;
+    }
+
+    // Block suspicious characters
+    if (url.contains('\n') || url.contains('\r') || url.contains('\x00')) {
+      debugPrint('[StageIngest] ⛔ SECURITY: Suspicious characters in URL blocked: $url');
+      return false;
+    }
+
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -937,8 +981,13 @@ class StageIngestProvider extends ChangeNotifier {
   // LIVE CONNECTION API
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Create WebSocket connector
+  /// Create WebSocket connector (P2.2 FIX: validates URL before connecting)
   ConnectorHandle? createWebSocketConnector(String url) {
+    // P2.2 SECURITY: Validate URL before creating connector
+    if (!_validateWebSocketUrl(url)) {
+      return null;
+    }
+
     final connectorId = _ffi.connectorCreateWebsocket(url);
     if (connectorId == 0) return null;
 
@@ -1047,13 +1096,24 @@ class StageIngestProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Max events to process per poll tick (P2.1 FIX: prevents UI jank)
+  static const int _kMaxEventsPerPoll = 100;
+
   void _pollEvents(int connectorId) {
-    while (true) {
+    // P2.1 FIX: Bounded loop to prevent UI jank with many events
+    var processed = 0;
+    while (processed < _kMaxEventsPerPoll) {
       final event = _ffi.connectorPollEvent(connectorId);
       if (event == null) break;
 
       final stageEvent = IngestStageEvent.fromJson(event);
       _liveEventController.add(stageEvent);
+      processed++;
+    }
+
+    // Log if we hit the limit (may indicate backpressure)
+    if (processed >= _kMaxEventsPerPoll) {
+      debugPrint('[StageIngest] Poll limit reached ($processed events), remaining events queued');
     }
   }
 

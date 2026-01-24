@@ -37,26 +37,46 @@ class InsertSlot {
   final bool bypass;
   final bool prePost; // true = pre-fader, false = post-fader
 
+  // Plugin state fields (for missing plugin handling)
+  final bool isInstalled;
+  final bool hasStatePreserved;
+  final bool hasFreezeAudio;
+
   const InsertSlot({
     this.pluginId,
     this.pluginName,
     this.bypass = false,
     this.prePost = true,
+    this.isInstalled = true,
+    this.hasStatePreserved = false,
+    this.hasFreezeAudio = false,
   });
 
   bool get isEmpty => pluginId == null;
+
+  /// Check if plugin is missing (has ID but not installed)
+  bool get isMissing => pluginId != null && !isInstalled;
+
+  /// Check if plugin has a fallback (freeze or preserved state)
+  bool get hasFallback => hasFreezeAudio || hasStatePreserved;
 
   InsertSlot copyWith({
     String? pluginId,
     String? pluginName,
     bool? bypass,
     bool? prePost,
+    bool? isInstalled,
+    bool? hasStatePreserved,
+    bool? hasFreezeAudio,
   }) {
     return InsertSlot(
       pluginId: pluginId ?? this.pluginId,
       pluginName: pluginName ?? this.pluginName,
       bypass: bypass ?? this.bypass,
       prePost: prePost ?? this.prePost,
+      isInstalled: isInstalled ?? this.isInstalled,
+      hasStatePreserved: hasStatePreserved ?? this.hasStatePreserved,
+      hasFreezeAudio: hasFreezeAudio ?? this.hasFreezeAudio,
     );
   }
 }
@@ -433,55 +453,116 @@ class _ChannelStripState extends State<ChannelStrip> {
   }
 
   Widget _buildInsertSlot(InsertSlot slot, int index, bool preFader) {
+    // Determine slot colors based on state
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+
+    if (slot.isEmpty) {
+      bgColor = FluxForgeTheme.bgDeep;
+      borderColor = FluxForgeTheme.borderSubtle;
+      textColor = FluxForgeTheme.textTertiary;
+    } else if (slot.isMissing) {
+      // Missing plugin - show warning colors
+      if (slot.hasFreezeAudio) {
+        // Frozen - cyan
+        bgColor = const Color(0xFF40c8ff).withValues(alpha: 0.15);
+        borderColor = const Color(0xFF40c8ff).withValues(alpha: 0.5);
+        textColor = const Color(0xFF40c8ff);
+      } else if (slot.hasStatePreserved) {
+        // State preserved - blue
+        bgColor = const Color(0xFF4a9eff).withValues(alpha: 0.15);
+        borderColor = const Color(0xFF4a9eff).withValues(alpha: 0.5);
+        textColor = const Color(0xFF4a9eff);
+      } else {
+        // No fallback - red
+        bgColor = const Color(0xFFff4060).withValues(alpha: 0.15);
+        borderColor = const Color(0xFFff4060).withValues(alpha: 0.5);
+        textColor = const Color(0xFFff4060);
+      }
+    } else if (slot.bypass) {
+      bgColor = FluxForgeTheme.bgDeep;
+      borderColor = FluxForgeTheme.borderSubtle;
+      textColor = FluxForgeTheme.textTertiary;
+    } else {
+      bgColor = FluxForgeTheme.accentCyan.withValues(alpha: 0.3);
+      borderColor = FluxForgeTheme.accentCyan.withValues(alpha: 0.5);
+      textColor = FluxForgeTheme.textSecondary;
+    }
+
     return GestureDetector(
       onTap: () => widget.onInsertEdit?.call(),
-      child: Container(
-        height: 18,
-        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          color: slot.isEmpty
-              ? FluxForgeTheme.bgDeep
-              : slot.bypass
-                  ? FluxForgeTheme.bgDeep
-                  : FluxForgeTheme.accentCyan.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(2),
-          border: Border.all(
-            color: slot.bypass
-                ? FluxForgeTheme.borderSubtle
-                : slot.isEmpty
-                    ? FluxForgeTheme.borderSubtle
-                    : FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
+      child: Tooltip(
+        message: _getSlotTooltip(slot, index),
+        child: Container(
+          height: 18,
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(color: borderColor),
           ),
-        ),
-        child: Row(
-          children: [
-            Text(
-              '${index + 1}',
-              style: TextStyle(
-                fontSize: 8,
-                color: FluxForgeTheme.textTertiary,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                slot.pluginName ?? '—',
+          child: Row(
+            children: [
+              // Slot number
+              Text(
+                '${index + 1}',
                 style: TextStyle(
-                  fontSize: 9,
-                  color: slot.isEmpty
-                      ? FluxForgeTheme.textTertiary
-                      : slot.bypass
-                          ? FluxForgeTheme.textTertiary
-                          : FluxForgeTheme.textSecondary,
+                  fontSize: 8,
+                  color: FluxForgeTheme.textTertiary,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+              const SizedBox(width: 4),
+
+              // Status icon for missing plugins
+              if (slot.isMissing) ...[
+                Icon(
+                  slot.hasFreezeAudio
+                      ? Icons.ac_unit
+                      : slot.hasStatePreserved
+                          ? Icons.save_outlined
+                          : Icons.warning_amber,
+                  size: 10,
+                  color: textColor,
+                ),
+                const SizedBox(width: 2),
+              ],
+
+              // Plugin name
+              Expanded(
+                child: Text(
+                  slot.pluginName ?? '—',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: textColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  String _getSlotTooltip(InsertSlot slot, int index) {
+    if (slot.isEmpty) {
+      return 'Insert ${index + 1}: Empty\nClick to add plugin';
+    }
+
+    final status = slot.isMissing
+        ? slot.hasFreezeAudio
+            ? ' (Frozen)'
+            : slot.hasStatePreserved
+                ? ' (State Preserved)'
+                : ' (MISSING)'
+        : slot.bypass
+            ? ' (Bypassed)'
+            : '';
+
+    return 'Insert ${index + 1}: ${slot.pluginName}$status';
   }
 
   Widget _buildEqButton() {

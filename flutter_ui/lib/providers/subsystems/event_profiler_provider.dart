@@ -8,21 +8,37 @@
 /// - Latency tracking (average, max)
 /// - Events-per-second statistics
 /// - Event export for analysis
+/// - DSP load metrics from Rust engine (via FFI)
+///
+/// Integration: Syncs with Rust DSP profiler via NativeFFI
 
 import 'package:flutter/foundation.dart';
 import '../../models/advanced_middleware_models.dart';
+import '../../src/rust/native_ffi.dart';
 
 /// Provider for event profiling and debugging
 class EventProfilerProvider extends ChangeNotifier {
+  final NativeFFI? _ffi;
+
   /// Internal event profiler
   late EventProfiler _profiler;
 
   /// Max events to keep in memory
   final int maxEvents;
 
+  /// Cached DSP load from engine
+  double _dspLoad = 0.0;
+
+  /// Cached stage breakdown from engine
+  Map<String, double> _stageBreakdown = {};
+
+  /// Overload count from engine
+  int _overloadCount = 0;
+
   EventProfilerProvider({
+    NativeFFI? ffi,
     this.maxEvents = 10000,
-  }) {
+  }) : _ffi = ffi {
     _profiler = EventProfiler(maxEvents: maxEvents);
   }
 
@@ -68,6 +84,56 @@ class EventProfilerProvider extends ChangeNotifier {
 
   /// Error count
   int get errors => _profiler.getStats().errors;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DSP PROFILER (FFI)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// DSP load percentage (0-100) from Rust engine
+  double get dspLoad => _dspLoad;
+
+  /// DSP stage breakdown (input, mixing, effects, metering, output percentages)
+  Map<String, double> get stageBreakdown => Map.unmodifiable(_stageBreakdown);
+
+  /// Total DSP overload count from engine
+  int get overloadCount => _overloadCount;
+
+  /// Check if FFI is available
+  bool get hasFfiConnection => _ffi != null;
+
+  /// Sync DSP profiler stats from Rust engine
+  void syncFromEngine() {
+    if (_ffi == null) return;
+
+    try {
+      _dspLoad = _ffi.profilerGetCurrentLoad();
+      _stageBreakdown = _ffi.profilerGetStageBreakdown();
+      _overloadCount = _ffi.profilerGetOverloadCount();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[EventProfilerProvider] FFI sync error: $e');
+    }
+  }
+
+  /// Get DSP load history from engine
+  List<double> getDspLoadHistory({int count = 100}) {
+    if (_ffi == null) return [];
+    try {
+      return _ffi.profilerGetLoadHistory(count: count);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Get full DSP profiler stats from engine
+  Map<String, dynamic>? getEngineDspStats() {
+    if (_ffi == null) return null;
+    try {
+      return _ffi.profilerGetStats();
+    } catch (e) {
+      return null;
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // EVENT RECORDING

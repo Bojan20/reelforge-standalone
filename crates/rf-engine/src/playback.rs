@@ -856,10 +856,10 @@ impl OneShotVoice {
         // Pre-compute equal-power pan gains (constant for this voice)
         // pan: -1.0 = full left, 0.0 = center, +1.0 = full right
         // Formula: L = cos(θ), R = sin(θ) where θ = (pan + 1) * π/4
-        // Simplified: L = sqrt((1 - pan) / 2), R = sqrt((1 + pan) / 2)
-        let pan_norm = (self.pan + 1.0) * 0.5; // 0.0 to 1.0
-        let pan_l = ((1.0 - pan_norm) * std::f32::consts::FRAC_PI_2).cos();
-        let pan_r = ((1.0 - pan_norm) * std::f32::consts::FRAC_PI_2).sin();
+        // θ ranges from 0 (full left) to π/2 (full right)
+        let pan_angle = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4;
+        let pan_l = pan_angle.cos();
+        let pan_r = pan_angle.sin();
 
         for frame in 0..frames_needed {
             // Handle fade
@@ -895,10 +895,27 @@ impl OneShotVoice {
             };
 
             // Apply equal-power panning
-            // For stereo source: pan affects balance between L and R
+            // FIXED: For stereo sources, sum to mono first then pan
+            // This ensures the ENTIRE sound moves in the stereo field,
+            // not just attenuating individual channels of the source file.
+            //
             // For mono source: pan positions the mono signal in stereo field
-            let sample_l = (src_l * pan_l) as f64;
-            let sample_r = (src_r * pan_r) as f64;
+            // For stereo source: sum to mono, then pan (spatial positioning)
+            let sample_l: f64;
+            let sample_r: f64;
+
+            if channels_src > 1 {
+                // Stereo source: sum to mono, then pan for spatial positioning
+                // This is critical for reel stop sounds where we want the
+                // ENTIRE sound to come from left/right speaker based on reel position
+                let mono = (src_l + src_r) * 0.5;
+                sample_l = (mono * pan_l) as f64;
+                sample_r = (mono * pan_r) as f64;
+            } else {
+                // Mono source: direct panning
+                sample_l = (src_l * pan_l) as f64;
+                sample_r = (src_r * pan_r) as f64;
+            }
 
             // Add to bus buffers (mixing)
             left[frame] += sample_l;
@@ -1064,6 +1081,7 @@ impl BusBuffers {
 pub struct BusState {
     pub volume: f64,
     pub pan: f64,
+    pub pan_right: f64, // For stereo pan mode: R channel pan (-1.0 to 1.0)
     pub muted: bool,
     pub soloed: bool,
 }
@@ -1073,6 +1091,7 @@ impl Default for BusState {
         Self {
             volume: 1.0,
             pan: 0.0,
+            pan_right: 0.0, // Default to center (same as pan)
             muted: false,
             soloed: false,
         }
@@ -2437,6 +2456,13 @@ impl PlaybackEngine {
     pub fn set_bus_pan(&self, bus_idx: usize, pan: f64) {
         if let Some(state) = self.bus_states.write().get_mut(bus_idx) {
             state.pan = pan.clamp(-1.0, 1.0);
+        }
+    }
+
+    /// Set bus pan right (-1.0 to 1.0) for stereo dual-pan mode
+    pub fn set_bus_pan_right(&self, bus_idx: usize, pan: f64) {
+        if let Some(state) = self.bus_states.write().get_mut(bus_idx) {
+            state.pan_right = pan.clamp(-1.0, 1.0);
         }
     }
 

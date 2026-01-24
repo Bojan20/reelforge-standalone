@@ -1229,6 +1229,11 @@ impl RoutingCommandSender {
             pre_fader,
         })
     }
+
+    /// Remove send from channel
+    pub fn remove_send(&mut self, from: ChannelId, send_index: usize) -> bool {
+        self.send(RoutingCommand::RemoveSend { from, send_index })
+    }
 }
 
 impl RoutingGraph {

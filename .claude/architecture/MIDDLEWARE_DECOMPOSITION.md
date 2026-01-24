@@ -570,16 +570,19 @@ List<AuxBus> get allAuxBuses => _auxSendProvider.allAuxBuses;
 ### VoicePoolProvider
 
 **File:** `flutter_ui/lib/providers/subsystems/voice_pool_provider.dart`
-**LOC:** ~255
+**LOC:** ~340
 
 **Responsibilities:**
 - Voice polyphony management with priority-based stealing
 - Virtual voice tracking (inaudible voices)
 - Voice parameter updates (volume, pitch, pan)
 - Pool statistics for monitoring
+- **Real-time engine stats via FFI (syncFromEngine)**
 
-**Note:** This is a Dart-only voice tracking system. Actual audio playback
-is handled by AudioPlaybackService which communicates with the Rust engine.
+**FFI Integration:** ✅ Connected to Rust engine via `NativeFFI.getVoicePoolStats()`
+- `syncFromEngine()` fetches active voice counts, source/bus breakdown
+- Engine stats getters: `engineActiveCount`, `dawVoices`, `slotLabVoices`, `middlewareVoices`
+- Bus voice counts: `sfxVoices`, `musicVoices`, `voiceVoices`, `ambienceVoices`
 
 **Key Methods:**
 ```dart
@@ -663,7 +666,7 @@ void clear()
 
 ```dart
 sl.registerLazySingleton<VoicePoolProvider>(
-  () => VoicePoolProvider(),  // No FFI dependency - pure Dart voice tracking
+  () => VoicePoolProvider(ffi: sl<NativeFFI>()),  // FFI for engine stats
 );
 sl.registerLazySingleton<AttenuationCurveProvider>(
   () => AttenuationCurveProvider(ffi: sl<NativeFFI>()),
@@ -696,7 +699,7 @@ VoicePoolStats getVoicePoolStats() => _voicePoolProvider.getStats();
 ### MemoryManagerProvider
 
 **File:** `flutter_ui/lib/providers/subsystems/memory_manager_provider.dart`
-**LOC:** ~240
+**LOC:** ~350
 
 **Responsibilities:**
 - Soundbank registration and management
@@ -704,28 +707,48 @@ VoicePoolStats getVoicePoolStats() => _voicePoolProvider.getStats();
 - LRU-based bank unloading
 - Batch operations (load/unload all)
 - Memory statistics
+- **Real-time engine stats via FFI (syncFromEngine)**
+
+**FFI Integration:** ✅ Full Rust backend via `crates/rf-bridge/src/memory_ffi.rs`
+- `memoryManagerInit()` — Initialize with config (max resident/streaming bytes, thresholds)
+- `memoryManagerRegisterBank()` — Register soundbank with priority, sound IDs
+- `memoryManagerLoadBank()` / `memoryManagerUnloadBank()` — Load/unload banks with LRU
+- `memoryManagerGetStats()` — Get memory usage stats (resident, streaming, state)
+- `memoryManagerGetBanks()` — Get list of all registered banks with status
+- `memoryManagerTouchBank()` — Mark bank as recently used (LRU tracking)
+- `memoryManagerClear()` — Clear all banks
 
 **Key Methods:**
 ```dart
 void registerSoundbank(SoundBank bank)
 bool loadSoundbank(String bankId)
 bool unloadSoundbank(String bankId)
-void loadAllSoundbanks()
-void unloadAllSoundbanks()
+void touchSoundbank(String bankId)
+int loadByPriority(LoadPriority minPriority)
+int unloadByPriority(LoadPriority maxPriority)
 MemoryStats getStats()
+void syncFromEngine()  // Sync stats from Rust
 ```
 
 ### EventProfilerProvider
 
 **File:** `flutter_ui/lib/providers/subsystems/event_profiler_provider.dart`
-**LOC:** ~280
+**LOC:** ~540
 
 **Responsibilities:**
 - Audio event recording and tracking
 - Latency measurement (avg, max, percentiles)
 - Voice statistics (starts, stops, steals)
-- Event export for analysis
+- Event export for analysis (JSON, CSV)
 - Convenience recording methods
+- **DSP profiler stats via FFI (syncFromEngine)**
+
+**FFI Integration:** ✅ Connected to Rust DSP profiler via `crates/rf-bridge/src/profiler_ffi.rs`
+- `profilerGetCurrentLoad()` — Current DSP load percentage (0-100)
+- `profilerGetStageBreakdown()` — Per-stage timing (input, mixing, effects, metering, output)
+- `profilerGetOverloadCount()` — Total overload count
+- `profilerGetLoadHistory()` — Historical load samples
+- `profilerGetStats()` — Full profiler stats map
 
 **Key Methods:**
 ```dart
@@ -734,6 +757,11 @@ ProfilerStats getStats()
 List<ProfilerEvent> getRecentEvents({int count = 100})
 Map<String, double> getLatencyPercentiles({int count = 1000})
 Map<String, dynamic> exportReportToJson({int eventCount = 1000})
+String exportToCSV({int count = 1000, bool includeHeader = true})
+void syncFromEngine()  // Sync DSP profiler from Rust
+double get dspLoad  // DSP load from engine (0-100)
+Map<String, double> get stageBreakdown  // Per-stage percentages
+int get overloadCount
 void clear()
 ```
 
@@ -741,26 +769,49 @@ void clear()
 
 ## All Extractions Complete
 
-| Subsystem | LOC | Phase | Status |
-|-----------|-----|-------|--------|
-| StateGroupsProvider | ~185 | 1 | ✅ |
-| SwitchGroupsProvider | ~210 | 1 | ✅ |
-| RtpcSystemProvider | ~350 | 2 | ✅ |
-| DuckingSystemProvider | ~190 | 2 | ✅ |
-| BlendContainersProvider | ~280 | 3 | ✅ |
-| RandomContainersProvider | ~260 | 3 | ✅ |
-| SequenceContainersProvider | ~270 | 3 | ✅ |
-| MusicSystemProvider | ~400 | 4 | ✅ |
-| EventSystemProvider | ~330 | 4 | ✅ |
-| CompositeEventSystemProvider | ~1280 | 4 | ✅ |
-| BusHierarchyProvider | ~360 | 5 | ✅ |
-| AuxSendProvider | ~300 | 5 | ✅ |
-| VoicePoolProvider | ~255 | 6 | ✅ |
-| AttenuationCurveProvider | ~300 | 6 | ✅ |
-| **MemoryManagerProvider** | ~240 | 7 | ✅ |
-| **EventProfilerProvider** | ~280 | 7 | ✅ |
+| Subsystem | LOC | Phase | FFI | Status |
+|-----------|-----|-------|-----|--------|
+| StateGroupsProvider | ~185 | 1 | ✅ | ✅ |
+| SwitchGroupsProvider | ~210 | 1 | ✅ | ✅ |
+| RtpcSystemProvider | ~350 | 2 | ✅ | ✅ |
+| DuckingSystemProvider | ~190 | 2 | ✅ | ✅ |
+| BlendContainersProvider | ~280 | 3 | ✅ | ✅ |
+| RandomContainersProvider | ~260 | 3 | ✅ | ✅ |
+| SequenceContainersProvider | ~270 | 3 | ✅ | ✅ |
+| MusicSystemProvider | ~400 | 4 | ✅ | ✅ |
+| EventSystemProvider | ~330 | 4 | ✅ | ✅ |
+| CompositeEventSystemProvider | ~1280 | 4 | ✅ | ✅ |
+| BusHierarchyProvider | ~360 | 5 | ✅ | ✅ |
+| AuxSendProvider | ~300 | 5 | ✅ | ✅ |
+| VoicePoolProvider | ~340 | 6 | ✅ | ✅ |
+| AttenuationCurveProvider | ~300 | 6 | ✅ | ✅ |
+| MemoryManagerProvider | ~350 | 7 | ✅ | ✅ |
+| EventProfilerProvider | ~540 | 7 | ✅ | ✅ |
 
-**Total Subsystem LOC:** ~5,490 LOC across 16 providers
+**Total Subsystem LOC:** ~5,945 LOC across 16 providers
+
+### FFI Integration Summary (2026-01-24)
+
+All 16 subsystem providers are now connected to Rust FFI:
+
+| Provider | FFI Backend | Key Functions |
+|----------|-------------|---------------|
+| StateGroupsProvider | `middleware_*` | State group registration, state changes |
+| SwitchGroupsProvider | `middleware_*` | Per-object switch management |
+| RtpcSystemProvider | `middleware_*` | RTPC value control, bindings |
+| DuckingSystemProvider | `middleware_*` | Ducking rules |
+| BlendContainersProvider | `container_*` | RTPC-based crossfade |
+| RandomContainersProvider | `container_*` | Weighted random selection |
+| SequenceContainersProvider | `container_*` | Timed sequences |
+| MusicSystemProvider | `middleware_*` | Music segments, stingers |
+| EventSystemProvider | `middleware_*` | MiddlewareEvent CRUD |
+| CompositeEventSystemProvider | — | Dart-only (uses EventRegistry) |
+| BusHierarchyProvider | `mixer_*` | Bus volume, pan, mute, solo |
+| AuxSendProvider | — | Dart-only aux routing |
+| **VoicePoolProvider** | `getVoicePoolStats` | Engine voice stats (active, source, bus) |
+| AttenuationCurveProvider | — | Dart curve evaluation |
+| **MemoryManagerProvider** | `memory_manager_*` | Full memory manager (register, load, unload, LRU) |
+| **EventProfilerProvider** | `profiler_*` | DSP load, stage breakdown, overload count |
 
 ---
 
@@ -795,4 +846,4 @@ test('StateGroupsProvider sets state correctly', () {
 
 ---
 
-**Last Updated:** 2026-01-23 (Phase 7 Complete)
+**Last Updated:** 2026-01-24 (Phase 7 Complete + FFI Integration for VoicePool, MemoryManager, EventProfiler)

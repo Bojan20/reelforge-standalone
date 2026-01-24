@@ -15,6 +15,7 @@
 /// - Import/export functionality
 /// - Real-time testing with scope selection
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/stage_configuration_service.dart';
+import '../../services/audio_playback_service.dart';
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -94,6 +96,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
   // Undo/Redo
   final List<_UndoAction> _undoStack = [];
   final List<_UndoAction> _redoStack = [];
+
+  // Debounce timer for slider updates (P0.2 performance fix)
+  Timer? _sliderDebounceTimer;
 
   @override
   void initState() {
@@ -169,11 +174,30 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         }
         _expandedCategories.add(event.category);
       } else {
-        // Update if changed
+        // Update if changed - check name, category, or any action parameters
         final existing = _events[event.id]!;
-        if (existing.name != event.name ||
+        bool needsUpdate = existing.name != event.name ||
             existing.category != event.category ||
-            existing.actions.length != event.actions.length) {
+            existing.actions.length != event.actions.length;
+
+        // Also check if any action parameters have changed (including pan, gain, etc.)
+        if (!needsUpdate && existing.actions.length == event.actions.length) {
+          for (int i = 0; i < existing.actions.length; i++) {
+            final oldAction = existing.actions[i];
+            final newAction = event.actions[i];
+            if (oldAction.pan != newAction.pan ||
+                oldAction.gain != newAction.gain ||
+                oldAction.delay != newAction.delay ||
+                oldAction.assetId != newAction.assetId ||
+                oldAction.bus != newAction.bus ||
+                oldAction.loop != newAction.loop) {
+              needsUpdate = true;
+              break;
+            }
+          }
+        }
+
+        if (needsUpdate) {
           _events[event.id] = event;
           if (existing.category != event.category) {
             _categoryFolders[existing.category]?.remove(event.id);
@@ -189,6 +213,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
 
   @override
   void dispose() {
+    _sliderDebounceTimer?.cancel();
     _searchController.dispose();
     _newEventNameController.dispose();
     _eventListScrollController.dispose();
@@ -2318,10 +2343,12 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       children: [
         _buildInspectorSection('General', [
           // P1.2: Editable Name TextField
+          // P0.1 FIX: Added ValueKey to force rebuild when event changes
           _buildInspectorEditableField(
             'Name',
             event.name,
             (newName) => _updateEventProperty(event, name: newName),
+            fieldKey: ValueKey('event_name_${event.id}'),
           ),
           // P1.3: Stage binding dropdown
           _buildInspectorDropdown(
@@ -2348,11 +2375,13 @@ class _EventEditorPanelState extends State<EventEditorPanel>
   }
 
   /// P1.2: Editable text field for inspector
+  /// P0.1 FIX: Added fieldKey parameter to force rebuild when event changes
   Widget _buildInspectorEditableField(
     String label,
     String value,
-    ValueChanged<String> onChanged,
-  ) {
+    ValueChanged<String> onChanged, {
+    Key? fieldKey,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -2375,7 +2404,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: FluxForgeTheme.borderSubtle),
               ),
+              // P0.1 FIX: Use key to force TextFormField rebuild when event changes
               child: TextFormField(
+                key: fieldKey,
                 initialValue: value,
                 style: FluxForgeTheme.bodySmall.copyWith(
                   color: FluxForgeTheme.textPrimary,
@@ -2447,6 +2478,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         ]),
         const SizedBox(height: 16),
         _buildInspectorSection('Timing', [
+          // P0.2: Debounced slider updates
           _buildInspectorSlider(
             'Delay',
             action.delay,
@@ -2454,8 +2486,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             5,
             'ms',
             1000,
-            (value) => _updateAction(event, action, delay: value),
+            (value) => _updateActionDebounced(event, action, delay: value),
           ),
+          // P0.2: Debounced slider updates
           _buildInspectorSlider(
             'Fade Time',
             action.fadeTime,
@@ -2463,7 +2496,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             5,
             'ms',
             1000,
-            (value) => _updateAction(event, action, fadeTime: value),
+            (value) => _updateActionDebounced(event, action, fadeTime: value),
           ),
           _buildInspectorDropdown(
             'Fade Curve',
@@ -2480,14 +2513,17 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         ]),
         const SizedBox(height: 16),
         _buildInspectorSection('Parameters', [
-          _buildInspectorSlider(
+          // P0.3: Use dB slider for gain with debounced updates
+          _buildGainSlider(
             'Gain',
             action.gain,
-            0,
-            2,
-            '%',
-            100,
-            (value) => _updateAction(event, action, gain: value),
+            (value) => _updateActionDebounced(event, action, gain: value),
+          ),
+          // P0.2: Debounced pan updates
+          _buildPanSlider(
+            'Pan',
+            action.pan,
+            (value) => _updateActionDebounced(event, action, pan: value),
           ),
           _buildInspectorToggle(
             'Loop',
@@ -2678,6 +2714,214 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// P0.3: Gain slider with dB display (0-200% → -∞ to +6dB)
+  /// Uses debounced updates for performance
+  Widget _buildGainSlider(
+    String label,
+    double gain,
+    ValueChanged<double> onChanged,
+  ) {
+    // Convert linear gain to dB for display
+    String gainToDb(double g) {
+      if (g <= 0.001) return '-∞ dB';
+      final db = 20 * math.log(g) / math.ln10;
+      if (db >= 0) return '+${db.toStringAsFixed(1)} dB';
+      return '${db.toStringAsFixed(1)} dB';
+    }
+
+    // Color based on gain value
+    Color gainColor() {
+      if (gain > 1.0) return Colors.orange; // Boost
+      if (gain < 0.5) return FluxForgeTheme.textTertiary; // Low
+      return FluxForgeTheme.accentBlue; // Normal
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: FluxForgeTheme.bodySmall.copyWith(
+                  color: FluxForgeTheme.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              // P0.3: Show dB value instead of percentage
+              Text(
+                gainToDb(gain),
+                style: FluxForgeTheme.mono.copyWith(
+                  color: gainColor(),
+                  fontSize: 10,
+                  fontWeight: gain > 1.0 ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 4,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              activeTrackColor: gainColor(),
+              inactiveTrackColor: FluxForgeTheme.bgSurface,
+              thumbColor: gainColor(),
+              overlayColor: gainColor().withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: gain,
+              min: 0,
+              max: 2,
+              onChanged: onChanged,
+            ),
+          ),
+          // Gain presets: -12dB, -6dB, 0dB, +3dB, +6dB
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildGainPreset('-12', 0.25, gain, onChanged),
+              _buildGainPreset('-6', 0.5, gain, onChanged),
+              _buildGainPreset('0', 1.0, gain, onChanged),
+              _buildGainPreset('+3', 1.41, gain, onChanged),
+              _buildGainPreset('+6', 2.0, gain, onChanged),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGainPreset(String label, double preset, double current, ValueChanged<double> onChanged) {
+    final isSelected = (current - preset).abs() < 0.05;
+    final color = preset > 1.0 ? Colors.orange : FluxForgeTheme.accentBlue;
+    return InkWell(
+      onTap: () => onChanged(preset),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? color.withValues(alpha: 0.2)
+              : FluxForgeTheme.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected ? color : FluxForgeTheme.borderSubtle,
+          ),
+        ),
+        child: Text(
+          '$label dB',
+          style: TextStyle(
+            fontSize: 9,
+            color: isSelected ? color : FluxForgeTheme.textSecondary,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Pan slider with L/R display (-1.0 to +1.0)
+  Widget _buildPanSlider(
+    String label,
+    double value,
+    ValueChanged<double> onChanged,
+  ) {
+    // Format pan value: L100, L50, C, R50, R100
+    String formatPan(double v) {
+      if (v.abs() < 0.01) return 'C';
+      final percent = (v.abs() * 100).toInt();
+      return v < 0 ? 'L$percent' : 'R$percent';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: FluxForgeTheme.bodySmall.copyWith(
+                  color: FluxForgeTheme.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                formatPan(value),
+                style: FluxForgeTheme.mono.copyWith(
+                  color: Colors.cyan,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 4,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              activeTrackColor: Colors.cyan,
+              inactiveTrackColor: FluxForgeTheme.bgSurface,
+              thumbColor: Colors.cyan,
+              overlayColor: Colors.cyan.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: value,
+              min: -1.0,
+              max: 1.0,
+              onChanged: onChanged,
+            ),
+          ),
+          // Pan presets: L100, L50, C, R50, R100
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildPanPreset('L', -1.0, value, onChanged),
+              _buildPanPreset('L50', -0.5, value, onChanged),
+              _buildPanPreset('C', 0.0, value, onChanged),
+              _buildPanPreset('R50', 0.5, value, onChanged),
+              _buildPanPreset('R', 1.0, value, onChanged),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPanPreset(String label, double preset, double current, ValueChanged<double> onChanged) {
+    final isSelected = (current - preset).abs() < 0.05;
+    return InkWell(
+      onTap: () => onChanged(preset),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.cyan.withValues(alpha: 0.2)
+              : FluxForgeTheme.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected ? Colors.cyan : FluxForgeTheme.borderSubtle,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: isSelected ? Colors.cyan : FluxForgeTheme.textSecondary,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }
@@ -3349,8 +3593,46 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         return;
       }
 
-      // Post event to engine
-      final playingId = provider.testEvent(event.id);
+      // P1.1 FIX: Use composite event playback for SlotLab events
+      // This path supports pan/gain parameters via playFileToBus
+      int playingId = 0;
+      if (event.id.startsWith('mw_event_')) {
+        // Convert middleware ID to composite ID (mw_event_XXX → event_XXX)
+        final compositeId = event.id.substring(3);
+        debugPrint('[EventEditor] Using composite playback for: $compositeId');
+
+        // Ensure composite event is synced with latest action parameters
+        provider.syncMiddlewareToComposite(event.id);
+
+        // Play via composite path (supports pan/gain)
+        playingId = provider.playCompositeEvent(compositeId);
+      } else {
+        // For non-SlotLab events (numeric IDs), play directly via AudioPlaybackService
+        // This ensures pan/gain from actions are applied
+        final playbackService = AudioPlaybackService.instance;
+        int voicesStarted = 0;
+
+        for (final action in event.actions) {
+          if (action.type == ActionType.play && action.assetId.isNotEmpty) {
+            // Get bus ID from bus name
+            final busId = _busNameToId(action.bus);
+
+            debugPrint('[EventEditor] Direct playback: ${action.assetId}, pan: ${action.pan}, gain: ${action.gain}');
+
+            final voiceId = playbackService.playFileToBus(
+              action.assetId,
+              volume: action.gain,
+              pan: action.pan,
+              busId: busId,
+            );
+
+            if (voiceId >= 0) {
+              voicesStarted++;
+            }
+          }
+        }
+        playingId = voicesStarted;
+      }
 
       debugPrint('[EventEditor] Testing event: ${event.name} (playingId: $playingId)');
 
@@ -3392,6 +3674,33 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         ),
       );
     }
+  }
+
+  /// Convert bus name to engine bus ID
+  int _busNameToId(String busName) {
+    const busMap = {
+      'Master': 5,
+      'master': 5,
+      'SFX': 0,
+      'sfx': 0,
+      'Music': 1,
+      'music': 1,
+      'Voice': 2,
+      'voice': 2,
+      'VO': 2,
+      'vo': 2,
+      'Ambience': 3,
+      'ambience': 3,
+      'Aux': 4,
+      'aux': 4,
+      'UI': 0,
+      'ui': 0,
+      'Reels': 0,
+      'reels': 0,
+      'Wins': 0,
+      'wins': 0,
+    };
+    return busMap[busName] ?? 0;
   }
 
   void _addAction(
@@ -3501,6 +3810,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     FadeCurve? fadeCurve,
     double? fadeTime,
     double? gain,
+    double? pan,
     double? delay,
     bool? loop,
   }) {
@@ -3513,6 +3823,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       fadeCurve: fadeCurve,
       fadeTime: fadeTime,
       gain: gain,
+      pan: pan,
       delay: delay,
       loop: loop,
     );
@@ -3525,8 +3836,49 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       _events[event.id] = event.copyWith(actions: newActions);
     });
 
+    // DEBUG: Log parameter updates
+    if (pan != null) {
+      debugPrint('[EventEditor] Pan updated: eventId=${event.id}, actionId=${action.id}, oldPan=${action.pan}, newPan=$pan');
+    }
+    if (gain != null) {
+      debugPrint('[EventEditor] Gain updated: eventId=${event.id}, gain=$gain');
+    }
+
     // P1.1 FIX: Auto-sync to provider on edit
     _syncEventToProvider(_events[event.id]!);
+  }
+
+  /// Debounced version of _updateAction for sliders (P0.2 performance fix)
+  /// Waits 50ms after last change before syncing to provider
+  void _updateActionDebounced(
+    MiddlewareEvent event,
+    MiddlewareAction action, {
+    double? gain,
+    double? pan,
+    double? delay,
+    double? fadeTime,
+  }) {
+    // Update local state immediately for responsive UI
+    final newAction = action.copyWith(
+      gain: gain,
+      pan: pan,
+      delay: delay,
+      fadeTime: fadeTime,
+    );
+
+    final newActions = event.actions.map((a) {
+      return a.id == action.id ? newAction : a;
+    }).toList();
+
+    setState(() {
+      _events[event.id] = event.copyWith(actions: newActions);
+    });
+
+    // Debounce the provider sync
+    _sliderDebounceTimer?.cancel();
+    _sliderDebounceTimer = Timer(const Duration(milliseconds: 50), () {
+      _syncEventToProvider(_events[event.id]!);
+    });
   }
 
   void _importEvents() {

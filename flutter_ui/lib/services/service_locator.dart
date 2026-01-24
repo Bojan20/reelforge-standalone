@@ -58,6 +58,8 @@ import 'session_persistence_service.dart';
 import 'live_engine_service.dart';
 import 'unified_search_service.dart';
 import 'recent_favorites_service.dart';
+import 'plugin_state_service.dart';
+import 'missing_plugin_detector.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -164,16 +166,16 @@ class ServiceLocator {
       () => AuxSendProvider(ffi: sl<NativeFFI>()),
     );
     sl.registerLazySingleton<VoicePoolProvider>(
-      () => VoicePoolProvider(),
+      () => VoicePoolProvider(ffi: sl<NativeFFI>()),
     );
     sl.registerLazySingleton<AttenuationCurveProvider>(
       () => AttenuationCurveProvider(ffi: sl<NativeFFI>()),
     );
     sl.registerLazySingleton<MemoryManagerProvider>(
-      () => MemoryManagerProvider(),
+      () => MemoryManagerProvider(ffi: sl<NativeFFI>()),
     );
     sl.registerLazySingleton<EventProfilerProvider>(
-      () => EventProfilerProvider(),
+      () => EventProfilerProvider(ffi: sl<NativeFFI>()),
     );
 
     // NOTE: EventRegistry is a ChangeNotifier created per-screen via Provider,
@@ -198,6 +200,19 @@ class ServiceLocator {
 
     // Initialize search providers
     _initializeSearchProviders();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 7: Plugin State System (depends on FFI)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<PluginStateService>(
+      () => PluginStateService.instance,
+    );
+    sl.registerLazySingleton<MissingPluginDetector>(
+      () => MissingPluginDetector.instance,
+    );
+
+    // Initialize plugin alternatives registry
+    PluginAlternativesRegistry.instance.initBuiltInAlternatives();
 
     _initialized = true;
   }

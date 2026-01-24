@@ -456,16 +456,27 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
   void _updateMeters() {
     setState(() {
-      // NOTE: Gain reduction metering from insert chain requires additional FFI
-      // The InsertProcessor trait doesn't expose GR, only set_param/get_param.
-      // For now, GR display will show 0 until we add dedicated GR metering FFI.
-      // TODO: Add insert_get_compressor_gr() FFI function for real-time GR metering
-      _currentGainReduction = 0.0;
+      // Get gain reduction from channel strip compressor
+      try {
+        _currentGainReduction = _ffi.channelStripGetCompGr(widget.trackId);
+      } catch (_) {
+        _currentGainReduction = 0.0;
+      }
 
-      // NO FAKE DATA: Levels must come from real metering
-      // TODO: Connect to real metering via track meter FFI
-      _currentInputLevel = -60.0;
-      _currentOutputLevel = -60.0;
+      // Get input/output levels from channel strip
+      try {
+        final inputLinear = _ffi.channelStripGetInputLevel(widget.trackId);
+        _currentInputLevel = inputLinear > 1e-10 ? 20.0 * math.log(inputLinear) / math.ln10 : -60.0;
+      } catch (_) {
+        _currentInputLevel = -60.0;
+      }
+
+      try {
+        final outputLinear = _ffi.channelStripGetOutputLevel(widget.trackId);
+        _currentOutputLevel = outputLinear > 1e-10 ? 20.0 * math.log(outputLinear) / math.ln10 : -60.0;
+      } catch (_) {
+        _currentOutputLevel = -60.0;
+      }
 
       // Track peak GR only if real data present
       if (_currentGainReduction.abs() > 0.01 && _currentGainReduction.abs() > _peakGainReduction.abs()) {

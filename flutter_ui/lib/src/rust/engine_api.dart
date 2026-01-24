@@ -3784,6 +3784,17 @@ int routingAddSend(int fromChannel, int toChannel, int preFader) {
   }
 }
 
+/// Remove send from channel at specified index
+int routingRemoveSend(int fromChannel, int sendIndex) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return 0;
+    return ffi.routingRemoveSend(fromChannel, sendIndex);
+  } catch (e) {
+    return 0;
+  }
+}
+
 /// Set channel volume (fader)
 int routingSetVolume(int channelId, double volumeDb) {
   try {
@@ -3836,6 +3847,31 @@ int routingGetChannelCount() {
     return ffi.routingGetChannelCount();
   } catch (e) {
     return 0;
+  }
+}
+
+/// Get all routing channels (IDs and kinds)
+/// Returns list of (channelId, channelKind) pairs
+List<({int id, int kind})> routingGetAllChannels({int maxCount = 256}) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return [];
+    return ffi.routingGetAllChannels(maxCount: maxCount);
+  } catch (e) {
+    return [];
+  }
+}
+
+/// Get all routing channels as JSON
+/// Returns JSON string or null on error
+/// Format: [{"id":1,"kind":0,"name":"Track 1"},...]
+String? routingGetChannelsJson() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return null;
+    return ffi.routingGetChannelsJson();
+  } catch (e) {
+    return null;
   }
 }
 

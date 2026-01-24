@@ -96,6 +96,11 @@ class SlotLabProvider extends ChangeNotifier {
   /// True when stage playback is paused (suspended, not stopped)
   bool _isPaused = false;
 
+  // ─── Visual-Sync Mode ─────────────────────────────────────────────────────
+  /// When true, REEL_STOP events are triggered by visual animation callbacks,
+  /// not by stage playback. This prevents duplicate audio triggers.
+  bool _useVisualSyncForReelStop = true;
+
   /// Timestamp when pause was initiated (for accurate resume timing)
   int _pausedAtTimestampMs = 0;
 
@@ -202,6 +207,13 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// P0.3: True when stage playback is paused (can be resumed)
   bool get isPaused => _isPaused;
+
+  /// Visual-sync mode: When true, REEL_STOP events are triggered by visual
+  /// animation callbacks, not by provider stage playback. Default: true.
+  // ignore: unnecessary_getters_setters
+  bool get useVisualSyncForReelStop => _useVisualSyncForReelStop;
+  // ignore: unnecessary_getters_setters
+  set useVisualSyncForReelStop(bool value) => _useVisualSyncForReelStop = value;
 
   /// P0.3: True when stages are playing and NOT paused
   bool get isActivelyPlaying => _isPlayingStages && !_isPaused;
@@ -894,6 +906,15 @@ class SlotLabProvider extends ChangeNotifier {
     final reelIndex = stage.rawStage['reel_index'];
     Map<String, dynamic> context = {...stage.payload, ...stage.rawStage};
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VISUAL-SYNC MODE: Skip REEL_STOP in provider — handled by animation callback
+    // This prevents duplicate audio (provider + visual callback both triggering)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (_useVisualSyncForReelStop && stageType == 'REEL_STOP') {
+      debugPrint('[Stage] REEL_STOP [$reelIndex] → SKIPPED (visual-sync mode)');
+      return; // Visual callback in slot_preview_widget.dart will handle this
+    }
+
     // Simplified debug - only show stage name, skip per-reel spam for REEL_SPINNING
     if (stageType != 'REEL_SPINNING') {
       debugPrint('[Stage] $stageType${reelIndex != null ? " [$reelIndex]" : ""}');
@@ -932,8 +953,14 @@ class SlotLabProvider extends ChangeNotifier {
 
     if (stageType == 'REEL_STOP' && reelIndex != null) {
       effectiveStage = 'REEL_STOP_$reelIndex';
-      // DEBUG: Log exact reel_index to verify first reel triggers first
-      debugPrint('[REEL_STOP] 🎰 reel_index=$reelIndex → $effectiveStage @ ${stage.timestampMs.toStringAsFixed(0)}ms');
+      // DEBUG: Detailed logging for REEL_STOP issue
+      debugPrint('═══════════════════════════════════════════════════════════');
+      debugPrint('[REEL_STOP] 🎰 RAW DATA:');
+      debugPrint('  rawStage = ${stage.rawStage}');
+      debugPrint('  reel_index type = ${reelIndex.runtimeType}, value = $reelIndex');
+      debugPrint('  effectiveStage = $effectiveStage');
+      debugPrint('  timestampMs = ${stage.timestampMs.toStringAsFixed(0)}ms');
+      debugPrint('═══════════════════════════════════════════════════════════');
 
       // ═══════════════════════════════════════════════════════════════════════════
       // P1.1: SYMBOL-SPECIFIC AUDIO — Different sounds for special symbols
@@ -969,12 +996,30 @@ class SlotLabProvider extends ChangeNotifier {
     final bool hasFallback = effectiveStage != stageType && eventRegistry.hasEventForStage(stageType);
     final bool hasGeneric = eventRegistry.hasEventForStage(stageType);
 
+    // DEBUG: Log which path is taken for REEL_STOP
+    if (stageType == 'REEL_STOP') {
+      debugPrint('[REEL_STOP] 🔍 EVENT LOOKUP:');
+      debugPrint('  effectiveStage = "$effectiveStage"');
+      debugPrint('  stageType = "$stageType"');
+      debugPrint('  hasSpecific($effectiveStage) = $hasSpecific');
+      debugPrint('  hasFallback($stageType) = $hasFallback');
+      debugPrint('  hasGeneric($stageType) = $hasGeneric');
+      // List all registered stages containing REEL
+      final allReelStages = eventRegistry.registeredStages
+          .where((s) => s.contains('REEL'))
+          .toList();
+      debugPrint('  registered REEL stages: $allReelStages');
+    }
+
     if (hasSpecific) {
+      if (stageType == 'REEL_STOP') debugPrint('[REEL_STOP] ✅ TRIGGERING: $effectiveStage (specific)');
       eventRegistry.triggerStage(effectiveStage, context: context);
     } else if (hasFallback) {
+      if (stageType == 'REEL_STOP') debugPrint('[REEL_STOP] ⚠️ TRIGGERING: $stageType (fallback from $effectiveStage)');
       eventRegistry.triggerStage(stageType, context: context);
     } else {
       // STILL trigger so Event Log shows the stage (even without audio)
+      if (stageType == 'REEL_STOP') debugPrint('[REEL_STOP] ❌ TRIGGERING: $stageType (no audio event)');
       eventRegistry.triggerStage(stageType, context: context);
     }
 

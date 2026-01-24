@@ -391,22 +391,22 @@ class LoudnessAnalysisService extends ChangeNotifier {
   double _applyKWeighting(double input, List<_BiquadState> states, int sampleRate) {
     // Stage 1: High shelf (+4dB at high frequencies)
     // Coefficients for 48kHz (pre-calculated)
-    const b0_hs = 1.53512485958697;
-    const b1_hs = -2.69169618940638;
-    const b2_hs = 1.19839281085285;
-    const a1_hs = -1.69065929318241;
-    const a2_hs = 0.73248077421585;
+    const b0Hs = 1.53512485958697;
+    const b1Hs = -2.69169618940638;
+    const b2Hs = 1.19839281085285;
+    const a1Hs = -1.69065929318241;
+    const a2Hs = 0.73248077421585;
 
-    var output = states[0].process(input, b0_hs, b1_hs, b2_hs, a1_hs, a2_hs);
+    var output = states[0].process(input, b0Hs, b1Hs, b2Hs, a1Hs, a2Hs);
 
     // Stage 2: High-pass filter (removes DC and sub-bass)
-    const b0_hp = 1.0;
-    const b1_hp = -2.0;
-    const b2_hp = 1.0;
-    const a1_hp = -1.99004745483398;
-    const a2_hp = 0.99007225036621;
+    const b0Hp = 1.0;
+    const b1Hp = -2.0;
+    const b2Hp = 1.0;
+    const a1Hp = -1.99004745483398;
+    const a2Hp = 0.99007225036621;
 
-    output = states[1].process(output, b0_hp, b1_hp, b2_hp, a1_hp, a2_hp);
+    output = states[1].process(output, b0Hp, b1Hp, b2Hp, a1Hp, a2Hp);
 
     return output;
   }

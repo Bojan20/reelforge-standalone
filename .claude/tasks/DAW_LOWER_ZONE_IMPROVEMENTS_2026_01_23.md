@@ -13,10 +13,16 @@ Complete implementation of DAW section improvements addressing critical gaps whe
 **Solution:** Added FFI sync calls in DspChainProvider methods.
 **File:** `flutter_ui/lib/providers/dsp_chain_provider.dart`
 
-### P0.2: RoutingProvider FFI Verification
+### P0.2: RoutingProvider FFI Verification ✅ COMPLETE (2026-01-24)
 **Problem:** Channel list query missing from unified_routing.
-**Solution:** Verified FFI exists; only UI query needs work.
-**File:** `flutter_ui/lib/providers/routing_provider.dart`
+**Solution:** Implemented full FFI sync:
+- Added `routing_get_all_channels()` FFI in Rust
+- Added `routing_get_channels_json()` for full channel list with names
+- RoutingProvider.syncFromEngine() now queries engine state
+**Files:**
+- `crates/rf-engine/src/ffi_routing.rs` — New FFI functions
+- `flutter_ui/lib/src/rust/native_ffi.dart` — Dart FFI bindings
+- `flutter_ui/lib/providers/routing_provider.dart` — Engine sync
 
 ### P0.3: MIDI Piano Roll in EDIT Tab
 **Problem:** No MIDI editing capability in Lower Zone.

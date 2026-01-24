@@ -194,6 +194,30 @@ class AudioEvent {
 }
 
 // =============================================================================
+// P1.4: TRIGGER HISTORY ENTRY — For UI display and debugging
+// =============================================================================
+
+class TriggerHistoryEntry {
+  final DateTime timestamp;
+  final String stage;
+  final String eventName;
+  final List<String> layerNames;
+  final bool success;
+  final String? error;
+  final ContainerType? containerType;
+
+  const TriggerHistoryEntry({
+    required this.timestamp,
+    required this.stage,
+    required this.eventName,
+    required this.layerNames,
+    required this.success,
+    this.error,
+    this.containerType,
+  });
+}
+
+// =============================================================================
 // PLAYING INSTANCE — Aktivna instanca eventa (using Rust engine)
 // =============================================================================
 
@@ -286,6 +310,44 @@ class EventRegistry extends ChangeNotifier {
   // Event ID → Event
   final Map<String, AudioEvent> _events = {};
 
+  // P1.3: Constructor starts cleanup timer
+  EventRegistry() {
+    _startCleanupTimer();
+  }
+
+  /// P1.3: Start periodic cleanup timer
+  void _startCleanupTimer() {
+    _cleanupTimer?.cancel();
+    _cleanupTimer = Timer.periodic(_cleanupInterval, (_) => _cleanupStaleInstances());
+  }
+
+  /// P1.3: Remove instances older than _instanceMaxAge
+  void _cleanupStaleInstances() {
+    final now = DateTime.now();
+    final toRemove = <_PlayingInstance>[];
+
+    for (final instance in _playingInstances) {
+      final age = now.difference(instance.startTime);
+      if (age > _instanceMaxAge) {
+        toRemove.add(instance);
+      }
+    }
+
+    if (toRemove.isNotEmpty) {
+      for (final instance in toRemove) {
+        // Stop any still-playing voices
+        for (final voiceId in instance.voiceIds) {
+          try {
+            NativeFFI.instance.playbackStopOneShot(voiceId);
+          } catch (_) {}
+        }
+      }
+      _playingInstances.removeWhere((i) => toRemove.contains(i));
+      _cleanedInstances += toRemove.length;
+      debugPrint('[EventRegistry] 🧹 Cleaned up ${toRemove.length} stale instance(s)');
+    }
+  }
+
   // Currently playing instances
   final List<_PlayingInstance> _playingInstances = [];
 
@@ -294,6 +356,64 @@ class EventRegistry extends ChangeNotifier {
 
   // Audio pool for rapid-fire events
   bool _useAudioPool = true;
+
+  // P1.2: Voice limit per event (prevents runaway voice spawning)
+  static const int _maxVoicesPerEvent = 8;
+  int _voiceLimitRejects = 0;
+  int get voiceLimitRejects => _voiceLimitRejects;
+
+  // P1.3: Instance cleanup timer (removes stale playing instances)
+  static const Duration _instanceMaxAge = Duration(seconds: 30);
+  static const Duration _cleanupInterval = Duration(seconds: 10);
+  Timer? _cleanupTimer;
+  int _cleanedInstances = 0;
+  int get cleanedInstances => _cleanedInstances;
+
+  // P1.4: Trigger history ring buffer (for UI debugging)
+  static const int _maxHistoryEntries = 100;
+  final List<TriggerHistoryEntry> _triggerHistory = [];
+
+  /// P1.4: Get recent trigger history (newest first)
+  List<TriggerHistoryEntry> get triggerHistory => List.unmodifiable(_triggerHistory.reversed.toList());
+
+  /// P1.4: Get last N history entries
+  List<TriggerHistoryEntry> getRecentHistory(int count) {
+    final entries = _triggerHistory.reversed.take(count).toList();
+    return entries;
+  }
+
+  /// P1.4: Clear history
+  void clearHistory() {
+    _triggerHistory.clear();
+    notifyListeners();
+  }
+
+  /// P1.4: Record a trigger in history
+  void _recordTrigger({
+    required String stage,
+    required String eventName,
+    required List<String> layerNames,
+    required bool success,
+    String? error,
+    ContainerType? containerType,
+  }) {
+    final entry = TriggerHistoryEntry(
+      timestamp: DateTime.now(),
+      stage: stage,
+      eventName: eventName,
+      layerNames: layerNames,
+      success: success,
+      error: error,
+      containerType: containerType,
+    );
+
+    _triggerHistory.add(entry);
+
+    // Ring buffer: remove oldest if over limit
+    while (_triggerHistory.length > _maxHistoryEntries) {
+      _triggerHistory.removeAt(0);
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // AUTO SPATIAL ENGINE — UI-driven spatial audio positioning
@@ -341,6 +461,9 @@ class EventRegistry extends ChangeNotifier {
   String? get lastContainerName => _lastContainerName;
   int get lastContainerChildCount => _lastContainerChildCount;
 
+  /// Get all registered stages (for debugging)
+  Iterable<String> get registeredStages => _stageToEvent.keys;
+
   /// Enable/disable audio pooling for rapid-fire events
   void setUseAudioPool(bool enabled) {
     _useAudioPool = enabled;
@@ -352,6 +475,48 @@ class EventRegistry extends ChangeNotifier {
   bool _shouldUsePool(String stage) {
     if (!_useAudioPool) return false;
     return StageConfigurationService.instance.isPooled(stage);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P1.1 SECURITY: Audio Path Validation
+  // Prevents path traversal attacks (../../etc/passwd)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Allowed audio file extensions
+  static const _allowedAudioExtensions = {'.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif'};
+
+  /// Validate audio path for security
+  /// Returns true if path is safe, false otherwise
+  bool _validateAudioPath(String path) {
+    if (path.isEmpty) return false;
+
+    // Check for path traversal attempts
+    if (path.contains('..')) {
+      debugPrint('[EventRegistry] ⛔ SECURITY: Path traversal attempt blocked: $path');
+      return false;
+    }
+
+    // Check for null bytes (injection attempt)
+    if (path.contains('\x00')) {
+      debugPrint('[EventRegistry] ⛔ SECURITY: Null byte in path blocked: $path');
+      return false;
+    }
+
+    // Check file extension
+    final lowerPath = path.toLowerCase();
+    final hasValidExtension = _allowedAudioExtensions.any((ext) => lowerPath.endsWith(ext));
+    if (!hasValidExtension) {
+      debugPrint('[EventRegistry] ⚠️ Invalid audio extension: $path');
+      return false;
+    }
+
+    // Check for suspicious patterns
+    if (path.contains('\n') || path.contains('\r') || path.contains('|') || path.contains(';')) {
+      debugPrint('[EventRegistry] ⛔ SECURITY: Suspicious characters in path blocked: $path');
+      return false;
+    }
+
+    return true;
   }
 
   /// Get priority level for a stage (0-100, higher = more important)
@@ -750,6 +915,13 @@ class EventRegistry extends ChangeNotifier {
   bool isEventPlaying(String eventId) =>
       _playingInstances.any((i) => i.eventId == eventId);
 
+  /// P1.2: Count active voices for a specific event
+  int _countActiveVoices(String eventId) {
+    return _playingInstances
+        .where((i) => i.eventId == eventId)
+        .fold(0, (sum, i) => sum + i.voiceIds.length);
+  }
+
   // ==========================================================================
   // FALLBACK STAGE RESOLUTION
   // ==========================================================================
@@ -864,9 +1036,29 @@ class EventRegistry extends ChangeNotifier {
       _lastTriggeredLayers = [];
       _lastTriggerSuccess = false;
       _lastTriggerError = 'No audio event configured';
+
+      // P1.4: Record in history
+      _recordTrigger(
+        stage: normalizedStage,
+        eventName: '(no audio)',
+        layerNames: [],
+        success: false,
+        error: 'No audio event configured',
+      );
+
       notifyListeners();
       return;
     }
+
+    // DEBUG: Log found event for REEL_STOP stages
+    if (normalizedStage.contains('REEL_STOP')) {
+      debugPrint('[EventRegistry] ✅ FOUND event for $normalizedStage:');
+      debugPrint('  eventId = ${event.id}');
+      debugPrint('  eventName = ${event.name}');
+      debugPrint('  eventStage = ${event.stage}');
+      debugPrint('  layers = ${event.layers.map((l) => l.audioPath.split('/').last).join(', ')}');
+    }
+
     await triggerEvent(event.id, context: context);
   }
 
@@ -929,6 +1121,17 @@ class EventRegistry extends ChangeNotifier {
     _lastTriggerSuccess = true;
     _lastTriggerError = '';
 
+    // P1.2: Check voice limit before spawning new voices
+    final activeVoices = _countActiveVoices(eventId);
+    if (activeVoices >= _maxVoicesPerEvent) {
+      _voiceLimitRejects++;
+      _lastTriggerSuccess = false;
+      _lastTriggerError = 'Voice limit reached ($activeVoices/$_maxVoicesPerEvent)';
+      debugPrint('[EventRegistry] ⚠️ Voice limit reached for "${event.name}": $activeVoices active (max $_maxVoicesPerEvent)');
+      notifyListeners();
+      return;
+    }
+
     // Kreiraj playing instance
     final voiceIds = <int>[];
     final instance = _PlayingInstance(
@@ -952,6 +1155,15 @@ class EventRegistry extends ChangeNotifier {
 
     // P1.3: Add to recent items for quick access
     _addToRecent(event);
+
+    // P1.4: Record in trigger history
+    _recordTrigger(
+      stage: event.stage,
+      eventName: event.name,
+      layerNames: _lastTriggeredLayers,
+      success: _lastTriggerSuccess,
+      error: _lastTriggerSuccess ? null : _lastTriggerError,
+    );
 
     notifyListeners();
   }
@@ -1055,6 +1267,16 @@ class EventRegistry extends ChangeNotifier {
         debugPrint('[EventRegistry] ⚠️ ContainerType.none but usesContainer was true');
         break;
     }
+
+    // P1.4: Record container trigger in history
+    _recordTrigger(
+      stage: event.stage,
+      eventName: event.name,
+      layerNames: _lastTriggeredLayers,
+      success: _lastTriggerSuccess,
+      error: _lastTriggerSuccess ? null : _lastTriggerError,
+      containerType: event.containerType,
+    );
   }
 
   Future<void> _playLayer(
@@ -1069,6 +1291,15 @@ class EventRegistry extends ChangeNotifier {
       debugPrint('[EventRegistry] ⚠️ Skipping layer "${layer.name}" — empty audioPath');
       return;
     }
+
+    // P1.1 SECURITY: Validate audio path before playback
+    if (!_validateAudioPath(layer.audioPath)) {
+      debugPrint('[EventRegistry] ⛔ BLOCKED: Invalid audio path for layer "${layer.name}"');
+      _lastTriggerSuccess = false;
+      _lastTriggerError = 'Invalid audio path (security)';
+      return;
+    }
+
     debugPrint('[EventRegistry] 🔊 Playing layer "${layer.name}" | path: ${layer.audioPath}');
 
     // Delay pre početka
@@ -1467,6 +1698,7 @@ class EventRegistry extends ChangeNotifier {
 
   @override
   void dispose() {
+    _cleanupTimer?.cancel(); // P1.3: Stop cleanup timer
     stopAll();
     _preloadedPaths.clear();
     _spatialEngine.dispose();

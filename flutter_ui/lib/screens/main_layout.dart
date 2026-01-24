@@ -88,6 +88,7 @@ class MainLayout extends StatefulWidget {
   final void Function(String channelId)? onChannelSoloToggle;
   final void Function(String channelId)? onChannelArmToggle;
   final void Function(String channelId)? onChannelMonitorToggle;
+  final void Function(String channelId)? onChannelPhaseInvertToggle;
   final void Function(String channelId, int slotIndex)? onChannelInsertClick;
   final void Function(String channelId, int sendIndex)? onChannelSendClick;
   final void Function(String channelId, int sendIndex, double level)?
@@ -186,6 +187,7 @@ class MainLayout extends StatefulWidget {
     this.onChannelSoloToggle,
     this.onChannelArmToggle,
     this.onChannelMonitorToggle,
+    this.onChannelPhaseInvertToggle,
     this.onChannelInsertClick,
     this.onChannelSendClick,
     this.onChannelSendLevelChange,
@@ -418,6 +420,7 @@ class _MainLayoutState extends State<MainLayout>
                   onChannelSoloToggle: widget.onChannelSoloToggle,
                   onChannelArmToggle: widget.onChannelArmToggle,
                   onChannelMonitorToggle: widget.onChannelMonitorToggle,
+                  onChannelPhaseInvertToggle: widget.onChannelPhaseInvertToggle,
                   onChannelInsertClick: widget.onChannelInsertClick,
                   onChannelSendClick: widget.onChannelSendClick,
                   onChannelSendLevelChange: widget.onChannelSendLevelChange,
@@ -581,6 +584,7 @@ class _MainLayoutState extends State<MainLayout>
                 onChannelSoloToggle: widget.onChannelSoloToggle,
                 onChannelArmToggle: widget.onChannelArmToggle,
                 onChannelMonitorToggle: widget.onChannelMonitorToggle,
+                onChannelPhaseInvertToggle: widget.onChannelPhaseInvertToggle,
                 onChannelInsertClick: widget.onChannelInsertClick,
                 onChannelSendClick: widget.onChannelSendClick,
                 onChannelSendLevelChange: widget.onChannelSendLevelChange,

@@ -645,6 +645,9 @@ typedef EngineMixerSetBusSoloDart = int Function(int busId, int solo);
 typedef EngineMixerSetBusPanNative = Int32 Function(Uint32 busId, Double pan);
 typedef EngineMixerSetBusPanDart = int Function(int busId, double pan);
 
+typedef EngineMixerSetBusPanRightNative = Int32 Function(Uint32 busId, Double pan);
+typedef EngineMixerSetBusPanRightDart = int Function(int busId, double pan);
+
 typedef EngineMixerSetMasterVolumeNative = Int32 Function(Double volumeDb);
 typedef EngineMixerSetMasterVolumeDart = int Function(double volumeDb);
 
@@ -680,6 +683,13 @@ typedef TrackSetPhaseInvertDart = void Function(int trackId, int inverted);
 
 typedef TrackGetPhaseInvertNative = Int32 Function(Uint64 trackId);
 typedef TrackGetPhaseInvertDart = int Function(int trackId);
+
+// Input monitor
+typedef TrackSetInputMonitorNative = Void Function(Uint64 trackId, Int32 enabled);
+typedef TrackSetInputMonitorDart = void Function(int trackId, int enabled);
+
+typedef TrackGetInputMonitorNative = Int32 Function(Uint64 trackId);
+typedef TrackGetInputMonitorDart = int Function(int trackId);
 
 // VCA functions
 typedef EngineVcaCreateNative = Uint64 Function(Pointer<Utf8> name);
@@ -1978,6 +1988,19 @@ typedef OfflineGetSupportedFormatsDart = Pointer<Utf8> Function();
 typedef OfflineGetNormalizationModesNative = Pointer<Utf8> Function();
 typedef OfflineGetNormalizationModesDart = Pointer<Utf8> Function();
 
+// Audio file info (P2.9 Soundbank Building)
+typedef OfflineGetAudioInfoNative = Pointer<Utf8> Function(Pointer<Utf8> path);
+typedef OfflineGetAudioInfoDart = Pointer<Utf8> Function(Pointer<Utf8> path);
+
+typedef OfflineGetAudioDurationNative = Double Function(Pointer<Utf8> path);
+typedef OfflineGetAudioDurationDart = double Function(Pointer<Utf8> path);
+
+typedef OfflineGetAudioSampleRateNative = Uint32 Function(Pointer<Utf8> path);
+typedef OfflineGetAudioSampleRateDart = int Function(Pointer<Utf8> path);
+
+typedef OfflineGetAudioChannelsNative = Uint32 Function(Pointer<Utf8> path);
+typedef OfflineGetAudioChannelsDart = int Function(Pointer<Utf8> path);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // NATIVE FFI CLASS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2175,6 +2198,7 @@ class NativeFFI {
   late final EngineMixerSetBusMuteDart _mixerSetBusMute;
   late final EngineMixerSetBusSoloDart _mixerSetBusSolo;
   late final EngineMixerSetBusPanDart _mixerSetBusPan;
+  late final EngineMixerSetBusPanRightDart _mixerSetBusPanRight;
   late final EngineMixerSetMasterVolumeDart _mixerSetMasterVolume;
 
   // Audio processing
@@ -2190,6 +2214,8 @@ class NativeFFI {
   late final EngineTrackSetColorDart _trackSetColor;
   late final TrackSetPhaseInvertDart _trackSetPhaseInvert;
   late final TrackGetPhaseInvertDart _trackGetPhaseInvert;
+  late final TrackSetInputMonitorDart _trackSetInputMonitor;
+  late final TrackGetInputMonitorDart _trackGetInputMonitor;
 
   // VCA
   late final EngineVcaCreateDart _vcaCreate;
@@ -2623,6 +2649,10 @@ class NativeFFI {
   late final OfflineFreeStringDart _offlineFreeString;
   late final OfflineGetSupportedFormatsDart _offlineGetSupportedFormats;
   late final OfflineGetNormalizationModesDart _offlineGetNormalizationModes;
+  late final OfflineGetAudioInfoDart _offlineGetAudioInfo;
+  late final OfflineGetAudioDurationDart _offlineGetAudioDuration;
+  late final OfflineGetAudioSampleRateDart _offlineGetAudioSampleRate;
+  late final OfflineGetAudioChannelsDart _offlineGetAudioChannels;
 
   NativeFFI._();
 
@@ -2818,6 +2848,7 @@ class NativeFFI {
     _mixerSetBusMute = _lib.lookupFunction<EngineMixerSetBusMuteNative, EngineMixerSetBusMuteDart>('mixer_set_bus_mute');
     _mixerSetBusSolo = _lib.lookupFunction<EngineMixerSetBusSoloNative, EngineMixerSetBusSoloDart>('mixer_set_bus_solo');
     _mixerSetBusPan = _lib.lookupFunction<EngineMixerSetBusPanNative, EngineMixerSetBusPanDart>('mixer_set_bus_pan');
+    _mixerSetBusPanRight = _lib.lookupFunction<EngineMixerSetBusPanRightNative, EngineMixerSetBusPanRightDart>('mixer_set_bus_pan_right');
     _mixerSetMasterVolume = _lib.lookupFunction<EngineMixerSetMasterVolumeNative, EngineMixerSetMasterVolumeDart>('mixer_set_master_volume');
 
     // Audio processing
@@ -2833,6 +2864,8 @@ class NativeFFI {
     _trackSetColor = _lib.lookupFunction<EngineTrackSetColorNative, EngineTrackSetColorDart>('track_set_color');
     _trackSetPhaseInvert = _lib.lookupFunction<TrackSetPhaseInvertNative, TrackSetPhaseInvertDart>('track_set_phase_invert');
     _trackGetPhaseInvert = _lib.lookupFunction<TrackGetPhaseInvertNative, TrackGetPhaseInvertDart>('track_get_phase_invert');
+    _trackSetInputMonitor = _lib.lookupFunction<TrackSetInputMonitorNative, TrackSetInputMonitorDart>('track_set_input_monitor');
+    _trackGetInputMonitor = _lib.lookupFunction<TrackGetInputMonitorNative, TrackGetInputMonitorDart>('track_get_input_monitor');
 
     // VCA
     _vcaCreate = _lib.lookupFunction<EngineVcaCreateNative, EngineVcaCreateDart>('vca_create');
@@ -3264,6 +3297,10 @@ class NativeFFI {
     _offlineFreeString = _lib.lookupFunction<OfflineFreeStringNative, OfflineFreeStringDart>('offline_free_string');
     _offlineGetSupportedFormats = _lib.lookupFunction<OfflineGetSupportedFormatsNative, OfflineGetSupportedFormatsDart>('offline_get_supported_formats');
     _offlineGetNormalizationModes = _lib.lookupFunction<OfflineGetNormalizationModesNative, OfflineGetNormalizationModesDart>('offline_get_normalization_modes');
+    _offlineGetAudioInfo = _lib.lookupFunction<OfflineGetAudioInfoNative, OfflineGetAudioInfoDart>('offline_get_audio_info');
+    _offlineGetAudioDuration = _lib.lookupFunction<OfflineGetAudioDurationNative, OfflineGetAudioDurationDart>('offline_get_audio_duration');
+    _offlineGetAudioSampleRate = _lib.lookupFunction<OfflineGetAudioSampleRateNative, OfflineGetAudioSampleRateDart>('offline_get_audio_sample_rate');
+    _offlineGetAudioChannels = _lib.lookupFunction<OfflineGetAudioChannelsNative, OfflineGetAudioChannelsDart>('offline_get_audio_channels');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -4829,6 +4866,12 @@ class NativeFFI {
     return _mixerSetBusPan(busId, pan) != 0;
   }
 
+  /// Set bus pan right (for stereo dual-pan mode)
+  bool mixerSetBusPanRight(int busId, double pan) {
+    if (!_loaded) return false;
+    return _mixerSetBusPanRight(busId, pan) != 0;
+  }
+
   /// Set master volume in dB
   bool mixerSetMasterVolume(double volumeDb) {
     if (!_loaded) return false;
@@ -4908,6 +4951,19 @@ class NativeFFI {
   bool trackGetPhaseInvert(int trackId) {
     if (!_loaded) return false;
     return _trackGetPhaseInvert(trackId) != 0;
+  }
+
+  /// Set track input monitor state
+  /// When enabled, the track's input is passed through to output for monitoring
+  void trackSetInputMonitor(int trackId, bool enabled) {
+    if (!_loaded) return;
+    _trackSetInputMonitor(trackId, enabled ? 1 : 0);
+  }
+
+  /// Get track input monitor state
+  bool trackGetInputMonitor(int trackId) {
+    if (!_loaded) return false;
+    return _trackGetInputMonitor(trackId) != 0;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -7228,6 +7284,10 @@ class NativeFFI {
       Int32 Function(Uint32, Uint32, Int32),
       int Function(int, int, int)>('routing_add_send');
 
+  late final _routingRemoveSend = _lib.lookupFunction<
+      Int32 Function(Uint32, Uint64),
+      int Function(int, int)>('routing_remove_send');
+
   late final _routingSetVolume = _lib.lookupFunction<
       Int32 Function(Uint32, Double),
       int Function(int, double)>('routing_set_volume');
@@ -7248,17 +7308,52 @@ class NativeFFI {
       Uint32 Function(),
       int Function()>('routing_get_channel_count');
 
+  late final _routingGetAllChannels = _lib.lookupFunction<
+      Uint32 Function(Pointer<Uint32>, Pointer<Uint32>, Uint32),
+      int Function(Pointer<Uint32>, Pointer<Uint32>, int)>('routing_get_all_channels');
+
+  late final _routingGetChannelsJson = _lib.lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('routing_get_channels_json');
+
   int routingInit(Pointer<Void> senderPtr) => _routingInit(senderPtr);
   int routingCreateChannel(int kind, Pointer<Utf8> name) => _routingCreateChannel(kind, name);
   int routingDeleteChannel(int channelId) => _routingDeleteChannel(channelId);
   int routingPollResponse(int callbackId) => _routingPollResponse(callbackId);
   int routingSetOutput(int channelId, int destType, int destId) => _routingSetOutput(channelId, destType, destId);
   int routingAddSend(int fromChannel, int toChannel, int preFader) => _routingAddSend(fromChannel, toChannel, preFader);
+  int routingRemoveSend(int fromChannel, int sendIndex) => _routingRemoveSend(fromChannel, sendIndex);
   int routingSetVolume(int channelId, double volumeDb) => _routingSetVolume(channelId, volumeDb);
   int routingSetPan(int channelId, double pan) => _routingSetPan(channelId, pan);
   int routingSetMute(int channelId, int mute) => _routingSetMute(channelId, mute);
   int routingSetSolo(int channelId, int solo) => _routingSetSolo(channelId, solo);
   int routingGetChannelCount() => _routingGetChannelCount();
+
+  /// Get all routing channels (IDs and kinds)
+  /// Returns list of (channelId, channelKind) pairs
+  List<({int id, int kind})> routingGetAllChannels({int maxCount = 256}) {
+    final outIds = calloc<Uint32>(maxCount);
+    final outKinds = calloc<Uint32>(maxCount);
+    try {
+      final count = _routingGetAllChannels(outIds, outKinds, maxCount);
+      final result = <({int id, int kind})>[];
+      for (var i = 0; i < count; i++) {
+        result.add((id: outIds[i], kind: outKinds[i]));
+      }
+      return result;
+    } finally {
+      calloc.free(outIds);
+      calloc.free(outKinds);
+    }
+  }
+
+  /// Get all routing channels as JSON string
+  /// Format: [{"id":1,"kind":0,"name":"Track 1"},...]
+  String? routingGetChannelsJson() {
+    final ptr = _routingGetChannelsJson();
+    if (ptr == nullptr) return null;
+    return ptr.toDartString();
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Control Room System
@@ -16917,6 +17012,38 @@ extension ContainerFFI on NativeFFI {
   bool containerSetBlendRtpc(int containerId, double rtpcValue) =>
       _containerSetBlendRtpc(containerId, rtpcValue) == 1;
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLEND CONTAINER P3D SMOOTHING (RTPC interpolation)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static final _containerSetBlendRtpcTarget = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('container_set_blend_rtpc_target');
+
+  static final _containerSetBlendSmoothing = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('container_set_blend_smoothing');
+
+  static final _containerTickBlendSmoothing = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('container_tick_blend_smoothing');
+
+  /// Set target RTPC value for smooth interpolation
+  /// The blend container will smoothly transition to this value
+  bool containerSetBlendRtpcTarget(int containerId, double targetRtpc) =>
+      _containerSetBlendRtpcTarget(containerId, targetRtpc) == 1;
+
+  /// Set smoothing time in milliseconds (0 = instant, 1000 = 1 second)
+  /// Uses critically damped spring interpolation (no overshoot)
+  bool containerSetBlendSmoothing(int containerId, double smoothingMs) =>
+      _containerSetBlendSmoothing(containerId, smoothingMs) == 1;
+
+  /// Tick the smoothing interpolation by delta milliseconds
+  /// Call this in your update loop to advance the smooth RTPC value
+  /// Returns true if smoothing is still in progress
+  bool containerTickBlendSmoothing(int containerId, double deltaMs) =>
+      _containerTickBlendSmoothing(containerId, deltaMs) == 1;
+
   /// Evaluate blend container at RTPC value
   /// Returns list of (childId, volume) tuples
   List<BlendEvalResult> containerEvaluateBlend(int containerId, double rtpcValue, {int maxResults = 16}) {
@@ -18747,6 +18874,66 @@ extension StageIngestFFI on NativeFFI {
     _offlineFreeString(ptr);
     return str;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO FILE INFO (P2.9 Soundbank Building)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get audio file metadata without decoding
+  /// Returns parsed JSON map with: sample_rate, channels, bit_depth, duration_seconds, samples
+  Map<String, dynamic>? offlineGetAudioInfo(String path) {
+    if (!_loaded) return null;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final ptr = _offlineGetAudioInfo(pathPtr);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      _offlineFreeString(ptr);
+      try {
+        return json.decode(str) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Get audio file duration in seconds
+  /// Returns -1.0 on error
+  double offlineGetAudioDuration(String path) {
+    if (!_loaded) return -1.0;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _offlineGetAudioDuration(pathPtr);
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Get audio file sample rate
+  /// Returns 0 on error
+  int offlineGetAudioSampleRate(String path) {
+    if (!_loaded) return 0;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _offlineGetAudioSampleRate(pathPtr);
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Get audio file channel count
+  /// Returns 0 on error
+  int offlineGetAudioChannels(String path) {
+    if (!_loaded) return 0;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _offlineGetAudioChannels(pathPtr);
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -19027,6 +19214,627 @@ extension VoicePoolFFI on NativeFFI {
       return jsonDecode(str) as Map<String, dynamic>;
     } catch (e) {
       return null;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MEMORY MANAGER FFI — Soundbank Memory Budget Management
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Memory state enum matching Rust
+enum NativeMemoryState {
+  normal,
+  warning,
+  critical;
+
+  static NativeMemoryState fromInt(int value) {
+    switch (value) {
+      case 1:
+        return NativeMemoryState.warning;
+      case 2:
+        return NativeMemoryState.critical;
+      default:
+        return NativeMemoryState.normal;
+    }
+  }
+}
+
+/// Load priority enum matching Rust
+enum NativeLoadPriority {
+  critical,
+  high,
+  normal,
+  streaming;
+
+  int toInt() => index;
+
+  static NativeLoadPriority fromInt(int value) {
+    if (value < 0 || value >= NativeLoadPriority.values.length) {
+      return NativeLoadPriority.normal;
+    }
+    return NativeLoadPriority.values[value];
+  }
+}
+
+/// Memory statistics from Rust engine
+class NativeMemoryStats {
+  final int residentBytes;
+  final int residentMaxBytes;
+  final int streamingBytes;
+  final int streamingMaxBytes;
+  final int loadedBankCount;
+  final int totalBankCount;
+  final NativeMemoryState state;
+  final double residentPercent;
+  final double streamingPercent;
+  final double residentMb;
+  final double streamingMb;
+
+  const NativeMemoryStats({
+    required this.residentBytes,
+    required this.residentMaxBytes,
+    required this.streamingBytes,
+    required this.streamingMaxBytes,
+    required this.loadedBankCount,
+    required this.totalBankCount,
+    required this.state,
+    required this.residentPercent,
+    required this.streamingPercent,
+    required this.residentMb,
+    required this.streamingMb,
+  });
+
+  factory NativeMemoryStats.empty() => const NativeMemoryStats(
+        residentBytes: 0,
+        residentMaxBytes: 64 * 1024 * 1024,
+        streamingBytes: 0,
+        streamingMaxBytes: 32 * 1024 * 1024,
+        loadedBankCount: 0,
+        totalBankCount: 0,
+        state: NativeMemoryState.normal,
+        residentPercent: 0.0,
+        streamingPercent: 0.0,
+        residentMb: 0.0,
+        streamingMb: 0.0,
+      );
+
+  factory NativeMemoryStats.fromJson(Map<String, dynamic> json) {
+    return NativeMemoryStats(
+      residentBytes: (json['resident_bytes'] as num?)?.toInt() ?? 0,
+      residentMaxBytes: (json['resident_max_bytes'] as num?)?.toInt() ?? 64 * 1024 * 1024,
+      streamingBytes: (json['streaming_bytes'] as num?)?.toInt() ?? 0,
+      streamingMaxBytes: (json['streaming_max_bytes'] as num?)?.toInt() ?? 32 * 1024 * 1024,
+      loadedBankCount: (json['loaded_bank_count'] as num?)?.toInt() ?? 0,
+      totalBankCount: (json['total_bank_count'] as num?)?.toInt() ?? 0,
+      state: NativeMemoryState.fromInt((json['state'] as num?)?.toInt() ?? 0),
+      residentPercent: (json['resident_percent'] as num?)?.toDouble() ?? 0.0,
+      streamingPercent: (json['streaming_percent'] as num?)?.toDouble() ?? 0.0,
+      residentMb: (json['resident_mb'] as num?)?.toDouble() ?? 0.0,
+      streamingMb: (json['streaming_mb'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  String get healthStatus {
+    switch (state) {
+      case NativeMemoryState.critical:
+        return 'critical';
+      case NativeMemoryState.warning:
+        return 'warning';
+      case NativeMemoryState.normal:
+        return 'healthy';
+    }
+  }
+}
+
+/// Native sound bank info from Rust
+class NativeSoundBank {
+  final String bankId;
+  final String name;
+  final int estimatedSizeBytes;
+  final NativeLoadPriority priority;
+  final List<String> soundIds;
+  final bool isLoaded;
+  final int actualSizeBytes;
+
+  const NativeSoundBank({
+    required this.bankId,
+    required this.name,
+    required this.estimatedSizeBytes,
+    required this.priority,
+    required this.soundIds,
+    required this.isLoaded,
+    required this.actualSizeBytes,
+  });
+
+  factory NativeSoundBank.fromJson(Map<String, dynamic> json) {
+    return NativeSoundBank(
+      bankId: json['bank_id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      estimatedSizeBytes: (json['estimated_size_bytes'] as num?)?.toInt() ?? 0,
+      priority: NativeLoadPriority.fromInt((json['priority'] as num?)?.toInt() ?? 2),
+      soundIds: (json['sound_ids'] as List<dynamic>?)?.cast<String>() ?? [],
+      isLoaded: json['is_loaded'] as bool? ?? false,
+      actualSizeBytes: (json['actual_size_bytes'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  double get sizeMb => actualSizeBytes / (1024 * 1024);
+  double get estimatedSizeMb => estimatedSizeBytes / (1024 * 1024);
+}
+
+/// Memory Manager FFI extension
+extension MemoryManagerFFI on NativeFFI {
+  // ─────────────────────────────────────────────────────────────────────────
+  // FFI BINDINGS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static final _memoryManagerInit = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('memory_manager_init');
+
+  static final _memoryManagerUpdateConfig = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('memory_manager_update_config');
+
+  static final _memoryManagerRegisterBank = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('memory_manager_register_bank');
+
+  static final _memoryManagerLoadBank = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('memory_manager_load_bank');
+
+  static final _memoryManagerUnloadBank = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('memory_manager_unload_bank');
+
+  static final _memoryManagerTouchBank = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('memory_manager_touch_bank');
+
+  static final _memoryManagerIsBankLoaded = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('memory_manager_is_bank_loaded');
+
+  static final _memoryManagerGetStatsJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('memory_manager_get_stats_json');
+
+  static final _memoryManagerGetState = _loadNativeLibrary().lookupFunction<
+      Int32 Function(),
+      int Function()>('memory_manager_get_state');
+
+  static final _memoryManagerGetResidentBytes = _loadNativeLibrary().lookupFunction<
+      IntPtr Function(),
+      int Function()>('memory_manager_get_resident_bytes');
+
+  static final _memoryManagerGetResidentPercent = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('memory_manager_get_resident_percent');
+
+  static final _memoryManagerGetLoadedBankCount = _loadNativeLibrary().lookupFunction<
+      IntPtr Function(),
+      int Function()>('memory_manager_get_loaded_bank_count');
+
+  static final _memoryManagerGetTotalBankCount = _loadNativeLibrary().lookupFunction<
+      IntPtr Function(),
+      int Function()>('memory_manager_get_total_bank_count');
+
+  static final _memoryManagerGetBanksJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('memory_manager_get_banks_json');
+
+  static final _memoryManagerClear = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('memory_manager_clear');
+
+  static final _memoryManagerFreeString = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('memory_manager_free_string');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PUBLIC API
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Initialize memory manager with optional config JSON
+  void memoryManagerInit({Map<String, dynamic>? config}) {
+    if (config != null) {
+      final jsonStr = jsonEncode(config);
+      final ptr = jsonStr.toNativeUtf8();
+      _memoryManagerInit(ptr);
+      malloc.free(ptr);
+    } else {
+      _memoryManagerInit(nullptr);
+    }
+  }
+
+  /// Update memory manager configuration
+  void memoryManagerUpdateConfig(Map<String, dynamic> config) {
+    final jsonStr = jsonEncode(config);
+    final ptr = jsonStr.toNativeUtf8();
+    _memoryManagerUpdateConfig(ptr);
+    malloc.free(ptr);
+  }
+
+  /// Register a soundbank
+  bool memoryManagerRegisterBank({
+    required String bankId,
+    required String name,
+    required int estimatedSizeBytes,
+    NativeLoadPriority priority = NativeLoadPriority.normal,
+    List<String> soundIds = const [],
+  }) {
+    final bank = {
+      'bank_id': bankId,
+      'name': name,
+      'estimated_size_bytes': estimatedSizeBytes,
+      'priority': priority.toInt(),
+      'sound_ids': soundIds,
+      'is_loaded': false,
+      'actual_size_bytes': 0,
+    };
+    final jsonStr = jsonEncode(bank);
+    final ptr = jsonStr.toNativeUtf8();
+    final result = _memoryManagerRegisterBank(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Load a soundbank
+  bool memoryManagerLoadBank(String bankId) {
+    final ptr = bankId.toNativeUtf8();
+    final result = _memoryManagerLoadBank(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Unload a soundbank
+  bool memoryManagerUnloadBank(String bankId) {
+    final ptr = bankId.toNativeUtf8();
+    final result = _memoryManagerUnloadBank(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Touch (mark as recently used) a soundbank
+  void memoryManagerTouchBank(String bankId) {
+    final ptr = bankId.toNativeUtf8();
+    _memoryManagerTouchBank(ptr);
+    malloc.free(ptr);
+  }
+
+  /// Check if a soundbank is loaded
+  bool memoryManagerIsBankLoaded(String bankId) {
+    final ptr = bankId.toNativeUtf8();
+    final result = _memoryManagerIsBankLoaded(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Get memory statistics
+  NativeMemoryStats memoryManagerGetStats() {
+    try {
+      final ptr = _memoryManagerGetStatsJson();
+      if (ptr == nullptr) return NativeMemoryStats.empty();
+
+      final str = ptr.toDartString();
+      _memoryManagerFreeString(ptr);
+
+      final json = jsonDecode(str) as Map<String, dynamic>;
+      return NativeMemoryStats.fromJson(json);
+    } catch (e) {
+      return NativeMemoryStats.empty();
+    }
+  }
+
+  /// Get current memory state
+  NativeMemoryState memoryManagerGetState() {
+    return NativeMemoryState.fromInt(_memoryManagerGetState());
+  }
+
+  /// Get resident memory in bytes
+  int memoryManagerGetResidentBytes() => _memoryManagerGetResidentBytes();
+
+  /// Get resident memory percentage (0.0-1.0)
+  double memoryManagerGetResidentPercent() => _memoryManagerGetResidentPercent();
+
+  /// Get loaded bank count
+  int memoryManagerGetLoadedBankCount() => _memoryManagerGetLoadedBankCount();
+
+  /// Get total bank count
+  int memoryManagerGetTotalBankCount() => _memoryManagerGetTotalBankCount();
+
+  /// Get all banks as list
+  List<NativeSoundBank> memoryManagerGetBanks() {
+    try {
+      final ptr = _memoryManagerGetBanksJson();
+      if (ptr == nullptr) return [];
+
+      final str = ptr.toDartString();
+      _memoryManagerFreeString(ptr);
+
+      final json = jsonDecode(str) as List<dynamic>;
+      return json
+          .map((e) => NativeSoundBank.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Clear all banks and reset memory
+  void memoryManagerClear() => _memoryManagerClear();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLUGIN STATE FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Plugin state FFI typedefs
+typedef PluginStateStoreNative = Int32 Function(
+  Uint32 trackId,
+  Uint32 slotIndex,
+  Uint8 format,
+  Pointer<Utf8> uid,
+  Pointer<Uint8> stateData,
+  IntPtr stateLen,
+  Pointer<Utf8> presetName,
+);
+typedef PluginStateStoreDart = int Function(
+  int trackId,
+  int slotIndex,
+  int format,
+  Pointer<Utf8> uid,
+  Pointer<Uint8> stateData,
+  int stateLen,
+  Pointer<Utf8> presetName,
+);
+
+typedef PluginStateGetNative = Int32 Function(
+  Uint32 trackId,
+  Uint32 slotIndex,
+  Pointer<Uint8> outData,
+  IntPtr outCapacity,
+  Pointer<IntPtr> outLen,
+);
+typedef PluginStateGetDart = int Function(
+  int trackId,
+  int slotIndex,
+  Pointer<Uint8> outData,
+  int outCapacity,
+  Pointer<IntPtr> outLen,
+);
+
+typedef PluginStateGetSizeNative = IntPtr Function(Uint32 trackId, Uint32 slotIndex);
+typedef PluginStateGetSizeDart = int Function(int trackId, int slotIndex);
+
+typedef PluginStateRemoveNative = Int32 Function(Uint32 trackId, Uint32 slotIndex);
+typedef PluginStateRemoveDart = int Function(int trackId, int slotIndex);
+
+typedef PluginStateClearAllNative = Void Function();
+typedef PluginStateClearAllDart = void Function();
+
+typedef PluginStateCountNative = IntPtr Function();
+typedef PluginStateCountDart = int Function();
+
+typedef PluginStateSaveToFileNative = Int32 Function(
+  Uint32 trackId,
+  Uint32 slotIndex,
+  Pointer<Utf8> filePath,
+);
+typedef PluginStateSaveToFileDart = int Function(
+  int trackId,
+  int slotIndex,
+  Pointer<Utf8> filePath,
+);
+
+typedef PluginStateLoadFromFileNative = Int32 Function(
+  Uint32 trackId,
+  Uint32 slotIndex,
+  Pointer<Utf8> filePath,
+);
+typedef PluginStateLoadFromFileDart = int Function(
+  int trackId,
+  int slotIndex,
+  Pointer<Utf8> filePath,
+);
+
+typedef PluginStateGetUidNative = Pointer<Utf8> Function(Uint32 trackId, Uint32 slotIndex);
+typedef PluginStateGetUidDart = Pointer<Utf8> Function(int trackId, int slotIndex);
+
+typedef PluginStateGetPresetNameNative = Pointer<Utf8> Function(Uint32 trackId, Uint32 slotIndex);
+typedef PluginStateGetPresetNameDart = Pointer<Utf8> Function(int trackId, int slotIndex);
+
+typedef PluginStateGetAllJsonNative = Pointer<Utf8> Function();
+typedef PluginStateGetAllJsonDart = Pointer<Utf8> Function();
+
+/// Plugin State FFI extension
+extension PluginStateFFI on NativeFFI {
+  static PluginStateStoreDart? _pluginStateStore;
+  static PluginStateGetDart? _pluginStateGet;
+  static PluginStateGetSizeDart? _pluginStateGetSize;
+  static PluginStateRemoveDart? _pluginStateRemove;
+  static PluginStateClearAllDart? _pluginStateClearAll;
+  static PluginStateCountDart? _pluginStateCount;
+  static PluginStateSaveToFileDart? _pluginStateSaveToFile;
+  static PluginStateLoadFromFileDart? _pluginStateLoadFromFile;
+  static PluginStateGetUidDart? _pluginStateGetUid;
+  static PluginStateGetPresetNameDart? _pluginStateGetPresetName;
+  static PluginStateGetAllJsonDart? _pluginStateGetAllJson;
+
+  void _initPluginStateFFI() {
+    _pluginStateStore ??= lib.lookupFunction<PluginStateStoreNative, PluginStateStoreDart>(
+      'plugin_state_store',
+    );
+    _pluginStateGet ??= lib.lookupFunction<PluginStateGetNative, PluginStateGetDart>(
+      'plugin_state_get',
+    );
+    _pluginStateGetSize ??= lib.lookupFunction<PluginStateGetSizeNative, PluginStateGetSizeDart>(
+      'plugin_state_get_size',
+    );
+    _pluginStateRemove ??= lib.lookupFunction<PluginStateRemoveNative, PluginStateRemoveDart>(
+      'plugin_state_remove',
+    );
+    _pluginStateClearAll ??= lib.lookupFunction<PluginStateClearAllNative, PluginStateClearAllDart>(
+      'plugin_state_clear_all',
+    );
+    _pluginStateCount ??= lib.lookupFunction<PluginStateCountNative, PluginStateCountDart>(
+      'plugin_state_count',
+    );
+    _pluginStateSaveToFile ??= lib.lookupFunction<PluginStateSaveToFileNative, PluginStateSaveToFileDart>(
+      'plugin_state_save_to_file',
+    );
+    _pluginStateLoadFromFile ??= lib.lookupFunction<PluginStateLoadFromFileNative, PluginStateLoadFromFileDart>(
+      'plugin_state_load_from_file',
+    );
+    _pluginStateGetUid ??= lib.lookupFunction<PluginStateGetUidNative, PluginStateGetUidDart>(
+      'plugin_state_get_uid',
+    );
+    _pluginStateGetPresetName ??= lib.lookupFunction<PluginStateGetPresetNameNative, PluginStateGetPresetNameDart>(
+      'plugin_state_get_preset_name',
+    );
+    _pluginStateGetAllJson ??= lib.lookupFunction<PluginStateGetAllJsonNative, PluginStateGetAllJsonDart>(
+      'plugin_state_get_all_json',
+    );
+  }
+
+  /// Store plugin state in Rust memory cache
+  ///
+  /// Returns true on success
+  bool pluginStateStore({
+    required int trackId,
+    required int slotIndex,
+    required int format,
+    required String uid,
+    required Uint8List stateData,
+    String? presetName,
+  }) {
+    _initPluginStateFFI();
+
+    // Allocate native memory for state data
+    final dataPtr = calloc<Uint8>(stateData.length);
+    dataPtr.asTypedList(stateData.length).setAll(0, stateData);
+
+    final uidPtr = uid.toNativeUtf8();
+    final presetPtr = presetName?.toNativeUtf8() ?? nullptr;
+
+    try {
+      final result = _pluginStateStore!(
+        trackId,
+        slotIndex,
+        format,
+        uidPtr,
+        dataPtr,
+        stateData.length,
+        presetPtr,
+      );
+      return result == 1;
+    } finally {
+      calloc.free(dataPtr);
+      calloc.free(uidPtr);
+      if (presetPtr != nullptr) calloc.free(presetPtr);
+    }
+  }
+
+  /// Get plugin state from Rust memory cache
+  ///
+  /// Returns state data or null if not found
+  Uint8List? pluginStateGet(int trackId, int slotIndex) {
+    _initPluginStateFFI();
+
+    // First get size
+    final size = _pluginStateGetSize!(trackId, slotIndex);
+    if (size == 0) return null;
+
+    // Allocate buffer and get data
+    final dataPtr = calloc<Uint8>(size);
+    final lenPtr = calloc<IntPtr>();
+
+    try {
+      final result = _pluginStateGet!(trackId, slotIndex, dataPtr, size, lenPtr);
+      if (result != 1) return null;
+
+      final actualLen = lenPtr.value;
+      final data = Uint8List(actualLen);
+      data.setAll(0, dataPtr.asTypedList(actualLen));
+      return data;
+    } finally {
+      calloc.free(dataPtr);
+      calloc.free(lenPtr);
+    }
+  }
+
+  /// Get plugin state size
+  int pluginStateGetSize(int trackId, int slotIndex) {
+    _initPluginStateFFI();
+    return _pluginStateGetSize!(trackId, slotIndex);
+  }
+
+  /// Remove plugin state from cache
+  bool pluginStateRemove(int trackId, int slotIndex) {
+    _initPluginStateFFI();
+    return _pluginStateRemove!(trackId, slotIndex) == 1;
+  }
+
+  /// Clear all plugin states
+  void pluginStateClearAll() {
+    _initPluginStateFFI();
+    _pluginStateClearAll!();
+  }
+
+  /// Get number of stored states
+  int pluginStateCount() {
+    _initPluginStateFFI();
+    return _pluginStateCount!();
+  }
+
+  /// Save plugin state to .ffstate file
+  bool pluginStateSaveToFile(int trackId, int slotIndex, String filePath) {
+    _initPluginStateFFI();
+    return withNativeString(filePath, (pathPtr) {
+      return _pluginStateSaveToFile!(trackId, slotIndex, pathPtr) == 1;
+    });
+  }
+
+  /// Load plugin state from .ffstate file
+  bool pluginStateLoadFromFile(int trackId, int slotIndex, String filePath) {
+    _initPluginStateFFI();
+    return withNativeString(filePath, (pathPtr) {
+      return _pluginStateLoadFromFile!(trackId, slotIndex, pathPtr) == 1;
+    });
+  }
+
+  /// Get plugin UID for stored state
+  String? pluginStateGetUid(int trackId, int slotIndex) {
+    _initPluginStateFFI();
+    final ptr = _pluginStateGetUid!(trackId, slotIndex);
+    if (ptr == nullptr) return null;
+    return ptr.toDartString();
+  }
+
+  /// Get preset name for stored state
+  String? pluginStateGetPresetName(int trackId, int slotIndex) {
+    _initPluginStateFFI();
+    final ptr = _pluginStateGetPresetName!(trackId, slotIndex);
+    if (ptr == nullptr) return null;
+    return ptr.toDartString();
+  }
+
+  /// Get all stored states as JSON
+  ///
+  /// Returns: [{"trackId":1,"slotIndex":0,"uid":"VST3:...","size":1234},...]
+  List<Map<String, dynamic>> pluginStateGetAllJson() {
+    _initPluginStateFFI();
+    final ptr = _pluginStateGetAllJson!();
+    if (ptr == nullptr) return [];
+
+    try {
+      final json = ptr.toDartString();
+      final list = jsonDecode(json) as List<dynamic>;
+      return list.cast<Map<String, dynamic>>();
+    } catch (e) {
+      return [];
     }
   }
 }

@@ -43,6 +43,8 @@
 //! ```
 
 mod config;
+mod decoder;
+mod encoder;
 mod error;
 mod formats;
 mod job;
@@ -52,6 +54,8 @@ mod processors;
 mod time_stretch;
 
 pub use config::*;
+pub use decoder::*;
+pub use encoder::*;
 pub use error::*;
 pub use formats::*;
 pub use job::*;

@@ -256,6 +256,9 @@ class AudioAssetManager extends ChangeNotifier {
   /// Loading state
   bool _isLoading = false;
 
+  /// Currently selected asset path (for action strip operations)
+  String? _selectedAssetPath;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -278,6 +281,21 @@ class AudioAssetManager extends ChangeNotifier {
 
   /// Is loading
   bool get isLoading => _isLoading;
+
+  /// Currently selected asset path
+  String? get selectedAssetPath => _selectedAssetPath;
+
+  /// Select an asset for action strip operations
+  void selectAsset(String? path) {
+    if (_selectedAssetPath != path) {
+      _selectedAssetPath = path;
+      notifyListeners();
+    }
+  }
+
+  /// Get selected asset
+  UnifiedAudioAsset? get selectedAsset =>
+      _selectedAssetPath != null ? _assets[_selectedAssetPath] : null;
 
   /// Get unique folder names from assets
   List<String> get folderNames {

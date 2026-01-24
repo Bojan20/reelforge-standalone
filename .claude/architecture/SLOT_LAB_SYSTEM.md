@@ -542,9 +542,13 @@ class SlotPreviewWidget extends StatefulWidget {
 **Features:**
 - Grafički simboli sa gradient ikonama
 - Animated reel spinning sa blur efektom
-- Win line highlight overlay (payline vizualizacija)
+- Win line presentation sa `_WinLinePainter` (2026-01-24):
+  - Connecting lines through winning positions
+  - Glow + main line + white core + position dots
+  - Pulse animation, color based on win tier
 - Anticipation shake efekti
 - Animated win amount countup
+- STOP functionality (SPACE key or button click stops reels immediately)
 
 **Symbol Definitions:**
 ```dart
@@ -1245,13 +1249,41 @@ Premium slot preview sa svim industry-standard elementima:
 ### Keyboard Shortcuts
 | Key | Action |
 |-----|--------|
-| `SPACE` | Spin |
+| `SPACE` | Spin / Stop (if spinning) |
 | `ESC` | Exit / Close panel |
 | `M` | Music toggle |
 | `S` | Stats panel |
 | `T` | Turbo mode |
 | `A` | Auto-spin |
 | `1-7` | Forced outcomes (debug) |
+
+### Visual Features (2026-01-24)
+
+**Win Line Presentation:**
+- Win lines are drawn as connecting lines through winning symbol positions
+- `_WinLinePainter` CustomPainter renders:
+  - Outer glow with blur effect
+  - Main colored line (color based on win tier)
+  - White highlight core
+  - Glowing dots at each symbol position
+- Lines cycle through each winning line with pulse animation
+
+**STOP Button:**
+- Spin button shows "STOP" (red) when reels are spinning
+- Click or press SPACE to immediately stop all reels
+- Triggers `provider.stopStagePlayback()` and `_reelAnimController.stopImmediately()`
+
+**Gamble Feature:**
+- Gamble button and overlay are **disabled** for basic mockup
+- Code preserved for future re-enabling (condition: `if (false && _showGambleScreen)`)
+- To re-enable: change `showGamble: false` to dynamic condition in `_WinPresenter`
+
+**Audio-Visual Sync Fix (P0.1):**
+- **Problem:** REEL_STOP audio played 180ms after visual reel landing
+- **Root Cause:** `ProfessionalReelAnimationController.onReelStop` fired when phase became `stopped` (after bounce), not at visual landing
+- **Fix:** Changed `tick()` to fire `onReelStop` when phase enters `bouncing` (the visual landing moment)
+- **Timing:** Audio now plays at exact landing time (1000ms, 1370ms, 1740ms, 2110ms, 2480ms for 5-reel slot)
+- **Files:** `professional_reel_animation.dart:tick()`, Analysis: `.claude/analysis/AUDIO_VISUAL_SYNC_ANALYSIS_2026_01_24.md`
 
 ### Entry Point
 ```dart
@@ -1350,8 +1382,189 @@ Kompaktan format — jedan red po triggeru:
 
 ---
 
+## Double-Spin Prevention (2026-01-24)
+
+### Problem
+
+Klik na Spin dugme trigeruje DVA spina uzastopno jer:
+- `_finalizeSpin()` postavi `_isSpinning = false`
+- Ali provider's `isPlayingStages` je još `true` (procesira WIN, ROLLUP, itd.)
+- `stages` lista još sadrži `spin_start`
+- `_onProviderUpdate()` ponovo prolazi uslov → `_startSpin()` se zove dvaput
+
+### Solution
+
+Dva guard flaga u `slot_preview_widget.dart`:
+
+```dart
+bool _spinFinalized = false;      // Sprečava re-trigger nakon finalize
+String? _lastProcessedSpinId;     // Prati koji spin je već procesiran
+
+void _onProviderUpdate() {
+  // Guards:
+  // 1. Ne pokreći ako je spin već finalizovan
+  // 2. Ne pokreći ako je isti spinId kao prethodni
+  if (isPlaying && stages.isNotEmpty && !_isSpinning && !_spinFinalized) {
+    final spinId = result?.spinId;
+    if (hasSpinStart && spinId != null && spinId != _lastProcessedSpinId) {
+      _lastProcessedSpinId = spinId;
+      _startSpin(result);
+    }
+  }
+
+  // Reset finalized flag kad provider završi
+  if (!isPlaying && _spinFinalized) {
+    _spinFinalized = false;
+  }
+}
+
+void _finalizeSpin(SlotLabSpinResult result) {
+  setState(() {
+    _isSpinning = false;
+    _spinFinalized = true;  // KRITIČNO: Sprečava re-trigger
+  });
+}
+```
+
+---
+
+## Complete Stage Flow (2026-01-24)
+
+### Stage Sequence
+
+Generisan u `crates/rf-slot-lab/src/spin.rs`:
+
+```
+SPIN_START
+    ↓
+REEL_SPINNING × N (za svaki reel)
+    ↓
+[ANTICIPATION_ON] (opciono, na poslednja 1-2 reel-a)
+    ↓
+REEL_STOP_0 → REEL_STOP_1 → ... → REEL_STOP_N
+    ↓
+[ANTICIPATION_OFF] (ako je bio uključen)
+    ↓
+EVALUATE_WINS
+    ↓
+[WIN_PRESENT] (ako ima win)
+    ↓
+[WIN_LINE_SHOW × N] (za svaku win liniju, max 3)
+    ↓
+[BIG_WIN_TIER] (ako win_ratio >= threshold)
+    ↓
+[ROLLUP_START → ROLLUP_TICK × N → ROLLUP_END]
+    ↓
+[CASCADE_STAGES] (ako ima cascade)
+    ↓
+[FEATURE_STAGES] (ako je trigerovan feature)
+    ↓
+SPIN_END
+```
+
+### Visual-Sync Mode
+
+Kada je `useVisualSyncForReelStop = true` (default):
+- REEL_STOP stage-ovi se **NE triggeruju** iz provider timing-a
+- Umesto toga, triggeruju se iz **animacionog callback-a**
+- Svaki reel ima svoj callback kada završi animaciju
+
+```dart
+// slot_lab_provider.dart
+if (_useVisualSyncForReelStop && stage.stageType == 'reel_stop') {
+  debugPrint('[SlotLabProvider] Skipping REEL_STOP (visual-sync mode)');
+  return;  // Audio se triggeruje iz animacije
+}
+```
+
+### Reel Animation Phases
+
+| Faza | Trajanje | Opis |
+|------|----------|------|
+| `idle` | — | Mirovanje |
+| `accelerating` | ~200ms | Ubrzavanje |
+| `spinning` | varijabilno | Puna brzina |
+| `decelerating` | ~300ms | Usporavanje |
+| `bouncing` | ~150ms | Bounce na zaustavljanje |
+| `stopped` | — | Završen |
+
+### Win Tier Thresholds (Industry Standard — 2026-01-24)
+
+**VAŽNO:** BIG WIN je **PRVI major tier** po industry standardu (Zynga, NetEnt, Pragmatic Play).
+"NICE WIN" nije industry standard — umesto toga koristimo "SUPER WIN" kao drugi tier.
+
+| Tier | Win Ratio | Plaque Label | Audio Stage |
+|------|-----------|--------------|-------------|
+| SMALL | < 5x | "WIN!" | WIN_PRESENT_SMALL |
+| **BIG** | **5x - 15x** | **"BIG WIN!"** | WIN_PRESENT_BIG |
+| SUPER | 15x - 30x | "SUPER WIN!" | WIN_PRESENT_SUPER |
+| MEGA | 30x - 60x | "MEGA WIN!" | WIN_PRESENT_MEGA |
+| EPIC | 60x - 100x | "EPIC WIN!" | WIN_PRESENT_EPIC |
+| ULTRA | 100x+ | "ULTRA WIN!" | WIN_PRESENT_ULTRA |
+
+**Industry Research Sources:**
+- Wizard of Oz Slots (Zynga): BIG WIN (8-15x) → MEGA WIN (15-25x) → EPIC WIN → Rainbow Win
+- Know Your Slots: 10x threshold for BIG WIN typical, 25x for high volatility
+
+### Industry-Standard 3-Phase Win Presentation (2026-01-24)
+
+Implementirano prema NetEnt, Pragmatic Play, Big Time Gaming standardima:
+
+**Phase 1: Symbol Highlight (1050ms)**
+```
+Duration: 3 × 350ms pulse cycles
+Audio: WIN_SYMBOL_HIGHLIGHT
+Visual: Winning symbols glow/bounce with scale 1.0→1.15→1.0
+```
+
+**Phase 2: Win Plaque + Counter Rollup (tier-based)**
+```
+SMALL:  1500ms rollup, 15 ticks/sec
+BIG:    2500ms rollup, 12 ticks/sec (first major tier)
+SUPER:  4000ms rollup, 10 ticks/sec (ducks music)
+MEGA:   7000ms rollup, 8 ticks/sec (ducks music)
+EPIC:  12000ms rollup, 6 ticks/sec (ducks music)
+ULTRA: 20000ms rollup, 4 ticks/sec (ducks music)
+
+Audio: WIN_PRESENT_[TIER] → ROLLUP_START → ROLLUP_TICK × N → ROLLUP_END
+```
+
+**Phase 3: Win Line Presentation (cycling) — STRICT SEQUENTIAL**
+```
+ALL TIERS: Starts AFTER Phase 2 ends (no overlapping!)
+           Plaketa se sakriva kada Phase 3 počne
+           Prikazuje: SAMO vizuelne linije
+           NE prikazuje: Info o simbolima ("3x Grapes = $50")
+
+Audio: WIN_LINE_SHOW per line (1500ms display per line)
+```
+
+**Skip Functionality:**
+```
+Skip allowed after tier-specific delay:
+SMALL: 500ms, BIG: 1000ms, SUPER: 2000ms
+MEGA: 3000ms, EPIC: 5000ms, ULTRA: 8000ms
+```
+
+**Implementation Files:**
+- `slot_preview_widget.dart` — WinPresentationTiming class
+- `stage_configuration_service.dart` — WIN_PRESENT_[TIER] stage definitions
+- Full spec: `.claude/analysis/WIN_PRESENTATION_INDUSTRY_STANDARD_2026_01_24.md`
+
+### Timing Profiles
+
+| Profile | Reel Stop | Anticipation | Rollup |
+|---------|-----------|--------------|--------|
+| Normal | 400ms | 800ms | 1.0x |
+| Turbo | 200ms | 400ms | 2.0x |
+| Mobile | 350ms | 600ms | 1.2x |
+| Studio | 370ms | 500ms | 0.8x |
+
+---
+
 ## Related Documentation
 
+- [PREMIUM_SLOT_PREVIEW.md](.claude/architecture/PREMIUM_SLOT_PREVIEW.md) — Visual-sync implementation details
 - [SLOT_PREVIEW_MODE.md](.claude/architecture/SLOT_PREVIEW_MODE.md) — Premium fullscreen preview UI
 - [UNIFIED_PLAYBACK_SYSTEM.md](.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md) — Section-based playback, engine-level source filtering
 - [EVENT_SYNC_SYSTEM.md](.claude/architecture/EVENT_SYNC_SYSTEM.md) — Bidirectional event sync between sections (includes full fix details)

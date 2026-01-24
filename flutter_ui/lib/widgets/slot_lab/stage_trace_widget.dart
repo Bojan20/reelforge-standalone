@@ -54,6 +54,9 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
   int? _hoveredStageIndex;
   bool _isDraggingOver = false;
 
+  // Mouse hover state (separate from drag hover)
+  int? _mouseHoverIndex;
+
   // Stage colors by type
   static const Map<String, Color> _stageColors = {
     'spin_start': Color(0xFF4A9EFF),
@@ -363,10 +366,17 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                   },
                   builder: (context, candidateData, rejectedData) {
                     final isDragTarget = candidateData.isNotEmpty;
+                    final isMouseHovered = _mouseHoverIndex == index;
 
-                    return GestureDetector(
-                      onTap: () => widget.provider.triggerStageManually(index),
-                      child: AnimatedBuilder(
+                    return MouseRegion(
+                      onEnter: (_) => setState(() => _mouseHoverIndex = index),
+                      onExit: (_) => setState(() {
+                        if (_mouseHoverIndex == index) _mouseHoverIndex = null;
+                      }),
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => widget.provider.triggerStageManually(index),
+                        child: AnimatedBuilder(
                         animation: _pulseAnimation,
                         builder: (context, child) {
                           final scale = isActive
@@ -382,44 +392,59 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                               opacity: opacity,
                               child: Column(
                                 children: [
-                                  // Stage dot/icon with drop indicator
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 150),
-                                    width: isDragTarget ? 28 : 20,
-                                    height: isDragTarget ? 28 : 20,
-                                    decoration: BoxDecoration(
-                                      color: isDragTarget
-                                          ? FluxForgeTheme.accentGreen.withOpacity(0.8)
-                                          : isActive
-                                              ? color
-                                              : color.withOpacity(0.3),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: isDragTarget ? FluxForgeTheme.accentGreen : color,
-                                        width: isDragTarget ? 3 : (isActive ? 2 : 1),
+                                  // Stage dot/icon with drop indicator and play button
+                                  Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      AnimatedContainer(
+                                        duration: const Duration(milliseconds: 150),
+                                        width: isDragTarget ? 28 : (isMouseHovered ? 24 : 20),
+                                        height: isDragTarget ? 28 : (isMouseHovered ? 24 : 20),
+                                        decoration: BoxDecoration(
+                                          color: isDragTarget
+                                              ? FluxForgeTheme.accentGreen.withOpacity(0.8)
+                                              : isMouseHovered
+                                                  ? color.withOpacity(0.8)
+                                                  : isActive
+                                                      ? color
+                                                      : color.withOpacity(0.3),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: isDragTarget
+                                                ? FluxForgeTheme.accentGreen
+                                                : isMouseHovered
+                                                    ? Colors.white
+                                                    : color,
+                                            width: isDragTarget ? 3 : (isActive || isMouseHovered ? 2 : 1),
+                                          ),
+                                          boxShadow: (isActive || isDragTarget || isMouseHovered)
+                                              ? [
+                                                  BoxShadow(
+                                                    color: (isDragTarget
+                                                            ? FluxForgeTheme.accentGreen
+                                                            : color)
+                                                        .withOpacity(0.6),
+                                                    blurRadius: isDragTarget ? 12 : (isMouseHovered ? 10 : 8),
+                                                    spreadRadius: isDragTarget ? 4 : (isMouseHovered ? 3 : 2),
+                                                  ),
+                                                ]
+                                              : null,
+                                        ),
+                                        child: Icon(
+                                          isDragTarget
+                                              ? Icons.add
+                                              : isMouseHovered
+                                                  ? Icons.play_arrow  // Play button on hover
+                                                  : _getStageIcon(stage.stageType),
+                                          size: isDragTarget ? 14 : (isMouseHovered ? 14 : 10),
+                                          color: isDragTarget
+                                              ? Colors.white
+                                              : isMouseHovered
+                                                  ? Colors.white
+                                                  : (isActive ? Colors.white : color),
+                                        ),
                                       ),
-                                      boxShadow: (isActive || isDragTarget)
-                                          ? [
-                                              BoxShadow(
-                                                color: (isDragTarget
-                                                        ? FluxForgeTheme.accentGreen
-                                                        : color)
-                                                    .withOpacity(0.6),
-                                                blurRadius: isDragTarget ? 12 : 8,
-                                                spreadRadius: isDragTarget ? 4 : 2,
-                                              ),
-                                            ]
-                                          : null,
-                                    ),
-                                    child: Icon(
-                                      isDragTarget
-                                          ? Icons.add
-                                          : _getStageIcon(stage.stageType),
-                                      size: isDragTarget ? 14 : 10,
-                                      color: isDragTarget
-                                          ? Colors.white
-                                          : (isActive ? Colors.white : color),
-                                    ),
+                                    ],
                                   ),
                                   // Connector line
                                   Container(
@@ -453,6 +478,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                             ),
                           );
                         },
+                        ),
                       ),
                     );
                   },

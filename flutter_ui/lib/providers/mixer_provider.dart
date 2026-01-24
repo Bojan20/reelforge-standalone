@@ -427,6 +427,22 @@ class MixerProvider extends ChangeNotifier {
 
   bool get hasSoloedChannels => _soloedChannels.isNotEmpty;
 
+  /// Channel count
+  int get channelCount => _channels.length;
+
+  /// Bus count
+  int get busCount => _buses.length;
+
+  /// Clear all solo states
+  void clearAllSolo() {
+    for (final id in List.from(_soloedChannels)) {
+      setSoloed(id, false);
+    }
+  }
+
+  /// Set pan for a channel (shorthand for setChannelPan)
+  void setPan(String id, double pan) => setChannelPan(id, pan);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // INITIALIZATION
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1328,7 +1344,14 @@ class MixerProvider extends ChangeNotifier {
     final channel = _channels[id];
     if (channel == null) return;
 
-    _channels[id] = channel.copyWith(monitorInput: !channel.monitorInput);
+    final newMonitorState = !channel.monitorInput;
+    _channels[id] = channel.copyWith(monitorInput: newMonitorState);
+
+    // Send to engine if track channel
+    if (channel.trackIndex != null) {
+      NativeFFI.instance.trackSetInputMonitor(channel.trackIndex!, newMonitorState);
+    }
+
     notifyListeners();
   }
 
@@ -1384,6 +1407,11 @@ class MixerProvider extends ChangeNotifier {
 
     _channels[id] = channel.copyWith(monitorInput: monitor);
     notifyListeners();
+
+    // Send to engine FFI
+    if (channel.trackIndex != null) {
+      NativeFFI.instance.trackSetInputMonitor(channel.trackIndex!, monitor);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1505,18 +1533,16 @@ class MixerProvider extends ChangeNotifier {
     final channel = _channels[channelId];
     if (channel == null) return;
 
-    // Clamp gain to reasonable range (-20dB to +20dB mapped as 0.1 to 10.0)
+    // Clamp gain to reasonable range (-20dB to +20dB)
     final clampedGain = gain.clamp(-20.0, 20.0);
-
-    // Convert dB to linear for FFI if needed
-    // final linearGain = pow(10.0, clampedGain / 20.0);
 
     _channels[channelId] = channel.copyWith(inputGain: clampedGain);
     notifyListeners();
 
-    // TODO: Send to FFI when input gain is implemented in engine
-    // final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
-    // NativeFFI.instance.setTrackInputGain(trackId, linearGain);
+    // Send to engine FFI (expects dB value)
+    if (channel.trackIndex != null) {
+      NativeFFI.instance.channelStripSetInputGain(channel.trackIndex!, clampedGain);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1676,15 +1702,19 @@ class MixerProvider extends ChangeNotifier {
   // UTILITIES
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Map bus ID to engine bus index
+  /// Engine buses: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
+  /// MUST match Rust playback.rs bus processing loop (lines 3313-3319)
   int _getBusEngineId(String busId) {
     switch (busId) {
-      case 'bus_ui': return 0;
-      case 'bus_sfx': return 1;
-      case 'bus_music': return 2;
+      case 'master': return 0;
+      case 'bus_music': return 1;
+      case 'bus_sfx': return 2;
       case 'bus_vo': return 3;
       case 'bus_ambient': return 4;
-      case 'master': return 5;
-      default: return 1; // Default to SFX
+      case 'bus_aux': return 5;
+      case 'bus_ui': return 2; // UI sounds route to SFX bus
+      default: return 2; // Default to SFX
     }
   }
 

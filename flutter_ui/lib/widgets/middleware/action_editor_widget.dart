@@ -130,6 +130,7 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
     FadeCurve? fadeCurve,
     double? fadeTime,
     double? gain,
+    double? pan,
     double? delay,
     bool? loop,
   }) {
@@ -142,6 +143,7 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
       fadeCurve: fadeCurve,
       fadeTime: fadeTime,
       gain: gain,
+      pan: pan,
       delay: delay,
       loop: loop,
     ));
@@ -388,6 +390,18 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
       ));
     }
 
+    // Pan badge (if not center)
+    if (widget.action.pan.abs() > 0.01) {
+      final panLabel = widget.action.pan < 0
+          ? 'L${(widget.action.pan.abs() * 100).toInt()}'
+          : 'R${(widget.action.pan * 100).toInt()}';
+      badges.add(_buildBadge(
+        Icons.surround_sound,
+        panLabel,
+        Colors.cyan,
+      ));
+    }
+
     return Row(children: badges);
   }
 
@@ -591,6 +605,17 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
           trailing: _buildResetButton(
             visible: (widget.action.gain - 1.0).abs() > 0.01,
             onTap: () => _updateAction(gain: 1.0),
+          ),
+        ),
+        const SizedBox(height: _kSectionSpacing),
+
+        // Pan control
+        _buildSection(
+          'Pan',
+          _buildPanControl(),
+          trailing: _buildResetButton(
+            visible: widget.action.pan.abs() > 0.01,
+            onTap: () => _updateAction(pan: 0.0),
           ),
         ),
         const SizedBox(height: _kSectionSpacing),
@@ -989,6 +1014,80 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
                 label,
                 style: TextStyle(
                   color: isSelected ? Colors.orange : FluxForgeTheme.textSecondary,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPanControl() {
+    return Column(
+      children: [
+        // Visual pan slider
+        Row(
+          children: [
+            // Pan slider with L/R scale
+            Expanded(
+              child: _buildParameterSlider(
+                value: widget.action.pan,
+                min: -1.0,
+                max: 1.0,
+                onChanged: (v) => _updateAction(pan: v),
+                formatValue: (v) {
+                  if (v.abs() < 0.01) return 'C';
+                  final percent = (v.abs() * 100).toInt();
+                  return v < 0 ? 'L$percent' : 'R$percent';
+                },
+                color: Colors.cyan,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Quick presets
+        Row(
+          children: [
+            _buildPanPresetButton('L100', -1.0),
+            _buildPanPresetButton('L50', -0.5),
+            _buildPanPresetButton('C', 0.0),
+            _buildPanPresetButton('R50', 0.5),
+            _buildPanPresetButton('R100', 1.0),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPanPresetButton(String label, double value) {
+    final isSelected = (widget.action.pan - value).abs() < 0.01;
+
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: InkWell(
+          onTap: () => _updateAction(pan: value),
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Colors.cyan.withValues(alpha: 0.2)
+                  : FluxForgeTheme.bgSurface,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: isSelected ? Colors.cyan : FluxForgeTheme.borderSubtle,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.cyan : FluxForgeTheme.textSecondary,
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),

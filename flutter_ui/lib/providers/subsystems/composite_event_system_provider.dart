@@ -25,10 +25,133 @@ enum CompositeEventChangeType {
   deleted,
 }
 
+/// History entry for tracking event changes
+class EventHistoryEntry {
+  final DateTime timestamp;
+  final String eventId;
+  final String eventName;
+  final CompositeEventChangeType changeType;
+  final String description;
+  final String? details;
+
+  const EventHistoryEntry({
+    required this.timestamp,
+    required this.eventId,
+    required this.eventName,
+    required this.changeType,
+    required this.description,
+    this.details,
+  });
+
+  String get icon {
+    switch (changeType) {
+      case CompositeEventChangeType.created:
+        return '➕';
+      case CompositeEventChangeType.updated:
+        return '✏️';
+      case CompositeEventChangeType.deleted:
+        return '🗑️';
+    }
+  }
+
+  String get changeTypeLabel {
+    switch (changeType) {
+      case CompositeEventChangeType.created:
+        return 'Created';
+      case CompositeEventChangeType.updated:
+        return 'Modified';
+      case CompositeEventChangeType.deleted:
+        return 'Deleted';
+    }
+  }
+}
+
 /// Provider for managing composite events (layered audio events)
 class CompositeEventSystemProvider extends ChangeNotifier {
   final NativeFFI _ffi;
   final EventSystemProvider _eventSystemProvider;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P1.1 SECURITY: Audio path validation
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Allowed audio file extensions (case-insensitive)
+  static const _allowedAudioExtensions = {'.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif'};
+
+  /// Validate audio path for security and format compliance
+  /// Returns true if path is valid, false otherwise
+  bool _validateAudioPath(String path) {
+    // Empty paths are invalid for actual audio
+    if (path.isEmpty) {
+      debugPrint('[CompositeEvents] ⚠️ Empty audio path');
+      return false;
+    }
+
+    // Block path traversal attacks
+    if (path.contains('..')) {
+      debugPrint('[CompositeEvents] ⛔ SECURITY: Path traversal attempt blocked: $path');
+      return false;
+    }
+
+    // Block null byte injection
+    if (path.contains('\x00')) {
+      debugPrint('[CompositeEvents] ⛔ SECURITY: Null byte in path blocked: $path');
+      return false;
+    }
+
+    // Validate file extension
+    final lowerPath = path.toLowerCase();
+    final hasValidExtension = _allowedAudioExtensions.any((ext) => lowerPath.endsWith(ext));
+    if (!hasValidExtension) {
+      debugPrint('[CompositeEvents] ⚠️ Invalid audio extension: $path');
+      return false;
+    }
+
+    // Block suspicious characters (command injection prevention)
+    if (path.contains('\n') || path.contains('\r') || path.contains('|') || path.contains(';')) {
+      debugPrint('[CompositeEvents] ⛔ SECURITY: Suspicious characters in path blocked: $path');
+      return false;
+    }
+
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P2.5 SECURITY: Name/Category sanitization for XSS prevention
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Sanitize a string for safe display (XSS prevention)
+  /// Removes HTML-like tags and dangerous characters
+  String _sanitizeName(String input) {
+    if (input.isEmpty) return input;
+
+    // Limit length
+    const maxLength = 128;
+    var sanitized = input.length > maxLength ? input.substring(0, maxLength) : input;
+
+    // Remove HTML tags
+    sanitized = sanitized.replaceAll(RegExp(r'<[^>]*>'), '');
+
+    // Escape HTML entities
+    sanitized = sanitized
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+
+    // Remove control characters
+    sanitized = sanitized.replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '');
+
+    // Trim whitespace
+    sanitized = sanitized.trim();
+
+    if (sanitized != input) {
+      debugPrint('[CompositeEvents] Name sanitized: "$input" → "$sanitized"');
+    }
+
+    return sanitized;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // STATE
@@ -57,6 +180,10 @@ class CompositeEventSystemProvider extends ChangeNotifier {
 
   /// Multi-select support for batch operations
   final Set<String> _selectedLayerIds = {};
+
+  /// Event history tracking (most recent first)
+  final List<EventHistoryEntry> _eventHistory = [];
+  static const int _maxHistoryEntries = 100;
 
   /// Change listeners for bidirectional sync
   final List<void Function(String eventId, CompositeEventChangeType type)>
@@ -98,6 +225,42 @@ class CompositeEventSystemProvider extends ChangeNotifier {
 
   /// Multi-select getters
   Set<String> get selectedLayerIds => Set.unmodifiable(_selectedLayerIds);
+
+  /// Event history getters
+  List<EventHistoryEntry> get eventHistory => List.unmodifiable(_eventHistory);
+  int get eventHistoryCount => _eventHistory.length;
+
+  /// Record a history entry
+  void _recordHistory({
+    required String eventId,
+    required String eventName,
+    required CompositeEventChangeType changeType,
+    required String description,
+    String? details,
+  }) {
+    final entry = EventHistoryEntry(
+      timestamp: DateTime.now(),
+      eventId: eventId,
+      eventName: eventName,
+      changeType: changeType,
+      description: description,
+      details: details,
+    );
+
+    // Insert at beginning (most recent first)
+    _eventHistory.insert(0, entry);
+
+    // Trim to max size
+    if (_eventHistory.length > _maxHistoryEntries) {
+      _eventHistory.removeLast();
+    }
+  }
+
+  /// Clear event history
+  void clearEventHistory() {
+    _eventHistory.clear();
+    notifyListeners();
+  }
   bool get hasMultipleLayersSelected => _selectedLayerIds.length > 1;
   int get selectedLayerCount => _selectedLayerIds.length;
 
@@ -142,11 +305,14 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     Color? color,
   }) {
     _pushUndoState();
+    // P2.5 SECURITY: Sanitize name and category for XSS prevention
+    final sanitizedName = _sanitizeName(name);
+    final sanitizedCategory = _sanitizeName(category);
     final id = 'event_${DateTime.now().millisecondsSinceEpoch}';
     final event = SlotCompositeEvent(
       id: id,
-      name: name,
-      category: category,
+      name: sanitizedName,
+      category: sanitizedCategory,
       color: color ??
           SlotEventCategory.values
               .firstWhere((c) => c.name == category, orElse: () => SlotEventCategory.ui)
@@ -188,6 +354,16 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       _selectedCompositeEventId = event.id;
     }
     _enforceCompositeEventsLimit();
+
+    // Record history
+    _recordHistory(
+      eventId: event.id,
+      eventName: event.name,
+      changeType: CompositeEventChangeType.created,
+      description: 'Created event "${event.name}"',
+      details: '${event.layers.length} layer(s), ${event.triggerStages.length} stage(s)',
+    );
+
     debugPrint(
         '[CompositeEvents] Total: ${_compositeEvents.length}, selected: $_selectedCompositeEventId');
     notifyListeners();
@@ -195,9 +371,34 @@ class CompositeEventSystemProvider extends ChangeNotifier {
 
   /// Update composite event
   void updateCompositeEvent(SlotCompositeEvent event) {
+    final oldEvent = _compositeEvents[event.id];
     _pushUndoState();
-    _compositeEvents[event.id] = event.copyWith(modifiedAt: DateTime.now());
-    _syncCompositeToMiddleware(event);
+    // P2.5 SECURITY: Sanitize name and category for XSS prevention
+    final sanitizedEvent = event.copyWith(
+      name: _sanitizeName(event.name),
+      category: _sanitizeName(event.category),
+      modifiedAt: DateTime.now(),
+    );
+    _compositeEvents[event.id] = sanitizedEvent;
+    _syncCompositeToMiddleware(sanitizedEvent);
+
+    // Record history with change details
+    String details = '';
+    if (oldEvent != null) {
+      final changes = <String>[];
+      if (oldEvent.name != sanitizedEvent.name) changes.add('name');
+      if (oldEvent.layers.length != sanitizedEvent.layers.length) changes.add('layers');
+      if (oldEvent.triggerStages.length != sanitizedEvent.triggerStages.length) changes.add('stages');
+      details = changes.isNotEmpty ? 'Changed: ${changes.join(", ")}' : 'Properties updated';
+    }
+    _recordHistory(
+      eventId: sanitizedEvent.id,
+      eventName: sanitizedEvent.name,
+      changeType: CompositeEventChangeType.updated,
+      description: 'Modified "${sanitizedEvent.name}"',
+      details: details,
+    );
+
     notifyListeners();
   }
 
@@ -205,6 +406,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void renameCompositeEvent(String eventId, String newName) {
     final event = _compositeEvents[eventId];
     if (event != null) {
+      final oldName = event.name;
       _pushUndoState();
       final updated = event.copyWith(
         name: newName,
@@ -212,12 +414,24 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       );
       _compositeEvents[eventId] = updated;
       _syncCompositeToMiddleware(updated);
+
+      // Record history
+      _recordHistory(
+        eventId: eventId,
+        eventName: newName,
+        changeType: CompositeEventChangeType.updated,
+        description: 'Renamed "$oldName" → "$newName"',
+      );
+
       notifyListeners();
     }
   }
 
   /// Delete a composite event
   void deleteCompositeEvent(String eventId) {
+    final deletedEvent = _compositeEvents[eventId];
+    final deletedName = deletedEvent?.name ?? eventId;
+
     _pushUndoState();
 
     // Stop any playing voices for this event
@@ -228,6 +442,15 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     if (_selectedCompositeEventId == eventId) {
       _selectedCompositeEventId = _compositeEvents.keys.firstOrNull;
     }
+
+    // Record history
+    _recordHistory(
+      eventId: eventId,
+      eventName: deletedName,
+      changeType: CompositeEventChangeType.deleted,
+      description: 'Deleted "$deletedName"',
+    );
+
     debugPrint('[CompositeEvents] deleteCompositeEvent: removed event $eventId');
     notifyListeners();
   }
@@ -270,6 +493,11 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final event = _compositeEvents[eventId];
     if (event == null) throw Exception('Event not found: $eventId');
 
+    // P1.1 SECURITY: Validate audio path before proceeding
+    if (!_validateAudioPath(audioPath)) {
+      throw Exception('Invalid audio path: $audioPath');
+    }
+
     _pushUndoState();
 
     // Auto-detect duration if not provided
@@ -296,6 +524,16 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     );
     _compositeEvents[eventId] = updated;
     _syncCompositeToMiddleware(updated);
+
+    // Record history
+    _recordHistory(
+      eventId: eventId,
+      eventName: updated.name,
+      changeType: CompositeEventChangeType.updated,
+      description: 'Added layer "$name" to "${updated.name}"',
+      details: 'Audio: ${audioPath.split('/').last}',
+    );
+
     debugPrint(
         '[CompositeEvents] addLayerToEvent: "${updated.name}" now has ${updated.layers.length} layers');
     notifyListeners();
@@ -306,6 +544,12 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void removeLayerFromEvent(String eventId, String layerId) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
+
+    final removedLayer = event.layers.firstWhere(
+      (l) => l.id == layerId,
+      orElse: () => SlotEventLayer(id: layerId, name: 'Unknown', audioPath: ''),
+    );
+
     _pushUndoState();
 
     // Stop any playing voices for this layer
@@ -317,6 +561,15 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     );
     _compositeEvents[eventId] = updated;
     _syncCompositeToMiddleware(updated);
+
+    // Record history
+    _recordHistory(
+      eventId: eventId,
+      eventName: event.name,
+      changeType: CompositeEventChangeType.updated,
+      description: 'Removed layer "${removedLayer.name}" from "${event.name}"',
+    );
+
     debugPrint(
         '[CompositeEvents] removeLayerFromEvent: removed layer $layerId from "${event.name}"');
     notifyListeners();
@@ -777,7 +1030,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final updatedLayers = event.layers.map((l) {
       if (_selectedLayerIds.contains(l.id)) {
         return l.copyWith(
-          volume: (l.volume + volumeDelta).clamp(0.0, 2.0),
+          // P1.2 FIX: Clamp to 1.0 max (was 2.0 which causes clipping/distortion)
+          volume: (l.volume + volumeDelta).clamp(0.0, 1.0),
         );
       }
       return l;
@@ -887,6 +1141,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
         assetId: layer.audioPath,
         bus: _getBusNameForCategory(composite.category),
         gain: layer.volume * composite.masterVolume,
+        pan: layer.pan,
         delay: layer.offsetMs / 1000.0,
         fadeTime: layer.fadeInMs / 1000.0,
         loop: composite.looping,
@@ -918,12 +1173,21 @@ class CompositeEventSystemProvider extends ChangeNotifier {
 
   /// Sync MiddlewareEvent back to SlotCompositeEvent (bidirectional)
   void syncMiddlewareToComposite(String middlewareId) {
+    debugPrint('[Sync] syncMiddlewareToComposite called: middlewareId=$middlewareId');
+
     final compositeId = _middlewareToCompositeId(middlewareId);
-    if (compositeId == null) return;
+    if (compositeId == null) {
+      debugPrint('[Sync] ❌ Could not map middlewareId to compositeId (not mw_event_* format)');
+      return;
+    }
+    debugPrint('[Sync] Mapped to compositeId=$compositeId');
 
     final middlewareEvent = _eventSystemProvider.getEvent(middlewareId);
     final composite = _compositeEvents[compositeId];
-    if (middlewareEvent == null || composite == null) return;
+    if (middlewareEvent == null || composite == null) {
+      debugPrint('[Sync] ❌ Event not found: middlewareEvent=${middlewareEvent != null}, composite=${composite != null}');
+      return;
+    }
 
     final updatedLayers = <SlotEventLayer>[];
 
@@ -933,6 +1197,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
 
       updatedLayers.add(layer.copyWith(
         volume: action.gain,
+        pan: action.pan,
         offsetMs: action.delay * 1000.0,
         fadeInMs: action.fadeTime * 1000.0,
       ));
@@ -948,7 +1213,11 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       modifiedAt: DateTime.now(),
     );
 
-    debugPrint('[Sync] Middleware → Composite: ${middlewareEvent.name}');
+    // Log synced pan values
+    for (int i = 0; i < updatedLayers.length; i++) {
+      debugPrint('[Sync] Layer $i: pan=${updatedLayers[i].pan}');
+    }
+    debugPrint('[Sync] ✅ Middleware → Composite: ${middlewareEvent.name} (${updatedLayers.length} layers)');
     notifyListeners();
   }
 
@@ -1043,24 +1312,124 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   }
 
   /// Import composite events from JSON
+  /// P1.3 FIX: Added comprehensive validation before importing
   void importCompositeEventsFromJson(Map<String, dynamic> json) {
-    final version = json['version'] as int? ?? 1;
-    if (version != 1) {
-      debugPrint('[CompositeEvents] Warning: Unknown composite events version: $version');
+    // Validate version
+    final version = json['version'] as int?;
+    if (version == null || version < 1) {
+      debugPrint('[CompositeEvents] ❌ ERROR: Invalid or missing version in import JSON');
+      return;
+    }
+    if (version > 1) {
+      debugPrint('[CompositeEvents] ⚠️ Warning: Future version $version, attempting import');
     }
 
-    final events = json['compositeEvents'] as List<dynamic>?;
-    if (events == null) return;
+    // Validate events array exists and is a list
+    final events = json['compositeEvents'];
+    if (events == null) {
+      debugPrint('[CompositeEvents] ❌ ERROR: Missing compositeEvents array in import JSON');
+      return;
+    }
+    if (events is! List) {
+      debugPrint('[CompositeEvents] ❌ ERROR: compositeEvents must be an array');
+      return;
+    }
 
-    _compositeEvents.clear();
+    // Validate each event before importing
+    final validEvents = <SlotCompositeEvent>[];
+    int skippedCount = 0;
+
     for (final eventJson in events) {
-      final event = SlotCompositeEvent.fromJson(eventJson as Map<String, dynamic>);
+      if (eventJson is! Map<String, dynamic>) {
+        skippedCount++;
+        continue;
+      }
+
+      if (!_validateEventJson(eventJson)) {
+        skippedCount++;
+        continue;
+      }
+
+      try {
+        final event = SlotCompositeEvent.fromJson(eventJson);
+        // Additional validation: check layers have valid audio paths
+        final validatedEvent = _validateEventLayers(event);
+        validEvents.add(validatedEvent);
+      } catch (e) {
+        debugPrint('[CompositeEvents] ⚠️ Skipped invalid event: $e');
+        skippedCount++;
+      }
+    }
+
+    // Only apply if we have valid events (or empty import is intentional)
+    if (validEvents.isEmpty && events.isNotEmpty) {
+      debugPrint('[CompositeEvents] ❌ ERROR: No valid events found in import (skipped $skippedCount)');
+      return;
+    }
+
+    // Clear and import
+    _compositeEvents.clear();
+    for (final event in validEvents) {
       _compositeEvents[event.id] = event;
       _syncCompositeToMiddleware(event);
     }
 
-    debugPrint('[CompositeEvents] Imported ${_compositeEvents.length} composite events');
+    debugPrint('[CompositeEvents] ✅ Imported ${validEvents.length} composite events (skipped $skippedCount)');
     notifyListeners();
+  }
+
+  /// Validate event JSON structure before parsing
+  bool _validateEventJson(Map<String, dynamic> json) {
+    // Required fields
+    if (json['id'] is! String || (json['id'] as String).isEmpty) {
+      debugPrint('[CompositeEvents] Invalid event: missing or empty id');
+      return false;
+    }
+    if (json['name'] is! String) {
+      debugPrint('[CompositeEvents] Invalid event: missing name');
+      return false;
+    }
+
+    // Validate layers if present
+    final layers = json['layers'];
+    if (layers != null) {
+      if (layers is! List) {
+        debugPrint('[CompositeEvents] Invalid event: layers must be an array');
+        return false;
+      }
+      // Check each layer has required fields
+      for (final layer in layers) {
+        if (layer is! Map<String, dynamic>) continue;
+        if (layer['id'] is! String) return false;
+        if (layer['audioPath'] is! String) return false;
+      }
+    }
+
+    // Validate triggerStages if present
+    final stages = json['triggerStages'];
+    if (stages != null && stages is! List) {
+      debugPrint('[CompositeEvents] Invalid event: triggerStages must be an array');
+      return false;
+    }
+
+    return true;
+  }
+
+  /// Validate and sanitize event layers (remove layers with invalid paths)
+  SlotCompositeEvent _validateEventLayers(SlotCompositeEvent event) {
+    final validLayers = event.layers.where((layer) {
+      // Allow empty paths (placeholder layers)
+      if (layer.audioPath.isEmpty) return true;
+      // Validate non-empty paths
+      return _validateAudioPath(layer.audioPath);
+    }).toList();
+
+    if (validLayers.length != event.layers.length) {
+      debugPrint(
+          '[CompositeEvents] ⚠️ Removed ${event.layers.length - validLayers.length} invalid layer(s) from "${event.name}"');
+    }
+
+    return event.copyWith(layers: validLayers);
   }
 
   /// Get all composite events as JSON string

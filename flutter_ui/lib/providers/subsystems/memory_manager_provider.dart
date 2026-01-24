@@ -8,44 +8,184 @@
 /// - Memory budget tracking (resident + streaming)
 /// - LRU-based automatic unloading
 /// - Memory statistics for monitoring
+/// - Real-time engine stats via FFI (syncFromEngine)
+///
+/// Integration: Syncs with Rust engine via NativeFFI memory manager functions
 
 import 'package:flutter/foundation.dart';
 import '../../models/advanced_middleware_models.dart';
+import '../../src/rust/native_ffi.dart';
 
 /// Provider for managing soundbank memory budget
 class MemoryManagerProvider extends ChangeNotifier {
-  /// Internal memory budget manager
+  final NativeFFI? _ffi;
+
+  /// Internal memory budget manager (Dart-side fallback)
   late MemoryBudgetManager _memoryManager;
 
+  /// Cached engine stats from FFI
+  NativeMemoryStats? _engineStats;
+
+  /// Whether FFI sync is enabled
+  bool _useFfi = true;
+
   MemoryManagerProvider({
+    NativeFFI? ffi,
     MemoryBudgetConfig config = const MemoryBudgetConfig(),
-  }) {
+  }) : _ffi = ffi {
     _memoryManager = MemoryBudgetManager(config: config);
+    // Initialize FFI memory manager if available
+    if (_ffi != null && _useFfi) {
+      _initFfi(config);
+    }
+  }
+
+  /// Initialize FFI memory manager with config
+  void _initFfi(MemoryBudgetConfig config) {
+    if (_ffi == null) return;
+    try {
+      _ffi.memoryManagerInit(config: {
+        'max_resident_bytes': config.maxResidentBytes,
+        'max_streaming_bytes': config.maxStreamingBytes,
+        'warning_threshold': config.warningThreshold,
+        'critical_threshold': config.criticalThreshold,
+        'min_resident_time_ms': config.minResidentTimeMs,
+      });
+    } catch (e) {
+      debugPrint('[MemoryManagerProvider] FFI init error: $e');
+      _useFfi = false;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // GETTERS
+  // ENGINE STATS (FFI)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Cached engine stats
+  NativeMemoryStats? get engineStats => _engineStats;
+
+  /// Check if FFI is available
+  bool get hasFfiConnection => _ffi != null && _useFfi;
+
+  /// Sync stats from Rust engine via FFI
+  void syncFromEngine() {
+    if (_ffi == null || !_useFfi) return;
+
+    try {
+      _engineStats = _ffi.memoryManagerGetStats();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[MemoryManagerProvider] FFI sync error: $e');
+    }
+  }
+
+  /// Get banks from engine (FFI)
+  List<NativeSoundBank> getEngineBanks() {
+    if (_ffi == null || !_useFfi) return [];
+    try {
+      return _ffi.memoryManagerGetBanks();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GETTERS (prefer engine stats when available)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Current configuration
   MemoryBudgetConfig get config => _memoryManager.config;
 
-  /// Current memory state
-  MemoryState get state => _memoryManager.state;
+  /// Current memory state (prefer engine)
+  MemoryState get state {
+    if (_engineStats != null) {
+      switch (_engineStats!.state) {
+        case NativeMemoryState.normal:
+          return MemoryState.normal;
+        case NativeMemoryState.warning:
+          return MemoryState.warning;
+        case NativeMemoryState.critical:
+          return MemoryState.critical;
+      }
+    }
+    return _memoryManager.state;
+  }
 
-  /// Resident memory usage
-  int get residentBytes => _memoryManager.residentBytes;
-  double get residentMb => _memoryManager.residentMb;
-  double get residentPercent => _memoryManager.residentPercent;
+  /// Resident memory usage (prefer engine)
+  int get residentBytes => _engineStats?.residentBytes ?? _memoryManager.residentBytes;
+  double get residentMb => residentBytes / (1024 * 1024);
+  double get residentPercent {
+    final max = _engineStats?.residentMaxBytes ?? config.maxResidentBytes;
+    return max > 0 ? residentBytes / max : 0.0;
+  }
 
-  /// Streaming buffer usage
-  int get streamingBytes => _memoryManager.streamingBytes;
-  double get streamingMb => _memoryManager.streamingMb;
-  double get streamingPercent => _memoryManager.streamingPercent;
+  /// Streaming buffer usage (prefer engine)
+  int get streamingBytes => _engineStats?.streamingBytes ?? _memoryManager.streamingBytes;
+  double get streamingMb => streamingBytes / (1024 * 1024);
+  double get streamingPercent {
+    final max = _engineStats?.streamingMaxBytes ?? config.maxStreamingBytes;
+    return max > 0 ? streamingBytes / max : 0.0;
+  }
 
-  /// Bank lists
-  List<SoundBank> get loadedBanks => _memoryManager.loadedBanks;
-  List<SoundBank> get allBanks => _memoryManager.allBanks;
+  /// Bank lists (prefer engine when available)
+  List<SoundBank> get loadedBanks {
+    if (_ffi != null && _useFfi) {
+      return getEngineBanks()
+          .where((b) => b.isLoaded)
+          .map(_nativeBankToSoundBank)
+          .toList();
+    }
+    return _memoryManager.loadedBanks;
+  }
+
+  List<SoundBank> get allBanks {
+    if (_ffi != null && _useFfi) {
+      return getEngineBanks().map(_nativeBankToSoundBank).toList();
+    }
+    return _memoryManager.allBanks;
+  }
+
+  /// Convert NativeSoundBank to SoundBank
+  SoundBank _nativeBankToSoundBank(NativeSoundBank native) {
+    return SoundBank(
+      bankId: native.bankId,
+      name: native.name,
+      estimatedSizeBytes: native.estimatedSizeBytes,
+      priority: _nativePriorityToLoadPriority(native.priority),
+      soundIds: native.soundIds,
+      isLoaded: native.isLoaded,
+      actualSizeBytes: native.actualSizeBytes,
+      // lastUsed not available from FFI
+    );
+  }
+
+  /// Convert NativeLoadPriority to LoadPriority
+  LoadPriority _nativePriorityToLoadPriority(NativeLoadPriority native) {
+    switch (native) {
+      case NativeLoadPriority.critical:
+        return LoadPriority.critical;
+      case NativeLoadPriority.high:
+        return LoadPriority.high;
+      case NativeLoadPriority.normal:
+        return LoadPriority.normal;
+      case NativeLoadPriority.streaming:
+        return LoadPriority.streaming;
+    }
+  }
+
+  /// Convert LoadPriority to NativeLoadPriority
+  NativeLoadPriority _loadPriorityToNative(LoadPriority priority) {
+    switch (priority) {
+      case LoadPriority.critical:
+        return NativeLoadPriority.critical;
+      case LoadPriority.high:
+        return NativeLoadPriority.high;
+      case LoadPriority.normal:
+        return NativeLoadPriority.normal;
+      case LoadPriority.streaming:
+        return NativeLoadPriority.streaming;
+    }
+  }
 
   /// Bank count
   int get loadedBankCount => _memoryManager.loadedBanks.length;
@@ -57,24 +197,44 @@ class MemoryManagerProvider extends ChangeNotifier {
 
   /// Register a soundbank
   void registerSoundbank(SoundBank bank) {
+    // Register in Dart-side manager
     _memoryManager.registerBank(bank);
+
+    // Sync to FFI
+    if (_ffi != null && _useFfi) {
+      try {
+        _ffi.memoryManagerRegisterBank(
+          bankId: bank.bankId,
+          name: bank.name,
+          estimatedSizeBytes: bank.estimatedSizeBytes,
+          priority: _loadPriorityToNative(bank.priority),
+          soundIds: bank.soundIds,
+        );
+      } catch (e) {
+        debugPrint('[MemoryManagerProvider] FFI register error: $e');
+      }
+    }
+
     notifyListeners();
   }
 
   /// Register multiple soundbanks
   void registerSoundbanks(List<SoundBank> banks) {
     for (final bank in banks) {
-      _memoryManager.registerBank(bank);
+      registerSoundbank(bank);
     }
-    notifyListeners();
   }
 
   /// Unregister a soundbank (must be unloaded first)
+  /// Note: FFI backend doesn't support unregister, so this only works in Dart-only mode
   bool unregisterSoundbank(String bankId) {
-    if (_memoryManager.isBankLoaded(bankId)) {
+    // Check if loaded
+    if (isSoundbankLoaded(bankId)) {
       return false; // Must unload first
     }
-    // Note: MemoryBudgetManager doesn't have unregister, would need to add
+
+    // Note: Rust FFI backend doesn't support unregister
+    // MemoryBudgetManager also doesn't have unregister
     // For now, just return false
     return false;
   }
@@ -85,7 +245,23 @@ class MemoryManagerProvider extends ChangeNotifier {
 
   /// Load a soundbank
   bool loadSoundbank(String bankId) {
-    final success = _memoryManager.loadBank(bankId);
+    bool success = false;
+
+    // Try FFI first
+    if (_ffi != null && _useFfi) {
+      try {
+        success = _ffi.memoryManagerLoadBank(bankId);
+        if (success) {
+          syncFromEngine();
+          return true;
+        }
+      } catch (e) {
+        debugPrint('[MemoryManagerProvider] FFI load error: $e');
+      }
+    }
+
+    // Fallback to Dart
+    success = _memoryManager.loadBank(bankId);
     if (success) {
       notifyListeners();
     }
@@ -94,7 +270,23 @@ class MemoryManagerProvider extends ChangeNotifier {
 
   /// Unload a soundbank
   bool unloadSoundbank(String bankId) {
-    final success = _memoryManager.unloadBank(bankId);
+    bool success = false;
+
+    // Try FFI first
+    if (_ffi != null && _useFfi) {
+      try {
+        success = _ffi.memoryManagerUnloadBank(bankId);
+        if (success) {
+          syncFromEngine();
+          return true;
+        }
+      } catch (e) {
+        debugPrint('[MemoryManagerProvider] FFI unload error: $e');
+      }
+    }
+
+    // Fallback to Dart
+    success = _memoryManager.unloadBank(bankId);
     if (success) {
       notifyListeners();
     }
@@ -102,10 +294,29 @@ class MemoryManagerProvider extends ChangeNotifier {
   }
 
   /// Check if a soundbank is loaded
-  bool isSoundbankLoaded(String bankId) => _memoryManager.isBankLoaded(bankId);
+  bool isSoundbankLoaded(String bankId) {
+    // Try FFI first
+    if (_ffi != null && _useFfi) {
+      try {
+        return _ffi.memoryManagerIsBankLoaded(bankId);
+      } catch (e) {
+        debugPrint('[MemoryManagerProvider] FFI check error: $e');
+      }
+    }
+    return _memoryManager.isBankLoaded(bankId);
+  }
 
   /// Touch a soundbank (mark as recently used)
   void touchSoundbank(String bankId) {
+    // Try FFI first
+    if (_ffi != null && _useFfi) {
+      try {
+        _ffi.memoryManagerTouchBank(bankId);
+        return;
+      } catch (e) {
+        debugPrint('[MemoryManagerProvider] FFI touch error: $e');
+      }
+    }
     _memoryManager.touchBank(bankId);
   }
 
@@ -154,8 +365,22 @@ class MemoryManagerProvider extends ChangeNotifier {
   // STATISTICS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Get memory statistics
-  MemoryStats getStats() => _memoryManager.getStats();
+  /// Get memory statistics (combined from FFI and Dart)
+  MemoryStats getStats() {
+    // Prefer engine stats when available
+    if (_engineStats != null) {
+      return MemoryStats(
+        residentBytes: _engineStats!.residentBytes,
+        residentMaxBytes: _engineStats!.residentMaxBytes,
+        streamingBytes: _engineStats!.streamingBytes,
+        streamingMaxBytes: _engineStats!.streamingMaxBytes,
+        loadedBankCount: _engineStats!.loadedBankCount,
+        totalBankCount: _engineStats!.totalBankCount,
+        state: state,
+      );
+    }
+    return _memoryManager.getStats();
+  }
 
   /// Get memory health status string
   String get healthStatus {
@@ -182,6 +407,12 @@ class MemoryManagerProvider extends ChangeNotifier {
   void updateConfig(MemoryBudgetConfig config) {
     // Note: This would lose loaded banks - in production, would need migration
     _memoryManager = MemoryBudgetManager(config: config);
+
+    // Re-init FFI with new config
+    if (_ffi != null && _useFfi) {
+      _initFfi(config);
+    }
+
     notifyListeners();
   }
 
@@ -255,6 +486,22 @@ class MemoryManagerProvider extends ChangeNotifier {
   /// Clear all banks
   void clear() {
     _memoryManager = MemoryBudgetManager(config: config);
+
+    // Clear FFI manager
+    if (_ffi != null && _useFfi) {
+      try {
+        _ffi.memoryManagerClear();
+      } catch (e) {
+        debugPrint('[MemoryManagerProvider] FFI clear error: $e');
+      }
+    }
+
+    _engineStats = null;
     notifyListeners();
+  }
+
+  /// Refresh stats from engine (for periodic updates)
+  void refresh() {
+    syncFromEngine();
   }
 }

@@ -20,6 +20,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/slot_lab_provider.dart';
+import '../../services/event_registry.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'slot_preview_widget.dart';
@@ -949,8 +950,10 @@ class _MainGameZone extends StatelessWidget {
           ),
         ),
 
-        // Reel frame with effects
-        _buildReelFrame(context),
+        // Reel frame with effects - fills entire space
+        Positioned.fill(
+          child: _buildReelFrame(context),
+        ),
 
         // Payline visualizer
         if (winningPayline != null && winningPayline!.isNotEmpty)
@@ -997,17 +1000,13 @@ class _MainGameZone extends StatelessWidget {
   Widget _buildReelFrame(BuildContext context) {
     final glowColor = _getWinColor(winTier);
     final isWinning = winTier != null && winTier!.isNotEmpty;
-    final screenSize = MediaQuery.of(context).size;
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          // MAXIMIZED reel size - 80% width, 85% of available height
-          maxWidth: screenSize.width * 0.80,
-          maxHeight: screenSize.height * 0.85,
-        ),
-        child: AspectRatio(
-          aspectRatio: reels / rows * 1.2, // Slightly less stretched
+    // Fill entire available space - no constraints, no aspect ratio limits
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
@@ -1072,8 +1071,8 @@ class _MainGameZone extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -4826,12 +4825,26 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   int? _gambleCardRevealed; // 0-3 for cards, null if not revealed
   bool? _gambleWon; // Result of gamble
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VISUAL-SYNC STATE — PSP-P0 Audio-Visual Synchronization
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Tracks which reels have visually stopped (for staggered audio triggering)
+  late List<bool> _reelsStopped;
+
+  /// Pending result for win stage triggering after reveal
+  SlotLabSpinResult? _pendingResultForWinStage;
+
+  /// Timers for scheduled reel stops (canceled on dispose)
+  final List<Timer> _reelStopTimers = [];
+
   // Coin values
   static const List<double> _coinValues = [0.01, 0.02, 0.05, 0.10, 0.20, 0.50, 1.00];
 
   @override
   void initState() {
     super.initState();
+    _reelsStopped = List.filled(widget.reels, true); // Start as stopped
     _initAnimations();
     _initParticles();
     _loadSettings(); // Load persisted settings
@@ -4997,6 +5010,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     _ambientController.dispose();
     _jackpotTickController.dispose();
     _focusNode.dispose();
+    // Cancel any pending Visual-Sync timers
+    for (final timer in _reelStopTimers) {
+      timer.cancel();
+    }
+    _reelStopTimers.clear();
     super.dispose();
   }
 
@@ -5061,8 +5079,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _showWinPresenter = false;
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // VISUAL-SYNC: Schedule reel stop callbacks IMMEDIATELY on spin start
+    // Result will be stored when it arrives for win stage triggering
+    // ═══════════════════════════════════════════════════════════════════════
+    _scheduleVisualSyncCallbacks(null);
+
     provider.spin().then((result) {
       if (result != null && mounted) {
+        // Store result for win stage triggering (used by _onAllReelsStopped)
+        _pendingResultForWinStage = result;
         _processResult(result);
       }
     });
@@ -5079,12 +5105,152 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _showWinPresenter = false;
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // VISUAL-SYNC: Schedule reel stop callbacks IMMEDIATELY on spin start
+    // ═══════════════════════════════════════════════════════════════════════
+    _scheduleVisualSyncCallbacks(null);
+
     provider.spinForced(outcome).then((result) {
       if (result != null && mounted) {
+        // Store result for win stage triggering (used by _onAllReelsStopped)
+        _pendingResultForWinStage = result;
         _processResult(result);
       }
     });
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VISUAL-SYNC METHODS — PSP-P0 Audio-Visual Synchronization
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Schedule Visual-Sync callbacks for staggered reel stops
+  /// Called at SPIN START — triggers REEL_STOP_0..4 at visual stop moments
+  void _scheduleVisualSyncCallbacks(SlotLabSpinResult? pendingResult) {
+    // Cancel any existing timers
+    for (final timer in _reelStopTimers) {
+      timer.cancel();
+    }
+    _reelStopTimers.clear();
+
+    // Reset reels stopped state
+    setState(() {
+      _reelsStopped = List.filled(widget.reels, false);
+      _pendingResultForWinStage = pendingResult;
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SPIN_START — DISABLED: Engine stages handle this via SlotLabProvider._playStages()
+    // Keeping visual-sync here caused DUPLICATE TRIGGERS (audio played twice)
+    // ═══════════════════════════════════════════════════════════════════════
+    // eventRegistry.triggerStage('SPIN_START'); // REMOVED - causes double trigger
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Staggered reel stop timing — matches SlotPreviewWidget animation
+    // Normal: 250ms per reel | Turbo: 100ms per reel
+    // Reel animation duration: 1000ms + (index * 250ms)
+    // Stagger start: index * 120ms
+    // Total time = stagger + duration
+    // ═══════════════════════════════════════════════════════════════════════
+    final baseDelay = _isTurbo ? 100 : 250;
+    final baseAnimDuration = _isTurbo ? 600 : 1000;
+    final staggerDelay = _isTurbo ? 60 : 120;
+
+    for (int i = 0; i < widget.reels; i++) {
+      // Calculate when this reel visually stops
+      // = staggerStart + animationDuration
+      final stopTime = (staggerDelay * i) + baseAnimDuration + (baseDelay * i);
+
+      final timer = Timer(Duration(milliseconds: stopTime), () {
+        if (!mounted) return;
+
+        setState(() {
+          _reelsStopped[i] = true;
+        });
+
+        // ═══════════════════════════════════════════════════════════════════
+        // REEL_STOP_i — DISABLED: Engine stages handle this via SlotLabProvider._playStages()
+        // Keeping visual-sync here caused DUPLICATE TRIGGERS (audio played twice)
+        // ═══════════════════════════════════════════════════════════════════
+        // eventRegistry.triggerStage('REEL_STOP_$i'); // REMOVED - causes double trigger
+
+        // Check for ANTICIPATION on second-to-last reel
+        if (i == widget.reels - 2) {
+          _checkAnticipation();
+        }
+
+        // On LAST reel stop — trigger REVEAL and WIN stages
+        if (i == widget.reels - 1) {
+          _onAllReelsStopped();
+        }
+      });
+
+      _reelStopTimers.add(timer);
+    }
+  }
+
+  /// Check for anticipation (2+ scatters visible before last reel)
+  /// Called when second-to-last reel stops
+  void _checkAnticipation() {
+    // Check if pending result has scatter symbols that could trigger feature
+    final result = _pendingResultForWinStage;
+    if (result == null) return;
+
+    // Anticipation triggers if result will be a big win or feature trigger
+    // Use win tier as proxy for anticipation worthiness
+    final tier = _winTierFromEngine(result.bigWinTier) ?? _getWinTier(result.totalWin);
+    final shouldAnticipate = tier == 'EPIC' || tier == 'ULTRA' || tier == 'MEGA';
+
+    if (shouldAnticipate) {
+      eventRegistry.triggerStage('ANTICIPATION_ON');
+    }
+  }
+
+  /// Called when ALL reels have visually stopped
+  /// Triggers REVEAL stage and appropriate WIN tier stage
+  void _onAllReelsStopped() {
+    // ═══════════════════════════════════════════════════════════════════════
+    // REVEAL — All reels stopped, result is visible
+    // ═══════════════════════════════════════════════════════════════════════
+    eventRegistry.triggerStage('REVEAL');
+
+    // Trigger appropriate WIN stage based on result
+    final result = _pendingResultForWinStage;
+    if (result != null && result.isWin) {
+      _triggerWinStage(result);
+    }
+
+    // Clear pending result
+    _pendingResultForWinStage = null;
+  }
+
+  /// Trigger appropriate WIN stage based on win tier
+  void _triggerWinStage(SlotLabSpinResult result) {
+    final tier = _winTierFromEngine(result.bigWinTier) ?? _getWinTier(result.totalWin);
+
+    switch (tier) {
+      case 'ULTRA':
+        eventRegistry.triggerStage('WIN_ULTRA');
+        break;
+      case 'EPIC':
+        eventRegistry.triggerStage('WIN_EPIC');
+        break;
+      case 'MEGA':
+        eventRegistry.triggerStage('WIN_MEGA');
+        break;
+      case 'BIG':
+        eventRegistry.triggerStage('WIN_BIG');
+        break;
+      default:
+        eventRegistry.triggerStage('WIN_SMALL');
+    }
+
+    // Also trigger WIN_PRESENT for general win celebration
+    eventRegistry.triggerStage('WIN_PRESENT');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // END VISUAL-SYNC METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
 
   void _processResult(SlotLabSpinResult result) {
     final winAmount = result.totalWin * _totalBetAmount;
@@ -5268,7 +5434,14 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   void _handleStop() {
-    // Stop current spin animation (if supported)
+    // Stop all reels immediately by stopping stage playback
+    // This triggers SlotPreviewWidget._onProviderUpdate() which calls _finalizeSpin()
+    // which in turn calls _reelAnimController.stopImmediately()
+    final provider = context.read<SlotLabProvider>();
+    if (provider.isPlayingStages) {
+      debugPrint('[PremiumSlotPreview] ⏹ STOP pressed — stopping all reels immediately');
+      provider.stopStagePlayback();
+    }
   }
 
   void _handleMaxBet() {
@@ -5314,7 +5487,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.space:
-        _handleSpin(provider);
+        // Toggle spin/stop based on current state
+        if (provider.isPlayingStages) {
+          _handleStop();
+        } else {
+          _handleSpin(provider);
+        }
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.keyM:
@@ -5409,17 +5587,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   progressiveContribution: _progressiveContribution,
                 ),
 
-                // E. Feature Indicators (above game zone)
-                _FeatureIndicators(
-                  freeSpins: _freeSpins,
-                  freeSpinsRemaining: _freeSpinsRemaining,
-                  bonusMeter: _bonusMeter,
-                  featureProgress: _featureProgress,
-                  multiplier: _multiplier,
-                  cascadeCount: _cascadeCount,
-                  specialSymbolCount: _specialSymbolCount,
-                ),
-
                 // C. Main Game Zone
                 Expanded(
                   child: _MainGameZone(
@@ -5492,7 +5659,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                       winTier: _currentWinTier,
                       multiplier: _multiplier.toDouble(),
                       showCollect: true,
-                      showGamble: _pendingWinAmount > 0 && _pendingWinAmount < _balance * 0.5,
+                      showGamble: false, // Gamble disabled for basic mockup
                       onCollect: _collectWin,
                       onGamble: _startGamble,
                     ),
@@ -5500,18 +5667,19 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                 ),
               ),
 
-            // Gamble Screen (overlay)
-            if (_showGambleScreen)
-              Positioned.fill(
-                child: _GambleOverlay(
-                  stakeAmount: _pendingWinAmount,
-                  cardRevealed: _gambleCardRevealed,
-                  won: _gambleWon,
-                  onChooseRed: () => _makeGambleChoice(0),
-                  onChooseBlack: () => _makeGambleChoice(1),
-                  onCollect: _collectWin,
-                ),
-              ),
+            // Gamble Screen (overlay) — disabled for basic mockup
+            // To re-enable: uncomment the block below
+            // if (_showGambleScreen)
+            //   Positioned.fill(
+            //     child: _GambleOverlay(
+            //       stakeAmount: _pendingWinAmount,
+            //       cardRevealed: _gambleCardRevealed,
+            //       won: _gambleWon,
+            //       onChooseRed: () => _makeGambleChoice(0),
+            //       onChooseBlack: () => _makeGambleChoice(1),
+            //       onCollect: _collectWin,
+            //     ),
+            //   ),
 
             // G2. Menu Panel (overlay)
             if (_showMenuPanel)

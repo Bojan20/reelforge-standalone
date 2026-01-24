@@ -192,6 +192,23 @@ class SendSlot {
   }
 }
 
+/// LUFS loudness metering data
+class LUFSData {
+  final double momentary;
+  final double shortTerm;
+  final double integrated;
+  final double truePeak;
+  final double? range;
+
+  const LUFSData({
+    required this.momentary,
+    required this.shortTerm,
+    required this.integrated,
+    required this.truePeak,
+    this.range,
+  });
+}
+
 /// EQ band for channel strip
 class EQBand {
   final int index;
@@ -225,6 +242,7 @@ class ChannelStripData {
   final bool solo;
   final bool armed;
   final bool inputMonitor;
+  final bool phaseInverted; // Phase/polarity invert (Ø)
   final double meterL;
   final double meterR;
   final double peakL;
@@ -235,6 +253,7 @@ class ChannelStripData {
   final List<EQBand> eqBands;
   final String input;
   final String output;
+  final LUFSData? lufs;
 
   const ChannelStripData({
     required this.id,
@@ -249,6 +268,7 @@ class ChannelStripData {
     this.solo = false,
     this.armed = false,
     this.inputMonitor = false,
+    this.phaseInverted = false,
     this.meterL = 0,
     this.meterR = 0,
     this.peakL = 0,
@@ -259,6 +279,7 @@ class ChannelStripData {
     this.eqBands = const [],
     this.input = '',
     this.output = 'Master',
+    this.lufs,
   });
 
   ChannelStripData copyWith({
@@ -274,6 +295,7 @@ class ChannelStripData {
     bool? solo,
     bool? armed,
     bool? inputMonitor,
+    bool? phaseInverted,
     double? meterL,
     double? meterR,
     double? peakL,
@@ -284,6 +306,7 @@ class ChannelStripData {
     List<EQBand>? eqBands,
     String? input,
     String? output,
+    LUFSData? lufs,
   }) {
     return ChannelStripData(
       id: id ?? this.id,
@@ -298,6 +321,7 @@ class ChannelStripData {
       solo: solo ?? this.solo,
       armed: armed ?? this.armed,
       inputMonitor: inputMonitor ?? this.inputMonitor,
+      phaseInverted: phaseInverted ?? this.phaseInverted,
       meterL: meterL ?? this.meterL,
       meterR: meterR ?? this.meterR,
       peakL: peakL ?? this.peakL,
@@ -308,6 +332,7 @@ class ChannelStripData {
       eqBands: eqBands ?? this.eqBands,
       input: input ?? this.input,
       output: output ?? this.output,
+      lufs: lufs ?? this.lufs,
     );
   }
 }

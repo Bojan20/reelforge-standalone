@@ -236,29 +236,47 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
 
   void _updateMeters() {
     setState(() {
-      // NOTE: GR and True Peak metering from insert chain requires additional FFI
-      // The InsertProcessor trait doesn't expose GR/TP directly.
-      // TODO: Add insert_get_limiter_gr() and insert_get_limiter_true_peak() FFI
-      _currentGainReduction = 0.0;
-      _currentTruePeak = -60.0;
+      // Get gain reduction from channel strip limiter (track 0 = master)
+      // This returns GR in dB (negative values when limiting)
+      try {
+        _currentGainReduction = _ffi.channelStripGetLimiterGr(widget.trackId);
+      } catch (_) {
+        _currentGainReduction = 0.0;
+      }
 
-      // NO FAKE DATA: All levels must come from real metering
-      _currentInputPeak = -60.0;
-      _currentOutputPeak = -60.0;
+      // Get true peak from advanced meters (8x oversampled)
+      try {
+        final truePeakData = _ffi.advancedGetTruePeak8x();
+        _currentTruePeak = truePeakData.maxDbtp;
+      } catch (_) {
+        _currentTruePeak = -60.0;
+      }
 
-      // True peak clipping detection (only with real data)
-      _truePeakClipping = false;
+      // Get peak levels from engine (master bus)
+      // NOTE: For insert chain processors, we'd need per-slot metering
+      // For now, use master bus peak levels as proxy
+      try {
+        final (peakL, peakR) = _ffi.getPeakMeters();
+        // Convert linear to dB
+        final peakMax = peakL > peakR ? peakL : peakR;
+        _currentOutputPeak = peakMax > 1e-10 ? 20.0 * math.log(peakMax) / math.ln10 : -60.0;
+        // Input is approximated as output + GR (inverse of limiting)
+        _currentInputPeak = _currentOutputPeak - _currentGainReduction;
+      } catch (_) {
+        _currentInputPeak = -60.0;
+        _currentOutputPeak = -60.0;
+      }
 
-      // Track peak GR only if real data present
+      // True peak clipping detection (-0.1 dBTP threshold)
+      _truePeakClipping = _currentTruePeak > -0.1;
+
+      // Track peak GR (most negative value)
       if (_currentGainReduction.abs() > 0.01 && _currentGainReduction.abs() > _peakGainReduction.abs()) {
         _peakGainReduction = _currentGainReduction;
       }
 
-      // NO FAKE LUFS: Must come from real loudness analyzer
-      // TODO: Connect to PLAYBACK_ENGINE loudness metering
-
-      // Add to history only with real activity
-      if (_currentGainReduction.abs() > 0.01) {
+      // Add to history for GR graph
+      if (_currentGainReduction.abs() > 0.01 || _levelHistory.isNotEmpty) {
         _levelHistory.add(LimiterLevelSample(
           inputPeak: _currentInputPeak,
           outputPeak: _currentOutputPeak,

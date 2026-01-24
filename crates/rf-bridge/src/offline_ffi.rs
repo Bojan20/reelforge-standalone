@@ -591,6 +591,142 @@ pub extern "C" fn offline_get_normalization_modes() -> *mut c_char {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUDIO FILE INFO (METADATA)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Get audio file metadata without decoding
+/// Returns JSON with: sample_rate, channels, bit_depth, duration_seconds, samples
+/// Caller must free with offline_free_string
+#[unsafe(no_mangle)]
+pub extern "C" fn offline_get_audio_info(path: *const c_char) -> *mut c_char {
+    clear_error();
+
+    if path.is_null() {
+        set_error("Path is null");
+        return ptr::null_mut();
+    }
+
+    let c_str = unsafe { CStr::from_ptr(path) };
+    let path_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => {
+            set_error("Invalid path encoding");
+            return ptr::null_mut();
+        }
+    };
+
+    let path = std::path::Path::new(path_str);
+
+    match rf_offline::AudioDecoder::probe(path) {
+        Ok(info) => {
+            #[derive(serde::Serialize)]
+            struct AudioInfoJson {
+                path: String,
+                format: String,
+                sample_rate: u32,
+                channels: usize,
+                bit_depth: u8,
+                duration_seconds: f64,
+                samples: usize,
+                duration_str: String,
+            }
+
+            // Call duration_str() before moving fields
+            let duration_str = info.duration_str();
+
+            let json = AudioInfoJson {
+                path: info.path.to_string_lossy().to_string(),
+                format: info.format,
+                sample_rate: info.sample_rate,
+                channels: info.channels,
+                bit_depth: info.bit_depth,
+                duration_seconds: info.duration,
+                samples: info.samples,
+                duration_str,
+            };
+
+            match serde_json::to_string(&json) {
+                Ok(s) => match CString::new(s) {
+                    Ok(c) => c.into_raw(),
+                    Err(_) => ptr::null_mut(),
+                },
+                Err(_) => ptr::null_mut(),
+            }
+        }
+        Err(e) => {
+            set_error(&e.to_string());
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Get audio file duration in seconds
+/// Returns -1.0 on error
+#[unsafe(no_mangle)]
+pub extern "C" fn offline_get_audio_duration(path: *const c_char) -> f64 {
+    if path.is_null() {
+        return -1.0;
+    }
+
+    let c_str = unsafe { CStr::from_ptr(path) };
+    let path_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return -1.0,
+    };
+
+    let path = std::path::Path::new(path_str);
+
+    match rf_offline::AudioDecoder::probe(path) {
+        Ok(info) => info.duration,
+        Err(_) => -1.0,
+    }
+}
+
+/// Get audio file sample rate
+/// Returns 0 on error
+#[unsafe(no_mangle)]
+pub extern "C" fn offline_get_audio_sample_rate(path: *const c_char) -> u32 {
+    if path.is_null() {
+        return 0;
+    }
+
+    let c_str = unsafe { CStr::from_ptr(path) };
+    let path_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+
+    let path = std::path::Path::new(path_str);
+
+    match rf_offline::AudioDecoder::probe(path) {
+        Ok(info) => info.sample_rate,
+        Err(_) => 0,
+    }
+}
+
+/// Get audio file channel count
+/// Returns 0 on error
+#[unsafe(no_mangle)]
+pub extern "C" fn offline_get_audio_channels(path: *const c_char) -> u32 {
+    if path.is_null() {
+        return 0;
+    }
+
+    let c_str = unsafe { CStr::from_ptr(path) };
+    let path_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+
+    let path = std::path::Path::new(path_str);
+
+    match rf_offline::AudioDecoder::probe(path) {
+        Ok(info) => info.channels as u32,
+        Err(_) => 0,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

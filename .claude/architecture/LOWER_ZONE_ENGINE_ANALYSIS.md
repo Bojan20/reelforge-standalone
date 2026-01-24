@@ -287,7 +287,7 @@ void _syncFromProvider() {
 | **Folder** | `_buildCompactEventFolder()` | ✅ Yes | **P1.4: MiddlewareProvider** |
 | **Editor** | `_buildCompactCompositeEditor()` | ⚠️ UI-Only | Static layers |
 | **Layers** | `EventLogPanel` | ✅ Yes | Full integration |
-| **Pool** | `_buildCompactVoicePool()` | ⚠️ UI-Only | Static stats |
+| **Pool** | `_buildCompactVoicePool()` | ✅ Yes | **VoicePoolProvider + FFI** |
 
 #### Event Folder Panel — FULLY CONNECTED ✅ (P1.4)
 

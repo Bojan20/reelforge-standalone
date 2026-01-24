@@ -16,6 +16,19 @@ use crate::routing::{ChannelId, ChannelKind, OutputDestination, RoutingCommandSe
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[cfg(feature = "unified_routing")]
+use std::collections::HashMap;
+#[cfg(feature = "unified_routing")]
+use std::sync::RwLock;
+
+#[cfg(feature = "unified_routing")]
+/// Channel info stored in registry
+#[derive(Clone, Debug)]
+struct ChannelRegistryEntry {
+    kind: ChannelKind,
+    name: String,
+}
+
+#[cfg(feature = "unified_routing")]
 lazy_static::lazy_static! {
     /// Callback ID counter for async channel creation
     static ref CALLBACK_COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
@@ -24,6 +37,10 @@ lazy_static::lazy_static! {
         std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
     /// Channel count (atomic, updated by FFI create/delete responses)
     static ref CHANNEL_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    /// Channel registry - maps channel_id to (kind, name)
+    static ref CHANNEL_REGISTRY: RwLock<HashMap<u32, ChannelRegistryEntry>> = RwLock::new(HashMap::new());
+    /// Pending channel creations - maps callback_id to (kind, name)
+    static ref PENDING_CREATIONS: RwLock<HashMap<u32, ChannelRegistryEntry>> = RwLock::new(HashMap::new());
 }
 
 #[cfg(feature = "unified_routing")]
@@ -87,9 +104,21 @@ pub extern "C" fn routing_create_channel(kind: u32, name: *const c_char) -> u32 
     let sender = unsafe { &mut *sender_ptr };
     let callback_id = CALLBACK_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
+    // Store pending creation info for registry update when response arrives
+    if let Ok(mut pending) = PENDING_CREATIONS.write() {
+        pending.insert(callback_id, ChannelRegistryEntry {
+            kind: channel_kind,
+            name: name_str.clone(),
+        });
+    }
+
     if sender.create_channel(channel_kind, name_str, callback_id) {
         callback_id
     } else {
+        // Remove from pending if send failed
+        if let Ok(mut pending) = PENDING_CREATIONS.write() {
+            pending.remove(&callback_id);
+        }
         0 // Queue full
     }
 }
@@ -128,13 +157,28 @@ pub extern "C" fn routing_poll_response(callback_id: u32) -> i32 {
                 } => {
                     // Increment channel count
                     CHANNEL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Release);
+
+                    // Move from pending to registry
+                    if let Ok(mut pending) = PENDING_CREATIONS.write() {
+                        if let Some(entry) = pending.remove(&resp_id) {
+                            if let Ok(mut registry) = CHANNEL_REGISTRY.write() {
+                                registry.insert(channel_id.0, entry);
+                            }
+                        }
+                    }
+
                     if resp_id == callback_id {
                         return channel_id.0 as i32;
                     }
                 }
-                crate::routing::RoutingResponse::ChannelDeleted { .. } => {
+                crate::routing::RoutingResponse::ChannelDeleted { id } => {
                     // Decrement channel count
                     CHANNEL_COUNT.fetch_sub(1, std::sync::atomic::Ordering::Release);
+
+                    // Remove from registry
+                    if let Ok(mut registry) = CHANNEL_REGISTRY.write() {
+                        registry.remove(&id.0);
+                    }
                 }
                 crate::routing::RoutingResponse::Error { message } => {
                     log::error!("Routing error: {}", message);
@@ -197,6 +241,29 @@ pub extern "C" fn routing_add_send(
             ChannelId(to_channel),
             pre_fader != 0,
         ) {
+            1
+        } else {
+            0
+        }
+    } else {
+        0
+    }
+}
+
+#[cfg(feature = "unified_routing")]
+/// Remove send from channel
+/// from_channel: Source channel ID
+/// send_index: Index of send to remove (0-based)
+/// Returns: 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn routing_remove_send(
+    from_channel: u32,
+    send_index: usize,
+) -> i32 {
+    let sender_ptr = ROUTING_SENDER_PTR.load(std::sync::atomic::Ordering::Acquire);
+    if !sender_ptr.is_null() {
+        let sender = unsafe { &mut *sender_ptr };
+        if sender.remove_send(ChannelId(from_channel), send_index) {
             1
         } else {
             0
@@ -298,6 +365,98 @@ pub extern "C" fn routing_get_channel_count() -> u32 {
     CHANNEL_COUNT.load(std::sync::atomic::Ordering::Acquire)
 }
 
+#[cfg(feature = "unified_routing")]
+/// Get all routing channels
+/// out_ids: Pointer to array for channel IDs (must have space for max_count elements)
+/// out_kinds: Pointer to array for channel kinds (must have space for max_count elements)
+/// max_count: Maximum number of channels to return
+/// Returns: Actual number of channels written
+/// SAFETY: Caller must ensure out_ids and out_kinds point to valid arrays of at least max_count elements
+#[unsafe(no_mangle)]
+pub extern "C" fn routing_get_all_channels(
+    out_ids: *mut u32,
+    out_kinds: *mut u32,
+    max_count: u32,
+) -> u32 {
+    if out_ids.is_null() || out_kinds.is_null() || max_count == 0 {
+        return 0;
+    }
+
+    let registry = match CHANNEL_REGISTRY.read() {
+        Ok(r) => r,
+        Err(_) => return 0,
+    };
+
+    let mut written = 0u32;
+    for (&channel_id, entry) in registry.iter() {
+        if written >= max_count {
+            break;
+        }
+
+        let kind_value = match entry.kind {
+            ChannelKind::Audio => 0,
+            ChannelKind::Bus => 1,
+            ChannelKind::Aux => 2,
+            ChannelKind::Vca => 3,
+            ChannelKind::Master => 4,
+        };
+
+        // SAFETY: Caller guarantees valid arrays
+        unsafe {
+            *out_ids.add(written as usize) = channel_id;
+            *out_kinds.add(written as usize) = kind_value;
+        }
+
+        written += 1;
+    }
+
+    written
+}
+
+#[cfg(feature = "unified_routing")]
+/// Get channel info as JSON string
+/// Returns: Pointer to JSON string (caller must NOT free), null on error
+/// Format: [{"id":1,"kind":0,"name":"Track 1"},...]
+#[unsafe(no_mangle)]
+pub extern "C" fn routing_get_channels_json() -> *const c_char {
+    use std::sync::OnceLock;
+    static JSON_BUFFER: OnceLock<std::sync::Mutex<std::ffi::CString>> = OnceLock::new();
+
+    let registry = match CHANNEL_REGISTRY.read() {
+        Ok(r) => r,
+        Err(_) => return std::ptr::null(),
+    };
+
+    let channels: Vec<_> = registry
+        .iter()
+        .map(|(&id, entry)| {
+            let kind_value = match entry.kind {
+                ChannelKind::Audio => 0,
+                ChannelKind::Bus => 1,
+                ChannelKind::Aux => 2,
+                ChannelKind::Vca => 3,
+                ChannelKind::Master => 4,
+            };
+            format!(r#"{{"id":{},"kind":{},"name":"{}"}}"#, id, kind_value, entry.name.replace('"', r#"\""#))
+        })
+        .collect();
+
+    let json = format!("[{}]", channels.join(","));
+
+    let cstring = match std::ffi::CString::new(json) {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null(),
+    };
+
+    let buffer = JSON_BUFFER.get_or_init(|| std::sync::Mutex::new(std::ffi::CString::default()));
+    if let Ok(mut guard) = buffer.lock() {
+        *guard = cstring;
+        guard.as_ptr()
+    } else {
+        std::ptr::null()
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // STUB FUNCTIONS (when unified_routing feature disabled)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -328,6 +487,10 @@ pub extern "C" fn routing_add_send(_from: u32, _to: u32, _pre_fader: i32) -> i32
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
+pub extern "C" fn routing_remove_send(_from: u32, _send_index: usize) -> i32 { 0 }
+
+#[cfg(not(feature = "unified_routing"))]
+#[unsafe(no_mangle)]
 pub extern "C" fn routing_set_volume(_channel_id: u32, _volume_db: f64) -> i32 { 0 }
 
 #[cfg(not(feature = "unified_routing"))]
@@ -345,3 +508,17 @@ pub extern "C" fn routing_set_solo(_channel_id: u32, _solo: i32) -> i32 { 0 }
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
 pub extern "C" fn routing_get_channel_count() -> u32 { 0 }
+
+#[cfg(not(feature = "unified_routing"))]
+#[unsafe(no_mangle)]
+pub extern "C" fn routing_get_all_channels(
+    _out_ids: *mut u32,
+    _out_kinds: *mut u32,
+    _max_count: u32,
+) -> u32 { 0 }
+
+#[cfg(not(feature = "unified_routing"))]
+#[unsafe(no_mangle)]
+pub extern "C" fn routing_get_channels_json() -> *const std::ffi::c_char {
+    std::ptr::null()
+}

@@ -78,6 +78,11 @@ typedef MusicSystemData = ({
 
 /// Typedef for attenuation curve panel (used in Selector)
 /// Note: Simple list type can be used directly in Selector
+
+// ============ Container Limits (P2.7 FIX) ============
+
+/// Maximum children per container to prevent memory exhaustion
+const int kMaxContainerChildren = 32;
 /// but typedef provides consistency and documentation
 
 // ============ Change Types ============
@@ -1146,8 +1151,14 @@ class MiddlewareProvider extends ChangeNotifier {
       _blendContainersProvider.updateContainer(container);
 
   /// Add blend child
+  /// Add blend child (P2.7 FIX: enforces max child limit)
   void addBlendChild(int containerId, {required String name, required double rtpcStart, required double rtpcEnd}) {
-    final nextId = (_blendContainersProvider.getContainer(containerId)?.children.length ?? 0) + 1;
+    final currentCount = _blendContainersProvider.getContainer(containerId)?.children.length ?? 0;
+    if (currentCount >= kMaxContainerChildren) {
+      debugPrint('[MiddlewareProvider] Cannot add blend child: limit reached ($kMaxContainerChildren)');
+      return;
+    }
+    final nextId = currentCount + 1;
     blendContainerAddChild(containerId, BlendChild(id: nextId, name: name, rtpcStart: rtpcStart, rtpcEnd: rtpcEnd));
   }
 
@@ -1167,9 +1178,14 @@ class MiddlewareProvider extends ChangeNotifier {
   void updateRandomContainer(RandomContainer container) =>
       _randomContainersProvider.updateContainer(container);
 
-  /// Add random child
+  /// Add random child (P2.7 FIX: enforces max child limit)
   void addRandomChild(int containerId, {required String name, required double weight}) {
-    final nextId = (_randomContainersProvider.getContainer(containerId)?.children.length ?? 0) + 1;
+    final currentCount = _randomContainersProvider.getContainer(containerId)?.children.length ?? 0;
+    if (currentCount >= kMaxContainerChildren) {
+      debugPrint('[MiddlewareProvider] Cannot add random child: limit reached ($kMaxContainerChildren)');
+      return;
+    }
+    final nextId = currentCount + 1;
     randomContainerAddChild(containerId, RandomChild(id: nextId, name: name, weight: weight));
   }
 
@@ -1189,9 +1205,14 @@ class MiddlewareProvider extends ChangeNotifier {
   void updateSequenceContainer(SequenceContainer container) =>
       _sequenceContainersProvider.updateContainer(container);
 
-  /// Add sequence step
+  /// Add sequence step (P2.7 FIX: enforces max child limit)
   void addSequenceStep(int containerId, {required int childId, required String childName, required double delayMs, required double durationMs}) {
-    final nextIndex = (_sequenceContainersProvider.getContainer(containerId)?.steps.length ?? 0);
+    final currentCount = _sequenceContainersProvider.getContainer(containerId)?.steps.length ?? 0;
+    if (currentCount >= kMaxContainerChildren) {
+      debugPrint('[MiddlewareProvider] Cannot add sequence step: limit reached ($kMaxContainerChildren)');
+      return;
+    }
+    final nextIndex = currentCount;
     sequenceContainerAddStep(containerId, SequenceStep(index: nextIndex, childId: childId, childName: childName, delayMs: delayMs, durationMs: durationMs));
   }
 
@@ -1848,8 +1869,11 @@ class MiddlewareProvider extends ChangeNotifier {
   }
 
   /// Update an existing event (delegates to EventSystemProvider)
+  /// Also syncs back to composite event for bidirectional consistency
   void updateEvent(MiddlewareEvent event) {
     _eventSystemProvider.updateEvent(event);
+    // Bidirectional sync: MiddlewareEvent → SlotCompositeEvent
+    _compositeEventSystemProvider.syncMiddlewareToComposite(event.id);
   }
 
   /// Delete an event (delegates to EventSystemProvider)
@@ -1860,11 +1884,16 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Add action to an event (delegates to EventSystemProvider)
   void addActionToEvent(String eventId, MiddlewareAction action) {
     _eventSystemProvider.addActionToEvent(eventId, action);
+    // Bidirectional sync: MiddlewareEvent → SlotCompositeEvent
+    _compositeEventSystemProvider.syncMiddlewareToComposite(eventId);
   }
 
   /// Update action in an event (delegates to EventSystemProvider)
+  /// Also syncs back to composite event for bidirectional consistency
   void updateActionInEvent(String eventId, MiddlewareAction action) {
     _eventSystemProvider.updateActionInEvent(eventId, action);
+    // Bidirectional sync: MiddlewareEvent → SlotCompositeEvent
+    _compositeEventSystemProvider.syncMiddlewareToComposite(eventId);
   }
 
   /// Remove action from an event (delegates to EventSystemProvider)

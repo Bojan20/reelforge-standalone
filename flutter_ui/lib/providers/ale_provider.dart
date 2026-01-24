@@ -86,10 +86,47 @@ class AleLayer {
     this.isActive = false,
   });
 
+  // P1.2 SECURITY: Allowed audio extensions
+  static const _allowedAudioExtensions = {'.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif'};
+
+  /// P1.2 SECURITY: Validate asset path for security
+  static bool _validateAssetPath(String path) {
+    if (path.isEmpty) return true; // Empty allowed (placeholder)
+    if (path.contains('..')) {
+      debugPrint('[AleLayer] ⛔ SECURITY: Path traversal blocked: $path');
+      return false;
+    }
+    if (path.contains('\x00')) {
+      debugPrint('[AleLayer] ⛔ SECURITY: Null byte blocked: $path');
+      return false;
+    }
+    final lowerPath = path.toLowerCase();
+    final hasValidExt = _allowedAudioExtensions.any((ext) => lowerPath.endsWith(ext));
+    if (!hasValidExt && path.isNotEmpty) {
+      debugPrint('[AleLayer] ⚠️ Invalid audio extension: $path');
+      return false;
+    }
+    return true;
+  }
+
   factory AleLayer.fromJson(Map<String, dynamic> json) {
+    final assetId = json['asset_id'] as String? ?? '';
+
+    // P1.2 SECURITY: Validate asset path
+    if (!_validateAssetPath(assetId)) {
+      debugPrint('[AleLayer] ⛔ Blocked invalid asset, using empty path');
+      return AleLayer(
+        index: json['index'] as int? ?? 0,
+        assetId: '', // Sanitized
+        baseVolume: (json['base_volume'] as num?)?.toDouble() ?? 1.0,
+        currentVolume: 0.0,
+        isActive: false,
+      );
+    }
+
     return AleLayer(
-      index: json['index'] as int,
-      assetId: json['asset_id'] as String,
+      index: json['index'] as int? ?? 0,
+      assetId: assetId,
       baseVolume: (json['base_volume'] as num?)?.toDouble() ?? 1.0,
       currentVolume: (json['current_volume'] as num?)?.toDouble() ?? 0.0,
       isActive: json['is_active'] as bool? ?? false,
@@ -511,6 +548,7 @@ class AleProvider extends ChangeNotifier {
   Map<String, double> _currentSignals = {};
   Timer? _tickTimer;
   int _tickIntervalMs = 16; // ~60fps
+  String? _lastStateJson; // P1.1: Cache for state diff check
 
   // ─── Getters ──────────────────────────────────────────────────────────────
   bool get initialized => _initialized;
@@ -716,11 +754,21 @@ class AleProvider extends ChangeNotifier {
   // LEVEL CONTROL
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Manually set level
+  /// Valid level range (L1-L5 maps to 0-4)
+  static const int kMinLevel = 0;
+  static const int kMaxLevel = 4;
+
+  /// Manually set level (P2 FIX: clamped to valid range 0-4)
   bool setLevel(int level) {
     if (!_initialized) return false;
 
-    final success = _ffi.aleSetLevel(level);
+    // P2.1 FIX: Clamp level to valid range to prevent invalid state
+    final clampedLevel = level.clamp(kMinLevel, kMaxLevel);
+    if (clampedLevel != level) {
+      debugPrint('[ALE] Level clamped: $level → $clampedLevel');
+    }
+
+    final success = _ffi.aleSetLevel(clampedLevel);
     if (success) {
       _refreshState();
       notifyListeners();
@@ -801,26 +849,40 @@ class AleProvider extends ChangeNotifier {
     if (!_initialized) return;
 
     _ffi.aleTick();
-    _refreshState();
-    notifyListeners();
+    // P1.1 FIX: Only notify if state actually changed
+    final stateChanged = _refreshStateAndCheckChange();
+    if (stateChanged) {
+      notifyListeners();
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // INTERNAL
   // ═══════════════════════════════════════════════════════════════════════════
 
-  void _refreshState() {
-    if (!_initialized) return;
+  /// P1.1 FIX: Refresh state and return true if it changed
+  bool _refreshStateAndCheckChange() {
+    if (!_initialized) return false;
 
     final stateJson = _ffi.aleGetState();
-    if (stateJson != null) {
-      try {
-        final data = jsonDecode(stateJson) as Map<String, dynamic>;
-        _state = AleEngineState.fromJson(data);
-      } catch (e) {
-        debugPrint('[AleProvider] Failed to parse state: $e');
-      }
+    if (stateJson == null) return false;
+
+    // P1.1: Skip parsing if JSON unchanged (60fps optimization)
+    if (stateJson == _lastStateJson) return false;
+    _lastStateJson = stateJson;
+
+    try {
+      final data = jsonDecode(stateJson) as Map<String, dynamic>;
+      _state = AleEngineState.fromJson(data);
+      return true;
+    } catch (e) {
+      debugPrint('[AleProvider] Failed to parse state: $e');
+      return false;
     }
+  }
+
+  void _refreshState() {
+    _refreshStateAndCheckChange();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

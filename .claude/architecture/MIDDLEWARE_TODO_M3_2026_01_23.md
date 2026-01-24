@@ -376,6 +376,42 @@ Week 2:
 
 ---
 
+## 🎯 M5 Sprint — Middleware Inspector P0 Fixes ✅ COMPLETED 2026-01-24
+
+**Cilj:** 3 P0 critical fixes za Right Inspector Panel
+
+```
+- [x] P0.1: TextFormField Key Fix (~10 LOC) ✅
+      Problem: Event name field didn't update when switching events
+      Fix: Added ValueKey('event_name_${event.id}') to force rebuild
+      File: event_editor_panel.dart:2346-2350
+
+- [x] P0.2: Slider Debouncing (~35 LOC) ✅
+      Problem: Excessive FFI calls during slider drag
+      Fix: Added _sliderDebounceTimer with 50ms debounce
+      New method: _updateActionDebounced() for slider-only updates
+      File: event_editor_panel.dart:3733-3766
+
+- [x] P0.3: Gain dB Display (~105 LOC) ✅
+      Problem: Gain showed percentage instead of dB
+      Fix: New _buildGainSlider() with dB conversion
+      Display: -∞ dB to +6 dB with color coding
+      Presets: -12dB, -6dB, 0dB, +3dB, +6dB
+      File: event_editor_panel.dart:2720-2823
+```
+
+**Definition of Done:** ✅ ALL MET
+1. ✅ flutter analyze = 0 errors
+2. ✅ All sliders use debounced updates
+3. ✅ TextFormField rebuilds on event change
+4. ✅ Gain shows dB with color coding
+5. ✅ Dokumentovano u CLAUDE.md
+
+**Completed:** 2026-01-24
+**Actual LOC:** ~150
+
+---
+
 ## 🏁 ALL SPRINTS COMPLETED
 
 | Sprint | Tasks | LOC | Status |
@@ -383,4 +419,5 @@ Week 2:
 | M3.1 | 3 (P1) | ~1,344 | ✅ DONE |
 | M3.2 | 3 (P2) | ~1,590 | ✅ DONE |
 | M4 | 4 (P3) | ~2,484 | ✅ DONE |
-| **Total** | **10** | **~5,418** | **✅ ALL DONE** |
+| M5 | 3 (P0) | ~150 | ✅ DONE |
+| **Total** | **13** | **~5,568** | **✅ ALL DONE** |

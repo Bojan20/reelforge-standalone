@@ -65,8 +65,16 @@ String generateEventName(String stage);
 | `WIN_MEGA` | `onWinMega` | Wins |
 | `WIN_EPIC` | `onWinEpic` | Wins |
 | `WIN_ULTRA` | `onWinUltra` | Wins |
+| `WIN_SYMBOL_HIGHLIGHT` | `onWinSymbolHighlight` | Wins |
 | `WIN_LINE_SHOW` | `onWinLineShow` | Wins |
 | `WIN_LINE_HIDE` | `onWinLineHide` | Wins |
+| **Win Presentation (Industry-Standard 3-Phase)** | | |
+| `WIN_PRESENT_SMALL` | `onWinPresentSmall` | Win Fanfare |
+| `WIN_PRESENT_NICE` | `onWinPresentNice` | Win Fanfare |
+| `WIN_PRESENT_BIG` | `onWinPresentBig` | Win Fanfare |
+| `WIN_PRESENT_MEGA` | `onWinPresentMega` | Win Fanfare |
+| `WIN_PRESENT_EPIC` | `onWinPresentEpic` | Win Fanfare |
+| `WIN_PRESENT_ULTRA` | `onWinPresentUltra` | Win Fanfare |
 | **Rollup** | | |
 | `ROLLUP_START` | `onRollupStart` | Rollup |
 | `ROLLUP_TICK` | `onRollupTick` | Rollup |

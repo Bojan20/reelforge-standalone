@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/auto_event_builder_models.dart';
 import '../../models/middleware_models.dart' show ActionType;
 import '../../providers/middleware_provider.dart';
 import '../../services/slot_audio_automation_service.dart';
@@ -893,8 +894,25 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
     required String? currentPath,
     required void Function(String path) onPathSelected,
   }) {
-    return DragTarget<String>(
-      onAcceptWithDetails: (details) => onPathSelected(details.data),
+    // Accept BOTH AudioAsset and String for drag-drop compatibility
+    return DragTarget<Object>(
+      onWillAcceptWithDetails: (details) {
+        return details.data is AudioAsset ||
+            details.data is List<AudioAsset> ||
+            details.data is String;
+      },
+      onAcceptWithDetails: (details) {
+        String? path;
+        if (details.data is AudioAsset) {
+          path = (details.data as AudioAsset).path;
+        } else if (details.data is List<AudioAsset>) {
+          final list = details.data as List<AudioAsset>;
+          if (list.isNotEmpty) path = list.first.path;
+        } else if (details.data is String) {
+          path = details.data as String;
+        }
+        if (path != null) onPathSelected(path);
+      },
       builder: (context, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
         return Container(
@@ -1253,9 +1271,26 @@ class _TemplateWizardDialogState extends State<_TemplateWizardDialog> {
                   : FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
         ),
       ),
-      child: DragTarget<String>(
+      // Accept BOTH AudioAsset and String for drag-drop compatibility
+      child: DragTarget<Object>(
+        onWillAcceptWithDetails: (details) {
+          return details.data is AudioAsset ||
+              details.data is List<AudioAsset> ||
+              details.data is String;
+        },
         onAcceptWithDetails: (details) {
-          setState(() => _audioByStage[stage.stage] = details.data);
+          String? path;
+          if (details.data is AudioAsset) {
+            path = (details.data as AudioAsset).path;
+          } else if (details.data is List<AudioAsset>) {
+            final list = details.data as List<AudioAsset>;
+            if (list.isNotEmpty) path = list.first.path;
+          } else if (details.data is String) {
+            path = details.data as String;
+          }
+          if (path != null) {
+            setState(() => _audioByStage[stage.stage] = path);
+          }
         },
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;

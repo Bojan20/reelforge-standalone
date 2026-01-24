@@ -315,7 +315,9 @@ class MockEngineService {
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  // ignore: unnecessary_getters_setters
   MockEngineConfig get config => _config;
+  // ignore: unnecessary_getters_setters
   set config(MockEngineConfig value) => _config = value;
   MockEngineMode get mode => _mode;
   MockGameContext get context => _context;

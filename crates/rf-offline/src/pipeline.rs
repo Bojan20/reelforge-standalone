@@ -17,6 +17,8 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::config::OfflineConfig;
+use crate::decoder::AudioDecoder;
+use crate::encoder::create_encoder;
 use crate::error::{OfflineError, OfflineResult};
 use crate::formats::OutputFormat;
 use crate::job::{JobResult, OfflineJob};
@@ -442,61 +444,9 @@ impl OfflinePipeline {
         ))
     }
 
-    /// Load audio from file
+    /// Load audio from file (supports WAV, FLAC, MP3, OGG, AAC)
     fn load_audio(&self, path: &Path) -> OfflineResult<AudioBuffer> {
-        // For now, use hound for WAV files
-        // TODO: Use symphonia for other formats
-
-        let extension = path.extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.to_lowercase())
-            .unwrap_or_default();
-
-        match extension.as_str() {
-            "wav" => self.load_wav(path),
-            "flac" => self.load_flac(path),
-            _ => Err(OfflineError::UnsupportedFormat(extension)),
-        }
-    }
-
-    /// Load WAV file
-    fn load_wav(&self, path: &Path) -> OfflineResult<AudioBuffer> {
-        let reader = hound::WavReader::open(path)
-            .map_err(|e| OfflineError::ReadError(e.to_string()))?;
-
-        let spec = reader.spec();
-        let channels = spec.channels as usize;
-        let sample_rate = spec.sample_rate;
-
-        let samples: Vec<f64> = match spec.sample_format {
-            hound::SampleFormat::Int => {
-                let max_val = (1i64 << (spec.bits_per_sample - 1)) as f64;
-                reader
-                    .into_samples::<i32>()
-                    .filter_map(|s: Result<i32, _>| s.ok())
-                    .map(|s| s as f64 / max_val)
-                    .collect()
-            }
-            hound::SampleFormat::Float => {
-                reader
-                    .into_samples::<f32>()
-                    .filter_map(|s: Result<f32, _>| s.ok())
-                    .map(|s| s as f64)
-                    .collect()
-            }
-        };
-
-        Ok(AudioBuffer {
-            samples,
-            channels,
-            sample_rate,
-        })
-    }
-
-    /// Load FLAC file (stub - needs symphonia)
-    fn load_flac(&self, _path: &Path) -> OfflineResult<AudioBuffer> {
-        // TODO: Implement with symphonia
-        Err(OfflineError::UnsupportedFormat("flac".to_string()))
+        AudioDecoder::decode(path)
     }
 
     /// Process buffer through DSP chain
@@ -605,80 +555,10 @@ impl OfflinePipeline {
         })
     }
 
-    /// Encode buffer to output format
+    /// Encode buffer to output format (supports WAV, FLAC, MP3, OGG, Opus, AAC)
     fn encode_buffer(&self, buffer: &AudioBuffer) -> OfflineResult<Vec<u8>> {
-        match &self.output_format {
-            OutputFormat::Wav(config) => {
-                self.encode_wav(buffer, config.bit_depth as u16)
-            }
-            OutputFormat::Flac(config) => {
-                self.encode_flac(buffer, config.bit_depth as u16)
-            }
-            _ => {
-                // TODO: Implement other encoders
-                Err(OfflineError::UnsupportedFormat(format!("{:?}", self.output_format)))
-            }
-        }
-    }
-
-    /// Encode to WAV
-    fn encode_wav(&self, buffer: &AudioBuffer, bit_depth: u16) -> OfflineResult<Vec<u8>> {
-        let mut output = Vec::new();
-        let cursor = std::io::Cursor::new(&mut output);
-
-        let spec = hound::WavSpec {
-            channels: buffer.channels as u16,
-            sample_rate: buffer.sample_rate,
-            bits_per_sample: bit_depth,
-            sample_format: if bit_depth == 32 {
-                hound::SampleFormat::Float
-            } else {
-                hound::SampleFormat::Int
-            },
-        };
-
-        let mut writer = hound::WavWriter::new(cursor, spec)
-            .map_err(|e| OfflineError::EncodingError(e.to_string()))?;
-
-        match bit_depth {
-            16 => {
-                for &sample in &buffer.samples {
-                    let s = (sample.clamp(-1.0, 1.0) * 32767.0) as i16;
-                    writer.write_sample(s)
-                        .map_err(|e| OfflineError::EncodingError(e.to_string()))?;
-                }
-            }
-            24 => {
-                for &sample in &buffer.samples {
-                    let s = (sample.clamp(-1.0, 1.0) * 8388607.0) as i32;
-                    writer.write_sample(s)
-                        .map_err(|e| OfflineError::EncodingError(e.to_string()))?;
-                }
-            }
-            32 => {
-                for &sample in &buffer.samples {
-                    writer.write_sample(sample as f32)
-                        .map_err(|e| OfflineError::EncodingError(e.to_string()))?;
-                }
-            }
-            _ => {
-                return Err(OfflineError::ConfigError(format!(
-                    "Unsupported bit depth: {}",
-                    bit_depth
-                )));
-            }
-        }
-
-        writer.finalize()
-            .map_err(|e| OfflineError::EncodingError(e.to_string()))?;
-
-        Ok(output)
-    }
-
-    /// Encode to FLAC (stub)
-    fn encode_flac(&self, _buffer: &AudioBuffer, _bit_depth: u16) -> OfflineResult<Vec<u8>> {
-        // TODO: Implement FLAC encoding
-        Err(OfflineError::UnsupportedFormat("flac encoding".to_string()))
+        let encoder = create_encoder(&self.output_format);
+        encoder.encode(buffer)
     }
 
     /// Write output to file

@@ -8,6 +8,7 @@
 // - Integrated FabFilter DSP panels (EQ, Comp, Limiter, Gate, Reverb)
 // - Integrated Mixer, Timeline, Automation, Export panels
 
+import 'dart:io' show Directory, Platform, Process;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -32,6 +33,12 @@ import '../../providers/plugin_provider.dart';
 import '../../providers/timeline_playback_provider.dart' show TimelineClipData;
 import '../midi/piano_roll_widget.dart';
 import '../routing/routing_matrix_panel.dart';
+import 'package:file_picker/file_picker.dart';
+import '../../services/service_locator.dart';
+import '../../services/audio_asset_manager.dart';
+import '../../services/audio_playback_service.dart';
+import '../../src/rust/native_ffi.dart';
+import '../../services/project_archive_service.dart';
 // Gate and Reverb are accessible via FX Chain panel
 
 class DawLowerZoneWidget extends StatefulWidget {
@@ -120,6 +127,15 @@ class DawLowerZoneWidget extends StatefulWidget {
 }
 
 class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
+  // Archive options state
+  bool _archiveIncludeAudio = true;
+  bool _archiveIncludePresets = true;
+  bool _archiveIncludePlugins = false;
+  bool _archiveCompress = true;
+  bool _archiveInProgress = false;
+  double _archiveProgress = 0.0;
+  String _archiveStatus = '';
+
   @override
   void initState() {
     super.initState();
@@ -1659,7 +1675,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             child: PianoRollWidget(
               clipId: trackId, // Use track ID as clip ID
               lengthBars: 4,
-              bpm: 120.0, // TODO: Get from TimelinePlaybackProvider
+              bpm: widget.tempo, // Use tempo from widget parameter (passed from parent)
               onNotesChanged: () {
                 widget.onDspAction?.call('midi_notes_changed', {
                   'trackId': trackId,
@@ -2828,6 +2844,35 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
+  // P2.4: Convert string pan law to PanLaw enum
+  PanLaw _stringToPanLaw(String law) {
+    switch (law) {
+      case '0dB':
+        return PanLaw.noCenterAttenuation;
+      case '-3dB':
+        return PanLaw.constantPower;
+      case '-4.5dB':
+        return PanLaw.compromise;
+      case '-6dB':
+        return PanLaw.linear;
+      default:
+        return PanLaw.constantPower; // Default to -3dB
+    }
+  }
+
+  // P2.4: Apply pan law to all tracks via FFI
+  void _applyPanLaw(String law) {
+    final panLaw = _stringToPanLaw(law);
+    final ffi = NativeFFI.instance;
+    final mixer = context.read<MixerProvider>();
+
+    // Apply to all audio tracks
+    for (final channel in mixer.channels) {
+      final trackId = int.tryParse(channel.id) ?? 0;
+      ffi.stereoImagerSetPanLaw(trackId, panLaw);
+    }
+  }
+
   // P2.4: Build pan law selection chips
   List<Widget> _buildPanLawChips() {
     const panLaws = ['0dB', '-3dB', '-4.5dB', '-6dB'];
@@ -2840,7 +2885,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             setState(() {
               _selectedPanLaw = law;
             });
-            // TODO: Apply pan law to MixerProvider when FFI is ready
+            _applyPanLaw(law);
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -3920,15 +3965,33 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                 Expanded(
                   child: Column(
                     children: [
-                      _buildArchiveOption('Include Audio', true),
-                      _buildArchiveOption('Include Presets', true),
-                      _buildArchiveOption('Include Plugins', false),
-                      _buildArchiveOption('Compress', true),
+                      _buildArchiveCheckbox('Include Audio', _archiveIncludeAudio, (v) {
+                        setState(() => _archiveIncludeAudio = v);
+                      }),
+                      _buildArchiveCheckbox('Include Presets', _archiveIncludePresets, (v) {
+                        setState(() => _archiveIncludePresets = v);
+                      }),
+                      _buildArchiveCheckbox('Include Plugins', _archiveIncludePlugins, (v) {
+                        setState(() => _archiveIncludePlugins = v);
+                      }),
+                      _buildArchiveCheckbox('Compress', _archiveCompress, (v) {
+                        setState(() => _archiveCompress = v);
+                      }),
+                      // Progress indicator
+                      if (_archiveInProgress) ...[
+                        const SizedBox(height: 8),
+                        _buildArchiveProgress(),
+                      ],
                     ],
                   ),
                 ),
                 const SizedBox(width: 12),
-                _buildExportButton('ARCHIVE', Icons.archive, LowerZoneColors.dawAccent),
+                _buildExportButton(
+                  _archiveInProgress ? 'CREATING...' : 'ARCHIVE',
+                  _archiveInProgress ? Icons.hourglass_empty : Icons.archive,
+                  _archiveInProgress ? LowerZoneColors.textMuted : LowerZoneColors.dawAccent,
+                  onTap: _archiveInProgress ? null : _createProjectArchive,
+                ),
               ],
             ),
           ),
@@ -3937,43 +4000,156 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  Widget _buildArchiveOption(String label, bool enabled) {
+  /// Create project archive
+  Future<void> _createProjectArchive() async {
+    // Select save location
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save Project Archive',
+      fileName: 'project_archive.zip',
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+    );
+
+    if (result == null || !mounted) return;
+
+    // Get project directory (use current working directory or a known project path)
+    final projectPath = Directory.current.path;
+
+    setState(() {
+      _archiveInProgress = true;
+      _archiveProgress = 0.0;
+      _archiveStatus = 'Starting...';
+    });
+
+    final archiveResult = await ProjectArchiveService.instance.createArchive(
+      projectPath: projectPath,
+      outputPath: result,
+      config: ArchiveConfig(
+        includeAudio: _archiveIncludeAudio,
+        includePresets: _archiveIncludePresets,
+        includePlugins: _archiveIncludePlugins,
+        compress: _archiveCompress,
+      ),
+      onProgress: (progress, status) {
+        if (mounted) {
+          setState(() {
+            _archiveProgress = progress;
+            _archiveStatus = status;
+          });
+        }
+      },
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _archiveInProgress = false;
+      _archiveProgress = 0.0;
+      _archiveStatus = '';
+    });
+
+    if (archiveResult.success) {
+      final sizeKB = (archiveResult.totalBytes / 1024).toStringAsFixed(1);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Archive created: ${archiveResult.fileCount} files, $sizeKB KB'),
+          backgroundColor: LowerZoneColors.success,
+          action: SnackBarAction(
+            label: 'Open Folder',
+            textColor: Colors.white,
+            onPressed: () {
+              // Open containing folder
+              final dir = Directory(result).parent.path;
+              if (Platform.isMacOS) {
+                Process.run('open', [dir]);
+              } else if (Platform.isWindows) {
+                Process.run('explorer', [dir]);
+              } else if (Platform.isLinux) {
+                Process.run('xdg-open', [dir]);
+              }
+            },
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Archive failed: ${archiveResult.error}'),
+          backgroundColor: LowerZoneColors.error,
+        ),
+      );
+    }
+  }
+
+  Widget _buildArchiveCheckbox(String label, bool value, ValueChanged<bool> onChanged) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              value ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 14,
+              color: value ? LowerZoneColors.success : LowerZoneColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArchiveProgress() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: LowerZoneColors.bgDeepest,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            enabled ? Icons.check_circle : Icons.cancel,
-            size: 14,
-            color: enabled ? LowerZoneColors.success : LowerZoneColors.textMuted,
+          Text(
+            _archiveStatus,
+            style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary),
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary)),
+          const SizedBox(height: 4),
+          LinearProgressIndicator(
+            value: _archiveProgress,
+            backgroundColor: LowerZoneColors.bgMid,
+            valueColor: AlwaysStoppedAnimation<Color>(LowerZoneColors.dawAccent),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildExportButton(String label, IconData icon, Color color) {
-    return Container(
-      width: 80,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 24, color: color),
-          const SizedBox(height: 6),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-        ],
+  Widget _buildExportButton(String label, IconData icon, Color color, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 80,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 24, color: color),
+            const SizedBox(height: 6),
+            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
       ),
     );
   }
@@ -4060,70 +4236,159 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   Widget _buildActionStrip() {
     final actions = switch (widget.controller.superTab) {
       DawSuperTab.browse => DawActions.forBrowse(
-        onImport: () {
-          debugPrint('[DAW] Import audio file');
+        onImport: () async {
+          // Import audio files via FilePicker
+          final result = await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: ['wav', 'mp3', 'flac', 'ogg', 'aiff', 'aif'],
+            allowMultiple: true,
+          );
+          if (result != null && result.files.isNotEmpty) {
+            final assetManager = sl<AudioAssetManager>();
+            final paths = result.files
+                .where((f) => f.path != null)
+                .map((f) => f.path!)
+                .toList();
+            await assetManager.importFiles(paths, folder: 'Imported');
+            debugPrint('[DAW] Imported ${paths.length} files');
+          }
         },
         onDelete: () {
-          debugPrint('[DAW] Delete selected');
+          // Delete selected asset from AudioAssetManager
+          final assetManager = sl<AudioAssetManager>();
+          final selectedPath = assetManager.selectedAssetPath;
+          if (selectedPath != null) {
+            assetManager.removeByPath(selectedPath);
+            debugPrint('[DAW] Deleted: $selectedPath');
+          }
         },
         onPreview: () {
-          debugPrint('[DAW] Preview selected');
+          // Preview selected audio file
+          final assetManager = sl<AudioAssetManager>();
+          final selectedPath = assetManager.selectedAssetPath;
+          if (selectedPath != null) {
+            AudioPlaybackService.instance.previewFile(selectedPath);
+            debugPrint('[DAW] Previewing: $selectedPath');
+          }
         },
         onAddToProject: () {
-          debugPrint('[DAW] Add to project');
+          // Add selected asset to timeline via callback
+          widget.onDspAction?.call('addToProject', {
+            'path': sl<AudioAssetManager>().selectedAssetPath,
+          });
         },
       ),
       DawSuperTab.edit => DawActions.forEdit(
         onAddTrack: () {
-          debugPrint('[DAW] Add track');
+          // Create new audio track in mixer
+          final mixer = context.read<MixerProvider>();
+          final channel = mixer.createChannel(
+            name: 'Audio ${mixer.channelCount + 1}',
+          );
+          debugPrint('[DAW] Created track: ${channel.name}');
+          widget.onDspAction?.call('trackCreated', {'id': channel.id});
         },
         onSplit: () {
-          debugPrint('[DAW] Split clip');
+          // Split clip at playhead via callback
+          widget.onDspAction?.call('splitClip', null);
         },
         onDuplicate: () {
-          debugPrint('[DAW] Duplicate selection');
+          // Duplicate selected clip via callback
+          widget.onDspAction?.call('duplicateSelection', null);
         },
         onDelete: () {
-          debugPrint('[DAW] Delete selection');
+          // Delete selected clip/track via callback
+          widget.onDspAction?.call('deleteSelection', null);
         },
       ),
       DawSuperTab.mix => DawActions.forMix(
         onAddBus: () {
-          debugPrint('[DAW] Add bus');
+          // Create new bus in mixer
+          final mixer = context.read<MixerProvider>();
+          final bus = mixer.createBus(
+            name: 'Bus ${mixer.busCount + 1}',
+          );
+          debugPrint('[DAW] Created bus: ${bus.name}');
         },
         onMuteAll: () {
-          debugPrint('[DAW] Mute all');
+          // Mute all channels
+          final mixer = context.read<MixerProvider>();
+          for (final channel in mixer.channels) {
+            mixer.setMuted(channel.id, true);
+          }
+          debugPrint('[DAW] Muted all channels');
         },
         onSolo: () {
-          debugPrint('[DAW] Solo mode');
+          // Clear all solos (toggle solo mode)
+          final mixer = context.read<MixerProvider>();
+          mixer.clearAllSolo();
+          debugPrint('[DAW] Cleared all solos');
         },
         onReset: () {
-          debugPrint('[DAW] Reset mixer');
+          // Reset mixer to defaults
+          final mixer = context.read<MixerProvider>();
+          for (final channel in mixer.channels) {
+            mixer.setVolume(channel.id, 1.0);  // Unity gain
+            mixer.setPan(channel.id, 0.0);     // Center
+            mixer.setMuted(channel.id, false);
+            mixer.setSoloed(channel.id, false);
+          }
+          debugPrint('[DAW] Reset mixer to defaults');
         },
       ),
       DawSuperTab.process => DawActions.forProcess(
         onAddBand: () {
-          debugPrint('[DAW] Add EQ band');
+          // Add EQ processor to selected track
+          final trackId = widget.selectedTrackId ?? 0;
+          final dspChain = context.read<DspChainProvider>();
+          dspChain.addNode(trackId, DspNodeType.eq);
+          debugPrint('[DAW] Added EQ to track $trackId');
         },
         onRemove: () {
-          debugPrint('[DAW] Remove processor');
+          // Remove selected processor
+          final trackId = widget.selectedTrackId ?? 0;
+          final dspChain = context.read<DspChainProvider>();
+          final chain = dspChain.getChain(trackId);
+          if (chain.nodes.isNotEmpty) {
+            dspChain.removeNode(trackId, chain.nodes.last.id);
+            debugPrint('[DAW] Removed last processor from track $trackId');
+          }
         },
         onCopy: () {
-          debugPrint('[DAW] Copy settings');
+          // Copy DSP chain settings via callback
+          widget.onDspAction?.call('copyDspSettings', {
+            'trackId': widget.selectedTrackId,
+          });
         },
         onBypass: () {
-          debugPrint('[DAW] Toggle bypass');
+          // Toggle bypass on all processors
+          final trackId = widget.selectedTrackId ?? 0;
+          final dspChain = context.read<DspChainProvider>();
+          final chain = dspChain.getChain(trackId);
+          for (final node in chain.nodes) {
+            dspChain.toggleNodeBypass(trackId, node.id);
+          }
+          debugPrint('[DAW] Toggled bypass on all processors');
         },
       ),
       DawSuperTab.deliver => DawActions.forDeliver(
         onQuickExport: () {
-          debugPrint('[DAW] Quick export');
+          // Quick export with last used settings
+          widget.onDspAction?.call('quickExport', null);
         },
-        onBrowse: () {
-          debugPrint('[DAW] Browse export folder');
+        onBrowse: () async {
+          // Open export folder in system file browser
+          final exportPath = '/Users/${Platform.environment['USER']}/Music/FluxForge Exports';
+          // Create directory if it doesn't exist and open in Finder
+          final dir = Directory(exportPath);
+          if (!await dir.exists()) {
+            await dir.create(recursive: true);
+          }
+          await Process.run('open', [exportPath]);
         },
         onExport: () {
-          debugPrint('[DAW] Export...');
+          // Open export dialog
+          widget.onDspAction?.call('showExportDialog', null);
         },
       ),
     };

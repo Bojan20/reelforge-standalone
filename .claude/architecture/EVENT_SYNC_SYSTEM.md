@@ -1356,9 +1356,74 @@ String? _getFallbackStage(String stage) {
 
 ---
 
+## Double-Spin Prevention (2026-01-24)
+
+### Problem
+
+SlotPreviewWidget bi ponekad trigerovao dva spina uzastopno.
+
+**Root Cause:** U `_onProviderUpdate()`, nakon `_finalizeSpin()`:
+- `_isSpinning` postaje `false`
+- Ali `isPlayingStages` je još `true` (procesira WIN_PRESENT, ROLLUP, itd.)
+- `stages` lista još sadrži `spin_start`
+- Uslov prolazi ponovo → `_startSpin()` se zove dvaput
+
+### Solution
+
+Dva guard flaga u `slot_preview_widget.dart`:
+
+| Flag | Purpose |
+|------|---------|
+| `_spinFinalized` | Sprečava re-trigger nakon finalize dok provider ne završi |
+| `_lastProcessedSpinId` | Prati koji spinId je već procesiran |
+
+```dart
+void _onProviderUpdate() {
+  if (isPlaying && stages.isNotEmpty && !_isSpinning && !_spinFinalized) {
+    final spinId = result?.spinId;
+    if (hasSpinStart && spinId != null && spinId != _lastProcessedSpinId) {
+      _lastProcessedSpinId = spinId;
+      _startSpin(result);
+    }
+  }
+
+  // Reset finalized flag kad provider završi
+  if (!isPlaying && _spinFinalized) {
+    _spinFinalized = false;
+  }
+}
+
+void _finalizeSpin(SlotLabSpinResult result) {
+  setState(() {
+    _isSpinning = false;
+    _spinFinalized = true;  // KRITIČNO
+  });
+}
+```
+
+### Debug Log Patterns
+
+```
+✅ [SlotPreview] 🆕 New spin detected: abc123 (last: null)
+✅ [SlotPreview] 🎰 SPIN STARTED (visual only, audio via provider)
+✅ [SlotPreview] ✅ FINALIZE SPIN — setting spinFinalized=true
+✅ [SlotPreview] 🔄 Reset finalized flag — ready for next spin
+
+❌ [SlotPreview] 🆕 New spin detected: abc123 (last: abc123)  ← BLOCKED (same ID)
+```
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `slot_preview_widget.dart` | Added `_spinFinalized`, `_lastProcessedSpinId` guards |
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management
-- `.claude/architecture/SLOT_LAB_SYSTEM.md` — SlotLab architecture
+- `.claude/architecture/SLOT_LAB_SYSTEM.md` — SlotLab architecture (includes stage flow, double-spin fix)
+- `.claude/architecture/PREMIUM_SLOT_PREVIEW.md` — Visual-sync timing implementation
 - `.claude/domains/slot-audio-events-master.md` — Full stage catalog
 - `.claude/project/fluxforge-studio.md` — Full project spec

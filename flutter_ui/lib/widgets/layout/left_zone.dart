@@ -48,6 +48,7 @@ class LeftZone extends StatefulWidget {
   final void Function(String channelId, int sendIndex, double level)? onChannelSendLevelChange;
   final void Function(String channelId)? onChannelArmToggle;
   final void Function(String channelId)? onChannelMonitorToggle;
+  final void Function(String channelId)? onChannelPhaseInvertToggle;
   final void Function(String channelId)? onChannelEQToggle;
   final void Function(String channelId)? onChannelOutputClick;
   final void Function(String channelId)? onChannelInputClick;
@@ -90,6 +91,7 @@ class LeftZone extends StatefulWidget {
     this.onChannelSendLevelChange,
     this.onChannelArmToggle,
     this.onChannelMonitorToggle,
+    this.onChannelPhaseInvertToggle,
     this.onChannelEQToggle,
     this.onChannelOutputClick,
     this.onChannelInputClick,
@@ -287,6 +289,7 @@ class _LeftZoneState extends State<LeftZone> {
       onSoloToggle: widget.onChannelSoloToggle,
       onArmToggle: widget.onChannelArmToggle,
       onMonitorToggle: widget.onChannelMonitorToggle,
+      onPhaseInvertToggle: widget.onChannelPhaseInvertToggle,
       onInsertClick: widget.onChannelInsertClick,
       onSendClick: widget.onChannelSendClick,
       onSendLevelChange: widget.onChannelSendLevelChange,

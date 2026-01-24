@@ -1,8 +1,8 @@
 # Lower Zone Architecture — FluxForge Studio
 
-> **Version:** 2.4
-> **Date:** 2026-01-23
-> **Status:** FULLY IMPLEMENTED — All Panels + State Persistence + Action Strip Integration + No Placeholders
+> **Version:** 2.5
+> **Date:** 2026-01-24
+> **Status:** FULLY IMPLEMENTED — All Panels + State Persistence + Action Strip Integration + Layer Parameter Strip + No Placeholders
 
 ---
 
@@ -585,6 +585,54 @@ Kontekst-svesna akciona traka na dnu Lower Zone.
 | **RTPC/Curves** | `+ Add Point` `⊖ Remove` `📈 Reset` `▶ Preview` |
 | **DELIVER/Bake** | `✓ Validate` `🔥 Bake` `📦 Package` |
 
+### 5.2.1 Middleware Layer Parameter Strip (2026-01-24) ✅
+
+When EVENTS tab is active and an event is selected, a comprehensive parameter strip appears ABOVE the action buttons:
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│ 🔊 [━━━━━━━] -3.2dB │ L[━━━○━━]R │ [SFX ▼] │ ⏱ [━━━━] 250ms │ [M][S] │ [🔁 Loop] │ [▶ Play ▼] │
+└───────────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Parameter | Widget | Range | Provider Method |
+|-----------|--------|-------|-----------------|
+| **Volume** | Slider + dB | 0.0–2.0 (−∞ to +6dB) | `updateEventLayer(layer.copyWith(volume))` |
+| **Pan** | Slider | −1.0 to +1.0 (L/R) | `updateEventLayer(layer.copyWith(pan))` |
+| **Bus** | Dropdown | SFX/Music/Voice/Ambience/Aux/Master (0-5) | `updateEventLayer(layer.copyWith(busId))` |
+| **Offset** | Slider + ms | 0–2000ms | `updateEventLayer(layer.copyWith(offsetMs))` |
+| **Mute** | Toggle [M] | On/Off | `updateEventLayer(layer.copyWith(muted))` |
+| **Solo** | Toggle [S] | On/Off | `updateEventLayer(layer.copyWith(solo))` |
+| **Loop** | Toggle | On/Off | `updateCompositeEvent(event.copyWith(looping))` |
+| **ActionType** | Dropdown | Play/Stop/Pause/SetVolume | `updateEventLayer(layer.copyWith(actionType))` |
+
+**Color Coding:**
+- Volume: Orange (#ff9040)
+- Pan: Cyan (#40c8ff)
+- Bus: Color per bus type
+- Offset: Green (#40ff90)
+- Mute: Red when active
+- Solo: Amber when active
+- Loop: Blue when active
+- ActionType: Green=Play, Red=Stop, Orange=Pause, Blue=SetVolume
+
+**FFI Playback Flow:**
+```
+SlotEventLayer params → EventRegistry._playLayer() → AudioPlaybackService
+                                                    ├── playFileToBus(path, volume, pan, busId, source)
+                                                    └── playLoopingToBus() if looping=true
+```
+
+**Helper Methods (~170 LOC):**
+- `_buildLayerParameterStrip()` — Main strip container
+- `_buildCompactVolumeControl()` — Volume slider with dB display
+- `_buildCompactPanControl()` — Pan slider
+- `_buildCompactBusSelector()` — Bus dropdown with color
+- `_buildCompactOffsetControl()` — Delay slider with ms display
+- `_buildMuteSoloToggles()` — M/S toggle buttons
+- `_buildLoopToggle()` — Loop toggle (event-level)
+- `_buildActionTypeSelector()` — ActionType dropdown
+
 ### 5.3 SlotLab Action Strip
 
 | Context | Actions |
@@ -624,6 +672,11 @@ SlotLabActions.forStages(
 | `SlotLabProvider` | `clearStages()` | Clear all captured stages |
 | `MiddlewareProvider` | `duplicateCompositeEvent(id)` | Copy event with layers/stages |
 | `MiddlewareProvider` | `previewCompositeEvent(id)` | Play event audio |
+| `MiddlewareProvider` | `updateEventLayer(eventId, layer)` | Update layer parameters (volume, pan, bus, offset, etc.) |
+| `MiddlewareProvider` | `updateCompositeEvent(event)` | Update event-level settings (looping, etc.) |
+
+**COMPLETED (2026-01-24):**
+- ✅ Middleware Events: Layer Parameter Strip (Volume, Pan, Bus, Offset, Mute, Solo, Loop, ActionType)
 
 **TODO (debugPrint only):**
 - DAW: All actions (need MixerProvider, DspChainProvider, TimelineProvider integration)

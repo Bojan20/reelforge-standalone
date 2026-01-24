@@ -1205,8 +1205,13 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
         widget.onExit();
         return KeyEventResult.handled;
 
-      // SPACE - Spin
+      // SPACE - Spin or Stop (if spinning)
       case LogicalKeyboardKey.space:
+        if (provider.isPlayingStages) {
+          // Stop spin — let the key propagate to SlotPreviewWidget to stop animation
+          provider.stopStagePlayback();
+          return KeyEventResult.ignored;
+        }
         _handleSpin(provider);
         return KeyEventResult.handled;
 
@@ -1950,6 +1955,8 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
   Widget _buildSpinButton(SlotLabProvider provider) {
     final isSpinning = provider.isPlayingStages;
     final canSpin = _sessionBalance >= _currentBet && !isSpinning;
+    // Button is always enabled: either to SPIN or to STOP
+    final isEnabled = isSpinning || canSpin;
 
     return AnimatedBuilder(
       animation: _spinButtonPulse,
@@ -1959,8 +1966,16 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
         return Transform.scale(
           scale: scale,
           child: _FocusableButton(
-            enabled: canSpin,
-            onTap: () => _handleSpin(provider),
+            enabled: isEnabled,
+            onTap: () {
+              if (isSpinning) {
+                // STOP the spin
+                provider.stopStagePlayback();
+              } else {
+                // START a new spin
+                _handleSpin(provider);
+              }
+            },
             builder: (context, isFocused) => AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
@@ -1968,17 +1983,21 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: !canSpin
-                      ? [const Color(0xFF3a3a48), const Color(0xFF2a2a38)]
-                      : [FluxForgeTheme.accentBlue, const Color(0xFF2060CC)],
+                  colors: isSpinning
+                      ? [const Color(0xFFFF5252), const Color(0xFFD32F2F)] // Red for STOP
+                      : !canSpin
+                          ? [const Color(0xFF3a3a48), const Color(0xFF2a2a38)]
+                          : [FluxForgeTheme.accentBlue, const Color(0xFF2060CC)],
                 ),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
                   color: isFocused
                       ? Colors.white
-                      : !canSpin
-                          ? const Color(0xFF4a4a58)
-                          : FluxForgeTheme.accentBlue.withOpacity(0.8),
+                      : isSpinning
+                          ? const Color(0xFFFF5252)
+                          : !canSpin
+                              ? const Color(0xFF4a4a58)
+                              : FluxForgeTheme.accentBlue.withOpacity(0.8),
                   width: isFocused ? 3 : 2,
                 ),
                 boxShadow: [
@@ -1987,6 +2006,12 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
                       color: Colors.white.withOpacity(0.5),
                       blurRadius: 16,
                       spreadRadius: 4,
+                    ),
+                  if (isSpinning && !isFocused)
+                    BoxShadow(
+                      color: const Color(0xFFFF5252).withOpacity(0.4),
+                      blurRadius: 20,
+                      spreadRadius: 2,
                     ),
                   if (canSpin && !isFocused)
                     BoxShadow(
@@ -2000,24 +2025,21 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isSpinning) ...[
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
-                      ),
+                    const Icon(
+                      Icons.stop_rounded,
+                      color: Colors.white,
+                      size: 24,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                   ],
                   Text(
                     isSpinning
-                        ? 'SPINNING...'
+                        ? 'STOP'
                         : _sessionBalance < _currentBet
                             ? 'NO FUNDS'
                             : 'SPIN',
                     style: TextStyle(
-                      color: canSpin ? Colors.white : Colors.white54,
+                      color: isEnabled ? Colors.white : Colors.white54,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 4,
