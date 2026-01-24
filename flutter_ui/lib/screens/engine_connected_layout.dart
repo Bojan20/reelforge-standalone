@@ -3298,31 +3298,39 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Preview composite event audio
   void _previewCompositeEvent(SlotCompositeEvent event) {
+    final provider = context.read<MiddlewareProvider>();
+
     setState(() {
       _isPreviewingEvent = !_isPreviewingEvent;
     });
 
     if (_isPreviewingEvent) {
-      // TODO: Play all layers via PreviewEngine
-      debugPrint('[Middleware] Preview event: ${event.name} with ${event.layers.length} layers');
+      // Play all layers via provider
+      provider.previewCompositeEvent(event.id);
+      debugPrint('[Middleware] Preview started: ${event.name} with ${event.layers.length} layers');
     } else {
-      // TODO: Stop preview
-      debugPrint('[Middleware] Stop preview');
+      // Stop all voices for this event
+      provider.stopCompositeEvent(event.id);
+      debugPrint('[Middleware] Preview stopped: ${event.name}');
     }
   }
 
   /// Preview MiddlewareEvent (play all actions)
   void _previewMiddlewareEvent(MiddlewareEvent event) {
+    final provider = context.read<MiddlewareProvider>();
+
     setState(() {
       _isPreviewingEvent = !_isPreviewingEvent;
     });
 
     if (_isPreviewingEvent) {
-      // TODO: Play all actions via PreviewEngine
-      debugPrint('[Middleware] Preview event: ${event.name} with ${event.actions.length} actions');
+      // Play event via provider (EventRegistry handles the audio)
+      provider.postEvent(event.name);
+      debugPrint('[Middleware] Preview started: ${event.name} with ${event.actions.length} actions');
     } else {
-      // TODO: Stop preview
-      debugPrint('[Middleware] Stop preview');
+      // Stop event playback
+      provider.stopEventByName(event.name);
+      debugPrint('[Middleware] Preview stopped: ${event.name}');
     }
   }
 

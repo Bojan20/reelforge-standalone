@@ -2077,6 +2077,51 @@ class MiddlewareProvider extends ChangeNotifier {
     _markChanged(changeCompositeEvents);
   }
 
+  /// Stop all playing voices for a composite event
+  void stopCompositeEvent(String eventId, {int fadeMs = 100}) {
+    final event = compositeEvents.where((e) => e.id == eventId).firstOrNull;
+    if (event == null) {
+      debugPrint('[Middleware] stopCompositeEvent: Event not found: $eventId');
+      return;
+    }
+
+    // Stop all playing instances associated with this event
+    final toRemove = <int>[];
+    for (final entry in _playingInstances.entries) {
+      if (entry.value == eventId) {
+        _ffi.middlewareStopPlayingId(entry.key, fadeMs: fadeMs);
+        toRemove.add(entry.key);
+      }
+    }
+    for (final id in toRemove) {
+      _playingInstances.remove(id);
+    }
+
+    // Also stop via AudioPlaybackService if using bus routing
+    AudioPlaybackService.instance.stopEvent(eventId);
+
+    debugPrint('[Middleware] stopCompositeEvent: "${event.name}" stopped ${toRemove.length} instances');
+
+    // Release section when no more playing instances
+    if (_playingInstances.isEmpty) {
+      UnifiedPlaybackController.instance.releaseSection(PlaybackSection.middleware);
+    }
+
+    _markChanged(changeCompositeEvents);
+  }
+
+  /// Stop event by name (used for MiddlewareEvent preview)
+  void stopEventByName(String eventName, {int fadeMs = 100, int gameObjectId = 0}) {
+    final event = _eventSystemProvider.events.where((e) => e.name == eventName).firstOrNull;
+    if (event == null) {
+      debugPrint('[Middleware] stopEventByName: Event not found: $eventName');
+      return;
+    }
+
+    stopEvent(event.id, fadeMs: fadeMs, gameObjectId: gameObjectId);
+    debugPrint('[Middleware] stopEventByName: "$eventName" stopped');
+  }
+
   /// Stop all playing events
   void stopAllEvents({int fadeMs = 100}) {
     _ffi.middlewareStopAll(fadeMs: fadeMs);
@@ -3454,17 +3499,19 @@ class MiddlewareProvider extends ChangeNotifier {
   }
 
   /// Preview a composite event (play all layers)
+  /// Uses playCompositeEvent internally for actual audio playback
   void previewCompositeEvent(String eventId) {
     final event = compositeEvents.where((e) => e.id == eventId).firstOrNull;
-    if (event == null) return;
+    if (event == null) {
+      debugPrint('[MiddlewareProvider] previewCompositeEvent: Event not found: $eventId');
+      return;
+    }
 
     debugPrint('[MiddlewareProvider] Preview event "${event.name}" (${event.layers.length} layers)');
 
-    // Trigger each layer's audio through EventRegistry
-    for (final stage in event.triggerStages) {
-      // The EventRegistry will handle actual playback
-      debugPrint('[MiddlewareProvider] Triggering stage: $stage');
-    }
+    // Use playCompositeEvent for actual audio playback
+    final voicesStarted = playCompositeEvent(eventId);
+    debugPrint('[MiddlewareProvider] Preview started $voicesStarted voices for "${event.name}"');
   }
 
   /// Add existing composite event (for sync from external sources)

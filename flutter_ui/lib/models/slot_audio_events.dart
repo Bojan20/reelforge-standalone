@@ -1455,6 +1455,8 @@ class SlotEventLayer {
   final double offsetMs; // Delay offset in milliseconds
   final double fadeInMs; // Fade in duration
   final double fadeOutMs; // Fade out duration
+  final CrossfadeCurve fadeInCurve; // Fade in curve type
+  final CrossfadeCurve fadeOutCurve; // Fade out curve type
   final double trimStartMs; // Non-destructive trim start (M3.2)
   final double trimEndMs; // Non-destructive trim end (M3.2) - 0 means no trim
   final bool muted;
@@ -1473,6 +1475,8 @@ class SlotEventLayer {
     this.offsetMs = 0.0,
     this.fadeInMs = 0.0,
     this.fadeOutMs = 0.0,
+    this.fadeInCurve = CrossfadeCurve.linear,
+    this.fadeOutCurve = CrossfadeCurve.linear,
     this.trimStartMs = 0.0,
     this.trimEndMs = 0.0,
     this.muted = false,
@@ -1492,6 +1496,8 @@ class SlotEventLayer {
     double? offsetMs,
     double? fadeInMs,
     double? fadeOutMs,
+    CrossfadeCurve? fadeInCurve,
+    CrossfadeCurve? fadeOutCurve,
     double? trimStartMs,
     double? trimEndMs,
     bool? muted,
@@ -1510,6 +1516,8 @@ class SlotEventLayer {
       offsetMs: offsetMs ?? this.offsetMs,
       fadeInMs: fadeInMs ?? this.fadeInMs,
       fadeOutMs: fadeOutMs ?? this.fadeOutMs,
+      fadeInCurve: fadeInCurve ?? this.fadeInCurve,
+      fadeOutCurve: fadeOutCurve ?? this.fadeOutCurve,
       trimStartMs: trimStartMs ?? this.trimStartMs,
       trimEndMs: trimEndMs ?? this.trimEndMs,
       muted: muted ?? this.muted,
@@ -1534,6 +1542,8 @@ class SlotEventLayer {
     'offsetMs': offsetMs,
     'fadeInMs': fadeInMs,
     'fadeOutMs': fadeOutMs,
+    'fadeInCurve': fadeInCurve.name,
+    'fadeOutCurve': fadeOutCurve.name,
     'trimStartMs': trimStartMs,
     'trimEndMs': trimEndMs,
     'muted': muted,
@@ -1555,6 +1565,14 @@ class SlotEventLayer {
       offsetMs: (json['offsetMs'] as num?)?.toDouble() ?? 0.0,
       fadeInMs: (json['fadeInMs'] as num?)?.toDouble() ?? 0.0,
       fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 0.0,
+      fadeInCurve: CrossfadeCurve.values.firstWhere(
+        (e) => e.name == json['fadeInCurve'],
+        orElse: () => CrossfadeCurve.linear,
+      ),
+      fadeOutCurve: CrossfadeCurve.values.firstWhere(
+        (e) => e.name == json['fadeOutCurve'],
+        orElse: () => CrossfadeCurve.linear,
+      ),
       trimStartMs: (json['trimStartMs'] as num?)?.toDouble() ?? 0.0,
       trimEndMs: (json['trimEndMs'] as num?)?.toDouble() ?? 0.0,
       muted: json['muted'] as bool? ?? false,

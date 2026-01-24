@@ -95,6 +95,14 @@ class AleLayer {
       isActive: json['is_active'] as bool? ?? false,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'index': index,
+    'asset_id': assetId,
+    'base_volume': baseVolume,
+    'current_volume': currentVolume,
+    'is_active': isActive,
+  };
 }
 
 /// Context definition
@@ -126,6 +134,15 @@ class AleContext {
       isActive: json['is_active'] as bool? ?? false,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    if (description != null) 'description': description,
+    'layers': layers.map((l) => l.toJson()).toList(),
+    'current_level': currentLevel,
+    'is_active': isActive,
+  };
 }
 
 /// Rule condition comparison operator
@@ -224,6 +241,51 @@ class AleRule {
       _ => AleActionType.stepUp,
     };
   }
+
+  static String _opToString(ComparisonOp? op) {
+    if (op == null) return 'eq';
+    return switch (op) {
+      ComparisonOp.eq => 'eq',
+      ComparisonOp.ne => 'ne',
+      ComparisonOp.lt => 'lt',
+      ComparisonOp.lte => 'lte',
+      ComparisonOp.gt => 'gt',
+      ComparisonOp.gte => 'gte',
+      ComparisonOp.inRange => 'in_range',
+      ComparisonOp.outOfRange => 'out_of_range',
+      ComparisonOp.rising => 'rising',
+      ComparisonOp.falling => 'falling',
+      ComparisonOp.crossed => 'crossed',
+      ComparisonOp.aboveFor => 'above_for',
+      ComparisonOp.belowFor => 'below_for',
+      ComparisonOp.changed => 'changed',
+      ComparisonOp.stable => 'stable',
+    };
+  }
+
+  static String _actionToString(AleActionType action) {
+    return switch (action) {
+      AleActionType.stepUp => 'step_up',
+      AleActionType.stepDown => 'step_down',
+      AleActionType.setLevel => 'set_level',
+      AleActionType.hold => 'hold',
+      AleActionType.release => 'release',
+      AleActionType.pulse => 'pulse',
+    };
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    if (signalId != null) 'signal_id': signalId,
+    if (op != null) 'op': _opToString(op),
+    if (value != null) 'value': value,
+    'action': _actionToString(action),
+    if (actionValue != null) 'action_value': actionValue,
+    'contexts': contexts,
+    'priority': priority,
+    'enabled': enabled,
+  };
 }
 
 /// Transition sync mode
@@ -277,6 +339,26 @@ class AleTransitionProfile {
       _ => SyncMode.immediate,
     };
   }
+
+  static String _syncModeToString(SyncMode mode) {
+    return switch (mode) {
+      SyncMode.immediate => 'immediate',
+      SyncMode.beat => 'beat',
+      SyncMode.bar => 'bar',
+      SyncMode.phrase => 'phrase',
+      SyncMode.nextDownbeat => 'next_downbeat',
+      SyncMode.custom => 'custom',
+    };
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'sync_mode': _syncModeToString(syncMode),
+    'fade_in_ms': fadeInMs,
+    'fade_out_ms': fadeOutMs,
+    'overlap': overlap,
+  };
 }
 
 /// Stability configuration
@@ -366,6 +448,16 @@ class AleProfile {
       stability: stabilityJson != null ? AleStabilityConfig.fromJson(stabilityJson) : const AleStabilityConfig(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'version': version,
+    if (author != null) 'author': author,
+    if (gameName != null) 'metadata': {'game_name': gameName},
+    'contexts': contexts.map((k, v) => MapEntry(k, v.toJson())),
+    'rules': rules.map((r) => r.toJson()).toList(),
+    'transitions': transitions.map((k, v) => MapEntry(k, v.toJson())),
+    'stability': stability.toJson(),
+  };
 }
 
 /// Engine state snapshot
