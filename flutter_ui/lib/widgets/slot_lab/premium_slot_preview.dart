@@ -19,7 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../src/rust/native_ffi.dart'
-    show ForcedOutcome, NativeFFI, SlotLabSpinResult;
+    show ForcedOutcome, NativeFFI, SlotLabSpinResult, SlotLabWinTier;
 import '../../theme/fluxforge_theme.dart';
 import 'slot_preview_widget.dart';
 
@@ -1775,6 +1775,321 @@ class _ScatterPainter extends CustomPainter {
 }
 
 // =============================================================================
+// GAMBLE OVERLAY
+// =============================================================================
+
+class _GambleOverlay extends StatelessWidget {
+  final double stakeAmount;
+  final int? cardRevealed; // 0,1=Red, 2,3=Black
+  final bool? won;
+  final VoidCallback onChooseRed;
+  final VoidCallback onChooseBlack;
+  final VoidCallback onCollect;
+
+  const _GambleOverlay({
+    required this.stakeAmount,
+    this.cardRevealed,
+    this.won,
+    required this.onChooseRed,
+    required this.onChooseBlack,
+    required this.onCollect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isRevealed = cardRevealed != null;
+    final isRed = cardRevealed != null && cardRevealed! < 2;
+
+    return Container(
+      color: Colors.black.withOpacity(0.85),
+      child: Center(
+        child: Container(
+          width: 500,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                _SlotTheme.bgSurface.withOpacity(0.95),
+                _SlotTheme.bgMid.withOpacity(0.95),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: _SlotTheme.gold.withOpacity(0.5),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _SlotTheme.gold.withOpacity(0.3),
+                blurRadius: 30,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Title
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [_SlotTheme.gold, _SlotTheme.jackpotMajor],
+                ).createShader(bounds),
+                child: const Text(
+                  'GAMBLE',
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Double or Nothing!',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Stake display
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _SlotTheme.bgDeep,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _SlotTheme.gold.withOpacity(0.3)),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'STAKE',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '\$${stakeAmount.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: _SlotTheme.gold,
+                      ),
+                    ),
+                    if (!isRevealed) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Win: \$${(stakeAmount * 2).toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: Colors.green[400],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Card display (when revealed)
+              if (isRevealed) ...[
+                _buildRevealedCard(isRed, won ?? false),
+                const SizedBox(height: 24),
+              ],
+
+              // Choice buttons (when not revealed)
+              if (!isRevealed) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildChoiceButton(
+                      label: 'RED',
+                      color: Colors.red[700]!,
+                      icon: Icons.favorite,
+                      onTap: onChooseRed,
+                    ),
+                    const SizedBox(width: 24),
+                    _buildChoiceButton(
+                      label: 'BLACK',
+                      color: Colors.grey[900]!,
+                      icon: Icons.spa,
+                      onTap: onChooseBlack,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Result message
+              if (isRevealed && won != null) ...[
+                Text(
+                  won! ? 'YOU WIN!' : 'YOU LOSE',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: won! ? Colors.green[400] : Colors.red[400],
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Collect button (always visible)
+              if (!isRevealed || won == true)
+                ElevatedButton.icon(
+                  onPressed: onCollect,
+                  icon: const Icon(Icons.account_balance_wallet, size: 20),
+                  label: Text(
+                    won == true ? 'COLLECT \$${(stakeAmount).toStringAsFixed(2)}' : 'COLLECT',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChoiceButton({
+    required String label,
+    required Color color,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 120,
+        height: 160,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.5),
+              blurRadius: 15,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 48),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRevealedCard(bool isRed, bool won) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 600),
+      builder: (context, value, child) {
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateY((1 - value) * 3.14159),
+          child: value > 0.5
+              ? Container(
+                  width: 120,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    color: isRed ? Colors.red[700] : Colors.grey[900],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: won ? Colors.green[400]! : Colors.red[400]!,
+                      width: 4,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (won ? Colors.green : Colors.red).withOpacity(0.5),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isRed ? Icons.favorite : Icons.spa,
+                        color: Colors.white,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isRed ? 'RED' : 'BLACK',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Container(
+                  width: 120,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [_SlotTheme.bgMid, _SlotTheme.bgDeep],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _SlotTheme.gold, width: 2),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '?',
+                      style: TextStyle(
+                        color: _SlotTheme.gold,
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+        );
+      },
+    );
+  }
+}
+
+// =============================================================================
 // D. WIN PRESENTER
 // =============================================================================
 
@@ -3039,6 +3354,380 @@ class _InfoPanels extends StatelessWidget {
               rtp: rtp,
             ),
           ],
+
+          if (showPaytable) ...[
+            const SizedBox(height: 16),
+            const _PaytablePanel(),
+          ],
+
+          if (showRules) ...[
+            const SizedBox(height: 16),
+            const _RulesPanel(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Paytable panel showing symbol pay values
+class _PaytablePanel extends StatelessWidget {
+  const _PaytablePanel();
+
+  // Standard symbol data from rf-slot-lab
+  static const List<_SymbolPayData> _symbols = [
+    // High paying
+    _SymbolPayData('7', '🔴', [20.0, 100.0, 500.0], isHighPay: true),
+    _SymbolPayData('BAR×3', '▬▬▬', [15.0, 75.0, 300.0], isHighPay: true),
+    _SymbolPayData('BAR×2', '▬▬', [10.0, 50.0, 200.0], isHighPay: true),
+    _SymbolPayData('BAR', '▬', [8.0, 40.0, 150.0], isHighPay: true),
+    // Medium paying
+    _SymbolPayData('Bell', '🔔', [5.0, 25.0, 100.0]),
+    _SymbolPayData('Grape', '🍇', [4.0, 20.0, 80.0]),
+    _SymbolPayData('Orange', '🍊', [3.0, 15.0, 60.0]),
+    // Low paying
+    _SymbolPayData('Plum', '🍑', [2.0, 10.0, 40.0]),
+    _SymbolPayData('Cherry', '🍒', [1.0, 5.0, 20.0]),
+    _SymbolPayData('Lemon', '🍋', [1.0, 5.0, 20.0]),
+  ];
+
+  static const List<_SpecialSymbolData> _specials = [
+    _SpecialSymbolData(
+      'WILD',
+      '★',
+      _SlotTheme.gold,
+      'Substitutes for all symbols except Scatter',
+      [50.0, 200.0, 1000.0],
+    ),
+    _SpecialSymbolData(
+      'SCATTER',
+      '◆',
+      _SlotTheme.jackpotMinor,
+      '3+ anywhere triggers Free Spins',
+      [2.0, 5.0, 20.0],
+    ),
+    _SpecialSymbolData(
+      'BONUS',
+      '♦',
+      _SlotTheme.jackpotMajor,
+      '3+ on reels 2-4 triggers Bonus Game',
+      null,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 280,
+      constraints: const BoxConstraints(maxHeight: 400),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _SlotTheme.bgPanel.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _SlotTheme.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Title
+            Row(
+              children: [
+                const Icon(Icons.table_chart, color: _SlotTheme.gold, size: 18),
+                const SizedBox(width: 8),
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [_SlotTheme.gold, Colors.amber],
+                  ).createShader(bounds),
+                  child: const Text(
+                    'PAYTABLE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Column headers
+            Row(
+              children: [
+                const SizedBox(width: 70),
+                Expanded(
+                  child: Text(
+                    '×3',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    '×4',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    '×5',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Regular symbols
+            ..._symbols.map((s) => _buildSymbolRow(s)),
+
+            const Divider(color: _SlotTheme.border, height: 24),
+
+            // Special symbols
+            const Text(
+              'SPECIAL SYMBOLS',
+              style: TextStyle(
+                color: _SlotTheme.gold,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ..._specials.map((s) => _buildSpecialRow(s)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSymbolRow(_SymbolPayData symbol) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          // Symbol icon & name
+          SizedBox(
+            width: 70,
+            child: Row(
+              children: [
+                Text(
+                  symbol.icon,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: symbol.isHighPay ? _SlotTheme.gold : Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    symbol.name,
+                    style: TextStyle(
+                      color: symbol.isHighPay ? _SlotTheme.gold : _SlotTheme.textSecondary,
+                      fontSize: 10,
+                      fontWeight: symbol.isHighPay ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Pay values
+          ...symbol.pays.map((pay) => Expanded(
+                child: Text(
+                  pay.toStringAsFixed(0),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: symbol.isHighPay ? Colors.amber[300] : Colors.white70,
+                    fontSize: 11,
+                    fontWeight: symbol.isHighPay ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecialRow(_SpecialSymbolData symbol) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: symbol.color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: symbol.color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                symbol.icon,
+                style: TextStyle(fontSize: 20, color: symbol.color),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                symbol.name,
+                style: TextStyle(
+                  color: symbol.color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            symbol.description,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 10,
+            ),
+          ),
+          if (symbol.pays != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Text('Pays: ', style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+                Text(
+                  '×3: ${symbol.pays![0].toStringAsFixed(0)}  ×4: ${symbol.pays![1].toStringAsFixed(0)}  ×5: ${symbol.pays![2].toStringAsFixed(0)}',
+                  style: TextStyle(color: symbol.color, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SymbolPayData {
+  final String name;
+  final String icon;
+  final List<double> pays;
+  final bool isHighPay;
+
+  const _SymbolPayData(this.name, this.icon, this.pays, {this.isHighPay = false});
+}
+
+class _SpecialSymbolData {
+  final String name;
+  final String icon;
+  final Color color;
+  final String description;
+  final List<double>? pays;
+
+  const _SpecialSymbolData(this.name, this.icon, this.color, this.description, this.pays);
+}
+
+/// Rules panel showing game rules
+class _RulesPanel extends StatelessWidget {
+  const _RulesPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 280,
+      constraints: const BoxConstraints(maxHeight: 350),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _SlotTheme.bgPanel.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _SlotTheme.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Title
+            Row(
+              children: [
+                const Icon(Icons.info_outline, color: FluxForgeTheme.accentCyan, size: 18),
+                const SizedBox(width: 8),
+                const Text(
+                  'GAME RULES',
+                  style: TextStyle(
+                    color: FluxForgeTheme.accentCyan,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            _buildRule('Paylines', '20 fixed paylines, wins pay left to right'),
+            _buildRule('Wild', 'Substitutes for all symbols except Scatter'),
+            _buildRule('Scatter', '3+ triggers 10 Free Spins (4+ = 15, 5+ = 20)'),
+            _buildRule('Bonus', '3+ on reels 2-4 triggers Pick Bonus'),
+            _buildRule('Gamble', 'Double or nothing on wins up to 50% of balance'),
+            _buildRule('Jackpots', 'Progressive jackpots awarded randomly on wins'),
+            _buildRule('RTP', 'Theoretical return: 96.5%'),
+            _buildRule('Volatility', 'Medium-High'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRule(String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            description,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 10,
+            ),
+          ),
         ],
       ),
     );
@@ -3732,10 +4421,24 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   final List<_RecentWin> _recentWins = [];
 
   // Jackpots (simulated progressive)
-  double _miniJackpot = 125.50;
-  double _minorJackpot = 1250.00;
-  double _majorJackpot = 12500.00;
-  double _grandJackpot = 125000.00;
+  // Seed values (reset after jackpot win)
+  static const double _miniJackpotSeed = 100.0;
+  static const double _minorJackpotSeed = 1000.0;
+  static const double _majorJackpotSeed = 10000.0;
+  static const double _grandJackpotSeed = 100000.0;
+
+  // Contribution percentages of bet (industry standard ~0.5-2% total)
+  // Distribution: Mini 40%, Minor 30%, Major 20%, Grand 10% of contribution
+  static const double _jackpotContributionRate = 0.015; // 1.5% of bet goes to jackpots
+  static const double _miniContribShare = 0.40;   // 40% of contribution → Mini
+  static const double _minorContribShare = 0.30;  // 30% of contribution → Minor
+  static const double _majorContribShare = 0.20;  // 20% of contribution → Major
+  static const double _grandContribShare = 0.10;  // 10% of contribution → Grand
+
+  double _miniJackpot = _miniJackpotSeed + 25.50;
+  double _minorJackpot = _minorJackpotSeed + 250.00;
+  double _majorJackpot = _majorJackpotSeed + 2500.00;
+  double _grandJackpot = _grandJackpotSeed + 25000.00;
   double _progressiveContribution = 0.0;
 
   // Bet settings
@@ -3774,8 +4477,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   bool _showHistory = false;
   bool _showStats = false;
   bool _showWinPresenter = false;
+  bool _showGambleScreen = false;
   String _currentWinTier = '';
   double _currentWinAmount = 0.0;
+  double _pendingWinAmount = 0.0; // Win waiting to be collected or gambled
+  int? _gambleCardRevealed; // 0-3 for cards, null if not revealed
+  bool? _gambleWon; // Result of gamble
 
   // Coin values
   static const List<double> _coinValues = [0.01, 0.02, 0.05, 0.10, 0.20, 0.50, 1.00];
@@ -3836,16 +4543,17 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   void _tickJackpots() {
     if (!mounted) return;
-    // Only tick jackpots slowly when NOT during a spin
-    // The contribution increases when player bets
+    // Jackpots grow based on bet contribution during active play
+    // Uses proper distribution percentages
     if (_progressiveContribution > 0) {
       setState(() {
-        // Each tier grows at different rates (slower, more realistic)
-        // Mini: $0.001/tick, Minor: $0.003/tick, Major: $0.008/tick, Grand: $0.02/tick
-        _miniJackpot += 0.001 * _progressiveContribution;
-        _minorJackpot += 0.003 * _progressiveContribution;
-        _majorJackpot += 0.008 * _progressiveContribution;
-        _grandJackpot += 0.02 * _progressiveContribution;
+        // Distribute contribution across tiers based on share percentages
+        // Divided by 100 for smooth per-tick animation (100ms tick rate)
+        final tickContrib = _progressiveContribution / 100;
+        _miniJackpot += tickContrib * _miniContribShare;
+        _minorJackpot += tickContrib * _minorContribShare;
+        _majorJackpot += tickContrib * _majorContribShare;
+        _grandJackpot += tickContrib * _grandContribShare;
       });
     }
   }
@@ -3857,16 +4565,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       switch (tier) {
         case 'MINI':
           jackpotAmount = _miniJackpot;
-          _miniJackpot = 100.0; // Reset to seed
+          _miniJackpot = _miniJackpotSeed; // Reset to seed
         case 'MINOR':
           jackpotAmount = _minorJackpot;
-          _minorJackpot = 1000.0;
+          _minorJackpot = _minorJackpotSeed;
         case 'MAJOR':
           jackpotAmount = _majorJackpot;
-          _majorJackpot = 10000.0;
+          _majorJackpot = _majorJackpotSeed;
         case 'GRAND':
           jackpotAmount = _grandJackpot;
-          _grandJackpot = 100000.0;
+          _grandJackpot = _grandJackpotSeed;
       }
       _balance += jackpotAmount;
       _totalWin += jackpotAmount;
@@ -3925,7 +4633,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _totalBet += _totalBetAmount;
       _totalSpins++;
       // Progressive contribution based on bet amount (1% of bet goes to jackpot pool)
-      _progressiveContribution = 0.01 * _totalBetAmount;
+      _progressiveContribution = _jackpotContributionRate * _totalBetAmount;
       // Add small amount to each jackpot per bet
       _miniJackpot += _totalBetAmount * 0.005;
       _minorJackpot += _totalBetAmount * 0.003;
@@ -3967,50 +4675,56 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
     setState(() {
       _totalWin += winAmount;
-      _balance += winAmount;
+      // DON'T add to balance immediately - store as pending for Collect/Gamble
+      _pendingWinAmount = winAmount;
 
       if (result.isWin) {
         _wins++;
-        _currentWinTier = _getWinTier(result.totalWin);
+        // Use engine's win tier classification when available, fallback to manual
+        _currentWinTier = _winTierFromEngine(result.bigWinTier) ?? _getWinTier(result.totalWin);
         _currentWinAmount = winAmount;
 
-        // Check for jackpot win (based on forced outcome or random chance)
+        // Jackpot chance based on win tier from ENGINE RNG (not local random)
+        // Uses probability bands tied to win size - engine determines the win,
+        // we just apply jackpot chance based on that result
+        final jackpotRoll = (result.totalWin * 1000).toInt() % 100; // Deterministic from engine result
         if (result.totalWin >= 100) {
           // ULTRA win - chance for GRAND jackpot
-          if (_random.nextDouble() < 0.01) {
+          if (jackpotRoll < 1) {
             _awardJackpot('GRAND');
             return;
-          } else if (_random.nextDouble() < 0.05) {
+          } else if (jackpotRoll < 6) {
             _awardJackpot('MAJOR');
             return;
           }
         } else if (result.totalWin >= 50) {
           // EPIC win - chance for MAJOR/MINOR
-          if (_random.nextDouble() < 0.02) {
+          if (jackpotRoll < 2) {
             _awardJackpot('MAJOR');
             return;
-          } else if (_random.nextDouble() < 0.08) {
+          } else if (jackpotRoll < 10) {
             _awardJackpot('MINOR');
             return;
           }
         } else if (result.totalWin >= 25) {
           // MEGA win - chance for MINOR/MINI
-          if (_random.nextDouble() < 0.05) {
+          if (jackpotRoll < 5) {
             _awardJackpot('MINOR');
             return;
-          } else if (_random.nextDouble() < 0.15) {
+          } else if (jackpotRoll < 20) {
             _awardJackpot('MINI');
             return;
           }
         } else if (result.totalWin >= 10) {
           // BIG win - small chance for MINI
-          if (_random.nextDouble() < 0.10) {
+          if (jackpotRoll < 10) {
             _awardJackpot('MINI');
             return;
           }
         }
 
         if (winAmount > _totalBetAmount * 2) {
+          // Big win - show presenter for Collect/Gamble
           _showWinPresenter = true;
           _recentWins.insert(
             0,
@@ -4023,10 +4737,15 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
           if (_recentWins.length > 10) {
             _recentWins.removeLast();
           }
+        } else {
+          // Small win - auto-collect immediately
+          _balance += _pendingWinAmount;
+          _pendingWinAmount = 0.0;
         }
       } else {
         _losses++;
         _currentWinTier = '';
+        _pendingWinAmount = 0.0; // No win to collect
       }
     });
 
@@ -4055,6 +4774,78 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (ratio >= 25) return 'MEGA';
     if (ratio >= 10) return 'BIG';
     return 'SMALL';
+  }
+
+  /// Convert engine win tier to UI tier string
+  String? _winTierFromEngine(SlotLabWinTier? tier) {
+    if (tier == null) return null;
+    switch (tier) {
+      case SlotLabWinTier.ultraWin:
+        return 'ULTRA';
+      case SlotLabWinTier.epicWin:
+        return 'EPIC';
+      case SlotLabWinTier.megaWin:
+        return 'MEGA';
+      case SlotLabWinTier.bigWin:
+        return 'BIG';
+      case SlotLabWinTier.win:
+        return 'SMALL';
+      case SlotLabWinTier.none:
+        return null;
+    }
+  }
+
+  /// Collect pending win - add to balance and close presenter
+  void _collectWin() {
+    setState(() {
+      _balance += _pendingWinAmount;
+      _pendingWinAmount = 0.0;
+      _showWinPresenter = false;
+      _showGambleScreen = false;
+    });
+  }
+
+  /// Start gamble game - show gamble screen
+  void _startGamble() {
+    setState(() {
+      _showWinPresenter = false;
+      _showGambleScreen = true;
+      _gambleCardRevealed = null;
+      _gambleWon = null;
+    });
+  }
+
+  /// Make gamble choice (0=Red, 1=Black)
+  void _makeGambleChoice(int choice) {
+    // 50/50 chance - 0,1 = Red, 2,3 = Black
+    final result = _random.nextInt(4);
+    final isRed = result < 2;
+    final playerChoseRed = choice == 0;
+    final won = isRed == playerChoseRed;
+
+    setState(() {
+      _gambleCardRevealed = result;
+      _gambleWon = won;
+    });
+
+    // After reveal, process result
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (!mounted) return;
+      setState(() {
+        if (won) {
+          // Double the win
+          _pendingWinAmount *= 2;
+          _currentWinAmount = _pendingWinAmount;
+          // Reset for another gamble
+          _gambleCardRevealed = null;
+          _gambleWon = null;
+        } else {
+          // Lose everything
+          _pendingWinAmount = 0.0;
+          _showGambleScreen = false;
+        }
+      });
+    });
   }
 
   void _handleStop() {
@@ -4265,17 +5056,32 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
             if (_showWinPresenter)
               Positioned.fill(
                 child: GestureDetector(
-                  onTap: () => setState(() => _showWinPresenter = false),
+                  onTap: _collectWin,
                   child: Container(
                     color: Colors.black.withOpacity(0.7),
                     child: _WinPresenter(
-                      winAmount: _currentWinAmount,
+                      winAmount: _pendingWinAmount,
                       winTier: _currentWinTier,
                       multiplier: _multiplier.toDouble(),
                       showCollect: true,
-                      onCollect: () => setState(() => _showWinPresenter = false),
+                      showGamble: _pendingWinAmount > 0 && _pendingWinAmount < _balance * 0.5,
+                      onCollect: _collectWin,
+                      onGamble: _startGamble,
                     ),
                   ),
+                ),
+              ),
+
+            // Gamble Screen (overlay)
+            if (_showGambleScreen)
+              Positioned.fill(
+                child: _GambleOverlay(
+                  stakeAmount: _pendingWinAmount,
+                  cardRevealed: _gambleCardRevealed,
+                  won: _gambleWon,
+                  onChooseRed: () => _makeGambleChoice(0),
+                  onChooseBlack: () => _makeGambleChoice(1),
+                  onCollect: _collectWin,
                 ),
               ),
 

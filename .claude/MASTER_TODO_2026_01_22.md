@@ -17,10 +17,10 @@
 | 🔵 SlotLab Done | 5 | **5** | 0 | ✅ **100%** |
 | 🟣 SL Lower Zone | 22 | **6** | 16 | **27%** |
 | 🟣 MW Command Bar | 2 | **2** | 0 | ✅ **100%** |
-| 🎰 Premium Slot Preview | 12 | **4** | 8 | **33%** |
+| 🎰 Premium Slot Preview | 12 | **8** | 4 | **67%** |
 | ⚪ P4 Future | 8 | 0 | 8 | Backlog |
 
-**Overall Progress:** 69/108 (64%)
+**Overall Progress:** 73/108 (68%)
 
 ### 🆕 SlotLab Lower Zone Audit (2026-01-24) — Updated
 
@@ -1029,14 +1029,14 @@ void _enforceCompositeEventsLimit() {
 | **PSP-P1.3** | Scatter collection | `_ScatterCollectOverlay` — flying diamonds with trails to counter | ✅ Done |
 | **PSP-P1.4** | Audio toggles | Connected to `NativeFFI.setBusMute()` (bus 1=SFX, 2=Music) | ✅ Done |
 
-### ⚠️ PSP-P2: HIGH PRIORITY
+### ✅ PSP-P2: COMPLETED (2026-01-24)
 
-| # | Feature | Problem | Effort |
-|---|---------|---------|--------|
-| **PSP-P2.1** | Collect/Gamble buttons | Click exists, but no money transfer logic | 2-3h |
-| **PSP-P2.2** | Paytable mock data | Should read from math model | 2-3h |
-| **PSP-P2.3** | RNG not connected | Bet outcomes use random 1-5, not engine RNG | 2-3h |
-| **PSP-P2.4** | Jackpot growth hardcoded | Not connected to bet math | 2-3h |
+| # | Feature | Solution | Status |
+|---|---------|----------|--------|
+| **PSP-P2.1** | Collect/Gamble | `_GambleOverlay` — 50/50 Red/Black, double or nothing | ✅ Done |
+| **PSP-P2.2** | Paytable | `_PaytablePanel` — symbol data from rf-slot-lab math model | ✅ Done |
+| **PSP-P2.3** | RNG | Engine win tier via `SlotLabWinTier`, deterministic jackpot rolls | ✅ Done |
+| **PSP-P2.4** | Jackpot growth | Configurable contribution rate (1.5%), tier distribution (40/30/20/10) | ✅ Done |
 
 ### ⚠️ PSP-P3: MEDIUM PRIORITY
 
@@ -1078,11 +1078,11 @@ void _enforceCompositeEventsLimit() {
 | Priority | Total | Done | Remaining |
 |----------|-------|------|-----------|
 | 🟠 PSP-P1 | 4 | **4** | 0 | ✅ **100%** |
-| 🟡 PSP-P2 | 4 | 0 | 4 |
+| 🟡 PSP-P2 | 4 | **4** | 0 | ✅ **100%** |
 | 🟢 PSP-P3 | 4 | 0 | 4 |
-| **Total** | **12** | **4** | **8** |
+| **Total** | **12** | **8** | **4** |
 
-**Estimated Time:** 15-25 hours remaining
+**Estimated Time:** 8-12 hours remaining (P3 only)
 
 ---
 
