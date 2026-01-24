@@ -230,6 +230,21 @@ class StageConfigurationService extends ChangeNotifier {
     return def?.isPooled ?? _pooledStages.contains(stage.toUpperCase());
   }
 
+  /// Check if stage audio should loop by default
+  bool isLooping(String stage) {
+    final def = getStage(stage);
+    if (def != null) return def.isLooping;
+
+    // Fallback: check common looping stage patterns
+    final upper = stage.toUpperCase();
+    return _loopingStages.contains(upper) ||
+        upper.endsWith('_LOOP') ||
+        upper.startsWith('MUSIC_') ||
+        upper.startsWith('AMBIENT_') ||
+        upper.startsWith('ATTRACT_') ||
+        upper.startsWith('IDLE_');
+  }
+
   /// Get pooled stage names (for voice pool)
   Set<String> get pooledStageNames {
     final result = <String>{};
@@ -445,6 +460,12 @@ class StageConfigurationService extends ChangeNotifier {
     _register('AUTOPLAY_STOP', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
 
     // ─────────────────────────────────────────────────────────────────────────
+    // GAME START (triggers base music automatically on first spin)
+    // ─────────────────────────────────────────────────────────────────────────
+    _register('GAME_START', StageCategory.music, 5, SpatialBus.music, 'DEFAULT');
+    _register('BASE_GAME_START', StageCategory.music, 5, SpatialBus.music, 'DEFAULT');
+
+    // ─────────────────────────────────────────────────────────────────────────
     // MUSIC & AMBIENT
     // ─────────────────────────────────────────────────────────────────────────
     _register('MUSIC_BASE', StageCategory.music, 10, SpatialBus.music, 'DEFAULT', isLooping: true);
@@ -657,15 +678,24 @@ class StageConfigurationService extends ChangeNotifier {
     return 'DEFAULT';
   }
 
-  /// Known pooled stage prefixes for fallback
+  /// Known pooled stage prefixes for fallback (0-indexed for 5-reel slots)
   static const _pooledStages = {
-    'REEL_STOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4', 'REEL_STOP_5',
+    'REEL_STOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4',
     'CASCADE_STEP', 'CASCADE_SYMBOL_POP', 'TUMBLE_DROP', 'TUMBLE_LAND',
     'ROLLUP_TICK', 'ROLLUP_TICK_FAST', 'ROLLUP_TICK_SLOW',
     'WIN_LINE_SHOW', 'WIN_SYMBOL_HIGHLIGHT',
     'UI_BUTTON_PRESS', 'UI_BUTTON_HOVER', 'UI_BET_UP', 'UI_BET_DOWN', 'UI_TAB_SWITCH',
     'SYMBOL_LAND', 'SYMBOL_LAND_LOW', 'SYMBOL_LAND_MID', 'SYMBOL_LAND_HIGH',
     'WHEEL_TICK', 'TRAIL_MOVE_STEP', 'HOLD_RESPIN_STOP',
+  };
+
+  /// Known looping stage names for fallback
+  static const _loopingStages = {
+    'REEL_SPIN_LOOP',
+    'MUSIC_BASE', 'MUSIC_TENSION', 'MUSIC_FEATURE',
+    'FS_MUSIC', 'HOLD_MUSIC', 'BONUS_MUSIC',
+    'AMBIENT_LOOP', 'ATTRACT_MODE', 'IDLE_LOOP',
+    'ANTICIPATION_LOOP', 'FEATURE_MUSIC',
   };
 
   // ═══════════════════════════════════════════════════════════════════════════

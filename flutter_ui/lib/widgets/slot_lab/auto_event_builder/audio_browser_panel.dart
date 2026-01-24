@@ -12,6 +12,7 @@ library;
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../models/auto_event_builder_models.dart';
 import '../../../providers/auto_event_builder_provider.dart';
@@ -59,6 +60,9 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
   String? _selectedTagFilter;
   String _searchQuery = '';
   String? _expandedFolder;
+
+  // Multi-select mode
+  bool _isMultiSelectMode = false;
 
   // Hover preview state
   AudioAsset? _hoveredAsset;
@@ -243,12 +247,18 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
         final allAssets = provider.audioAssets;
         final filteredAssets = _filterAssets(allAssets);
         final allTags = provider.allAssetTags;
+        final hasSelection = provider.hasSelection;
+        final selectionCount = provider.selectionCount;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Header
             _buildHeader(),
+
+            // Selection bar (when items selected)
+            if (hasSelection || _isMultiSelectMode)
+              _buildSelectionBar(provider, selectionCount),
 
             // Search bar
             _buildSearchBar(),
@@ -275,6 +285,90 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildSelectionBar(AutoEventBuilderProvider provider, int count) {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.1),
+        border: Border(
+          bottom: BorderSide(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.check_circle,
+            size: 14,
+            color: FluxForgeTheme.accentBlue,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            count > 0 ? '$count selected' : 'Multi-select mode',
+            style: TextStyle(
+              color: FluxForgeTheme.accentBlue,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
+          if (count > 0) ...[
+            // Select all in view
+            TextButton(
+              onPressed: () {
+                final filtered = _filterAssets(provider.audioAssets);
+                provider.selectAssets(filtered.map((a) => a.assetId));
+              },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 24),
+                foregroundColor: FluxForgeTheme.accentBlue,
+              ),
+              child: const Text('All', style: TextStyle(fontSize: 10)),
+            ),
+            // Clear selection
+            TextButton(
+              onPressed: () => provider.clearSelection(),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 24),
+                foregroundColor: FluxForgeTheme.textMuted,
+              ),
+              child: const Text('Clear', style: TextStyle(fontSize: 10)),
+            ),
+          ],
+          // Drag hint
+          if (count > 1)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.drag_indicator,
+                    size: 12,
+                    color: FluxForgeTheme.accentBlue,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Drag to drop',
+                    style: TextStyle(
+                      color: FluxForgeTheme.accentBlue,
+                      fontSize: 9,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -306,6 +400,30 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
             ),
           ),
           const Spacer(),
+          // Multi-select toggle
+          Tooltip(
+            message: _isMultiSelectMode ? 'Exit multi-select' : 'Multi-select (Ctrl+Click)',
+            child: IconButton(
+              icon: Icon(
+                _isMultiSelectMode ? Icons.check_box : Icons.checklist,
+                size: 16,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              color: _isMultiSelectMode
+                  ? FluxForgeTheme.accentBlue
+                  : FluxForgeTheme.textMuted,
+              onPressed: () {
+                setState(() {
+                  _isMultiSelectMode = !_isMultiSelectMode;
+                });
+                if (!_isMultiSelectMode) {
+                  // Clear selection when exiting multi-select mode
+                  context.read<AutoEventBuilderProvider>().clearSelection();
+                }
+              },
+            ),
+          ),
           // Collapse button
           IconButton(
             icon: const Icon(Icons.chevron_left, size: 18),
@@ -475,6 +593,7 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
             },
             onAssetHoverStart: _onAssetHoverStart,
             onAssetHoverEnd: _onAssetHoverEnd,
+            showCheckbox: _isMultiSelectMode,
           ),
 
         // Type folders
@@ -491,6 +610,7 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
               },
               onAssetHoverStart: _onAssetHoverStart,
               onAssetHoverEnd: _onAssetHoverEnd,
+              showCheckbox: _isMultiSelectMode,
             ),
       ],
     );
@@ -792,6 +912,7 @@ class _RecentAssetsSection extends StatelessWidget {
   final VoidCallback onToggle;
   final void Function(AudioAsset) onAssetHoverStart;
   final VoidCallback onAssetHoverEnd;
+  final bool showCheckbox;
 
   const _RecentAssetsSection({
     required this.assets,
@@ -799,6 +920,7 @@ class _RecentAssetsSection extends StatelessWidget {
     required this.onToggle,
     required this.onAssetHoverStart,
     required this.onAssetHoverEnd,
+    this.showCheckbox = false,
   });
 
   @override
@@ -861,6 +983,7 @@ class _RecentAssetsSection extends StatelessWidget {
                 asset: asset,
                 onHoverStart: () => onAssetHoverStart(asset),
                 onHoverEnd: onAssetHoverEnd,
+                showCheckbox: showCheckbox,
               )),
 
         // Divider
@@ -888,6 +1011,7 @@ class _AssetTypeFolder extends StatelessWidget {
   final VoidCallback onToggle;
   final void Function(AudioAsset) onAssetHoverStart;
   final VoidCallback onAssetHoverEnd;
+  final bool showCheckbox;
 
   const _AssetTypeFolder({
     required this.type,
@@ -896,6 +1020,7 @@ class _AssetTypeFolder extends StatelessWidget {
     required this.onToggle,
     required this.onAssetHoverStart,
     required this.onAssetHoverEnd,
+    this.showCheckbox = false,
   });
 
   Color get _typeColor {
@@ -984,6 +1109,7 @@ class _AssetTypeFolder extends StatelessWidget {
                 asset: asset,
                 onHoverStart: () => onAssetHoverStart(asset),
                 onHoverEnd: onAssetHoverEnd,
+                showCheckbox: showCheckbox,
               )),
       ],
     );
@@ -1132,9 +1258,25 @@ class _AssetListItemState extends State<_AssetListItem> {
         setState(() => _isDragging = false);
       },
       child: GestureDetector(
-        onTap: widget.showCheckbox
-            ? () => provider.toggleAssetSelection(widget.asset.assetId)
-            : null,
+        onTap: () {
+          // Check if Ctrl/Cmd is pressed for multi-select
+          // Use RawKeyboard.instance.keysPressed for reliable detection
+          final keysPressed = RawKeyboard.instance.keysPressed;
+          final isCtrlPressed = keysPressed.any((key) =>
+              key.keyId == LogicalKeyboardKey.controlLeft.keyId ||
+              key.keyId == LogicalKeyboardKey.controlRight.keyId ||
+              key.keyId == LogicalKeyboardKey.metaLeft.keyId ||
+              key.keyId == LogicalKeyboardKey.metaRight.keyId);
+
+          // In multi-select mode OR Ctrl+Click: toggle selection
+          if (widget.showCheckbox || isCtrlPressed) {
+            provider.toggleAssetSelection(widget.asset.assetId);
+          }
+        },
+        onSecondaryTap: () {
+          // Right-click to toggle selection (alternative to Ctrl+Click)
+          provider.toggleAssetSelection(widget.asset.assetId);
+        },
         child: MouseRegion(
           onEnter: (_) {
             setState(() => _isHovered = true);

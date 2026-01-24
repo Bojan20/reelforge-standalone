@@ -22,6 +22,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
+import '../../services/stage_configuration_service.dart';
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2308,11 +2309,27 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     final event = _events[_selectedEventId];
     if (event == null) return const SizedBox();
 
+    // P1.3: Get available stages from StageConfigurationService
+    final stageService = StageConfigurationService.instance;
+    final allStages = ['', ...stageService.allStageNames]; // Empty = no binding
+
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
         _buildInspectorSection('General', [
-          _buildInspectorField('Name', event.name),
+          // P1.2: Editable Name TextField
+          _buildInspectorEditableField(
+            'Name',
+            event.name,
+            (newName) => _updateEventProperty(event, name: newName),
+          ),
+          // P1.3: Stage binding dropdown
+          _buildInspectorDropdown(
+            'Stage',
+            event.stage.isEmpty ? '' : event.stage,
+            allStages,
+            (stage) => _updateEventProperty(event, stage: stage),
+          ),
           _buildInspectorField('Category', event.category),
           _buildInspectorField('ID', event.id),
         ]),
@@ -2328,6 +2345,69 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         ]),
       ],
     );
+  }
+
+  /// P1.2: Editable text field for inspector
+  Widget _buildInspectorEditableField(
+    String label,
+    String value,
+    ValueChanged<String> onChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: FluxForgeTheme.bodySmall.copyWith(
+                color: FluxForgeTheme.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.bgSurface,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: FluxForgeTheme.borderSubtle),
+              ),
+              child: TextFormField(
+                initialValue: value,
+                style: FluxForgeTheme.bodySmall.copyWith(
+                  color: FluxForgeTheme.textPrimary,
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                ),
+                onFieldSubmitted: onChanged,
+                onTapOutside: (_) {
+                  // Blur focus to trigger save
+                  FocusScope.of(context).unfocus();
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// P1.2/P1.3: Update event property and sync to provider
+  void _updateEventProperty(MiddlewareEvent event, {String? name, String? stage}) {
+    final updatedEvent = event.copyWith(
+      name: name,
+      stage: stage,
+    );
+    setState(() {
+      _events[event.id] = updatedEvent;
+    });
+    _syncEventToProvider(updatedEvent);
   }
 
   Widget _buildActionInspector() {
@@ -3334,6 +3414,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         actions: [...event.actions, action],
       );
     });
+
+    // P1.1 FIX: Auto-sync to provider on add
+    _syncEventToProvider(_events[event.id]!);
   }
 
   void _addQuickAction(MiddlewareEvent event, ActionType type) {
@@ -3352,6 +3435,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       _selectedActionIds.clear();
       _selectedActionIds.add(action.id);
     });
+
+    // P1.1 FIX: Auto-sync to provider on quick add
+    _syncEventToProvider(_events[event.id]!);
   }
 
   void _removeAction(MiddlewareEvent event, MiddlewareAction action) {
@@ -3363,6 +3449,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       );
       _selectedActionIds.remove(action.id);
     });
+
+    // P1.1 FIX: Auto-sync to provider on remove
+    _syncEventToProvider(_events[event.id]!);
   }
 
   void _duplicateAction(MiddlewareEvent event, MiddlewareAction action) {
@@ -3379,6 +3468,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       _selectedActionIds.clear();
       _selectedActionIds.add(newAction.id);
     });
+
+    // P1.1 FIX: Auto-sync to provider on duplicate
+    _syncEventToProvider(_events[event.id]!);
   }
 
   void _reorderActions(MiddlewareEvent event, int oldIndex, int newIndex) {
@@ -3393,6 +3485,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     setState(() {
       _events[event.id] = event.copyWith(actions: newActions);
     });
+
+    // P1.1 FIX: Auto-sync to provider on reorder
+    _syncEventToProvider(_events[event.id]!);
   }
 
   void _updateAction(
@@ -3429,6 +3524,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     setState(() {
       _events[event.id] = event.copyWith(actions: newActions);
     });
+
+    // P1.1 FIX: Auto-sync to provider on edit
+    _syncEventToProvider(_events[event.id]!);
   }
 
   void _importEvents() {

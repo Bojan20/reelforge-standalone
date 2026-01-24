@@ -496,18 +496,18 @@ class _SpatialEventVisualizerState extends State<SpatialEventVisualizer> {
                 provider: provider,
               ),
               _TestEventButton(
-                label: 'Reel 1',
-                intent: 'REEL_STOP_1',
+                label: 'Reel L',
+                intent: 'REEL_STOP_0',
                 provider: provider,
               ),
               _TestEventButton(
-                label: 'Reel 3',
-                intent: 'REEL_STOP_3',
+                label: 'Reel C',
+                intent: 'REEL_STOP_2',
                 provider: provider,
               ),
               _TestEventButton(
-                label: 'Reel 5',
-                intent: 'REEL_STOP_5',
+                label: 'Reel R',
+                intent: 'REEL_STOP_4',
                 provider: provider,
               ),
               _TestEventButton(

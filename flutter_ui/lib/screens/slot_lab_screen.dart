@@ -84,6 +84,7 @@ import '../services/event_registry.dart';
 import '../services/audio_pool.dart';
 import '../services/slotlab_track_bridge.dart';
 import '../services/waveform_cache_service.dart';
+import '../services/stage_configuration_service.dart';
 import '../controllers/slot_lab/timeline_drag_controller.dart';
 import '../widgets/slot_lab/timeline_toolbar.dart';
 import '../widgets/slot_lab/timeline_grid_overlay.dart';
@@ -111,6 +112,8 @@ import '../widgets/slot_lab/symbol_strip_widget.dart';
 import '../widgets/slot_lab/events_panel_widget.dart';
 import '../providers/slot_lab_project_provider.dart';
 import '../models/slot_lab_models.dart';
+import '../widgets/slot_lab/group_batch_import_panel.dart';
+import '../services/stage_group_service.dart';
 
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
@@ -5731,11 +5734,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                           rows: _rowCount,
                           onSpin: _handleSpin,
                           onForcedSpin: (outcome) => _handleEngineSpin(forcedOutcome: outcome),
-                          // VISUAL-SYNC: Trigger stages exactly when visual events occur
-                          onSpinStart: () => _triggerVisualStage('SPIN_START'),
-                          onReelStop: (reelIdx) => _triggerVisualStage('REEL_STOP_$reelIdx', context: {'reel_index': reelIdx}),
+                          // VISUAL-SYNC disabled — Rust provider handles these stages:
+                          // - SPIN_START (from Rust stages)
+                          // - REEL_STOP_0..4 (from Rust stages with reel_index)
+                          // - SPIN_END (auto-triggered after last REEL_STOP)
+                          // These callbacks caused duplicate triggers:
+                          // onSpinStart: () => _triggerVisualStage('SPIN_START'),
+                          // onReelStop: (reelIdx) => _triggerVisualStage('REEL_STOP_$reelIdx', context: {'reel_index': reelIdx}),
+                          // onReveal: () => _triggerVisualStage('SPIN_END'),
                           onAnticipation: () => _triggerVisualStage('ANTICIPATION_ON'),
-                          onReveal: () => _triggerVisualStage('SPIN_END'),
                           onWinStart: (winType, amount) => _triggerWinStage(winType, amount),
                           onWinEnd: () => _triggerVisualStage('WIN_END'),
                         ),
@@ -5847,11 +5854,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               rows: _rowCount,
               onSpin: _handleSpin,
               onForcedSpin: (outcome) => _handleEngineSpin(forcedOutcome: outcome),
-              // VISUAL-SYNC: Trigger stages exactly when visual events occur
-              onSpinStart: () => _triggerVisualStage('SPIN_START'),
-              onReelStop: (reelIdx) => _triggerVisualStage('REEL_STOP_$reelIdx', context: {'reel_index': reelIdx}),
+              // VISUAL-SYNC disabled — Rust provider handles these stages:
+              // - SPIN_START (from Rust stages)
+              // - REEL_STOP_0..4 (from Rust stages with reel_index)
+              // - SPIN_END (auto-triggered after last REEL_STOP)
+              // These callbacks caused duplicate triggers:
+              // onSpinStart: () => _triggerVisualStage('SPIN_START'),
+              // onReelStop: (reelIdx) => _triggerVisualStage('REEL_STOP_$reelIdx', context: {'reel_index': reelIdx}),
+              // onReveal: () => _triggerVisualStage('SPIN_END'),
               onAnticipation: () => _triggerVisualStage('ANTICIPATION_ON'),
-              onReveal: () => _triggerVisualStage('SPIN_END'),
               onWinStart: (winType, amount) => _triggerWinStage(winType, amount),
               onWinEnd: () => _triggerVisualStage('WIN_END'),
             ),
@@ -5922,25 +5933,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             ),
 
             // ═══════════════════════════════════════════════════════════════
-            // WIN OVERLAY DROP ZONES - Center of reel area
-            // ═══════════════════════════════════════════════════════════════
-            Positioned(
-              top: reelTop + (reelHeight / 2) - 20,
-              left: totalW * 0.15,
-              right: totalW * 0.15,
-              height: 40,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildMiniDropZone('WIN', 'overlay.win.small', const Color(0xFF42A5F5)),
-                  _buildMiniDropZone('BIG', 'overlay.win.big', const Color(0xFFFFCA28)),
-                  _buildMiniDropZone('MEGA', 'overlay.win.mega', const Color(0xFFFF7043)),
-                  _buildMiniDropZone('EPIC', 'overlay.win.epic', const Color(0xFFE040FB)),
-                ],
-              ),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════
             // CONTROL BAR DROP ZONES - Exactly on control buttons
             // ═══════════════════════════════════════════════════════════════
             // AUTO button (left side)
@@ -5968,6 +5960,24 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               width: 120,
               height: 70,
               child: _buildOverlayDropZone('ui.spin', const Color(0xFF00E676)),
+            ),
+
+            // ═══════════════════════════════════════════════════════════════
+            // GROUP DROP ZONES - Batch import by category
+            // Positioned at bottom-left, above control bar
+            // ═══════════════════════════════════════════════════════════════
+            Positioned(
+              left: 8,
+              bottom: controlBarH + infoBarH + 8,
+              child: Row(
+                children: [
+                  _buildGroupDropZone(StageGroup.spinsAndReels),
+                  const SizedBox(width: 8),
+                  _buildGroupDropZone(StageGroup.wins),
+                  const SizedBox(width: 8),
+                  _buildGroupDropZone(StageGroup.musicAndFeatures),
+                ],
+              ),
             ),
 
             // ═══════════════════════════════════════════════════════════════
@@ -6119,6 +6129,198 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
   }
 
+  /// Group drop zone for batch imports by category
+  /// Accepts both List<AudioAsset> from browser and single AudioAsset
+  /// Also clickable to open file picker
+  Widget _buildGroupDropZone(StageGroup group) {
+    final color = _groupColor(group);
+    final icon = _groupIcon(group);
+    final label = group.displayName;
+
+    return DragTarget<Object>(
+      onWillAcceptWithDetails: (details) {
+        final data = details.data;
+        // Accept List<AudioAsset> from browser or single AudioAsset
+        if (data is List<AudioAsset>) return true;
+        if (data is AudioAsset) return true;
+        return false;
+      },
+      onAcceptWithDetails: (details) {
+        final data = details.data;
+        List<String> paths;
+        if (data is List<AudioAsset>) {
+          paths = data.map((a) => a.path).toList();
+        } else if (data is AudioAsset) {
+          paths = [data.path];
+        } else {
+          return;
+        }
+        _handleGroupDrop(group, paths);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+
+        return GestureDetector(
+          onTap: () => _showGroupFilePicker(group),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Container(
+              width: 100,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isHovering
+                      ? [color.withOpacity(0.5), color.withOpacity(0.3)]
+                      : [Colors.black.withOpacity(0.85), Colors.black.withOpacity(0.7)],
+                ),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isHovering ? color : color.withOpacity(0.6),
+                  width: isHovering ? 2 : 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isHovering ? color.withOpacity(0.5) : Colors.black45,
+                    blurRadius: isHovering ? 12 : 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 18, color: isHovering ? Colors.white : color),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isHovering ? Colors.white : color,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isHovering ? 'RELEASE' : 'DROP / CLICK',
+                    style: TextStyle(
+                      color: isHovering ? Colors.white70 : color.withOpacity(0.7),
+                      fontSize: 7,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Show file picker for group batch import
+  Future<void> _showGroupFilePicker(StageGroup group) async {
+    try {
+      final paths = await NativeFilePicker.pickAudioFiles();
+      if (paths.isNotEmpty) {
+        _handleGroupDrop(group, paths);
+      }
+    } catch (e) {
+      debugPrint('[SlotLab] Group file picker error: $e');
+    }
+  }
+
+  Color _groupColor(StageGroup group) {
+    switch (group) {
+      case StageGroup.spinsAndReels:
+        return const Color(0xFF4A9EFF);
+      case StageGroup.wins:
+        return const Color(0xFFFFCA28);
+      case StageGroup.musicAndFeatures:
+        return const Color(0xFFE040FB);
+    }
+  }
+
+  IconData _groupIcon(StageGroup group) {
+    switch (group) {
+      case StageGroup.spinsAndReels:
+        return Icons.casino;
+      case StageGroup.wins:
+        return Icons.emoji_events;
+      case StageGroup.musicAndFeatures:
+        return Icons.music_note;
+    }
+  }
+
+  void _handleGroupDrop(StageGroup group, List<String> audioPaths) {
+    if (audioPaths.isEmpty) return;
+
+    debugPrint('[SlotLab] ═══════════════════════════════════════════════════════');
+    debugPrint('[SlotLab] Group Drop: ${audioPaths.length} files → ${group.displayName}');
+
+    // Use StageGroupService to match files to stages
+    final service = StageGroupService.instance;
+    final result = service.matchFilesToGroup(group: group, audioPaths: audioPaths);
+
+    // Debug: show all matches
+    debugPrint('[SlotLab] Matched ${result.matched.length} files:');
+    for (final match in result.matched) {
+      debugPrint('[SlotLab]   📁 "${match.audioFileName}" → ${match.stage} (${(match.confidence * 100).toStringAsFixed(0)}%)');
+      debugPrint('[SlotLab]      Keywords: ${match.matchedKeywords.join(", ")}');
+    }
+
+    // Debug: show unmatched
+    if (result.unmatched.isNotEmpty) {
+      debugPrint('[SlotLab] Unmatched ${result.unmatched.length} files:');
+      for (final unmatched in result.unmatched) {
+        debugPrint('[SlotLab]   ❌ "${unmatched.audioFileName}"');
+        if (unmatched.suggestions.isNotEmpty) {
+          debugPrint('[SlotLab]      Suggestions: ${unmatched.suggestions.map((s) => "${s.stage}(${(s.confidence * 100).toStringAsFixed(0)}%)").join(", ")}');
+        }
+      }
+    }
+    debugPrint('[SlotLab] ═══════════════════════════════════════════════════════');
+
+    // Create events for matched files
+    int created = 0;
+    for (final match in result.matched) {
+      final stage = match.stage;
+      final path = match.audioPath;
+
+      // Create event via _handleBatchImportEvents
+      // Use proper naming convention: onReelLand1, onWinBig, etc.
+      final spec = BatchEventSpec(
+        eventName: generateEventName(stage),
+        stage: stage,
+        audioPath: path,
+        volume: 1.0,
+        pan: 0.0,
+      );
+      _handleBatchImportEvents([spec]);
+      created++;
+    }
+
+    // Show result
+    final message = created > 0
+        ? '✅ Created $created events for ${group.displayName}'
+        : '⚠️ No matches found for ${group.displayName}';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: created > 0 ? Colors.green.shade800 : Colors.orange.shade800,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // Show unmatched files if any
+    if (result.unmatched.isNotEmpty) {
+      debugPrint('[SlotLab] Unmatched: ${result.unmatched.length} files');
+      // Could show a dialog or open the Batch tab for manual assignment
+    }
+  }
+
   /// Callback when event is created via drag-drop in Event Builder mode
   /// CRITICAL: This bridges AutoEventBuilderProvider → MiddlewareProvider (SSoT)
   void _onEventBuilderEventCreated(CommittedEvent event, String targetId) {
@@ -6153,6 +6355,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
 
     // Create SlotCompositeEvent
+    // Auto-detect looping based on stage configuration
+    final shouldLoop = StageConfigurationService.instance.isLooping(stage);
+
     final now = DateTime.now();
     final compositeEvent = SlotCompositeEvent(
       id: event.eventId,
@@ -6161,8 +6366,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       color: _colorFromTargetId(targetId),
       layers: [layer],
       masterVolume: 1.0,
-      looping: false,
-      maxInstances: 1,
+      looping: shouldLoop,
+      maxInstances: shouldLoop ? 1 : 4, // Looping events = 1 instance, one-shots = 4
       createdAt: now,
       modifiedAt: now,
       triggerStages: [stage],
@@ -6180,6 +6385,146 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _lastDragStatus = '✅ Event: $eventName → $stage';
       _lastDragStatusTime = DateTime.now();
     });
+  }
+
+  /// Handle batch import events from GroupBatchImportPanel
+  void _handleBatchImportEvents(List<BatchEventSpec> specs) {
+    debugPrint('[SlotLab] Batch Import: Creating ${specs.length} events');
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUTO-EXPAND: Generic stages → Per-index events
+    // When user imports REEL_STOP (generic), auto-create REEL_STOP_0..4
+    // Each per-reel event has the same audio but different stereo panning
+    // ═══════════════════════════════════════════════════════════════════════════
+    final expandedSpecs = <BatchEventSpec>[];
+    for (final spec in specs) {
+      final expanded = _expandGenericStage(spec);
+      expandedSpecs.addAll(expanded);
+    }
+
+    debugPrint('[SlotLab] Batch Import: Expanded ${specs.length} → ${expandedSpecs.length} events');
+
+    for (final spec in expandedSpecs) {
+      final fileName = spec.audioPath.split('/').last;
+
+      // Get correct bus from StageConfigurationService
+      final stageBus = StageConfigurationService.instance.getBus(spec.stage);
+      final busId = stageBus.index; // SpatialBus enum index (ui=0, reels=1, sfx=2, vo=3, music=4, ambience=5)
+
+      // Create layer
+      final layer = SlotEventLayer(
+        id: 'layer_${DateTime.now().millisecondsSinceEpoch}_${expandedSpecs.indexOf(spec)}',
+        name: fileName,
+        audioPath: spec.audioPath,
+        volume: spec.volume,
+        pan: spec.pan,
+        offsetMs: 0.0,
+        fadeInMs: 0.0,
+        fadeOutMs: 0.0,
+        muted: false,
+        solo: false,
+        busId: busId, // Correct bus from stage config
+      );
+
+      // Determine if event should loop
+      final shouldLoop = StageConfigurationService.instance.isLooping(spec.stage);
+
+      // Create composite event
+      final now = DateTime.now();
+      final compositeEvent = SlotCompositeEvent(
+        id: 'batch_${now.millisecondsSinceEpoch}_${expandedSpecs.indexOf(spec)}',
+        name: spec.eventName,
+        category: _categoryFromStage(spec.stage),
+        color: _colorFromStage(spec.stage),
+        layers: [layer],
+        masterVolume: 1.0,
+        looping: shouldLoop,
+        maxInstances: shouldLoop ? 1 : 4,
+        createdAt: now,
+        modifiedAt: now,
+        triggerStages: [spec.stage],
+      );
+
+      // Add to MiddlewareProvider
+      _middleware.addCompositeEvent(compositeEvent, select: false);
+
+      debugPrint('[SlotLab] ✅ Batch: "${compositeEvent.name}" → ${spec.stage} (pan: ${spec.pan.toStringAsFixed(2)})');
+    }
+
+    // Select the last event
+    if (expandedSpecs.isNotEmpty) {
+      final events = _middleware.compositeEvents;
+      if (events.isNotEmpty) {
+        _middleware.selectCompositeEvent(events.last.id);
+      }
+    }
+
+    setState(() {
+      _lastDragStatus = '✅ Batch: ${expandedSpecs.length} events created';
+      _lastDragStatusTime = DateTime.now();
+    });
+  }
+
+  /// Expand generic stages to per-index events with stereo panning
+  /// e.g., REEL_STOP → REEL_STOP_0, REEL_STOP_1, ..., REEL_STOP_4
+  ///
+  /// Returns list of expanded specs (or original if not expandable)
+  List<BatchEventSpec> _expandGenericStage(BatchEventSpec spec) {
+    final stage = spec.stage.toUpperCase();
+
+    // Check if this is already a specific stage (has trailing _N)
+    if (RegExp(r'_\d+$').hasMatch(stage)) {
+      return [spec]; // Already specific, don't expand
+    }
+
+    // Patterns that should auto-expand with stereo panning
+    const expandableWithPanning = {
+      'REEL_STOP': 5,      // 5 reels
+      'REEL_LAND': 5,      // Alternative name
+      'WIN_LINE_SHOW': 5,  // Win line highlights per reel
+      'WIN_LINE_HIDE': 5,
+    };
+
+    // Patterns that should auto-expand WITHOUT panning
+    const expandableNoPanning = {
+      'CASCADE_STEP': 5,
+      'SYMBOL_LAND': 5,
+    };
+
+    final countWithPanning = expandableWithPanning[stage];
+    final countNoPanning = expandableNoPanning[stage];
+    final count = countWithPanning ?? countNoPanning;
+    final applyPanning = countWithPanning != null;
+
+    if (count == null) {
+      return [spec]; // Not expandable, return as-is
+    }
+
+    debugPrint('[SlotLab] 🔄 Auto-expanding $stage → ${stage}_0..${count - 1}');
+
+    final result = <BatchEventSpec>[];
+    for (int i = 0; i < count; i++) {
+      // Pan calculation: distribute across stereo field
+      // -0.8, -0.4, 0.0, +0.4, +0.8 for 5 reels
+      final pan = applyPanning && count > 1
+          ? (i - (count - 1) / 2) * (2.0 / (count - 1)) * 0.8
+          : 0.0;
+
+      final specificStage = '${stage}_$i';
+      final eventName = generateEventName(specificStage);
+
+      result.add(BatchEventSpec(
+        eventName: eventName,
+        stage: specificStage,
+        audioPath: spec.audioPath,
+        volume: spec.volume,
+        pan: pan,
+      ));
+
+      debugPrint('[SlotLab] 🎰 Auto: $specificStage (pan: ${pan.toStringAsFixed(2)})');
+    }
+
+    return result;
   }
 
   /// Generate event name from target ID and filename
@@ -6820,6 +7165,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           _buildTabButton('Assets', 1, Icons.folder_open),
           _buildTabButton('Symbols', 2, Icons.apps),
           _buildTabButton('Music', 3, Icons.music_note),
+          _buildTabButton('Batch', 4, Icons.library_add),
         ],
       ),
     );
@@ -6906,6 +7252,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               ),
             ],
           ),
+        );
+      case 4:
+        // Batch tab - Group batch import panel
+        return GroupBatchImportPanel(
+          onEventsCreated: _handleBatchImportEvents,
         );
       default:
         return _buildAutoEventsList();

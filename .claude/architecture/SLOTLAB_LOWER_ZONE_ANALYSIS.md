@@ -1,7 +1,56 @@
 # SlotLab Lower Zone — Analiza i Reorganizacija
 
-**Datum:** 2026-01-23
-**Status:** Analiza kompletna, čeka mockup i implementaciju
+**Datum:** 2026-01-23 (Original) | **Updated:** 2026-01-24
+**Status:** ⚠️ SUPERSEDED — See new analysis below
+
+---
+
+## ⚠️ IMPORTANT UPDATE (2026-01-24)
+
+**This document is OUTDATED.** The Lower Zone has been reorganized to use a 5 super-tab + 4 sub-tab structure.
+
+### New Analysis Document
+
+📄 **[SLOTLAB_LOWER_ZONE_ULTRA_ANALYSIS_2026_01_24.md](../reviews/SLOTLAB_LOWER_ZONE_ULTRA_ANALYSIS_2026_01_24.md)**
+
+### Current Structure (V6)
+
+```
+SLOTLAB LOWER ZONE (5 Super-tabs × 4 Sub-tabs = 20 panels)
+├── 1-STAGES: Trace | Timeline | Symbols | Timing
+├── 2-EVENTS: Folder | Editor | Layers | Pool
+├── 3-MIX: Buses | Sends | Pan | Meter
+├── 4-DSP: Chain | EQ | Comp | Reverb
+└── 5-BAKE: Export | Stems | Variations | Package
+```
+
+### Connection Status
+
+| Status | Count | % |
+|--------|-------|---|
+| ✅ CONNECTED | 37 | 47% |
+| ⚠️ PARTIAL | 6 | 8% |
+| ❌ NOT CONNECTED | 23 | 30% |
+| 🔧 HARDCODED | 12 | 15% |
+
+### Critical Issues (P0)
+
+1. **DSP Chain** shows hardcoded data (ignores DspChainProvider)
+2. **Voice Pool** per-bus stats are fake (calculated from hardcoded ratios)
+3. **Pan Panel** completely static (ignores MixerDSPProvider)
+4. **Stems Panel** checkboxes don't work, Export button empty
+5. **Event play buttons** don't work (`// TODO` in code)
+
+### TODO Comments Found
+
+**18 TODO comments** identified in SlotLab Lower Zone and related files.
+See full audit in MASTER_TODO and Ultra Analysis.
+
+---
+
+## ORIGINAL DOCUMENT (2026-01-23)
+
+*The following content describes the OLD 15-tab structure before V6 reorganization.*
 
 ---
 

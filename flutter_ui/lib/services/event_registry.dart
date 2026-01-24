@@ -227,14 +227,13 @@ class _PlayingInstance {
 /// Events that benefit from voice pooling (rapid-fire playback)
 /// These are short, frequently triggered sounds that need instant response
 const _pooledEventStages = {
-  // Reel stops (core gameplay)
+  // Reel stops (core gameplay, 0-indexed for 5-reel slots)
   'REEL_STOP',
   'REEL_STOP_0',
   'REEL_STOP_1',
   'REEL_STOP_2',
   'REEL_STOP_3',
   'REEL_STOP_4',
-  'REEL_STOP_5',
   'REEL_STOP_SOFT',
   'REEL_QUICK_STOP',
   'REEL_STOP_TICK',
@@ -391,15 +390,27 @@ class EventRegistry extends ChangeNotifier {
 
   /// Registruj event za stage
   /// CRITICAL: This REPLACES any existing event with same ID or stage
-  /// Stops any playing instances before replacing to prevent stale audio
+  /// Stops any playing instances ONLY if the event data has changed
   void registerEvent(AudioEvent event) {
-    // Stop any playing instances of this event before replacing
-    // This prevents old audio from continuing to play after layer changes
     final existingEvent = _events[event.id];
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL FIX: Only stop audio if the event data has ACTUALLY CHANGED
+    // This prevents audio cutoff during sync operations that re-register
+    // the same event with identical data.
+    // ═══════════════════════════════════════════════════════════════════════════
     if (existingEvent != null) {
-      // Event exists - stop all playing instances SYNCHRONOUSLY
-      _stopEventSync(event.id);
-      debugPrint('[EventRegistry] Stopping existing instances before update: ${event.name}');
+      // Check if event data has changed (layers, duration, etc.)
+      final hasChanged = !_eventsAreEquivalent(existingEvent, event);
+      if (hasChanged) {
+        // Event data changed - stop all playing instances SYNCHRONOUSLY
+        _stopEventSync(event.id);
+        debugPrint('[EventRegistry] Event changed - stopping existing instances: ${event.name}');
+      } else {
+        // Event data is identical - skip update, keep playing
+        debugPrint('[EventRegistry] Event unchanged - skipping re-registration: ${event.name}');
+        return; // Don't re-register if identical
+      }
     }
 
     // Also check if another event has this stage (shouldn't happen but defensive)
@@ -424,7 +435,99 @@ class EventRegistry extends ChangeNotifier {
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUTO-EXPAND: Generic stage → Per-index events
+    // When user creates REEL_STOP (generic), auto-create REEL_STOP_0..4
+    // Each per-reel event has the same audio but different stereo panning
+    // ═══════════════════════════════════════════════════════════════════════════
+    _autoExpandToPerIndexEvents(event);
+
     notifyListeners();
+  }
+
+  /// Auto-expand generic stages to per-index events with stereo panning
+  /// e.g., REEL_STOP → REEL_STOP_0, REEL_STOP_1, ..., REEL_STOP_4
+  void _autoExpandToPerIndexEvents(AudioEvent event) {
+    final stage = event.stage.toUpperCase();
+
+    // Patterns that should auto-expand with stereo panning
+    const expandableWithPanning = {
+      'REEL_STOP': 5,      // 5 reels
+      'REEL_LAND': 5,      // Alternative name
+      'WIN_LINE_SHOW': 5,  // Win line highlights per reel
+      'WIN_LINE_HIDE': 5,
+    };
+
+    // Patterns that should auto-expand WITHOUT panning
+    const expandableNoPanning = {
+      'CASCADE_STEP': 5,
+      'SYMBOL_LAND': 5,
+    };
+
+    // Check if this is a generic stage (no trailing _N)
+    if (RegExp(r'_\d+$').hasMatch(stage)) {
+      return; // Already specific (e.g., REEL_STOP_0), don't expand
+    }
+
+    // Check expandable patterns
+    final countWithPanning = expandableWithPanning[stage];
+    final countNoPanning = expandableNoPanning[stage];
+    final count = countWithPanning ?? countNoPanning;
+    final applyPanning = countWithPanning != null;
+
+    if (count == null) {
+      return; // Not an expandable pattern
+    }
+
+    // Get audio path from first layer
+    if (event.layers.isEmpty || event.layers.first.audioPath.isEmpty) {
+      return; // No audio to expand
+    }
+    final audioPath = event.layers.first.audioPath;
+
+    debugPrint('[EventRegistry] 🔄 Auto-expanding $stage → ${stage}_0..${count - 1}');
+
+    // Create per-index events
+    for (int i = 0; i < count; i++) {
+      // Skip if already exists
+      final specificStage = '${stage}_$i';
+      if (_stageToEvent.containsKey(specificStage)) {
+        continue;
+      }
+
+      // Pan calculation: distribute across stereo field
+      // -0.8, -0.4, 0.0, +0.4, +0.8 for 5 reels
+      final pan = applyPanning && count > 1
+          ? (i - (count - 1) / 2) * (2.0 / (count - 1)) * 0.8
+          : 0.0;
+
+      final specificEvent = AudioEvent(
+        id: '${event.id}_$i',
+        name: '${event.name} ${i + 1}',
+        stage: specificStage,
+        layers: [
+          AudioLayer(
+            id: '${event.layers.first.id}_$i',
+            audioPath: audioPath,
+            name: '${event.layers.first.name} (Reel $i)',
+            volume: event.layers.first.volume,
+            pan: pan,
+            delay: event.layers.first.delay,
+            offset: event.layers.first.offset,
+            busId: event.layers.first.busId,
+          ),
+        ],
+        duration: event.duration,
+        loop: event.loop,
+        priority: event.priority,
+      );
+
+      // Register directly to avoid recursion
+      _events[specificEvent.id] = specificEvent;
+      _stageToEvent[specificEvent.stage] = specificEvent;
+
+      debugPrint('[EventRegistry] 🎰 Auto: $specificStage (pan: ${pan.toStringAsFixed(2)})');
+    }
   }
 
   /// Synchronous stop - for use in registerEvent
@@ -451,6 +554,170 @@ class EventRegistry extends ChangeNotifier {
     if (toRemove.isNotEmpty) {
       debugPrint('[EventRegistry] Sync stopped ${toRemove.length} instance(s) of: $eventIdOrStage');
     }
+  }
+
+  /// Check if two AudioEvents are equivalent (same layers, same audio data)
+  /// Used to avoid stopping playback when re-registering identical events
+  bool _eventsAreEquivalent(AudioEvent a, AudioEvent b) {
+    // Compare basic fields
+    if (a.name != b.name || a.stage != b.stage || a.duration != b.duration ||
+        a.loop != b.loop || a.priority != b.priority ||
+        a.containerType != b.containerType || a.containerId != b.containerId) {
+      return false;
+    }
+
+    // Compare layers count
+    if (a.layers.length != b.layers.length) {
+      return false;
+    }
+
+    // Compare each layer (order-dependent)
+    for (int i = 0; i < a.layers.length; i++) {
+      final layerA = a.layers[i];
+      final layerB = b.layers[i];
+      if (layerA.id != layerB.id ||
+          layerA.audioPath != layerB.audioPath ||
+          layerA.volume != layerB.volume ||
+          layerA.pan != layerB.pan ||
+          layerA.delay != layerB.delay ||
+          layerA.offset != layerB.offset ||
+          layerA.busId != layerB.busId) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // ==========================================================================
+  // AUTO-CREATE PER-REEL EVENTS
+  // ==========================================================================
+
+  /// Automatski kreira 5 REEL_STOP eventa (REEL_STOP_0 do REEL_STOP_4)
+  /// sa odgovarajućim pan vrednostima za svaki reel.
+  ///
+  /// Pan vrednosti (5-reel grid):
+  /// - REEL_STOP_0: pan = -0.8 (levo)
+  /// - REEL_STOP_1: pan = -0.4
+  /// - REEL_STOP_2: pan = 0.0 (centar)
+  /// - REEL_STOP_3: pan = +0.4
+  /// - REEL_STOP_4: pan = +0.8 (desno)
+  ///
+  /// [audioPath] — putanja do audio fajla
+  /// [reelCount] — broj rilova (default 5)
+  /// [baseName] — bazno ime eventa (default 'Reel Stop')
+  ///
+  /// Vraća listu kreiranih event ID-eva
+  List<String> createPerReelEvents({
+    required String audioPath,
+    int reelCount = 5,
+    String baseName = 'Reel Stop',
+  }) {
+    final createdIds = <String>[];
+
+    for (int i = 0; i < reelCount; i++) {
+      // Pan kalkulacija: (i - (reelCount-1)/2) * (2.0 / (reelCount-1))
+      // Za 5 rilova: -0.8, -0.4, 0.0, +0.4, +0.8
+      final pan = reelCount > 1
+          ? (i - (reelCount - 1) / 2) * (2.0 / (reelCount - 1)) * 0.8
+          : 0.0;
+
+      final stage = 'REEL_STOP_$i';
+      final eventId = 'auto_reel_stop_$i';
+      final eventName = '$baseName ${i + 1}'; // 1-indexed for display
+
+      final event = AudioEvent(
+        id: eventId,
+        name: eventName,
+        stage: stage,
+        layers: [
+          AudioLayer(
+            id: 'layer_$i',
+            audioPath: audioPath,
+            name: 'Reel $i Audio',
+            volume: 1.0,
+            pan: pan,
+            delay: 0.0,
+            offset: 0.0,
+            busId: 1, // SFX bus
+          ),
+        ],
+        duration: 500, // Default 500ms, will be overridden by actual audio
+        loop: false,
+        priority: 80,
+      );
+
+      registerEvent(event);
+      createdIds.add(eventId);
+
+      debugPrint('[EventRegistry] 🎰 Auto-created: $stage (pan: ${pan.toStringAsFixed(2)})');
+    }
+
+    debugPrint('[EventRegistry] ✅ Created $reelCount per-reel REEL_STOP events from: ${audioPath.split('/').last}');
+    return createdIds;
+  }
+
+  /// Automatski kreira per-reel evente za bilo koji stage pattern
+  /// Generička verzija za REEL_STOP, CASCADE_STEP, WIN_LINE_SHOW, itd.
+  ///
+  /// [baseStage] — bazni stage (npr. 'REEL_STOP', 'CASCADE_STEP')
+  /// [audioPath] — putanja do audio fajla
+  /// [count] — broj eventa za kreiranje
+  /// [applyPanning] — da li se primenjuje stereo panning (default true za REEL_STOP)
+  List<String> createPerIndexEvents({
+    required String baseStage,
+    required String audioPath,
+    required int count,
+    bool applyPanning = true,
+  }) {
+    final createdIds = <String>[];
+    final upperStage = baseStage.toUpperCase();
+
+    for (int i = 0; i < count; i++) {
+      // Pan kalkulacija samo ako je panning uključen
+      final pan = applyPanning && count > 1
+          ? (i - (count - 1) / 2) * (2.0 / (count - 1)) * 0.8
+          : 0.0;
+
+      final stage = '${upperStage}_$i';
+      final eventId = 'auto_${baseStage.toLowerCase()}_$i';
+      final eventName = '${_humanize(baseStage)} ${i + 1}';
+
+      final event = AudioEvent(
+        id: eventId,
+        name: eventName,
+        stage: stage,
+        layers: [
+          AudioLayer(
+            id: 'layer_$i',
+            audioPath: audioPath,
+            name: '$baseStage $i Audio',
+            volume: 1.0,
+            pan: pan,
+            delay: 0.0,
+            offset: 0.0,
+            busId: 1, // SFX bus
+          ),
+        ],
+        duration: 500,
+        loop: false,
+        priority: 80,
+      );
+
+      registerEvent(event);
+      createdIds.add(eventId);
+    }
+
+    debugPrint('[EventRegistry] ✅ Created $count ${upperStage}_N events');
+    return createdIds;
+  }
+
+  /// Humanize stage name: REEL_STOP → Reel Stop
+  String _humanize(String stage) {
+    return stage
+        .split('_')
+        .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .join(' ');
   }
 
   /// Ukloni event
@@ -482,6 +749,46 @@ class EventRegistry extends ChangeNotifier {
   /// Proveri da li se event trenutno reprodukuje
   bool isEventPlaying(String eventId) =>
       _playingInstances.any((i) => i.eventId == eventId);
+
+  // ==========================================================================
+  // FALLBACK STAGE RESOLUTION
+  // ==========================================================================
+
+  /// Get fallback stage for specific stage
+  /// e.g., REEL_STOP_0 → REEL_STOP, CASCADE_STEP_3 → CASCADE_STEP
+  /// Returns null if no fallback pattern applies
+  String? _getFallbackStage(String stage) {
+    // Pattern: STAGE_NAME_N → STAGE_NAME (remove trailing _N)
+    // Examples:
+    // - REEL_STOP_0 → REEL_STOP
+    // - REEL_STOP_4 → REEL_STOP
+    // - CASCADE_STEP_1 → CASCADE_STEP
+    // - WIN_LINE_SHOW_3 → WIN_LINE_SHOW
+    // - SYMBOL_LAND_5 → SYMBOL_LAND
+
+    // Check if stage ends with _N where N is 0-9
+    final match = RegExp(r'^(.+)_(\d+)$').firstMatch(stage);
+    if (match != null) {
+      final baseName = match.group(1)!;
+      // Only provide fallback for known patterns
+      const fallbackablePatterns = {
+        'REEL_STOP',
+        'CASCADE_STEP',
+        'WIN_LINE_SHOW',
+        'WIN_LINE_HIDE',
+        'SYMBOL_LAND',
+        'ROLLUP_TICK',
+        'WHEEL_TICK',
+        'TRAIL_MOVE_STEP',
+      };
+
+      if (fallbackablePatterns.contains(baseName)) {
+        return baseName;
+      }
+    }
+
+    return null;
+  }
 
   // ==========================================================================
   // TRIGGERING
@@ -525,6 +832,20 @@ class EventRegistry extends ChangeNotifier {
         if (key.toUpperCase() == normalizedStage) {
           event = _stageToEvent[key];
           break;
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FALLBACK: If specific stage not found, try generic version
+    // e.g., REEL_STOP_0 → REEL_STOP, CASCADE_STEP_3 → CASCADE_STEP
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (event == null) {
+      final fallbackStage = _getFallbackStage(normalizedStage);
+      if (fallbackStage != null) {
+        event = _stageToEvent[fallbackStage];
+        if (event != null) {
+          debugPrint('[EventRegistry] 🔄 Using fallback: $normalizedStage → $fallbackStage');
         }
       }
     }
@@ -816,13 +1137,23 @@ class EventRegistry extends ChangeNotifier {
       DuckingService.instance.notifyBusActive(layer.busId);
 
       // Determine correct PlaybackSource from active section in UnifiedPlaybackController
-      final activeSection = UnifiedPlaybackController.instance.activeSection;
+      // CRITICAL FIX: If no section is active, auto-acquire SlotLab section first
+      // This ensures the Rust engine knows about the active section for voice filtering
+      var activeSection = UnifiedPlaybackController.instance.activeSection;
+      if (activeSection == null) {
+        // Auto-acquire SlotLab section (EventRegistry defaults to SlotLab)
+        UnifiedPlaybackController.instance.acquireSection(PlaybackSection.slotLab);
+        // Also ensure audio stream is running
+        UnifiedPlaybackController.instance.ensureStreamRunning();
+        activeSection = PlaybackSection.slotLab;
+        debugPrint('[EventRegistry] Auto-acquired SlotLab section for playback');
+      }
+
       final source = switch (activeSection) {
         PlaybackSection.daw => PlaybackSource.daw,
         PlaybackSection.slotLab => PlaybackSource.slotlab,
         PlaybackSection.middleware => PlaybackSource.middleware,
         PlaybackSection.browser => PlaybackSource.browser,
-        null => PlaybackSource.slotlab, // Default to slotlab for EventRegistry
       };
 
       debugPrint('[EventRegistry] _playLayer: activeSection=$activeSection, source=$source, path=${layer.audioPath}');

@@ -949,8 +949,416 @@ onCommit: () {
 
 ---
 
+## CRITICAL FIX: Audio Cutoff Prevention (2026-01-24) ✅
+
+### Problem
+
+When `_onMiddlewareChanged()` fired, all events were re-registered to EventRegistry. This caused currently-playing audio to stop abruptly, even if the event data hadn't changed.
+
+**Symptom:** Audio "cuts off" mid-playback during unrelated UI updates.
+
+### Solution: Event Equivalence Check
+
+Added `_eventsAreEquivalent()` function in EventRegistry that compares two AudioEvents:
+
+```dart
+/// Check if two AudioEvents are equivalent (same layers, same audio data)
+/// Used to avoid stopping playback when re-registering identical events
+bool _eventsAreEquivalent(AudioEvent a, AudioEvent b) {
+  // Compare basic fields
+  if (a.name != b.name || a.stage != b.stage || a.duration != b.duration ||
+      a.loop != b.loop || a.priority != b.priority ||
+      a.containerType != b.containerType || a.containerId != b.containerId) {
+    return false;
+  }
+
+  // Compare layers count
+  if (a.layers.length != b.layers.length) {
+    return false;
+  }
+
+  // Compare each layer (order-dependent)
+  for (int i = 0; i < a.layers.length; i++) {
+    final layerA = a.layers[i];
+    final layerB = b.layers[i];
+    if (layerA.id != layerB.id ||
+        layerA.audioPath != layerB.audioPath ||
+        layerA.volume != layerB.volume ||
+        layerA.pan != layerB.pan ||
+        layerA.delay != layerB.delay ||
+        layerA.offset != layerB.offset ||
+        layerA.busId != layerB.busId) {
+      return false;
+    }
+  }
+
+  return true;
+}
+```
+
+### registerEvent() Now Checks Equivalence
+
+```dart
+void registerEvent(AudioEvent event) {
+  final existingEvent = _events[event.id];
+
+  if (existingEvent != null) {
+    // Check if event data has changed (layers, duration, etc.)
+    final hasChanged = !_eventsAreEquivalent(existingEvent, event);
+    if (hasChanged) {
+      // Event data changed - stop all playing instances SYNCHRONOUSLY
+      _stopEventSync(event.id);
+      debugPrint('[EventRegistry] Event changed - stopping existing instances: ${event.name}');
+    } else {
+      // Event data is identical - skip update, keep playing
+      debugPrint('[EventRegistry] Event unchanged - skipping re-registration: ${event.name}');
+      return; // Don't re-register if identical
+    }
+  }
+
+  // ... continue with registration
+}
+```
+
+### Benefits
+
+| Scenario | Before Fix | After Fix |
+|----------|------------|-----------|
+| UI update triggers sync | Audio stops | Audio continues |
+| Same event re-registered | Stops & restarts | No interruption |
+| Event actually changed | N/A | Properly stops & updates |
+| Layer added/removed | N/A | Properly stops & updates |
+
+---
+
+## CRITICAL FIX: Auto-Acquire SlotLab Section (2026-01-24) ✅
+
+### Problem
+
+When triggering events via EventRegistry without an active playback section, audio wouldn't play because `UnifiedPlaybackController.activeSection` was null.
+
+### Solution: Auto-Acquire in _playLayer()
+
+```dart
+// Determine correct PlaybackSource from active section in UnifiedPlaybackController
+// CRITICAL FIX: If no section is active, auto-acquire SlotLab section first
+var activeSection = UnifiedPlaybackController.instance.activeSection;
+if (activeSection == null) {
+  // Auto-acquire SlotLab section (EventRegistry defaults to SlotLab)
+  UnifiedPlaybackController.instance.acquireSection(PlaybackSection.slotLab);
+  // Also ensure audio stream is running
+  UnifiedPlaybackController.instance.ensureStreamRunning();
+  activeSection = PlaybackSection.slotLab;
+  debugPrint('[EventRegistry] Auto-acquired SlotLab section for playback');
+}
+```
+
+### Why SlotLab?
+
+EventRegistry is primarily used by SlotLab for stage-triggered audio. When no section is explicitly acquired (e.g., first spin after app launch), defaulting to SlotLab ensures audio plays immediately.
+
+---
+
+## Event Naming Convention (2026-01-24) ✅
+
+### generateEventName() Function
+
+Located in `flutter_ui/lib/services/stage_group_service.dart`, this function converts stage names to human-readable event names:
+
+```dart
+String generateEventName(String stage) {
+  const customNames = {
+    'SPIN_START': 'onUiSpin',
+    'REEL_STOP_0': 'onReelLand1',
+    'REEL_STOP_1': 'onReelLand2',
+    // ... 60+ mappings
+  };
+
+  if (customNames.containsKey(stage)) {
+    return customNames[stage]!;
+  }
+
+  // Fallback: STAGE_NAME → onStageName
+  final parts = stage.split('_');
+  final camelCase = parts.map((p) => p.toLowerCase().capitalize()).join('');
+  return 'on$camelCase';
+}
+```
+
+### Key Mappings
+
+| Stage | Event Name |
+|-------|------------|
+| `SPIN_START` | `onUiSpin` |
+| `SPIN_END` | `onUiSpinEnd` |
+| `REEL_STOP_0` | `onReelLand1` |
+| `REEL_STOP_1` | `onReelLand2` |
+| `REEL_STOP_2` | `onReelLand3` |
+| `REEL_STOP_3` | `onReelLand4` |
+| `REEL_STOP_4` | `onReelLand5` |
+| `REEL_SPIN` | `onReelSpin` |
+| `WILD_LAND` | `onWildLand` |
+| `SCATTER_LAND` | `onScatterLand` |
+| `WIN_BIG` | `onWinBig` |
+| `WIN_MEGA` | `onWinMega` |
+| `JACKPOT_TRIGGER` | `onJackpotTrigger` |
+| `FREESPIN_START` | `onFreeSpinStart` |
+| `CASCADE_STEP` | `onCascadeStep` |
+| `HOLD_LOCK` | `onHoldLock` |
+
+**Note:** REEL_STOP uses 1-indexed event names (`onReelLand1-5`) while stages use 0-indexed (`REEL_STOP_0-4`).
+
+### Debug Matching Utility
+
+For diagnosing why audio files don't match expected stages:
+
+```dart
+// In code or debug console:
+StageGroupService.instance.debugTestMatch('reel_stop_1.wav');
+
+// Output:
+// ═══════════════════════════════════════════════════════════════
+// [DEBUG] Testing match for: "reel_stop_1.wav"
+// [DEBUG] Normalized: "reel stop 1"
+// ───────────────────────────────────────────────────────────────
+// ✅ REEL_STOP_1: 85% — reel, stop, 1
+// ❌ REEL_STOP_0: 0% — EXCLUDED:1 (wrong number)
+// ───────────────────────────────────────────────────────────────
+// [RESULT] MATCHED: REEL_STOP_1 (85%)
+// [RESULT] Event name: onReelLand2
+// ═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Batch Import / Group Matching Fix (2026-01-24) ✅
+
+### Problem
+
+When batch importing audio files to a group (e.g., "Spins & Reels"), REEL_STOP files weren't being matched correctly.
+
+**User Report:** "REEL_STOP ne radi kada prevučem audio fajlove u grupu"
+
+**Root Causes:**
+1. REEL_STOP_0 through REEL_STOP_4 had `requiredKeywords: ['reel']` — files without "reel" in name couldn't match
+2. `specificNumber` used 0-indexed values, but users often name files 1-indexed (`stop_1.wav` for first reel)
+3. Generic REEL_STOP excluded only 0-4, not 5 (which would be 1-indexed fifth reel)
+
+### Solution
+
+**1. Removed `requiredKeywords: ['reel']` from REEL_STOP_0-4:**
+```dart
+_StageDefinition(
+  stage: 'REEL_STOP_0',
+  keywords: ['stop', 'land', 'first', '1st', 'reel', 'reels'],
+  requiredKeywords: [], // Removed 'reel' requirement for flexible matching
+  suffixes: ['_0', '_1', '_first'], // Both 0 and 1 index for first reel
+  requiresNumber: true,
+  specificNumber: 0, // 0-indexed internally
+  priority: 87,
+),
+```
+
+**2. Added dual-index number matching (0-indexed AND 1-indexed):**
+```dart
+if (def.specificNumber != null) {
+  // Support both 0-indexed and 1-indexed naming conventions:
+  // - specificNumber=0 matches files with 0 (0-indexed) OR 1 (1-indexed first)
+  // - specificNumber=1 matches files with 1 (0-indexed) OR 2 (1-indexed second)
+  final zeroIndexed = def.specificNumber!;
+  final oneIndexed = def.specificNumber! + 1;
+
+  final hasZeroIndexed = numbers.contains(zeroIndexed);
+  final hasOneIndexed = numbers.contains(oneIndexed);
+
+  if (!hasZeroIndexed && !hasOneIndexed) {
+    return (0.0, ['MISSING_NUMBER:$zeroIndexed or $oneIndexed']);
+  }
+
+  if (hasZeroIndexed) {
+    matchedKeywords.add('number:$zeroIndexed (0-idx)');
+    score += 0.35; // Exact 0-indexed match adds 35%
+  } else {
+    matchedKeywords.add('number:$oneIndexed (1-idx)');
+    score += 0.3; // 1-indexed match adds 30%
+  }
+}
+```
+
+**3. Made generic REEL_STOP smarter about detecting reel numbers:**
+```dart
+} else if (def.stage == 'REEL_STOP') {
+  // REEL_STOP (generic) should NOT match if there's a number 0-5
+  final numbers = RegExp(r'\d+').allMatches(normalizedName).toList();
+  for (final m in numbers) {
+    final num = int.tryParse(m.group(0) ?? '') ?? -1;
+    if (num >= 0 && num <= 5) {
+      // Check if this looks like a reel index (appears near stop/land keywords)
+      final beforeMatch = normalizedName.substring(0, m.start);
+      if (beforeMatch.endsWith('stop') ||
+          beforeMatch.endsWith('land') ||
+          beforeMatch.endsWith('reel') ||
+          beforeMatch.endsWith('reelstop') ||
+          beforeMatch.endsWith('reelland')) {
+        return (0.0, ['HAS_SPECIFIC_REEL_NUMBER:$num']);
+      }
+    }
+  }
+}
+```
+
+### Supported File Naming Conventions
+
+| File Name | Matches Stage | Notes |
+|-----------|---------------|-------|
+| `reel_stop_0.wav` | REEL_STOP_0 | 0-indexed |
+| `reel_stop_1.wav` | REEL_STOP_0 or REEL_STOP_1 | Prefers 0-indexed |
+| `stop_1.wav` | REEL_STOP_0 | 1-indexed first reel |
+| `land_2.wav` | REEL_STOP_1 | 1-indexed second reel |
+| `reel_land_5.wav` | REEL_STOP_4 | 1-indexed fifth reel |
+| `spin_stop.wav` | REEL_STOP | Generic (no specific reel) |
+| `reel_stop_v2.wav` | REEL_STOP | "v2" is version, not reel index |
+
+### Testing Batch Import
+
+```dart
+// Test individual file matching:
+StageGroupService.instance.debugTestMatch('stop_1.wav');
+
+// Test batch import to group:
+final result = StageGroupService.instance.matchFilesToGroup(
+  group: StageGroup.spinsAndReels,
+  audioPaths: [
+    '/audio/stop_1.wav',
+    '/audio/stop_2.wav',
+    '/audio/stop_3.wav',
+    '/audio/stop_4.wav',
+    '/audio/stop_5.wav',
+  ],
+);
+
+print('Matched: ${result.matchedCount}/${result.totalFiles}');
+for (final match in result.matched) {
+  print('${match.audioFileName} → ${match.stage} (${match.eventName})');
+}
+```
+
+**Expected Output:**
+```
+Matched: 5/5
+stop_1.wav → REEL_STOP_0 (onReelLand1)
+stop_2.wav → REEL_STOP_1 (onReelLand2)
+stop_3.wav → REEL_STOP_2 (onReelLand3)
+stop_4.wav → REEL_STOP_3 (onReelLand4)
+stop_5.wav → REEL_STOP_4 (onReelLand5)
+```
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `flutter_ui/lib/services/stage_group_service.dart` | REEL_STOP_0-4: removed `requiredKeywords`, added 1-indexed suffixes, added dual-index number matching |
+
+---
+
+## Fallback Stage Resolution (2026-01-24) ✅
+
+### Problem
+
+If user has only ONE generic sound (e.g., `REEL_STOP`) but the system triggers specific stages (`REEL_STOP_0`, `REEL_STOP_1`, etc.), no audio plays.
+
+**User Request:** "Ako imam jedan zvuk za reel stop, da se on poziva automatski za svaki reel stop"
+
+### Solution: Automatic Fallback in triggerStage()
+
+Added `_getFallbackStage()` helper that maps specific stages to generic fallback:
+
+```dart
+/// Get fallback stage for specific stage
+/// e.g., REEL_STOP_0 → REEL_STOP, CASCADE_STEP_3 → CASCADE_STEP
+String? _getFallbackStage(String stage) {
+  final match = RegExp(r'^(.+)_(\d+)$').firstMatch(stage);
+  if (match != null) {
+    final baseName = match.group(1)!;
+    const fallbackablePatterns = {
+      'REEL_STOP',
+      'CASCADE_STEP',
+      'WIN_LINE_SHOW',
+      'WIN_LINE_HIDE',
+      'SYMBOL_LAND',
+      'ROLLUP_TICK',
+      'WHEEL_TICK',
+      'TRAIL_MOVE_STEP',
+    };
+    if (fallbackablePatterns.contains(baseName)) {
+      return baseName;
+    }
+  }
+  return null;
+}
+```
+
+### Fallback Flow
+
+```
+1. triggerStage('REEL_STOP_0') called
+   ↓
+2. Look for REEL_STOP_0 event → NOT FOUND
+   ↓
+3. _getFallbackStage('REEL_STOP_0') → 'REEL_STOP'
+   ↓
+4. Look for REEL_STOP event → FOUND!
+   ↓
+5. Play REEL_STOP event
+   ↓
+6. Log: "[EventRegistry] 🔄 Using fallback: REEL_STOP_0 → REEL_STOP"
+```
+
+### Supported Fallback Patterns
+
+| Specific Stage | Fallback To |
+|----------------|-------------|
+| `REEL_STOP_0..4` | `REEL_STOP` |
+| `CASCADE_STEP_N` | `CASCADE_STEP` |
+| `WIN_LINE_SHOW_N` | `WIN_LINE_SHOW` |
+| `WIN_LINE_HIDE_N` | `WIN_LINE_HIDE` |
+| `SYMBOL_LAND_N` | `SYMBOL_LAND` |
+| `ROLLUP_TICK_N` | `ROLLUP_TICK` |
+| `WHEEL_TICK_N` | `WHEEL_TICK` |
+| `TRAIL_MOVE_STEP_N` | `TRAIL_MOVE_STEP` |
+
+### Priority Order
+
+1. **Exact match** — `REEL_STOP_0` event if exists
+2. **Case-insensitive** — `reel_stop_0` → `REEL_STOP_0`
+3. **Generic fallback** — `REEL_STOP` if `REEL_STOP_0` not found
+
+### Example Usage
+
+**Scenario:** User has one reel stop sound for all reels.
+
+1. Create event with stage `REEL_STOP` (generic)
+2. When spin happens, system triggers `REEL_STOP_0`, `REEL_STOP_1`, etc.
+3. Each trigger falls back to `REEL_STOP` event
+4. Same sound plays for all reels
+
+**Scenario:** User wants different sounds per reel.
+
+1. Create 5 events: `REEL_STOP_0`, `REEL_STOP_1`, `REEL_STOP_2`, `REEL_STOP_3`, `REEL_STOP_4`
+2. Each reel trigger plays its specific sound
+3. No fallback needed
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `flutter_ui/lib/services/event_registry.dart` | Added `_getFallbackStage()` helper, fallback lookup in `triggerStage()` |
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management
 - `.claude/architecture/SLOT_LAB_SYSTEM.md` — SlotLab architecture
+- `.claude/domains/slot-audio-events-master.md` — Full stage catalog
 - `.claude/project/fluxforge-studio.md` — Full project spec

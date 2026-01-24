@@ -1,15 +1,16 @@
 # Slot Audio Events - Master Catalog
 
-**Version:** 1.0
-**Last Updated:** 2026-01-20
+**Version:** 1.1
+**Last Updated:** 2026-01-24
 **Total Events:** 350+
+**Event Names:** 60+ custom mappings via `generateEventName()`
 
 Kompletna lista svih audio eventa koji mogu da se dese u slot igri.
 Organizovano po kategorijama sa prioritetom, trajanjem i opisom.
 
 ---
 
-## Event Naming Convention
+## Stage Naming Convention
 
 ```
 CATEGORY_ACTION_DETAIL
@@ -19,6 +20,128 @@ Primeri:
 - `REEL_STOP_0` — Reel 0 se zaustavio
 - `WIN_TIER_MEGA` — Mega win nivo
 - `FS_RETRIGGER_3` — Free spins retrigger sa 3 scattera
+
+---
+
+## Event Name Generation (2026-01-24) ✅
+
+### generateEventName() Function
+
+`flutter_ui/lib/services/stage_group_service.dart` sadrži funkciju koja konvertuje STAGE imena u human-readable event imena:
+
+```dart
+String generateEventName(String stage);
+```
+
+### Stage → Event Name Mapping
+
+| Stage | Event Name | Category |
+|-------|------------|----------|
+| **UI Events** | | |
+| `SPIN_START` | `onUiSpin` | UI |
+| `SPIN_END` | `onUiSpinEnd` | UI |
+| `UI_BUTTON_PRESS` | `onUiButtonPress` | UI |
+| `UI_BUTTON_HOVER` | `onUiButtonHover` | UI |
+| **Reel Events** | | |
+| `REEL_SPIN` | `onReelSpin` | Reels |
+| `REEL_STOP` | `onReelStop` | Reels |
+| `REEL_STOP_0` | `onReelLand1` | Reels |
+| `REEL_STOP_1` | `onReelLand2` | Reels |
+| `REEL_STOP_2` | `onReelLand3` | Reels |
+| `REEL_STOP_3` | `onReelLand4` | Reels |
+| `REEL_STOP_4` | `onReelLand5` | Reels |
+| **Symbol Events** | | |
+| `SYMBOL_LAND` | `onSymbolLand` | Symbols |
+| `WILD_LAND` | `onWildLand` | Symbols |
+| `SCATTER_LAND` | `onScatterLand` | Symbols |
+| **Anticipation** | | |
+| `ANTICIPATION_ON` | `onAnticipationStart` | Anticipation |
+| `ANTICIPATION_OFF` | `onAnticipationEnd` | Anticipation |
+| **Win Events** | | |
+| `WIN_PRESENT` | `onWinPresent` | Wins |
+| `WIN_SMALL` | `onWinSmall` | Wins |
+| `WIN_MEDIUM` | `onWinMedium` | Wins |
+| `WIN_BIG` | `onWinBig` | Wins |
+| `WIN_MEGA` | `onWinMega` | Wins |
+| `WIN_EPIC` | `onWinEpic` | Wins |
+| `WIN_ULTRA` | `onWinUltra` | Wins |
+| `WIN_LINE_SHOW` | `onWinLineShow` | Wins |
+| `WIN_LINE_HIDE` | `onWinLineHide` | Wins |
+| **Rollup** | | |
+| `ROLLUP_START` | `onRollupStart` | Rollup |
+| `ROLLUP_TICK` | `onRollupTick` | Rollup |
+| `ROLLUP_END` | `onRollupEnd` | Rollup |
+| **Jackpot** | | |
+| `JACKPOT_TRIGGER` | `onJackpotTrigger` | Jackpot |
+| `JACKPOT_AWARD` | `onJackpotAward` | Jackpot |
+| `JACKPOT_MINI` | `onJackpotMini` | Jackpot |
+| `JACKPOT_MINOR` | `onJackpotMinor` | Jackpot |
+| `JACKPOT_MAJOR` | `onJackpotMajor` | Jackpot |
+| `JACKPOT_GRAND` | `onJackpotGrand` | Jackpot |
+| **Coins** | | |
+| `COIN_BURST` | `onCoinBurst` | Effects |
+| `COIN_DROP` | `onCoinDrop` | Effects |
+| **Music** | | |
+| `GAME_START` | `onGameStart` | Music |
+| `MUSIC_BASE` | `onMusicBase` | Music |
+| `MUSIC_INTRO` | `onMusicIntro` | Music |
+| `MUSIC_LAYER_1` | `onMusicLayer1` | Music |
+| `MUSIC_LAYER_2` | `onMusicLayer2` | Music |
+| `MUSIC_LAYER_3` | `onMusicLayer3` | Music |
+| **Free Spins** | | |
+| `FREESPIN_TRIGGER` | `onFreeSpinTrigger` | Free Spins |
+| `FREESPIN_START` | `onFreeSpinStart` | Free Spins |
+| `FREESPIN_SPIN` | `onFreeSpinSpin` | Free Spins |
+| `FREESPIN_END` | `onFreeSpinEnd` | Free Spins |
+| `FREESPIN_MUSIC` | `onFreeSpinMusic` | Free Spins |
+| `FREESPIN_RETRIGGER` | `onFreeSpinRetrigger` | Free Spins |
+| **Bonus** | | |
+| `BONUS_TRIGGER` | `onBonusTrigger` | Bonus |
+| `BONUS_ENTER` | `onBonusEnter` | Bonus |
+| `BONUS_STEP` | `onBonusStep` | Bonus |
+| `BONUS_EXIT` | `onBonusExit` | Bonus |
+| `BONUS_MUSIC` | `onBonusMusic` | Bonus |
+| **Cascade** | | |
+| `CASCADE_START` | `onCascadeStart` | Cascade |
+| `CASCADE_STEP` | `onCascadeStep` | Cascade |
+| `CASCADE_POP` | `onCascadePop` | Cascade |
+| `CASCADE_END` | `onCascadeEnd` | Cascade |
+| **Hold & Win** | | |
+| `HOLD_TRIGGER` | `onHoldTrigger` | Hold |
+| `HOLD_START` | `onHoldStart` | Hold |
+| `HOLD_SPIN` | `onHoldSpin` | Hold |
+| `HOLD_LOCK` | `onHoldLock` | Hold |
+| `HOLD_END` | `onHoldEnd` | Hold |
+| `HOLD_MUSIC` | `onHoldMusic` | Hold |
+| **Multiplier** | | |
+| `MULTIPLIER_INCREASE` | `onMultiplierIncrease` | Multiplier |
+| `MULTIPLIER_APPLY` | `onMultiplierApply` | Multiplier |
+| **Gamble** | | |
+| `GAMBLE_ENTER` | `onGambleEnter` | Gamble |
+| `GAMBLE_WIN` | `onGambleWin` | Gamble |
+| `GAMBLE_LOSE` | `onGambleLose` | Gamble |
+| `GAMBLE_EXIT` | `onGambleExit` | Gamble |
+| **Feature** | | |
+| `FEATURE_ENTER` | `onFeatureEnter` | Feature |
+| `FEATURE_EXIT` | `onFeatureExit` | Feature |
+| **Attract** | | |
+| `ATTRACT_LOOP` | `onAttractLoop` | Attract |
+
+### Fallback Rule
+
+Za stage-ove koji nisu u custom listi, koristi se CamelCase konverzija:
+
+```
+STAGE_NAME → onStageName
+MY_CUSTOM_EVENT → onMyCustomEvent
+```
+
+### Note: 0-indexed vs 1-indexed
+
+- **Stages:** 0-indexed (`REEL_STOP_0` to `REEL_STOP_4`)
+- **Event Names:** 1-indexed (`onReelLand1` to `onReelLand5`)
+
+Ovo je namerno jer dizajneri prirodnije razmišljaju o "Reel 1-5" nego "Reel 0-4".
 
 ---
 

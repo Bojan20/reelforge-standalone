@@ -40,18 +40,88 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   String _searchQuery = '';
   bool _isPoolMode = false; // true = Project Pool (AudioAssetManager), false = File System
 
+  // Inline editing state
+  String? _editingEventId;
+  final TextEditingController _editController = TextEditingController();
+  final FocusNode _editFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
     _initDefaultDirectory();
     // Listen for AudioAssetManager changes (DAW audio imports)
     AudioAssetManager.instance.addListener(_onAssetManagerChanged);
+
+    // Handle focus loss to save edit
+    _editFocusNode.addListener(_onEditFocusChanged);
   }
 
   @override
   void dispose() {
     AudioAssetManager.instance.removeListener(_onAssetManagerChanged);
+    _editController.dispose();
+    _editFocusNode.removeListener(_onEditFocusChanged);
+    _editFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onEditFocusChanged() {
+    // Save when focus is lost
+    if (!_editFocusNode.hasFocus && _editingEventId != null) {
+      _finishEditing();
+    }
+  }
+
+  void _startEditing(SlotCompositeEvent event) {
+    setState(() {
+      _editingEventId = event.id;
+      _editController.text = event.name;
+    });
+    // Focus the text field after build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _editFocusNode.requestFocus();
+      _editController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _editController.text.length,
+      );
+    });
+  }
+
+  void _finishEditing() {
+    if (_editingEventId == null) return;
+
+    final newName = _editController.text.trim();
+    if (newName.isNotEmpty) {
+      // Update event name via provider
+      final middleware = context.read<MiddlewareProvider>();
+      final event = middleware.compositeEvents.firstWhere(
+        (e) => e.id == _editingEventId,
+        orElse: () => SlotCompositeEvent(
+          id: '',
+          name: '',
+          color: Colors.white,
+          triggerStages: [],
+          layers: [],
+          createdAt: DateTime.now(),
+          modifiedAt: DateTime.now(),
+        ),
+      );
+      if (event.id.isNotEmpty && event.name != newName) {
+        middleware.updateCompositeEvent(
+          event.copyWith(name: newName, modifiedAt: DateTime.now()),
+        );
+      }
+    }
+
+    setState(() {
+      _editingEventId = null;
+    });
+  }
+
+  void _cancelEditing() {
+    setState(() {
+      _editingEventId = null;
+    });
   }
 
   void _onAssetManagerChanged() {
@@ -302,6 +372,8 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   });
                 }
               }),
+              // Column headers
+              if (events.isNotEmpty) _buildEventsHeader(),
               // Events list
               Expanded(
                 child: events.isEmpty
@@ -318,83 +390,242 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     );
   }
 
+  /// Column header row for events list
+  Widget _buildEventsHeader() {
+    return Container(
+      height: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.03),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+      ),
+      child: Row(
+        children: [
+          // COL 1: Name
+          Expanded(
+            flex: 3,
+            child: Text(
+              'NAME',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: Colors.white38,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          // COL 2: Stage
+          Expanded(
+            flex: 2,
+            child: Text(
+              'STAGE',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: Colors.white38,
+                letterSpacing: 0.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          // COL 3: Layers
+          SizedBox(
+            width: 50,
+            child: Text(
+              'LAYERS',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: Colors.white38,
+                letterSpacing: 0.5,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 3-Column Event Item: NAME | STAGE | LAYERS
+  /// - Single tap: select event
+  /// - Double tap: edit event name inline
   Widget _buildEventItem(SlotCompositeEvent event) {
     final isSelected = _selectedEventId == event.id.toString();
+    final isEditing = _editingEventId == event.id;
 
-    return InkWell(
+    // Get primary stage for display
+    final primaryStage = event.triggerStages.isNotEmpty
+        ? event.triggerStages.first
+        : '—';
+
+    // Format stage for display (SPIN_START → Spin Start)
+    String formatStage(String stage) {
+      if (stage == '—') return stage;
+      return stage
+          .replaceAll('_', ' ')
+          .split(' ')
+          .map((w) => w.isNotEmpty
+              ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}'
+              : '')
+          .join(' ');
+    }
+
+    return GestureDetector(
       onTap: () {
+        if (isEditing) return; // Don't interfere with editing
         setState(() {
           _selectedEventId = event.id.toString();
           _showBrowser = false; // Switch to event editor
         });
       },
+      onDoubleTap: () {
+        // Enter edit mode on double-tap
+        _startEditing(event);
+      },
       child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        height: 28,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: isSelected ? FluxForgeTheme.accentBlue.withOpacity(0.2) : null,
           border: Border(
             bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
             left: BorderSide(
-              color: isSelected ? FluxForgeTheme.accentBlue : Colors.transparent,
+              color: isEditing
+                  ? FluxForgeTheme.accentOrange
+                  : (isSelected ? FluxForgeTheme.accentBlue : Colors.transparent),
               width: 2,
             ),
           ),
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.audiotrack,
-              size: 14,
-              color: isSelected ? FluxForgeTheme.accentBlue : Colors.white38,
-            ),
-            const SizedBox(width: 6),
+            // COL 1: Name (flex: 3) - Editable
             Expanded(
-              child: Text(
-                event.name,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isSelected ? Colors.white : Colors.white70,
-                ),
-                overflow: TextOverflow.ellipsis,
+              flex: 3,
+              child: Row(
+                children: [
+                  Icon(
+                    isEditing ? Icons.edit : Icons.audiotrack,
+                    size: 12,
+                    color: isEditing
+                        ? FluxForgeTheme.accentOrange
+                        : (isSelected ? FluxForgeTheme.accentBlue : Colors.white38),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: isEditing
+                        ? TextField(
+                            controller: _editController,
+                            focusNode: _editFocusNode,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 2),
+                              border: InputBorder.none,
+                            ),
+                            onSubmitted: (_) => _finishEditing(),
+                            onEditingComplete: _finishEditing,
+                          )
+                        : Text(
+                            event.name,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                              color: isSelected ? Colors.white : Colors.white70,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                  ),
+                ],
               ),
             ),
-            // Layer count badge
-            if (event.layers.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+
+            // COL 2: Stage (flex: 2)
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: FluxForgeTheme.accentGreen.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
-                  '${event.layers.length}',
-                  style: const TextStyle(fontSize: 9, color: Colors.white54),
+                  formatStage(primaryStage),
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontFamily: 'monospace',
+                    color: FluxForgeTheme.accentGreen.withOpacity(0.9),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                 ),
               ),
-            // Stage badges
-            if (event.triggerStages.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: FluxForgeTheme.accentGreen.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '${event.triggerStages.length} stages',
-                    style: TextStyle(
-                      fontSize: 8,
-                      color: FluxForgeTheme.accentGreen,
+            ),
+
+            // COL 3: Layers (fixed width)
+            SizedBox(
+              width: 50,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Mini layer visualization
+                  ...List.generate(
+                    event.layers.length.clamp(0, 4),
+                    (i) => Container(
+                      width: 6,
+                      height: 12,
+                      margin: const EdgeInsets.only(left: 2),
+                      decoration: BoxDecoration(
+                        color: _getLayerColor(i),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
+                  if (event.layers.length > 4)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 2),
+                      child: Text(
+                        '+${event.layers.length - 4}',
+                        style: TextStyle(
+                          fontSize: 8,
+                          color: Colors.white54,
+                        ),
+                      ),
+                    ),
+                  if (event.layers.isEmpty)
+                    Text(
+                      '—',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.white38,
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  /// Get color for layer visualization
+  Color _getLayerColor(int index) {
+    const colors = [
+      FluxForgeTheme.accentBlue,
+      FluxForgeTheme.accentCyan,
+      FluxForgeTheme.accentOrange,
+      FluxForgeTheme.accentGreen,
+    ];
+    return colors[index % colors.length].withOpacity(0.7);
   }
 
   Widget _buildDivider() {

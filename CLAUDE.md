@@ -1219,6 +1219,36 @@ Widget _buildCompactPanel() {
 
 **No More Placeholders** — All panels connected to real data sources.
 
+### Interactive Layer Parameter Editing (2026-01-24) ✅
+
+Composite Editor now has interactive slider controls for layer parameters.
+
+**Implementation:** `_buildInteractiveLayerItem()` in `slotlab_lower_zone_widget.dart`
+
+| Parameter | UI Control | Range | Provider Method |
+|-----------|------------|-------|-----------------|
+| Volume | Slider | 0-100% | `updateEventLayer(eventId, layer.copyWith(volume: v))` |
+| Pan | Slider | L100-C-R100 | `updateEventLayer(eventId, layer.copyWith(pan: v))` |
+| Delay | Slider | 0-2000ms | `updateEventLayer(eventId, layer.copyWith(offsetMs: v))` |
+| Mute | Toggle | On/Off | `updateEventLayer(eventId, layer.copyWith(volume: 0))` |
+| Preview | Button | - | `AudioPlaybackService.previewFile()` |
+| Delete | Button | - | `removeLayerFromEvent(eventId, layerId)` |
+
+**Helper:**
+```dart
+Widget _buildParameterSlider({
+  required String label,
+  required double value,
+  required ValueChanged<double> onChanged,
+});
+```
+
+**Features:**
+- Real-time parameter updates via MiddlewareProvider
+- Compact slider UI optimized for Lower Zone height
+- Audio preview button for quick auditioning
+- All changes persist to SSoT (MiddlewareProvider.compositeEvents)
+
 ### Lower Zone Action Strip Integration (2026-01-23) ✅
 
 All three Lower Zone widgets now have fully connected action buttons in their Action Strips.
@@ -2204,6 +2234,7 @@ StageConfigurationService.instance.init();
 
 // Stage queries
 bool isPooled(String stage);           // Rapid-fire pooling
+bool isLooping(String stage);          // Should audio loop (NEW 2026-01-24)
 int getPriority(String stage);          // 0-100 priority
 SpatialBus getBus(String stage);        // Audio bus routing
 String getSpatialIntent(String stage);  // AutoSpatial intent
@@ -2214,6 +2245,23 @@ void registerStage(StageDefinition def);
 void registerStages(List<StageDefinition> defs);
 List<StageDefinition> getStagesByCategory(StageCategory cat);
 ```
+
+**isLooping() Detection Logic (2026-01-24):**
+```dart
+bool isLooping(String stage) {
+  // 1. Check StageDefinition.isLooping first
+  // 2. Fallback to pattern matching:
+  //    - Ends with '_LOOP' suffix
+  //    - Starts with 'MUSIC_', 'AMBIENT_', 'ATTRACT_', 'IDLE_'
+  //    - In _loopingStages constant set
+}
+```
+
+**Default Looping Stages:**
+- REEL_SPIN_LOOP, MUSIC_BASE, MUSIC_TENSION, MUSIC_FEATURE
+- FS_MUSIC, HOLD_MUSIC, BONUS_MUSIC
+- AMBIENT_LOOP, ATTRACT_MODE, IDLE_LOOP
+- ANTICIPATION_LOOP, FEATURE_MUSIC
 
 **StageDefinition Model:**
 ```dart
@@ -2251,6 +2299,76 @@ class StageDefinition {
 - `_stageToIntent()` → `StageConfigurationService.instance.getSpatialIntent()`
 
 **Initialization:** `main.dart` — `StageConfigurationService.instance.init();`
+
+---
+
+### AudioContextService — Auto-Action System ✅ 2026-01-24
+
+Context-aware auto-action system that automatically determines Play/Stop actions based on audio file name and stage type.
+
+**Service:** `flutter_ui/lib/services/audio_context_service.dart` (~310 LOC)
+
+**Core Enums:**
+```dart
+enum AudioContext { baseGame, freeSpins, bonus, holdWin, jackpot, unknown }
+enum AudioType { music, sfx, voice, ambience, unknown }
+enum StageType { entry, exit, step, other }
+```
+
+**API:**
+```dart
+AudioContextService.instance.determineAutoAction(
+  audioPath: 'fs_music_theme.wav',
+  stage: 'FS_TRIGGER',
+);
+// Returns: AutoActionResult(actionType: ActionType.play, reason: '...')
+
+// Detection methods
+AudioContext detectContextFromAudio(String audioPath);  // fs_*, base_*, bonus_*
+AudioType detectAudioType(String audioPath);            // music_*, sfx_*, vo_*
+AudioContext detectContextFromStage(String stage);      // FS_*, BONUS_*, HOLD_*
+StageType detectStageType(String stage);                // _TRIGGER, _EXIT, _STEP
+```
+
+**Auto-Action Logic:**
+| Audio Type | Stage Type | Context Match | Result |
+|------------|------------|---------------|--------|
+| SFX / Voice | Any | - | **PLAY** |
+| Music / Ambience | Entry (_TRIGGER, _ENTER) | Same | **PLAY** |
+| Music / Ambience | Entry | Different | **STOP** (stop old music) |
+| Music / Ambience | Exit (_EXIT, _END) | - | **STOP** |
+| Music / Ambience | Step (_STEP, _TICK) | - | **PLAY** |
+
+**Context Detection Patterns:**
+
+| Prefix | Detected Context |
+|--------|------------------|
+| `fs_`, `freespin`, `free_spin` | FREE_SPINS |
+| `bonus`, `_bonus` | BONUS |
+| `hold`, `respin`, `holdwin` | HOLD_WIN |
+| `jackpot`, `grand`, `major` | JACKPOT |
+| `base_`, `main_` | BASE_GAME |
+
+**EventDraft Integration:**
+```dart
+class EventDraft {
+  ActionType actionType;    // Auto-determined
+  String? stopTarget;       // Bus to stop (for Stop actions)
+  String actionReason;      // Human-readable explanation
+}
+```
+
+**QuickSheet UI:**
+- Green badge + ▶ icon for **PLAY** actions
+- Red badge + ⬛ icon for **STOP** actions
+- Info tooltip shows `actionReason` explanation
+- Displays `stopTarget` when applicable
+
+**Example Scenarios:**
+1. Drop `base_music.wav` on `FS_TRIGGER` → **STOP** (stop base music when FS starts)
+2. Drop `fs_music.wav` on `FS_TRIGGER` → **PLAY** (play FS music when FS starts)
+3. Drop `spin_sfx.wav` on anything → **PLAY** (SFX always plays)
+4. Drop `base_music.wav` on `FS_EXIT` → **STOP** (stop music when leaving)
 
 ---
 
@@ -2694,6 +2812,224 @@ REEL_STOP   → Fallback za sve (ako nema specifičnog)
 **State Persistence:**
 - Audio pool, composite events, tracks, event→region mapping
 - Čuva se u Provider, preživljava switch između sekcija
+
+**Audio Cutoff Prevention (2026-01-24) ✅:**
+
+Problem: `_onMiddlewareChanged()` re-registrovao sve evente, što je prekidalo audio koji je trenutno svirao.
+
+Rešenje: `_eventsAreEquivalent()` funkcija u EventRegistry:
+```dart
+bool _eventsAreEquivalent(AudioEvent a, AudioEvent b) {
+  // Poredi basic fields + sve layere
+  // Ako su identični → preskoči re-registraciju
+  // Ako su različiti → stopEventSync() pa registruj
+}
+```
+
+**Auto-Acquire SlotLab Section (2026-01-24) ✅:**
+
+Problem: Bez aktivne sekcije, audio ne bi svirao jer `UnifiedPlaybackController.activeSection` je bio null.
+
+Rešenje: EventRegistry sada automatski acquireuje SlotLab sekciju ako nijedna nije aktivna:
+```dart
+if (activeSection == null) {
+  UnifiedPlaybackController.instance.acquireSection(PlaybackSection.slotLab);
+  UnifiedPlaybackController.instance.ensureStreamRunning();
+}
+```
+
+**Fallback Stage Resolution (2026-01-24) ✅:**
+
+Problem: Jedan generički zvuk (REEL_STOP) ne svira kada se trigeruju specifični stage-ovi (REEL_STOP_0, REEL_STOP_1...).
+
+Rešenje: `_getFallbackStage()` mapira specifične stage-ove na generičke:
+```dart
+// REEL_STOP_0 → REEL_STOP (ako REEL_STOP_0 nije registrovan)
+// CASCADE_STEP_3 → CASCADE_STEP
+// SYMBOL_LAND_5 → SYMBOL_LAND
+```
+
+**Podržani fallback pattern-i:**
+| Specific | Generic |
+|----------|---------|
+| `REEL_STOP_0..4` | `REEL_STOP` |
+| `CASCADE_STEP_N` | `CASCADE_STEP` |
+| `WIN_LINE_SHOW_N` | `WIN_LINE_SHOW` |
+| `SYMBOL_LAND_N` | `SYMBOL_LAND` |
+| `ROLLUP_TICK_N` | `ROLLUP_TICK` |
+
+**Dokumentacija:** `.claude/architecture/EVENT_SYNC_SYSTEM.md`
+
+### StageGroupService & generateEventName() (2026-01-24) ✅
+
+Konverzija stage imena u human-readable event imena + batch import matching.
+
+**Lokacija:** `flutter_ui/lib/services/stage_group_service.dart`
+
+**Intent-Based Matching v2.0:**
+
+Umesto simple keyword matching-a, koristi se INTENT pattern recognition:
+
+| Intent | Indicators | Excludes | Example Match |
+|--------|------------|----------|---------------|
+| **SPIN_START** | spin + (button/click/press/ui/start) | loop, roll, spinning | `spin_button.wav` |
+| **REEL_SPIN** | spin + (loop/roll/reel/spinning) | button, press, click, stop | `reel_spin_loop.wav` |
+| **REEL_STOP** | stop/land + reel context | spinning, loop | `reel_stop.wav` |
+
+**Smart Exclusion Logic:**
+- If 3+ keyword matches → excludes are overridden (strong intent)
+- If 1-2 matches and 2+ excludes → excluded
+- If more excludes than matches → excluded
+
+**generateEventName() Mapping:**
+| Stage | Event Name |
+|-------|------------|
+| `SPIN_START` | `onUiSpin` |
+| `REEL_STOP_0` | `onReelLand1` |
+| `REEL_STOP_1` | `onReelLand2` |
+| `REEL_STOP_2` | `onReelLand3` |
+| `REEL_STOP_3` | `onReelLand4` |
+| `REEL_STOP_4` | `onReelLand5` |
+| `WIN_BIG` | `onWinBig` |
+| `CASCADE_STEP` | `onCascadeStep` |
+| `FREESPIN_START` | `onFreeSpinStart` |
+
+**Note:** REEL_STOP je 0-indexed u stage-ovima, ali 1-indexed u event imenima (intuitivnije za dizajnere).
+
+**Batch Import Matching (2026-01-24):**
+
+Podržava OBA formata imenovanja fajlova:
+- **0-indexed:** `stop_0.wav`, `stop_1.wav`, ... → REEL_STOP_0, REEL_STOP_1, ...
+- **1-indexed:** `stop_1.wav`, `stop_2.wav`, ... → REEL_STOP_0, REEL_STOP_1, ...
+
+| File Name | Matches Stage | Notes |
+|-----------|---------------|-------|
+| `reel_stop_0.wav` | REEL_STOP_0 | 0-indexed |
+| `stop_1.wav` | REEL_STOP_0 | 1-indexed first reel |
+| `land_2.wav` | REEL_STOP_1 | 1-indexed second reel |
+| `reel_land_5.wav` | REEL_STOP_4 | 1-indexed fifth reel |
+| `spin_stop.wav` | REEL_STOP | Generic (no specific reel) |
+
+**Batch Import Test:**
+```dart
+final result = StageGroupService.instance.matchFilesToGroup(
+  group: StageGroup.spinsAndReels,
+  audioPaths: ['/audio/stop_1.wav', '/audio/stop_2.wav', '/audio/stop_3.wav'],
+);
+// stop_1.wav → REEL_STOP_0 (onReelLand1)
+// stop_2.wav → REEL_STOP_1 (onReelLand2)
+// stop_3.wav → REEL_STOP_2 (onReelLand3)
+```
+
+**Debug Utility:**
+```dart
+// Dijagnoza zašto audio fajl ne matčuje stage
+StageGroupService.instance.debugTestMatch('reel_stop_1.wav');
+// Output: MATCHED: REEL_STOP_1 (85%), Event name: onReelLand2
+
+// Run all matching tests:
+StageGroupService.instance.runMatchingTests();
+// Output: 24 passed, 0 failed
+```
+
+**Batch Import Auto-Expand (2026-01-24):**
+
+Kada se importuje JEDAN generički audio fajl (npr. `reel_stop.wav`), sistem automatski kreira 5 per-reel eventa sa stereo panning-om.
+
+**Implementacija:** `slot_lab_screen.dart:_expandGenericStage()`
+
+```
+DROP: reel_stop.wav (matches REEL_STOP)
+         ↓
+AUTO-EXPAND to 5 events:
+  ├── REEL_STOP_0 → onReelLand1 (pan: -0.8)
+  ├── REEL_STOP_1 → onReelLand2 (pan: -0.4)
+  ├── REEL_STOP_2 → onReelLand3 (pan: 0.0)
+  ├── REEL_STOP_3 → onReelLand4 (pan: +0.4)
+  └── REEL_STOP_4 → onReelLand5 (pan: +0.8)
+```
+
+**Expandable Stages:**
+
+| Stage Pattern | Expands To | Pan | Notes |
+|---------------|------------|-----|-------|
+| `REEL_STOP` | `REEL_STOP_0..4` | ✅ | Stereo spread L→R |
+| `REEL_LAND` | `REEL_LAND_0..4` | ✅ | Alias for REEL_STOP |
+| `WIN_LINE_SHOW` | `WIN_LINE_SHOW_0..4` | ✅ | Per-reel win highlights |
+| `WIN_LINE_HIDE` | `WIN_LINE_HIDE_0..4` | ✅ | Per-reel win hide |
+| `CASCADE_STEP` | `CASCADE_STEP_0..4` | ❌ | Center (no pan) |
+| `SYMBOL_LAND` | `SYMBOL_LAND_0..4` | ❌ | Center (no pan) |
+
+**Stage Fallback (2026-01-24):**
+
+Ako korisnik ima samo JEDAN generički event (`REEL_STOP`), a sistem trigeruje specifični stage (`REEL_STOP_0`), automatski koristi fallback:
+
+```
+triggerStage('REEL_STOP_0')
+    ↓
+Look for REEL_STOP_0 → NOT FOUND
+    ↓
+Fallback: REEL_STOP → FOUND!
+    ↓
+Play REEL_STOP event
+```
+
+**Fallbackable Patterns:** `REEL_STOP`, `CASCADE_STEP`, `WIN_LINE_SHOW/HIDE`, `SYMBOL_LAND`, `ROLLUP_TICK`, `WHEEL_TICK`
+
+**Dokumentacija:** `.claude/architecture/EVENT_SYNC_SYSTEM.md`, `.claude/domains/slot-audio-events-master.md`
+
+### Event Naming Service (2026-01-24) ✅
+
+Singleton servis za generisanje semantičkih imena eventa iz targetId i stage.
+
+**Lokacija:** `flutter_ui/lib/services/event_naming_service.dart` (~650 LOC)
+
+**API:**
+```dart
+EventNamingService.instance.generateEventName(targetId, stage);
+// 'ui.spin', 'SPIN_START' → 'onUiPaSpinButton'
+// 'reel.0', 'REEL_STOP_0' → 'onReelStop0'
+// null, 'FS_TRIGGER' → 'onFsTrigger'
+```
+
+**Naming Patterns:**
+
+| Stage Category | Pattern | Example |
+|----------------|---------|---------|
+| UI Elements | `onUiPa{Element}` | `onUiPaSpinButton` |
+| Reel Events | `onReel{Action}{Index}` | `onReelStop0` |
+| Free Spins | `onFs{Phase}` | `onFsTrigger`, `onFsEnter` |
+| Bonus | `onBonus{Phase}` | `onBonusTrigger`, `onBonusEnter` |
+| Win Events | `onWin{Tier}` | `onWinSmall`, `onWinBig` |
+| Jackpot | `onJackpot{Tier}` | `onJackpotMini`, `onJackpotGrand` |
+| Cascade | `onCascade{Phase}` | `onCascadeStart`, `onCascadeStep` |
+| Hold & Win | `onHold{Phase}` | `onHoldTrigger`, `onHoldSpin` |
+| Gamble | `onGamble{Phase}` | `onGambleStart`, `onGambleWin` |
+| Tumble | `onTumble{Phase}` | `onTumbleDrop`, `onTumbleLand` |
+| Menu | `onMenu{Action}` | `onMenuOpen`, `onMenuClose` |
+| Autoplay | `onAutoplay{Action}` | `onAutoplayStart`, `onAutoplayStop` |
+
+**Stage Coverage:** 100+ stage pattern-a pokriveno iz StageConfigurationService
+
+**Integration:**
+- `AutoEventBuilderProvider.createDraft()` koristi ovaj servis za generisanje eventId
+- QuickSheet automatski prikazuje semantičko ime
+- Events Panel prikazuje 3-kolonski format: NAME | STAGE | LAYERS
+
+**Event Name Editing (2026-01-24):**
+
+| Lokacija | Trigger | Behavior |
+|----------|---------|----------|
+| QuickSheet | Direktno | TextField, edit pre commit-a |
+| Events Panel | Double-tap | Inline edit mode, orange border |
+
+**QuickSheet:** Ime je editable TextField umesto readonly text. Korisnik može promeniti pre commit-a.
+
+**Events Panel:** Double-tap na event ulazi u inline edit mode:
+- Orange border indikator
+- Edit ikona zamenjuje audiotrack
+- Enter ili focus loss → auto-save
+- Koristi `MiddlewareProvider.updateCompositeEvent()`
 
 ### Bidirectional Event Sync (2026-01-21) ✅
 

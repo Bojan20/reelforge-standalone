@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../models/auto_event_builder_models.dart';
+import '../../../models/middleware_models.dart' show ActionType;
 import '../../../providers/auto_event_builder_provider.dart';
 import '../../../controllers/slot_lab/lower_zone_controller.dart';
 import '../../../theme/fluxforge_theme.dart';
@@ -114,6 +115,8 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
   late String _selectedTrigger;
   late String _selectedPreset;
   final FocusNode _focusNode = FocusNode();
+  late TextEditingController _eventNameController;
+  final FocusNode _eventNameFocusNode = FocusNode();
 
   // Fallback values for empty lists
   static const _fallbackTriggers = ['press', 'release', 'hover'];
@@ -122,6 +125,10 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
   @override
   void initState() {
     super.initState();
+
+    // Initialize event name controller with generated name
+    _eventNameController = TextEditingController(text: widget.draft.eventId);
+
     // Safe initialization with fallbacks for empty lists
     final triggers = _getAvailableTriggers();
     _selectedTrigger = triggers.contains(widget.draft.trigger)
@@ -148,6 +155,8 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
   @override
   void dispose() {
     _focusNode.dispose();
+    _eventNameController.dispose();
+    _eventNameFocusNode.dispose();
     super.dispose();
   }
 
@@ -204,6 +213,11 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
 
             // Bus (readonly)
             _buildBusField(),
+
+            const SizedBox(height: 8),
+
+            // Action Type (auto-determined, readonly with badge)
+            _buildActionField(),
 
             const SizedBox(height: 8),
 
@@ -273,7 +287,7 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
 
   Widget _buildEventIdPreview() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(4),
@@ -282,20 +296,38 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
       child: Row(
         children: [
           Icon(
-            Icons.tag,
+            Icons.edit,
             size: 12,
             color: FluxForgeTheme.textMuted,
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(
-              widget.draft.eventId,
+            child: TextField(
+              controller: _eventNameController,
+              focusNode: _eventNameFocusNode,
               style: TextStyle(
                 color: FluxForgeTheme.accentCyan,
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
-              overflow: TextOverflow.ellipsis,
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 4),
+                border: InputBorder.none,
+                hintText: 'Event name...',
+                hintStyle: TextStyle(
+                  color: FluxForgeTheme.textMuted,
+                  fontSize: 11,
+                ),
+              ),
+              onChanged: (value) {
+                // Update the draft's eventId when user edits
+                widget.draft.eventId = value;
+              },
+              onSubmitted: (_) {
+                // Move focus back to main for keyboard shortcuts
+                _focusNode.requestFocus();
+              },
             ),
           ),
         ],
@@ -357,6 +389,65 @@ class _QuickSheetContentState extends State<_QuickSheetContent> {
               style: TextStyle(
                 color: FluxForgeTheme.textSecondary,
                 fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Action Type field — auto-determined by AudioContextService
+  Widget _buildActionField() {
+    final actionType = widget.draft.actionType;
+    final isStop = actionType == ActionType.stop || actionType == ActionType.stopAll;
+    final actionColor = isStop ? FluxForgeTheme.accentRed : FluxForgeTheme.accentGreen;
+
+    return _FieldRow(
+      label: 'Action',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: actionColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: actionColor.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isStop ? Icons.stop : Icons.play_arrow,
+              size: 14,
+              color: actionColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              actionType.name.toUpperCase(),
+              style: TextStyle(
+                color: actionColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (widget.draft.stopTarget != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                '→ ${widget.draft.stopTarget}',
+                style: TextStyle(
+                  color: FluxForgeTheme.textMuted,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+            const Spacer(),
+            // Reason tooltip
+            Tooltip(
+              message: widget.draft.actionReason,
+              child: Icon(
+                Icons.info_outline,
+                size: 12,
+                color: FluxForgeTheme.textMuted,
               ),
             ),
           ],

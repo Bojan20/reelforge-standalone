@@ -466,7 +466,7 @@ extension SlotLabSuperTabX on SlotLabSuperTab {
 // --- SlotLab Sub-tabs ---
 
 enum SlotLabStagesSubTab { trace, timeline, symbols, timing }
-enum SlotLabEventsSubTab { folder, editor, layers, pool }
+enum SlotLabEventsSubTab { folder, editor, layers, pool, auto }
 enum SlotLabMixSubTab { buses, sends, pan, meter }
 enum SlotLabDspSubTab { chain, eq, comp, reverb }
 enum SlotLabBakeSubTab { export, stems, variations, package }
@@ -477,8 +477,8 @@ extension SlotLabStagesSubTabX on SlotLabStagesSubTab {
 }
 
 extension SlotLabEventsSubTabX on SlotLabEventsSubTab {
-  String get label => ['Folder', 'Editor', 'Layers', 'Pool'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  String get label => ['Folder', 'Editor', 'Layers', 'Pool', 'Auto'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
 }
 
 extension SlotLabMixSubTabX on SlotLabMixSubTab {
@@ -531,7 +531,7 @@ class SlotLabLowerZoneState {
       case SlotLabSuperTab.stages:
         stagesSubTab = SlotLabStagesSubTab.values[index.clamp(0, 3)];
       case SlotLabSuperTab.events:
-        eventsSubTab = SlotLabEventsSubTab.values[index.clamp(0, 3)];
+        eventsSubTab = SlotLabEventsSubTab.values[index.clamp(0, 4)];
       case SlotLabSuperTab.mix:
         mixSubTab = SlotLabMixSubTab.values[index.clamp(0, 3)];
       case SlotLabSuperTab.dsp:

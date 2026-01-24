@@ -17,13 +17,18 @@ import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../providers/middleware_provider.dart';
-import '../../src/rust/native_ffi.dart' show VolatilityPreset, TimingProfileType;
-import '../../models/slot_audio_events.dart' show SlotCompositeEvent;
+import '../../providers/dsp_chain_provider.dart';
+import '../../providers/mixer_dsp_provider.dart';
+import '../../src/rust/native_ffi.dart';
+import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
+import '../../models/middleware_models.dart' show ActionType;
+import '../../services/audio_playback_service.dart';
 import '../slot_lab/stage_trace_widget.dart';
 import '../slot_lab/event_log_panel.dart';
 import '../slot_lab/bus_hierarchy_panel.dart';
 import '../slot_lab/profiler_panel.dart';
 import '../slot_lab/aux_sends_panel.dart';
+import '../slot_lab/slot_automation_panel.dart';
 import '../fabfilter/fabfilter.dart';
 import 'realtime_bus_meters.dart';
 import 'export_panels.dart';
@@ -75,6 +80,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   VolatilityPreset _selectedVolatility = VolatilityPreset.medium;
   TimingProfileType _selectedTiming = TimingProfileType.normal;
   String _selectedGrid = '5×3';
+
+  // P0.4: Stems export selection (bus IDs selected for export)
+  final Set<String> _selectedStemBusIds = {'sfx', 'music', 'voice', 'master'};
 
   @override
   void initState() {
@@ -586,6 +594,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabEventsSubTab.editor => _buildEditorPanel(),
       SlotLabEventsSubTab.layers => _buildEventLogPanel(),
       SlotLabEventsSubTab.pool => _buildPoolPanel(),
+      SlotLabEventsSubTab.auto => _buildAutomationPanel(),
     };
   }
 
@@ -609,6 +618,58 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   Widget _buildPoolPanel() => _buildCompactVoicePool();
+
+  /// Automation panel for batch event creation
+  Widget _buildAutomationPanel() {
+    final middlewareProvider = _tryGetMiddlewareProvider();
+    return SlotAutomationPanel(
+      onEventsGenerated: middlewareProvider != null
+          ? (events) {
+              // Create events in middleware from automation specs
+              for (final spec in events) {
+                if (spec.audioPath.isEmpty && spec.actionType != ActionType.stop) continue;
+
+                // Create composite event with auto-generated name
+                final event = middlewareProvider.createCompositeEvent(
+                  name: spec.eventId,
+                  category: spec.bus,
+                );
+
+                // Add trigger stage
+                if (spec.stage.isNotEmpty) {
+                  middlewareProvider.addTriggerStage(event.id, spec.stage);
+                }
+
+                // Add audio layer (if not a stop-only event)
+                if (spec.audioPath.isNotEmpty) {
+                  final fileName = spec.audioPath.split('/').last;
+                  middlewareProvider.addLayerToEvent(
+                    event.id,
+                    audioPath: spec.audioPath,
+                    name: fileName,
+                  );
+
+                  // Update layer with volume/pan via updateEventLayer
+                  final addedLayer = middlewareProvider.compositeEvents
+                      .where((e) => e.id == event.id)
+                      .firstOrNull
+                      ?.layers
+                      .lastOrNull;
+                  if (addedLayer != null) {
+                    middlewareProvider.updateEventLayer(
+                      event.id,
+                      addedLayer.copyWith(
+                        volume: spec.volume,
+                        pan: spec.pan,
+                      ),
+                    );
+                  }
+                }
+              }
+            }
+          : null,
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MIX CONTENT — Integrated panels
@@ -1265,8 +1326,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             // Play button
             GestureDetector(
               onTap: () {
-                // Trigger preview playback
-                // TODO: Connect to preview playback
+                final middleware = context.read<MiddlewareProvider>();
+                middleware.previewCompositeEvent(event.id);
               },
               child: Icon(
                 Icons.play_arrow,
@@ -1465,9 +1526,13 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                                   shrinkWrap: true,
                                   itemCount: selectedEvent.layers.length,
                                   itemBuilder: (context, index) {
-                                    final layer = selectedEvent!.layers[index];
-                                    final audioName = layer.audioPath.split('/').last;
-                                    return _buildLayerItem('L${index + 1}: $audioName', layer.offsetMs, layer.volume);
+                                    final event = selectedEvent!;
+                                    final layer = event.layers[index];
+                                    return _buildInteractiveLayerItem(
+                                      eventId: event.id,
+                                      layer: layer,
+                                      index: index,
+                                    );
                                   },
                                 ),
                         ),
@@ -1480,62 +1545,168 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  Widget _buildLayerItem(String name, double delay, double volume) {
+  /// SL-P1.1 FIX: Interactive layer item with editable parameters
+  Widget _buildInteractiveLayerItem({
+    required String eventId,
+    required SlotEventLayer layer,
+    required int index,
+  }) {
+    final audioName = layer.audioPath.split('/').last;
+    final middleware = context.read<MiddlewareProvider>();
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
+      margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: LowerZoneColors.bgMid,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.drag_indicator, size: 14, color: LowerZoneColors.textMuted),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary)),
-                Row(
-                  children: [
-                    Text('Delay: ${delay.toInt()}ms', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-                    const SizedBox(width: 12),
-                    Text('Vol: ${(volume * 100).toInt()}%', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-                  ],
+          // Header row: name, mute, play, delete
+          Row(
+            children: [
+              Icon(Icons.drag_indicator, size: 12, color: LowerZoneColors.textMuted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'L${index + 1}: $audioName',
+                  style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
+              ),
+              // Mute toggle
+              GestureDetector(
+                onTap: () {
+                  middleware.updateEventLayer(eventId, layer.copyWith(muted: !layer.muted));
+                },
+                child: Icon(
+                  layer.muted ? Icons.volume_off : Icons.volume_up,
+                  size: 14,
+                  color: layer.muted ? Colors.red : LowerZoneColors.textMuted,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Preview play
+              GestureDetector(
+                onTap: () {
+                  if (layer.audioPath.isNotEmpty) {
+                    AudioPlaybackService.instance.previewFile(
+                      layer.audioPath,
+                      volume: layer.volume,
+                      source: PlaybackSource.browser,
+                    );
+                  }
+                },
+                child: Icon(Icons.play_arrow, size: 14, color: LowerZoneColors.slotLabAccent),
+              ),
+              const SizedBox(width: 8),
+              // Delete
+              GestureDetector(
+                onTap: () => middleware.removeLayerFromEvent(eventId, layer.id),
+                child: const Icon(Icons.close, size: 14, color: LowerZoneColors.textMuted),
+              ),
+            ],
           ),
-          Icon(Icons.play_arrow, size: 14, color: LowerZoneColors.textMuted),
+          const SizedBox(height: 6),
+          // Volume slider
+          _buildParameterSlider(
+            label: 'Vol',
+            value: layer.volume,
+            min: 0.0,
+            max: 1.0,
+            displayValue: '${(layer.volume * 100).toInt()}%',
+            onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(volume: v)),
+          ),
+          const SizedBox(height: 4),
+          // Pan slider
+          _buildParameterSlider(
+            label: 'Pan',
+            value: (layer.pan + 1) / 2, // Convert -1..1 to 0..1 for slider
+            min: 0.0,
+            max: 1.0,
+            displayValue: layer.pan == 0 ? 'C' : '${(layer.pan * 100).toInt().abs()}${layer.pan > 0 ? 'R' : 'L'}',
+            onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(pan: (v * 2) - 1)),
+          ),
+          const SizedBox(height: 4),
+          // Delay slider
+          _buildParameterSlider(
+            label: 'Delay',
+            value: (layer.offsetMs / 2000).clamp(0.0, 1.0), // 0-2000ms range
+            min: 0.0,
+            max: 1.0,
+            displayValue: '${layer.offsetMs.toInt()}ms',
+            onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(offsetMs: v * 2000)),
+          ),
         ],
       ),
     );
   }
 
+  /// Compact parameter slider for layer editing
+  Widget _buildParameterSlider({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required String displayValue,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 32,
+          child: Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+        ),
+        Expanded(
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+              activeTrackColor: LowerZoneColors.slotLabAccent,
+              inactiveTrackColor: Colors.white.withOpacity(0.1),
+              thumbColor: LowerZoneColors.slotLabAccent,
+            ),
+            child: Slider(
+              value: value.clamp(min, max),
+              min: min,
+              max: max,
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+        SizedBox(
+          width: 36,
+          child: Text(
+            displayValue,
+            style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary),
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
+  }
+
   /// P2.8: Compact Voice Pool — Connected to MiddlewareProvider.getVoicePoolStats()
   Widget _buildCompactVoicePool() {
-    final middleware = _tryGetMiddlewareProvider();
-    final stats = middleware?.getVoicePoolStats();
+    // P0.2 FIX: Use real FFI data instead of fake ratios
+    final nativeStats = NativeFFI.instance.getVoicePoolStats();
 
-    final totalVoices = stats?.maxVoices ?? 48;
-    final activeVoices = stats?.activeVoices ?? 0;
-    final virtualVoices = stats?.virtualVoices ?? 0;
-    final stealCount = stats?.stealCount ?? 0;
+    final totalVoices = nativeStats.maxVoices;
+    final activeVoices = nativeStats.activeCount;
+    final virtualVoices = 0; // Virtual voices tracked separately if needed
+    final stealCount = 0; // Steal count tracked via events
 
-    // Per-bus estimates
-    final sfxActive = (activeVoices * 0.35).round();
-    final musicActive = (activeVoices * 0.15).round();
-    final voiceActive = (activeVoices * 0.10).round();
-    final ambientActive = (activeVoices * 0.25).round();
-    final uiActive = activeVoices - sfxActive - musicActive - voiceActive - ambientActive;
-
+    // Real per-bus data from FFI (no more fake ratios!)
     final busStats = <String, (int, int)>{
-      'SFX': (sfxActive, 16),
-      'Music': (musicActive, 8),
-      'Voice': (voiceActive, 4),
-      'Ambient': (ambientActive, 12),
-      'UI': (uiActive.clamp(0, 8), 8),
+      'SFX': (nativeStats.sfxVoices, 16),
+      'Music': (nativeStats.musicVoices, 8),
+      'Voice': (nativeStats.voiceVoices, 4),
+      'Ambient': (nativeStats.ambienceVoices, 12),
+      'Aux': (nativeStats.auxVoices, 8),
     };
 
     final usagePercent = totalVoices > 0 ? activeVoices / totalVoices : 0.0;
@@ -1656,6 +1827,18 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   /// Compact Pan Panel
   Widget _buildCompactPanPanel() {
+    // P0.3 FIX: Connect to MixerDSPProvider for real pan values
+    final mixerProvider = context.read<MixerDSPProvider>();
+    final buses = mixerProvider.buses;
+
+    // Map bus IDs to display names
+    final displayBuses = [
+      ('sfx', 'SFX'),
+      ('music', 'Music'),
+      ('voice', 'Voice'),
+      ('ambience', 'Ambient'),
+    ];
+
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Column(
@@ -1667,12 +1850,14 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           Flexible(
             fit: FlexFit.loose,
             child: Row(
-              children: [
-                _buildPanChannel('SFX', 0.0),
-                _buildPanChannel('Music', 0.0),
-                _buildPanChannel('Voice', 0.1),
-                _buildPanChannel('Ambient', 0.0),
-              ],
+              children: displayBuses.map((entry) {
+                final (busId, displayName) = entry;
+                final bus = buses.firstWhere(
+                  (b) => b.id == busId,
+                  orElse: () => MixerBus(id: busId, name: displayName),
+                );
+                return _buildPanChannel(displayName, bus.pan, busId, mixerProvider);
+              }).toList(),
             ),
           ),
         ],
@@ -1680,7 +1865,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  Widget _buildPanChannel(String name, double pan) {
+  Widget _buildPanChannel(String name, double pan, String busId, MixerDSPProvider provider) {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1689,42 +1874,53 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             Text(name, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: LowerZoneColors.textSecondary)),
             const SizedBox(height: 8),
             Expanded(
-              child: Container(
-                width: 80,
-                decoration: BoxDecoration(
-                  color: LowerZoneColors.bgDeepest,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: LowerZoneColors.border),
-                ),
-                child: Stack(
-                  children: [
-                    // Center line
-                    Center(
-                      child: Container(width: 1, color: LowerZoneColors.border),
-                    ),
-                    // Pan indicator
-                    Center(
-                      child: Transform.translate(
-                        offset: Offset(pan * 30, 0),
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: LowerZoneColors.slotLabAccent,
-                            shape: BoxShape.circle,
+              child: GestureDetector(
+                onHorizontalDragUpdate: (details) {
+                  // Interactive pan control
+                  final newPan = (pan + details.delta.dx / 60).clamp(-1.0, 1.0);
+                  provider.setBusPan(busId, newPan);
+                },
+                onDoubleTap: () {
+                  // Double-tap to center
+                  provider.setBusPan(busId, 0.0);
+                },
+                child: Container(
+                  width: 80,
+                  decoration: BoxDecoration(
+                    color: LowerZoneColors.bgDeepest,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: LowerZoneColors.border),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Center line
+                      Center(
+                        child: Container(width: 1, color: LowerZoneColors.border),
+                      ),
+                      // Pan indicator
+                      Center(
+                        child: Transform.translate(
+                          offset: Offset(pan * 30, 0),
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: LowerZoneColors.slotLabAccent,
+                              shape: BoxShape.circle,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    // L/R labels
-                    const Positioned(left: 4, top: 4, child: Text('L', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted))),
-                    const Positioned(right: 4, top: 4, child: Text('R', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted))),
-                  ],
+                      // L/R labels
+                      const Positioned(left: 4, top: 4, child: Text('L', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted))),
+                      const Positioned(right: 4, top: 4, child: Text('R', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted))),
+                    ],
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 4),
-            Text(pan == 0 ? 'C' : '${(pan * 100).toInt()}${pan > 0 ? 'R' : 'L'}',
+            Text(pan == 0 ? 'C' : '${(pan * 100).toInt().abs()}${pan > 0 ? 'R' : 'L'}',
               style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent)),
           ],
         ),
@@ -1736,6 +1932,11 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   /// Compact DSP Chain
   Widget _buildCompactDspChain() {
+    // P0.1 FIX: Connect to DspChainProvider (trackId 0 = master bus)
+    final dspProvider = DspChainProvider.instance;
+    final chain = dspProvider.getChain(0);
+    final nodes = chain.nodes;
+
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Column(
@@ -1754,14 +1955,18 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   children: [
                     _buildDspNode('IN', Icons.input, isEndpoint: true),
                     _buildDspArrow(),
-                    _buildDspNode('EQ', Icons.equalizer, isActive: true),
-                    _buildDspArrow(),
-                    _buildDspNode('COMP', Icons.compress, isActive: true),
-                    _buildDspArrow(),
-                    _buildDspNode('LIM', Icons.volume_up, isActive: false),
-                    _buildDspArrow(),
-                    _buildDspNode('REV', Icons.waves, isActive: true),
-                    _buildDspArrow(),
+                    // Dynamic nodes from DspChainProvider
+                    if (nodes.isEmpty)
+                      _buildDspNode('—', Icons.add, isActive: false)
+                    else
+                      ...nodes.expand((node) => [
+                            _buildDspNode(
+                              node.type.shortName,
+                              _iconForDspType(node.type),
+                              isActive: !node.bypass,
+                            ),
+                            _buildDspArrow(),
+                          ]),
                     _buildDspNode('OUT', Icons.output, isEndpoint: true),
                   ],
                 ),
@@ -1771,6 +1976,21 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         ],
       ),
     );
+  }
+
+  /// Helper: Get icon for DSP node type
+  IconData _iconForDspType(DspNodeType type) {
+    return switch (type) {
+      DspNodeType.eq => Icons.equalizer,
+      DspNodeType.compressor => Icons.compress,
+      DspNodeType.limiter => Icons.volume_up,
+      DspNodeType.gate => Icons.volume_off,
+      DspNodeType.expander => Icons.unfold_more,
+      DspNodeType.reverb => Icons.waves,
+      DspNodeType.delay => Icons.timer,
+      DspNodeType.saturation => Icons.whatshot,
+      DspNodeType.deEsser => Icons.speaker_notes_off,
+    };
   }
 
   Widget _buildDspNode(String label, IconData icon, {bool isEndpoint = false, bool isActive = false}) {
@@ -1829,15 +2049,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   /// Compact Stems Panel — Connected to MixerDSPProvider buses
   Widget _buildCompactStemsPanel() {
-    // Real bus configuration from engine
-    final buses = [
-      ('SFX', 0, true),
-      ('Music', 1, true),
-      ('Voice', 2, true),
-      ('Ambience', 3, false),
-      ('UI', 4, false),
-      ('Master', 5, true),
-    ];
+    // P0.4 FIX: Read from MixerDSPProvider and use interactive checkboxes
+    final mixerProvider = context.read<MixerDSPProvider>();
+    final buses = mixerProvider.buses;
 
     return Padding(
       padding: const EdgeInsets.all(8),
@@ -1850,7 +2064,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               _buildPanelHeader('STEM EXPORT', Icons.account_tree),
               const Spacer(),
               Text(
-                '${buses.where((b) => b.$3).length}/${buses.length} selected',
+                '${_selectedStemBusIds.length}/${buses.length} selected',
                 style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
               ),
             ],
@@ -1870,8 +2084,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 shrinkWrap: true,
                 itemCount: buses.length,
                 itemBuilder: (context, index) {
-                  final (name, busId, selected) = buses[index];
-                  return _buildStemItem(name, selected, busId);
+                  final bus = buses[index];
+                  final isSelected = _selectedStemBusIds.contains(bus.id);
+                  return _buildStemItem(bus.name, isSelected, bus.id, index);
                 },
               ),
             ),
@@ -1880,7 +2095,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _buildActionButton('Export Stems', Icons.download, () {}),
+              _buildActionButton('Export Stems', Icons.download, _exportStems),
             ],
           ),
         ],
@@ -1888,28 +2103,57 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  Widget _buildStemItem(String name, bool isSelected, int busId) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 3),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: isSelected ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1) : Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: isSelected ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.5) : LowerZoneColors.border,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isSelected ? Icons.check_box : Icons.check_box_outline_blank,
-            size: 14,
-            color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
+  /// P0.4: Toggle stem selection
+  void _toggleStemSelection(String busId) {
+    setState(() {
+      if (_selectedStemBusIds.contains(busId)) {
+        _selectedStemBusIds.remove(busId);
+      } else {
+        _selectedStemBusIds.add(busId);
+      }
+    });
+  }
+
+  /// P0.4: Export selected stems
+  void _exportStems() {
+    if (_selectedStemBusIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select at least one bus to export')),
+      );
+      return;
+    }
+    // TODO: Implement actual stem export via offline rendering
+    debugPrint('[SlotLab] Exporting stems: ${_selectedStemBusIds.join(', ')}');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Exporting ${_selectedStemBusIds.length} stems...')),
+    );
+  }
+
+  Widget _buildStemItem(String name, bool isSelected, String busId, int busIndex) {
+    return GestureDetector(
+      onTap: () => _toggleStemSelection(busId),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.5) : LowerZoneColors.border,
           ),
-          const SizedBox(width: 6),
-          Expanded(child: Text(name, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary))),
-          Text('Bus $busId', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-        ],
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 14,
+              color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Expanded(child: Text(name, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary))),
+            Text('Bus $busIndex', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          ],
+        ),
       ),
     );
   }

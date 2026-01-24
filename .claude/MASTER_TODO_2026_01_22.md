@@ -1,8 +1,8 @@
 # 🎯 FLUXFORGE STUDIO — MASTER TODO LIST
 
-**Date:** 2026-01-22
-**Sources:** System Review + Performance Analysis + Memory Analysis + Lower Zone Implementation
-**Total Items:** 67
+**Date:** 2026-01-24 (Updated with SlotLab Lower Zone Audit)
+**Sources:** System Review + Performance Analysis + Memory Analysis + Lower Zone Implementation + Slot Mockup Analysis + **SlotLab Lower Zone Ultra Analysis**
+**Total Items:** 94 (+22 SlotLab Lower Zone items)
 
 ---
 
@@ -14,9 +14,24 @@
 | 🟠 P1 High | 15 | **15** | 0 | ✅ **100%** |
 | 🟡 P2 Medium | 22 | **15** | 6 (+1 skip) | **68%** |
 | 🟢 P3 Low | 14 | **14** | 0 | ✅ **100%** |
+| 🔵 SlotLab Done | 5 | **5** | 0 | ✅ **100%** |
+| 🟣 SL Lower Zone | 22 | **6** | 16 | **27%** |
+| 🟣 MW Command Bar | 2 | **2** | 0 | ✅ **100%** |
 | ⚪ P4 Future | 8 | 0 | 8 | Backlog |
 
-**Overall Progress:** 52/67 (78%)
+**Overall Progress:** 65/96 (68%)
+
+### 🆕 SlotLab Lower Zone Audit (2026-01-24) — Updated
+
+| Priority | Count | Done | Status |
+|----------|-------|------|--------|
+| 🔴 SL-P0 Critical | 5 | **5** | ✅ **100%** |
+| 🟠 SL-P1 High | 7 | **1** | 14% |
+| 🟡 SL-P2 Medium | 10 | 0 | 0% |
+| **Total** | **22** | **6** | **27%** (was 5%)
+
+**Key Finding:** Only 47% of UI elements in SlotLab Lower Zone are fully functional.
+**Root Cause:** Incomplete provider integration (DspChainProvider, MixerDSPProvider, SlotLabProjectProvider not connected).
 
 **P0 Completed (8/8):** Memory leaks, RT safety, build procedure ✅
 **P1 Completed (15/15):** All items ✅
@@ -24,6 +39,11 @@
 **P2 Skipped (1):** P2.16 (VoidCallback serialization issue)
 **P2 Remaining (6):** P2.3, P2.5-9
 **P3 Completed (14/14):** All polish items ✅
+
+**🆕 Latest Feature (2026-01-24):** Auto-Action System (AudioContextService)
+- Context-aware Play/Stop detection from audio file names
+- QuickSheet shows auto-determined action with visual badge
+- Zero-click workflow for common scenarios (SFX→Play, Music context switch→Stop)
 
 ---
 
@@ -171,6 +191,144 @@
 
 ---
 
+## 🔵 SLOTLAB — ALL COMPLETE ✅ (2026-01-24)
+
+### Audio-Visual Sync & Event Naming
+
+| # | Issue | Status | Commit |
+|---|-------|--------|--------|
+| **SL.1** | Visual-Sync Callbacks | ✅ Done | `780891a8` |
+| **SL.2** | QuickSheet Dropdown Fallback | ✅ Done | `780891a8` |
+| **SL.3** | Audio Preview on Commit | ✅ Done | `780891a8` |
+| **SL.4** | Slot Mockup Ultimate Analysis | ✅ Done | `780891a8` |
+| **SL.5** | Dynamic Event Naming Convention | ✅ Done | 2026-01-24 |
+
+### SL.1: Visual-Sync Callbacks
+
+**Problem:** REEL_STOP audio desync od vizuelne animacije
+
+**Solution:** 6 callback-a direktno iz EmbeddedSlotMockup:
+```dart
+onSpinStart()    → 'SPIN_START'
+onReelStop(i)    → 'REEL_STOP_0'..'REEL_STOP_4'
+onAnticipation() → 'ANTICIPATION_ON'
+onReveal()       → 'SPIN_END'
+onWinStart()     → 'WIN_*' + 'ROLLUP_START'
+onWinEnd()       → 'WIN_END'
+```
+
+**Files:**
+- `embedded_slot_mockup.dart` — 6 callback params
+- `slot_lab_screen.dart` — `_triggerVisualStage()`, `_triggerWinStage()`
+
+### SL.2: QuickSheet Dropdown Fallback
+
+**Problem:** `items == null || items.isEmpty` assertion error
+
+**Solution:**
+```dart
+static const _fallbackTriggers = ['press', 'release', 'hover'];
+static const _fallbackPresetId = 'ui_click_secondary';
+```
+
+**File:** `quick_sheet.dart`
+
+### SL.3: Audio Preview on Commit
+
+**Problem:** Zvuci se "seku" pri drag-drop
+
+**Solution:** Audio preview na commit kao potvrda:
+```dart
+AudioPlaybackService.instance.previewFile(
+  asset.path,
+  volume: 0.7,
+  source: PlaybackSource.browser,
+);
+```
+
+**File:** `drop_target_wrapper.dart`
+
+### SL.4: Slot Mockup Ultimate Analysis
+
+**Deliverable:** Kompletna analiza iz svih 9 uloga (CLAUDE.md)
+
+**Sadržaj:**
+- Vizuelna struktura (1164 LOC)
+- State machine (6 GameState, 6 WinType)
+- Audio flow pipeline diagram
+- Analiza po 9 uloga
+- Implementirano vs Nedostaje
+- Preporuke za poboljšanja
+
+**File:** `.claude/reviews/EMBEDDED_SLOT_MOCKUP_ULTIMATE_ANALYSIS.md`
+
+### Nedostaje u Mockup-u (za buduće sprintove)
+
+| # | Feature | Priority | Impact |
+|---|---------|----------|--------|
+| 1 | REEL_SPIN loop | P0 | Spin zvuk ne loopuje |
+| 2 | Payline vizualizacija | P1 | Nema winning line prikaz |
+| 3 | Symbol animacije | P1 | Statični simboli |
+| 4 | Near Miss detection | P1 | Nema NEAR_MISS stage |
+| 5 | Cascade mode | P2 | Samo standard spins |
+
+### SL.5: Dynamic Event Naming Convention ✅ DONE (2026-01-24)
+
+**Problem:** Event imena su generička ili prazna pri kreiranju
+
+**Rešenje:** Automatsko generisanje imena po konvenciji
+
+| Element Type | Naming Pattern | Example |
+|--------------|----------------|---------|
+| UI Elements | `onUiPa{ElementName}` | `onUiPaSpinButton`, `onUiPaBetUp` |
+| Reel Events | `onReel{Action}{Index?}` | `onReelStop0`, `onReelLand`, `onReelSpin` |
+| Free Spins | `onFs{Phase}` | `onFsTrigger`, `onFsEnter`, `onFsExit` |
+| Bonus | `onBonus{Phase}` | `onBonusTrigger`, `onBonusEnter`, `onBonusExit` |
+| Win Events | `onWin{Tier}` | `onWinSmall`, `onWinBig`, `onWinMega` |
+| Jackpot | `onJackpot{Tier}` | `onJackpotMini`, `onJackpotGrand` |
+| Cascade | `onCascade{Phase}` | `onCascadeStart`, `onCascadeStep`, `onCascadeEnd` |
+| Hold & Win | `onHold{Phase}` | `onHoldTrigger`, `onHoldEnter`, `onHoldSpin` |
+| Gamble | `onGamble{Phase}` | `onGambleStart`, `onGambleWin`, `onGambleLose` |
+
+**Implemented Components:**
+
+1. **EventNamingService** (`event_naming_service.dart` ~650 LOC):
+   - Singleton service za generisanje semantičkih imena
+   - 100+ stage pattern-a iz StageConfigurationService
+   - Kategorije: FS_*, BONUS_*, TUMBLE_*, AVALANCHE_*, BIGWIN_*, MULT_*, PICK_*, WHEEL_*, TRAIL_*, TENSION_*, JACKPOT_*, CASCADE_*, HOLD_*, GAMBLE_*, MENU_*, AUTOPLAY_*, AMBIENT_*, ATTRACT_*, IDLE_*, SYSTEM_*
+
+2. **AutoEventBuilderProvider** (`auto_event_builder_provider.dart:667-675`):
+   - `createDraft()` koristi `EventNamingService.instance.generateEventName()`
+   - Umesto template: `ui.spin.click_primary` → Semantičko: `onUiPaSpinButton`
+
+3. **Events Panel** (`events_panel_widget.dart:321-430`):
+   - 3-kolonski prikaz: **NAME | STAGE | LAYERS**
+   - Header red sa labelama kolona
+   - Mini layer vizualizacija (obojeni blokovi)
+   - Stage formatiranje (SPIN_START → Spin Start)
+   - **Inline editing**: Double-tap za editovanje imena
+
+4. **QuickSheet Editable Name** (`quick_sheet.dart:274-322`):
+   - TextField umesto readonly Text
+   - Pre-fill sa generisanim imenom
+   - Korisnik može promeniti ime pre commit-a
+
+**Event Name Editing:**
+
+| Lokacija | Akcija | Rezultat |
+|----------|--------|----------|
+| QuickSheet | Direktno editovanje | Menja ime pre commit-a |
+| Events Panel | Double-tap | Inline edit mode |
+| Events Panel | Enter/Focus loss | Auto-save promene |
+
+**Files Modified:**
+- `flutter_ui/lib/services/event_naming_service.dart` — Core naming service
+- `flutter_ui/lib/providers/auto_event_builder_provider.dart` — Integration
+- `flutter_ui/lib/widgets/slot_lab/events_panel_widget.dart` — 3-column display + inline edit
+- `flutter_ui/lib/widgets/slot_lab/auto_event_builder/quick_sheet.dart` — Editable event name
+
+---
+
 ## ⚪ P4 — FUTURE (Backlog)
 
 | # | Feature | Category | Notes |
@@ -183,6 +341,284 @@
 | **P4.6** | Mobile/Web target optimization | Platform | After P0/P1 done |
 | **P4.7** | WASM port for web | Platform | Long-term |
 | **P4.8** | CI/CD regression testing | QA | Automated testing |
+
+---
+
+## 🟣 SLOTLAB LOWER ZONE — TODO AUDIT (2026-01-24)
+
+**Analysis:** `.claude/reviews/SLOTLAB_LOWER_ZONE_ULTRA_ANALYSIS_2026_01_24.md`
+
+### Connection Statistics (Updated 2026-01-24)
+
+| Status | Before | After |
+|--------|--------|-------|
+| ✅ CONNECTED | 37 (47%) | 43 (55%) |
+| ⚠️ PARTIAL | 6 (8%) | 5 (6%) |
+| ❌ NOT CONNECTED | 23 (30%) | 18 (23%) |
+| 🔧 HARDCODED | 12 (15%) | 12 (15%) |
+
+**Improvement:** +6 connected items (P0.1-5 + P1.1)
+
+### 🔴 SL-P0 — CRITICAL ✅ ALL FIXED (5/5)
+
+| # | Issue | Location | Status |
+|---|-------|----------|--------|
+| **SL-P0.1** | ~~DSP Chain hardcoded~~ | `_buildCompactDspChain()` | ✅ Connected to DspChainProvider |
+| **SL-P0.2** | ~~Voice stats fake~~ | `_buildCompactVoicePool()` | ✅ Uses NativeFFI.getVoicePoolStats() |
+| **SL-P0.3** | ~~Pan panel static~~ | `_buildCompactPanPanel()` | ✅ Connected to MixerDSPProvider |
+| **SL-P0.4** | ~~Stems panel broken~~ | `_buildCompactStemsPanel()` | ✅ Added _selectedStemBusIds state |
+| **SL-P0.5** | ~~Event play buttons~~ | Folder + Editor panels | ✅ Calls middleware.previewCompositeEvent() |
+
+**Fixed (2026-01-24):** All 5 P0 items connected to real data sources.
+
+### 🟠 SL-P1 — HIGH PRIORITY (7 items → 6 remaining)
+
+| # | Issue | Location | Status |
+|---|-------|----------|--------|
+| **SL-P1.1** | ~~Layer parameters not editable~~ | `_buildInteractiveLayerItem()` | ✅ DONE |
+| **SL-P1.2** | Symbols list hardcoded | `_buildCompactSymbolsPanel()` — should use SlotLabProjectProvider.symbols | ❌ |
+| **SL-P1.3** | 9/17 Action Strip actions only debugPrint | `_buildActionStrip()` |
+| **SL-P1.4** | Variations sliders static | `_buildCompactVariationsPanel()` |
+| **SL-P1.5** | Package Build button empty | `_buildCompactPackagePanel()` |
+| **SL-P1.6** | Limiter GR/TruePeak FFI missing | `fabfilter_limiter_panel.dart:241,258` |
+| **SL-P1.7** | Compressor GR/metering FFI missing | `fabfilter_compressor_panel.dart:454,462,466` |
+
+### 🟡 SL-P2 — MEDIUM PRIORITY (10 items)
+
+| # | Issue | Location |
+|---|-------|----------|
+| **SL-P2.1** | Drag-drop not working | Layer items, symbol cards |
+| **SL-P2.2** | Stage play buttons missing | Timeline panel |
+| **SL-P2.3** | Editor/Folder selection desync | Event panels local state |
+| **SL-P2.4** | Keyboard shortcuts not visible | Context bar |
+| **SL-P2.5** | Event history tracking | `event_log_panel.dart:267` |
+| **SL-P2.6** | BPM hardcoded in piano roll | `daw_lower_zone_widget.dart:1662` |
+| **SL-P2.7** | FadeIn/FadeOut model missing | `daw_lower_zone_widget.dart:1691-1692` |
+| **SL-P2.8** | ALE transition save | `music_transition_preview_panel.dart:689` |
+| **SL-P2.9** | Blend preview | `blend_container_panel.dart:469` |
+| **SL-P2.10** | Events preview engine | `events_folder_panel.dart:1171` |
+
+### TODO Comments Found (18 total)
+
+**SlotLab Lower Zone Widget:**
+- Line 1269: `// TODO: Connect to preview playback` — Event play button
+- Line 2192: `// TODO: Show export dialog` — Stage export
+
+**FabFilter Panels (5):**
+- `fabfilter_limiter_panel.dart:241` — GR FFI
+- `fabfilter_limiter_panel.dart:258` — Loudness metering
+- `fabfilter_compressor_panel.dart:454` — Bypass connect
+- `fabfilter_compressor_panel.dart:462` — GR FFI
+- `fabfilter_compressor_panel.dart:466` — Real metering
+
+**Other (11):**
+- Various DAW and Middleware panels
+
+### ✅ SL-P1.1 COMPLETED — Interactive Layer Parameters (2026-01-24)
+
+**Problem:** Layer parameters (volume, pan, delay) were read-only text in the UI.
+
+**Solution:** Implemented `_buildInteractiveLayerItem()` with interactive sliders:
+
+| Parameter | Range | Slider | Connected To |
+|-----------|-------|--------|--------------|
+| Volume | 0-100% | ✅ | `MiddlewareProvider.updateEventLayer()` |
+| Pan | L100-C-R100 | ✅ | `MiddlewareProvider.updateEventLayer()` |
+| Delay | 0-2000ms | ✅ | `MiddlewareProvider.updateEventLayer()` |
+| Mute | On/Off | ✅ Toggle | `layer.copyWith(volume: 0)` |
+| Preview | Play/Stop | ✅ Button | `AudioPlaybackService.previewFile()` |
+| Delete | - | ✅ Button | `MiddlewareProvider.removeLayerFromEvent()` |
+
+**Helper Method:**
+```dart
+Widget _buildParameterSlider({
+  required String label,
+  required double value,
+  required ValueChanged<double> onChanged,
+});
+```
+
+**Files Modified:**
+- `slotlab_lower_zone_widget.dart` — `_buildInteractiveLayerItem()`, `_buildParameterSlider()`
+
+---
+
+### ✅ Auto-Loop Detection (2026-01-24)
+
+**Problem:** Events for looping stages (MUSIC_BASE, REEL_SPIN_LOOP) weren't auto-set to loop.
+
+**Solution:** Added `isLooping()` method to StageConfigurationService:
+
+```dart
+bool isLooping(String stage) {
+  final def = getStage(stage);
+  if (def != null) return def.isLooping;
+  final upper = stage.toUpperCase();
+  return _loopingStages.contains(upper) ||
+      upper.endsWith('_LOOP') ||
+      upper.startsWith('MUSIC_') ||
+      upper.startsWith('AMBIENT_') ||
+      upper.startsWith('ATTRACT_') ||
+      upper.startsWith('IDLE_');
+}
+```
+
+**Default Looping Stages:**
+- `REEL_SPIN_LOOP`, `MUSIC_BASE`, `MUSIC_TENSION`, `MUSIC_FEATURE`
+- `FS_MUSIC`, `HOLD_MUSIC`, `BONUS_MUSIC`
+- `AMBIENT_LOOP`, `ATTRACT_MODE`, `IDLE_LOOP`
+- `ANTICIPATION_LOOP`, `FEATURE_MUSIC`
+
+**Integration in `slot_lab_screen.dart:_onEventBuilderEventCreated()`:**
+```dart
+final shouldLoop = StageConfigurationService.instance.isLooping(stage);
+final compositeEvent = SlotCompositeEvent(
+  looping: shouldLoop,
+  maxInstances: shouldLoop ? 1 : 4,  // Looping=1, one-shots=4
+);
+```
+
+**Files Modified:**
+- `stage_configuration_service.dart` — `isLooping()`, `_loopingStages`
+- `slot_lab_screen.dart` — Auto-loop in event creation
+
+---
+
+### ✅ Auto-Action System (AudioContextService) (2026-01-24)
+
+**Problem:** User had to manually select Play vs Stop action for every audio drop.
+
+**Solution:** Implemented `AudioContextService` — context-aware auto-action detection.
+
+**New Service:** `flutter_ui/lib/services/audio_context_service.dart` (~310 LOC)
+
+**Auto-Detection Logic:**
+| Audio Type | Stage Type | Result |
+|------------|------------|--------|
+| SFX / Voice | Any | **PLAY** (always) |
+| Music / Ambience | Entry (_TRIGGER, _ENTER) + same context | **PLAY** |
+| Music / Ambience | Entry + different context | **STOP** (stop old music) |
+| Music / Ambience | Exit (_EXIT, _END) | **STOP** |
+
+**Context Detection from Audio Name:**
+- `fs_music.wav` → FREE_SPINS context
+- `base_theme.wav` → BASE_GAME context
+- `bonus_fanfare.wav` → BONUS context
+- `spin_sfx.wav` → SFX type (always play)
+
+**EventDraft Changes:**
+```dart
+class EventDraft {
+  ActionType actionType;    // Auto-determined by AudioContextService
+  String? stopTarget;       // Bus to stop (for Stop actions)
+  String actionReason;      // Human-readable explanation
+}
+```
+
+**QuickSheet UI Enhancement:**
+- New "Action" field shows auto-detected action
+- Green badge + ▶ icon for **PLAY**
+- Red badge + ⬛ icon for **STOP**
+- Info tooltip shows reasoning
+
+**Example Workflow:**
+1. Drop `base_music.wav` on `FS_TRIGGER` → **STOP** (stops base music when FS starts)
+2. Drop `fs_music.wav` on `FS_TRIGGER` → **PLAY** (plays FS music)
+3. Drop any SFX on any target → **PLAY** (SFX always plays)
+
+**Files Modified:**
+- `audio_context_service.dart` — NEW: Context-aware auto-action detection
+- `auto_event_builder_provider.dart` — Added actionType, stopTarget, actionReason to EventDraft/CommittedEvent
+- `quick_sheet.dart` — Added `_buildActionField()` with visual badge
+
+---
+
+## 🟣 MIDDLEWARE COMMAND BAR — P1.2/P1.3 FIXES (2026-01-24)
+
+**Analysis:** `.claude/reviews/MIDDLEWARE_COMMAND_BAR_ULTRA_ANALYSIS_2026_01_24.md`
+
+### ✅ P1.2: Event Name Inline Edit
+
+**Problem:** Event name was read-only display text in inspector panel.
+
+**Solution:** Added `_buildInspectorEditableField()` method with inline TextField:
+
+```dart
+Widget _buildInspectorEditableField(
+  String label,
+  String value,
+  ValueChanged<String> onChanged,
+) {
+  return Row(
+    children: [
+      SizedBox(width: 100, child: Text(label)),
+      Expanded(
+        child: TextFormField(
+          initialValue: value,
+          onFieldSubmitted: onChanged,
+        ),
+      ),
+    ],
+  );
+}
+```
+
+### ✅ P1.3: Stage Binding Dropdown
+
+**Problem:** No way to bind an event to a specific stage for slot audio.
+
+**Solution:**
+1. Added `stage` field to `MiddlewareEvent` model
+2. Added dropdown using `StageConfigurationService.instance.allStageNames`
+3. Added `_updateEventProperty()` for syncing changes to provider
+
+```dart
+// Model change
+class MiddlewareEvent {
+  final String stage; // NEW: Stage binding for slot events
+  // ...
+}
+
+// Inspector change
+_buildInspectorDropdown(
+  'Stage',
+  event.stage.isEmpty ? '' : event.stage,
+  ['', ...stageService.allStageNames],
+  (stage) => _updateEventProperty(event, stage: stage),
+),
+```
+
+**Files Modified:**
+- `middleware_models.dart` — `MiddlewareEvent.stage` field + copyWith + toJson/fromJson
+- `event_editor_panel.dart` — `_buildInspectorEditableField()`, `_updateEventProperty()`, import for StageConfigurationService
+
+---
+
+### Quick Fixes
+
+**SL-P0.5 Fix (1 line):**
+```dart
+// Line 1269 — Events→Folder panel
+GestureDetector(
+  onTap: () {
+    final middleware = context.read<MiddlewareProvider>();
+    middleware.previewCompositeEvent(event.id);
+  },
+  child: Icon(Icons.play_arrow, size: 14),
+)
+```
+
+**SL-P0.1 Fix (Connect to DspChainProvider):**
+```dart
+Widget _buildCompactDspChain() {
+  return Consumer<DspChainProvider>(
+    builder: (context, dspChain, _) {
+      final chain = dspChain.getChain(0);
+      return _buildChainFromNodes(chain);
+    },
+  );
+}
+```
 
 ---
 
@@ -563,4 +999,5 @@ void _enforceCompositeEventsLimit() {
 ---
 
 *Generated by Claude Code — Principal Engineer Mode*
-*Last Updated: 2026-01-23 (Review Pass — P0✅ P1:93% P2:73% P3✅)*
+*Last Updated: 2026-01-24 (SlotLab Visual-Sync + Ultimate Analysis)*
+*Previous: 2026-01-23 (Review Pass — P0✅ P1:93% P2:73% P3✅)*

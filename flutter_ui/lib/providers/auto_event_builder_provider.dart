@@ -12,6 +12,9 @@ library;
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import '../models/auto_event_builder_models.dart';
+import '../models/middleware_models.dart' show ActionType;
+import '../services/event_naming_service.dart';
+import '../services/audio_context_service.dart';
 
 // =============================================================================
 // EVENT DRAFT
@@ -37,6 +40,15 @@ class EventDraft {
   /// Selected preset
   String presetId;
 
+  /// Action type (Play, Stop, etc.) — auto-determined by AudioContextService
+  ActionType actionType;
+
+  /// Stop target (for Stop actions — which bus/event to stop)
+  String? stopTarget;
+
+  /// Auto-action reason (human-readable explanation)
+  String actionReason;
+
   /// Stage context
   StageContext stageContext;
 
@@ -60,6 +72,9 @@ class EventDraft {
     required this.trigger,
     required this.bus,
     required this.presetId,
+    this.actionType = ActionType.play,
+    this.stopTarget,
+    this.actionReason = 'Default → Play',
     this.stageContext = StageContext.global,
     this.variationPolicy = VariationPolicy.random,
     this.tags = const [],
@@ -82,6 +97,9 @@ class EventDraft {
     String? trigger,
     String? bus,
     String? presetId,
+    ActionType? actionType,
+    String? stopTarget,
+    String? actionReason,
     StageContext? stageContext,
     VariationPolicy? variationPolicy,
     List<String>? tags,
@@ -94,6 +112,9 @@ class EventDraft {
       trigger: trigger ?? this.trigger,
       bus: bus ?? this.bus,
       presetId: presetId ?? this.presetId,
+      actionType: actionType ?? this.actionType,
+      stopTarget: stopTarget ?? this.stopTarget,
+      actionReason: actionReason ?? this.actionReason,
       stageContext: stageContext ?? this.stageContext,
       variationPolicy: variationPolicy ?? this.variationPolicy,
       tags: tags ?? this.tags,
@@ -133,6 +154,12 @@ class CommittedEvent {
   final DateTime createdAt;
   final DateTime? modifiedAt;
 
+  /// Action type (Play, Stop, Pause, etc.)
+  final ActionType actionType;
+
+  /// Stop target (for Stop actions — which bus/event to stop)
+  final String? stopTarget;
+
   /// Spatial panning (-1.0 = left, 0.0 = center, 1.0 = right)
   final double pan;
 
@@ -164,6 +191,8 @@ class CommittedEvent {
     this.preloadPolicy = PreloadPolicy.onStageEnter,
     required this.createdAt,
     this.modifiedAt,
+    this.actionType = ActionType.play,
+    this.stopTarget,
     this.pan = 0.0,
     this.spatialMode = SpatialMode.none,
     this.dependencies = const [],
@@ -185,6 +214,8 @@ class CommittedEvent {
     PreloadPolicy? preloadPolicy,
     DateTime? createdAt,
     DateTime? modifiedAt,
+    ActionType? actionType,
+    String? stopTarget,
     double? pan,
     SpatialMode? spatialMode,
     List<EventDependency>? dependencies,
@@ -205,6 +236,8 @@ class CommittedEvent {
       preloadPolicy: preloadPolicy ?? this.preloadPolicy,
       createdAt: createdAt ?? this.createdAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
+      actionType: actionType ?? this.actionType,
+      stopTarget: stopTarget ?? this.stopTarget,
       pan: pan ?? this.pan,
       spatialMode: spatialMode ?? this.spatialMode,
       dependencies: dependencies ?? this.dependencies,
@@ -227,6 +260,8 @@ class CommittedEvent {
     'preloadPolicy': preloadPolicy.name,
     'createdAt': createdAt.toIso8601String(),
     if (modifiedAt != null) 'modifiedAt': modifiedAt!.toIso8601String(),
+    'actionType': actionType.name,
+    if (stopTarget != null) 'stopTarget': stopTarget,
     'pan': pan,
     'spatialMode': spatialMode.name,
     if (dependencies.isNotEmpty) 'dependencies': dependencies.map((d) => d.toJson()).toList(),
@@ -248,6 +283,8 @@ class CommittedEvent {
     preloadPolicy: PreloadPolicyExtension.fromString(json['preloadPolicy'] as String? ?? 'on_stage_enter'),
     createdAt: DateTime.parse(json['createdAt'] as String),
     modifiedAt: json['modifiedAt'] != null ? DateTime.parse(json['modifiedAt'] as String) : null,
+    actionType: _actionTypeFromString(json['actionType'] as String?),
+    stopTarget: json['stopTarget'] as String?,
     pan: (json['pan'] as num?)?.toDouble() ?? 0.0,
     spatialMode: _spatialModeFromString(json['spatialMode'] as String?),
     dependencies: (json['dependencies'] as List<dynamic>?)
@@ -270,6 +307,15 @@ class CommittedEvent {
       case 'autoPerReel': return SpatialMode.autoPerReel;
       case 'followTarget': return SpatialMode.followTarget;
       default: return SpatialMode.none;
+    }
+  }
+
+  static ActionType _actionTypeFromString(String? s) {
+    if (s == null) return ActionType.play;
+    try {
+      return ActionType.values.firstWhere((e) => e.name == s);
+    } catch (_) {
+      return ActionType.play;
     }
   }
 }
@@ -667,11 +713,22 @@ class AutoEventBuilderProvider extends ChangeNotifier {
     // Find matching rule
     final rule = _findMatchingRule(asset, target);
 
-    // Generate event ID
-    var eventId = rule.generateEventId(asset, target);
+    // Generate semantic event name using EventNamingService (SL.5)
+    // This creates names like "onUiPaSpinButton", "onReelStop0", "onFsTrigger"
+    var eventId = EventNamingService.instance.generateEventName(
+      target.targetId,
+      rule.defaultTrigger,
+    );
 
     // Ensure unique (GAP 26 FIX)
     eventId = _ensureUniqueEventId(eventId);
+
+    // Auto-detect action type using AudioContextService
+    // This analyzes the audio file name + stage to determine Play vs Stop
+    final autoAction = AudioContextService.instance.determineAutoAction(
+      audioPath: asset.path,
+      stage: rule.defaultTrigger.toUpperCase(),
+    );
 
     // Create draft
     _currentDraft = EventDraft(
@@ -681,6 +738,9 @@ class AutoEventBuilderProvider extends ChangeNotifier {
       trigger: rule.defaultTrigger,
       bus: rule.defaultBus,
       presetId: rule.defaultPresetId,
+      actionType: autoAction.actionType,
+      stopTarget: autoAction.stopTarget,
+      actionReason: autoAction.reason,
       stageContext: target.stageContext,
     );
 
@@ -692,6 +752,9 @@ class AutoEventBuilderProvider extends ChangeNotifier {
   void updateDraft({
     String? trigger,
     String? presetId,
+    ActionType? actionType,
+    String? stopTarget,
+    String? actionReason,
     StageContext? stageContext,
     VariationPolicy? variationPolicy,
     List<String>? tags,
@@ -701,6 +764,9 @@ class AutoEventBuilderProvider extends ChangeNotifier {
 
     if (trigger != null) _currentDraft!.trigger = trigger;
     if (presetId != null) _currentDraft!.presetId = presetId;
+    if (actionType != null) _currentDraft!.actionType = actionType;
+    if (stopTarget != null) _currentDraft!.stopTarget = stopTarget;
+    if (actionReason != null) _currentDraft!.actionReason = actionReason;
     if (stageContext != null) _currentDraft!.stageContext = stageContext;
     if (variationPolicy != null) _currentDraft!.variationPolicy = variationPolicy;
     if (tags != null) _currentDraft!.tags = tags;
@@ -738,6 +804,8 @@ class AutoEventBuilderProvider extends ChangeNotifier {
       parameters: {...draft.paramOverrides},
       preloadPolicy: preset.preloadPolicy,
       createdAt: DateTime.now(),
+      actionType: draft.actionType,
+      stopTarget: draft.stopTarget,
       pan: pan,
       spatialMode: spatialMode,
     );
@@ -2317,6 +2385,126 @@ class AutoEventBuilderProvider extends ChangeNotifier {
     defaultBus: json['defaultBus'] as String,
     defaultTrigger: json['defaultTrigger'] as String,
   );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BATCH OPERATIONS (for SlotAudioAutomationService integration)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Batch create events from automation specs
+  /// Returns list of created event IDs
+  List<String> batchCreateEvents(List<Map<String, dynamic>> specs) {
+    final createdIds = <String>[];
+
+    for (final spec in specs) {
+      final eventId = spec['eventId'] as String? ?? 'event_${++_eventCounter}';
+      final stage = spec['stage'] as String? ?? 'UNKNOWN';
+      final bus = spec['bus'] as String? ?? 'sfx';
+      final audioPath = spec['audioPath'] as String? ?? '';
+      final volume = (spec['volume'] as num?)?.toDouble() ?? 1.0;
+      final pan = (spec['pan'] as num?)?.toDouble() ?? 0.0;
+      final actionTypeName = spec['actionType'] as String?;
+      final actionType = actionTypeName != null
+          ? ActionType.values.firstWhere(
+              (e) => e.name == actionTypeName,
+              orElse: () => ActionType.play,
+            )
+          : ActionType.play;
+      final stopTarget = spec['stopTarget'] as String?;
+      final loop = spec['loop'] as bool? ?? false;
+      final priority = spec['priority'] as int? ?? 50;
+
+      // Skip stop-only events with no audio
+      if (audioPath.isEmpty && actionType == ActionType.stop) continue;
+
+      // Create committed event
+      final event = CommittedEvent(
+        eventId: eventId,
+        intent: stage,
+        assetPath: audioPath,
+        bus: bus,
+        presetId: 'default',
+        createdAt: DateTime.now(),
+        actionType: actionType,
+        stopTarget: stopTarget,
+        pan: pan,
+        parameters: {
+          'volume': volume,
+          'priority': priority,
+          'loop': loop,
+          ...spec['metadata'] as Map<String, dynamic>? ?? {},
+        },
+      );
+
+      _events.add(event);
+      createdIds.add(eventId);
+
+      // Add undo action
+      _undoStack.add(_UndoAction(
+        type: _UndoActionType.commit,
+        event: event,
+      ));
+    }
+
+    _redoStack.clear();
+    notifyListeners();
+    return createdIds;
+  }
+
+  /// Batch delete events by IDs
+  int batchDeleteEvents(List<String> eventIds) {
+    int deletedCount = 0;
+
+    for (final eventId in eventIds) {
+      final eventIndex = _events.indexWhere((e) => e.eventId == eventId);
+      if (eventIndex != -1) {
+        final event = _events.removeAt(eventIndex);
+
+        // Remove associated bindings
+        final removedBindings = <EventBinding>[];
+        _bindings.removeWhere((b) {
+          if (b.eventId == eventId) {
+            removedBindings.add(b);
+            return true;
+          }
+          return false;
+        });
+
+        _undoStack.add(_UndoAction(
+          type: _UndoActionType.delete,
+          event: event,
+          bindings: removedBindings,
+        ));
+
+        deletedCount++;
+      }
+    }
+
+    if (deletedCount > 0) {
+      _redoStack.clear();
+      notifyListeners();
+    }
+
+    return deletedCount;
+  }
+
+  /// Get events by stage pattern (supports wildcards with *)
+  List<CommittedEvent> getEventsByStagePattern(String pattern) {
+    if (pattern.contains('*')) {
+      final regex = RegExp(
+        '^${pattern.replaceAll('*', '.*')}\$',
+        caseSensitive: false,
+      );
+      return _events.where((e) {
+        final stage = e.parameters['stage'] as String? ?? e.intent;
+        return regex.hasMatch(stage);
+      }).toList();
+    } else {
+      return _events.where((e) {
+        final stage = e.parameters['stage'] as String? ?? e.intent;
+        return stage.toUpperCase() == pattern.toUpperCase();
+      }).toList();
+    }
+  }
 
   /// Clear all data
   void clear() {

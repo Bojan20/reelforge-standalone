@@ -8,7 +8,7 @@
 /// - Auto-spin button → "ui.autospin"
 /// - Turbo button → "ui.turbo"
 /// - Reel area → "reel.surface"
-/// - Individual reel columns → "reel.1" - "reel.5"
+/// - Individual reel columns → "reel.0" - "reel.4" (0-indexed)
 /// - Win display overlay → "overlay.win"
 /// - Jackpot displays → "overlay.jackpot.mini/minor/major/grand"
 ///

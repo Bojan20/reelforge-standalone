@@ -304,6 +304,7 @@ class MiddlewareEvent {
   final String id;
   final String name;
   final String category;
+  final String stage; // P1.3: Stage binding for slot events
   final List<MiddlewareAction> actions;
   final bool expanded;
 
@@ -311,6 +312,7 @@ class MiddlewareEvent {
     required this.id,
     required this.name,
     this.category = 'General',
+    this.stage = '', // Empty = no stage binding
     this.actions = const [],
     this.expanded = true,
   });
@@ -319,6 +321,7 @@ class MiddlewareEvent {
     String? id,
     String? name,
     String? category,
+    String? stage,
     List<MiddlewareAction>? actions,
     bool? expanded,
   }) {
@@ -326,6 +329,7 @@ class MiddlewareEvent {
       id: id ?? this.id,
       name: name ?? this.name,
       category: category ?? this.category,
+      stage: stage ?? this.stage,
       actions: actions ?? this.actions,
       expanded: expanded ?? this.expanded,
     );
@@ -335,6 +339,7 @@ class MiddlewareEvent {
     'id': id,
     'name': name,
     'category': category,
+    'stage': stage,
     'actions': actions.map((a) => a.toJson()).toList(),
   };
 
@@ -343,6 +348,7 @@ class MiddlewareEvent {
       id: json['id'] as String? ?? UniqueKey().toString(),
       name: json['name'] as String? ?? 'Unnamed Event',
       category: json['category'] as String? ?? 'General',
+      stage: json['stage'] as String? ?? '',
       actions: (json['actions'] as List<dynamic>?)
           ?.map((a) => MiddlewareAction.fromJson(a as Map<String, dynamic>))
           .toList() ?? [],

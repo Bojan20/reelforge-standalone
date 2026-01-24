@@ -696,14 +696,12 @@ class SlotIntentRules {
       lifetimeMs: 400,
     ),
 
-    // Individual reel stops (1-7 reels supported)
+    // Individual reel stops (0-indexed: reel 0-4 for standard 5-reel slots)
+    IntentRule(intent: 'REEL_STOP_0', defaultAnchorId: 'reel_0', wAnchor: 0.95, wMotion: 0.03, wIntent: 0.02, maxPan: 0.85, smoothingTauMs: 30, lifetimeMs: 300),
     IntentRule(intent: 'REEL_STOP_1', defaultAnchorId: 'reel_1', wAnchor: 0.95, wMotion: 0.03, wIntent: 0.02, maxPan: 0.85, smoothingTauMs: 30, lifetimeMs: 300),
     IntentRule(intent: 'REEL_STOP_2', defaultAnchorId: 'reel_2', wAnchor: 0.95, wMotion: 0.03, wIntent: 0.02, maxPan: 0.85, smoothingTauMs: 30, lifetimeMs: 300),
     IntentRule(intent: 'REEL_STOP_3', defaultAnchorId: 'reel_3', wAnchor: 0.95, wMotion: 0.03, wIntent: 0.02, maxPan: 0.85, smoothingTauMs: 30, lifetimeMs: 300),
     IntentRule(intent: 'REEL_STOP_4', defaultAnchorId: 'reel_4', wAnchor: 0.95, wMotion: 0.03, wIntent: 0.02, maxPan: 0.85, smoothingTauMs: 30, lifetimeMs: 300),
-    IntentRule(intent: 'REEL_STOP_5', defaultAnchorId: 'reel_5', wAnchor: 0.95, wMotion: 0.03, wIntent: 0.02, maxPan: 0.85, smoothingTauMs: 30, lifetimeMs: 300),
-    IntentRule(intent: 'REEL_STOP_6', defaultAnchorId: 'reel_6', wAnchor: 0.95, wMotion: 0.03, wIntent: 0.02, maxPan: 0.85, smoothingTauMs: 30, lifetimeMs: 300),
-    IntentRule(intent: 'REEL_STOP_7', defaultAnchorId: 'reel_7', wAnchor: 0.95, wMotion: 0.03, wIntent: 0.02, maxPan: 0.85, smoothingTauMs: 30, lifetimeMs: 300),
 
     // Big win - dramatic centered presentation
     IntentRule(
@@ -1209,8 +1207,8 @@ class MotionField {
   static MotionFrame fromIntent(String intent) {
     final pos = switch (intent) {
       'COIN_FLY_TO_BALANCE' => const SpatialPosition(x: 0.7, y: 0.7, z: 0),
-      'REEL_STOP' || 'REEL_STOP_1' || 'REEL_STOP_2' || 'REEL_STOP_3' ||
-      'REEL_STOP_4' || 'REEL_STOP_5' || 'REEL_STOP_6' || 'REEL_STOP_7' =>
+      'REEL_STOP' || 'REEL_STOP_0' || 'REEL_STOP_1' || 'REEL_STOP_2' ||
+      'REEL_STOP_3' || 'REEL_STOP_4' =>
           SpatialPosition.origin,
       'BIG_WIN' || 'MEGA_WIN' || 'SUPER_WIN' || 'EPIC_WIN' =>
           const SpatialPosition(x: 0, y: 0.1, z: 0),
