@@ -19,7 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../src/rust/native_ffi.dart'
-    show ForcedOutcome, SlotLabSpinResult;
+    show ForcedOutcome, NativeFFI, SlotLabSpinResult;
 import '../../theme/fluxforge_theme.dart';
 import 'slot_preview_widget.dart';
 
@@ -1020,51 +1020,15 @@ class _MainGameZone extends StatelessWidget {
   }
 
   Widget _buildWildExpansion() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          colors: [
-            _SlotTheme.gold.withOpacity(0.3),
-            Colors.transparent,
-          ],
-        ),
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.auto_awesome,
-          color: _SlotTheme.gold,
-          size: 80,
-        ),
-      ),
-    );
+    return const _WildExpansionOverlay();
   }
 
   Widget _buildScatterCollect() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          colors: [
-            _SlotTheme.jackpotMinor.withOpacity(0.3),
-            Colors.transparent,
-          ],
-        ),
-      ),
-    );
+    return const _ScatterCollectOverlay();
   }
 
   Widget _buildCascadeLayer() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            FluxForgeTheme.accentCyan.withOpacity(0.2),
-          ],
-        ),
-      ),
-    );
+    return const _CascadeOverlay();
   }
 
   Color _getWinColor(String? tier) {
@@ -1213,6 +1177,601 @@ class _WinHighlightOverlayState extends State<_WinHighlightOverlay>
       _ => _SlotTheme.winSmall,
     };
   }
+}
+
+// =============================================================================
+// CASCADE OVERLAY — Tumbling symbols animation
+// =============================================================================
+
+class _CascadeOverlay extends StatefulWidget {
+  const _CascadeOverlay();
+
+  @override
+  State<_CascadeOverlay> createState() => _CascadeOverlayState();
+}
+
+class _CascadeOverlayState extends State<_CascadeOverlay>
+    with TickerProviderStateMixin {
+  late AnimationController _fallController;
+  late AnimationController _glowController;
+  final List<_CascadeSymbol> _symbols = [];
+  final _random = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _fallController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat();
+    _fallController.addListener(_updateSymbols);
+
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..repeat(reverse: true);
+
+    _initSymbols();
+  }
+
+  void _initSymbols() {
+    for (int i = 0; i < 15; i++) {
+      _symbols.add(_CascadeSymbol(
+        x: _random.nextDouble(),
+        y: -_random.nextDouble() * 0.5,
+        size: _random.nextDouble() * 30 + 20,
+        speed: _random.nextDouble() * 0.02 + 0.015,
+        rotation: _random.nextDouble() * math.pi * 2,
+        rotationSpeed: (_random.nextDouble() - 0.5) * 0.1,
+        symbolIndex: _random.nextInt(8),
+      ));
+    }
+  }
+
+  void _updateSymbols() {
+    if (!mounted) return;
+    setState(() {
+      for (final s in _symbols) {
+        s.y += s.speed;
+        s.rotation += s.rotationSpeed;
+        if (s.y > 1.2) {
+          s.y = -0.2;
+          s.x = _random.nextDouble();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _fallController.dispose();
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _glowController,
+      builder: (context, _) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                FluxForgeTheme.accentCyan.withOpacity(0.1 + _glowController.value * 0.1),
+                Colors.transparent,
+                FluxForgeTheme.accentCyan.withOpacity(0.05 + _glowController.value * 0.05),
+              ],
+            ),
+          ),
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: _CascadeSymbolPainter(symbols: _symbols),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CascadeSymbol {
+  double x, y, size, speed, rotation, rotationSpeed;
+  int symbolIndex;
+
+  _CascadeSymbol({
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.speed,
+    required this.rotation,
+    required this.rotationSpeed,
+    required this.symbolIndex,
+  });
+}
+
+class _CascadeSymbolPainter extends CustomPainter {
+  final List<_CascadeSymbol> symbols;
+  static const _symbolChars = ['7', '🔔', '🍒', '🍋', '🍊', '🍇', '★', '◆'];
+
+  _CascadeSymbolPainter({required this.symbols});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final s in symbols) {
+      final x = s.x * size.width;
+      final y = s.y * size.height;
+
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(s.rotation);
+
+      // Glow effect
+      final glowPaint = Paint()
+        ..color = FluxForgeTheme.accentCyan.withOpacity(0.4)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      canvas.drawCircle(Offset.zero, s.size / 2, glowPaint);
+
+      // Symbol background
+      final bgPaint = Paint()
+        ..color = const Color(0xFF1a1a24);
+      canvas.drawCircle(Offset.zero, s.size / 2.5, bgPaint);
+
+      // Draw symbol text
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: _symbolChars[s.symbolIndex % _symbolChars.length],
+          style: TextStyle(
+            fontSize: s.size * 0.5,
+            color: FluxForgeTheme.accentCyan,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(
+        canvas,
+        Offset(-textPainter.width / 2, -textPainter.height / 2),
+      );
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CascadeSymbolPainter oldDelegate) => true;
+}
+
+// =============================================================================
+// WILD EXPANSION OVERLAY — Expanding wild symbol animation
+// =============================================================================
+
+class _WildExpansionOverlay extends StatefulWidget {
+  const _WildExpansionOverlay();
+
+  @override
+  State<_WildExpansionOverlay> createState() => _WildExpansionOverlayState();
+}
+
+class _WildExpansionOverlayState extends State<_WildExpansionOverlay>
+    with TickerProviderStateMixin {
+  late AnimationController _expandController;
+  late AnimationController _glowController;
+  late AnimationController _sparkleController;
+  final List<_Sparkle> _sparkles = [];
+  final _random = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _expandController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..repeat(reverse: true);
+
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    )..repeat(reverse: true);
+
+    _sparkleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+    _sparkleController.addListener(_updateSparkles);
+
+    _initSparkles();
+  }
+
+  void _initSparkles() {
+    for (int i = 0; i < 20; i++) {
+      _sparkles.add(_Sparkle(
+        x: 0.5 + (_random.nextDouble() - 0.5) * 0.3,
+        y: 0.5 + (_random.nextDouble() - 0.5) * 0.3,
+        vx: (_random.nextDouble() - 0.5) * 0.01,
+        vy: (_random.nextDouble() - 0.5) * 0.01,
+        size: _random.nextDouble() * 4 + 2,
+        life: _random.nextDouble(),
+      ));
+    }
+  }
+
+  void _updateSparkles() {
+    if (!mounted) return;
+    setState(() {
+      for (final s in _sparkles) {
+        s.x += s.vx;
+        s.y += s.vy;
+        s.life -= 0.02;
+        if (s.life <= 0) {
+          s.x = 0.5 + (_random.nextDouble() - 0.5) * 0.2;
+          s.y = 0.5 + (_random.nextDouble() - 0.5) * 0.2;
+          s.vx = (_random.nextDouble() - 0.5) * 0.015;
+          s.vy = (_random.nextDouble() - 0.5) * 0.015;
+          s.life = 1.0;
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _expandController.dispose();
+    _glowController.dispose();
+    _sparkleController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_expandController, _glowController]),
+      builder: (context, _) {
+        final scale = 0.8 + _expandController.value * 0.4;
+        final glowOpacity = 0.3 + _glowController.value * 0.4;
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // Radial glow
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [
+                    _SlotTheme.gold.withOpacity(glowOpacity),
+                    _SlotTheme.gold.withOpacity(glowOpacity * 0.3),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+
+            // Sparkles
+            CustomPaint(
+              size: Size.infinite,
+              painter: _SparklePainter(sparkles: _sparkles),
+            ),
+
+            // Main wild icon
+            Transform.scale(
+              scale: scale,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const RadialGradient(
+                    colors: [
+                      Color(0xFFFFD700),
+                      Color(0xFFFF9040),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _SlotTheme.gold.withOpacity(0.6),
+                      blurRadius: 30,
+                      spreadRadius: 10,
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text(
+                    '★',
+                    style: TextStyle(
+                      fontSize: 60,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(color: Colors.black54, blurRadius: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _Sparkle {
+  double x, y, vx, vy, size, life;
+
+  _Sparkle({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.size,
+    required this.life,
+  });
+}
+
+class _SparklePainter extends CustomPainter {
+  final List<_Sparkle> sparkles;
+
+  _SparklePainter({required this.sparkles});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final s in sparkles) {
+      if (s.life <= 0) continue;
+      final x = s.x * size.width;
+      final y = s.y * size.height;
+      final opacity = s.life;
+
+      final paint = Paint()
+        ..color = _SlotTheme.gold.withOpacity(opacity * 0.8);
+      canvas.drawCircle(Offset(x, y), s.size * s.life, paint);
+
+      // Star shape
+      final starPaint = Paint()
+        ..color = Colors.white.withOpacity(opacity * 0.6)
+        ..strokeWidth = 1;
+      canvas.drawLine(
+        Offset(x - s.size, y),
+        Offset(x + s.size, y),
+        starPaint,
+      );
+      canvas.drawLine(
+        Offset(x, y - s.size),
+        Offset(x, y + s.size),
+        starPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklePainter oldDelegate) => true;
+}
+
+// =============================================================================
+// SCATTER COLLECT OVERLAY — Scatter symbols flying to counter
+// =============================================================================
+
+class _ScatterCollectOverlay extends StatefulWidget {
+  const _ScatterCollectOverlay();
+
+  @override
+  State<_ScatterCollectOverlay> createState() => _ScatterCollectOverlayState();
+}
+
+class _ScatterCollectOverlayState extends State<_ScatterCollectOverlay>
+    with TickerProviderStateMixin {
+  late AnimationController _collectController;
+  late AnimationController _glowController;
+  final List<_ScatterSymbol> _scatters = [];
+  final _random = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _collectController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+    _collectController.addListener(_updateScatters);
+
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..repeat(reverse: true);
+
+    _initScatters();
+  }
+
+  void _initScatters() {
+    // Scatter symbols at random positions, flying toward top-center
+    for (int i = 0; i < 5; i++) {
+      _scatters.add(_ScatterSymbol(
+        startX: _random.nextDouble() * 0.6 + 0.2,
+        startY: _random.nextDouble() * 0.4 + 0.3,
+        progress: _random.nextDouble() * 0.3,
+        delay: i * 0.15,
+      ));
+    }
+  }
+
+  void _updateScatters() {
+    if (!mounted) return;
+    setState(() {
+      for (final s in _scatters) {
+        if (_collectController.value > s.delay) {
+          s.progress = (_collectController.value - s.delay) / (1.0 - s.delay);
+          if (s.progress > 1.0) s.progress = s.progress % 1.0;
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _collectController.dispose();
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _glowController,
+      builder: (context, _) {
+        return Stack(
+          children: [
+            // Background glow
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.8),
+                  colors: [
+                    _SlotTheme.jackpotMinor.withOpacity(0.3 + _glowController.value * 0.2),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+
+            // Scatter symbols
+            CustomPaint(
+              size: Size.infinite,
+              painter: _ScatterPainter(scatters: _scatters),
+            ),
+
+            // Collection target at top
+            Positioned(
+              top: 20,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _SlotTheme.jackpotMinor.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _SlotTheme.jackpotMinor.withOpacity(0.5 + _glowController.value * 0.5),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _SlotTheme.jackpotMinor.withOpacity(0.3),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        '◆',
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: _SlotTheme.jackpotMinor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'SCATTER',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: _SlotTheme.jackpotMinor,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ScatterSymbol {
+  double startX, startY, progress, delay;
+
+  _ScatterSymbol({
+    required this.startX,
+    required this.startY,
+    required this.progress,
+    required this.delay,
+  });
+
+  double get currentX => startX + (0.5 - startX) * progress;
+  double get currentY => startY + (0.1 - startY) * progress;
+  double get scale => 1.0 - progress * 0.5;
+  double get opacity => 1.0 - progress * 0.3;
+}
+
+class _ScatterPainter extends CustomPainter {
+  final List<_ScatterSymbol> scatters;
+
+  _ScatterPainter({required this.scatters});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final s in scatters) {
+      final x = s.currentX * size.width;
+      final y = s.currentY * size.height;
+      final symbolSize = 40.0 * s.scale;
+
+      // Trail effect
+      for (int i = 0; i < 5; i++) {
+        final trailProgress = s.progress - i * 0.05;
+        if (trailProgress < 0) continue;
+        final trailX = s.startX + (0.5 - s.startX) * trailProgress;
+        final trailY = s.startY + (0.1 - s.startY) * trailProgress;
+        final trailOpacity = (1.0 - i * 0.2) * 0.3;
+
+        final trailPaint = Paint()
+          ..color = _SlotTheme.jackpotMinor.withOpacity(trailOpacity);
+        canvas.drawCircle(
+          Offset(trailX * size.width, trailY * size.height),
+          symbolSize * 0.3,
+          trailPaint,
+        );
+      }
+
+      // Glow
+      final glowPaint = Paint()
+        ..color = _SlotTheme.jackpotMinor.withOpacity(s.opacity * 0.5)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+      canvas.drawCircle(Offset(x, y), symbolSize * 0.8, glowPaint);
+
+      // Symbol background
+      final bgPaint = Paint()
+        ..shader = const RadialGradient(
+          colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+        ).createShader(Rect.fromCircle(center: Offset(x, y), radius: symbolSize));
+      canvas.drawCircle(Offset(x, y), symbolSize * 0.6, bgPaint);
+
+      // Diamond symbol
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: '◆',
+          style: TextStyle(
+            fontSize: symbolSize * 0.8,
+            color: Colors.white.withOpacity(s.opacity),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(
+        canvas,
+        Offset(x - textPainter.width / 2, y - textPainter.height / 2),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScatterPainter oldDelegate) => true;
 }
 
 // =============================================================================
@@ -3337,6 +3896,26 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   // === HANDLERS ===
 
+  /// Toggle music bus mute state (bus ID 2 = music)
+  void _toggleMusic() {
+    setState(() => _isMusicOn = !_isMusicOn);
+    // Mute/unmute music bus via FFI
+    NativeFFI.instance.setBusMute(2, !_isMusicOn);
+  }
+
+  /// Toggle SFX bus mute state (bus ID 1 = sfx)
+  void _toggleSfx() {
+    setState(() => _isSfxOn = !_isSfxOn);
+    // Mute/unmute SFX bus via FFI
+    NativeFFI.instance.setBusMute(1, !_isSfxOn);
+  }
+
+  /// Set master volume via FFI
+  void _setMasterVolume(double volume) {
+    setState(() => _masterVolume = volume);
+    NativeFFI.instance.setMasterVolume(volume);
+  }
+
   void _handleSpin(SlotLabProvider provider) {
     if (provider.isPlayingStages) return;
     if (_balance < _totalBetAmount) return;
@@ -3596,8 +4175,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   isSfxOn: _isSfxOn,
                   isFullscreen: _isFullscreen,
                   onMenuTap: () {},
-                  onMusicToggle: () => setState(() => _isMusicOn = !_isMusicOn),
-                  onSfxToggle: () => setState(() => _isSfxOn = !_isSfxOn),
+                  onMusicToggle: _toggleMusic,
+                  onSfxToggle: _toggleSfx,
                   onSettingsTap: () => setState(() => _showSettingsPanel = !_showSettingsPanel),
                   onFullscreenToggle: () {},
                   onExit: widget.onExit,
@@ -3711,9 +4290,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   isSfxOn: _isSfxOn,
                   quality: _graphicsQuality,
                   animationsEnabled: _animationsEnabled,
-                  onVolumeChanged: (v) => setState(() => _masterVolume = v),
-                  onMusicToggle: () => setState(() => _isMusicOn = !_isMusicOn),
-                  onSfxToggle: () => setState(() => _isSfxOn = !_isSfxOn),
+                  onVolumeChanged: _setMasterVolume,
+                  onMusicToggle: _toggleMusic,
+                  onSfxToggle: _toggleSfx,
                   onQualityChanged: (v) => setState(() => _graphicsQuality = v),
                   onAnimationsToggle: () =>
                       setState(() => _animationsEnabled = !_animationsEnabled),

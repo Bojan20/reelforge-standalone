@@ -2502,24 +2502,54 @@ Fullscreen audio sandbox za slot game audio dizajn.
 - Auto-triggers MiddlewareProvider events
 
 **UI Widgets:** `flutter_ui/lib/widgets/slot_lab/`
-- `premium_slot_preview.dart` — **NEW** Fullscreen premium UI sa svim elementima
+- `premium_slot_preview.dart` — Fullscreen premium UI (~3,728 LOC)
+- `slot_preview_widget.dart` — Reel animation system (~1,485 LOC)
 - `stage_trace_widget.dart` — Animated timeline kroz stage evente
-- `slot_preview_widget.dart` — Premium slot machine sa animacijama
 - `event_log_panel.dart` — Real-time log audio eventa
 - `forced_outcome_panel.dart` — Test buttons (keyboard shortcuts 1-0)
 - `audio_hover_preview.dart` — Browser sa hover preview
 
-**Premium Preview Mode (2026-01-21):**
+**Premium Preview Mode (2026-01-24) — 95% Complete, P1 Done:**
 ```
-A. Header Zone — Menu, logo, balance, VIP, audio, settings, exit
-B. Jackpot Zone — 4-tier tickers (Mini/Minor/Major/Grand) + contribution meter
-C. Main Game Zone — Reels, paylines, win overlay, anticipation, particles
-D. Win Presenter — Rollup animation, tier badges, coin particles, collect/gamble
-E. Feature Indicators — Free spins, bonus meter, multiplier, cascade
-F. Control Bar — Lines/Coin/Bet selectors, Max Bet, Auto-spin, Turbo, Spin
-G. Info Panels — Paytable, rules, history, stats (left side)
-H. Audio/Visual — Volume slider, music/sfx toggles, quality, animations
+A. Header Zone — Menu, logo, balance, VIP, audio, settings, exit     ✅ 100%
+B. Jackpot Zone — 4-tier tickers + progressive meter                  ✅ 100%
+C. Main Game Zone — Reels, paylines, win overlay, anticipation        ✅ 100%
+D. Win Presenter — Rollup animation, tier badges, coin particles      ✅ 80%
+E. Feature Indicators — Free spins, bonus meter, multiplier           ✅ 100%
+F. Control Bar — Lines/Coin/Bet selectors, Auto-spin, Turbo, Spin    ✅ 100%
+G. Info Panels — Paytable, rules, history, stats                      ✅ 100%
+H. Audio/Visual — Volume slider, music/sfx toggles                    ✅ 100%
 ```
+
+**✅ P1 Completed (2026-01-24):**
+
+| Feature | Solution | Status |
+|---------|----------|--------|
+| Cascade animation | `_CascadeOverlay` — falling symbols, glow, rotation | ✅ Done |
+| Wild expansion | `_WildExpansionOverlay` — expanding star, sparkle particles | ✅ Done |
+| Scatter collection | `_ScatterCollectOverlay` — flying diamonds with trails | ✅ Done |
+| Audio toggles | Connected to `NativeFFI.setBusMute()` (bus 1=SFX, 2=Music) | ✅ Done |
+
+**⚠️ P2 Remaining (Needs Implementation):**
+
+| Feature | Problem | Priority |
+|---------|---------|----------|
+| Collect/Gamble | Click exists, no logic | P2 |
+| Paytable | Mock data, not from math model | P2 |
+| RNG connection | Random 1-5, not engine RNG | P2 |
+| Jackpot growth | Hardcoded, not from bet math | P2 |
+
+**Keyboard Shortcuts:**
+| Key | Action |
+|-----|--------|
+| F11 | Toggle fullscreen preview |
+| ESC | Exit / close panels |
+| Space | Spin |
+| M | Toggle music |
+| S | Toggle stats |
+| T | Toggle turbo |
+| A | Toggle auto-spin |
+| 1-7 | Force outcomes (debug) |
 
 **Forced Outcomes:**
 ```
@@ -2527,7 +2557,7 @@ H. Audio/Visual — Volume slider, music/sfx toggles, quality, animations
 6-FreeSpins, 7-JackpotGrand, 8-NearMiss, 9-Cascade, 0-UltraWin
 ```
 
-**Dokumentacija:** `.claude/architecture/SLOT_LAB_SYSTEM.md`
+**Dokumentacija:** `.claude/architecture/SLOT_LAB_SYSTEM.md`, `.claude/MASTER_TODO_2026_01_22.md`
 
 ### SlotLab V6 Layout (2026-01-23) ✅ COMPLETE
 
