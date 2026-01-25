@@ -52,7 +52,12 @@ class SymbolStripWidget extends StatefulWidget {
 }
 
 class _SymbolStripWidgetState extends State<SymbolStripWidget> {
-  final Set<String> _expandedSymbols = {};
+  // All symbols expanded by default for easy audio drop
+  final Set<String> _expandedSymbols = {
+    'wild', 'scatter', 'bonus',
+    'hp1', 'hp2', 'hp3', 'hp4',
+    'lp1', 'lp2', 'lp3', 'lp4', 'lp5', 'lp6',
+  };
   final Set<String> _expandedContexts = {'base'}; // Base expanded by default
 
   String? _getSymbolAudioPath(String symbolId, String context) {
@@ -448,11 +453,14 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
       child: DragTarget<Object>(
         onWillAcceptWithDetails: (details) {
           // Accept AudioAsset, List<AudioAsset>, or String
-          return details.data is AudioAsset ||
+          final accepted = details.data is AudioAsset ||
               details.data is List<AudioAsset> ||
               details.data is String;
+          debugPrint('[SymbolStrip] 🎯 onWillAccept: ${details.data.runtimeType} → $accepted');
+          return accepted;
         },
         onAcceptWithDetails: (details) {
+          debugPrint('[SymbolStrip] ✅ onAccept: ${details.data.runtimeType}');
           String? path;
           if (details.data is AudioAsset) {
             path = (details.data as AudioAsset).path;
@@ -463,7 +471,10 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
             path = details.data as String;
           }
           if (path != null) {
+            debugPrint('[SymbolStrip] 🎵 Calling onDrop with: ${path.split('/').last}');
             onDrop?.call(path);
+          } else {
+            debugPrint('[SymbolStrip] ❌ No path extracted from drop data');
           }
         },
         builder: (context, candidateData, rejectedData) {

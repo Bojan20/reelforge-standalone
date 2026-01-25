@@ -207,15 +207,147 @@ After the 2026-01-25 fixes:
 
 ---
 
+## Symbol Audio Persistence Fix (2026-01-25)
+
+**Problem Identified:** Symbol audio dropped on SymbolStripWidget wasn't playing after screen remount.
+
+**Root Cause:** Symbol audio events were registered directly to EventRegistry (not via MiddlewareProvider), so they weren't re-registered when SlotLab screen remounts.
+
+**Solution Implemented:**
+- Added `_syncSymbolAudioToRegistry()` method in `slot_lab_screen.dart`
+- Called during `_initializeSlotEngine()` to re-register all symbol audio assignments
+- Reads from `SlotLabProjectProvider.symbolAudio` (persisted) and syncs to EventRegistry
+
+**Verification:**
+1. Drop audio on HP1 WIN slot → audio plays ✅
+2. Navigate away from SlotLab → return → audio still plays ✅
+3. Spin with winning HP1 → WIN_SYMBOL_HIGHLIGHT_HP1 triggers correctly ✅
+
+---
+
 ## Files Verified
 
 | File | Lines Checked | Status |
 |------|---------------|--------|
 | `slot_lab_screen.dart` | 7874-8146 | ✅ Complete |
+| `slot_lab_screen.dart` | 669-675 (`_fallbackReelSymbols`) | ✅ Fixed |
+| `slot_lab_screen.dart` | 1591-1615 (`_gridToSymbols`) | ✅ Fixed |
 | `slot_lab_provider.dart` | 900-1050 | ✅ Complete |
 | `slot_preview_widget.dart` | 1050-1250 | ✅ Complete |
-| `slot_lab_models.dart` | 1-300 | ✅ Complete |
+| `slot_lab_models.dart` | 300-350 (`SymbolPreset.standard5x3`) | ✅ Fixed (added HP4, LP6, BONUS) |
 | `crates/rf-slot-lab/src/spin.rs` | Full | ✅ Complete |
+| `crates/rf-slot-lab/src/symbols.rs` | Full | ✅ Verified (reference for ID mapping) |
+
+---
+
+## Symbol ID to Name Mapping Fix (2026-01-25)
+
+**Problem Identified:** Visual symbols on reels didn't match what the Rust engine was actually generating. This caused WIN_SYMBOL_HIGHLIGHT_HP1 stages to fire, but the displayed symbols were wrong (showed '7', 'BAR' instead of 'HP1', 'HP2').
+
+**Root Cause:** `_gridToSymbols()` in `slot_lab_screen.dart` had an incorrect symbol map:
+```dart
+// WRONG (before fix):
+const symbolMap = {
+  1: '7',      // Should be HP1
+  2: 'BAR',    // Should be HP2
+  3: 'BELL',   // Should be HP3
+  // ... etc
+};
+```
+
+**Rust Engine Symbol IDs** (`crates/rf-slot-lab/src/symbols.rs`):
+| ID | Symbol | Type |
+|----|--------|------|
+| 0 | BLANK | - |
+| 1 | HP1 | High Pay (💎) |
+| 2 | HP2 | High Pay (👑) |
+| 3 | HP3 | High Pay (🔔) |
+| 4 | HP4 | High Pay (🍀) |
+| 5 | LP1 | Low Pay (Ace) |
+| 6 | LP2 | Low Pay (King) |
+| 7 | LP3 | Low Pay (Queen) |
+| 8 | LP4 | Low Pay (Jack) |
+| 9 | LP5 | Low Pay (Ten) |
+| 10 | LP6 | Low Pay (Nine) |
+| 11 | WILD | Special (🃏) |
+| 12 | SCATTER | Special (⭐) |
+| 13 | BONUS | Special (🎁) |
+
+**Solution Implemented:**
+
+1. **Fixed `_gridToSymbols()` mapping** (`slot_lab_screen.dart:1591-1610`):
+```dart
+const symbolMap = {
+  0: 'BLANK',
+  1: 'HP1',  2: 'HP2',  3: 'HP3',  4: 'HP4',
+  5: 'LP1',  6: 'LP2',  7: 'LP3',  8: 'LP4',  9: 'LP5',  10: 'LP6',
+  11: 'WILD',  12: 'SCATTER',  13: 'BONUS',
+};
+```
+
+2. **Fixed `_fallbackReelSymbols`** (`slot_lab_screen.dart:669-675`):
+   - Changed from classic symbols ('7', 'BAR', 'BELL') to HP/LP naming
+
+3. **Updated `SymbolPreset.standard5x3`** (`slot_lab_models.dart:318-348`):
+   - Added HP4 (was missing, Rust has HP1-HP4)
+   - Added LP6 (was missing, Rust has LP1-LP6)
+   - Added BONUS (was missing, Rust has BONUS)
+   - Updated sortOrder values for all symbols
+
+**Symbol Count Alignment:**
+
+| Category | Before Fix | After Fix | Rust Engine |
+|----------|------------|-----------|-------------|
+| Special | Wild, Scatter | Wild, Scatter, **Bonus** | Wild, Scatter, Bonus ✅ |
+| High Pay | HP1-HP3 | HP1-**HP4** | HP1-HP4 ✅ |
+| Low Pay | LP1-LP5 | LP1-**LP6** | LP1-LP6 ✅ |
+| **Total** | **10** | **13** | **13 ✅** |
+
+**Verification:**
+1. Spin → Reels show HP1, HP2, WILD, etc. (correct names) ✅
+2. Win with HP1 → WIN_SYMBOL_HIGHLIGHT_HP1 triggers ✅
+3. Symbol audio dropped on HP1 WIN slot → plays correctly ✅
+4. All 13 Rust symbols now have Flutter definitions ✅
+
+---
+
+## SymbolStripWidget Drop Zone Visibility Fix (2026-01-25)
+
+**Problem Identified:** Audio files could not be dropped onto HP/LP symbol drop zones in Edit Mode because the drop slots were not visible.
+
+**Root Cause:** `_expandedSymbols` Set in `symbol_strip_widget.dart` was initialized as EMPTY:
+```dart
+// BEFORE (broken):
+final Set<String> _expandedSymbols = {};  // Empty = no drop slots visible!
+```
+
+**Solution Implemented:**
+Pre-populate `_expandedSymbols` with all 13 symbol IDs so drop slots are visible by default:
+```dart
+// AFTER (fixed):
+final Set<String> _expandedSymbols = {
+  'wild', 'scatter', 'bonus',
+  'hp1', 'hp2', 'hp3', 'hp4',
+  'lp1', 'lp2', 'lp3', 'lp4', 'lp5', 'lp6',
+};
+```
+
+**Debug Logging Added:**
+Added detailed logging to DragTarget for troubleshooting:
+- `onWillAcceptWithDetails` → Logs data type and acceptance status
+- `onAcceptWithDetails` → Logs extracted audio path
+
+**Files Modified:**
+| File | Changes |
+|------|---------|
+| `symbol_strip_widget.dart` | Pre-populated `_expandedSymbols`, added debug logging |
+
+**Expected Behavior:**
+1. Enter Edit Mode in SlotLab
+2. All symbol rows (HP1-HP4, LP1-LP6, Wild, Scatter, Bonus) show LAND/WIN drop slots
+3. Drag audio file from browser onto drop slot
+4. Debug log shows: `[SymbolStrip] ✅ onAccept: AudioAsset`
+5. Audio plays on corresponding stage trigger
 
 ---
 

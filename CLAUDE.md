@@ -3807,6 +3807,51 @@ Rešenje: `_getFallbackStage()` mapira specifične stage-ove na generičke:
 
 **Dokumentacija:** `.claude/architecture/EVENT_SYNC_SYSTEM.md`
 
+**Symbol Audio Re-Registration on Mount (2026-01-25) ✅:**
+
+Problem: Symbol audio events (WIN_SYMBOL_HIGHLIGHT_HP1, SYMBOL_LAND_WILD, etc.) registrovani direktno u EventRegistry (ne preko MiddlewareProvider), pa se gube kada se SlotLab screen remountuje.
+
+**Dva odvojena flow-a za audio evente:**
+1. **Main flow:** DropTargetWrapper → QuickSheet → MiddlewareProvider (persistirano)
+2. **Symbol flow:** SymbolStripWidget → `projectProvider.assignSymbolAudio()` → direktan `eventRegistry.registerEvent()` (NIJE persistirano u EventRegistry)
+
+**Root Cause:**
+- `SlotLabProjectProvider.symbolAudio` JE persistirano (List<SymbolAudioAssignment>)
+- Ali EventRegistry eventi NISU — gube se pri remount-u
+- Rezultat: Symbol audio ne svira nakon navigacije između sekcija
+
+**Rešenje:** Nova metoda `_syncSymbolAudioToRegistry()` u `slot_lab_screen.dart`:
+```dart
+void _syncSymbolAudioToRegistry() {
+  final symbolAudio = projectProvider.symbolAudio;
+  for (final assignment in symbolAudio) {
+    final stageName = assignment.stageName;  // WIN_SYMBOL_HIGHLIGHT_HP1
+    final audioEvent = AudioEvent(
+      id: 'symbol_${assignment.symbolId}_${assignment.context}',
+      stage: stageName,
+      layers: [AudioLayer(audioPath: assignment.audioPath, ...)],
+    );
+    eventRegistry.registerEvent(audioEvent);
+  }
+}
+```
+
+**Poziv u `_initializeSlotEngine()`** — uvek se izvršava, nezavisno od engine init rezultata.
+
+**Stage Name Generation (`SymbolAudioAssignment.stageName`):**
+| Context | Stage Format |
+|---------|--------------|
+| `win` | `WIN_SYMBOL_HIGHLIGHT_HP1` |
+| `land` | `SYMBOL_LAND_HP1` |
+| `expand` | `SYMBOL_EXPAND_HP1` |
+| `lock` | `SYMBOL_LOCK_HP1` |
+| `transform` | `SYMBOL_TRANSFORM_HP1` |
+
+**Ključni fajlovi:**
+- `slot_lab_screen.dart:10404-10459` — `_syncSymbolAudioToRegistry()` metoda
+- `slot_lab_screen.dart:1547-1553` — Poziv u `_initializeSlotEngine()`
+- `slot_lab_models.dart:654-669` — `SymbolAudioAssignment.stageName` getter
+
 ### StageGroupService & generateEventName() (2026-01-24) ✅
 
 Konverzija stage imena u human-readable event imena + batch import matching.

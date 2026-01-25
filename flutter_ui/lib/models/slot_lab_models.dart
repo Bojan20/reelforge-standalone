@@ -314,33 +314,40 @@ class SymbolPreset {
     this.iconPath,
   });
 
-  /// Standard 5x3 slot with Wild, Scatter, 3 HP, 5 LP
+  /// Standard 5x3 slot with Wild, Scatter, Bonus, 4 HP, 6 LP
+  /// Matches Rust StandardSymbolSet (crates/rf-slot-lab/src/symbols.rs)
   static SymbolPreset get standard5x3 => SymbolPreset(
     id: 'standard_5x3',
     name: 'Standard 5x3',
-    description: '5-reel, 3-row classic layout: Wild, Scatter, 3 High Pay, 5 Low Pay',
+    description: '5-reel, 3-row classic layout: Wild, Scatter, Bonus, 4 High Pay, 6 Low Pay',
     type: SymbolPresetType.standard5x3,
     symbols: const [
       SymbolDefinition(id: 'wild', name: 'Wild', emoji: '🃏', type: SymbolType.wild,
         contexts: ['land', 'win', 'expand'], payMultiplier: 100, sortOrder: 0),
       SymbolDefinition(id: 'scatter', name: 'Scatter', emoji: '⭐', type: SymbolType.scatter,
         contexts: ['land', 'win', 'trigger'], payMultiplier: 50, sortOrder: 1),
+      SymbolDefinition(id: 'bonus', name: 'Bonus', emoji: '🎁', type: SymbolType.bonus,
+        contexts: ['land', 'trigger'], payMultiplier: 0, sortOrder: 2),
       SymbolDefinition(id: 'hp1', name: 'High Pay 1', emoji: '💎', type: SymbolType.highPay,
-        contexts: ['land', 'win'], payMultiplier: 30, sortOrder: 2),
+        contexts: ['land', 'win'], payMultiplier: 30, sortOrder: 3),
       SymbolDefinition(id: 'hp2', name: 'High Pay 2', emoji: '👑', type: SymbolType.highPay,
-        contexts: ['land', 'win'], payMultiplier: 25, sortOrder: 3),
+        contexts: ['land', 'win'], payMultiplier: 25, sortOrder: 4),
       SymbolDefinition(id: 'hp3', name: 'High Pay 3', emoji: '🔔', type: SymbolType.highPay,
-        contexts: ['land', 'win'], payMultiplier: 20, sortOrder: 4),
+        contexts: ['land', 'win'], payMultiplier: 20, sortOrder: 5),
+      SymbolDefinition(id: 'hp4', name: 'High Pay 4', emoji: '🍀', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 15, sortOrder: 6),
       SymbolDefinition(id: 'lp1', name: 'Ace', emoji: 'A', type: SymbolType.lowPay,
-        contexts: ['land', 'win'], payMultiplier: 5, sortOrder: 5),
+        contexts: ['land', 'win'], payMultiplier: 5, sortOrder: 7),
       SymbolDefinition(id: 'lp2', name: 'King', emoji: 'K', type: SymbolType.lowPay,
-        contexts: ['land', 'win'], payMultiplier: 4, sortOrder: 6),
+        contexts: ['land', 'win'], payMultiplier: 4, sortOrder: 8),
       SymbolDefinition(id: 'lp3', name: 'Queen', emoji: 'Q', type: SymbolType.lowPay,
-        contexts: ['land', 'win'], payMultiplier: 3, sortOrder: 7),
+        contexts: ['land', 'win'], payMultiplier: 3, sortOrder: 9),
       SymbolDefinition(id: 'lp4', name: 'Jack', emoji: 'J', type: SymbolType.lowPay,
-        contexts: ['land', 'win'], payMultiplier: 2, sortOrder: 8),
+        contexts: ['land', 'win'], payMultiplier: 2, sortOrder: 10),
       SymbolDefinition(id: 'lp5', name: 'Ten', emoji: '10', type: SymbolType.lowPay,
-        contexts: ['land', 'win'], payMultiplier: 1, sortOrder: 9),
+        contexts: ['land', 'win'], payMultiplier: 1, sortOrder: 11),
+      SymbolDefinition(id: 'lp6', name: 'Nine', emoji: '9', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 1, sortOrder: 12),
     ],
   );
 

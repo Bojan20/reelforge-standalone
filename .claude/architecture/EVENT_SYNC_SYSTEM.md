@@ -1569,6 +1569,112 @@ String get stageName {
 
 ---
 
+## CRITICAL FIX: Symbol Audio Re-Registration on Mount (2026-01-25) ✅
+
+### Problem: Symbol Win Audio Not Playing After Screen Remount
+
+**User Report:** "pa ne radi sve sto prevucem za symbol winove" (symbol wins still don't work)
+
+**Root Cause:**
+- Symbol audio events are registered DIRECTLY to EventRegistry (not via MiddlewareProvider)
+- When user navigates away from SlotLab and back, screen remounts
+- EventRegistry is NOT cleared, BUT symbol events were only registered on DROP
+- If user dropped audio in previous session, those events are NOT re-registered
+- Result: Symbol audio events are LOST after screen remount
+
+**Flow Before Fix:**
+```
+1. Drop audio on HP1 WIN → onSymbolAudioDrop() → eventRegistry.registerEvent()
+2. Navigate to DAW → SlotLab screen disposes
+3. Return to SlotLab → SlotLab screen mounts fresh
+4. symbolAudio is in SlotLabProjectProvider (persisted) ✅
+5. But EventRegistry has NO symbol events! ❌
+6. Win with HP1 → triggerStage('WIN_SYMBOL_HIGHLIGHT_HP1') → No audio!
+```
+
+**Flow After Fix:**
+```
+1. Drop audio on HP1 WIN → onSymbolAudioDrop() → eventRegistry.registerEvent()
+2. Navigate to DAW → SlotLab screen disposes
+3. Return to SlotLab → SlotLab screen mounts fresh
+4. _initializeSlotEngine() runs
+5. _syncSymbolAudioToRegistry() iterates SlotLabProjectProvider.symbolAudio ✅
+6. All symbol audio events re-registered to EventRegistry ✅
+7. Win with HP1 → triggerStage('WIN_SYMBOL_HIGHLIGHT_HP1') → Audio plays! ✅
+```
+
+### Fix Implementation
+
+**New Method:** `_syncSymbolAudioToRegistry()` in `slot_lab_screen.dart:10404-10459`
+
+```dart
+void _syncSymbolAudioToRegistry() {
+  try {
+    final projectProvider = Provider.of<SlotLabProjectProvider>(context, listen: false);
+    final symbolAudio = projectProvider.symbolAudio;
+
+    if (symbolAudio.isEmpty) return;
+
+    for (final assignment in symbolAudio) {
+      final symbol = projectProvider.symbols.firstWhere(
+        (s) => s.id == assignment.symbolId,
+        orElse: () => defaultSymbols.first,
+      );
+
+      final stageName = assignment.stageName; // Uses correct format per context
+
+      eventRegistry.registerEvent(AudioEvent(
+        id: 'symbol_${assignment.symbolId}_${assignment.context}',
+        name: '${symbol.name} ${assignment.context}',
+        stage: stageName,
+        layers: [
+          AudioLayer(
+            id: 'layer_${assignment.symbolId}_${assignment.context}',
+            audioPath: assignment.audioPath,
+            volume: assignment.volume,
+            pan: assignment.pan,
+            busId: 1, // SFX bus
+          ),
+        ],
+      ));
+    }
+  } catch (e) {
+    debugPrint('[SlotLab] Error syncing symbol audio: $e');
+  }
+}
+```
+
+**Call Site:** `_initializeSlotEngine()` at line 1547-1553
+
+```dart
+// After engine init (whether success or fail):
+_syncSymbolAudioToRegistry();
+```
+
+### Key Design Decisions
+
+1. **Runs regardless of engine init success** — Audio playback works independently of synthetic slot engine
+2. **Uses SlotLabProjectProvider.symbolAudio** — This is persisted, survives screen remounts
+3. **Uses SymbolAudioAssignment.stageName getter** — Ensures correct stage format per context type
+4. **Wrapped in try-catch** — Prevents crash if provider not available
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `flutter_ui/lib/screens/slot_lab_screen.dart:10404-10459` | Added `_syncSymbolAudioToRegistry()` method |
+| `flutter_ui/lib/screens/slot_lab_screen.dart:1547-1553` | Call `_syncSymbolAudioToRegistry()` in `_initializeSlotEngine()` |
+
+### Verification Checklist
+
+1. ✅ Drop audio on symbol WIN context in SymbolStripWidget
+2. ✅ Navigate to DAW section
+3. ✅ Return to SlotLab section
+4. ✅ Spin and get win with that symbol
+5. ✅ Audio plays correctly
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management

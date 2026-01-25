@@ -664,12 +664,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   final Set<String> _activeLayerIds = {}; // layer.id → currently playing
 
   // Simulated reel symbols (fallback when engine not available)
+  // CRITICAL: Must match StandardSymbolSet in crates/rf-slot-lab/src/symbols.rs
+  // Uses HP1-HP4 (high paying), LP1-LP6 (low paying), WILD, SCATTER, BONUS
   final List<List<String>> _fallbackReelSymbols = [
-    ['7', 'BAR', 'BELL', 'CHERRY', 'WILD'],
-    ['BAR', '7', 'BONUS', 'BELL', 'CHERRY'],
-    ['CHERRY', 'WILD', '7', 'BAR', 'BELL'],
-    ['BELL', 'CHERRY', 'BAR', 'BONUS', '7'],
-    ['WILD', 'BELL', 'CHERRY', '7', 'BAR'],
+    ['HP1', 'LP1', 'HP2', 'LP2', 'WILD'],
+    ['LP1', 'HP1', 'BONUS', 'HP3', 'LP3'],
+    ['LP2', 'WILD', 'HP1', 'LP1', 'HP2'],
+    ['HP3', 'LP3', 'LP1', 'SCATTER', 'HP1'],
+    ['WILD', 'HP2', 'LP2', 'HP1', 'LP1'],
   ];
 
   // Current reel symbols from engine (or fallback)
@@ -1579,18 +1581,32 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Convert engine grid (symbol IDs) to display symbols
+  /// CRITICAL: Must match StandardSymbolSet in crates/rf-slot-lab/src/symbols.rs
+  /// Symbol IDs from Rust:
+  ///   1-4: HP1-HP4 (high paying)
+  ///   5-10: LP1-LP6 (low paying)
+  ///   11: WILD
+  ///   12: SCATTER
+  ///   13: BONUS
   List<List<String>> _gridToSymbols(List<List<int>> grid) {
     const symbolMap = {
       0: 'BLANK',
-      1: '7',
-      2: 'BAR',
-      3: 'BELL',
-      4: 'CHERRY',
-      5: 'WILD',
-      6: 'BONUS',
-      7: 'SCATTER',
-      8: 'DIAMOND',
-      9: 'STAR',
+      // High Paying (HP1=highest, HP4=lowest of high tier)
+      1: 'HP1',      // Premium symbol 💎
+      2: 'HP2',      // 👑
+      3: 'HP3',      // 🔔
+      4: 'HP4',      // High pay 4
+      // Low Paying (LP1=highest of low tier, LP6=lowest)
+      5: 'LP1',      // Ace
+      6: 'LP2',      // King
+      7: 'LP3',      // Queen
+      8: 'LP4',      // Jack
+      9: 'LP5',      // Ten
+      10: 'LP6',     // Nine
+      // Special symbols
+      11: 'WILD',    // 🃏
+      12: 'SCATTER', // ⭐
+      13: 'BONUS',   // 🎁
     };
 
     return grid.map((reel) {

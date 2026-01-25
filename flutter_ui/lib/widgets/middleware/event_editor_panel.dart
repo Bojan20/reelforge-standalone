@@ -100,6 +100,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
   // Debounce timer for slider updates (P0.2 performance fix)
   Timer? _sliderDebounceTimer;
 
+  // Track which event has pending local edits to prevent provider overwrite during debounce
+  // BUG FIX: Without this, provider sync would overwrite local slider changes before debounce completes
+  String? _pendingEditEventId;
+
   @override
   void initState() {
     super.initState();
@@ -174,6 +178,12 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         }
         _expandedCategories.add(event.category);
       } else {
+        // BUG FIX: Skip updating events with pending local edits (e.g., during slider drag)
+        // This prevents provider from overwriting local slider changes during debounce period
+        if (event.id == _pendingEditEventId) {
+          continue;
+        }
+
         // Update if changed - check name, category, or any action parameters
         final existing = _events[event.id]!;
         bool needsUpdate = existing.name != event.name ||
@@ -3858,6 +3868,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     double? delay,
     double? fadeTime,
   }) {
+    // Mark this event as having pending edits to prevent provider overwrite
+    _pendingEditEventId = event.id;
+
     // Update local state immediately for responsive UI
     final newAction = action.copyWith(
       gain: gain,
@@ -3878,6 +3891,8 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     _sliderDebounceTimer?.cancel();
     _sliderDebounceTimer = Timer(const Duration(milliseconds: 50), () {
       _syncEventToProvider(_events[event.id]!);
+      // Clear pending edit flag after sync completes
+      _pendingEditEventId = null;
     });
   }
 
