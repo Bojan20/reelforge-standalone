@@ -4112,6 +4112,10 @@ Critical (P0) i High-Priority (P1) audio poboljšanja za Slot Lab.
 | P0.5 | Dynamic Rollup Speed (RTPC) | ✅ Done |
 | P0.6 | Anticipation Pre-Trigger | ✅ Done |
 | P0.7 | Big Win Layered Audio | ✅ Done |
+| P0.8 | RTL (Right-to-Left) Rollup Animation | ✅ Done |
+| P0.9 | Win Tier 1 Rollup Skip | ✅ Done |
+| P0.10 | Symbol Drop Zone Rules | ✅ Done |
+| P0.11 | Larger Drop Targets | ✅ Done |
 | P1.1 | Symbol-Specific Audio | ✅ Done |
 | P1.2 | Near Miss Audio Escalation | ✅ Done |
 | P1.3 | Win Line Audio Panning | ✅ Done |
@@ -4123,7 +4127,7 @@ Critical (P0) i High-Priority (P1) audio poboljšanja za Slot Lab.
 - `flutter_ui/lib/services/event_registry.dart` — Big Win templates, context pan/volume
 - `flutter_ui/lib/providers/slot_lab_provider.dart` — Pre-trigger, timing config, symbol detection
 
-**Dokumentacija:** `.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md` (kompletni tehnički detalji)
+**Dokumentacija:** `.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md` (kompletni tehnički detalji — P0.1-P0.11, P1.1-P1.3)
 
 ### SlotLab 100% Industry Standard Audio (2026-01-25) ✅
 

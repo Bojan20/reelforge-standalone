@@ -2815,6 +2815,7 @@ class _ControlBar extends StatelessWidget {
   final VoidCallback onStop;
   final VoidCallback onAutoSpinToggle;
   final VoidCallback onTurboToggle;
+  final VoidCallback? onAfterInteraction; // Request focus back after any interaction
 
   const _ControlBar({
     required this.lines,
@@ -2838,6 +2839,7 @@ class _ControlBar extends StatelessWidget {
     required this.onStop,
     required this.onAutoSpinToggle,
     required this.onTurboToggle,
+    this.onAfterInteraction,
   });
 
   @override
@@ -2864,8 +2866,8 @@ class _ControlBar extends StatelessWidget {
           _BetSelector(
             label: 'LINES',
             value: '$lines',
-            onDecrease: lines > 1 ? () => onLinesChanged(lines - 1) : null,
-            onIncrease: lines < maxLines ? () => onLinesChanged(lines + 1) : null,
+            onDecrease: lines > 1 ? () { onLinesChanged(lines - 1); onAfterInteraction?.call(); } : null,
+            onIncrease: lines < maxLines ? () { onLinesChanged(lines + 1); onAfterInteraction?.call(); } : null,
             isDisabled: isSpinning,
           ),
           const SizedBox(width: 12),
@@ -2875,10 +2877,10 @@ class _ControlBar extends StatelessWidget {
             label: 'COIN',
             value: coinValue.toStringAsFixed(2),
             onDecrease: coinValues.indexOf(coinValue) > 0
-                ? () => onCoinChanged(coinValues[coinValues.indexOf(coinValue) - 1])
+                ? () { onCoinChanged(coinValues[coinValues.indexOf(coinValue) - 1]); onAfterInteraction?.call(); }
                 : null,
             onIncrease: coinValues.indexOf(coinValue) < coinValues.length - 1
-                ? () => onCoinChanged(coinValues[coinValues.indexOf(coinValue) + 1])
+                ? () { onCoinChanged(coinValues[coinValues.indexOf(coinValue) + 1]); onAfterInteraction?.call(); }
                 : null,
             isDisabled: isSpinning,
           ),
@@ -2888,8 +2890,8 @@ class _ControlBar extends StatelessWidget {
           _BetSelector(
             label: 'BET',
             value: '$betLevel',
-            onDecrease: betLevel > 1 ? () => onBetLevelChanged(betLevel - 1) : null,
-            onIncrease: betLevel < maxBetLevel ? () => onBetLevelChanged(betLevel + 1) : null,
+            onDecrease: betLevel > 1 ? () { onBetLevelChanged(betLevel - 1); onAfterInteraction?.call(); } : null,
+            onIncrease: betLevel < maxBetLevel ? () { onBetLevelChanged(betLevel + 1); onAfterInteraction?.call(); } : null,
             isDisabled: isSpinning,
           ),
           const SizedBox(width: 16),
@@ -2902,7 +2904,7 @@ class _ControlBar extends StatelessWidget {
           _ControlButton(
             label: 'MAX\nBET',
             gradient: _SlotTheme.maxBetGradient,
-            onTap: isSpinning ? null : onMaxBet,
+            onTap: isSpinning ? null : () { onMaxBet(); onAfterInteraction?.call(); },
             width: 54,
             height: 54,
           ),
@@ -2912,7 +2914,7 @@ class _ControlBar extends StatelessWidget {
           _ControlButton(
             label: isAutoSpin ? 'STOP\n$autoSpinCount' : 'AUTO\nSPIN',
             gradient: isAutoSpin ? _SlotTheme.autoSpinGradient : null,
-            onTap: onAutoSpinToggle,
+            onTap: () { onAutoSpinToggle(); onAfterInteraction?.call(); },
             width: 54,
             height: 54,
             isActive: isAutoSpin,
@@ -2924,7 +2926,7 @@ class _ControlBar extends StatelessWidget {
             icon: Icons.bolt,
             label: 'TURBO',
             gradient: isTurbo ? [FluxForgeTheme.accentOrange, const Color(0xFFFF6020)] : null,
-            onTap: onTurboToggle,
+            onTap: () { onTurboToggle(); onAfterInteraction?.call(); },
             width: 54,
             height: 54,
             isActive: isTurbo,
@@ -5078,6 +5080,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     debugPrint('[PremiumSlotPreview] 🎰 _handleSpin called');
     debugPrint('[PremiumSlotPreview]   initialized=${provider.initialized}');
     debugPrint('[PremiumSlotPreview]   isPlayingStages=${provider.isPlayingStages}');
+    debugPrint('[PremiumSlotPreview]   isWinPresentationActive=${provider.isWinPresentationActive}');
     debugPrint('[PremiumSlotPreview]   balance=$_balance, totalBet=$_totalBetAmount');
 
     if (!provider.initialized) {
@@ -5093,6 +5096,26 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       return;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V13: WIN PRESENTATION SKIP — Fade out first, then spin
+    // If win presentation is active, request skip and wait for fade-out to complete
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (provider.isWinPresentationActive) {
+      debugPrint('[PremiumSlotPreview] 🎬 Win presentation active — requesting skip with fade-out');
+      provider.requestSkipPresentation(() {
+        debugPrint('[PremiumSlotPreview] ✅ Skip complete — proceeding with spin');
+        _executeSpinAfterSkip(provider);
+      });
+      return;
+    }
+
+    // No presentation active — proceed immediately with spin
+    _executeSpinAfterSkip(provider);
+  }
+
+  /// V13: Execute spin after skip fade-out is complete (or when no skip needed)
+  /// This contains the actual spin logic extracted from _handleSpin
+  void _executeSpinAfterSkip(SlotLabProvider provider) {
     setState(() {
       _balance -= _totalBetAmount;
       _totalBet += _totalBetAmount;
@@ -5132,6 +5155,19 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (provider.isPlayingStages) return;
     if (_balance < _totalBetAmount) return;
 
+    // V13: Handle skip with fade-out for forced spin as well
+    if (provider.isWinPresentationActive) {
+      provider.requestSkipPresentation(() {
+        _executeForcedSpinAfterSkip(provider, outcome);
+      });
+      return;
+    }
+
+    _executeForcedSpinAfterSkip(provider, outcome);
+  }
+
+  /// V13: Execute forced spin after skip fade-out is complete
+  void _executeForcedSpinAfterSkip(SlotLabProvider provider, ForcedOutcome outcome) {
     setState(() {
       _balance -= _totalBetAmount;
       _totalBet += _totalBetAmount;
@@ -5665,6 +5701,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   onStop: _handleStop,
                   onAutoSpinToggle: _handleAutoSpinToggle,
                   onTurboToggle: _toggleTurbo,
+                  onAfterInteraction: () => _focusNode.requestFocus(), // Restore focus after button clicks
                 ),
               ],
             ),

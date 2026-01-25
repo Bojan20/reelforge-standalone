@@ -7,6 +7,7 @@
 // - Crossfade
 // - SnapConfig
 
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -955,6 +956,73 @@ Float32List generateDemoWaveform({int samples = 1000}) {
   return waveform;
 }
 
+/// Parse waveform from FFI JSON response and extract Float32List peaks
+/// Returns (leftChannel, rightChannel) tuple or (null, null) on failure
+/// FFI JSON format:
+/// {
+///   "lods": [
+///     {
+///       "samples_per_pixel": 1,
+///       "left": [{"min": -0.5, "max": 0.5, "rms": 0.3}, ...],
+///       "right": [{"min": -0.5, "max": 0.5, "rms": 0.3}, ...]
+///     },
+///     ...
+///   ]
+/// }
+(Float32List?, Float32List?) parseWaveformFromJson(String? jsonStr, {int maxSamples = 2048}) {
+  if (jsonStr == null || jsonStr.isEmpty) return (null, null);
+
+  try {
+    final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+    final lods = data['lods'] as List<dynamic>?;
+    if (lods == null || lods.isEmpty) return (null, null);
+
+    // Use first LOD (highest resolution) or find appropriate LOD
+    Map<String, dynamic>? selectedLod;
+    for (final lod in lods) {
+      final lodMap = lod as Map<String, dynamic>;
+      final left = lodMap['left'] as List<dynamic>?;
+      if (left != null && left.length <= maxSamples) {
+        selectedLod = lodMap;
+        break;
+      }
+    }
+    // Fallback to first LOD if none fits
+    selectedLod ??= lods.first as Map<String, dynamic>;
+
+    final leftData = selectedLod['left'] as List<dynamic>?;
+    final rightData = selectedLod['right'] as List<dynamic>?;
+
+    if (leftData == null || leftData.isEmpty) return (null, null);
+
+    // Extract max values as waveform peaks (absolute values for display)
+    final leftPeaks = Float32List(leftData.length);
+    for (int i = 0; i < leftData.length; i++) {
+      final sample = leftData[i] as Map<String, dynamic>;
+      final maxVal = (sample['max'] as num?)?.toDouble() ?? 0.0;
+      final minVal = (sample['min'] as num?)?.toDouble() ?? 0.0;
+      // Use the larger absolute value for display
+      leftPeaks[i] = math.max(maxVal.abs(), minVal.abs()).clamp(0.0, 1.0);
+    }
+
+    Float32List? rightPeaks;
+    if (rightData != null && rightData.isNotEmpty) {
+      rightPeaks = Float32List(rightData.length);
+      for (int i = 0; i < rightData.length; i++) {
+        final sample = rightData[i] as Map<String, dynamic>;
+        final maxVal = (sample['max'] as num?)?.toDouble() ?? 0.0;
+        final minVal = (sample['min'] as num?)?.toDouble() ?? 0.0;
+        rightPeaks[i] = math.max(maxVal.abs(), minVal.abs()).clamp(0.0, 1.0);
+      }
+    }
+
+    return (leftPeaks, rightPeaks);
+  } catch (e) {
+    debugPrint('[Waveform] Failed to parse waveform JSON: $e');
+    return (null, null);
+  }
+}
+
 final _waveformRandom = math.Random();
 
 double _randomDouble() {
@@ -1063,6 +1131,15 @@ class PoolAudioFile {
   String get durationFormatted {
     return '${duration.toStringAsFixed(2)}s';
   }
+
+  /// Format duration as milliseconds (e.g., "45470ms")
+  String get durationFormattedMs {
+    final ms = (duration * 1000).round();
+    return '${ms}ms';
+  }
+
+  /// Get duration in milliseconds as integer
+  int get durationMs => (duration * 1000).round();
 
   /// Format file size info
   String get formatInfo => '$format • ${sampleRate ~/ 1000}kHz • ${channels}ch';

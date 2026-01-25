@@ -6744,6 +6744,20 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               ),
             ),
 
+            // ═══════════════════════════════════════════════════════════════
+            // SYMBOL AUDIO PANEL (LEFT SIDE - vertical)
+            // Contains: Special, HP1-5, MP1-5, LP1-5, Win Lines
+            // ═══════════════════════════════════════════════════════════════
+            Positioned(
+              left: 8,
+              top: reelFrameTop + 8,
+              child: SymbolZonePanel(
+                onSymbolEventCreated: (symbolType, event) {
+                  _onEventBuilderEventCreated(event, symbolType);
+                },
+              ),
+            ),
+
             // EXIT button (top right)
             Positioned(
               top: 4,
@@ -7460,12 +7474,30 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     if (targetId == 'overlay.jackpot.major') return 'JACKPOT_MAJOR';
     if (targetId == 'overlay.jackpot.grand') return 'JACKPOT_GRAND';
 
-    // Symbols
+    // Symbols — Land events (when symbol lands on reel)
     if (targetId == 'symbol.wild') return 'WILD_LAND';
     if (targetId == 'symbol.scatter') return 'SCATTER_LAND';
     if (targetId == 'symbol.bonus') return 'BONUS_SYMBOL_LAND';
     if (targetId.startsWith('symbol.hp')) return 'SYMBOL_LAND_HP';
+    if (targetId.startsWith('symbol.mp')) return 'SYMBOL_LAND_MP'; // Medium pay symbols
     if (targetId.startsWith('symbol.lp')) return 'SYMBOL_LAND_LP';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // V14: Symbol-specific WIN HIGHLIGHTS — Per-symbol win audio
+    // When HP1 is part of winning line → WIN_SYMBOL_HIGHLIGHT_HP1
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'symbol.win') return 'WIN_SYMBOL_HIGHLIGHT'; // Generic (all symbols)
+    if (targetId == 'symbol.win.all') return 'WIN_SYMBOL_HIGHLIGHT';
+    if (targetId.startsWith('symbol.win.')) {
+      // symbol.win.hp1 → WIN_SYMBOL_HIGHLIGHT_HP1
+      // symbol.win.wild → WIN_SYMBOL_HIGHLIGHT_WILD
+      final symbolType = targetId.split('.').last.toUpperCase();
+      return 'WIN_SYMBOL_HIGHLIGHT_$symbolType';
+    }
+
+    // Win Lines (P0 FIX: Win line presentation audio)
+    if (targetId == 'winline.generic') return 'WIN_LINE_SHOW';
+    if (targetId.startsWith('winline.')) return 'WIN_LINE_SHOW';
 
     // Music zones
     if (targetId == 'music.base') return 'MUSIC_BASE';
@@ -7483,6 +7515,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // HUD
     if (targetId == 'hud.balance') return 'BALANCE_CHANGE';
     if (targetId == 'hud.win') return 'ROLLUP_START';
+    if (targetId == 'hud.win.tick' || targetId == 'rollup.tick') return 'ROLLUP_TICK'; // P0 FIX: Counter tick audio
+    if (targetId == 'hud.win.end' || targetId == 'rollup.end') return 'ROLLUP_END';
 
     // Default: convert targetId to uppercase stage format
     return targetId.replaceAll('.', '_').toUpperCase();

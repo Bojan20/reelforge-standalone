@@ -1204,12 +1204,19 @@ class MotionField {
   }
 
   /// Heuristic motion for known intents
+  ///
+  /// Per-reel REEL_STOP positions: Industry standard stereo spread L→R
+  /// REEL_STOP_0 = -0.8 (left), REEL_STOP_2 = 0.0 (center), REEL_STOP_4 = +0.8 (right)
   static MotionFrame fromIntent(String intent) {
     final pos = switch (intent) {
       'COIN_FLY_TO_BALANCE' => const SpatialPosition(x: 0.7, y: 0.7, z: 0),
-      'REEL_STOP' || 'REEL_STOP_0' || 'REEL_STOP_1' || 'REEL_STOP_2' ||
-      'REEL_STOP_3' || 'REEL_STOP_4' =>
-          SpatialPosition.origin,
+      // Per-reel pan positions - stereo spread from left to right
+      'REEL_STOP_0' => const SpatialPosition(x: -0.8, y: 0, z: 0), // Left
+      'REEL_STOP_1' => const SpatialPosition(x: -0.4, y: 0, z: 0), // Left-center
+      'REEL_STOP_2' => const SpatialPosition(x: 0.0, y: 0, z: 0),  // Center
+      'REEL_STOP_3' => const SpatialPosition(x: 0.4, y: 0, z: 0),  // Right-center
+      'REEL_STOP_4' => const SpatialPosition(x: 0.8, y: 0, z: 0),  // Right
+      'REEL_STOP' => SpatialPosition.origin, // Generic fallback = center
       'BIG_WIN' || 'MEGA_WIN' || 'SUPER_WIN' || 'EPIC_WIN' =>
           const SpatialPosition(x: 0, y: 0.1, z: 0),
       'SPIN_START' => SpatialPosition.origin,

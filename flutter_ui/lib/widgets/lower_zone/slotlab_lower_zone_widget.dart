@@ -1471,125 +1471,128 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   String? _selectedEventId;
 
   /// P2.7: Compact Composite Editor — Connected to MiddlewareProvider.compositeEvents
+  ///
+  /// FIX 2026-01-25: Uses Consumer<MiddlewareProvider> to ensure UI rebuilds when
+  /// layer parameters (volume, pan, delay) are changed via sliders.
   Widget _buildCompactCompositeEditor() {
-    final middleware = _tryGetMiddlewareProvider();
-    if (middleware == null) {
-      return _buildNoProviderPanel('Composite Editor', Icons.edit, 'MiddlewareProvider');
-    }
+    // Use Consumer to ensure rebuilds when provider changes
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        final events = middleware.compositeEvents;
 
-    final events = middleware.compositeEvents;
+        // Find selected event
+        SlotCompositeEvent? selectedEvent;
+        if (_selectedEventId != null) {
+          selectedEvent = events.where((e) => e.id == _selectedEventId).firstOrNull;
+        }
+        selectedEvent ??= events.firstOrNull;
 
-    // Find selected event
-    SlotCompositeEvent? selectedEvent;
-    if (_selectedEventId != null) {
-      selectedEvent = events.where((e) => e.id == _selectedEventId).firstOrNull;
-    }
-    selectedEvent ??= events.firstOrNull;
-
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header (compact)
-          Row(
+        return Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildPanelHeader('COMPOSITE EDITOR', Icons.edit),
-              const Spacer(),
-              if (events.isNotEmpty)
-                SizedBox(
-                  width: 120,
-                  height: 24,
-                  child: DropdownButton<String>(
-                    value: selectedEvent?.id,
-                    hint: const Text('Select', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
-                    dropdownColor: LowerZoneColors.bgMid,
-                    style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent),
-                    underline: const SizedBox(),
-                    isDense: true,
-                    isExpanded: true,
-                    items: events.map((e) => DropdownMenuItem(
-                      value: e.id,
-                      child: Text(e.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9)),
-                    )).toList(),
-                    onChanged: (id) => setState(() => _selectedEventId = id),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Main content (flexible)
-          Flexible(
-            fit: FlexFit.loose,
-            child: Container(
-              decoration: BoxDecoration(
-                color: LowerZoneColors.bgDeepest,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: LowerZoneColors.border),
-              ),
-              clipBehavior: Clip.hardEdge,
-              child: selectedEvent == null
-                  ? const Center(
-                      child: Text(
-                        'No events. Create one in Events Folder.',
-                        style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+              // Header (compact)
+              Row(
+                children: [
+                  _buildPanelHeader('COMPOSITE EDITOR', Icons.edit),
+                  const Spacer(),
+                  if (events.isNotEmpty)
+                    SizedBox(
+                      width: 120,
+                      height: 24,
+                      child: DropdownButton<String>(
+                        value: selectedEvent?.id,
+                        hint: const Text('Select', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                        dropdownColor: LowerZoneColors.bgMid,
+                        style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent),
+                        underline: const SizedBox(),
+                        isDense: true,
+                        isExpanded: true,
+                        items: events.map((e) => DropdownMenuItem(
+                          value: e.id,
+                          child: Text(e.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9)),
+                        )).toList(),
+                        onChanged: (id) => setState(() => _selectedEventId = id),
                       ),
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Event header (compact)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4),
-                              topRight: Radius.circular(4),
-                            ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Main content (flexible)
+              Flexible(
+                fit: FlexFit.loose,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: LowerZoneColors.bgDeepest,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: LowerZoneColors.border),
+                  ),
+                  clipBehavior: Clip.hardEdge,
+                  child: selectedEvent == null
+                      ? const Center(
+                          child: Text(
+                            'No events. Create one in Events Folder.',
+                            style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  selectedEvent.name,
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
-                                  overflow: TextOverflow.ellipsis,
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Event header (compact)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(4),
+                                  topRight: Radius.circular(4),
                                 ),
                               ),
-                              Text('${selectedEvent.layers.length}L', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-                            ],
-                          ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      selectedEvent.name,
+                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Text('${selectedEvent.layers.length}L', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                                ],
+                              ),
+                            ),
+                            // Layers list (flexible)
+                            Flexible(
+                              fit: FlexFit.loose,
+                              child: selectedEvent.layers.isEmpty
+                                  ? const Center(
+                                      child: Text('No layers', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.all(3),
+                                      shrinkWrap: true,
+                                      itemCount: selectedEvent.layers.length,
+                                      itemBuilder: (context, index) {
+                                        final event = selectedEvent!;
+                                        final layer = event.layers[index];
+                                        return _buildInteractiveLayerItem(
+                                          eventId: event.id,
+                                          layer: layer,
+                                          index: index,
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
                         ),
-                        // Layers list (flexible)
-                        Flexible(
-                          fit: FlexFit.loose,
-                          child: selectedEvent.layers.isEmpty
-                              ? const Center(
-                                  child: Text('No layers', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
-                                )
-                              : ListView.builder(
-                                  padding: const EdgeInsets.all(3),
-                                  shrinkWrap: true,
-                                  itemCount: selectedEvent.layers.length,
-                                  itemBuilder: (context, index) {
-                                    final event = selectedEvent!;
-                                    final layer = event.layers[index];
-                                    return _buildInteractiveLayerItem(
-                                      eventId: event.id,
-                                      layer: layer,
-                                      index: index,
-                                    );
-                                  },
-                                ),
-                        ),
-                      ],
-                    ),
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

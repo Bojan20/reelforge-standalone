@@ -2,8 +2,8 @@
 
 > Detaljni tehnički pregled svih implementiranih P0/P1 audio poboljšanja.
 
-**Datum:** 2026-01-20
-**Status:** P0.1, P0.2, P0.3, P0.4, P0.5, P0.6, P0.7, P1.1, P1.2, P1.3 kompletni
+**Datum:** 2026-01-25 (Updated V14)
+**Status:** P0.1-P0.18, P1.1-P1.3 kompletni
 
 ---
 
@@ -970,6 +970,233 @@ void _scheduleNextStage() {
 
 ---
 
+## P0.8: RTL (Right-to-Left) Rollup Animation
+
+### Problem
+Rollup counter animation je bila sekvencijalna (od prve do poslednje cifre). Slot mašine u industriji koriste RTL animaciju — cifre "sleću" od desna ka leva (jedinice prve, pa desetice, pa stotice...).
+
+### Rešenje
+Nova `_formatRtlRollupDisplay()` metoda koja prikazuje cifre RTL redosledom sa placeholder karakterima za cifre koje još nisu "sletele".
+
+### Komponente
+
+**`flutter_ui/lib/widgets/slot_lab/slot_preview_widget.dart`**
+```dart
+bool _useRtlRollup = false;
+double _rtlRollupProgress = 0.0;
+
+/// Format rollup display with RTL digit reveal
+/// Digits land from right to left (ones first, then tens, etc.)
+String _formatRtlRollupDisplay(double targetAmount, double progress) {
+  final targetStr = _currencyFormatter.format(targetAmount);
+
+  // Extract just digits for counting
+  final digitsOnly = targetStr.replaceAll(RegExp(r'[,.]'), '');
+  final numDigits = digitsOnly.length;
+  if (numDigits == 0) return targetStr;
+
+  // How many digits have "landed" (revealed) based on progress
+  // progress 0.0 → 0 digits landed
+  // progress 1.0 → all digits landed
+  final landedCount = (progress * numDigits).ceil().clamp(0, numDigits);
+
+  // Build the result string
+  final result = StringBuffer();
+  int digitIndex = 0;  // Index into digitsOnly
+
+  for (int i = 0; i < targetStr.length; i++) {
+    final char = targetStr[i];
+
+    if (char == ',' || char == '.') {
+      result.write(char);
+    } else if (char.codeUnitAt(0) >= 48 && char.codeUnitAt(0) <= 57) {
+      // Is digit - check if it should be revealed
+      // landedCount counts from RIGHT, so we need to check from the end
+      final distanceFromRight = numDigits - 1 - digitIndex;
+      if (distanceFromRight < landedCount) {
+        result.write(char);  // Revealed
+      } else {
+        result.write('░');   // Not yet revealed
+      }
+      digitIndex++;
+    } else {
+      result.write(char);  // Keep currency symbols etc
+    }
+  }
+
+  return result.toString();
+}
+```
+
+### Visual Example
+```
+Target: $1,234.56
+Progress:
+
+0.0:  $░,░░░.░░   (no digits landed)
+0.2:  $░,░░░.░6   (1 digit landed - rightmost)
+0.4:  $░,░░░.56   (2 digits landed)
+0.5:  $░,░░4.56   (3 digits landed)
+0.7:  $░,234.56   (4 digits landed)
+0.85: $1,234.56   (all digits landed)
+1.0:  $1,234.56   (complete)
+```
+
+---
+
+## P0.9: Win Tier 1 Rollup Skip
+
+### Problem
+Za male dobitke (≤1x bet, tier 1), rollup animacija je nepotrebna i usporava gameplay. Slot mašine preskače rollup za trivijalne dobitke.
+
+### Rešenje
+Ako je `winPresentTier == 1`, odmah prikaži konačni iznos i trigeruj samo ROLLUP_END (bez ROLLUP_TICK-ova).
+
+### Komponente
+
+**`flutter_ui/lib/widgets/slot_lab/slot_preview_widget.dart`**
+```dart
+void _startTierBasedRollupWithCallback(
+  String tier,
+  VoidCallback? onComplete, {
+  int? winPresentTier,
+}) {
+  // P0.9: For tier 1 (small wins ≤1x bet), skip animation entirely
+  if (winPresentTier == 1) {
+    debugPrint('[SlotPreview] 💨 TIER 1 SKIP — showing final amount immediately');
+    setState(() {
+      _displayedWinAmount = _targetWinAmount;
+      _rtlRollupProgress = 1.0;
+      _useRtlRollup = false;
+      _isRollingUp = false;
+      _rollupProgress = 1.0;
+    });
+    // Only trigger ROLLUP_END (no TICK animations)
+    eventRegistry.triggerStage('ROLLUP_END');
+    onComplete?.call();
+    return;
+  }
+
+  // Normal rollup for tier 2+
+  // ...
+}
+```
+
+### Rollup Duration Table (Updated)
+
+| Tier | Win/Bet Ratio | Rollup Duration | Ticks/Sec | Skip |
+|------|---------------|-----------------|-----------|------|
+| 1 | ≤1x | **SKIP** | 0 | ✅ Instant |
+| 2 | 1x-5x | 500ms | 15 | ❌ |
+| BIG | 5x-15x | 800ms | 12 | ❌ |
+| SUPER | 15x-30x | 1200ms | 10 | ❌ |
+| MEGA | 30x-60x | 2000ms | 8 | ❌ |
+| EPIC | 60x-100x | 3500ms | 6 | ❌ |
+| ULTRA | 100x+ | 6000ms | 4 | ❌ |
+
+---
+
+## P0.10: Symbol Drop Zone Rules (Auto Event Builder)
+
+### Problem
+Prevlačenje audio fajlova na Wild, Scatter, HP, MP, LP simbole nije radilo. Svi symbol drop-ovi su padali na fallback rule sa pogrešnim stage-om (`press`).
+
+### Rešenje
+Dodati specifične DropRule definicije za sve symbol zone tipove.
+
+### Komponente
+
+**`flutter_ui/lib/providers/auto_event_builder_provider.dart`**
+```dart
+abstract class StandardDropRules {
+  // ... existing rules ...
+
+  // Symbol Zone Rules (P0.10)
+  static const wildSymbol = DropRule(
+    ruleId: 'wild_symbol',
+    name: 'Wild Symbol Land',
+    priority: 100,
+    targetType: TargetType.symbolZone,
+    targetTags: ['wild'],
+    eventIdTemplate: 'symbol.wild.land',
+    intentTemplate: 'wild.landed',
+    defaultPresetId: 'symbol_land',
+    defaultBus: 'SFX/Symbols',
+    defaultTrigger: 'WILD_LAND',
+  );
+
+  static const scatterSymbol = DropRule(
+    ruleId: 'scatter_symbol',
+    name: 'Scatter Symbol Land',
+    priority: 100,
+    targetType: TargetType.symbolZone,
+    targetTags: ['scatter'],
+    eventIdTemplate: 'symbol.scatter.land',
+    intentTemplate: 'scatter.landed',
+    defaultPresetId: 'symbol_land',
+    defaultBus: 'SFX/Symbols',
+    defaultTrigger: 'SCATTER_LAND',
+  );
+
+  // ... bonus, symbolWin, highPay, mediumPay, lowPay, winLine rules ...
+}
+```
+
+### Symbol Stage Mapping
+
+| Symbol Type | Stage | Priority |
+|-------------|-------|----------|
+| Wild | `WILD_LAND` | 100 |
+| Scatter | `SCATTER_LAND` | 100 |
+| Bonus | `BONUS_SYMBOL_LAND` | 95 |
+| Symbol Win | `WIN_SYMBOL_HIGHLIGHT` | 90 |
+| High Pay | `SYMBOL_LAND` | 80 |
+| Medium Pay | `SYMBOL_LAND` | 70 |
+| Low Pay | `SYMBOL_LAND` | 60 |
+| Win Line | `WIN_LINE_SHOW` | 85 |
+
+---
+
+## P0.11: Larger Drop Targets (UI Improvement)
+
+### Problem
+Symbol i Win Line drop chipovi su bili premali — lako je bilo promašiti prilikom drag-drop operacije.
+
+### Rešenje
+Povećani padding, font size i minimum constraints za sve chipove u SymbolZonePanel.
+
+### Komponente
+
+**`flutter_ui/lib/widgets/slot_lab/auto_event_builder/droppable_slot_preview.dart`**
+
+**Before:**
+```dart
+padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+Icon(..., size: 10),
+Text(..., fontSize: 9),
+```
+
+**After (V9):**
+```dart
+padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+constraints: const BoxConstraints(minWidth: 56, minHeight: 36),
+Icon(..., size: 16),
+Text(..., fontSize: 12),
+```
+
+### Size Comparison
+
+| Element | Before | After |
+|---------|--------|-------|
+| Panel Width | 200px | 280px |
+| Chip Padding | 6×3 | 12×8 |
+| Min Chip Width | auto | 56px |
+| Min Chip Height | auto | 36px |
+| Icon Size | 10-12px | 16px |
+| Font Size | 9-10px | 12px |
+
+---
+
 ## Completed Features Summary
 
 | ID | Feature | Status |
@@ -981,6 +1208,407 @@ void _scheduleNextStage() {
 | P0.5 | Dynamic Rollup Speed | ✅ Kompletno |
 | P0.6 | Anticipation Pre-Trigger | ✅ Kompletno |
 | P0.7 | Big Win Layered Audio | ✅ Kompletno |
+| P0.8 | RTL Rollup Animation | ✅ Kompletno (2026-01-25) |
+| P0.9 | Win Tier 1 Rollup Skip | ✅ Kompletno (2026-01-25) |
+| P0.10 | Symbol Drop Zone Rules | ✅ Kompletno (2026-01-25) |
+| P0.11 | Larger Drop Targets | ✅ Kompletno (2026-01-25) |
+| P0.12 | WIN_SYMBOL_HIGHLIGHT Stage Fix | ✅ Kompletno (2026-01-25) |
+| P0.13 | WIN_LINE_SHOW Per-Line Trigger | ✅ Kompletno (2026-01-25) |
+| P0.14 | ROLLUP_TICK Counter Audio | ✅ Kompletno (2026-01-25) |
+| P0.15 | ROLLUP_END Completion Audio | ✅ Kompletno (2026-01-25) |
+| P0.16 | Unified Rollup (RTL + BIG WIN Speed) | ✅ Kompletno (2026-01-25) |
+| P0.17 | Win Presentation Visual-Sync | ✅ Kompletno (2026-01-25) |
+| P0.18 | V14: Per-Symbol WIN_SYMBOL_HIGHLIGHT | ✅ Kompletno (2026-01-25) |
 | P1.1 | Symbol-Specific Audio | ✅ Kompletno |
 | P1.2 | Near Miss Audio Escalation | ✅ Kompletno |
 | P1.3 | Win Line Audio Panning | ✅ Kompletno |
+
+---
+
+## P0.12: WIN_SYMBOL_HIGHLIGHT Stage Mapping Fix
+
+### Problem
+Symbol win audio nije sviralo tokom Phase 1 (pre total win plakete). Drop na `symbol.win` je padao na default i kreirao pogrešan stage `SYMBOL_WIN` umesto `WIN_SYMBOL_HIGHLIGHT`.
+
+### Rešenje
+Dodato eksplicitno mapiranje u `_targetIdToStage()` funkciju.
+
+### Komponente
+
+**`flutter_ui/lib/screens/slot_lab_screen.dart`**
+```dart
+// In _targetIdToStage() function:
+if (targetId == 'symbol.win') return 'WIN_SYMBOL_HIGHLIGHT';
+```
+
+### Audio Flow
+```
+Drop audio on symbol.win
+        ↓
+_targetIdToStage('symbol.win') → 'WIN_SYMBOL_HIGHLIGHT'
+        ↓
+Event registered under WIN_SYMBOL_HIGHLIGHT stage
+        ↓
+Phase 1: slot_preview_widget.dart:1043 triggers WIN_SYMBOL_HIGHLIGHT
+        ↓
+Audio plays during symbol highlight animation!
+```
+
+---
+
+## P0.13: WIN_LINE_SHOW Per-Line Trigger
+
+### Problem
+Win line presentation audio nije sviralo tokom Phase 3 (posle rollup-a). Drop na `winline.*` je padao na default umesto `WIN_LINE_SHOW`. Takođe, zvuk je trebao da svira ZA SVAKU LINIJU, ne samo jednom.
+
+### Rešenje
+1. Dodato mapiranje `winline.*` → `WIN_LINE_SHOW` u `_targetIdToStage()`
+2. Verifikovano da `slot_preview_widget.dart` trigeruje `WIN_LINE_SHOW` za svaku liniju (linije 1206, 1232)
+
+### Komponente
+
+**`flutter_ui/lib/screens/slot_lab_screen.dart`**
+```dart
+// In _targetIdToStage() function:
+if (targetId == 'winline.generic') return 'WIN_LINE_SHOW';
+if (targetId.startsWith('winline.')) return 'WIN_LINE_SHOW';
+```
+
+### Audio Flow (Per-Line)
+```
+Win presentation Phase 3 starts
+        ↓
+For each winning line (max 3):
+        ↓
+  eventRegistry.triggerStage('WIN_LINE_SHOW')  // Line 1206 or 1232
+        ↓
+  Audio plays!
+        ↓
+  Wait 1500ms (line cycling timer)
+        ↓
+Next line...
+```
+
+---
+
+## P0.14: ROLLUP_TICK Counter Audio
+
+### Problem
+Rollup counter nije imao "ck ck ck ck" zvuk kao prava slot mašina. Nedostajali su DropRule i DropTarget za ROLLUP_TICK.
+
+### Rešenje
+1. Dodato mapiranje `rollup.tick` → `ROLLUP_TICK` u `_targetIdToStage()`
+2. Dodat `rollupTick` DropRule u `auto_event_builder_provider.dart`
+3. Dodat `rollupTick()` DropTarget u `droppable_slot_preview.dart`
+
+### Komponente
+
+**`flutter_ui/lib/screens/slot_lab_screen.dart`**
+```dart
+if (targetId == 'hud.win.tick' || targetId == 'rollup.tick') return 'ROLLUP_TICK';
+```
+
+**`flutter_ui/lib/providers/auto_event_builder_provider.dart`**
+```dart
+static const rollupTick = DropRule(
+  ruleId: 'rollup_tick',
+  name: 'Rollup Counter Tick',
+  priority: 100,
+  targetType: TargetType.hudMeter,
+  targetTags: ['rollup', 'tick', 'counter'],
+  eventIdTemplate: 'rollup.tick',
+  intentTemplate: 'counter.ticked',
+  defaultPresetId: 'ui_tick',
+  defaultBus: 'SFX/Wins',
+  defaultTrigger: 'ROLLUP_TICK',
+);
+```
+
+**`flutter_ui/lib/widgets/slot_lab/auto_event_builder/droppable_slot_preview.dart`**
+```dart
+static DropTarget rollupTick() => DropTarget(
+  targetId: 'rollup.tick',
+  targetType: TargetType.hudMeter,
+  targetTags: const ['rollup', 'tick', 'counter'],
+  stageContext: StageContext.global,
+  interactionSemantics: const ['tick', 'click', 'counter'],
+);
+```
+
+### Audio Flow
+```
+Rollup animation starts
+        ↓
+Every 100ms (configurable):
+        ↓
+  eventRegistry.triggerStage('ROLLUP_TICK')  // Lines 1321, 1543, 1584
+        ↓
+  "ck" sound plays
+        ↓
+Repeat until counter reaches target...
+```
+
+---
+
+## P0.15: ROLLUP_END Completion Audio
+
+### Problem
+Nije postojao zvuk kada rollup counter završi. Nedostajali su DropRule i DropTarget za ROLLUP_END.
+
+### Rešenje
+1. Dodato mapiranje `rollup.end` → `ROLLUP_END` u `_targetIdToStage()`
+2. Dodat `rollupEnd` DropRule u `auto_event_builder_provider.dart`
+3. Dodat `rollupEnd()` DropTarget u `droppable_slot_preview.dart`
+
+### Komponente
+
+**`flutter_ui/lib/screens/slot_lab_screen.dart`**
+```dart
+if (targetId == 'hud.win.end' || targetId == 'rollup.end') return 'ROLLUP_END';
+```
+
+**`flutter_ui/lib/providers/auto_event_builder_provider.dart`**
+```dart
+static const rollupEnd = DropRule(
+  ruleId: 'rollup_end',
+  name: 'Rollup Counter End',
+  priority: 100,
+  targetType: TargetType.hudMeter,
+  targetTags: ['rollup', 'end', 'counter'],
+  eventIdTemplate: 'rollup.end',
+  intentTemplate: 'counter.ended',
+  defaultPresetId: 'win_small',
+  defaultBus: 'SFX/Wins',
+  defaultTrigger: 'ROLLUP_END',
+);
+```
+
+**`flutter_ui/lib/widgets/slot_lab/auto_event_builder/droppable_slot_preview.dart`**
+```dart
+static DropTarget rollupEnd() => DropTarget(
+  targetId: 'rollup.end',
+  targetType: TargetType.hudMeter,
+  targetTags: const ['rollup', 'end', 'counter', 'finish'],
+  stageContext: StageContext.global,
+  interactionSemantics: const ['end', 'finish', 'complete'],
+);
+```
+
+### Audio Flow
+```
+Rollup counter reaches target amount
+        ↓
+_displayedWinAmount == _targetWinAmount
+        ↓
+eventRegistry.triggerStage('ROLLUP_END')
+        ↓
+Completion sound plays! (ding, ta-da, etc.)
+
+---
+
+## P0.16: Unified Rollup (V11 — RTL + BIG WIN Speed for ALL Wins)
+
+### Problem
+Rollup animacija za male dobitke je bila različita od big win-a:
+1. Mali dobici: 500ms trajanje, 25 tick/sec
+2. Big win: 800ms trajanje, 20 tick/sec (ducks)
+
+Korisnik je želeo da SVE dobitke koriste istu brzinu i animaciju kao BIG WIN — cifre koje sleću s desna na levo (RTL), istim tempom.
+
+### Rešenje (V11)
+1. Izmenjen `_defaultRollupDuration` sa 500ms na **800ms** (kao BIG WIN)
+2. Izmenjen `_defaultRollupTickRate` sa 25 na **20** (kao BIG WIN)
+3. RTL animacija aktivna TOKOM rollup-a, finalni iznos prikazan na kraju
+
+### Komponente
+
+**`flutter_ui/lib/widgets/slot_lab/slot_preview_widget.dart`**
+```dart
+// V11: Unified rollup — same speed as BIG WIN
+static const int _defaultRollupDuration = 800;  // Was 500ms — NOW SAME AS BIG WIN
+static const int _defaultRollupTickRate = 20;   // Was 25 — NOW SAME AS BIG WIN (ducks)
+
+// RTL display during rollup
+child: Text(
+  _isRollingUp
+      ? _formatRtlRollupDisplay(_targetWinAmount, _rtlRollupProgress)
+      : _formatWinAmount(_displayedWinAmount),
+  // ...
+),
+```
+
+### Visual Effect
+
+```
+SMALL WIN ($12.50) — V10 vs V11:
+
+V10 (pre-V11):
+Duration: 500ms, Tick: 25/sec
+Display:  $12.50 (instant numeric, no RTL)
+
+V11 (unified):
+Duration: 800ms, Tick: 20/sec
+Display:
+  0.0:  $░░.░░   (no digits)
+  0.2:  $░░.░0   (rightmost digit lands)
+  0.4:  $░░.50   (2 digits landed)
+  0.6:  $░2.50   (3 digits landed)
+  0.8:  $12.50   (all digits landed)
+  1.0:  $12.50   (final, numeric format)
+```
+
+### Timing Comparison
+
+| Win Type | Before V11 | After V11 |
+|----------|------------|-----------|
+| Small Win | 500ms, 25t/s | **800ms, 20t/s** |
+| BIG Win | 800ms, 20t/s | 800ms, 20t/s |
+| SUPER Win | 1200ms, 10t/s | 1200ms, 10t/s |
+| MEGA Win | 2000ms, 8t/s | 2000ms, 8t/s |
+
+### Key Points
+
+1. **RTL animation** sada radi za SVE dobitke (mali i veliki)
+2. **Ista brzina** kao BIG WIN (800ms, 20 tick/sec) — vizualni konzistentnost
+3. **`_isRollingUp` flag** kontroliše kada se prikazuje RTL vs finalni iznos
+4. Counter i dalje broji od 0 do targetAmount (numeric counting interno)
+5. Samo PRIKAZ koristi RTL format tokom animacije
+
+---
+
+## P0.18: V14 — Per-Symbol WIN_SYMBOL_HIGHLIGHT
+
+### Problem
+Sve pobedničke simbole je trigerovao jedan generički `WIN_SYMBOL_HIGHLIGHT` stage. Audio dizajner nije mogao da dodeli različite zvukove za HP1, HP2, WILD itd. simbole tokom Phase 1 (symbol glow/pulse).
+
+### Rešenje (V14)
+Kada je simbol sastavni deo pobedničke kombinacije, trigeruje se **symbol-specific** stage:
+- HP1 → `WIN_SYMBOL_HIGHLIGHT_HP1`
+- WILD → `WIN_SYMBOL_HIGHLIGHT_WILD`
+- itd.
+
+Plus generički `WIN_SYMBOL_HIGHLIGHT` za backwards compatibility.
+
+### Komponente
+
+**State Variables** (`slot_preview_widget.dart`):
+```dart
+// V14: PER-SYMBOL WIN HIGHLIGHT — Symbol-specific audio triggers
+Map<String, Set<String>> _winningPositionsBySymbol = {}; // symbolName → {"reel,row", ...}
+Set<String> _winningSymbolNames = {}; // Unique symbol names that are winning
+```
+
+**Collection Loop** (line ~1065):
+```dart
+// V14: Collect winning positions AND group by symbol name
+for (final lineWin in result.lineWins) {
+  final symbolName = lineWin.symbolName.toUpperCase();
+  if (symbolName.isNotEmpty) {
+    _winningSymbolNames.add(symbolName);
+    _winningPositionsBySymbol.putIfAbsent(symbolName, () => <String>{});
+  }
+  // ... collect positions per symbol
+}
+```
+
+**Phase 1 Triggers** (line ~1110):
+```dart
+// V14: Trigger symbol-specific highlight stages
+for (final symbolName in _winningSymbolNames) {
+  final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
+  eventRegistry.triggerStage(stage);
+}
+// Also trigger generic stage for backwards compatibility
+eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
+```
+
+**Staggered Popups** (`_triggerStaggeredSymbolPopups()`):
+```dart
+// V14: Groups popups BY SYMBOL TYPE — first all HP1, then HP2, etc.
+final sortedSymbolNames = _winningSymbolNames.toList()..sort();
+for (final symbolName in sortedSymbolNames) {
+  final positions = _winningPositionsBySymbol[symbolName] ?? {};
+  // Popup all positions for this symbol group
+}
+```
+
+**Visual Label** (in `_buildSymbolCellRect`):
+```dart
+// V14: Symbol Name Label — shows which symbol is winning
+if (isWinningPosition && !isReelSpinning && symbolName != null)
+  Positioned(
+    bottom: 2,
+    right: 2,
+    child: Container(
+      // Badge showing symbol name (HP1, WILD, etc.)
+    ),
+  ),
+```
+
+### Drop Zone Mappings (`slot_lab_screen.dart`)
+
+```dart
+// V14: Symbol-specific WIN HIGHLIGHTS — Per-symbol win audio
+if (targetId == 'symbol.win') return 'WIN_SYMBOL_HIGHLIGHT'; // Generic
+if (targetId == 'symbol.win.all') return 'WIN_SYMBOL_HIGHLIGHT';
+if (targetId.startsWith('symbol.win.')) {
+  // symbol.win.hp1 → WIN_SYMBOL_HIGHLIGHT_HP1
+  final symbolType = targetId.split('.').last.toUpperCase();
+  return 'WIN_SYMBOL_HIGHLIGHT_$symbolType';
+}
+```
+
+### Audio Flow
+
+```
+WIN RESULT: HP1 × 3 on line 5, WILD × 4 on line 2
+        ↓
+_winningSymbolNames = {'HP1', 'WILD'}
+_winningPositionsBySymbol = {
+  'HP1': {'0,1', '1,1', '2,1'},
+  'WILD': {'0,0', '1,0', '2,0', '3,0'}
+}
+        ↓
+PHASE 1 Audio Triggers:
+  eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT_HP1')   // 3 positions
+  eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT_WILD')  // 4 positions
+  eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT')       // generic
+        ↓
+Visual: HP1 symbols popup first, then WILD symbols
+        ↓
+Label badges appear in corner of each winning cell
+```
+
+### Visual Effect
+
+```
+Before V14 (generic):
+All 7 winning symbols popup together (mixed order)
+One audio: WIN_SYMBOL_HIGHLIGHT
+
+After V14 (per-symbol):
+HP1 symbols popup: pos 0,1 → 1,1 → 2,1 (with HP1 label)
+WILD symbols popup: pos 0,0 → 1,0 → 2,0 → 3,0 (with WILD label)
+Three audios: WIN_SYMBOL_HIGHLIGHT_HP1, WIN_SYMBOL_HIGHLIGHT_WILD, WIN_SYMBOL_HIGHLIGHT
+```
+
+### Key Files Changed
+
+| File | Changes |
+|------|---------|
+| `slot_preview_widget.dart` | V14 state vars, collection logic, triggers, popups, label |
+| `slot_lab_screen.dart` | `symbol.win.{type}` → stage mappings |
+
+---
+
+## Related Documentation
+
+- **CLAUDE.md** — Build procedura i projekat instrukcije
+- **PREMIUM_SLOT_PREVIEW.md** — Premium preview specifikacija
+- **SLOT_LAB_SYSTEM.md** — SlotLab arhitektura overview
+- **WIN_PRESENTATION_INDUSTRY_STANDARD_2026_01_24.md** — Industry standard win flow
+- **SLOTLAB_DROP_ZONE_SPEC.md** — Drop zone system specification
+
+---
+
+*Last updated: 2026-01-25*

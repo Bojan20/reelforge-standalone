@@ -564,6 +564,16 @@ MASTER
   "pitchRandCents": 4
 }
 
+// symbol_land_mp (NEW 2026-01-25)
+{
+  "presetId": "symbol_land_mp",
+  "polyphony": 4,
+  "voiceLimitGroup": "SYMBOL_MP",
+  "voiceStealPolicy": "oldest",
+  "priority": 75,
+  "pitchRandCents": 5
+}
+
 // symbol_special
 {
   "presetId": "symbol_special",
@@ -820,14 +830,16 @@ MASTER
 |---------|----------|------|---------|
 | `ANTICIPATION_LOOP` | 770 | reel/overlay + anticipation asset | `reel.{targetKey}.anticipation_loop` |
 
-#### Symbol Rules (740-710)
+#### Symbol Rules (740-700)
 
 | Rule ID | Priority | When | Creates |
 |---------|----------|------|---------|
-| `SYMBOL_SPECIAL_SCATTER` | 740 | symbol + scatter | `symbol.scatter.hit` |
-| `SYMBOL_SPECIAL_WILD` | 735 | symbol + wild | `symbol.wild.hit` |
-| `SYMBOL_HP` | 720 | symbol + hp tag | `symbol.{targetKey}.hit_hp` |
-| `SYMBOL_LP` | 710 | symbol | `symbol.{targetKey}.land` |
+| `SYMBOL_SPECIAL_SCATTER` | 740 | symbol + scatter | `symbol.scatter.land` |
+| `SYMBOL_SPECIAL_WILD` | 735 | symbol + wild | `symbol.wild.land` |
+| `SYMBOL_HP` | 720 | symbol + hp tag | `symbol.hp.land` |
+| `SYMBOL_MP` | 715 | symbol + mp tag | `symbol.mp.land` |
+| `SYMBOL_LP` | 710 | symbol + lp tag | `symbol.lp.land` |
+| `SYMBOL_GENERIC` | 700 | symbol (fallback) | `symbol.{targetKey}.land` |
 
 #### Win Rules (690-680)
 

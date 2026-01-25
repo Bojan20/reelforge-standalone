@@ -358,13 +358,15 @@ class EventRegistry extends ChangeNotifier {
   bool _useAudioPool = true;
 
   // P1.2: Voice limit per event (prevents runaway voice spawning)
-  static const int _maxVoicesPerEvent = 8;
+  // Increased from 8 to 32 — with auto-cleanup, this should rarely be hit
+  static const int _maxVoicesPerEvent = 32;
   int _voiceLimitRejects = 0;
   int get voiceLimitRejects => _voiceLimitRejects;
 
   // P1.3: Instance cleanup timer (removes stale playing instances)
-  static const Duration _instanceMaxAge = Duration(seconds: 30);
-  static const Duration _cleanupInterval = Duration(seconds: 10);
+  // Reduced from 30s to 10s — most slot sounds are < 3 seconds
+  static const Duration _instanceMaxAge = Duration(seconds: 10);
+  static const Duration _cleanupInterval = Duration(seconds: 5);
   Timer? _cleanupTimer;
   int _cleanedInstances = 0;
   int get cleanedInstances => _cleanedInstances;
@@ -1253,6 +1255,25 @@ class EventRegistry extends ChangeNotifier {
         eventKey: event.stage,
         loop: event.loop, // P0.2: Pass loop flag for seamless looping (REEL_SPIN)
       );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL FIX: Auto-cleanup for ONE-SHOT (non-looping) events
+    // Without this, voice slots accumulate and hit limit after ~8 spins
+    // One-shot sounds typically finish in < 3 seconds, no need to hold for 30s
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (!event.loop) {
+      // Use event duration with 500ms buffer, or default 3 seconds if not specified
+      final cleanupDelayMs = event.duration > 0
+          ? ((event.duration * 1000) + 500).toInt()
+          : 3000;
+
+      Timer(Duration(milliseconds: cleanupDelayMs), () {
+        if (_playingInstances.contains(instance)) {
+          _playingInstances.remove(instance);
+          debugPrint('[EventRegistry] 🧹 Auto-cleaned one-shot: "${event.name}" (after ${cleanupDelayMs}ms)');
+        }
+      });
     }
 
     // P1.3: Add to recent items for quick access

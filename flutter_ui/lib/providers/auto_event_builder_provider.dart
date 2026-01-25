@@ -614,6 +614,148 @@ class StandardDropRules {
     defaultTrigger: 'press',
   );
 
+  // ==========================================================================
+  // SYMBOL DROP RULES — V9: Audio for symbol lands and wins
+  // ==========================================================================
+
+  static const wildSymbol = DropRule(
+    ruleId: 'wild_symbol',
+    name: 'Wild Symbol Land',
+    priority: 100,
+    targetType: TargetType.symbolZone,
+    targetTags: ['wild'],
+    eventIdTemplate: 'symbol.wild.land',
+    intentTemplate: 'wild.landed',
+    defaultPresetId: 'symbol_land',
+    defaultBus: 'SFX/Symbols',
+    defaultTrigger: 'WILD_LAND',
+  );
+
+  static const scatterSymbol = DropRule(
+    ruleId: 'scatter_symbol',
+    name: 'Scatter Symbol Land',
+    priority: 100,
+    targetType: TargetType.symbolZone,
+    targetTags: ['scatter'],
+    eventIdTemplate: 'symbol.scatter.land',
+    intentTemplate: 'scatter.landed',
+    defaultPresetId: 'symbol_land',
+    defaultBus: 'SFX/Symbols',
+    defaultTrigger: 'SCATTER_LAND',
+  );
+
+  static const bonusSymbol = DropRule(
+    ruleId: 'bonus_symbol',
+    name: 'Bonus Symbol Land',
+    priority: 100,
+    targetType: TargetType.symbolZone,
+    targetTags: ['bonus'],
+    eventIdTemplate: 'symbol.bonus.land',
+    intentTemplate: 'bonus.landed',
+    defaultPresetId: 'symbol_land',
+    defaultBus: 'SFX/Features',
+    defaultTrigger: 'BONUS_TRIGGER',
+  );
+
+  static const symbolWin = DropRule(
+    ruleId: 'symbol_win',
+    name: 'Symbol Win Presentation',
+    priority: 100,
+    targetType: TargetType.symbolZone,
+    targetTags: ['win'],
+    eventIdTemplate: 'symbol.win.present',
+    intentTemplate: 'symbol.win.presented',
+    defaultPresetId: 'win_small',
+    defaultBus: 'SFX/Wins',
+    defaultTrigger: 'WIN_SYMBOL_HIGHLIGHT',
+  );
+
+  static const highPaySymbol = DropRule(
+    ruleId: 'high_pay_symbol',
+    name: 'High Pay Symbol Land',
+    priority: 90,
+    targetType: TargetType.symbolZone,
+    targetTags: ['hp1', 'hp2', 'hp3', 'hp4', 'hp5'],
+    eventIdTemplate: 'symbol.{target}.land',
+    intentTemplate: 'symbol.high_pay.landed',
+    defaultPresetId: 'symbol_land',
+    defaultBus: 'SFX/Symbols',
+    defaultTrigger: 'SYMBOL_LAND',
+  );
+
+  static const mediumPaySymbol = DropRule(
+    ruleId: 'medium_pay_symbol',
+    name: 'Medium Pay Symbol Land',
+    priority: 85,
+    targetType: TargetType.symbolZone,
+    targetTags: ['mp1', 'mp2', 'mp3', 'mp4', 'mp5'],
+    eventIdTemplate: 'symbol.{target}.land',
+    intentTemplate: 'symbol.medium_pay.landed',
+    defaultPresetId: 'symbol_land',
+    defaultBus: 'SFX/Symbols',
+    defaultTrigger: 'SYMBOL_LAND',
+  );
+
+  static const lowPaySymbol = DropRule(
+    ruleId: 'low_pay_symbol',
+    name: 'Low Pay Symbol Land',
+    priority: 80,
+    targetType: TargetType.symbolZone,
+    targetTags: ['lp1', 'lp2', 'lp3', 'lp4', 'lp5'],
+    eventIdTemplate: 'symbol.{target}.land',
+    intentTemplate: 'symbol.low_pay.landed',
+    defaultPresetId: 'symbol_land',
+    defaultBus: 'SFX/Symbols',
+    defaultTrigger: 'SYMBOL_LAND',
+  );
+
+  // ==========================================================================
+  // WIN LINE DROP RULES — V9: Audio for win line presentation
+  // ==========================================================================
+
+  static const winLineShow = DropRule(
+    ruleId: 'win_line_show',
+    name: 'Win Line Show',
+    priority: 100,
+    targetType: TargetType.overlay,
+    targetTags: ['line', 'win'],
+    eventIdTemplate: 'winline.{target}.show',
+    intentTemplate: 'winline.showed',
+    defaultPresetId: 'win_line',
+    defaultBus: 'SFX/Wins',
+    defaultTrigger: 'WIN_LINE_SHOW',
+  );
+
+  // ==========================================================================
+  // ROLLUP COUNTER DROP RULES — V9: Audio for win counter
+  // ==========================================================================
+
+  static const rollupTick = DropRule(
+    ruleId: 'rollup_tick',
+    name: 'Rollup Counter Tick',
+    priority: 100,
+    targetType: TargetType.hudMeter,
+    targetTags: ['rollup', 'tick', 'counter'],
+    eventIdTemplate: 'rollup.tick',
+    intentTemplate: 'counter.ticked',
+    defaultPresetId: 'ui_tick',
+    defaultBus: 'SFX/Wins',
+    defaultTrigger: 'ROLLUP_TICK',
+  );
+
+  static const rollupEnd = DropRule(
+    ruleId: 'rollup_end',
+    name: 'Rollup Counter End',
+    priority: 100,
+    targetType: TargetType.hudMeter,
+    targetTags: ['rollup', 'end', 'counter'],
+    eventIdTemplate: 'rollup.end',
+    intentTemplate: 'counter.ended',
+    defaultPresetId: 'win_small',
+    defaultBus: 'SFX/Wins',
+    defaultTrigger: 'ROLLUP_END',
+  );
+
   /// All standard rules sorted by priority (highest first)
   static List<DropRule> get all => [
     uiPrimaryClick,
@@ -626,6 +768,19 @@ class StandardDropRules {
     winBig,
     musicBase,
     musicFeature,
+    // V9: Symbol and win line rules
+    wildSymbol,
+    scatterSymbol,
+    bonusSymbol,
+    symbolWin,
+    highPaySymbol,
+    mediumPaySymbol,
+    lowPaySymbol,
+    winLineShow,
+    // V9: Rollup counter rules
+    rollupTick,
+    rollupEnd,
+    // Fallback last
     fallbackSfx,
   ]..sort((a, b) => b.priority.compareTo(a.priority));
 }

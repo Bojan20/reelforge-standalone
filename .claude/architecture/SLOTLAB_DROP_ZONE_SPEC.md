@@ -1,6 +1,6 @@
 # SlotLab Drop Zone System — Ultimate Specification
 
-**Version:** 1.1.0
+**Version:** 1.1.2
 **Created:** 2026-01-23
 **Updated:** 2026-01-25
 **Author:** Claude Code (Principal Engineer Documentation)
@@ -541,6 +541,71 @@ return (pan.clamp(-1.0, 1.0), SpatialMode.autoPerReel);
 | `ui_hover` | 80 | tags: hover, whoosh | type: uiButton | `{target}.hover` | SFX/UI |
 | `fallback_sfx` | 1 | type: sfx | any | `{target}.{asset}` | SFX |
 
+### 8.1.1 Symbol Zone Rules (v1.1.0)
+
+**NEW (2026-01-25):** Dedicated DropRules for symbol drop zones.
+
+| Rule ID | Priority | Target Match | Tags | Event ID Template | Preset |
+|---------|----------|--------------|------|-------------------|--------|
+| `symbol_wild` | 95 | type: symbolZone | wild | `symbol.wild.land` | `symbol_special` |
+| `symbol_scatter` | 94 | type: symbolZone | scatter | `symbol.scatter.land` | `symbol_special` |
+| `symbol_hp` | 93 | type: symbolZone | hp, high | `symbol.hp.land` | `symbol_land_hp` |
+| `symbol_mp` | 92 | type: symbolZone | mp, medium | `symbol.mp.land` | `symbol_land_mp` |
+| `symbol_lp` | 91 | type: symbolZone | lp, low | `symbol.lp.land` | `symbol_land_lp` |
+| `symbol_generic` | 90 | type: symbolZone | — | `symbol.{targetKey}.land` | `symbol_land_lp` |
+
+**Symbol Zone Presets:**
+
+| Preset ID | Polyphony | Voice Limit Group | Volume | Cooldown | Pitch Rand |
+|-----------|-----------|-------------------|--------|----------|------------|
+| `symbol_special` | 2 | SYMBOL_SPECIAL | 0.85 | 0ms | ±4 cents |
+| `symbol_land_hp` | 4 | SYMBOL_HP | 0.75 | 0ms | ±4 cents |
+| `symbol_land_mp` | 4 | SYMBOL_MP | 0.70 | 0ms | ±5 cents |
+| `symbol_land_lp` | 4 | SYMBOL_LP | 0.65 | 0ms | ±7 cents |
+
+**Note:** Symbol drop zones are located in the Symbol Strip panel (left panel), not on the slot grid.
+
+### 8.1.2 Symbol Win Highlight Rules (V14 — 2026-01-25)
+
+**NEW (V14):** Per-symbol WIN_SYMBOL_HIGHLIGHT audio triggers.
+
+When a symbol is part of a winning combination, the system triggers symbol-specific audio stages:
+
+| Target ID | Stage | Description |
+|-----------|-------|-------------|
+| `symbol.win` | `WIN_SYMBOL_HIGHLIGHT` | Generic (all symbols) |
+| `symbol.win.all` | `WIN_SYMBOL_HIGHLIGHT` | Alias for generic |
+| `symbol.win.hp1` | `WIN_SYMBOL_HIGHLIGHT_HP1` | HP1 symbol win highlight |
+| `symbol.win.hp2` | `WIN_SYMBOL_HIGHLIGHT_HP2` | HP2 symbol win highlight |
+| `symbol.win.wild` | `WIN_SYMBOL_HIGHLIGHT_WILD` | Wild symbol win highlight |
+| `symbol.win.scatter` | `WIN_SYMBOL_HIGHLIGHT_SCATTER` | Scatter symbol win highlight |
+| `symbol.win.{type}` | `WIN_SYMBOL_HIGHLIGHT_{TYPE}` | Any symbol type |
+
+**Stage Mapping (`slot_lab_screen.dart`):**
+```dart
+if (targetId == 'symbol.win') return 'WIN_SYMBOL_HIGHLIGHT';
+if (targetId == 'symbol.win.all') return 'WIN_SYMBOL_HIGHLIGHT';
+if (targetId.startsWith('symbol.win.')) {
+  final symbolType = targetId.split('.').last.toUpperCase();
+  return 'WIN_SYMBOL_HIGHLIGHT_$symbolType';
+}
+```
+
+**Runtime Triggers (`slot_preview_widget.dart`):**
+- Phase 1 triggers `WIN_SYMBOL_HIGHLIGHT_{symbolName}` for EACH unique winning symbol
+- Visual popups are grouped by symbol type (first all HP1, then HP2, etc.)
+- Label badge appears in corner of each winning cell showing symbol name
+
+**Example:**
+```
+Win Result: HP1 × 3, WILD × 4
+        ↓
+Triggers:
+  WIN_SYMBOL_HIGHLIGHT_HP1   (audio for HP1 win)
+  WIN_SYMBOL_HIGHLIGHT_WILD  (audio for WILD win)
+  WIN_SYMBOL_HIGHLIGHT       (generic, backwards compat)
+```
+
 ### 8.2 Rule Matching Algorithm
 
 ```dart
@@ -684,6 +749,13 @@ DroppableReelFrame(
 | **2026-01-25** | **v1.1.0: Removed individual cell drop zones** | ✅ Done |
 | 2026-01-25 | `_buildCellDropZone()` method removed | ✅ Done |
 | 2026-01-25 | Reel-level only architecture (no per-cell targets) | ✅ Done |
+| **2026-01-25** | **v1.1.1: Added Symbol Zone DropRules** | ✅ Done |
+| 2026-01-25 | Symbol DropRules: wild, scatter, hp, mp, lp | ✅ Done |
+| 2026-01-25 | Larger drop targets for win line chips | ✅ Done |
+| **2026-01-25** | **v1.1.2 (V14): Per-Symbol Win Highlight** | ✅ Done |
+| 2026-01-25 | `symbol.win.{type}` → `WIN_SYMBOL_HIGHLIGHT_{TYPE}` | ✅ Done |
+| 2026-01-25 | Symbol-grouped popup animations | ✅ Done |
+| 2026-01-25 | Visual symbol name labels on winning cells | ✅ Done |
 
 ### 13.2 Verified Bidirectional Sync Chain
 

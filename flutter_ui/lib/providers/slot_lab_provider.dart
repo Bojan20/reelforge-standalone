@@ -95,6 +95,11 @@ class SlotLabProvider extends ChangeNotifier {
   /// Used by STOP button - should NOT include win presentation phase
   bool _isReelsSpinning = false;
   int _playbackGeneration = 0; // Incremented on each new spin to invalidate old timers
+
+  // ─── V13: Win Presentation State (for blocking next spin) ─────────────────
+  /// True during win presentation (symbol highlight, plaque, rollup, win lines)
+  /// When true, new spin should be blocked or fade out first before starting
+  bool _isWinPresentationActive = false;
   bool _baseMusicStarted = false; // Track if base music has been triggered
 
   // ─── P1.2: Rollup Progress Tracking (for pitch/volume dynamics) ───────────
@@ -219,6 +224,48 @@ class SlotLabProvider extends ChangeNotifier {
   /// True ONLY while reels are visually spinning (SPIN_START → all REEL_STOP)
   /// Use this for STOP button visibility - does NOT include win presentation
   bool get isReelsSpinning => _isReelsSpinning;
+
+  /// V13: True during win presentation (symbol highlight, plaque, rollup, win lines)
+  /// Used to block new spin or require fade-out before starting
+  bool get isWinPresentationActive => _isWinPresentationActive;
+
+  /// V13: Called by slot_preview_widget to update win presentation state
+  void setWinPresentationActive(bool active) {
+    if (_isWinPresentationActive != active) {
+      _isWinPresentationActive = active;
+      notifyListeners();
+    }
+  }
+
+  // ─── V13: Skip Presentation with Fade-out ─────────────────────────────────────
+  /// Callback to be invoked after skip fade-out completes
+  VoidCallback? _pendingSkipCallback;
+
+  /// True when skip has been requested and fade-out is in progress
+  bool _skipRequested = false;
+  bool get skipRequested => _skipRequested;
+
+  /// Request skip of current win presentation with fade-out animation
+  /// The slot_preview_widget will execute the fade and call onComplete when done
+  void requestSkipPresentation(VoidCallback onComplete) {
+    if (!_isWinPresentationActive) {
+      // No presentation active, call immediately
+      onComplete();
+      return;
+    }
+    _skipRequested = true;
+    _pendingSkipCallback = onComplete;
+    notifyListeners(); // slot_preview_widget will see skipRequested = true
+  }
+
+  /// Called by slot_preview_widget when skip fade-out is complete
+  void onSkipComplete() {
+    _skipRequested = false;
+    final callback = _pendingSkipCallback;
+    _pendingSkipCallback = null;
+    setWinPresentationActive(false);
+    callback?.call();
+  }
 
   /// P0.3: True when stage playback is paused (can be resumed)
   bool get isPaused => _isPaused;
@@ -973,6 +1020,28 @@ class SlotLabProvider extends ChangeNotifier {
     if (_useVisualSyncForReelStop && stageType == 'REEL_STOP') {
       debugPrint('[Stage] REEL_STOP [$reelIndex] → SKIPPED (visual-sync mode)');
       return; // Visual callback in slot_preview_widget.dart will handle this
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V12: WIN PRESENTATION VISUAL-SYNC — Skip win stages in provider
+    // These stages are handled by slot_preview_widget.dart's 3-phase win presentation:
+    // - Phase 1: WIN_SYMBOL_HIGHLIGHT (symbol glow/bounce)
+    // - Phase 2: WIN_PRESENT + ROLLUP_* (plaque + counter)
+    // - Phase 3: WIN_LINE_SHOW (win line cycling)
+    // Provider should NOT trigger these — Dart widget handles timing!
+    // ═══════════════════════════════════════════════════════════════════════════
+    const winPresentationStages = {
+      'WIN_SYMBOL_HIGHLIGHT',
+      'WIN_LINE_SHOW',
+      'WIN_LINE_HIDE',
+      'ROLLUP_START',
+      'ROLLUP_TICK',
+      'ROLLUP_END',
+      // Note: WIN_PRESENT_* stages are triggered by Dart widget, not Rust
+    };
+    if (winPresentationStages.contains(stageType)) {
+      debugPrint('[Stage] $stageType → SKIPPED (visual-sync, handled by Dart widget)');
+      return;
     }
 
     // Simplified debug - only show stage name, skip per-reel spam for REEL_SPINNING

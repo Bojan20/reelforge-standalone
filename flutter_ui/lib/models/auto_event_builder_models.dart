@@ -3323,6 +3323,32 @@ class StandardPresets {
     preloadPolicy: PreloadPolicy.onStageEnter,
   );
 
+  // ==========================================================================
+  // V9: Symbol and Win Line Presets
+  // ==========================================================================
+
+  static const symbolLand = EventPreset(
+    presetId: 'symbol_land',
+    name: 'Symbol Land',
+    description: 'Symbol landing on reel',
+    volume: -3.0,
+    cooldownMs: 30,
+    polyphony: 5,
+    voiceLimitGroup: 'symbols',
+    priority: 65,
+  );
+
+  static const winLine = EventPreset(
+    presetId: 'win_line',
+    name: 'Win Line',
+    description: 'Win line presentation sound',
+    volume: 0.0,
+    cooldownMs: 100,
+    polyphony: 3,
+    voiceLimitGroup: 'wins',
+    priority: 55,
+  );
+
   /// All standard presets
   static const List<EventPreset> all = [
     uiClickPrimary,
@@ -3337,6 +3363,9 @@ class StandardPresets {
     jackpot,
     musicBase,
     musicFeature,
+    // V9: Symbol and Win Line presets
+    symbolLand,
+    winLine,
   ];
 
   /// Get preset by ID

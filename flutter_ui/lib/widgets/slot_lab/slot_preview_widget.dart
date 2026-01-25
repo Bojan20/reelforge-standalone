@@ -97,6 +97,37 @@ class SlotSymbol {
   };
 
   static SlotSymbol getSymbol(int id) => symbols[id % symbols.length] ?? symbols[9]!;
+
+  /// Get short label for symbol (WILD, SCAT, BONUS, HP1, HP2, MP1, MP2, LP1, LP2, LP3)
+  String get shortLabel {
+    switch (id) {
+      case 0: return 'WILD';
+      case 1: return 'SCAT';
+      case 2: return 'BONUS';
+      case 3: return 'HP1';   // SEVEN - High Pay 1
+      case 4: return 'HP2';   // BAR - High Pay 2
+      case 5: return 'MP1';   // BELL - Medium Pay 1
+      case 6: return 'MP2';   // CHERRY - Medium Pay 2
+      case 7: return 'LP1';   // LEMON - Low Pay 1
+      case 8: return 'LP2';   // ORANGE - Low Pay 2
+      case 9: return 'LP3';   // GRAPE - Low Pay 3
+      default: return 'SYM';
+    }
+  }
+
+  /// Get label color based on symbol type
+  Color get labelColor {
+    switch (id) {
+      case 0: return const Color(0xFFFFD700);  // WILD - Gold
+      case 1: return const Color(0xFFE040FB);  // SCATTER - Purple
+      case 2: return const Color(0xFF40C8FF);  // BONUS - Cyan
+      case 3:
+      case 4: return const Color(0xFFFF4080);  // HP - Red/Pink
+      case 5:
+      case 6: return const Color(0xFFFFEB3B);  // MP - Yellow
+      default: return const Color(0xFF90CAF9); // LP - Light Blue
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -175,6 +206,14 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   Set<String> _winningPositions = {}; // "reel,row" format
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // V14: PER-SYMBOL WIN HIGHLIGHT — Symbol-specific audio triggers
+  // When HP1 is part of winning line → trigger WIN_SYMBOL_HIGHLIGHT_HP1
+  // Each symbol type gets its own highlight stage for audio design flexibility
+  // ═══════════════════════════════════════════════════════════════════════════
+  Map<String, Set<String>> _winningPositionsBySymbol = {}; // symbolName → {"reel,row", ...}
+  Set<String> _winningSymbolNames = {}; // Unique symbol names that are winning
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PER-REEL ANTICIPATION SYSTEM — Condition-based (scatter detection)
   // Industry standard: Anticipation triggers when 2+ scatters land, extends remaining reels
   // ═══════════════════════════════════════════════════════════════════════════
@@ -233,6 +272,11 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   double _targetWinAmount = 0;
   String _winTier = ''; // BIG, SUPER, MEGA, EPIC, ULTRA (no plaque for small wins)
 
+  // V9: RTL (right-to-left) digit reveal animation state
+  // When true, display uses _formatRtlRollupDisplay() for slot machine counter effect
+  bool _useRtlRollup = false;
+  double _rtlRollupProgress = 0.0; // 0.0 = all digits spinning, 1.0 = all landed
+
   // ═══════════════════════════════════════════════════════════════════════════
   // TIER PROGRESSION SYSTEM — Progressive reveal from BIG to final tier
   // Each tier displays for 4 seconds, building excitement to the final tier
@@ -277,26 +321,27 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   static const int _symbolPulseCycleMs = 350;
   static const int _symbolPulseCycles = 3;
 
-  // Tier-specific rollup durations (ms) — Industry standard progression
+  // Tier-specific rollup durations (ms) — V9: MUCH FASTER + RTL digit animation
   // Empty string ('') uses default for small wins (< 5x)
+  // User request: "rollup mora da bude dosta brzi"
   static const Map<String, int> _rollupDurationByTier = {
-    'BIG': 2500,     // First major tier (5x-15x)
-    'SUPER': 4000,   // Second tier (15x-30x)
-    'MEGA': 7000,    // Third tier (30x-60x)
-    'EPIC': 12000,   // Fourth tier (60x-100x)
-    'ULTRA': 20000,  // Maximum (100x+)
+    'BIG': 800,      // First major tier (5x-15x) — was 2500ms
+    'SUPER': 1200,   // Second tier (15x-30x) — was 4000ms
+    'MEGA': 2000,    // Third tier (30x-60x) — was 7000ms
+    'EPIC': 3500,    // Fourth tier (60x-100x) — was 12000ms
+    'ULTRA': 6000,   // Maximum (100x+) — was 20000ms
   };
-  static const int _defaultRollupDuration = 1500;  // Small wins
+  static const int _defaultRollupDuration = 800;  // Small wins — SAME as BIG WIN
 
-  // Tier-specific rollup tick rate (ticks per second)
+  // Tier-specific rollup tick rate (ticks per second) — V9: Faster ticks
   static const Map<String, int> _rollupTickRateByTier = {
-    'BIG': 12,     // First major tier
-    'SUPER': 10,   // Second tier
-    'MEGA': 8,     // Third tier
-    'EPIC': 6,     // Fourth tier
-    'ULTRA': 4,    // Maximum
+    'BIG': 20,     // First major tier — was 12
+    'SUPER': 18,   // Second tier — was 10
+    'MEGA': 15,    // Third tier — was 8
+    'EPIC': 12,    // Fourth tier — was 6
+    'ULTRA': 8,    // Maximum — was 4
   };
-  static const int _defaultRollupTickRate = 15;  // Small wins — fast ticks
+  static const int _defaultRollupTickRate = 20;  // Small wins — SAME as BIG WIN
 
   // Currency formatter for win display — Industry standard: 2 decimal places
   // Examples: 1234.50 → "1,234.50" | 50.00 → "50.00" | 1234567.89 → "1,234,567.89"
@@ -454,6 +499,8 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     if (!mounted) return;
     setState(() {
       _displayedWinAmount = ui.lerpDouble(0, _targetWinAmount, _winCounterController.value) ?? 0;
+      // V9: Update RTL progress for digit reveal animation
+      _rtlRollupProgress = _winCounterController.value;
     });
   }
 
@@ -739,6 +786,15 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _onProviderUpdate() {
     if (!mounted) return;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V13: SKIP PRESENTATION REQUEST — Fade out before new spin
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (widget.provider.skipRequested) {
+      debugPrint('[SlotPreview] 📤 SKIP REQUESTED — starting fade-out');
+      _executeSkipFadeOut();
+      return; // Don't process other updates during fade-out
+    }
+
     final result = widget.provider.lastResult;
     final isPlaying = widget.provider.isPlayingStages;
     final stages = widget.provider.lastStages;
@@ -911,6 +967,8 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _spinFinalized = false; // Clear finalized flag for new spin
       _winningReels = {};
       _winningPositions = {};
+      _winningPositionsBySymbol = {}; // V14: Clear per-symbol positions
+      _winningSymbolNames = {}; // V14: Clear symbol names
       _currentLinePositions = {}; // Clear line presentation positions
       _winTier = '';
       _currentDisplayTier = ''; // Reset display tier for new spin
@@ -997,17 +1055,38 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _spinFinalized = true; // CRITICAL: Prevent re-trigger in _onProviderUpdate
 
       if (result.isWin) {
-        // Collect all winning positions (for total highlight if needed)
+        // V13: Mark win presentation as active (blocks new spin until complete)
+        widget.provider.setWinPresentationActive(true);
+
+        // V14: Collect winning positions AND group by symbol name
+        // This enables symbol-specific audio triggers: WIN_SYMBOL_HIGHLIGHT_HP1, etc.
+        _winningPositionsBySymbol.clear();
+        _winningSymbolNames.clear();
+
         for (final lineWin in result.lineWins) {
+          final symbolName = lineWin.symbolName.toUpperCase();
+          if (symbolName.isNotEmpty) {
+            _winningSymbolNames.add(symbolName);
+            _winningPositionsBySymbol.putIfAbsent(symbolName, () => <String>{});
+          }
+
           for (final pos in lineWin.positions) {
             if (pos.length >= 2) {
               _winningReels.add(pos[0]);
-              _winningPositions.add('${pos[0]},${pos[1]}');
+              final posKey = '${pos[0]},${pos[1]}';
+              _winningPositions.add(posKey);
+
+              // Track position by symbol name
+              if (symbolName.isNotEmpty) {
+                _winningPositionsBySymbol[symbolName]!.add(posKey);
+              }
             } else if (pos.isNotEmpty) {
               _winningReels.add(pos[0]);
             }
           }
         }
+
+        debugPrint('[SlotPreview] 🎯 V14: Winning symbols: ${_winningSymbolNames.join(', ')}');
 
         // Determine win tier and show overlay
         _targetWinAmount = result.totalWin.toDouble();
@@ -1030,20 +1109,28 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // ═══════════════════════════════════════════════════════════════════════
         // PHASE 1: SYMBOL HIGHLIGHT (0ms → symbolHighlightMs)
         // Winning symbols glow and pulse - builds anticipation
+        // NO WIN AUDIO HERE — audio triggers in Phase 2 when plaque appears
+        //
+        // V14: SYMBOL-SPECIFIC TRIGGERS
+        // Ako HP1 je sastavni deo win symbola → pusti HP1 win zvuk
+        // Svaki simbol tip ima svoj highlight stage za fleksibilan audio dizajn
         // ═══════════════════════════════════════════════════════════════════════
+
+        // V14: Trigger symbol-specific highlight stages (HP1 → WIN_SYMBOL_HIGHLIGHT_HP1)
+        for (final symbolName in _winningSymbolNames) {
+          final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
+          debugPrint('[SlotPreview] 🔊 V14: Triggering $stage (${_winningPositionsBySymbol[symbolName]?.length ?? 0} positions)');
+          eventRegistry.triggerStage(stage);
+        }
+
+        // Also trigger generic stage for backwards compatibility
         eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
+
         _startSymbolPulseAnimation();
         _triggerStaggeredSymbolPopups(); // V6: Staggered popup effect
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // WIN PRESENTATION AUDIO — Single audio tier based on win/bet ratio
-        // Triggers WIN_PRESENT_1 through WIN_PRESENT_6 with varying durations
-        // This IS the win sound — no other win audio stages needed
-        // ═══════════════════════════════════════════════════════════════════════
+        // Store win tier info for Phase 2 audio trigger
         final winPresentTier = _getWinPresentTier(result.totalWin);
-        final winPresentDuration = _getWinPresentDurationMs(winPresentTier);
-        eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
-        debugPrint('[SlotPreview] 🔊 WIN_PRESENT_$winPresentTier (ratio: ${(result.totalWin / widget.provider.betAmount).toStringAsFixed(2)}x, duration: ${winPresentDuration}ms)');
 
         debugPrint('[SlotPreview] 🎰 PHASE 1: Symbol highlight (tier: ${_winTier.isEmpty ? "SMALL" : _winTier}, duration: ${symbolHighlightMs}ms)');
 
@@ -1056,9 +1143,12 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
           if (_winTier.isEmpty) {
             // ═══════════════════════════════════════════════════════════════════
             // SMALL WIN (< 5x): "WIN!" total win plaque with counter, then win lines
-            // Audio already triggered above via WIN_PRESENT_N
+            // WIN_PRESENT_X audio triggers NOW when plaque appears (not during symbol highlight)
             // ═══════════════════════════════════════════════════════════════════
             debugPrint('[SlotPreview] 💰 PHASE 2: Total win plaque (win: ${result.totalWin})');
+
+            // 🔊 Trigger WIN_PRESENT audio when plaque appears
+            eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
 
             // Show plaque with "WIN!" label (empty tier = small win)
             setState(() {
@@ -1067,6 +1157,7 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
             _winAmountController.forward(from: 0);
 
             // Start rollup with callback for win lines
+            // V9: Pass winPresentTier for tier 1 skip logic (≤ 1x wins skip animation)
             _startTierBasedRollupWithCallback('', () {
               if (!mounted) return;
 
@@ -1078,16 +1169,24 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 if (lineWinsForPhase3.isNotEmpty) {
                   debugPrint('[SlotPreview] 🎰 PHASE 3: Win lines (after small win)');
                   _startWinLinePresentation(lineWinsForPhase3);
+                } else {
+                  // V13: No win lines — win presentation is COMPLETE
+                  debugPrint('[SlotPreview] 🏁 Win presentation COMPLETE (small win, no lines)');
+                  widget.provider.setWinPresentationActive(false);
                 }
               });
-            });
+            }, winPresentTier: winPresentTier);
           } else {
             // ═══════════════════════════════════════════════════════════════════
             // BIG+ WIN: Tier progression plaque with counter (this IS the total win)
             // BIG_WIN_INTRO → BIG → SUPER → ... → BIG_WIN_END → Win lines
             // No separate "total win" plaque — the tier plaque shows the counter
+            // WIN_PRESENT_X audio triggers NOW when plaque appears (not during symbol highlight)
             // ═══════════════════════════════════════════════════════════════════
             debugPrint('[SlotPreview] 🎰 PHASE 2: Tier progression (${result.totalWin}) → $_winTier');
+
+            // 🔊 Trigger WIN_PRESENT audio when plaque appears
+            eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
 
             // Start tier progression — this handles everything:
             // - BIG_WIN_INTRO
@@ -1153,6 +1252,68 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _lineWinsForPresentation = [];
     _currentPresentingLineIndex = 0;
     _currentLinePositions = {};
+
+    // V13: Mark win presentation as COMPLETE — allows next spin
+    widget.provider.setWinPresentationActive(false);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // V13: SKIP PRESENTATION WITH FADE-OUT
+  // When user presses Spin during win presentation, fade out first
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /// Execute fade-out of all win presentation elements
+  /// Called when provider.skipRequested is true
+  void _executeSkipFadeOut() {
+    debugPrint('[SlotPreview] 🎬 _executeSkipFadeOut — stopping timers, starting fade');
+
+    // 1. Stop all presentation timers (but don't reset visual state yet)
+    _winLineCycleTimer?.cancel();
+    _winLineCycleTimer = null;
+    _tierProgressionTimer?.cancel();
+    _tierProgressionTimer = null;
+    _rollupTickTimer?.cancel();
+    _rollupTickTimer = null;
+
+    // Helper to reset state and notify provider
+    void completeSkip() {
+      if (!mounted) return;
+
+      // Reset all presentation state
+      setState(() {
+        _isShowingWinLines = false;
+        _isInTierProgression = false;
+        _isRollingUp = false;
+        _lineWinsForPresentation = [];
+        _currentPresentingLineIndex = 0;
+        _currentLinePositions = {};
+        _tierProgressionList = [];
+        _tierProgressionIndex = 0;
+        _winningPositions = {};
+        _winningPositionsBySymbol = {}; // V14: Clear per-symbol positions
+        _winningSymbolNames = {}; // V14: Clear symbol names
+        _winningReels = {};
+        _winTier = '';
+        _currentDisplayTier = '';
+      });
+
+      debugPrint('[SlotPreview] ✅ Skip fade-out COMPLETE — calling onSkipComplete()');
+
+      // Notify provider that skip is complete
+      widget.provider.onSkipComplete();
+    }
+
+    // 2. Check if plaque is already hidden — if so, complete immediately
+    if (_winAmountController.value == 0 && !_winAmountController.isAnimating) {
+      debugPrint('[SlotPreview] ⚡ Plaque already hidden — completing skip immediately');
+      completeSkip();
+      return;
+    }
+
+    // 3. Trigger fade-out animation (300ms)
+    _winAmountController.reverse().then((_) {
+      completeSkip();
+    });
   }
 
   /// Advance to next win line — NO LOOPING, single pass through all lines
@@ -1350,32 +1511,64 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _runSymbolPulseCycle();
   }
 
-  /// V6: Trigger staggered popup animations for winning symbols
-  /// Each symbol pops 50ms after the previous one (left to right, top to bottom)
+  /// V6+V14: Trigger staggered popup animations for winning symbols
+  /// V14: Groups popups BY SYMBOL TYPE — first all HP1, then HP2, etc.
+  /// This synchronizes visual feedback with symbol-specific audio triggers
   void _triggerStaggeredSymbolPopups() {
-    // Sort win positions for consistent left-to-right, top-to-bottom order
-    // Format is "reel,row"
-    final sortedPositions = _winningPositions.toList()..sort((a, b) {
-      final partsA = a.split(',').map(int.parse).toList();
-      final partsB = b.split(',').map(int.parse).toList();
-      // Sort by reel (column) first, then row
-      if (partsA[0] != partsB[0]) return partsA[0].compareTo(partsB[0]);
-      return partsA[1].compareTo(partsB[1]);
-    });
-
     // Clear any previous popup state
     _symbolPopScale.clear();
     _symbolPopRotation.clear();
 
-    // Trigger staggered popups
-    for (int i = 0; i < sortedPositions.length; i++) {
-      final position = sortedPositions[i];
-      final delay = i * _symbolPopStaggerMs;
+    // V14: Group positions by symbol name, then sort within each group
+    // This creates a visual effect where all HP1 symbols pop together,
+    // matching the WIN_SYMBOL_HIGHLIGHT_HP1 audio trigger
+    final sortedSymbolNames = _winningSymbolNames.toList()..sort();
 
-      Future.delayed(Duration(milliseconds: delay), () {
-        if (!mounted) return;
-        _animateSymbolPop(position);
+    int globalIndex = 0;
+
+    for (final symbolName in sortedSymbolNames) {
+      final positions = _winningPositionsBySymbol[symbolName] ?? {};
+
+      // Sort positions within this symbol group (left-to-right, top-to-bottom)
+      final sortedPositions = positions.toList()..sort((a, b) {
+        final partsA = a.split(',').map(int.parse).toList();
+        final partsB = b.split(',').map(int.parse).toList();
+        if (partsA[0] != partsB[0]) return partsA[0].compareTo(partsB[0]);
+        return partsA[1].compareTo(partsB[1]);
       });
+
+      debugPrint('[SlotPreview] 🎬 V14: Popup group "$symbolName" — ${sortedPositions.length} symbols');
+
+      // Trigger staggered popups for this symbol group
+      for (final position in sortedPositions) {
+        final delay = globalIndex * _symbolPopStaggerMs;
+        globalIndex++;
+
+        Future.delayed(Duration(milliseconds: delay), () {
+          if (!mounted) return;
+          _animateSymbolPop(position);
+        });
+      }
+    }
+
+    // Fallback: if no symbol names tracked, use old position-based order
+    if (sortedSymbolNames.isEmpty && _winningPositions.isNotEmpty) {
+      final sortedPositions = _winningPositions.toList()..sort((a, b) {
+        final partsA = a.split(',').map(int.parse).toList();
+        final partsB = b.split(',').map(int.parse).toList();
+        if (partsA[0] != partsB[0]) return partsA[0].compareTo(partsB[0]);
+        return partsA[1].compareTo(partsB[1]);
+      });
+
+      for (int i = 0; i < sortedPositions.length; i++) {
+        final position = sortedPositions[i];
+        final delay = i * _symbolPopStaggerMs;
+
+        Future.delayed(Duration(milliseconds: delay), () {
+          if (!mounted) return;
+          _animateSymbolPop(position);
+        });
+      }
     }
   }
 
@@ -1444,18 +1637,49 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   /// Start tier-based rollup with completion callback
   /// Used for sequential win flow where win lines start after plaque fade-out
-  void _startTierBasedRollupWithCallback(String tier, VoidCallback? onComplete) {
+  /// V9: Now supports RTL digit animation and tier 1 skip
+  void _startTierBasedRollupWithCallback(String tier, VoidCallback? onComplete, {int? winPresentTier}) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V9: WIN TIER 1 SKIP — For tiny wins (≤ 1x bet), skip rollup animation
+    // But still show the "WIN!" plaque briefly (800ms minimum) so player sees it
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (winPresentTier == 1) {
+      debugPrint('[SlotPreview] 💨 TIER 1 QUICK — showing plaque briefly (800ms), no rollup');
+
+      setState(() {
+        _displayedWinAmount = _targetWinAmount;
+        _rtlRollupProgress = 1.0;
+        _useRtlRollup = false;
+        _isRollingUp = false;
+        _rollupProgress = 1.0;
+      });
+
+      // Trigger ROLLUP_END audio (no tick sounds)
+      eventRegistry.triggerStage('ROLLUP_END');
+      debugPrint('[SlotPreview] 🔊 ROLLUP_END (tier 1 instant)');
+
+      // P0.16 FIX: Wait 800ms so player can SEE the plaque before fading
+      // Without this delay, the plaque appears and immediately fades out
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (!mounted) return;
+        onComplete?.call();
+      });
+      return;
+    }
+
     final duration = _rollupDurationByTier[tier] ?? _defaultRollupDuration;
     final tickRate = _rollupTickRateByTier[tier] ?? _defaultRollupTickRate;
     final tickIntervalMs = (1000 / tickRate).round();
     final totalTicks = (duration / tickIntervalMs).round();
 
-    debugPrint('[SlotPreview] 🔊 ROLLUP_START (tier: $tier, duration: ${duration}ms, ticks: $totalTicks)');
+    debugPrint('[SlotPreview] 🔊 ROLLUP_START (tier: $tier, duration: ${duration}ms, ticks: $totalTicks, RTL: ON)');
 
-    // V7: Initialize rollup visual state
+    // V9: Initialize rollup visual state with RTL mode enabled
     setState(() {
       _isRollingUp = true;
       _rollupProgress = 0.0;
+      _useRtlRollup = true;
+      _rtlRollupProgress = 0.0;
     });
 
     // Update counter controller duration dynamically
@@ -1471,11 +1695,13 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       if (!mounted || _rollupTickCount >= totalTicks) {
         timer.cancel();
         if (mounted) {
-          // V7: End rollup visual state
+          // V9: End rollup visual state, disable RTL mode
           setState(() {
             _isRollingUp = false;
             _rollupProgress = 1.0;
             _counterShakeScale = 1.0;
+            _useRtlRollup = false;
+            _rtlRollupProgress = 1.0;
           });
           eventRegistry.triggerStage('ROLLUP_END');
           debugPrint('[SlotPreview] 🔊 ROLLUP_END (completed $totalTicks ticks)');
@@ -1551,6 +1777,57 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// Examples: 1234.50 → "1,234.50" | 50.00 → "50.00" | 1234567.89 → "1,234,567.89"
   String _formatWinAmount(double amount) {
     return _currencyFormatter.format(amount);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V9: RIGHT-TO-LEFT DIGIT REVEAL — Slot machine style counter animation
+  // Rightmost digit lands first, then cascades left toward the leftmost digit
+  // Examples: progress 0.0 → "?.???" | progress 0.5 → "??.56" | progress 1.0 → "123.56"
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Format rollup display with RTL (right-to-left) digit reveal animation
+  /// Each digit position "lands" from right to left as progress increases
+  /// This creates the classic slot machine counter rolling effect
+  String _formatRtlRollupDisplay(double targetAmount, double progress) {
+    // Get the final formatted string (e.g., "1,234.56")
+    final targetStr = _currencyFormatter.format(targetAmount);
+
+    // Extract only the numeric digits (remove commas and decimal point for counting)
+    final digitsOnly = targetStr.replaceAll(RegExp(r'[,.]'), '');
+    final numDigits = digitsOnly.length;
+
+    if (numDigits == 0) return targetStr;
+
+    // Calculate how many digits from the RIGHT have "landed" (reached final value)
+    // progress 0.0 = 0 digits landed, progress 1.0 = all digits landed
+    final landedCount = (progress * numDigits).ceil().clamp(0, numDigits);
+
+    // Build result by iterating through the formatted string
+    final result = StringBuffer();
+    int digitIndex = 0; // Track position in digitsOnly
+
+    for (int i = 0; i < targetStr.length; i++) {
+      final char = targetStr[i];
+
+      if (char == ',' || char == '.') {
+        // Preserve separators and decimal point
+        result.write(char);
+      } else {
+        // This is a digit - check if it has "landed"
+        final posFromRight = numDigits - 1 - digitIndex;
+
+        if (posFromRight < landedCount) {
+          // This digit has landed - show real value
+          result.write(char);
+        } else {
+          // This digit is still spinning - show random digit
+          result.write(_random.nextInt(10).toString());
+        }
+        digitIndex++;
+      }
+    }
+
+    return result.toString();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1697,6 +1974,10 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (lineWinsForPhase3.isNotEmpty) {
           debugPrint('[SlotPreview] 🎰 PHASE 3: Win lines (after tier progression)');
           _startWinLinePresentation(lineWinsForPhase3);
+        } else {
+          // V13: No win lines — win presentation is COMPLETE
+          debugPrint('[SlotPreview] 🏁 Win presentation COMPLETE (big win, no lines)');
+          widget.provider.setWinPresentationActive(false);
         }
 
         onComplete?.call();
@@ -1713,6 +1994,10 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _isRollingUp = false;
     _tierProgressionList = [];
     _tierProgressionIndex = 0;
+
+    // V13: Mark win presentation as COMPLETE — allows next spin
+    // Note: This is called when spin interrupts tier progression
+    widget.provider.setWinPresentationActive(false);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2544,8 +2829,14 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       ],
                       stops: const [0.0, 0.25, 0.75, 1.0],
                     ).createShader(bounds),
+                    // V11: RTL DIGIT REVEAL — Digits land from right to left
+                    // Uses _rtlRollupProgress to reveal digits progressively
+                    // Combined with numeric counting for complete slot machine effect
+                    // S desna na levo, brzina kao u big win-u!
                     child: Text(
-                      _formatWinAmount(_targetWinAmount),
+                      _isRollingUp
+                          ? _formatRtlRollupDisplay(_targetWinAmount, _rtlRollupProgress)
+                          : _formatWinAmount(_displayedWinAmount),
                       style: TextStyle(
                         fontSize: counterFontSize,
                         fontWeight: FontWeight.w900,
@@ -2770,11 +3061,26 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V14: Helper to find which symbol name a position belongs to
+  // ═══════════════════════════════════════════════════════════════════════════
+  String? _getSymbolNameForPosition(String posKey) {
+    for (final entry in _winningPositionsBySymbol.entries) {
+      if (entry.value.contains(posKey)) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
   /// Rectangular cell version - allows non-square cells to fill more space
   /// Uses PROFESSIONAL REEL ANIMATION SYSTEM for precise timing
   Widget _buildSymbolCellRect(int reelIndex, int rowIndex, double cellWidth, double cellHeight) {
     final reelState = _reelAnimController.getReelState(reelIndex);
     final posKey = '$reelIndex,$rowIndex';
+
+    // V14: Get symbol name for this position (for label display)
+    final symbolName = _getSymbolNameForPosition(posKey);
 
     // When win line presentation is active, only highlight CURRENT line positions
     // Otherwise highlight all winning positions
@@ -2938,6 +3244,37 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(4),
                             color: Colors.white.withOpacity(flashIntensity * 0.7),
+                          ),
+                        ),
+                      ),
+                    // ═════════════════════════════════════════════════════════
+                    // V14: Symbol Name Label — shows which symbol is winning
+                    // Appears in bottom-right corner during win highlight
+                    // ═════════════════════════════════════════════════════════
+                    if (isWinningPosition && !isReelSpinning && symbolName != null)
+                      Positioned(
+                        bottom: 2,
+                        right: 2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: _getWinGlowColor().withOpacity(0.85),
+                            borderRadius: BorderRadius.circular(3),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _getWinGlowColor().withOpacity(0.5),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            symbolName,
+                            style: const TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ),
@@ -3328,6 +3665,49 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 ),
               ),
             ),
+          // ═══════════════════════════════════════════════════════════════════
+          // SYMBOL TYPE LABEL - Always visible at top of each cell
+          // Shows: WILD, SCAT, BONUS, HP1, HP2, MP1, MP2, LP1, LP2, LP3
+          // ═══════════════════════════════════════════════════════════════════
+          Positioned(
+            top: 2,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(
+                    color: symbol.labelColor.withOpacity(0.8),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: symbol.labelColor.withOpacity(0.5),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  symbol.shortLabel,
+                  style: TextStyle(
+                    fontSize: (cellSize * 0.18).clamp(8.0, 14.0),
+                    fontWeight: FontWeight.w900,
+                    color: symbol.labelColor,
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

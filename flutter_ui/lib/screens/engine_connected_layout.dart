@@ -368,7 +368,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                   id: 'pool-${file.id}',
                   type: TreeItemType.sound,
                   label: file.name,
-                  duration: file.durationFormatted,
+                  duration: file.durationFormattedMs,
                   isSelected: file.id == _selectedPoolFileId,
                   isDraggable: true,
                   data: file, // Pass the PoolAudioFile for drag/drop
@@ -479,7 +479,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                   id: 'pool-${file.id}',
                   type: TreeItemType.sound,
                   label: file.name,
-                  duration: file.durationFormatted,
+                  duration: file.durationFormattedMs,
                   isDraggable: true,
                   data: file,
                 ))
@@ -2404,8 +2404,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Get playback position (default to 0 for now)
     final startTime = 0.0;
 
-    // Generate demo waveform
-    final waveform = timeline.generateDemoWaveform(samples: 2000);
+    // Generate REAL waveform from audio file via FFI (SIMD-optimized in Rust)
+    Float32List? waveform;
+
+    // Try to parse existing waveform data if available
+    if (file.waveformData != null && file.waveformData!.isNotEmpty) {
+      final (left, _) = timeline.parseWaveformFromJson(file.waveformData);
+      waveform = left;
+    }
+
+    // Fallback to FFI generation if no cached waveform
+    if (waveform == null) {
+      final cacheKey = 'clip-${file.id}';
+      final waveformJson = NativeFFI.instance.generateWaveformFromFile(file.path, cacheKey);
+      if (waveformJson != null) {
+        final (left, _) = timeline.parseWaveformFromJson(waveformJson);
+        waveform = left;
+      }
+    }
+
+    // Final fallback to demo waveform
+    waveform ??= timeline.generateDemoWaveform(samples: 2000);
 
     try {
       final clipId = 'clip-${DateTime.now().millisecondsSinceEpoch}';
@@ -3010,8 +3029,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       }
     }
 
-    // Generate demo waveform (real waveform would come from engine)
-    final waveform = timeline.generateDemoWaveform();
+    // Generate REAL waveform from audio file via FFI (SIMD-optimized in Rust)
+    Float32List? waveform;
+    Float32List? waveformRight;
+    final cacheKey = 'pool-$fileId';
+    final waveformJson = NativeFFI.instance.generateWaveformFromFile(filePath, cacheKey);
+    if (waveformJson != null) {
+      final (left, right) = timeline.parseWaveformFromJson(waveformJson);
+      waveform = left;
+      waveformRight = right;
+    }
+    // Fallback to demo waveform if FFI fails
+    waveform ??= timeline.generateDemoWaveform();
 
     setState(() {
       _audioPool.add(timeline.PoolAudioFile(
@@ -3055,8 +3084,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final duration = (item['duration'] as num?)?.toDouble() ?? 1.0;
       final fileId = 'pool-${DateTime.now().millisecondsSinceEpoch}-${_audioPool.length}';
 
-      // Generate waveform for visualization (demo until real FFI is implemented)
-      final waveform = timeline.generateDemoWaveform(samples: 2000);
+      // Generate REAL waveform from audio file via FFI (SIMD-optimized in Rust)
+      Float32List? waveform;
+      final cacheKey = 'slotlab-sync-$fileId';
+      final waveformJson = NativeFFI.instance.generateWaveformFromFile(path, cacheKey);
+      if (waveformJson != null) {
+        final (left, _) = timeline.parseWaveformFromJson(waveformJson);
+        waveform = left;
+      }
+      // Fallback to demo waveform if FFI fails
+      waveform ??= timeline.generateDemoWaveform(samples: 2000);
 
       _audioPool.add(timeline.PoolAudioFile(
         id: fileId,
@@ -3087,8 +3124,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final exists = _audioPool.any((f) => f.path == asset.path);
       if (exists) continue;
 
-      // Generate waveform for visualization
-      final waveform = timeline.generateDemoWaveform(samples: 2000);
+      // Generate REAL waveform from audio file via FFI (SIMD-optimized in Rust)
+      Float32List? waveform;
+      final cacheKey = 'asset-${asset.id}';
+      final waveformJson = NativeFFI.instance.generateWaveformFromFile(asset.path, cacheKey);
+      if (waveformJson != null) {
+        final (left, _) = timeline.parseWaveformFromJson(waveformJson);
+        waveform = left;
+      }
+      // Fallback to demo waveform if FFI fails
+      waveform ??= timeline.generateDemoWaveform(samples: 2000);
 
       _audioPool.add(timeline.PoolAudioFile(
         id: asset.id,

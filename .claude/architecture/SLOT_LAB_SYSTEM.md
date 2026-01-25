@@ -1513,8 +1513,11 @@ Implementirano prema NetEnt, Pragmatic Play, Big Time Gaming standardima:
 **Phase 1: Symbol Highlight (1050ms)**
 ```
 Duration: 3 × 350ms pulse cycles
-Audio: WIN_SYMBOL_HIGHLIGHT
+Audio: WIN_SYMBOL_HIGHLIGHT_{symbolName} for each winning symbol type (V14)
+       + WIN_SYMBOL_HIGHLIGHT (generic, backwards compat)
 Visual: Winning symbols glow/bounce with scale 1.0→1.15→1.0
+        Symbol name label appears in bottom-right corner (V14)
+        Popups grouped by symbol type (first all HP1, then HP2, etc.)
 ```
 
 **Phase 2: Win Plaque + Counter Rollup (tier-based)**

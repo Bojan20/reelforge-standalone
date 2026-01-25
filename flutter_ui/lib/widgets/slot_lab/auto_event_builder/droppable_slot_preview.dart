@@ -138,6 +138,24 @@ class SlotDropZones {
         interactionSemantics: const ['show', 'hide', 'rollup_tick', 'rollup_end'],
       );
 
+  // Rollup Tick (counter click sound - "ck ck ck ck")
+  static DropTarget rollupTick() => DropTarget(
+        targetId: 'rollup.tick',
+        targetType: TargetType.hudMeter,
+        targetTags: const ['rollup', 'tick', 'counter'],
+        stageContext: StageContext.global,
+        interactionSemantics: const ['tick', 'click', 'counter'],
+      );
+
+  // Rollup End (counter finished sound)
+  static DropTarget rollupEnd() => DropTarget(
+        targetId: 'rollup.end',
+        targetType: TargetType.hudMeter,
+        targetTags: const ['rollup', 'end', 'counter', 'finish'],
+        stageContext: StageContext.global,
+        interactionSemantics: const ['end', 'finish', 'complete'],
+      );
+
   // Symbol Zones (B.9)
   static DropTarget symbolZone(String symbolType) => DropTarget(
         targetId: 'symbol.$symbolType',
@@ -150,8 +168,37 @@ class SlotDropZones {
   static DropTarget wildSymbol() => symbolZone('wild');
   static DropTarget scatterSymbol() => symbolZone('scatter');
   static DropTarget bonusSymbol() => symbolZone('bonus');
-  static DropTarget highPaySymbol(int rank) => symbolZone('hp$rank'); // hp1, hp2, hp3, hp4
-  static DropTarget lowPaySymbol(int rank) => symbolZone('lp$rank');  // lp1, lp2, lp3, lp4
+  static DropTarget highPaySymbol(int rank) => symbolZone('hp$rank');   // hp1-hp5
+  static DropTarget mediumPaySymbol(int rank) => symbolZone('mp$rank'); // mp1-mp5
+  static DropTarget lowPaySymbol(int rank) => symbolZone('lp$rank');    // lp1-lp5
+
+  // Win Line Zones
+  static DropTarget winLine(int index) => DropTarget(
+        targetId: 'winline.$index',
+        targetType: TargetType.overlay,
+        targetTags: ['win', 'line', 'line_$index'],
+        stageContext: StageContext.global,
+        interactionSemantics: const ['show', 'hide', 'highlight'],
+      );
+
+  static DropTarget winLineGeneric() => DropTarget(
+        targetId: 'winline.generic',
+        targetType: TargetType.overlay,
+        targetTags: const ['win', 'line', 'generic'],
+        stageContext: StageContext.global,
+        interactionSemantics: const ['show', 'hide'],
+      );
+
+  // Symbol Glow/Highlight (when winning symbols pulse/glow during Phase 1)
+  // NOTE: This is SEPARATE from Win Lines — Win Lines use winLineGeneric()
+  // Stage: WIN_SYMBOL_HIGHLIGHT (NOT WIN_LINE_SHOW!)
+  static DropTarget symbolWin() => DropTarget(
+        targetId: 'symbol.win',
+        targetType: TargetType.symbolZone,
+        targetTags: const ['symbol', 'glow', 'highlight', 'pulse'],
+        stageContext: StageContext.global,
+        interactionSemantics: const ['glow', 'pulse', 'highlight'],
+      );
 
   // Music Zones (B.10)
   static DropTarget backgroundMusic(String context) => DropTarget(
@@ -522,12 +569,16 @@ class DroppableSymbolZone extends StatelessWidget {
 
   Color _getSymbolColor(String symbolType) {
     switch (symbolType.toLowerCase()) {
+      // Special Symbols
       case 'wild':
         return const Color(0xFFFFD700); // Gold
       case 'scatter':
         return const Color(0xFFE040FB); // Magenta
       case 'bonus':
         return const Color(0xFFFF9040); // Orange
+      case 'win':
+        return const Color(0xFF40FF90); // Green
+      // High Pay - vibrant colors
       case 'hp1':
         return const Color(0xFFFF4060); // Red
       case 'hp2':
@@ -536,10 +587,25 @@ class DroppableSymbolZone extends StatelessWidget {
         return const Color(0xFF40FF90); // Green
       case 'hp4':
         return const Color(0xFF8B5CF6); // Purple
+      case 'hp5':
+        return const Color(0xFFFF9040); // Orange
+      // Medium Pay - muted colors
+      case 'mp1':
+        return const Color(0xFFF97316); // Orange-Red
+      case 'mp2':
+        return const Color(0xFF3B82F6); // Blue
+      case 'mp3':
+        return const Color(0xFF22C55E); // Green
+      case 'mp4':
+        return const Color(0xFFA855F7); // Purple
+      case 'mp5':
+        return const Color(0xFFEC4899); // Pink
+      // Low Pay - subdued colors
       case 'lp1':
       case 'lp2':
       case 'lp3':
       case 'lp4':
+      case 'lp5':
         return const Color(0xFF6B7280); // Gray
       default:
         return FluxForgeTheme.accentBlue;
@@ -778,117 +844,394 @@ class _MusicDropChip extends StatelessWidget {
 }
 
 // =============================================================================
-// SYMBOL GRID PANEL
+// SYMBOL GRID PANEL (V2 - Complete with HP/MP/LP x5 + Special + Win Lines)
 // =============================================================================
 
-/// Symbol type drop zone grid
-class SymbolZonePanel extends StatelessWidget {
+/// Enhanced Symbol Zone Panel with collapsible sections
+/// Includes: Special Symbols, HP1-5, MP1-5, LP1-5, Win Lines
+class SymbolZonePanel extends StatefulWidget {
   final void Function(String symbolType, CommittedEvent event)? onSymbolEventCreated;
+  final bool showWinLines;
+  final bool compact;
 
   const SymbolZonePanel({
     super.key,
     this.onSymbolEventCreated,
+    this.showWinLines = true,
+    this.compact = false,
   });
+
+  @override
+  State<SymbolZonePanel> createState() => _SymbolZonePanelState();
+}
+
+class _SymbolZonePanelState extends State<SymbolZonePanel> {
+  bool _specialExpanded = true;
+  bool _hpExpanded = true;
+  bool _mpExpanded = true;
+  bool _lpExpanded = false;
+  bool _winLinesExpanded = true;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(8),
+      width: 280, // V9: Wider panel for easier drop targets
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeep.withValues(alpha: 0.8),
+        color: FluxForgeTheme.bgDeep.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: FluxForgeTheme.borderSubtle),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(2, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Row(
+          // Header
+          Row(
             children: [
-              Icon(Icons.apps, size: 14, color: FluxForgeTheme.accentCyan),
-              SizedBox(width: 6),
-              Text(
-                'Symbol Audio',
+              const Icon(Icons.apps, size: 14, color: FluxForgeTheme.accentCyan),
+              const SizedBox(width: 6),
+              const Text(
+                'SYMBOL AUDIO',
                 style: TextStyle(
-                  color: FluxForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                 ),
+              ),
+              const Spacer(),
+              Consumer<AutoEventBuilderProvider>(
+                builder: (ctx, provider, _) {
+                  final count = _getTotalCount(provider);
+                  if (count == 0) return const SizedBox.shrink();
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: FluxForgeTheme.accentGreen,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // Special Symbols Row
-          Row(
-            children: [
-              _SymbolDropChip(
-                label: 'Wild',
-                symbolType: 'wild',
-                icon: Icons.star,
-                color: const Color(0xFFFFD700),
-                onEventCreated: onSymbolEventCreated != null
-                    ? (e) => onSymbolEventCreated!('wild', e)
-                    : null,
-              ),
-              const SizedBox(width: 6),
-              _SymbolDropChip(
-                label: 'Scatter',
-                symbolType: 'scatter',
-                icon: Icons.scatter_plot,
-                color: const Color(0xFFE040FB),
-                onEventCreated: onSymbolEventCreated != null
-                    ? (e) => onSymbolEventCreated!('scatter', e)
-                    : null,
-              ),
-              const SizedBox(width: 6),
-              _SymbolDropChip(
-                label: 'Bonus',
-                symbolType: 'bonus',
-                icon: Icons.card_giftcard,
-                color: const Color(0xFFFF9040),
-                onEventCreated: onSymbolEventCreated != null
-                    ? (e) => onSymbolEventCreated!('bonus', e)
-                    : null,
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // High Pay Row
-          Row(
-            children: [
-              for (int i = 1; i <= 4; i++) ...[
-                _SymbolDropChip(
-                  label: 'HP$i',
-                  symbolType: 'hp$i',
-                  icon: Icons.diamond,
-                  color: _getHpColor(i),
-                  onEventCreated: onSymbolEventCreated != null
-                      ? (e) => onSymbolEventCreated!('hp$i', e)
-                      : null,
-                ),
-                if (i < 4) const SizedBox(width: 4),
+
+          const Divider(color: FluxForgeTheme.borderSubtle, height: 16),
+
+          // Special Symbols Section
+          _buildCollapsibleSection(
+            title: 'Special',
+            icon: Icons.star,
+            color: const Color(0xFFFFD700),
+            expanded: _specialExpanded,
+            onToggle: () => setState(() => _specialExpanded = !_specialExpanded),
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                _buildSymbolChip('Wild', 'wild', Icons.star, const Color(0xFFFFD700)),
+                _buildSymbolChip('Scatter', 'scatter', Icons.scatter_plot, const Color(0xFFE040FB)),
+                _buildSymbolChip('Bonus', 'bonus', Icons.card_giftcard, const Color(0xFFFF9040)),
+                // V12: Renamed from "Win" to "Symbol Glow" for clarity — NOT win lines!
+                _buildSymbolChip('Symbol Glow', 'win', Icons.auto_awesome, const Color(0xFF40FF90)),
               ],
-            ],
+            ),
           ),
+
           const SizedBox(height: 6),
-          // Low Pay Row
-          Row(
-            children: [
-              for (int i = 1; i <= 4; i++) ...[
-                _SymbolDropChip(
-                  label: 'LP$i',
-                  symbolType: 'lp$i',
-                  icon: Icons.casino,
-                  color: const Color(0xFF6B7280),
-                  onEventCreated: onSymbolEventCreated != null
-                      ? (e) => onSymbolEventCreated!('lp$i', e)
-                      : null,
-                ),
-                if (i < 4) const SizedBox(width: 4),
-              ],
-            ],
+
+          // High Pay Section
+          _buildCollapsibleSection(
+            title: 'High Pay',
+            icon: Icons.diamond,
+            color: const Color(0xFFFF4060),
+            expanded: _hpExpanded,
+            onToggle: () => setState(() => _hpExpanded = !_hpExpanded),
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: List.generate(5, (i) {
+                final rank = i + 1;
+                return _buildSymbolChip('HP$rank', 'hp$rank', Icons.diamond, _getHpColor(rank));
+              }),
+            ),
           ),
+
+          const SizedBox(height: 6),
+
+          // Medium Pay Section
+          _buildCollapsibleSection(
+            title: 'Medium Pay',
+            icon: Icons.hexagon_outlined,
+            color: const Color(0xFF3B82F6),
+            expanded: _mpExpanded,
+            onToggle: () => setState(() => _mpExpanded = !_mpExpanded),
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: List.generate(5, (i) {
+                final rank = i + 1;
+                return _buildSymbolChip('MP$rank', 'mp$rank', Icons.hexagon_outlined, _getMpColor(rank));
+              }),
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          // Low Pay Section
+          _buildCollapsibleSection(
+            title: 'Low Pay',
+            icon: Icons.casino,
+            color: const Color(0xFF6B7280),
+            expanded: _lpExpanded,
+            onToggle: () => setState(() => _lpExpanded = !_lpExpanded),
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: List.generate(5, (i) {
+                final rank = i + 1;
+                return _buildSymbolChip('LP$rank', 'lp$rank', Icons.casino, const Color(0xFF6B7280));
+              }),
+            ),
+          ),
+
+          if (widget.showWinLines) ...[
+            const SizedBox(height: 6),
+            // Win Lines Section
+            _buildCollapsibleSection(
+              title: 'Win Lines',
+              icon: Icons.show_chart,
+              color: const Color(0xFF10B981),
+              expanded: _winLinesExpanded,
+              onToggle: () => setState(() => _winLinesExpanded = !_winLinesExpanded),
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: [
+                  _buildWinLineChip('All', 'generic'),
+                  ...List.generate(5, (i) => _buildWinLineChip('L${i + 1}', '${i}')),
+                ],
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCollapsibleSection({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required bool expanded,
+    required VoidCallback onToggle,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: onToggle,
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              children: [
+                Icon(
+                  expanded ? Icons.expand_more : Icons.chevron_right,
+                  size: 14,
+                  color: FluxForgeTheme.textMuted,
+                ),
+                const SizedBox(width: 4),
+                Icon(icon, size: 12, color: color),
+                const SizedBox(width: 4),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (expanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 18, top: 4),
+            child: child,
+          ),
+      ],
+    );
+  }
+
+  // V9: LARGER symbol chips for easier drop targeting
+  Widget _buildSymbolChip(String label, String symbolType, IconData icon, Color color) {
+    return DroppableSymbolZone(
+      symbolType: symbolType,
+      onEventCreated: widget.onSymbolEventCreated != null
+          ? (e) => widget.onSymbolEventCreated!(symbolType, e)
+          : null,
+      child: Consumer<AutoEventBuilderProvider>(
+        builder: (ctx, provider, _) {
+          final count = provider.getEventCountForTarget('symbol.$symbolType');
+          return Container(
+            // V9: Bigger padding = bigger drop target area
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            constraints: const BoxConstraints(minWidth: 56, minHeight: 36),
+            decoration: BoxDecoration(
+              color: count > 0 ? color.withValues(alpha: 0.2) : FluxForgeTheme.bgMid,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: count > 0 ? color.withValues(alpha: 0.7) : FluxForgeTheme.borderSubtle,
+                width: count > 0 ? 2 : 1,
+              ),
+              boxShadow: count > 0
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: color), // Larger icon
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: count > 0 ? color : FluxForgeTheme.textMuted,
+                    fontSize: 12, // Larger font
+                    fontWeight: count > 0 ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+                if (count > 0) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$count',
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // V9: LARGER win line chips for easier drop targeting (matching symbol chips)
+  Widget _buildWinLineChip(String label, String lineId) {
+    final targetId = lineId == 'generic' ? 'winline.generic' : 'winline.$lineId';
+
+    return DropTargetWrapper(
+      target: lineId == 'generic'
+          ? SlotDropZones.winLineGeneric()
+          : SlotDropZones.winLine(int.parse(lineId)),
+      showBadge: false,
+      glowColor: const Color(0xFF10B981),
+      onEventCreated: widget.onSymbolEventCreated != null
+          ? (e) => widget.onSymbolEventCreated!(targetId, e)
+          : null,
+      child: Consumer<AutoEventBuilderProvider>(
+        builder: (ctx, provider, _) {
+          final count = provider.getEventCountForTarget(targetId);
+          const color = Color(0xFF10B981);
+          return Container(
+            // V9: Bigger padding = bigger drop target area (matching symbol chips)
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 36),
+            decoration: BoxDecoration(
+              color: count > 0 ? color.withValues(alpha: 0.2) : FluxForgeTheme.bgMid,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: count > 0 ? color.withValues(alpha: 0.7) : FluxForgeTheme.borderSubtle,
+                width: count > 0 ? 2 : 1,
+              ),
+              boxShadow: count > 0
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.show_chart, size: 16, color: count > 0 ? color : FluxForgeTheme.textMuted),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: count > 0 ? color : FluxForgeTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: count > 0 ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+                if (count > 0) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$count',
+                        style: const TextStyle(
+                          color: color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -899,8 +1242,40 @@ class SymbolZonePanel extends StatelessWidget {
       case 2: return const Color(0xFF40C8FF);
       case 3: return const Color(0xFF40FF90);
       case 4: return const Color(0xFF8B5CF6);
+      case 5: return const Color(0xFFFF9040);
       default: return FluxForgeTheme.accentBlue;
     }
+  }
+
+  Color _getMpColor(int rank) {
+    switch (rank) {
+      case 1: return const Color(0xFFF97316);
+      case 2: return const Color(0xFF3B82F6);
+      case 3: return const Color(0xFF22C55E);
+      case 4: return const Color(0xFFA855F7);
+      case 5: return const Color(0xFFEC4899);
+      default: return FluxForgeTheme.accentBlue;
+    }
+  }
+
+  int _getTotalCount(AutoEventBuilderProvider provider) {
+    int count = 0;
+    // Special symbols
+    for (final s in ['wild', 'scatter', 'bonus', 'win']) {
+      count += provider.getEventCountForTarget('symbol.$s');
+    }
+    // HP/MP/LP
+    for (int i = 1; i <= 5; i++) {
+      count += provider.getEventCountForTarget('symbol.hp$i');
+      count += provider.getEventCountForTarget('symbol.mp$i');
+      count += provider.getEventCountForTarget('symbol.lp$i');
+    }
+    // Win lines
+    count += provider.getEventCountForTarget('winline.generic');
+    for (int i = 0; i < 5; i++) {
+      count += provider.getEventCountForTarget('winline.$i');
+    }
+    return count;
   }
 }
 
