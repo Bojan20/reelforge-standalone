@@ -145,9 +145,27 @@ class SymbolDefinition {
   Color get displayColor => customColor ?? type.defaultColor;
 
   /// Audio stage name for this symbol + context
-  /// e.g., SYMBOL_LAND_WILD, SYMBOL_WIN_SCATTER
+  /// FIX 2026-01-25: Use correct stage ID getters for each context
+  /// - land → SYMBOL_LAND_HP1
+  /// - win → WIN_SYMBOL_HIGHLIGHT_HP1 (matches slot_preview_widget.dart triggers)
+  /// - expand → SYMBOL_EXPAND_HP1
+  /// - lock → SYMBOL_LOCK_HP1
+  /// - transform → SYMBOL_TRANSFORM_HP1
   String stageName(String context) {
-    return 'SYMBOL_${context.toUpperCase()}_${id.toUpperCase()}';
+    switch (context.toLowerCase()) {
+      case 'land':
+        return stageIdLand;  // SYMBOL_LAND_HP1
+      case 'win':
+        return stageIdWin;   // WIN_SYMBOL_HIGHLIGHT_HP1 (CRITICAL: matches trigger)
+      case 'expand':
+        return stageIdExpand;  // SYMBOL_EXPAND_HP1
+      case 'lock':
+        return stageIdLock;    // SYMBOL_LOCK_HP1
+      case 'transform':
+        return stageIdTransform;  // SYMBOL_TRANSFORM_HP1
+      default:
+        return 'SYMBOL_${context.toUpperCase()}_${id.toUpperCase()}';  // Fallback
+    }
   }
 
   /// Stage ID for symbol landing
@@ -630,7 +648,25 @@ class SymbolAudioAssignment {
     this.pan = 0.0,
   });
 
-  String get stageName => 'SYMBOL_${context.toUpperCase()}_${symbolId.toUpperCase()}';
+  /// FIX 2026-01-25: Use correct stage format per context type
+  /// - win → WIN_SYMBOL_HIGHLIGHT_HP1 (matches slot_preview_widget.dart triggers)
+  /// - others → SYMBOL_{CONTEXT}_{SYMBOL}
+  String get stageName {
+    switch (context.toLowerCase()) {
+      case 'win':
+        return 'WIN_SYMBOL_HIGHLIGHT_${symbolId.toUpperCase()}';
+      case 'land':
+        return 'SYMBOL_LAND_${symbolId.toUpperCase()}';
+      case 'expand':
+        return 'SYMBOL_EXPAND_${symbolId.toUpperCase()}';
+      case 'lock':
+        return 'SYMBOL_LOCK_${symbolId.toUpperCase()}';
+      case 'transform':
+        return 'SYMBOL_TRANSFORM_${symbolId.toUpperCase()}';
+      default:
+        return 'SYMBOL_${context.toUpperCase()}_${symbolId.toUpperCase()}';
+    }
+  }
 
   SymbolAudioAssignment copyWith({
     String? symbolId,

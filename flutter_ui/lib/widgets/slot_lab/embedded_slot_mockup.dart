@@ -82,7 +82,8 @@ enum WinType {
 }
 
 // =============================================================================
-// SYMBOLS
+// SYMBOLS — MUST MATCH RUST ENGINE (crates/rf-slot-lab/src/symbols.rs)
+// Rust StandardSymbolSet: HP1=1, HP2=2, HP3=3, HP4=4, LP1=5..LP6=10, WILD=11, SCATTER=12, BONUS=13
 // =============================================================================
 
 class _Sym {
@@ -95,20 +96,25 @@ class _Sym {
 
   bool get isSpecial => isWild || isScatter || isBonus;
 
-  static const list = [
-    _Sym('⭐', Color(0xFFFFE082), Color(0xFFFFD700), isWild: true),
-    _Sym('💎', Color(0xFFE1BEE7), Color(0xFF9C27B0), isScatter: true),
-    _Sym('🎰', Color(0xFFFFCDD2), Color(0xFFE91E63), isBonus: true),
-    _Sym('7️⃣', Color(0xFFFF8A80), Color(0xFFFF1744)),
-    _Sym('🔔', Color(0xFFFFF59D), Color(0xFFFFEB3B)),
-    _Sym('🍒', Color(0xFFFF8A65), Color(0xFFFF5722)),
-    _Sym('🍋', Color(0xFFE6EE9C), Color(0xFFCDDC39)),
-    _Sym('🍊', Color(0xFFFFCC80), Color(0xFFFF9800)),
-    _Sym('🍇', Color(0xFFCE93D8), Color(0xFF9C27B0)),
-    _Sym('💰', Color(0xFFFFE082), Color(0xFFFFA000)),
-  ];
+  // INDEX = Rust symbol ID! Map indexed by Rust engine symbol IDs
+  static const Map<int, _Sym> _map = {
+    0: _Sym('·', Color(0xFF666666), Color(0xFF444444)), // BLANK (fallback)
+    1: _Sym('7', Color(0xFFFF6699), Color(0xFFFF4080)), // HP1 - Seven
+    2: _Sym('▬', Color(0xFF88FF88), Color(0xFF4CAF50)), // HP2 - Bar
+    3: _Sym('🔔', Color(0xFFFFF59D), Color(0xFFFFEB3B)), // HP3 - Bell
+    4: _Sym('🍒', Color(0xFFFF8A65), Color(0xFFFF5722)), // HP4 - Cherry
+    5: _Sym('🍋', Color(0xFFE6EE9C), Color(0xFFCDDC39)), // LP1 - Lemon
+    6: _Sym('🍊', Color(0xFFFFCC80), Color(0xFFFF9800)), // LP2 - Orange
+    7: _Sym('🍇', Color(0xFFCE93D8), Color(0xFF9C27B0)), // LP3 - Grape
+    8: _Sym('🍏', Color(0xFF99FF99), Color(0xFF66BB6A)), // LP4 - Apple
+    9: _Sym('🍓', Color(0xFFFF9999), Color(0xFFE57373)), // LP5 - Strawberry
+    10: _Sym('🫐', Color(0xFF9999FF), Color(0xFF7986CB)), // LP6 - Blueberry
+    11: _Sym('★', Color(0xFFFFE082), Color(0xFFFFD700), isWild: true), // WILD
+    12: _Sym('◆', Color(0xFFE1BEE7), Color(0xFF9C27B0), isScatter: true), // SCATTER
+    13: _Sym('♦', Color(0xFF80EEFF), Color(0xFF40C8FF), isBonus: true), // BONUS
+  };
 
-  static _Sym get(int i) => list[i % list.length];
+  static _Sym get(int id) => _map[id] ?? _map[7]!; // Fallback to LP3 (grape)
 }
 
 // =============================================================================

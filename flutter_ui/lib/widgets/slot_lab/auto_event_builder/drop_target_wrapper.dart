@@ -16,6 +16,7 @@ import '../../../models/auto_event_builder_models.dart';
 import '../../../providers/auto_event_builder_provider.dart';
 import '../../../services/audio_playback_service.dart';
 import '../../../theme/fluxforge_theme.dart';
+import '../audio_hover_preview.dart' show AudioFileInfo;
 import 'quick_sheet.dart';
 
 /// Wrapper widget that adds drop target functionality to any child
@@ -116,6 +117,9 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
   }
 
   void _handleDrop(AudioAsset asset, Offset globalPosition, AutoEventBuilderProvider provider) {
+    debugPrint('[DropTargetWrapper] 🔧 _handleDrop called');
+    debugPrint('[DropTargetWrapper]    asset: ${asset.path}');
+    debugPrint('[DropTargetWrapper]    target: ${widget.target.targetId}');
     // NOTE: Don't call createDraft() here!
     // showQuickSheet() handles draft creation internally to avoid double-create issues.
     // The draft is created ONCE in showQuickSheet() and committed via onCommit callback.
@@ -129,7 +133,9 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
       target: widget.target,
       position: globalPosition,
       onCommit: () {
+        debugPrint('[DropTargetWrapper] ✅ onCommit called');
         final event = provider.commitDraft();
+        debugPrint('[DropTargetWrapper]    commitDraft returned: ${event != null ? event.eventId : "NULL"}');
         if (event != null) {
           _triggerPulse();
 
@@ -141,7 +147,11 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
             source: PlaybackSource.browser, // Use browser for instant playback
           );
 
+          debugPrint('[DropTargetWrapper]    Calling widget.onEventCreated...');
           widget.onEventCreated?.call(event);
+          debugPrint('[DropTargetWrapper]    ✅ Event created successfully!');
+        } else {
+          debugPrint('[DropTargetWrapper]    ❌ commitDraft returned null!');
         }
       },
       onCancel: provider.cancelDraft,
@@ -167,6 +177,35 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
     );
   }
 
+  /// Convert AudioFileInfo to AudioAsset
+  AudioAsset _audioFileInfoToAudioAsset(AudioFileInfo info) {
+    // Determine asset type from path or tags
+    AssetType assetType = AssetType.sfx;
+    final pathLower = info.path.toLowerCase();
+    final tagsLower = info.tags.map((t) => t.toLowerCase()).toList();
+
+    if (pathLower.contains('music') ||
+        pathLower.contains('bgm') ||
+        tagsLower.contains('music')) {
+      assetType = AssetType.music;
+    } else if (pathLower.contains('vo') ||
+        pathLower.contains('voice') ||
+        tagsLower.contains('voice')) {
+      assetType = AssetType.vo;
+    } else if (pathLower.contains('amb') ||
+        pathLower.contains('ambient') ||
+        tagsLower.contains('ambient')) {
+      assetType = AssetType.amb;
+    }
+
+    return AudioAsset(
+      assetId: info.id,
+      path: info.path,
+      assetType: assetType,
+      durationMs: info.duration.inMilliseconds,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AutoEventBuilderProvider>(
@@ -176,11 +215,14 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
         // Wrap with DragTarget<Object> to accept both AudioAsset and String
         return DragTarget<Object>(
           onWillAcceptWithDetails: (details) {
-            // Accept AudioAsset or String (audio path)
-            if (details.data is AudioAsset || details.data is String) {
+            // Accept AudioAsset, String (audio path), or AudioFileInfo
+            if (details.data is AudioAsset ||
+                details.data is String ||
+                details.data is AudioFileInfo) {
               setState(() => _isDragOver = true);
               return true;
             }
+            debugPrint('[DropTargetWrapper] ❌ Rejected drop: ${details.data.runtimeType}');
             return false;
           },
           onLeave: (_) {
@@ -189,13 +231,24 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
           onAcceptWithDetails: (details) {
             setState(() => _isDragOver = false);
 
-            // Handle both AudioAsset and String drops
+            debugPrint('[DropTargetWrapper] 🎯 onAcceptWithDetails called for ${widget.target.targetId}');
+            debugPrint('[DropTargetWrapper]    data type: ${details.data.runtimeType}');
+
+            // Handle AudioAsset, String, and AudioFileInfo drops
             AudioAsset asset;
             if (details.data is AudioAsset) {
               asset = details.data as AudioAsset;
+              debugPrint('[DropTargetWrapper]    AudioAsset: ${asset.path}');
             } else if (details.data is String) {
-              asset = _pathToAudioAsset(details.data as String);
+              final path = details.data as String;
+              debugPrint('[DropTargetWrapper]    String path: $path');
+              asset = _pathToAudioAsset(path);
+            } else if (details.data is AudioFileInfo) {
+              final info = details.data as AudioFileInfo;
+              debugPrint('[DropTargetWrapper]    AudioFileInfo: ${info.path}');
+              asset = _audioFileInfoToAudioAsset(info);
             } else {
+              debugPrint('[DropTargetWrapper]    ❌ Unsupported type!');
               return; // Unsupported type
             }
 

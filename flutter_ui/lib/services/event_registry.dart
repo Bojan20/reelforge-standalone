@@ -1025,10 +1025,14 @@ class EventRegistry extends ChangeNotifier {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // V14: Symbol-specific stage fallback
-    // WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT
-    // WIN_SYMBOL_HIGHLIGHT_WILD → WIN_SYMBOL_HIGHLIGHT
-    // Pattern: PREFIX_SYMBOLNAME → PREFIX (for symbol-specific stages)
+    // V14: Symbol-specific stage fallback — MULTI-LEVEL
+    // WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT_HP → WIN_SYMBOL_HIGHLIGHT
+    // WIN_SYMBOL_HIGHLIGHT_WILD → WIN_SYMBOL_HIGHLIGHT (no intermediate)
+    //
+    // Pattern for numbered symbols:
+    //   PREFIX_TYPE+NUMBER → PREFIX_TYPE → PREFIX (e.g., HP1 → HP → generic)
+    // Pattern for named symbols:
+    //   PREFIX_NAME → PREFIX (e.g., WILD → generic)
     // ═══════════════════════════════════════════════════════════════════════════
     const symbolPrefixFallbacks = {
       'WIN_SYMBOL_HIGHLIGHT',
@@ -1040,6 +1044,18 @@ class EventRegistry extends ChangeNotifier {
 
     for (final prefix in symbolPrefixFallbacks) {
       if (stage.startsWith('${prefix}_') && stage.length > prefix.length + 1) {
+        final suffix = stage.substring(prefix.length + 1); // e.g., "HP1", "LP3", "WILD"
+
+        // Check if suffix is a numbered symbol type (HP1, HP2, LP1, LP2, etc.)
+        // Pattern: letters followed by one or more digits at the end
+        final numberedMatch = RegExp(r'^([A-Z]+)(\d+)$').firstMatch(suffix);
+        if (numberedMatch != null) {
+          // Return the category fallback (e.g., WIN_SYMBOL_HIGHLIGHT_HP)
+          final category = numberedMatch.group(1); // "HP", "LP", "MP"
+          return '${prefix}_$category';
+        }
+
+        // For non-numbered symbols (WILD, SCATTER, BONUS), return generic prefix
         return prefix;
       }
     }
@@ -1134,18 +1150,27 @@ class EventRegistry extends ChangeNotifier {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // FALLBACK: If specific stage not found, try generic version
-    // e.g., REEL_STOP_0 → REEL_STOP, CASCADE_STEP_3 → CASCADE_STEP
+    // MULTI-LEVEL FALLBACK: If specific stage not found, try cascading fallbacks
+    // e.g., WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT_HP → WIN_SYMBOL_HIGHLIGHT
+    // e.g., REEL_STOP_0 → REEL_STOP
     // ═══════════════════════════════════════════════════════════════════════════
     if (event == null) {
-      final fallbackStage = _getFallbackStage(normalizedStage);
-      if (fallbackStage != null) {
+      var currentStage = normalizedStage;
+      var fallbackAttempts = 0;
+      const maxFallbackAttempts = 3; // Prevent infinite loops
+
+      while (event == null && fallbackAttempts < maxFallbackAttempts) {
+        final fallbackStage = _getFallbackStage(currentStage);
+        if (fallbackStage == null) break;
+
         event = _stageToEvent[fallbackStage];
         if (event != null) {
           debugPrint('[EventRegistry] 🔄 Using fallback: $normalizedStage → $fallbackStage');
         } else {
-          debugPrint('[EventRegistry] ⚠️ Fallback stage "$fallbackStage" also not registered');
+          debugPrint('[EventRegistry] ⚠️ Fallback stage "$fallbackStage" not registered, trying next level...');
+          currentStage = fallbackStage; // Try next level of fallback
         }
+        fallbackAttempts++;
       }
     }
 

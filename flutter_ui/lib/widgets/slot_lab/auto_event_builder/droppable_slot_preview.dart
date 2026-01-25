@@ -1332,8 +1332,17 @@ class _SymbolZonePanelState extends State<SymbolZonePanel> {
     // 'wild' → symbol.win.wild → WIN_SYMBOL_HIGHLIGHT_WILD
     final targetId = symbolType == 'all' ? 'symbol.win' : 'symbol.win.$symbolType';
 
+    // Create a DropTarget with the CORRECT dynamic targetId (not generic!)
+    final dropTarget = DropTarget(
+      targetId: targetId, // Dynamic targetId based on symbolType!
+      targetType: TargetType.symbolZone,
+      targetTags: const ['symbol', 'glow', 'highlight', 'pulse', 'win'],
+      stageContext: StageContext.global,
+      interactionSemantics: const ['glow', 'pulse', 'highlight'],
+    );
+
     return DropTargetWrapper(
-      target: SlotDropZones.symbolWin(), // Uses symbolWin drop target
+      target: dropTarget, // Uses DYNAMIC target with correct targetId
       showBadge: false,
       glowColor: const Color(0xFFFFD700), // Gold
       onEventCreated: widget.onSymbolEventCreated != null

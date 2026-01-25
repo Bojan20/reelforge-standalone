@@ -43,89 +43,129 @@ class SlotSymbol {
     this.isSpecial = false,
   });
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SYMBOL ID MAPPING — MUST MATCH RUST ENGINE (crates/rf-slot-lab/src/symbols.rs)
+  // Rust StandardSymbolSet: HP1=1, HP2=2, HP3=3, HP4=4, LP1=5..LP6=10, WILD=11, SCATTER=12, BONUS=13
+  // ═══════════════════════════════════════════════════════════════════════════
   static const Map<int, SlotSymbol> symbols = {
-    0: SlotSymbol(
-      id: 0, name: 'WILD', displayChar: '★',
-      gradientColors: [Color(0xFFFFE55C), Color(0xFFFFD700), Color(0xFFCC9900)],
-      glowColor: Color(0xFFFFD700), isSpecial: true,
-    ),
+    // High Paying symbols (HP1 = highest, HP4 = lowest of high tier)
     1: SlotSymbol(
-      id: 1, name: 'SCATTER', displayChar: '◆',
-      gradientColors: [Color(0xFFFF66FF), Color(0xFFE040FB), Color(0xFF9C27B0)],
-      glowColor: Color(0xFFE040FB), isSpecial: true,
-    ),
-    2: SlotSymbol(
-      id: 2, name: 'BONUS', displayChar: '♦',
-      gradientColors: [Color(0xFF80EEFF), Color(0xFF40C8FF), Color(0xFF0088CC)],
-      glowColor: Color(0xFF40C8FF), isSpecial: true,
-    ),
-    3: SlotSymbol(
-      id: 3, name: 'SEVEN', displayChar: '7',
+      id: 1, name: 'HP1', displayChar: '7',
       gradientColors: [Color(0xFFFF6699), Color(0xFFFF4080), Color(0xFFCC0044)],
       glowColor: Color(0xFFFF4080),
     ),
-    4: SlotSymbol(
-      id: 4, name: 'BAR', displayChar: '▬',
+    2: SlotSymbol(
+      id: 2, name: 'HP2', displayChar: '▬',
       gradientColors: [Color(0xFF88FF88), Color(0xFF4CAF50), Color(0xFF2E7D32)],
       glowColor: Color(0xFF4CAF50),
     ),
-    5: SlotSymbol(
-      id: 5, name: 'BELL', displayChar: '🔔',
+    3: SlotSymbol(
+      id: 3, name: 'HP3', displayChar: '🔔',
       gradientColors: [Color(0xFFFFFF88), Color(0xFFFFEB3B), Color(0xFFCCAA00)],
       glowColor: Color(0xFFFFEB3B),
     ),
-    6: SlotSymbol(
-      id: 6, name: 'CHERRY', displayChar: '🍒',
+    4: SlotSymbol(
+      id: 4, name: 'HP4', displayChar: '🍒',
       gradientColors: [Color(0xFFFF8866), Color(0xFFFF5722), Color(0xFFBB3300)],
       glowColor: Color(0xFFFF5722),
     ),
-    7: SlotSymbol(
-      id: 7, name: 'LEMON', displayChar: '🍋',
+    // Low Paying symbols (LP1 = highest of low tier, LP6 = lowest)
+    5: SlotSymbol(
+      id: 5, name: 'LP1', displayChar: '🍋',
       gradientColors: [Color(0xFFFFFF99), Color(0xFFFFEB3B), Color(0xFFAFB42B)],
       glowColor: Color(0xFFCDDC39),
     ),
-    8: SlotSymbol(
-      id: 8, name: 'ORANGE', displayChar: '🍊',
+    6: SlotSymbol(
+      id: 6, name: 'LP2', displayChar: '🍊',
       gradientColors: [Color(0xFFFFCC66), Color(0xFFFF9800), Color(0xFFCC6600)],
       glowColor: Color(0xFFFF9800),
     ),
-    9: SlotSymbol(
-      id: 9, name: 'GRAPE', displayChar: '🍇',
+    7: SlotSymbol(
+      id: 7, name: 'LP3', displayChar: '🍇',
       gradientColors: [Color(0xFFCC66FF), Color(0xFF9C27B0), Color(0xFF6A1B9A)],
       glowColor: Color(0xFF9C27B0),
     ),
+    8: SlotSymbol(
+      id: 8, name: 'LP4', displayChar: '🍏',
+      gradientColors: [Color(0xFF99FF99), Color(0xFF66BB6A), Color(0xFF388E3C)],
+      glowColor: Color(0xFF66BB6A),
+    ),
+    9: SlotSymbol(
+      id: 9, name: 'LP5', displayChar: '🍓',
+      gradientColors: [Color(0xFFFF9999), Color(0xFFE57373), Color(0xFFD32F2F)],
+      glowColor: Color(0xFFE57373),
+    ),
+    10: SlotSymbol(
+      id: 10, name: 'LP6', displayChar: '🫐',
+      gradientColors: [Color(0xFF9999FF), Color(0xFF7986CB), Color(0xFF3F51B5)],
+      glowColor: Color(0xFF7986CB),
+    ),
+    // Special symbols
+    11: SlotSymbol(
+      id: 11, name: 'WILD', displayChar: '★',
+      gradientColors: [Color(0xFFFFE55C), Color(0xFFFFD700), Color(0xFFCC9900)],
+      glowColor: Color(0xFFFFD700), isSpecial: true,
+    ),
+    12: SlotSymbol(
+      id: 12, name: 'SCATTER', displayChar: '◆',
+      gradientColors: [Color(0xFFFF66FF), Color(0xFFE040FB), Color(0xFF9C27B0)],
+      glowColor: Color(0xFFE040FB), isSpecial: true,
+    ),
+    13: SlotSymbol(
+      id: 13, name: 'BONUS', displayChar: '♦',
+      gradientColors: [Color(0xFF80EEFF), Color(0xFF40C8FF), Color(0xFF0088CC)],
+      glowColor: Color(0xFF40C8FF), isSpecial: true,
+    ),
+    // Fallback for ID 0 (should not occur in normal operation)
+    0: SlotSymbol(
+      id: 0, name: 'BLANK', displayChar: '·',
+      gradientColors: [Color(0xFF666666), Color(0xFF444444), Color(0xFF333333)],
+      glowColor: Color(0xFF666666),
+    ),
   };
 
-  static SlotSymbol getSymbol(int id) => symbols[id % symbols.length] ?? symbols[9]!;
+  /// Get symbol by ID — direct lookup, fallback to LP3 (grape) if not found
+  static SlotSymbol getSymbol(int id) => symbols[id] ?? symbols[7]!; // Fallback to LP3
 
-  /// Get short label for symbol (WILD, SCAT, BONUS, HP1, HP2, MP1, MP2, LP1, LP2, LP3)
+  /// Get short label for symbol — MUST MATCH RUST ENGINE
+  /// Rust: HP1=1, HP2=2, HP3=3, HP4=4, LP1=5..LP6=10, WILD=11, SCATTER=12, BONUS=13
   String get shortLabel {
     switch (id) {
-      case 0: return 'WILD';
-      case 1: return 'SCAT';
-      case 2: return 'BONUS';
-      case 3: return 'HP1';   // SEVEN - High Pay 1
-      case 4: return 'HP2';   // BAR - High Pay 2
-      case 5: return 'MP1';   // BELL - Medium Pay 1
-      case 6: return 'MP2';   // CHERRY - Medium Pay 2
-      case 7: return 'LP1';   // LEMON - Low Pay 1
-      case 8: return 'LP2';   // ORANGE - Low Pay 2
-      case 9: return 'LP3';   // GRAPE - Low Pay 3
+      case 1: return 'HP1';   // Seven - High Pay 1 (highest)
+      case 2: return 'HP2';   // Bar - High Pay 2
+      case 3: return 'HP3';   // Bell - High Pay 3
+      case 4: return 'HP4';   // Cherry - High Pay 4
+      case 5: return 'LP1';   // Lemon - Low Pay 1 (highest of low)
+      case 6: return 'LP2';   // Orange - Low Pay 2
+      case 7: return 'LP3';   // Grape - Low Pay 3
+      case 8: return 'LP4';   // Apple - Low Pay 4
+      case 9: return 'LP5';   // Strawberry - Low Pay 5
+      case 10: return 'LP6';  // Blueberry - Low Pay 6 (lowest)
+      case 11: return 'WILD';
+      case 12: return 'SCAT';
+      case 13: return 'BONUS';
+      case 0: return 'BLANK';
       default: return 'SYM';
     }
   }
 
-  /// Get label color based on symbol type
+  /// Get label color based on symbol type — MUST MATCH RUST ENGINE
   Color get labelColor {
     switch (id) {
-      case 0: return const Color(0xFFFFD700);  // WILD - Gold
-      case 1: return const Color(0xFFE040FB);  // SCATTER - Purple
-      case 2: return const Color(0xFF40C8FF);  // BONUS - Cyan
+      case 11: return const Color(0xFFFFD700);  // WILD - Gold
+      case 12: return const Color(0xFFE040FB);  // SCATTER - Purple
+      case 13: return const Color(0xFF40C8FF);  // BONUS - Cyan
+      case 1:
+      case 2:
       case 3:
-      case 4: return const Color(0xFFFF4080);  // HP - Red/Pink
+      case 4: return const Color(0xFFFF4080);   // HP - Red/Pink
       case 5:
-      case 6: return const Color(0xFFFFEB3B);  // MP - Yellow
-      default: return const Color(0xFF90CAF9); // LP - Light Blue
+      case 6:
+      case 7:
+      case 8:
+      case 9:
+      case 10: return const Color(0xFF90CAF9); // LP - Light Blue
+      default: return const Color(0xFF666666);  // BLANK/Unknown - Gray
     }
   }
 }

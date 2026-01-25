@@ -33,8 +33,12 @@ void showQuickSheet({
   VoidCallback? onExpand,
   VoidCallback? onCancel,
 }) {
+  debugPrint('[QuickSheet] 📋 showQuickSheet called');
+  debugPrint('[QuickSheet]    asset: ${asset.path}');
+  debugPrint('[QuickSheet]    target: ${target.targetId}');
   // Create draft in provider (provider is passed explicitly)
   final draft = provider.createDraft(asset, target);
+  debugPrint('[QuickSheet]    draft created: ${draft.eventId}');
 
   // Show popup menu
   showMenu<void>(

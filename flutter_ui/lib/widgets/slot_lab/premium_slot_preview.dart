@@ -1369,7 +1369,8 @@ class _CascadeSymbol {
 
 class _CascadeSymbolPainter extends CustomPainter {
   final List<_CascadeSymbol> symbols;
-  static const _symbolChars = ['7', '🔔', '🍒', '🍋', '🍊', '🍇', '★', '◆'];
+  // Symbol chars for cascade animation — matches Rust engine order (HP1..HP4, LP1..LP3, WILD)
+  static const _symbolChars = ['7', '▬', '🔔', '🍒', '🍋', '🍊', '🍇', '★'];
 
   _CascadeSymbolPainter({required this.symbols});
 
@@ -3464,21 +3465,23 @@ class _InfoPanels extends StatelessWidget {
 class _PaytablePanel extends StatelessWidget {
   const _PaytablePanel();
 
-  // Standard symbol data from rf-slot-lab
+  // Standard symbol data — MUST MATCH Rust engine (crates/rf-slot-lab/src/symbols.rs)
+  // Rust: HP1=1(20/100/500), HP2=2(15/75/300), HP3=3(10/50/200), HP4=4(8/40/150)
+  //       LP1=5(5/25/100), LP2=6(4/20/80), LP3=7(3/15/60), LP4=8(2/10/40),
+  //       LP5=9(1/5/20), LP6=10(1/5/20)
   static const List<_SymbolPayData> _symbols = [
-    // High paying
-    _SymbolPayData('7', '🔴', [20.0, 100.0, 500.0], isHighPay: true),
-    _SymbolPayData('BAR×3', '▬▬▬', [15.0, 75.0, 300.0], isHighPay: true),
-    _SymbolPayData('BAR×2', '▬▬', [10.0, 50.0, 200.0], isHighPay: true),
-    _SymbolPayData('BAR', '▬', [8.0, 40.0, 150.0], isHighPay: true),
-    // Medium paying
-    _SymbolPayData('Bell', '🔔', [5.0, 25.0, 100.0]),
-    _SymbolPayData('Grape', '🍇', [4.0, 20.0, 80.0]),
-    _SymbolPayData('Orange', '🍊', [3.0, 15.0, 60.0]),
-    // Low paying
-    _SymbolPayData('Plum', '🍑', [2.0, 10.0, 40.0]),
-    _SymbolPayData('Cherry', '🍒', [1.0, 5.0, 20.0]),
-    _SymbolPayData('Lemon', '🍋', [1.0, 5.0, 20.0]),
+    // High paying (HP1-HP4)
+    _SymbolPayData('HP1 (Seven)', '7', [20.0, 100.0, 500.0], isHighPay: true),
+    _SymbolPayData('HP2 (Bar)', '▬', [15.0, 75.0, 300.0], isHighPay: true),
+    _SymbolPayData('HP3 (Bell)', '🔔', [10.0, 50.0, 200.0], isHighPay: true),
+    _SymbolPayData('HP4 (Cherry)', '🍒', [8.0, 40.0, 150.0], isHighPay: true),
+    // Low paying (LP1-LP6)
+    _SymbolPayData('LP1 (Lemon)', '🍋', [5.0, 25.0, 100.0]),
+    _SymbolPayData('LP2 (Orange)', '🍊', [4.0, 20.0, 80.0]),
+    _SymbolPayData('LP3 (Grape)', '🍇', [3.0, 15.0, 60.0]),
+    _SymbolPayData('LP4 (Apple)', '🍏', [2.0, 10.0, 40.0]),
+    _SymbolPayData('LP5 (Strawberry)', '🍓', [1.0, 5.0, 20.0]),
+    _SymbolPayData('LP6 (Blueberry)', '🫐', [1.0, 5.0, 20.0]),
   ];
 
   static const List<_SpecialSymbolData> _specials = [
@@ -4761,6 +4764,13 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   int _losses = 0;
   final List<_RecentWin> _recentWins = [];
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPACE KEY DEBOUNCE — Prevents double-trigger within 200ms
+  // This fixes the bug where SPACE immediately stops reels after starting spin
+  // ═══════════════════════════════════════════════════════════════════════════
+  int _lastSpaceKeyTime = 0;
+  static const int _spaceKeyDebounceMs = 200;
+
   // Jackpots (simulated progressive)
   // Seed values (reset after jackpot win)
   static const double _miniJackpotSeed = 100.0;
@@ -5571,10 +5581,35 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.space:
-        // Toggle spin/stop based on current state
-        if (provider.isPlayingStages) {
+        // ═══════════════════════════════════════════════════════════════════════
+        // DEBOUNCE CHECK — Prevents double-trigger from multiple Focus widgets
+        // Bug: slot_lab_screen Focus AND premium_slot_preview Focus both receive
+        // the same SPACE event, causing spin→immediate stop in same frame
+        // ═══════════════════════════════════════════════════════════════════════
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (now - _lastSpaceKeyTime < _spaceKeyDebounceMs) {
+          debugPrint('[PremiumSlotPreview] ⏱️ SPACE debounced (${now - _lastSpaceKeyTime}ms < ${_spaceKeyDebounceMs}ms)');
+          return KeyEventResult.handled;
+        }
+        _lastSpaceKeyTime = now;
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // SPACE KEY LOGIC (FIXED):
+        // - isReelsSpinning = true ONLY while reels are visually spinning
+        // - isPlayingStages = true during BOTH spin AND win presentation
+        //
+        // Correct behavior:
+        // - During reel spin → STOP (stop reels immediately)
+        // - During win presentation → SPIN (skip presentation, start new spin)
+        // - Idle → SPIN (start new spin)
+        // ═══════════════════════════════════════════════════════════════════════
+        debugPrint('[PremiumSlotPreview] 🎰 SPACE pressed — isReelsSpinning=${provider.isReelsSpinning}, isPlayingStages=${provider.isPlayingStages}');
+
+        // STOP only when reels are actually spinning (not during win presentation)
+        if (provider.isReelsSpinning) {
           _handleStop();
         } else {
+          // Either idle OR win presentation — start new spin (handleSpin manages skip)
           _handleSpin(provider);
         }
         return KeyEventResult.handled;

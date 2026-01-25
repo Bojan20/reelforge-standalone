@@ -115,6 +115,15 @@ class SlotLabProvider extends ChangeNotifier {
   // ─── Visual-Sync Mode ─────────────────────────────────────────────────────
   /// When true, REEL_STOP events are triggered by visual animation callbacks,
   /// not by stage playback. This prevents duplicate audio triggers.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VISUAL-SYNC MODE: DISABLED — Engine timestamps drive all audio
+  // Previous behavior: Provider skipped REEL_STOP, expected visual callback to trigger
+  // Problem: premium_slot_preview.dart visual callbacks were ALSO disabled
+  // Result: NOBODY triggered REEL_STOP audio!
+  // FIX: Set to TRUE — slot_preview_widget triggers REEL_STOP from animation callback
+  // This ensures audio plays exactly when reel VISUALLY stops, not when Rust says so.
+  // Setting to false caused DOUBLE TRIGGERS (provider + widget both triggering).
+  // ═══════════════════════════════════════════════════════════════════════════
   bool _useVisualSyncForReelStop = true;
 
   /// Timestamp when pause was initiated (for accurate resume timing)
@@ -1023,24 +1032,55 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // V12: WIN PRESENTATION VISUAL-SYNC — Skip win stages in provider
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V12: WIN PRESENTATION VISUAL-SYNC — Skip ALL win/presentation stages
     // These stages are handled by slot_preview_widget.dart's 3-phase win presentation:
-    // - Phase 1: WIN_SYMBOL_HIGHLIGHT (symbol glow/bounce)
-    // - Phase 2: WIN_PRESENT + ROLLUP_* (plaque + counter)
+    // - Phase 1: WIN_SYMBOL_HIGHLIGHT_* (symbol glow/bounce, includes symbol-specific)
+    // - Phase 2: WIN_PRESENT_* + ROLLUP_* (plaque + counter, tier-specific)
     // - Phase 3: WIN_LINE_SHOW (win line cycling)
+    // - Big Win: BIG_WIN_*, WIN_TIER_*
     // Provider should NOT trigger these — Dart widget handles timing!
     // ═══════════════════════════════════════════════════════════════════════════
-    const winPresentationStages = {
-      'WIN_SYMBOL_HIGHLIGHT',
+
+    // Exact match stages
+    const winPresentationStagesExact = {
       'WIN_LINE_SHOW',
       'WIN_LINE_HIDE',
       'ROLLUP_START',
       'ROLLUP_TICK',
       'ROLLUP_END',
-      // Note: WIN_PRESENT_* stages are triggered by Dart widget, not Rust
+      'BIG_WIN_INTRO',
+      'BIG_WIN_END',
     };
-    if (winPresentationStages.contains(stageType)) {
-      debugPrint('[Stage] $stageType → SKIPPED (visual-sync, handled by Dart widget)');
+
+    // Pattern prefixes — widget triggers dynamic versions of these
+    const winPresentationPrefixes = [
+      'WIN_SYMBOL_HIGHLIGHT',  // WIN_SYMBOL_HIGHLIGHT, WIN_SYMBOL_HIGHLIGHT_HP1, etc.
+      'WIN_PRESENT',           // WIN_PRESENT_SMALL, WIN_PRESENT_BIG, etc.
+      'WIN_TIER',              // WIN_TIER_BIG, WIN_TIER_MEGA, etc.
+    ];
+
+    // Check exact matches
+    if (winPresentationStagesExact.contains(stageType)) {
+      debugPrint('[Stage] $stageType → SKIPPED (visual-sync, widget handles)');
+      return;
+    }
+
+    // Check pattern prefixes
+    for (final prefix in winPresentationPrefixes) {
+      if (stageType == prefix || stageType.startsWith('${prefix}_')) {
+        debugPrint('[Stage] $stageType → SKIPPED (visual-sync, widget handles)');
+        return;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANTICIPATION VISUAL-SYNC — Skip ALL anticipation stages (widget handles them)
+    // Widget detects scatters during animation and triggers anticipation with
+    // proper visual-sync timing. Includes per-reel variants (ANTICIPATION_ON_0, etc.)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stageType.startsWith('ANTICIPATION_ON') || stageType.startsWith('ANTICIPATION_OFF')) {
+      debugPrint('[Stage] $stageType → SKIPPED (visual-sync, widget handles scatter detection)');
       return;
     }
 

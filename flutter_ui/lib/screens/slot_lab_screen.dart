@@ -760,6 +760,21 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // Don't handle if we're not mounted or visible
     if (!mounted) return false;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL: Skip global handler when PremiumSlotPreview is active!
+    // PremiumSlotPreview has its own Focus-based keyboard handler that properly
+    // manages spin/stop toggle. If we handle SPACE here too, BOTH handlers fire
+    // causing immediate spin+stop in the same frame.
+    //
+    // PremiumSlotPreview is active when:
+    // - _isPreviewMode = true (fullscreen preview via F11)
+    // - _eventBuilderMode = false (embedded preview in main view)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (_isPreviewMode || !_eventBuilderMode) {
+      debugPrint('[SlotLab] 🌍 GLOBAL Space — SKIPPED (PremiumSlotPreview handles it, preview=$_isPreviewMode, editMode=$_eventBuilderMode)');
+      return false; // Let PremiumSlotPreview handle it
+    }
+
     debugPrint('[SlotLab] 🌍 GLOBAL Space key handler');
 
     // Priority 1: If stage playback is active, toggle pause/resume
@@ -4621,6 +4636,45 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     }
   }
 
+  /// Reset confirmation dialog for edit mode
+  void _showResetEventsConfirmation(MiddlewareProvider middleware, int count) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        title: const Text(
+          'Reset All Events?',
+          style: TextStyle(color: Colors.white, fontSize: 14),
+        ),
+        content: Text(
+          'This will remove $count event${count > 1 ? 's' : ''} created in this session. This action cannot be undone.',
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              // Clear all composite events from MiddlewareProvider
+              for (final event in [...middleware.compositeEvents]) {
+                middleware.deleteCompositeEvent(event.id);
+              }
+              // Also clear from EventRegistry (unregister each event)
+              for (final event in [...eventRegistry.allEvents]) {
+                eventRegistry.unregisterEvent(event.id);
+              }
+              setState(() {});
+            },
+            child: const Text('Reset All', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Separate scroll controllers for synchronized scrolling
   final ScrollController _headersScrollController = ScrollController();
   final ScrollController _timelineScrollController = ScrollController();
@@ -6815,6 +6869,112 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               height: infoPanelButtonH,
               child: _buildLabeledDropZone('ui.stats', 'STAT', const Color(0xFFFF9040), compact: true),
             ),
+            // HELP (below stats)
+            Positioned(
+              top: infoPanelTop + (infoPanelButtonH + 8) * 4,
+              left: infoPanelLeft,
+              width: infoPanelButtonW,
+              height: infoPanelButtonH,
+              child: _buildLabeledDropZone('ui.help', 'HELP', const Color(0xFF9333EA), compact: true),
+            ),
+
+            // ═══════════════════════════════════════════════════════════════════
+            // HUD DROP ZONES — Balance, Win displays (header center area)
+            // ═══════════════════════════════════════════════════════════════════
+            // BALANCE display (center-left of header)
+            Positioned(
+              top: headerIconY,
+              left: headerPadding + headerIconSize + 24,
+              width: 80,
+              height: headerIconSize,
+              child: _buildLabeledDropZone('ui.balance', 'BALANCE', const Color(0xFF00E676)),
+            ),
+            // WIN display (center-right, before right buttons)
+            Positioned(
+              top: headerIconY,
+              right: headerPadding + (headerIconSize + 8) * 2 + headerIconSize + 16 + headerIconSize + 8 + headerIconSize + 24,
+              width: 70,
+              height: headerIconSize,
+              child: _buildLabeledDropZone('hud.win', 'WIN', const Color(0xFFFFD700)),
+            ),
+
+            // ═══════════════════════════════════════════════════════════════════
+            // BUY FEATURE DROP ZONE (near bottom-left, common in BTG/Pragmatic)
+            // ═══════════════════════════════════════════════════════════════════
+            Positioned(
+              top: controlBarTop + selectorY,
+              left: infoPanelLeft,
+              width: 70,
+              height: betSelectorH,
+              child: _buildLabeledDropZone('ui.buyin', 'BUY', const Color(0xFFE040FB)),
+            ),
+
+            // ═══════════════════════════════════════════════════════════════════
+            // JACKPOT TICKER DROP ZONES (for progressive increment audio)
+            // These are SEPARATE from jackpot triggers - for meter tick sounds
+            // ═══════════════════════════════════════════════════════════════════
+            Positioned(
+              top: jackpotY + jackpotTickerH + 4,
+              left: miniX,
+              width: miniW,
+              height: 20,
+              child: _buildLabeledDropZone('ui.jackpot.mini', 'TICK', const Color(0xFF4CAF50), compact: true),
+            ),
+            Positioned(
+              top: jackpotY + jackpotTickerH + 4,
+              left: minorX,
+              width: minorW,
+              height: 20,
+              child: _buildLabeledDropZone('ui.jackpot.minor', 'TICK', const Color(0xFF8B5CF6), compact: true),
+            ),
+            Positioned(
+              top: jackpotY + jackpotTickerH + 4,
+              left: majorX,
+              width: majorW,
+              height: 20,
+              child: _buildLabeledDropZone('ui.jackpot.major', 'TICK', const Color(0xFFFF4080), compact: true),
+            ),
+            Positioned(
+              top: jackpotY + jackpotTickerH + 4,
+              left: grandX,
+              width: grandW,
+              height: 20,
+              child: _buildLabeledDropZone('ui.jackpot.grand', 'TICK', const Color(0xFFFFD700), compact: true),
+            ),
+
+            // ═══════════════════════════════════════════════════════════════════
+            // NOTIFICATION / ALERT AREA (top center)
+            // ═══════════════════════════════════════════════════════════════════
+            Positioned(
+              top: jackpotY + jackpotTickerH + 28,
+              left: (totalW - 120) / 2,
+              width: 120,
+              height: 24,
+              child: _buildLabeledDropZone('ui.notification', 'NOTIF', const Color(0xFFFF9040), compact: true),
+            ),
+
+            // ═══════════════════════════════════════════════════════════════════
+            // STOP BUTTON (separate from spin for early stop audio)
+            // Positioned to left of spin button
+            // ═══════════════════════════════════════════════════════════════════
+            Positioned(
+              top: controlBarTop + spinY + spinButtonSize * 0.25,
+              left: spinX - 45,
+              width: 38,
+              height: spinButtonSize * 0.5,
+              child: _buildLabeledDropZone('ui.stop', 'STOP', const Color(0xFFFF4040), compact: true),
+            ),
+
+            // ═══════════════════════════════════════════════════════════════════
+            // QUICK SPIN TOGGLE (next to turbo)
+            // ═══════════════════════════════════════════════════════════════════
+            Positioned(
+              top: controlBarTop + actionY + actionButtonSize + 4,
+              left: turboX,
+              width: actionButtonSize,
+              height: 24,
+              child: _buildLabeledDropZone('ui.quickspin', 'QUICK', const Color(0xFFE91E63), compact: true),
+            ),
 
             // ═══════════════════════════════════════════════════════════════════
             // CONTROL BAR DROP ZONES (centered row at bottom)
@@ -6970,40 +7130,87 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               ),
             ),
 
-            // EXIT button (top right)
+            // EXIT + RESET buttons (top right corner - past header icons)
+            // Header icons end at approximately right: 250
+            // Position these buttons further right to avoid overlap
             Positioned(
-              top: 4,
-              right: 8,
-              child: GestureDetector(
-                onTap: () => setState(() => _eventBuilderMode = false),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF4060),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFF4060).withOpacity(0.4),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.close, size: 14, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'EXIT',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+              top: 0,
+              right: 0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // RESET button - clears recently created events
+                  Consumer<MiddlewareProvider>(
+                    builder: (ctx, middleware, _) {
+                      final recentCount = middleware.compositeEvents.length;
+                      if (recentCount == 0) return const SizedBox.shrink();
+                      return GestureDetector(
+                        onTap: () => _showResetEventsConfirmation(middleware, recentCount),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF9040),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF9040).withOpacity(0.4),
+                                blurRadius: 6,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.refresh, size: 12, color: Colors.white),
+                              const SizedBox(width: 3),
+                              Text(
+                                'RESET ($recentCount)',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  // EXIT button
+                  GestureDetector(
+                    onTap: () => setState(() => _eventBuilderMode = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF4060),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF4060).withOpacity(0.4),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.close, size: 12, color: Colors.white),
+                          SizedBox(width: 3),
+                          Text(
+                            'EXIT',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -7659,13 +7866,217 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Map targetId to canonical stage name
+  /// Industry-standard UI stages based on NetEnt, Pragmatic, BTG, IGT, Aristocrat
+  ///
+  /// FIX 2026-01-25: ui.spin now maps to SPIN_START (not UI_SPIN_PRESS)
+  /// Reason: SlotLabProvider triggers SPIN_START, not UI_SPIN_PRESS
+  /// User expects: drop on spin → sound plays when spin starts
   String _targetIdToStage(String targetId) {
-    // UI buttons
-    if (targetId == 'ui.spin') return 'SPIN_START';
-    if (targetId == 'ui.autospin') return 'AUTO_SPIN_ON';
-    if (targetId == 'ui.turbo') return 'TURBO_ON';
-    if (targetId == 'ui.maxbet') return 'MAX_BET_PRESS';
-    if (targetId.startsWith('ui.bet.')) return 'BET_CHANGE';
+    // ═══════════════════════════════════════════════════════════════════════
+    // SPIN CONTROLS
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.spin') return 'SPIN_START';  // FIX: Match SlotLabProvider trigger
+    if (targetId == 'ui.spin.press') return 'UI_SPIN_PRESS';  // Optional: Button click sound
+    if (targetId == 'ui.spin.hover') return 'UI_SPIN_HOVER';
+    if (targetId == 'ui.stop') return 'UI_STOP_PRESS';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AUTOPLAY
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.autospin') return 'AUTOPLAY_START';
+    if (targetId == 'ui.autospin.start') return 'AUTOPLAY_START';
+    if (targetId == 'ui.autospin.stop') return 'AUTOPLAY_STOP';
+    if (targetId == 'ui.autospin.config') return 'UI_AUTOPLAY_CONFIG_OPEN';
+    if (targetId == 'ui.autospin.tick') return 'UI_AUTOPLAY_SPIN_TICK';
+    if (targetId == 'ui.autospin.loss') return 'UI_AUTOPLAY_LOSS_LIMIT';
+    if (targetId == 'ui.autospin.win') return 'UI_AUTOPLAY_WIN_LIMIT';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // TURBO / QUICK SPIN
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.turbo') return 'UI_TURBO_ON';
+    if (targetId == 'ui.turbo.on') return 'UI_TURBO_ON';
+    if (targetId == 'ui.turbo.off') return 'UI_TURBO_OFF';
+    if (targetId == 'ui.quickspin') return 'UI_QUICKSPIN_ON';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // BET CONTROLS
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.maxbet') return 'UI_BET_MAX';
+    if (targetId == 'ui.bet') return 'UI_BET_CHANGE';
+    if (targetId == 'ui.bet.up') return 'UI_BET_UP';
+    if (targetId == 'ui.bet.down') return 'UI_BET_DOWN';
+    if (targetId == 'ui.totalbet') return 'UI_TOTALBET_CHANGE';
+    if (targetId == 'ui.coin') return 'UI_COIN_CHANGE';
+    if (targetId == 'ui.coin.up') return 'UI_COIN_UP';
+    if (targetId == 'ui.coin.down') return 'UI_COIN_DOWN';
+    if (targetId == 'ui.lines') return 'UI_LINES_UP';
+    if (targetId == 'ui.lines.up') return 'UI_LINES_UP';
+    if (targetId == 'ui.lines.down') return 'UI_LINES_DOWN';
+    if (targetId == 'ui.lines.max') return 'UI_LINES_MAX';
+    if (targetId.startsWith('ui.bet.')) return 'UI_BET_CHANGE';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MENUS & NAVIGATION
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.menu') return 'MENU_OPEN';
+    if (targetId == 'ui.menu.open') return 'MENU_OPEN';
+    if (targetId == 'ui.menu.close') return 'MENU_CLOSE';
+    if (targetId == 'ui.menu.hover') return 'UI_MENU_HOVER';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PAYTABLE / INFO / RULES / HISTORY / STATS
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.paytable') return 'UI_PAYTABLE_OPEN';
+    if (targetId == 'ui.paytable.open') return 'UI_PAYTABLE_OPEN';
+    if (targetId == 'ui.paytable.close') return 'UI_PAYTABLE_CLOSE';
+    if (targetId == 'ui.paytable.page') return 'UI_PAYTABLE_PAGE';
+    if (targetId == 'ui.rules') return 'UI_RULES_OPEN';
+    if (targetId == 'ui.rules.open') return 'UI_RULES_OPEN';
+    if (targetId == 'ui.rules.close') return 'UI_RULES_CLOSE';
+    if (targetId == 'ui.history') return 'UI_HISTORY_OPEN';
+    if (targetId == 'ui.history.open') return 'UI_HISTORY_OPEN';
+    if (targetId == 'ui.history.close') return 'UI_HISTORY_CLOSE';
+    if (targetId == 'ui.stats') return 'UI_STATS_OPEN';
+    if (targetId == 'ui.stats.open') return 'UI_STATS_OPEN';
+    if (targetId == 'ui.stats.close') return 'UI_STATS_CLOSE';
+    if (targetId == 'ui.help') return 'UI_HELP_OPEN';
+    if (targetId == 'ui.info') return 'UI_INFO_PRESS';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SETTINGS
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.settings') return 'UI_SETTINGS_OPEN';
+    if (targetId == 'ui.settings.open') return 'UI_SETTINGS_OPEN';
+    if (targetId == 'ui.settings.close') return 'UI_SETTINGS_CLOSE';
+    if (targetId == 'ui.settings.change') return 'UI_SETTINGS_CHANGE';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AUDIO CONTROLS
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.sfx') return 'UI_SFX_ON';
+    if (targetId == 'ui.sfx.on') return 'UI_SFX_ON';
+    if (targetId == 'ui.sfx.off') return 'UI_SFX_OFF';
+    if (targetId == 'ui.music') return 'UI_MUSIC_ON';
+    if (targetId == 'ui.music.on') return 'UI_MUSIC_ON';
+    if (targetId == 'ui.music.off') return 'UI_MUSIC_OFF';
+    if (targetId == 'ui.sound') return 'UI_SOUND_ON';
+    if (targetId == 'ui.sound.on') return 'UI_SOUND_ON';
+    if (targetId == 'ui.sound.off') return 'UI_SOUND_OFF';
+    if (targetId == 'ui.volume') return 'UI_VOLUME_CHANGE';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FULLSCREEN / EXIT
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.fullscreen') return 'UI_FULLSCREEN_ENTER';
+    if (targetId == 'ui.fullscreen.enter') return 'UI_FULLSCREEN_ENTER';
+    if (targetId == 'ui.fullscreen.exit') return 'UI_FULLSCREEN_EXIT';
+    if (targetId == 'ui.exit') return 'UI_EXIT_PRESS';
+    if (targetId == 'ui.home') return 'UI_HOME_PRESS';
+    if (targetId == 'ui.minimize') return 'UI_MINIMIZE';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // POPUPS & DIALOGS
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.popup') return 'UI_POPUP_OPEN';
+    if (targetId == 'ui.popup.open') return 'UI_POPUP_OPEN';
+    if (targetId == 'ui.popup.close') return 'UI_POPUP_CLOSE';
+    if (targetId == 'ui.dialog') return 'UI_DIALOG_OPEN';
+    if (targetId == 'ui.dialog.confirm') return 'UI_DIALOG_CONFIRM';
+    if (targetId == 'ui.dialog.cancel') return 'UI_DIALOG_CANCEL';
+    if (targetId == 'ui.tooltip') return 'UI_TOOLTIP_SHOW';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // BALANCE / CURRENCY
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.balance') return 'UI_BALANCE_UPDATE';
+    if (targetId == 'ui.balance.update') return 'UI_BALANCE_UPDATE';
+    if (targetId == 'ui.balance.low') return 'UI_BALANCE_LOW';
+    if (targetId == 'ui.balance.empty') return 'UI_BALANCE_EMPTY';
+    if (targetId == 'ui.balance.add') return 'UI_BALANCE_ADD';
+    if (targetId == 'ui.credit') return 'UI_CREDIT_METER_TICK';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // JACKPOT METERS
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.jackpot.tick') return 'UI_JACKPOT_METER_TICK';
+    if (targetId == 'ui.jackpot.mini') return 'UI_JACKPOT_MINI_TICK';
+    if (targetId == 'ui.jackpot.minor') return 'UI_JACKPOT_MINOR_TICK';
+    if (targetId == 'ui.jackpot.major') return 'UI_JACKPOT_MAJOR_TICK';
+    if (targetId == 'ui.jackpot.grand') return 'UI_JACKPOT_GRAND_TICK';
+    if (targetId == 'ui.progressive') return 'UI_PROGRESSIVE_GROW';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // NOTIFICATIONS
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.notification') return 'UI_NOTIFICATION';
+    if (targetId == 'ui.success') return 'UI_SUCCESS';
+    if (targetId == 'ui.error') return 'UI_ERROR';
+    if (targetId == 'ui.warning') return 'UI_WARNING';
+    if (targetId == 'ui.alert') return 'UI_ALERT';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // GAMIFICATION (Loyalty, achievements)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.achievement') return 'UI_ACHIEVEMENT_UNLOCK';
+    if (targetId == 'ui.levelup') return 'UI_LEVEL_UP';
+    if (targetId == 'ui.xp') return 'UI_XP_GAIN';
+    if (targetId == 'ui.reward') return 'UI_REWARD_CLAIM';
+    if (targetId == 'ui.badge') return 'UI_BADGE_EARN';
+    if (targetId == 'ui.daily') return 'UI_DAILY_BONUS';
+    if (targetId == 'ui.loyalty') return 'UI_LOYALTY_POINT';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // GAME STATE
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.loading') return 'UI_GAME_LOADING';
+    if (targetId == 'ui.loaded') return 'UI_GAME_LOADED';
+    if (targetId == 'ui.ready') return 'UI_GAME_READY';
+    if (targetId == 'ui.start') return 'UI_GAME_START';
+    if (targetId == 'ui.pause') return 'UI_GAME_PAUSE';
+    if (targetId == 'ui.resume') return 'UI_GAME_RESUME';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CONNECTION / NETWORK
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.connection.lost') return 'UI_CONNECTION_LOST';
+    if (targetId == 'ui.connection.restored') return 'UI_CONNECTION_RESTORED';
+    if (targetId == 'ui.reconnecting') return 'UI_RECONNECTING';
+    if (targetId == 'ui.timeout') return 'UI_SESSION_TIMEOUT';
+    if (targetId == 'ui.server.error') return 'UI_SERVER_ERROR';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RESPONSIBLE GAMING
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.reality') return 'UI_REALITY_CHECK';
+    if (targetId == 'ui.session.limit') return 'UI_SESSION_LIMIT';
+    if (targetId == 'ui.playtime') return 'UI_PLAY_TIME_WARNING';
+    if (targetId == 'ui.deposit.limit') return 'UI_DEPOSIT_LIMIT';
+    if (targetId == 'ui.loss.limit') return 'UI_LOSS_LIMIT_WARNING';
+    if (targetId == 'ui.cooloff') return 'UI_COOL_OFF_PERIOD';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // BUY FEATURE
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.buyin') return 'UI_BUYIN_OPEN';
+    if (targetId == 'ui.buyin.open') return 'UI_BUYIN_OPEN';
+    if (targetId == 'ui.buyin.close') return 'UI_BUYIN_CLOSE';
+    if (targetId == 'ui.buyin.confirm') return 'UI_BUYIN_CONFIRM';
+    if (targetId == 'ui.buyin.cancel') return 'UI_BUYIN_CANCEL';
+    if (targetId == 'ui.feature.info') return 'UI_FEATURE_INFO';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // GENERIC UI INTERACTIONS
+    // ═══════════════════════════════════════════════════════════════════════
+    if (targetId == 'ui.button') return 'UI_BUTTON_PRESS';
+    if (targetId == 'ui.button.hover') return 'UI_BUTTON_HOVER';
+    if (targetId == 'ui.tab') return 'UI_TAB_SWITCH';
+    if (targetId == 'ui.scroll') return 'UI_SCROLL';
+    if (targetId == 'ui.page') return 'UI_PAGE_FLIP';
+    if (targetId == 'ui.checkbox') return 'UI_CHECKBOX_ON';
+    if (targetId == 'ui.slider') return 'UI_SLIDER_DRAG';
+    if (targetId == 'ui.dropdown') return 'UI_DROPDOWN_OPEN';
+    if (targetId.startsWith('ui.')) return 'UI_BUTTON_PRESS'; // Fallback
 
     // Reels
     if (targetId == 'reel.surface') return 'REEL_SPINNING';

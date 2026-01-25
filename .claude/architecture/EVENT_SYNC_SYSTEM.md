@@ -1458,6 +1458,117 @@ void _finalizeSpin(SlotLabSpinResult result) {
 
 ---
 
+## CRITICAL FIX: Stage Name Mapping (2026-01-25) ✅
+
+### Problem #1: SPIN Button Audio Not Playing
+
+**User Report:** "ne cuje se zvuk kada prevucem na spin i kada posle trigerujem"
+
+**Root Cause:**
+- `_targetIdToStage('ui.spin')` returned `'UI_SPIN_PRESS'`
+- But `SlotLabProvider` triggers `'SPIN_START'`
+- Stage mismatch = event registered under wrong stage!
+
+**Fix:** Changed mapping in `slot_lab_screen.dart:_targetIdToStage()`:
+
+```dart
+// BEFORE (broken):
+if (targetId == 'ui.spin') return 'UI_SPIN_PRESS';
+
+// AFTER (fixed):
+if (targetId == 'ui.spin') return 'SPIN_START';  // Match SlotLabProvider trigger
+if (targetId == 'ui.spin.press') return 'UI_SPIN_PRESS';  // Optional button click
+```
+
+### Problem #2: WIN_SYMBOL_HIGHLIGHT Audio Not Playing
+
+**User Report:** "niti ponaosob kada ubacujem za simbole win HP1"
+
+**Root Cause:**
+In `slot_lab_models.dart`, the `stageName()` method generated wrong format:
+- Generated: `'SYMBOL_WIN_HP1'`
+- Expected: `'WIN_SYMBOL_HIGHLIGHT_HP1'`
+
+The widget `slot_preview_widget.dart:1173` triggers `'WIN_SYMBOL_HIGHLIGHT_$symbolName'`, but the event was registered under the wrong stage name.
+
+**Fix:** Updated `SymbolDefinition.stageName()` to use correct stage ID getters:
+
+```dart
+// BEFORE (broken):
+String stageName(String context) {
+  return 'SYMBOL_${context.toUpperCase()}_${id.toUpperCase()}';
+}
+
+// AFTER (fixed):
+String stageName(String context) {
+  switch (context.toLowerCase()) {
+    case 'land':
+      return stageIdLand;  // SYMBOL_LAND_HP1
+    case 'win':
+      return stageIdWin;   // WIN_SYMBOL_HIGHLIGHT_HP1 ← CRITICAL FIX
+    case 'expand':
+      return stageIdExpand;  // SYMBOL_EXPAND_HP1
+    case 'lock':
+      return stageIdLock;    // SYMBOL_LOCK_HP1
+    case 'transform':
+      return stageIdTransform;  // SYMBOL_TRANSFORM_HP1
+    default:
+      return 'SYMBOL_${context.toUpperCase()}_${id.toUpperCase()}';
+  }
+}
+```
+
+**Also fixed:** `SymbolAudioAssignment.stageName` getter (line 651):
+
+```dart
+// BEFORE (broken):
+String get stageName => 'SYMBOL_${context.toUpperCase()}_${symbolId.toUpperCase()}';
+
+// AFTER (fixed):
+String get stageName {
+  switch (context.toLowerCase()) {
+    case 'win':
+      return 'WIN_SYMBOL_HIGHLIGHT_${symbolId.toUpperCase()}';
+    case 'land':
+      return 'SYMBOL_LAND_${symbolId.toUpperCase()}';
+    case 'expand':
+      return 'SYMBOL_EXPAND_${symbolId.toUpperCase()}';
+    case 'lock':
+      return 'SYMBOL_LOCK_${symbolId.toUpperCase()}';
+    case 'transform':
+      return 'SYMBOL_TRANSFORM_${symbolId.toUpperCase()}';
+    default:
+      return 'SYMBOL_${context.toUpperCase()}_${symbolId.toUpperCase()}';
+  }
+}
+```
+
+### Stage Trigger Sources
+
+| Stage | Triggered By | Location |
+|-------|--------------|----------|
+| `SPIN_START` | SlotLabProvider | `slot_lab_provider.dart:1260` |
+| `WIN_SYMBOL_HIGHLIGHT_*` | SlotPreviewWidget | `slot_preview_widget.dart:1173` |
+| `REEL_STOP_0..4` | ProfessionalReelAnimation | `professional_reel_animation.dart:tick()` |
+| `WIN_PRESENT_*` | SlotPreviewWidget | `slot_preview_widget.dart:_startWinPresentation()` |
+
+### Verification Checklist
+
+1. ✅ Drop audio on SPIN button → Event created with stage `SPIN_START`
+2. ✅ Click Spin → `SPIN_START` audio plays
+3. ✅ Drop audio on symbol WIN context → Event created with stage `WIN_SYMBOL_HIGHLIGHT_HP1`
+4. ✅ Win occurs → `WIN_SYMBOL_HIGHLIGHT_HP1` audio plays
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `flutter_ui/lib/screens/slot_lab_screen.dart` | `_targetIdToStage('ui.spin')` → `'SPIN_START'` |
+| `flutter_ui/lib/models/slot_lab_models.dart` | `SymbolDefinition.stageName()` uses correct stage ID getters |
+| `flutter_ui/lib/models/slot_lab_models.dart` | `SymbolAudioAssignment.stageName` uses correct format per context |
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management
