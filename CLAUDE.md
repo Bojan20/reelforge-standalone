@@ -3422,6 +3422,8 @@ Reorganizovani Lower Zone, novi widgeti i 3-panel layout za V6.
 
 **Dokumentacija:** `.claude/tasks/SLOTLAB_V6_IMPLEMENTATION.md`
 
+**Enhanced Symbol System:** `.claude/architecture/DYNAMIC_SYMBOL_CONFIGURATION.md` — Data-driven symbol configuration sa presets, Add/Remove UI, i automatskim stage generisanjem
+
 ### SlotLab V6.2 — Gap Fixes (2026-01-24) ✅ COMPLETE
 
 Critical gaps identified and fixed in SlotLab screen.
@@ -3938,6 +3940,38 @@ Audio File (Browser) → Drop on Mockup Element → CommittedEvent
 - Visual hierarchy: Banner → Slot Grid → Controls
 
 **Dokumentacija:** `.claude/architecture/SLOTLAB_DROP_ZONE_SPEC.md`
+
+### Dynamic Symbol Configuration (2026-01-25) 📋 SPEC READY
+
+Data-driven sistem za konfiguraciju simbola u SlotLab mockup-u.
+
+**Problem:** Hardkodirani simboli (HP1, HP2, MP1, LP1...) ne odgovaraju svim igrama.
+
+**Rešenje:** Dinamička konfiguracija simbola koju dizajner može prilagoditi:
+- Add/Remove simbole po potrebi
+- Presets za različite tipove igara (Standard 5x3, Megaways, Hold & Win)
+- Automatsko generisanje stage-ova po simbolu
+
+**Ključni modeli:**
+```dart
+enum SymbolType { wild, scatter, bonus, highPay, mediumPay, lowPay, custom }
+enum SymbolAudioContext { land, win, expand, lock, transform, collect }
+
+class SymbolDefinition {
+  final String id;           // 'hp1', 'wild', 'mystery'
+  final String name;         // 'High Pay 1', 'Wild'
+  final String emoji;        // '🃏', '⭐', '❓'
+  final SymbolType type;
+  final Set<SymbolAudioContext> audioContexts;
+
+  String get stageIdLand => 'SYMBOL_LAND_${id.toUpperCase()}';
+  String get stageIdWin => 'WIN_SYMBOL_HIGHLIGHT_${id.toUpperCase()}';
+}
+```
+
+**Implementation Phases (7):** ~1,450 LOC total
+
+**Dokumentacija:** `.claude/architecture/DYNAMIC_SYMBOL_CONFIGURATION.md`
 
 ### Engine-Level Source Filtering (2026-01-21) ✅
 

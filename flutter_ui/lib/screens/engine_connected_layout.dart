@@ -368,7 +368,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                   id: 'pool-${file.id}',
                   type: TreeItemType.sound,
                   label: file.name,
-                  duration: file.durationFormattedMs,
+                  duration: file.durationFormatted,
                   isSelected: file.id == _selectedPoolFileId,
                   isDraggable: true,
                   data: file, // Pass the PoolAudioFile for drag/drop
@@ -479,7 +479,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                   id: 'pool-${file.id}',
                   type: TreeItemType.sound,
                   label: file.name,
-                  duration: file.durationFormattedMs,
+                  duration: file.durationFormatted,
                   isDraggable: true,
                   data: file,
                 ))
