@@ -4125,6 +4125,80 @@ Critical (P0) i High-Priority (P1) audio poboljšanja za Slot Lab.
 
 **Dokumentacija:** `.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md` (kompletni tehnički detalji)
 
+### SlotLab 100% Industry Standard Audio (2026-01-25) ✅
+
+Kompletiranje industry-standard audio sistema za slot igre.
+
+**Novi feature-i implementirani:**
+
+| ID | Feature | Status | Opis |
+|----|---------|--------|------|
+| P0 | Per-Reel Spin Loop Fade-out | ✅ Done | Svaki reel ima svoj spin loop voice, fade-out 50ms na REEL_STOP_X |
+| P1.1 | WIN_EVAL Audio Gap Bridge | ✅ Done | Stage između poslednjeg REEL_STOP i WIN_PRESENT za bridging |
+| P1.2 | Rollup Volume Dynamics | ✅ Done | Volume escalation 0.85x → 1.15x tokom rollup-a |
+| P2 | Anticipation Pre-Trigger | ✅ Done | Audio pre-trigger za anticipation stage-ove |
+
+**P0: Per-Reel Spin Loop Tracking**
+
+Svaki reel ima nezavisni REEL_SPIN_LOOP voice koji se fade-out-uje individualno.
+
+```dart
+// event_registry.dart
+final Map<int, int> _reelSpinLoopVoices = {};  // reelIndex → voiceId
+
+void _trackReelSpinLoopVoice(int reelIndex, int voiceId) {
+  _reelSpinLoopVoices[reelIndex] = voiceId;
+}
+
+void _fadeOutReelSpinLoop(int reelIndex) {
+  final voiceId = _reelSpinLoopVoices.remove(reelIndex);
+  if (voiceId != null) {
+    AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: 50);
+  }
+}
+```
+
+**Auto-detekcija stage-ova:**
+- `REEL_SPINNING_0..4` → Pokreće spin loop za specifični reel
+- `REEL_STOP_0..4` → Fade-out spin loop za specifični reel
+- `SPIN_END` → Fallback: zaustavlja sve preostale spin loop-ove
+
+**P1.1: WIN_EVAL Stage**
+
+Bridging stage između poslednjeg REEL_STOP i WIN_PRESENT:
+- Trigeruje se nakon REEL_STOP_4
+- Omogućava audio design za "evaluaciju" winova
+- Sprečava audio prazninu između faza
+
+**P1.2: Rollup Volume Dynamics**
+
+Volume escalation tokom rollup-a za dramatični efekat:
+
+```dart
+// rtpc_modulation_service.dart
+double getRollupVolumeEscalation(double progress) {
+  final p = progress.clamp(0.0, 1.0);
+  return 0.85 + (p * 0.30);  // 0.85x → 1.15x
+}
+```
+
+**FFI Chain za Fade-out:**
+```
+Dart: AudioPlaybackService.fadeOutVoice(voiceId, fadeMs: 50)
+  → NativeFFI.playbackFadeOutOneShot(voiceId, fadeMs)
+    → C FFI: engine_playback_fade_out_one_shot(voice_id, fade_ms)
+      → Rust: PlaybackEngine.fade_out_one_shot(voice_id, fade_ms)
+```
+
+**Ključni fajlovi:**
+- `flutter_ui/lib/services/event_registry.dart` — Per-reel tracking, stage auto-detection
+- `flutter_ui/lib/services/audio_playback_service.dart` — fadeOutVoice() metoda
+- `flutter_ui/lib/src/rust/native_ffi.dart` — FFI binding za fade-out
+- `crates/rf-engine/src/ffi.rs:19444` — C FFI export
+- `crates/rf-engine/src/playback.rs:2608` — Rust fade_out_one_shot()
+
+**Dokumentacija:** `.claude/analysis/SLOTLAB_100_INDUSTRY_STANDARD_2026_01_25.md`
+
 ### Adaptive Layer Engine (FULLY IMPLEMENTED) ✅ 2026-01-21
 
 Universal, data-driven layer engine za dinamičnu game muziku — **KOMPLETNO IMPLEMENTIRANO**.

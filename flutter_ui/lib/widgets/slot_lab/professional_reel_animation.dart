@@ -111,13 +111,31 @@ class ReelAnimationState {
   double phaseProgress = 0.0;     // Progress within current phase (0.0 - 1.0)
   double spinCycles = 0.0;        // Number of full spin cycles during spinning phase
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ANTICIPATION SYSTEM — Extend spin time dynamically when conditions are met
+  // ═══════════════════════════════════════════════════════════════════════════
+  int stopTimeExtensionMs = 0;    // Extra time to spin (e.g., 3000ms for anticipation)
+  bool isInAnticipation = false;  // Visual indicator for anticipation state
+
   ReelAnimationState(this.reelIndex, this.profile);
 
   /// Get bounce offset in pixels for visual effect
   double get bounceOffset => overshootAmount * 20.0; // Scale to visible pixels
 
-  /// Get stop time for this reel
-  int get stopTime => profile.getReelStopTime(reelIndex);
+  /// Get stop time for this reel (base + any extension)
+  int get stopTime => profile.getReelStopTime(reelIndex) + stopTimeExtensionMs;
+
+  /// Extend this reel's spin time (for anticipation)
+  void extendSpinTime(int extensionMs) {
+    stopTimeExtensionMs = extensionMs;
+    isInAnticipation = true;
+  }
+
+  /// Clear anticipation extension
+  void clearAnticipation() {
+    stopTimeExtensionMs = 0;
+    isInAnticipation = false;
+  }
 
   /// Update state based on elapsed time since spin start
   void update(int elapsedMs, List<int> targetSymbols) {
@@ -192,6 +210,9 @@ class ReelAnimationState {
     overshootAmount = 0;
     phaseProgress = 0;
     spinCycles = 0;
+    // Clear anticipation from previous spin
+    stopTimeExtensionMs = 0;
+    isInAnticipation = false;
   }
 
   /// Reset to idle
@@ -200,6 +221,9 @@ class ReelAnimationState {
     velocity = 0;
     bounceProgress = 0;
     overshootAmount = 0;
+    // Clear anticipation
+    stopTimeExtensionMs = 0;
+    isInAnticipation = false;
   }
 
   /// Get blur intensity based on current velocity
@@ -293,6 +317,35 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ANTICIPATION SYSTEM — Extend spin time when conditions are met (e.g., 2 scatters)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Extend spin time for a specific reel (for anticipation)
+  /// Call this when scatter condition is met (e.g., 2 scatters landed)
+  void extendReelSpinTime(int reelIndex, int extensionMs) {
+    if (reelIndex >= 0 && reelIndex < reelCount) {
+      debugPrint('[ReelAnimController] 🎯 ANTICIPATION: Extending reel $reelIndex spin by ${extensionMs}ms');
+      _reelStates[reelIndex].extendSpinTime(extensionMs);
+      notifyListeners();
+    }
+  }
+
+  /// Check if a reel is in anticipation mode
+  bool isReelInAnticipation(int reelIndex) {
+    if (reelIndex >= 0 && reelIndex < reelCount) {
+      return _reelStates[reelIndex].isInAnticipation;
+    }
+    return false;
+  }
+
+  /// Clear all anticipation states (called on spin start)
+  void clearAllAnticipation() {
+    for (final state in _reelStates) {
+      state.clearAnticipation();
+    }
+  }
+
   /// Start spin animation
   void startSpin() {
     debugPrint('[ReelAnimController] startSpin() called, _isSpinning=$_isSpinning');
@@ -304,6 +357,9 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
     debugPrint('[ReelAnimController] ✅ Starting spin animation');
     _isSpinning = true;
     _startTime = DateTime.now().millisecondsSinceEpoch;
+
+    // Clear any previous anticipation states
+    clearAllAnticipation();
 
     // Regenerate spin symbols
     _spinSymbols = List.generate(

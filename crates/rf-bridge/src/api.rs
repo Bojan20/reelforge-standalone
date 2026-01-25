@@ -570,6 +570,14 @@ pub fn playback_stop_all_one_shots() {
     crate::PLAYBACK.stop_all_one_shots();
 }
 
+/// P0: Fade out specific voice with configurable duration
+/// voice_id: voice to fade out
+/// fade_ms: fade duration in milliseconds (50ms typical for reel stop)
+#[flutter_rust_bridge::frb(sync)]
+pub fn playback_fade_out_one_shot(voice_id: u64, fade_ms: u32) {
+    crate::PLAYBACK.fade_out_one_shot(voice_id, fade_ms);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // EQ
 // ═══════════════════════════════════════════════════════════════════════════

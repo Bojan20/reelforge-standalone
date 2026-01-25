@@ -150,6 +150,56 @@ class RtpcModulationService {
     return 0.25 * math.pow(16.0, normalized);
   }
 
+  /// P1.2: Get rollup pitch offset based on progress (0.0 to 1.0)
+  /// Returns pitch in semitones: 0 at start, up to +12 at end (one octave)
+  /// Uses exponential curve for dramatic build-up towards the end
+  /// Called from EventRegistry when playing ROLLUP_TICK with progress context
+  double getRollupPitch(double progress) {
+    // Clamp progress to 0-1 range
+    final p = progress.clamp(0.0, 1.0);
+
+    // Exponential curve: rises slowly at first, dramatically at end
+    // p^2 curve: at 50% progress, pitch is only 25% of max
+    // at 75% progress, pitch is 56% of max
+    // at 90% progress, pitch is 81% of max
+    final curve = p * p;
+
+    // Max pitch: +12 semitones (one octave up)
+    // Can be reduced for subtler effect
+    const maxPitchSemitones = 8.0; // +8 semitones for natural sound
+
+    return curve * maxPitchSemitones;
+  }
+
+  /// P1.2: Get rollup pitch as playback rate multiplier
+  /// More compatible with existing playback API than semitones
+  /// Returns: 1.0 at start, up to ~1.5 at end
+  double getRollupPitchAsRate(double progress) {
+    final semitones = getRollupPitch(progress);
+    // Convert semitones to rate: 2^(semitones/12)
+    return math.pow(2.0, semitones / 12.0).toDouble();
+  }
+
+  /// P1.2: Get rollup volume escalation based on progress
+  /// Alternative to pitch when engine doesn't support pitch shifting
+  /// Volume increases subtly towards the end for excitement
+  /// Returns: 0.85 at start, 1.0 at 50%, 1.15 at end
+  double getRollupVolumeEscalation(double progress) {
+    final p = progress.clamp(0.0, 1.0);
+    // Linear escalation from 0.85 to 1.15
+    return 0.85 + (p * 0.30);
+  }
+
+  /// P1.2: Get combined rollup modulation (volume + speed adjustment)
+  /// Returns multipliers for both volume and tick interval
+  /// Usage: Apply volume multiplier, use speed to adjust tick interval
+  ({double volume, double speedMultiplier}) getRollupModulation(double progress) {
+    return (
+      volume: getRollupVolumeEscalation(progress),
+      speedMultiplier: 1.0 + (progress * 0.5), // 1.0x → 1.5x speed
+    );
+  }
+
   /// P0.4: Get cascade speed multiplier from Cascade_Speed RTPC (global, not per-event)
   /// Returns 1.0 if no RTPC binding or middleware not available
   /// Higher value = faster cascade (shorter delay between steps)

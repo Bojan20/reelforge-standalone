@@ -6520,44 +6520,52 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               ),
 
             // ═══════════════════════════════════════════════════════════════════
-            // WIN TIER DROP ZONES (horizontal row at BOTTOM of reel area)
+            // WIN PRESENTATION DROP ZONES (horizontal row at BOTTOM of reel area)
+            // WIN_PRESENT_1-6: Audio based on win/bet ratio (1=≤1x, 2=>1x-2x, 3=>2x-4x, 4=>4x-8x, 5=>8x-13x, 6=>13x+)
             // ═══════════════════════════════════════════════════════════════════
-            // Calculate horizontal layout: 5 tiers × 70px + 4 gaps × 6px = 374px
+            // Calculate horizontal layout: 6 zones × 58px + 5 gaps × 6px = 378px
             // Positioned 50px above bottom of reel frame to avoid control bar overlap
             Positioned(
               top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 187,
-              width: 70,
+              left: centerX - 189,
+              width: 58,
               height: 32,
-              child: _buildLabeledDropZone('overlay.win.small', 'SMALL', const Color(0xFF40C8FF), compact: true),
+              child: _buildLabeledDropZone('audio.win_present.1', 'WIN 1', const Color(0xFF40C8FF), compact: true),
             ),
             Positioned(
               top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 187 + 76,
-              width: 70,
+              left: centerX - 189 + 64,
+              width: 58,
               height: 32,
-              child: _buildLabeledDropZone('overlay.win.big', 'BIG', const Color(0xFF40FF90), compact: true),
+              child: _buildLabeledDropZone('audio.win_present.2', 'WIN 2', const Color(0xFF60D8FF), compact: true),
             ),
             Positioned(
               top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 187 + 152,
-              width: 70,
+              left: centerX - 189 + 128,
+              width: 58,
               height: 32,
-              child: _buildLabeledDropZone('overlay.win.mega', 'MEGA', const Color(0xFFFFD700), compact: true),
+              child: _buildLabeledDropZone('audio.win_present.3', 'WIN 3', const Color(0xFF40FF90), compact: true),
             ),
             Positioned(
               top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 187 + 228,
-              width: 70,
+              left: centerX - 189 + 192,
+              width: 58,
               height: 32,
-              child: _buildLabeledDropZone('overlay.win.epic', 'EPIC', const Color(0xFFE040FB), compact: true),
+              child: _buildLabeledDropZone('audio.win_present.4', 'WIN 4', const Color(0xFFFFD700), compact: true),
             ),
             Positioned(
               top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 187 + 304,
-              width: 70,
+              left: centerX - 189 + 256,
+              width: 58,
               height: 32,
-              child: _buildLabeledDropZone('overlay.win.ultra', 'ULTRA', const Color(0xFFFF4080), compact: true),
+              child: _buildLabeledDropZone('audio.win_present.5', 'WIN 5', const Color(0xFFE040FB), compact: true),
+            ),
+            Positioned(
+              top: reelFrameTop + reelFrameH - 50,
+              left: centerX - 189 + 320,
+              width: 58,
+              height: 32,
+              child: _buildLabeledDropZone('audio.win_present.6', 'WIN 6', const Color(0xFFFF4080), compact: true),
             ),
 
             // ═══════════════════════════════════════════════════════════════════
@@ -6778,22 +6786,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
   }
 
-  /// TWO-LEVEL REEL DROP ZONE
-  /// OUTER: Full reel column for reel-level sounds (REEL_STOP, REEL_SPIN)
-  /// INNER: Smaller, centered cell drop zones for symbol-specific sounds (SYMBOL_LAND)
-  /// Reel dimensions are UNCHANGED — only inner cells are smaller and centered
+  /// REEL DROP ZONE — Full reel column for reel-level sounds (REEL_STOP, REEL_SPIN)
+  /// Reel dimensions are UNCHANGED
   Widget _buildReelOuterDropZone({
     required int reelIndex,
     required double reelCellSize,
     required int rowCount,
   }) {
     final reelColor = _getReelColor(reelIndex);
-    // Each cell height = reel height / row count
-    final cellHeight = reelCellSize * rowCount / rowCount; // = reelCellSize (square cells)
-    // Cell drop zone is SMALLER and CENTERED within each cell
-    final cellDropZoneSize = reelCellSize * 0.55; // 55% of cell size
-    final cellInsetX = (reelCellSize - cellDropZoneSize) / 2;
-    final cellInsetY = (cellHeight - cellDropZoneSize) / 2;
 
     return DropTargetWrapper(
       target: DropTarget(
@@ -6823,87 +6823,20 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             ),
           ],
         ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // REEL LABEL at top center
-            Positioned(
-              top: 4,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Text(
-                  'REEL ${reelIndex + 1}',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.8),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // INNER CELL DROP ZONES — positioned absolutely within the reel
-            for (int row = 0; row < rowCount; row++)
-              Positioned(
-                top: (row * cellHeight) + cellInsetY,
-                left: cellInsetX,
-                width: cellDropZoneSize,
-                height: cellDropZoneSize,
-                child: _buildCellDropZone(
-                  reelIndex: reelIndex,
-                  rowIndex: row,
-                  reelColor: reelColor,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Inner cell drop zone for symbol-specific sounds
-  /// Smaller "floating" target centered within its cell
-  Widget _buildCellDropZone({
-    required int reelIndex,
-    required int rowIndex,
-    required Color reelColor,
-  }) {
-    // Slightly different shade for cell
-    final cellColor = reelColor.withOpacity(0.8);
-
-    return DropTargetWrapper(
-      target: DropTarget(
-        targetId: 'symbol.$reelIndex.$rowIndex',
-        targetType: TargetType.reelSurface,
-        stageContext: StageContext.global,
-      ),
-      showBadge: false,
-      glowColor: cellColor,
-      onEventCreated: (event) =>
-          _onEventBuilderEventCreated(event, 'symbol.$reelIndex.$rowIndex'),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cellColor.withOpacity(0.25),
-          border: Border.all(
-            color: cellColor,
-            width: 2,
-          ),
-          borderRadius: BorderRadius.circular(6),
-        ),
         child: Center(
           child: Text(
-            '${rowIndex + 1}',
+            'REEL ${reelIndex + 1}',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.8),
+                  blurRadius: 4,
+                ),
+              ],
             ),
           ),
         ),
@@ -7515,11 +7448,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return 'REEL_STOP_$reelIndex';
     }
 
-    // Win overlays
-    if (targetId == 'overlay.win.small') return 'WIN_SMALL';
-    if (targetId == 'overlay.win.big') return 'WIN_BIG';
-    if (targetId == 'overlay.win.mega') return 'WIN_MEGA';
-    if (targetId == 'overlay.win.epic') return 'WIN_EPIC';
+    // Win presentation audio (WIN_PRESENT_1-6 based on win/bet ratio)
+    if (targetId.startsWith('audio.win_present.')) {
+      final level = targetId.split('.').last;
+      return 'WIN_PRESENT_$level';
+    }
 
     // Jackpot overlays
     if (targetId == 'overlay.jackpot.mini') return 'JACKPOT_MINI';

@@ -147,13 +147,18 @@ impl SpinResult {
         // 1. Spin Start
         events.push(StageEvent::new(Stage::SpinStart, timing.current()));
 
-        // 2. Reel Spinning event (SINGLE event for all reels starting together)
-        // This is a loop sound that plays while reels are spinning
+        // 2. P0: Per-reel spinning events (one loop per reel for independent fade-out)
+        // Each reel starts at slightly staggered time for stereo spread effect
+        // When REEL_STOP_N fires, only that reel's loop is faded out
         let reel_count = self.grid.len() as u8;
-        events.push(StageEvent::new(
-            Stage::ReelSpinning { reel_index: 0 }, // Single event, reel_index 0 indicates "all reels"
-            timing.reel_spin(0),
-        ));
+        for reel in 0..reel_count {
+            // Small stagger (10ms per reel) for audio spread, all reels start nearly together
+            let stagger_ms = (reel as f64) * 10.0;
+            events.push(StageEvent::new(
+                Stage::ReelSpinning { reel_index: reel },
+                timing.reel_spin(0) + stagger_ms,
+            ));
+        }
 
         // 3. Reel Stop events (with anticipation if applicable)
         for reel in 0..reel_count {

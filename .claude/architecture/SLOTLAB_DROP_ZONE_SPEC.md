@@ -1,7 +1,8 @@
 # SlotLab Drop Zone System — Ultimate Specification
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Created:** 2026-01-23
+**Updated:** 2026-01-25
 **Author:** Claude Code (Principal Engineer Documentation)
 **Status:** AUTHORITATIVE — Do Not Modify Without Review
 
@@ -117,6 +118,40 @@ DropTargetWrapper (StatefulWidget)
 ---
 
 ## 3. DROP ZONE DEFINITIONS
+
+### 3.0 Architecture Note: Reel-Level Only (v1.1)
+
+**IMPORTANT:** As of v1.1.0 (2026-01-25), the drop zone system uses **REEL-LEVEL ONLY** drop zones.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        SLOT GRID                                 │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐│
+│  │         │  │         │  │         │  │         │  │         ││
+│  │  REEL 1 │  │  REEL 2 │  │  REEL 3 │  │  REEL 4 │  │  REEL 5 ││
+│  │ (reel.0)│  │ (reel.1)│  │ (reel.2)│  │ (reel.3)│  │ (reel.4)││
+│  │         │  │         │  │         │  │         │  │         ││
+│  │ DROP    │  │ DROP    │  │ DROP    │  │ DROP    │  │ DROP    ││
+│  │ ZONE    │  │ ZONE    │  │ ZONE    │  │ ZONE    │  │ ZONE    ││
+│  │         │  │         │  │         │  │         │  │         ││
+│  │ pan:-0.8│  │ pan:-0.4│  │ pan:0.0 │  │ pan:+0.4│  │ pan:+0.8││
+│  └─────────┘  └─────────┘  └─────────┘  └─────────┘  └─────────┘│
+│                                                                   │
+│  ❌ NO INDIVIDUAL CELL DROP ZONES                                │
+│  ✅ FULL REEL COLUMN DROP ZONES ONLY                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Design Decision:**
+- Individual cell drop zones (per-symbol positions) were removed to reduce UI clutter
+- Dropping audio on a reel creates REEL_STOP_N event for that entire reel column
+- Reel dimensions remain UNCHANGED — same pixel size as before
+- Symbol-specific audio should use Symbol Strip panel instead
+
+**Implementation:**
+- `_buildReelOuterDropZone()` creates full-reel drop zones
+- `_buildCellDropZone()` method was REMOVED (2026-01-25)
+- Inner cell drop zone loop was REMOVED from `_buildReelDropGrid()`
 
 ### 3.1 Complete Target ID Catalog
 
@@ -597,7 +632,7 @@ Before any modification to the drop zone system, verify:
 |--------|--------|-------|
 | `DroppableSpinButton` | ui.spin | Wrap spin button |
 | `DroppableControlButton` | configurable | Wrap any UI button |
-| `DroppableReelFrame` | reel.surface + reel.0-4 | Wrap reel area with column zones |
+| `DroppableReelFrame` | reel.0-4 (column only) | Wrap reel area with REEL-LEVEL zones only (no cell zones) |
 | `DroppableWinOverlay` | overlay.win.{tier} | Wrap win display |
 | `DroppableJackpotDisplay` | overlay.jackpot.{tier} | Wrap jackpot ticker |
 | `DroppableFeatureIndicator` | feature.{name} | Wrap feature UI |
@@ -646,6 +681,9 @@ DroppableReelFrame(
 | 2026-01-23 | Per-reel auto-pan calculation | ✅ Done |
 | 2026-01-23 | `_rebuildRegionForEvent()` auto-creates track | ✅ Done |
 | 2026-01-23 | `_createTrackForNewEvent()` method added | ✅ Done |
+| **2026-01-25** | **v1.1.0: Removed individual cell drop zones** | ✅ Done |
+| 2026-01-25 | `_buildCellDropZone()` method removed | ✅ Done |
+| 2026-01-25 | Reel-level only architecture (no per-cell targets) | ✅ Done |
 
 ### 13.2 Verified Bidirectional Sync Chain
 

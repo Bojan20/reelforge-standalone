@@ -19437,6 +19437,14 @@ pub extern "C" fn engine_playback_stop_all_one_shots() {
     PLAYBACK_ENGINE.stop_all_one_shots();
 }
 
+/// P0: Fade out specific voice with configurable duration
+/// voice_id: voice to fade out
+/// fade_ms: fade duration in milliseconds
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_fade_out_one_shot(voice_id: u64, fade_ms: u32) {
+    PLAYBACK_ENGINE.fade_out_one_shot(voice_id, fade_ms);
+}
+
 /// Set active playback section (for section-based voice filtering)
 /// section: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
 #[unsafe(no_mangle)]

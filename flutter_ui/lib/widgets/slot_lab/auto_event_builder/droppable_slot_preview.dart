@@ -95,6 +95,15 @@ class SlotDropZones {
         interactionSemantics: const ['show', 'hide', 'pulse', 'tier_up'],
       );
 
+  // Win Presentation Audio (WIN_PRESENT_1-6 based on win/bet ratio)
+  static DropTarget winPresent(int level) => DropTarget(
+        targetId: 'audio.win_present.$level',
+        targetType: TargetType.overlay,
+        targetTags: ['win', 'audio', 'present_$level'],
+        stageContext: StageContext.global,
+        interactionSemantics: const ['play'],
+      );
+
   static DropTarget jackpotDisplay(String tier) => DropTarget(
         targetId: 'overlay.jackpot.$tier',
         targetType: TargetType.overlay,
@@ -1102,8 +1111,9 @@ class SlotDropZoneSummary extends StatelessWidget {
 
   int _sumWinCounts(AutoEventBuilderProvider provider) {
     int sum = 0;
-    for (final tier in ['small', 'big', 'mega', 'epic', 'ultra']) {
-      sum += provider.getEventCountForTarget('overlay.win.$tier');
+    // WIN_PRESENT_1-6 audio zones (based on win/bet ratio)
+    for (int i = 1; i <= 6; i++) {
+      sum += provider.getEventCountForTarget('audio.win_present.$i');
     }
     return sum;
   }

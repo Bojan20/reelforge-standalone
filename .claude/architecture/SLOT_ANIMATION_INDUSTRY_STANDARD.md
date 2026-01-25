@@ -696,76 +696,154 @@ class Particle {
 
 ## 5. ANTICIPATION & SPECIAL EFFECTS
 
-### 5.1 Anticipation (Last Reels Glow)
+### 5.1 Per-Reel Anticipation System (2026-01-25) ✅
 
+**Industry Standard:** Each reel gets its own anticipation with 2-second duration and visual progress indicator.
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                       PER-REEL ANTICIPATION SYSTEM                          │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   REEL 0   REEL 1   REEL 2   REEL 3   REEL 4                               │
+│   ┌───┐    ┌───┐    ┌───┐    ┌─────────────┐    ┌─────────────┐           │
+│   │ 🍒 │    │ 🍊 │    │ 🍇 │    │     🎯      │    │     🎯      │           │
+│   ├───┤    ├───┤    ├───┤    │ ████████░░░ │    │ ████░░░░░░░ │           │
+│   │ 🍋 │    │ 🔔 │    │ 💎 │    │   [GLOW]   │    │   [GLOW]   │           │
+│   ├───┤    ├───┤    ├───┤    │     ┃       │    │     ┃       │           │
+│   │ ⭐ │    │ 7️⃣ │    │ 🃏 │    │     ┃       │    │     ┃       │           │
+│   └───┘    └───┘    └───┘    └─────────────┘    └─────────────┘           │
+│  STOPPED  STOPPED  STOPPED     ANTICIPATING      ANTICIPATING              │
+│                               (2s countdown)     (2s countdown)            │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+**State Variables:**
 ```dart
-class AnticipationOverlay extends StatefulWidget {
-  final Set<int> anticipationReels;  // Which reels are in anticipation
+bool _isAnticipation = false;
+Set<int> _anticipationReels = {};              // Reels currently showing anticipation
+final Map<int, Timer> _anticipationTimers = {}; // Per-reel anticipation timers
+final Map<int, double> _anticipationProgress = {}; // Per-reel progress (0.0 → 1.0)
+static const int _anticipationDurationMs = 2000;  // 2 seconds per reel
+```
 
-  @override
-  State<AnticipationOverlay> createState() => _AnticipationOverlayState();
+**Implementation:**
+```dart
+/// Start anticipation on a specific reel (2 second duration)
+void _startReelAnticipation(int reelIndex) {
+  if (_anticipationReels.contains(reelIndex)) return;
+
+  setState(() {
+    _isAnticipation = true;
+    _anticipationReels.add(reelIndex);
+    _anticipationProgress[reelIndex] = 0.0;
+  });
+
+  // Trigger audio stage
+  eventRegistry.triggerStage('ANTICIPATION_ON_$reelIndex', context: {'reel_index': reelIndex});
+
+  // Progress timer (50ms updates for smooth animation)
+  const updateInterval = 50;
+  int elapsed = 0;
+  _anticipationTimers[reelIndex] = Timer.periodic(
+    Duration(milliseconds: updateInterval),
+    (timer) {
+      elapsed += updateInterval;
+      final progress = (elapsed / _anticipationDurationMs).clamp(0.0, 1.0);
+
+      setState(() => _anticipationProgress[reelIndex] = progress);
+
+      if (elapsed >= _anticipationDurationMs) {
+        timer.cancel();
+        _endReelAnticipation(reelIndex);
+      }
+    },
+  );
 }
 
-class _AnticipationOverlayState extends State<AnticipationOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+/// End anticipation on a specific reel
+void _endReelAnticipation(int reelIndex) {
+  _anticipationTimers[reelIndex]?.cancel();
+  _anticipationTimers.remove(reelIndex);
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 800),
-    )..repeat(reverse: true);
-  }
+  setState(() {
+    _anticipationReels.remove(reelIndex);
+    _anticipationProgress.remove(reelIndex);
+    _isAnticipation = _anticipationReels.isNotEmpty;
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    if (widget.anticipationReels.isEmpty) return SizedBox.shrink();
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return CustomPaint(
-          painter: _AnticipationPainter(
-            reels: widget.anticipationReels,
-            intensity: _controller.value,
-          ),
-        );
-      },
-    );
-  }
+  eventRegistry.triggerStage('ANTICIPATION_OFF_$reelIndex', context: {'reel_index': reelIndex});
 }
 
-class _AnticipationPainter extends CustomPainter {
-  final Set<int> reels;
-  final double intensity;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final reelWidth = size.width / 5;
-
-    for (final reel in reels) {
-      final center = Offset((reel + 0.5) * reelWidth, size.height / 2);
-
-      // Golden radial glow
-      final gradient = RadialGradient(
-        colors: [
-          Color(0xFFFFD700).withOpacity(0.6 * intensity),
-          Color(0xFFFFD700).withOpacity(0.0),
-        ],
-      );
-
-      final paint = Paint()
-        ..shader = gradient.createShader(
-          Rect.fromCircle(center: center, radius: reelWidth),
-        );
-
-      canvas.drawCircle(center, reelWidth * (0.8 + intensity * 0.2), paint);
-    }
+/// Stop anticipation when reel lands (called from _triggerReelStopAudio)
+void _stopReelAnticipation(int reelIndex) {
+  if (_anticipationReels.contains(reelIndex)) {
+    _endReelAnticipation(reelIndex);
   }
 }
 ```
+
+**Visual Overlay:**
+```dart
+Widget _buildAnticipationOverlay(int reelIndex, double progress, double width, double tableHeight) {
+  final pulseValue = _anticipationPulse.value;
+  final color = Color(0xFFFFD700); // Gold
+
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // Label with progress bar
+      Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.8),
+          border: Border.all(color: color.withOpacity(pulseValue), width: 2),
+          boxShadow: [BoxShadow(color: color.withOpacity(pulseValue * 0.6), blurRadius: 12)],
+        ),
+        child: Column(
+          children: [
+            Text('🎯', style: TextStyle(fontSize: 16)),
+            // Progress bar
+            FractionallySizedBox(
+              widthFactor: progress,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [color, color.withOpacity(0.7)]),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      // Glowing column overlay
+      Container(
+        width: width,
+        height: tableHeight,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              color.withOpacity(pulseValue * 0.3),
+              color.withOpacity(pulseValue * 0.1),
+              color.withOpacity(pulseValue * 0.3),
+            ],
+          ),
+          border: Border(
+            left: BorderSide(color: color.withOpacity(pulseValue * 0.5), width: 2),
+            right: BorderSide(color: color.withOpacity(pulseValue * 0.5), width: 2),
+          ),
+        ),
+      ),
+    ],
+  );
+}
+```
+
+**Audio Stages:**
+| Stage | Trigger | Description |
+|-------|---------|-------------|
+| `ANTICIPATION_ON_0` | _startReelAnticipation(0) | Anticipation starts on reel 0 |
+| `ANTICIPATION_ON_1` | _startReelAnticipation(1) | Anticipation starts on reel 1 |
+| `ANTICIPATION_OFF_0` | _endReelAnticipation(0) | Anticipation ends on reel 0 |
+| `ANTICIPATION_OFF_1` | _endReelAnticipation(1) | Anticipation ends on reel 1 |
 
 ### 5.2 Near Miss Shake
 
@@ -954,7 +1032,7 @@ Dramatic entrance with tier-based scaling:
 
 ---
 
-## 8. STOP BUTTON CONTROL SYSTEM (2026-01-25)
+## 8. STOP BUTTON CONTROL SYSTEM (2026-01-25) ✅
 
 ### 8.1 isReelsSpinning vs isPlayingStages
 
@@ -981,7 +1059,70 @@ WIN_PRESENT, ROLLUP, WIN_LINE_SHOW (isPlayingStages still true)
 SPIN_END → isPlayingStages = false
 ```
 
-### 8.3 Implementation
+### 8.3 STOP Button Force-Stop (2026-01-25) ✅
+
+**Problem:** STOP button wasn't stopping reel animations immediately.
+
+**Solution:** When STOP is pressed, detect `!isPlayingStages && _isSpinning` and force-stop all reels.
+
+**Flow:**
+```
+STOP button click
+    ↓
+premium_slot_preview._handleStop()
+    ↓
+provider.stopStagePlayback()
+    ↓
+_isPlayingStages = false + notifyListeners()
+    ↓
+slot_preview_widget._onProviderUpdate()
+    ↓
+Detects: !isPlaying && _isSpinning
+    ↓
+┌───────────────────────────────────────┐
+│ FORCE STOP ALL REELS:                 │
+│ 1. _reelAnimController.stopImmediately() │
+│ 2. _stopAnticipation()                │
+│ 3. Update display grid → final values│
+│ 4. _finalizeSpin(result)              │
+└───────────────────────────────────────┘
+```
+
+**Implementation in _onProviderUpdate():**
+```dart
+// STOP BUTTON HANDLER — If provider stopped but reels are still spinning,
+// force-stop ALL reels immediately
+if (!isPlaying && _isSpinning) {
+  debugPrint('[SlotPreview] ⏹️ STOP DETECTED: Provider stopped while reels spinning → force stop all reels');
+
+  // Stop the visual animation immediately
+  if (_reelAnimController.isSpinning) {
+    _reelAnimController.stopImmediately();
+  }
+
+  // Stop all anticipation animations
+  _stopAnticipation();
+
+  // Update display grid to target (final) values
+  for (int r = 0; r < widget.reels && r < _targetGrid.length; r++) {
+    for (int row = 0; row < widget.rows && row < _targetGrid[r].length; row++) {
+      _displayGrid[r][row] = _targetGrid[r][row];
+    }
+  }
+
+  // Finalize the spin if we have a result
+  if (result != null) {
+    _finalizeSpin(result);
+  } else {
+    setState(() {
+      _isSpinning = false;
+      _spinFinalized = true;
+    });
+  }
+}
+```
+
+### 8.4 Implementation
 
 **SlotLabProvider:**
 ```dart
@@ -1034,6 +1175,8 @@ _ControlBar(
 | Near Miss Shake | ✅ 100% | Dampened oscillation |
 | **V8: Win Plaque Animation** | ✅ 100% | Screen flash, glow pulse, particle burst |
 | **STOP Button Control** | ✅ 100% | isReelsSpinning tracking |
+| **Per-Reel Anticipation** | ✅ 100% | 2s per reel with progress bar (2026-01-25) |
+| **STOP Force-Stop** | ✅ 100% | Force stop all reels immediately (2026-01-25) |
 
 **Overall:** 100% Industry Standard Implementation
 
@@ -1065,6 +1208,12 @@ WIN PRESENTATION:
 ├── Phase 1:          1050ms (3 × 350ms pulse)
 ├── Phase 2:          1500-20000ms (tier-based)
 └── Phase 3:          1500ms × line_count
+
+PER-REEL ANTICIPATION (2026-01-25):
+├── Duration:         2000ms per reel
+├── Progress Update:  50ms interval
+├── Glow Pulse:       800ms (repeat)
+└── Auto-stop:        On reel land
 
 PARTICLE LIFETIME:    2-4 seconds
 ANTICIPATION PULSE:   800ms (repeat)

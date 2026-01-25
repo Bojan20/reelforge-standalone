@@ -475,6 +475,17 @@ class AudioPlaybackService extends ChangeNotifier {
     debugPrint('[AudioPlayback] Stopped voice: $voiceId');
   }
 
+  /// P0: Fade out specific voice with configurable duration
+  /// voiceId: voice to fade out
+  /// fadeMs: fade duration in milliseconds (50ms typical for reel stop)
+  void fadeOutVoice(int voiceId, {int fadeMs = 50}) {
+    _ffi.playbackFadeOutOneShot(voiceId, fadeMs: fadeMs);
+    // Remove from tracking after fade starts (voice will deactivate itself)
+    _activeVoices.removeWhere((v) => v.voiceId == voiceId);
+    _checkAndReleasePlayback();
+    debugPrint('[AudioPlayback] Fading out voice: $voiceId (${fadeMs}ms)');
+  }
+
   /// Stop all voices for a specific event
   void stopEvent(String eventId) {
     final voices = _eventVoices.remove(eventId);

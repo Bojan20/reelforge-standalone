@@ -318,6 +318,14 @@ class StageConfigurationService extends ChangeNotifier {
     _register('SPIN_END', StageCategory.spin, 40, SpatialBus.sfx, 'DEFAULT');
 
     // ─────────────────────────────────────────────────────────────────────────
+    // P1.1: WIN EVALUATION — Bridge between REEL_STOP and WIN_PRESENT
+    // This stage fires immediately after last reel stops and before win display
+    // Audio: Short "calculation" or "whoosh" sound to fill the gap
+    // ─────────────────────────────────────────────────────────────────────────
+    _register('EVALUATE_WINS', StageCategory.win, 58, SpatialBus.sfx, 'DEFAULT');
+    _register('WIN_EVAL', StageCategory.win, 58, SpatialBus.sfx, 'DEFAULT'); // Alias
+
+    // ─────────────────────────────────────────────────────────────────────────
     // WIN LIFECYCLE
     // ─────────────────────────────────────────────────────────────────────────
     _register('WIN_PRESENT', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT');
@@ -336,20 +344,31 @@ class StageConfigurationService extends ChangeNotifier {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // WIN PRESENTATION FLOW (Industry-Standard Tier System)
-    // Based on Zynga, NetEnt, Pragmatic Play research:
-    // - BIG WIN is FIRST major tier (5x-15x) — not middle tier!
-    // - SUPER WIN is second tier (15x-30x) — replaces non-standard "NICE"
-    // - MEGA WIN is third tier (30x-60x)
-    // - EPIC WIN is fourth tier (60x-100x)
-    // - ULTRA WIN is maximum (100x+)
+    // WIN PRESENTATION AUDIO — Unified win sound tiers based on win/bet ratio
+    // This is THE win presentation audio system. Duration in parentheses:
+    // WIN_PRESENT_1: ≤ 1x bet    (0.5s) — tiny win
+    // WIN_PRESENT_2: > 1x, ≤ 2x  (1.0s)
+    // WIN_PRESENT_3: > 2x, ≤ 4x  (1.5s)
+    // WIN_PRESENT_4: > 4x, ≤ 8x  (2.0s)
+    // WIN_PRESENT_5: > 8x, ≤ 13x (3.0s)
+    // WIN_PRESENT_6: > 13x       (4.0s) — mega/epic/ultra territory
     // ─────────────────────────────────────────────────────────────────────────
-    _register('WIN_PRESENT_SMALL', StageCategory.win, 50, SpatialBus.sfx, 'WIN_SMALL');
-    _register('WIN_PRESENT_BIG', StageCategory.win, 55, SpatialBus.sfx, 'WIN_BIG');
-    _register('WIN_PRESENT_SUPER', StageCategory.win, 65, SpatialBus.sfx, 'WIN_SUPER', ducksMusic: true);
-    _register('WIN_PRESENT_MEGA', StageCategory.win, 75, SpatialBus.sfx, 'WIN_MEGA', ducksMusic: true);
-    _register('WIN_PRESENT_EPIC', StageCategory.win, 85, SpatialBus.sfx, 'WIN_EPIC', ducksMusic: true);
-    _register('WIN_PRESENT_ULTRA', StageCategory.win, 95, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
+    _register('WIN_PRESENT_1', StageCategory.win, 40, SpatialBus.sfx, 'DEFAULT');
+    _register('WIN_PRESENT_2', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
+    _register('WIN_PRESENT_3', StageCategory.win, 50, SpatialBus.sfx, 'WIN_SMALL');
+    _register('WIN_PRESENT_4', StageCategory.win, 55, SpatialBus.sfx, 'WIN_BIG');
+    _register('WIN_PRESENT_5', StageCategory.win, 65, SpatialBus.sfx, 'WIN_SUPER', ducksMusic: true);
+    _register('WIN_PRESENT_6', StageCategory.win, 85, SpatialBus.sfx, 'WIN_EPIC', ducksMusic: true);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // WIN TIER VISUAL STAGES — Optional per-tier audio during BIG+ progression
+    // These fire during tier progression display (BIG → SUPER → MEGA → ...)
+    // ─────────────────────────────────────────────────────────────────────────
+    _register('WIN_TIER_BIG', StageCategory.win, 55, SpatialBus.sfx, 'WIN_BIG');
+    _register('WIN_TIER_SUPER', StageCategory.win, 65, SpatialBus.sfx, 'WIN_SUPER');
+    _register('WIN_TIER_MEGA', StageCategory.win, 75, SpatialBus.sfx, 'WIN_MEGA');
+    _register('WIN_TIER_EPIC', StageCategory.win, 85, SpatialBus.sfx, 'WIN_EPIC');
+    _register('WIN_TIER_ULTRA', StageCategory.win, 95, SpatialBus.sfx, 'WIN_EPIC');
 
     // Rollup counter (pooled for rapid fire)
     _register('ROLLUP_START', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');

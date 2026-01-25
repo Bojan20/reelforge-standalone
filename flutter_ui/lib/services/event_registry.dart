@@ -373,6 +373,42 @@ class EventRegistry extends ChangeNotifier {
   static const int _maxHistoryEntries = 100;
   final List<TriggerHistoryEntry> _triggerHistory = [];
 
+  // P0: Per-reel spin loop voice tracking
+  // Maps reel index (0-4) to voice ID for individual fade-out on REEL_STOP_N
+  final Map<int, int> _reelSpinLoopVoices = {};
+  static const int _spinLoopFadeMs = 50; // Fade duration for smooth stop
+
+  /// P0: Fade out a specific reel's spin loop with smooth crossfade
+  void _fadeOutReelSpinLoop(int reelIndex) {
+    final voiceId = _reelSpinLoopVoices[reelIndex];
+    if (voiceId != null && voiceId > 0) {
+      debugPrint('[EventRegistry] P0: Fading out REEL_SPIN loop for reel $reelIndex (voice $voiceId, ${_spinLoopFadeMs}ms)');
+      AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: _spinLoopFadeMs);
+      _reelSpinLoopVoices.remove(reelIndex);
+    }
+  }
+
+  /// P0: Track a spin loop voice for later fade-out
+  void _trackReelSpinLoopVoice(int reelIndex, int voiceId) {
+    // Stop any existing loop on this reel first
+    final existingVoiceId = _reelSpinLoopVoices[reelIndex];
+    if (existingVoiceId != null && existingVoiceId != voiceId) {
+      debugPrint('[EventRegistry] P0: Replacing existing spin loop on reel $reelIndex');
+      AudioPlaybackService.instance.fadeOutVoice(existingVoiceId, fadeMs: _spinLoopFadeMs);
+    }
+    _reelSpinLoopVoices[reelIndex] = voiceId;
+    debugPrint('[EventRegistry] P0: Tracking REEL_SPIN loop: reel=$reelIndex, voice=$voiceId');
+  }
+
+  /// P0: Stop all spin loops (called when spin ends abruptly)
+  void stopAllSpinLoops() {
+    for (final entry in _reelSpinLoopVoices.entries) {
+      debugPrint('[EventRegistry] P0: Stopping spin loop: reel=${entry.key}, voice=${entry.value}');
+      AudioPlaybackService.instance.fadeOutVoice(entry.value, fadeMs: _spinLoopFadeMs);
+    }
+    _reelSpinLoopVoices.clear();
+  }
+
   /// P1.4: Get recent trigger history (newest first)
   List<TriggerHistoryEntry> get triggerHistory => List.unmodifiable(_triggerHistory.reversed.toList());
 
@@ -978,6 +1014,46 @@ class EventRegistry extends ChangeNotifier {
   /// - Empty strings rejected
   Future<void> triggerStage(String stage, {Map<String, dynamic>? context}) async {
     // ═══════════════════════════════════════════════════════════════════════════
+    // P0: PER-REEL SPIN LOOP FADE-OUT — Fade out this reel's loop before playing stop sound
+    // ═══════════════════════════════════════════════════════════════════════════
+    final fadeOutReelIndex = context?['fade_out_spin_reel'];
+    if (fadeOutReelIndex != null && fadeOutReelIndex is int) {
+      _fadeOutReelSpinLoop(fadeOutReelIndex);
+    }
+
+    // P0: AUTO-DETECT REEL_STOP_X stages and fade out corresponding spin loop
+    // Supports: REEL_STOP_0, REEL_STOP_1, REEL_STOP_2, REEL_STOP_3, REEL_STOP_4
+    final upperStage = stage.toUpperCase();
+    final reelStopMatch = RegExp(r'^REEL_STOP_(\d+)$').firstMatch(upperStage);
+    if (reelStopMatch != null) {
+      final reelIndex = int.tryParse(reelStopMatch.group(1) ?? '');
+      if (reelIndex != null) {
+        debugPrint('[EventRegistry] P0: Auto-detected REEL_STOP_$reelIndex → Fading spin loop');
+        _fadeOutReelSpinLoop(reelIndex);
+      }
+    }
+
+    // P0: AUTO-DETECT REEL_SPINNING_X stages and set up per-reel spin loop context
+    // Supports: REEL_SPINNING_0, REEL_SPINNING_1, REEL_SPINNING_2, REEL_SPINNING_3, REEL_SPINNING_4
+    // Also matches generic REEL_SPINNING (for shared loop sound)
+    Map<String, dynamic> enhancedContext = context != null ? Map.from(context) : {};
+    final reelSpinMatch = RegExp(r'^REEL_SPINNING_(\d+)$').firstMatch(upperStage);
+    if (reelSpinMatch != null) {
+      final reelIndex = int.tryParse(reelSpinMatch.group(1) ?? '');
+      if (reelIndex != null) {
+        debugPrint('[EventRegistry] P0: Auto-detected REEL_SPINNING_$reelIndex → Setting up spin loop');
+        enhancedContext['is_reel_spin_loop'] = true;
+        enhancedContext['reel_index'] = reelIndex;
+      }
+    } else if (upperStage == 'REEL_SPINNING' || upperStage == 'REEL_SPIN_LOOP') {
+      // Generic spin loop (reel index 0 for single shared loop)
+      debugPrint('[EventRegistry] P0: Auto-detected generic REEL_SPINNING → Setting up shared spin loop');
+      enhancedContext['is_reel_spin_loop'] = true;
+      enhancedContext['reel_index'] = 0;
+    }
+    context = enhancedContext.isNotEmpty ? enhancedContext : context;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // INPUT VALIDATION (P1.2 Security Fix)
     // ═══════════════════════════════════════════════════════════════════════════
     if (stage.isEmpty) {
@@ -1348,6 +1424,20 @@ class EventRegistry extends ChangeNotifier {
       }
 
       // ═══════════════════════════════════════════════════════════════════════
+      // P1.2: ROLLUP PITCH DYNAMICS — Volume escalation based on rollup progress
+      // Applied to ROLLUP_TICK and similar stages for exciting build-up
+      // Progress comes from stage context (0.0 → 1.0 as rollup completes)
+      // ═══════════════════════════════════════════════════════════════════════
+      if (eventKey != null && eventKey.contains('ROLLUP') && context != null) {
+        final progress = context['progress'] as double?;
+        if (progress != null) {
+          final escalation = RtpcModulationService.instance.getRollupVolumeEscalation(progress);
+          volume *= escalation;
+          debugPrint('[EventRegistry] P1.2 Rollup modulation: progress=${progress.toStringAsFixed(2)}, volume=${(volume).toStringAsFixed(2)}');
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════
       // SPATIAL AUDIO POSITIONING (AutoSpatialEngine integration)
       // P1.3: Context pan takes priority over layer pan, spatial engine overrides both
       // ═══════════════════════════════════════════════════════════════════════
@@ -1463,6 +1553,16 @@ class EventRegistry extends ChangeNotifier {
         // Store voice info for debug display
         _lastTriggerError = 'voice=$voiceId, bus=${layer.busId}, section=$activeSection';
         debugPrint('[EventRegistry] ✅ Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})$poolStr$loopStr$spatialStr');
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // P0: Track per-reel spin loop voices for individual fade-out on REEL_STOP
+        // ═══════════════════════════════════════════════════════════════════════
+        if (loop && context != null && context['is_reel_spin_loop'] == true) {
+          final reelIndex = context['reel_index'] as int?;
+          if (reelIndex != null) {
+            _trackReelSpinLoopVoice(reelIndex, voiceId);
+          }
+        }
       } else {
         // Voice ID -1 means playback failed - get error from AudioPlaybackService
         final ffiError = AudioPlaybackService.instance.lastPlaybackToBusError;

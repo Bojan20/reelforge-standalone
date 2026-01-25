@@ -1606,6 +1606,14 @@ impl PlaybackEngine {
         }
     }
 
+    /// P0: Fade out a specific one-shot voice with configurable duration
+    /// fade_ms: fade duration in milliseconds
+    pub fn fade_out_one_shot(&self, voice_id: u64, fade_ms: u32) {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.fade_out_one_shot(voice_id, fade_ms);
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // AUDIO DEVICE SETTINGS
     // ═══════════════════════════════════════════════════════════════════════════

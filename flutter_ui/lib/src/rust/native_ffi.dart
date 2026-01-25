@@ -524,6 +524,10 @@ typedef EnginePlaybackStopOneShotDart = void Function(int voiceId);
 typedef EnginePlaybackStopAllOneShotsNative = Void Function();
 typedef EnginePlaybackStopAllOneShotsDart = void Function();
 
+// P0: Per-reel spin loop fade-out
+typedef EnginePlaybackFadeOutOneShotNative = Void Function(Uint64 voiceId, Uint32 fadeMs);
+typedef EnginePlaybackFadeOutOneShotDart = void Function(int voiceId, int fadeMs);
+
 // Section-based playback filtering
 typedef EngineSetActiveSectionNative = Void Function(Uint8 section);
 typedef EngineSetActiveSectionDart = void Function(int section);
@@ -2145,6 +2149,7 @@ class NativeFFI {
   late final EnginePlaybackPlayLoopingToBusDart _playbackPlayLoopingToBus;
   late final EnginePlaybackStopOneShotDart _playbackStopOneShot;
   late final EnginePlaybackStopAllOneShotsDart _playbackStopAllOneShots;
+  late final EnginePlaybackFadeOutOneShotDart _playbackFadeOutOneShot; // P0
 
   // Section-based playback filtering
   late final EngineSetActiveSectionDart _setActiveSection;
@@ -2795,6 +2800,7 @@ class NativeFFI {
     _playbackPlayLoopingToBus = _lib.lookupFunction<EnginePlaybackPlayLoopingToBusNative, EnginePlaybackPlayLoopingToBusDart>('engine_playback_play_looping_to_bus');
     _playbackStopOneShot = _lib.lookupFunction<EnginePlaybackStopOneShotNative, EnginePlaybackStopOneShotDart>('engine_playback_stop_one_shot');
     _playbackStopAllOneShots = _lib.lookupFunction<EnginePlaybackStopAllOneShotsNative, EnginePlaybackStopAllOneShotsDart>('engine_playback_stop_all_one_shots');
+    _playbackFadeOutOneShot = _lib.lookupFunction<EnginePlaybackFadeOutOneShotNative, EnginePlaybackFadeOutOneShotDart>('engine_playback_fade_out_one_shot'); // P0
 
     // Section-based playback filtering
     _setActiveSection = _lib.lookupFunction<EngineSetActiveSectionNative, EngineSetActiveSectionDart>('engine_set_active_section');
@@ -4503,6 +4509,14 @@ class NativeFFI {
   void playbackStopAllOneShots() {
     if (!_loaded) return;
     _playbackStopAllOneShots();
+  }
+
+  /// P0: Fade out specific voice with configurable duration
+  /// voiceId: voice to fade out
+  /// fadeMs: fade duration in milliseconds (50ms typical for reel stop)
+  void playbackFadeOutOneShot(int voiceId, {int fadeMs = 50}) {
+    if (!_loaded) return;
+    _playbackFadeOutOneShot(voiceId, fadeMs);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

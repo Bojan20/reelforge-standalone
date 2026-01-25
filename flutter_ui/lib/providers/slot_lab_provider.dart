@@ -97,6 +97,12 @@ class SlotLabProvider extends ChangeNotifier {
   int _playbackGeneration = 0; // Incremented on each new spin to invalidate old timers
   bool _baseMusicStarted = false; // Track if base music has been triggered
 
+  // ─── P1.2: Rollup Progress Tracking (for pitch/volume dynamics) ───────────
+  double _rollupStartTimestampMs = 0.0;
+  double _rollupEndTimestampMs = 0.0;
+  int _rollupTickCount = 0;
+  int _rollupTotalTicks = 0;
+
   // ─── P0.3: Pause/Resume State ─────────────────────────────────────────────
   /// True when stage playback is paused (suspended, not stopped)
   bool _isPaused = false;
@@ -1005,8 +1011,64 @@ class SlotLabProvider extends ChangeNotifier {
       debugPrint('[SlotLabProvider] P1.3 Win Line Pan: line $lineIndex → pan ${linePan.toStringAsFixed(2)}');
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.2: ROLLUP PITCH/VOLUME DYNAMICS — Progress-based escalation
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stageType == 'ROLLUP_START') {
+      // Scan remaining stages to find ROLLUP_END timestamp
+      _rollupStartTimestampMs = stage.timestampMs;
+      _rollupTickCount = 0;
+      _rollupTotalTicks = 0;
+
+      // Count total ROLLUP_TICKs and find ROLLUP_END
+      for (final s in _lastStages) {
+        final sType = s.stageType.toUpperCase();
+        if (sType == 'ROLLUP_TICK') _rollupTotalTicks++;
+        if (sType == 'ROLLUP_END') {
+          _rollupEndTimestampMs = s.timestampMs;
+        }
+      }
+      debugPrint('[SlotLabProvider] P1.2 ROLLUP_START: duration=${(_rollupEndTimestampMs - _rollupStartTimestampMs).toInt()}ms, ticks=$_rollupTotalTicks');
+    } else if (stageType == 'ROLLUP_TICK') {
+      _rollupTickCount++;
+
+      // Calculate progress (0.0 to 1.0)
+      double progress = 0.0;
+      if (_rollupTotalTicks > 0) {
+        progress = _rollupTickCount / _rollupTotalTicks;
+      } else if (_rollupEndTimestampMs > _rollupStartTimestampMs) {
+        final elapsed = stage.timestampMs - _rollupStartTimestampMs;
+        final total = _rollupEndTimestampMs - _rollupStartTimestampMs;
+        progress = (elapsed / total).clamp(0.0, 1.0);
+      }
+
+      // Add progress to context — EventRegistry will use this for pitch/volume modulation
+      context['progress'] = progress;
+      debugPrint('[SlotLabProvider] P1.2 ROLLUP_TICK: progress=${progress.toStringAsFixed(2)} (tick $_rollupTickCount/$_rollupTotalTicks)');
+    } else if (stageType == 'ROLLUP_END') {
+      // Reset rollup tracking
+      _rollupStartTimestampMs = 0.0;
+      _rollupEndTimestampMs = 0.0;
+      _rollupTickCount = 0;
+      _rollupTotalTicks = 0;
+      debugPrint('[SlotLabProvider] P1.2 ROLLUP_END: resetting rollup tracking');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0: PER-REEL SPINNING — Each reel has its own spin loop for independent fade-out
+    // ═══════════════════════════════════════════════════════════════════════════
+    if ((stageType == 'REEL_SPINNING' || stageType == 'reel_spinning') && reelIndex != null) {
+      effectiveStage = 'REEL_SPINNING_$reelIndex';
+      // Pass reel_index to EventRegistry for voice tracking
+      context['reel_index'] = reelIndex;
+      context['is_reel_spin_loop'] = true; // Flag for voice tracking
+      debugPrint('[SlotLabProvider] P0 Per-reel spin: $effectiveStage');
+    }
+
     if (stageType == 'REEL_STOP' && reelIndex != null) {
       effectiveStage = 'REEL_STOP_$reelIndex';
+      // P0: Tell EventRegistry to fade out this reel's spin loop
+      context['fade_out_spin_reel'] = reelIndex;
       // DEBUG: Detailed logging for REEL_STOP issue
       debugPrint('═══════════════════════════════════════════════════════════');
       debugPrint('[REEL_STOP] 🎰 RAW DATA:');

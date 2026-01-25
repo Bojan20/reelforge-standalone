@@ -961,6 +961,8 @@ pub enum OneShotCommand {
     StopAll,
     /// Stop all voices from a specific source
     StopSource { source: PlaybackSource },
+    /// P0: Fade out specific voice with configurable duration
+    FadeOut { id: u64, fade_samples: u64 },
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2601,6 +2603,17 @@ impl PlaybackEngine {
         }
     }
 
+    /// P0: Fade out a specific one-shot voice with configurable duration
+    /// fade_ms: fade duration in milliseconds (converted to samples internally)
+    pub fn fade_out_one_shot(&self, voice_id: u64, fade_ms: u32) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            // Convert ms to samples at 48kHz (common sample rate)
+            // For 50ms fade: 48000 * 0.050 = 2400 samples
+            let fade_samples = ((48000.0 * fade_ms as f64) / 1000.0) as u64;
+            let _ = tx.push(OneShotCommand::FadeOut { id: voice_id, fade_samples });
+        }
+    }
+
     /// Stop all one-shot voices
     pub fn stop_all_one_shots(&self) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
@@ -2723,6 +2736,12 @@ impl PlaybackEngine {
                         if voice.active && voice.source == source {
                             voice.start_fade_out(240);
                         }
+                    }
+                }
+                // P0: Per-reel spin loop fade-out with configurable duration
+                OneShotCommand::FadeOut { id, fade_samples } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.start_fade_out(fade_samples);
                     }
                 }
             }

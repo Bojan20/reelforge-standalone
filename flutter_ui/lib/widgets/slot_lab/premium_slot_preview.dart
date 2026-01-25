@@ -2424,7 +2424,8 @@ class _WinPresenterState extends State<_WinPresenter>
       'ULTRA' => _SlotTheme.winUltra,
       'EPIC' => _SlotTheme.winEpic,
       'MEGA' => _SlotTheme.winMega,
-      'BIG' => _SlotTheme.winBig,
+      'SUPER' => _SlotTheme.winBig,
+      'BIG' => const Color(0xFF4CAF50), // Green for BIG
       _ => _SlotTheme.winSmall,
     };
   }
@@ -2434,7 +2435,8 @@ class _WinPresenterState extends State<_WinPresenter>
       'ULTRA' => Icons.auto_awesome,
       'EPIC' => Icons.bolt,
       'MEGA' => Icons.stars,
-      'BIG' => Icons.celebration,
+      'SUPER' => Icons.celebration,
+      'BIG' => Icons.star,
       _ => Icons.check_circle,
     };
   }
@@ -5340,7 +5342,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
           }
         }
 
-        if (winAmount > _totalBetAmount * 2) {
+        // Only show plaque for BIG+ wins (5x or higher = tier is not empty)
+        if (_currentWinTier.isNotEmpty) {
           // Big win - show presenter for Collect/Gamble
           _showWinPresenter = true;
           _recentWins.insert(
@@ -5355,7 +5358,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
             _recentWins.removeLast();
           }
         } else {
-          // Small win - auto-collect immediately
+          // Small win (below 5x) - auto-collect immediately, no plaque
           _balance += _pendingWinAmount;
           _pendingWinAmount = 0.0;
         }
@@ -5389,11 +5392,14 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (ratio >= 100) return 'ULTRA';
     if (ratio >= 50) return 'EPIC';
     if (ratio >= 25) return 'MEGA';
-    if (ratio >= 10) return 'BIG';
-    return 'SMALL';
+    if (ratio >= 10) return 'SUPER';
+    if (ratio >= 5) return 'BIG';
+    // No plaque for small wins (below 5x)
+    return '';
   }
 
   /// Convert engine win tier to UI tier string
+  /// Returns empty string for small wins (no plaque)
   String? _winTierFromEngine(SlotLabWinTier? tier) {
     if (tier == null) return null;
     switch (tier) {
@@ -5406,7 +5412,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       case SlotLabWinTier.bigWin:
         return 'BIG';
       case SlotLabWinTier.win:
-        return 'SMALL';
+        // Small win - no plaque
+        return '';
       case SlotLabWinTier.none:
         return null;
     }
