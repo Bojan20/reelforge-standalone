@@ -5243,12 +5243,14 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         // ═══════════════════════════════════════════════════════════════════
         // eventRegistry.triggerStage('REEL_STOP_$i'); // REMOVED - causes double trigger
 
-        // Check for ANTICIPATION on second-to-last reel
+        // ANTICIPATION — DISABLED (engine handles via SlotLabProvider._playStages())
+        // Kept for visual state tracking only, method is now a no-op
         if (i == widget.reels - 2) {
           _checkAnticipation();
         }
 
-        // On LAST reel stop — trigger REVEAL and WIN stages
+        // REVEAL/WIN — DISABLED (engine handles via SlotLabProvider._playStages())
+        // Kept for visual state tracking only, method is now a no-op
         if (i == widget.reels - 1) {
           _onAllReelsStopped();
         }
@@ -5261,33 +5263,40 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Check for anticipation (2+ scatters visible before last reel)
   /// Called when second-to-last reel stops
   void _checkAnticipation() {
-    // Check if pending result has scatter symbols that could trigger feature
-    final result = _pendingResultForWinStage;
-    if (result == null) return;
-
-    // Anticipation triggers if result will be a big win or feature trigger
-    // Use win tier as proxy for anticipation worthiness
-    final tier = _winTierFromEngine(result.bigWinTier) ?? _getWinTier(result.totalWin);
-    final shouldAnticipate = tier == 'EPIC' || tier == 'ULTRA' || tier == 'MEGA';
-
-    if (shouldAnticipate) {
-      eventRegistry.triggerStage('ANTICIPATION_ON');
-    }
+    // ═══════════════════════════════════════════════════════════════════════
+    // ANTICIPATION_ON — DISABLED: Engine generates ANTICIPATION stages with
+    // correct timestamps. Visual-sync timing causes mismatch/duplicates.
+    // See: crates/rf-slot-lab/src/spin.rs:170 — Stage::AnticipationOn
+    // ═══════════════════════════════════════════════════════════════════════
+    // final result = _pendingResultForWinStage;
+    // if (result == null) return;
+    //
+    // final tier = _winTierFromEngine(result.bigWinTier) ?? _getWinTier(result.totalWin);
+    // final shouldAnticipate = tier == 'EPIC' || tier == 'ULTRA' || tier == 'MEGA';
+    //
+    // if (shouldAnticipate) {
+    //   eventRegistry.triggerStage('ANTICIPATION_ON');
+    // }
   }
 
   /// Called when ALL reels have visually stopped
-  /// Triggers REVEAL stage and appropriate WIN tier stage
+  /// NOTE: WIN stages are now handled by engine via SlotLabProvider._playStages()
   void _onAllReelsStopped() {
     // ═══════════════════════════════════════════════════════════════════════
-    // REVEAL — All reels stopped, result is visible
+    // REVEAL — DISABLED: Engine stages handle timing via SlotLabProvider._playStages()
+    // Visual-sync timing is NOT synchronized with engine timestamps, causing
+    // REVEAL to fire BETWEEN engine REEL_STOP stages (wrong order!)
     // ═══════════════════════════════════════════════════════════════════════
-    eventRegistry.triggerStage('REVEAL');
+    // eventRegistry.triggerStage('REVEAL'); // REMOVED — causes timing mismatch
 
-    // Trigger appropriate WIN stage based on result
-    final result = _pendingResultForWinStage;
-    if (result != null && result.isWin) {
-      _triggerWinStage(result);
-    }
+    // ═══════════════════════════════════════════════════════════════════════
+    // WIN STAGES — DISABLED: Engine generates WIN_PRESENT and BigWinTier stages
+    // with correct timestamps. Visual-sync triggering causes duplicates.
+    // ═══════════════════════════════════════════════════════════════════════
+    // final result = _pendingResultForWinStage;
+    // if (result != null && result.isWin) {
+    //   _triggerWinStage(result);
+    // }
 
     // Clear pending result
     _pendingResultForWinStage = null;

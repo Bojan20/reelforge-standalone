@@ -19,6 +19,7 @@ use std::thread;
 
 use crossbeam_channel::{bounded, Sender};
 use parking_lot::RwLock;
+use rayon::prelude::*;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PLAYBACK SOURCE — For section-based voice filtering
@@ -468,6 +469,135 @@ impl AudioCache {
             .map(|(k, v)| (k.clone(), Arc::clone(&v.audio)))
             .collect()
     }
+
+    // =========================================================================
+    // PARALLEL PRELOAD — Ultimate SlotLab Audio Loading Optimization
+    // =========================================================================
+
+    /// Preload multiple audio files in parallel using rayon thread pool.
+    /// Returns the number of successfully loaded files.
+    ///
+    /// This is the ultimate optimization for SlotLab audio loading:
+    /// - Parallel disk I/O and decoding across all CPU cores
+    /// - Already-cached files are skipped (instant return)
+    /// - Failed files are logged and counted
+    ///
+    /// Use this at SlotLab initialization to preload all event audio.
+    pub fn preload_paths_parallel(&self, paths: &[&str]) -> PreloadResult {
+        if paths.is_empty() {
+            return PreloadResult::default();
+        }
+
+        let start_time = std::time::Instant::now();
+
+        // Filter out already cached paths (fast path)
+        let paths_to_load: Vec<&str> = {
+            let entries = self.entries.read();
+            paths
+                .iter()
+                .filter(|p| entries.get::<str>(*p).is_none())
+                .copied()
+                .collect()
+        };
+
+        if paths_to_load.is_empty() {
+            return PreloadResult {
+                total: paths.len(),
+                loaded: paths.len(),
+                cached: paths.len(),
+                failed: 0,
+                duration_ms: start_time.elapsed().as_millis() as u64,
+            };
+        }
+
+        let cached_count = paths.len() - paths_to_load.len();
+
+        // Parallel load using rayon
+        let results: Vec<Option<(String, Arc<ImportedAudio>, usize)>> = paths_to_load
+            .par_iter()
+            .map(|path| {
+                match AudioImporter::import(Path::new(path)) {
+                    Ok(audio) => {
+                        let size_bytes = audio.samples.len() * std::mem::size_of::<f32>();
+                        Some((path.to_string(), Arc::new(audio), size_bytes))
+                    }
+                    Err(e) => {
+                        log::warn!("[AudioCache] Preload failed for '{}': {}", path, e);
+                        None
+                    }
+                }
+            })
+            .collect();
+
+        // Insert into cache (sequential, but fast since data is already decoded)
+        let mut loaded_count = 0;
+        let mut failed_count = 0;
+
+        for result in results {
+            if let Some((path, audio, size_bytes)) = result {
+                // Evict if necessary
+                self.evict_if_needed(size_bytes);
+
+                let entry = CacheEntry {
+                    audio,
+                    last_access: self.access_counter.fetch_add(1, Ordering::Relaxed),
+                    size_bytes,
+                };
+
+                self.entries.write().insert(path, entry);
+                self.current_bytes.fetch_add(size_bytes as u64, Ordering::Relaxed);
+                loaded_count += 1;
+            } else {
+                failed_count += 1;
+            }
+        }
+
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+        log::info!(
+            "[AudioCache] Parallel preload: {} loaded, {} cached, {} failed in {}ms",
+            loaded_count, cached_count, failed_count, duration_ms
+        );
+
+        PreloadResult {
+            total: paths.len(),
+            loaded: loaded_count + cached_count,
+            cached: cached_count,
+            failed: failed_count,
+            duration_ms,
+        }
+    }
+
+    /// Check if all paths are cached (fast check for preload status)
+    pub fn all_cached(&self, paths: &[&str]) -> bool {
+        let entries = self.entries.read();
+        paths.iter().all(|p| entries.get::<str>(*p).is_some())
+    }
+
+    /// Get cache statistics as JSON string
+    pub fn stats_json(&self) -> String {
+        format!(
+            r#"{{"size":{}, "memory_mb":{:.2}, "max_mb":{:.2}, "utilization":{:.1}}}"#,
+            self.size(),
+            self.memory_usage() as f64 / 1024.0 / 1024.0,
+            self.max_size() as f64 / 1024.0 / 1024.0,
+            self.utilization() * 100.0
+        )
+    }
+}
+
+/// Result of parallel preload operation
+#[derive(Debug, Clone, Default)]
+pub struct PreloadResult {
+    /// Total paths requested
+    pub total: usize,
+    /// Successfully loaded (including already cached)
+    pub loaded: usize,
+    /// Already cached (skipped)
+    pub cached: usize,
+    /// Failed to load
+    pub failed: usize,
+    /// Total duration in milliseconds
+    pub duration_ms: u64,
 }
 
 impl Default for AudioCache {

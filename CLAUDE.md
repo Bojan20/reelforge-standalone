@@ -1988,6 +1988,63 @@ final result = exporter.export(
 - ✅ Loop playback
 - ✅ Scrubbing with velocity
 
+### DAW Waveform System (2026-01-25) ✅
+
+Real waveform generation via Rust FFI — demo waveform potpuno uklonjen.
+
+**Arhitektura:**
+```
+Audio File Import → NativeFFI.generateWaveformFromFile(path, cacheKey)
+                  → Rust SIMD waveform generation (AVX2/NEON)
+                  → JSON response with multi-LOD peaks
+                  → parseWaveformFromJson() → Float32List
+                  → ClipWidget rendering (graceful null handling)
+```
+
+**FFI Funkcija:** `generateWaveformFromFile(path, cacheKey)` → JSON
+
+**JSON Format:**
+```json
+{
+  "lods": [
+    {
+      "samples_per_pixel": 1,
+      "left": [{"min": -0.5, "max": 0.5, "rms": 0.3}, ...],
+      "right": [{"min": -0.5, "max": 0.5, "rms": 0.3}, ...]
+    }
+  ]
+}
+```
+
+**Helper Funkcija:** `parseWaveformFromJson()` ([timeline_models.dart](flutter_ui/lib/models/timeline_models.dart))
+- Parsira JSON iz Rust FFI
+- Vraća `(Float32List?, Float32List?)` tuple za L/R kanale
+- Automatski bira odgovarajući LOD (max 2048 samples)
+- Ekstrahuje peak vrednosti (max absolute value)
+- Ako FFI fail-uje, vraća `(null, null)` — UI gracefully handluje null waveform
+
+**Demo Waveform:** UKLONJEN (2026-01-25)
+- `generateDemoWaveform()` funkcija obrisana iz `timeline_models.dart`
+- Svi fallback-ovi uklonjeni iz `engine_connected_layout.dart`
+- ClipWidget već podržava nullable waveform
+
+**Duration Display:**
+| Getter | Format | Primer |
+|--------|--------|--------|
+| `durationFormatted` | Sekunde (2 decimale) | `45.47s` |
+| `durationFormattedMs` | Milisekunde | `45470ms` |
+| `durationMs` | Int milisekunde | `45470` |
+
+**Lokacije gde se koristi real waveform:**
+| Fajl | Linija | Kontekst |
+|------|--------|----------|
+| `engine_connected_layout.dart` | ~3014 | `_addFileToPool()` — audio import |
+| `engine_connected_layout.dart` | ~3077 | `_syncAudioPoolFromSlotLab()` |
+| `engine_connected_layout.dart` | ~3117 | `_syncFromAssetManager()` |
+| `engine_connected_layout.dart` | ~2408 | `_handleAudioPoolFileDoubleClick()` |
+
+**Fallback:** Ako FFI ne vrati waveform, waveform ostaje `null` — UI gracefully handluje null.
+
 ### Advanced
 - ✅ Video sync (SMPTE timecode)
 - ✅ Automation (sample-accurate)
@@ -3386,6 +3443,13 @@ Reorganizovani Lower Zone, novi widgeti i 3-panel layout za V6.
 - File import (📄) — Multiple audio files via FilePicker
 - Folder import (📁) — Rekurzivni scan direktorijuma
 - AudioAssetManager integration
+- **Audio Hover Preview (V6.2)** — 500ms hover delay, auto-play, waveform visualization
+
+**SymbolStripWidget Features (V6.2):**
+- Symbols + Music Layers sa drag-drop
+- Per-section audio count badges
+- **Reset Buttons** — Per-section reset sa confirmation dialog
+- Expandable symbol items sa context audio slots
 
 **Data Models:** `flutter_ui/lib/models/slot_lab_models.dart`
 - `SymbolDefinition` — Symbol type, emoji, contexts (land/win/expand)
@@ -3400,6 +3464,13 @@ Reorganizovani Lower Zone, novi widgeti i 3-panel layout za V6.
 - Project save/load (JSON)
 - GDD import integration
 - ALE provider connection for music layer sync
+- **Bulk Reset Methods (V6.2):**
+  - `resetSymbolAudioForContext(context)` — Reset all symbol audio for context
+  - `resetSymbolAudioForSymbol(symbolId)` — Reset all audio for symbol
+  - `resetAllSymbolAudio()` — Reset ALL symbol audio assignments
+  - `resetMusicLayersForContext(contextId)` — Reset music layers for context
+  - `resetAllMusicLayers()` — Reset ALL music layer assignments
+  - `getAudioAssignmentCounts()` — Get counts per section for UI badges
 
 **Integration:**
 - `slot_lab_screen.dart` — 3-panel layout with Consumer<SlotLabProjectProvider>
@@ -3467,6 +3538,31 @@ _showAddSymbolDialog();  // Opens dialog, adds to SlotLabProjectProvider
 // Add context via dialog
 _showAddContextDialog(); // Opens dialog, adds to SlotLabProjectProvider
 ```
+
+### SlotLab V6.3 — UX Improvements (2026-01-25) ✅ COMPLETE
+
+Quality-of-life improvements for audio authoring workflow.
+
+**Audio Hover Preview (EventsPanelWidget):**
+- 500ms hover delay before playback starts
+- Waveform visualization during preview
+- Play/Stop toggle button on hover
+- Green accent when playing, blue when idle
+- Stops on mouse exit
+
+**Reset Buttons (SymbolStripWidget):**
+- Audio count badge in section headers (blue badge with count)
+- Reset button (🔄) appears when audio is assigned
+- Confirmation dialog before destructive action
+- Per-section reset (Symbols / Music Layers)
+
+**Implementation Files:**
+| File | Changes |
+|------|---------|
+| `events_panel_widget.dart` | `_AudioBrowserItemWrapper`, `_HoverPreviewItem`, `_SimpleWaveformPainter` |
+| `symbol_strip_widget.dart` | Reset callbacks, count badges, confirmation dialog |
+| `slot_lab_project_provider.dart` | 6 bulk reset methods |
+| `slot_lab_screen.dart` | Reset callback wiring |
 
 ### Bonus Game Simulator (P2.20) — IMPLEMENTED ✅ 2026-01-23
 

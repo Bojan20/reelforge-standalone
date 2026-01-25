@@ -139,18 +139,24 @@ class SlotPreviewWidget extends StatefulWidget {
   final int reels;
   final int rows;
 
+  /// Called when parent's Space key handler should delegate to this widget.
+  /// Parent should check [canHandleSpaceKey] before calling [handleSpaceKey].
+  final void Function()? onSpaceKeyHandled;
+
   const SlotPreviewWidget({
     super.key,
     required this.provider,
     this.reels = 5,
     this.rows = 3,
+    this.onSpaceKeyHandled,
   });
 
   @override
-  State<SlotPreviewWidget> createState() => _SlotPreviewWidgetState();
+  State<SlotPreviewWidget> createState() => SlotPreviewWidgetState();
 }
 
-class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
+/// Public state class so parent can access handleSpaceKey() via GlobalKey
+class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     with TickerProviderStateMixin {
   // ═══════════════════════════════════════════════════════════════════════════
   // PROFESSIONAL REEL ANIMATION SYSTEM
@@ -1117,6 +1123,10 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // ═══════════════════════════════════════════════════════════════════════
 
         // V14: Trigger symbol-specific highlight stages (HP1 → WIN_SYMBOL_HIGHLIGHT_HP1)
+        debugPrint('[SlotPreview] 🎯 WIN_SYMBOL_HIGHLIGHT PHASE 1 START:');
+        debugPrint('[SlotPreview]   → Winning symbols: ${_winningSymbolNames.isEmpty ? "(empty)" : _winningSymbolNames.join(", ")}');
+        debugPrint('[SlotPreview]   → LineWins count: ${result.lineWins.length}');
+
         for (final symbolName in _winningSymbolNames) {
           final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
           debugPrint('[SlotPreview] 🔊 V14: Triggering $stage (${_winningPositionsBySymbol[symbolName]?.length ?? 0} positions)');
@@ -1124,6 +1134,7 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
 
         // Also trigger generic stage for backwards compatibility
+        debugPrint('[SlotPreview] 🔊 Triggering generic WIN_SYMBOL_HIGHLIGHT');
         eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
 
         _startSymbolPulseAnimation();
@@ -2278,18 +2289,10 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // KEYBOARD HANDLING — SPACE to stop/skip spin
+    // KEYBOARD HANDLING — Removed nested Focus to fix focus conflict!
+    // Parent (slot_lab_screen.dart) now handles Space key and calls handleSpaceKey()
     // ═══════════════════════════════════════════════════════════════════════════
-    return Focus(
-      autofocus: true,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space) {
-          _handleSpaceKey();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: LayoutBuilder(
+    return LayoutBuilder(
         builder: (context, constraints) {
           final borderColor = _winningReels.isNotEmpty
               ? _getWinBorderColor()
@@ -2422,12 +2425,15 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
         ),
         ); // Close Transform.translate for screen shake
         },
-      ),
-    );
+      );
   }
 
+  /// Whether this widget can handle SPACE key (true when spinning)
+  bool get canHandleSpaceKey => _isSpinning;
+
   /// Handle SPACE key — Skip/stop spin immediately
-  void _handleSpaceKey() {
+  /// PUBLIC: Parent calls this when Space is pressed and canHandleSpaceKey is true
+  void handleSpaceKey() {
     if (_isSpinning) {
       debugPrint('[SlotPreview] ⏹ SPACE pressed — stopping all reels immediately');
 
@@ -2454,6 +2460,9 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // This way _onProviderUpdate() sees _spinFinalized = true when !isPlaying,
       // allowing it to reset _spinFinalized = false for the next spin.
       widget.provider.stopStagePlayback();
+
+      // Notify parent that we handled the space key
+      widget.onSpaceKeyHandled?.call();
     }
   }
 

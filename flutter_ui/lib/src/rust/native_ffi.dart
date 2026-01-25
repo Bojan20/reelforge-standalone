@@ -484,6 +484,19 @@ typedef EnginePreloadAllDart = void Function();
 typedef EnginePreloadRangeNative = Void Function(Double startTime, Double endTime);
 typedef EnginePreloadRangeDart = void Function(double startTime, double endTime);
 
+// Audio Cache Parallel Preload (SlotLab optimization)
+typedef EngineCachePreloadFilesNative = Pointer<Utf8> Function(Pointer<Utf8> pathsJson);
+typedef EngineCachePreloadFilesDart = Pointer<Utf8> Function(Pointer<Utf8> pathsJson);
+
+typedef EngineCacheAllLoadedNative = Int32 Function(Pointer<Utf8> pathsJson);
+typedef EngineCacheAllLoadedDart = int Function(Pointer<Utf8> pathsJson);
+
+typedef EngineCacheStatsNative = Pointer<Utf8> Function();
+typedef EngineCacheStatsDart = Pointer<Utf8> Function();
+
+typedef EngineCacheIsLoadedNative = Int32 Function(Pointer<Utf8> path);
+typedef EngineCacheIsLoadedDart = int Function(Pointer<Utf8> path);
+
 typedef EngineSyncLoopFromRegionNative = Void Function();
 typedef EngineSyncLoopFromRegionDart = void Function();
 
@@ -2132,6 +2145,12 @@ class NativeFFI {
   late final EngineGetPlaybackDebugInfoDart _getPlaybackDebugInfo;
   late final EnginePreloadAllDart _preloadAll;
   late final EnginePreloadRangeDart _preloadRange;
+
+  // Audio Cache Parallel Preload (SlotLab optimization)
+  late final EngineCachePreloadFilesDart _cachePreloadFiles;
+  late final EngineCacheAllLoadedDart _cacheAllLoaded;
+  late final EngineCacheStatsDart _cacheStats;
+  late final EngineCacheIsLoadedDart _cacheIsLoaded;
   late final EngineSyncLoopFromRegionDart _syncLoopFromRegion;
   late final EngineGetSampleRateDart _getSampleRate;
 
@@ -2783,6 +2802,13 @@ class NativeFFI {
     _getPlaybackDebugInfo = _lib.lookupFunction<EngineGetPlaybackDebugInfoNative, EngineGetPlaybackDebugInfoDart>('engine_get_playback_debug_info');
     _preloadAll = _lib.lookupFunction<EnginePreloadAllNative, EnginePreloadAllDart>('engine_preload_all');
     _preloadRange = _lib.lookupFunction<EnginePreloadRangeNative, EnginePreloadRangeDart>('engine_preload_range');
+
+    // Audio Cache Parallel Preload (SlotLab optimization)
+    _cachePreloadFiles = _lib.lookupFunction<EngineCachePreloadFilesNative, EngineCachePreloadFilesDart>('engine_cache_preload_files');
+    _cacheAllLoaded = _lib.lookupFunction<EngineCacheAllLoadedNative, EngineCacheAllLoadedDart>('engine_cache_all_loaded');
+    _cacheStats = _lib.lookupFunction<EngineCacheStatsNative, EngineCacheStatsDart>('engine_cache_stats');
+    _cacheIsLoaded = _lib.lookupFunction<EngineCacheIsLoadedNative, EngineCacheIsLoadedDart>('engine_cache_is_loaded');
+
     _syncLoopFromRegion = _lib.lookupFunction<EngineSyncLoopFromRegionNative, EngineSyncLoopFromRegionDart>('engine_sync_loop_from_region');
     _getSampleRate = _lib.lookupFunction<EngineGetSampleRateNative, EngineGetSampleRateDart>('engine_get_sample_rate');
 
@@ -4311,6 +4337,76 @@ class NativeFFI {
   void preloadRange(double startTime, double endTime) {
     if (!_loaded) return;
     _preloadRange(startTime, endTime);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO CACHE PARALLEL PRELOAD API (SlotLab optimization)
+  // Preloads audio files using rayon parallel thread pool for instant playback
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Preload multiple audio files in parallel using rayon thread pool.
+  /// Returns a map with: total, loaded, cached, failed, duration_ms
+  /// On error returns: error message
+  Map<String, dynamic> cachePreloadFiles(List<String> paths) {
+    if (!_loaded) {
+      return {'error': 'FFI not loaded'};
+    }
+    if (paths.isEmpty) {
+      return {'total': 0, 'loaded': 0, 'cached': 0, 'failed': 0, 'duration_ms': 0};
+    }
+
+    final jsonStr = jsonEncode(paths);
+    final jsonPtr = jsonStr.toNativeUtf8();
+    try {
+      final resultPtr = _cachePreloadFiles(jsonPtr);
+      if (resultPtr == nullptr) {
+        return {'error': 'null result pointer'};
+      }
+      final result = resultPtr.toDartString();
+      calloc.free(resultPtr);
+      return jsonDecode(result) as Map<String, dynamic>;
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Check if all paths are loaded in cache (fast check)
+  bool cacheAllLoaded(List<String> paths) {
+    if (!_loaded) return false;
+    if (paths.isEmpty) return true;
+
+    final jsonStr = jsonEncode(paths);
+    final jsonPtr = jsonStr.toNativeUtf8();
+    try {
+      return _cacheAllLoaded(jsonPtr) != 0;
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Get audio cache statistics as JSON
+  Map<String, dynamic> cacheStats() {
+    if (!_loaded) {
+      return {'error': 'FFI not loaded'};
+    }
+    final resultPtr = _cacheStats();
+    if (resultPtr == nullptr) {
+      return {'error': 'null result pointer'};
+    }
+    final result = resultPtr.toDartString();
+    calloc.free(resultPtr);
+    return jsonDecode(result) as Map<String, dynamic>;
+  }
+
+  /// Check if single path is loaded in cache
+  bool cacheIsLoaded(String path) {
+    if (!_loaded) return false;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _cacheIsLoaded(pathPtr) != 0;
+    } finally {
+      calloc.free(pathPtr);
+    }
   }
 
   /// Sync transport loop settings from loop region

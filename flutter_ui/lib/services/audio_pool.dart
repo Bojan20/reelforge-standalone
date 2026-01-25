@@ -362,6 +362,52 @@ class AudioPool extends ChangeNotifier {
     debugPrint('[AudioPool] Preloaded Slot Lab events');
   }
 
+  // ==========================================================================
+  // AUDIO FILE PRELOADING (FFI parallel load)
+  // ==========================================================================
+
+  /// Preload audio files in parallel using Rust rayon thread pool.
+  /// This decodes and caches audio data for instant playback.
+  /// Returns result map: {total, loaded, cached, failed, duration_ms}
+  Map<String, dynamic> preloadAudioFiles(List<String> paths) {
+    if (paths.isEmpty) {
+      return {'total': 0, 'loaded': 0, 'cached': 0, 'failed': 0, 'duration_ms': 0};
+    }
+
+    final uniquePaths = paths.toSet().toList(); // Remove duplicates
+    debugPrint('[AudioPool] Preloading ${uniquePaths.length} audio files...');
+
+    final result = NativeFFI.instance.cachePreloadFiles(uniquePaths);
+
+    if (result.containsKey('error')) {
+      debugPrint('[AudioPool] Preload error: ${result['error']}');
+    } else {
+      debugPrint('[AudioPool] Preload complete: '
+          '${result['loaded']}/${result['total']} loaded, '
+          '${result['cached']} cached, '
+          '${result['failed']} failed, '
+          '${result['duration_ms']}ms');
+    }
+
+    return result;
+  }
+
+  /// Check if all paths are already cached (fast check)
+  bool allAudioFilesCached(List<String> paths) {
+    if (paths.isEmpty) return true;
+    return NativeFFI.instance.cacheAllLoaded(paths);
+  }
+
+  /// Check if single path is cached
+  bool isAudioFileCached(String path) {
+    return NativeFFI.instance.cacheIsLoaded(path);
+  }
+
+  /// Get audio cache statistics
+  Map<String, dynamic> getCacheStats() {
+    return NativeFFI.instance.cacheStats();
+  }
+
   void _ensurePoolSize(String eventKey, int minSize, int busId) {
     final normalizedKey = _normalizeKey(eventKey);
     final pool = _pools[normalizedKey] ??= [];

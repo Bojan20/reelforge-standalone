@@ -12,6 +12,7 @@ library;
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GDD MODELS
@@ -333,16 +334,18 @@ class GameDesignDocument {
 // IMPORT RESULT
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Result of GDD import with extracted stages
+/// Result of GDD import with extracted stages and symbols
 class GddImportResult {
   final GameDesignDocument gdd;
   final List<String> generatedStages;
+  final List<SymbolDefinition> generatedSymbols;
   final List<String> warnings;
   final List<String> errors;
 
   const GddImportResult({
     required this.gdd,
     required this.generatedStages,
+    required this.generatedSymbols,
     this.warnings = const [],
     this.errors = const [],
   });
@@ -366,11 +369,16 @@ class GddImportService {
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
       final gdd = GameDesignDocument.fromJson(json);
       final stages = _generateStages(gdd);
+      final symbols = generateSymbolDefinitions(gdd);
       final warnings = _validateGdd(gdd);
+
+      debugPrint('[GddImportService] Imported GDD: ${gdd.name}');
+      debugPrint('[GddImportService] Generated ${stages.length} stages, ${symbols.length} symbols');
 
       return GddImportResult(
         gdd: gdd,
         generatedStages: stages,
+        generatedSymbols: symbols,
         warnings: warnings,
       );
     } catch (e) {
@@ -385,6 +393,7 @@ class GddImportService {
           features: [],
         ),
         generatedStages: [],
+        generatedSymbols: [],
         errors: ['Failed to parse GDD: $e'],
       );
     }
@@ -592,6 +601,162 @@ class GddImportService {
     }
 
     return warnings;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SYMBOL CONVERSION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Convert GDD symbols to SymbolDefinition objects for SlotLabProjectProvider
+  List<SymbolDefinition> generateSymbolDefinitions(GameDesignDocument gdd) {
+    final symbols = <SymbolDefinition>[];
+    var sortOrder = 0;
+
+    for (final gddSymbol in gdd.symbols) {
+      symbols.add(_convertGddSymbolToDefinition(gddSymbol, sortOrder++));
+    }
+
+    return symbols;
+  }
+
+  /// Convert a single GddSymbol to SymbolDefinition
+  SymbolDefinition _convertGddSymbolToDefinition(GddSymbol gddSymbol, int sortOrder) {
+    // Determine SymbolType from GddSymbol properties
+    final SymbolType type;
+    if (gddSymbol.isWild) {
+      type = SymbolType.wild;
+    } else if (gddSymbol.isScatter) {
+      type = SymbolType.scatter;
+    } else if (gddSymbol.isBonus) {
+      type = SymbolType.bonus;
+    } else {
+      type = _tierToSymbolType(gddSymbol.tier);
+    }
+
+    // Generate audio contexts based on symbol type
+    final contexts = _generateContextsForType(type, gddSymbol);
+
+    // Get highest payout for payMultiplier
+    int? payMultiplier;
+    if (gddSymbol.payouts.isNotEmpty) {
+      final maxPayout = gddSymbol.payouts.values.reduce((a, b) => a > b ? a : b);
+      payMultiplier = maxPayout.round();
+    }
+
+    // Choose emoji based on symbol properties
+    final emoji = _emojiForSymbol(gddSymbol, type);
+
+    return SymbolDefinition(
+      id: gddSymbol.id.toUpperCase(),
+      name: gddSymbol.name,
+      emoji: emoji,
+      type: type,
+      contexts: contexts,
+      payMultiplier: payMultiplier,
+      sortOrder: sortOrder,
+      metadata: {
+        'tier': gddSymbol.tier.name,
+        'payouts': gddSymbol.payouts.map((k, v) => MapEntry(k.toString(), v)),
+      },
+    );
+  }
+
+  /// Map SymbolTier to SymbolType
+  SymbolType _tierToSymbolType(SymbolTier tier) {
+    switch (tier) {
+      case SymbolTier.low:
+        return SymbolType.lowPay;
+      case SymbolTier.mid:
+        return SymbolType.mediumPay;
+      case SymbolTier.high:
+        return SymbolType.highPay;
+      case SymbolTier.premium:
+        return SymbolType.highPay;
+      case SymbolTier.special:
+        return SymbolType.bonus;
+      case SymbolTier.wild:
+        return SymbolType.wild;
+      case SymbolTier.scatter:
+        return SymbolType.scatter;
+      case SymbolTier.bonus:
+        return SymbolType.bonus;
+    }
+  }
+
+  /// Generate audio contexts based on symbol type
+  List<String> _generateContextsForType(SymbolType type, GddSymbol gddSymbol) {
+    final contexts = <String>['land', 'win']; // All symbols have land and win
+
+    switch (type) {
+      case SymbolType.wild:
+        contexts.addAll(['expand', 'transform', 'stack']);
+        break;
+      case SymbolType.scatter:
+        contexts.addAll(['trigger', 'anticipation', 'collect']);
+        break;
+      case SymbolType.bonus:
+        contexts.addAll(['trigger', 'anticipation']);
+        break;
+      case SymbolType.multiplier:
+        contexts.addAll(['trigger', 'collect']);
+        break;
+      case SymbolType.collector:
+        contexts.addAll(['collect', 'trigger']);
+        break;
+      case SymbolType.mystery:
+        contexts.addAll(['transform', 'trigger']);
+        break;
+      case SymbolType.highPay:
+      case SymbolType.high:
+        contexts.add('stack'); // High pay symbols often stack
+        break;
+      case SymbolType.mediumPay:
+      case SymbolType.lowPay:
+      case SymbolType.low:
+      case SymbolType.custom:
+        // Just land and win
+        break;
+    }
+
+    return contexts;
+  }
+
+  /// Get emoji for a symbol based on its properties
+  String _emojiForSymbol(GddSymbol gddSymbol, SymbolType type) {
+    // Check for common symbol names first
+    final nameLower = gddSymbol.name.toLowerCase();
+    final idLower = gddSymbol.id.toLowerCase();
+
+    // Playing card symbols
+    if (idLower == '10' || nameLower.contains('ten')) return '🔟';
+    if (idLower == 'j' || nameLower.contains('jack')) return '🃏';
+    if (idLower == 'q' || nameLower.contains('queen')) return '👸';
+    if (idLower == 'k' || nameLower.contains('king')) return '🤴';
+    if (idLower == 'a' || nameLower.contains('ace')) return '🅰️';
+
+    // Common slot symbols
+    if (nameLower.contains('gem') || nameLower.contains('diamond')) return '💎';
+    if (nameLower.contains('gold') || nameLower.contains('coin')) return '🪙';
+    if (nameLower.contains('crown')) return '👑';
+    if (nameLower.contains('star')) return '⭐';
+    if (nameLower.contains('bell')) return '🔔';
+    if (nameLower.contains('cherry') || nameLower.contains('fruit')) return '🍒';
+    if (nameLower.contains('seven') || idLower == '7') return '7️⃣';
+    if (nameLower.contains('bar')) return '🎰';
+
+    // Fallback based on type
+    return switch (type) {
+      SymbolType.wild => '🌟',
+      SymbolType.scatter => '💠',
+      SymbolType.bonus => '🎁',
+      SymbolType.multiplier => '✖️',
+      SymbolType.collector => '🧲',
+      SymbolType.mystery => '❓',
+      SymbolType.highPay || SymbolType.high => '💎',
+      SymbolType.mediumPay => '🔷',
+      SymbolType.lowPay || SymbolType.low => '🔹',
+      SymbolType.custom => '🎰',
+    };
   }
 
   /// Create sample GDD JSON for reference

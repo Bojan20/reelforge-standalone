@@ -2372,6 +2372,117 @@ pub extern "C" fn engine_preload_range(start_time: f64, end_time: f64) {
     PLAYBACK_ENGINE.preload_range(start_time, end_time);
 }
 
+// =============================================================================
+// ULTIMATE AUDIO CACHE PRELOAD — SlotLab Optimization
+// =============================================================================
+
+/// Preload multiple audio files in parallel (JSON array of paths)
+///
+/// This is the ultimate optimization for SlotLab audio loading:
+/// - Parallel disk I/O and decoding across all CPU cores
+/// - Already-cached files are skipped (instant return)
+/// - Returns JSON with preload statistics
+///
+/// # Arguments
+/// * `paths_json` - JSON array of file paths: `["/path/a.wav", "/path/b.wav"]`
+///
+/// # Returns
+/// JSON string with preload result:
+/// `{"total":5, "loaded":4, "cached":2, "failed":1, "duration_ms":150}`
+///
+/// # Safety
+/// paths_json must be a valid null-terminated C string
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_cache_preload_files(paths_json: *const std::ffi::c_char) -> *mut std::ffi::c_char {
+    if paths_json.is_null() {
+        let err = r#"{"error":"null pointer"}"#;
+        return std::ffi::CString::new(err).unwrap_or_default().into_raw();
+    }
+
+    let c_str = unsafe { std::ffi::CStr::from_ptr(paths_json) };
+    let json_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => {
+            let err = r#"{"error":"invalid UTF-8"}"#;
+            return std::ffi::CString::new(err).unwrap_or_default().into_raw();
+        }
+    };
+
+    // Parse JSON array
+    let paths: Vec<String> = match serde_json::from_str(json_str) {
+        Ok(p) => p,
+        Err(e) => {
+            let err = format!(r#"{{"error":"JSON parse error: {}"}}"#, e);
+            return std::ffi::CString::new(err).unwrap_or_default().into_raw();
+        }
+    };
+
+    // Convert to slice of &str
+    let path_refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
+
+    // Call parallel preload
+    let result = PLAYBACK_ENGINE.cache.preload_paths_parallel(&path_refs);
+
+    // Return JSON result
+    let result_json = format!(
+        r#"{{"total":{}, "loaded":{}, "cached":{}, "failed":{}, "duration_ms":{}}}"#,
+        result.total, result.loaded, result.cached, result.failed, result.duration_ms
+    );
+
+    std::ffi::CString::new(result_json).unwrap_or_default().into_raw()
+}
+
+/// Check if all paths are cached (fast check)
+///
+/// # Arguments
+/// * `paths_json` - JSON array of file paths
+///
+/// # Returns
+/// 1 if all cached, 0 if not, -1 on error
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_cache_all_loaded(paths_json: *const std::ffi::c_char) -> i32 {
+    if paths_json.is_null() {
+        return -1;
+    }
+
+    let c_str = unsafe { std::ffi::CStr::from_ptr(paths_json) };
+    let json_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return -1,
+    };
+
+    let paths: Vec<String> = match serde_json::from_str(json_str) {
+        Ok(p) => p,
+        Err(_) => return -1,
+    };
+
+    let path_refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
+    if PLAYBACK_ENGINE.cache.all_cached(&path_refs) { 1 } else { 0 }
+}
+
+/// Get audio cache statistics as JSON
+///
+/// # Returns
+/// JSON: `{"size":10, "memory_mb":45.2, "max_mb":512.0, "utilization":8.8}`
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_cache_stats() -> *mut std::ffi::c_char {
+    let stats = PLAYBACK_ENGINE.cache.stats_json();
+    std::ffi::CString::new(stats).unwrap_or_default().into_raw()
+}
+
+/// Check if single path is cached
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_cache_is_loaded(path: *const std::ffi::c_char) -> i32 {
+    if path.is_null() {
+        return 0;
+    }
+    let c_str = unsafe { std::ffi::CStr::from_ptr(path) };
+    match c_str.to_str() {
+        Ok(s) => if PLAYBACK_ENGINE.cache.is_cached(s) { 1 } else { 0 },
+        Err(_) => 0,
+    }
+}
+
 /// Get debug info about playback state (tracks, clips, cache)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_playback_debug_info() -> *mut std::ffi::c_char {

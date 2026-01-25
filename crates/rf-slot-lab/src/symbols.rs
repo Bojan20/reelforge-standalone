@@ -25,7 +25,7 @@ pub enum SymbolType {
 pub struct Symbol {
     /// Unique symbol ID
     pub id: u32,
-    /// Symbol name (e.g., "Cherry", "7", "Wild")
+    /// Symbol name (e.g., "HP1", "LP3", "WILD", "SCATTER")
     pub name: String,
     /// Symbol type
     pub symbol_type: SymbolType,
@@ -143,25 +143,26 @@ pub struct StandardSymbolSet {
 
 impl StandardSymbolSet {
     /// Create a standard symbol set
+    /// Industry-standard naming: HP = High Paying, LP = Low Paying
+    /// HP1 is highest paying, LP5 is lowest paying
     pub fn new() -> Self {
         let symbols = vec![
-            // High paying
-            Symbol::regular(1, "Seven", 0, &[20.0, 100.0, 500.0]),
-            Symbol::regular(2, "Bar3", 1, &[15.0, 75.0, 300.0]),
-            Symbol::regular(3, "Bar2", 2, &[10.0, 50.0, 200.0]),
-            Symbol::regular(4, "Bar1", 3, &[8.0, 40.0, 150.0]),
-            // Medium paying
-            Symbol::regular(5, "Bell", 4, &[5.0, 25.0, 100.0]),
-            Symbol::regular(6, "Grape", 5, &[4.0, 20.0, 80.0]),
-            Symbol::regular(7, "Orange", 6, &[3.0, 15.0, 60.0]),
-            // Low paying
-            Symbol::regular(8, "Plum", 7, &[2.0, 10.0, 40.0]),
-            Symbol::regular(9, "Cherry", 8, &[1.0, 5.0, 20.0]),
-            Symbol::regular(10, "Lemon", 9, &[1.0, 5.0, 20.0]),
-            // Special
-            Symbol::wild(11, "Wild"),
-            Symbol::scatter(12, "Scatter"),
-            Symbol::bonus(13, "Bonus"),
+            // High paying (HP1 = highest, HP4 = lowest of high tier)
+            Symbol::regular(1, "HP1", 0, &[20.0, 100.0, 500.0]),  // Premium symbol
+            Symbol::regular(2, "HP2", 1, &[15.0, 75.0, 300.0]),
+            Symbol::regular(3, "HP3", 2, &[10.0, 50.0, 200.0]),
+            Symbol::regular(4, "HP4", 3, &[8.0, 40.0, 150.0]),
+            // Low paying (LP1 = highest of low tier, LP5 = lowest)
+            Symbol::regular(5, "LP1", 4, &[5.0, 25.0, 100.0]),
+            Symbol::regular(6, "LP2", 5, &[4.0, 20.0, 80.0]),
+            Symbol::regular(7, "LP3", 6, &[3.0, 15.0, 60.0]),
+            Symbol::regular(8, "LP4", 7, &[2.0, 10.0, 40.0]),
+            Symbol::regular(9, "LP5", 8, &[1.0, 5.0, 20.0]),
+            Symbol::regular(10, "LP6", 9, &[1.0, 5.0, 20.0]),
+            // Special symbols
+            Symbol::wild(11, "WILD"),
+            Symbol::scatter(12, "SCATTER"),
+            Symbol::bonus(13, "BONUS"),
         ];
 
         Self { symbols }
@@ -258,7 +259,7 @@ mod tests {
 
     #[test]
     fn test_symbol_pay() {
-        let symbol = Symbol::regular(1, "Seven", 0, &[20.0, 100.0, 500.0]);
+        let symbol = Symbol::regular(1, "HP1", 0, &[20.0, 100.0, 500.0]);
         assert_eq!(symbol.get_pay(2), 0.0);
         assert_eq!(symbol.get_pay(3), 20.0);
         assert_eq!(symbol.get_pay(4), 100.0);

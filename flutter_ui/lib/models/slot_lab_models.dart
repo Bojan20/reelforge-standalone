@@ -2,8 +2,43 @@
 ///
 /// Models for Symbol Strip, Music Layers, and Context definitions.
 /// Used by SlotLabProjectProvider for state management.
+///
+/// See: .claude/architecture/DYNAMIC_SYMBOL_CONFIGURATION.md
 
 import 'dart:convert';
+import 'package:flutter/material.dart';
+
+// =============================================================================
+// SYMBOL AUDIO CONTEXTS (Typed)
+// =============================================================================
+
+/// Typed audio contexts for symbol events
+enum SymbolAudioContext {
+  land,      // Symbol lands on reel
+  win,       // Symbol is part of a win
+  expand,    // Symbol expands (expanding wild)
+  lock,      // Symbol locks (Hold & Win)
+  transform, // Symbol transforms to another
+  collect,   // Symbol is collected
+  stack,     // Symbol stacks
+  trigger,   // Symbol triggers feature
+  anticipation, // Symbol creates anticipation
+  ;
+
+  /// Convert to stage suffix
+  String get stageSuffix => name.toUpperCase();
+
+  /// Parse from string
+  static SymbolAudioContext? fromString(String value) {
+    try {
+      return SymbolAudioContext.values.firstWhere(
+        (e) => e.name.toLowerCase() == value.toLowerCase(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
 
 // =============================================================================
 // SYMBOL DEFINITIONS
@@ -11,14 +46,75 @@ import 'dart:convert';
 
 /// Symbol type categories for slot games
 enum SymbolType {
-  wild,     // Wild symbols (substitutes)
-  scatter,  // Scatter symbols (triggers features)
-  high,     // High-paying symbols
-  low,      // Low-paying symbols
-  bonus,    // Bonus trigger symbols
+  wild,       // Wild symbols (substitutes)
+  scatter,    // Scatter symbols (triggers features)
+  bonus,      // Bonus trigger symbols
+  highPay,    // High-paying themed symbols
+  mediumPay,  // Medium-paying themed symbols
+  lowPay,     // Low-paying card symbols (A, K, Q, J, 10)
   multiplier, // Multiplier symbols
-  collector,  // Collection symbols
+  collector,  // Collection symbols (coins, gems)
   mystery,    // Mystery/random symbols
+  custom,     // User-defined custom symbols
+
+  // Legacy compatibility
+  high,       // Alias for highPay
+  low,        // Alias for lowPay
+  ;
+
+  /// Get display name for UI
+  String get displayName {
+    switch (this) {
+      case SymbolType.wild: return 'Wild';
+      case SymbolType.scatter: return 'Scatter';
+      case SymbolType.bonus: return 'Bonus';
+      case SymbolType.highPay:
+      case SymbolType.high: return 'High Pay';
+      case SymbolType.mediumPay: return 'Medium Pay';
+      case SymbolType.lowPay:
+      case SymbolType.low: return 'Low Pay';
+      case SymbolType.multiplier: return 'Multiplier';
+      case SymbolType.collector: return 'Collector';
+      case SymbolType.mystery: return 'Mystery';
+      case SymbolType.custom: return 'Custom';
+    }
+  }
+
+  /// Get default color for this symbol type
+  Color get defaultColor {
+    switch (this) {
+      case SymbolType.wild: return const Color(0xFF9C27B0); // Purple
+      case SymbolType.scatter: return const Color(0xFFFFD700); // Gold
+      case SymbolType.bonus: return const Color(0xFFFF5722); // Deep Orange
+      case SymbolType.highPay:
+      case SymbolType.high: return const Color(0xFF2196F3); // Blue
+      case SymbolType.mediumPay: return const Color(0xFF4CAF50); // Green
+      case SymbolType.lowPay:
+      case SymbolType.low: return const Color(0xFF607D8B); // Blue Grey
+      case SymbolType.multiplier: return const Color(0xFFE91E63); // Pink
+      case SymbolType.collector: return const Color(0xFFFFC107); // Amber
+      case SymbolType.mystery: return const Color(0xFF795548); // Brown
+      case SymbolType.custom: return const Color(0xFF9E9E9E); // Grey
+    }
+  }
+
+  /// Get default emoji for this symbol type
+  String get defaultEmoji {
+    switch (this) {
+      case SymbolType.wild: return '🃏';
+      case SymbolType.scatter: return '⭐';
+      case SymbolType.bonus: return '🎁';
+      case SymbolType.highPay:
+      case SymbolType.high: return '💎';
+      case SymbolType.mediumPay: return '🔔';
+      case SymbolType.lowPay:
+      case SymbolType.low: return 'A';
+      case SymbolType.multiplier: return '✖️';
+      case SymbolType.collector: return '💰';
+      case SymbolType.mystery: return '❓';
+      case SymbolType.custom: return '🔷';
+    }
+  }
 }
 
 /// Definition of a slot symbol with audio contexts
@@ -29,6 +125,9 @@ class SymbolDefinition {
   final SymbolType type;
   final List<String> contexts; // Audio contexts: ['land', 'win', 'expand', 'stack']
   final int? payMultiplier; // Base pay multiplier (for sorting)
+  final Color? customColor; // Optional custom color override
+  final int sortOrder; // Display order in UI
+  final Map<String, dynamic>? metadata; // Additional custom data
 
   const SymbolDefinition({
     required this.id,
@@ -37,12 +136,59 @@ class SymbolDefinition {
     required this.type,
     this.contexts = const ['land', 'win'],
     this.payMultiplier,
+    this.customColor,
+    this.sortOrder = 0,
+    this.metadata,
   });
+
+  /// Get the effective display color
+  Color get displayColor => customColor ?? type.defaultColor;
 
   /// Audio stage name for this symbol + context
   /// e.g., SYMBOL_LAND_WILD, SYMBOL_WIN_SCATTER
   String stageName(String context) {
     return 'SYMBOL_${context.toUpperCase()}_${id.toUpperCase()}';
+  }
+
+  /// Stage ID for symbol landing
+  String get stageIdLand => 'SYMBOL_LAND_${id.toUpperCase()}';
+
+  /// Stage ID for symbol win highlight
+  String get stageIdWin => 'WIN_SYMBOL_HIGHLIGHT_${id.toUpperCase()}';
+
+  /// Stage ID for symbol expansion
+  String get stageIdExpand => 'SYMBOL_EXPAND_${id.toUpperCase()}';
+
+  /// Stage ID for symbol locking (Hold & Win)
+  String get stageIdLock => 'SYMBOL_LOCK_${id.toUpperCase()}';
+
+  /// Stage ID for symbol transformation
+  String get stageIdTransform => 'SYMBOL_TRANSFORM_${id.toUpperCase()}';
+
+  /// Get all stage IDs this symbol can generate
+  List<String> get allStageIds {
+    final stages = <String>[];
+    for (final ctx in contexts) {
+      stages.add(stageName(ctx));
+    }
+    // Always include WIN_SYMBOL_HIGHLIGHT variant
+    if (!stages.contains(stageIdWin)) {
+      stages.add(stageIdWin);
+    }
+    return stages;
+  }
+
+  /// Get typed audio contexts
+  Set<SymbolAudioContext> get typedContexts {
+    return contexts
+        .map((c) => SymbolAudioContext.fromString(c))
+        .whereType<SymbolAudioContext>()
+        .toSet();
+  }
+
+  /// Check if symbol has a specific audio context
+  bool hasContext(SymbolAudioContext context) {
+    return contexts.contains(context.name);
   }
 
   /// Create a copy with updated fields
@@ -53,6 +199,9 @@ class SymbolDefinition {
     SymbolType? type,
     List<String>? contexts,
     int? payMultiplier,
+    Color? customColor,
+    int? sortOrder,
+    Map<String, dynamic>? metadata,
   }) {
     return SymbolDefinition(
       id: id ?? this.id,
@@ -61,6 +210,9 @@ class SymbolDefinition {
       type: type ?? this.type,
       contexts: contexts ?? this.contexts,
       payMultiplier: payMultiplier ?? this.payMultiplier,
+      customColor: customColor ?? this.customColor,
+      sortOrder: sortOrder ?? this.sortOrder,
+      metadata: metadata ?? this.metadata,
     );
   }
 
@@ -71,13 +223,18 @@ class SymbolDefinition {
       emoji: json['emoji'] as String,
       type: SymbolType.values.firstWhere(
         (e) => e.name == json['type'],
-        orElse: () => SymbolType.low,
+        orElse: () => SymbolType.lowPay,
       ),
       contexts: (json['contexts'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           const ['land', 'win'],
       payMultiplier: json['payMultiplier'] as int?,
+      customColor: json['customColor'] != null
+          ? Color(json['customColor'] as int)
+          : null,
+      sortOrder: json['sortOrder'] as int? ?? 0,
+      metadata: json['metadata'] as Map<String, dynamic>?,
     );
   }
 
@@ -89,11 +246,251 @@ class SymbolDefinition {
       'type': type.name,
       'contexts': contexts,
       if (payMultiplier != null) 'payMultiplier': payMultiplier,
+      if (customColor != null) 'customColor': customColor!.value,
+      if (sortOrder != 0) 'sortOrder': sortOrder,
+      if (metadata != null) 'metadata': metadata,
     };
   }
 
   @override
   String toString() => 'SymbolDefinition($name, $emoji, $type)';
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is SymbolDefinition && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+// =============================================================================
+// SYMBOL PRESETS
+// =============================================================================
+
+/// Preset type for common slot configurations
+enum SymbolPresetType {
+  standard5x3,    // Standard 5-reel, 3-row slot
+  megaways,       // Megaways-style (6 reels, variable rows)
+  holdAndWin,     // Hold & Win with collector symbols
+  cascading,      // Cascading/Avalanche with multipliers
+  custom,         // User-defined preset
+}
+
+/// Preset template for quick symbol configuration
+class SymbolPreset {
+  final String id;
+  final String name;
+  final String description;
+  final SymbolPresetType type;
+  final List<SymbolDefinition> symbols;
+  final String? iconPath;
+
+  const SymbolPreset({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.type,
+    required this.symbols,
+    this.iconPath,
+  });
+
+  /// Standard 5x3 slot with Wild, Scatter, 3 HP, 5 LP
+  static SymbolPreset get standard5x3 => SymbolPreset(
+    id: 'standard_5x3',
+    name: 'Standard 5x3',
+    description: '5-reel, 3-row classic layout: Wild, Scatter, 3 High Pay, 5 Low Pay',
+    type: SymbolPresetType.standard5x3,
+    symbols: const [
+      SymbolDefinition(id: 'wild', name: 'Wild', emoji: '🃏', type: SymbolType.wild,
+        contexts: ['land', 'win', 'expand'], payMultiplier: 100, sortOrder: 0),
+      SymbolDefinition(id: 'scatter', name: 'Scatter', emoji: '⭐', type: SymbolType.scatter,
+        contexts: ['land', 'win', 'trigger'], payMultiplier: 50, sortOrder: 1),
+      SymbolDefinition(id: 'hp1', name: 'High Pay 1', emoji: '💎', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 30, sortOrder: 2),
+      SymbolDefinition(id: 'hp2', name: 'High Pay 2', emoji: '👑', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 25, sortOrder: 3),
+      SymbolDefinition(id: 'hp3', name: 'High Pay 3', emoji: '🔔', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 20, sortOrder: 4),
+      SymbolDefinition(id: 'lp1', name: 'Ace', emoji: 'A', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 5, sortOrder: 5),
+      SymbolDefinition(id: 'lp2', name: 'King', emoji: 'K', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 4, sortOrder: 6),
+      SymbolDefinition(id: 'lp3', name: 'Queen', emoji: 'Q', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 3, sortOrder: 7),
+      SymbolDefinition(id: 'lp4', name: 'Jack', emoji: 'J', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 2, sortOrder: 8),
+      SymbolDefinition(id: 'lp5', name: 'Ten', emoji: '10', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 1, sortOrder: 9),
+    ],
+  );
+
+  /// Megaways-style with mystery symbols
+  static SymbolPreset get megaways => SymbolPreset(
+    id: 'megaways',
+    name: 'Megaways',
+    description: '6-reel Megaways: Wild, Scatter, Mystery, 4 High Pay, 4 Low Pay',
+    type: SymbolPresetType.megaways,
+    symbols: const [
+      SymbolDefinition(id: 'wild', name: 'Wild', emoji: '🃏', type: SymbolType.wild,
+        contexts: ['land', 'win'], payMultiplier: 100, sortOrder: 0),
+      SymbolDefinition(id: 'scatter', name: 'Scatter', emoji: '⭐', type: SymbolType.scatter,
+        contexts: ['land', 'win', 'trigger'], payMultiplier: 50, sortOrder: 1),
+      SymbolDefinition(id: 'mystery', name: 'Mystery', emoji: '❓', type: SymbolType.mystery,
+        contexts: ['land', 'transform'], payMultiplier: 0, sortOrder: 2),
+      SymbolDefinition(id: 'hp1', name: 'Red Gem', emoji: '🔴', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 30, sortOrder: 3),
+      SymbolDefinition(id: 'hp2', name: 'Blue Gem', emoji: '🔵', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 25, sortOrder: 4),
+      SymbolDefinition(id: 'hp3', name: 'Green Gem', emoji: '🟢', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 20, sortOrder: 5),
+      SymbolDefinition(id: 'hp4', name: 'Purple Gem', emoji: '🟣', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 15, sortOrder: 6),
+      SymbolDefinition(id: 'lp1', name: 'Ace', emoji: 'A', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 5, sortOrder: 7),
+      SymbolDefinition(id: 'lp2', name: 'King', emoji: 'K', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 4, sortOrder: 8),
+      SymbolDefinition(id: 'lp3', name: 'Queen', emoji: 'Q', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 3, sortOrder: 9),
+      SymbolDefinition(id: 'lp4', name: 'Jack', emoji: 'J', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 2, sortOrder: 10),
+    ],
+  );
+
+  /// Hold & Win with collector symbols
+  static SymbolPreset get holdAndWin => SymbolPreset(
+    id: 'hold_and_win',
+    name: 'Hold & Win',
+    description: 'Hold & Win: Wild, Scatter, Coins (Mini/Minor/Major/Grand), 3 HP, 4 LP',
+    type: SymbolPresetType.holdAndWin,
+    symbols: const [
+      SymbolDefinition(id: 'wild', name: 'Wild', emoji: '🃏', type: SymbolType.wild,
+        contexts: ['land', 'win'], payMultiplier: 100, sortOrder: 0),
+      SymbolDefinition(id: 'scatter', name: 'Scatter', emoji: '⭐', type: SymbolType.scatter,
+        contexts: ['land', 'win', 'trigger'], payMultiplier: 50, sortOrder: 1),
+      SymbolDefinition(id: 'coin_mini', name: 'Mini Coin', emoji: '🪙', type: SymbolType.collector,
+        contexts: ['land', 'lock', 'collect'], payMultiplier: 1, sortOrder: 2),
+      SymbolDefinition(id: 'coin_minor', name: 'Minor Coin', emoji: '💰', type: SymbolType.collector,
+        contexts: ['land', 'lock', 'collect'], payMultiplier: 5, sortOrder: 3),
+      SymbolDefinition(id: 'coin_major', name: 'Major Coin', emoji: '💎', type: SymbolType.collector,
+        contexts: ['land', 'lock', 'collect'], payMultiplier: 25, sortOrder: 4),
+      SymbolDefinition(id: 'coin_grand', name: 'Grand Coin', emoji: '👑', type: SymbolType.collector,
+        contexts: ['land', 'lock', 'collect'], payMultiplier: 100, sortOrder: 5),
+      SymbolDefinition(id: 'hp1', name: 'High Pay 1', emoji: '🔔', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 20, sortOrder: 6),
+      SymbolDefinition(id: 'hp2', name: 'High Pay 2', emoji: '🍇', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 15, sortOrder: 7),
+      SymbolDefinition(id: 'hp3', name: 'High Pay 3', emoji: '🍒', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 10, sortOrder: 8),
+      SymbolDefinition(id: 'lp1', name: 'Ace', emoji: 'A', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 5, sortOrder: 9),
+      SymbolDefinition(id: 'lp2', name: 'King', emoji: 'K', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 4, sortOrder: 10),
+      SymbolDefinition(id: 'lp3', name: 'Queen', emoji: 'Q', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 3, sortOrder: 11),
+      SymbolDefinition(id: 'lp4', name: 'Jack', emoji: 'J', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 2, sortOrder: 12),
+    ],
+  );
+
+  /// Cascading/Avalanche with multipliers
+  static SymbolPreset get cascading => SymbolPreset(
+    id: 'cascading',
+    name: 'Cascading/Avalanche',
+    description: 'Cascade mechanics: Wild, Scatter, Multiplier, 4 HP, 4 LP',
+    type: SymbolPresetType.cascading,
+    symbols: const [
+      SymbolDefinition(id: 'wild', name: 'Wild', emoji: '🃏', type: SymbolType.wild,
+        contexts: ['land', 'win'], payMultiplier: 100, sortOrder: 0),
+      SymbolDefinition(id: 'scatter', name: 'Scatter', emoji: '⭐', type: SymbolType.scatter,
+        contexts: ['land', 'win', 'trigger'], payMultiplier: 50, sortOrder: 1),
+      SymbolDefinition(id: 'multiplier', name: 'Multiplier', emoji: '✖️', type: SymbolType.multiplier,
+        contexts: ['land', 'win'], payMultiplier: 0, sortOrder: 2),
+      SymbolDefinition(id: 'hp1', name: 'Red', emoji: '🔴', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 30, sortOrder: 3),
+      SymbolDefinition(id: 'hp2', name: 'Blue', emoji: '🔵', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 25, sortOrder: 4),
+      SymbolDefinition(id: 'hp3', name: 'Green', emoji: '🟢', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 20, sortOrder: 5),
+      SymbolDefinition(id: 'hp4', name: 'Yellow', emoji: '🟡', type: SymbolType.highPay,
+        contexts: ['land', 'win'], payMultiplier: 15, sortOrder: 6),
+      SymbolDefinition(id: 'lp1', name: 'Purple', emoji: '🟣', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 5, sortOrder: 7),
+      SymbolDefinition(id: 'lp2', name: 'Orange', emoji: '🟠', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 4, sortOrder: 8),
+      SymbolDefinition(id: 'lp3', name: 'White', emoji: '⚪', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 3, sortOrder: 9),
+      SymbolDefinition(id: 'lp4', name: 'Black', emoji: '⚫', type: SymbolType.lowPay,
+        contexts: ['land', 'win'], payMultiplier: 2, sortOrder: 10),
+    ],
+  );
+
+  /// Get all built-in presets
+  static List<SymbolPreset> get builtInPresets => [
+    standard5x3,
+    megaways,
+    holdAndWin,
+    cascading,
+  ];
+
+  /// Get preset by ID
+  static SymbolPreset? getById(String id) {
+    try {
+      return builtInPresets.firstWhere((p) => p.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  SymbolPreset copyWith({
+    String? id,
+    String? name,
+    String? description,
+    SymbolPresetType? type,
+    List<SymbolDefinition>? symbols,
+    String? iconPath,
+  }) {
+    return SymbolPreset(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      type: type ?? this.type,
+      symbols: symbols ?? this.symbols,
+      iconPath: iconPath ?? this.iconPath,
+    );
+  }
+
+  factory SymbolPreset.fromJson(Map<String, dynamic> json) {
+    return SymbolPreset(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      description: json['description'] as String? ?? '',
+      type: SymbolPresetType.values.firstWhere(
+        (e) => e.name == json['type'],
+        orElse: () => SymbolPresetType.custom,
+      ),
+      symbols: (json['symbols'] as List<dynamic>?)
+              ?.map((e) => SymbolDefinition.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      iconPath: json['iconPath'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'type': type.name,
+      'symbols': symbols.map((e) => e.toJson()).toList(),
+      if (iconPath != null) 'iconPath': iconPath,
+    };
+  }
+
+  @override
+  String toString() => 'SymbolPreset($name, ${symbols.length} symbols)';
 }
 
 // =============================================================================
@@ -429,95 +826,54 @@ class SlotLabProject {
 // DEFAULT SYMBOLS
 // =============================================================================
 
-/// Standard slot symbols for new projects
-const List<SymbolDefinition> defaultSymbols = [
-  SymbolDefinition(
-    id: 'wild',
-    name: 'Wild',
-    emoji: '🃏',
-    type: SymbolType.wild,
-    contexts: ['land', 'win', 'expand', 'stack'],
-    payMultiplier: 100,
-  ),
-  SymbolDefinition(
-    id: 'scatter',
-    name: 'Scatter',
-    emoji: '⭐',
-    type: SymbolType.scatter,
-    contexts: ['land', 'win', 'trigger'],
-    payMultiplier: 50,
-  ),
-  SymbolDefinition(
-    id: 'bonus',
-    name: 'Bonus',
-    emoji: '🎁',
-    type: SymbolType.bonus,
-    contexts: ['land', 'win', 'trigger'],
-    payMultiplier: 30,
-  ),
-  SymbolDefinition(
-    id: 'high1',
-    name: 'Premium A',
-    emoji: '💎',
-    type: SymbolType.high,
-    contexts: ['land', 'win'],
-    payMultiplier: 25,
-  ),
-  SymbolDefinition(
-    id: 'high2',
-    name: 'Premium B',
-    emoji: '👑',
-    type: SymbolType.high,
-    contexts: ['land', 'win'],
-    payMultiplier: 20,
-  ),
-  SymbolDefinition(
-    id: 'high3',
-    name: 'Premium C',
-    emoji: '🔔',
-    type: SymbolType.high,
-    contexts: ['land', 'win'],
-    payMultiplier: 15,
-  ),
-  SymbolDefinition(
-    id: 'low1',
-    name: 'Low A',
-    emoji: 'A',
-    type: SymbolType.low,
-    contexts: ['land', 'win'],
-    payMultiplier: 5,
-  ),
-  SymbolDefinition(
-    id: 'low2',
-    name: 'Low K',
-    emoji: 'K',
-    type: SymbolType.low,
-    contexts: ['land', 'win'],
-    payMultiplier: 4,
-  ),
-  SymbolDefinition(
-    id: 'low3',
-    name: 'Low Q',
-    emoji: 'Q',
-    type: SymbolType.low,
-    contexts: ['land', 'win'],
-    payMultiplier: 3,
-  ),
-  SymbolDefinition(
-    id: 'low4',
-    name: 'Low J',
-    emoji: 'J',
-    type: SymbolType.low,
-    contexts: ['land', 'win'],
-    payMultiplier: 2,
-  ),
-];
+/// Standard slot symbols for new projects (uses Standard 5x3 preset)
+List<SymbolDefinition> get defaultSymbols => SymbolPreset.standard5x3.symbols;
 
 /// Standard symbol contexts for audio assignment
 const List<String> standardSymbolContexts = [
-  'land',   // Symbol lands on reel
-  'win',    // Symbol is part of a win
-  'expand', // Symbol expands (expanding wild)
-  'stack',  // Symbol stacks
-  'trigger',// Symbol triggers feature
+  'land',      // Symbol lands on reel
+  'win',       // Symbol is part of a win
+  'expand',    // Symbol expands (expanding wild)
+  'stack',     // Symbol stacks
+  'trigger',   // Symbol triggers feature
+  'lock',      // Symbol locks in place (Hold & Win)
+  'transform', // Symbol transforms to another
+  'collect',   // Symbol is collected
+  'anticipation', // Symbol creates anticipation
 ];
+
+/// Get all unique stage IDs from a list of symbols
+List<String> getAllSymbolStageIds(List<SymbolDefinition> symbols) {
+  final stages = <String>{};
+  for (final symbol in symbols) {
+    stages.addAll(symbol.allStageIds);
+  }
+  return stages.toList()..sort();
+}
+
+/// Find symbol by ID
+SymbolDefinition? findSymbolById(List<SymbolDefinition> symbols, String id) {
+  try {
+    return symbols.firstWhere((s) => s.id == id);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Get symbols by type
+List<SymbolDefinition> getSymbolsByType(List<SymbolDefinition> symbols, SymbolType type) {
+  return symbols.where((s) => s.type == type).toList();
+}
+
+/// Sort symbols by pay multiplier (highest first), then by sort order
+List<SymbolDefinition> sortSymbolsByValue(List<SymbolDefinition> symbols) {
+  final sorted = List<SymbolDefinition>.from(symbols);
+  sorted.sort((a, b) {
+    // First compare by pay multiplier (descending)
+    final payCompare = (b.payMultiplier ?? 0).compareTo(a.payMultiplier ?? 0);
+    if (payCompare != 0) return payCompare;
+    // Then by sort order (ascending)
+    return a.sortOrder.compareTo(b.sortOrder);
+  });
+  return sorted;
+}

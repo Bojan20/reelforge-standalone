@@ -1316,6 +1316,8 @@ String? _getFallbackStage(String stage) {
 
 ### Supported Fallback Patterns
 
+**Numeric Suffix Patterns:**
+
 | Specific Stage | Fallback To |
 |----------------|-------------|
 | `REEL_STOP_0..4` | `REEL_STOP` |
@@ -1326,6 +1328,42 @@ String? _getFallbackStage(String stage) {
 | `ROLLUP_TICK_N` | `ROLLUP_TICK` |
 | `WHEEL_TICK_N` | `WHEEL_TICK` |
 | `TRAIL_MOVE_STEP_N` | `TRAIL_MOVE_STEP` |
+
+**V14 Symbol-Specific Patterns (2026-01-25):**
+
+| Specific Stage | Fallback To | Use Case |
+|----------------|-------------|----------|
+| `WIN_SYMBOL_HIGHLIGHT_HP1` | `WIN_SYMBOL_HIGHLIGHT` | High pay symbol 1 highlight |
+| `WIN_SYMBOL_HIGHLIGHT_WILD` | `WIN_SYMBOL_HIGHLIGHT` | Wild symbol highlight |
+| `WIN_SYMBOL_HIGHLIGHT_SCATTER` | `WIN_SYMBOL_HIGHLIGHT` | Scatter highlight |
+| `SYMBOL_WIN_HP2` | `SYMBOL_WIN` | Symbol win sound |
+| `SYMBOL_TRIGGER_BONUS` | `SYMBOL_TRIGGER` | Bonus symbol trigger |
+| `SYMBOL_EXPAND_WILD` | `SYMBOL_EXPAND` | Wild expansion |
+| `SYMBOL_TRANSFORM_SCATTER` | `SYMBOL_TRANSFORM` | Symbol transformation |
+
+**Implementation:**
+
+```dart
+// V14: Symbol-specific stage fallback
+// WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT
+// WIN_SYMBOL_HIGHLIGHT_WILD → WIN_SYMBOL_HIGHLIGHT
+// Pattern: PREFIX_SYMBOLNAME → PREFIX (for symbol-specific stages)
+const symbolPrefixFallbacks = {
+  'WIN_SYMBOL_HIGHLIGHT',
+  'SYMBOL_WIN',
+  'SYMBOL_TRIGGER',
+  'SYMBOL_EXPAND',
+  'SYMBOL_TRANSFORM',
+};
+
+for (final prefix in symbolPrefixFallbacks) {
+  if (stage.startsWith('${prefix}_') && stage.length > prefix.length + 1) {
+    return prefix;
+  }
+}
+```
+
+**Note:** Symbol-specific fallback uses PREFIX matching (not regex `_\d+`), because symbol names like `HP1`, `WILD`, `SCATTER` contain letters, not just digits.
 
 ### Priority Order
 

@@ -1989,11 +1989,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       return;
     }
 
-    // Get waveform peaks (will use demo waveform if empty)
+    // Get waveform peaks from engine
     final peaks = await engine.getWaveformPeaks(clipId: clipInfo.clipId);
     final waveform = peaks.isNotEmpty
         ? Float32List.fromList(peaks.map((v) => v.toDouble()).toList().cast<double>())
-        : timeline.generateDemoWaveform();
+        : null;
 
     setState(() {
       _clips = [
@@ -2422,9 +2422,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         waveform = left;
       }
     }
-
-    // Final fallback to demo waveform
-    waveform ??= timeline.generateDemoWaveform(samples: 2000);
 
     try {
       final clipId = 'clip-${DateTime.now().millisecondsSinceEpoch}';
@@ -3039,8 +3036,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       waveform = left;
       waveformRight = right;
     }
-    // Fallback to demo waveform if FFI fails
-    waveform ??= timeline.generateDemoWaveform();
 
     setState(() {
       _audioPool.add(timeline.PoolAudioFile(
@@ -3092,8 +3087,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         final (left, _) = timeline.parseWaveformFromJson(waveformJson);
         waveform = left;
       }
-      // Fallback to demo waveform if FFI fails
-      waveform ??= timeline.generateDemoWaveform(samples: 2000);
 
       _audioPool.add(timeline.PoolAudioFile(
         id: fileId,
@@ -3132,8 +3125,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         final (left, _) = timeline.parseWaveformFromJson(waveformJson);
         waveform = left;
       }
-      // Fallback to demo waveform if FFI fails
-      waveform ??= timeline.generateDemoWaveform(samples: 2000);
 
       _audioPool.add(timeline.PoolAudioFile(
         id: asset.id,

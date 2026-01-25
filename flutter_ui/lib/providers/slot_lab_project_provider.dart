@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/slot_lab_models.dart';
 import '../providers/ale_provider.dart';
+import '../services/stage_configuration_service.dart';
 
 /// Provider for SlotLab V6 project state
 class SlotLabProjectProvider extends ChangeNotifier {
@@ -76,8 +77,78 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _symbolAudio = [];
     _musicLayers = [];
     _isDirty = false;
+    _syncSymbolStages(); // Sync stages for default symbols
     notifyListeners();
   }
+
+  // ==========================================================================
+  // SYMBOL PRESETS
+  // ==========================================================================
+
+  /// Apply a symbol preset, replacing all current symbols
+  void applyPreset(SymbolPreset preset, {bool clearAudio = true}) {
+    _symbols = List.from(preset.symbols);
+    if (clearAudio) {
+      _symbolAudio = [];
+    }
+    _syncSymbolStages(); // Sync stages for new preset symbols
+    _markDirty();
+    debugPrint('[SlotLabProject] Applied preset: ${preset.name} (${preset.symbols.length} symbols)');
+  }
+
+  /// Apply preset by ID
+  void applyPresetById(String presetId, {bool clearAudio = true}) {
+    final preset = SymbolPreset.getById(presetId);
+    if (preset != null) {
+      applyPreset(preset, clearAudio: clearAudio);
+    }
+  }
+
+  /// Get all available presets
+  List<SymbolPreset> get availablePresets => SymbolPreset.builtInPresets;
+
+  /// Check if current symbols match a preset
+  SymbolPresetType? get currentPresetType {
+    for (final preset in SymbolPreset.builtInPresets) {
+      if (_symbolsMatchPreset(preset)) {
+        return preset.type;
+      }
+    }
+    return null;
+  }
+
+  bool _symbolsMatchPreset(SymbolPreset preset) {
+    if (_symbols.length != preset.symbols.length) return false;
+    final currentIds = _symbols.map((s) => s.id).toSet();
+    final presetIds = preset.symbols.map((s) => s.id).toSet();
+    return currentIds.difference(presetIds).isEmpty;
+  }
+
+  /// Replace all symbols with a new list
+  void replaceSymbols(List<SymbolDefinition> newSymbols, {bool clearAudio = true}) {
+    _symbols = List.from(newSymbols);
+    if (clearAudio) {
+      _symbolAudio = [];
+    }
+    _syncSymbolStages(); // Sync stages for new symbols
+    _markDirty();
+  }
+
+  /// Get symbols filtered by type
+  List<SymbolDefinition> getSymbolsByType(SymbolType type) {
+    return _symbols.where((s) => s.type == type).toList();
+  }
+
+  /// Get symbols sorted by value (highest first)
+  List<SymbolDefinition> get symbolsSortedByValue {
+    return sortSymbolsByValue(_symbols);
+  }
+
+  /// Get all stage IDs for current symbols
+  List<String> get allSymbolStageIds => getAllSymbolStageIds(_symbols);
+
+  /// Find symbol by ID
+  SymbolDefinition? getSymbolById(String id) => findSymbolById(_symbols, id);
 
   // ==========================================================================
   // SYMBOL CRUD
@@ -86,6 +157,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
   /// Add a new symbol
   void addSymbol(SymbolDefinition symbol) {
     _symbols = [..._symbols, symbol];
+    _syncSymbolStages(); // Sync stages for new symbol
     _markDirty();
   }
 
@@ -98,6 +170,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
         symbol,
         ..._symbols.sublist(index + 1),
       ];
+      _syncSymbolStages(); // Sync stages for updated symbol
       _markDirty();
     }
   }
@@ -106,6 +179,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
   void removeSymbol(String id) {
     _symbols = _symbols.where((s) => s.id != id).toList();
     _symbolAudio = _symbolAudio.where((a) => a.symbolId != id).toList();
+    _syncSymbolStages(); // Sync stages after removal
     _markDirty();
   }
 
@@ -115,6 +189,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final symbol = symbols.removeAt(oldIndex);
     symbols.insert(newIndex < oldIndex ? newIndex : newIndex - 1, symbol);
     _symbols = symbols;
+    // Note: Reorder doesn't need stage sync - stages don't depend on order
     _markDirty();
   }
 
@@ -349,6 +424,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _symbolAudio = List.from(loaded.symbolAudio);
     _musicLayers = List.from(loaded.musicLayers);
     _isDirty = false;
+    _syncSymbolStages(); // Sync stages for loaded symbols
     notifyListeners();
   }
 
@@ -360,6 +436,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _contexts = List.from(loaded.contexts);
     _symbolAudio = List.from(loaded.symbolAudio);
     _musicLayers = List.from(loaded.musicLayers);
+    _syncSymbolStages(); // Sync stages for imported symbols
     _markDirty();
   }
 
@@ -392,37 +469,95 @@ class SlotLabProjectProvider extends ChangeNotifier {
   }
 
   SymbolType _parseSymbolType(String? typeStr) {
-    if (typeStr == null) return SymbolType.low;
+    if (typeStr == null) return SymbolType.lowPay;
     final lower = typeStr.toLowerCase();
     if (lower.contains('wild')) return SymbolType.wild;
     if (lower.contains('scatter')) return SymbolType.scatter;
     if (lower.contains('bonus')) return SymbolType.bonus;
-    if (lower.contains('high') || lower.contains('premium')) return SymbolType.high;
+    if (lower.contains('high') || lower.contains('premium') || lower.contains('hp')) {
+      return SymbolType.highPay;
+    }
+    if (lower.contains('medium') || lower.contains('mid') || lower.contains('mp')) {
+      return SymbolType.mediumPay;
+    }
     if (lower.contains('mult')) return SymbolType.multiplier;
-    if (lower.contains('collect')) return SymbolType.collector;
+    if (lower.contains('collect') || lower.contains('coin')) return SymbolType.collector;
     if (lower.contains('mystery')) return SymbolType.mystery;
-    return SymbolType.low;
+    return SymbolType.lowPay;
   }
 
   String _defaultEmojiForType(SymbolType type) {
-    switch (type) {
-      case SymbolType.wild:
-        return '🃏';
-      case SymbolType.scatter:
-        return '⭐';
-      case SymbolType.bonus:
-        return '🎁';
-      case SymbolType.high:
-        return '💎';
-      case SymbolType.low:
-        return '🔤';
-      case SymbolType.multiplier:
-        return '✖️';
-      case SymbolType.collector:
-        return '🧲';
-      case SymbolType.mystery:
-        return '❓';
+    return type.defaultEmoji;
+  }
+
+  // ==========================================================================
+  // BULK RESET METHODS
+  // ==========================================================================
+
+  /// Reset all symbol audio assignments for a specific context (land, win, expand)
+  void resetSymbolAudioForContext(String context) {
+    final before = _symbolAudio.length;
+    _symbolAudio = _symbolAudio.where((a) => a.context != context).toList();
+    final removed = before - _symbolAudio.length;
+    debugPrint('[SlotLabProject] Reset symbol audio for context "$context" — removed $removed assignments');
+    _markDirty();
+  }
+
+  /// Reset all symbol audio assignments for a specific symbol
+  void resetSymbolAudioForSymbol(String symbolId) {
+    final before = _symbolAudio.length;
+    _symbolAudio = _symbolAudio.where((a) => a.symbolId != symbolId).toList();
+    final removed = before - _symbolAudio.length;
+    debugPrint('[SlotLabProject] Reset symbol audio for symbol "$symbolId" — removed $removed assignments');
+    _markDirty();
+  }
+
+  /// Reset ALL symbol audio assignments
+  void resetAllSymbolAudio() {
+    final count = _symbolAudio.length;
+    _symbolAudio = [];
+    debugPrint('[SlotLabProject] Reset ALL symbol audio — removed $count assignments');
+    _markDirty();
+  }
+
+  /// Reset all music layers for a specific context (base, freeSpins, etc.)
+  void resetMusicLayersForContext(String contextId) {
+    final before = _musicLayers.length;
+    _musicLayers = _musicLayers.where((a) => a.contextId != contextId).toList();
+    final removed = before - _musicLayers.length;
+    debugPrint('[SlotLabProject] Reset music layers for context "$contextId" — removed $removed assignments');
+    _markDirty();
+  }
+
+  /// Reset ALL music layer assignments
+  void resetAllMusicLayers() {
+    final count = _musicLayers.length;
+    _musicLayers = [];
+    debugPrint('[SlotLabProject] Reset ALL music layers — removed $count assignments');
+    _markDirty();
+  }
+
+  /// Get count of audio assignments per section (for UI display)
+  Map<String, int> getAudioAssignmentCounts() {
+    final counts = <String, int>{};
+
+    // Symbol audio by context
+    for (final assignment in _symbolAudio) {
+      final key = 'symbol_${assignment.context}';
+      counts[key] = (counts[key] ?? 0) + 1;
     }
+
+    // Music layers by context
+    for (final assignment in _musicLayers) {
+      final key = 'music_${assignment.contextId}';
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+
+    // Totals
+    counts['symbol_total'] = _symbolAudio.length;
+    counts['music_total'] = _musicLayers.length;
+
+    return counts;
   }
 
   // ==========================================================================
@@ -432,6 +567,12 @@ class SlotLabProjectProvider extends ChangeNotifier {
   void _markDirty() {
     _isDirty = true;
     notifyListeners();
+  }
+
+  /// Sync symbol stages to StageConfigurationService
+  /// Call this whenever symbols are added, removed, or modified
+  void _syncSymbolStages() {
+    StageConfigurationService.instance.syncSymbolStages(_symbols);
   }
 
   /// Debug: print current state

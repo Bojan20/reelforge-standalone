@@ -23,6 +23,11 @@ class SymbolStripWidget extends StatefulWidget {
   final Function(String contextId, int layer)? onMusicLayerClear;
   final Function()? onAddSymbol;
   final Function()? onAddContext;
+  // Reset callbacks
+  final Function()? onResetAllSymbolAudio;
+  final Function(String context)? onResetSymbolAudioForContext;
+  final Function()? onResetAllMusicLayers;
+  final Function(String contextId)? onResetMusicLayersForContext;
 
   const SymbolStripWidget({
     super.key,
@@ -36,6 +41,10 @@ class SymbolStripWidget extends StatefulWidget {
     this.onMusicLayerClear,
     this.onAddSymbol,
     this.onAddContext,
+    this.onResetAllSymbolAudio,
+    this.onResetSymbolAudioForContext,
+    this.onResetAllMusicLayers,
+    this.onResetMusicLayersForContext,
   });
 
   @override
@@ -62,6 +71,10 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Count audio assignments
+    final symbolAudioCount = widget.symbolAudio.length;
+    final musicLayerCount = widget.musicLayers.length;
+
     return Container(
       color: const Color(0xFF0D0D10),
       child: Column(
@@ -75,12 +88,22 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // SYMBOLS section
-                  _buildSectionHeader('SYMBOLS', widget.onAddSymbol),
+                  // SYMBOLS section with reset button
+                  _buildSectionHeader(
+                    'SYMBOLS',
+                    widget.onAddSymbol,
+                    audioCount: symbolAudioCount,
+                    onReset: widget.onResetAllSymbolAudio,
+                  ),
                   ...widget.symbols.map(_buildSymbolItem),
                   const SizedBox(height: 16),
-                  // MUSIC LAYERS section
-                  _buildSectionHeader('MUSIC LAYERS', widget.onAddContext),
+                  // MUSIC LAYERS section with reset button
+                  _buildSectionHeader(
+                    'MUSIC LAYERS',
+                    widget.onAddContext,
+                    audioCount: musicLayerCount,
+                    onReset: widget.onResetAllMusicLayers,
+                  ),
                   ...widget.contexts.map(_buildContextItem),
                 ],
               ),
@@ -118,7 +141,7 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
     );
   }
 
-  Widget _buildSectionHeader(String title, VoidCallback? onAdd) {
+  Widget _buildSectionHeader(String title, VoidCallback? onAdd, {int? audioCount, VoidCallback? onReset}) {
     return Container(
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -134,12 +157,80 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
               letterSpacing: 1.2,
             ),
           ),
+          // Audio count badge
+          if (audioCount != null && audioCount > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                '$audioCount',
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600,
+                  color: FluxForgeTheme.accentBlue,
+                ),
+              ),
+            ),
+          ],
           const Spacer(),
+          // Reset button (only show if there are audio assignments)
+          if (onReset != null && audioCount != null && audioCount > 0)
+            Tooltip(
+              message: 'Reset all audio',
+              child: InkWell(
+                onTap: () => _showResetConfirmation(title, audioCount, onReset),
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  margin: const EdgeInsets.only(right: 4),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: const Icon(Icons.refresh, size: 12, color: Colors.red),
+                ),
+              ),
+            ),
           if (onAdd != null)
             InkWell(
               onTap: onAdd,
               child: const Icon(Icons.add, size: 14, color: Colors.white38),
             ),
+        ],
+      ),
+    );
+  }
+
+  void _showResetConfirmation(String section, int count, VoidCallback onReset) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        title: Text(
+          'Reset $section Audio?',
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+        ),
+        content: Text(
+          'This will remove $count audio assignment${count > 1 ? 's' : ''}. This action cannot be undone.',
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              onReset();
+            },
+            child: const Text('Reset', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
@@ -453,8 +544,12 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
       case SymbolType.bonus:
         return const Color(0xFFFF69B4); // Pink
       case SymbolType.high:
+      case SymbolType.highPay:
         return const Color(0xFF9370DB); // Purple
+      case SymbolType.mediumPay:
+        return const Color(0xFFBA55D3); // Medium purple
       case SymbolType.low:
+      case SymbolType.lowPay:
         return const Color(0xFF98FB98); // Pale green
       case SymbolType.multiplier:
         return const Color(0xFFFF8C00); // Orange
@@ -462,6 +557,8 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
         return const Color(0xFF20B2AA); // Teal
       case SymbolType.mystery:
         return const Color(0xFF778899); // Gray
+      case SymbolType.custom:
+        return const Color(0xFFDDA0DD); // Plum
     }
   }
 

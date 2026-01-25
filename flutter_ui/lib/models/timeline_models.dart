@@ -940,22 +940,6 @@ String formatTime(
   }
 }
 
-// ============ Demo Waveform Generator ============
-
-/// Generate demo waveform data
-Float32List generateDemoWaveform({int samples = 1000}) {
-  final waveform = Float32List(samples);
-  for (int i = 0; i < samples; i++) {
-    final t = i / samples;
-    final envelope = math.sin(t * 3.14159); // Fade in/out
-    final noise = (_randomDouble() - 0.5) * 0.3;
-    final sine = math.sin(t * 3.14159 * 8) * 0.5;
-    final burst = (t > 0.2 && t < 0.4) ? _randomDouble() * 0.8 : 0;
-    waveform[i] = (sine + noise + burst) * envelope;
-  }
-  return waveform;
-}
-
 /// Parse waveform from FFI JSON response and extract Float32List peaks
 /// Returns (leftChannel, rightChannel) tuple or (null, null) on failure
 /// FFI JSON format:
@@ -1022,13 +1006,6 @@ Float32List generateDemoWaveform({int samples = 1000}) {
     return (null, null);
   }
 }
-
-final _waveformRandom = math.Random();
-
-double _randomDouble() {
-  return _waveformRandom.nextDouble();
-}
-
 // ============ Track Colors ============
 
 const List<Color> kTrackColors = [

@@ -12,10 +12,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show Color;
 import 'package:path/path.dart' as p;
+import '../models/slot_lab_models.dart';
 import '../providers/middleware_provider.dart';
+import '../providers/slot_lab_project_provider.dart';
 import '../providers/slot_lab_provider.dart';
 import 'event_registry.dart';
+import 'stage_configuration_service.dart';
 
 /// Service for persisting session data to disk
 class SessionPersistenceService {
@@ -28,6 +32,7 @@ class SessionPersistenceService {
   // References
   MiddlewareProvider? _middleware;
   SlotLabProvider? _slotLab;
+  SlotLabProjectProvider? _slotLabProject;
 
   // State
   String? _sessionDirectory;
@@ -40,15 +45,18 @@ class SessionPersistenceService {
   static const String sessionFileName = 'session.json';
   static const String audioPoolFileName = 'audio_pool.json';
   static const String eventRegistryFileName = 'event_registry.json';
+  static const String symbolConfigFileName = 'symbol_config.json';
+  static const String stageConfigFileName = 'stage_config.json';
 
   // ═══════════════════════════════════════════════════════════════════════════
   // INITIALIZATION
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Initialize with provider references
-  Future<void> init(MiddlewareProvider middleware, SlotLabProvider slotLab) async {
+  Future<void> init(MiddlewareProvider middleware, SlotLabProvider slotLab, {SlotLabProjectProvider? slotLabProject}) async {
     _middleware = middleware;
     _slotLab = slotLab;
+    _slotLabProject = slotLabProject;
 
     // Get or create session directory
     _sessionDirectory = await _getSessionDirectory();
@@ -59,6 +67,12 @@ class SessionPersistenceService {
 
     // Load existing session if available
     await loadSession();
+  }
+
+  /// Connect SlotLabProjectProvider after init (for late binding)
+  void connectSlotLabProject(SlotLabProjectProvider provider) {
+    _slotLabProject = provider;
+    debugPrint('[SessionPersistence] SlotLabProjectProvider connected');
   }
 
   /// Get session directory path
@@ -121,6 +135,12 @@ class SessionPersistenceService {
 
       // Save event registry
       await _saveEventRegistry();
+
+      // Save symbol config (if connected)
+      await _saveSymbolConfig();
+
+      // Save stage config
+      await _saveStageConfig();
 
       _isDirty = false;
       _lastSave = DateTime.now();
@@ -208,6 +228,76 @@ class SessionPersistenceService {
     debugPrint('[SessionPersistence] Saved event registry (${events.length} events): $filePath');
   }
 
+  Future<void> _saveSymbolConfig() async {
+    if (_slotLabProject == null) {
+      debugPrint('[SessionPersistence] Skipping symbol config save: SlotLabProjectProvider not connected');
+      return;
+    }
+
+    final filePath = p.join(_sessionDirectory!, symbolConfigFileName);
+    final symbols = _slotLabProject!.symbols;
+
+    final symbolsList = <Map<String, dynamic>>[];
+    for (final symbol in symbols) {
+      symbolsList.add({
+        'id': symbol.id,
+        'name': symbol.name,
+        'emoji': symbol.emoji,
+        'type': symbol.type.name,
+        'contexts': symbol.contexts,
+        'payMultiplier': symbol.payMultiplier,
+        'sortOrder': symbol.sortOrder,
+        'customColor': symbol.customColor?.value,
+        'metadata': symbol.metadata,
+      });
+    }
+
+    final json = {
+      'version': 1,
+      'lastSaved': DateTime.now().toIso8601String(),
+      'symbols': symbolsList,
+    };
+
+    final jsonString = const JsonEncoder.withIndent('  ').convert(json);
+    await File(filePath).writeAsString(jsonString);
+    debugPrint('[SessionPersistence] Saved symbol config (${symbols.length} symbols): $filePath');
+  }
+
+  Future<void> _saveStageConfig() async {
+    final filePath = p.join(_sessionDirectory!, stageConfigFileName);
+    final service = StageConfigurationService.instance;
+
+    // Get all custom stages (non-default ones that were registered dynamically)
+    final allStages = service.getAllStages();
+    final customStages = <Map<String, dynamic>>[];
+
+    for (final stage in allStages) {
+      // Only save stages that were dynamically registered (e.g., symbol stages)
+      if (service.isSymbolGenerated(stage.name)) {
+        customStages.add({
+          'stage': stage.name,
+          'category': stage.category.name,
+          'priority': stage.priority,
+          'bus': stage.bus.name,
+          'spatialIntent': stage.spatialIntent,
+          'pooled': stage.isPooled,
+          'isLooping': stage.isLooping,
+          'description': stage.description,
+        });
+      }
+    }
+
+    final json = {
+      'version': 1,
+      'lastSaved': DateTime.now().toIso8601String(),
+      'customStages': customStages,
+    };
+
+    final jsonString = const JsonEncoder.withIndent('  ').convert(json);
+    await File(filePath).writeAsString(jsonString);
+    debugPrint('[SessionPersistence] Saved stage config (${customStages.length} custom stages): $filePath');
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // LOAD SESSION
   // ═══════════════════════════════════════════════════════════════════════════
@@ -220,6 +310,12 @@ class SessionPersistenceService {
     }
 
     try {
+      // Load symbol config first (triggers stage regeneration)
+      await _loadSymbolConfig();
+
+      // Load stage config (for validation/backup)
+      await _loadStageConfig();
+
       // Load composite events
       await _loadCompositeEvents();
 
@@ -318,6 +414,81 @@ class SessionPersistenceService {
       debugPrint('[SessionPersistence] Loaded event registry (${events?.length ?? 0} events)');
     } catch (e) {
       debugPrint('[SessionPersistence] Failed to load event registry: $e');
+    }
+  }
+
+  Future<void> _loadSymbolConfig() async {
+    if (_slotLabProject == null) {
+      debugPrint('[SessionPersistence] Skipping symbol config load: SlotLabProjectProvider not connected');
+      return;
+    }
+
+    final filePath = p.join(_sessionDirectory!, symbolConfigFileName);
+    final file = File(filePath);
+
+    if (!await file.exists()) {
+      debugPrint('[SessionPersistence] No symbol config file found: $filePath');
+      return;
+    }
+
+    try {
+      final jsonString = await file.readAsString();
+      final json = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      final symbolsList = json['symbols'] as List<dynamic>?;
+      if (symbolsList != null) {
+        final symbols = <SymbolDefinition>[];
+        for (final symbolJson in symbolsList) {
+          final map = symbolJson as Map<String, dynamic>;
+          symbols.add(SymbolDefinition(
+            id: map['id'] as String,
+            name: map['name'] as String,
+            emoji: map['emoji'] as String? ?? '🎰',
+            type: SymbolType.values.firstWhere(
+              (t) => t.name == map['type'],
+              orElse: () => SymbolType.custom,
+            ),
+            contexts: (map['contexts'] as List<dynamic>?)?.cast<String>() ?? ['land'],
+            payMultiplier: map['payMultiplier'] as int?,
+            sortOrder: map['sortOrder'] as int? ?? 0,
+            customColor: map['customColor'] != null
+                ? Color(map['customColor'] as int)
+                : null,
+            metadata: map['metadata'] as Map<String, dynamic>?,
+          ));
+        }
+
+        // Replace symbols in provider (this will trigger stage sync)
+        _slotLabProject!.replaceSymbols(symbols);
+        debugPrint('[SessionPersistence] Loaded symbol config (${symbols.length} symbols)');
+      }
+    } catch (e) {
+      debugPrint('[SessionPersistence] Failed to load symbol config: $e');
+    }
+  }
+
+  Future<void> _loadStageConfig() async {
+    final filePath = p.join(_sessionDirectory!, stageConfigFileName);
+    final file = File(filePath);
+
+    if (!await file.exists()) {
+      debugPrint('[SessionPersistence] No stage config file found: $filePath');
+      return;
+    }
+
+    try {
+      final jsonString = await file.readAsString();
+      final json = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      // Note: Symbol-generated stages are auto-regenerated when symbols are loaded
+      // This file serves as a backup/validation, but the authoritative source
+      // is the symbol definitions. If symbols are loaded first, stages will be
+      // recreated automatically via SlotLabProjectProvider._syncSymbolStages()
+
+      final customStages = json['customStages'] as List<dynamic>?;
+      debugPrint('[SessionPersistence] Stage config loaded (${customStages?.length ?? 0} custom stages recorded)');
+    } catch (e) {
+      debugPrint('[SessionPersistence] Failed to load stage config: $e');
     }
   }
 

@@ -12,6 +12,7 @@
 library;
 
 import 'package:flutter/foundation.dart';
+import '../models/slot_lab_models.dart';
 import '../spatial/auto_spatial.dart' show SpatialBus;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -267,6 +268,238 @@ class StageConfigurationService extends ChangeNotifier {
     if (_customStages.remove(normalized) != null) {
       notifyListeners();
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DYNAMIC SYMBOL STAGE GENERATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Track which stages were generated from symbols (for cleanup)
+  final Set<String> _symbolGeneratedStages = {};
+
+  /// Register all stages for a symbol based on its contexts
+  ///
+  /// Generates stages like:
+  /// - SYMBOL_LAND_{ID} — Symbol landing on reel
+  /// - WIN_SYMBOL_HIGHLIGHT_{ID} — Symbol highlighted during win
+  /// - SYMBOL_EXPAND_{ID} — Wild/symbol expansion
+  /// - SYMBOL_LOCK_{ID} — Symbol locking (Hold & Win)
+  /// - SYMBOL_TRANSFORM_{ID} — Symbol transformation
+  /// - SYMBOL_COLLECT_{ID} — Coin/gem collection
+  /// - SYMBOL_STACK_{ID} — Symbol stacking
+  /// - SYMBOL_TRIGGER_{ID} — Feature trigger
+  /// - ANTICIPATION_{ID} — Anticipation before feature
+  void registerSymbolStages(SymbolDefinition symbol) {
+    final id = symbol.id.toUpperCase();
+    final priority = _getPriorityForSymbolType(symbol.type);
+    final bus = _getBusForSymbolType(symbol.type);
+
+    // Register each context-specific stage (contexts are strings like 'land', 'win', etc.)
+    for (final contextStr in symbol.contexts) {
+      final context = SymbolAudioContext.fromString(contextStr);
+      if (context == null) {
+        debugPrint('[StageConfig] Unknown context: $contextStr for symbol: ${symbol.id}');
+        continue;
+      }
+
+      final stageName = _getStageNameForContext(id, context);
+      final def = StageDefinition(
+        name: stageName,
+        category: StageCategory.symbol,
+        priority: _getPriorityForContext(context, priority),
+        bus: bus,
+        spatialIntent: _getSpatialIntentForContext(context, id),
+        isPooled: _isContextPooled(context),
+        isLooping: false,
+        ducksMusic: context == SymbolAudioContext.trigger || context == SymbolAudioContext.anticipation,
+        description: 'Auto-generated for symbol: ${symbol.name}',
+      );
+      _customStages[stageName] = def;
+      _symbolGeneratedStages.add(stageName);
+    }
+
+    debugPrint('[StageConfig] Registered ${symbol.contexts.length} stages for symbol: ${symbol.id}');
+  }
+
+  /// Remove all stages for a symbol
+  void removeSymbolStages(String symbolId) {
+    final id = symbolId.toUpperCase();
+    final toRemove = <String>[];
+
+    for (final stageName in _symbolGeneratedStages) {
+      if (stageName.endsWith('_$id')) {
+        toRemove.add(stageName);
+      }
+    }
+
+    for (final name in toRemove) {
+      _customStages.remove(name);
+      _symbolGeneratedStages.remove(name);
+    }
+
+    if (toRemove.isNotEmpty) {
+      debugPrint('[StageConfig] Removed ${toRemove.length} stages for symbol: $symbolId');
+      notifyListeners();
+    }
+  }
+
+  /// Sync all symbol stages from a list of symbols
+  /// Clears old symbol-generated stages and registers new ones
+  void syncSymbolStages(List<SymbolDefinition> symbols) {
+    // Clear all symbol-generated stages
+    for (final stageName in _symbolGeneratedStages) {
+      _customStages.remove(stageName);
+    }
+    _symbolGeneratedStages.clear();
+
+    // Register stages for each symbol
+    for (final symbol in symbols) {
+      registerSymbolStages(symbol);
+    }
+
+    notifyListeners();
+    debugPrint('[StageConfig] Synced ${_symbolGeneratedStages.length} stages from ${symbols.length} symbols');
+  }
+
+  /// Get all stage names generated from a specific symbol
+  List<String> getSymbolStageNames(String symbolId) {
+    final id = symbolId.toUpperCase();
+    return _symbolGeneratedStages.where((s) => s.endsWith('_$id')).toList();
+  }
+
+  /// Get all symbol-generated stage names
+  Set<String> get allSymbolStageNames => Set.unmodifiable(_symbolGeneratedStages);
+
+  /// Check if a stage was generated from a symbol definition
+  bool isSymbolGenerated(String stage) {
+    return _symbolGeneratedStages.contains(stage.toUpperCase());
+  }
+
+  /// Get all registered stages (both default and custom)
+  List<StageDefinition> getAllStages() {
+    final allStages = <StageDefinition>[];
+    allStages.addAll(_stages.values);
+    allStages.addAll(_customStages.values);
+    return allStages;
+  }
+
+  // Helper methods for symbol stage generation
+
+  String _getStageNameForContext(String symbolId, SymbolAudioContext context) {
+    switch (context) {
+      case SymbolAudioContext.land:
+        return 'SYMBOL_LAND_$symbolId';
+      case SymbolAudioContext.win:
+        return 'WIN_SYMBOL_HIGHLIGHT_$symbolId';
+      case SymbolAudioContext.expand:
+        return 'SYMBOL_EXPAND_$symbolId';
+      case SymbolAudioContext.lock:
+        return 'SYMBOL_LOCK_$symbolId';
+      case SymbolAudioContext.transform:
+        return 'SYMBOL_TRANSFORM_$symbolId';
+      case SymbolAudioContext.collect:
+        return 'SYMBOL_COLLECT_$symbolId';
+      case SymbolAudioContext.stack:
+        return 'SYMBOL_STACK_$symbolId';
+      case SymbolAudioContext.trigger:
+        return 'SYMBOL_TRIGGER_$symbolId';
+      case SymbolAudioContext.anticipation:
+        return 'ANTICIPATION_$symbolId';
+    }
+  }
+
+  int _getPriorityForSymbolType(SymbolType type) {
+    switch (type) {
+      case SymbolType.wild:
+      case SymbolType.scatter:
+      case SymbolType.bonus:
+        return 70; // High priority for special symbols
+      case SymbolType.multiplier:
+      case SymbolType.collector:
+        return 65;
+      case SymbolType.highPay:
+      case SymbolType.high:
+        return 55;
+      case SymbolType.mediumPay:
+        return 50;
+      case SymbolType.lowPay:
+      case SymbolType.low:
+        return 45;
+      case SymbolType.mystery:
+        return 60;
+      case SymbolType.custom:
+        return 50;
+    }
+  }
+
+  int _getPriorityForContext(SymbolAudioContext context, int baseP) {
+    switch (context) {
+      case SymbolAudioContext.trigger:
+        return baseP + 15; // Triggers are highest
+      case SymbolAudioContext.anticipation:
+        return baseP + 10;
+      case SymbolAudioContext.win:
+        return baseP + 5;
+      case SymbolAudioContext.expand:
+      case SymbolAudioContext.transform:
+        return baseP + 5;
+      case SymbolAudioContext.collect:
+      case SymbolAudioContext.lock:
+        return baseP;
+      case SymbolAudioContext.land:
+      case SymbolAudioContext.stack:
+        return baseP - 5;
+    }
+  }
+
+  SpatialBus _getBusForSymbolType(SymbolType type) {
+    switch (type) {
+      case SymbolType.wild:
+      case SymbolType.scatter:
+      case SymbolType.bonus:
+      case SymbolType.multiplier:
+      case SymbolType.collector:
+        return SpatialBus.sfx; // Special effects bus
+      case SymbolType.highPay:
+      case SymbolType.high:
+      case SymbolType.mediumPay:
+      case SymbolType.lowPay:
+      case SymbolType.low:
+        return SpatialBus.reels; // Reel sounds
+      case SymbolType.mystery:
+      case SymbolType.custom:
+        return SpatialBus.sfx;
+    }
+  }
+
+  String _getSpatialIntentForContext(SymbolAudioContext context, String symbolId) {
+    switch (context) {
+      case SymbolAudioContext.land:
+        return 'SYMBOL_LAND_$symbolId';
+      case SymbolAudioContext.win:
+        return 'WIN_SYMBOL_HIGHLIGHT';
+      case SymbolAudioContext.expand:
+        return 'WILD_EXPAND';
+      case SymbolAudioContext.lock:
+        return 'HOLD_LOCK';
+      case SymbolAudioContext.transform:
+        return 'MYSTERY_REVEAL';
+      case SymbolAudioContext.collect:
+        return 'COIN_COLLECT';
+      case SymbolAudioContext.stack:
+        return 'SYMBOL_STACK';
+      case SymbolAudioContext.trigger:
+        return 'FEATURE_TRIGGER';
+      case SymbolAudioContext.anticipation:
+        return 'ANTICIPATION_ON';
+    }
+  }
+
+  bool _isContextPooled(SymbolAudioContext context) {
+    // Land and collect are rapid-fire events
+    return context == SymbolAudioContext.land ||
+        context == SymbolAudioContext.collect ||
+        context == SymbolAudioContext.stack;
   }
 
   /// Update stage definition

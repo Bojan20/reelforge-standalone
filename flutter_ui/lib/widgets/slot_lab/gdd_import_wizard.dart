@@ -15,6 +15,8 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/gdd_import_service.dart';
 import '../../services/stage_configuration_service.dart';
+import '../../services/service_locator.dart';
+import '../../providers/slot_lab_project_provider.dart';
 
 /// GDD Import Wizard Dialog
 class GddImportWizard extends StatefulWidget {
@@ -579,6 +581,7 @@ class _GddImportWizardState extends State<GddImportWizard> {
   Widget _buildConfirmStep() {
     final gdd = _importResult?.gdd;
     final stages = _importResult?.generatedStages ?? [];
+    final symbols = _importResult?.generatedSymbols ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,9 +616,10 @@ class _GddImportWizardState extends State<GddImportWizard> {
             children: [
               _buildSummaryRow('Game', gdd?.name ?? 'Unknown'),
               _buildSummaryRow('Grid', '${gdd?.grid.columns ?? 5} x ${gdd?.grid.rows ?? 3}'),
-              _buildSummaryRow('Symbols', '${gdd?.symbols.length ?? 0}'),
+              _buildSummaryRow('GDD Symbols', '${gdd?.symbols.length ?? 0}'),
+              _buildSummaryRow('Audio Symbols', '${symbols.length} (auto-generated)'),
               _buildSummaryRow('Features', '${gdd?.features.length ?? 0}'),
-              _buildSummaryRow('Stages', '$stages'),
+              _buildSummaryRow('Stages', '${stages.length}'),
             ],
           ),
         ),
@@ -634,6 +638,7 @@ class _GddImportWizardState extends State<GddImportWizard> {
               SizedBox(width: 12),
               Expanded(
                 child: Text(
+                  'Symbols will be added to your SlotLab project with auto-generated audio stages. '
                   'Custom stages will be registered with StageConfigurationService. '
                   'You can then create audio events for each stage in the Event Editor.',
                   style: TextStyle(color: Color(0xFF4A9EFF), fontSize: 12),
@@ -737,6 +742,19 @@ class _GddImportWizardState extends State<GddImportWizard> {
 
   void _finishImport() {
     if (_importResult == null) return;
+
+    // Import symbols into SlotLabProjectProvider
+    if (_importResult!.generatedSymbols.isNotEmpty) {
+      try {
+        final projectProvider = sl<SlotLabProjectProvider>();
+        // Use replaceSymbols which handles symbol replacement and stage sync
+        projectProvider.replaceSymbols(_importResult!.generatedSymbols);
+        debugPrint('[GddImportWizard] Imported ${_importResult!.generatedSymbols.length} symbols');
+      } catch (e) {
+        debugPrint('[GddImportWizard] Failed to import symbols: $e');
+        // Continue anyway - stages will still be registered
+      }
+    }
 
     // Register custom stages with StageConfigurationService
     final service = StageConfigurationService.instance;

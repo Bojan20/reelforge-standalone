@@ -7,7 +7,9 @@
 ///
 /// Connected to MiddlewareProvider as single source of truth.
 
+import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -15,8 +17,10 @@ import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/audio_asset_manager.dart';
+import '../../services/audio_playback_service.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'create_event_dialog.dart';
+import 'audio_hover_preview.dart';
 
 /// Main Events Panel Widget
 class EventsPanelWidget extends StatefulWidget {
@@ -1071,97 +1075,12 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   }
 
   Widget _buildPoolAssetItem(UnifiedAudioAsset asset) {
-    final name = asset.path.split('/').last;
-    final ext = name.split('.').last.toUpperCase();
-    final folder = asset.folder;
+    final audioInfo = _assetToAudioInfo(asset);
 
-    return Draggable<String>(
-      data: asset.path,
-      feedback: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: FluxForgeTheme.accentBlue,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.audiotrack, size: 14, color: Colors.white),
-              const SizedBox(width: 4),
-              Text(
-                name,
-                style: const TextStyle(fontSize: 11, color: Colors.white),
-              ),
-            ],
-          ),
-        ),
-      ),
-      onDragStarted: () {
-        widget.onAudioDragStarted?.call(asset.path);
-      },
-      child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.audiotrack,
-              size: 14,
-              color: FluxForgeTheme.accentGreen,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(fontSize: 11, color: Colors.white70),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    folder,
-                    style: const TextStyle(fontSize: 9, color: Colors.white38),
-                  ),
-                ],
-              ),
-            ),
-            // Duration badge
-            if (asset.duration > 0)
-              Container(
-                margin: const EdgeInsets.only(right: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: Text(
-                  _formatDurationSeconds(asset.duration),
-                  style: const TextStyle(fontSize: 8, color: Colors.white38),
-                ),
-              ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Text(
-                ext,
-                style: const TextStyle(fontSize: 8, color: Colors.white38),
-              ),
-            ),
-          ],
-        ),
-      ),
+    // Wrap AudioBrowserItem to convert drag data from AudioFileInfo to String (path)
+    return _AudioBrowserItemWrapper(
+      audioInfo: audioInfo,
+      onDragStarted: () => widget.onAudioDragStarted?.call(asset.path),
     );
   }
 
@@ -1170,6 +1089,36 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     final minutes = totalSeconds ~/ 60;
     final remainingSeconds = totalSeconds % 60;
     return '${minutes}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  /// Convert UnifiedAudioAsset to AudioFileInfo for hover preview
+  AudioFileInfo _assetToAudioInfo(UnifiedAudioAsset asset) {
+    final name = asset.path.split('/').last;
+    final ext = name.split('.').last.toUpperCase();
+    return AudioFileInfo(
+      id: asset.id,
+      name: name,
+      path: asset.path,
+      duration: Duration(milliseconds: (asset.duration * 1000).round()),
+      sampleRate: asset.sampleRate,
+      channels: asset.channels,
+      format: ext,
+      bitDepth: 24, // Default, as UnifiedAudioAsset doesn't have this
+      tags: [asset.folder],
+    );
+  }
+
+  /// Convert File to AudioFileInfo for hover preview
+  AudioFileInfo _fileToAudioInfo(File file) {
+    final name = file.path.split('/').last;
+    final ext = name.split('.').last.toUpperCase();
+    return AudioFileInfo(
+      id: file.path, // Use path as ID
+      name: name,
+      path: file.path,
+      duration: const Duration(seconds: 0), // Unknown until loaded
+      format: ext,
+    );
   }
 
   Widget _buildFileSystemList() {
@@ -1228,63 +1177,12 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   }
 
   Widget _buildAudioFileItem(File file) {
-    final name = file.path.split('/').last;
-    final ext = name.split('.').last.toUpperCase();
+    final audioInfo = _fileToAudioInfo(file);
 
-    return Draggable<String>(
-      data: file.path,
-      feedback: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: FluxForgeTheme.accentBlue,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.audiotrack, size: 14, color: Colors.white),
-              const SizedBox(width: 4),
-              Text(
-                name,
-                style: const TextStyle(fontSize: 11, color: Colors.white),
-              ),
-            ],
-          ),
-        ),
-      ),
-      onDragStarted: () {
-        widget.onAudioDragStarted?.call(file.path);
-      },
-      child: Container(
-        height: 28,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            const Icon(Icons.audiotrack, size: 14, color: Colors.white38),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(fontSize: 11, color: Colors.white70),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Text(
-                ext,
-                style: const TextStyle(fontSize: 8, color: Colors.white38),
-              ),
-            ),
-          ],
-        ),
-      ),
+    // Wrap AudioBrowserItem to convert drag data from AudioFileInfo to String (path)
+    return _AudioBrowserItemWrapper(
+      audioInfo: audioInfo,
+      onDragStarted: () => widget.onAudioDragStarted?.call(file.path),
     );
   }
 
@@ -1332,5 +1230,338 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         ],
       ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO BROWSER ITEM WRAPPER
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Wrapper that uses AudioBrowserItem for hover preview but returns String
+/// path in drag data (for compatibility with existing drag targets)
+class _AudioBrowserItemWrapper extends StatelessWidget {
+  final AudioFileInfo audioInfo;
+  final VoidCallback? onDragStarted;
+
+  const _AudioBrowserItemWrapper({
+    required this.audioInfo,
+    this.onDragStarted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Use custom Draggable that returns String instead of AudioFileInfo
+    return Draggable<String>(
+      data: audioInfo.path,
+      onDragStarted: onDragStarted,
+      feedback: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: 200,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A22),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: FluxForgeTheme.accentBlue, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: FluxForgeTheme.accentBlue.withOpacity(0.3),
+                blurRadius: 12,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.audiotrack, color: FluxForgeTheme.accentBlue, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  audioInfo.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.5,
+        child: _buildAudioBrowserItemContent(),
+      ),
+      child: _buildAudioBrowserItemContent(),
+    );
+  }
+
+  /// Builds AudioBrowserItem-like content with hover preview
+  Widget _buildAudioBrowserItemContent() {
+    return _HoverPreviewItem(audioInfo: audioInfo);
+  }
+}
+
+/// Item with hover preview functionality
+class _HoverPreviewItem extends StatefulWidget {
+  final AudioFileInfo audioInfo;
+
+  const _HoverPreviewItem({required this.audioInfo});
+
+  @override
+  State<_HoverPreviewItem> createState() => _HoverPreviewItemState();
+}
+
+class _HoverPreviewItemState extends State<_HoverPreviewItem> {
+  bool _isHovered = false;
+  bool _isPlaying = false;
+  int _currentVoiceId = -1;
+  Timer? _hoverTimer;
+
+  @override
+  void dispose() {
+    _hoverTimer?.cancel();
+    _stopPlayback();
+    super.dispose();
+  }
+
+  void _onHoverStart() {
+    setState(() => _isHovered = true);
+
+    // Start preview after 500ms hover
+    _hoverTimer = Timer(const Duration(milliseconds: 500), () {
+      if (_isHovered && mounted) {
+        _startPlayback();
+      }
+    });
+  }
+
+  void _onHoverEnd() {
+    setState(() => _isHovered = false);
+    _hoverTimer?.cancel();
+    _stopPlayback();
+  }
+
+  void _startPlayback() {
+    if (_isPlaying) return;
+
+    _currentVoiceId = AudioPlaybackService.instance.previewFile(
+      widget.audioInfo.path,
+      source: PlaybackSource.browser,
+    );
+
+    if (_currentVoiceId >= 0) {
+      setState(() => _isPlaying = true);
+    }
+  }
+
+  void _stopPlayback() {
+    if (!_isPlaying) return;
+
+    if (_currentVoiceId >= 0) {
+      AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
+      _currentVoiceId = -1;
+    }
+    setState(() => _isPlaying = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => _onHoverStart(),
+      onExit: (_) => _onHoverEnd(),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: _isHovered || _isPlaying ? 72 : 44,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? Colors.white.withOpacity(0.05)
+              : Colors.transparent,
+          border: Border(
+            bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+            left: BorderSide(
+              color: _isPlaying
+                  ? FluxForgeTheme.accentGreen
+                  : (_isHovered ? FluxForgeTheme.accentBlue : Colors.transparent),
+              width: 2,
+            ),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top row: icon, name, format, duration, play button
+            Row(
+              children: [
+                Icon(
+                  Icons.audiotrack,
+                  size: 14,
+                  color: _isPlaying
+                      ? FluxForgeTheme.accentGreen
+                      : FluxForgeTheme.accentBlue,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.audioInfo.name,
+                        style: const TextStyle(fontSize: 11, color: Colors.white70),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            widget.audioInfo.format,
+                            style: const TextStyle(fontSize: 8, color: Colors.white38),
+                          ),
+                          if (widget.audioInfo.tags.isNotEmpty) ...[
+                            const Text(' · ', style: TextStyle(fontSize: 8, color: Colors.white24)),
+                            Text(
+                              widget.audioInfo.tags.first,
+                              style: const TextStyle(fontSize: 8, color: Colors.white38),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Duration
+                if (widget.audioInfo.duration.inMilliseconds > 0)
+                  Container(
+                    margin: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Text(
+                      widget.audioInfo.durationFormatted,
+                      style: const TextStyle(fontSize: 8, color: Colors.white38, fontFamily: 'monospace'),
+                    ),
+                  ),
+                // Play/Stop button on hover
+                if (_isHovered)
+                  InkWell(
+                    onTap: _isPlaying ? _stopPlayback : _startPlayback,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: _isPlaying
+                            ? FluxForgeTheme.accentGreen.withOpacity(0.2)
+                            : FluxForgeTheme.accentBlue.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _isPlaying ? Icons.stop : Icons.play_arrow,
+                        size: 12,
+                        color: _isPlaying
+                            ? FluxForgeTheme.accentGreen
+                            : FluxForgeTheme.accentBlue,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            // Preview waveform on hover
+            if (_isHovered || _isPlaying)
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D0D10),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Mini waveform visualization
+                      CustomPaint(
+                        size: const Size(double.infinity, 20),
+                        painter: _SimpleWaveformPainter(isPlaying: _isPlaying),
+                      ),
+                      // Playing indicator
+                      if (_isPlaying)
+                        Positioned(
+                          left: 4,
+                          top: 2,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: FluxForgeTheme.accentGreen,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'PLAYING',
+                                style: TextStyle(
+                                  fontSize: 7,
+                                  fontWeight: FontWeight.bold,
+                                  color: FluxForgeTheme.accentGreen,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Simple waveform painter for preview
+class _SimpleWaveformPainter extends CustomPainter {
+  final bool isPlaying;
+
+  _SimpleWaveformPainter({this.isPlaying = false});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = isPlaying
+          ? FluxForgeTheme.accentGreen.withOpacity(0.6)
+          : Colors.white.withOpacity(0.2)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+
+    final random = math.Random(42); // Fixed seed for consistent visualization
+    final barCount = 40;
+    final barWidth = size.width / barCount;
+    final centerY = size.height / 2;
+
+    for (int i = 0; i < barCount; i++) {
+      final x = i * barWidth + barWidth / 2;
+      final envelope = math.sin(i / barCount * math.pi);
+      final amplitude = (random.nextDouble() * 0.5 + 0.3) * envelope * (size.height * 0.4);
+
+      canvas.drawLine(
+        Offset(x, centerY - amplitude),
+        Offset(x, centerY + amplitude),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SimpleWaveformPainter oldDelegate) {
+    return oldDelegate.isPlaying != isPlaying;
   }
 }

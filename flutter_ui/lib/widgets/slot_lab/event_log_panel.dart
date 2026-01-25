@@ -152,16 +152,13 @@ class _EventLogPanelState extends State<EventLogPanel> {
   bool _isPaused = false;
   Set<EventLogType> _activeFilters = EventLogType.values.toSet();
   String _searchQuery = '';
-  int _lastMiddlewareEventCount = 0;
-  int _lastLoggedStageIndex = -1; // Track last logged stage to avoid duplicates
-  int _lastLoggedSpinCount = -1; // Track spin count to reset on new spin
   int _lastTriggerCount = 0; // Track EventRegistry trigger count
 
   @override
   void initState() {
     super.initState();
-    widget.slotLabProvider.addListener(_onSlotLabUpdate);
-    widget.middlewareProvider.addListener(_onMiddlewareUpdate);
+    // NOTE: SlotLabProvider listener removed — stages are logged via EventRegistry
+    // NOTE: MiddlewareProvider listener removed — TODO: implement middleware event logging
     eventRegistry.addListener(_onEventRegistryUpdate);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.toLowerCase());
@@ -170,8 +167,6 @@ class _EventLogPanelState extends State<EventLogPanel> {
 
   @override
   void dispose() {
-    widget.slotLabProvider.removeListener(_onSlotLabUpdate);
-    widget.middlewareProvider.removeListener(_onMiddlewareUpdate);
     eventRegistry.removeListener(_onEventRegistryUpdate);
     _scrollController.dispose();
     _searchController.dispose();
@@ -258,35 +253,9 @@ class _EventLogPanelState extends State<EventLogPanel> {
     if (mounted) setState(() {});
   }
 
-  void _onSlotLabUpdate() {
-    // STAGE events are now logged exclusively by _onEventRegistryUpdate
-    // EventRegistry.triggerStage() increments counter for BOTH:
-    // - Stages with audio (logged as AUDIO type with layer info)
-    // - Stages without audio (logged as STAGE type, "(no audio)")
-    // This prevents any duplicate entries
-  }
-
-  void _onMiddlewareUpdate() {
-    if (_isPaused) return;
-
-    // MiddlewareProvider doesn't have eventHistory, skip this for now
-    // TODO: Add event history tracking to MiddlewareProvider if needed
-  }
-
-  // Placeholder for future middleware event logging
-  void _logMiddlewareEvent(String eventName, String targetBus, int priority, String eventId) {
-    _addEntry(EventLogEntry(
-      timestamp: DateTime.now(),
-      type: EventLogType.middleware,
-      eventName: eventName,
-      details: 'Bus: $targetBus | Priority: $priority',
-      data: {
-        'event_id': eventId,
-        'target_bus': targetBus,
-        'priority': priority,
-      },
-    ));
-  }
+  // NOTE: _onSlotLabUpdate removed — stages logged via EventRegistry
+  // NOTE: _onMiddlewareUpdate removed — TODO for future middleware event logging
+  // NOTE: _logMiddlewareEvent removed — was placeholder, never used
 
   void _addEntry(EventLogEntry entry) {
     setState(() {
@@ -312,38 +281,8 @@ class _EventLogPanelState extends State<EventLogPanel> {
     }
   }
 
-  void _addRtpcEntry(String paramName, double value) {
-    if (_isPaused) return;
-
-    _addEntry(EventLogEntry(
-      timestamp: DateTime.now(),
-      type: EventLogType.rtpc,
-      eventName: paramName,
-      details: 'Value: ${value.toStringAsFixed(3)}',
-      data: {'value': value},
-    ));
-  }
-
-  void _addStateEntry(String stateGroup, String stateName) {
-    if (_isPaused) return;
-
-    _addEntry(EventLogEntry(
-      timestamp: DateTime.now(),
-      type: EventLogType.state,
-      eventName: '$stateGroup: $stateName',
-    ));
-  }
-
-  void _addAudioEntry(String audioEvent, {String? details}) {
-    if (_isPaused) return;
-
-    _addEntry(EventLogEntry(
-      timestamp: DateTime.now(),
-      type: EventLogType.audio,
-      eventName: audioEvent,
-      details: details,
-    ));
-  }
+  // NOTE: _addRtpcEntry, _addStateEntry, _addAudioEntry removed — were never called
+  // These methods can be re-added when middleware/RTPC/state logging is implemented
 
   void _clearLog() {
     setState(() {

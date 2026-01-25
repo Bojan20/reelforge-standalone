@@ -940,6 +940,30 @@ class EventRegistry extends ChangeNotifier {
     }
   }
 
+  // ==========================================================================
+  // AUDIO FILE PRELOADING (FFI parallel cache)
+  // ==========================================================================
+
+  /// Preload all registered audio files using Rust rayon parallel thread pool.
+  /// This decodes and caches audio data for instant playback on first trigger.
+  /// Should be called after bulk event registration is complete.
+  Map<String, dynamic> preloadAllAudioFiles() {
+    final paths = _preloadedPaths.toList();
+    if (paths.isEmpty) {
+      debugPrint('[EventRegistry] No audio files to preload');
+      return {'total': 0, 'loaded': 0, 'cached': 0, 'failed': 0, 'duration_ms': 0};
+    }
+
+    debugPrint('[EventRegistry] Preloading ${paths.length} audio files via FFI...');
+    return AudioPool.instance.preloadAudioFiles(paths);
+  }
+
+  /// Check if all registered audio files are cached
+  bool get allAudioFilesCached => AudioPool.instance.allAudioFilesCached(_preloadedPaths.toList());
+
+  /// Get count of preloaded paths
+  int get preloadedPathCount => _preloadedPaths.length;
+
   /// Dobij sve registrovane evente
   List<AudioEvent> get allEvents => _events.values.toList();
 
@@ -997,6 +1021,26 @@ class EventRegistry extends ChangeNotifier {
 
       if (fallbackablePatterns.contains(baseName)) {
         return baseName;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V14: Symbol-specific stage fallback
+    // WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT
+    // WIN_SYMBOL_HIGHLIGHT_WILD → WIN_SYMBOL_HIGHLIGHT
+    // Pattern: PREFIX_SYMBOLNAME → PREFIX (for symbol-specific stages)
+    // ═══════════════════════════════════════════════════════════════════════════
+    const symbolPrefixFallbacks = {
+      'WIN_SYMBOL_HIGHLIGHT',
+      'SYMBOL_WIN',
+      'SYMBOL_TRIGGER',
+      'SYMBOL_EXPAND',
+      'SYMBOL_TRANSFORM',
+    };
+
+    for (final prefix in symbolPrefixFallbacks) {
+      if (stage.startsWith('${prefix}_') && stage.length > prefix.length + 1) {
+        return prefix;
       }
     }
 
@@ -1099,6 +1143,25 @@ class EventRegistry extends ChangeNotifier {
         event = _stageToEvent[fallbackStage];
         if (event != null) {
           debugPrint('[EventRegistry] 🔄 Using fallback: $normalizedStage → $fallbackStage');
+        } else {
+          debugPrint('[EventRegistry] ⚠️ Fallback stage "$fallbackStage" also not registered');
+        }
+      }
+    }
+
+    // V14: Specific debug for WIN_SYMBOL_HIGHLIGHT stages
+    if (normalizedStage.contains('WIN_SYMBOL_HIGHLIGHT')) {
+      debugPrint('[EventRegistry] 🎯 WIN_SYMBOL_HIGHLIGHT stage: "$normalizedStage"');
+      debugPrint('[EventRegistry]   → Event found: ${event != null}');
+      if (event != null) {
+        debugPrint('[EventRegistry]   → Event name: ${event.name}');
+        debugPrint('[EventRegistry]   → Layers: ${event.layers.length}');
+      } else {
+        // Check if generic WIN_SYMBOL_HIGHLIGHT is registered
+        final genericEvent = _stageToEvent['WIN_SYMBOL_HIGHLIGHT'];
+        debugPrint('[EventRegistry]   → Generic WIN_SYMBOL_HIGHLIGHT registered: ${genericEvent != null}');
+        if (genericEvent != null) {
+          debugPrint('[EventRegistry]   → Generic has ${genericEvent.layers.length} layers');
         }
       }
     }

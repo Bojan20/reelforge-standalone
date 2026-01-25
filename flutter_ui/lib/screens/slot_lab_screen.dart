@@ -719,6 +719,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     _restorePersistedState();
     _initWaveformCache();
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL FIX: Global keyboard handler that doesn't depend on focus
+    // This ensures Space key works even when focus is on Lower Zone panels
+    // ═══════════════════════════════════════════════════════════════════════════
+    HardwareKeyboard.instance.addHandler(_globalKeyHandler);
+
     // Listen to MiddlewareProvider for bidirectional sync
     // When layers are added in Middleware center panel, Slot Lab updates automatically
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -740,6 +746,47 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         }
       }
     });
+  }
+
+  /// Global keyboard handler — handles Space regardless of focus
+  /// This fixes the bug where Space stops working after clicking on other elements
+  bool _globalKeyHandler(KeyEvent event) {
+    // Only handle KeyDown, not KeyUp or KeyRepeat
+    if (event is! KeyDownEvent) return false;
+
+    // Only handle Space key
+    if (event.logicalKey != LogicalKeyboardKey.space) return false;
+
+    // Don't handle if we're not mounted or visible
+    if (!mounted) return false;
+
+    debugPrint('[SlotLab] 🌍 GLOBAL Space key handler');
+
+    // Priority 1: If stage playback is active, toggle pause/resume
+    if (_hasSlotLabProvider && (_slotLabProvider.isPlayingStages || _slotLabProvider.isPaused)) {
+      debugPrint('[SlotLab] → Toggling stage pause, isPaused=${_slotLabProvider.isPaused}');
+      _slotLabProvider.togglePauseResume();
+      return true; // Handled
+    }
+
+    // Priority 2: If reels are spinning, stop them
+    if (_hasSlotLabProvider && _slotLabProvider.isReelsSpinning) {
+      debugPrint('[SlotLab] → Stopping reel spin');
+      _slotLabProvider.stopStagePlayback();
+      return true; // Handled
+    }
+
+    // Priority 3: Start a new spin if not playing
+    if (_hasSlotLabProvider && !_slotLabProvider.isSpinning && _slotLabProvider.initialized) {
+      debugPrint('[SlotLab] → Starting new spin');
+      _slotLabProvider.spin();
+      return true; // Handled
+    }
+
+    // Priority 4: Toggle timeline playback
+    debugPrint('[SlotLab] → Toggling timeline playback');
+    _togglePlayback();
+    return true; // Handled
   }
 
   /// Callback when drag controller state changes
@@ -1780,6 +1827,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   @override
   void dispose() {
+    // Remove global keyboard handler
+    HardwareKeyboard.instance.removeHandler(_globalKeyHandler);
+
     // Persist state before disposing
     _persistState();
 
@@ -2043,6 +2093,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                             },
                             onAddSymbol: _showAddSymbolDialog,
                             onAddContext: _showAddContextDialog,
+                            onResetAllSymbolAudio: () => projectProvider.resetAllSymbolAudio(),
+                            onResetSymbolAudioForContext: (context) => projectProvider.resetSymbolAudioForContext(context),
+                            onResetAllMusicLayers: () => projectProvider.resetAllMusicLayers(),
+                            onResetMusicLayersForContext: (contextId) => projectProvider.resetMusicLayersForContext(contextId),
                           ),
                         );
                       },
@@ -2170,19 +2224,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // Only allow repeat for zoom and arrow keys
     if (event is KeyRepeatEvent && !isZoomKey && !isArrowKey) return KeyEventResult.ignored;
 
-    // Space = Play/Pause (no repeat)
-    // Priority: Stage playback > Timeline playback
+    // Space = Handled by global keyboard handler (_globalKeyHandler)
+    // This ensures Space works even when focus is lost to Lower Zone panels
+    // See initState() for the global handler registration
     if (key == LogicalKeyboardKey.space) {
-      // P0.3: First check if stage playback is active/paused
-      if (_hasSlotLabProvider && (_slotLabProvider.isPlayingStages || _slotLabProvider.isPaused)) {
-        debugPrint('[SlotLab] SPACE pressed - toggling stage pause, isPaused=${_slotLabProvider.isPaused}');
-        _slotLabProvider.togglePauseResume();
-        return KeyEventResult.handled;
-      }
-      // Otherwise toggle timeline playback
-      debugPrint('[SlotLab] SPACE pressed - toggling timeline playback, isPlaying=$_isPlaying');
-      _togglePlayback();
-      return KeyEventResult.handled;
+      // Let global handler handle it — don't double-process
+      return KeyEventResult.ignored;
     }
 
     // Escape = Stop all playback (stages and timeline)
@@ -4061,8 +4108,40 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   void _showAddSymbolDialog() {
     final nameController = TextEditingController();
     final emojiController = TextEditingController(text: '🎰');
-    SymbolType selectedType = SymbolType.low;
+    SymbolType selectedType = SymbolType.lowPay;
     final selectedContexts = <String>{'land', 'win'};
+
+    // Quick presets with (name, type, emoji, color)
+    final symbolPresets = <(String, SymbolType, String, Color)>[
+      ('Wild', SymbolType.wild, '🃏', const Color(0xFF9C27B0)),
+      ('Scatter', SymbolType.scatter, '⭐', const Color(0xFFFFD700)),
+      ('Bonus', SymbolType.bonus, '🎁', const Color(0xFFFF5722)),
+      ('High Pay', SymbolType.highPay, '💎', const Color(0xFF2196F3)),
+      ('Medium Pay', SymbolType.mediumPay, '🔔', const Color(0xFF4CAF50)),
+      ('Low Pay', SymbolType.lowPay, 'A', const Color(0xFF607D8B)),
+      ('Multiplier', SymbolType.multiplier, '✖️', const Color(0xFFE91E63)),
+      ('Collector', SymbolType.collector, '💰', const Color(0xFFFFC107)),
+      ('Mystery', SymbolType.mystery, '❓', const Color(0xFF795548)),
+    ];
+
+    // Emoji options for quick selection
+    final emojiOptions = [
+      // Special
+      '🃏', '⭐', '🎁', '❓', '✖️',
+      // High pay
+      '💎', '👑', '🔔', '7️⃣', '🍀',
+      // Themed
+      '🦁', '🐯', '🦅', '🐉', '🔥',
+      // Fruit
+      '🍒', '🍋', '🍊', '🍇', '🍉',
+      // Cards
+      'A', 'K', 'Q', 'J', '10',
+      // Coins
+      '🪙', '💰', '💵', '💎', '🏆',
+    ];
+
+    // Audio context options (from SymbolAudioContext enum)
+    final contextOptions = SymbolAudioContext.values.map((c) => c.name).toList();
 
     showDialog(
       context: context,
@@ -4074,103 +4153,216 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             style: TextStyle(color: Colors.white, fontSize: 14),
           ),
           content: SizedBox(
-            width: 300,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Name field
-                TextField(
-                  controller: nameController,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                  decoration: InputDecoration(
-                    labelText: 'Symbol Name',
-                    labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-                    ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF4A9EFF)),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Emoji field
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: emojiController,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
-                        decoration: InputDecoration(
-                          labelText: 'Emoji',
-                          labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-                          ),
-                          focusedBorder: const OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF4A9EFF)),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            width: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Quick Presets
+                  const Text('Quick Presets', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: symbolPresets.map((preset) => GestureDetector(
+                      onTap: () => setDialogState(() {
+                        nameController.text = preset.$1;
+                        selectedType = preset.$2;
+                        emojiController.text = preset.$3;
+                        // Set default contexts based on type
+                        selectedContexts.clear();
+                        selectedContexts.addAll({'land', 'win'});
+                        if (preset.$2 == SymbolType.wild) {
+                          selectedContexts.add('expand');
+                        } else if (preset.$2 == SymbolType.scatter || preset.$2 == SymbolType.bonus) {
+                          selectedContexts.add('trigger');
+                        } else if (preset.$2 == SymbolType.collector) {
+                          selectedContexts.addAll({'lock', 'collect'});
+                        }
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: preset.$4.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: preset.$4.withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(preset.$3, style: const TextStyle(fontSize: 12)),
+                            const SizedBox(width: 4),
+                            Text(preset.$1, style: TextStyle(color: preset.$4, fontSize: 10)),
+                          ],
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Quick emoji presets
-                    ...['💎', '7️⃣', '🍒', '🔔', '⭐'].map((e) => GestureDetector(
-                      onTap: () => setDialogState(() => emojiController.text = e),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        child: Text(e, style: const TextStyle(fontSize: 18)),
-                      ),
-                    )),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Symbol type dropdown
-                const Text('Type', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: DropdownButton<SymbolType>(
-                    value: selectedType,
-                    isExpanded: true,
-                    dropdownColor: const Color(0xFF1A1A22),
-                    underline: const SizedBox(),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                    items: SymbolType.values.map((t) => DropdownMenuItem(
-                      value: t,
-                      child: Text(t.name.toUpperCase()),
                     )).toList(),
-                    onChanged: (v) => setDialogState(() => selectedType = v!),
                   ),
-                ),
-                const SizedBox(height: 12),
-                // Audio contexts
-                const Text('Audio Contexts', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 6,
-                  children: ['land', 'win', 'expand', 'stack'].map((ctx) {
-                    final isSelected = selectedContexts.contains(ctx);
-                    return FilterChip(
-                      label: Text(ctx, style: TextStyle(color: isSelected ? Colors.black : Colors.white, fontSize: 10)),
-                      selected: isSelected,
-                      selectedColor: const Color(0xFF4A9EFF),
-                      backgroundColor: const Color(0xFF242430),
-                      onSelected: (sel) => setDialogState(() {
-                        if (sel) selectedContexts.add(ctx);
-                        else selectedContexts.remove(ctx);
+                  const SizedBox(height: 16),
+                  const Divider(color: Colors.white24, height: 1),
+                  const SizedBox(height: 16),
+                  // Name field
+                  TextField(
+                    controller: nameController,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    decoration: InputDecoration(
+                      labelText: 'Symbol Name',
+                      labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF4A9EFF)),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Emoji picker
+                  const Text('Emoji', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Column(
+                      children: [
+                        // Current selection + text field
+                        Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: selectedType.defaultColor.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                emojiController.text,
+                                style: const TextStyle(fontSize: 24),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: emojiController,
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                                decoration: const InputDecoration(
+                                  hintText: 'Type or pick below',
+                                  hintStyle: TextStyle(color: Colors.white24, fontSize: 11),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (_) => setDialogState(() {}),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Emoji grid
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: emojiOptions.map((e) => GestureDetector(
+                            onTap: () => setDialogState(() => emojiController.text = e),
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: emojiController.text == e
+                                    ? const Color(0xFF4A9EFF).withOpacity(0.3)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(e, style: const TextStyle(fontSize: 16)),
+                            ),
+                          )).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Symbol type dropdown
+                  const Text('Type', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: DropdownButton<SymbolType>(
+                      value: selectedType,
+                      isExpanded: true,
+                      dropdownColor: const Color(0xFF1A1A22),
+                      underline: const SizedBox(),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      items: [
+                        SymbolType.wild,
+                        SymbolType.scatter,
+                        SymbolType.bonus,
+                        SymbolType.highPay,
+                        SymbolType.mediumPay,
+                        SymbolType.lowPay,
+                        SymbolType.multiplier,
+                        SymbolType.collector,
+                        SymbolType.mystery,
+                        SymbolType.custom,
+                      ].map((t) => DropdownMenuItem(
+                        value: t,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: t.defaultColor,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(t.displayName),
+                          ],
+                        ),
+                      )).toList(),
+                      onChanged: (v) => setDialogState(() {
+                        selectedType = v!;
+                        // Update emoji to match type default if not custom set
+                        if (emojiController.text == '🎰') {
+                          emojiController.text = v.defaultEmoji;
+                        }
                       }),
-                    );
-                  }).toList(),
-                ),
-              ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Audio contexts
+                  const Text('Audio Contexts', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: contextOptions.map((ctx) {
+                      final isSelected = selectedContexts.contains(ctx);
+                      return FilterChip(
+                        label: Text(ctx, style: TextStyle(color: isSelected ? Colors.black : Colors.white, fontSize: 10)),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFF4A9EFF),
+                        backgroundColor: const Color(0xFF242430),
+                        onSelected: (sel) => setDialogState(() {
+                          if (sel) selectedContexts.add(ctx);
+                          else selectedContexts.remove(ctx);
+                        }),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -4184,19 +4376,39 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                 if (name.isEmpty) return;
                 // Generate ID from name
                 final id = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+                // Check for duplicate ID
+                final provider = Provider.of<SlotLabProjectProvider>(this.context, listen: false);
+                if (provider.getSymbolById(id) != null) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text('Symbol with ID "$id" already exists'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
                 final symbol = SymbolDefinition(
                   id: id,
                   name: name,
-                  emoji: emojiController.text.trim().isNotEmpty ? emojiController.text.trim() : '🎰',
+                  emoji: emojiController.text.trim().isNotEmpty ? emojiController.text.trim() : selectedType.defaultEmoji,
                   type: selectedType,
                   contexts: selectedContexts.toList(),
+                  sortOrder: provider.symbols.length,
                 );
                 // Add to provider
-                final provider = Provider.of<SlotLabProjectProvider>(this.context, listen: false);
                 provider.addSymbol(symbol);
                 Navigator.pop(ctx);
+
+                // Show confirmation
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text('Added symbol: ${symbol.emoji} ${symbol.name}'),
+                    backgroundColor: const Color(0xFF40FF90),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
               },
-              child: const Text('Add', style: TextStyle(color: Color(0xFF4A9EFF))),
+              child: const Text('Add Symbol', style: TextStyle(color: Color(0xFF4A9EFF))),
             ),
           ],
         ),
@@ -9758,6 +9970,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     for (final event in _compositeEvents) {
       _syncEventToRegistry(event);
       // NOTE: _syncEventToMiddleware removed - MiddlewareProvider is the source of truth
+    }
+
+    // Preload all registered audio files in parallel via FFI
+    // This decodes and caches audio data for instant first-play
+    if (_compositeEvents.isNotEmpty) {
+      final result = eventRegistry.preloadAllAudioFiles();
+      if (!result.containsKey('error')) {
+        debugPrint('[SlotLab] Audio preload: ${result['loaded']}/${result['total']} files in ${result['duration_ms']}ms');
+      }
     }
   }
 

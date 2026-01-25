@@ -458,7 +458,7 @@ mod tests {
         result.line_wins.push(LineWin {
             line_index: 0,
             symbol_id: 1,
-            symbol_name: "Seven".into(),
+            symbol_name: "HP1".into(),
             match_count: 3,
             win_amount: 10.0,
             positions: vec![(0, 0), (1, 0), (2, 0)],
@@ -507,7 +507,7 @@ mod tests {
         result.line_wins.push(LineWin {
             line_index: 0,
             symbol_id: 1,
-            symbol_name: "High".into(),
+            symbol_name: "HP1".into(),
             match_count: 5,
             win_amount: 50.0,
             positions: vec![(0, 1), (1, 1), (2, 1), (3, 1), (4, 1)],

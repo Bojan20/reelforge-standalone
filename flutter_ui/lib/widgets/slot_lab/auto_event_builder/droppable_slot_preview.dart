@@ -18,7 +18,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/auto_event_builder_models.dart';
+import '../../../models/slot_lab_models.dart';
 import '../../../providers/auto_event_builder_provider.dart';
+import '../../../providers/slot_lab_project_provider.dart';
 import '../../../theme/fluxforge_theme.dart';
 import 'drop_target_wrapper.dart';
 
@@ -866,173 +868,330 @@ class SymbolZonePanel extends StatefulWidget {
 }
 
 class _SymbolZonePanelState extends State<SymbolZonePanel> {
-  bool _specialExpanded = true;
-  bool _hpExpanded = true;
-  bool _mpExpanded = true;
-  bool _lpExpanded = false;
+  // Track expanded state per symbol type
+  final Map<SymbolType, bool> _expandedTypes = {
+    SymbolType.wild: true,
+    SymbolType.scatter: true,
+    SymbolType.bonus: true,
+    SymbolType.highPay: true,
+    SymbolType.high: true, // Legacy alias
+    SymbolType.mediumPay: true,
+    SymbolType.lowPay: false,
+    SymbolType.low: false, // Legacy alias
+    SymbolType.multiplier: false,
+    SymbolType.collector: false,
+    SymbolType.mystery: false,
+    SymbolType.custom: false,
+  };
   bool _winLinesExpanded = true;
+  bool _winSymbolHighlightExpanded = true;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 280, // V9: Wider panel for easier drop targets
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeep.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: FluxForgeTheme.borderSubtle),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(2, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header
-          Row(
-            children: [
-              const Icon(Icons.apps, size: 14, color: FluxForgeTheme.accentCyan),
-              const SizedBox(width: 6),
-              const Text(
-                'SYMBOL AUDIO',
-                style: TextStyle(
-                  color: FluxForgeTheme.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const Spacer(),
-              Consumer<AutoEventBuilderProvider>(
-                builder: (ctx, provider, _) {
-                  final count = _getTotalCount(provider);
-                  if (count == 0) return const SizedBox.shrink();
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '$count',
-                      style: const TextStyle(
-                        color: FluxForgeTheme.accentGreen,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  );
-                },
+    return Consumer<SlotLabProjectProvider>(
+      builder: (ctx, projectProvider, _) {
+        final symbols = projectProvider.symbols;
+
+        // Group symbols by type
+        final Map<SymbolType, List<SymbolDefinition>> grouped = {};
+        for (final sym in symbols) {
+          grouped.putIfAbsent(sym.type, () => []).add(sym);
+        }
+
+        // Sort symbols within each group by sortOrder
+        for (final list in grouped.values) {
+          list.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        }
+
+        // Determine which sections to show (in display order)
+        // Note: high/low are legacy aliases that map to highPay/lowPay
+        final displayOrder = [
+          SymbolType.wild,
+          SymbolType.scatter,
+          SymbolType.bonus,
+          SymbolType.highPay,
+          SymbolType.high, // Legacy alias
+          SymbolType.mediumPay,
+          SymbolType.lowPay,
+          SymbolType.low, // Legacy alias
+          SymbolType.multiplier,
+          SymbolType.collector,
+          SymbolType.mystery,
+          SymbolType.custom,
+        ];
+
+        return Container(
+          width: 280, // V9: Wider panel for easier drop targets
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.bgDeep.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: FluxForgeTheme.borderSubtle),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(2, 2),
               ),
             ],
           ),
-
-          const Divider(color: FluxForgeTheme.borderSubtle, height: 16),
-
-          // Special Symbols Section
-          _buildCollapsibleSection(
-            title: 'Special',
-            icon: Icons.star,
-            color: const Color(0xFFFFD700),
-            expanded: _specialExpanded,
-            onToggle: () => setState(() => _specialExpanded = !_specialExpanded),
-            child: Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: [
-                _buildSymbolChip('Wild', 'wild', Icons.star, const Color(0xFFFFD700)),
-                _buildSymbolChip('Scatter', 'scatter', Icons.scatter_plot, const Color(0xFFE040FB)),
-                _buildSymbolChip('Bonus', 'bonus', Icons.card_giftcard, const Color(0xFFFF9040)),
-                // V12: Renamed from "Win" to "Symbol Glow" for clarity — NOT win lines!
-                _buildSymbolChip('Symbol Glow', 'win', Icons.auto_awesome, const Color(0xFF40FF90)),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          // High Pay Section
-          _buildCollapsibleSection(
-            title: 'High Pay',
-            icon: Icons.diamond,
-            color: const Color(0xFFFF4060),
-            expanded: _hpExpanded,
-            onToggle: () => setState(() => _hpExpanded = !_hpExpanded),
-            child: Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: List.generate(5, (i) {
-                final rank = i + 1;
-                return _buildSymbolChip('HP$rank', 'hp$rank', Icons.diamond, _getHpColor(rank));
-              }),
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          // Medium Pay Section
-          _buildCollapsibleSection(
-            title: 'Medium Pay',
-            icon: Icons.hexagon_outlined,
-            color: const Color(0xFF3B82F6),
-            expanded: _mpExpanded,
-            onToggle: () => setState(() => _mpExpanded = !_mpExpanded),
-            child: Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: List.generate(5, (i) {
-                final rank = i + 1;
-                return _buildSymbolChip('MP$rank', 'mp$rank', Icons.hexagon_outlined, _getMpColor(rank));
-              }),
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          // Low Pay Section
-          _buildCollapsibleSection(
-            title: 'Low Pay',
-            icon: Icons.casino,
-            color: const Color(0xFF6B7280),
-            expanded: _lpExpanded,
-            onToggle: () => setState(() => _lpExpanded = !_lpExpanded),
-            child: Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: List.generate(5, (i) {
-                final rank = i + 1;
-                return _buildSymbolChip('LP$rank', 'lp$rank', Icons.casino, const Color(0xFF6B7280));
-              }),
-            ),
-          ),
-
-          if (widget.showWinLines) ...[
-            const SizedBox(height: 6),
-            // Win Lines Section
-            _buildCollapsibleSection(
-              title: 'Win Lines',
-              icon: Icons.show_chart,
-              color: const Color(0xFF10B981),
-              expanded: _winLinesExpanded,
-              onToggle: () => setState(() => _winLinesExpanded = !_winLinesExpanded),
-              child: Wrap(
-                spacing: 4,
-                runSpacing: 4,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Row(
                 children: [
-                  _buildWinLineChip('All', 'generic'),
-                  ...List.generate(5, (i) => _buildWinLineChip('L${i + 1}', '${i}')),
+                  const Icon(Icons.apps, size: 14, color: FluxForgeTheme.accentCyan),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'SYMBOL AUDIO',
+                    style: TextStyle(
+                      color: FluxForgeTheme.textPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  Consumer<AutoEventBuilderProvider>(
+                    builder: (ctx, provider, _) {
+                      final count = _getTotalCountDynamic(provider, symbols);
+                      if (count == 0) return const SizedBox.shrink();
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(
+                            color: FluxForgeTheme.accentGreen,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
-            ),
-          ],
-        ],
+
+              const Divider(color: FluxForgeTheme.borderSubtle, height: 16),
+
+              // Dynamic symbol sections based on provider
+              for (final type in displayOrder) ...[
+                if (grouped.containsKey(type) && grouped[type]!.isNotEmpty) ...[
+                  _buildDynamicSymbolSection(type, grouped[type]!),
+                  const SizedBox(height: 6),
+                ],
+              ],
+
+              // ═══════════════════════════════════════════════════════════════════════
+              // WIN SYMBOL HIGHLIGHT SECTION — V14 Per-symbol win audio
+              // Drop zone for WIN_SYMBOL_HIGHLIGHT stage (Phase 1 of win presentation)
+              // ═══════════════════════════════════════════════════════════════════════
+              _buildCollapsibleSection(
+                title: 'Win Symbol Highlight',
+                icon: Icons.auto_awesome,
+                color: const Color(0xFFFFD700), // Gold for win highlights
+                expanded: _winSymbolHighlightExpanded,
+                onToggle: () => setState(() => _winSymbolHighlightExpanded = !_winSymbolHighlightExpanded),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Phase 1: Symbol glow/pulse during wins',
+                      style: TextStyle(
+                        color: FluxForgeTheme.textMuted,
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        // Generic WIN_SYMBOL_HIGHLIGHT (fallback for all symbols)
+                        _buildWinSymbolHighlightChip('All Symbols', 'all'),
+                        // Per-symbol type highlights
+                        _buildWinSymbolHighlightChip('HP (High)', 'hp'),
+                        _buildWinSymbolHighlightChip('LP (Low)', 'lp'),
+                        _buildWinSymbolHighlightChip('Wild', 'wild'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+
+              if (widget.showWinLines) ...[
+                // Win Lines Section
+                _buildCollapsibleSection(
+                  title: 'Win Lines',
+                  icon: Icons.show_chart,
+                  color: const Color(0xFF10B981),
+                  expanded: _winLinesExpanded,
+                  onToggle: () => setState(() => _winLinesExpanded = !_winLinesExpanded),
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      _buildWinLineChip('All', 'generic'),
+                      ...List.generate(5, (i) => _buildWinLineChip('L${i + 1}', '${i}')),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Build a dynamic symbol section based on symbol type
+  Widget _buildDynamicSymbolSection(SymbolType type, List<SymbolDefinition> symbols) {
+    final expanded = _expandedTypes[type] ?? true;
+
+    return _buildCollapsibleSection(
+      title: type.displayName,
+      icon: _getIconForType(type),
+      color: type.defaultColor,
+      expanded: expanded,
+      onToggle: () => setState(() => _expandedTypes[type] = !expanded),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: symbols.map((sym) {
+          return _buildSymbolChipFromDefinition(sym);
+        }).toList(),
       ),
     );
+  }
+
+  /// Build a symbol chip from a SymbolDefinition
+  Widget _buildSymbolChipFromDefinition(SymbolDefinition symbol) {
+    final color = symbol.displayColor;
+    final icon = _getIconForType(symbol.type);
+
+    return DroppableSymbolZone(
+      symbolType: symbol.id,
+      onEventCreated: widget.onSymbolEventCreated != null
+          ? (e) => widget.onSymbolEventCreated!(symbol.id, e)
+          : null,
+      child: Consumer<AutoEventBuilderProvider>(
+        builder: (ctx, provider, _) {
+          final count = provider.getEventCountForTarget('symbol.${symbol.id}');
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            constraints: const BoxConstraints(minWidth: 56, minHeight: 36),
+            decoration: BoxDecoration(
+              color: count > 0 ? color.withValues(alpha: 0.2) : FluxForgeTheme.bgMid,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: count > 0 ? color.withValues(alpha: 0.7) : FluxForgeTheme.borderSubtle,
+                width: count > 0 ? 2 : 1,
+              ),
+              boxShadow: count > 0
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Show emoji if available, otherwise icon
+                if (symbol.emoji.isNotEmpty)
+                  Text(symbol.emoji, style: const TextStyle(fontSize: 14))
+                else
+                  Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  symbol.name,
+                  style: TextStyle(
+                    color: count > 0 ? color : FluxForgeTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: count > 0 ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+                if (count > 0) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$count',
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Get icon for symbol type
+  IconData _getIconForType(SymbolType type) {
+    switch (type) {
+      case SymbolType.wild:
+        return Icons.star;
+      case SymbolType.scatter:
+        return Icons.scatter_plot;
+      case SymbolType.bonus:
+        return Icons.card_giftcard;
+      case SymbolType.highPay:
+      case SymbolType.high: // Legacy alias
+        return Icons.diamond;
+      case SymbolType.mediumPay:
+        return Icons.hexagon_outlined;
+      case SymbolType.lowPay:
+      case SymbolType.low: // Legacy alias
+        return Icons.casino;
+      case SymbolType.multiplier:
+        return Icons.close; // X symbol for multiplier
+      case SymbolType.collector:
+        return Icons.monetization_on;
+      case SymbolType.mystery:
+        return Icons.help;
+      case SymbolType.custom:
+        return Icons.extension;
+    }
+  }
+
+  /// Calculate total count dynamically from provider symbols
+  int _getTotalCountDynamic(AutoEventBuilderProvider provider, List<SymbolDefinition> symbols) {
+    int count = 0;
+    // Count from dynamic symbols
+    for (final sym in symbols) {
+      count += provider.getEventCountForTarget('symbol.${sym.id}');
+    }
+    // Win lines
+    count += provider.getEventCountForTarget('winline.generic');
+    for (int i = 0; i < 5; i++) {
+      count += provider.getEventCountForTarget('winline.$i');
+    }
+    return count;
   }
 
   Widget _buildCollapsibleSection({
@@ -1080,79 +1239,6 @@ class _SymbolZonePanelState extends State<SymbolZonePanel> {
             child: child,
           ),
       ],
-    );
-  }
-
-  // V9: LARGER symbol chips for easier drop targeting
-  Widget _buildSymbolChip(String label, String symbolType, IconData icon, Color color) {
-    return DroppableSymbolZone(
-      symbolType: symbolType,
-      onEventCreated: widget.onSymbolEventCreated != null
-          ? (e) => widget.onSymbolEventCreated!(symbolType, e)
-          : null,
-      child: Consumer<AutoEventBuilderProvider>(
-        builder: (ctx, provider, _) {
-          final count = provider.getEventCountForTarget('symbol.$symbolType');
-          return Container(
-            // V9: Bigger padding = bigger drop target area
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            constraints: const BoxConstraints(minWidth: 56, minHeight: 36),
-            decoration: BoxDecoration(
-              color: count > 0 ? color.withValues(alpha: 0.2) : FluxForgeTheme.bgMid,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: count > 0 ? color.withValues(alpha: 0.7) : FluxForgeTheme.borderSubtle,
-                width: count > 0 ? 2 : 1,
-              ),
-              boxShadow: count > 0
-                  ? [
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 16, color: color), // Larger icon
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: count > 0 ? color : FluxForgeTheme.textMuted,
-                    fontSize: 12, // Larger font
-                    fontWeight: count > 0 ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-                if (count > 0) ...[
-                  const SizedBox(width: 4),
-                  Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.4),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$count',
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          );
-        },
-      ),
     );
   }
 
@@ -1236,47 +1322,89 @@ class _SymbolZonePanelState extends State<SymbolZonePanel> {
     );
   }
 
-  Color _getHpColor(int rank) {
-    switch (rank) {
-      case 1: return const Color(0xFFFF4060);
-      case 2: return const Color(0xFF40C8FF);
-      case 3: return const Color(0xFF40FF90);
-      case 4: return const Color(0xFF8B5CF6);
-      case 5: return const Color(0xFFFF9040);
-      default: return FluxForgeTheme.accentBlue;
-    }
+  /// Build a WIN_SYMBOL_HIGHLIGHT drop zone chip
+  /// V14: Allows users to create WIN_SYMBOL_HIGHLIGHT events for win presentation Phase 1
+  Widget _buildWinSymbolHighlightChip(String label, String symbolType) {
+    // Map symbolType to targetId and stage
+    // 'all' → symbol.win → WIN_SYMBOL_HIGHLIGHT (generic fallback)
+    // 'hp' → symbol.win.hp → WIN_SYMBOL_HIGHLIGHT_HP (for all HP symbols)
+    // 'lp' → symbol.win.lp → WIN_SYMBOL_HIGHLIGHT_LP (for all LP symbols)
+    // 'wild' → symbol.win.wild → WIN_SYMBOL_HIGHLIGHT_WILD
+    final targetId = symbolType == 'all' ? 'symbol.win' : 'symbol.win.$symbolType';
+
+    return DropTargetWrapper(
+      target: SlotDropZones.symbolWin(), // Uses symbolWin drop target
+      showBadge: false,
+      glowColor: const Color(0xFFFFD700), // Gold
+      onEventCreated: widget.onSymbolEventCreated != null
+          ? (e) => widget.onSymbolEventCreated!(targetId, e)
+          : null,
+      child: Consumer<AutoEventBuilderProvider>(
+        builder: (ctx, provider, _) {
+          final count = provider.getEventCountForTarget(targetId);
+          const color = Color(0xFFFFD700);
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 36),
+            decoration: BoxDecoration(
+              color: count > 0 ? color.withValues(alpha: 0.2) : FluxForgeTheme.bgMid,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: count > 0 ? color.withValues(alpha: 0.7) : FluxForgeTheme.borderSubtle,
+                width: count > 0 ? 2 : 1,
+              ),
+              boxShadow: count > 0
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.auto_awesome, size: 16, color: count > 0 ? color : FluxForgeTheme.textMuted),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: count > 0 ? color : FluxForgeTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: count > 0 ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+                if (count > 0) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$count',
+                        style: const TextStyle(
+                          color: color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
-  Color _getMpColor(int rank) {
-    switch (rank) {
-      case 1: return const Color(0xFFF97316);
-      case 2: return const Color(0xFF3B82F6);
-      case 3: return const Color(0xFF22C55E);
-      case 4: return const Color(0xFFA855F7);
-      case 5: return const Color(0xFFEC4899);
-      default: return FluxForgeTheme.accentBlue;
-    }
-  }
-
-  int _getTotalCount(AutoEventBuilderProvider provider) {
-    int count = 0;
-    // Special symbols
-    for (final s in ['wild', 'scatter', 'bonus', 'win']) {
-      count += provider.getEventCountForTarget('symbol.$s');
-    }
-    // HP/MP/LP
-    for (int i = 1; i <= 5; i++) {
-      count += provider.getEventCountForTarget('symbol.hp$i');
-      count += provider.getEventCountForTarget('symbol.mp$i');
-      count += provider.getEventCountForTarget('symbol.lp$i');
-    }
-    // Win lines
-    count += provider.getEventCountForTarget('winline.generic');
-    for (int i = 0; i < 5; i++) {
-      count += provider.getEventCountForTarget('winline.$i');
-    }
-    return count;
-  }
 }
 
 class _SymbolDropChip extends StatelessWidget {

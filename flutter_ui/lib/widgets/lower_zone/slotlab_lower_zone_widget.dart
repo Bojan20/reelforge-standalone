@@ -1041,7 +1041,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       case SymbolType.bonus:
         symbolIcon = Icons.card_giftcard;
       case SymbolType.high:
+      case SymbolType.highPay:
         symbolIcon = Icons.diamond;
+      case SymbolType.mediumPay:
+        symbolIcon = Icons.square;
       case SymbolType.multiplier:
         symbolIcon = Icons.close;
       case SymbolType.collector:
@@ -1049,7 +1052,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       case SymbolType.mystery:
         symbolIcon = Icons.help;
       case SymbolType.low:
+      case SymbolType.lowPay:
         symbolIcon = Icons.casino;
+      case SymbolType.custom:
+        symbolIcon = Icons.extension;
     }
 
     return Tooltip(

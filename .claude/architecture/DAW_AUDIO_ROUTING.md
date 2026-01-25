@@ -1246,4 +1246,128 @@ void setInputGain(String channelId, double gain) {
 
 ---
 
-*Poslednji update: 2026-01-24 (Channel Strip UI Enhancements: Pan Right, Phase Invert, Input Monitor, LUFS, EQ Bands)*
+## 17. DAW Waveform Generation System (2026-01-25)
+
+### Overview
+
+Real-time waveform generation za timeline clips koristi Rust FFI umesto demo waveform-a.
+
+### Arhitektura
+
+```
+Audio File Import
+        │
+        ▼
+NativeFFI.generateWaveformFromFile(path, cacheKey)
+        │
+        ▼
+Rust SIMD Waveform Generator (AVX2/NEON)
+        │
+        ▼
+JSON Response (Multi-LOD Peaks)
+        │
+        ▼
+parseWaveformFromJson() → (Float32List?, Float32List?)
+        │
+        ▼
+ClipWidget Rendering
+```
+
+### FFI Funkcija
+
+**Dart:** `NativeFFI.instance.generateWaveformFromFile(path, cacheKey)`
+
+**Rust:** `engine_generate_waveform_from_file(path, cache_key)`
+
+**Return:** JSON string sa multi-LOD waveform podacima
+
+### JSON Format
+
+```json
+{
+  "lods": [
+    {
+      "samples_per_pixel": 1,
+      "left": [
+        {"min": -0.5, "max": 0.5, "rms": 0.3},
+        {"min": -0.4, "max": 0.6, "rms": 0.35},
+        ...
+      ],
+      "right": [
+        {"min": -0.45, "max": 0.55, "rms": 0.32},
+        ...
+      ]
+    },
+    {
+      "samples_per_pixel": 2,
+      ...
+    }
+  ]
+}
+```
+
+### Helper Funkcija: parseWaveformFromJson()
+
+**Lokacija:** `flutter_ui/lib/models/timeline_models.dart` (lines 955-1007)
+
+```dart
+(Float32List?, Float32List?) parseWaveformFromJson(
+  String? jsonStr,
+  {int maxSamples = 2048}
+)
+```
+
+**Funkcionalnost:**
+- Parsira JSON iz Rust FFI
+- Automatski bira odgovarajući LOD (max 2048 samples za memorijsku efikasnost)
+- Ekstrahuje peak vrednosti (`max(abs(min), abs(max))`)
+- Vraća tuple `(leftChannel, rightChannel)` kao `Float32List`
+- Vraća `(null, null)` ako parsiranje ne uspe
+
+### Duration Getteri (PoolAudioFile)
+
+| Getter | Format | Primer | Upotreba |
+|--------|--------|--------|----------|
+| `durationFormatted` | Sekunde (2 decimale) | `"45.47s"` | UI prikaz |
+| `durationFormattedMs` | Milisekunde | `"45470ms"` | Precizni prikaz |
+| `durationMs` | Integer ms | `45470` | Kalkulacije |
+
+### Lokacije Real Waveform Generacije
+
+| Fajl | Funkcija | Opis |
+|------|----------|------|
+| `engine_connected_layout.dart` | `_addFileToPool()` | Import audio fajla u pool |
+| `engine_connected_layout.dart` | `_syncAudioPoolFromSlotLab()` | Sync iz SlotLab |
+| `engine_connected_layout.dart` | `_syncFromAssetManager()` | Sync iz AudioAssetManager |
+| `engine_connected_layout.dart` | `_handleAudioPoolFileDoubleClick()` | Dodavanje na timeline |
+
+### Null Waveform Handling
+
+Ako FFI ne vrati waveform (greška, nedostupan engine), waveform ostaje `null`:
+
+```dart
+Float32List? waveform;
+final waveformJson = NativeFFI.instance.generateWaveformFromFile(path, cacheKey);
+if (waveformJson != null) {
+  final (left, _) = timeline.parseWaveformFromJson(waveformJson);
+  waveform = left;
+}
+// waveform može biti null — UI gracefully handluje null waveform
+```
+
+**Demo Waveform:** UKLONJEN (2026-01-25)
+- `generateDemoWaveform()` funkcija obrisana iz `timeline_models.dart`
+- ClipWidget podržava nullable waveform — prikazuje empty clip bez waveform-a
+- Nema više fallback-a na fake waveform
+
+### SIMD Optimizacija (Rust)
+
+Rust engine koristi SIMD instrukcije za brzu waveform generaciju:
+- **x86_64:** AVX2/SSE4.2
+- **ARM:** NEON
+
+Performanse: ~10ms za 10-minutni stereo fajl @ 48kHz
+
+---
+
+*Poslednji update: 2026-01-25 (Demo waveform uklonjen, null waveform handling)*
