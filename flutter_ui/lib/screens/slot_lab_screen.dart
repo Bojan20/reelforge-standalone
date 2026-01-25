@@ -1542,6 +1542,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           debugPrint('[SlotLab] Engine init failed, using fallback');
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // CRITICAL FIX 2026-01-25: Re-register symbol audio on screen mount
+        // Symbol audio is stored in SlotLabProjectProvider (persisted) but
+        // NOT in EventRegistry (which is cleared on remount). Must sync here.
+        // This runs regardless of engine init success - audio playback works independently.
+        // ═══════════════════════════════════════════════════════════════════════
+        _syncSymbolAudioToRegistry();
+
         // Initialize reel symbols (fallback or empty for engine)
         _reelSymbols = List.from(_fallbackReelSymbols);
         setState(() {});
@@ -2071,6 +2079,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                             symbolAudio: projectProvider.symbolAudio,
                             musicLayers: projectProvider.musicLayers,
                             onSymbolAudioDrop: (symbolId, contextName, audioPath) {
+                              debugPrint('[SlotLab] 🎵 onSymbolAudioDrop called:');
+                              debugPrint('[SlotLab]   symbolId: $symbolId');
+                              debugPrint('[SlotLab]   contextName: $contextName');
+                              debugPrint('[SlotLab]   audioPath: ${audioPath.split('/').last}');
+
                               projectProvider.assignSymbolAudio(
                                 symbolId,
                                 contextName,
@@ -2082,6 +2095,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                                 orElse: () => defaultSymbols.first,
                               );
                               final stageName = symbol.stageName(contextName);
+
+                              debugPrint('[SlotLab]   → symbol.id: ${symbol.id}');
+                              debugPrint('[SlotLab]   → stageName: $stageName');
+                              debugPrint('[SlotLab]   → Registering event with stage: $stageName');
+
                               eventRegistry.registerEvent(AudioEvent(
                                 id: 'symbol_${symbolId}_$contextName',
                                 name: '${symbol.name} $contextName',
@@ -10390,6 +10408,58 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       if (!result.containsKey('error')) {
         debugPrint('[SlotLab] Audio preload: ${result['loaded']}/${result['total']} files in ${result['duration_ms']}ms');
       }
+    }
+  }
+
+  /// ═══════════════════════════════════════════════════════════════════════════
+  /// CRITICAL FIX 2026-01-25: Re-register symbol audio to EventRegistry on mount
+  /// Symbol audio events are NOT stored in MiddlewareProvider, so they are lost
+  /// when the SlotLab screen remounts. This method re-registers them from
+  /// SlotLabProjectProvider.symbolAudio which IS persisted.
+  /// ═══════════════════════════════════════════════════════════════════════════
+  void _syncSymbolAudioToRegistry() {
+    try {
+      final projectProvider = Provider.of<SlotLabProjectProvider>(context, listen: false);
+      final symbolAudio = projectProvider.symbolAudio;
+
+      if (symbolAudio.isEmpty) {
+        debugPrint('[SlotLab] No symbol audio to sync');
+        return;
+      }
+
+      debugPrint('[SlotLab] 🔄 Syncing ${symbolAudio.length} symbol audio assignments to EventRegistry');
+
+      for (final assignment in symbolAudio) {
+        // Find symbol definition for metadata
+        final symbol = projectProvider.symbols.firstWhere(
+          (s) => s.id == assignment.symbolId,
+          orElse: () => defaultSymbols.first,
+        );
+
+        final stageName = assignment.stageName; // Uses correct format per context
+
+        final audioEvent = AudioEvent(
+          id: 'symbol_${assignment.symbolId}_${assignment.context}',
+          name: '${symbol.name} ${assignment.context}',
+          stage: stageName,
+          layers: [
+            AudioLayer(
+              id: 'layer_${assignment.symbolId}_${assignment.context}',
+              name: '${symbol.name} Audio',
+              audioPath: assignment.audioPath,
+              volume: assignment.volume,
+              pan: assignment.pan,
+              delay: 0.0,
+              busId: 1, // SFX bus
+            ),
+          ],
+        );
+
+        eventRegistry.registerEvent(audioEvent);
+        debugPrint('[SlotLab] ✅ Synced symbol audio: ${symbol.name} ${assignment.context} → $stageName');
+      }
+    } catch (e) {
+      debugPrint('[SlotLab] Error syncing symbol audio: $e');
     }
   }
 
