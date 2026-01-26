@@ -20197,7 +20197,7 @@ extension PluginStateFFI on NativeFFI {
       >('insert_set_sidechain_source');
       return fn(trackId, slotIndex, sourceTrackId);
     } catch (e) {
-      debugPrint('[NativeFFI] insertSetSidechainSource error: $e');
+      print('[NativeFFI] insertSetSidechainSource error: $e');
       return -1;
     }
   }
@@ -20212,7 +20212,7 @@ extension PluginStateFFI on NativeFFI {
       >('insert_get_sidechain_source');
       return fn(trackId, slotIndex);
     } catch (e) {
-      debugPrint('[NativeFFI] insertGetSidechainSource error: $e');
+      print('[NativeFFI] insertGetSidechainSource error: $e');
       return -1;
     }
   }
@@ -20227,7 +20227,7 @@ extension PluginStateFFI on NativeFFI {
       >('insert_set_sidechain_enabled');
       return fn(trackId, slotIndex, enabled ? 1 : 0);
     } catch (e) {
-      debugPrint('[NativeFFI] insertSetSidechainEnabled error: $e');
+      print('[NativeFFI] insertSetSidechainEnabled error: $e');
       return -1;
     }
   }
