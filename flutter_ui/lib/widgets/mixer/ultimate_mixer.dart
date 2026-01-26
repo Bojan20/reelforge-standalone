@@ -2280,7 +2280,7 @@ class _DraggableChannelStrip extends StatelessWidget {
               delay: const Duration(milliseconds: 150),
               onDragStarted: onDragStarted,
               onDragEnd: (_) => onDragEnded(),
-              onDraggableCanceled: (_, __) => onDragEnded(),
+              onDraggableCanceled: (velocity, offset) => onDragEnded(),
               feedback: Material(
                 elevation: 8,
                 shadowColor: Colors.black54,

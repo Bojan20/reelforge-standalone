@@ -1478,7 +1478,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   /// P2.7: Compact Composite Editor — Connected to MiddlewareProvider.compositeEvents
   ///
-  /// FIX 2026-01-25: Uses Consumer<MiddlewareProvider> to ensure UI rebuilds when
+  /// FIX 2026-01-25: Uses Consumer to ensure UI rebuilds when
   /// layer parameters (volume, pan, delay) are changed via sliders.
   Widget _buildCompactCompositeEditor() {
     // Use Consumer to ensure rebuilds when provider changes

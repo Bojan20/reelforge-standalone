@@ -1551,6 +1551,22 @@ String get stageName {
 | `WIN_SYMBOL_HIGHLIGHT_*` | SlotPreviewWidget | `slot_preview_widget.dart:1173` |
 | `REEL_STOP_0..4` | ProfessionalReelAnimation | `professional_reel_animation.dart:tick()` |
 | `WIN_PRESENT_*` | SlotPreviewWidget | `slot_preview_widget.dart:_startWinPresentation()` |
+| `BIG_WIN_LOOP` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
+| `BIG_WIN_COINS` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
+
+### Big Win Celebration System (2026-01-25) ✅
+
+Dedicirani audio sistem za Big Win celebracije.
+
+**Trigger Threshold:** Win ratio ≥ 20x bet
+
+**Stages:**
+| Stage | Bus | Priority | Loop | Opis |
+|-------|-----|----------|------|------|
+| `BIG_WIN_LOOP` | Music (1) | 90 | ✅ | Looping celebration muzika |
+| `BIG_WIN_COINS` | SFX (2) | 75 | Ne | Coin particle SFX |
+
+**Auto-Stop:** `BIG_WIN_LOOP` automatski se zaustavlja kada se završi win prezentacija (`setWinPresentationActive(false)`).
 
 ### Verification Checklist
 
@@ -1675,10 +1691,290 @@ _syncSymbolAudioToRegistry();
 
 ---
 
+## CRITICAL FIX: Middleware Inspector Panel Slider Race Condition (2026-01-25) ✅
+
+### Problem
+
+Pan (and other) slider changes in the Middleware Inspector panel were being silently reverted during drag operations.
+
+**User Report:** "panovanje u middleware sekciji ne radi u inspectoru desnom panelu"
+
+**Symptom:** User drags pan slider to -0.5, releases, and value snaps back to previous value (e.g., 0.0).
+
+### Root Cause
+
+Race condition between debounced provider sync and widget rebuild cycle:
+
+```
+Timeline:
+0ms    User drags slider to -0.5
+       → _updateActionDebounced() called
+       → setState() updates local _events[id].pan = -0.5
+       → Timer scheduled: sync to provider in 50ms
+
+10ms   Widget rebuilds (due to setState)
+       → Selector<MiddlewareProvider> triggers
+       → _syncEventsFromProviderList() called
+       → Provider still has OLD value (pan = 0.0)
+       → Local _events[id].pan OVERWRITTEN to 0.0 ❌
+
+50ms   Timer fires
+       → _syncEventToProvider() called
+       → But local value is already 0.0 (overwritten!)
+       → Provider receives 0.0 instead of -0.5 ❌
+```
+
+**The key insight:** `_syncEventsFromProviderList()` compares local and provider events. If different, it overwrites local with provider values. But during debounce, provider has OLD values while local has NEW values from slider.
+
+### Solution
+
+Added `_pendingEditEventId` tracking flag to skip provider→local sync for events with pending local edits:
+
+**Field added (line ~104):**
+```dart
+// Debounce timer for slider updates (P0.2 performance fix)
+Timer? _sliderDebounceTimer;
+
+// Track which event has pending local edits to prevent provider overwrite during debounce
+// BUG FIX: Without this, provider sync would overwrite local slider changes before debounce completes
+String? _pendingEditEventId;
+```
+
+**Updated `_updateActionDebounced()` (lines ~3857-3893):**
+```dart
+void _updateActionDebounced(
+  MiddlewareEvent event,
+  MiddlewareAction action, {
+  double? gain,
+  double? pan,
+  double? delay,
+  double? fadeTime,
+}) {
+  // Mark this event as having pending edits to prevent provider overwrite
+  _pendingEditEventId = event.id;
+
+  // Update local state immediately for responsive UI
+  final newAction = action.copyWith(
+    gain: gain,
+    pan: pan,
+    delay: delay,
+    fadeTime: fadeTime,
+  );
+
+  final newActions = event.actions.map((a) {
+    return a.id == action.id ? newAction : a;
+  }).toList();
+
+  setState(() {
+    _events[event.id] = event.copyWith(actions: newActions);
+  });
+
+  // Debounce the provider sync
+  _sliderDebounceTimer?.cancel();
+  _sliderDebounceTimer = Timer(const Duration(milliseconds: 50), () {
+    _syncEventToProvider(_events[event.id]!);
+    // Clear pending edit flag after sync completes
+    _pendingEditEventId = null;
+  });
+}
+```
+
+**Updated `_syncEventsFromProviderList()` (lines ~163-212):**
+```dart
+void _syncEventsFromProviderList(List<MiddlewareEvent> providerEvents) {
+  for (final event in providerEvents) {
+    if (!_events.containsKey(event.id)) {
+      // New event from provider
+      _events[event.id] = event;
+      // ... category folder setup ...
+    } else {
+      // BUG FIX: Skip updating events with pending local edits (e.g., during slider drag)
+      // This prevents provider from overwriting local slider changes during debounce period
+      if (event.id == _pendingEditEventId) {
+        continue;  // ← KEY FIX: Skip this event entirely
+      }
+      // ... rest of update logic for non-pending events ...
+    }
+  }
+}
+```
+
+### Fixed Timeline
+
+```
+Timeline (AFTER FIX):
+0ms    User drags slider to -0.5
+       → _updateActionDebounced() called
+       → _pendingEditEventId = event.id  ← NEW
+       → setState() updates local _events[id].pan = -0.5
+       → Timer scheduled: sync to provider in 50ms
+
+10ms   Widget rebuilds (due to setState)
+       → Selector<MiddlewareProvider> triggers
+       → _syncEventsFromProviderList() called
+       → event.id == _pendingEditEventId → SKIP ✅
+       → Local _events[id].pan preserved = -0.5 ✅
+
+50ms   Timer fires
+       → _syncEventToProvider() called
+       → Local value is still -0.5 ✅
+       → Provider receives -0.5 ✅
+       → _pendingEditEventId = null  ← CLEARED
+```
+
+### Affected Parameters
+
+This fix applies to ALL debounced slider parameters in the inspector:
+
+| Parameter | Slider Location |
+|-----------|-----------------|
+| Pan | Action inspector → Pan slider |
+| Gain | Action inspector → Gain slider |
+| Delay | Action inspector → Delay slider |
+| Fade Time | Action inspector → Fade Time slider |
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `flutter_ui/lib/widgets/middleware/event_editor_panel.dart:~104` | Added `_pendingEditEventId` field |
+| `flutter_ui/lib/widgets/middleware/event_editor_panel.dart:~3857-3893` | Set/clear flag in `_updateActionDebounced()` |
+| `flutter_ui/lib/widgets/middleware/event_editor_panel.dart:~163-212` | Skip pending events in `_syncEventsFromProviderList()` |
+
+### Key Design Principle
+
+**Pending Edit Protection Pattern:**
+
+When using debounced updates with bidirectional provider sync:
+
+1. **Mark** event as "pending edit" when local change starts
+2. **Skip** provider→local sync for pending events
+3. **Clear** flag only AFTER local→provider sync completes
+
+This ensures local edits survive the debounce period without being overwritten by stale provider data.
+
+---
+
+## Per-Reel Spin Loop System (2026-01-25) ✅
+
+### Problem
+
+Generic REEL_SPIN_LOOP covered all reels. When reel 0 stops, you can't fade out just reel 0's loop — all loops stop together.
+
+### Solution: Per-Reel Stage Pattern
+
+EventRegistry now auto-detects per-reel spin loop stages:
+
+| Stage Pattern | Purpose |
+|---------------|---------|
+| `REEL_SPINNING_START_0..4` | Start spin loop for specific reel |
+| `REEL_SPINNING_STOP_0..4` | Early fade-out BEFORE visual reel stop |
+| `REEL_SPINNING_0..4` | Legacy per-reel spin (backwards compat) |
+| `REEL_SPINNING` / `REEL_SPIN_LOOP` | Generic shared loop |
+
+### Implementation (`event_registry.dart`)
+
+```dart
+// P0.1: Auto-detect REEL_SPINNING_START_X stages
+final reelSpinStartMatch = RegExp(r'^REEL_SPINNING_START_(\d+)$').firstMatch(upperStage);
+if (reelSpinStartMatch != null) {
+  final reelIndex = int.tryParse(reelSpinStartMatch.group(1) ?? '');
+  if (reelIndex != null) {
+    enhancedContext['is_reel_spin_loop'] = true;
+    enhancedContext['reel_index'] = reelIndex;
+  }
+}
+
+// P0.1: Auto-detect REEL_SPINNING_STOP_X stages (early fade-out)
+final reelSpinStopMatch = RegExp(r'^REEL_SPINNING_STOP_(\d+)$').firstMatch(upperStage);
+if (reelSpinStopMatch != null) {
+  final reelIndex = int.tryParse(reelSpinStopMatch.group(1) ?? '');
+  if (reelIndex != null) {
+    _fadeOutReelSpinLoop(reelIndex);
+    // Don't return - still process for potential audio event
+  }
+}
+```
+
+### Audio Flow (Per-Reel)
+
+```
+SPIN_START
+    ↓
+REEL_SPINNING_START_0 → Start spin loop voice 0 (reel_index=0)
+REEL_SPINNING_START_1 → Start spin loop voice 1 (reel_index=1)
+... (all 5 reels)
+    ↓
+[Reel 0 about to stop]
+REEL_SPINNING_STOP_0 → Fade out spin loop voice 0 (50ms)
+    ↓
+REEL_STOP_0 → Reel stop sound (audio-visual sync)
+    ↓
+[Repeat for each reel]
+```
+
+### Key Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| **Individual Control** | Each reel's spin loop fades independently |
+| **Early Fade-out** | REEL_SPINNING_STOP fires BEFORE visual stop for smooth overlap |
+| **Audio-Visual Overlap** | Spin loop fades while stop sound plays |
+| **Backwards Compatible** | Generic REEL_SPINNING still works for single shared loop |
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `event_registry.dart` | Added `REEL_SPINNING_START_X`, `REEL_SPINNING_STOP_X` detection |
+| `event_registry.dart` | Added `_fadeOutReelSpinLoop()` for per-reel fade |
+
+---
+
+## CASCADE_STEP Pitch/Volume Escalation (2026-01-25) ✅
+
+### Problem
+
+Cascade audio sounded monotonous. Each step was identical.
+
+### Solution: Auto-Escalation in triggerStage()
+
+EventRegistry auto-applies pitch and volume escalation based on cascade step index:
+
+```dart
+// P1.4: CASCADE_STEP pitch/volume escalation
+if (normalizedStage.startsWith('CASCADE_STEP')) {
+  final cascadeMatch = RegExp(r'CASCADE_STEP_?(\d+)?').firstMatch(normalizedStage);
+  if (cascadeMatch != null) {
+    final stepIndex = int.tryParse(cascadeMatch.group(1) ?? '0') ?? 0;
+    // Pitch rises 5% per step: step 0 = 1.0, step 5 = 1.25
+    final cascadePitch = 1.0 + (stepIndex * 0.05);
+    // Volume escalates: 0.9 → 1.1
+    final cascadeVolume = 0.9 + (stepIndex * 0.04);
+    context['cascade_pitch'] = cascadePitch;
+    context['cascade_volume'] = cascadeVolume.clamp(0.0, 1.5);
+  }
+}
+```
+
+### Escalation Table
+
+| Step | Pitch | Volume |
+|------|-------|--------|
+| 0 | 1.00x | 0.90x |
+| 1 | 1.05x | 0.94x |
+| 2 | 1.10x | 0.98x |
+| 3 | 1.15x | 1.02x |
+| 4 | 1.20x | 1.06x |
+| 5 | 1.25x | 1.10x |
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management
 - `.claude/architecture/SLOT_LAB_SYSTEM.md` — SlotLab architecture (includes stage flow, double-spin fix)
 - `.claude/architecture/PREMIUM_SLOT_PREVIEW.md` — Visual-sync timing implementation
-- `.claude/domains/slot-audio-events-master.md` — Full stage catalog
+- `.claude/domains/slot-audio-events-master.md` — Full stage catalog (~600+ events)
+- `.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md` — P0/P1 audio feature details
 - `.claude/project/fluxforge-studio.md` — Full project spec

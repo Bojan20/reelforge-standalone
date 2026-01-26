@@ -117,6 +117,11 @@ class ReelAnimationState {
   int stopTimeExtensionMs = 0;    // Extra time to spin (e.g., 3000ms for anticipation)
   bool isInAnticipation = false;  // Visual indicator for anticipation state
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0.3: SPEED MULTIPLIER — For anticipation slowdown visual effect
+  // ═══════════════════════════════════════════════════════════════════════════
+  double speedMultiplier = 1.0;   // 1.0 = normal, 0.3 = slow (30%), 2.0 = fast
+
   ReelAnimationState(this.reelIndex, this.profile);
 
   /// Get bounce offset in pixels for visual effect
@@ -137,6 +142,11 @@ class ReelAnimationState {
     isInAnticipation = false;
   }
 
+  /// P0.3: Set speed multiplier for anticipation slowdown effect
+  void setSpeedMultiplier(double multiplier) {
+    speedMultiplier = multiplier.clamp(0.1, 2.0);
+  }
+
   /// Update state based on elapsed time since spin start
   void update(int elapsedMs, List<int> targetSymbols) {
     if (phase == ReelPhase.idle || phase == ReelPhase.stopped) return;
@@ -153,13 +163,13 @@ class ReelAnimationState {
       phaseProgress = elapsedMs / accelEnd;
       final t = phaseProgress;
       velocity = _easeOutQuad(t) * 1.0; // Max velocity = 1.0
-      scrollOffset += velocity * 0.1;
+      scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
       spinCycles = scrollOffset / 10.0; // Track spin cycles
     } else if (elapsedMs < decelStart) {
       // PHASE: Full-speed spinning
       phase = ReelPhase.spinning;
       velocity = 1.0;
-      scrollOffset += velocity * 0.1;
+      scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
       final spinDuration = decelStart - accelEnd;
       phaseProgress = (elapsedMs - accelEnd) / spinDuration.clamp(1, double.infinity);
       spinCycles = scrollOffset / 10.0; // Track spin cycles for visual effect
@@ -169,7 +179,7 @@ class ReelAnimationState {
       phaseProgress = (elapsedMs - decelStart) / (bounceStart - decelStart);
       final t = phaseProgress;
       velocity = (1.0 - _easeInQuad(t)) * 1.0;
-      scrollOffset += velocity * 0.1;
+      scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
 
       // Approach target position
       if (t > 0.7) {
@@ -346,6 +356,37 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0.3: REEL SPEED MULTIPLIERS — For anticipation slowdown effect
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  final Map<int, double> _reelSpeedMultipliers = {};
+
+  /// P0.3: Set speed multiplier for a specific reel (for anticipation slowdown)
+  /// multiplier: 1.0 = normal speed, 0.3 = 30% speed (slow), 2.0 = double speed
+  void setReelSpeedMultiplier(int reelIndex, double multiplier) {
+    final clampedMultiplier = multiplier.clamp(0.1, 2.0);
+    _reelSpeedMultipliers[reelIndex] = clampedMultiplier;
+    if (reelIndex >= 0 && reelIndex < reelCount) {
+      _reelStates[reelIndex].setSpeedMultiplier(clampedMultiplier);
+    }
+    debugPrint('[ReelAnimController] P0.3: Reel $reelIndex speed = ${(clampedMultiplier * 100).toInt()}%');
+    notifyListeners();
+  }
+
+  /// P0.3: Get current speed multiplier for a reel
+  double getReelSpeedMultiplier(int reelIndex) {
+    return _reelSpeedMultipliers[reelIndex] ?? 1.0;
+  }
+
+  /// P0.3: Clear all speed multipliers (called on spin start)
+  void clearAllSpeedMultipliers() {
+    _reelSpeedMultipliers.clear();
+    for (final state in _reelStates) {
+      state.setSpeedMultiplier(1.0);
+    }
+  }
+
   /// Start spin animation
   void startSpin() {
     debugPrint('[ReelAnimController] startSpin() called, _isSpinning=$_isSpinning');
@@ -360,6 +401,9 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
     // Clear any previous anticipation states
     clearAllAnticipation();
+
+    // P0.3: Clear any previous speed multipliers
+    clearAllSpeedMultipliers();
 
     // Regenerate spin symbols
     _spinSymbols = List.generate(

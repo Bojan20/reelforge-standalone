@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlotLab V8 Ultimate Layout - FluxForge Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0c;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           HEADER - Compact 48px
+           ═══════════════════════════════════════════════════════════════════ */
+        .header {
+            height: 48px;
+            background: linear-gradient(180deg, #1a1a20 0%, #121216 100%);
+            border-bottom: 1px solid #2a2a35;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 16px;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 14px;
+            color: #4a9eff;
+            letter-spacing: 1px;
+        }
+
+        .game-selector {
+            background: #242430;
+            border: 1px solid #3a3a45;
+            border-radius: 6px;
+            padding: 6px 12px;
+            color: #e0e0e0;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .game-selector:hover {
+            border-color: #4a9eff;
+        }
+
+        .spin-btn {
+            background: linear-gradient(180deg, #4a9eff 0%, #3080dd 100%);
+            border: none;
+            border-radius: 6px;
+            padding: 8px 24px;
+            color: white;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .spin-btn:hover {
+            background: linear-gradient(180deg, #5aaeFF 0%, #4090ed 100%);
+        }
+
+        .forced-outcomes {
+            display: flex;
+            gap: 4px;
+            margin-left: auto;
+        }
+
+        .forced-btn {
+            width: 28px;
+            height: 28px;
+            background: #242430;
+            border: 1px solid #3a3a45;
+            border-radius: 4px;
+            color: #888;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .forced-btn:hover {
+            background: #3a3a45;
+            color: #fff;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .header-icon {
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            color: #888;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-icon:hover {
+            background: #242430;
+            color: #fff;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           MAIN CONTENT AREA
+           ═══════════════════════════════════════════════════════════════════ */
+        .main-content {
+            height: calc(100vh - 48px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           SLOT PREVIEW - Full Width Center
+           ═══════════════════════════════════════════════════════════════════ */
+        .slot-preview-zone {
+            flex: 1;
+            background: linear-gradient(180deg, #121216 0%, #0a0a0c 100%);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+        }
+
+        .slot-machine {
+            background: linear-gradient(180deg, #1a1a25 0%, #12121a 100%);
+            border: 2px solid #2a2a40;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+        .reels-container {
+            display: flex;
+            gap: 8px;
+            background: #0a0a10;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #1a1a25;
+        }
+
+        .reel {
+            width: 100px;
+            height: 180px;
+            background: linear-gradient(180deg, #15151f 0%, #0d0d15 100%);
+            border-radius: 6px;
+            border: 1px solid #252535;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .reel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+            z-index: 1;
+        }
+
+        .reel::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+            z-index: 1;
+        }
+
+        .symbol {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            border-bottom: 1px solid #1a1a25;
+        }
+
+        .symbol:last-child {
+            border-bottom: none;
+        }
+
+        /* Win line indicator */
+        .win-line-overlay {
+            position: absolute;
+            top: 50%;
+            left: -20px;
+            right: -20px;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #ffd700, #ffd700, transparent);
+            transform: translateY(-50%);
+            box-shadow: 0 0 20px #ffd700;
+            opacity: 0.8;
+        }
+
+        /* Stage Trace Overlay */
+        .stage-trace-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.9) 100%);
+            display: flex;
+            align-items: flex-end;
+            padding: 8px 16px;
+            gap: 4px;
+        }
+
+        .stage-marker {
+            height: 32px;
+            padding: 0 12px;
+            background: rgba(74, 158, 255, 0.2);
+            border: 1px solid rgba(74, 158, 255, 0.5);
+            border-radius: 4px;
+            font-size: 10px;
+            color: #4a9eff;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .stage-marker.active {
+            background: rgba(74, 158, 255, 0.4);
+            border-color: #4a9eff;
+            box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+        }
+
+        .stage-marker.win {
+            background: rgba(255, 215, 0, 0.2);
+            border-color: rgba(255, 215, 0, 0.5);
+            color: #ffd700;
+        }
+
+        /* Toggle for stage trace */
+        .stage-trace-toggle {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid #3a3a45;
+            border-radius: 6px;
+            padding: 6px 12px;
+            color: #888;
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stage-trace-toggle.active {
+            color: #4a9eff;
+            border-color: #4a9eff;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           AUDIO ZONE - Horizontal Bottom Panel
+           ═══════════════════════════════════════════════════════════════════ */
+        .audio-zone {
+            height: 280px;
+            min-height: 280px;
+            background: #121216;
+            border-top: 1px solid #2a2a35;
+            display: flex;
+        }
+
+        /* Resize handle */
+        .resize-handle {
+            height: 4px;
+            background: #1a1a20;
+            cursor: ns-resize;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .resize-handle::after {
+            content: '';
+            width: 40px;
+            height: 3px;
+            background: #3a3a45;
+            border-radius: 2px;
+        }
+
+        .resize-handle:hover {
+            background: #242430;
+        }
+
+        .resize-handle:hover::after {
+            background: #4a9eff;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           AUDIO BROWSER - Left 40%
+           ═══════════════════════════════════════════════════════════════════ */
+        .audio-browser {
+            width: 40%;
+            border-right: 1px solid #2a2a35;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            height: 36px;
+            background: #1a1a20;
+            border-bottom: 1px solid #2a2a35;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+        }
+
+        .panel-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .panel-title .icon {
+            margin-right: 6px;
+        }
+
+        .search-box {
+            flex: 1;
+            height: 26px;
+            background: #242430;
+            border: 1px solid #3a3a45;
+            border-radius: 4px;
+            padding: 0 8px;
+            color: #e0e0e0;
+            font-size: 12px;
+        }
+
+        .search-box::placeholder {
+            color: #666;
+        }
+
+        .browser-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .folder-tree {
+            width: 140px;
+            background: #0f0f12;
+            border-right: 1px solid #2a2a35;
+            padding: 8px 0;
+            overflow-y: auto;
+        }
+
+        .folder-item {
+            padding: 6px 12px;
+            font-size: 11px;
+            color: #888;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .folder-item:hover {
+            background: #1a1a20;
+            color: #fff;
+        }
+
+        .folder-item.active {
+            background: rgba(74, 158, 255, 0.15);
+            color: #4a9eff;
+        }
+
+        .file-list {
+            flex: 1;
+            padding: 8px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .audio-file {
+            padding: 8px 12px;
+            background: #1a1a20;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s;
+        }
+
+        .audio-file:hover {
+            background: #242430;
+            transform: translateX(2px);
+        }
+
+        .audio-file.dragging {
+            opacity: 0.5;
+            background: #4a9eff;
+        }
+
+        .audio-file .icon {
+            color: #4a9eff;
+        }
+
+        .audio-file .name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .audio-file .duration {
+            color: #666;
+            font-size: 10px;
+        }
+
+        /* Waveform preview on hover */
+        .waveform-preview {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: #0a0a0c;
+            border: 1px solid #4a9eff;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            display: none;
+            overflow: hidden;
+        }
+
+        .audio-file:hover .waveform-preview {
+            display: block;
+        }
+
+        .waveform-bars {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 1px;
+            padding: 4px;
+        }
+
+        .waveform-bar {
+            width: 2px;
+            background: #4a9eff;
+            border-radius: 1px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           ULTIMATE AUDIO PANEL - Right 60%
+           ═══════════════════════════════════════════════════════════════════ */
+        .audio-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-tabs {
+            height: 36px;
+            background: #1a1a20;
+            border-bottom: 1px solid #2a2a35;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            gap: 4px;
+        }
+
+        .panel-tab {
+            padding: 6px 14px;
+            font-size: 11px;
+            color: #888;
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .panel-tab:hover {
+            background: #242430;
+            color: #fff;
+        }
+
+        .panel-tab.active {
+            background: #4a9eff;
+            color: #fff;
+        }
+
+        .audio-panel-content {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            align-content: start;
+        }
+
+        /* Drop Target Cards */
+        .drop-target {
+            background: #1a1a20;
+            border: 2px dashed #3a3a45;
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 80px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .drop-target:hover {
+            border-color: #4a9eff;
+            background: rgba(74, 158, 255, 0.05);
+        }
+
+        .drop-target.drag-over {
+            border-color: #4a9eff;
+            border-style: solid;
+            background: rgba(74, 158, 255, 0.1);
+            box-shadow: 0 0 20px rgba(74, 158, 255, 0.2);
+        }
+
+        .drop-target.has-audio {
+            border-style: solid;
+            border-color: #40ff90;
+            background: rgba(64, 255, 144, 0.05);
+        }
+
+        .drop-target-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .drop-target-icon {
+            width: 28px;
+            height: 28px;
+            background: #242430;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .drop-target-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #e0e0e0;
+        }
+
+        .drop-target-stage {
+            font-size: 10px;
+            color: #666;
+            font-family: monospace;
+        }
+
+        .drop-target-audio {
+            background: #242430;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 11px;
+            color: #40ff90;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .drop-target-audio .remove {
+            margin-left: auto;
+            color: #ff4060;
+            cursor: pointer;
+            opacity: 0.6;
+        }
+
+        .drop-target-audio .remove:hover {
+            opacity: 1;
+        }
+
+        .drop-hint {
+            color: #555;
+            font-size: 11px;
+            text-align: center;
+            padding: 8px;
+        }
+
+        /* Section headers in panel */
+        .section-divider {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+        }
+
+        .section-divider-line {
+            flex: 1;
+            height: 1px;
+            background: #2a2a35;
+        }
+
+        .section-divider-text {
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           DRAG INDICATOR
+           ═══════════════════════════════════════════════════════════════════ */
+        .drag-indicator {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+
+        .drag-indicator.active {
+            display: block;
+        }
+
+        .drag-ghost {
+            background: #4a9eff;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            box-shadow: 0 4px 20px rgba(74, 158, 255, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           FLOW INDICATOR ARROWS
+           ═══════════════════════════════════════════════════════════════════ */
+        .flow-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #4a9eff;
+            opacity: 0.3;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           TOOLTIP
+           ═══════════════════════════════════════════════════════════════════ */
+        .tooltip {
+            position: fixed;
+            background: #242430;
+            border: 1px solid #3a3a45;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 11px;
+            color: #e0e0e0;
+            pointer-events: none;
+            z-index: 1001;
+            max-width: 200px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           INFO BADGE - Drag Distance
+           ═══════════════════════════════════════════════════════════════════ */
+        .info-badge {
+            position: fixed;
+            bottom: 300px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(74, 158, 255, 0.9);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 20px rgba(74, 158, 255, 0.3);
+            z-index: 100;
+        }
+
+        .info-badge .arrow {
+            font-size: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .audio-browser {
+                width: 35%;
+            }
+            .folder-tree {
+                width: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="header">
+        <div class="logo">FLUXFORGE</div>
+        <div class="game-selector">
+            <span>🎰</span>
+            <span>Aztec Gold</span>
+            <span>▼</span>
+        </div>
+        <button class="spin-btn">
+            <span>▶</span>
+            <span>SPIN</span>
+        </button>
+        <div class="forced-outcomes">
+            <button class="forced-btn" title="Lose">1</button>
+            <button class="forced-btn" title="Small Win">2</button>
+            <button class="forced-btn" title="Big Win">3</button>
+            <button class="forced-btn" title="Mega Win">4</button>
+            <button class="forced-btn" title="Free Spins">5</button>
+            <button class="forced-btn" title="Jackpot">6</button>
+            <button class="forced-btn" title="Near Miss">7</button>
+            <button class="forced-btn" title="Cascade">8</button>
+        </div>
+        <div class="header-actions">
+            <button class="header-icon" title="Volume">🔊</button>
+            <button class="header-icon" title="Settings">⚙️</button>
+            <button class="header-icon" title="Close">✕</button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+        <!-- SLOT PREVIEW ZONE -->
+        <div class="slot-preview-zone">
+            <div class="slot-machine">
+                <div class="reels-container">
+                    <div class="reel">
+                        <div class="symbol">💎</div>
+                        <div class="symbol">👑</div>
+                        <div class="symbol">🔔</div>
+                    </div>
+                    <div class="reel">
+                        <div class="symbol">🍀</div>
+                        <div class="symbol">💎</div>
+                        <div class="symbol">A</div>
+                    </div>
+                    <div class="reel">
+                        <div class="symbol">👑</div>
+                        <div class="symbol">💎</div>
+                        <div class="symbol">K</div>
+                        <div class="win-line-overlay"></div>
+                    </div>
+                    <div class="reel">
+                        <div class="symbol">🔔</div>
+                        <div class="symbol">💎</div>
+                        <div class="symbol">Q</div>
+                    </div>
+                    <div class="reel">
+                        <div class="symbol">⭐</div>
+                        <div class="symbol">💎</div>
+                        <div class="symbol">J</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stage Trace Overlay -->
+            <div class="stage-trace-overlay">
+                <div class="stage-marker">SPIN_START</div>
+                <div class="stage-marker">REEL_STOP_0</div>
+                <div class="stage-marker">REEL_STOP_1</div>
+                <div class="stage-marker">REEL_STOP_2</div>
+                <div class="stage-marker">REEL_STOP_3</div>
+                <div class="stage-marker">REEL_STOP_4</div>
+                <div class="stage-marker active">WIN_EVAL</div>
+                <div class="stage-marker win">WIN_LINE_SHOW</div>
+            </div>
+
+            <button class="stage-trace-toggle active">
+                <span>📊</span>
+                <span>Stage Trace</span>
+            </button>
+        </div>
+
+        <!-- RESIZE HANDLE -->
+        <div class="resize-handle"></div>
+
+        <!-- AUDIO ZONE - HORIZONTAL BOTTOM -->
+        <div class="audio-zone">
+            <!-- AUDIO BROWSER - LEFT 40% -->
+            <div class="audio-browser">
+                <div class="panel-header">
+                    <span class="panel-title"><span class="icon">📁</span>AUDIO BROWSER</span>
+                    <input type="text" class="search-box" placeholder="Search audio files...">
+                </div>
+                <div class="browser-content">
+                    <div class="folder-tree">
+                        <div class="folder-item active">
+                            <span>📁</span>
+                            <span>Spins</span>
+                        </div>
+                        <div class="folder-item">
+                            <span>📁</span>
+                            <span>Reels</span>
+                        </div>
+                        <div class="folder-item">
+                            <span>📁</span>
+                            <span>Wins</span>
+                        </div>
+                        <div class="folder-item">
+                            <span>📁</span>
+                            <span>Features</span>
+                        </div>
+                        <div class="folder-item">
+                            <span>📁</span>
+                            <span>Music</span>
+                        </div>
+                        <div class="folder-item">
+                            <span>📁</span>
+                            <span>UI</span>
+                        </div>
+                    </div>
+                    <div class="file-list">
+                        <div class="audio-file" draggable="true" ondragstart="onDragStart(event)" ondragend="onDragEnd(event)">
+                            <span class="icon">🎵</span>
+                            <span class="name">spin_whoosh_01.wav</span>
+                            <span class="duration">0:02</span>
+                        </div>
+                        <div class="audio-file" draggable="true" ondragstart="onDragStart(event)" ondragend="onDragEnd(event)">
+                            <span class="icon">🎵</span>
+                            <span class="name">spin_start_impact.wav</span>
+                            <span class="duration">0:01</span>
+                        </div>
+                        <div class="audio-file" draggable="true" ondragstart="onDragStart(event)" ondragend="onDragEnd(event)">
+                            <span class="icon">🎵</span>
+                            <span class="name">spin_loop_tension.wav</span>
+                            <span class="duration">0:04</span>
+                        </div>
+                        <div class="audio-file" draggable="true" ondragstart="onDragStart(event)" ondragend="onDragEnd(event)">
+                            <span class="icon">🎵</span>
+                            <span class="name">reel_stop_thud_01.wav</span>
+                            <span class="duration">0:01</span>
+                        </div>
+                        <div class="audio-file" draggable="true" ondragstart="onDragStart(event)" ondragend="onDragEnd(event)">
+                            <span class="icon">🎵</span>
+                            <span class="name">reel_stop_thud_02.wav</span>
+                            <span class="duration">0:01</span>
+                        </div>
+                        <div class="audio-file" draggable="true" ondragstart="onDragStart(event)" ondragend="onDragEnd(event)">
+                            <span class="icon">🎵</span>
+                            <span class="name">reel_anticipation.wav</span>
+                            <span class="duration">0:03</span>
+                        </div>
+                        <div class="audio-file" draggable="true" ondragstart="onDragStart(event)" ondragend="onDragEnd(event)">
+                            <span class="icon">🎵</span>
+                            <span class="name">win_small_coins.wav</span>
+                            <span class="duration">0:02</span>
+                        </div>
+                        <div class="audio-file" draggable="true" ondragstart="onDragStart(event)" ondragend="onDragEnd(event)">
+                            <span class="icon">🎵</span>
+                            <span class="name">win_big_fanfare.wav</span>
+                            <span class="duration">0:05</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ULTIMATE AUDIO PANEL - RIGHT 60% -->
+            <div class="audio-panel">
+                <div class="panel-tabs">
+                    <button class="panel-tab active">UI & Spins</button>
+                    <button class="panel-tab">Reels</button>
+                    <button class="panel-tab">Symbols</button>
+                    <button class="panel-tab">Wins</button>
+                    <button class="panel-tab">Features</button>
+                    <button class="panel-tab">Music</button>
+                </div>
+                <div class="audio-panel-content">
+                    <!-- UI Section -->
+                    <div class="section-divider">
+                        <div class="section-divider-line"></div>
+                        <span class="section-divider-text">UI Interactions</span>
+                        <div class="section-divider-line"></div>
+                    </div>
+
+                    <div class="drop-target has-audio"
+                         ondragover="onDragOver(event)"
+                         ondragleave="onDragLeave(event)"
+                         ondrop="onDrop(event)">
+                        <div class="drop-target-header">
+                            <div class="drop-target-icon">🎰</div>
+                            <div>
+                                <div class="drop-target-title">Spin Button</div>
+                                <div class="drop-target-stage">SPIN_START</div>
+                            </div>
+                        </div>
+                        <div class="drop-target-audio">
+                            <span>🎵</span>
+                            <span>spin_whoosh_01.wav</span>
+                            <span class="remove">✕</span>
+                        </div>
+                    </div>
+
+                    <div class="drop-target"
+                         ondragover="onDragOver(event)"
+                         ondragleave="onDragLeave(event)"
+                         ondrop="onDrop(event)">
+                        <div class="drop-target-header">
+                            <div class="drop-target-icon">⏹</div>
+                            <div>
+                                <div class="drop-target-title">Stop Button</div>
+                                <div class="drop-target-stage">UI_STOP_PRESS</div>
+                            </div>
+                        </div>
+                        <div class="drop-hint">Drop audio here</div>
+                    </div>
+
+                    <div class="drop-target"
+                         ondragover="onDragOver(event)"
+                         ondragleave="onDragLeave(event)"
+                         ondrop="onDrop(event)">
+                        <div class="drop-target-header">
+                            <div class="drop-target-icon">🔄</div>
+                            <div>
+                                <div class="drop-target-title">Auto-Spin</div>
+                                <div class="drop-target-stage">AUTOPLAY_START</div>
+                            </div>
+                        </div>
+                        <div class="drop-hint">Drop audio here</div>
+                    </div>
+
+                    <!-- Spin Section -->
+                    <div class="section-divider">
+                        <div class="section-divider-line"></div>
+                        <span class="section-divider-text">Spin Events</span>
+                        <div class="section-divider-line"></div>
+                    </div>
+
+                    <div class="drop-target has-audio"
+                         ondragover="onDragOver(event)"
+                         ondragleave="onDragLeave(event)"
+                         ondrop="onDrop(event)">
+                        <div class="drop-target-header">
+                            <div class="drop-target-icon">🔁</div>
+                            <div>
+                                <div class="drop-target-title">Reel Spin Loop</div>
+                                <div class="drop-target-stage">REEL_SPINNING</div>
+                            </div>
+                        </div>
+                        <div class="drop-target-audio">
+                            <span>🎵</span>
+                            <span>spin_loop_tension.wav</span>
+                            <span class="remove">✕</span>
+                        </div>
+                    </div>
+
+                    <div class="drop-target"
+                         ondragover="onDragOver(event)"
+                         ondragleave="onDragLeave(event)"
+                         ondrop="onDrop(event)">
+                        <div class="drop-target-header">
+                            <div class="drop-target-icon">⚡</div>
+                            <div>
+                                <div class="drop-target-title">Anticipation</div>
+                                <div class="drop-target-stage">ANTICIPATION_ON</div>
+                            </div>
+                        </div>
+                        <div class="drop-hint">Drop audio here</div>
+                    </div>
+
+                    <div class="drop-target"
+                         ondragover="onDragOver(event)"
+                         ondragleave="onDragLeave(event)"
+                         ondrop="onDrop(event)">
+                        <div class="drop-target-header">
+                            <div class="drop-target-icon">🛑</div>
+                            <div>
+                                <div class="drop-target-title">Spin End</div>
+                                <div class="drop-target-stage">SPIN_END</div>
+                            </div>
+                        </div>
+                        <div class="drop-hint">Drop audio here</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- DRAG DISTANCE INFO BADGE -->
+    <div class="info-badge">
+        <span class="arrow">←</span>
+        <span>Drag Distance: ~150px (horizontal)</span>
+        <span class="arrow">→</span>
+    </div>
+
+    <script>
+        // Drag and Drop handling
+        let draggedFile = null;
+
+        function onDragStart(e) {
+            draggedFile = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', e.target.querySelector('.name').textContent);
+            e.dataTransfer.effectAllowed = 'copy';
+        }
+
+        function onDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedFile = null;
+        }
+
+        function onDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function onDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function onDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+
+            const fileName = e.dataTransfer.getData('text/plain');
+            if (fileName) {
+                // Update the drop target to show the audio
+                e.currentTarget.classList.add('has-audio');
+                const hint = e.currentTarget.querySelector('.drop-hint');
+                if (hint) {
+                    hint.outerHTML = `
+                        <div class="drop-target-audio">
+                            <span>🎵</span>
+                            <span>${fileName}</span>
+                            <span class="remove" onclick="removeAudio(this)">✕</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function removeAudio(element) {
+            const dropTarget = element.closest('.drop-target');
+            dropTarget.classList.remove('has-audio');
+            element.parentElement.outerHTML = '<div class="drop-hint">Drop audio here</div>';
+        }
+
+        // Tab switching
+        document.querySelectorAll('.panel-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Folder switching
+        document.querySelectorAll('.folder-item').forEach(folder => {
+            folder.addEventListener('click', function() {
+                document.querySelectorAll('.folder-item').forEach(f => f.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Stage trace toggle
+        document.querySelector('.stage-trace-toggle').addEventListener('click', function() {
+            this.classList.toggle('active');
+            document.querySelector('.stage-trace-overlay').style.display =
+                this.classList.contains('active') ? 'flex' : 'none';
+        });
+
+        // Resize handle (simplified)
+        const resizeHandle = document.querySelector('.resize-handle');
+        const audioZone = document.querySelector('.audio-zone');
+        let isResizing = false;
+
+        resizeHandle.addEventListener('mousedown', () => {
+            isResizing = true;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const newHeight = window.innerHeight - e.clientY - 48;
+            audioZone.style.height = Math.max(200, Math.min(500, newHeight)) + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            isResizing = false;
+        });
+    </script>
+</body>
+</html>

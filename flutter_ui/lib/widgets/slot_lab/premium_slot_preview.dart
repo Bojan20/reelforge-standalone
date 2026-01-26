@@ -20,7 +20,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/slot_lab_provider.dart';
+import '../../providers/slot_lab_project_provider.dart';
 import '../../services/event_registry.dart';
+import '../../services/gdd_import_service.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'slot_preview_widget.dart';
@@ -1041,8 +1043,9 @@ class _MainGameZone extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               child: Stack(
                 children: [
-                  // Reel content
+                  // Reel content - ValueKey forces rebuild when dimensions change
                   SlotPreviewWidget(
+                    key: ValueKey('slot_preview_${reels}x$rows'),
                     provider: provider,
                     reels: reels,
                     rows: rows,
@@ -3372,6 +3375,8 @@ class _InfoPanels extends StatelessWidget {
   final VoidCallback onRulesToggle;
   final VoidCallback onHistoryToggle;
   final VoidCallback onStatsToggle;
+  /// GDD symbols from imported Game Design Document (if any)
+  final List<GddSymbol> gddSymbols;
 
   const _InfoPanels({
     this.showPaytable = false,
@@ -3386,6 +3391,7 @@ class _InfoPanels extends StatelessWidget {
     required this.onRulesToggle,
     required this.onHistoryToggle,
     required this.onStatsToggle,
+    this.gddSymbols = const [],
   });
 
   @override
@@ -3448,7 +3454,7 @@ class _InfoPanels extends StatelessWidget {
 
           if (showPaytable) ...[
             const SizedBox(height: 16),
-            const _PaytablePanel(),
+            _PaytablePanel(gddSymbols: gddSymbols),
           ],
 
           if (showRules) ...[
@@ -3462,14 +3468,15 @@ class _InfoPanels extends StatelessWidget {
 }
 
 /// Paytable panel showing symbol pay values
+/// Uses GDD symbols when available, falls back to defaults
 class _PaytablePanel extends StatelessWidget {
-  const _PaytablePanel();
+  /// GDD symbols from imported Game Design Document
+  final List<GddSymbol> gddSymbols;
 
-  // Standard symbol data — MUST MATCH Rust engine (crates/rf-slot-lab/src/symbols.rs)
-  // Rust: HP1=1(20/100/500), HP2=2(15/75/300), HP3=3(10/50/200), HP4=4(8/40/150)
-  //       LP1=5(5/25/100), LP2=6(4/20/80), LP3=7(3/15/60), LP4=8(2/10/40),
-  //       LP5=9(1/5/20), LP6=10(1/5/20)
-  static const List<_SymbolPayData> _symbols = [
+  const _PaytablePanel({this.gddSymbols = const []});
+
+  // Default symbol data — fallback when no GDD imported
+  static const List<_SymbolPayData> _defaultSymbols = [
     // High paying (HP1-HP4)
     _SymbolPayData('HP1 (Seven)', '7', [20.0, 100.0, 500.0], isHighPay: true),
     _SymbolPayData('HP2 (Bar)', '▬', [15.0, 75.0, 300.0], isHighPay: true),
@@ -3484,7 +3491,7 @@ class _PaytablePanel extends StatelessWidget {
     _SymbolPayData('LP6 (Blueberry)', '🫐', [1.0, 5.0, 20.0]),
   ];
 
-  static const List<_SpecialSymbolData> _specials = [
+  static const List<_SpecialSymbolData> _defaultSpecials = [
     _SpecialSymbolData(
       'WILD',
       '★',
@@ -3507,6 +3514,128 @@ class _PaytablePanel extends StatelessWidget {
       null,
     ),
   ];
+
+  /// Convert GDD symbol to display data
+  _SymbolPayData _gddToPayData(GddSymbol gdd) {
+    // Convert payouts map to array [3x, 4x, 5x]
+    final pays = <double>[];
+    for (var i = 3; i <= 5; i++) {
+      pays.add(gdd.payouts[i] ?? 0.0);
+    }
+
+    // Get emoji based on tier/name
+    final icon = _getSymbolEmoji(gdd);
+
+    // High pay = premium, high tier
+    final isHighPay = gdd.tier == SymbolTier.premium ||
+        gdd.tier == SymbolTier.high;
+
+    return _SymbolPayData(gdd.name, icon, pays, isHighPay: isHighPay);
+  }
+
+  /// Get emoji for symbol based on name/tier
+  String _getSymbolEmoji(GddSymbol gdd) {
+    final name = gdd.name.toLowerCase();
+    // Theme-based emoji mapping
+    if (name.contains('zeus') || name.contains('thunder')) return '⚡';
+    if (name.contains('poseidon') || name.contains('trident')) return '🔱';
+    if (name.contains('hades') || name.contains('death')) return '💀';
+    if (name.contains('athena') || name.contains('wisdom')) return '🦉';
+    if (name.contains('dragon')) return '🐉';
+    if (name.contains('phoenix') || name.contains('fire')) return '🔥';
+    if (name.contains('tiger')) return '🐅';
+    if (name.contains('lion')) return '🦁';
+    if (name.contains('eagle') || name.contains('bird')) return '🦅';
+    if (name.contains('wolf')) return '🐺';
+    if (name.contains('crown') || name.contains('king')) return '👑';
+    if (name.contains('diamond')) return '💎';
+    if (name.contains('gem') || name.contains('jewel')) return '💍';
+    if (name.contains('gold') || name.contains('coin')) return '🪙';
+    if (name.contains('treasure') || name.contains('chest')) return '📦';
+    if (name.contains('sword')) return '⚔️';
+    if (name.contains('shield')) return '🛡️';
+    if (name.contains('helmet')) return '⛑️';
+    if (name.contains('star')) return '⭐';
+    if (name.contains('moon')) return '🌙';
+    if (name.contains('sun')) return '☀️';
+    if (name.contains('heart')) return '❤️';
+    if (name.contains('ace') || name.contains('a')) return '🂡';
+    if (name.contains('king') || name.contains('k')) return '🂮';
+    if (name.contains('queen') || name.contains('q')) return '🂭';
+    if (name.contains('jack') || name.contains('j')) return '🂫';
+    if (name.contains('10') || name.contains('ten')) return '🔟';
+    if (name.contains('9') || name.contains('nine')) return '9️⃣';
+    // Tier-based fallback
+    switch (gdd.tier) {
+      case SymbolTier.premium: return '👑';
+      case SymbolTier.high: return '💎';
+      case SymbolTier.mid: return '🎲';
+      case SymbolTier.low: return '🃏';
+      case SymbolTier.wild: return '★';
+      case SymbolTier.scatter: return '◆';
+      case SymbolTier.bonus: return '♦';
+      case SymbolTier.special: return '✦';
+    }
+  }
+
+  /// Convert GDD special symbol to display data
+  _SpecialSymbolData? _gddToSpecialData(GddSymbol gdd) {
+    final pays = <double>[];
+    for (var i = 3; i <= 5; i++) {
+      pays.add(gdd.payouts[i] ?? 0.0);
+    }
+
+    final icon = _getSymbolEmoji(gdd);
+    Color color;
+    String description;
+
+    if (gdd.isWild || gdd.tier == SymbolTier.wild) {
+      color = _SlotTheme.gold;
+      description = 'Substitutes for all symbols except Scatter';
+    } else if (gdd.isScatter || gdd.tier == SymbolTier.scatter) {
+      color = _SlotTheme.jackpotMinor;
+      description = '3+ anywhere triggers Free Spins';
+    } else if (gdd.isBonus || gdd.tier == SymbolTier.bonus) {
+      color = _SlotTheme.jackpotMajor;
+      description = '3+ triggers Bonus Game';
+    } else {
+      return null; // Not a special symbol
+    }
+
+    return _SpecialSymbolData(
+      gdd.name,
+      icon,
+      color,
+      description,
+      pays.any((p) => p > 0) ? pays : null,
+    );
+  }
+
+  /// Get symbol list (GDD or defaults)
+  List<_SymbolPayData> get _symbols {
+    if (gddSymbols.isEmpty) return _defaultSymbols;
+
+    // Filter out special symbols, convert the rest
+    return gddSymbols
+        .where((s) => !s.isWild && !s.isScatter && !s.isBonus &&
+            s.tier != SymbolTier.wild &&
+            s.tier != SymbolTier.scatter &&
+            s.tier != SymbolTier.bonus)
+        .map(_gddToPayData)
+        .toList();
+  }
+
+  /// Get special symbols (GDD or defaults)
+  List<_SpecialSymbolData> get _specials {
+    if (gddSymbols.isEmpty) return _defaultSpecials;
+
+    final specials = <_SpecialSymbolData>[];
+    for (final gdd in gddSymbols) {
+      final special = _gddToSpecialData(gdd);
+      if (special != null) specials.add(special);
+    }
+    return specials.isEmpty ? _defaultSpecials : specials;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4728,12 +4857,16 @@ class PremiumSlotPreview extends StatefulWidget {
   final VoidCallback onExit;
   final int reels;
   final int rows;
+  /// When true, this widget handles SPACE key for spin/stop.
+  /// When false (embedded mode), SPACE is ignored and handled by parent (slot_lab_screen).
+  final bool isFullscreen;
 
   const PremiumSlotPreview({
     super.key,
     required this.onExit,
     this.reels = 5,
     this.rows = 3,
+    this.isFullscreen = false,
   });
 
   @override
@@ -5582,9 +5715,17 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
       case LogicalKeyboardKey.space:
         // ═══════════════════════════════════════════════════════════════════════
-        // DEBOUNCE CHECK — Prevents double-trigger from multiple Focus widgets
-        // Bug: slot_lab_screen Focus AND premium_slot_preview Focus both receive
-        // the same SPACE event, causing spin→immediate stop in same frame
+        // EMBEDDED MODE CHECK — Skip SPACE handling when NOT in fullscreen
+        // Let slot_lab_screen global handler handle SPACE in embedded mode
+        // This prevents double-handling where both handlers process same event
+        // ═══════════════════════════════════════════════════════════════════════
+        if (!widget.isFullscreen) {
+          debugPrint('[PremiumSlotPreview] ⏭️ SPACE ignored (embedded mode — global handler will handle)');
+          return KeyEventResult.ignored;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // DEBOUNCE CHECK — Prevents double-trigger from rapid key presses
         // ═══════════════════════════════════════════════════════════════════════
         final now = DateTime.now().millisecondsSinceEpoch;
         if (now - _lastSpaceKeyTime < _spaceKeyDebounceMs) {
@@ -5661,6 +5802,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SlotLabProvider>();
+    final projectProvider = context.watch<SlotLabProjectProvider>();
     // isSpinning: True during all stages (spin + win presentation) — for disabling Spin button
     final isSpinning = provider.isPlayingStages;
     // isReelsSpinning: True ONLY while reels are visually spinning — for STOP button
@@ -5668,6 +5810,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     final isInitialized = provider.initialized;
     final canSpin = isInitialized && _balance >= _totalBetAmount && !isSpinning;
     final sessionRtp = _totalBet > 0 ? (_totalWin / _totalBet * 100) : 0.0;
+    // Get GDD symbols from project provider (if imported)
+    final gddSymbols = projectProvider.gddSymbols;
 
     return Focus(
       focusNode: _focusNode,
@@ -5760,6 +5904,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
               totalSpins: _totalSpins,
               rtp: sessionRtp,
               gameConfig: _gameConfig,
+              gddSymbols: gddSymbols,
               onPaytableToggle: () => setState(() {
                 _showPaytable = !_showPaytable;
                 _showRules = false;

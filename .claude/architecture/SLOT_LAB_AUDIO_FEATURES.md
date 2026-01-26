@@ -3,7 +3,7 @@
 > Detaljni tehnički pregled svih implementiranih P0/P1 audio poboljšanja.
 
 **Datum:** 2026-01-25 (Updated V14)
-**Status:** P0.1-P0.18, P1.1-P1.3 kompletni
+**Status:** P0.1-P0.19, P1.1-P1.3 kompletni
 
 ---
 
@@ -407,6 +407,77 @@ Music:   [███████████████████████�
 Coins:            [████████████████████]
 Voice:                                         [████████]
 ```
+
+---
+
+## P0.19: Big Win Celebration System (2026-01-25) ✅
+
+### Problem
+Raniji sistem (P0.7) koristio je kompleksan template sa 4+ layera. Previše komplikovan za jednostavnu integraciju.
+
+### Rešenje
+Pojednostavljen sistem sa samo 2 stage-a: `BIG_WIN_LOOP` i `BIG_WIN_COINS`.
+
+### Komponente
+
+| Stage | Bus | Priority | Loop | Opis |
+|-------|-----|----------|------|------|
+| `BIG_WIN_LOOP` | Music (1) | 90 | ✅ Da | Looping celebration muzika, ducks base music |
+| `BIG_WIN_COINS` | SFX (2) | 75 | Ne | Coin particle zvuk efekti |
+
+### Trigger Threshold
+Win ratio ≥ 20x bet aktivira Big Win celebration.
+
+### Implementation Files
+
+**`flutter_ui/lib/widgets/slot_lab/slot_preview_widget.dart`**
+```dart
+// Big Win detection and triggering
+final bet = widget.provider.betAmount;
+final winRatio = bet > 0 ? result.totalWin / bet : 0.0;
+if (winRatio >= 20) {
+  eventRegistry.triggerStage('BIG_WIN_LOOP');
+  eventRegistry.triggerStage('BIG_WIN_COINS');
+}
+```
+
+**`flutter_ui/lib/providers/slot_lab_provider.dart`**
+```dart
+void setWinPresentationActive(bool active) {
+  if (!active) {
+    // Auto-stop loop when win presentation ends
+    eventRegistry.stopEvent('BIG_WIN_LOOP');
+  }
+}
+```
+
+**`flutter_ui/lib/services/stage_configuration_service.dart`**
+```dart
+StageDefinition(
+  stage: 'BIG_WIN_LOOP',
+  category: StageCategory.win,
+  priority: 90,
+  bus: SpatialBus.music,
+  pooled: false,
+  isLooping: true,
+),
+StageDefinition(
+  stage: 'BIG_WIN_COINS',
+  category: StageCategory.win,
+  priority: 75,
+  bus: SpatialBus.sfx,
+  pooled: false,
+  isLooping: false,
+),
+```
+
+### UltimateAudioPanel Integration
+
+Big Win grupa u WINS sekciji:
+- Slot: BIG_WIN_LOOP (looping celebration music)
+- Slot: BIG_WIN_COINS (coin particle SFX)
+
+Korisnik može drag-drop audio fajlove direktno na slotove.
 
 ---
 
@@ -1219,6 +1290,7 @@ Text(..., fontSize: 12),
 | P0.16 | Unified Rollup (RTL + BIG WIN Speed) | ✅ Kompletno (2026-01-25) |
 | P0.17 | Win Presentation Visual-Sync | ✅ Kompletno (2026-01-25) |
 | P0.18 | V14: Per-Symbol WIN_SYMBOL_HIGHLIGHT | ✅ Kompletno (2026-01-25) |
+| P0.19 | Big Win Celebration System (BIG_WIN_LOOP/COINS) | ✅ Kompletno (2026-01-25) |
 | P1.1 | Symbol-Specific Audio | ✅ Kompletno |
 | P1.2 | Near Miss Audio Escalation | ✅ Kompletno |
 | P1.3 | Win Line Audio Panning | ✅ Kompletno |
@@ -1601,6 +1673,201 @@ Three audios: WIN_SYMBOL_HIGHLIGHT_HP1, WIN_SYMBOL_HIGHLIGHT_WILD, WIN_SYMBOL_HI
 
 ---
 
+## P0.20: Per-Reel Spin Loop System (2026-01-25) ✅
+
+### Problem
+Generički REEL_SPIN_LOOP pokrivao je sve reelove. Kada reel 0 stane, nemoguće je fade-out-ovati samo loop za reel 0 — svi loop-ovi se zaustavljaju zajedno.
+
+### Rešenje
+EventRegistry sada auto-detektuje per-reel spin loop stage-ove:
+
+| Stage Pattern | Svrha |
+|---------------|-------|
+| `REEL_SPINNING_START_0..4` | Pokreni spin loop za specifični reel |
+| `REEL_SPINNING_STOP_0..4` | Early fade-out PRE vizualnog zaustavljanja |
+| `REEL_SPINNING_0..4` | Legacy per-reel spin (backwards compat) |
+| `REEL_SPINNING` / `REEL_SPIN_LOOP` | Generički deljeni loop |
+
+### Komponente
+
+**`flutter_ui/lib/services/event_registry.dart`**
+```dart
+// P0.20: Per-reel spin loop voice tracking
+final Map<int, int> _reelSpinLoopVoices = {};  // reelIndex → voiceId
+
+// Auto-detect REEL_SPINNING_START_X stages
+final reelSpinStartMatch = RegExp(r'^REEL_SPINNING_START_(\d+)').firstMatch(upperStage);
+if (reelSpinStartMatch != null) {
+  final reelIndex = int.tryParse(reelSpinStartMatch.group(1) ?? '');
+  if (reelIndex != null) {
+    enhancedContext['is_reel_spin_loop'] = true;
+    enhancedContext['reel_index'] = reelIndex;
+  }
+}
+
+// Auto-detect REEL_SPINNING_STOP_X stages for early fade-out
+final reelSpinStopMatch = RegExp(r'^REEL_SPINNING_STOP_(\d+)').firstMatch(upperStage);
+if (reelSpinStopMatch != null) {
+  final reelIndex = int.tryParse(reelSpinStopMatch.group(1) ?? '');
+  if (reelIndex != null) {
+    _fadeOutReelSpinLoop(reelIndex);
+  }
+}
+
+void _trackReelSpinLoopVoice(int reelIndex, int voiceId) {
+  _reelSpinLoopVoices[reelIndex] = voiceId;
+}
+
+void _fadeOutReelSpinLoop(int reelIndex) {
+  final voiceId = _reelSpinLoopVoices.remove(reelIndex);
+  if (voiceId != null) {
+    AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: 50);
+  }
+}
+```
+
+### Audio Timeline (5-reel example)
+
+```
+Time:       0ms    200ms   400ms   600ms   800ms   1000ms  1200ms
+            |       |       |       |       |       |       |
+Reel 0:   [START] ~~~~~~~~~~~~ [STOP] fade
+Reel 1:            [START] ~~~~~~~~~~~~ [STOP] fade
+Reel 2:                    [START] ~~~~~~~~~~~~ [STOP] fade
+Reel 3:                            [START] ~~~~~~~~~~~~ [STOP] fade
+Reel 4:                                    [START] ~~~~~~~~~~~~ [STOP] fade
+
+Audio:    |spin_0|  |spin_1|  |spin_2|  |spin_3|  |spin_4|
+          looping   looping   looping   looping   looping
+```
+
+### Key Points
+
+1. **Early Fade-out**: `REEL_SPINNING_STOP_X` se trigeruje PRE vizualnog zaustavljanja (tipično 50-100ms ranije)
+2. **Smooth Transition**: 50ms fade-out sprečava abruptni cutoff
+3. **Independent Control**: Svaki reel ima svoj voice ID za nezavisnu kontrolu
+4. **Backwards Compatible**: Legacy `REEL_SPINNING` i dalje radi za generički loop
+
+---
+
+## P0.21: CASCADE_STEP Pitch/Volume Escalation (2026-01-25) ✅
+
+### Problem
+Cascade koraci su imali isti zvuk bez obzira na dubinu cascade-a. Industrijski standard je pitch i volume escalation sa svakim korakom.
+
+### Rešenje
+EventRegistry auto-detektuje `CASCADE_STEP_N` pattern i primenjuje pitch/volume escalation.
+
+### Komponente
+
+**`flutter_ui/lib/services/event_registry.dart`**
+```dart
+// P0.21: CASCADE_STEP_N pitch/volume escalation
+final cascadeStepMatch = RegExp(r'^CASCADE_STEP_(\d+)').firstMatch(upperStage);
+if (cascadeStepMatch != null) {
+  final stepIndex = int.tryParse(cascadeStepMatch.group(1) ?? '') ?? 0;
+
+  // 5% pitch increase per step (1.0 → 1.05 → 1.10 → 1.15...)
+  final cascadePitch = 1.0 + (stepIndex * 0.05);
+
+  // 4% volume increase per step, starting at 90% (0.90 → 0.94 → 0.98...)
+  final cascadeVolume = (0.9 + (stepIndex * 0.04)).clamp(0.0, 1.2);
+
+  enhancedContext['pitch'] = cascadePitch;
+  enhancedContext['volumeMultiplier'] = cascadeVolume;
+}
+```
+
+### Escalation Table
+
+| Step | Stage | Pitch | Volume |
+|------|-------|-------|--------|
+| 0 | CASCADE_STEP_0 | 1.00x | 90% |
+| 1 | CASCADE_STEP_1 | 1.05x | 94% |
+| 2 | CASCADE_STEP_2 | 1.10x | 98% |
+| 3 | CASCADE_STEP_3 | 1.15x | 102% |
+| 4 | CASCADE_STEP_4 | 1.20x | 106% |
+| 5 | CASCADE_STEP_5 | 1.25x | 110% |
+| 6+ | CASCADE_STEP_6+ | 1.30x+ | 114%+ (clamped at 120%) |
+
+### Audio Effect
+
+```
+CASCADE_STEP_0:  Normal pitch, 90% volume  — "thunk"
+CASCADE_STEP_1:  +5% pitch, 94% volume     — "THUNK"
+CASCADE_STEP_2:  +10% pitch, 98% volume    — "THUNK!"
+CASCADE_STEP_3:  +15% pitch, 102% volume   — "THUNK!!"
+CASCADE_STEP_4:  +20% pitch, 106% volume   — "THUNK!!!"
+
+Result: Rising tension, increasing excitement with each cascade step
+```
+
+### Industry Reference
+
+- **Pragmatic Play**: +3-5% pitch per cascade
+- **Big Time Gaming (Megaways)**: +4-6% pitch, +5% volume per cascade
+- **NetEnt**: +2-4% pitch with slight reverb increase
+
+---
+
+## P1.5: Jackpot Audio Sequence (2026-01-25) ✅
+
+### Problem
+Jackpot audio imao je samo jedan stage (`JACKPOT_TRIGGER`). Nedostajala je multi-fazna sekvenca za dramatičan jackpot prezentaciju.
+
+### Rešenje
+Proširena jackpot sekvenca sa 6 stage-ova u Rust engine-u.
+
+### Komponente
+
+**`crates/rf-slot-lab/src/jackpot.rs`**
+```rust
+fn stage_types(&self) -> Vec<&'static str> {
+    vec![
+        "JACKPOT_TRIGGER",      // Alert tone (500ms)
+        "JACKPOT_BUILDUP",      // Rising tension (2000ms)
+        "JACKPOT_REVEAL",       // Tier reveal — MINI/MINOR/MAJOR/GRAND (1000ms)
+        "JACKPOT_PRESENT",      // Main fanfare + amount display (5000ms)
+        "JACKPOT_CELEBRATION",  // Looping celebration (until collect)
+        "JACKPOT_END",          // Fade out, return to game
+    ]
+}
+```
+
+### Timeline
+
+```
+Time:     0ms      500ms    2500ms   3500ms   8500ms    ...      collect
+          |         |         |        |        |       |           |
+TRIGGER   |████|
+BUILDUP              |████████████████|
+REVEAL                                 |████████|
+PRESENT                                          |████████████████████|
+CELEBRATION                                                   [LOOP...]
+END                                                                    |████|
+```
+
+### Audio Design Guide
+
+| Stage | Duration | Bus | Audio Content |
+|-------|----------|-----|---------------|
+| JACKPOT_TRIGGER | 500ms | SFX | Sharp alert tone, attention grab |
+| JACKPOT_BUILDUP | 2000ms | Music | Rising tension, drum roll |
+| JACKPOT_REVEAL | 1000ms | SFX | Tier-specific reveal sound |
+| JACKPOT_PRESENT | 5000ms | Music | Triumphant fanfare, tier-specific |
+| JACKPOT_CELEBRATION | Loop | Music | Looping celebration music |
+| JACKPOT_END | 500ms | SFX | Fade out, return stinger |
+
+### Tier-Specific Variations
+
+Audio designer može kreirati tier-specific varijante:
+- `JACKPOT_REVEAL_MINI`, `JACKPOT_REVEAL_MINOR`, `JACKPOT_REVEAL_MAJOR`, `JACKPOT_REVEAL_GRAND`
+- `JACKPOT_PRESENT_GRAND` (extended 10s fanfare for Grand jackpot)
+
+EventRegistry koristi fallback: `JACKPOT_REVEAL_GRAND` → `JACKPOT_REVEAL` ako specifična varijanta ne postoji.
+
+---
+
 ## Related Documentation
 
 - **CLAUDE.md** — Build procedura i projekat instrukcije
@@ -1608,6 +1875,7 @@ Three audios: WIN_SYMBOL_HIGHLIGHT_HP1, WIN_SYMBOL_HIGHLIGHT_WILD, WIN_SYMBOL_HI
 - **SLOT_LAB_SYSTEM.md** — SlotLab arhitektura overview
 - **WIN_PRESENTATION_INDUSTRY_STANDARD_2026_01_24.md** — Industry standard win flow
 - **SLOTLAB_DROP_ZONE_SPEC.md** — Drop zone system specification
+- **EVENT_SYNC_SYSTEM.md** — Event sync arhitektura i per-reel spin loop detalji
 
 ---
 

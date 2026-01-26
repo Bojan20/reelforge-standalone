@@ -26,6 +26,20 @@ pub enum Stage {
         reel_index: u8,
     },
 
+    /// P0.1: Single reel starts spinning (for per-reel audio control)
+    /// Used to trigger individual spin loop for each reel
+    ReelSpinningStart {
+        /// Which reel (0-indexed)
+        reel_index: u8,
+    },
+
+    /// P0.1: Single reel stops spinning (triggers fade-out of spin loop)
+    /// Emitted at same time as ReelStop to fade out the spin loop audio
+    ReelSpinningStop {
+        /// Which reel (0-indexed)
+        reel_index: u8,
+    },
+
     /// Reel has stopped, showing final symbols
     ReelStop {
         /// Which reel stopped (0-indexed)
@@ -291,6 +305,28 @@ pub enum Stage {
         tier: JackpotTier,
     },
 
+    /// P1.5: Jackpot buildup - rising tension before reveal
+    JackpotBuildup {
+        /// Which jackpot tier
+        tier: JackpotTier,
+    },
+
+    /// P1.5: Jackpot tier reveal - "GRAND!" announcement
+    JackpotReveal {
+        /// Jackpot amount
+        amount: f64,
+        /// Tier being revealed
+        tier: JackpotTier,
+    },
+
+    /// P1.5: Jackpot celebration loop - plays until dismissed
+    JackpotCelebration {
+        /// Jackpot amount
+        amount: f64,
+        /// Tier being celebrated
+        tier: JackpotTier,
+    },
+
     /// Jackpot celebration complete
     JackpotEnd,
 
@@ -377,6 +413,8 @@ impl Stage {
         match self {
             Stage::SpinStart
             | Stage::ReelSpinning { .. }
+            | Stage::ReelSpinningStart { .. }  // P0.1
+            | Stage::ReelSpinningStop { .. }   // P0.1
             | Stage::ReelStop { .. }
             | Stage::EvaluateWins
             | Stage::SpinEnd => StageCategory::SpinLifecycle,
@@ -416,6 +454,9 @@ impl Stage {
 
             Stage::JackpotTrigger { .. }
             | Stage::JackpotPresent { .. }
+            | Stage::JackpotBuildup { .. }      // P1.5
+            | Stage::JackpotReveal { .. }       // P1.5
+            | Stage::JackpotCelebration { .. }  // P1.5
             | Stage::JackpotEnd => StageCategory::Jackpot,
 
             Stage::IdleStart
@@ -437,6 +478,8 @@ impl Stage {
         match self {
             Stage::SpinStart => "spin_start",
             Stage::ReelSpinning { .. } => "reel_spinning",
+            Stage::ReelSpinningStart { .. } => "reel_spinning_start",  // P0.1
+            Stage::ReelSpinningStop { .. } => "reel_spinning_stop",    // P0.1
             Stage::ReelStop { .. } => "reel_stop",
             Stage::EvaluateWins => "evaluate_wins",
             Stage::SpinEnd => "spin_end",
@@ -468,6 +511,9 @@ impl Stage {
             Stage::GambleEnd { .. } => "gamble_end",
             Stage::JackpotTrigger { .. } => "jackpot_trigger",
             Stage::JackpotPresent { .. } => "jackpot_present",
+            Stage::JackpotBuildup { .. } => "jackpot_buildup",
+            Stage::JackpotReveal { .. } => "jackpot_reveal",
+            Stage::JackpotCelebration { .. } => "jackpot_celebration",
             Stage::JackpotEnd => "jackpot_end",
             Stage::IdleStart => "idle_start",
             Stage::IdleLoop => "idle_loop",
@@ -487,9 +533,11 @@ impl Stage {
         matches!(
             self,
             Stage::ReelSpinning { .. }
+                | Stage::ReelSpinningStart { .. } // P0.1: Per-reel spin loop
                 | Stage::AnticipationOn { .. }
                 | Stage::RollupTick { .. }
                 | Stage::IdleLoop
+                | Stage::JackpotCelebration { .. } // P1.5: Celebration loops until dismissed
         )
     }
 
@@ -500,6 +548,9 @@ impl Stage {
             Stage::BigWinTier { .. }
                 | Stage::JackpotTrigger { .. }
                 | Stage::JackpotPresent { .. }
+                | Stage::JackpotBuildup { .. }    // P1.5: Duck during buildup
+                | Stage::JackpotReveal { .. }     // P1.5: Duck during reveal
+                | Stage::JackpotCelebration { .. } // P1.5: Duck during celebration
                 | Stage::FeatureEnter { .. }
         )
     }
@@ -509,6 +560,8 @@ impl Stage {
         &[
             "spin_start",
             "reel_spinning",
+            "reel_spinning_start",  // P0.1
+            "reel_spinning_stop",   // P0.1
             "reel_stop",
             "evaluate_wins",
             "spin_end",
@@ -537,6 +590,9 @@ impl Stage {
             "gamble_end",
             "jackpot_trigger",
             "jackpot_present",
+            "jackpot_buildup",     // P1.5
+            "jackpot_reveal",      // P1.5
+            "jackpot_celebration", // P1.5
             "jackpot_end",
             "idle_start",
             "idle_loop",
@@ -587,6 +643,13 @@ impl Stage {
         match name_lower.as_str() {
             "spin_start" => Some(Stage::SpinStart),
             "reel_spinning" => Some(Stage::ReelSpinning {
+                reel_index: get_u8("reel_index"),
+            }),
+            // P0.1: Per-reel spin start/stop
+            "reel_spinning_start" => Some(Stage::ReelSpinningStart {
+                reel_index: get_u8("reel_index"),
+            }),
+            "reel_spinning_stop" => Some(Stage::ReelSpinningStop {
                 reel_index: get_u8("reel_index"),
             }),
             "reel_stop" => Some(Stage::ReelStop {
@@ -671,6 +734,46 @@ impl Stage {
                 })
             }
             "jackpot_end" => Some(Stage::JackpotEnd),
+            // P1.5: New jackpot stages
+            "jackpot_buildup" => {
+                let tier_str = get_string("tier").unwrap_or_default();
+                let tier = match tier_str.to_lowercase().as_str() {
+                    "mini" => crate::taxonomy::JackpotTier::Mini,
+                    "minor" => crate::taxonomy::JackpotTier::Minor,
+                    "major" => crate::taxonomy::JackpotTier::Major,
+                    "grand" => crate::taxonomy::JackpotTier::Grand,
+                    _ => crate::taxonomy::JackpotTier::Mini,
+                };
+                Some(Stage::JackpotBuildup { tier })
+            }
+            "jackpot_reveal" => {
+                let tier_str = get_string("tier").unwrap_or_default();
+                let tier = match tier_str.to_lowercase().as_str() {
+                    "mini" => crate::taxonomy::JackpotTier::Mini,
+                    "minor" => crate::taxonomy::JackpotTier::Minor,
+                    "major" => crate::taxonomy::JackpotTier::Major,
+                    "grand" => crate::taxonomy::JackpotTier::Grand,
+                    _ => crate::taxonomy::JackpotTier::Mini,
+                };
+                Some(Stage::JackpotReveal {
+                    amount: get_f64("amount"),
+                    tier,
+                })
+            }
+            "jackpot_celebration" => {
+                let tier_str = get_string("tier").unwrap_or_default();
+                let tier = match tier_str.to_lowercase().as_str() {
+                    "mini" => crate::taxonomy::JackpotTier::Mini,
+                    "minor" => crate::taxonomy::JackpotTier::Minor,
+                    "major" => crate::taxonomy::JackpotTier::Major,
+                    "grand" => crate::taxonomy::JackpotTier::Grand,
+                    _ => crate::taxonomy::JackpotTier::Mini,
+                };
+                Some(Stage::JackpotCelebration {
+                    amount: get_f64("amount"),
+                    tier,
+                })
+            }
             "idle_start" => Some(Stage::IdleStart),
             "idle_loop" => Some(Stage::IdleLoop),
             "menu_open" => Some(Stage::MenuOpen {

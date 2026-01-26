@@ -307,11 +307,15 @@ impl TimestampGenerator {
 
     /// Advance for reel stop
     pub fn reel_stop(&mut self, reel_index: u8) -> f64 {
-        if reel_index == 0 {
-            self.advance(self.config.reel_spin_duration_ms)
+        let advance_ms = if reel_index == 0 {
+            self.config.reel_spin_duration_ms
         } else {
-            self.advance(self.config.reel_stop_interval_ms)
-        }
+            self.config.reel_stop_interval_ms
+        };
+        let result = self.advance(advance_ms);
+        log::debug!("[TimestampGenerator::reel_stop] reel={}, advance={}ms, result={}ms",
+            reel_index, advance_ms, result);
+        result
     }
 
     /// Advance for anticipation start

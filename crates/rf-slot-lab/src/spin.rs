@@ -144,45 +144,82 @@ impl SpinResult {
     pub fn generate_stages(&self, timing: &mut TimestampGenerator) -> Vec<StageEvent> {
         let mut events = Vec::new();
 
+        // DEBUG: Log timing config for troubleshooting
+        log::debug!("[SpinResult::generate_stages] Starting with {} reels, timing.current={}ms",
+            self.grid.len(), timing.current());
+
         // 1. Spin Start
         events.push(StageEvent::new(Stage::SpinStart, timing.current()));
 
-        // 2. P0: Per-reel spinning events (one loop per reel for independent fade-out)
+        // 2. P0.1: Per-reel spinning START events (one loop per reel for independent fade-out)
         // Each reel starts at slightly staggered time for stereo spread effect
-        // When REEL_STOP_N fires, only that reel's loop is faded out
+        // When REEL_SPINNING_STOP_N fires, only that reel's loop is faded out
+        //
+        // CRITICAL FIX: Capture base time ONCE and reuse for all reels
+        // Previously called timing.reel_spin(0) twice per reel which advanced timeline incorrectly
         let reel_count = self.grid.len() as u8;
+        let spin_start_base = timing.reel_spin(0); // Single advance for all reels
         for reel in 0..reel_count {
             // Small stagger (10ms per reel) for audio spread, all reels start nearly together
             let stagger_ms = (reel as f64) * 10.0;
+            let spin_time = spin_start_base + stagger_ms;
+
+            // ReelSpinningStart triggers the per-reel spin loop audio
+            events.push(StageEvent::new(
+                Stage::ReelSpinningStart { reel_index: reel },
+                spin_time,
+            ));
+            // Also emit legacy ReelSpinning for backwards compatibility (SAME timestamp)
             events.push(StageEvent::new(
                 Stage::ReelSpinning { reel_index: reel },
-                timing.reel_spin(0) + stagger_ms,
+                spin_time,
             ));
         }
 
         // 3. Reel Stop events (with anticipation if applicable)
+        // CRITICAL FIX: Capture stop time ONCE per reel and reuse
+        // Previously called timing.reel_stop(reel) twice which doubled the timeline advancement
         for reel in 0..reel_count {
-            // Check for anticipation
-            if let Some(ref antic) = self.anticipation {
-                if antic.reels.contains(&reel) {
-                    let antic_time = timing.anticipation_start();
-                    events.push(StageEvent::new(
-                        Stage::AnticipationOn {
-                            reel_index: reel,
-                            reason: Some(antic.reason.clone()),
-                        },
-                        antic_time,
-                    ));
+            // Check for anticipation BEFORE calculating stop time
+            // Anticipation extends the stop delay for this reel
+            let has_anticipation = self.anticipation.as_ref()
+                .map(|a| a.reels.contains(&reel))
+                .unwrap_or(false);
 
-                    let antic_end = timing.anticipation_end();
-                    events.push(StageEvent::new(
-                        Stage::AnticipationOff { reel_index: reel },
-                        antic_end,
-                    ));
-                }
+            if has_anticipation {
+                let antic = self.anticipation.as_ref().unwrap();
+                // Anticipation ON happens at current timeline position (before stop)
+                let antic_time = timing.anticipation_start();
+                events.push(StageEvent::new(
+                    Stage::AnticipationOn {
+                        reel_index: reel,
+                        reason: Some(antic.reason.clone()),
+                    },
+                    antic_time,
+                ));
+
+                // Anticipation OFF after duration (timeline advances)
+                let antic_end = timing.anticipation_end();
+                events.push(StageEvent::new(
+                    Stage::AnticipationOff { reel_index: reel },
+                    antic_end,
+                ));
             }
 
-            // Reel stop
+            // CRITICAL: Capture stop time ONCE and reuse for both events
+            let stop_time = timing.reel_stop(reel);
+
+            // DEBUG: Log reel stop times for troubleshooting timing issues
+            log::debug!("[SpinResult] REEL_STOP_{} → timestamp={}ms", reel, stop_time);
+
+            // P0.1: Reel spinning STOP (triggers fade-out of spin loop audio)
+            // Emitted at same time as ReelStop so audio fades as reel lands
+            events.push(StageEvent::new(
+                Stage::ReelSpinningStop { reel_index: reel },
+                stop_time,
+            ));
+
+            // Reel stop (SAME timestamp as ReelSpinningStop!)
             let symbols = self.grid.get(reel as usize)
                 .map(|r| r.iter().map(|&s| s).collect())
                 .unwrap_or_default();
@@ -192,7 +229,7 @@ impl SpinResult {
                     reel_index: reel,
                     symbols,
                 },
-                timing.reel_stop(reel),
+                stop_time,
             ));
         }
 

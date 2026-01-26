@@ -6,6 +6,8 @@
 - [SLOTLAB_DROP_ZONE_SPEC.md](./SLOTLAB_DROP_ZONE_SPEC.md) — Drag-drop audio na mockup elemente
 - [SLOTLAB_AUTO_EVENT_BUILDER_FINAL.md](./SLOTLAB_AUTO_EVENT_BUILDER_FINAL.md) — Auto Event Builder specifikacija
 - [EVENT_SYNC_SYSTEM.md](./EVENT_SYNC_SYSTEM.md) — Bidirekciona sinhronizacija eventa
+- [GDD_IMPORT_SYSTEM.md](./GDD_IMPORT_SYSTEM.md) — GDD import + fullscreen preview
+- [SLOT_PREVIEW_MODE.md](./SLOT_PREVIEW_MODE.md) — Premium fullscreen preview mode
 
 ---
 
@@ -16,6 +18,7 @@ Slot Lab je fullscreen audio sandbox za slot game audio dizajn. Kombinuje:
 - **Stage-Based Audio Triggering** — Automatski audio eventi na osnovu stage-ova
 - **Wwise/FMOD-Style Middleware** — Bus routing, RTPC, State/Switch
 - **Premium UI/UX** — Casino-grade vizuali, animacije, real-time feedback
+- **GDD Import** — Import Game Design Document i automatsko otvaranje fullscreen preview-a
 
 ---
 
@@ -550,20 +553,44 @@ class SlotPreviewWidget extends StatefulWidget {
 - Animated win amount countup
 - STOP functionality (SPACE key or button click stops reels immediately)
 
-**Symbol Definitions:**
+**Symbol Definitions (Dynamic Registry V9):**
+
 ```dart
-SlotSymbol.symbols = {
-  0: WILD   (Icons.stars, gold gradient),
-  1: SCATTER (Icons.scatter_plot, purple gradient),
-  2: BONUS  (Icons.card_giftcard, cyan gradient),
-  3: SEVEN  (Icons.filter_7, pink gradient),
-  4: BAR    (Icons.view_headline, green gradient),
-  5: BELL   (Icons.notifications, yellow gradient),
-  6: CHERRY (Icons.local_florist, orange gradient),
-  7: LEMON  (Icons.brightness_5, lime gradient),
-  8: ORANGE (Icons.circle, orange gradient),
-  9: GRAPE  (Icons.blur_circular, purple gradient),
+class SlotSymbol {
+  // Dynamic symbols from GDD — takes priority when set
+  static Map<int, SlotSymbol> _dynamicSymbols = {};
+
+  // Set from GDD import
+  static void setDynamicSymbols(Map<int, SlotSymbol> symbols);
+  static void clearDynamicSymbols();
+
+  // Get effective symbols (dynamic if set, otherwise defaults)
+  static Map<int, SlotSymbol> get effectiveSymbols =>
+      _dynamicSymbols.isNotEmpty ? _dynamicSymbols : _defaultSymbols;
+
+  // Default symbols (fallback)
+  static const Map<int, SlotSymbol> _defaultSymbols = {
+    1: HP1 (7️⃣, pink gradient),
+    2: HP2 (▬, green gradient),
+    3: HP3 (🔔, yellow gradient),
+    4: HP4 (🍒, orange gradient),
+    5: LP1 (🍋, lime gradient),
+    6: LP2 (🍊, orange gradient),
+    7: LP3 (🍇, purple gradient),
+    8: LP4 (🍏, green gradient),
+    9: LP5 (🍓, red gradient),
+    10: LP6 (🫐, blue gradient),
+    11: WILD (★, gold gradient, isSpecial),
+    12: SCATTER (◆, magenta gradient, isSpecial),
+    13: BONUS (♦, cyan gradient, isSpecial),
+  };
 }
+
+// GDD Import populates dynamic symbols:
+// slot_lab_screen.dart:_populateSlotSymbolsFromGdd()
+// - Converts GddSymbol → SlotSymbol
+// - 70+ theme-based emoji mappings
+// - Tier-based color gradients
 ```
 
 ### SlotMiniPreview
@@ -1028,6 +1055,184 @@ Columns 1,2 → pan -0.25 (left-center)
 
 ---
 
+### Big Win Celebration System (2026-01-25) ✅
+
+Dedicirani audio sistem za Big Win celebracije (≥20x bet).
+
+**Komponente:**
+| Stage | Bus | Priority | Loop | Opis |
+|-------|-----|----------|------|------|
+| `BIG_WIN_LOOP` | Music (1) | 90 | ✅ Da | Looping celebration muzika, ducks base music |
+| `BIG_WIN_COINS` | SFX (2) | 75 | Ne | Coin particle zvuk efekti |
+
+**Trigger Logic (`slot_preview_widget.dart`):**
+```dart
+// Triggered when win ratio >= 20x bet
+final bet = widget.provider.betAmount;
+final winRatio = bet > 0 ? result.totalWin / bet : 0.0;
+if (winRatio >= 20) {
+  eventRegistry.triggerStage('BIG_WIN_LOOP');
+  eventRegistry.triggerStage('BIG_WIN_COINS');
+}
+```
+
+**Auto-Stop (`slot_lab_provider.dart`):**
+```dart
+void setWinPresentationActive(bool active) {
+  if (!active) {
+    eventRegistry.stopEvent('BIG_WIN_LOOP');  // Stop loop when win ends
+  }
+}
+```
+
+**Stage Configuration (`stage_configuration_service.dart`):**
+```dart
+_register('BIG_WIN_LOOP', StageCategory.win, 90, SpatialBus.music, 'WIN_EPIC',
+          ducksMusic: true, isLooping: true);
+_register('BIG_WIN_COINS', StageCategory.win, 75, SpatialBus.sfx, 'WIN_EPIC');
+```
+
+**UltimateAudioPanel V8 Integration:**
+
+Panel je organizovan po **Game Flow** principu u 12 sekcija:
+
+| # | Sekcija | Tier | Slots |
+|---|---------|------|-------|
+| 1 | Base Game Loop | Primary | 41 |
+| 2 | Symbols & Lands | Primary | 46 |
+| 3 | Win Presentation | Primary | 41 |
+| 4 | Cascading Mechanics | Secondary | 24 |
+| 5 | Multipliers | Secondary | 18 |
+| 6 | Free Spins | Feature | 24 |
+| 7 | Bonus Games | Feature | 32 |
+| 8 | Hold & Win | Feature | 24 |
+| 9 | Jackpots | Premium 🏆 | 26 |
+| 10 | Gamble | Optional | 16 |
+| 11 | Music & Ambience | Background | 27 |
+| 12 | UI & System | Utility | 22 |
+
+**Special Markers:** ⚡ = Voice Pooled, 🏆 = Premium/Validated
+
+**Dokumentacija:** `.claude/architecture/ULTIMATE_AUDIO_PANEL_V8_SPEC.md`
+
+---
+
+### P0.20: Per-Reel Spin Loop System (2026-01-25) ✅
+
+Fina kontrola per-reel spin loop-ova sa individualnim fade-out-om.
+
+**Stage Patterns:**
+| Pattern | Svrha |
+|---------|-------|
+| `REEL_SPINNING_START_0..4` | Start spin loop za specifični reel |
+| `REEL_SPINNING_STOP_0..4` | Early fade-out PRE vizualnog zaustavljanja |
+| `REEL_SPINNING_0..4` | Legacy per-reel spin (backwards compat) |
+| `REEL_SPINNING` | Generički deljeni loop |
+
+**Implementacija (`event_registry.dart`):**
+```dart
+// Per-reel spin loop tracking
+final Map<int, int> _reelSpinLoopVoices = {};  // reelIndex → voiceId
+
+// Auto-detect REEL_SPINNING_START_X
+final reelSpinStartMatch = RegExp(r'^REEL_SPINNING_START_(\d+)$').firstMatch(upperStage);
+if (reelSpinStartMatch != null) {
+  enhancedContext['is_reel_spin_loop'] = true;
+  enhancedContext['reel_index'] = reelIndex;
+}
+
+// Early fade-out on REEL_SPINNING_STOP_X
+void _fadeOutReelSpinLoop(int reelIndex) {
+  final voiceId = _reelSpinLoopVoices.remove(reelIndex);
+  if (voiceId != null) {
+    AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: 50);
+  }
+}
+```
+
+**Timeline (5-reel):**
+```
+Time:     0ms    200ms   400ms   600ms   800ms   1000ms
+Reel 0: [START] ~~~~~~~ [STOP] fade
+Reel 1:         [START] ~~~~~~~ [STOP] fade
+Reel 2:                 [START] ~~~~~~~ [STOP] fade
+Reel 3:                         [START] ~~~~~~~ [STOP] fade
+Reel 4:                                 [START] ~~~~~~~ [STOP] fade
+```
+
+---
+
+### P0.21: CASCADE_STEP Pitch/Volume Escalation (2026-01-25) ✅
+
+Auto-escalation za cascade korake — rastuća tenzija.
+
+**Escalation Table:**
+| Step | Stage | Pitch | Volume |
+|------|-------|-------|--------|
+| 0 | CASCADE_STEP_0 | 1.00x | 90% |
+| 1 | CASCADE_STEP_1 | 1.05x | 94% |
+| 2 | CASCADE_STEP_2 | 1.10x | 98% |
+| 3 | CASCADE_STEP_3 | 1.15x | 102% |
+| 4 | CASCADE_STEP_4 | 1.20x | 106% |
+| 5+ | CASCADE_STEP_5+ | 1.25x+ | 110%+ |
+
+**Formula (`event_registry.dart`):**
+```dart
+if (normalizedStage.startsWith('CASCADE_STEP')) {
+  final cascadeMatch = RegExp(r'CASCADE_STEP_?(\d+)?').firstMatch(normalizedStage);
+  if (cascadeMatch != null) {
+    final stepIndex = int.tryParse(cascadeMatch.group(1) ?? '0') ?? 0;
+    final cascadePitch = 1.0 + (stepIndex * 0.05);  // +5% per step
+    final cascadeVolume = 0.9 + (stepIndex * 0.04); // +4% per step
+    context['cascade_pitch'] = cascadePitch;
+    context['cascade_volume'] = cascadeVolume.clamp(0.0, 1.5);
+  }
+}
+```
+
+---
+
+### P1.5: Jackpot Audio Sequence (2026-01-25) ✅
+
+Proširena 6-fazna jackpot sekvenca za dramatičan presentation.
+
+**Stages:**
+| # | Stage | Duration | Opis |
+|---|-------|----------|------|
+| 1 | JACKPOT_TRIGGER | 500ms | Alert tone |
+| 2 | JACKPOT_BUILDUP | 2000ms | Rising tension |
+| 3 | JACKPOT_REVEAL | 1000ms | Tier reveal (MINI/MINOR/MAJOR/GRAND) |
+| 4 | JACKPOT_PRESENT | 5000ms | Main fanfare + amount display |
+| 5 | JACKPOT_CELEBRATION | Loop | Looping celebration until collect |
+| 6 | JACKPOT_END | 500ms | Fade out, return to game |
+
+**Rust Implementation (`crates/rf-slot-lab/src/features/jackpot.rs`):**
+```rust
+fn generate_stages(&self, timing: &mut TimestampGenerator) -> Vec<StageEvent> {
+    // 1. JACKPOT_TRIGGER (500ms)
+    events.push(StageEvent::new(Stage::JackpotTrigger { tier }, timing.advance(500.0)));
+    // 2. JACKPOT_BUILDUP (2000ms)
+    events.push(StageEvent::new(Stage::JackpotBuildup { tier }, timing.advance(2000.0)));
+    // 3. JACKPOT_REVEAL (1000ms)
+    events.push(StageEvent::new(Stage::JackpotReveal { tier, amount }, timing.advance(1000.0)));
+    // 4. JACKPOT_PRESENT (5000ms)
+    events.push(StageEvent::new(Stage::JackpotPresent { tier, amount }, timing.advance(5000.0)));
+    // 5. JACKPOT_CELEBRATION (loop)
+    events.push(StageEvent::new(Stage::JackpotCelebration { tier, amount }, timing.advance(500.0)));
+    // 6. JACKPOT_END
+    events.push(StageEvent::new(Stage::JackpotEnd, timing.advance(1000.0)));
+}
+```
+
+**Tier-Specific Variations:**
+Audio designer može kreirati tier-specific varijante:
+- `JACKPOT_REVEAL_MINI`, `JACKPOT_REVEAL_MINOR`, `JACKPOT_REVEAL_MAJOR`, `JACKPOT_REVEAL_GRAND`
+- `JACKPOT_PRESENT_GRAND` (extended 10s fanfare)
+
+EventRegistry koristi fallback: `JACKPOT_REVEAL_GRAND` → `JACKPOT_REVEAL` ako varijanta ne postoji.
+
+---
+
 ## Adaptive Layer Engine (ALE) Integration
 
 ALE je data-driven, context-aware, metric-reactive music system koji radi sa Slot Lab-om za dinamičko audio layering.
@@ -1257,6 +1462,66 @@ Premium slot preview sa svim industry-standard elementima:
 | `A` | Auto-spin |
 | `1-7` | Forced outcomes (debug) |
 
+### SPACE Key Handler Architecture (2026-01-26)
+
+**Problem:** Dva nezavisna SPACE handlera procesirali isti event, uzrokujući "stop pa instant spin" bug.
+
+**Arhitektura:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    EMBEDDED MODE (isFullscreen=false)               │
+│  ┌─────────────────────┐                                            │
+│  │ slot_lab_screen.dart│                                            │
+│  │ _globalKeyHandler() │ ← HardwareKeyboard.instance.addHandler()   │
+│  │ HANDLES SPACE       │                                            │
+│  └──────────┬──────────┘                                            │
+│             │                                                        │
+│  ┌──────────▼──────────┐                                            │
+│  │premium_slot_preview │                                            │
+│  │ _handleKeyEvent()   │                                            │
+│  │ IGNORES SPACE       │ ← returns KeyEventResult.ignored           │
+│  └─────────────────────┘                                            │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                    FULLSCREEN MODE (isFullscreen=true)              │
+│  ┌─────────────────────┐                                            │
+│  │ slot_lab_screen.dart│                                            │
+│  │ _globalKeyHandler() │                                            │
+│  │ SKIPS SPACE         │ ← returns false (not handled)              │
+│  └─────────────────────┘                                            │
+│                                                                      │
+│  ┌─────────────────────┐                                            │
+│  │premium_slot_preview │                                            │
+│  │ _handleKeyEvent()   │ ← Focus(onKeyEvent: ...)                   │
+│  │ HANDLES SPACE       │                                            │
+│  └─────────────────────┘                                            │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Files:**
+- `slot_lab_screen.dart:923` — Global handler, skips when `_isPreviewMode`
+- `premium_slot_preview.dart:5712` — Focus handler, skips when `!widget.isFullscreen`
+
+**PremiumSlotPreview Constructor:**
+```dart
+const PremiumSlotPreview({
+  required this.onExit,
+  this.reels = 5,
+  this.rows = 3,
+  this.isFullscreen = false,  // Default: embedded mode
+});
+```
+
+**Instantiation:**
+```dart
+// Fullscreen mode (F11)
+PremiumSlotPreview(isFullscreen: true, ...)
+
+// Embedded mode (central panel)
+PremiumSlotPreview(isFullscreen: false, ...)
+```
+
 ### Visual Features (2026-01-24)
 
 **Win Line Presentation:**
@@ -1287,14 +1552,23 @@ Premium slot preview sa svim industry-standard elementima:
 
 ### Entry Point
 ```dart
-// slot_lab_screen.dart
+// slot_lab_screen.dart — Fullscreen mode (F11)
 if (_isPreviewMode) {
   return PremiumSlotPreview(
     onExit: () => setState(() => _isPreviewMode = false),
     reels: _reelCount,
     rows: _rowCount,
+    isFullscreen: true,  // Handles SPACE internally
   );
 }
+
+// slot_lab_screen.dart — Embedded mode (central panel)
+PremiumSlotPreview(
+  onExit: () {},
+  reels: _reelCount,
+  rows: _rowCount,
+  isFullscreen: false,  // Global handler handles SPACE
+)
 ```
 
 Full documentation: [SLOT_PREVIEW_MODE.md](.claude/architecture/SLOT_PREVIEW_MODE.md)
@@ -1424,6 +1698,62 @@ void _finalizeSpin(SlotLabSpinResult result) {
     _spinFinalized = true;  // KRITIČNO: Sprečava re-trigger
   });
 }
+```
+
+---
+
+## SPACE Key Stop-Not-Working Fix (2026-01-26)
+
+### Problem
+
+SPACE key za STOP ne radi u embedded modu — reelovi nastavljaju da se vrte ili odmah startuju novi spin.
+
+### Root Cause
+
+Dva nezavisna keyboard handlera procesirali isti SPACE event:
+
+1. **Global handler** (`slot_lab_screen.dart:_globalKeyHandler`) — preko `HardwareKeyboard.instance.addHandler()`
+2. **Focus handler** (`premium_slot_preview.dart:_handleKeyEvent`) — preko `Focus(onKeyEvent: ...)`
+
+Oba handlera imala nezavisne debounce timer-e. Kada je SPACE pritisnut za STOP:
+- Global handler pozove `stopStagePlayback()` → `isReelsSpinning = false`
+- Focus handler vidi `isReelsSpinning = false` → odmah pozove `spin()`
+- Rezultat: STOP pa instant SPIN — izgleda kao da SPACE ne radi
+
+### Solution (2026-01-26)
+
+Dodao `isFullscreen` parametar u `PremiumSlotPreview`:
+
+```dart
+// premium_slot_preview.dart
+class PremiumSlotPreview extends StatefulWidget {
+  final bool isFullscreen;  // Default: false
+
+  // In _handleKeyEvent:
+  case LogicalKeyboardKey.space:
+    if (!widget.isFullscreen) {
+      return KeyEventResult.ignored;  // Let global handler handle it
+    }
+    // ... rest of SPACE handling
+}
+```
+
+**Dual-mode behavior:**
+- **Embedded mode** (`isFullscreen=false`): Global handler u `slot_lab_screen.dart` handluje SPACE
+- **Fullscreen mode** (`isFullscreen=true`): Focus handler u `premium_slot_preview.dart` handluje SPACE
+
+### Verification
+
+Debug log bi trebao pokazati:
+```
+# Embedded mode:
+[SlotLab] 🌍 GLOBAL Space key handler (editMode=false, isReelsSpinning=true)
+[SlotLab] → SPACE: Stopping (isReelsSpinning=true)
+[PremiumSlotPreview] ⏭️ SPACE ignored (embedded mode — global handler will handle)
+
+# Fullscreen mode:
+[SlotLab] 🌍 GLOBAL Space — SKIPPED (Fullscreen PremiumSlotPreview handles it)
+[PremiumSlotPreview] 🎰 SPACE pressed — isReelsSpinning=true
 ```
 
 ---
@@ -1569,8 +1899,9 @@ MEGA: 3000ms, EPIC: 5000ms, ULTRA: 8000ms
 
 - [PREMIUM_SLOT_PREVIEW.md](.claude/architecture/PREMIUM_SLOT_PREVIEW.md) — Visual-sync implementation details
 - [SLOT_PREVIEW_MODE.md](.claude/architecture/SLOT_PREVIEW_MODE.md) — Premium fullscreen preview UI
+- [SLOT_LAB_AUDIO_FEATURES.md](.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md) — P0/P1 audio features (per-reel spin loops, cascade escalation, jackpot sequence)
 - [UNIFIED_PLAYBACK_SYSTEM.md](.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md) — Section-based playback, engine-level source filtering
-- [EVENT_SYNC_SYSTEM.md](.claude/architecture/EVENT_SYNC_SYSTEM.md) — Bidirectional event sync between sections (includes full fix details)
+- [EVENT_SYNC_SYSTEM.md](.claude/architecture/EVENT_SYNC_SYSTEM.md) — Bidirectional event sync, per-reel spin loops, cascade escalation
 - [ADAPTIVE_LAYER_ENGINE.md](.claude/architecture/ADAPTIVE_LAYER_ENGINE.md) — Full ALE specification
 - [STAGE_INGEST_SYSTEM.md](.claude/architecture/STAGE_INGEST_SYSTEM.md) — Universal stage language
 - [ENGINE_INTEGRATION_SYSTEM.md](.claude/architecture/ENGINE_INTEGRATION_SYSTEM.md) — Game engine integration

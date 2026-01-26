@@ -1667,6 +1667,13 @@ P0 critical fixes for the right inspector panel in `event_editor_panel.dart`.
 - **Display:** `-∞ dB` to `+6 dB` with color coding (orange=boost)
 - **Presets:** -12dB, -6dB, 0dB, +3dB, +6dB quick buttons
 
+**P0.4: Slider Debounce Race Condition Fix (2026-01-25)**
+- **Problem:** Slider changes (pan, gain, delay, fadeTime) were silently reverted upon release
+- **Root Cause:** During 50ms debounce period, widget rebuilds triggered `_syncEventsFromProviderList()` which overwrote local slider changes with provider's stale data
+- **Fix:** Added `_pendingEditEventId` tracking — skip provider→local sync for events with pending local edits
+- **Fields added:** `_pendingEditEventId` (String?)
+- **Pattern:** "Pending Edit Protection" — mark event on local change, skip in sync, clear after provider sync completes
+
 **Code Changes:**
 ```dart
 // P0.1: TextFormField with key
@@ -1689,6 +1696,25 @@ String gainToDb(double g) {
   if (g <= 0.001) return '-∞ dB';
   final db = 20 * math.log(g) / math.ln10;
   return '${db.toStringAsFixed(1)} dB';
+}
+
+// P0.4: Pending edit protection
+String? _pendingEditEventId;
+
+void _updateActionDebounced(...) {
+  _pendingEditEventId = event.id;  // Mark as pending
+  setState(() { /* update local */ });
+  _sliderDebounceTimer = Timer(Duration(milliseconds: 50), () {
+    _syncEventToProvider(...);
+    _pendingEditEventId = null;  // Clear after sync
+  });
+}
+
+void _syncEventsFromProviderList(List<MiddlewareEvent> events) {
+  for (final event in events) {
+    if (event.id == _pendingEditEventId) continue;  // Skip pending!
+    // ... rest of sync
+  }
 }
 ```
 
@@ -3084,11 +3110,11 @@ class EventDraft {
 
 ---
 
-### P3.4 — GDD Import Wizard ✅ 2026-01-23
+### P3.4 — GDD Import Wizard ✅ 2026-01-23 (V9: 2026-01-26)
 
 Multi-step wizard for importing Game Design Documents with auto-stage generation.
 
-**Service:** `flutter_ui/lib/services/gdd_import_service.dart` (~650 LOC)
+**Service:** `flutter_ui/lib/services/gdd_import_service.dart` (~1500 LOC)
 
 **GDD Models:**
 ```dart
@@ -3098,33 +3124,84 @@ class GameDesignDocument {
   final GddGridConfig grid;
   final List<GddSymbol> symbols;
   final List<GddFeature> features;
-  final List<GddWinTier> winTiers;
-  final GddMathModel? math;
+  final GddMathModel math;
+  final List<String> customStages;
+
+  // V9: Convert to Rust-expected format
+  Map<String, dynamic> toRustJson();
 }
 
 class GddGridConfig {
-  final int reels;
   final int rows;
-  final List<int>? variableRows; // e.g., [3,4,5,4,3]
+  final int columns;
+  final String mechanic; // 'lines', 'ways', 'cluster', 'megaways'
+  final int? paylines;
+  final int? ways;
 }
 
-class GddFeature {
+class GddSymbol {
   final String id;
   final String name;
-  final GddFeatureType type; // freeSpins, bonus, cascade, etc.
-  final Map<String, dynamic> config;
+  final SymbolTier tier; // low, mid, high, premium, wild, scatter, bonus
+  final Map<int, double> payouts;
+  final bool isWild, isScatter, isBonus;
+}
+```
+
+**V9: toRustJson() Conversion:**
+```dart
+Map<String, dynamic> toRustJson() => {
+  'game': { 'name': name, 'volatility': volatility, 'target_rtp': rtp },
+  'grid': { 'reels': columns, 'rows': rows, 'paylines': paylines },
+  'symbols': symbols.map((s) => {
+    'id': index, 'name': s.name, 'type': symbolTypeStr(s),
+    'pays': payoutsToArray(s.payouts),  // [0,0,20,50,100]
+    'tier': tierToNum(s.tier),          // 1-8
+  }).toList(),
+  'math': { 'symbol_weights': { 'Zeus': [5,5,5,5,5], ... } },
+};
+```
+
+**V9: Dynamic Slot Symbol Registry:**
+```dart
+// slot_preview_widget.dart
+class SlotSymbol {
+  static Map<int, SlotSymbol> _dynamicSymbols = {};
+  static void setDynamicSymbols(Map<int, SlotSymbol> symbols);
+  static Map<int, SlotSymbol> get effectiveSymbols;
+}
+
+// slot_lab_screen.dart — called after GDD import
+void _populateSlotSymbolsFromGdd(List<GddSymbol> gddSymbols) {
+  // Convert to SlotSymbol with tier colors + theme emojis
+  SlotSymbol.setDynamicSymbols(converted);
 }
 ```
 
 **Wizard Widget:** `flutter_ui/lib/widgets/slot_lab/gdd_import_wizard.dart` (~780 LOC)
 
+**Preview Dialog (V8):** `flutter_ui/lib/widgets/slot_lab/gdd_preview_dialog.dart` (~450 LOC)
+- Visual slot mockup (columns × rows grid)
+- Math panel (RTP, volatility, hit frequency)
+- Symbol list with auto-assigned emojis
+- Features list with types
+- Apply/Cancel confirmation
+
 **4-Step Flow:**
 | Step | Name | Actions |
 |------|------|---------|
-| 1 | **Input** | Paste JSON, Load file, Load sample |
+| 1 | **Input** | Paste JSON, Load file, Load PDF text |
 | 2 | **Preview** | Review parsed GDD, symbols, features |
 | 3 | **Stages** | View auto-generated stages |
 | 4 | **Confirm** | Import to StageConfigurationService |
+
+**V9 Complete Integration Flow:**
+```
+GDD Import → toRustJson() → Rust Engine
+           → _populateSlotSymbolsFromGdd() → Reel Display
+           → _PaytablePanel(gddSymbols) → Paytable Panel
+           → _slotLabSettings.copyWith() → Grid Dimensions
+```
 
 **Auto-Stage Generation:**
 - Per-reel stops: `REEL_STOP_0..N`
@@ -3132,20 +3209,37 @@ class GddFeature {
 - Per-feature stages: `[FEATURE]_ENTER`, `[FEATURE]_EXIT`, `[FEATURE]_STEP`
 - Win tier stages: `WIN_[TIER]_START`, `WIN_[TIER]_END`
 
-**Usage:**
+**V8 Provider Storage:**
 ```dart
-// In SlotLab header
-IconButton(
-  icon: Icon(Icons.upload_file),
-  onPressed: () async {
-    final result = await GddImportWizard.show(context);
-    if (result != null) {
-      // result.gdd — parsed GameDesignDocument
-      // result.generatedStages — auto-generated StageDefinitions
-    }
-  },
-)
+// Store GDD in provider (persists to project file)
+SlotLabProjectProvider.importGdd(gdd, generatedSymbols: symbols);
+
+// Access later
+final gdd = provider.importedGdd;       // Full GDD
+final grid = provider.gridConfig;       // Grid config only
+final symbols = provider.gddSymbols;    // GDD symbols
+final features = provider.gddFeatures;  // GDD features
 ```
+
+**Theme-Specific Symbol Detection (90+ symbols):**
+- Greek: Zeus, Poseidon, Hades, Athena, Medusa, Pegasus, etc.
+- Egyptian: Ra, Anubis, Horus, Cleopatra, Pharaoh, Scarab, etc.
+- Asian: Dragon, Tiger, Phoenix, Koi, Panda, etc.
+- Norse: Odin, Thor, Freya, Loki, Mjolnir, etc.
+- Irish/Celtic: Leprechaun, Shamrock, Pot of Gold, etc.
+
+**V9: Symbol Weight Distribution by Tier:**
+| Tier | Weight (per reel) | Rust Type |
+|------|-------------------|-----------|
+| Wild | 2 | `wild` |
+| Scatter | 3 | `scatter` |
+| Bonus | 3 | `bonus` |
+| Premium | 5 | `high_pay` |
+| High | 8 | `high_pay` |
+| Mid | 12 | `mid_pay` |
+| Low | 18 | `low_pay` |
+
+**Dokumentacija:** `.claude/architecture/GDD_IMPORT_SYSTEM.md`
 
 ---
 
@@ -3390,6 +3484,61 @@ H. Audio/Visual — Volume slider, music/sfx toggles (persisted)       ✅ 100%
 - Spec: `.claude/analysis/WIN_PRESENTATION_INDUSTRY_STANDARD_2026_01_24.md`
 
 **Dokumentacija:** `.claude/architecture/SLOT_LAB_SYSTEM.md`, `.claude/architecture/PREMIUM_SLOT_PREVIEW.md`
+
+**V9: GDD Import → Complete Slot Machine Integration (2026-01-26) ✅:**
+
+Kada korisnik importuje GDD, SVE informacije se učitavaju u slot mašinu:
+- Grid dimenzije (reels × rows)
+- Simboli sa emoji-ima i bojama
+- Paytable sa payout vrednostima
+- Symbol weights za Rust engine
+- Volatility i RTP
+
+| Step | Action |
+|------|--------|
+| 1 | User clicks GDD Import button |
+| 2 | GddPreviewDialog shows parsed GDD with grid preview |
+| 3 | User clicks "Apply Configuration" |
+| 4 | `projectProvider.importGdd(gdd)` — perzistencija |
+| 5 | `_populateSlotSymbolsFromGdd()` — dinamički simboli na reelovima |
+| 6 | `slotLabProvider.initEngineFromGdd(toRustJson())` — Rust engine |
+| 7 | Grid settings applied + `_isPreviewMode = true` |
+| 8 | Fullscreen PremiumSlotPreview opens with GDD symbols |
+
+**Implementacija** (`slot_lab_screen.dart:3038-3070`):
+```dart
+// 1. Store in provider
+projectProvider.importGdd(result.gdd, generatedSymbols: result.generatedSymbols);
+
+// 2. Populate dynamic slot symbols for reel display
+_populateSlotSymbolsFromGdd(result.gdd.symbols);
+
+// 3. Initialize Rust engine with GDD
+final gddJson = jsonEncode(result.gdd.toRustJson());
+slotLabProvider.initEngineFromGdd(gddJson);
+
+// 4. Apply grid and open fullscreen
+setState(() {
+  _slotLabSettings = _slotLabSettings.copyWith(
+    reels: newReels,
+    rows: newRows,
+    volatility: _volatilityFromGdd(result.gdd.math.volatility),
+  );
+  _isPreviewMode = true;
+});
+```
+
+**V9 Novi fajlovi/metode:**
+| Lokacija | Metoda/Feature |
+|----------|----------------|
+| `gdd_import_service.dart` | `toRustJson()` — Dart→Rust konverzija |
+| `slot_preview_widget.dart` | `SlotSymbol.setDynamicSymbols()` — dinamički registar |
+| `slot_lab_screen.dart` | `_populateSlotSymbolsFromGdd()` — konverzija simbola |
+| `slot_lab_screen.dart` | `_getSymbolEmojiForReel()` — 70+ emoji mapiranja |
+| `slot_lab_screen.dart` | `_getSymbolColorsForTier()` — tier boje |
+| `premium_slot_preview.dart` | `_PaytablePanel(gddSymbols)` — paytable iz GDD-a |
+
+**Dokumentacija:** `.claude/architecture/GDD_IMPORT_SYSTEM.md`
 
 ### SlotLab V6 Layout (2026-01-23) ✅ COMPLETE
 
@@ -3754,7 +3903,7 @@ REEL_STOP   → Fallback za sve (ako nema specifičnog)
 **Fajlovi:**
 - `flutter_ui/lib/services/event_registry.dart` — Centralni registry (1350 LOC)
 - `flutter_ui/lib/providers/slot_lab_provider.dart` — Stage playback integracija
-- `.claude/domains/slot-audio-events-master.md` — Master katalog 490 eventa
+- `.claude/domains/slot-audio-events-master.md` — Master katalog 600+ eventa (V1.2)
 
 **State Persistence:**
 - Audio pool, composite events, tracks, event→region mapping
@@ -4377,6 +4526,157 @@ Dart: AudioPlaybackService.fadeOutVoice(voiceId, fadeMs: 50)
 - `crates/rf-engine/src/playback.rs:2608` — Rust fade_out_one_shot()
 
 **Dokumentacija:** `.claude/analysis/SLOTLAB_100_INDUSTRY_STANDARD_2026_01_25.md`
+
+### SlotLab Industry Standard Fixes (2026-01-25) ✅
+
+P0 Critical fixes za profesionalni slot audio — eliminacija audio-visual desync problema.
+
+**P0 Tasks Completed:**
+
+| ID | Feature | Status | Opis |
+|----|---------|--------|------|
+| P0.1 | Per-Reel Spin Loop + Fade-Out | ✅ Done | Svaki reel ima nezavisni spin loop sa 50ms fade-out |
+| P0.2 | Dead Silence Pre Win Reveal | ✅ Done | Pre-trigger WIN_SYMBOL_HIGHLIGHT na poslednjem reel stop-u |
+| P0.3 | Anticipation Visual-Audio Sync | ✅ Done | Callbacks za sinhronizaciju visual efekata sa audio-m |
+
+**P0.1: Per-Reel Spin Loop with Independent Fade-Out**
+
+Rust Stage variants za per-reel audio kontrolu:
+
+```rust
+// crates/rf-stage/src/lib.rs
+pub enum Stage {
+    // Per-reel spin lifecycle stages
+    ReelSpinningStart { reel_index: u8 },  // Start spin loop for specific reel
+    ReelSpinningStop { reel_index: u8 },   // Stop spin loop for specific reel
+    // ... existing variants
+}
+```
+
+**Auto-detection u event_registry.dart:**
+- `REEL_SPINNING_START_0..4` → Pokreće spin loop za specifični reel
+- `REEL_STOP_0..4` → Fade-out spin loop sa 50ms crossfade
+- `SPIN_END` → Fallback: zaustavlja sve preostale spin loop-ove
+
+**P0.2: Pre-Trigger WIN_SYMBOL_HIGHLIGHT**
+
+Eliminacija 50-100ms audio gap-a između poslednjeg reel stop-a i win reveal-a:
+
+```dart
+// slot_preview_widget.dart - _triggerReelStopAudio()
+if (reelIndex == widget.reels - 1 && !_symbolHighlightPreTriggered) {
+  final result = widget.provider.lastResult;
+  if (result != null && result.isWin) {
+    // Pre-trigger symbol highlights IMMEDIATELY on last reel stop
+    for (final symbolName in _winningSymbolNames) {
+      eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT_$symbolName');
+    }
+    eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
+    _symbolHighlightPreTriggered = true;  // Prevent double-trigger in _finalizeSpin
+  }
+}
+```
+
+**Flow:** `REEL_STOP_4` → `WIN_SYMBOL_HIGHLIGHT` (instant, no gap)
+
+**P0.3: Anticipation Visual-Audio Sync**
+
+Provider callbacks za sinhronizaciju vizuelnih efekata sa audio-m:
+
+```dart
+// slot_lab_provider.dart
+void Function(int reelIndex, String reason)? onAnticipationStart;
+void Function(int reelIndex)? onAnticipationEnd;
+
+// Callback invocation on ANTICIPATION_ON stage
+if (stageType.startsWith('ANTICIPATION_ON')) {
+  final reelIdx = _extractReelIndexFromStage(stageType);
+  final reason = stage.payload['reason'] as String? ?? 'scatter';
+  onAnticipationStart?.call(reelIdx, reason);  // Visual + audio together
+}
+```
+
+**Speed Multiplier System:**
+
+```dart
+// professional_reel_animation.dart
+class ReelAnimationState {
+  double speedMultiplier = 1.0;  // 1.0 = normal, 0.3 = slow
+
+  void setSpeedMultiplier(double multiplier) {
+    speedMultiplier = multiplier.clamp(0.1, 2.0);
+  }
+}
+
+// Applied in update():
+scrollOffset += velocity * 0.1 * speedMultiplier;
+```
+
+**Controller API:**
+
+```dart
+// ProfessionalReelAnimationController
+void setReelSpeedMultiplier(int reelIndex, double multiplier);
+void clearAllSpeedMultipliers();  // Called on spin start
+```
+
+**Ključni fajlovi:**
+- `crates/rf-stage/src/lib.rs` — ReelSpinningStart/Stop stage variants
+- `flutter_ui/lib/widgets/slot_lab/slot_preview_widget.dart` — P0.2 pre-trigger, P0.3 callbacks
+- `flutter_ui/lib/providers/slot_lab_provider.dart` — P0.3 anticipation callbacks
+- `flutter_ui/lib/widgets/slot_lab/professional_reel_animation.dart` — P0.3 speed multiplier
+
+**Dokumentacija:** `.claude/tasks/INDUSTRY_STANDARD_FIXES_PLAN.md`
+
+### Advanced Audio Features (2026-01-25) ✅
+
+**P0.20: Per-Reel Spin Loop System**
+
+Fina kontrola per-reel spin loop-ova sa individualnim fade-out-om:
+
+| Stage Pattern | Svrha |
+|---------------|-------|
+| `REEL_SPINNING_START_0..4` | Pokreni spin loop za specifični reel |
+| `REEL_SPINNING_STOP_0..4` | Early fade-out PRE vizualnog zaustavljanja |
+| `REEL_SPINNING_0..4` | Legacy per-reel spin (backwards compat) |
+
+**Implementacija:** `event_registry.dart` — `_reelSpinLoopVoices` map, `_fadeOutReelSpinLoop()`
+
+**P0.21: CASCADE_STEP Pitch/Volume Escalation**
+
+Auto-escalation za cascade korake:
+
+| Step | Stage | Pitch | Volume |
+|------|-------|-------|--------|
+| 0 | CASCADE_STEP_0 | 1.00x | 90% |
+| 1 | CASCADE_STEP_1 | 1.05x | 94% |
+| 2 | CASCADE_STEP_2 | 1.10x | 98% |
+| 3 | CASCADE_STEP_3 | 1.15x | 102% |
+| 4+ | CASCADE_STEP_4+ | 1.20x+ | 106%+ |
+
+**Formula:**
+- Pitch: `1.0 + (stepIndex * 0.05)`
+- Volume: `0.9 + (stepIndex * 0.04)` (clamped at 1.2)
+
+**P1.5: Jackpot Audio Sequence**
+
+Proširena 6-fazna jackpot sekvenca:
+
+| # | Stage | Duration | Opis |
+|---|-------|----------|------|
+| 1 | JACKPOT_TRIGGER | 500ms | Alert tone |
+| 2 | JACKPOT_BUILDUP | 2000ms | Rising tension |
+| 3 | JACKPOT_REVEAL | 1000ms | Tier reveal (MINI/MINOR/MAJOR/GRAND) |
+| 4 | JACKPOT_PRESENT | 5000ms | Main fanfare + amount |
+| 5 | JACKPOT_CELEBRATION | Loop | Looping celebration |
+| 6 | JACKPOT_END | 500ms | Fade out |
+
+**Implementacija:** `crates/rf-slot-lab/src/features/jackpot.rs` — `generate_stages()`
+
+**Dokumentacija:**
+- `.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md` — P0.20, P0.21, P1.5 detalji
+- `.claude/architecture/EVENT_SYNC_SYSTEM.md` — Per-reel spin loop sistem
+- `.claude/domains/slot-audio-events-master.md` — V1.2 sa ~110 novih eventa
 
 ### Adaptive Layer Engine (FULLY IMPLEMENTED) ✅ 2026-01-21
 
@@ -5294,6 +5594,67 @@ void _finalizeSpin(SlotLabSpinResult result) {
 
 **Ključni fajl:** `flutter_ui/lib/widgets/slot_lab/slot_preview_widget.dart`
 
+#### 7. SPACE Key Stop-Not-Working (2026-01-26)
+
+**Simptom:**
+- SPACE dugme za STOP ne radi u embedded modu (centralni panel)
+- Reelovi nastavljaju da se vrte ILI odmah startuju novi spin
+- Izgleda kao da SPACE uopšte ne reaguje
+
+**Uzrok:**
+Dva nezavisna keyboard handlera procesirala isti SPACE event:
+1. Global handler (`slot_lab_screen.dart:_globalKeyHandler`) — preko `HardwareKeyboard.instance.addHandler()`
+2. Focus handler (`premium_slot_preview.dart:_handleKeyEvent`) — preko `Focus(onKeyEvent: ...)`
+
+Oba su imala nezavisne debounce timer-e. Kada je SPACE pritisnut za STOP:
+- Global handler pozove `stopStagePlayback()` → `isReelsSpinning = false`
+- Focus handler vidi `isReelsSpinning = false` → odmah pozove `spin()`
+- Rezultat: STOP pa instant SPIN — izgleda kao da SPACE ne radi
+
+**Fix (2026-01-26):** Dodat `isFullscreen` parametar u `PremiumSlotPreview`:
+
+```dart
+// premium_slot_preview.dart constructor
+const PremiumSlotPreview({
+  required this.onExit,
+  this.reels = 5,
+  this.rows = 3,
+  this.isFullscreen = false,  // NEW
+});
+
+// In _handleKeyEvent:
+case LogicalKeyboardKey.space:
+  if (!widget.isFullscreen) {
+    return KeyEventResult.ignored;  // Let global handler handle it
+  }
+  // ... rest of SPACE handling
+```
+
+**Instantiation:**
+```dart
+// Fullscreen mode (F11)
+PremiumSlotPreview(isFullscreen: true, ...)
+
+// Embedded mode (centralni panel)
+PremiumSlotPreview(isFullscreen: false, ...)
+```
+
+**Verifikacija:**
+Debug log bi trebao pokazati:
+```
+# Embedded mode (isFullscreen=false):
+[SlotLab] 🌍 GLOBAL Space key handler...
+[PremiumSlotPreview] ⏭️ SPACE ignored (embedded mode)
+
+# Fullscreen mode (isFullscreen=true):
+[SlotLab] 🌍 GLOBAL Space — SKIPPED (Fullscreen)
+[PremiumSlotPreview] 🎰 SPACE pressed...
+```
+
+**Ključni fajlovi:**
+- `flutter_ui/lib/widgets/slot_lab/premium_slot_preview.dart:4861,5712`
+- `flutter_ui/lib/screens/slot_lab_screen.dart:923,2237,7052`
+
 ---
 
 ## 🎰 SLOTLAB STAGE FLOW (2026-01-24) ✅
@@ -5382,6 +5743,65 @@ onReelStopped: (reelIndex) {
 | ULTRA | 100x+ | WIN_PRESENT_ULTRA | "ULTRA WIN!" |
 
 **Industry Sources:** Wizard of Oz Slots (Zynga), Know Your Slots, NetEnt, Pragmatic Play
+
+### Big Win Celebration System (2026-01-25) ✅
+
+Dedicirani audio sistem za Big Win celebracije (≥20x bet).
+
+**Komponente:**
+| Stage | Bus | Priority | Loop | Opis |
+|-------|-----|----------|------|------|
+| `BIG_WIN_LOOP` | Music (1) | 90 | ✅ Da | Looping celebration muzika, ducks base music |
+| `BIG_WIN_COINS` | SFX (2) | 75 | Ne | Coin particle zvuk efekti |
+
+**Trigger Logic (`slot_preview_widget.dart`):**
+```dart
+final bet = widget.provider.betAmount;
+final winRatio = bet > 0 ? result.totalWin / bet : 0.0;
+if (winRatio >= 20) {
+  eventRegistry.triggerStage('BIG_WIN_LOOP');
+  eventRegistry.triggerStage('BIG_WIN_COINS');
+}
+```
+
+**Auto-Stop (`slot_lab_provider.dart`):**
+```dart
+void setWinPresentationActive(bool active) {
+  if (!active) {
+    eventRegistry.stopEvent('BIG_WIN_LOOP');  // Stop loop when win ends
+  }
+}
+```
+
+**UltimateAudioPanel V8 (2026-01-25) ✅ CURRENT:**
+
+Game Flow-based slot audio panel sa **341 audio slotova** organizovanih u **12 sekcija** po toku igre.
+
+| # | Sekcija | Tier | Slots | Boja |
+|---|---------|------|-------|------|
+| 1 | Base Game Loop | Primary | 41 | #4A9EFF |
+| 2 | Symbols & Lands | Primary | 46 | #9370DB |
+| 3 | Win Presentation | Primary | 41 | #FFD700 |
+| 4 | Cascading Mechanics | Secondary | 24 | #FF6B6B |
+| 5 | Multipliers | Secondary | 18 | #FF9040 |
+| 6 | Free Spins | Feature | 24 | #40FF90 |
+| 7 | Bonus Games | Feature | 32 | #9370DB |
+| 8 | Hold & Win | Feature | 24 | #40C8FF |
+| 9 | Jackpots | Premium 🏆 | 26 | #FFD700 |
+| 10 | Gamble | Optional | 16 | #FF6B6B |
+| 11 | Music & Ambience | Background | 27 | #40C8FF |
+| 12 | UI & System | Utility | 22 | #808080 |
+
+**V8 Ključne promene:**
+- **Game Flow organizacija** — Sekcije prate tok igre (Spin→Stop→Win→Feature)
+- **Pooled eventi označeni** — ⚡ ikona za rapid-fire (ROLLUP_TICK, CASCADE_STEP, REEL_STOP)
+- **Jackpot izdvojen** — 🏆 Premium sekcija sa validation badge
+- **Cascade/Tumble/Avalanche ujedinjeni** — Jedna sekcija za sve cascade mehanike
+- **Tier vizualna hijerarhija** — Primary/Secondary/Feature/Premium/Background/Utility
+
+**Persistence:** All expanded states and audio assignments saved via `SlotLabProjectProvider`
+
+**Dokumentacija:** `.claude/architecture/ULTIMATE_AUDIO_PANEL_V8_SPEC.md`
 
 ### Anticipation Logic
 

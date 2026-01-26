@@ -36,6 +36,8 @@
 | `REVEAL` | When all reels have stopped |
 | `WIN_*` | Based on win tier (SMALL/BIG/MEGA/EPIC/ULTRA) |
 | `WIN_PRESENT` | On any win for general celebration |
+| `BIG_WIN_LOOP` | When win ratio ≥ 20x bet (looping celebration) |
+| `BIG_WIN_COINS` | When win ratio ≥ 20x bet (coin particles SFX) |
 
 ### Timing Calculation
 
@@ -73,6 +75,35 @@ Win lines are now drawn as connecting lines through winning symbol positions usi
 - Spin button shows **"STOP"** (red gradient) when reels are spinning
 - Click or press **SPACE** to stop immediately
 - Flow: `stopStagePlayback()` → `stopImmediately()` → `_finalizeSpin()`
+
+### Keyboard Handling & isFullscreen Parameter (2026-01-26)
+
+**Constructor:**
+```dart
+const PremiumSlotPreview({
+  required this.onExit,
+  this.reels = 5,
+  this.rows = 3,
+  this.isFullscreen = false,  // NEW: Controls SPACE key handling
+});
+```
+
+**Dual-mode SPACE handling:**
+- **`isFullscreen: true`** (F11 mode) — PremiumSlotPreview's Focus handler handles SPACE
+- **`isFullscreen: false`** (embedded mode) — Global handler in `slot_lab_screen.dart` handles SPACE
+
+**Why this matters:**
+Both handlers previously processed the same SPACE event, causing "stop then instant spin" bug.
+With `isFullscreen = false`, the Focus handler returns `KeyEventResult.ignored`, letting the global handler manage SPACE exclusively.
+
+**Debug Output:**
+```
+// Embedded mode (isFullscreen=false):
+[PremiumSlotPreview] ⏭️ SPACE ignored (embedded mode — global handler will handle)
+
+// Fullscreen mode (isFullscreen=true):
+[PremiumSlotPreview] 🎰 SPACE pressed — isReelsSpinning=true
+```
 
 ### Gamble Feature Disabled
 
@@ -200,6 +231,18 @@ void _tickJackpots() {
 | MEGA | #FFD700 | >= $25 |
 | BIG | #40FF90 | >= $10 |
 | SMALL | #40C8FF | < $10 |
+
+### Big Win Celebration (2026-01-25) ✅
+
+**Trigger:** Win ratio ≥ 20x bet
+
+**Stages Triggered:**
+| Stage | Bus | Priority | Loop | Description |
+|-------|-----|----------|------|-------------|
+| `BIG_WIN_LOOP` | Music (1) | 90 | ✅ Yes | Looping celebration music, ducks base music |
+| `BIG_WIN_COINS` | SFX (2) | 75 | No | Coin particle sound effects |
+
+**Auto-Stop:** `BIG_WIN_LOOP` stops when `setWinPresentationActive(false)` is called (win presentation ends).
 
 ### Zone E: Feature Indicators (lines 1610-1843)
 

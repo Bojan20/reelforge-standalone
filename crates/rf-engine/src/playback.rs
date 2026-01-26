@@ -2370,12 +2370,15 @@ impl PlaybackEngine {
         let count = meters.len().min(max_count);
 
         for (i, (&track_id, meter)) in meters.iter().take(count).enumerate() {
-            *out_ids.add(i) = track_id;
-            *out_peak_l.add(i) = meter.peak_l;
-            *out_peak_r.add(i) = meter.peak_r;
-            *out_rms_l.add(i) = meter.rms_l;
-            *out_rms_r.add(i) = meter.rms_r;
-            *out_corr.add(i) = meter.correlation;
+            // SAFETY: Caller guarantees valid pointers with sufficient capacity
+            unsafe {
+                *out_ids.add(i) = track_id;
+                *out_peak_l.add(i) = meter.peak_l;
+                *out_peak_r.add(i) = meter.peak_r;
+                *out_rms_l.add(i) = meter.rms_l;
+                *out_rms_r.add(i) = meter.rms_r;
+                *out_corr.add(i) = meter.correlation;
+            }
         }
 
         count

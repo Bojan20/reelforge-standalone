@@ -7,6 +7,7 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../services/gdd_import_service.dart';
 
 // =============================================================================
 // SYMBOL AUDIO CONTEXTS (Typed)
@@ -779,6 +780,16 @@ class SlotLabProject {
   final List<MusicLayerAssignment> musicLayers;
   final Map<String, dynamic>? metadata;
 
+  // V7: UltimateAudioPanel state
+  final Map<String, String> audioAssignments;
+  final Set<String> expandedSections;
+  final Set<String> expandedGroups;
+  final String? lastActiveTab;
+
+  // V8: GDD Import data
+  final GddGridConfig? gridConfig;
+  final GameDesignDocument? importedGdd;
+
   const SlotLabProject({
     required this.name,
     this.version = '1.0',
@@ -787,6 +798,20 @@ class SlotLabProject {
     this.symbolAudio = const [],
     this.musicLayers = const [],
     this.metadata,
+    this.audioAssignments = const {},
+    this.expandedSections = const {'spins_reels', 'symbols', 'wins'},
+    this.expandedGroups = const {
+      'spins_reels_spin_controls',
+      'spins_reels_reel_stops',
+      'symbols_land',
+      'symbols_win',
+      'wins_tiers',
+      'wins_lines',
+    },
+    this.lastActiveTab,
+    // V8: GDD data
+    this.gridConfig,
+    this.importedGdd,
   });
 
   /// Create default project with standard symbols and contexts
@@ -810,6 +835,12 @@ class SlotLabProject {
     List<SymbolAudioAssignment>? symbolAudio,
     List<MusicLayerAssignment>? musicLayers,
     Map<String, dynamic>? metadata,
+    Map<String, String>? audioAssignments,
+    Set<String>? expandedSections,
+    Set<String>? expandedGroups,
+    String? lastActiveTab,
+    GddGridConfig? gridConfig,
+    GameDesignDocument? importedGdd,
   }) {
     return SlotLabProject(
       name: name ?? this.name,
@@ -819,6 +850,12 @@ class SlotLabProject {
       symbolAudio: symbolAudio ?? this.symbolAudio,
       musicLayers: musicLayers ?? this.musicLayers,
       metadata: metadata ?? this.metadata,
+      audioAssignments: audioAssignments ?? this.audioAssignments,
+      expandedSections: expandedSections ?? this.expandedSections,
+      expandedGroups: expandedGroups ?? this.expandedGroups,
+      lastActiveTab: lastActiveTab ?? this.lastActiveTab,
+      gridConfig: gridConfig ?? this.gridConfig,
+      importedGdd: importedGdd ?? this.importedGdd,
     );
   }
 
@@ -843,6 +880,33 @@ class SlotLabProject {
               .toList() ??
           const [],
       metadata: json['metadata'] as Map<String, dynamic>?,
+      // V7: UltimateAudioPanel state
+      audioAssignments: (json['audioAssignments'] as Map<String, dynamic>?)
+              ?.map((k, v) => MapEntry(k, v as String)) ??
+          const {},
+      expandedSections: (json['expandedSections'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toSet() ??
+          const {'spins_reels', 'symbols', 'wins'},
+      expandedGroups: (json['expandedGroups'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toSet() ??
+          const {
+            'spins_reels_spin_controls',
+            'spins_reels_reel_stops',
+            'symbols_land',
+            'symbols_win',
+            'wins_tiers',
+            'wins_lines',
+          },
+      lastActiveTab: json['lastActiveTab'] as String?,
+      // V8: GDD data
+      gridConfig: json['gridConfig'] != null
+          ? GddGridConfig.fromJson(json['gridConfig'] as Map<String, dynamic>)
+          : null,
+      importedGdd: json['importedGdd'] != null
+          ? GameDesignDocument.fromJson(json['importedGdd'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -855,6 +919,14 @@ class SlotLabProject {
       'symbolAudio': symbolAudio.map((e) => e.toJson()).toList(),
       'musicLayers': musicLayers.map((e) => e.toJson()).toList(),
       if (metadata != null) 'metadata': metadata,
+      // V7: UltimateAudioPanel state
+      if (audioAssignments.isNotEmpty) 'audioAssignments': audioAssignments,
+      'expandedSections': expandedSections.toList(),
+      'expandedGroups': expandedGroups.toList(),
+      if (lastActiveTab != null) 'lastActiveTab': lastActiveTab,
+      // V8: GDD data
+      if (gridConfig != null) 'gridConfig': gridConfig!.toJson(),
+      if (importedGdd != null) 'importedGdd': importedGdd!.toJson(),
     };
   }
 

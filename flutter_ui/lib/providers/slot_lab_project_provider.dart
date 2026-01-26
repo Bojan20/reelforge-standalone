@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/slot_lab_models.dart';
 import '../providers/ale_provider.dart';
+import '../services/gdd_import_service.dart';
 import '../services/stage_configuration_service.dart';
 
 /// Provider for SlotLab V6 project state
@@ -31,8 +32,42 @@ class SlotLabProjectProvider extends ChangeNotifier {
   ];
   List<MusicLayerAssignment> _musicLayers = [];
 
+  // ==========================================================================
+  // ULTIMATE AUDIO PANEL STATE (V7)
+  // ==========================================================================
+
+  /// Audio assignments: stage → audioPath
+  /// Used by UltimateAudioPanel for drag-drop audio assignments
+  Map<String, String> _audioAssignments = {};
+
+  /// Expanded sections in UltimateAudioPanel
+  Set<String> _expandedSections = {'spins_reels', 'symbols', 'wins'};
+
+  /// Expanded groups within sections
+  Set<String> _expandedGroups = {
+    'spins_reels_spin_controls',
+    'spins_reels_reel_stops',
+    'symbols_land',
+    'symbols_win',
+    'wins_tiers',
+    'wins_lines',
+  };
+
+  /// Last active tab in lower zone (optional)
+  String? _lastActiveTab;
+
   // Optional ALE integration
   AleProvider? _aleProvider;
+
+  // ==========================================================================
+  // GDD IMPORT STATE (V8)
+  // ==========================================================================
+
+  /// Imported Game Design Document (if any)
+  GameDesignDocument? _importedGdd;
+
+  /// Grid configuration from GDD
+  GddGridConfig? _gridConfig;
 
   // ==========================================================================
   // GETTERS
@@ -46,6 +81,17 @@ class SlotLabProjectProvider extends ChangeNotifier {
   List<SymbolAudioAssignment> get symbolAudio => _symbolAudio;
   List<MusicLayerAssignment> get musicLayers => _musicLayers;
 
+  // UltimateAudioPanel state getters
+  Map<String, String> get audioAssignments => Map.unmodifiable(_audioAssignments);
+  Set<String> get expandedSections => Set.unmodifiable(_expandedSections);
+  Set<String> get expandedGroups => Set.unmodifiable(_expandedGroups);
+  String? get lastActiveTab => _lastActiveTab;
+
+  // GDD state getters
+  GameDesignDocument? get importedGdd => _importedGdd;
+  GddGridConfig? get gridConfig => _gridConfig;
+  bool get hasImportedGdd => _importedGdd != null;
+
   /// Get complete project for serialization
   SlotLabProject get project => SlotLabProject(
         name: _projectName,
@@ -53,6 +99,14 @@ class SlotLabProjectProvider extends ChangeNotifier {
         contexts: _contexts,
         symbolAudio: _symbolAudio,
         musicLayers: _musicLayers,
+        // V7: Include audio panel state
+        audioAssignments: _audioAssignments,
+        expandedSections: _expandedSections,
+        expandedGroups: _expandedGroups,
+        lastActiveTab: _lastActiveTab,
+        // V8: Include GDD data
+        gridConfig: _gridConfig,
+        importedGdd: _importedGdd,
       );
 
   // ==========================================================================
@@ -76,10 +130,171 @@ class SlotLabProjectProvider extends ChangeNotifier {
     ];
     _symbolAudio = [];
     _musicLayers = [];
+    // Reset audio panel state
+    _audioAssignments = {};
+    _expandedSections = {'spins_reels', 'symbols', 'wins'};
+    _expandedGroups = {
+      'spins_reels_spin_controls',
+      'spins_reels_reel_stops',
+      'symbols_land',
+      'symbols_win',
+      'wins_tiers',
+      'wins_lines',
+    };
+    _lastActiveTab = null;
+    // V8: Reset GDD data
+    _importedGdd = null;
+    _gridConfig = null;
     _isDirty = false;
     _syncSymbolStages(); // Sync stages for default symbols
     notifyListeners();
   }
+
+  // ==========================================================================
+  // ULTIMATE AUDIO PANEL STATE MANAGEMENT
+  // ==========================================================================
+
+  /// Set audio assignment for a stage
+  void setAudioAssignment(String stage, String audioPath) {
+    _audioAssignments[stage] = audioPath;
+    _markDirty();
+  }
+
+  /// Remove audio assignment for a stage
+  void removeAudioAssignment(String stage) {
+    _audioAssignments.remove(stage);
+    _markDirty();
+  }
+
+  /// Clear all audio assignments
+  void clearAllAudioAssignments() {
+    _audioAssignments.clear();
+    _markDirty();
+  }
+
+  /// Get audio path for a stage (null if not assigned)
+  String? getAudioAssignment(String stage) => _audioAssignments[stage];
+
+  /// Check if stage has audio assigned
+  bool hasAudioAssignment(String stage) => _audioAssignments.containsKey(stage);
+
+  /// Set expanded state for a section
+  void setSectionExpanded(String sectionId, bool expanded) {
+    if (expanded) {
+      _expandedSections.add(sectionId);
+    } else {
+      _expandedSections.remove(sectionId);
+    }
+    notifyListeners();
+  }
+
+  /// Toggle section expanded state
+  void toggleSection(String sectionId) {
+    if (_expandedSections.contains(sectionId)) {
+      _expandedSections.remove(sectionId);
+    } else {
+      _expandedSections.add(sectionId);
+    }
+    notifyListeners();
+  }
+
+  /// Check if section is expanded
+  bool isSectionExpanded(String sectionId) => _expandedSections.contains(sectionId);
+
+  /// Set expanded state for a group
+  void setGroupExpanded(String groupId, bool expanded) {
+    if (expanded) {
+      _expandedGroups.add(groupId);
+    } else {
+      _expandedGroups.remove(groupId);
+    }
+    notifyListeners();
+  }
+
+  /// Toggle group expanded state
+  void toggleGroup(String groupId) {
+    if (_expandedGroups.contains(groupId)) {
+      _expandedGroups.remove(groupId);
+    } else {
+      _expandedGroups.add(groupId);
+    }
+    notifyListeners();
+  }
+
+  /// Check if group is expanded
+  bool isGroupExpanded(String groupId) => _expandedGroups.contains(groupId);
+
+  /// Set last active tab
+  void setLastActiveTab(String? tabId) {
+    _lastActiveTab = tabId;
+    notifyListeners();
+  }
+
+  /// Bulk update expanded sections (for restoring state)
+  void setExpandedSections(Set<String> sections) {
+    _expandedSections = Set.from(sections);
+    notifyListeners();
+  }
+
+  /// Bulk update expanded groups (for restoring state)
+  void setExpandedGroups(Set<String> groups) {
+    _expandedGroups = Set.from(groups);
+    notifyListeners();
+  }
+
+  /// Bulk update audio assignments (for restoring state)
+  void setAudioAssignments(Map<String, String> assignments) {
+    _audioAssignments = Map.from(assignments);
+    _markDirty();
+  }
+
+  // ==========================================================================
+  // GDD IMPORT MANAGEMENT (V8)
+  // ==========================================================================
+
+  /// Import GDD and store it in the project
+  /// This method stores the full GDD for later reference and updates the grid config.
+  void importGdd(GameDesignDocument gdd, {List<SymbolDefinition>? generatedSymbols}) {
+    _importedGdd = gdd;
+    _gridConfig = gdd.grid;
+    _projectName = gdd.name;
+
+    // Optionally replace symbols with generated ones from GDD
+    if (generatedSymbols != null && generatedSymbols.isNotEmpty) {
+      _symbols = List.from(generatedSymbols);
+      _symbolAudio = []; // Clear audio assignments when replacing symbols
+      _syncSymbolStages();
+    }
+
+    debugPrint('[SlotLabProject] Imported GDD: ${gdd.name}');
+    debugPrint('[SlotLabProject]   Grid: ${gdd.grid.columns}x${gdd.grid.rows} (${gdd.grid.mechanic})');
+    debugPrint('[SlotLabProject]   Symbols: ${gdd.symbols.length}');
+    debugPrint('[SlotLabProject]   Features: ${gdd.features.length}');
+
+    _markDirty();
+  }
+
+  /// Update grid configuration (can be called independently of full GDD import)
+  void setGridConfig(GddGridConfig config) {
+    _gridConfig = config;
+    _markDirty();
+  }
+
+  /// Clear imported GDD data
+  void clearGdd() {
+    _importedGdd = null;
+    _gridConfig = null;
+    _markDirty();
+  }
+
+  /// Get GDD symbols (if GDD is imported)
+  List<GddSymbol> get gddSymbols => _importedGdd?.symbols ?? [];
+
+  /// Get GDD features (if GDD is imported)
+  List<GddFeature> get gddFeatures => _importedGdd?.features ?? [];
+
+  /// Get GDD math model (if GDD is imported)
+  GddMathModel? get gddMath => _importedGdd?.math;
 
   // ==========================================================================
   // SYMBOL PRESETS
@@ -423,6 +638,14 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _contexts = List.from(loaded.contexts);
     _symbolAudio = List.from(loaded.symbolAudio);
     _musicLayers = List.from(loaded.musicLayers);
+    // V7: Restore audio panel state
+    _audioAssignments = Map.from(loaded.audioAssignments);
+    _expandedSections = Set.from(loaded.expandedSections);
+    _expandedGroups = Set.from(loaded.expandedGroups);
+    _lastActiveTab = loaded.lastActiveTab;
+    // V8: Restore GDD data
+    _gridConfig = loaded.gridConfig;
+    _importedGdd = loaded.importedGdd;
     _isDirty = false;
     _syncSymbolStages(); // Sync stages for loaded symbols
     notifyListeners();
@@ -436,6 +659,14 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _contexts = List.from(loaded.contexts);
     _symbolAudio = List.from(loaded.symbolAudio);
     _musicLayers = List.from(loaded.musicLayers);
+    // V7: Restore audio panel state
+    _audioAssignments = Map.from(loaded.audioAssignments);
+    _expandedSections = Set.from(loaded.expandedSections);
+    _expandedGroups = Set.from(loaded.expandedGroups);
+    _lastActiveTab = loaded.lastActiveTab;
+    // V8: Restore GDD data
+    _gridConfig = loaded.gridConfig;
+    _importedGdd = loaded.importedGdd;
     _syncSymbolStages(); // Sync stages for imported symbols
     _markDirty();
   }

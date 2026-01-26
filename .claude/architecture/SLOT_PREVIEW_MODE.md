@@ -279,12 +279,42 @@ class _SlotTheme {
 // slot_lab_screen.dart
 if (_isPreviewMode) {
   return PremiumSlotPreview(
+    key: ValueKey('fullscreen_slot_${_reelCount}x$_rowCount'),
     onExit: () => setState(() => _isPreviewMode = false),
     reels: _reelCount,
     rows: _rowCount,
   );
 }
 ```
+
+### GDD Import → Fullscreen Preview (V8.1)
+
+When user imports GDD and clicks "Apply Configuration", fullscreen preview opens automatically:
+
+```dart
+// slot_lab_screen.dart:_handleGddImport()
+if (confirmed == true && mounted) {
+  projectProvider.importGdd(result.gdd, generatedSymbols: result.generatedSymbols);
+
+  setState(() {
+    _slotLabSettings = _slotLabSettings.copyWith(
+      reels: newReels,
+      rows: newRows,
+      volatility: _volatilityFromGdd(result.gdd.math.volatility),
+    );
+    _isPreviewMode = true;  // ← Opens fullscreen with new grid
+  });
+}
+```
+
+**Flow:**
+1. User clicks GDD Import button
+2. GddPreviewDialog shows parsed GDD with grid preview
+3. User clicks "Apply Configuration"
+4. Grid settings applied + `_isPreviewMode = true`
+5. Fullscreen slot machine opens with new dimensions
+
+**ValueKey:** Widget uses `ValueKey('fullscreen_slot_${reels}x${rows}')` to force rebuild when dimensions change.
 
 ### Component Hierarchy
 ```

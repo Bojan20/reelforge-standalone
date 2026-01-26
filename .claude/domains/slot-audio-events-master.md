@@ -1,12 +1,28 @@
 # Slot Audio Events - Master Catalog
 
-**Version:** 1.1
-**Last Updated:** 2026-01-24
-**Total Events:** 350+
-**Event Names:** 60+ custom mappings via `generateEventName()`
+**Version:** 1.2
+**Last Updated:** 2026-01-25
+**Total Events:** 450+
+**Event Names:** 70+ custom mappings via `generateEventName()`
 
 Kompletna lista svih audio eventa koji mogu da se dese u slot igri.
 Organizovano po kategorijama sa prioritetom, trajanjem i opisom.
+
+## Industry-Standard Update (2026-01-25)
+
+V1.2 dodaje ~110 novih stage-ova na osnovu analize najvećih slot kompanija:
+- **NetEnt, Pragmatic Play, IGT, Aristocrat, Big Time Gaming, Yggdrasil, Microgaming**
+
+### Nove Kategorije
+- **Medium Pay 1-5** — Generički medium value simboli
+- **Low Pay 1-5** — Generički low value simboli
+- **Voice Overs** — VO_SPIN, VO_WIN_*, VO_JACKPOT, VO_COUNTDOWN_*
+- **Music Stingers** — MUSIC_STINGER_*, MUSIC_DUCK_*, MUSIC_CROSSFADE
+- **Ambient** — AMBIENT_CASINO_LOOP, AMBIENT_CROWD_*, AMBIENT_SLOT_FLOOR
+- **Megaways** — WAYS_COUNT_UPDATE, REEL_HEIGHT_CHANGE, REACTION_CHAIN_*
+- **Buy Feature** — BUY_FEATURE_*, ANTE_BET_*, SUPER_BET_*, FEATURE_METER_*
+- **Wheel Bonus** — WHEEL_ACCELERATION, WHEEL_POINTER_TICK, WHEEL_*_LAND
+- **Win Celebration** — SCREEN_SHAKE, LIGHT_FLASH, CROWD_CHEER, FIREWORKS_*
 
 ---
 
@@ -89,6 +105,9 @@ String generateEventName(String stage);
 | **Coins** | | |
 | `COIN_BURST` | `onCoinBurst` | Effects |
 | `COIN_DROP` | `onCoinDrop` | Effects |
+| **Big Win Celebration (2026-01-25)** | | |
+| `BIG_WIN_LOOP` | `onBigWinLoop` | Big Win |
+| `BIG_WIN_COINS` | `onBigWinCoins` | Big Win |
 | **Music** | | |
 | `GAME_START` | `onGameStart` | Music |
 | `MUSIC_BASE` | `onMusicBase` | Music |
@@ -217,6 +236,25 @@ Pokretanje i osnovna spin mehanika.
 | `REEL_SPIN_ACCELERATE` | MEDIUM | 200ms | Reels speeding up |
 | `REEL_SPIN_DECELERATE` | MEDIUM | 300ms | Reels slowing down |
 | `REEL_SPIN_TURBO` | MEDIUM | Loop | Turbo spin sound |
+
+### Per-Reel Spin Control (2026-01-25) ✅ NEW
+
+Fini kontrola per-reel spin loop-ova za rano fade-out.
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `REEL_SPINNING_START_0` | MEDIUM | Loop | Start spin loop for reel 0 |
+| `REEL_SPINNING_START_1` | MEDIUM | Loop | Start spin loop for reel 1 |
+| `REEL_SPINNING_START_2` | MEDIUM | Loop | Start spin loop for reel 2 |
+| `REEL_SPINNING_START_3` | MEDIUM | Loop | Start spin loop for reel 3 |
+| `REEL_SPINNING_START_4` | MEDIUM | Loop | Start spin loop for reel 4 |
+| `REEL_SPINNING_STOP_0` | MEDIUM | Instant | Early fade-out for reel 0 (pre-visual) |
+| `REEL_SPINNING_STOP_1` | MEDIUM | Instant | Early fade-out for reel 1 (pre-visual) |
+| `REEL_SPINNING_STOP_2` | MEDIUM | Instant | Early fade-out for reel 2 (pre-visual) |
+| `REEL_SPINNING_STOP_3` | MEDIUM | Instant | Early fade-out for reel 3 (pre-visual) |
+| `REEL_SPINNING_STOP_4` | MEDIUM | Instant | Early fade-out for reel 4 (pre-visual) |
+
+**Pattern:** `REEL_SPINNING_STOP_X` trigeruje se 50-100ms **PRE** vizualnog zaustavljanja za glatki fade-out.
 
 ---
 
@@ -458,6 +496,22 @@ Proslava dobitka po nivoima.
 | `WIN_APPLAUSE` | HIGH | Variable | Applause |
 | `WIN_CELEBRATION_END` | MEDIUM | 500ms | Celebration ends |
 
+### Big Win Celebration (2026-01-25) ✅
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `BIG_WIN_LOOP` | HIGHEST | Loop | Big win celebration music (≥20x bet) |
+| `BIG_WIN_COINS` | HIGH | Variable | Coin particle SFX for big wins |
+
+**Configuration:**
+| Stage | Bus | Priority | Loop | Ducks |
+|-------|-----|----------|------|-------|
+| `BIG_WIN_LOOP` | Music (1) | 90 | ✅ Yes | Base music |
+| `BIG_WIN_COINS` | SFX (2) | 75 | No | — |
+
+**Trigger Logic:** Activated when win ratio ≥ 20x bet
+**Auto-Stop:** `BIG_WIN_LOOP` stops when win presentation ends (`setWinPresentationActive(false)`)
+
 ### Rollup Counter
 
 | Event ID | Priority | Duration | Description |
@@ -507,6 +561,25 @@ Cascade/Avalanche/Tumble mehanika.
 | `REACTION_CHAIN` | HIGH | Variable | Chain reaction |
 | `GRAVITY_SHIFT` | MEDIUM | 300ms | Gravity changes |
 | `SYMBOLS_DESTROY` | HIGH | 200ms | Symbols destroyed |
+
+### CASCADE_STEP Pitch/Volume Escalation (2026-01-25) ✅ NEW
+
+Za `CASCADE_STEP_N` stage-ove, EventRegistry automatski primenjuje pitch i volume escalation:
+
+| Step | Stage | Pitch | Volume |
+|------|-------|-------|--------|
+| 0 | CASCADE_STEP_0 | 1.00x | 90% |
+| 1 | CASCADE_STEP_1 | 1.05x | 94% |
+| 2 | CASCADE_STEP_2 | 1.10x | 98% |
+| 3 | CASCADE_STEP_3 | 1.15x | 102% |
+| 4 | CASCADE_STEP_4 | 1.20x | 106% |
+| 5+ | CASCADE_STEP_5+ | 1.25x+ | 110%+ |
+
+**Formula:**
+- Pitch: `1.0 + (stepIndex * 0.05)`
+- Volume: `0.9 + (stepIndex * 0.04)` (clamped at 1.2)
+
+**Efekat:** Rastuća tenzija sa svakim korakom cascade-a.
 
 ---
 
@@ -918,6 +991,192 @@ Sistemski eventi i odgovorno igranje.
 
 ---
 
+## 18. VOICE OVERS (25 events) — NEW V1.2
+
+Naracija i glasovni callouts — industry standard za premium iskustvo.
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `VO_SPIN` | MEDIUM | 500ms | "Spin!" voice call |
+| `VO_WIN_SMALL` | MEDIUM | 800ms | "Win!" for small wins |
+| `VO_WIN_MEDIUM` | MEDIUM | 1000ms | "Nice!" for medium wins |
+| `VO_WIN_BIG` | HIGH | 1500ms | "Big Win!" callout |
+| `VO_WIN_MEGA` | HIGH | 2000ms | "Mega Win!" callout |
+| `VO_WIN_EPIC` | HIGHEST | 2500ms | "Epic Win!" callout |
+| `VO_WIN_ULTRA` | HIGHEST | 3000ms | "Ultra Win!" callout |
+| `VO_JACKPOT` | HIGHEST | 3000ms | "Jackpot!" announcement |
+| `VO_FREE_SPINS` | HIGH | 2000ms | "Free Spins!" trigger |
+| `VO_BONUS` | HIGH | 1500ms | "Bonus!" trigger |
+| `VO_GOOD_LUCK` | MEDIUM | 1000ms | "Good Luck!" |
+| `VO_CONGRATULATIONS` | HIGH | 1500ms | "Congratulations!" |
+| `VO_INCREDIBLE` | HIGH | 1500ms | "Incredible!" |
+| `VO_SENSATIONAL` | HIGH | 2000ms | "Sensational!" |
+| `VO_INSANE` | HIGHEST | 2000ms | "Insane!" |
+| `VO_UNBELIEVABLE` | HIGHEST | 2500ms | "Unbelievable!" |
+| `VO_WILD` | MEDIUM | 800ms | "Wild!" symbol call |
+| `VO_SCATTER` | MEDIUM | 800ms | "Scatter!" symbol call |
+| `VO_BUFFALO` | HIGH | 1500ms | Theme character voice |
+| `VO_COUNTDOWN_3` | MEDIUM | 500ms | "Three!" countdown |
+| `VO_COUNTDOWN_2` | MEDIUM | 500ms | "Two!" countdown |
+| `VO_COUNTDOWN_1` | MEDIUM | 500ms | "One!" countdown |
+| `VO_GO` | HIGH | 800ms | "Go!" trigger |
+
+---
+
+## 19. MEGAWAYS (15 events) — NEW V1.2
+
+Big Time Gaming Megaways™ mehanika.
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `WAYS_COUNT_UPDATE` | MEDIUM | 200ms | Ways counter update |
+| `REEL_HEIGHT_CHANGE` | MEDIUM | 300ms | Reel height changes |
+| `EXTRA_REEL_ACTIVATE` | HIGH | 400ms | Extra top reel activates |
+| `MYSTERY_WAYS_REVEAL` | HIGH | 500ms | Mystery symbol reveals ways |
+| `REACTION_CHAIN_1` | MEDIUM | 200ms | 1st reaction in chain |
+| `REACTION_CHAIN_2` | MEDIUM | 250ms | 2nd reaction |
+| `REACTION_CHAIN_3` | HIGH | 300ms | 3rd reaction |
+| `REACTION_CHAIN_4` | HIGH | 350ms | 4th reaction |
+| `REACTION_CHAIN_5PLUS` | HIGHEST | 400ms | 5+ reactions |
+| `MAX_WAYS_ACHIEVED` | HIGHEST | 800ms | Maximum ways achieved |
+
+---
+
+## 20. BUY FEATURE (15 events) — NEW V1.2
+
+Feature buy i Ante Bet mehanika.
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `BUY_FEATURE_CONFIRM` | HIGH | 300ms | Feature purchase confirmed |
+| `BUY_FEATURE_ANIMATION` | HIGH | 1000ms | Purchase animation |
+| `BUY_FEATURE_CANCEL` | MEDIUM | 200ms | Purchase cancelled |
+| `ANTE_BET_ACTIVATE` | MEDIUM | 200ms | Ante bet activated |
+| `ANTE_BET_DEACTIVATE` | MEDIUM | 200ms | Ante bet deactivated |
+| `SUPER_BET_ACTIVATE` | MEDIUM | 250ms | Super bet activated |
+| `SUPER_BET_DEACTIVATE` | MEDIUM | 200ms | Super bet deactivated |
+| `FEATURE_METER_INCREMENT` | MEDIUM | 100ms | Feature meter fills |
+| `FEATURE_METER_FULL` | HIGH | 500ms | Feature meter complete |
+| `TURBO_MODE_ACTIVATE` | MEDIUM | 200ms | Turbo mode on |
+| `TURBO_MODE_DEACTIVATE` | MEDIUM | 200ms | Turbo mode off |
+
+---
+
+## 21. WHEEL BONUS (15 events) — NEW V1.2
+
+Wheel of Fortune style bonus.
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `WHEEL_START` | HIGH | 500ms | Wheel bonus begins |
+| `WHEEL_ACCELERATION` | MEDIUM | 300ms | Wheel speeds up |
+| `WHEEL_POINTER_TICK` | LOW | 50ms | Pointer clicks segment |
+| `WHEEL_NEAR_MISS` | HIGH | 200ms | Almost landed on prize |
+| `WHEEL_ANTICIPATION` | HIGH | 500ms | Slow down anticipation |
+| `WHEEL_CELEBRATION` | HIGH | 1000ms | Prize celebration |
+| `WHEEL_JACKPOT_LAND` | HIGHEST | 2000ms | Landed on jackpot |
+| `WHEEL_BONUS_LAND` | HIGH | 1000ms | Landed on bonus |
+| `WHEEL_MINI_LAND` | MEDIUM | 800ms | Landed on mini JP |
+| `WHEEL_MINOR_LAND` | MEDIUM | 1000ms | Landed on minor JP |
+| `WHEEL_MAJOR_LAND` | HIGH | 1500ms | Landed on major JP |
+| `WHEEL_GRAND_LAND` | HIGHEST | 2000ms | Landed on grand JP |
+
+---
+
+## 22. WIN CELEBRATION EFFECTS (15 events) — NEW V1.2
+
+Visual/audio efekti za win celebration.
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `SCREEN_SHAKE` | HIGH | 200ms | Screen shake effect |
+| `LIGHT_FLASH` | HIGH | 150ms | Light flash effect |
+| `CROWD_CHEER` | HIGH | 1500ms | Crowd cheering |
+| `CROWD_APPLAUSE` | HIGH | 2000ms | Crowd applause |
+| `CONFETTI_BURST` | MEDIUM | 500ms | Confetti explosion |
+| `FIREWORKS_LAUNCH` | HIGH | 300ms | Firework launches |
+| `FIREWORKS_EXPLODE` | HIGH | 500ms | Firework explodes |
+| `BELLS_RINGING` | HIGH | 1000ms | Celebration bells |
+| `SIRENS_ALERT` | HIGHEST | 2000ms | Alert sirens (jackpot) |
+| `MACHINE_CELEBRATION` | HIGH | 2000ms | Slot machine celebration |
+
+---
+
+## 23. MUSIC STINGERS (15 events) — NEW V1.2
+
+Kratke muzičke intervencije.
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `MUSIC_STINGER_WIN` | HIGH | 500ms | Win stinger |
+| `MUSIC_STINGER_FEATURE` | HIGH | 800ms | Feature stinger |
+| `MUSIC_STINGER_JACKPOT` | HIGHEST | 1000ms | Jackpot stinger |
+| `MUSIC_STINGER_BONUS` | HIGH | 800ms | Bonus stinger |
+| `MUSIC_STINGER_ALERT` | HIGH | 500ms | Alert stinger |
+| `MUSIC_CROSSFADE` | MEDIUM | 2000ms | Music crossfade |
+| `MUSIC_DUCK_START` | MEDIUM | 100ms | Duck/sidechain start |
+| `MUSIC_DUCK_END` | MEDIUM | 200ms | Duck/sidechain end |
+| `MUSIC_TRANSITION` | MEDIUM | 1000ms | Music transition |
+| `MUSIC_STING_UP` | MEDIUM | 500ms | Rising sting |
+| `MUSIC_STING_DOWN` | MEDIUM | 500ms | Falling sting |
+
+---
+
+## 24. AMBIENT EXTENDED (12 events) — NEW V1.2
+
+Proširena ambijentalna biblioteka.
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `AMBIENT_CASINO_LOOP` | LOWEST | Loop | Casino floor ambience |
+| `AMBIENT_CROWD_MURMUR` | LOWEST | Loop | Crowd background |
+| `AMBIENT_SLOT_FLOOR` | LOWEST | Loop | Slot machine area |
+| `AMBIENT_WIN_ROOM` | LOWEST | Loop | High roller room |
+| `AMBIENT_VIP_LOUNGE` | LOWEST | Loop | VIP lounge ambience |
+| `AMBIENT_NATURE` | LOWEST | Loop | Nature theme |
+| `AMBIENT_UNDERWATER` | LOWEST | Loop | Underwater theme |
+| `AMBIENT_SPACE` | LOWEST | Loop | Space theme |
+| `AMBIENT_MYSTICAL` | LOWEST | Loop | Mystical theme |
+| `AMBIENT_ADVENTURE` | LOWEST | Loop | Adventure theme |
+
+---
+
+## 25. MEDIUM/LOW PAY SYMBOLS (20 events) — NEW V1.2
+
+Generički simboli za standardne igre.
+
+### Medium Pay Symbols
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `SYMBOL_LAND_MEDIUMPAY_1` | LOW | 30ms | Medium Pay 1 lands |
+| `WIN_SYMBOL_HIGHLIGHT_MEDIUMPAY_1` | MEDIUM | 300ms | Medium Pay 1 win |
+| `SYMBOL_LAND_MEDIUMPAY_2` | LOW | 30ms | Medium Pay 2 lands |
+| `WIN_SYMBOL_HIGHLIGHT_MEDIUMPAY_2` | MEDIUM | 300ms | Medium Pay 2 win |
+| `SYMBOL_LAND_MEDIUMPAY_3` | LOW | 30ms | Medium Pay 3 lands |
+| `WIN_SYMBOL_HIGHLIGHT_MEDIUMPAY_3` | MEDIUM | 300ms | Medium Pay 3 win |
+| `SYMBOL_LAND_MEDIUMPAY_4` | LOW | 30ms | Medium Pay 4 lands |
+| `WIN_SYMBOL_HIGHLIGHT_MEDIUMPAY_4` | MEDIUM | 300ms | Medium Pay 4 win |
+| `SYMBOL_LAND_MEDIUMPAY_5` | LOW | 30ms | Medium Pay 5 lands |
+| `WIN_SYMBOL_HIGHLIGHT_MEDIUMPAY_5` | MEDIUM | 300ms | Medium Pay 5 win |
+
+### Low Pay Symbols
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `SYMBOL_LAND_LOWPAY_1` | LOW | 20ms | Low Pay 1 lands |
+| `WIN_SYMBOL_HIGHLIGHT_LOWPAY_1` | MEDIUM | 200ms | Low Pay 1 win |
+| `SYMBOL_LAND_LOWPAY_2` | LOW | 20ms | Low Pay 2 lands |
+| `WIN_SYMBOL_HIGHLIGHT_LOWPAY_2` | MEDIUM | 200ms | Low Pay 2 win |
+| `SYMBOL_LAND_LOWPAY_3` | LOW | 20ms | Low Pay 3 lands |
+| `WIN_SYMBOL_HIGHLIGHT_LOWPAY_3` | MEDIUM | 200ms | Low Pay 3 win |
+| `SYMBOL_LAND_LOWPAY_4` | LOW | 20ms | Low Pay 4 lands |
+| `WIN_SYMBOL_HIGHLIGHT_LOWPAY_4` | MEDIUM | 200ms | Low Pay 4 win |
+| `SYMBOL_LAND_LOWPAY_5` | LOW | 20ms | Low Pay 5 lands |
+| `WIN_SYMBOL_HIGHLIGHT_LOWPAY_5` | MEDIUM | 200ms | Low Pay 5 win |
+
+---
+
 ## Summary Statistics
 
 | Category | Event Count |
@@ -939,7 +1198,15 @@ Sistemski eventi i odgovorno igranje.
 | Gamble | 15 |
 | Ambient & Music | 25 |
 | System | 20 |
-| **TOTAL** | **~490 events** |
+| Voice Overs (V1.2) | 25 |
+| Megaways (V1.2) | 15 |
+| Buy Feature (V1.2) | 15 |
+| Wheel Bonus (V1.2) | 15 |
+| Win Effects (V1.2) | 15 |
+| Music Stingers (V1.2) | 15 |
+| Ambient Extended (V1.2) | 12 |
+| Medium/Low Pay (V1.2) | 20 |
+| **TOTAL** | **~600+ events** |
 
 ---
 

@@ -43,6 +43,9 @@ dependencies:
   # Archive (ZIP) support for soundbank building
   archive: ^4.0.2
 
+  # PDF text extraction for GDD import
+  syncfusion_flutter_pdf: ^28.2.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -614,7 +614,7 @@ mod tests {
         let different_count = samples
             .iter()
             .zip(dithered.iter())
-            .filter(|(&a, &b)| (a - b).abs() > 1e-10)
+            .filter(|(a, b)| (*a - *b).abs() > 1e-10)
             .count();
         assert!(different_count > 900); // Most should be different
     }

@@ -44,10 +44,30 @@ class SlotSymbol {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // DYNAMIC SYMBOL REGISTRY — Populated from GDD when imported
+  // Falls back to default symbols when empty
+  // ═══════════════════════════════════════════════════════════════════════════
+  static Map<int, SlotSymbol> _dynamicSymbols = {};
+
+  /// Set dynamic symbols from GDD import
+  static void setDynamicSymbols(Map<int, SlotSymbol> symbols) {
+    _dynamicSymbols = Map.from(symbols);
+  }
+
+  /// Clear dynamic symbols (reset to defaults)
+  static void clearDynamicSymbols() {
+    _dynamicSymbols.clear();
+  }
+
+  /// Get effective symbols map (dynamic if set, otherwise defaults)
+  static Map<int, SlotSymbol> get effectiveSymbols =>
+      _dynamicSymbols.isNotEmpty ? _dynamicSymbols : _defaultSymbols;
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // SYMBOL ID MAPPING — MUST MATCH RUST ENGINE (crates/rf-slot-lab/src/symbols.rs)
   // Rust StandardSymbolSet: HP1=1, HP2=2, HP3=3, HP4=4, LP1=5..LP6=10, WILD=11, SCATTER=12, BONUS=13
   // ═══════════════════════════════════════════════════════════════════════════
-  static const Map<int, SlotSymbol> symbols = {
+  static const Map<int, SlotSymbol> _defaultSymbols = {
     // High Paying symbols (HP1 = highest, HP4 = lowest of high tier)
     1: SlotSymbol(
       id: 1, name: 'HP1', displayChar: '7',
@@ -124,8 +144,11 @@ class SlotSymbol {
     ),
   };
 
-  /// Get symbol by ID — direct lookup, fallback to LP3 (grape) if not found
-  static SlotSymbol getSymbol(int id) => symbols[id] ?? symbols[7]!; // Fallback to LP3
+  /// Legacy alias for compatibility
+  static Map<int, SlotSymbol> get symbols => effectiveSymbols;
+
+  /// Get symbol by ID — uses dynamic symbols if set, falls back to defaults
+  static SlotSymbol getSymbol(int id) => effectiveSymbols[id] ?? effectiveSymbols[7] ?? _defaultSymbols[7]!; // Fallback to LP3
 
   /// Get short label for symbol — MUST MATCH RUST ENGINE
   /// Rust: HP1=1, HP2=2, HP3=3, HP4=4, LP1=5..LP6=10, WILD=11, SCATTER=12, BONUS=13
@@ -242,10 +265,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   late AnimationController _cascadePopController;
   late Animation<double> _cascadePopAnimation;
 
+  // P1.2: Win line grow animation (line "grows" from first to last symbol)
+  late AnimationController _lineGrowController;
+  double _lineDrawProgress = 1.0; // 0.0 = no line, 1.0 = full line
+
   List<List<int>> _displayGrid = [];
   List<List<int>> _targetGrid = [];
   bool _isSpinning = false;
   bool _spinFinalized = false; // Prevents re-trigger after finalize
+  bool _symbolHighlightPreTriggered = false; // P0.2: Prevents double-trigger of WIN_SYMBOL_HIGHLIGHT
   String? _lastProcessedSpinId; // Track which spin result we've processed
   int _spinStartTimeMs = 0; // Timestamp when spin started (for Event Log ordering)
   Set<int> _winningReels = {};
@@ -293,7 +321,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   final Map<String, double> _symbolPopScale = {}; // Per-position popup scale (1.0 → 1.15 → 1.0)
   final Map<String, double> _symbolPopRotation = {}; // Micro-rotation wiggle (radians)
   static const double _symbolPopMaxScale = 1.15; // Peak popup scale
-  static const int _symbolPopStaggerMs = 50; // Delay between each symbol's popup
+  // P1.3: Sequential L→R wave with 100ms offset between positions
+  static const int _symbolPopStaggerMs = 100; // Industry standard: 100ms per position
 
   // ═══════════════════════════════════════════════════════════════════════════
   // V7: ROLLUP VISUAL FEEDBACK — Meter + counter shake for engaging rollup
@@ -406,6 +435,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _initializeControllers();
     _initializeGrid();
     widget.provider.addListener(_onProviderUpdate);
+
+    // P0.3: Connect anticipation callbacks for visual-audio sync
+    widget.provider.onAnticipationStart = _onProviderAnticipationStart;
+    widget.provider.onAnticipationEnd = _onProviderAnticipationEnd;
   }
 
   @override
@@ -425,7 +458,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _reelAnimController = ProfessionalReelAnimationController(
       reelCount: widget.reels,
       rowCount: widget.rows,
-      profile: ReelTimingProfile.studio, // Matches timing.rs studio() values
+      profile: ReelTimingProfile.normal, // Must match Rust TimingConfig::normal()
     );
 
     // Connect reel stop callback to audio triggering
@@ -535,6 +568,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       CurvedAnimation(parent: _plaqueGlowController, curve: Curves.easeInOut),
     );
 
+    // P1.2: Win line grow animation (250ms for line to "grow" from first to last symbol)
+    _lineGrowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    )..addListener(() {
+      setState(() {
+        _lineDrawProgress = _lineGrowController.value;
+      });
+    });
+
     _spinSymbols = List.generate(
       widget.reels,
       (_) => List.generate(20, (_) => _random.nextInt(10)),
@@ -589,6 +632,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _anticipationController.dispose();
     _nearMissController.dispose();
     _cascadePopController.dispose();
+    _lineGrowController.dispose(); // P1.2: Win line grow animation
 
     // Cancel per-reel anticipation timers
     for (final timer in _anticipationTimers.values) {
@@ -733,6 +777,54 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     eventRegistry.triggerStage('REEL_STOP_$reelIndex', context: {'timestamp_ms': timestampMs});
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // P0.2: PRE-TRIGGER WIN_SYMBOL_HIGHLIGHT ON LAST REEL
+    // Industry standard: Eliminate 50-100ms silence gap between reel stop and win reveal
+    // Trigger symbol highlight IMMEDIATELY on last reel stop if there's a win
+    // This creates seamless audio: REEL_STOP → WIN_SYMBOL_HIGHLIGHT (no gap)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (reelIndex == widget.reels - 1 && !_symbolHighlightPreTriggered) {
+      final result = widget.provider.lastResult;
+      if (result != null && result.isWin) {
+        debugPrint('[SlotPreview] P0.2: Last reel stopped with WIN → pre-triggering WIN_SYMBOL_HIGHLIGHT');
+
+        // Pre-populate winning symbols info (normally done in _finalizeSpin)
+        _winningPositionsBySymbol.clear();
+        _winningSymbolNames.clear();
+        for (final lineWin in result.lineWins) {
+          final symbolName = lineWin.symbolName.toUpperCase();
+          if (symbolName.isNotEmpty) {
+            _winningSymbolNames.add(symbolName);
+            _winningPositionsBySymbol.putIfAbsent(symbolName, () => <String>{});
+          }
+          for (final pos in lineWin.positions) {
+            if (pos.length >= 2) {
+              final posKey = '${pos[0]},${pos[1]}';
+              _winningPositions.add(posKey);
+              _winningReels.add(pos[0]);
+              if (symbolName.isNotEmpty) {
+                _winningPositionsBySymbol[symbolName]!.add(posKey);
+              }
+            }
+          }
+        }
+
+        // Trigger symbol-specific highlights (V14)
+        for (final symbolName in _winningSymbolNames) {
+          final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
+          debugPrint('[SlotPreview] P0.2: Pre-triggering $stage');
+          eventRegistry.triggerStage(stage);
+        }
+
+        // Generic highlight for backwards compatibility
+        eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
+        _startSymbolPulseAnimation();
+
+        _symbolHighlightPreTriggered = true;
+        debugPrint('[SlotPreview] P0.2: ✅ WIN_SYMBOL_HIGHLIGHT pre-triggered (${_winningSymbolNames.length} symbols, flag set)');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // V9: CONDITION-BASED ANTICIPATION — Detect scatters, trigger on 2nd scatter
     // Industry standard: Anticipation only activates when there's potential for 3rd scatter
     // Example: 2 scatters landed on reels 0,1 → anticipation on remaining reels 2,3,4
@@ -822,6 +914,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   @override
   void dispose() {
     widget.provider.removeListener(_onProviderUpdate);
+    // P0.3: Clean up anticipation callbacks
+    widget.provider.onAnticipationStart = null;
+    widget.provider.onAnticipationEnd = null;
     _winLineCycleTimer?.cancel();
     _tierProgressionTimer?.cancel(); // Clean up tier progression
     _stopRollupTicks(); // Clean up rollup audio sequence
@@ -1011,6 +1106,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     setState(() {
       _isSpinning = true;
       _spinFinalized = false; // Clear finalized flag for new spin
+      _symbolHighlightPreTriggered = false; // P0.2: Clear pre-trigger flag for new spin
       _winningReels = {};
       _winningPositions = {};
       _winningPositionsBySymbol = {}; // V14: Clear per-symbol positions
@@ -1163,22 +1259,27 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // ═══════════════════════════════════════════════════════════════════════
 
         // V14: Trigger symbol-specific highlight stages (HP1 → WIN_SYMBOL_HIGHLIGHT_HP1)
-        debugPrint('[SlotPreview] 🎯 WIN_SYMBOL_HIGHLIGHT PHASE 1 START:');
-        debugPrint('[SlotPreview]   → Winning symbols: ${_winningSymbolNames.isEmpty ? "(empty)" : _winningSymbolNames.join(", ")}');
-        debugPrint('[SlotPreview]   → LineWins count: ${result.lineWins.length}');
+        // P0.2: Guard with pre-trigger flag - may have been triggered on last reel stop
+        if (!_symbolHighlightPreTriggered) {
+          debugPrint('[SlotPreview] 🎯 WIN_SYMBOL_HIGHLIGHT PHASE 1 START:');
+          debugPrint('[SlotPreview]   → Winning symbols: ${_winningSymbolNames.isEmpty ? "(empty)" : _winningSymbolNames.join(", ")}');
+          debugPrint('[SlotPreview]   → LineWins count: ${result.lineWins.length}');
 
-        for (final symbolName in _winningSymbolNames) {
-          final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
-          debugPrint('[SlotPreview] 🔊 V14: Triggering $stage (${_winningPositionsBySymbol[symbolName]?.length ?? 0} positions)');
-          eventRegistry.triggerStage(stage);
+          for (final symbolName in _winningSymbolNames) {
+            final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
+            debugPrint('[SlotPreview] 🔊 V14: Triggering $stage (${_winningPositionsBySymbol[symbolName]?.length ?? 0} positions)');
+            eventRegistry.triggerStage(stage);
+          }
+
+          // Also trigger generic stage for backwards compatibility
+          debugPrint('[SlotPreview] 🔊 Triggering generic WIN_SYMBOL_HIGHLIGHT');
+          eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
+
+          _startSymbolPulseAnimation();
+        } else {
+          debugPrint('[SlotPreview] P0.2: WIN_SYMBOL_HIGHLIGHT SKIPPED (already pre-triggered on last reel stop)');
         }
-
-        // Also trigger generic stage for backwards compatibility
-        debugPrint('[SlotPreview] 🔊 Triggering generic WIN_SYMBOL_HIGHLIGHT');
-        eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
-
-        _startSymbolPulseAnimation();
-        _triggerStaggeredSymbolPopups(); // V6: Staggered popup effect
+        _triggerStaggeredSymbolPopups(); // V6: Staggered popup effect (always runs)
 
         // Store win tier info for Phase 2 audio trigger
         final winPresentTier = _getWinPresentTier(result.totalWin);
@@ -1238,6 +1339,17 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
             // 🔊 Trigger WIN_PRESENT audio when plaque appears
             eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
+
+            // ═══════════════════════════════════════════════════════════════════
+            // BIG WIN (≥20x bet) — Trigger celebration loop and coins
+            // ═══════════════════════════════════════════════════════════════════
+            final bet = widget.provider.betAmount;
+            final winRatio = bet > 0 ? result.totalWin / bet : 0.0;
+            if (winRatio >= 20) {
+              debugPrint('[SlotPreview] 🌟 BIG WIN TRIGGERED (${winRatio.toStringAsFixed(1)}x bet)');
+              eventRegistry.triggerStage('BIG_WIN_LOOP');
+              eventRegistry.triggerStage('BIG_WIN_COINS');
+            }
 
             // Start tier progression — this handles everything:
             // - BIG_WIN_INTRO
@@ -1403,6 +1515,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
     }
 
+    // P1.2: Animate line growth (250ms, 0→1)
+    _lineGrowController.forward(from: 0);
+
     // Trigger WIN_LINE_SHOW audio (for first line and cycling)
     if (triggerAudio) {
       eventRegistry.triggerStage('WIN_LINE_SHOW');
@@ -1428,6 +1543,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
       }
     });
+
+    // P1.2: Animate line growth (250ms, 0→1)
+    _lineGrowController.forward(from: 0);
 
     // Trigger WIN_LINE_SHOW audio (for first line and cycling)
     if (triggerAudio) {
@@ -1532,7 +1650,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
 
       _rollupTickCount++;
-      eventRegistry.triggerStage('ROLLUP_TICK');
+      // P1.1: Pass progress context for volume/pitch escalation
+      final progress = _rollupTickCount / _rollupTicksTotal;
+      eventRegistry.triggerStage('ROLLUP_TICK', context: {'progress': progress});
     });
 
     debugPrint('[SlotPreview] 🔊 ROLLUP started ($_rollupTicksTotal ticks)');
@@ -1778,7 +1898,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
       });
 
-      eventRegistry.triggerStage('ROLLUP_TICK');
+      // P1.1: Pass progress context for volume/pitch escalation
+      eventRegistry.triggerStage('ROLLUP_TICK', context: {'progress': _rollupProgress});
     });
   }
 
@@ -1819,7 +1940,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (mounted) setState(() => _counterShakeScale = 1.0);
       });
 
-      eventRegistry.triggerStage('ROLLUP_TICK');
+      // P1.1: Pass progress context for volume/pitch escalation
+      eventRegistry.triggerStage('ROLLUP_TICK', context: {'progress': _rollupProgress});
     });
   }
 
@@ -2159,6 +2281,86 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _endReelAnticipation(reelIndex);
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0.3: PROVIDER CALLBACK HANDLERS — Visual-only (audio handled by provider)
+  // These are called from SlotLabProvider when ANTICIPATION stages are processed
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// P0.3: Handle anticipation start from provider (visual only, no audio)
+  void _onProviderAnticipationStart(int reelIndex, String reason) {
+    if (_anticipationReels.contains(reelIndex)) return; // Already anticipating
+
+    debugPrint('[SlotPreview] P0.3: PROVIDER ANTICIPATION START: reel=$reelIndex, reason=$reason');
+
+    setState(() {
+      _isAnticipation = true;
+      _anticipationReels.add(reelIndex);
+      _anticipationProgress[reelIndex] = 0.0;
+    });
+
+    // Slow down reel animation (P0.3 speed multiplier)
+    _reelAnimController.setReelSpeedMultiplier(reelIndex, 0.3); // 30% speed
+
+    // Start anticipation overlay animation
+    _anticipationController.repeat(reverse: true);
+
+    // Extend reel spin time
+    _reelAnimController.extendReelSpinTime(reelIndex, _anticipationDurationMs);
+
+    // Update progress periodically for smooth animation
+    const updateInterval = 50; // 50ms updates
+    int elapsed = 0;
+    _anticipationTimers[reelIndex]?.cancel();
+    _anticipationTimers[reelIndex] = Timer.periodic(
+      const Duration(milliseconds: updateInterval),
+      (timer) {
+        elapsed += updateInterval;
+        final progress = (elapsed / _anticipationDurationMs).clamp(0.0, 1.0);
+
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+
+        setState(() {
+          _anticipationProgress[reelIndex] = progress;
+        });
+
+        if (elapsed >= _anticipationDurationMs) {
+          timer.cancel();
+          // Don't auto-end - wait for provider's ANTICIPATION_OFF callback
+        }
+      },
+    );
+  }
+
+  /// P0.3: Handle anticipation end from provider (visual only, no audio)
+  void _onProviderAnticipationEnd(int reelIndex) {
+    if (!_anticipationReels.contains(reelIndex)) return;
+
+    debugPrint('[SlotPreview] P0.3: PROVIDER ANTICIPATION END: reel=$reelIndex');
+
+    _anticipationTimers[reelIndex]?.cancel();
+    _anticipationTimers.remove(reelIndex);
+
+    // Restore normal reel speed
+    _reelAnimController.setReelSpeedMultiplier(reelIndex, 1.0);
+
+    if (!mounted) return;
+
+    setState(() {
+      _anticipationReels.remove(reelIndex);
+      _anticipationProgress.remove(reelIndex);
+      _isAnticipation = _anticipationReels.isNotEmpty;
+    });
+
+    // Stop anticipation overlay if no more anticipating reels
+    if (_anticipationReels.isEmpty) {
+      _anticipationController.stop();
+      _anticipationController.reset();
+    }
+  }
+
   /// Trigger near miss visual effect
   void _triggerNearMiss(SlotLabSpinResult? result) {
     setState(() {
@@ -2404,6 +2606,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 ),
 
               // Win line layer — draws connecting lines between winning symbols
+              // P1.2: Line "grows" from first to last symbol (250ms animation)
               if (_isShowingWinLines && _currentPresentingLine != null)
                 Positioned.fill(
                   child: CustomPaint(
@@ -2413,6 +2616,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       rowCount: widget.rows,
                       pulseValue: _winPulseAnimation.value,
                       lineColor: _getWinGlowColor(),
+                      drawProgress: _lineDrawProgress, // P1.2: 0→1 during animation
                     ),
                   ),
                 ),
@@ -3654,12 +3858,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 ),
               ),
             ),
-          // Symbol character
+          // Symbol name (text instead of emoji)
           Center(
             child: Text(
-              symbol.displayChar,
+              symbol.name,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: fontSize,
+                fontSize: fontSize * 0.5, // Smaller for text names
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
                 shadows: [
@@ -3987,8 +4194,9 @@ class _WinLinePainter extends CustomPainter {
   final List<List<int>> positions; // [[reel, row], ...]
   final int reelCount;
   final int rowCount;
-  final double pulseValue; // 0.0 - 1.0 for animation
+  final double pulseValue; // 0.0 - 1.0 for pulse animation
   final Color lineColor;
+  final double drawProgress; // P1.2: 0.0 = no line, 1.0 = full line
 
   _WinLinePainter({
     required this.positions,
@@ -3996,11 +4204,13 @@ class _WinLinePainter extends CustomPainter {
     required this.rowCount,
     required this.pulseValue,
     required this.lineColor,
+    this.drawProgress = 1.0, // Default to full line for backwards compatibility
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (positions.isEmpty || positions.length < 2) return;
+    if (drawProgress <= 0) return; // P1.2: Nothing to draw at 0%
 
     // Calculate grid layout (must match _buildReelTable logic)
     // Available space = size - padding (4*2=8) - border (2*2=4) = size - 12
@@ -4031,6 +4241,33 @@ class _WinLinePainter extends CustomPainter {
 
     if (points.length < 2) return;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.2: Calculate how much of the line to draw based on progress
+    // Line "grows" from first position to last position
+    // ═══════════════════════════════════════════════════════════════════════════
+    final totalSegments = points.length - 1;
+    final progressFloat = drawProgress.clamp(0.0, 1.0) * totalSegments;
+    final fullSegments = progressFloat.floor();
+    final partialSegment = progressFloat - fullSegments; // 0.0 to 1.0 for partial
+
+    // Build partial path
+    final path = Path();
+    path.moveTo(points.first.dx, points.first.dy);
+
+    // Draw full segments
+    for (int i = 0; i < fullSegments && i < totalSegments; i++) {
+      path.lineTo(points[i + 1].dx, points[i + 1].dy);
+    }
+
+    // Draw partial segment (if any)
+    if (fullSegments < totalSegments && partialSegment > 0) {
+      final startPoint = points[fullSegments];
+      final endPoint = points[fullSegments + 1];
+      final partialX = startPoint.dx + (endPoint.dx - startPoint.dx) * partialSegment;
+      final partialY = startPoint.dy + (endPoint.dy - startPoint.dy) * partialSegment;
+      path.lineTo(partialX, partialY);
+    }
+
     // Draw outer glow (thicker, more transparent)
     final glowPaint = Paint()
       ..color = lineColor.withOpacity(0.3 + pulseValue * 0.2)
@@ -4040,11 +4277,6 @@ class _WinLinePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
-    final path = Path();
-    path.moveTo(points.first.dx, points.first.dy);
-    for (int i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx, points[i].dy);
-    }
     canvas.drawPath(path, glowPaint);
 
     // Draw main line (solid, colored)
@@ -4067,8 +4299,12 @@ class _WinLinePainter extends CustomPainter {
 
     canvas.drawPath(path, highlightPaint);
 
-    // Draw dots at each position
-    for (final point in points) {
+    // P1.2: Draw dots only for positions that have been "reached"
+    // A position is reached when the line has fully extended to it
+    final reachedPositions = fullSegments + 1; // +1 because first position is always shown
+    for (int i = 0; i < reachedPositions && i < points.length; i++) {
+      final point = points[i];
+
       // Outer glow dot
       final dotGlowPaint = Paint()
         ..color = lineColor.withOpacity(0.5 + pulseValue * 0.3)
@@ -4092,7 +4328,8 @@ class _WinLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _WinLinePainter oldDelegate) {
     return oldDelegate.pulseValue != pulseValue ||
-           oldDelegate.positions != positions;
+           oldDelegate.positions != positions ||
+           oldDelegate.drawProgress != drawProgress; // P1.2: Repaint on progress change
   }
 }
 
@@ -4340,7 +4577,13 @@ class SlotMiniPreview extends StatelessWidget {
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: Center(
-                    child: Text(symbol.displayChar, style: const TextStyle(fontSize: 8)),
+                    child: Text(
+                      symbol.name,
+                      style: const TextStyle(fontSize: 6, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
                   ),
                 );
               },

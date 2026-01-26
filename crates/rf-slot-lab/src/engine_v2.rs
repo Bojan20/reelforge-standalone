@@ -12,6 +12,7 @@ use crate::features::{
     SpinContext,
 };
 use crate::model::{GameMode, GameModel};
+use crate::paytable::PayTable;
 use crate::spin::{ForcedOutcome, SpinResult};
 use crate::timing::TimestampGenerator;
 
@@ -24,6 +25,8 @@ pub struct SlotEngineV2 {
     model: GameModel,
     /// Feature registry
     features: FeatureRegistry,
+    /// Paytable for win evaluation
+    paytable: PayTable,
     /// Random number generator
     rng: StdRng,
     /// Timestamp generator
@@ -101,8 +104,12 @@ impl SlotEngineV2 {
             }
         }
 
+        // Create PayTable from model symbols (uses GDD payouts if Custom)
+        let paytable = PayTable::from_model(&model);
+
         Self {
             timestamp_gen: TimestampGenerator::new(timing_config),
+            paytable,
             model,
             features,
             rng: StdRng::from_entropy(),
@@ -202,6 +209,14 @@ impl SlotEngineV2 {
 
         // Create base result
         let mut result = SpinResult::new(spin_id, grid, bet);
+
+        // ══════════════════════════════════════════════════════════════════════
+        // EVALUATE BASE WINS FROM PAYTABLE (uses GDD symbol payouts!)
+        // ══════════════════════════════════════════════════════════════════════
+        let evaluation = self.paytable.evaluate(&result.grid, bet);
+        result.total_win = evaluation.total_win;
+        result.line_wins = evaluation.line_wins;
+        result.scatter_win = evaluation.scatter_win;
 
         // Generate random value for feature processing
         let random_value: f64 = self.rng.r#gen();

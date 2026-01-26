@@ -90,6 +90,7 @@ import '../providers/undo_manager.dart';
 import '../widgets/slot_lab/game_model_editor.dart';
 import '../widgets/slot_lab/scenario_editor.dart';
 import '../widgets/slot_lab/gdd_import_panel.dart';
+import '../services/gdd_import_service.dart'; // GddSymbol, SymbolTier
 import '../controllers/slot_lab/lower_zone_controller.dart';
 import '../widgets/slot_lab/lower_zone/command_builder_panel.dart';
 import '../widgets/slot_lab/lower_zone/event_list_panel.dart';
@@ -104,8 +105,10 @@ import '../models/auto_event_builder_models.dart';
 import '../providers/stage_ingest_provider.dart';
 import '../widgets/stage_ingest/stage_ingest_panel.dart';
 import '../widgets/slot_lab/gdd_import_wizard.dart';
+import '../widgets/slot_lab/gdd_preview_dialog.dart';
 import '../widgets/ale/ale_panel.dart';
-import '../widgets/slot_lab/symbol_strip_widget.dart';
+// import '../widgets/slot_lab/symbol_strip_widget.dart'; // LEGACY - replaced by UltimateAudioPanel
+import '../widgets/slot_lab/ultimate_audio_panel.dart';
 import '../widgets/slot_lab/events_panel_widget.dart';
 import '../providers/slot_lab_project_provider.dart';
 import '../models/slot_lab_models.dart';
@@ -352,6 +355,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   double _timelineDuration = 10.0; // Total duration in seconds
   Timer? _playbackTimer;
 
+  // SPACE key debounce (prevents double-trigger from multiple Focus widgets)
+  int _lastSpaceKeyTime = 0;
+  static const int _spaceKeyDebounceMs = 200;
+
   // Track state
   final List<_SlotAudioTrack> _tracks = [];
   int? _selectedTrackIndex;
@@ -367,6 +374,91 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // DEBUG: Track last drag status for visual feedback
   String _lastDragStatus = '';
   DateTime? _lastDragStatusTime;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ULTIMATE AUDIO PANEL STATE — now persisted in SlotLabProjectProvider
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NOTE: _audioAssignments moved to SlotLabProjectProvider for persistence
+
+  /// Get stereo pan position for a stage (per-reel panning for REEL_STOP_*)
+  double _getPanForStage(String stage) {
+    // Per-reel stereo spread: L(-0.8) → C(0.0) → R(+0.8)
+    if (stage == 'REEL_STOP_0') return -0.8;
+    if (stage == 'REEL_STOP_1') return -0.4;
+    if (stage == 'REEL_STOP_2') return 0.0;
+    if (stage == 'REEL_STOP_3') return 0.4;
+    if (stage == 'REEL_STOP_4') return 0.8;
+    // Default: center
+    return 0.0;
+  }
+
+  /// Get bus ID for a stage based on category
+  int _getBusForStage(String stage) {
+    // Bus IDs: master=0, music=1, sfx=2, voice=3, ambience=4, aux=5
+    final s = stage.toUpperCase();
+    if (s.startsWith('MUSIC_') || s.startsWith('ATTRACT_')) return 1; // Music bus
+    if (s.startsWith('UI_') || s.startsWith('MENU_')) return 2; // SFX bus
+    if (s.startsWith('WIN_') || s.startsWith('JACKPOT_')) return 2; // SFX bus
+    if (s.startsWith('REEL_') || s.startsWith('SPIN_')) return 2; // SFX bus
+    if (s.startsWith('ROLLUP_') || s.startsWith('COIN_')) return 2; // SFX bus
+    if (s.startsWith('FREESPIN_') || s.startsWith('BONUS_')) return 2; // SFX bus
+    if (s.startsWith('CASCADE_') || s.startsWith('HOLD_')) return 2; // SFX bus
+    if (s.startsWith('SYMBOL_')) return 2; // SFX bus
+    if (s.startsWith('GAMBLE_')) return 2; // SFX bus
+    if (s.startsWith('ANTICIPATION_')) return 2; // SFX bus
+    // Default: SFX bus
+    return 2;
+  }
+
+  /// Get category for a stage based on stage name pattern
+  String _getCategoryForStage(String stage) {
+    final s = stage.toUpperCase();
+    if (s.startsWith('SPIN_') || s.startsWith('REEL_')) return 'spin';
+    if (s.startsWith('WIN_') || s.startsWith('ROLLUP_')) return 'win';
+    if (s.startsWith('FREESPIN_') || s.startsWith('FS_')) return 'feature';
+    if (s.startsWith('BONUS_')) return 'bonus';
+    if (s.startsWith('CASCADE_') || s.startsWith('TUMBLE_')) return 'cascade';
+    if (s.startsWith('JACKPOT_')) return 'jackpot';
+    if (s.startsWith('HOLD_') || s.startsWith('RESPIN_')) return 'hold';
+    if (s.startsWith('GAMBLE_')) return 'gamble';
+    if (s.startsWith('UI_') || s.startsWith('MENU_') || s.startsWith('BUTTON_')) return 'ui';
+    if (s.startsWith('MUSIC_') || s.startsWith('AMBIENT_')) return 'music';
+    if (s.startsWith('SYMBOL_') || s.startsWith('WILD_') || s.startsWith('SCATTER_')) return 'symbol';
+    if (s.startsWith('ANTICIPATION_') || s.startsWith('NEAR_MISS')) return 'anticipation';
+    return 'general';
+  }
+
+  /// Get color for a category
+  Color _getColorForCategory(String category) {
+    switch (category) {
+      case 'spin':
+        return const Color(0xFF4CAF50); // Green
+      case 'win':
+        return const Color(0xFFFFD700); // Gold
+      case 'feature':
+        return const Color(0xFF9C27B0); // Purple
+      case 'bonus':
+        return const Color(0xFFE91E63); // Pink
+      case 'cascade':
+        return const Color(0xFF00BCD4); // Cyan
+      case 'jackpot':
+        return const Color(0xFFFF5722); // Deep Orange
+      case 'hold':
+        return const Color(0xFF3F51B5); // Indigo
+      case 'gamble':
+        return const Color(0xFFFF9800); // Orange
+      case 'ui':
+        return const Color(0xFF607D8B); // Blue Grey
+      case 'music':
+        return const Color(0xFF673AB7); // Deep Purple
+      case 'symbol':
+        return const Color(0xFF2196F3); // Blue
+      case 'anticipation':
+        return const Color(0xFFF44336); // Red
+      default:
+        return const Color(0xFF9E9E9E); // Grey
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DAW-STYLE LOCAL DRAG STATE — ALL ValueNotifiers to avoid ANY setState during drag
@@ -746,8 +838,84 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           _syncAllEventsToRegistry();
           debugPrint('[SlotLab] Initial sync: ${_compositeEvents.length} events → EventRegistry');
         }
+
+        // V7: Sync persisted audio assignments from SlotLabProjectProvider to EventRegistry
+        // This restores audio when returning from another section
+        _syncPersistedAudioAssignments();
       }
     });
+  }
+
+  /// Sync persisted audio assignments to EventRegistry and MiddlewareProvider
+  /// Called on mount to restore audio when returning from another section
+  void _syncPersistedAudioAssignments() {
+    final projectProvider = context.read<SlotLabProjectProvider>();
+    final middleware = context.read<MiddlewareProvider>();
+    final assignments = projectProvider.audioAssignments;
+
+    if (assignments.isEmpty) return;
+
+    debugPrint('[SlotLab] 🔄 Restoring ${assignments.length} audio assignments to EventRegistry + Middleware');
+
+    final now = DateTime.now();
+
+    for (final entry in assignments.entries) {
+      final stage = entry.key;
+      final audioPath = entry.value;
+      final eventId = 'audio_$stage';
+
+      // Register to EventRegistry for playback
+      eventRegistry.registerEvent(AudioEvent(
+        id: eventId,
+        name: stage.replaceAll('_', ' '),
+        stage: stage,
+        layers: [
+          AudioLayer(
+            id: 'layer_$stage',
+            name: '${stage.replaceAll('_', ' ')} Audio',
+            audioPath: audioPath,
+            volume: 1.0,
+            pan: _getPanForStage(stage),
+            delay: 0.0,
+            busId: _getBusForStage(stage),
+          ),
+        ],
+      ));
+
+      // Add to MiddlewareProvider if not already present
+      final existingEvent = middleware.compositeEvents.any((e) => e.id == eventId);
+      if (!existingEvent) {
+        final category = _getCategoryForStage(stage);
+        final color = _getColorForCategory(category);
+
+        final compositeEvent = SlotCompositeEvent(
+          id: eventId,
+          name: stage.replaceAll('_', ' ').split(' ').map((w) =>
+            w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
+          ).join(' '),
+          category: category,
+          color: color,
+          layers: [
+            SlotEventLayer(
+              id: 'layer_$stage',
+              name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+              audioPath: audioPath,
+              volume: 1.0,
+              pan: _getPanForStage(stage),
+              busId: _getBusForStage(stage),
+            ),
+          ],
+          triggerStages: [stage],
+          targetBusId: _getBusForStage(stage),
+          createdAt: now,
+          modifiedAt: now,
+        );
+
+        middleware.addCompositeEvent(compositeEvent, select: false);
+      }
+    }
+
+    debugPrint('[SlotLab] ✅ Restored ${assignments.length} audio assignments');
   }
 
   /// Global keyboard handler — handles Space regardless of focus
@@ -763,45 +931,62 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     if (!mounted) return false;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CRITICAL: Skip global handler when PremiumSlotPreview is active!
+    // CRITICAL: Skip global handler ONLY when in FULLSCREEN preview mode!
     // PremiumSlotPreview has its own Focus-based keyboard handler that properly
-    // manages spin/stop toggle. If we handle SPACE here too, BOTH handlers fire
-    // causing immediate spin+stop in the same frame.
+    // manages spin/stop toggle when in fullscreen (F11) mode. In that mode,
+    // PremiumSlotPreview has guaranteed focus.
     //
-    // PremiumSlotPreview is active when:
-    // - _isPreviewMode = true (fullscreen preview via F11)
-    // - _eventBuilderMode = false (embedded preview in main view)
+    // BUT: When in embedded mode (_eventBuilderMode = false), PremiumSlotPreview
+    // does NOT have focus (slot_lab_screen's GestureDetector takes focus),
+    // so we MUST handle Space here.
     // ═══════════════════════════════════════════════════════════════════════════
-    if (_isPreviewMode || !_eventBuilderMode) {
-      debugPrint('[SlotLab] 🌍 GLOBAL Space — SKIPPED (PremiumSlotPreview handles it, preview=$_isPreviewMode, editMode=$_eventBuilderMode)');
-      return false; // Let PremiumSlotPreview handle it
+    if (_isPreviewMode) {
+      debugPrint('[SlotLab] 🌍 GLOBAL Space — SKIPPED (Fullscreen PremiumSlotPreview handles it)');
+      return false; // Let PremiumSlotPreview handle it (it has focus in fullscreen)
     }
 
-    debugPrint('[SlotLab] 🌍 GLOBAL Space key handler');
-
-    // Priority 1: If stage playback is active, toggle pause/resume
-    if (_hasSlotLabProvider && (_slotLabProvider.isPlayingStages || _slotLabProvider.isPaused)) {
-      debugPrint('[SlotLab] → Toggling stage pause, isPaused=${_slotLabProvider.isPaused}');
-      _slotLabProvider.togglePauseResume();
-      return true; // Handled
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEBOUNCE CHECK — Prevents double-trigger from multiple Focus widgets
+    // Bug: slot_lab_screen Focus AND premium_slot_preview Focus both receive
+    // the same SPACE event, causing spin→immediate stop in same frame
+    // ═══════════════════════════════════════════════════════════════════════════
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastSpaceKeyTime < _spaceKeyDebounceMs) {
+      debugPrint('[SlotLab] ⏱️ SPACE debounced (${now - _lastSpaceKeyTime}ms < ${_spaceKeyDebounceMs}ms)');
+      return true; // Handled (debounced)
     }
+    _lastSpaceKeyTime = now;
 
-    // Priority 2: If reels are spinning, stop them
+    debugPrint('[SlotLab] 🌍 GLOBAL Space key handler (editMode=$_eventBuilderMode, isReelsSpinning=${_slotLabProvider.isReelsSpinning}, isPlayingStages=${_slotLabProvider.isPlayingStages})');
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SPACE KEY LOGIC (matches premium_slot_preview.dart):
+    //
+    // - isReelsSpinning = true ONLY while reels are visually spinning
+    // - isPlayingStages = true during BOTH spin AND win presentation
+    //
+    // Correct behavior:
+    // - During reel spin → STOP (stop reels immediately)
+    // - During win presentation → SPIN (skip presentation, start new spin)
+    // - Idle → SPIN (start new spin)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // STOP only when reels are actually spinning (not during win presentation)
     if (_hasSlotLabProvider && _slotLabProvider.isReelsSpinning) {
-      debugPrint('[SlotLab] → Stopping reel spin');
+      debugPrint('[SlotLab] → SPACE: Stopping (isReelsSpinning=true)');
       _slotLabProvider.stopStagePlayback();
       return true; // Handled
     }
 
-    // Priority 3: Start a new spin if not playing
-    if (_hasSlotLabProvider && !_slotLabProvider.isSpinning && _slotLabProvider.initialized) {
-      debugPrint('[SlotLab] → Starting new spin');
+    // Either idle OR win presentation — start new spin
+    if (_hasSlotLabProvider && _slotLabProvider.initialized) {
+      debugPrint('[SlotLab] → SPACE: Starting new spin');
       _slotLabProvider.spin();
       return true; // Handled
     }
 
-    // Priority 4: Toggle timeline playback
-    debugPrint('[SlotLab] → Toggling timeline playback');
+    // Fallback: Toggle timeline playback (non-slot contexts)
+    debugPrint('[SlotLab] → SPACE: Toggling timeline playback (fallback)');
     _togglePlayback();
     return true; // Handled
   }
@@ -1085,6 +1270,19 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
       // CRITICAL: Sync region layers to match event layers (remove stale data)
       _syncAllRegionsToEvents();
+
+      // P0 FIX: Restore grid config from imported GDD (if exists)
+      final projectProvider = context.read<SlotLabProjectProvider>();
+      final gridConfig = projectProvider.gridConfig;
+      if (gridConfig != null) {
+        setState(() {
+          _slotLabSettings = _slotLabSettings.copyWith(
+            reels: gridConfig.columns.clamp(3, 10),
+            rows: gridConfig.rows.clamp(2, 8),
+          );
+        });
+        debugPrint('[SlotLab] ✅ Restored grid from GDD: ${gridConfig.columns}x${gridConfig.rows}');
+      }
 
       // Sync with MiddlewareProvider to get any changes made in Middleware mode
       _syncFromMiddlewareProvider();
@@ -2037,9 +2235,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // Fullscreen preview mode - immersive slot testing
     if (_isPreviewMode) {
       return PremiumSlotPreview(
+        key: ValueKey('fullscreen_slot_${_reelCount}x$_rowCount'),
         onExit: () => setState(() => _isPreviewMode = false),
         reels: _reelCount,
         rows: _rowCount,
+        isFullscreen: true, // Fullscreen mode — handles SPACE key internally
       );
     }
 
@@ -2084,68 +2284,104 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               Expanded(
                 child: Row(
                   children: [
-                    // LEFT: Symbol Strip (V6)
+                    // LEFT: Ultimate Audio Panel (V7 — replaces SymbolStripWidget)
                     Consumer<SlotLabProjectProvider>(
                       builder: (context, projectProvider, _) {
                         return SizedBox(
-                          width: 220,
-                          child: SymbolStripWidget(
+                          width: 240,
+                          child: UltimateAudioPanel(
+                            audioAssignments: projectProvider.audioAssignments,
                             symbols: projectProvider.symbols,
                             contexts: projectProvider.contexts,
-                            symbolAudio: projectProvider.symbolAudio,
-                            musicLayers: projectProvider.musicLayers,
-                            onSymbolAudioDrop: (symbolId, contextName, audioPath) {
-                              debugPrint('[SlotLab] 🎵 onSymbolAudioDrop called:');
-                              debugPrint('[SlotLab]   symbolId: $symbolId');
-                              debugPrint('[SlotLab]   contextName: $contextName');
+                            expandedSections: projectProvider.expandedSections,
+                            expandedGroups: projectProvider.expandedGroups,
+                            onAudioAssign: (stage, audioPath) {
+                              debugPrint('[SlotLab] 🎵 UltimateAudioPanel.onAudioAssign:');
+                              debugPrint('[SlotLab]   stage: $stage');
                               debugPrint('[SlotLab]   audioPath: ${audioPath.split('/').last}');
 
-                              projectProvider.assignSymbolAudio(
-                                symbolId,
-                                contextName,
-                                audioPath,
-                              );
-                              // Also sync to EventRegistry for playback
-                              final symbol = projectProvider.symbols.firstWhere(
-                                (s) => s.id == symbolId,
-                                orElse: () => defaultSymbols.first,
-                              );
-                              final stageName = symbol.stageName(contextName);
+                              // Update provider (persisted state)
+                              projectProvider.setAudioAssignment(stage, audioPath);
 
-                              debugPrint('[SlotLab]   → symbol.id: ${symbol.id}');
-                              debugPrint('[SlotLab]   → stageName: $stageName');
-                              debugPrint('[SlotLab]   → Registering event with stage: $stageName');
-
+                              // Register event to EventRegistry for instant playback
                               eventRegistry.registerEvent(AudioEvent(
-                                id: 'symbol_${symbolId}_$contextName',
-                                name: '${symbol.name} $contextName',
-                                stage: stageName,
+                                id: 'audio_$stage',
+                                name: stage.replaceAll('_', ' '),
+                                stage: stage,
                                 layers: [
                                   AudioLayer(
-                                    id: 'layer_${symbolId}_$contextName',
-                                    name: '${symbol.name} Audio',
+                                    id: 'layer_$stage',
+                                    name: '${stage.replaceAll('_', ' ')} Audio',
                                     audioPath: audioPath,
                                     volume: 1.0,
-                                    pan: 0.0,
+                                    pan: _getPanForStage(stage),
                                     delay: 0.0,
-                                    busId: 1, // SFX bus
+                                    busId: _getBusForStage(stage),
                                   ),
                                 ],
                               ));
-                            },
-                            onMusicLayerDrop: (contextId, layer, audioPath) {
-                              projectProvider.assignMusicLayer(
-                                contextId,
-                                layer,
-                                audioPath,
+
+                              // ═══════════════════════════════════════════════════════
+                              // CREATE COMPOSITE EVENT FOR MIDDLEWARE EVENT FOLDER
+                              // ═══════════════════════════════════════════════════════
+                              final middleware = context.read<MiddlewareProvider>();
+                              final now = DateTime.now();
+                              final eventId = 'audio_$stage';
+
+                              // Determine category and color based on stage
+                              final category = _getCategoryForStage(stage);
+                              final color = _getColorForCategory(category);
+
+                              // Create SlotCompositeEvent
+                              final compositeEvent = SlotCompositeEvent(
+                                id: eventId,
+                                name: stage.replaceAll('_', ' ').split(' ').map((w) =>
+                                  w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
+                                ).join(' '),
+                                category: category,
+                                color: color,
+                                layers: [
+                                  SlotEventLayer(
+                                    id: 'layer_$stage',
+                                    name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+                                    audioPath: audioPath,
+                                    volume: 1.0,
+                                    pan: _getPanForStage(stage),
+                                    busId: _getBusForStage(stage),
+                                  ),
+                                ],
+                                triggerStages: [stage],
+                                targetBusId: _getBusForStage(stage),
+                                createdAt: now,
+                                modifiedAt: now,
                               );
+
+                              // Add to MiddlewareProvider (visible in Event Folder)
+                              middleware.addCompositeEvent(compositeEvent, select: false);
+
+                              debugPrint('[SlotLab]   ✅ Event registered for stage: $stage');
+                              debugPrint('[SlotLab]   ✅ CompositeEvent added to Middleware: $eventId');
                             },
-                            onAddSymbol: _showAddSymbolDialog,
-                            onAddContext: _showAddContextDialog,
-                            onResetAllSymbolAudio: () => projectProvider.resetAllSymbolAudio(),
-                            onResetSymbolAudioForContext: (context) => projectProvider.resetSymbolAudioForContext(context),
-                            onResetAllMusicLayers: () => projectProvider.resetAllMusicLayers(),
-                            onResetMusicLayersForContext: (contextId) => projectProvider.resetMusicLayersForContext(contextId),
+                            onAudioClear: (stage) {
+                              debugPrint('[SlotLab] 🗑️ UltimateAudioPanel.onAudioClear: $stage');
+                              // Update provider (persisted state)
+                              projectProvider.removeAudioAssignment(stage);
+                              // Remove from EventRegistry
+                              eventRegistry.unregisterEvent('audio_$stage');
+                              // Remove from MiddlewareProvider (Event Folder)
+                              final middleware = context.read<MiddlewareProvider>();
+                              middleware.deleteCompositeEvent('audio_$stage');
+                              debugPrint('[SlotLab]   ✅ CompositeEvent removed from Middleware');
+                            },
+                            onSectionToggle: (sectionId) {
+                              projectProvider.toggleSection(sectionId);
+                            },
+                            onGroupToggle: (groupId) {
+                              projectProvider.toggleGroup(groupId);
+                            },
+                            onBatchDistribute: (matched, unmatched) {
+                              debugPrint('[SlotLab] 📦 Batch distribute: ${matched.length} matched, ${unmatched.length} unmatched');
+                            },
                           ),
                         );
                       },
@@ -2799,17 +3035,396 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   Future<void> _showGddImportWizard() async {
     final result = await GddImportWizard.show(context);
-    if (result != null && mounted) {
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Imported GDD "${result.gdd.name}" with ${result.generatedStages.length} stages',
+
+    if (result == null) {
+      // User canceled or error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('GDD import canceled'),
+            backgroundColor: Color(0xFF666666),
+            duration: Duration(seconds: 2),
           ),
-          backgroundColor: const Color(0xFF40FF90),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    // Show preview dialog with mockup — user can confirm or cancel
+    final confirmed = await GddPreviewDialog.show(context, result);
+
+    if (confirmed == true && mounted) {
+        debugPrint('[SlotLab] 🚀 BEFORE GDD apply: reels=${_slotLabSettings.reels}, rows=${_slotLabSettings.rows}');
+
+        // P0 FIX: Store GDD in SlotLabProjectProvider for persistence
+        final projectProvider = context.read<SlotLabProjectProvider>();
+        projectProvider.importGdd(result.gdd, generatedSymbols: result.generatedSymbols);
+
+        // P0 FIX: Populate dynamic slot symbols from GDD for reel display
+        _populateSlotSymbolsFromGdd(result.gdd.symbols);
+        debugPrint('[SlotLab] 🎰 Populated ${result.gdd.symbols.length} dynamic slot symbols from GDD');
+
+        // P0 FIX: Initialize Rust engine with GDD to update grid configuration
+        // Use toRustJson() which converts to the format rf-slot-lab's GddParser expects
+        final slotLabProvider = context.read<SlotLabProvider>();
+        final gddJson = jsonEncode(result.gdd.toRustJson());
+        debugPrint('[SlotLab] 📋 Sending GDD to Rust: ${gddJson.length} chars');
+        final engineInitialized = slotLabProvider.initEngineFromGdd(gddJson);
+        debugPrint('[SlotLab] 🔧 Rust engine initialized from GDD: $engineInitialized');
+
+        final newReels = result.gdd.grid.columns.clamp(3, 10);
+        final newRows = result.gdd.grid.rows.clamp(2, 8);
+        debugPrint('[SlotLab] 📐 GDD grid: columns=${result.gdd.grid.columns}, rows=${result.gdd.grid.rows}');
+        debugPrint('[SlotLab] 📐 Clamped: reels=$newReels, rows=$newRows');
+
+        // Apply GDD grid configuration to local slot settings
+        // AND open fullscreen preview to show the new slot machine
+        setState(() {
+          _slotLabSettings = _slotLabSettings.copyWith(
+            reels: newReels,
+            rows: newRows,
+            volatility: _volatilityFromGdd(result.gdd.math.volatility),
+          );
+          _isPreviewMode = true;  // Open fullscreen slot machine
+        });
+
+        debugPrint('[SlotLab] ✅ AFTER GDD apply: reels=${_slotLabSettings.reels}, rows=${_slotLabSettings.rows}');
+
+        // Show success message with grid info
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Applied GDD "${result.gdd.name}" — '
+                'Grid: ${result.gdd.grid.columns}×${result.gdd.grid.rows}, '
+                '${result.generatedStages.length} stages',
+              ),
+              backgroundColor: const Color(0xFF40FF90),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+  }
+
+  /// Convert GDD volatility string to VolatilityLevel enum
+  VolatilityLevel _volatilityFromGdd(String volatility) {
+    final lower = volatility.toLowerCase();
+    if (lower.contains('insane') || lower.contains('extreme')) {
+      return VolatilityLevel.insane;
+    }
+    if (lower.contains('very') && lower.contains('high')) {
+      return VolatilityLevel.insane;
+    }
+    if (lower.contains('high')) return VolatilityLevel.high;
+    if (lower.contains('low')) return VolatilityLevel.low;
+    if (lower.contains('casual')) return VolatilityLevel.casual;
+    return VolatilityLevel.medium;
+  }
+
+  /// Populate SlotSymbol dynamic registry from GDD symbols
+  /// Maps GDD symbols to Rust engine IDs based on tier:
+  /// - HP1-HP4 (ID 1-4): premium/high tier symbols
+  /// - LP1-LP6 (ID 5-10): mid/low tier symbols
+  /// - WILD (ID 11), SCATTER (ID 12), BONUS (ID 13): special symbols
+  void _populateSlotSymbolsFromGdd(List<GddSymbol> gddSymbols) {
+    if (gddSymbols.isEmpty) {
+      SlotSymbol.clearDynamicSymbols();
+      return;
+    }
+
+    final dynamicSymbols = <int, SlotSymbol>{};
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STEP 1: Categorize GDD symbols by tier/type
+    // Industry standard mapping:
+    // - Premium → HP1 (highest payer)
+    // - High → HP2, HP3, HP4
+    // - Mid → LP1, LP2, LP3 (Rust nema MP, ide u LP)
+    // - Low → LP4, LP5, LP6
+    // - Special types: WILD=11, SCATTER=12, BONUS=13
+    // ═══════════════════════════════════════════════════════════════════════════
+    final premiumSymbols = <GddSymbol>[];  // premium → HP1
+    final highSymbols = <GddSymbol>[];     // high → HP2-HP4
+    final midSymbols = <GddSymbol>[];      // mid → LP1-LP3
+    final lowSymbols = <GddSymbol>[];      // low → LP4-LP6
+    GddSymbol? wildSymbol;
+    GddSymbol? scatterSymbol;
+    GddSymbol? bonusSymbol;
+
+    for (final gdd in gddSymbols) {
+      // Check special types first (by flag OR by tier enum)
+      if (gdd.isWild || gdd.tier == SymbolTier.wild) {
+        wildSymbol = gdd;
+        debugPrint('[GDD Parse] WILD: "${gdd.name}" (id=${gdd.id})');
+      } else if (gdd.isScatter || gdd.tier == SymbolTier.scatter) {
+        scatterSymbol = gdd;
+        debugPrint('[GDD Parse] SCATTER: "${gdd.name}" (id=${gdd.id})');
+      } else if (gdd.isBonus || gdd.tier == SymbolTier.bonus) {
+        bonusSymbol = gdd;
+        debugPrint('[GDD Parse] BONUS: "${gdd.name}" (id=${gdd.id})');
+      } else if (gdd.tier == SymbolTier.premium) {
+        premiumSymbols.add(gdd);
+        debugPrint('[GDD Parse] PREMIUM: "${gdd.name}" (id=${gdd.id})');
+      } else if (gdd.tier == SymbolTier.high) {
+        highSymbols.add(gdd);
+        debugPrint('[GDD Parse] HIGH: "${gdd.name}" (id=${gdd.id})');
+      } else if (gdd.tier == SymbolTier.mid) {
+        midSymbols.add(gdd);
+        debugPrint('[GDD Parse] MID: "${gdd.name}" (id=${gdd.id})');
+      } else {
+        // low, special (non-wild/scatter/bonus)
+        lowSymbols.add(gdd);
+        debugPrint('[GDD Parse] LOW: "${gdd.name}" (id=${gdd.id}, tier=${gdd.tier})');
+      }
+    }
+
+    debugPrint('[GDD→Symbols] Categorized: '
+        '${premiumSymbols.length} premium, ${highSymbols.length} high, '
+        '${midSymbols.length} mid, ${lowSymbols.length} low, '
+        'wild=${wildSymbol != null}, scatter=${scatterSymbol != null}, bonus=${bonusSymbol != null}');
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STEP 2: Assign Rust engine IDs based on category
+    // Premium → HP1 (ID 1)
+    // High → HP2, HP3, HP4 (ID 2, 3, 4)
+    // Mid → LP1, LP2, LP3 (ID 5, 6, 7)
+    // Low → LP4, LP5, LP6 (ID 8, 9, 10)
+    // Special: WILD = ID 11, SCATTER = ID 12, BONUS = ID 13
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    int nextHpId = 1;  // HP starts at 1
+    int nextLpId = 5;  // LP starts at 5
+
+    // Premium symbols → HP1 (and HP2 if more than one)
+    for (final gdd in premiumSymbols) {
+      if (nextHpId > 4) break;  // Max 4 HP symbols
+      dynamicSymbols[nextHpId] = _createSlotSymbol(gdd, nextHpId);
+      debugPrint('[GDD→Symbols] HP$nextHpId (ID $nextHpId) = "${gdd.name}" [PREMIUM]');
+      nextHpId++;
+    }
+
+    // High symbols → remaining HP slots (HP2, HP3, HP4)
+    for (final gdd in highSymbols) {
+      if (nextHpId > 4) break;  // Max 4 HP symbols
+      dynamicSymbols[nextHpId] = _createSlotSymbol(gdd, nextHpId);
+      debugPrint('[GDD→Symbols] HP$nextHpId (ID $nextHpId) = "${gdd.name}" [HIGH]');
+      nextHpId++;
+    }
+
+    // Mid symbols → LP1, LP2, LP3 (ID 5, 6, 7)
+    for (final gdd in midSymbols) {
+      if (nextLpId > 10) break;  // Max 6 LP symbols (ID 5-10)
+      final lpNum = nextLpId - 4;  // LP1=5, LP2=6...
+      dynamicSymbols[nextLpId] = _createSlotSymbol(gdd, nextLpId);
+      debugPrint('[GDD→Symbols] LP$lpNum (ID $nextLpId) = "${gdd.name}" [MID]');
+      nextLpId++;
+    }
+
+    // Low symbols → remaining LP slots (LP4, LP5, LP6)
+    for (final gdd in lowSymbols) {
+      if (nextLpId > 10) break;  // Max 6 LP symbols
+      final lpNum = nextLpId - 4;
+      dynamicSymbols[nextLpId] = _createSlotSymbol(gdd, nextLpId);
+      debugPrint('[GDD→Symbols] LP$lpNum (ID $nextLpId) = "${gdd.name}" [LOW]');
+      nextLpId++;
+    }
+
+    // Special symbols at fixed IDs
+    if (wildSymbol != null) {
+      dynamicSymbols[11] = _createSlotSymbol(wildSymbol, 11, isSpecial: true);
+      debugPrint('[GDD→Symbols] WILD (ID 11) = "${wildSymbol.name}"');
+    }
+    if (scatterSymbol != null) {
+      dynamicSymbols[12] = _createSlotSymbol(scatterSymbol, 12, isSpecial: true);
+      debugPrint('[GDD→Symbols] SCATTER (ID 12) = "${scatterSymbol.name}"');
+    }
+    if (bonusSymbol != null) {
+      dynamicSymbols[13] = _createSlotSymbol(bonusSymbol, 13, isSpecial: true);
+      debugPrint('[GDD→Symbols] BONUS (ID 13) = "${bonusSymbol.name}"');
+    }
+
+    // Add blank symbol for ID 0
+    dynamicSymbols[0] = const SlotSymbol(
+      id: 0,
+      name: 'BLANK',
+      displayChar: '·',
+      gradientColors: [Color(0xFF666666), Color(0xFF444444), Color(0xFF333333)],
+      glowColor: Color(0xFF666666),
+    );
+
+    debugPrint('[GDD→Symbols] Total: ${dynamicSymbols.length} symbols registered (IDs: ${dynamicSymbols.keys.toList()..sort()})');
+    SlotSymbol.setDynamicSymbols(dynamicSymbols);
+  }
+
+  /// Helper to create SlotSymbol from GddSymbol
+  SlotSymbol _createSlotSymbol(GddSymbol gdd, int id, {bool isSpecial = false}) {
+    final colors = _getSymbolColorsForTier(gdd.tier, gdd.isWild, gdd.isScatter, gdd.isBonus);
+    return SlotSymbol(
+      id: id,
+      name: gdd.name.isNotEmpty ? gdd.name : gdd.id.toUpperCase(),
+      displayChar: gdd.name.isNotEmpty ? gdd.name : gdd.id.toUpperCase(),  // Show name, not emoji
+      gradientColors: colors['gradient']!,
+      glowColor: colors['glow']!.first,
+      isSpecial: isSpecial || gdd.isWild || gdd.isScatter || gdd.isBonus,
+    );
+  }
+
+  /// Get emoji for symbol reel display based on name/theme
+  String _getSymbolEmojiForReel(GddSymbol gdd) {
+    final name = gdd.name.toLowerCase();
+
+    // Theme-based emoji mapping (Greek, Egyptian, Asian, etc.)
+    if (name.contains('zeus') || name.contains('thunder')) return '⚡';
+    if (name.contains('poseidon') || name.contains('trident')) return '🔱';
+    if (name.contains('athena') || name.contains('wisdom')) return '🦉';
+    if (name.contains('hades') || name.contains('underworld')) return '💀';
+    if (name.contains('apollo') || name.contains('sun')) return '☀️';
+    if (name.contains('hermes') || name.contains('wing')) return '👟';
+    if (name.contains('medusa') || name.contains('snake')) return '🐍';
+    if (name.contains('pegasus') || name.contains('horse')) return '🦄';
+    if (name.contains('cerberus') || name.contains('dog')) return '🐕';
+    if (name.contains('olympus') || name.contains('mountain')) return '⛰️';
+    if (name.contains('dragon')) return '🐉';
+    if (name.contains('tiger')) return '🐅';
+    if (name.contains('phoenix')) return '🔥';
+    if (name.contains('koi') || name.contains('fish')) return '🐟';
+    if (name.contains('panda')) return '🐼';
+    if (name.contains('jade')) return '💚';
+    if (name.contains('lotus')) return '🪷';
+    if (name.contains('ra') || name.contains('eye')) return '👁️';
+    if (name.contains('anubis') || name.contains('jackal')) return '🐺';
+    if (name.contains('horus') || name.contains('falcon')) return '🦅';
+    if (name.contains('cleopatra') || name.contains('queen')) return '👸';
+    if (name.contains('pharaoh') || name.contains('king')) return '👑';
+    if (name.contains('scarab') || name.contains('beetle')) return '🪲';
+    if (name.contains('pyramid')) return '🔺';
+    if (name.contains('odin')) return '🧙';
+    if (name.contains('thor') || name.contains('hammer')) return '🔨';
+    if (name.contains('freya') || name.contains('love')) return '❤️';
+    if (name.contains('loki') || name.contains('trickster')) return '🎭';
+    if (name.contains('viking') || name.contains('ship')) return '⛵';
+    if (name.contains('leprechaun')) return '🍀';
+    if (name.contains('shamrock') || name.contains('clover')) return '☘️';
+    if (name.contains('pot') && name.contains('gold')) return '🏆';
+    if (name.contains('rainbow')) return '🌈';
+    if (name.contains('seven') || name.contains('7')) return '7️⃣';
+    if (name.contains('bar')) return '▬';
+    if (name.contains('bell')) return '🔔';
+    if (name.contains('cherry')) return '🍒';
+    if (name.contains('lemon')) return '🍋';
+    if (name.contains('orange')) return '🍊';
+    if (name.contains('grape')) return '🍇';
+    if (name.contains('apple')) return '🍎';
+    if (name.contains('strawberry')) return '🍓';
+    if (name.contains('blueberry')) return '🫐';
+    if (name.contains('watermelon') || name.contains('melon')) return '🍉';
+    if (name.contains('diamond')) return '💎';
+    if (name.contains('gem') || name.contains('jewel')) return '💎';
+    if (name.contains('gold') || name.contains('coin')) return '🪙';
+    if (name.contains('treasure') || name.contains('chest')) return '📦';
+    if (name.contains('crown')) return '👑';
+    if (name.contains('star')) return '⭐';
+    if (name.contains('heart')) return '❤️';
+    if (name.contains('spade')) return '♠️';
+    if (name.contains('club')) return '♣️';
+    if (name.contains('ace')) return '🂡';
+    if (name.contains('king')) return '🂮';
+    if (name.contains('queen')) return '🂭';
+    if (name.contains('jack')) return '🂫';
+    if (name.contains('10') || name.contains('ten')) return '🔟';
+    if (name.contains('9') || name.contains('nine')) return '9️⃣';
+    if (name.contains('book')) return '📖';
+    if (name.contains('scroll')) return '📜';
+
+    // Wild/Scatter/Bonus
+    if (gdd.isWild || gdd.tier == SymbolTier.wild) return '★';
+    if (gdd.isScatter || gdd.tier == SymbolTier.scatter) return '◆';
+    if (gdd.isBonus || gdd.tier == SymbolTier.bonus) return '♦';
+
+    // Tier-based fallback with HP/MP/LP numbering
+    final id = gdd.id.toUpperCase();
+    if (id.contains('HP1') || id.contains('HIGH1')) return '👑';
+    if (id.contains('HP2') || id.contains('HIGH2')) return '💎';
+    if (id.contains('HP3') || id.contains('HIGH3')) return '🔔';
+    if (id.contains('HP4') || id.contains('HIGH4')) return '🍒';
+    if (id.contains('MP') || id.contains('MED')) return '🎲';
+    if (id.contains('LP1') || id.contains('LOW1')) return '🍋';
+    if (id.contains('LP2') || id.contains('LOW2')) return '🍊';
+    if (id.contains('LP3') || id.contains('LOW3')) return '🍇';
+    if (id.contains('LP4') || id.contains('LOW4')) return '🍏';
+    if (id.contains('LP5') || id.contains('LOW5')) return '🍓';
+    if (id.contains('LP6') || id.contains('LOW6')) return '🫐';
+
+    // Generic tier fallback
+    switch (gdd.tier) {
+      case SymbolTier.premium: return '👑';
+      case SymbolTier.high: return '💎';
+      case SymbolTier.mid: return '🎲';
+      case SymbolTier.low: return '🃏';
+      case SymbolTier.wild: return '★';
+      case SymbolTier.scatter: return '◆';
+      case SymbolTier.bonus: return '♦';
+      case SymbolTier.special: return '✦';
+    }
+  }
+
+  /// Get gradient colors for symbol tier (for reel rendering)
+  Map<String, List<Color>> _getSymbolColorsForTier(SymbolTier tier, bool isWild, bool isScatter, bool isBonus) {
+    // Special symbols override tier colors
+    if (isWild || tier == SymbolTier.wild) {
+      return {
+        'gradient': [const Color(0xFFFFE55C), const Color(0xFFFFD700), const Color(0xFFCC9900)],
+        'glow': [const Color(0xFFFFD700)],
+      };
+    }
+    if (isScatter || tier == SymbolTier.scatter) {
+      return {
+        'gradient': [const Color(0xFFFF66FF), const Color(0xFFE040FB), const Color(0xFF9C27B0)],
+        'glow': [const Color(0xFFE040FB)],
+      };
+    }
+    if (isBonus || tier == SymbolTier.bonus) {
+      return {
+        'gradient': [const Color(0xFF80EEFF), const Color(0xFF40C8FF), const Color(0xFF0088CC)],
+        'glow': [const Color(0xFF40C8FF)],
+      };
+    }
+
+    // Tier-based colors
+    switch (tier) {
+      case SymbolTier.premium:
+        return {
+          'gradient': [const Color(0xFFFFD700), const Color(0xFFFFAA00), const Color(0xFFCC8800)],
+          'glow': [const Color(0xFFFFD700)],
+        };
+      case SymbolTier.high:
+        return {
+          'gradient': [const Color(0xFFFF6699), const Color(0xFFFF4080), const Color(0xFFCC0044)],
+          'glow': [const Color(0xFFFF4080)],
+        };
+      case SymbolTier.mid:
+        return {
+          'gradient': [const Color(0xFF88FF88), const Color(0xFF4CAF50), const Color(0xFF2E7D32)],
+          'glow': [const Color(0xFF4CAF50)],
+        };
+      case SymbolTier.low:
+        return {
+          'gradient': [const Color(0xFF9999FF), const Color(0xFF7986CB), const Color(0xFF3F51B5)],
+          'glow': [const Color(0xFF7986CB)],
+        };
+      case SymbolTier.special:
+        return {
+          'gradient': [const Color(0xFFFF9966), const Color(0xFFFF7043), const Color(0xFFE64A19)],
+          'glow': [const Color(0xFFFF7043)],
+        };
+      default:
+        return {
+          'gradient': [const Color(0xFF666666), const Color(0xFF444444), const Color(0xFF333333)],
+          'glow': [const Color(0xFF666666)],
+        };
     }
   }
 
@@ -6436,9 +7051,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                   child: _eventBuilderMode
                       ? _buildDroppableSlotPreview()
                       : PremiumSlotPreview(
+                          key: ValueKey('premium_slot_${_reelCount}x$_rowCount'),
                           onExit: () {}, // Embedded mode - no fullscreen exit
                           reels: _reelCount,
                           rows: _rowCount,
+                          isFullscreen: false, // Embedded mode — SPACE handled by global handler
                         ),
                 ),
                 // Event Builder Mode Toggle (compact sidebar)

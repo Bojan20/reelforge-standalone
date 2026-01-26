@@ -316,15 +316,64 @@ impl FeatureChapter for JackpotChapter {
         }
 
         let tier = self.state.won_tier.unwrap();
-        let timestamp = timing.advance(1000.0);
+        let tier_enum = self.tier_to_enum(tier);
+        let amount = self.state.won_amount;
+        let mut events = Vec::with_capacity(6);
 
-        vec![StageEvent::new(
-            Stage::JackpotPresent {
-                tier: self.tier_to_enum(tier),
-                amount: self.state.won_amount,
+        // P1.5: Expanded Jackpot Audio Sequence
+        // Industry standard: multi-layer dramatic sequence
+
+        // 1. JACKPOT_TRIGGER (500ms) - Alert tone
+        let trigger_time = timing.advance(500.0);
+        events.push(StageEvent::new(
+            Stage::JackpotTrigger { tier: tier_enum.clone() },
+            trigger_time,
+        ));
+
+        // 2. JACKPOT_BUILDUP (2000ms) - Rising tension
+        let buildup_time = timing.advance(2000.0);
+        events.push(StageEvent::new(
+            Stage::JackpotBuildup { tier: tier_enum.clone() },
+            buildup_time,
+        ));
+
+        // 3. JACKPOT_REVEAL (1000ms) - Tier reveal ("GRAND!")
+        let reveal_time = timing.advance(1000.0);
+        events.push(StageEvent::new(
+            Stage::JackpotReveal {
+                tier: tier_enum.clone(),
+                amount,
             },
-            timestamp,
-        )]
+            reveal_time,
+        ));
+
+        // 4. JACKPOT_PRESENT (5000ms) - Main fanfare + amount display
+        let present_time = timing.advance(5000.0);
+        events.push(StageEvent::new(
+            Stage::JackpotPresent {
+                tier: tier_enum.clone(),
+                amount,
+            },
+            present_time,
+        ));
+
+        // 5. JACKPOT_CELEBRATION (looping) - Plays until user dismisses
+        let celebration_time = timing.advance(500.0);
+        events.push(StageEvent::new(
+            Stage::JackpotCelebration {
+                tier: tier_enum.clone(),
+                amount,
+            },
+            celebration_time,
+        ));
+
+        // 6. JACKPOT_END - Will be triggered when user dismisses
+        // Note: This stage is typically triggered by user interaction,
+        // but we include it in the sequence for completeness
+        let end_time = timing.advance(1000.0);
+        events.push(StageEvent::new(Stage::JackpotEnd, end_time));
+
+        events
     }
 
     fn generate_activation_stages(&self, _timing: &mut TimestampGenerator) -> Vec<StageEvent> {
@@ -336,7 +385,15 @@ impl FeatureChapter for JackpotChapter {
     }
 
     fn stage_types(&self) -> Vec<&'static str> {
-        vec!["JACKPOT_TRIGGER", "JACKPOT_PRESENT"]
+        // P1.5: Full jackpot audio sequence
+        vec![
+            "JACKPOT_TRIGGER",     // Alert tone (500ms)
+            "JACKPOT_BUILDUP",     // Rising tension (2000ms)
+            "JACKPOT_REVEAL",      // Tier reveal (1000ms)
+            "JACKPOT_PRESENT",     // Main fanfare (5000ms)
+            "JACKPOT_CELEBRATION", // Looping celebration
+            "JACKPOT_END",         // Fade out
+        ]
     }
 
     fn info(&self) -> FeatureInfo {

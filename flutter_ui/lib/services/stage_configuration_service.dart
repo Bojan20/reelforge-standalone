@@ -594,6 +594,14 @@ class StageConfigurationService extends ChangeNotifier {
     _register('WIN_PRESENT_6', StageCategory.win, 85, SpatialBus.sfx, 'WIN_EPIC', ducksMusic: true);
 
     // ─────────────────────────────────────────────────────────────────────────
+    // BIG WIN (≥20x bet) — Celebration loop and coin sfx
+    // BIG_WIN_LOOP: Looping celebration music (ducks base music)
+    // BIG_WIN_COINS: Coin shower particle sfx
+    // ─────────────────────────────────────────────────────────────────────────
+    _register('BIG_WIN_LOOP', StageCategory.win, 90, SpatialBus.music, 'WIN_EPIC', ducksMusic: true, isLooping: true);
+    _register('BIG_WIN_COINS', StageCategory.win, 75, SpatialBus.sfx, 'WIN_EPIC');
+
+    // ─────────────────────────────────────────────────────────────────────────
     // WIN TIER VISUAL STAGES — Optional per-tier audio during BIG+ progression
     // These fire during tier progression display (BIG → SUPER → MEGA → ...)
     // ─────────────────────────────────────────────────────────────────────────
@@ -657,6 +665,11 @@ class StageConfigurationService extends ChangeNotifier {
     // JACKPOT
     // ─────────────────────────────────────────────────────────────────────────
     _register('JACKPOT_TRIGGER', StageCategory.jackpot, 100, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
+    // P1.5: Expanded jackpot audio sequence (industry standard)
+    _register('JACKPOT_BUILDUP', StageCategory.jackpot, 98, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
+    _register('JACKPOT_REVEAL', StageCategory.jackpot, 99, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
+    _register('JACKPOT_CELEBRATION', StageCategory.jackpot, 95, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true, isLooping: true);
+    // Tier-specific jackpots
     _register('JACKPOT_MINI', StageCategory.jackpot, 85, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
     _register('JACKPOT_MINOR', StageCategory.jackpot, 90, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
     _register('JACKPOT_MAJOR', StageCategory.jackpot, 95, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
@@ -1175,6 +1188,7 @@ class StageConfigurationService extends ChangeNotifier {
     'FS_MUSIC', 'HOLD_MUSIC', 'BONUS_MUSIC',
     'AMBIENT_LOOP', 'ATTRACT_MODE', 'IDLE_LOOP',
     'ANTICIPATION_LOOP', 'FEATURE_MUSIC',
+    'BIG_WIN_LOOP',
   };
 
   // ═══════════════════════════════════════════════════════════════════════════

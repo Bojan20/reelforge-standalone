@@ -1095,21 +1095,48 @@ class EventRegistry extends ChangeNotifier {
       }
     }
 
-    // P0: AUTO-DETECT REEL_SPINNING_X stages and set up per-reel spin loop context
-    // Supports: REEL_SPINNING_0, REEL_SPINNING_1, REEL_SPINNING_2, REEL_SPINNING_3, REEL_SPINNING_4
-    // Also matches generic REEL_SPINNING (for shared loop sound)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0.1: AUTO-DETECT REEL_SPINNING_STOP_X stages for early fade-out
+    // These fire BEFORE REEL_STOP_X to allow audio-visual overlap
+    // Supports: REEL_SPINNING_STOP_0, REEL_SPINNING_STOP_1, etc.
+    // ═══════════════════════════════════════════════════════════════════════════
+    final reelSpinStopMatch = RegExp(r'^REEL_SPINNING_STOP_(\d+)$').firstMatch(upperStage);
+    if (reelSpinStopMatch != null) {
+      final reelIndex = int.tryParse(reelSpinStopMatch.group(1) ?? '');
+      if (reelIndex != null) {
+        debugPrint('[EventRegistry] P0.1: Auto-detected REEL_SPINNING_STOP_$reelIndex → Early fade-out');
+        _fadeOutReelSpinLoop(reelIndex);
+        // Don't return - still process the stage for potential audio event
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0.1: AUTO-DETECT REEL_SPINNING_START_X stages for per-reel loop start
+    // These fire at spin start to trigger individual spin loops per reel
+    // Supports: REEL_SPINNING_START_0, REEL_SPINNING_START_1, etc.
+    // ═══════════════════════════════════════════════════════════════════════════
     Map<String, dynamic> enhancedContext = context != null ? Map.from(context) : {};
+    final reelSpinStartMatch = RegExp(r'^REEL_SPINNING_START_(\d+)$').firstMatch(upperStage);
+    if (reelSpinStartMatch != null) {
+      final reelIndex = int.tryParse(reelSpinStartMatch.group(1) ?? '');
+      if (reelIndex != null) {
+        debugPrint('[EventRegistry] P0.1: Auto-detected REEL_SPINNING_START_$reelIndex → Setting up spin loop');
+        enhancedContext['is_reel_spin_loop'] = true;
+        enhancedContext['reel_index'] = reelIndex;
+      }
+    }
+    // Legacy support: REEL_SPINNING_X (backwards compatibility)
     final reelSpinMatch = RegExp(r'^REEL_SPINNING_(\d+)$').firstMatch(upperStage);
-    if (reelSpinMatch != null) {
+    if (reelSpinMatch != null && !upperStage.contains('START') && !upperStage.contains('STOP')) {
       final reelIndex = int.tryParse(reelSpinMatch.group(1) ?? '');
       if (reelIndex != null) {
-        debugPrint('[EventRegistry] P0: Auto-detected REEL_SPINNING_$reelIndex → Setting up spin loop');
+        debugPrint('[EventRegistry] P0.1: Legacy REEL_SPINNING_$reelIndex → Setting up spin loop');
         enhancedContext['is_reel_spin_loop'] = true;
         enhancedContext['reel_index'] = reelIndex;
       }
     } else if (upperStage == 'REEL_SPINNING' || upperStage == 'REEL_SPIN_LOOP') {
       // Generic spin loop (reel index 0 for single shared loop)
-      debugPrint('[EventRegistry] P0: Auto-detected generic REEL_SPINNING → Setting up shared spin loop');
+      debugPrint('[EventRegistry] P0.1: Auto-detected generic REEL_SPINNING → Setting up shared spin loop');
       enhancedContext['is_reel_spin_loop'] = true;
       enhancedContext['reel_index'] = 0;
     }
@@ -1134,6 +1161,26 @@ class EventRegistry extends ChangeNotifier {
     }
 
     final normalizedStage = stage.toUpperCase().trim();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.4: CASCADE PITCH ESCALATION — Pitch rises 5% per cascade step
+    // Example: CASCADE_STEP_0 = 1.0x, CASCADE_STEP_5 = 1.25x
+    // This creates exciting "rising" audio during cascade wins
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (normalizedStage.startsWith('CASCADE_STEP')) {
+      final cascadeMatch = RegExp(r'CASCADE_STEP_?(\d+)?').firstMatch(normalizedStage);
+      if (cascadeMatch != null) {
+        final stepIndex = int.tryParse(cascadeMatch.group(1) ?? '0') ?? 0;
+        // Pitch rises 5% per step: step 0 = 1.0, step 1 = 1.05, step 5 = 1.25
+        final cascadePitch = 1.0 + (stepIndex * 0.05);
+        // Volume also escalates slightly: 0.9 → 1.0 → 1.1
+        final cascadeVolume = 0.9 + (stepIndex * 0.04);
+        context = context != null ? Map.from(context) : {};
+        context['cascade_pitch'] = cascadePitch;
+        context['cascade_volume'] = cascadeVolume.clamp(0.0, 1.5);
+        debugPrint('[EventRegistry] P1.4: CASCADE_STEP_$stepIndex → pitch=${cascadePitch.toStringAsFixed(2)}, volume=${cascadeVolume.toStringAsFixed(2)}');
+      }
+    }
 
     // Try exact match first, then normalized
     var event = _stageToEvent[stage];
@@ -1544,6 +1591,17 @@ class EventRegistry extends ChangeNotifier {
           volume *= escalation;
           debugPrint('[EventRegistry] P1.2 Rollup modulation: progress=${progress.toStringAsFixed(2)}, volume=${(volume).toStringAsFixed(2)}');
         }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // P1.4: CASCADE VOLUME ESCALATION — Volume rises per cascade step
+      // Applied to CASCADE_STEP stages for exciting chain reaction audio
+      // Pitch escalation stored in context but applied via playback rate (future)
+      // ═══════════════════════════════════════════════════════════════════════
+      if (context != null && context.containsKey('cascade_volume')) {
+        final cascadeVolume = (context['cascade_volume'] as num?)?.toDouble() ?? 1.0;
+        volume *= cascadeVolume;
+        debugPrint('[EventRegistry] P1.4 Cascade modulation: volume=${volume.toStringAsFixed(2)}');
       }
 
       // ═══════════════════════════════════════════════════════════════════════

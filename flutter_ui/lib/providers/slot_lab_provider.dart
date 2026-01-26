@@ -102,6 +102,15 @@ class SlotLabProvider extends ChangeNotifier {
   bool _isWinPresentationActive = false;
   bool _baseMusicStarted = false; // Track if base music has been triggered
 
+  // ─── P0.3: Anticipation Visual-Audio Sync Callbacks ────────────────────────
+  /// Called when anticipation starts on a specific reel
+  /// UI should dim background and slow reel animation
+  void Function(int reelIndex, String reason)? onAnticipationStart;
+
+  /// Called when anticipation ends on a specific reel
+  /// UI should restore normal speed and remove dim
+  void Function(int reelIndex)? onAnticipationEnd;
+
   // ─── P1.2: Rollup Progress Tracking (for pitch/volume dynamics) ───────────
   double _rollupStartTimestampMs = 0.0;
   double _rollupEndTimestampMs = 0.0;
@@ -242,6 +251,12 @@ class SlotLabProvider extends ChangeNotifier {
   void setWinPresentationActive(bool active) {
     if (_isWinPresentationActive != active) {
       _isWinPresentationActive = active;
+
+      // Stop BIG_WIN_LOOP when win presentation ends
+      if (!active) {
+        eventRegistry.stopEvent('BIG_WIN_LOOP');
+      }
+
       notifyListeners();
     }
   }
@@ -544,8 +559,15 @@ class SlotLabProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      debugPrint('[SlotLabProvider] Calling FFI slotLabSpin()...');
-      final spinId = _ffi.slotLabSpin();
+      // Use V2 engine if initialized (has custom GDD config), else V1
+      final int spinId;
+      if (_engineV2Initialized) {
+        debugPrint('[SlotLabProvider] Calling FFI slotLabV2Spin() (V2 engine with GDD)...');
+        spinId = _ffi.slotLabV2Spin();
+      } else {
+        debugPrint('[SlotLabProvider] Calling FFI slotLabSpin() (V1 default engine)...');
+        spinId = _ffi.slotLabSpin();
+      }
       debugPrint('[SlotLabProvider] FFI returned spinId=$spinId');
 
       if (spinId == 0) {
@@ -556,8 +578,15 @@ class SlotLabProvider extends ChangeNotifier {
       }
 
       _spinCount++;
-      _lastResult = _ffi.slotLabGetSpinResult();
-      _lastStages = _ffi.slotLabGetStages();
+
+      // Get results from appropriate engine
+      if (_engineV2Initialized) {
+        _lastResult = _convertV2Result(_ffi.slotLabV2GetSpinResult());
+        _lastStages = _convertV2Stages(_ffi.slotLabV2GetStages());
+      } else {
+        _lastResult = _ffi.slotLabGetSpinResult();
+        _lastStages = _ffi.slotLabGetStages();
+      }
 
       // DEBUG: Log stage details
       debugPrint('[SlotLabProvider] Got ${_lastStages.length} stages:');
@@ -604,7 +633,15 @@ class SlotLabProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final spinId = _ffi.slotLabSpinForced(outcome);
+      // Use V2 engine if initialized (has custom GDD config), else V1
+      final int spinId;
+      if (_engineV2Initialized) {
+        debugPrint('[SlotLabProvider] Calling FFI slotLabV2SpinForced(${outcome.index}) (V2 engine with GDD)...');
+        spinId = _ffi.slotLabV2SpinForced(outcome.index);
+      } else {
+        debugPrint('[SlotLabProvider] Calling FFI slotLabSpinForced() (V1 default engine)...');
+        spinId = _ffi.slotLabSpinForced(outcome);
+      }
       if (spinId == 0) {
         _isSpinning = false;
         notifyListeners();
@@ -612,8 +649,15 @@ class SlotLabProvider extends ChangeNotifier {
       }
 
       _spinCount++;
-      _lastResult = _ffi.slotLabGetSpinResult();
-      _lastStages = _ffi.slotLabGetStages();
+
+      // Get results from appropriate engine
+      if (_engineV2Initialized) {
+        _lastResult = _convertV2Result(_ffi.slotLabV2GetSpinResult());
+        _lastStages = _convertV2Stages(_ffi.slotLabV2GetStages());
+      } else {
+        _lastResult = _ffi.slotLabGetSpinResult();
+        _lastStages = _ffi.slotLabGetStages();
+      }
       _updateFreeSpinsState();
       _updateStats();
 
@@ -721,6 +765,18 @@ class SlotLabProvider extends ChangeNotifier {
   int _countCascades() {
     return _lastStages.where((s) =>
         s.stageType.toUpperCase() == 'CASCADE_STEP').length;
+  }
+
+  /// P0.3: Extract reel index from stage type
+  /// Examples: "ANTICIPATION_ON_3" → 3, "ANTICIPATION_OFF" → 0, "ANTICIPATION_ON" → 0
+  int _extractReelIndexFromStage(String stageType) {
+    final parts = stageType.split('_');
+    if (parts.length >= 3) {
+      final lastPart = parts.last;
+      final idx = int.tryParse(lastPart);
+      if (idx != null) return idx;
+    }
+    return 0; // Default to first reel if no index specified
   }
 
   /// Calculate near miss rate from stages
@@ -1075,13 +1131,22 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ANTICIPATION VISUAL-SYNC — Skip ALL anticipation stages (widget handles them)
-    // Widget detects scatters during animation and triggers anticipation with
-    // proper visual-sync timing. Includes per-reel variants (ANTICIPATION_ON_0, etc.)
+    // P0.3: ANTICIPATION VISUAL-AUDIO SYNC — Invoke callbacks for synchronized visuals
+    // Callbacks notify UI to dim background and slow reel animation at SAME TIME as audio
+    // Includes per-reel variants (ANTICIPATION_ON_0, etc.)
     // ═══════════════════════════════════════════════════════════════════════════
-    if (stageType.startsWith('ANTICIPATION_ON') || stageType.startsWith('ANTICIPATION_OFF')) {
-      debugPrint('[Stage] $stageType → SKIPPED (visual-sync, widget handles scatter detection)');
-      return;
+    if (stageType.startsWith('ANTICIPATION_ON')) {
+      final reelIdx = _extractReelIndexFromStage(stageType);
+      final reason = stage.payload['reason'] as String? ??
+          stage.rawStage['reason'] as String? ?? 'scatter';
+      debugPrint('[Stage] P0.3: ANTICIPATION_ON → invoking onAnticipationStart(reel=$reelIdx, reason=$reason)');
+      onAnticipationStart?.call(reelIdx, reason);
+      // Continue to trigger audio below (don't return)
+    } else if (stageType.startsWith('ANTICIPATION_OFF')) {
+      final reelIdx = _extractReelIndexFromStage(stageType);
+      debugPrint('[Stage] P0.3: ANTICIPATION_OFF → invoking onAnticipationEnd(reel=$reelIdx)');
+      onAnticipationEnd?.call(reelIdx);
+      // Continue to trigger audio below (don't return)
     }
 
     // Simplified debug - only show stage name, skip per-reel spam for REEL_SPINNING
@@ -1413,6 +1478,7 @@ class SlotLabProvider extends ChangeNotifier {
     _stagePlaybackTimer?.cancel();
     _audioPreTriggerTimer?.cancel();
     _isPlayingStages = false;
+    _isReelsSpinning = false; // CRITICAL: Reset so next SPACE starts new spin
     _isPaused = false; // P0.3: Reset pause state
     _pausedAtTimestampMs = 0;
     _pausedElapsedMs = 0;
@@ -1772,6 +1838,17 @@ class SlotLabProvider extends ChangeNotifier {
     _engineV2Initialized = false;
     _currentGameModel = null;
     notifyListeners();
+  }
+
+  /// Convert V2 spin result Map to SlotLabSpinResult
+  SlotLabSpinResult? _convertV2Result(Map<String, dynamic>? v2Result) {
+    if (v2Result == null) return null;
+    return SlotLabSpinResult.fromJson(v2Result);
+  }
+
+  /// Convert V2 stages List to List<SlotLabStageEvent>
+  List<SlotLabStageEvent> _convertV2Stages(List<Map<String, dynamic>> v2Stages) {
+    return v2Stages.map((s) => SlotLabStageEvent.fromJson(s)).toList();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -155,6 +155,41 @@ impl PayTable {
         }
     }
 
+    /// Create a paytable from GameModel (uses GDD symbols if Custom)
+    pub fn from_model(model: &crate::model::GameModel) -> Self {
+        // Get symbols from model (converts GDD custom symbols to engine symbols)
+        let symbols = model.symbols.to_symbol_set();
+        let wild_id = symbols.wild_id().unwrap_or(11);
+        let scatter_id = symbols.scatter_id().unwrap_or(12);
+
+        // Get paylines based on win mechanism
+        let paylines = if model.win_mechanism.is_paylines() {
+            // Use grid.paylines count, fallback to 20 if not set
+            let count = if model.grid.paylines > 0 {
+                model.grid.paylines as usize
+            } else {
+                20
+            };
+            // Use standard paylines, limited to count
+            standard_20_paylines()
+                .into_iter()
+                .take(count)
+                .collect()
+        } else {
+            // For ways/cluster, use no paylines (separate evaluation)
+            Vec::new()
+        };
+
+        Self {
+            symbols,
+            paylines,
+            grid: model.grid.clone(),
+            wild_id,
+            scatter_id,
+            scatter_trigger_count: 3,
+        }
+    }
+
     /// Evaluate wins on a grid
     pub fn evaluate(&self, grid: &[Vec<u32>], bet: f64) -> EvaluationResult {
         let mut line_wins = Vec::new();

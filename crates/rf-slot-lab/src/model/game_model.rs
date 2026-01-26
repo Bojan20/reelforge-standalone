@@ -188,11 +188,39 @@ pub enum SymbolSetConfig {
 impl SymbolSetConfig {
     /// Convert to StandardSymbolSet
     pub fn to_symbol_set(&self) -> StandardSymbolSet {
+        use crate::symbols::{Symbol, SymbolType};
+
         match self {
             Self::Standard => StandardSymbolSet::new(),
-            Self::Custom { symbols: _ } => {
-                // TODO: Convert custom symbols
-                StandardSymbolSet::new()
+            Self::Custom { symbols } => {
+                // Convert custom GDD symbols to engine Symbol structs
+                let converted: Vec<Symbol> = symbols
+                    .iter()
+                    .map(|def| {
+                        // Convert string type to SymbolType enum
+                        let symbol_type = match def.symbol_type.to_lowercase().as_str() {
+                            "wild" => SymbolType::Wild,
+                            "scatter" => SymbolType::Scatter,
+                            "bonus" => SymbolType::Bonus,
+                            "jackpot" => SymbolType::Jackpot,
+                            "blank" => SymbolType::Blank,
+                            _ => SymbolType::Regular,
+                        };
+
+                        // Create engine Symbol with GDD payouts
+                        Symbol {
+                            id: def.id,
+                            name: def.name.clone(),
+                            symbol_type,
+                            pay_values: def.pays.clone(),
+                            tier: def.tier,
+                            substitutes_for: Vec::new(), // Wilds substitute for all
+                        }
+                    })
+                    .collect();
+
+                // Create StandardSymbolSet with converted symbols
+                StandardSymbolSet { symbols: converted }
             }
         }
     }
