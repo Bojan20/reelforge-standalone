@@ -20184,3 +20184,54 @@ extension PluginStateFFI on NativeFFI {
     }
   }
 }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SIDECHAIN ROUTING (P0.5)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set sidechain input source for processor
+  /// Returns 0 on success, -1 on error
+  int insertSetSidechainSource(int trackId, int slotIndex, int sourceTrackId) {
+    if (!_loaded) return -1;
+    try {
+      final fn = _lib.lookupFunction<
+        Int32 Function(Uint64, Uint64, Int64),
+        int Function(int, int, int)
+      >('insert_set_sidechain_source');
+      return fn(trackId, slotIndex, sourceTrackId);
+    } catch (e) {
+      debugPrint('[NativeFFI] insertSetSidechainSource error: $e');
+      return -1;
+    }
+  }
+
+  /// Get current sidechain source (-1 = internal)
+  int insertGetSidechainSource(int trackId, int slotIndex) {
+    if (!_loaded) return -1;
+    try {
+      final fn = _lib.lookupFunction<
+        Int64 Function(Uint64, Uint64),
+        int Function(int, int)
+      >('insert_get_sidechain_source');
+      return fn(trackId, slotIndex);
+    } catch (e) {
+      debugPrint('[NativeFFI] insertGetSidechainSource error: $e');
+      return -1;
+    }
+  }
+
+  /// Enable/disable sidechain
+  int insertSetSidechainEnabled(int trackId, int slotIndex, bool enabled) {
+    if (!_loaded) return -1;
+    try {
+      final fn = _lib.lookupFunction<
+        Int32 Function(Uint64, Uint64, Int32),
+        int Function(int, int, int)
+      >('insert_set_sidechain_enabled');
+      return fn(trackId, slotIndex, enabled ? 1 : 0);
+    } catch (e) {
+      debugPrint('[NativeFFI] insertSetSidechainEnabled error: $e');
+      return -1;
+    }
+  }
+}

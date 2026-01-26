@@ -521,10 +521,11 @@ class DspChainProvider extends ChangeNotifier {
       if (n.wetDry != 1.0) {
         _ffi.insertSetMix(trackId, i, n.wetDry);
       }
+      _restoreNodeParameters(trackId, i, n); // ✅ Restore all params
     }
 
     _chains[trackId] = chain.copyWith(nodes: newNodes);
-    debugPrint('[DspChainProvider] ✅ Reordered node $nodeId to position $newOrder (reloaded ${newNodes.length} processors)');
+    debugPrint('[DspChainProvider] ✅ Reordered node $nodeId to position $newOrder (reloaded ${newNodes.length} processors with params)');
     notifyListeners();
   }
 
@@ -558,14 +559,121 @@ class DspChainProvider extends ChangeNotifier {
     _ffi.insertLoadProcessor(trackId, firstIdx, _typeToProcessorName(firstNode.type));
     if (firstNode.bypass) _ffi.insertSetBypass(trackId, firstIdx, true);
     if (firstNode.wetDry != 1.0) _ffi.insertSetMix(trackId, firstIdx, firstNode.wetDry);
+    _restoreNodeParameters(trackId, firstIdx, firstNode); // ✅ Restore params
 
     _ffi.insertLoadProcessor(trackId, secondIdx, _typeToProcessorName(secondNode.type));
     if (secondNode.bypass) _ffi.insertSetBypass(trackId, secondIdx, true);
     if (secondNode.wetDry != 1.0) _ffi.insertSetMix(trackId, secondIdx, secondNode.wetDry);
+    _restoreNodeParameters(trackId, secondIdx, secondNode); // ✅ Restore params
 
     _chains[trackId] = chain.copyWith(nodes: newNodes);
-    debugPrint('[DspChainProvider] ✅ Swapped nodes $nodeIdA <-> $nodeIdB (slots $indexA <-> $indexB)');
+    debugPrint('[DspChainProvider] ✅ Swapped nodes $nodeIdA <-> $nodeIdB (slots $indexA <-> $indexB, params restored)');
     notifyListeners();
+  }
+
+  /// Restore all parameters from node to engine slot
+  /// CRITICAL: Preserves EQ bands, comp settings, etc. after reorder
+  void _restoreNodeParameters(int trackId, int slotIndex, DspNode node) {
+    // Parameter restoration depends on processor type
+    switch (node.type) {
+      case DspNodeType.eq:
+        // Restore EQ bands
+        final bands = node.params['bands'] as List<dynamic>? ?? [];
+        for (int i = 0; i < bands.length; i++) {
+          final band = bands[i] as Map<String, dynamic>;
+          final freq = (band['freq'] as num?)?.toDouble() ?? 1000.0;
+          final gain = (band['gain'] as num?)?.toDouble() ?? 0.0;
+          final q = (band['q'] as num?)?.toDouble() ?? 1.0;
+          // Map to parameter indices (0-3 per band: freq, gain, q, type)
+          _ffi.insertSetParam(trackId, slotIndex, i * 4 + 0, freq);
+          _ffi.insertSetParam(trackId, slotIndex, i * 4 + 1, gain);
+          _ffi.insertSetParam(trackId, slotIndex, i * 4 + 2, q);
+        }
+        break;
+
+      case DspNodeType.compressor:
+      case DspNodeType.expander:
+        // Restore dynamics parameters
+        final threshold = (node.params['threshold'] as num?)?.toDouble() ?? -20.0;
+        final ratio = (node.params['ratio'] as num?)?.toDouble() ?? 4.0;
+        final attack = (node.params['attack'] as num?)?.toDouble() ?? 10.0;
+        final release = (node.params['release'] as num?)?.toDouble() ?? 100.0;
+        final knee = (node.params['knee'] as num?)?.toDouble() ?? 6.0;
+        final makeupGain = (node.params['makeupGain'] as num?)?.toDouble() ?? 0.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, threshold);
+        _ffi.insertSetParam(trackId, slotIndex, 1, ratio);
+        _ffi.insertSetParam(trackId, slotIndex, 2, attack);
+        _ffi.insertSetParam(trackId, slotIndex, 3, release);
+        _ffi.insertSetParam(trackId, slotIndex, 4, knee);
+        _ffi.insertSetParam(trackId, slotIndex, 5, makeupGain);
+        break;
+
+      case DspNodeType.limiter:
+        // Restore limiter parameters
+        final ceiling = (node.params['ceiling'] as num?)?.toDouble() ?? -0.3;
+        final release = (node.params['release'] as num?)?.toDouble() ?? 50.0;
+        final lookahead = (node.params['lookahead'] as num?)?.toDouble() ?? 5.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, ceiling);
+        _ffi.insertSetParam(trackId, slotIndex, 1, release);
+        _ffi.insertSetParam(trackId, slotIndex, 2, lookahead);
+        break;
+
+      case DspNodeType.gate:
+        // Restore gate parameters
+        final threshold = (node.params['threshold'] as num?)?.toDouble() ?? -40.0;
+        final attack = (node.params['attack'] as num?)?.toDouble() ?? 0.5;
+        final release = (node.params['release'] as num?)?.toDouble() ?? 50.0;
+        final range = (node.params['range'] as num?)?.toDouble() ?? -80.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, threshold);
+        _ffi.insertSetParam(trackId, slotIndex, 1, attack);
+        _ffi.insertSetParam(trackId, slotIndex, 2, release);
+        _ffi.insertSetParam(trackId, slotIndex, 3, range);
+        break;
+
+      case DspNodeType.reverb:
+        // Restore reverb parameters
+        final decay = (node.params['decay'] as num?)?.toDouble() ?? 2.0;
+        final preDelay = (node.params['preDelay'] as num?)?.toDouble() ?? 20.0;
+        final damping = (node.params['damping'] as num?)?.toDouble() ?? 0.5;
+        final size = (node.params['size'] as num?)?.toDouble() ?? 0.7;
+        _ffi.insertSetParam(trackId, slotIndex, 0, decay);
+        _ffi.insertSetParam(trackId, slotIndex, 1, preDelay);
+        _ffi.insertSetParam(trackId, slotIndex, 2, damping);
+        _ffi.insertSetParam(trackId, slotIndex, 3, size);
+        break;
+
+      case DspNodeType.delay:
+        // Restore delay parameters
+        final time = (node.params['time'] as num?)?.toDouble() ?? 250.0;
+        final feedback = (node.params['feedback'] as num?)?.toDouble() ?? 0.3;
+        final highCut = (node.params['highCut'] as num?)?.toDouble() ?? 8000.0;
+        final lowCut = (node.params['lowCut'] as num?)?.toDouble() ?? 80.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, time);
+        _ffi.insertSetParam(trackId, slotIndex, 1, feedback);
+        _ffi.insertSetParam(trackId, slotIndex, 2, highCut);
+        _ffi.insertSetParam(trackId, slotIndex, 3, lowCut);
+        break;
+
+      case DspNodeType.saturation:
+        // Restore saturation parameters
+        final drive = (node.params['drive'] as num?)?.toDouble() ?? 0.3;
+        final mix = (node.params['mix'] as num?)?.toDouble() ?? 0.5;
+        _ffi.insertSetParam(trackId, slotIndex, 0, drive);
+        _ffi.insertSetParam(trackId, slotIndex, 1, mix);
+        break;
+
+      case DspNodeType.deEsser:
+        // Restore de-esser parameters
+        final frequency = (node.params['frequency'] as num?)?.toDouble() ?? 6000.0;
+        final threshold = (node.params['threshold'] as num?)?.toDouble() ?? -20.0;
+        final range = (node.params['range'] as num?)?.toDouble() ?? -10.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, frequency);
+        _ffi.insertSetParam(trackId, slotIndex, 1, threshold);
+        _ffi.insertSetParam(trackId, slotIndex, 2, range);
+        break;
+    }
+
+    debugPrint('[DspChainProvider] ✅ Restored ${node.params.length} parameters for ${node.type.name} (track $trackId, slot $slotIndex)');
   }
 
   // ─── Copy/Paste ────────────────────────────────────────────────────────────
@@ -615,6 +723,7 @@ class DspChainProvider extends ChangeNotifier {
       if (n.wetDry != 1.0) {
         _ffi.insertSetMix(trackId, i, n.wetDry);
       }
+      _restoreNodeParameters(trackId, i, n); // ✅ Restore all params
     }
 
     // 4. Update UI state
@@ -626,7 +735,7 @@ class DspChainProvider extends ChangeNotifier {
       outputGain: _clipboard!.outputGain,
     );
 
-    debugPrint('[DspChainProvider] ✅ Pasted chain to track $trackId (loaded ${newNodes.length} processors)');
+    debugPrint('[DspChainProvider] ✅ Pasted chain to track $trackId (loaded ${newNodes.length} processors with params)');
     notifyListeners();
   }
 
@@ -673,6 +782,7 @@ class DspChainProvider extends ChangeNotifier {
         if (n.wetDry != 1.0) {
           _ffi.insertSetMix(trackId, i, n.wetDry);
         }
+        _restoreNodeParameters(trackId, i, n); // ✅ Restore all params from JSON
       }
 
       _chains[trackId] = DspChain(
@@ -688,7 +798,7 @@ class DspChainProvider extends ChangeNotifier {
         _ffi.insertBypassAll(trackId, true);
       }
     }
-    debugPrint('[DspChainProvider] ✅ Loaded ${_chains.length} chains from JSON');
+    debugPrint('[DspChainProvider] ✅ Loaded ${_chains.length} chains from JSON (params restored)');
     notifyListeners();
   }
 }

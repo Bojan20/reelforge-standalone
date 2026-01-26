@@ -17,13 +17,22 @@ import 'daw_lower_zone_controller.dart';
 import 'lower_zone_types.dart';
 import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
+import '../fabfilter/fabfilter_eq_panel.dart';
+import '../fabfilter/fabfilter_compressor_panel.dart';
+import '../fabfilter/fabfilter_limiter_panel.dart';
 import '../mixer/ultimate_mixer.dart' as ultimate;
 import '../mixer/knob.dart';
+import '../editors/crossfade_editor.dart';
 import '../../providers/mixer_provider.dart';
+import '../../providers/undo_manager.dart';
+import 'export_panels.dart';
 import 'daw_files_browser.dart';
 import '../../services/track_preset_service.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../providers/plugin_provider.dart';
 import '../../providers/timeline_playback_provider.dart' show TimelineClipData;
+import '../midi/piano_roll_widget.dart';
+import '../routing/routing_matrix_panel.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/service_locator.dart';
 import '../../services/audio_asset_manager.dart';
@@ -42,20 +51,6 @@ import 'daw/edit/timeline_overview_panel.dart';
 import 'daw/edit/grid_settings_panel.dart';
 import 'daw/edit/piano_roll_panel.dart';
 import 'daw/edit/clip_properties_panel.dart';
-// ✅ P0.1: Extracted MIX panels
-import 'daw/mix/sends_panel.dart';
-import 'daw/mix/pan_panel.dart';
-import 'daw/mix/automation_panel.dart';
-// ✅ P0.1: Extracted PROCESS panels
-import 'daw/process/eq_panel.dart';
-import 'daw/process/comp_panel.dart';
-import 'daw/process/limiter_panel.dart';
-import 'daw/process/fx_chain_panel.dart';
-// ✅ P0.1: Extracted DELIVER panels
-import 'daw/deliver/export_panel.dart';
-import 'daw/deliver/stems_panel.dart';
-import 'daw/deliver/bounce_panel.dart';
-import 'daw/deliver/archive_panel.dart';
 // Gate and Reverb are accessible via FX Chain panel
 
 class DawLowerZoneWidget extends StatefulWidget {
@@ -296,7 +291,34 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   Widget _buildHistoryPanel() => const HistoryPanel();
 
   /// Compact files browser
-
+  Widget _buildCompactFilesBrowser() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBrowserHeader('FILES', Icons.folder_open),
+          const SizedBox(height: 12),
+          _buildBrowserSearchBar(),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Row(
+              children: [
+                // Folder tree
+                SizedBox(
+                  width: 180,
+                  child: _buildFolderTree(),
+                ),
+                const SizedBox(width: 12),
+                // File list
+                Expanded(child: _buildFileList()),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildBrowserHeader(String title, IconData icon) {
     return Row(
@@ -436,9 +458,967 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   /// P0.1: Track Presets Browser with real service integration
-  // ✅ P0.1: BROWSE panels extracted to daw/browse/*.dart
-  // Old code removed: Presets (459-827), Plugins (829-1236), History (1238-1420)
-  // Total removed: ~962 LOC
+  Widget _buildCompactPresetsBrowser() {
+    return ListenableBuilder(
+      listenable: TrackPresetService.instance,
+      builder: (context, _) {
+        final service = TrackPresetService.instance;
+        final presets = service.presets;
+
+        // Initialize presets if empty
+        if (presets.isEmpty && !service.isLoading) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            service.initializeFactoryPresets();
+          });
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with Save button
+              Row(
+                children: [
+                  _buildBrowserHeader('TRACK PRESETS', Icons.tune),
+                  const Spacer(),
+                  _buildPresetActionButton(
+                    Icons.add,
+                    'Save Current',
+                    _onSaveCurrentAsPreset,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Category filter
+              _buildPresetCategoryFilter(),
+              const SizedBox(height: 8),
+              // Search bar
+              _buildBrowserSearchBar(),
+              const SizedBox(height: 8),
+              // Presets grid
+              Expanded(
+                child: service.isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: LowerZoneColors.dawAccent,
+                        ),
+                      )
+                    : presets.isEmpty
+                        ? _buildEmptyPresetsState()
+                        : GridView.builder(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              childAspectRatio: 2.2,
+                              crossAxisSpacing: 6,
+                              mainAxisSpacing: 6,
+                            ),
+                            itemCount: presets.length,
+                            itemBuilder: (context, index) {
+                              return _buildPresetCard(presets[index]);
+                            },
+                          ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// P0.1: Category filter chips
+  Widget _buildPresetCategoryFilter() {
+    return SizedBox(
+      height: 24,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _buildCategoryChip('All', null),
+          ...TrackPresetService.categories.map((c) => _buildCategoryChip(c, c)),
+        ],
+      ),
+    );
+  }
+
+  String? _selectedPresetCategory;
+
+  Widget _buildCategoryChip(String label, String? category) {
+    final isSelected = _selectedPresetCategory == category;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _selectedPresetCategory = category);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? LowerZoneColors.dawAccent
+                : LowerZoneColors.bgSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? LowerZoneColors.dawAccent
+                  : LowerZoneColors.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// P0.1: Empty presets state
+  Widget _buildEmptyPresetsState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.library_music_outlined,
+            size: 32,
+            color: LowerZoneColors.textTertiary,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'No presets yet',
+            style: TextStyle(
+              fontSize: 11,
+              color: LowerZoneColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Save your track settings as a preset',
+            style: TextStyle(
+              fontSize: 9,
+              color: LowerZoneColors.textTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// P0.1: Preset action button
+  Widget _buildPresetActionButton(IconData icon, String tooltip, VoidCallback onTap) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: LowerZoneColors.dawAccent.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: LowerZoneColors.dawAccent.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 4),
+              Text(
+                tooltip,
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: LowerZoneColors.dawAccent,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// P0.1: Save current track as preset
+  void _onSaveCurrentAsPreset() {
+    // Show save dialog
+    showDialog(
+      context: context,
+      builder: (ctx) => _TrackPresetSaveDialog(
+        onSave: (name, category) async {
+          final preset = TrackPreset(
+            name: name,
+            category: category,
+            createdAt: DateTime.now(),
+            volume: 1.0, // TODO: Get from selected track
+            pan: 0.0,
+            outputBus: 'master',
+          );
+          final success = await TrackPresetService.instance.savePreset(preset);
+          if (success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Saved preset: $name'),
+                backgroundColor: Colors.green.shade700,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  /// P0.1: Preset card with load/delete actions
+  Widget _buildPresetCard(TrackPreset preset) {
+    return GestureDetector(
+      onTap: () => _onPresetSelected(preset),
+      onSecondaryTap: () => _showPresetContextMenu(preset),
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: LowerZoneColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    preset.name,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: LowerZoneColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (preset.category != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: _categoryColor(preset.category!).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Text(
+                      preset.category!.substring(0, math.min(3, preset.category!.length)),
+                      style: TextStyle(
+                        fontSize: 7,
+                        fontWeight: FontWeight.w600,
+                        color: _categoryColor(preset.category!),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (preset.description != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                preset.description!,
+                style: const TextStyle(
+                  fontSize: 8,
+                  color: LowerZoneColors.textTertiary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 2),
+            // Settings preview
+            Row(
+              children: [
+                _buildMiniIndicator(Icons.volume_up, '${(preset.volume * 100).toInt()}%'),
+                const SizedBox(width: 4),
+                _buildMiniIndicator(Icons.swap_horiz, '${(preset.pan * 100).toInt().abs()}${preset.pan >= 0 ? 'R' : 'L'}'),
+                if (preset.compressor.enabled) ...[
+                  const SizedBox(width: 4),
+                  Icon(Icons.compress, size: 8, color: LowerZoneColors.dawAccent),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniIndicator(IconData icon, String value) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 8, color: LowerZoneColors.textTertiary),
+        const SizedBox(width: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 7,
+            color: LowerZoneColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _categoryColor(String category) {
+    return switch (category) {
+      'Vocals' => const Color(0xFF4A9EFF),
+      'Drums' => const Color(0xFFFF6B6B),
+      'Bass' => const Color(0xFF845EF7),
+      'Guitar' => const Color(0xFFFF922B),
+      'Keys' => const Color(0xFF51CF66),
+      'Synth' => const Color(0xFF22B8CF),
+      'FX' => const Color(0xFFF06595),
+      'Ambience' => const Color(0xFF94D82D),
+      'Master' => const Color(0xFFFFD43B),
+      _ => const Color(0xFF748FFC),
+    };
+  }
+
+  void _onPresetSelected(TrackPreset preset) {
+    // Notify parent to apply preset
+    widget.onDspAction?.call('applyPreset', {'preset': preset.name});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Applied preset: ${preset.name}'),
+        backgroundColor: LowerZoneColors.dawAccent,
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _showPresetContextMenu(TrackPreset preset) {
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(100, 100, 100, 100),
+      items: [
+        const PopupMenuItem(value: 'apply', child: Text('Apply to Track')),
+        const PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
+        const PopupMenuItem(value: 'export', child: Text('Export...')),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: Text('Delete', style: TextStyle(color: Colors.red.shade300)),
+        ),
+      ],
+    ).then((value) async {
+      if (value == null) return;
+      switch (value) {
+        case 'apply':
+          _onPresetSelected(preset);
+          break;
+        case 'duplicate':
+          final newPreset = preset.copyWith(
+            name: '${preset.name} Copy',
+            createdAt: DateTime.now(),
+          );
+          await TrackPresetService.instance.savePreset(newPreset);
+          break;
+        case 'delete':
+          await TrackPresetService.instance.deletePreset(preset.name);
+          break;
+      }
+    });
+  }
+
+  /// P1.2: Plugins scanner — Connected to PluginProvider
+  Widget _buildCompactPluginsScanner() {
+    // Try to get PluginProvider from context
+    PluginProvider? pluginProvider;
+    try {
+      pluginProvider = context.watch<PluginProvider>();
+    } catch (_) {
+      // Provider not available
+    }
+
+    if (pluginProvider == null) {
+      return _buildPluginsFallback();
+    }
+
+    final isScanning = pluginProvider.scanState == ScanState.scanning;
+    final plugins = pluginProvider.filteredPlugins;
+
+    // Group plugins by format
+    final vst3Plugins = plugins.where((p) => p.format == PluginFormat.vst3).toList();
+    final auPlugins = plugins.where((p) => p.format == PluginFormat.audioUnit).toList();
+    final clapPlugins = plugins.where((p) => p.format == PluginFormat.clap).toList();
+    final lv2Plugins = plugins.where((p) => p.format == PluginFormat.lv2).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with Rescan button
+          Row(
+            children: [
+              _buildBrowserHeader('PLUGINS', Icons.extension),
+              const SizedBox(width: 8),
+              // Plugin count badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.dawAccent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${plugins.length}',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: LowerZoneColors.dawAccent,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // Rescan button
+              GestureDetector(
+                onTap: isScanning ? null : () => pluginProvider!.scanPlugins(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isScanning
+                        ? LowerZoneColors.dawAccent.withValues(alpha: 0.2)
+                        : LowerZoneColors.bgSurface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: isScanning ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isScanning)
+                        SizedBox(
+                          width: 10,
+                          height: 10,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            valueColor: AlwaysStoppedAnimation(LowerZoneColors.dawAccent),
+                          ),
+                        )
+                      else
+                        Icon(Icons.refresh, size: 12, color: LowerZoneColors.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        isScanning ? 'Scanning...' : 'Rescan',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: isScanning ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Search bar
+          _buildPluginSearchBar(pluginProvider),
+          const SizedBox(height: 8),
+          // Format filter chips
+          _buildPluginFormatFilters(pluginProvider),
+          const SizedBox(height: 8),
+          // Plugin list
+          Expanded(
+            child: plugins.isEmpty
+                ? _buildNoPluginsMessage(pluginProvider)
+                : ListView(
+                    children: [
+                      if (vst3Plugins.isNotEmpty)
+                        _buildPluginCategoryConnected('VST3', vst3Plugins, pluginProvider),
+                      if (auPlugins.isNotEmpty)
+                        _buildPluginCategoryConnected('AU', auPlugins, pluginProvider),
+                      if (clapPlugins.isNotEmpty)
+                        _buildPluginCategoryConnected('CLAP', clapPlugins, pluginProvider),
+                      if (lv2Plugins.isNotEmpty)
+                        _buildPluginCategoryConnected('LV2', lv2Plugins, pluginProvider),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Fallback when PluginProvider is not available
+  Widget _buildPluginsFallback() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBrowserHeader('PLUGINS', Icons.extension),
+          const SizedBox(height: 24),
+          const Center(
+            child: Column(
+              children: [
+                Icon(Icons.extension_off, size: 48, color: LowerZoneColors.textMuted),
+                SizedBox(height: 12),
+                Text(
+                  'Plugin Provider not available',
+                  style: TextStyle(fontSize: 12, color: LowerZoneColors.textMuted),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Add PluginProvider to widget tree',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textTertiary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// P1.2: Plugin search bar
+  Widget _buildPluginSearchBar(PluginProvider provider) {
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: TextField(
+        onChanged: provider.setSearchQuery,
+        style: const TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary),
+        decoration: InputDecoration(
+          hintText: 'Search plugins...',
+          hintStyle: const TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
+          prefixIcon: const Icon(Icons.search, size: 14, color: LowerZoneColors.textMuted),
+          suffixIcon: provider.searchQuery.isNotEmpty
+              ? GestureDetector(
+                  onTap: () => provider.setSearchQuery(''),
+                  child: const Icon(Icons.clear, size: 14, color: LowerZoneColors.textMuted),
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        ),
+      ),
+    );
+  }
+
+  /// P1.2: Plugin format filter chips
+  Widget _buildPluginFormatFilters(PluginProvider provider) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildFormatChip('All', null, provider),
+          const SizedBox(width: 4),
+          _buildFormatChip('VST3', PluginFormat.vst3, provider),
+          const SizedBox(width: 4),
+          _buildFormatChip('AU', PluginFormat.audioUnit, provider),
+          const SizedBox(width: 4),
+          _buildFormatChip('CLAP', PluginFormat.clap, provider),
+          const SizedBox(width: 4),
+          _buildFormatChip('LV2', PluginFormat.lv2, provider),
+          const SizedBox(width: 8),
+          // Favorites toggle
+          GestureDetector(
+            onTap: () => provider.setShowFavoritesOnly(!provider.showFavoritesOnly),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: provider.showFavoritesOnly
+                    ? LowerZoneColors.warning.withValues(alpha: 0.2)
+                    : LowerZoneColors.bgSurface,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: provider.showFavoritesOnly ? LowerZoneColors.warning : LowerZoneColors.border,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    provider.showFavoritesOnly ? Icons.star : Icons.star_border,
+                    size: 12,
+                    color: provider.showFavoritesOnly ? LowerZoneColors.warning : LowerZoneColors.textMuted,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    'Favorites',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: provider.showFavoritesOnly ? LowerZoneColors.warning : LowerZoneColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormatChip(String label, PluginFormat? format, PluginProvider provider) {
+    final isSelected = provider.formatFilter == format;
+    return GestureDetector(
+      onTap: () => provider.setFormatFilter(format),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isSelected ? LowerZoneColors.dawAccent.withValues(alpha: 0.2) : LowerZoneColors.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// P1.2: Plugin category with connected items
+  Widget _buildPluginCategoryConnected(String category, List<PluginInfo> plugins, PluginProvider provider) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Category header
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: LowerZoneColors.bgMid,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(4),
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  category,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: LowerZoneColors.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${plugins.length} plugins',
+                  style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+          // Plugin items
+          ...plugins.map((p) => _buildPluginItemConnected(p, provider)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPluginItemConnected(PluginInfo plugin, PluginProvider provider) {
+    return GestureDetector(
+      onTap: () {
+        // Add to recent when clicked
+        provider.addToRecent(plugin.id);
+        // TODO: Insert into track slot
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: LowerZoneColors.border.withValues(alpha: 0.3))),
+        ),
+        child: Row(
+          children: [
+            // Plugin icon based on category
+            Icon(
+              plugin.category == PluginCategory.instrument ? Icons.piano : Icons.tune,
+              size: 14,
+              color: LowerZoneColors.dawAccent,
+            ),
+            const SizedBox(width: 8),
+            // Plugin name
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plugin.name,
+                    style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    plugin.vendor,
+                    style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            // Favorite toggle
+            GestureDetector(
+              onTap: () => provider.toggleFavorite(plugin.id),
+              child: Icon(
+                plugin.isFavorite ? Icons.star : Icons.star_border,
+                size: 14,
+                color: plugin.isFavorite ? LowerZoneColors.warning : LowerZoneColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// P1.2: No plugins message
+  Widget _buildNoPluginsMessage(PluginProvider provider) {
+    final hasFilters = provider.searchQuery.isNotEmpty ||
+        provider.formatFilter != null ||
+        provider.showFavoritesOnly;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            hasFilters ? Icons.search_off : Icons.extension_off,
+            size: 32,
+            color: LowerZoneColors.textMuted,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            hasFilters ? 'No plugins match filters' : 'No plugins found',
+            style: const TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
+          ),
+          if (hasFilters) ...[
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: provider.clearFilters,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.dawAccent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: LowerZoneColors.dawAccent),
+                ),
+                child: Text(
+                  'Clear Filters',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.dawAccent),
+                ),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            Text(
+              'Click "Rescan" to scan for plugins',
+              style: const TextStyle(fontSize: 9, color: LowerZoneColors.textTertiary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Compact undo history panel — Connected to UiUndoManager
+  Widget _buildCompactHistoryPanel() {
+    return ListenableBuilder(
+      listenable: UiUndoManager.instance,
+      builder: (context, _) {
+        final undoManager = UiUndoManager.instance;
+        final history = undoManager.undoHistory;
+        final canUndo = undoManager.canUndo;
+        final canRedo = undoManager.canRedo;
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _buildBrowserHeader('UNDO HISTORY', Icons.history),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${undoManager.undoStackSize} actions',
+                    style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                  ),
+                  const Spacer(),
+                  // Undo button
+                  GestureDetector(
+                    onTap: canUndo ? () => undoManager.undo() : null,
+                    child: _buildUndoRedoChip(Icons.undo, 'Undo', canUndo),
+                  ),
+                  const SizedBox(width: 4),
+                  // Redo button
+                  GestureDetector(
+                    onTap: canRedo ? () => undoManager.redo() : null,
+                    child: _buildUndoRedoChip(Icons.redo, 'Redo', canRedo),
+                  ),
+                  const SizedBox(width: 8),
+                  // Clear button
+                  GestureDetector(
+                    onTap: history.isNotEmpty ? () => undoManager.clear() : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: history.isNotEmpty
+                            ? Colors.red.withValues(alpha: 0.1)
+                            : LowerZoneColors.bgSurface,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: history.isNotEmpty ? Colors.red.withValues(alpha: 0.3) : LowerZoneColors.border,
+                        ),
+                      ),
+                      child: Text(
+                        'Clear',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: history.isNotEmpty ? Colors.red : LowerZoneColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: LowerZoneColors.bgDeepest,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: LowerZoneColors.border),
+                  ),
+                  child: history.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No undo history',
+                            style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(4),
+                          itemCount: history.length,
+                          itemBuilder: (context, index) {
+                            final action = history[index];
+                            return GestureDetector(
+                              onTap: () => undoManager.undoTo(index),
+                              child: _buildHistoryItem(
+                                action.description,
+                                index == 0, // Most recent is current
+                                index,
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildUndoRedoChip(IconData icon, String label, bool isEnabled) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isEnabled
+            ? LowerZoneColors.dawAccent.withValues(alpha: 0.1)
+            : LowerZoneColors.bgSurface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isEnabled ? LowerZoneColors.dawAccent.withValues(alpha: 0.3) : LowerZoneColors.border,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 12,
+            color: isEnabled ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              color: isEnabled ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryItem(String action, bool isCurrent, int index) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: isCurrent ? LowerZoneColors.dawAccent.withValues(alpha: 0.1) : null,
+        border: Border(
+          left: BorderSide(
+            color: isCurrent ? LowerZoneColors.dawAccent : Colors.transparent,
+            width: 2,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isCurrent ? Icons.arrow_right : Icons.circle,
+            size: isCurrent ? 16 : 6,
+            color: isCurrent ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              action,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                color: isCurrent ? LowerZoneColors.dawAccent : LowerZoneColors.textPrimary,
+              ),
+            ),
+          ),
+          // Index indicator (for undo-to-this-point)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: LowerZoneColors.bgMid,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              '#${index + 1}',
+              style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EDIT CONTENT
+  // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildEditContent() {
     final subTab = widget.controller.state.editSubTab;
@@ -488,7 +1468,76 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   // Old code removed (was lines 1467-1597, ~131 LOC)
 
   /// P0.2 + P1.4: Interactive Grid/Timeline Settings with tempo, time sig, snap
-
+  Widget _buildCompactGridSettings() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader('TIMELINE SETTINGS', Icons.settings),
+          const SizedBox(height: 12),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left column: Tempo & Time Signature
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Tempo section
+                        _buildSubSectionHeader('TEMPO'),
+                        const SizedBox(height: 8),
+                        _buildTempoControl(),
+                        const SizedBox(height: 16),
+                        // Time Signature section
+                        _buildSubSectionHeader('TIME SIGNATURE'),
+                        const SizedBox(height: 8),
+                        _buildTimeSignatureControl(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  // Right column: Grid Settings
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSubSectionHeader('GRID'),
+                        const SizedBox(height: 8),
+                        // Snap Enable Toggle
+                        _buildGridToggle(
+                          label: 'Snap to Grid',
+                          value: widget.snapEnabled,
+                          icon: Icons.grid_on,
+                          onChanged: widget.onSnapEnabledChanged,
+                        ),
+                        const SizedBox(height: 8),
+                        // Grid Resolution Selector
+                        _buildGridResolutionSelector(),
+                        const SizedBox(height: 8),
+                        // Triplet Grid Toggle
+                        _buildGridToggle(
+                          label: 'Triplet Grid',
+                          value: widget.tripletGrid,
+                          icon: Icons.grid_3x3,
+                          onChanged: widget.onTripletGridChanged,
+                        ),
+                        const SizedBox(height: 12),
+                        // Visual indicator of current snap
+                        _buildSnapIndicator(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   /// P1.4: Sub-section header
   Widget _buildSubSectionHeader(String label) {
@@ -1210,13 +2259,104 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     ); // End Column
   }
 
-  /// ✅ P0.1: Extracted MIX panels
-  Widget _buildSendsPanel() => const SendsPanel();
-  Widget _buildPanPanel() => PanPanel(selectedTrackId: widget.selectedTrackId);
-  Widget _buildAutomationPanel() => AutomationPanel(selectedTrackId: widget.selectedTrackId);
+  Widget _buildSendsPanel() => const RoutingMatrixPanel();
+  Widget _buildPanPanel() => _buildCompactPannerPanel();
+  Widget _buildAutomationPanel() => _buildCompactAutomationPanel();
 
   /// Compact sends panel with MiniKnobs connected to MixerProvider
+  Widget _buildCompactSendsPanel() {
+    // Try to get MixerProvider
+    MixerProvider? mixerProvider;
+    try {
+      mixerProvider = context.watch<MixerProvider>();
+    } catch (_) {
+      // Provider not available
+    }
 
+    // Get selected channel's sends
+    final selectedChannel = _getSelectedChannel(mixerProvider);
+    final sends = selectedChannel?.sends ?? [];
+
+    // Default aux definitions
+    const auxDefs = [
+      ('Reverb A', 'aux_reverb_a', Color(0xFF40C8FF)),
+      ('Reverb B', 'aux_reverb_b', Color(0xFF40C8FF)),
+      ('Delay', 'aux_delay', Color(0xFFFF9040)),
+      ('Chorus', 'aux_chorus', Color(0xFF40FF90)),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.call_split, size: 16, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 8),
+              Text(
+                'AUX SENDS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: LowerZoneColors.dawAccent,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const Spacer(),
+              if (selectedChannel != null)
+                Text(
+                  selectedChannel.name,
+                  style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
+                )
+              else
+                const Text(
+                  'No track selected',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: auxDefs.map((def) {
+                final (name, auxId, color) = def;
+                // Find send level for this aux
+                final send = sends.where((s) => s.auxId == auxId).firstOrNull;
+                final level = send?.level ?? 0.0;
+                final enabled = send?.enabled ?? true;
+
+                return _buildSendChannelWithKnob(
+                  name,
+                  level,
+                  color,
+                  enabled: enabled,
+                  onChanged: mixerProvider != null && selectedChannel != null
+                      ? (newLevel) {
+                          mixerProvider!.setAuxSendLevel(
+                            selectedChannel.id,
+                            auxId,
+                            newLevel,
+                          );
+                        }
+                      : null,
+                  onMuteToggle: mixerProvider != null && selectedChannel != null
+                      ? () {
+                          mixerProvider!.toggleAuxSendEnabled(
+                            selectedChannel.id,
+                            auxId,
+                          );
+                        }
+                      : null,
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   /// Get selected channel from MixerProvider based on selectedTrackId
   MixerChannel? _getSelectedChannel(MixerProvider? provider) {
@@ -1290,7 +2430,97 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   String _selectedPanLaw = '-3dB';
 
   /// Compact surround panner connected to MixerProvider
+  Widget _buildCompactPannerPanel() {
+    // Try to get MixerProvider
+    MixerProvider? mixerProvider;
+    try {
+      mixerProvider = context.watch<MixerProvider>();
+    } catch (_) {
+      // Provider not available
+    }
 
+    final selectedChannel = _getSelectedChannel(mixerProvider);
+    final pan = selectedChannel?.pan ?? 0.0;
+    final panRight = selectedChannel?.panRight ?? 0.0;
+    final isStereo = selectedChannel?.isStereo ?? true;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.surround_sound, size: 16, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 8),
+              Text(
+                isStereo ? 'STEREO PANNER' : 'MONO PANNER',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: LowerZoneColors.dawAccent,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const Spacer(),
+              if (selectedChannel != null)
+                Text(
+                  selectedChannel.name,
+                  style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
+                )
+              else
+                const Text(
+                  'No track selected',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // P2.4: Pan Law selection row
+          Row(
+            children: [
+              Text(
+                'Pan Law:',
+                style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+              ),
+              const SizedBox(width: 8),
+              ..._buildPanLawChips(),
+              const Spacer(),
+              // Pan law info tooltip
+              Tooltip(
+                message: _getPanLawDescription(_selectedPanLaw),
+                child: Icon(
+                  Icons.info_outline,
+                  size: 14,
+                  color: LowerZoneColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Center(
+              child: _buildPannerWidget(
+                pan: pan,
+                panRight: panRight,
+                isStereo: isStereo,
+                onPanChanged: mixerProvider != null && selectedChannel != null
+                    ? (newPan) {
+                        mixerProvider!.setChannelPan(selectedChannel.id, newPan);
+                      }
+                    : null,
+                onPanRightChanged: mixerProvider != null && selectedChannel != null && isStereo
+                    ? (newPan) {
+                        mixerProvider!.setChannelPanRight(selectedChannel.id, newPan);
+                      }
+                    : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   // P2.4: Convert string pan law to PanLaw enum
   PanLaw _stringToPanLaw(String law) {
@@ -1500,7 +2730,131 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   int? _selectedAutomationPointIndex;
 
   /// Compact automation panel for Lower Zone - P2.3 Enhanced
+  Widget _buildCompactAutomationPanel() {
+    final selectedTrackName = widget.selectedTrackId != null
+        ? 'Track ${widget.selectedTrackId}'
+        : 'No Track Selected';
 
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              Icon(Icons.auto_graph, size: 16, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 8),
+              Text(
+                'AUTOMATION',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: LowerZoneColors.dawAccent,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Track indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.bgSurface,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  selectedTrackName,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: widget.selectedTrackId != null
+                        ? LowerZoneColors.textPrimary
+                        : LowerZoneColors.textMuted,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              _buildAutomationModeChip('Read', _automationMode == 'Read'),
+              _buildAutomationModeChip('Write', _automationMode == 'Write'),
+              _buildAutomationModeChip('Touch', _automationMode == 'Touch'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Parameter selection row
+          Row(
+            children: [
+              Text(
+                'Parameter:',
+                style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                initialValue: _automationParameter,
+                onSelected: (value) => setState(() => _automationParameter = value),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: LowerZoneColors.bgSurface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: LowerZoneColors.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _automationParameter,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: LowerZoneColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_drop_down, size: 14, color: LowerZoneColors.textMuted),
+                    ],
+                  ),
+                ),
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'Volume', child: Text('Volume')),
+                  const PopupMenuItem(value: 'Pan', child: Text('Pan')),
+                  const PopupMenuItem(value: 'Mute', child: Text('Mute')),
+                  const PopupMenuItem(value: 'Send 1', child: Text('Send 1')),
+                  const PopupMenuItem(value: 'Send 2', child: Text('Send 2')),
+                  const PopupMenuItem(value: 'EQ Gain', child: Text('EQ Gain')),
+                  const PopupMenuItem(value: 'EQ Freq', child: Text('EQ Freq')),
+                  const PopupMenuItem(value: 'Comp Threshold', child: Text('Comp Threshold')),
+                ],
+              ),
+              const SizedBox(width: 16),
+              // Clear button
+              TextButton.icon(
+                onPressed: widget.selectedTrackId != null
+                    ? () => setState(() => _automationPoints.clear())
+                    : null,
+                icon: Icon(Icons.clear, size: 14, color: LowerZoneColors.textMuted),
+                label: Text(
+                  'Clear',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                ),
+              ),
+              const Spacer(),
+              // Point count
+              if (_automationPoints.isNotEmpty)
+                Text(
+                  '${_automationPoints.length} points',
+                  style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Automation curve editor
+          Expanded(
+            child: widget.selectedTrackId == null
+                ? _buildNoTrackAutomationPlaceholder()
+                : _buildInteractiveAutomationEditor(),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildNoTrackAutomationPlaceholder() {
     return Container(
@@ -1634,20 +2988,41 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   /// FabFilter Pro-Q Style 64-band Parametric EQ
-  /// ✅ P0.1: Extracted PROCESS panels
-  Widget _buildEqPanel() => EqPanel(selectedTrackId: widget.selectedTrackId);
+  Widget _buildEqPanel() {
+    final trackId = widget.selectedTrackId;
+    if (trackId == null) {
+      return _buildNoTrackSelectedPanel('EQ', Icons.equalizer);
+    }
+    return FabFilterEqPanel(trackId: trackId);
+  }
 
   /// FabFilter Pro-C Style Compressor
-  Widget _buildCompPanel() => CompPanel(selectedTrackId: widget.selectedTrackId);
+  Widget _buildCompPanel() {
+    final trackId = widget.selectedTrackId;
+    if (trackId == null) {
+      return _buildNoTrackSelectedPanel('Compressor', Icons.compress);
+    }
+    return FabFilterCompressorPanel(trackId: trackId);
+  }
 
   /// FabFilter Pro-L Style Limiter
-  Widget _buildLimiterPanel() => LimiterPanel(selectedTrackId: widget.selectedTrackId);
+  Widget _buildLimiterPanel() {
+    final trackId = widget.selectedTrackId;
+    if (trackId == null) {
+      return _buildNoTrackSelectedPanel('Limiter', Icons.volume_up);
+    }
+    return FabFilterLimiterPanel(trackId: trackId);
+  }
 
   /// P0.4: FX Chain — Shows all processors in chain with reorder support
-  Widget _buildFxChainPanel() => FxChainPanel(
-    selectedTrackId: widget.selectedTrackId,
-    onNavigateToSubTab: (subTab) => widget.controller.setProcessSubTab(subTab),
-  );
+  Widget _buildFxChainPanel() {
+    final trackId = widget.selectedTrackId;
+    if (trackId == null) {
+      return _buildNoTrackSelectedPanel('FX Chain', Icons.link);
+    }
+    // FX Chain view showing all active processors
+    return _buildFxChainView(trackId);
+  }
 
   /// P0.4: FX Chain View with DspChainProvider integration
   Widget _buildFxChainView(int trackId) {
@@ -2210,17 +3585,16 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   /// P2.1: Functional export panel with FFI integration
-  /// ✅ P0.1: Extracted DELIVER panels
-  Widget _buildExportPanel() => const ExportPanel();
+  Widget _buildExportPanel() => const DawExportPanel();
 
   /// P2.1: Functional stems panel with track/bus selection
-  Widget _buildStemsPanel() => const StemsPanel();
+  Widget _buildStemsPanel() => const DawStemsPanel();
 
   /// P2.1: Functional realtime bounce with progress
-  Widget _buildBouncePanel() => const BouncePanel();
+  Widget _buildBouncePanel() => const DawBouncePanel();
 
   /// Archive panel (project packaging)
-  Widget _buildArchivePanel() => const ArchivePanel();
+  Widget _buildArchivePanel() => _buildCompactArchive();
 
   // Note: _buildCompactExportSettings, _buildCompactStemExport, _buildCompactBounce
   // removed — replaced by DawExportPanel, DawStemsPanel, DawBouncePanel (P2.1)
@@ -2255,7 +3629,54 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   /// Compact Archive
-
+  Widget _buildCompactArchive() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader('PROJECT ARCHIVE', Icons.inventory_2),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildArchiveCheckbox('Include Audio', _archiveIncludeAudio, (v) {
+                        setState(() => _archiveIncludeAudio = v);
+                      }),
+                      _buildArchiveCheckbox('Include Presets', _archiveIncludePresets, (v) {
+                        setState(() => _archiveIncludePresets = v);
+                      }),
+                      _buildArchiveCheckbox('Include Plugins', _archiveIncludePlugins, (v) {
+                        setState(() => _archiveIncludePlugins = v);
+                      }),
+                      _buildArchiveCheckbox('Compress', _archiveCompress, (v) {
+                        setState(() => _archiveCompress = v);
+                      }),
+                      // Progress indicator
+                      if (_archiveInProgress) ...[
+                        const SizedBox(height: 8),
+                        _buildArchiveProgress(),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _buildExportButton(
+                  _archiveInProgress ? 'CREATING...' : 'ARCHIVE',
+                  _archiveInProgress ? Icons.hourglass_empty : Icons.archive,
+                  _archiveInProgress ? LowerZoneColors.textMuted : LowerZoneColors.dawAccent,
+                  onTap: _archiveInProgress ? null : _createProjectArchive,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   /// Create project archive
   Future<void> _createProjectArchive() async {

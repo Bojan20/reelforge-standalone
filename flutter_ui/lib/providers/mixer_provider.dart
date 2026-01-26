@@ -16,6 +16,7 @@ import '../src/rust/native_ffi.dart';
 import '../src/rust/engine_api.dart';
 import '../models/layout_models.dart' show InsertSlot;
 import 'dsp_chain_provider.dart';
+import '../utils/input_validator.dart'; // ✅ Input validation
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MIXER CHANNEL TYPES
@@ -640,19 +641,27 @@ class MixerProvider extends ChangeNotifier {
     Color? color,
     String? outputBus,
   }) {
+    // ✅ P0.3: Input validation
+    final validationError = InputSanitizer.validateName(name);
+    if (validationError != null) {
+      debugPrint('[MixerProvider] ❌ Invalid channel name: $validationError');
+      throw ArgumentError('Invalid channel name: $validationError');
+    }
+
+    final sanitizedName = InputSanitizer.sanitizeName(name);
     final id = 'ch_${DateTime.now().millisecondsSinceEpoch}';
     final trackIndex = _nextTrackIndex++;
 
     // Create in engine
     final engineTrackId = NativeFFI.instance.createTrack(
-      name,
+      sanitizedName, // ✅ Use sanitized name
       (color ?? const Color(0xFF4A9EFF)).value,
       _getBusEngineId(outputBus ?? 'bus_sfx'),
     );
 
     final channel = MixerChannel(
       id: id,
-      name: name,
+      name: sanitizedName, // ✅ Use sanitized name
       type: ChannelType.audio,
       color: color ?? _getNextTrackColor(),
       outputBus: outputBus ?? 'bus_sfx',
@@ -661,6 +670,7 @@ class MixerProvider extends ChangeNotifier {
 
     _channels[id] = channel;
     _channelOrder.add(id); // Maintain order list
+    debugPrint('[MixerProvider] ✅ Created channel "$sanitizedName" (id: $id, engineTrack: $engineTrackId)');
     notifyListeners();
     return channel;
   }
@@ -675,6 +685,15 @@ class MixerProvider extends ChangeNotifier {
     Color trackColor, {
     int channels = 2,
   }) {
+    // ✅ P0.3: Input validation
+    final validationError = InputSanitizer.validateName(trackName);
+    if (validationError != null) {
+      debugPrint('[MixerProvider] ❌ Invalid track name: $validationError');
+      throw ArgumentError('Invalid track name: $validationError');
+    }
+
+    final sanitizedName = InputSanitizer.sanitizeName(trackName);
+
     // Check if channel already exists for this track
     final existing = _channels.values.where((c) => c.id == 'ch_$trackId').firstOrNull;
     if (existing != null) return existing;
@@ -694,7 +713,7 @@ class MixerProvider extends ChangeNotifier {
     // Cubase-style: channels route directly to master (no intermediate buses)
     final channel = MixerChannel(
       id: id,
-      name: trackName,
+      name: sanitizedName, // ✅ Use sanitized name
       type: ChannelType.audio,
       color: trackColor,
       pan: defaultPan,
@@ -838,17 +857,28 @@ class MixerProvider extends ChangeNotifier {
     Color? color,
     String? outputBus,
   }) {
+    // ✅ P0.3: Input validation
+    final validationError = InputSanitizer.validateName(name);
+    if (validationError != null) {
+      debugPrint('[MixerProvider] ❌ Invalid bus name: $validationError');
+      throw ArgumentError('Invalid bus name: $validationError');
+    }
+
+    // Sanitize name to be extra safe
+    final sanitizedName = InputSanitizer.sanitizeName(name);
+
     final id = 'bus_${DateTime.now().millisecondsSinceEpoch}';
 
     final bus = MixerChannel(
       id: id,
-      name: name,
+      name: sanitizedName, // ✅ Use sanitized name
       type: ChannelType.bus,
       color: color ?? const Color(0xFF9B59B6),
       outputBus: outputBus ?? 'master',
     );
 
     _buses[id] = bus;
+    debugPrint('[MixerProvider] ✅ Created bus "$sanitizedName" (id: $id)');
     notifyListeners();
     return bus;
   }
@@ -881,17 +911,26 @@ class MixerProvider extends ChangeNotifier {
     required String name,
     Color? color,
   }) {
+    // ✅ P0.3: Input validation
+    final validationError = InputSanitizer.validateName(name);
+    if (validationError != null) {
+      debugPrint('[MixerProvider] ❌ Invalid aux name: $validationError');
+      throw ArgumentError('Invalid aux name: $validationError');
+    }
+
+    final sanitizedName = InputSanitizer.sanitizeName(name);
     final id = 'aux_${DateTime.now().millisecondsSinceEpoch}';
 
     final aux = MixerChannel(
       id: id,
-      name: name,
+      name: sanitizedName, // ✅ Use sanitized name
       type: ChannelType.aux,
       color: color ?? const Color(0xFFE74C3C),
       outputBus: 'master',
     );
 
     _auxes[id] = aux;
+    debugPrint('[MixerProvider] ✅ Created aux "$sanitizedName" (id: $id)');
     notifyListeners();
     return aux;
   }
@@ -1277,7 +1316,13 @@ class MixerProvider extends ChangeNotifier {
     final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
     if (channel == null) return;
 
-    final clampedVolume = volume.clamp(0.0, 1.5);
+    // ✅ P0.3: FFI bounds checking (NaN/Infinite protection)
+    if (!FFIBoundsChecker.validateVolume(volume)) {
+      debugPrint('[MixerProvider] ❌ Invalid volume: $volume (NaN/Infinite/OutOfBounds)');
+      return; // Abort instead of crashing
+    }
+
+    final clampedVolume = FFIBoundsChecker.clampVolume(volume);
 
     // Propagate to group members first (before updating this channel)
     if (propagateGroup && _channels.containsKey(id)) {
@@ -1287,11 +1332,19 @@ class MixerProvider extends ChangeNotifier {
     if (_channels.containsKey(id)) {
       _channels[id] = channel.copyWith(volume: clampedVolume);
       if (channel.trackIndex != null) {
-        engine.setTrackVolume(channel.trackIndex!, clampedVolume);
+        // ✅ Validate track ID before FFI call
+        if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
+          engine.setTrackVolume(channel.trackIndex!, clampedVolume);
+        } else {
+          debugPrint('[MixerProvider] ⚠️ Invalid trackIndex: ${channel.trackIndex}');
+        }
       }
     } else if (_buses.containsKey(id)) {
       _buses[id] = channel.copyWith(volume: clampedVolume);
-      engine.setBusVolume(_getBusEngineId(id), clampedVolume);
+      final busId = _getBusEngineId(id);
+      if (FFIBoundsChecker.validateBusId(busId)) {
+        engine.setBusVolume(busId, clampedVolume);
+      }
     } else if (_auxes.containsKey(id)) {
       _auxes[id] = channel.copyWith(volume: clampedVolume);
     }
@@ -1303,7 +1356,13 @@ class MixerProvider extends ChangeNotifier {
     final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
     if (channel == null) return;
 
-    final clampedPan = pan.clamp(-1.0, 1.0);
+    // ✅ P0.3: FFI bounds checking (NaN/Infinite protection)
+    if (!FFIBoundsChecker.validatePan(pan)) {
+      debugPrint('[MixerProvider] ❌ Invalid pan: $pan (NaN/Infinite/OutOfBounds)');
+      return;
+    }
+
+    final clampedPan = FFIBoundsChecker.clampPan(pan);
 
     // Propagate to group members first (before updating this channel)
     if (propagateGroup && _channels.containsKey(id)) {
@@ -1313,11 +1372,19 @@ class MixerProvider extends ChangeNotifier {
     if (_channels.containsKey(id)) {
       _channels[id] = channel.copyWith(pan: clampedPan);
       if (channel.trackIndex != null) {
-        engine.setTrackPan(channel.trackIndex!, clampedPan);
+        // ✅ Validate track ID before FFI call
+        if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
+          engine.setTrackPan(channel.trackIndex!, clampedPan);
+        } else {
+          debugPrint('[MixerProvider] ⚠️ Invalid trackIndex: ${channel.trackIndex}');
+        }
       }
     } else if (_buses.containsKey(id)) {
       _buses[id] = channel.copyWith(pan: clampedPan);
-      engine.setBusPan(_getBusEngineId(id), clampedPan);
+      final busId = _getBusEngineId(id);
+      if (FFIBoundsChecker.validateBusId(busId)) {
+        engine.setBusPan(busId, clampedPan);
+      }
     } else if (_auxes.containsKey(id)) {
       _auxes[id] = channel.copyWith(pan: clampedPan);
     }

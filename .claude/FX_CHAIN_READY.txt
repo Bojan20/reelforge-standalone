@@ -1,0 +1,19 @@
+FX Chain panel extracted to /tmp/fx_chain_extract.txt (546 LOC)
+
+Methods included:
+- _buildFxChainView (main)
+- _buildChainBypassToggle
+- _buildAddProcessorButton
+- _buildEmptyChainPlaceholder
+- _buildDraggableProcessor
+- _buildProcessorCard
+- _navigateToProcessor
+- _nodeTypeIcon
+- _buildChainActionButton
+- _buildChainNode
+- _buildChainProcessor
+- _buildChainConnector
+
+Ready for integration into fx_chain_panel.dart
+
+Next session: Copy from /tmp/fx_chain_extract.txt to create full panel

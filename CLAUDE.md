@@ -143,10 +143,51 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 
 ## CORE REFERENCES (must-read, in this order)
 
-1. .claude/00_AUTHORITY.md
-2. .claude/01_BUILD_MATRIX.md
-3. .claude/02_DOD_MILESTONES.md
-4. .claude/03_SAFETY_GUARDRAILS.md
+1. .claude/00_AUTHORITY.md ⭐ **Truth hierarchy** (updated 2026-01-26: Level 0 Model Policy)
+2. .claude/00_MODEL_USAGE_POLICY.md ⚡ **KRITIČNO — Pročitaj prvo!** (NEW 2026-01-26)
+3. .claude/01_BUILD_MATRIX.md
+4. .claude/02_DOD_MILESTONES.md (updated 2026-01-26: DAW P0 progress)
+5. .claude/03_SAFETY_GUARDRAILS.md
+
+**NEW — Quick References:**
+- .claude/guides/MODEL_SELECTION_CHEAT_SHEET.md — 3-second model decision
+- .claude/guides/PRE_TASK_CHECKLIST.md — Mandatory validation before tasks
+- .claude/guides/PROVIDER_ACCESS_PATTERN.md — Code standard for Provider usage
+
+---
+
+## ⚡ MODEL SELECTION — Opus vs Sonnet vs Haiku
+
+**OBAVEZNO pročitaj:** `.claude/00_MODEL_USAGE_POLICY.md`
+
+**TL;DR — Quick Decision Tree:**
+
+```
+Is this task fundamentally changing system architecture?
+├─ YES → Consider Opus (ask user)
+└─ NO → Continue ↓
+
+Is this an "ultimate/master/vision" document?
+├─ YES → Consider Opus (ask user)
+└─ NO → Continue ↓
+
+Does this involve writing/modifying code?
+├─ YES → Use Sonnet
+└─ NO → Use Sonnet (analysis/docs)
+
+DEFAULT: When uncertain → Sonnet
+```
+
+**Model Roles:**
+- **Opus 4.5** = Chief Architect / CTO (architectural design, ultimate specs, vision)
+- **Sonnet 4.5** = Senior Developer (90% of tasks: code, analysis, TODO, refactoring)
+- **Haiku 3.5** = Quick Helper (optional: trivial tasks, fast searches)
+
+**Key Rule:** Never use Opus for implementation, refactoring, or routine work.
+
+**Violation:** Using wrong model is a critical error — see policy for self-correction protocol.
+
+---
 
 ## REVIEW MODE
 

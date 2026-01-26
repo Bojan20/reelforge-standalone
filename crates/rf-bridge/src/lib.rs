@@ -38,6 +38,7 @@ mod api_mixer;
 mod api_project;
 mod api_transport;
 mod audio_io;
+pub mod sidechain_ffi; // ✅ P0.5: Sidechain routing
 pub mod autosave_ffi;
 pub mod command_queue;
 pub mod dsp_commands;

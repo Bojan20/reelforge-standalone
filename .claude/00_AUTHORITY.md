@@ -1,9 +1,31 @@
 # FluxForge Studio — Authority & Truth Hierarchy
 
 This file defines the absolute authority model for this repository.
-When documents conflict, this file decides what is “law”.
+When documents conflict, this file decides what is "law".
 
 Claude MUST treat this hierarchy as non-negotiable.
+
+---
+
+## 0. Meta-Law: Model Usage Policy (ABSOLUTE SUPREME)
+
+**Document:** `.claude/00_MODEL_USAGE_POLICY.md`
+
+This policy determines **HOW Claude operates** — which model to use for which task.
+
+**It is Level 0 because:**
+- It affects ALL other levels (1-5)
+- Wrong model = wrong architecture decisions OR wasted resources
+- Must be checked BEFORE any work begins
+
+**Core Rule:**
+- Opus 4.5 = Architectural design, ultimate specs, vision
+- Sonnet 4.5 = Implementation, analysis, refactoring, TODO (90% of work)
+- Haiku 3.5 = Trivial tasks (optional)
+
+**Violation:** Using wrong model is a critical error.
+
+**When uncertain → Ask user OR default to Sonnet.**
 
 ---
 
