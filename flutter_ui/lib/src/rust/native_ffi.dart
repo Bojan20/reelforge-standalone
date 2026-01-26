@@ -20183,14 +20183,11 @@ extension PluginStateFFI on NativeFFI {
       return [];
     }
   }
-}
-
   // ═══════════════════════════════════════════════════════════════════════════
   // SIDECHAIN ROUTING (P0.5)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Set sidechain input source for processor
-  /// Returns 0 on success, -1 on error
   int insertSetSidechainSource(int trackId, int slotIndex, int sourceTrackId) {
     if (!_loaded) return -1;
     try {
@@ -20234,4 +20231,7 @@ extension PluginStateFFI on NativeFFI {
       return -1;
     }
   }
+
+
 }
+

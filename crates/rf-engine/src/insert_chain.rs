@@ -92,6 +92,9 @@ pub struct InsertSlot {
     bypass_coeff: f64,
     /// Sample rate for coefficient calculation
     sample_rate: f64,
+    // ═══ Sidechain (P0.5) ═══
+    /// Sidechain source track ID (-1 = internal/disabled)
+    sidechain_source: i64,
 }
 
 impl InsertSlot {
@@ -117,6 +120,8 @@ impl InsertSlot {
             // Pre-allocate buffers to avoid audio thread allocation
             dry_buffer_l: Box::new([0.0; MAX_BLEND_BUFFER_SIZE]),
             dry_buffer_r: Box::new([0.0; MAX_BLEND_BUFFER_SIZE]),
+            // Sidechain
+            sidechain_source: -1, // Default: internal
             // Bypass fade: start active (gain = 1.0)
             bypass_gain: 1.0,
             bypass_coeff: Self::calculate_bypass_coeff(DEFAULT_SAMPLE_RATE),
@@ -272,6 +277,23 @@ impl InsertSlot {
             .as_ref()
             .map(|p| p.get_param(index))
             .unwrap_or(0.0)
+    }
+
+    // ═══ Sidechain Methods (P0.5) ═══
+
+    /// Set sidechain source track (-1 = internal/disabled)
+    pub fn set_sidechain_source(&mut self, source_track_id: i64) {
+        self.sidechain_source = source_track_id;
+    }
+
+    /// Get current sidechain source
+    pub fn get_sidechain_source(&self) -> i64 {
+        self.sidechain_source
+    }
+
+    /// Check if external sidechain is enabled
+    pub fn has_external_sidechain(&self) -> bool {
+        self.sidechain_source >= 0
     }
 }
 
