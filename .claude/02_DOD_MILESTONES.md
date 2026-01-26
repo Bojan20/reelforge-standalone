@@ -408,23 +408,25 @@ Files Changed:
 
 ## P2 — SlotLab Audio Preview
 
-### P2.4 — Hover Audio Preview
+### P2.4 — Audio Preview (Manual Play/Stop)
+
+> **V6.4 Update (2026-01-26):** Hover auto-play DISABLED. Now uses manual play/stop buttons.
 
 Exit Criteria:
 
-- 500ms hover delay before playback
-- Play first 3 seconds of audio
-- Stop on mouse leave
+- ~~500ms hover delay before playback~~ **DISABLED**
+- Manual play/stop buttons (visible on hover or while playing)
+- Playback continues until manually stopped
 - Respects preview volume setting
 
 Implementation:
 
-- `AudioHoverPreview` widget with Timer
-- `AudioPlaybackService.playPreview()` method
+- `_HoverPreviewItem` widget with play/stop buttons
+- `AudioPlaybackService.previewFile()` method
 
 Files:
 
-- `flutter_ui/lib/widgets/slot_lab/audio_hover_preview.dart`
+- `flutter_ui/lib/widgets/slot_lab/events_panel_widget.dart`
 - `flutter_ui/lib/services/audio_playback_service.dart`
 
 ---

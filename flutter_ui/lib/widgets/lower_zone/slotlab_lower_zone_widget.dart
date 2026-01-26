@@ -137,18 +137,26 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         children: [
           // Resize handle (fixed: 4px)
           _buildResizeHandle(),
-          // Context bar (fixed: 60px)
-          LowerZoneContextBar(
-            superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
-            superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
-            selectedSuperTab: widget.controller.superTab.index,
-            subTabLabels: widget.controller.subTabLabels,
-            selectedSubTab: widget.controller.currentSubTabIndex,
-            accentColor: widget.controller.accentColor,
-            isExpanded: widget.controller.isExpanded,
-            onSuperTabSelected: widget.controller.setSuperTabIndex,
-            onSubTabSelected: widget.controller.setSubTabIndex,
-            onToggle: widget.controller.toggle,
+          // Context bar (fixed: 60px) with shortcuts help button
+          Row(
+            children: [
+              Expanded(
+                child: LowerZoneContextBar(
+                  superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
+                  superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
+                  selectedSuperTab: widget.controller.superTab.index,
+                  subTabLabels: widget.controller.subTabLabels,
+                  selectedSubTab: widget.controller.currentSubTabIndex,
+                  accentColor: widget.controller.accentColor,
+                  isExpanded: widget.controller.isExpanded,
+                  onSuperTabSelected: widget.controller.setSuperTabIndex,
+                  onSubTabSelected: widget.controller.setSubTabIndex,
+                  onToggle: widget.controller.toggle,
+                ),
+              ),
+              // P0.3: Keyboard shortcuts help button
+              _buildShortcutsHelpButton(),
+            ],
           ),
           // Content panel (only when expanded)
           if (widget.controller.isExpanded)
@@ -190,6 +198,36 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               decoration: BoxDecoration(
                 color: LowerZoneColors.border,
                 borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// P0.3: Keyboard shortcuts help button
+  Widget _buildShortcutsHelpButton() {
+    return Tooltip(
+      message: 'Keyboard Shortcuts (?)',
+      child: GestureDetector(
+        onTap: () => KeyboardShortcutsOverlay.show(context),
+        child: Container(
+          width: 28,
+          height: 28,
+          margin: const EdgeInsets.only(right: 8, top: 2),
+          decoration: BoxDecoration(
+            color: LowerZoneColors.bgMid,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: LowerZoneColors.border),
+          ),
+          child: const Center(
+            child: Text(
+              '?',
+              style: TextStyle(
+                color: LowerZoneColors.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -3012,3 +3050,170 @@ class _TimelinePainter extends CustomPainter {
 }
 
 // Note: _EqCurvePainter and _ReverbDecayPainter removed — replaced by FabFilter widgets
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P0.3: KEYBOARD SHORTCUTS OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Shows keyboard shortcuts overlay dialog for SlotLab Lower Zone
+class KeyboardShortcutsOverlay {
+  static void show(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (context) => const _KeyboardShortcutsDialog(),
+    );
+  }
+}
+
+class _KeyboardShortcutsDialog extends StatelessWidget {
+  const _KeyboardShortcutsDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: LowerZoneColors.bgDeep,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: LowerZoneColors.border),
+      ),
+      child: Container(
+        width: 420,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                const Icon(Icons.keyboard, color: LowerZoneColors.textPrimary, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Keyboard Shortcuts',
+                  style: TextStyle(
+                    color: LowerZoneColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  color: LowerZoneColors.textSecondary,
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Divider(color: LowerZoneColors.border, height: 1),
+            const SizedBox(height: 16),
+
+            // Super Tabs section
+            _buildSection('Super Tabs', [
+              ('1', 'STAGES tab'),
+              ('2', 'EVENTS tab'),
+              ('3', 'MIX tab'),
+              ('4', 'DSP tab'),
+              ('5', 'BAKE tab'),
+            ]),
+            const SizedBox(height: 16),
+
+            // Sub Tabs section
+            _buildSection('Sub Tabs (within STAGES)', [
+              ('Q', 'Trace sub-tab'),
+              ('W', 'Timeline sub-tab'),
+              ('E', 'Symbols sub-tab'),
+              ('R', 'Timing sub-tab'),
+            ]),
+            const SizedBox(height: 16),
+
+            // General section
+            _buildSection('General', [
+              ('`', 'Toggle expand/collapse'),
+              ('Esc', 'Close/collapse'),
+              ('?', 'Show this help'),
+            ]),
+            const SizedBox(height: 16),
+
+            // Slot Preview section
+            _buildSection('Slot Preview', [
+              ('Space', 'Spin / Stop'),
+              ('1-7', 'Force outcomes (debug)'),
+              ('T', 'Toggle turbo mode'),
+            ]),
+
+            const SizedBox(height: 20),
+            // Footer hint
+            Center(
+              child: Text(
+                'Press Esc or click outside to close',
+                style: TextStyle(
+                  color: LowerZoneColors.textMuted,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, List<(String, String)> shortcuts) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: LowerZoneColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...shortcuts.map((s) => _buildShortcutRow(s.$1, s.$2)),
+      ],
+    );
+  }
+
+  Widget _buildShortcutRow(String key, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: LowerZoneColors.bgMid,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: LowerZoneColors.border),
+            ),
+            child: Text(
+              key,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: LowerZoneColors.textPrimary,
+                fontSize: 12,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            description,
+            style: const TextStyle(
+              color: LowerZoneColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

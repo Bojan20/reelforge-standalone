@@ -630,8 +630,155 @@ flutter_ui/lib/
 │           │
 │           └── media/
 │               ├── browser_panel.dart          # Port from existing
-│               ├── audio_pool_panel.dart       # Port from existing
+│               ├── audio_pool_panel.dart       # ENHANCED — Multi-selection support
 │               └── favorites_panel.dart        # NEW
+
+---
+
+## 9. AUDIO POOL MULTI-SELECTION (2026-01-26)
+
+### 9.1 Overview
+
+AudioPoolPanel sada podržava **multi-selection** sa sledećim feature-ima:
+- **Ctrl+Click** (Cmd+Click on macOS) — Toggle individual file selection
+- **Shift+Click** — Range selection (from last selected to clicked file)
+- **Ctrl+A** — Select all files in current section
+- **Delete/Backspace** — Remove selected files
+- **Escape** — Clear selection
+- **Multi-file drag** — Drag multiple selected files at once
+
+### 9.2 State Variables
+
+```dart
+// Multi-selection state
+Set<String> _selectedFileIds = {};    // Currently selected file IDs
+int? _lastSelectedIndex;               // For Shift+click range selection
+```
+
+### 9.3 Selection Methods
+
+```dart
+void _handleFileSelection(AudioFileInfo file, int index, {bool isCtrlPressed = false, bool isShiftPressed = false}) {
+  if (isCtrlPressed) {
+    // Toggle selection
+    if (_selectedFileIds.contains(file.id)) {
+      _selectedFileIds.remove(file.id);
+    } else {
+      _selectedFileIds.add(file.id);
+    }
+    _lastSelectedIndex = index;
+  } else if (isShiftPressed && _lastSelectedIndex != null) {
+    // Range selection
+    final start = min(_lastSelectedIndex!, index);
+    final end = max(_lastSelectedIndex!, index);
+    for (var i = start; i <= end; i++) {
+      _selectedFileIds.add(files[i].id);
+    }
+  } else {
+    // Single selection (clears others)
+    _selectedFileIds = {file.id};
+    _lastSelectedIndex = index;
+  }
+}
+
+void _selectAll() {
+  _selectedFileIds = files.map((f) => f.id).toSet();
+}
+
+void _clearSelection() {
+  _selectedFileIds.clear();
+  _lastSelectedIndex = null;
+}
+
+void _removeSelectedFiles() {
+  for (final id in _selectedFileIds) {
+    widget.onFileRemoved?.call(id);
+  }
+  _selectedFileIds.clear();
+}
+```
+
+### 9.4 Multi-File Drag Support
+
+```dart
+// Draggable now uses List<AudioFileInfo>
+Draggable<List<AudioFileInfo>>(
+  data: _selectedFileIds.isEmpty || !_selectedFileIds.contains(file.id)
+      ? [file]  // Single file drag
+      : files.where((f) => _selectedFileIds.contains(f.id)).toList(),  // Multi drag
+  feedback: Material(
+    child: Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.audiotrack, color: Colors.white),
+          const SizedBox(width: 8),
+          Text(
+            _selectedFileIds.length > 1
+                ? '${_selectedFileIds.length} files'
+                : file.name,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ],
+      ),
+    ),
+  ),
+)
+```
+
+### 9.5 Visual Feedback
+
+| State | Visual |
+|-------|--------|
+| Unselected | Default background |
+| Hovering | Lighter background |
+| Selected | Blue border + light blue background |
+| Multi-selected | Blue badge with count |
+
+### 9.6 Keyboard Shortcuts
+
+| Key | Action | Context |
+|-----|--------|---------|
+| `Ctrl+A` | Select all | AudioPoolPanel focused |
+| `Delete` / `Backspace` | Remove selected | Files selected |
+| `Escape` | Clear selection | Files selected |
+| `Ctrl+Click` | Toggle selection | On file item |
+| `Shift+Click` | Range selection | On file item |
+
+### 9.7 DragTarget Compatibility
+
+All DragTargets that accept audio files are updated to accept `List<AudioFileInfo>`:
+
+```dart
+// stage_trace_widget.dart
+DragTarget<List<AudioFileInfo>>(
+  onWillAcceptWithDetails: (details) => details.data.isNotEmpty,
+  onAcceptWithDetails: (details) {
+    // Single file: details.data.first
+    // All files: details.data
+    _handleBatchAudioDrop(details.data);
+  },
+)
+```
+
+### 9.8 Cross-Section Support
+
+Multi-selection radi u sve tri sekcije:
+- **DAW** — Audio Pool u MEDIA tab
+- **Middleware** — Audio browser panel
+- **SlotLab** — Events panel audio browser
+
+### 9.9 Files Changed
+
+| File | Changes |
+|------|---------|
+| `audio_pool_panel.dart` | Multi-selection state, keyboard handling, drag support |
+| `stage_trace_widget.dart` | Updated DragTarget to accept `List<AudioFileInfo>` |
 ```
 
 ---

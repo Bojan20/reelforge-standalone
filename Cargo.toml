@@ -79,7 +79,22 @@ dirs-next = "2.0"
 
 # Audio file I/O
 hound = "3.5"
-symphonia = { version = "0.5", features = ["aac", "flac", "mp3", "ogg", "wav"] }
+# Symphonia: All supported audio formats for import
+# Lossless: wav, flac, aiff, alac (Apple Lossless)
+# Lossy: mp3, ogg/vorbis, aac
+# Containers: isomp4 (M4A)
+symphonia = { version = "0.5", features = [
+    "aac",      # AAC decoder
+    "aiff",     # AIFF container
+    "alac",     # Apple Lossless
+    "flac",     # FLAC
+    "isomp4",   # M4A container (AAC, ALAC)
+    "mp3",      # MP3
+    "ogg",      # OGG container
+    "pcm",      # PCM codec
+    "vorbis",   # Vorbis decoder
+    "wav",      # WAV container
+] }
 flac-bound = "0.5"
 
 # File system

@@ -1,6 +1,6 @@
 # Offline DSP Processing System — P2.6 Implementation
 
-**Status:** ✅ COMPLETE (2026-01-23)
+**Status:** ✅ COMPLETE (2026-01-26 — Full format support)
 **Author:** Claude Code
 **LOC:** ~2900 total (Rust + Dart)
 
@@ -12,7 +12,7 @@ FluxForge Offline DSP System enables non-realtime audio processing for:
 - **Bounce/Mixdown** — Export timeline to audio file
 - **Batch Processing** — Process multiple files in parallel
 - **Normalization** — Peak, LUFS, True Peak, NoClip modes
-- **Format Conversion** — WAV (16/24/32f), FLAC, MP3
+- **Format Conversion** — 8 import formats, 15 export formats (WAV, AIFF, FLAC, MP3, OGG, AAC, Opus)
 
 ---
 
@@ -56,9 +56,9 @@ FluxForge Offline DSP System enables non-realtime audio processing for:
 │                                       └──────────────┘          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
 │  │  Normalize   │  │ Time Stretch │  │   Formats    │          │
-│  │  - Peak      │  │  - Vocoder   │  │  - WAV       │          │
+│  │  - Peak      │  │  - Vocoder   │  │  - WAV/AIFF  │          │
 │  │  - LUFS      │  │  - WSOLA     │  │  - FLAC      │          │
-│  │  - TruePeak  │  │              │  │  - MP3       │          │
+│  │  - TruePeak  │  │              │  │  - MP3/OGG/AAC│         │
 │  └──────────────┘  └──────────────┘  └──────────────┘          │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -514,15 +514,54 @@ provider.progressStream.listen((progress) {
 
 ## Format Support
 
+**Full documentation:** `.claude/docs/AUDIO_FORMAT_SUPPORT.md`
+
+### Input Formats (via Symphonia)
+
+| Format | Extension(s) | Type | Notes |
+|--------|--------------|------|-------|
+| WAV | .wav | Lossless | 8/16/24/32-bit, float |
+| AIFF | .aiff, .aif | Lossless | Big-endian, 8/16/24/32-bit |
+| FLAC | .flac | Lossless | Up to 24-bit, 192kHz |
+| ALAC | .m4a | Lossless | Apple Lossless |
+| MP3 | .mp3 | Lossy | All bitrates, VBR/CBR |
+| OGG/Vorbis | .ogg | Lossy | Free/open format |
+| AAC | .aac, .m4a | Lossy | AAC-LC, streaming |
+| M4A | .m4a | Both | Apple container (AAC or ALAC) |
+
 ### Output Formats
 
-| Format | Extension | Bit Depth | Lossless | Notes |
-|--------|-----------|-----------|----------|-------|
-| WAV 16-bit | .wav | 16 | Yes | CD quality |
-| WAV 24-bit | .wav | 24 | Yes | Studio standard |
-| WAV 32-bit float | .wav | 32f | Yes | Maximum headroom |
-| FLAC | .flac | 16-24 | Yes | Compressed lossless |
-| MP3 320kbps | .mp3 | - | No | Maximum quality lossy |
+**Native Lossless (no dependencies):**
+
+| ID | Format | Extension | Bit Depth | Type | Notes |
+|----|--------|-----------|-----------|------|-------|
+| 0 | WAV 16-bit | .wav | 16 | Lossless | CD quality |
+| 1 | WAV 24-bit | .wav | 24 | Lossless | Studio standard |
+| 2 | WAV 32-bit float | .wav | 32f | Lossless | Maximum headroom |
+| 3 | AIFF 16-bit | .aiff | 16 | Lossless | Apple/Pro Tools |
+| 4 | AIFF 24-bit | .aiff | 24 | Lossless | Studio standard |
+| 5 | FLAC | .flac | 16-24 | Lossless | Compressed lossless |
+
+**Native Lossy (requires pkg-config libraries):**
+
+| ID | Format | Extension | Bitrate | Type | Library | Notes |
+|----|--------|-----------|---------|------|---------|-------|
+| 6 | MP3 320kbps | .mp3 | 320 | Lossy | libmp3lame | Maximum quality |
+| 7 | MP3 256kbps | .mp3 | 256 | Lossy | libmp3lame | High quality |
+| 8 | MP3 192kbps | .mp3 | 192 | Lossy | libmp3lame | Good quality |
+| 9 | MP3 128kbps | .mp3 | 128 | Lossy | libmp3lame | Standard |
+| 10 | OGG Q8 | .ogg | ~256 | Lossy | libvorbis | High quality |
+| 11 | OGG Q6 | .ogg | ~192 | Lossy | libvorbis | Good quality |
+| 14 | Opus 256kbps | .opus | 256 | Lossy | libopus | Best quality lossy |
+
+**FFmpeg (requires FFmpeg in PATH):**
+
+| ID | Format | Extension | Bitrate | Type | Notes |
+|----|--------|-----------|---------|------|-------|
+| 12 | AAC 256kbps | .m4a | 256 | Lossy | Apple Music |
+| 13 | AAC 192kbps | .m4a | 192 | Lossy | Streaming |
+
+*Note: No good native Rust AAC encoder exists. FFmpeg fallback is used for AAC only.*
 
 ### Sample Rate Conversion
 

@@ -335,6 +335,18 @@ pub struct MiddlewareAction {
     /// LPF/HPF cutoff frequency (Hz)
     pub filter_freq_hz: Option<f32>,
 
+    // === Extended playback parameters (2026-01-26) ===
+    /// Stereo pan position (-1.0 = left, 0.0 = center, +1.0 = right)
+    pub pan: f32,
+    /// Fade-in duration in seconds (for Play actions)
+    pub fade_in_secs: f32,
+    /// Fade-out duration in seconds (for Stop actions, separate from fade_time_secs)
+    pub fade_out_secs: f32,
+    /// Non-destructive trim start position in seconds
+    pub trim_start_secs: f32,
+    /// Non-destructive trim end position in seconds (0.0 = full duration)
+    pub trim_end_secs: f32,
+
     // === State condition (for state-aware playback) ===
     /// Optional state group ID that must be active for action to execute
     pub require_state_group: Option<u32>,
@@ -382,6 +394,12 @@ impl Default for MiddlewareAction {
             target_event_id: None,
             pitch_semitones: None,
             filter_freq_hz: None,
+            // Extended playback parameters (2026-01-26)
+            pan: 0.0,
+            fade_in_secs: 0.0,
+            fade_out_secs: 0.0,
+            trim_start_secs: 0.0,
+            trim_end_secs: 0.0,
             require_state_group: None,
             require_state_id: None,
             require_state_inverted: false,

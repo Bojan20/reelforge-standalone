@@ -680,18 +680,29 @@ High-performance offline DSP pipeline with professional metering and format conv
 
 | Module | Description |
 |--------|-------------|
-| **decoder.rs** | Universal audio decoder (WAV, FLAC, MP3, OGG, AAC, AIFF via symphonia) |
-| **encoder.rs** | Multi-format encoder (WAV 16/24/32f, FLAC, MP3) |
+| **decoder.rs** | Universal audio decoder (WAV, FLAC, MP3, OGG, AAC, AIFF, ALAC, M4A via symphonia) |
+| **encoder.rs** | Multi-format encoder — Native: WAV, AIFF, FLAC, MP3, OGG, Opus — FFmpeg: AAC only |
+| **formats.rs** | Output format definitions and configurations |
 | **normalize.rs** | EBU R128 LUFS metering with K-weighting, True Peak detection (4x oversampling) |
 | **pipeline.rs** | Job-based processing pipeline with progress callbacks |
 | **time_stretch.rs** | Phase vocoder time stretching |
+
+**Audio Format Support:** `.claude/docs/AUDIO_FORMAT_SUPPORT.md`
+
+| Category | Formats | Notes |
+|----------|---------|-------|
+| **Import (Decode)** | WAV, AIFF, FLAC, ALAC, MP3, OGG/Vorbis, AAC, M4A | All via Symphonia (pure Rust) |
+| **Export Native** | WAV (16/24/32f), AIFF (8/16/24/32), FLAC (16/24), MP3 (128-320kbps, VBR), OGG (Q-1 to Q10), Opus (6-510kbps) | No FFmpeg required* |
+| **Export FFmpeg** | AAC (128-320kbps) | Requires FFmpeg in PATH |
+
+*MP3 requires libmp3lame, OGG requires libvorbis, Opus requires libopus (via pkg-config or bundled)
 
 **Key Features:**
 | Feature | Description |
 |---------|-------------|
 | **EBU R128 LUFS** | Integrated, short-term, momentary loudness with K-weighting filters |
 | **True Peak** | 4x oversampled ISP detection for streaming compliance |
-| **Format Conversion** | Decode any → process → encode to target format |
+| **Format Conversion** | Decode any (8 formats) → process → encode to 15 target formats |
 | **Normalization Modes** | LUFS target (-14/-16/-23), Peak target, Dynamic range |
 | **Batch Processing** | Job queue with async processing |
 
@@ -1534,6 +1545,54 @@ Complete 18-task improvement plan for DAW section.
 - **Keyboard Shortcuts:** Categorized by Transport/Edit/View/Tools/Mixer/Timeline/SlotLab/Global
 - **Gain Envelope:** Orange=boost, Cyan=cut, dB value at center
 
+### AudioPoolPanel Multi-Selection (2026-01-26) ✅
+
+Multi-selection support za audio fajlove u AudioPoolPanel sa keyboard shortcuts i multi-drag.
+
+**State Variables:**
+```dart
+Set<String> _selectedFileIds = {};    // Currently selected file IDs
+int? _lastSelectedIndex;               // For Shift+click range selection
+```
+
+**Keyboard Shortcuts:**
+| Key | Action | Context |
+|-----|--------|---------|
+| `Ctrl+Click` / `Cmd+Click` | Toggle selection | On file item |
+| `Shift+Click` | Range selection | On file item |
+| `Ctrl+A` / `Cmd+A` | Select all files | Panel focused |
+| `Delete` / `Backspace` | Remove selected files | Files selected |
+| `Escape` | Clear selection | Files selected |
+
+**Multi-File Drag:**
+```dart
+Draggable<List<AudioFileInfo>>(
+  data: _selectedFileIds.isEmpty || !_selectedFileIds.contains(file.id)
+      ? [file]  // Single file drag
+      : files.where((f) => _selectedFileIds.contains(f.id)).toList(),  // Multi drag
+)
+```
+
+**DragTarget Compatibility:**
+All DragTargets updated to accept `List<AudioFileInfo>`:
+- `stage_trace_widget.dart` — Timeline drop zones
+- `slot_lab_screen.dart` — SlotLab drop targets
+- `engine_connected_layout.dart` — DAW timeline
+
+**Visual Feedback:**
+| State | Visual |
+|-------|--------|
+| Unselected | Default background |
+| Hovering | Lighter background |
+| Selected | Blue border + light blue background |
+| Multi-drag | Badge showing file count |
+
+**Cross-Section Support:** Radi u DAW, Middleware i SlotLab sekcijama.
+
+**Files Changed:**
+- `audio_pool_panel.dart` — Multi-selection state, keyboard handling, drag support
+- `stage_trace_widget.dart` — Updated DragTarget to accept `List<AudioFileInfo>`
+
 ---
 
 ## 🚀 PERFORMANCE OPTIMIZATION — ✅ ALL PHASES COMPLETED
@@ -1658,7 +1717,7 @@ P0 critical fixes for the right inspector panel in `event_editor_panel.dart`.
 **P0.2: Slider Debouncing (Performance)**
 - **Problem:** Every slider drag fired immediate provider sync → excessive FFI calls
 - **Fix:** Added `_sliderDebounceTimer` with 50ms debounce
-- **Affected sliders:** Delay, Fade Time, Gain, Pan
+- **Affected sliders:** Delay, Fade Time, Gain, Pan, Fade In, Fade Out, Trim Start, Trim End
 - **New method:** `_updateActionDebounced()` for slider-only updates
 
 **P0.3: Gain dB Display**
@@ -1673,6 +1732,37 @@ P0 critical fixes for the right inspector panel in `event_editor_panel.dart`.
 - **Fix:** Added `_pendingEditEventId` tracking — skip provider→local sync for events with pending local edits
 - **Fields added:** `_pendingEditEventId` (String?)
 - **Pattern:** "Pending Edit Protection" — mark event on local change, skip in sync, clear after provider sync completes
+
+**P0.5: Extended Playback Parameters (2026-01-26)**
+- **Problem:** MiddlewareAction model lacked engine-level fade/trim support
+- **Solution:** Added `fadeInMs`, `fadeOutMs`, `trimStartMs`, `trimEndMs` fields
+- **UI:** New "Extended Playback" section with 4 sliders (0-2000ms fade, 0-10000ms trim)
+- **Model updates:** `copyWith()`, `toJson()`, `fromJson()` updated
+- **Methods updated:** `_updateAction()`, `_updateActionDebounced()` support new fields
+
+**P0.6: Middleware FFI Extended Chain (2026-01-26)**
+- **Problem:** MiddlewareAction extended params (pan, gain, fadeIn/Out, trim) existed in UI model but NOT in Rust FFI
+- **Solution:** Full-stack FFI implementation connecting UI → Engine
+- **Rust Model:** Added 5 fields to `MiddlewareAction` struct in `crates/rf-event/src/action.rs`:
+  - `pan: f32` (-1.0 to +1.0)
+  - `fade_in_secs: f32`
+  - `fade_out_secs: f32`
+  - `trim_start_secs: f32`
+  - `trim_end_secs: f32`
+- **Rust FFI:** New function `middleware_add_action_ex()` in `crates/rf-bridge/src/middleware_ffi.rs`
+- **Dart FFI:** `middlewareAddActionEx()` in `flutter_ui/lib/src/rust/native_ffi.dart`
+- **Provider:** `EventSystemProvider._addActionToEngine()` now uses extended FFI
+
+**FFI Chain (Middleware Section):**
+```
+UI (event_editor_panel.dart sliders)
+  → MiddlewareAction model (fadeInMs, fadeOutMs, trimStartMs, trimEndMs, pan, gain)
+    → MiddlewareProvider.updateActionInEvent()
+      → EventSystemProvider._addActionToEngine()
+        → NativeFFI.middlewareAddActionEx(eventId, actionType, ..., gain, pan, fadeInMs, fadeOutMs, trimStartMs, trimEndMs)
+          → C FFI: middleware_add_action_ex()
+            → Rust MiddlewareAction struct (sa svim extended poljima)
+```
 
 **Code Changes:**
 ```dart
@@ -3592,7 +3682,7 @@ Reorganizovani Lower Zone, novi widgeti i 3-panel layout za V6.
 - File import (📄) — Multiple audio files via FilePicker
 - Folder import (📁) — Rekurzivni scan direktorijuma
 - AudioAssetManager integration
-- **Audio Hover Preview (V6.2)** — 500ms hover delay, auto-play, waveform visualization
+- **Audio Preview (V6.2, V6.4)** — Manual play/stop buttons, waveform visualization (hover auto-play disabled)
 
 **SymbolStripWidget Features (V6.2):**
 - Symbols + Music Layers sa drag-drop
@@ -3688,16 +3778,107 @@ _showAddSymbolDialog();  // Opens dialog, adds to SlotLabProjectProvider
 _showAddContextDialog(); // Opens dialog, adds to SlotLabProjectProvider
 ```
 
+### SlotLab V6.6 — Multi-Select Drag-Drop (2026-01-26) ✅ COMPLETE
+
+Multiple audio file drag-drop support across all SlotLab audio browsers.
+
+**Podržani Data Tipovi:**
+| Data Type | Izvor |
+|-----------|-------|
+| `AudioAsset` | AudioAssetManager pool |
+| `String` | Single file path |
+| `List<String>` | **Multi-select** (novo) |
+| `AudioFileInfo` | Audio browser metadata |
+
+**Multi-Select UI:**
+- **Long-press** na audio chip → toggle selekcija
+- **Checkbox** prikazan na svakom chipu (levo)
+- **Zelena boja** za selektovane iteme
+- Drag selektovanih → prenosi `List<String>`
+- Feedback: "X files" za više od 1 fajla
+- Auto-clear selekcije na drag end
+
+**Ažurirani Callback Signatures:**
+| Komponenta | Callback | Tip |
+|------------|----------|-----|
+| `AudioBrowserDock` | `onAudioDragStarted` | `Function(List<String>)?` |
+| `EventsPanelWidget` | `onAudioDragStarted` | `Function(List<String>)?` |
+| `SlotLabScreen` | `_draggingAudioPaths` | `List<String>?` |
+
+**DropTargetWrapper:**
+```dart
+// Accepts List<String> for multi-select
+if (details.data is List<String>) {
+  final paths = details.data as List<String>;
+  for (final path in paths) {
+    assets.add(_pathToAudioAsset(path));
+  }
+}
+// Process all dropped assets
+for (final asset in assets) {
+  _handleDrop(asset, details.offset, provider);
+}
+```
+
+**Fajlovi:**
+| File | Changes |
+|------|---------|
+| `audio_browser_dock.dart` | `_selectedPaths` Set, checkbox UI, `Draggable<List<String>>` |
+| `events_panel_widget.dart` | Callback signature `List<String>` |
+| `drop_target_wrapper.dart` | Accept & process `List<String>` |
+| `slot_lab_screen.dart` | `_draggingAudioPaths: List<String>?`, overlay "X files" |
+
+**Dokumentacija:** `.claude/architecture/SLOTLAB_DROP_ZONE_SPEC.md` (Section 2.3)
+
+### SlotLab V6.5 — Bottom Audio Browser Dock (2026-01-26) ✅ COMPLETE
+
+Industry-standard horizontal audio browser dock (Wwise/FMOD pattern).
+
+**New Widget:** `audio_browser_dock.dart` (~640 LOC)
+
+**Layout Change:**
+```
+┌────────────┬────────────────────────────────┬─────────────────────┐
+│  ULTIMATE  │                                │    EVENTS           │
+│  AUDIO     │         SLOT MACHINE           │    PANEL            │
+│  PANEL     │         (CENTER)               │   (Inspector)       │
+├────────────┴────────────────────────────────┴─────────────────────┤
+│  AUDIO BROWSER DOCK (horizontal, 90px height, collapsible)        │
+├───────────────────────────────────────────────────────────────────┤
+│  LOWER ZONE (existing bottom panel)                               │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+| Feature | Description |
+|---------|-------------|
+| **Horizontal scroll** | Audio files displayed as compact chips |
+| **Pool/Files toggle** | Switch between AudioAssetManager pool and file system |
+| **Multi-select drag** | Long-press to select, drag multiple files at once |
+| **Drag-drop** | Drag audio chips to any drop target |
+| **Play/Stop** | Click chip to preview, click again to stop |
+| **Search** | Filter files by name |
+| **Import** | Import files or folder buttons |
+| **Collapsible** | Click header to collapse (28px) or expand (90px) |
+| **Format badges** | Color-coded extension badges (WAV=blue, MP3=orange, etc.) |
+
+**Integration:**
+- `slot_lab_screen.dart` — Added `AudioBrowserDock` above bottom panel
+- `_audioBrowserDockExpanded` state variable for collapse toggle
+- `onAudioDragStarted` callback for drag overlay (supports `List<String>`)
+
+### SlotLab V6.4 — Audio Preview Improvements (2026-01-26) ✅ COMPLETE
+
+**Audio Preview (EventsPanelWidget):**
+- ~~500ms hover delay before playback starts~~ **DISABLED**
+- Manual Play/Stop button (visible on hover or while playing)
+- Waveform visualization during preview
+- Green accent when playing, blue when idle
+- Playback continues until manually stopped
+
 ### SlotLab V6.3 — UX Improvements (2026-01-25) ✅ COMPLETE
 
 Quality-of-life improvements for audio authoring workflow.
-
-**Audio Hover Preview (EventsPanelWidget):**
-- 500ms hover delay before playback starts
-- Waveform visualization during preview
-- Play/Stop toggle button on hover
-- Green accent when playing, blue when idle
-- Stops on mouse exit
 
 **Reset Buttons (SymbolStripWidget):**
 - Audio count badge in section headers (blue badge with count)
@@ -3711,7 +3892,8 @@ Quality-of-life improvements for audio authoring workflow.
 | `events_panel_widget.dart` | `_AudioBrowserItemWrapper`, `_HoverPreviewItem`, `_SimpleWaveformPainter` |
 | `symbol_strip_widget.dart` | Reset callbacks, count badges, confirmation dialog |
 | `slot_lab_project_provider.dart` | 6 bulk reset methods |
-| `slot_lab_screen.dart` | Reset callback wiring |
+| `slot_lab_screen.dart` | Reset callback wiring + Audio Browser Dock |
+| `audio_browser_dock.dart` | **NEW** — Bottom dock widget (~520 LOC) |
 
 ### Bonus Game Simulator (P2.20) — IMPLEMENTED ✅ 2026-01-23
 

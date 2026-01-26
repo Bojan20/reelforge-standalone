@@ -12,6 +12,7 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../debug/debug_console.dart';
@@ -120,13 +121,17 @@ void triggerAudioPoolRefresh() {
 /// Audio Pool Panel Widget
 class AudioPoolPanel extends StatefulWidget {
   final void Function(AudioFileInfo file)? onFileSelected;
+  final void Function(List<AudioFileInfo> files)? onFilesSelected;
   final void Function(AudioFileInfo file)? onFileDragStart;
+  final void Function(List<AudioFileInfo> files)? onFilesDragStart;
   final void Function(AudioFileInfo file)? onFileDoubleClick;
 
   const AudioPoolPanel({
     super.key,
     this.onFileSelected,
+    this.onFilesSelected,
     this.onFileDragStart,
+    this.onFilesDragStart,
     this.onFileDoubleClick,
   });
 
@@ -143,6 +148,10 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
   AudioFileInfo? _selectedFile;
   bool _isPlaying = false;
   bool _showPreview = true;
+
+  // Multi-selection support
+  Set<String> _selectedFileIds = {};
+  int? _lastSelectedIndex;  // For Shift+click range selection
 
   // Global key for external refresh access
   static final globalKey = GlobalKey<AudioPoolPanelState>();
@@ -237,6 +246,144 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
     const path = '/path/to/audio.wav'; // Placeholder until file picker integration
     _ffi.audioPoolImport(path);
     _loadFiles();
+  }
+
+  /// Get all currently selected files
+  List<AudioFileInfo> get selectedFiles {
+    return _files.where((f) => _selectedFileIds.contains(f.id)).toList();
+  }
+
+  /// Handle file selection with modifier keys
+  void _handleFileSelection(AudioFileInfo file, int index, {bool isCtrlPressed = false, bool isShiftPressed = false}) {
+    setState(() {
+      if (isShiftPressed && _lastSelectedIndex != null) {
+        // Range selection: select all files between last selected and current
+        final files = _filteredFiles;
+        final start = _lastSelectedIndex!.clamp(0, files.length - 1);
+        final end = index.clamp(0, files.length - 1);
+        final rangeStart = start < end ? start : end;
+        final rangeEnd = start < end ? end : start;
+
+        for (var i = rangeStart; i <= rangeEnd; i++) {
+          _selectedFileIds.add(files[i].id);
+        }
+      } else if (isCtrlPressed) {
+        // Toggle selection
+        if (_selectedFileIds.contains(file.id)) {
+          _selectedFileIds.remove(file.id);
+        } else {
+          _selectedFileIds.add(file.id);
+        }
+        _lastSelectedIndex = index;
+      } else {
+        // Single selection - clear others
+        _selectedFileIds.clear();
+        _selectedFileIds.add(file.id);
+        _lastSelectedIndex = index;
+      }
+
+      // Update single selected file for preview
+      _selectedFile = file;
+    });
+
+    // Notify callbacks
+    widget.onFileSelected?.call(file);
+    if (_selectedFileIds.length > 1) {
+      widget.onFilesSelected?.call(selectedFiles);
+    }
+  }
+
+  /// Select all files (Ctrl+A)
+  void _selectAll() {
+    setState(() {
+      _selectedFileIds = _filteredFiles.map((f) => f.id).toSet();
+      if (_filteredFiles.isNotEmpty) {
+        _selectedFile = _filteredFiles.first;
+      }
+    });
+    widget.onFilesSelected?.call(selectedFiles);
+  }
+
+  /// Clear selection
+  void _clearSelection() {
+    setState(() {
+      _selectedFileIds.clear();
+      _selectedFile = null;
+      _lastSelectedIndex = null;
+    });
+  }
+
+  /// Remove multiple selected files
+  void _removeSelectedFiles() {
+    final filesToRemove = selectedFiles;
+    if (filesToRemove.isEmpty) return;
+
+    final usedCount = filesToRemove.where((f) => f.usedInClips.isNotEmpty).length;
+
+    if (usedCount > 0) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: FluxForgeTheme.bgMid,
+          title: const Text('Files In Use', style: TextStyle(color: Colors.white)),
+          content: Text(
+            '$usedCount of ${filesToRemove.length} files are in use. Remove all ${filesToRemove.length} files anyway?',
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                for (final file in filesToRemove) {
+                  final clipId = int.tryParse(file.id) ?? 0;
+                  _ffi.audioPoolRemove(clipId);
+                }
+                _clearSelection();
+                _loadFiles();
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentRed),
+              child: Text('Remove ${filesToRemove.length}'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // No files in use, just confirm
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: FluxForgeTheme.bgMid,
+          title: const Text('Remove Files', style: TextStyle(color: Colors.white)),
+          content: Text(
+            'Remove ${filesToRemove.length} selected files from pool?',
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                for (final file in filesToRemove) {
+                  final clipId = int.tryParse(file.id) ?? 0;
+                  _ffi.audioPoolRemove(clipId);
+                }
+                _clearSelection();
+                _loadFiles();
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentRed),
+              child: Text('Remove ${filesToRemove.length}'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   void _removeFile(AudioFileInfo file) {
@@ -349,6 +496,20 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
             ),
           ),
           const Spacer(),
+          if (_selectedFileIds.length > 1) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '${_selectedFileIds.length} selected',
+                style: const TextStyle(color: FluxForgeTheme.accentBlue, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           Text(
             '${_filteredFiles.length} of ${_files.length} files',
             style: const TextStyle(color: Colors.white54, fontSize: 11),
@@ -450,6 +611,22 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
               _buildSortMenuItem(AudioPoolSortMode.usageCount, 'Usage Count'),
             ],
           ),
+          // Delete selected (visible when multiple selected)
+          if (_selectedFileIds.length > 1) ...[
+            const SizedBox(width: 4),
+            ElevatedButton.icon(
+              onPressed: _removeSelectedFiles,
+              icon: const Icon(Icons.delete_outline, size: 14),
+              label: Text('Delete (${_selectedFileIds.length})', style: const TextStyle(fontSize: 11)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: FluxForgeTheme.accentRed.withValues(alpha: 0.8),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 26),
+              ),
+            ),
+          ],
+          const SizedBox(width: 4),
           // Refresh
           IconButton(
             icon: const Icon(Icons.refresh, size: 16),
@@ -550,19 +727,50 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: files.length,
-      itemBuilder: (context, index) => _buildFileItem(files[index]),
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          // Ctrl+A / Cmd+A to select all
+          if ((HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed) &&
+              event.logicalKey == LogicalKeyboardKey.keyA) {
+            _selectAll();
+            return KeyEventResult.handled;
+          }
+          // Delete/Backspace to remove selected
+          if (event.logicalKey == LogicalKeyboardKey.delete ||
+              event.logicalKey == LogicalKeyboardKey.backspace) {
+            if (_selectedFileIds.isNotEmpty) {
+              _removeSelectedFiles();
+              return KeyEventResult.handled;
+            }
+          }
+          // Escape to clear selection
+          if (event.logicalKey == LogicalKeyboardKey.escape) {
+            _clearSelection();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(8),
+        itemCount: files.length,
+        itemBuilder: (context, index) => _buildFileItem(files[index], index),
+      ),
     );
   }
 
-  Widget _buildFileItem(AudioFileInfo file) {
-    final isSelected = file.id == _selectedFile?.id;
+  Widget _buildFileItem(AudioFileInfo file, int index) {
+    final isSelected = _selectedFileIds.contains(file.id);
+    final isMultiSelected = _selectedFileIds.length > 1;
     final isPlayingThis = _isPlaying && isSelected;
 
-    return Draggable<AudioFileInfo>(
-      data: file,
+    // Determine what files to drag - if dragging a selected file, drag all selected
+    final filesToDrag = isSelected && isMultiSelected ? selectedFiles : [file];
+
+    return Draggable<List<AudioFileInfo>>(
+      data: filesToDrag,
       feedback: Material(
         elevation: 8,
         borderRadius: BorderRadius.circular(4),
@@ -578,21 +786,50 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
               const Icon(Icons.audiotrack, size: 16, color: Colors.white),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  file.name,
-                  style: const TextStyle(color: Colors.white, fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: filesToDrag.length > 1
+                    ? Text(
+                        '${filesToDrag.length} files',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : Text(
+                        file.name,
+                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ),
+              if (filesToDrag.length > 1)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${filesToDrag.length}',
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
             ],
           ),
         ),
       ),
-      onDragStarted: () => widget.onFileDragStart?.call(file),
+      onDragStarted: () {
+        // If dragging an unselected file, select it first
+        if (!isSelected) {
+          _handleFileSelection(file, index);
+        }
+        if (filesToDrag.length > 1) {
+          widget.onFilesDragStart?.call(filesToDrag);
+        } else {
+          widget.onFileDragStart?.call(file);
+        }
+      },
       child: GestureDetector(
         onTap: () {
-          setState(() => _selectedFile = file);
-          widget.onFileSelected?.call(file);
+          final isCtrl = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
+          final isShift = HardwareKeyboard.instance.isShiftPressed;
+          _handleFileSelection(file, index, isCtrlPressed: isCtrl, isShiftPressed: isShift);
         },
         onDoubleTap: () {
           // Double-click creates track + clip in timeline
@@ -603,7 +840,9 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: isSelected
-                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+                ? (isMultiSelected
+                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.25)
+                    : FluxForgeTheme.accentBlue.withValues(alpha: 0.15))
                 : FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
@@ -612,6 +851,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                   : isSelected
                       ? FluxForgeTheme.accentBlue
                       : FluxForgeTheme.borderSubtle,
+              width: isSelected && isMultiSelected ? 2 : 1,
             ),
           ),
           child: Row(

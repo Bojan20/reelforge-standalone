@@ -893,6 +893,19 @@ pub struct OneShotVoice {
     fade_gain: f32,
     /// P0.2: Loop playback (seamless, no gap)
     looping: bool,
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EXTENDED PARAMETERS: FadeIn and Trim support
+    // ═══════════════════════════════════════════════════════════════════════════
+    /// Total samples for fade-in (0 = no fade-in)
+    fade_in_samples_total: u64,
+    /// Elapsed fade-in samples (counts up to fade_in_samples_total)
+    fade_in_samples_elapsed: u64,
+    /// Trim start position in samples (where to start playback)
+    trim_start_sample: u64,
+    /// Trim end position in samples (0 = play to end)
+    trim_end_sample: u64,
+    /// Fade out duration in samples (applied at end or when stopping)
+    fade_out_samples_at_end: u64,
 }
 
 impl OneShotVoice {
@@ -920,6 +933,12 @@ impl OneShotVoice {
             fade_increment: 0.0,
             fade_gain: 1.0,
             looping: false,
+            // Extended parameters
+            fade_in_samples_total: 0,
+            fade_in_samples_elapsed: 0,
+            trim_start_sample: 0,
+            trim_end_sample: 0,
+            fade_out_samples_at_end: 0,
         }
     }
 
@@ -936,12 +955,71 @@ impl OneShotVoice {
         self.fade_increment = 0.0;
         self.fade_gain = 1.0;
         self.looping = false;
+        // Reset extended parameters
+        self.fade_in_samples_total = 0;
+        self.fade_in_samples_elapsed = 0;
+        self.trim_start_sample = 0;
+        self.trim_end_sample = 0;
+        self.fade_out_samples_at_end = 0;
     }
 
     /// Activate with looping enabled (P0.2: Seamless REEL_SPIN loop)
     fn activate_looping(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, pan: f32, bus: OutputBus, source: PlaybackSource) {
         self.activate(id, audio, volume, pan, bus, source);
         self.looping = true;
+    }
+
+    /// Activate with extended parameters (fadeIn, fadeOut, trim)
+    /// fade_in_ms: fade-in duration in milliseconds
+    /// fade_out_ms: fade-out duration in milliseconds (applied at end)
+    /// trim_start_ms: start position in milliseconds
+    /// trim_end_ms: end position in milliseconds (0 = play to end)
+    fn activate_ex(
+        &mut self,
+        id: u64,
+        audio: Arc<ImportedAudio>,
+        volume: f32,
+        pan: f32,
+        bus: OutputBus,
+        source: PlaybackSource,
+        fade_in_ms: f32,
+        fade_out_ms: f32,
+        trim_start_ms: f32,
+        trim_end_ms: f32,
+    ) {
+        let sample_rate = audio.sample_rate as f64;
+
+        self.id = id;
+        self.audio = audio;
+        self.volume = volume;
+        self.pan = pan.clamp(-1.0, 1.0);
+        self.bus = bus;
+        self.source = source;
+        self.active = true;
+        self.looping = false;
+
+        // Fade out state (initially not fading)
+        self.fade_samples_remaining = 0;
+        self.fade_increment = 0.0;
+
+        // Fade-in: start at 0 gain, ramp up to 1.0
+        self.fade_in_samples_total = ((sample_rate * fade_in_ms as f64) / 1000.0) as u64;
+        self.fade_in_samples_elapsed = 0;
+        self.fade_gain = if self.fade_in_samples_total > 0 { 0.0 } else { 1.0 };
+
+        // Trim: convert ms to samples
+        self.trim_start_sample = ((sample_rate * trim_start_ms as f64) / 1000.0) as u64;
+        self.trim_end_sample = if trim_end_ms > 0.0 {
+            ((sample_rate * trim_end_ms as f64) / 1000.0) as u64
+        } else {
+            0 // 0 means play to end
+        };
+
+        // Start position respects trim
+        self.position = self.trim_start_sample;
+
+        // Store fade-out duration for applying at end
+        self.fade_out_samples_at_end = ((sample_rate * fade_out_ms as f64) / 1000.0) as u64;
     }
 
     fn deactivate(&mut self) {
@@ -978,7 +1056,14 @@ impl OneShotVoice {
         }
 
         // P0.2: For non-looping, check end condition
-        if !self.looping && self.position >= total_frames as u64 {
+        // Also check trim_end_sample if set
+        let effective_end = if self.trim_end_sample > 0 && self.trim_end_sample < total_frames as u64 {
+            self.trim_end_sample
+        } else {
+            total_frames as u64
+        };
+
+        if !self.looping && self.position >= effective_end {
             self.active = false;
             return false;
         }
@@ -992,13 +1077,35 @@ impl OneShotVoice {
         let pan_r = pan_angle.sin();
 
         for frame in 0..frames_needed {
-            // Handle fade
+            // Handle fade-out (from stop command or explicit fade_out_one_shot)
             if self.fade_samples_remaining > 0 {
                 self.fade_gain += self.fade_increment;
                 self.fade_samples_remaining -= 1;
                 if self.fade_gain <= 0.0 {
                     self.active = false;
                     return false;
+                }
+            }
+
+            // Handle fade-in (ramp up from 0 to 1)
+            if self.fade_in_samples_elapsed < self.fade_in_samples_total {
+                self.fade_in_samples_elapsed += 1;
+                // Linear fade-in (can be changed to quadratic for smoother curve)
+                self.fade_gain = self.fade_in_samples_elapsed as f32 / self.fade_in_samples_total as f32;
+            }
+
+            // Check if we need to start fade-out at end (auto fade-out near trim_end)
+            let current_pos = self.position + frame as u64;
+            if self.fade_out_samples_at_end > 0 && self.fade_samples_remaining == 0 {
+                let samples_to_end = if effective_end > current_pos {
+                    effective_end - current_pos
+                } else {
+                    0
+                };
+                if samples_to_end <= self.fade_out_samples_at_end && samples_to_end > 0 {
+                    // Start fade-out automatically near the end
+                    self.fade_samples_remaining = samples_to_end;
+                    self.fade_increment = -self.fade_gain / samples_to_end as f32;
                 }
             }
 
@@ -1009,8 +1116,8 @@ impl OneShotVoice {
                 self.position as usize + frame
             };
 
-            // For non-looping: check bounds
-            if !self.looping && src_frame >= total_frames {
+            // For non-looping: check bounds (respect trim_end)
+            if !self.looping && (src_frame >= total_frames || current_pos >= effective_end) {
                 break;
             }
 
@@ -1084,6 +1191,19 @@ pub enum OneShotCommand {
         pan: f32,
         bus: OutputBus,
         source: PlaybackSource,
+    },
+    /// Extended play with fadeIn, fadeOut, and trim parameters
+    PlayEx {
+        id: u64,
+        audio: Arc<ImportedAudio>,
+        volume: f32,
+        pan: f32,
+        bus: OutputBus,
+        source: PlaybackSource,
+        fade_in_ms: f32,
+        fade_out_ms: f32,
+        trim_start_ms: f32,
+        trim_end_ms: f32,
     },
     /// Stop specific voice
     Stop { id: u64 },
@@ -2729,6 +2849,71 @@ impl PlaybackEngine {
         }
     }
 
+    /// Extended one-shot playback with fadeIn, fadeOut, and trim parameters
+    /// fade_in_ms: fade-in duration at start (0 = no fade)
+    /// fade_out_ms: fade-out duration at end (0 = no fade)
+    /// trim_start_ms: start position in audio file (0 = from beginning)
+    /// trim_end_ms: end position in audio file (0 = play to end)
+    pub fn play_one_shot_to_bus_ex(
+        &self,
+        path: &str,
+        volume: f32,
+        pan: f32,
+        bus_id: u32,
+        source: PlaybackSource,
+        fade_in_ms: f32,
+        fade_out_ms: f32,
+        trim_start_ms: f32,
+        trim_end_ms: f32,
+    ) -> u64 {
+        // Load audio from cache (may block if not cached)
+        let audio = match self.cache.load(path) {
+            Some(a) => a,
+            None => {
+                log::warn!("[PlaybackEngine] Failed to load audio for extended play: {}", path);
+                return 0;
+            }
+        };
+
+        // Map bus_id to OutputBus
+        let bus = match bus_id {
+            0 => OutputBus::Sfx,
+            1 => OutputBus::Music,
+            2 => OutputBus::Sfx,
+            3 => OutputBus::Voice,
+            4 => OutputBus::Ambience,
+            5 => OutputBus::Aux,
+            _ => OutputBus::Sfx,
+        };
+
+        // Get next voice ID
+        let id = self.next_one_shot_id.fetch_add(1, Ordering::Relaxed);
+
+        // Send command to audio thread (lock-free)
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::PlayEx {
+                id,
+                audio,
+                volume,
+                pan: pan.clamp(-1.0, 1.0),
+                bus,
+                source,
+                fade_in_ms,
+                fade_out_ms,
+                trim_start_ms,
+                trim_end_ms,
+            });
+            log::debug!(
+                "[PlaybackEngine] Extended play: {} (id={}, fadeIn={:.0}ms, fadeOut={:.0}ms, trim={:.0}-{:.0}ms)",
+                path, id, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms
+            );
+            id
+        } else {
+            log::warn!("[PlaybackEngine] One-shot command queue busy");
+            0
+        }
+    }
+
     /// Stop a specific one-shot voice
     pub fn stop_one_shot(&self, voice_id: u64) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
@@ -2848,6 +3033,13 @@ impl PlaybackEngine {
                     // Seamless looping voice (REEL_SPIN etc.)
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
                         voice.activate_looping(id, audio, volume, pan, bus, source);
+                    }
+                    // Silent drop if no voice available (audio thread rule: no logging)
+                }
+                OneShotCommand::PlayEx { id, audio, volume, pan, bus, source, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms } => {
+                    // Extended play with fadeIn, fadeOut, and trim
+                    if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
+                        voice.activate_ex(id, audio, volume, pan, bus, source, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms);
                     }
                     // Silent drop if no voice available (audio thread rule: no logging)
                 }

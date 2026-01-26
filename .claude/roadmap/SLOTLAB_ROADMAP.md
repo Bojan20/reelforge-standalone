@@ -176,7 +176,9 @@ String _formatTimeMs(int ms) {
 
 ## Phase 2: Audio Preview System
 
-### 2.1 Hover Preview za Audio Fajlove
+### 2.1 Manual Audio Preview (Play/Stop Buttons)
+
+> **V6.4 Update (2026-01-26):** Hover auto-play DISABLED. Sada koristi manual play/stop buttons.
 
 **Cilj:** Čuti audio pre nego što se doda na timeline.
 
@@ -184,47 +186,49 @@ String _formatTimeMs(int ms) {
 
 | Feature | Opis |
 |---------|------|
-| Trigger | Mouse hover 500ms nad audio fajlom u browser-u |
-| Playback | Auto-play prvih 3 sekunde |
-| Stop | Mouse leave ili novi hover |
+| Trigger | ~~Mouse hover 500ms~~ **DISABLED** — Klik na Play dugme |
+| Playback | Manualni play/stop kontrola |
+| Stop | Klik na Stop dugme (ostaje expanded dok svira) |
 | Volume | Koristi preview volume setting |
 
 **Implementacija:**
 
 ```dart
-// audio_hover_preview.dart
-class AudioHoverPreview extends StatefulWidget {
-  final String audioPath;
-  final Duration hoverDelay;
-  final Duration previewDuration;
-
-  // ...
-}
-
-class _AudioHoverPreviewState extends State<AudioHoverPreview> {
-  Timer? _hoverTimer;
+// events_panel_widget.dart
+class _HoverPreviewItemState extends State<_HoverPreviewItem> {
+  bool _isPlaying = false;
+  int _currentVoiceId = -1;
 
   void _onHoverStart() {
-    _hoverTimer = Timer(widget.hoverDelay, () {
-      AudioPlaybackService.instance.playPreview(
-        widget.audioPath,
-        duration: widget.previewDuration,
-      );
-    });
+    setState(() => _isHovered = true);
+    // NOTE: Auto-playback on hover disabled — use play/stop button instead
   }
 
   void _onHoverEnd() {
-    _hoverTimer?.cancel();
-    AudioPlaybackService.instance.stopPreview();
+    setState(() => _isHovered = false);
+    // NOTE: Playback continues until manually stopped via button
+  }
+
+  void _startPlayback() {
+    _currentVoiceId = AudioPlaybackService.instance.previewFile(
+      widget.audioInfo.path,
+      source: PlaybackSource.browser,
+    );
+    setState(() => _isPlaying = true);
+  }
+
+  void _stopPlayback() {
+    AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
+    setState(() => _isPlaying = false);
   }
 }
 ```
 
-**Fajlovi za izmenu:**
-- `flutter_ui/lib/widgets/slot_lab/audio_hover_preview.dart`
+**Fajlovi:**
+- `flutter_ui/lib/widgets/slot_lab/events_panel_widget.dart`
 - `flutter_ui/lib/services/audio_playback_service.dart`
 
-**Status:** ⏳ Not Started
+**Status:** ✅ DONE (V6.4)
 
 ---
 

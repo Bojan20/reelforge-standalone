@@ -397,6 +397,61 @@ pub enum Stage {
         old_value: Option<f64>,
     },
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // P0.13-P0.17: ADDITIONAL STAGES
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// P0.13: Near miss — close to big win but didn't quite make it
+    NearMiss {
+        /// Which reel had the near miss
+        #[serde(default)]
+        reel_index: Option<u8>,
+        /// What was almost achieved (e.g., "scatter", "bonus", "jackpot")
+        #[serde(default)]
+        reason: Option<String>,
+        /// How close (0.0-1.0, higher = closer)
+        #[serde(default)]
+        proximity: f64,
+    },
+
+    /// P0.15: Symbol upgrade — symbol transforms to higher-paying version
+    SymbolUpgrade {
+        /// Reel index
+        reel_index: u8,
+        /// Row index
+        row_index: u8,
+        /// Original symbol ID
+        #[serde(default)]
+        from_symbol: Option<u32>,
+        /// Upgraded symbol ID
+        to_symbol: u32,
+        /// Upgrade tier (1=one step, 2=two steps, etc.)
+        #[serde(default)]
+        upgrade_tier: u8,
+    },
+
+    /// P0.16: Mystery symbol reveal — mystery symbol shows its true form
+    MysteryReveal {
+        /// Number of mystery symbols being revealed
+        mystery_count: u8,
+        /// Symbol ID being revealed
+        revealed_symbol: u32,
+        /// Whether all mysteries reveal at once
+        #[serde(default)]
+        simultaneous: bool,
+    },
+
+    /// P0.17: Multiplier apply — when a multiplier is actually applied to a win
+    MultiplierApply {
+        /// Multiplier value being applied
+        multiplier: f64,
+        /// Win amount before multiplier
+        base_amount: f64,
+        /// Win amount after multiplier
+        #[serde(default)]
+        final_amount: f64,
+    },
+
     /// Custom stage (engine-specific, adapter should document)
     Custom {
         /// Custom stage name
@@ -469,6 +524,10 @@ impl Stage {
             Stage::SymbolTransform { .. }
             | Stage::WildExpand { .. }
             | Stage::MultiplierChange { .. }
+            | Stage::NearMiss { .. }       // P0.13
+            | Stage::SymbolUpgrade { .. }  // P0.15
+            | Stage::MysteryReveal { .. }  // P0.16
+            | Stage::MultiplierApply { .. } // P0.17
             | Stage::Custom { .. } => StageCategory::Special,
         }
     }
@@ -524,6 +583,10 @@ impl Stage {
             Stage::SymbolTransform { .. } => "symbol_transform",
             Stage::WildExpand { .. } => "wild_expand",
             Stage::MultiplierChange { .. } => "multiplier_change",
+            Stage::NearMiss { .. } => "near_miss",           // P0.13
+            Stage::SymbolUpgrade { .. } => "symbol_upgrade", // P0.15
+            Stage::MysteryReveal { .. } => "mystery_reveal", // P0.16
+            Stage::MultiplierApply { .. } => "multiplier_apply", // P0.17
             Stage::Custom { .. } => "custom",
         }
     }
@@ -603,6 +666,10 @@ impl Stage {
             "symbol_transform",
             "wild_expand",
             "multiplier_change",
+            "near_miss",        // P0.13
+            "symbol_upgrade",   // P0.15
+            "mystery_reveal",   // P0.16
+            "multiplier_apply", // P0.17
             "custom",
         ]
     }
@@ -783,6 +850,29 @@ impl Stage {
             "custom" => Some(Stage::Custom {
                 name: get_string("name").unwrap_or_else(|| name.to_string()),
                 id: data.get("id").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+            }),
+            // P0.13-P0.17: New stages
+            "near_miss" => Some(Stage::NearMiss {
+                reel_index: data.get("reel_index").and_then(|v| v.as_u64()).map(|v| v as u8),
+                reason: get_string("reason"),
+                proximity: get_f64("proximity"),
+            }),
+            "symbol_upgrade" => Some(Stage::SymbolUpgrade {
+                reel_index: get_u8("reel_index"),
+                row_index: get_u8("row_index"),
+                from_symbol: data.get("from_symbol").and_then(|v| v.as_u64()).map(|v| v as u32),
+                to_symbol: data.get("to_symbol").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                upgrade_tier: get_u8("upgrade_tier"),
+            }),
+            "mystery_reveal" => Some(Stage::MysteryReveal {
+                mystery_count: get_u8("mystery_count"),
+                revealed_symbol: data.get("revealed_symbol").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                simultaneous: data.get("simultaneous").and_then(|v| v.as_bool()).unwrap_or(false),
+            }),
+            "multiplier_apply" => Some(Stage::MultiplierApply {
+                multiplier: get_f64("multiplier"),
+                base_amount: get_f64("base_amount"),
+                final_amount: get_f64("final_amount"),
             }),
             _ => None,
         }

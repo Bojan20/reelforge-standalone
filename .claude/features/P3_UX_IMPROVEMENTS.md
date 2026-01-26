@@ -18,10 +18,12 @@ P3 implements three low-priority UX improvements identified in the system review
 
 ---
 
-## P3.1: Hover Preview — Audio Playback on Hover
+## P3.1: Audio Preview — Manual Play/Stop Buttons
 
 ### Purpose
-Professional file browser with hover-triggered audio preview for quick auditioning.
+Professional file browser with manual audio preview controls for quick auditioning.
+
+> **V6.4 Update (2026-01-26):** Hover auto-play disabled. Now uses manual play/stop buttons only.
 
 ### Files
 
@@ -39,7 +41,7 @@ Professional file browser with hover-triggered audio preview for quick auditioni
 │ ├── Format filter bar                                        │
 │ ├── File grid/list view                                      │
 │ └── AudioBrowserItem (per file)                             │
-│     └── Hover detection → 500ms delay → Preview playback    │
+│     └── Manual play/stop buttons for preview playback       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -75,9 +77,10 @@ class AudioBrowserItem extends StatefulWidget {
 }
 ```
 
-**Hover Preview Behavior:**
-- 500ms hover delay before playback starts
-- Auto-stop on mouse exit
+**Audio Preview Behavior (V6.4):**
+- ~~500ms hover delay before playback starts~~ **DISABLED**
+- Manual play/stop buttons (visible on hover or while playing)
+- Playback continues until manually stopped
 - Volume indicator during playback
 - Waveform thumbnail display
 

@@ -40,6 +40,12 @@ class SlotLabProvider extends ChangeNotifier {
   SlotLabSpinResult? _lastResult;
   List<SlotLabStageEvent> _lastStages = [];
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0.18: STAGE CACHING — Avoid re-parsing JSON for same spin
+  // ═══════════════════════════════════════════════════════════════════════════
+  /// SpinId for which _lastStages was parsed (prevents redundant parsing)
+  String? _cachedStagesSpinId;
+
   // ─── Session Stats ─────────────────────────────────────────────────────────
   SlotLabStats? _stats;
   double _rtp = 0.0;
@@ -217,7 +223,13 @@ class SlotLabProvider extends ChangeNotifier {
   int get spinCount => _spinCount;
 
   SlotLabSpinResult? get lastResult => _lastResult;
+
+  /// P0.18: Cached stages from last spin (parsed once, reused for all accesses)
+  /// Cache key: _cachedStagesSpinId tracks which spinId these stages belong to
   List<SlotLabStageEvent> get lastStages => _lastStages;
+
+  /// P0.18: Get spinId for which stages are cached (for debugging/validation)
+  String? get cachedStagesSpinId => _cachedStagesSpinId;
 
   SlotLabStats? get stats => _stats;
   double get rtp => _rtp;
@@ -588,6 +600,9 @@ class SlotLabProvider extends ChangeNotifier {
         _lastStages = _ffi.slotLabGetStages();
       }
 
+      // P0.18: Cache stages with spinId to prevent re-parsing
+      _cachedStagesSpinId = _lastResult?.spinId;
+
       // DEBUG: Log stage details
       debugPrint('[SlotLabProvider] Got ${_lastStages.length} stages:');
       for (int i = 0; i < _lastStages.length && i < 10; i++) {
@@ -600,6 +615,9 @@ class SlotLabProvider extends ChangeNotifier {
 
       _updateFreeSpinsState();
       _updateStats();
+
+      // P0.10: Validate stage sequence
+      validateStageSequence();
 
       // Compact spin summary
       final win = _lastResult?.totalWin ?? 0;
@@ -658,8 +676,15 @@ class SlotLabProvider extends ChangeNotifier {
         _lastResult = _ffi.slotLabGetSpinResult();
         _lastStages = _ffi.slotLabGetStages();
       }
+
+      // P0.18: Cache stages with spinId to prevent re-parsing
+      _cachedStagesSpinId = _lastResult?.spinId;
+
       _updateFreeSpinsState();
       _updateStats();
+
+      // P0.10: Validate stage sequence
+      validateStageSequence();
 
       final win = _lastResult?.totalWin ?? 0;
       final isWin = _lastResult?.isWin ?? false;
@@ -1522,6 +1547,7 @@ class SlotLabProvider extends ChangeNotifier {
   void clearStages() {
     _lastStages = [];
     _currentStageIndex = 0;
+    _cachedStagesSpinId = null; // P0.18: Clear cache
     debugPrint('[SlotLabProvider] Stages cleared');
     notifyListeners();
   }
@@ -1671,6 +1697,119 @@ class SlotLabProvider extends ChangeNotifier {
 
     _inFreeSpins = _ffi.slotLabInFreeSpins();
     _freeSpinsRemaining = _ffi.slotLabFreeSpinsRemaining();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0.10: STAGE SEQUENCE VALIDATION
+  // Validates stage ordering for QA and regression testing
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Validation result for stage sequence
+  List<StageValidationIssue> _lastValidationIssues = [];
+
+  /// Get last validation issues
+  List<StageValidationIssue> get lastValidationIssues => _lastValidationIssues;
+
+  /// Check if last stages passed validation
+  bool get stagesValid => _lastValidationIssues.isEmpty;
+
+  /// Validate the current stage sequence
+  /// Returns list of validation issues (empty if valid)
+  List<StageValidationIssue> validateStageSequence() {
+    final issues = <StageValidationIssue>[];
+    if (_lastStages.isEmpty) {
+      issues.add(StageValidationIssue(
+        type: StageValidationType.missingStage,
+        message: 'No stages present',
+        severity: StageValidationSeverity.error,
+      ));
+      _lastValidationIssues = issues;
+      return issues;
+    }
+
+    final stageTypes = _lastStages.map((s) => s.stageType.toUpperCase()).toList();
+
+    // 1. SPIN_START must be first
+    if (stageTypes.isNotEmpty && stageTypes.first != 'SPIN_START') {
+      issues.add(StageValidationIssue(
+        type: StageValidationType.orderViolation,
+        message: 'SPIN_START must be first stage (found: ${stageTypes.first})',
+        severity: StageValidationSeverity.error,
+        stageIndex: 0,
+      ));
+    }
+
+    // 2. SPIN_END must be last
+    if (stageTypes.isNotEmpty && stageTypes.last != 'SPIN_END') {
+      issues.add(StageValidationIssue(
+        type: StageValidationType.orderViolation,
+        message: 'SPIN_END must be last stage (found: ${stageTypes.last})',
+        severity: StageValidationSeverity.warning,
+        stageIndex: stageTypes.length - 1,
+      ));
+    }
+
+    // 3. Timestamps must be monotonically increasing
+    for (int i = 1; i < _lastStages.length; i++) {
+      if (_lastStages[i].timestampMs < _lastStages[i - 1].timestampMs) {
+        issues.add(StageValidationIssue(
+          type: StageValidationType.timestampViolation,
+          message: 'Timestamp decreased at stage $i: ${_lastStages[i].timestampMs}ms < ${_lastStages[i - 1].timestampMs}ms',
+          severity: StageValidationSeverity.error,
+          stageIndex: i,
+        ));
+      }
+    }
+
+    // 4. Required stages check
+    const requiredStages = {'SPIN_START', 'SPIN_END'};
+    for (final required in requiredStages) {
+      if (!stageTypes.contains(required)) {
+        issues.add(StageValidationIssue(
+          type: StageValidationType.missingStage,
+          message: 'Required stage missing: $required',
+          severity: StageValidationSeverity.error,
+        ));
+      }
+    }
+
+    // 5. REEL_STOP must come after REEL_SPINNING (if both present)
+    final reelSpinIdx = stageTypes.indexWhere((s) => s.startsWith('REEL_SPINNING'));
+    final reelStopIdx = stageTypes.indexWhere((s) => s.startsWith('REEL_STOP'));
+    if (reelSpinIdx >= 0 && reelStopIdx >= 0 && reelStopIdx < reelSpinIdx) {
+      issues.add(StageValidationIssue(
+        type: StageValidationType.orderViolation,
+        message: 'REEL_STOP ($reelStopIdx) before REEL_SPINNING ($reelSpinIdx)',
+        severity: StageValidationSeverity.error,
+        stageIndex: reelStopIdx,
+      ));
+    }
+
+    // 6. WIN_PRESENT must come after all REEL_STOP (if present)
+    final winPresentIdx = stageTypes.indexWhere((s) => s.startsWith('WIN_PRESENT'));
+    final lastReelStopIdx = stageTypes.lastIndexWhere((s) => s.startsWith('REEL_STOP'));
+    if (winPresentIdx >= 0 && lastReelStopIdx >= 0 && winPresentIdx < lastReelStopIdx) {
+      issues.add(StageValidationIssue(
+        type: StageValidationType.orderViolation,
+        message: 'WIN_PRESENT ($winPresentIdx) before last REEL_STOP ($lastReelStopIdx)',
+        severity: StageValidationSeverity.warning,
+        stageIndex: winPresentIdx,
+      ));
+    }
+
+    // Log validation result
+    if (issues.isEmpty) {
+      debugPrint('[SlotLabProvider] P0.10: Stage sequence VALID (${_lastStages.length} stages)');
+    } else {
+      debugPrint('[SlotLabProvider] P0.10: Stage sequence INVALID (${issues.length} issues):');
+      for (final issue in issues) {
+        debugPrint('  [${issue.severity.name}] ${issue.message}');
+      }
+    }
+
+    _lastValidationIssues = issues;
+    notifyListeners();
+    return issues;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

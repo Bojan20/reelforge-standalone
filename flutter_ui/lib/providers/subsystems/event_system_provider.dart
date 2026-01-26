@@ -216,9 +216,9 @@ class EventSystemProvider extends ChangeNotifier {
     }
   }
 
-  /// Add action to engine
+  /// Add action to engine (uses extended FFI with pan, gain, fade, trim)
   void _addActionToEngine(int eventId, MiddlewareAction action) {
-    _ffi.middlewareAddAction(
+    _ffi.middlewareAddActionEx(
       eventId,
       _mapActionType(action.type),
       assetId: _getOrCreateAssetId(action.assetId),
@@ -228,6 +228,13 @@ class EventSystemProvider extends ChangeNotifier {
       fadeCurve: _mapFadeCurve(action.fadeCurve),
       fadeTimeMs: (action.fadeTime * 1000).round(),
       delayMs: (action.delay * 1000).round(),
+      // Extended playback parameters (2026-01-26)
+      gain: action.gain,
+      pan: action.pan,
+      fadeInMs: action.fadeInMs.round(),
+      fadeOutMs: action.fadeOutMs.round(),
+      trimStartMs: action.trimStartMs.round(),
+      trimEndMs: action.trimEndMs.round(),
     );
   }
 

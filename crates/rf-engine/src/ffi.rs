@@ -4787,6 +4787,12 @@ pub extern "C" fn engine_middleware_add_action(
         target_event_id: None,
         pitch_semitones: None,
         filter_freq_hz: None,
+        // Extended playback parameters (2026-01-26)
+        pan: 0.0,
+        fade_in_secs: 0.0,
+        fade_out_secs: 0.0,
+        trim_start_secs: 0.0,
+        trim_end_secs: 0.0,
         // State/Switch/RTPC conditions (default: no conditions)
         require_state_group: None,
         require_state_id: None,
@@ -15849,6 +15855,11 @@ pub extern "C" fn audio_pool_memory_usage() -> u64 {
 /// Get audio file metadata without full import (fast, reads header only)
 /// Returns JSON: {"duration": 45.47, "sample_rate": 48000, "channels": 2, "bit_depth": 24}
 /// Returns empty string on error
+///
+/// Duration calculation uses 3-tier fallback:
+/// 1. codec_params.n_frames (instant, from header) - works for WAV, FLAC, AIFF
+/// 2. time_base + track duration (fast, format metadata) - works for MP3, OGG, AAC
+/// 3. packet scan (slower, counts frames without decoding) - ultimate fallback
 #[unsafe(no_mangle)]
 pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
     let path_str = match unsafe { cstr_to_string(path) } {
@@ -15877,9 +15888,9 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
         Err(_) => return CString::new("").unwrap().into_raw(),
     };
 
-    let format = probed.format;
+    let mut format = probed.format;
     let track = match format.default_track() {
-        Some(t) => t,
+        Some(t) => t.clone(),
         None => return CString::new("").unwrap().into_raw(),
     };
 
@@ -15887,12 +15898,77 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
     let sample_rate = codec_params.sample_rate.unwrap_or(48000);
     let channels = codec_params.channels.map(|c| c.count()).unwrap_or(2);
     let bit_depth = codec_params.bits_per_sample.unwrap_or(24);
+    let track_id = track.id;
 
-    // Calculate duration from n_frames and sample_rate
-    // This works for most formats (WAV, FLAC, AIFF, MP3, OGG, etc.)
-    let duration_secs = codec_params.n_frames
-        .map(|frames| frames as f64 / sample_rate as f64)
-        .unwrap_or(0.0);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 3-TIER DURATION FALLBACK SYSTEM
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    let mut duration_secs: f64 = 0.0;
+
+    // TIER 1: Try n_frames from codec params (instant, works for WAV/FLAC/AIFF)
+    if let Some(n_frames) = codec_params.n_frames {
+        duration_secs = n_frames as f64 / sample_rate as f64;
+    }
+
+    // TIER 2: Try time_base with n_frames (works for MP3, OGG, AAC, etc.)
+    if duration_secs <= 0.0 {
+        if let Some(time_base) = codec_params.time_base {
+            if let Some(n_frames) = codec_params.n_frames {
+                // Convert using time_base: duration = n_frames * time_base
+                let tb_num = time_base.numer as f64;
+                let tb_denom = time_base.denom as f64;
+                if tb_denom > 0.0 {
+                    duration_secs = n_frames as f64 * tb_num / tb_denom;
+                }
+            }
+        }
+    }
+
+    // TIER 3: Packet scan - count total frames by reading packet headers (not decoding)
+    // This is slower but works for ALL formats including VBR MP3
+    if duration_secs <= 0.0 {
+        let mut total_frames: u64 = 0;
+        let mut packet_count: u64 = 0;
+        const MAX_PACKETS: u64 = 100_000; // Safety limit (~45 min at 30ms packets)
+
+        loop {
+            match format.next_packet() {
+                Ok(packet) => {
+                    if packet.track_id() == track_id {
+                        total_frames += packet.dur as u64;
+                        packet_count += 1;
+                        if packet_count >= MAX_PACKETS {
+                            break;
+                        }
+                    }
+                }
+                Err(symphonia::core::errors::Error::IoError(ref e))
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    // End of file reached - this is expected
+                    break;
+                }
+                Err(_) => {
+                    // Other error - stop scanning
+                    break;
+                }
+            }
+        }
+
+        if total_frames > 0 {
+            // Use time_base if available, otherwise assume frames = samples
+            if let Some(time_base) = codec_params.time_base {
+                let tb_num = time_base.numer as f64;
+                let tb_denom = time_base.denom as f64;
+                if tb_denom > 0.0 {
+                    duration_secs = total_frames as f64 * tb_num / tb_denom;
+                }
+            } else {
+                // Fallback: assume frames are samples
+                duration_secs = total_frames as f64 / sample_rate as f64;
+            }
+        }
+    }
 
     let json = format!(
         r#"{{"duration":{},"sample_rate":{},"channels":{},"bit_depth":{}}}"#,
@@ -19531,6 +19607,53 @@ pub extern "C" fn engine_playback_play_looping_to_bus(
         string_to_cstr(&format!(r#"{{"voice_id":{}}}"#, voice_id))
     } else {
         string_to_cstr(r#"{"error":"failed to queue looping voice"}"#)
+    }
+}
+
+/// Extended one-shot playback with fadeIn, fadeOut, and trim parameters
+/// fade_in_ms: fade-in duration at start (0 = no fade)
+/// fade_out_ms: fade-out duration at end (0 = no fade)
+/// trim_start_ms: start position in audio file (0 = from beginning)
+/// trim_end_ms: end position in audio file (0 = play to end)
+/// Returns allocated string with voice_id on success, or error message
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_play_to_bus_ex(
+    path: *const c_char,
+    volume: f64,
+    pan: f64,
+    bus_id: u32,
+    source: u8,
+    fade_in_ms: f64,
+    fade_out_ms: f64,
+    trim_start_ms: f64,
+    trim_end_ms: f64,
+) -> *mut c_char {
+    if path.is_null() {
+        return string_to_cstr(r#"{"error":"null path"}"#);
+    }
+
+    let path_str = match unsafe { std::ffi::CStr::from_ptr(path) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return string_to_cstr(r#"{"error":"invalid utf8 path"}"#),
+    };
+
+    let source = PlaybackSource::from(source);
+    let voice_id = PLAYBACK_ENGINE.play_one_shot_to_bus_ex(
+        path_str,
+        volume as f32,
+        pan as f32,
+        bus_id,
+        source,
+        fade_in_ms as f32,
+        fade_out_ms as f32,
+        trim_start_ms as f32,
+        trim_end_ms as f32,
+    );
+
+    if voice_id > 0 {
+        string_to_cstr(&format!(r#"{{"voice_id":{}}}"#, voice_id))
+    } else {
+        string_to_cstr(r#"{"error":"failed to queue extended voice"}"#)
     }
 }
 

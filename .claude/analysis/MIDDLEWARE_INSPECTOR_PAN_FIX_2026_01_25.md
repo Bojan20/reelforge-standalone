@@ -24,6 +24,10 @@ Pan slider in the Middleware section's right inspector panel was not working cor
 - Gain
 - Delay
 - Fade Time
+- **Fade In** (extended, 2026-01-26)
+- **Fade Out** (extended, 2026-01-26)
+- **Trim Start** (extended, 2026-01-26)
+- **Trim End** (extended, 2026-01-26)
 
 All sliders using `_updateActionDebounced()` were affected.
 
@@ -99,6 +103,11 @@ void _updateActionDebounced(
   double? pan,
   double? delay,
   double? fadeTime,
+  // Extended playback parameters (2026-01-26)
+  double? fadeInMs,
+  double? fadeOutMs,
+  double? trimStartMs,
+  double? trimEndMs,
 }) {
   // MARK as pending edit
   _pendingEditEventId = event.id;
@@ -109,6 +118,11 @@ void _updateActionDebounced(
     pan: pan,
     delay: delay,
     fadeTime: fadeTime,
+    // Extended playback parameters
+    fadeInMs: fadeInMs,
+    fadeOutMs: fadeOutMs,
+    trimStartMs: trimStartMs,
+    trimEndMs: trimEndMs,
   );
 
   final newActions = event.actions.map((a) {

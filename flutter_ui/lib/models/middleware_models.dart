@@ -224,6 +224,12 @@ class MiddlewareAction {
   final bool loop;
   final bool selected;
 
+  // Extended playback parameters (2026-01-26)
+  final double fadeInMs;    // Fade-in duration in ms (0 = instant)
+  final double fadeOutMs;   // Fade-out duration in ms (0 = instant)
+  final double trimStartMs; // Non-destructive trim start in ms (0 = beginning)
+  final double trimEndMs;   // Non-destructive trim end in ms (0 = full length)
+
   const MiddlewareAction({
     required this.id,
     this.type = ActionType.play,
@@ -238,6 +244,11 @@ class MiddlewareAction {
     this.delay = 0.0,
     this.loop = false,
     this.selected = false,
+    // Extended playback parameters
+    this.fadeInMs = 0.0,
+    this.fadeOutMs = 0.0,
+    this.trimStartMs = 0.0,
+    this.trimEndMs = 0.0,
   });
 
   MiddlewareAction copyWith({
@@ -254,6 +265,11 @@ class MiddlewareAction {
     double? delay,
     bool? loop,
     bool? selected,
+    // Extended playback parameters
+    double? fadeInMs,
+    double? fadeOutMs,
+    double? trimStartMs,
+    double? trimEndMs,
   }) {
     return MiddlewareAction(
       id: id ?? this.id,
@@ -269,6 +285,11 @@ class MiddlewareAction {
       delay: delay ?? this.delay,
       loop: loop ?? this.loop,
       selected: selected ?? this.selected,
+      // Extended playback parameters
+      fadeInMs: fadeInMs ?? this.fadeInMs,
+      fadeOutMs: fadeOutMs ?? this.fadeOutMs,
+      trimStartMs: trimStartMs ?? this.trimStartMs,
+      trimEndMs: trimEndMs ?? this.trimEndMs,
     );
   }
 
@@ -285,6 +306,11 @@ class MiddlewareAction {
     'pan': pan,
     'delay': delay,
     'loop': loop,
+    // Extended playback parameters
+    'fadeInMs': fadeInMs,
+    'fadeOutMs': fadeOutMs,
+    'trimStartMs': trimStartMs,
+    'trimEndMs': trimEndMs,
   };
 
   factory MiddlewareAction.fromJson(Map<String, dynamic> json) {
@@ -301,6 +327,11 @@ class MiddlewareAction {
       pan: (json['pan'] as num?)?.toDouble() ?? 0.0,
       delay: (json['delay'] as num?)?.toDouble() ?? 0.0,
       loop: json['loop'] as bool? ?? false,
+      // Extended playback parameters
+      fadeInMs: (json['fadeInMs'] as num?)?.toDouble() ?? 0.0,
+      fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 0.0,
+      trimStartMs: (json['trimStartMs'] as num?)?.toDouble() ?? 0.0,
+      trimEndMs: (json['trimEndMs'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

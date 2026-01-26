@@ -180,7 +180,21 @@ void _syncEventToRegistry(SlotCompositeEvent? event) {
       ? event.triggerStages
       : [_getEventStage(event)];
 
-  final layers = event.layers.map((l) => AudioLayer(...)).toList();
+  // Convert SlotEventLayer → AudioLayer with extended parameters
+  final layers = event.layers.map((l) => AudioLayer(
+    id: l.id,
+    audioPath: l.audioPath,
+    name: l.name,
+    volume: l.volume,
+    pan: l.pan,
+    delay: l.offsetMs,
+    busId: l.busId ?? 2,
+    // Extended playback parameters (2026-01-26)
+    fadeInMs: l.fadeInMs,
+    fadeOutMs: l.fadeOutMs,
+    trimStartMs: l.trimStartMs,
+    trimEndMs: l.trimEndMs,
+  )).toList();
 
   // Register under EACH trigger stage with unique ID
   for (int i = 0; i < stages.length; i++) {
@@ -195,6 +209,75 @@ void _syncEventToRegistry(SlotCompositeEvent? event) {
     );
     eventRegistry.registerEvent(audioEvent);
   }
+}
+```
+
+### AudioLayer Extended Model (2026-01-26)
+
+The `AudioLayer` class in `event_registry.dart` supports extended playback parameters for fade and trim:
+
+```dart
+class AudioLayer {
+  final String id;
+  final String audioPath;
+  final String name;
+  final double volume;      // 0.0 - 1.0+
+  final double pan;         // -1.0 (L) to +1.0 (R)
+  final double delay;       // Delay before playback (ms)
+  final double offset;      // Playback start offset (ms)
+  final int busId;          // Audio bus ID (0=Master, 1=SFX, 2=Music, etc.)
+
+  // Extended playback parameters (engine-level fade/trim)
+  final double fadeInMs;    // Fade-in duration (0 = instant)
+  final double fadeOutMs;   // Fade-out duration (0 = instant)
+  final double trimStartMs; // Trim start point (0 = beginning)
+  final double trimEndMs;   // Trim end point (0 = full length)
+}
+```
+
+**FFI Flow for Extended Parameters:**
+
+```
+1. SlotEventLayer (UI model with fadeIn/fadeOut/trim fields)
+   ↓
+2. AudioLayer (EventRegistry model)
+   ↓
+3. _playLayer() checks hasFadeTrim
+   ↓
+4a. If hasFadeTrim: AudioPlaybackService.playFileToBusEx(path, volume, pan, busId, source,
+                                                        fadeInMs, fadeOutMs, trimStartMs, trimEndMs)
+   ↓
+4b. Else: AudioPlaybackService.playFileToBus(path, volume, pan, busId, source)
+   ↓
+5. NativeFFI.playbackPlayToBusEx() → C FFI
+   ↓
+6. Rust engine_playback_play_to_bus_ex() → OneShotVoice with fade_in/fade_out/trim_start/trim_end
+```
+
+**Conditional Extended Playback:**
+
+```dart
+// In _playLayer()
+final hasFadeTrim = layer.fadeInMs > 0 ||
+    layer.fadeOutMs > 0 ||
+    layer.trimStartMs > 0 ||
+    layer.trimEndMs > 0;
+
+if (hasFadeTrim) {
+  voiceId = AudioPlaybackService.instance.playFileToBusEx(
+    layer.audioPath,
+    volume: volume.clamp(0.0, 1.0),
+    pan: pan.clamp(-1.0, 1.0),
+    busId: layer.busId,
+    source: source,
+    fadeInMs: layer.fadeInMs,
+    fadeOutMs: layer.fadeOutMs,
+    trimStartMs: layer.trimStartMs,
+    trimEndMs: layer.trimEndMs,
+  );
+} else {
+  // Standard playback for layers without fade/trim
+  voiceId = AudioPlaybackService.instance.playFileToBus(...);
 }
 ```
 
@@ -1852,6 +1935,157 @@ When using debounced updates with bidirectional provider sync:
 3. **Clear** flag only AFTER local→provider sync completes
 
 This ensures local edits survive the debounce period without being overwritten by stale provider data.
+
+---
+
+## CRITICAL FIX: Middleware FFI Extended Chain (2026-01-26) ✅
+
+### Problem
+
+MiddlewareAction extended parameters (fadeInMs, fadeOutMs, trimStartMs, trimEndMs, pan, gain) existed in the UI model (`event_editor_panel.dart` sliders) but were NOT connected to the Rust FFI chain.
+
+**User Report:** "ne rade fadeIn, fadeOut, trimStart, trimEnd parametri u middleware inspektoru"
+
+**Symptom:** Sliders in Middleware inspector could be adjusted, but changes had no effect on actual audio playback.
+
+### Root Cause
+
+The original `middleware_add_action` FFI function only accepted basic parameters:
+- action_type, asset_id, bus_id, scope, priority
+- fade_curve, fade_time_ms, delay_ms
+
+**Missing parameters:** gain, pan, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms
+
+### Solution: Full-Stack FFI Implementation
+
+**1. Rust MiddlewareAction struct** (`crates/rf-event/src/action.rs`):
+
+```rust
+pub struct MiddlewareAction {
+    // ... existing fields ...
+
+    // === Extended playback parameters (2026-01-26) ===
+    /// Stereo pan position (-1.0 = left, 0.0 = center, +1.0 = right)
+    pub pan: f32,
+    /// Fade-in duration in seconds (for Play actions)
+    pub fade_in_secs: f32,
+    /// Fade-out duration in seconds (for Stop actions)
+    pub fade_out_secs: f32,
+    /// Non-destructive trim start position in seconds
+    pub trim_start_secs: f32,
+    /// Non-destructive trim end position in seconds (0.0 = full duration)
+    pub trim_end_secs: f32,
+}
+```
+
+**2. New FFI function** (`crates/rf-bridge/src/middleware_ffi.rs`):
+
+```rust
+#[unsafe(no_mangle)]
+pub extern "C" fn middleware_add_action_ex(
+    event_id: u32,
+    action_type: u32,
+    asset_id: u32,
+    bus_id: u32,
+    scope: u32,
+    priority: u32,
+    fade_curve: u32,
+    fade_time_ms: u32,
+    delay_ms: u32,
+    // Extended parameters
+    gain: f32,
+    pan: f32,
+    fade_in_ms: u32,
+    fade_out_ms: u32,
+    trim_start_ms: u32,
+    trim_end_ms: u32,
+) -> i32 { ... }
+```
+
+**3. Dart FFI bindings** (`flutter_ui/lib/src/rust/native_ffi.dart`):
+
+```dart
+bool middlewareAddActionEx(
+  int eventId,
+  MiddlewareActionType actionType, {
+  int assetId = 0,
+  int busId = 0,
+  MiddlewareActionScope scope = MiddlewareActionScope.global,
+  MiddlewareActionPriority priority = MiddlewareActionPriority.normal,
+  MiddlewareFadeCurve fadeCurve = MiddlewareFadeCurve.linear,
+  int fadeTimeMs = 0,
+  int delayMs = 0,
+  double gain = 1.0,
+  double pan = 0.0,
+  int fadeInMs = 0,
+  int fadeOutMs = 0,
+  int trimStartMs = 0,
+  int trimEndMs = 0,
+}) { ... }
+```
+
+**4. Provider integration** (`flutter_ui/lib/providers/subsystems/event_system_provider.dart`):
+
+```dart
+void _addActionToEngine(int eventId, MiddlewareAction action) {
+  _ffi.middlewareAddActionEx(
+    eventId,
+    _mapActionType(action.type),
+    assetId: _getOrCreateAssetId(action.assetId),
+    busId: busNameToId[action.bus] ?? 0,
+    scope: _mapActionScope(action.scope),
+    priority: _mapActionPriority(action.priority),
+    fadeCurve: _mapFadeCurve(action.fadeCurve),
+    fadeTimeMs: (action.fadeTime * 1000).round(),
+    delayMs: (action.delay * 1000).round(),
+    // Extended playback parameters (2026-01-26)
+    gain: action.gain,
+    pan: action.pan,
+    fadeInMs: action.fadeInMs.round(),
+    fadeOutMs: action.fadeOutMs.round(),
+    trimStartMs: action.trimStartMs.round(),
+    trimEndMs: action.trimEndMs.round(),
+  );
+}
+```
+
+### Complete FFI Chain
+
+```
+UI (event_editor_panel.dart sliders)
+  → MiddlewareAction model (fadeInMs, fadeOutMs, trimStartMs, trimEndMs, pan, gain)
+    → EventSystemProvider._addActionToEngine()
+      → NativeFFI.middlewareAddActionEx()
+        → C FFI: middleware_add_action_ex()
+          → Rust MiddlewareAction struct (with all extended fields)
+```
+
+### Two Separate Audio Paths
+
+**Important:** SlotLab and Middleware use DIFFERENT FFI paths:
+
+| Section | FFI Function | Extended Params |
+|---------|-------------|-----------------|
+| SlotLab (EventRegistry) | `playFileToBusEx()` | ✅ Via AudioLayer |
+| Middleware (Inspector) | `middlewareAddActionEx()` | ✅ Via MiddlewareAction |
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `crates/rf-event/src/action.rs` | Added 5 extended fields to MiddlewareAction struct |
+| `crates/rf-bridge/src/middleware_ffi.rs` | Added `middleware_add_action_ex()` FFI function |
+| `crates/rf-engine/src/ffi.rs` | Updated MiddlewareAction init with extended fields |
+| `flutter_ui/lib/src/rust/native_ffi.dart` | Added Dart FFI binding `middlewareAddActionEx()` |
+| `flutter_ui/lib/providers/subsystems/event_system_provider.dart` | Updated `_addActionToEngine()` to use extended FFI |
+
+### Verification
+
+1. ✅ Open Middleware section
+2. ✅ Create event with actions
+3. ✅ Adjust fade in/out, trim, pan, gain sliders
+4. ✅ Play event
+5. ✅ Audio respects all parameters
 
 ---
 

@@ -81,8 +81,15 @@ class MiddlewareAction {
   final FadeCurve fadeCurve;
   final double fadeTime;
   final double gain;
+  final double pan;        // -1.0 (left) to +1.0 (right)
   final double delay;
   final bool loop;
+
+  // Extended playback parameters (2026-01-26)
+  final double fadeInMs;    // Fade-in duration (0 = instant)
+  final double fadeOutMs;   // Fade-out duration (0 = instant)
+  final double trimStartMs; // Non-destructive trim start
+  final double trimEndMs;   // Non-destructive trim end
 }
 
 class MiddlewareEvent {

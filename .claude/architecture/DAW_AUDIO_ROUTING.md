@@ -1128,7 +1128,7 @@ All DAW providers are now fully connected to the Rust audio engine via FFI.
 **Archive Config Options:**
 | Option | Default | Description |
 |--------|---------|-------------|
-| Include Audio | ✅ ON | WAV, FLAC, MP3, OGG, AIFF files |
+| Include Audio | ✅ ON | WAV, FLAC, MP3, OGG, AAC, AIFF, M4A, ALAC files |
 | Include Presets | ✅ ON | .ffpreset, .fxp, .fxb files |
 | Include Plugins | ❌ OFF | Plugin references (metadata only) |
 | Compress | ✅ ON | ZIP compression enabled |

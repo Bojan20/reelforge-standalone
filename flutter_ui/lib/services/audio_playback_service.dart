@@ -225,6 +225,68 @@ class AudioPlaybackService extends ChangeNotifier {
     }
   }
 
+  /// Extended play through specific bus with fadeIn/fadeOut/trim parameters
+  /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
+  /// fadeInMs: fade-in duration in milliseconds (0 = instant start)
+  /// fadeOutMs: fade-out duration at end in milliseconds (0 = instant stop)
+  /// trimStartMs: start playback from this position in milliseconds
+  /// trimEndMs: stop playback at this position in milliseconds (0 = play to end)
+  /// Returns voice_id on success, -1 on error
+  int playFileToBusEx(
+    String path, {
+    double volume = 1.0,
+    double pan = 0.0,
+    int busId = 0,
+    PlaybackSource source = PlaybackSource.middleware,
+    String? eventId,
+    String? layerId,
+    double fadeInMs = 0.0,
+    double fadeOutMs = 0.0,
+    double trimStartMs = 0.0,
+    double trimEndMs = 0.0,
+  }) {
+    if (path.isEmpty) return -1;
+
+    _acquirePlayback(source);
+
+    try {
+      // Map PlaybackSource to engine source ID
+      final sourceId = _sourceToEngineId(source);
+      final voiceId = _ffi.playbackPlayToBusEx(
+        path,
+        volume: volume,
+        pan: pan,
+        busId: busId,
+        source: sourceId,
+        fadeInMs: fadeInMs,
+        fadeOutMs: fadeOutMs,
+        trimStartMs: trimStartMs,
+        trimEndMs: trimEndMs,
+      );
+      if (voiceId >= 0) {
+        _activeVoices.add(VoiceInfo(
+          voiceId: voiceId,
+          audioPath: path,
+          source: source,
+          eventId: eventId,
+          layerId: layerId,
+        ));
+
+        // Track by event if provided
+        if (eventId != null) {
+          _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
+        }
+
+        debugPrint('[AudioPlayback] PlayToBusEx: $path -> bus $busId (voice $voiceId, fadeIn=${fadeInMs}ms, fadeOut=${fadeOutMs}ms, trim=${trimStartMs}-${trimEndMs}ms)');
+      }
+      return voiceId;
+    } catch (e) {
+      debugPrint('[AudioPlayback] PlayToBusEx error: $e');
+      return -1;
+    }
+  }
+
   /// P0.2: Play looping audio through a specific bus (REEL_SPIN, ambience loops, etc.)
   /// Loops seamlessly until explicitly stopped with stopOneShotVoice()
   /// busId: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
@@ -544,6 +606,172 @@ class AudioPlaybackService extends ChangeNotifier {
     }
 
     debugPrint('[AudioPlayback] Stopped source: $source (${voicesToStop.length} voices)');
+  }
+
+  // ===========================================================================
+  // P1.11: PRE-TRIGGER BUFFER — Schedule audio playback in advance
+  // ===========================================================================
+
+  /// Default pre-trigger offset in milliseconds (compensates for audio latency)
+  static const int _defaultPreTriggerMs = 20;
+
+  /// Pre-trigger offsets for specific stage categories (ms)
+  static const Map<String, int> _preTriggerOffsets = {
+    'ANTICIPATION': 50,    // Critical timing for anticipation
+    'REEL_STOP': 30,       // Precise sync with visual reel stop
+    'WIN_PRESENT': 20,     // Win reveal needs tight sync
+    'CASCADE_STEP': 15,    // Cascade steps are rapid-fire
+    'JACKPOT': 40,         // Jackpot reveal is dramatic
+  };
+
+  /// Pending pre-triggered events (scheduled but not yet played)
+  final Map<String, Timer> _preTriggerTimers = {};
+
+  /// Get pre-trigger offset for a stage type
+  int getPreTriggerOffset(String stageType) {
+    // Check exact match first
+    if (_preTriggerOffsets.containsKey(stageType)) {
+      return _preTriggerOffsets[stageType]!;
+    }
+    // Check prefix match
+    for (final entry in _preTriggerOffsets.entries) {
+      if (stageType.startsWith(entry.key)) {
+        return entry.value;
+      }
+    }
+    return _defaultPreTriggerMs;
+  }
+
+  /// Schedule audio playback with pre-trigger compensation
+  /// Returns a handle ID that can be used to cancel the scheduled playback
+  String schedulePreTrigger({
+    required String path,
+    required int preTriggerMs,
+    double volume = 1.0,
+    double pan = 0.0,
+    int busId = 0,
+    PlaybackSource source = PlaybackSource.slotlab,
+    String? stageType,
+  }) {
+    final handleId = 'pretrig_${DateTime.now().microsecondsSinceEpoch}_${path.hashCode}';
+    final offsetMs = stageType != null ? getPreTriggerOffset(stageType) : preTriggerMs;
+
+    // Schedule the playback
+    final timer = Timer(Duration(milliseconds: offsetMs.clamp(0, 200)), () {
+      _preTriggerTimers.remove(handleId);
+      final voiceId = playFileToBus(
+        path,
+        volume: volume,
+        pan: pan,
+        busId: busId,
+        source: source,
+      );
+      debugPrint('[AudioPlayback] P1.11: Pre-triggered playback fired (${offsetMs}ms offset, voice $voiceId)');
+    });
+
+    _preTriggerTimers[handleId] = timer;
+    debugPrint('[AudioPlayback] P1.11: Scheduled pre-trigger: $handleId (${offsetMs}ms)');
+    return handleId;
+  }
+
+  /// Cancel a scheduled pre-trigger
+  void cancelPreTrigger(String handleId) {
+    final timer = _preTriggerTimers.remove(handleId);
+    if (timer != null) {
+      timer.cancel();
+      debugPrint('[AudioPlayback] P1.11: Cancelled pre-trigger: $handleId');
+    }
+  }
+
+  /// Cancel all pending pre-triggers
+  void cancelAllPreTriggers() {
+    for (final timer in _preTriggerTimers.values) {
+      timer.cancel();
+    }
+    final count = _preTriggerTimers.length;
+    _preTriggerTimers.clear();
+    if (count > 0) {
+      debugPrint('[AudioPlayback] P1.11: Cancelled $count pending pre-triggers');
+    }
+  }
+
+  // ===========================================================================
+  // P1.12: TAIL HANDLING — Soft stop with configurable fade-out
+  // ===========================================================================
+
+  /// Default tail fade duration in milliseconds
+  static const int _defaultTailFadeMs = 50;
+
+  /// Tail fade durations for specific stage categories (ms)
+  static const Map<String, int> _tailFadeDurations = {
+    'MUSIC': 500,          // Music needs long tail
+    'AMBIENT': 400,        // Ambience also needs smooth fade
+    'REEL_SPIN': 80,       // Spin loop needs quick but not instant stop
+    'WIN': 100,            // Win sounds moderate fade
+    'BIGWIN': 200,         // Big win celebration longer fade
+    'VOICE': 30,           // Voice can be shorter
+  };
+
+  /// Get tail fade duration for a stage type
+  int getTailFadeDuration(String? stageType) {
+    if (stageType == null) return _defaultTailFadeMs;
+    // Check exact match first
+    if (_tailFadeDurations.containsKey(stageType)) {
+      return _tailFadeDurations[stageType]!;
+    }
+    // Check prefix match
+    for (final entry in _tailFadeDurations.entries) {
+      if (stageType.startsWith(entry.key)) {
+        return entry.value;
+      }
+    }
+    return _defaultTailFadeMs;
+  }
+
+  /// Stop voice with tail fade-out (soft stop)
+  /// Uses stage-aware fade duration for natural audio endings
+  void stopVoiceWithTail(int voiceId, {String? stageType, int? fadeMs}) {
+    final fadeDuration = fadeMs ?? getTailFadeDuration(stageType);
+    fadeOutVoice(voiceId, fadeMs: fadeDuration);
+    debugPrint('[AudioPlayback] P1.12: Soft stop voice $voiceId (${fadeDuration}ms tail)');
+  }
+
+  /// Stop event with tail fade-out (soft stop all voices)
+  void stopEventWithTail(String eventId, {String? stageType, int? fadeMs}) {
+    final voices = _eventVoices.remove(eventId);
+    if (voices != null && voices.isNotEmpty) {
+      final fadeDuration = fadeMs ?? getTailFadeDuration(stageType);
+      for (final voiceId in voices) {
+        fadeOutVoice(voiceId, fadeMs: fadeDuration);
+      }
+      _activeVoices.removeWhere((v) => v.eventId == eventId);
+      debugPrint('[AudioPlayback] P1.12: Soft stop event $eventId (${voices.length} voices, ${fadeDuration}ms tail)');
+    }
+    _checkAndReleasePlayback();
+  }
+
+  /// Stop all voices from source with tail fade-out
+  void stopSourceWithTail(PlaybackSource source, {int fadeMs = 100}) {
+    if (source == PlaybackSource.daw) {
+      stopDAWPlayback();
+      return;
+    }
+
+    final voicesToStop = _activeVoices.where((v) => v.source == source).toList();
+    for (final voice in voicesToStop) {
+      fadeOutVoice(voice.voiceId, fadeMs: fadeMs);
+    }
+
+    _activeVoices.removeWhere((v) => v.source == source);
+    _eventVoices.removeWhere((eventId, voices) {
+      return _activeVoices.every((v) => v.eventId != eventId);
+    });
+
+    if (_activeSource == source) {
+      _releasePlayback(source);
+    }
+
+    debugPrint('[AudioPlayback] P1.12: Soft stop source $source (${voicesToStop.length} voices, ${fadeMs}ms tail)');
   }
 
   /// Stop ALL playback (all sources)

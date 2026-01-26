@@ -40,9 +40,21 @@ once_cell = "1.20"
 cpal = { workspace = true }
 memmap2 = "0.9"
 
-# Audio file decoding (MP3, FLAC, OGG, AAC, WAV)
+# Audio file decoding - ALL supported formats
+# Lossless: wav, flac, aiff, alac (Apple Lossless)
+# Lossy: mp3, ogg/vorbis, aac
+# Containers: isomp4 (M4A)
 symphonia = { version = "0.5", default-features = false, features = [
-    "mp3", "flac", "ogg", "vorbis", "wav", "pcm", "aac", "alac"
+    "aac",      # AAC decoder (includes ADTS stream support)
+    "aiff",     # AIFF container
+    "alac",     # Apple Lossless
+    "flac",     # FLAC
+    "isomp4",   # M4A container (AAC, ALAC)
+    "mp3",      # MP3
+    "ogg",      # OGG container
+    "pcm",      # PCM codec
+    "vorbis",   # Vorbis decoder
+    "wav",      # WAV container
 ] }
 
 [dev-dependencies]

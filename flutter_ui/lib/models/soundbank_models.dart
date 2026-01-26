@@ -48,17 +48,24 @@ extension SoundbankPlatformExt on SoundbankPlatform {
 }
 
 /// Audio format for exported assets
+/// Format IDs match FFI offline_pipeline_set_format() and AUDIO_FORMAT_SUPPORT.md
 enum SoundbankAudioFormat {
-  wav16,      // PCM 16-bit WAV
-  wav24,      // PCM 24-bit WAV
-  wav32f,     // Float 32-bit WAV
-  flac,       // FLAC lossless
-  mp3High,    // MP3 320kbps
-  mp3Medium,  // MP3 192kbps
-  mp3Low,     // MP3 128kbps
-  ogg,        // OGG Vorbis
-  webm,       // WebM audio (for web)
-  aac,        // AAC (for mobile)
+  // Lossless - Native encoders (always available)
+  wav16,      // PCM 16-bit WAV (ID: 0)
+  wav24,      // PCM 24-bit WAV (ID: 1)
+  wav32f,     // Float 32-bit WAV (ID: 2)
+  aiff16,     // AIFF 16-bit (ID: 3)
+  aiff24,     // AIFF 24-bit (ID: 4)
+  flac,       // FLAC lossless (ID: 5)
+  // Lossy - FFmpeg required
+  mp3High,    // MP3 320kbps (ID: 6)
+  mp3Medium,  // MP3 192kbps (ID: 8) — note: ID 7 is MP3 256kbps
+  mp3Low,     // MP3 128kbps (ID: 9)
+  ogg,        // OGG Vorbis Q8 (ID: 10)
+  aac,        // AAC 256kbps (ID: 12)
+  opus,       // Opus 128kbps (ID: 14)
+  // Legacy (map to closest available)
+  webm,       // WebM audio → maps to OGG
 }
 
 extension SoundbankAudioFormatExt on SoundbankAudioFormat {
@@ -67,13 +74,16 @@ extension SoundbankAudioFormatExt on SoundbankAudioFormat {
       case SoundbankAudioFormat.wav16: return 'WAV 16-bit';
       case SoundbankAudioFormat.wav24: return 'WAV 24-bit';
       case SoundbankAudioFormat.wav32f: return 'WAV 32-bit Float';
+      case SoundbankAudioFormat.aiff16: return 'AIFF 16-bit';
+      case SoundbankAudioFormat.aiff24: return 'AIFF 24-bit';
       case SoundbankAudioFormat.flac: return 'FLAC';
       case SoundbankAudioFormat.mp3High: return 'MP3 320kbps';
       case SoundbankAudioFormat.mp3Medium: return 'MP3 192kbps';
       case SoundbankAudioFormat.mp3Low: return 'MP3 128kbps';
       case SoundbankAudioFormat.ogg: return 'OGG Vorbis';
-      case SoundbankAudioFormat.webm: return 'WebM';
-      case SoundbankAudioFormat.aac: return 'AAC';
+      case SoundbankAudioFormat.aac: return 'AAC 256kbps';
+      case SoundbankAudioFormat.opus: return 'Opus 128kbps';
+      case SoundbankAudioFormat.webm: return 'WebM (OGG)';
     }
   }
 
@@ -83,14 +93,19 @@ extension SoundbankAudioFormatExt on SoundbankAudioFormat {
       case SoundbankAudioFormat.wav24:
       case SoundbankAudioFormat.wav32f:
         return 'wav';
+      case SoundbankAudioFormat.aiff16:
+      case SoundbankAudioFormat.aiff24:
+        return 'aiff';
       case SoundbankAudioFormat.flac: return 'flac';
       case SoundbankAudioFormat.mp3High:
       case SoundbankAudioFormat.mp3Medium:
       case SoundbankAudioFormat.mp3Low:
         return 'mp3';
-      case SoundbankAudioFormat.ogg: return 'ogg';
-      case SoundbankAudioFormat.webm: return 'webm';
-      case SoundbankAudioFormat.aac: return 'aac';
+      case SoundbankAudioFormat.ogg:
+      case SoundbankAudioFormat.webm:
+        return 'ogg';
+      case SoundbankAudioFormat.aac: return 'm4a';
+      case SoundbankAudioFormat.opus: return 'opus';
     }
   }
 
@@ -98,7 +113,34 @@ extension SoundbankAudioFormatExt on SoundbankAudioFormat {
     return this == SoundbankAudioFormat.wav16 ||
            this == SoundbankAudioFormat.wav24 ||
            this == SoundbankAudioFormat.wav32f ||
+           this == SoundbankAudioFormat.aiff16 ||
+           this == SoundbankAudioFormat.aiff24 ||
            this == SoundbankAudioFormat.flac;
+  }
+
+  /// FFI format ID for offline_pipeline_set_format()
+  /// See .claude/docs/AUDIO_FORMAT_SUPPORT.md for mapping
+  int get formatId {
+    switch (this) {
+      case SoundbankAudioFormat.wav16: return 0;
+      case SoundbankAudioFormat.wav24: return 1;
+      case SoundbankAudioFormat.wav32f: return 2;
+      case SoundbankAudioFormat.aiff16: return 3;
+      case SoundbankAudioFormat.aiff24: return 4;
+      case SoundbankAudioFormat.flac: return 5;
+      case SoundbankAudioFormat.mp3High: return 6;
+      case SoundbankAudioFormat.mp3Medium: return 8;
+      case SoundbankAudioFormat.mp3Low: return 9;
+      case SoundbankAudioFormat.ogg: return 10;
+      case SoundbankAudioFormat.webm: return 10; // Maps to OGG
+      case SoundbankAudioFormat.aac: return 12;
+      case SoundbankAudioFormat.opus: return 14;
+    }
+  }
+
+  /// Whether this format requires FFmpeg (not native encoder)
+  bool get requiresFFmpeg {
+    return !isLossless && this != SoundbankAudioFormat.webm;
   }
 }
 

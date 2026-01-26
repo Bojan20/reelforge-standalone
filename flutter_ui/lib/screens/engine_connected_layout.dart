@@ -75,6 +75,7 @@ import '../models/layout_models.dart';
 import '../models/editor_mode_config.dart';
 import '../models/middleware_models.dart';
 import '../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
+import '../widgets/common/audio_waveform_picker_dialog.dart';
 import '../models/timeline_models.dart' as timeline;
 import '../theme/fluxforge_theme.dart';
 import '../widgets/layout/left_zone.dart' show LeftZoneTab;
@@ -294,8 +295,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   String _headerFadeCurve = 'Linear';
   double _headerFadeTime = 0.1;
   double _headerGain = 1.0;
+  double _headerPan = 0.0;  // -1.0 (L) to 1.0 (R), 0.0 = Center
   double _headerDelay = 0.0;
   bool _headerLoop = false;
+  // NEW: FadeIn/FadeOut/Trim/AudioPath controls
+  double _headerFadeInMs = 0.0;
+  double _headerFadeOutMs = 0.0;
+  CrossfadeCurve _headerFadeInCurve = CrossfadeCurve.linear;
+  CrossfadeCurve _headerFadeOutCurve = CrossfadeCurve.linear;
+  double _headerTrimStartMs = 0.0;
+  double _headerTrimEndMs = 0.0;
+  String _headerAudioPath = '';
 
   // Loudness meter state
   LoudnessTarget _loudnessTarget = LoudnessTarget.streaming;
@@ -3250,6 +3260,96 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     middleware.updateEventLayer(composite.id, updatedLayer);
   }
 
+  /// Sync header controls from selected SlotEventLayer (for quick editing)
+  void _syncHeaderFromSelectedLayer() {
+    final layer = _selectedLayer;
+    final composite = _selectedComposite;
+    if (layer == null) return;
+
+    setState(() {
+      _headerGain = layer.volume;
+      _headerPan = layer.pan;
+      _headerDelay = layer.offsetMs;
+      // Loop is at event level, not layer level
+      _headerLoop = composite?.looping ?? false;
+      _headerFadeInMs = layer.fadeInMs;
+      _headerFadeOutMs = layer.fadeOutMs;
+      _headerFadeInCurve = layer.fadeInCurve;
+      _headerFadeOutCurve = layer.fadeOutCurve;
+      _headerTrimStartMs = layer.trimStartMs;
+      _headerTrimEndMs = layer.trimEndMs;
+      _headerAudioPath = layer.audioPath;
+      // Map busId to header bus name
+      _headerBus = _busIdToName(layer.busId);
+    });
+  }
+
+  /// Sync header controls TO the selected SlotEventLayer (when header changes)
+  void _syncHeaderToSelectedLayer() {
+    final composite = _selectedComposite;
+    final layer = _selectedLayer;
+    if (composite == null || layer == null) return;
+
+    final updatedLayer = layer.copyWith(
+      volume: _headerGain,
+      pan: _headerPan,
+      offsetMs: _headerDelay,
+      fadeInMs: _headerFadeInMs,
+      fadeOutMs: _headerFadeOutMs,
+      fadeInCurve: _headerFadeInCurve,
+      fadeOutCurve: _headerFadeOutCurve,
+      trimStartMs: _headerTrimStartMs,
+      trimEndMs: _headerTrimEndMs,
+      audioPath: _headerAudioPath,
+      busId: _busNameToId(_headerBus),
+    );
+
+    final middleware = context.read<MiddlewareProvider>();
+    middleware.updateEventLayer(composite.id, updatedLayer);
+
+    // Also update event-level loop if changed
+    if (composite.looping != _headerLoop) {
+      middleware.updateCompositeEvent(composite.copyWith(looping: _headerLoop));
+    }
+  }
+
+  /// Convert bus ID to bus name for header display
+  String _busIdToName(int? busId) {
+    switch (busId) {
+      case 0: return 'Master';
+      case 1: return 'Music';
+      case 2: return 'SFX';
+      case 3: return 'Voice';
+      case 4: return 'UI';
+      case 5: return 'Ambience';
+      default: return 'Music';
+    }
+  }
+
+  /// Convert bus name to bus ID for layer update
+  int _busNameToId(String busName) {
+    switch (busName) {
+      case 'Master': return 0;
+      case 'Music': return 1;
+      case 'SFX': return 2;
+      case 'Voice': return 3;
+      case 'UI': return 4;
+      case 'Ambience': return 5;
+      default: return 1;
+    }
+  }
+
+  /// Select a layer and sync header values
+  void _selectLayerAndSync(int index) {
+    setState(() {
+      _selectedLayerIndex = index;
+    });
+    // Sync header values from selected layer (delayed to ensure state is updated)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncHeaderFromSelectedLayer();
+    });
+  }
+
   /// Update a specific field of the selected action
   void _updateSelectedAction(MiddlewareAction Function(MiddlewareAction) updater) {
     final event = _selectedEvent;
@@ -3285,6 +3385,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _headerFadeCurve = updatedAction.fadeCurve.displayName;
       _headerFadeTime = updatedAction.fadeTime;
       _headerGain = updatedAction.gain;
+      _headerPan = updatedAction.pan;
       _headerDelay = updatedAction.delay;
       _headerLoop = updatedAction.loop;
     });
@@ -3619,6 +3720,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       fadeCurve: FadeCurveExtension.fromString(_headerFadeCurve),
       fadeTime: _headerFadeTime,
       gain: _headerGain,
+      pan: _headerPan,
       delay: _headerDelay,
       loop: _headerLoop,
     );
@@ -3735,6 +3837,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         _headerFadeCurve = updated.fadeCurve.displayName;
         _headerFadeTime = updated.fadeTime;
         _headerGain = updated.gain;
+        _headerPan = updated.pan;
         _headerDelay = updated.delay;
         _headerLoop = updated.loop;
       }
@@ -3757,6 +3860,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         _headerFadeCurve = action.fadeCurve.displayName;
         _headerFadeTime = action.fadeTime;
         _headerGain = action.gain;
+        _headerPan = action.pan;
         _headerDelay = action.delay;
         _headerLoop = action.loop;
       }
@@ -5613,6 +5717,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         else if (_headerGain >= 0.5) _headerGain = 0.25;
                         else _headerGain = 1.0;
                       });
+                      _syncHeaderToSelectedLayer();
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  // Pan control - CONNECTED (cycles L100 → L50 → C → R50 → R100)
+                  _MiniInput(
+                    label: 'Pan',
+                    value: _headerPan.abs() < 0.01 ? 'C' : (_headerPan < 0 ? 'L${(_headerPan.abs() * 100).toInt()}' : 'R${(_headerPan * 100).toInt()}'),
+                    onTap: () {
+                      // Cycle through: L100 → L50 → C → R50 → R100 → L100
+                      setState(() {
+                        if (_headerPan <= -0.99) _headerPan = -0.5;
+                        else if (_headerPan <= -0.49) _headerPan = 0.0;
+                        else if (_headerPan.abs() < 0.01) _headerPan = 0.5;
+                        else if (_headerPan >= 0.49 && _headerPan < 0.99) _headerPan = 1.0;
+                        else _headerPan = -1.0;
+                      });
+                      _syncHeaderToSelectedLayer();
                     },
                   ),
                   const SizedBox(width: 12),
@@ -5620,7 +5742,167 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                   _MiniToggle(
                     label: 'Loop',
                     value: _headerLoop,
-                    onChanged: (val) => setState(() => _headerLoop = val),
+                    onChanged: (val) {
+                      setState(() => _headerLoop = val);
+                      _syncHeaderToSelectedLayer();
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  // Visual separator for advanced controls
+                  Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
+                  const SizedBox(width: 16),
+                  // === FADE IN CONTROLS ===
+                  _MiniInput(
+                    label: 'FadeIn',
+                    value: '${_headerFadeInMs.toInt()}ms',
+                    onTap: () {
+                      // Cycle through: 0 → 50 → 100 → 200 → 500 → 1000 → 0
+                      setState(() {
+                        if (_headerFadeInMs < 50) _headerFadeInMs = 50;
+                        else if (_headerFadeInMs < 100) _headerFadeInMs = 100;
+                        else if (_headerFadeInMs < 200) _headerFadeInMs = 200;
+                        else if (_headerFadeInMs < 500) _headerFadeInMs = 500;
+                        else if (_headerFadeInMs < 1000) _headerFadeInMs = 1000;
+                        else _headerFadeInMs = 0;
+                      });
+                      _syncHeaderToSelectedLayer();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _MiniDropdown(
+                    label: 'InCurve',
+                    value: _headerFadeInCurve.name,
+                    options: CrossfadeCurve.values.map((c) => c.name).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _headerFadeInCurve = CrossfadeCurve.values.firstWhere(
+                          (c) => c.name == val,
+                          orElse: () => CrossfadeCurve.linear,
+                        );
+                      });
+                      _syncHeaderToSelectedLayer();
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  // === FADE OUT CONTROLS ===
+                  _MiniInput(
+                    label: 'FadeOut',
+                    value: '${_headerFadeOutMs.toInt()}ms',
+                    onTap: () {
+                      // Cycle through: 0 → 50 → 100 → 200 → 500 → 1000 → 0
+                      setState(() {
+                        if (_headerFadeOutMs < 50) _headerFadeOutMs = 50;
+                        else if (_headerFadeOutMs < 100) _headerFadeOutMs = 100;
+                        else if (_headerFadeOutMs < 200) _headerFadeOutMs = 200;
+                        else if (_headerFadeOutMs < 500) _headerFadeOutMs = 500;
+                        else if (_headerFadeOutMs < 1000) _headerFadeOutMs = 1000;
+                        else _headerFadeOutMs = 0;
+                      });
+                      _syncHeaderToSelectedLayer();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _MiniDropdown(
+                    label: 'OutCurve',
+                    value: _headerFadeOutCurve.name,
+                    options: CrossfadeCurve.values.map((c) => c.name).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _headerFadeOutCurve = CrossfadeCurve.values.firstWhere(
+                          (c) => c.name == val,
+                          orElse: () => CrossfadeCurve.linear,
+                        );
+                      });
+                      _syncHeaderToSelectedLayer();
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  // Visual separator for trim controls
+                  Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
+                  const SizedBox(width: 16),
+                  // === TRIM CONTROLS ===
+                  _MiniInput(
+                    label: 'TrimStart',
+                    value: '${_headerTrimStartMs.toInt()}ms',
+                    onTap: () {
+                      // Cycle through: 0 → 100 → 500 → 1000 → 2000 → 0
+                      setState(() {
+                        if (_headerTrimStartMs < 100) _headerTrimStartMs = 100;
+                        else if (_headerTrimStartMs < 500) _headerTrimStartMs = 500;
+                        else if (_headerTrimStartMs < 1000) _headerTrimStartMs = 1000;
+                        else if (_headerTrimStartMs < 2000) _headerTrimStartMs = 2000;
+                        else _headerTrimStartMs = 0;
+                      });
+                      _syncHeaderToSelectedLayer();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _MiniInput(
+                    label: 'TrimEnd',
+                    value: '${_headerTrimEndMs.toInt()}ms',
+                    onTap: () {
+                      // Cycle through: 0 → 100 → 500 → 1000 → 2000 → 0
+                      setState(() {
+                        if (_headerTrimEndMs < 100) _headerTrimEndMs = 100;
+                        else if (_headerTrimEndMs < 500) _headerTrimEndMs = 500;
+                        else if (_headerTrimEndMs < 1000) _headerTrimEndMs = 1000;
+                        else if (_headerTrimEndMs < 2000) _headerTrimEndMs = 2000;
+                        else _headerTrimEndMs = 0;
+                      });
+                      _syncHeaderToSelectedLayer();
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  // Visual separator for audio path
+                  Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
+                  const SizedBox(width: 16),
+                  // === AUDIO PATH SELECTOR ===
+                  GestureDetector(
+                    onTap: () async {
+                      final path = await AudioWaveformPickerDialog.show(
+                        context,
+                        title: 'Select Audio File',
+                        initialDirectory: _headerAudioPath.isNotEmpty
+                            ? File(_headerAudioPath).parent.path
+                            : null,
+                      );
+                      if (path != null) {
+                        setState(() => _headerAudioPath = path);
+                        _syncHeaderToSelectedLayer();
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.bgSurface,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: FluxForgeTheme.borderSubtle),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.audiotrack, size: 12, color: FluxForgeTheme.accentCyan),
+                          const SizedBox(width: 4),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 120),
+                            child: Text(
+                              _headerAudioPath.isEmpty
+                                  ? 'Select Audio'
+                                  : _headerAudioPath.split('/').last,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: _headerAudioPath.isEmpty
+                                    ? FluxForgeTheme.textTertiary
+                                    : FluxForgeTheme.textPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.folder_open, size: 10, color: FluxForgeTheme.textSecondary),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -5836,7 +6118,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final layerColor = FluxForgeTheme.accentBlue;
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedLayerIndex = index),
+      onTap: () => _selectLayerAndSync(index),
       child: Container(
         height: _kMiddlewareTrackHeight,
         decoration: BoxDecoration(
@@ -5949,7 +6231,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       left: startX,
       top: topY,
       child: GestureDetector(
-        onTap: () => setState(() => _selectedLayerIndex = index),
+        onTap: () => _selectLayerAndSync(index),
         onHorizontalDragUpdate: (details) {
           // Drag to change offset - TODO: implement via provider
         },
@@ -6389,6 +6671,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 SizedBox(width: 120, child: Text('Asset ID', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 70, child: Text('Bus', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 70, child: Text('Gain', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 70, child: Text('Pan', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 70, child: Text('Delay', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 60, child: Text('Fade', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 70, child: Text('Curve', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
@@ -6647,6 +6930,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 SizedBox(width: 120, child: Text('Asset ID', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 70, child: Text('Bus', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 70, child: Text('Gain', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 70, child: Text('Pan', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 70, child: Text('Delay', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 60, child: Text('Fade', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 70, child: Text('Curve', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
@@ -6715,6 +6999,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         formatValue: (v) => '${(v * 100).toInt()}%',
                         color: FluxForgeTheme.accentGreen,
                         onChanged: (val) => _updateAction(idx, action.copyWith(gain: val)),
+                      ),
+                    ),
+                    // Pan slider - CONNECTED
+                    SizedBox(
+                      width: 70,
+                      child: _CellSlider(
+                        value: action.pan,
+                        min: -1.0,
+                        max: 1.0,
+                        formatValue: (v) => v.abs() < 0.01 ? 'C' : (v < 0 ? 'L${(v.abs() * 100).toInt()}' : 'R${(v * 100).toInt()}'),
+                        color: FluxForgeTheme.accentCyan,
+                        onChanged: (val) => _updateAction(idx, action.copyWith(pan: val)),
                       ),
                     ),
                     // Delay slider - CONNECTED (synced with Inspector)
@@ -9659,16 +9955,50 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 if (!assetOptions.contains(displayValue)) {
                   displayValue = '';
                 }
-                return _InspectorDropdownInteractive(
-                  label: 'Asset',
-                  value: displayValue,
-                  options: assetOptions,
-                  enabled: hasLayer,
-                  onChanged: (v) {
-                    final poolFile = _audioPool.where((f) => f.name == v).firstOrNull;
-                    final newPath = poolFile?.path ?? v;
-                    _updateSelectedLayer((l) => l.copyWith(audioPath: newPath));
-                  },
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InspectorDropdownInteractive(
+                      label: 'Asset',
+                      value: displayValue,
+                      options: assetOptions,
+                      enabled: hasLayer,
+                      onChanged: (v) {
+                        final poolFile = _audioPool.where((f) => f.name == v).firstOrNull;
+                        final newPath = poolFile?.path ?? v;
+                        _updateSelectedLayer((l) => l.copyWith(audioPath: newPath));
+                      },
+                    ),
+                    // Browse button for selecting audio file
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 24,
+                        child: TextButton.icon(
+                          onPressed: hasLayer ? () async {
+                            final path = await AudioWaveformPickerDialog.show(
+                              context,
+                              title: 'Select Audio File',
+                              initialDirectory: layer.audioPath.isNotEmpty
+                                  ? layer.audioPath.substring(0, layer.audioPath.lastIndexOf('/'))
+                                  : null,
+                            );
+                            if (path != null) {
+                              _updateSelectedLayer((l) => l.copyWith(audioPath: path));
+                            }
+                          } : null,
+                          icon: const Icon(Icons.folder_open, size: 12),
+                          label: const Text('Browse...', style: TextStyle(fontSize: 10)),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 );
               }),
               // Bus dropdown
@@ -9754,6 +10084,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 formatValue: (v) => '${(v * 1000).toInt()} ms',
                 onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(fadeInMs: v * 1000.0)),
               ),
+              // Fade In Curve
+              _InspectorDropdownInteractive(
+                label: 'Fade In Curve',
+                value: hasLayer ? layer.fadeInCurve.name : CrossfadeCurve.linear.name,
+                options: CrossfadeCurve.values.map((c) => c.name).toList(),
+                enabled: hasLayer,
+                onChanged: (v) {
+                  final curve = CrossfadeCurve.values.firstWhere(
+                    (c) => c.name == v,
+                    orElse: () => CrossfadeCurve.linear,
+                  );
+                  _updateSelectedLayer((l) => l.copyWith(fadeInCurve: curve));
+                },
+              ),
               _InspectorSliderInteractive(
                 label: 'Fade Out',
                 value: hasLayer ? layer.fadeOutMs / 1000.0 : 0.0,
@@ -9762,6 +10106,41 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 enabled: hasLayer,
                 formatValue: (v) => '${(v * 1000).toInt()} ms',
                 onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(fadeOutMs: v * 1000.0)),
+              ),
+              // Fade Out Curve
+              _InspectorDropdownInteractive(
+                label: 'Fade Out Curve',
+                value: hasLayer ? layer.fadeOutCurve.name : CrossfadeCurve.linear.name,
+                options: CrossfadeCurve.values.map((c) => c.name).toList(),
+                enabled: hasLayer,
+                onChanged: (v) {
+                  final curve = CrossfadeCurve.values.firstWhere(
+                    (c) => c.name == v,
+                    orElse: () => CrossfadeCurve.linear,
+                  );
+                  _updateSelectedLayer((l) => l.copyWith(fadeOutCurve: curve));
+                },
+              ),
+              const SizedBox(height: 8),
+              // Trim Start
+              _InspectorSliderInteractive(
+                label: 'Trim Start',
+                value: hasLayer ? layer.trimStartMs / 1000.0 : 0.0,
+                min: 0.0,
+                max: 10.0,
+                enabled: hasLayer,
+                formatValue: (v) => '${(v * 1000).toInt()} ms',
+                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(trimStartMs: v * 1000.0)),
+              ),
+              // Trim End
+              _InspectorSliderInteractive(
+                label: 'Trim End',
+                value: hasLayer ? layer.trimEndMs / 1000.0 : 0.0,
+                min: 0.0,
+                max: 10.0,
+                enabled: hasLayer,
+                formatValue: (v) => '${(v * 1000).toInt()} ms',
+                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(trimEndMs: v * 1000.0)),
               ),
             ],
           ),

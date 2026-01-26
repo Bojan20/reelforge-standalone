@@ -2,20 +2,21 @@
 
 > Detaljni tehnički pregled svih implementiranih P0/P1 audio poboljšanja.
 
-**Datum:** 2026-01-25 (Updated V14)
-**Status:** P0.1-P0.19, P1.1-P1.3 kompletni
+**Datum:** 2026-01-26 (Updated V15)
+**Status:** P0.1-P0.22, P1.1-P1.5 kompletni
 
 ---
 
 ## Overview
 
-Slot Lab audio sistem je nadograđen sa 10 ključnih feature-a koji poboljšavaju:
+Slot Lab audio sistem je nadograđen sa ključnim feature-ima koji poboljšavaju:
 - **Latency Compensation** — Audio timing offset za sync sa vizualima
 - **Seamless Looping** — Gapless REEL_SPIN loop u Rust engine-u
 - **Spatial Audio** — Per-voice panning, win line positioning
 - **Dynamic Timing** — RTPC rollup/cascade speed, anticipation pre-trigger
 - **Layered Audio** — Multi-layer Big Win celebrations
 - **Context-Aware Audio** — Symbol-specific sounds, near miss escalation
+- **Extended Playback** — Engine-level fade in/out, trim start/end (non-destructive)
 
 ---
 
@@ -1810,6 +1811,216 @@ Result: Rising tension, increasing excitement with each cascade step
 
 ---
 
+## P0.22: Extended Playback Parameters — Fade/Trim (2026-01-26) ✅
+
+### Problem
+AudioLayer nije imao podršku za engine-level fade in/out i trim. Dizajneri su morali da koriste eksterne alate za pripremu audio fajlova sa fade-ovima.
+
+### Rešenje
+Proširena AudioLayer klasa i FFI lanac sa fadeInMs, fadeOutMs, trimStartMs, trimEndMs parametrima. Engine-level obrada omogućava non-destructive editing.
+
+### AudioLayer Extended Model
+
+**`flutter_ui/lib/services/event_registry.dart`**
+```dart
+class AudioLayer {
+  final String id;
+  final String audioPath;
+  final String name;
+  final double volume;       // 0.0 - 1.0+
+  final double pan;          // -1.0 (L) to +1.0 (R)
+  final double delay;        // Delay before playback (ms)
+  final double offset;       // Playback start offset (ms)
+  final int busId;           // Audio bus ID
+
+  // Extended playback parameters (2026-01-26)
+  final double fadeInMs;     // Fade-in duration (0 = instant)
+  final double fadeOutMs;    // Fade-out duration (0 = instant)
+  final double trimStartMs;  // Trim start point (0 = beginning)
+  final double trimEndMs;    // Trim end point (0 = full length)
+
+  bool get hasFadeTrim =>
+    fadeInMs > 0 || fadeOutMs > 0 || trimStartMs > 0 || trimEndMs > 0;
+}
+```
+
+### FFI Chain
+
+```
+1. SlotEventLayer (UI model with fadeIn/fadeOut/trim fields)
+   ↓
+2. AudioLayer (EventRegistry model)
+   ↓
+3. _playLayer() checks hasFadeTrim
+   ↓
+4a. If hasFadeTrim: AudioPlaybackService.playFileToBusEx()
+   ↓
+4b. Else: AudioPlaybackService.playFileToBus()
+   ↓
+5. NativeFFI.playbackPlayToBusEx() → C FFI
+   ↓
+6. Rust engine_playback_play_to_bus_ex() → OneShotVoice
+```
+
+### Rust Implementation
+
+**`crates/rf-engine/src/playback.rs`**
+```rust
+pub struct OneShotVoice {
+    audio_data: Vec<f32>,
+    position: usize,
+    volume: f32,
+    pan: f32,
+    bus_id: usize,
+    finished: bool,
+
+    // Extended parameters (2026-01-26)
+    fade_in: f32,      // Fade-in samples
+    fade_out: f32,     // Fade-out samples
+    trim_start: f32,   // Trim start samples
+    trim_end: f32,     // Trim end samples (0 = full)
+}
+```
+
+**`crates/rf-engine/src/ffi.rs`**
+```rust
+#[no_mangle]
+pub extern "C" fn engine_playback_play_to_bus_ex(
+    path_ptr: *const c_char,
+    volume: f64,
+    pan: f64,
+    bus_id: i32,
+    source_id: i32,
+    fade_in_ms: f64,     // ← NEW
+    fade_out_ms: f64,    // ← NEW
+    trim_start_ms: f64,  // ← NEW
+    trim_end_ms: f64,    // ← NEW
+) -> i32 {
+    // ... create OneShotVoice with extended params
+}
+```
+
+### Dart Bindings
+
+**`flutter_ui/lib/src/rust/native_ffi.dart`**
+```dart
+int playbackPlayToBusEx(
+  String path, {
+  double volume = 1.0,
+  double pan = 0.0,
+  int busId = 0,
+  int sourceId = 0,
+  double fadeInMs = 0.0,
+  double fadeOutMs = 0.0,
+  double trimStartMs = 0.0,
+  double trimEndMs = 0.0,
+}) {
+  return _bindings.engine_playback_play_to_bus_ex(
+    path.toNativeUtf8().cast(),
+    volume, pan, busId, sourceId,
+    fadeInMs, fadeOutMs, trimStartMs, trimEndMs,
+  );
+}
+```
+
+### Service Integration
+
+**`flutter_ui/lib/services/audio_playback_service.dart`**
+```dart
+int playFileToBusEx(
+  String path, {
+  double volume = 1.0,
+  double pan = 0.0,
+  int busId = 0,
+  PlaybackSource source = PlaybackSource.slotLab,
+  double fadeInMs = 0.0,
+  double fadeOutMs = 0.0,
+  double trimStartMs = 0.0,
+  double trimEndMs = 0.0,
+}) {
+  return _ffi.playbackPlayToBusEx(
+    path,
+    volume: volume,
+    pan: pan,
+    busId: busId,
+    sourceId: _sourceToEngineId(source),
+    fadeInMs: fadeInMs,
+    fadeOutMs: fadeOutMs,
+    trimStartMs: trimStartMs,
+    trimEndMs: trimEndMs,
+  );
+}
+```
+
+### EventRegistry Usage
+
+**`flutter_ui/lib/services/event_registry.dart`**
+```dart
+void _playLayer(AudioLayer layer, ...) {
+  // Use extended playback if layer has fade/trim parameters
+  if (layer.hasFadeTrim) {
+    voiceId = _playbackService.playFileToBusEx(
+      layer.audioPath,
+      volume: finalVolume,
+      pan: finalPan,
+      busId: layer.busId,
+      source: PlaybackSource.slotLab,
+      fadeInMs: layer.fadeInMs,
+      fadeOutMs: layer.fadeOutMs,
+      trimStartMs: layer.trimStartMs,
+      trimEndMs: layer.trimEndMs,
+    );
+  } else {
+    voiceId = _playbackService.playFileToBus(
+      layer.audioPath,
+      volume: finalVolume,
+      pan: finalPan,
+      busId: layer.busId,
+      source: PlaybackSource.slotLab,
+    );
+  }
+}
+```
+
+### Event Sync Integration
+
+**`flutter_ui/lib/screens/slot_lab_screen.dart`**
+```dart
+// Convert SlotEventLayer → AudioLayer with extended parameters
+final layers = event.layers.map((l) => AudioLayer(
+  id: l.id,
+  audioPath: l.audioPath,
+  name: l.name,
+  volume: l.volume,
+  pan: l.pan,
+  delay: l.offsetMs,
+  busId: l.busId ?? 2,
+  // Extended playback parameters
+  fadeInMs: l.fadeInMs,
+  fadeOutMs: l.fadeOutMs,
+  trimStartMs: l.trimStartMs,
+  trimEndMs: l.trimEndMs,
+)).toList();
+```
+
+### Use Cases
+
+| Parameter | Use Case |
+|-----------|----------|
+| fadeInMs | Smooth music layer entry, ambient fade |
+| fadeOutMs | Graceful loop endings, crossfade prep |
+| trimStartMs | Skip silence at start, cue to hit point |
+| trimEndMs | Cut early, loop region definition |
+
+### Benefits
+
+- **Non-Destructive**: Original files unchanged
+- **Real-Time**: Parameters can be adjusted without re-export
+- **Efficient**: Engine handles fade/trim, no preprocessing needed
+- **Conditional**: Only uses extended API when needed (backward compatible)
+
+---
+
 ## P1.5: Jackpot Audio Sequence (2026-01-25) ✅
 
 ### Problem
@@ -1879,4 +2090,4 @@ EventRegistry koristi fallback: `JACKPOT_REVEAL_GRAND` → `JACKPOT_REVEAL` ako 
 
 ---
 
-*Last updated: 2026-01-25*
+*Last updated: 2026-01-26*

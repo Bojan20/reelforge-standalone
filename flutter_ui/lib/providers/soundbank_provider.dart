@@ -746,19 +746,9 @@ class SoundbankProvider extends ChangeNotifier {
   }
 
   /// Get format ID for offline pipeline
+  /// Uses formatId getter from SoundbankAudioFormat extension
   int _getFormatId(SoundbankAudioFormat format) {
-    return switch (format) {
-      SoundbankAudioFormat.wav16 => 0,
-      SoundbankAudioFormat.wav24 => 1,
-      SoundbankAudioFormat.wav32f => 2,
-      SoundbankAudioFormat.flac => 3,
-      SoundbankAudioFormat.mp3High => 4,
-      SoundbankAudioFormat.mp3Medium => 4,
-      SoundbankAudioFormat.mp3Low => 4,
-      SoundbankAudioFormat.ogg => 4, // Use MP3 encoder for now
-      SoundbankAudioFormat.webm => 4,
-      SoundbankAudioFormat.aac => 4,
-    };
+    return format.formatId;
   }
 
   Future<void> _exportUnity(

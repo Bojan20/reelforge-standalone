@@ -113,16 +113,32 @@ pub extern "C" fn offline_pipeline_set_normalization(handle: u64, mode: i32, tar
 }
 
 /// Set output format for pipeline
-/// format: 0=WAV16, 1=WAV24, 2=WAV32F, 3=FLAC, 4=MP3_320
+/// Format IDs match offline_get_supported_formats() and AUDIO_FORMAT_SUPPORT.md
+/// 0=WAV16, 1=WAV24, 2=WAV32F, 3=AIFF16, 4=AIFF24, 5=FLAC
+/// 6=MP3_320, 7=MP3_256, 8=MP3_192, 9=MP3_128
+/// 10=OGG_Q8, 11=OGG_Q6, 12=AAC_256, 13=AAC_192, 14=OPUS_128
 #[unsafe(no_mangle)]
 pub extern "C" fn offline_pipeline_set_format(handle: u64, format: i32) {
     if let Some(pipeline) = PIPELINES.get(&handle) {
         let output_format = match format {
+            // Lossless - Native encoders
             0 => OutputFormat::wav_16(),
             1 => OutputFormat::wav_24(),
             2 => OutputFormat::wav_32f(),
-            3 => OutputFormat::flac(),
-            4 => OutputFormat::mp3_320(),
+            3 => OutputFormat::aiff_16(),
+            4 => OutputFormat::aiff_24(),
+            5 => OutputFormat::flac(),
+            // Lossy - FFmpeg required
+            6 => OutputFormat::mp3_320(),
+            7 => OutputFormat::mp3_256(),
+            8 => OutputFormat::mp3_192(),
+            9 => OutputFormat::mp3_128(),
+            10 => OutputFormat::ogg_q8(),
+            11 => OutputFormat::ogg_q6(),
+            12 => OutputFormat::aac_256(),
+            13 => OutputFormat::aac_192(),
+            14 => OutputFormat::opus_128(),
+            // Default fallback
             _ => OutputFormat::wav_24(),
         };
 
@@ -558,17 +574,43 @@ pub extern "C" fn offline_free_string(s: *mut c_char) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Get supported output formats as JSON
+/// Format IDs match documentation in .claude/docs/AUDIO_FORMAT_SUPPORT.md
 #[unsafe(no_mangle)]
 pub extern "C" fn offline_get_supported_formats() -> *mut c_char {
-    let formats = r#"[
-        {"id": 0, "name": "WAV 16-bit", "extension": "wav", "lossless": true},
-        {"id": 1, "name": "WAV 24-bit", "extension": "wav", "lossless": true},
-        {"id": 2, "name": "WAV 32-bit float", "extension": "wav", "lossless": true},
-        {"id": 3, "name": "FLAC", "extension": "flac", "lossless": true},
-        {"id": 4, "name": "MP3 320kbps", "extension": "mp3", "lossless": false}
-    ]"#;
+    // Check if FFmpeg is available for lossy formats
+    let ffmpeg_available = std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .is_ok();
 
-    match CString::new(formats) {
+    let mut formats = vec![
+        // Lossless - Native encoders (always available)
+        r#"{"id": 0, "name": "WAV 16-bit", "extension": "wav", "lossless": true, "native": true}"#,
+        r#"{"id": 1, "name": "WAV 24-bit", "extension": "wav", "lossless": true, "native": true}"#,
+        r#"{"id": 2, "name": "WAV 32-bit float", "extension": "wav", "lossless": true, "native": true}"#,
+        r#"{"id": 3, "name": "AIFF 16-bit", "extension": "aiff", "lossless": true, "native": true}"#,
+        r#"{"id": 4, "name": "AIFF 24-bit", "extension": "aiff", "lossless": true, "native": true}"#,
+        r#"{"id": 5, "name": "FLAC", "extension": "flac", "lossless": true, "native": true}"#,
+    ];
+
+    // Lossy formats - FFmpeg required
+    if ffmpeg_available {
+        formats.extend([
+            r#"{"id": 6, "name": "MP3 320kbps", "extension": "mp3", "lossless": false, "native": false}"#,
+            r#"{"id": 7, "name": "MP3 256kbps", "extension": "mp3", "lossless": false, "native": false}"#,
+            r#"{"id": 8, "name": "MP3 192kbps", "extension": "mp3", "lossless": false, "native": false}"#,
+            r#"{"id": 9, "name": "MP3 128kbps", "extension": "mp3", "lossless": false, "native": false}"#,
+            r#"{"id": 10, "name": "OGG Vorbis Q8", "extension": "ogg", "lossless": false, "native": false}"#,
+            r#"{"id": 11, "name": "OGG Vorbis Q6", "extension": "ogg", "lossless": false, "native": false}"#,
+            r#"{"id": 12, "name": "AAC 256kbps", "extension": "m4a", "lossless": false, "native": false}"#,
+            r#"{"id": 13, "name": "AAC 192kbps", "extension": "m4a", "lossless": false, "native": false}"#,
+            r#"{"id": 14, "name": "Opus 128kbps", "extension": "opus", "lossless": false, "native": false}"#,
+        ]);
+    }
+
+    let json = format!("[{}]", formats.join(","));
+
+    match CString::new(json) {
         Ok(c) => c.into_raw(),
         Err(_) => ptr::null_mut(),
     }

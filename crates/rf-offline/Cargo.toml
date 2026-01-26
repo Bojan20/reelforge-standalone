@@ -18,6 +18,12 @@ symphonia = { workspace = true }
 hound = { workspace = true }
 flac-bound = { workspace = true }
 
+# Native audio encoders (no FFmpeg dependency)
+mp3lame-encoder = "0.1"
+vorbis-encoder = "0.1"
+audiopus = "0.3.0-rc.0"
+ogg = "0.9"
+
 # DSP
 rustfft = { workspace = true }
 realfft = { workspace = true }

@@ -25,7 +25,8 @@ import 'audio_hover_preview.dart';
 /// Main Events Panel Widget
 class EventsPanelWidget extends StatefulWidget {
   final double? height;
-  final Function(String audioPath)? onAudioDragStarted;
+  /// Callback when audio drag starts - supports multiple files
+  final Function(List<String> audioPaths)? onAudioDragStarted;
   final String? selectedEventId;
   final Function(String? eventId)? onSelectionChanged;
 
@@ -1080,7 +1081,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     // Wrap AudioBrowserItem to convert drag data from AudioFileInfo to String (path)
     return _AudioBrowserItemWrapper(
       audioInfo: audioInfo,
-      onDragStarted: () => widget.onAudioDragStarted?.call(asset.path),
+      onDragStarted: () => widget.onAudioDragStarted?.call([asset.path]),
     );
   }
 
@@ -1182,7 +1183,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     // Wrap AudioBrowserItem to convert drag data from AudioFileInfo to String (path)
     return _AudioBrowserItemWrapper(
       audioInfo: audioInfo,
-      onDragStarted: () => widget.onAudioDragStarted?.call(file.path),
+      onDragStarted: () => widget.onAudioDragStarted?.call([file.path]),
     );
   }
 
@@ -1319,30 +1320,21 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
   bool _isHovered = false;
   bool _isPlaying = false;
   int _currentVoiceId = -1;
-  Timer? _hoverTimer;
 
   @override
   void dispose() {
-    _hoverTimer?.cancel();
     _stopPlayback();
     super.dispose();
   }
 
   void _onHoverStart() {
     setState(() => _isHovered = true);
-
-    // Start preview after 500ms hover
-    _hoverTimer = Timer(const Duration(milliseconds: 500), () {
-      if (_isHovered && mounted) {
-        _startPlayback();
-      }
-    });
+    // NOTE: Auto-playback on hover disabled — use play/stop button instead
   }
 
   void _onHoverEnd() {
     setState(() => _isHovered = false);
-    _hoverTimer?.cancel();
-    _stopPlayback();
+    // NOTE: Playback continues until manually stopped via button
   }
 
   void _startPlayback() {
@@ -1447,8 +1439,8 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
                       style: const TextStyle(fontSize: 8, color: Colors.white38, fontFamily: 'monospace'),
                     ),
                   ),
-                // Play/Stop button on hover
-                if (_isHovered)
+                // Play/Stop button (visible on hover or while playing)
+                if (_isHovered || _isPlaying)
                   InkWell(
                     onTap: _isPlaying ? _stopPlayback : _startPlayback,
                     borderRadius: BorderRadius.circular(10),

@@ -715,8 +715,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // Track expansion state
   bool _allTracksExpanded = false;  // Default: collapsed
 
-  // Drag state for audio browser
-  String? _draggingAudioPath;
+  // Drag state for audio browser (supports multi-file drag)
+  List<String>? _draggingAudioPaths;
   Offset? _dragPosition;
 
   // Drag state for region repositioning
@@ -2387,10 +2387,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                       },
                     ),
 
-                    // CENTER: Premium Slot Preview (full space - timeline moved to Lower Zone)
+                    // CENTER: Premium Slot Preview
                     Expanded(
-                      flex: 3,
-                      child: _buildMockSlot(),
+                      child: Center(
+                        child: _buildMockSlot(),
+                      ),
                     ),
 
                     // RIGHT: Events Panel (V6)
@@ -2404,9 +2405,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                             _selectedEventId = eventId;
                           });
                         },
-                        onAudioDragStarted: (audioPath) {
+                        onAudioDragStarted: (audioPaths) {
                           setState(() {
-                            _draggingAudioPath = audioPath;
+                            _draggingAudioPaths = audioPaths;
                           });
                         },
                       ),
@@ -2421,8 +2422,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             ],
           ),
 
-          // Drag overlay
-          if (_draggingAudioPath != null && _dragPosition != null)
+          // Drag overlay (supports multiple files)
+          if (_draggingAudioPaths != null && _draggingAudioPaths!.isNotEmpty && _dragPosition != null)
             Positioned(
               left: _dragPosition!.dx - 50,
               top: _dragPosition!.dy - 15,
@@ -2440,7 +2441,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                     ],
                   ),
                   child: Text(
-                    _draggingAudioPath!.split('/').last,
+                    _draggingAudioPaths!.length > 1
+                        ? '${_draggingAudioPaths!.length} files'
+                        : _draggingAudioPaths!.first.split('/').last,
                     style: const TextStyle(color: Colors.white, fontSize: 11),
                   ),
                 ),
@@ -6764,7 +6767,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     setState(() {
       _tracks[trackIndex].regions.add(region);
-      _draggingAudioPath = null;
+      _draggingAudioPaths = null;
       _dragPosition = null;
     });
   }
@@ -10968,7 +10971,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return;
     }
 
-    // Build base layers list once
+    // Build base layers list once (including fadeIn/fadeOut/trim parameters)
     final layers = event.layers.map((l) => AudioLayer(
       id: l.id,
       audioPath: l.audioPath,
@@ -10977,6 +10980,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       pan: l.pan,
       delay: l.offsetMs,
       busId: l.busId ?? 2,
+      fadeInMs: l.fadeInMs,
+      fadeOutMs: l.fadeOutMs,
+      trimStartMs: l.trimStartMs,
+      trimEndMs: l.trimEndMs,
     )).toList();
 
     // Register event under EACH trigger stage
@@ -11421,12 +11428,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       ),
       onDragStarted: () {
         setState(() {
-          _draggingAudioPath = audio['path'] as String;
+          _draggingAudioPaths = [audio['path'] as String];
         });
       },
       onDragEnd: (details) {
         setState(() {
-          _draggingAudioPath = null;
+          _draggingAudioPaths = null;
           _dragPosition = null;
         });
       },

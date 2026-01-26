@@ -1,8 +1,8 @@
 # SlotLab Drop Zone System — Ultimate Specification
 
-**Version:** 1.1.2
+**Version:** 1.2.0
 **Created:** 2026-01-23
-**Updated:** 2026-01-25
+**Updated:** 2026-01-26
 **Author:** Claude Code (Principal Engineer Documentation)
 **Status:** AUTHORITATIVE — Do Not Modify Without Review
 
@@ -103,16 +103,110 @@ DropTargetWrapper (StatefulWidget)
 ├── child: Widget                   // Wrapped UI element
 ├── onEventCreated: Function?       // Callback after commit
 │
-├── DragTarget<AudioAsset>          // Flutter drag-drop
-│   ├── onWillAcceptWithDetails()   // Set _isDragOver = true
+├── DragTarget<Object>              // Flutter drag-drop (accepts multiple types)
+│   ├── onWillAcceptWithDetails()   // Accept AudioAsset, String, List<String>, AudioFileInfo
 │   ├── onLeave()                   // Set _isDragOver = false
-│   └── onAcceptWithDetails()       // Call _handleDrop()
+│   └── onAcceptWithDetails()       // Call _handleDrop() for each asset
 │
 └── _handleDrop(AudioAsset, Offset)
     ├── provider.createDraft(asset, target)
     └── showQuickSheet() → onCommit → provider.commitDraft()
                                     → _triggerPulse()
                                     → onEventCreated?.call(event)
+```
+
+### 2.3 Multi-Select Drag-Drop Support (v1.2.0)
+
+**STATUS: ✅ IMPLEMENTED** (2026-01-26)
+
+Sistem podržava multiple drag-drop audio fajlova iz svih audio browser komponenti.
+
+#### Podržani Tipovi Podataka
+
+| Data Type | Izvor | Opis |
+|-----------|-------|------|
+| `AudioAsset` | AudioAssetManager pool | Managed audio assets |
+| `String` | Legacy path | Single file path |
+| `List<String>` | **Multi-select** | Multiple file paths |
+| `AudioFileInfo` | Audio browser | File metadata |
+
+#### Multi-Select UI
+
+**Audio Browser Dock (`audio_browser_dock.dart`):**
+- Long-press na audio chip → toggle selekcija
+- Checkbox prikazan na svakom chipu
+- Zelena boja za selektovane iteme
+- Drag selektovanih → prenosi `List<String>`
+- Feedback widget: "X files" kada je više od 1 fajla
+- Auto-clear selekcije na drag end
+
+```dart
+// Multi-select state
+final Set<String> _selectedPaths = {};
+
+// Get paths to drag
+List<String> _getPathsToDrag(String path) {
+  if (_selectedPaths.contains(path) && _selectedPaths.length > 1) {
+    return _selectedPaths.toList();
+  }
+  return [path];
+}
+
+// Draggable with List<String>
+Draggable<List<String>>(
+  data: pathsToDrag,
+  onDragStarted: () => widget.onAudioDragStarted?.call(pathsToDrag),
+  onDragEnd: (_) => _clearSelection(),
+  feedback: Material(
+    child: Text(dragCount > 1 ? '$dragCount files' : displayName),
+  ),
+)
+```
+
+#### Drop Target Processing
+
+**DropTargetWrapper (`drop_target_wrapper.dart`):**
+
+```dart
+onAcceptWithDetails: (details) {
+  List<AudioAsset> assets = [];
+
+  if (details.data is List<String>) {
+    // Multi-select drop - convert all paths to assets
+    final paths = details.data as List<String>;
+    for (final path in paths) {
+      assets.add(_pathToAudioAsset(path));
+    }
+  } else if (details.data is String) {
+    assets.add(_pathToAudioAsset(details.data as String));
+  }
+  // ... other types
+
+  // Process all dropped assets
+  for (final asset in assets) {
+    _handleDrop(asset, details.offset, provider);
+  }
+}
+```
+
+#### Callback Signatures
+
+| Komponenta | Callback | Tip |
+|------------|----------|-----|
+| `AudioBrowserDock` | `onAudioDragStarted` | `Function(List<String>)?` |
+| `EventsPanelWidget` | `onAudioDragStarted` | `Function(List<String>)?` |
+| `SlotLabScreen` | `_draggingAudioPaths` | `List<String>?` |
+
+#### Drag Overlay
+
+```dart
+// slot_lab_screen.dart - displays "X files" for multi-drag
+if (_draggingAudioPaths != null && _draggingAudioPaths!.isNotEmpty)
+  Text(
+    _draggingAudioPaths!.length > 1
+        ? '${_draggingAudioPaths!.length} files'
+        : _draggingAudioPaths!.first.split('/').last,
+  )
 ```
 
 ---

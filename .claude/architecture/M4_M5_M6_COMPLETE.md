@@ -73,7 +73,7 @@ runner.fuzz_with_validation(
 | `determinism.rs` | DeterminismValidator for bit-exact testing |
 | `diff.rs` | AudioDiff comparison engine |
 | `golden.rs` | GoldenStore for reference files |
-| `loader.rs` | Audio file loading (WAV, FLAC, MP3) |
+| `loader.rs` | Audio file loading (WAV, AIFF, FLAC, ALAC, MP3, OGG, AAC, M4A) |
 | `metrics.rs` | Comparison metrics (correlation, SNR) |
 | `quality_gates.rs` | QualityGateRunner (LUFS, peak, DR) |
 | `report.rs` | DiffReport generation |
@@ -212,13 +212,13 @@ let manifest = package.manifest();
 | `job.rs` | OfflineJob builder |
 | `pipeline.rs` | OfflineProcessor, PipelineState |
 | `normalize.rs` | NormalizationMode (LUFS, Peak, DR) |
-| `formats.rs` | OutputFormat (WAV, FLAC, MP3) |
+| `formats.rs` | OutputFormat (WAV, AIFF, FLAC, MP3, OGG, AAC, Opus) |
 | `processors.rs` | DSP chain processing |
 | `time_stretch.rs` | Time-stretch algorithms |
 
 **Key Features:**
 - Batch audio processing with rayon
-- Multiple output formats (WAV 16/24/32, FLAC, MP3)
+- 15 output formats (WAV 16/24/32f, AIFF 16/24, FLAC, MP3, OGG, AAC, Opus)
 - Normalization modes (LUFS target, Peak ceiling)
 - Stem export
 - Progress tracking with cancel support

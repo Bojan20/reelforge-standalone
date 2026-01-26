@@ -344,12 +344,26 @@ pub const BUS_COUNT: u32 = 6;
 ### API
 
 ```dart
-// Play through specific bus
+// Play through specific bus (basic)
 AudioPlaybackService.instance.playFileToBus(
   '/path/to/sound.wav',
   volume: 0.8,
+  pan: 0.0,
   busId: 0,  // Sfx bus
   source: PlaybackSource.middleware,
+);
+
+// Play through specific bus with fadeIn/fadeOut/trim (extended)
+AudioPlaybackService.instance.playFileToBusEx(
+  '/path/to/sound.wav',
+  volume: 0.8,
+  pan: 0.0,
+  busId: 0,
+  source: PlaybackSource.middleware,
+  fadeInMs: 50.0,     // 50ms fade-in
+  fadeOutMs: 100.0,   // 100ms fade-out at end
+  trimStartMs: 200.0, // Start at 200ms into file
+  trimEndMs: 5000.0,  // Stop at 5 seconds (0 = play to end)
 );
 
 // Stop specific voice
@@ -359,17 +373,52 @@ AudioPlaybackService.instance.stopOneShotVoice(voiceId);
 AudioPlaybackService.instance.stopAllOneShots();
 ```
 
+### Extended Playback Parameters (2026-01-26)
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `fadeInMs` | double | 0.0 | Fade-in duration in milliseconds (0 = instant start) |
+| `fadeOutMs` | double | 0.0 | Fade-out duration at end in milliseconds (0 = instant stop) |
+| `trimStartMs` | double | 0.0 | Start playback from this position in milliseconds |
+| `trimEndMs` | double | 0.0 | Stop playback at this position (0 = play to end) |
+
+**Use cases:**
+- **Fade-in:** Smooth attack for ambient sounds, music transitions
+- **Fade-out:** Prevent clicks at end of looping sounds
+- **Trim:** Non-destructive selection of audio portion (like Waveform Trim Editor)
+
 ### Rust FFI
 
 ```rust
-// Play one-shot through bus
-engine_playback_play_to_bus(path, volume, bus_id) -> voice_id
+// Play one-shot through bus (basic)
+engine_playback_play_to_bus(path, volume, pan, bus_id, source) -> voice_id
+
+// Play one-shot through bus with fadeIn/fadeOut/trim (extended)
+engine_playback_play_to_bus_ex(
+    path, volume, pan, bus_id, source,
+    fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms
+) -> voice_id
 
 // Stop voice
 engine_playback_stop_one_shot(voice_id)
 
 // Stop all
 engine_playback_stop_all_one_shots()
+```
+
+### OneShotVoice Extended Fields (Rust)
+
+```rust
+struct OneShotVoice {
+    // ... existing fields ...
+
+    // Extended parameters for fade/trim
+    fade_in_samples_total: u64,      // Total samples for fade-in (0 = no fade)
+    fade_in_samples_elapsed: u64,    // Elapsed fade-in samples
+    trim_start_sample: u64,          // Where to start playback
+    trim_end_sample: u64,            // Where to stop (0 = play to end)
+    fade_out_samples_at_end: u64,    // Auto fade-out near end
+}
 ```
 
 ---
@@ -388,7 +437,8 @@ engine_playback_stop_all_one_shots()
 | SlotLab/Middleware bidirectional sync | ✅ Existing | Via EventRegistry singleton |
 | **One-shot bus routing** | ✅ Complete | Middleware/SlotLab through DAW buses |
 | **playFileToBus API** | ✅ Complete | FFI + Dart bindings |
-| **OneShotVoice in PlaybackEngine** | ✅ Complete | Lock-free voice system |
+| **playFileToBusEx API** | ✅ Complete | Extended with fadeIn/fadeOut/trim (2026-01-26) |
+| **OneShotVoice in PlaybackEngine** | ✅ Complete | Lock-free voice system + extended fields |
 | **Waveform cache invalidation** | ✅ Complete | EditorModeProvider.waveformGeneration |
 | **Engine-level source filtering** | ✅ Complete | One-shot voices filtered by active section |
 | **PlaybackSource in Rust** | ✅ Complete | Daw/SlotLab/Middleware/Browser enum |

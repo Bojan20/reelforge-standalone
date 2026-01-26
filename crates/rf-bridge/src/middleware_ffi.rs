@@ -325,6 +325,12 @@ pub extern "C" fn middleware_add_action(
         target_event_id: None,
         pitch_semitones: None,
         filter_freq_hz: None,
+        // Extended playback parameters (default values for backwards compat)
+        pan: 0.0,
+        fade_in_secs: 0.0,
+        fade_out_secs: 0.0,
+        trim_start_secs: 0.0,
+        trim_end_secs: 0.0,
         // State/Switch/RTPC conditions (default: no conditions)
         require_state_group: None,
         require_state_id: None,
@@ -343,6 +349,114 @@ pub extern "C" fn middleware_add_action(
         1
     } else {
         log::error!("middleware_add_action: Event {} not found", event_id);
+        0
+    }
+}
+
+/// Add an action with extended playback parameters (2026-01-26)
+/// Includes: pan, gain, fadeInMs, fadeOutMs, trimStartMs, trimEndMs
+#[unsafe(no_mangle)]
+pub extern "C" fn middleware_add_action_ex(
+    event_id: u32,
+    action_type: u32,
+    asset_id: u32,
+    bus_id: u32,
+    scope: u32,
+    priority: u32,
+    fade_curve: u32,
+    fade_time_ms: u32,
+    delay_ms: u32,
+    // Extended parameters
+    gain: f32,
+    pan: f32,
+    fade_in_ms: u32,
+    fade_out_ms: u32,
+    trim_start_ms: u32,
+    trim_end_ms: u32,
+) -> i32 {
+    let action_type = match action_type {
+        0 => ActionType::Play,
+        1 => ActionType::PlayAndContinue,
+        2 => ActionType::Stop,
+        3 => ActionType::StopAll,
+        4 => ActionType::Pause,
+        5 => ActionType::PauseAll,
+        6 => ActionType::Resume,
+        7 => ActionType::ResumeAll,
+        8 => ActionType::Break,
+        9 => ActionType::Mute,
+        10 => ActionType::Unmute,
+        11 => ActionType::SetVolume,
+        12 => ActionType::SetPitch,
+        13 => ActionType::SetLPF,
+        14 => ActionType::SetHPF,
+        15 => ActionType::SetBusVolume,
+        16 => ActionType::SetState,
+        17 => ActionType::SetSwitch,
+        18 => ActionType::SetRTPC,
+        19 => ActionType::ResetRTPC,
+        20 => ActionType::Seek,
+        21 => ActionType::Trigger,
+        22 => ActionType::PostEvent,
+        _ => {
+            log::error!("middleware_add_action_ex: Invalid action type {}", action_type);
+            return 0;
+        }
+    };
+
+    let scope = ActionScope::from_index(scope as u8);
+    let priority = ActionPriority::from_index(priority as u8);
+    let fade_curve = FadeCurve::from_index(fade_curve as u8);
+
+    let action = MiddlewareAction {
+        id: 0, // Will be assigned
+        action_type,
+        asset_id: if asset_id > 0 { Some(asset_id) } else { None },
+        bus_id,
+        scope,
+        priority,
+        fade_curve,
+        fade_time_secs: fade_time_ms as f32 / 1000.0,
+        gain: gain.clamp(0.0, 4.0),
+        delay_secs: delay_ms as f32 / 1000.0,
+        loop_playback: false,
+        group_id: None,
+        value_id: None,
+        rtpc_id: None,
+        rtpc_value: None,
+        rtpc_interpolation_secs: None,
+        seek_position_secs: None,
+        seek_to_percent: false,
+        target_event_id: None,
+        pitch_semitones: None,
+        filter_freq_hz: None,
+        // Extended playback parameters (2026-01-26)
+        pan: pan.clamp(-1.0, 1.0),
+        fade_in_secs: fade_in_ms as f32 / 1000.0,
+        fade_out_secs: fade_out_ms as f32 / 1000.0,
+        trim_start_secs: trim_start_ms as f32 / 1000.0,
+        trim_end_secs: trim_end_ms as f32 / 1000.0,
+        // State/Switch/RTPC conditions (default: no conditions)
+        require_state_group: None,
+        require_state_id: None,
+        require_state_inverted: false,
+        require_switch_group: None,
+        require_switch_id: None,
+        require_rtpc_id: None,
+        require_rtpc_min: None,
+        require_rtpc_max: None,
+    };
+
+    let mut events = EVENTS.write();
+    if let Some(event) = events.get_mut(&event_id) {
+        event.add_action_auto(action);
+        log::debug!(
+            "middleware_add_action_ex: Added {:?} to event {} (pan={}, gain={}, fadeIn={}ms, fadeOut={}ms, trimStart={}ms, trimEnd={}ms)",
+            action_type, event_id, pan, gain, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms
+        );
+        1
+    } else {
+        log::error!("middleware_add_action_ex: Event {} not found", event_id);
         0
     }
 }

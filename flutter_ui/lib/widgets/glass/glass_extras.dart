@@ -95,12 +95,18 @@ class GlassExtraPanelWrapper extends StatelessWidget {
 
 class ThemeAwareAudioPoolPanel extends StatelessWidget {
   final void Function(AudioFileInfo file)? onFileSelected;
+  final void Function(List<AudioFileInfo> files)? onFilesSelected;
   final void Function(AudioFileInfo file)? onFileDragStart;
+  final void Function(List<AudioFileInfo> files)? onFilesDragStart;
+  final void Function(AudioFileInfo file)? onFileDoubleClick;
 
   const ThemeAwareAudioPoolPanel({
     super.key,
     this.onFileSelected,
+    this.onFilesSelected,
     this.onFileDragStart,
+    this.onFilesDragStart,
+    this.onFileDoubleClick,
   });
 
   @override
@@ -108,7 +114,10 @@ class ThemeAwareAudioPoolPanel extends StatelessWidget {
     final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
     final panel = AudioPoolPanel(
       onFileSelected: onFileSelected,
+      onFilesSelected: onFilesSelected,
       onFileDragStart: onFileDragStart,
+      onFilesDragStart: onFilesDragStart,
+      onFileDoubleClick: onFileDoubleClick,
     );
 
     if (isGlassMode) {

@@ -82,6 +82,56 @@ impl OutputFormat {
     pub fn mp3_vbr(quality: u8) -> Self {
         Self::Mp3(Mp3Config { bitrate: Mp3Bitrate::Vbr(quality), ..Default::default() })
     }
+
+    /// Create AIFF 16-bit format
+    pub fn aiff_16() -> Self {
+        Self::Aiff(AiffConfig { bit_depth: 16, ..Default::default() })
+    }
+
+    /// Create AIFF 24-bit format
+    pub fn aiff_24() -> Self {
+        Self::Aiff(AiffConfig { bit_depth: 24, ..Default::default() })
+    }
+
+    /// Create MP3 256kbps format
+    pub fn mp3_256() -> Self {
+        Self::Mp3(Mp3Config { bitrate: Mp3Bitrate::Cbr(256), ..Default::default() })
+    }
+
+    /// Create MP3 192kbps format
+    pub fn mp3_192() -> Self {
+        Self::Mp3(Mp3Config { bitrate: Mp3Bitrate::Cbr(192), ..Default::default() })
+    }
+
+    /// Create MP3 128kbps format
+    pub fn mp3_128() -> Self {
+        Self::Mp3(Mp3Config { bitrate: Mp3Bitrate::Cbr(128), ..Default::default() })
+    }
+
+    /// Create OGG Vorbis Q8 format
+    pub fn ogg_q8() -> Self {
+        Self::Ogg(OggConfig { quality: 8.0 })
+    }
+
+    /// Create OGG Vorbis Q6 format
+    pub fn ogg_q6() -> Self {
+        Self::Ogg(OggConfig { quality: 6.0 })
+    }
+
+    /// Create AAC 256kbps format
+    pub fn aac_256() -> Self {
+        Self::Aac(AacConfig { bitrate: 256, ..Default::default() })
+    }
+
+    /// Create AAC 192kbps format
+    pub fn aac_192() -> Self {
+        Self::Aac(AacConfig { bitrate: 192, ..Default::default() })
+    }
+
+    /// Create Opus 128kbps format
+    pub fn opus_128() -> Self {
+        Self::Opus(OpusConfig { bitrate: 128, ..Default::default() })
+    }
 }
 
 /// WAV configuration

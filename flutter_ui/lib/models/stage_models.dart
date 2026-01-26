@@ -1741,3 +1741,59 @@ class EngineCommand {
     ...params,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// P0.10: STAGE SEQUENCE VALIDATION MODELS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Type of validation issue found
+enum StageValidationType {
+  /// Stage ordering violated (e.g., SPIN_END before SPIN_START)
+  orderViolation,
+  /// Required stage missing
+  missingStage,
+  /// Timestamp not monotonically increasing
+  timestampViolation,
+  /// Duplicate stage where only one expected
+  duplicateStage,
+  /// Unknown or invalid stage type
+  unknownStage,
+}
+
+/// Severity of validation issue
+enum StageValidationSeverity {
+  /// Info - informational only
+  info,
+  /// Warning - unusual but not necessarily wrong
+  warning,
+  /// Error - violates expected sequence
+  error,
+}
+
+/// A validation issue found in stage sequence
+class StageValidationIssue {
+  final StageValidationType type;
+  final String message;
+  final StageValidationSeverity severity;
+  final int? stageIndex;
+  final String? stageName;
+
+  const StageValidationIssue({
+    required this.type,
+    required this.message,
+    this.severity = StageValidationSeverity.error,
+    this.stageIndex,
+    this.stageName,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'type': type.name,
+    'message': message,
+    'severity': severity.name,
+    if (stageIndex != null) 'stageIndex': stageIndex,
+    if (stageName != null) 'stageName': stageName,
+  };
+
+  @override
+  String toString() => '[${severity.name}] $type: $message';
+}

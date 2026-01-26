@@ -17,12 +17,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'middleware_lower_zone_controller.dart';
-import '../../models/middleware_models.dart' show RtpcCurvePoint;
+import '../../models/middleware_models.dart' show RtpcCurvePoint, CrossfadeCurve;
 import 'lower_zone_types.dart';
 import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
 import '../../providers/middleware_provider.dart';
 import '../../models/slot_audio_events.dart' show SlotEventLayer;
+import '../common/audio_waveform_picker_dialog.dart';
 import '../middleware/ducking_matrix_panel.dart';
 import '../middleware/random_container_panel.dart';
 import '../middleware/sequence_container_panel.dart';
@@ -1473,11 +1474,23 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
 
     // Build comprehensive parameter strip for selected layer
     Widget? parameterStrip;
+    debugPrint('[MW-DEBUG] 🔍 Building action strip...');
+    debugPrint('[MW-DEBUG]   middleware != null: ${middleware != null}');
+    debugPrint('[MW-DEBUG]   superTab: ${widget.controller.superTab}');
+    debugPrint('[MW-DEBUG]   isEvents: ${widget.controller.superTab == MiddlewareSuperTab.events}');
+
     if (middleware != null && widget.controller.superTab == MiddlewareSuperTab.events) {
       final selectedEvent = middleware.selectedCompositeEvent;
+      debugPrint('[MW-DEBUG]   selectedEvent: ${selectedEvent?.name ?? "NULL"}');
+      debugPrint('[MW-DEBUG]   layers count: ${selectedEvent?.layers.length ?? 0}');
+
       if (selectedEvent != null && selectedEvent.layers.isNotEmpty) {
         // Get first layer or selected layer
         final layer = selectedEvent.layers.first;
+        debugPrint('[MW-DEBUG] ✅ Building parameter strip for layer: ${layer.id}');
+        debugPrint('[MW-DEBUG]   layer.pan = ${layer.pan}');
+        debugPrint('[MW-DEBUG]   layer.volume = ${layer.volume}');
+
         parameterStrip = _buildLayerParameterStrip(
           layer: layer,
           eventId: selectedEvent.id,
@@ -1488,7 +1501,11 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
             middleware?.updateCompositeEvent(updatedEvent);
           },
         );
+      } else {
+        debugPrint('[MW-DEBUG] ❌ No parameter strip - event null or no layers');
       }
+    } else {
+      debugPrint('[MW-DEBUG] ❌ No parameter strip - not on EVENTS tab or no middleware');
     }
 
     final actions = switch (widget.controller.superTab) {
@@ -1832,6 +1849,63 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
               middleware.updateEventLayer(eventId, updatedLayer);
             },
           ),
+          _buildParamDivider(),
+          // === FADE CONTROLS ===
+          // Fade In control
+          _buildCompactFadeControl(
+            label: 'FadeIn',
+            fadeMs: layer.fadeInMs,
+            curve: layer.fadeInCurve,
+            color: Colors.lightGreen,
+            onFadeChanged: (newFade) {
+              final updatedLayer = layer.copyWith(fadeInMs: newFade);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+            onCurveChanged: (newCurve) {
+              final updatedLayer = layer.copyWith(fadeInCurve: newCurve);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+          ),
+          _buildParamDivider(),
+          // Fade Out control
+          _buildCompactFadeControl(
+            label: 'FadeOut',
+            fadeMs: layer.fadeOutMs,
+            curve: layer.fadeOutCurve,
+            color: Colors.deepOrange,
+            onFadeChanged: (newFade) {
+              final updatedLayer = layer.copyWith(fadeOutMs: newFade);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+            onCurveChanged: (newCurve) {
+              final updatedLayer = layer.copyWith(fadeOutCurve: newCurve);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+          ),
+          _buildParamDivider(),
+          // === TRIM CONTROLS ===
+          _buildCompactTrimControl(
+            trimStartMs: layer.trimStartMs,
+            trimEndMs: layer.trimEndMs,
+            durationMs: (layer.durationSeconds ?? 0) * 1000,
+            onTrimStartChanged: (newTrimStart) {
+              final updatedLayer = layer.copyWith(trimStartMs: newTrimStart);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+            onTrimEndChanged: (newTrimEnd) {
+              final updatedLayer = layer.copyWith(trimEndMs: newTrimEnd);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+          ),
+          _buildParamDivider(),
+          // === AUDIO PATH ===
+          _buildAudioPathSelector(
+            audioPath: layer.audioPath,
+            onPathChanged: (newPath) {
+              final updatedLayer = layer.copyWith(audioPath: newPath);
+              middleware.updateEventLayer(eventId, updatedLayer);
+            },
+          ),
         ],
       ),
     );
@@ -2164,6 +2238,256 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NEW PARAMETER CONTROLS — FadeIn/FadeOut/Trim/AudioPath
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Compact fade control with time slider and curve selector
+  Widget _buildCompactFadeControl({
+    required String label,
+    required double fadeMs,
+    required CrossfadeCurve curve,
+    required Color color,
+    required ValueChanged<double> onFadeChanged,
+    required ValueChanged<CrossfadeCurve> onCurveChanged,
+  }) {
+    const curves = [
+      (CrossfadeCurve.linear, 'Linear', Icons.linear_scale),
+      (CrossfadeCurve.equalPower, 'EqPow', Icons.auto_graph),
+      (CrossfadeCurve.sCurve, 'S-Curve', Icons.ssid_chart),
+      (CrossfadeCurve.sinCos, 'Sin/Cos', Icons.waves),
+    ];
+
+    final currentCurve = curves.firstWhere(
+      (c) => c.$1 == curve,
+      orElse: () => curves[0],
+    );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Icon
+        Icon(
+          label == 'FadeIn' ? Icons.trending_up : Icons.trending_down,
+          size: 14,
+          color: color,
+        ),
+        const SizedBox(width: 4),
+        // Time slider
+        SizedBox(
+          width: 60,
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+              activeTrackColor: color,
+              inactiveTrackColor: LowerZoneColors.bgSurface,
+              thumbColor: color,
+              overlayColor: color.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: fadeMs.clamp(0.0, 5000.0),
+              min: 0.0,
+              max: 5000.0, // Up to 5 seconds fade
+              onChanged: onFadeChanged,
+            ),
+          ),
+        ),
+        // Time display
+        SizedBox(
+          width: 42,
+          child: Text(
+            '${fadeMs.toInt()}ms',
+            style: TextStyle(
+              fontSize: 9,
+              color: color,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+        // Curve selector
+        PopupMenuButton<CrossfadeCurve>(
+          initialValue: curve,
+          onSelected: onCurveChanged,
+          tooltip: '$label Curve',
+          padding: EdgeInsets.zero,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(currentCurve.$3, size: 10, color: color),
+                Icon(Icons.arrow_drop_down, size: 12, color: color),
+              ],
+            ),
+          ),
+          itemBuilder: (context) => curves.map((c) {
+            return PopupMenuItem<CrossfadeCurve>(
+              value: c.$1,
+              height: 28,
+              child: Row(
+                children: [
+                  Icon(c.$3, size: 14, color: c.$1 == curve ? color : Colors.grey),
+                  const SizedBox(width: 8),
+                  Text(c.$2, style: TextStyle(fontSize: 11, color: c.$1 == curve ? color : null)),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  /// Compact trim control with start/end markers
+  Widget _buildCompactTrimControl({
+    required double trimStartMs,
+    required double trimEndMs,
+    required double durationMs,
+    required ValueChanged<double> onTrimStartChanged,
+    required ValueChanged<double> onTrimEndChanged,
+  }) {
+    final maxDuration = durationMs > 0 ? durationMs : 10000.0; // Default 10s if unknown
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.content_cut, size: 14, color: Colors.pink),
+        const SizedBox(width: 4),
+        // Trim Start
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Start', style: TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary)),
+            SizedBox(
+              width: 50,
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 2,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+                  activeTrackColor: Colors.pink,
+                  inactiveTrackColor: LowerZoneColors.bgSurface,
+                  thumbColor: Colors.pink,
+                ),
+                child: Slider(
+                  value: trimStartMs.clamp(0.0, maxDuration),
+                  min: 0.0,
+                  max: maxDuration,
+                  onChanged: onTrimStartChanged,
+                ),
+              ),
+            ),
+            Text(
+              '${trimStartMs.toInt()}ms',
+              style: TextStyle(fontSize: 8, color: Colors.pink, fontFamily: 'monospace'),
+            ),
+          ],
+        ),
+        const SizedBox(width: 8),
+        // Trim End
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('End', style: TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary)),
+            SizedBox(
+              width: 50,
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 2,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+                  activeTrackColor: Colors.pink,
+                  inactiveTrackColor: LowerZoneColors.bgSurface,
+                  thumbColor: Colors.pink,
+                ),
+                child: Slider(
+                  value: trimEndMs.clamp(0.0, maxDuration),
+                  min: 0.0,
+                  max: maxDuration,
+                  onChanged: onTrimEndChanged,
+                ),
+              ),
+            ),
+            Text(
+              trimEndMs > 0 ? '${trimEndMs.toInt()}ms' : 'End',
+              style: TextStyle(fontSize: 8, color: Colors.pink, fontFamily: 'monospace'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Audio path selector with file picker
+  Widget _buildAudioPathSelector({
+    required String audioPath,
+    required ValueChanged<String> onPathChanged,
+  }) {
+    final fileName = audioPath.isNotEmpty
+        ? audioPath.split('/').last.split('\\').last
+        : 'No file';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.audio_file, size: 14, color: Colors.purple),
+        const SizedBox(width: 4),
+        // File name display (clickable)
+        GestureDetector(
+          onTap: () async {
+            // Show audio file picker dialog
+            final newPath = await AudioWaveformPickerDialog.show(
+              context,
+              title: 'Select Audio File',
+              initialDirectory: audioPath.isNotEmpty
+                  ? audioPath.substring(0, audioPath.lastIndexOf('/'))
+                  : null,
+            );
+            if (newPath != null && newPath.isNotEmpty) {
+              onPathChanged(newPath);
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            constraints: const BoxConstraints(maxWidth: 120),
+            decoration: BoxDecoration(
+              color: Colors.purple.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: Colors.purple.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    fileName,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: audioPath.isNotEmpty ? Colors.purple : LowerZoneColors.textTertiary,
+                      fontFamily: 'monospace',
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.folder_open, size: 10, color: Colors.purple),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

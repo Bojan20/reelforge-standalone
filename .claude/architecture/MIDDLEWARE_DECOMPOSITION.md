@@ -417,8 +417,27 @@ List<SequenceContainer> get sequenceContainers => _sequenceContainersProvider.co
 
 **Responsibilities:**
 - MiddlewareEvent CRUD operations
-- FFI sync with Rust engine
+- FFI sync with Rust engine via `middleware_add_action_ex()` (2026-01-26)
 - Event metadata management
+- Extended playback parameter sync (gain, pan, fadeIn/Out, trimStart/End)
+
+**FFI Integration (2026-01-26):**
+```dart
+void _addActionToEngine(int eventId, MiddlewareAction action) {
+  _ffi.middlewareAddActionEx(
+    eventId,
+    _mapActionType(action.type),
+    // ... basic params ...
+    // Extended playback parameters:
+    gain: action.gain,
+    pan: action.pan,
+    fadeInMs: action.fadeInMs.round(),
+    fadeOutMs: action.fadeOutMs.round(),
+    trimStartMs: action.trimStartMs.round(),
+    trimEndMs: action.trimEndMs.round(),
+  );
+}
+```
 
 ### CompositeEventSystemProvider
 
@@ -804,7 +823,7 @@ All 16 subsystem providers are now connected to Rust FFI:
 | RandomContainersProvider | `container_*` | Weighted random selection |
 | SequenceContainersProvider | `container_*` | Timed sequences |
 | MusicSystemProvider | `middleware_*` | Music segments, stingers |
-| EventSystemProvider | `middleware_*` | MiddlewareEvent CRUD |
+| EventSystemProvider | `middleware_add_action_ex` | MiddlewareEvent CRUD + **Extended Action Params (2026-01-26)** |
 | CompositeEventSystemProvider | — | Dart-only (uses EventRegistry) |
 | BusHierarchyProvider | `mixer_*` | Bus volume, pan, mute, solo |
 | AuxSendProvider | — | Dart-only aux routing |

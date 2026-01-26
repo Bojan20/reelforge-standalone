@@ -526,6 +526,31 @@ typedef EnginePreviewIsPlayingDart = int Function();
 typedef EnginePlaybackPlayToBusNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume, Double pan, Uint32 busId, Uint8 source);
 typedef EnginePlaybackPlayToBusDart = Pointer<Utf8> Function(Pointer<Utf8> path, double volume, double pan, int busId, int source);
 
+// Extended One-Shot Bus Playback with fadeIn/fadeOut/trim parameters
+// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
+typedef EnginePlaybackPlayToBusExNative = Pointer<Utf8> Function(
+  Pointer<Utf8> path,
+  Double volume,
+  Double pan,
+  Uint32 busId,
+  Uint8 source,
+  Double fadeInMs,
+  Double fadeOutMs,
+  Double trimStartMs,
+  Double trimEndMs,
+);
+typedef EnginePlaybackPlayToBusExDart = Pointer<Utf8> Function(
+  Pointer<Utf8> path,
+  double volume,
+  double pan,
+  int busId,
+  int source,
+  double fadeInMs,
+  double fadeOutMs,
+  double trimStartMs,
+  double trimEndMs,
+);
+
 // P0.2: Looping Bus Playback (for REEL_SPIN, ambience loops, etc.)
 // source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
 typedef EnginePlaybackPlayLoopingToBusNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume, Double pan, Uint32 busId, Uint8 source);
@@ -1795,6 +1820,10 @@ typedef MiddlewareRegisterEventDart = int Function(int eventId, Pointer<Utf8> na
 typedef MiddlewareAddActionNative = Int32 Function(Uint32 eventId, Uint32 actionType, Uint32 assetId, Uint32 busId, Uint32 scope, Uint32 priority, Uint32 fadeCurve, Uint32 fadeTimeMs, Uint32 delayMs);
 typedef MiddlewareAddActionDart = int Function(int eventId, int actionType, int assetId, int busId, int scope, int priority, int fadeCurve, int fadeTimeMs, int delayMs);
 
+// Extended action with pan, gain, fadeIn/Out, trim (2026-01-26)
+typedef MiddlewareAddActionExNative = Int32 Function(Uint32 eventId, Uint32 actionType, Uint32 assetId, Uint32 busId, Uint32 scope, Uint32 priority, Uint32 fadeCurve, Uint32 fadeTimeMs, Uint32 delayMs, Float gain, Float pan, Uint32 fadeInMs, Uint32 fadeOutMs, Uint32 trimStartMs, Uint32 trimEndMs);
+typedef MiddlewareAddActionExDart = int Function(int eventId, int actionType, int assetId, int busId, int scope, int priority, int fadeCurve, int fadeTimeMs, int delayMs, double gain, double pan, int fadeInMs, int fadeOutMs, int trimStartMs, int trimEndMs);
+
 typedef MiddlewarePostEventNative = Uint64 Function(Uint32 eventId, Uint64 gameObjectId);
 typedef MiddlewarePostEventDart = int Function(int eventId, int gameObjectId);
 
@@ -2165,6 +2194,7 @@ class NativeFFI {
 
   // One-Shot Bus Playback
   late final EnginePlaybackPlayToBusDart _playbackPlayToBus;
+  late final EnginePlaybackPlayToBusExDart _playbackPlayToBusEx;
   late final EnginePlaybackPlayLoopingToBusDart _playbackPlayLoopingToBus;
   late final EnginePlaybackStopOneShotDart _playbackStopOneShot;
   late final EnginePlaybackStopAllOneShotsDart _playbackStopAllOneShots;
@@ -2599,6 +2629,7 @@ class NativeFFI {
   late final MiddlewareIsInitializedDart _middlewareIsInitialized;
   late final MiddlewareRegisterEventDart _middlewareRegisterEvent;
   late final MiddlewareAddActionDart _middlewareAddAction;
+  late final MiddlewareAddActionExDart _middlewareAddActionEx;
   late final MiddlewarePostEventDart _middlewarePostEvent;
   late final MiddlewarePostEventByNameDart _middlewarePostEventByName;
   late final MiddlewareStopPlayingIdDart _middlewareStopPlayingId;
@@ -2823,6 +2854,7 @@ class NativeFFI {
 
     // One-Shot Bus Playback
     _playbackPlayToBus = _lib.lookupFunction<EnginePlaybackPlayToBusNative, EnginePlaybackPlayToBusDart>('engine_playback_play_to_bus');
+    _playbackPlayToBusEx = _lib.lookupFunction<EnginePlaybackPlayToBusExNative, EnginePlaybackPlayToBusExDart>('engine_playback_play_to_bus_ex');
     _playbackPlayLoopingToBus = _lib.lookupFunction<EnginePlaybackPlayLoopingToBusNative, EnginePlaybackPlayLoopingToBusDart>('engine_playback_play_looping_to_bus');
     _playbackStopOneShot = _lib.lookupFunction<EnginePlaybackStopOneShotNative, EnginePlaybackStopOneShotDart>('engine_playback_stop_one_shot');
     _playbackStopAllOneShots = _lib.lookupFunction<EnginePlaybackStopAllOneShotsNative, EnginePlaybackStopAllOneShotsDart>('engine_playback_stop_all_one_shots');
@@ -3255,6 +3287,7 @@ class NativeFFI {
     _middlewareIsInitialized = _lib.lookupFunction<MiddlewareIsInitializedNative, MiddlewareIsInitializedDart>('middleware_is_initialized');
     _middlewareRegisterEvent = _lib.lookupFunction<MiddlewareRegisterEventNative, MiddlewareRegisterEventDart>('middleware_register_event');
     _middlewareAddAction = _lib.lookupFunction<MiddlewareAddActionNative, MiddlewareAddActionDart>('middleware_add_action');
+    _middlewareAddActionEx = _lib.lookupFunction<MiddlewareAddActionExNative, MiddlewareAddActionExDart>('middleware_add_action_ex');
     _middlewarePostEvent = _lib.lookupFunction<MiddlewarePostEventNative, MiddlewarePostEventDart>('middleware_post_event');
     _middlewarePostEventByName = _lib.lookupFunction<MiddlewarePostEventByNameNative, MiddlewarePostEventByNameDart>('middleware_post_event_by_name');
     _middlewareStopPlayingId = _lib.lookupFunction<MiddlewareStopPlayingIdNative, MiddlewareStopPlayingIdDart>('middleware_stop_playing_id');
@@ -4512,6 +4545,69 @@ class NativeFFI {
     final pathPtr = path.toNativeUtf8();
     try {
       final resultPtr = _playbackPlayToBus(pathPtr, volume, pan, busId, source);
+      if (resultPtr == nullptr) {
+        lastPlaybackToBusError = 'null result pointer';
+        return -1;
+      }
+      final result = resultPtr.toDartString();
+      calloc.free(resultPtr);
+      // Parse JSON result
+      if (result.contains('"error"')) {
+        // Extract error message
+        final errorMatch = RegExp(r'"error":"([^"]*)"').firstMatch(result);
+        lastPlaybackToBusError = errorMatch?.group(1) ?? result;
+        return -1;
+      }
+      // Extract voice_id from {"voice_id":123}
+      final match = RegExp(r'"voice_id":(\d+)').firstMatch(result);
+      if (match != null) {
+        lastPlaybackToBusError = '';
+        return int.tryParse(match.group(1)!) ?? -1;
+      }
+      lastPlaybackToBusError = 'invalid response: $result';
+      return -1;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Extended play one-shot audio through a specific bus with fadeIn/fadeOut/trim parameters
+  /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right (for AutoSpatialEngine)
+  /// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
+  /// fadeInMs: fade-in duration in milliseconds (0 = instant start)
+  /// fadeOutMs: fade-out duration at end in milliseconds (0 = instant stop)
+  /// trimStartMs: start playback from this position in milliseconds
+  /// trimEndMs: stop playback at this position in milliseconds (0 = play to end)
+  /// Returns voice_id on success (positive number), -1 on error
+  int playbackPlayToBusEx(
+    String path, {
+    double volume = 1.0,
+    double pan = 0.0,
+    int busId = 0,
+    int source = 1,
+    double fadeInMs = 0.0,
+    double fadeOutMs = 0.0,
+    double trimStartMs = 0.0,
+    double trimEndMs = 0.0,
+  }) {
+    if (!_loaded) {
+      lastPlaybackToBusError = 'FFI not loaded';
+      return -1;
+    }
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final resultPtr = _playbackPlayToBusEx(
+        pathPtr,
+        volume,
+        pan,
+        busId,
+        source,
+        fadeInMs,
+        fadeOutMs,
+        trimStartMs,
+        trimEndMs,
+      );
       if (resultPtr == nullptr) {
         lastPlaybackToBusError = 'null result pointer';
         return -1;
@@ -13517,6 +13613,34 @@ extension ControlRoomAPI on NativeFFI {
       eventId, actionType.index, assetId, busId,
       scope.index, priority.index, fadeCurve.index,
       fadeTimeMs, delayMs,
+    ) != 0;
+  }
+
+  /// Add an action to an event with extended playback parameters (2026-01-26)
+  /// Includes: pan, gain, fadeInMs, fadeOutMs, trimStartMs, trimEndMs
+  bool middlewareAddActionEx(
+    int eventId,
+    MiddlewareActionType actionType, {
+    int assetId = 0,
+    int busId = 0,
+    MiddlewareActionScope scope = MiddlewareActionScope.global,
+    MiddlewareActionPriority priority = MiddlewareActionPriority.normal,
+    MiddlewareFadeCurve fadeCurve = MiddlewareFadeCurve.linear,
+    int fadeTimeMs = 0,
+    int delayMs = 0,
+    double gain = 1.0,
+    double pan = 0.0,
+    int fadeInMs = 0,
+    int fadeOutMs = 0,
+    int trimStartMs = 0,
+    int trimEndMs = 0,
+  }) {
+    if (!_loaded) return false;
+    return _middlewareAddActionEx(
+      eventId, actionType.index, assetId, busId,
+      scope.index, priority.index, fadeCurve.index,
+      fadeTimeMs, delayMs,
+      gain, pan, fadeInMs, fadeOutMs, trimStartMs, trimEndMs,
     ) != 0;
   }
 

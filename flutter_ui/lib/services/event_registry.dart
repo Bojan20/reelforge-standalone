@@ -44,6 +44,11 @@ class AudioLayer {
   final double delay; // Delay pre početka (ms)
   final double offset; // Offset unutar timeline-a (seconds)
   final int busId;
+  // Extended playback parameters (engine-level fade/trim)
+  final double fadeInMs;    // Fade-in duration in milliseconds (0 = instant start)
+  final double fadeOutMs;   // Fade-out duration at end in milliseconds (0 = instant stop)
+  final double trimStartMs; // Start playback from this position in milliseconds
+  final double trimEndMs;   // Stop playback at this position in milliseconds (0 = play to end)
 
   const AudioLayer({
     required this.id,
@@ -54,6 +59,10 @@ class AudioLayer {
     this.delay = 0.0,
     this.offset = 0.0,
     this.busId = 0,
+    this.fadeInMs = 0.0,
+    this.fadeOutMs = 0.0,
+    this.trimStartMs = 0.0,
+    this.trimEndMs = 0.0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -65,6 +74,10 @@ class AudioLayer {
     'delay': delay,
     'offset': offset,
     'busId': busId,
+    'fadeInMs': fadeInMs,
+    'fadeOutMs': fadeOutMs,
+    'trimStartMs': trimStartMs,
+    'trimEndMs': trimEndMs,
   };
 
   factory AudioLayer.fromJson(Map<String, dynamic> json) => AudioLayer(
@@ -76,6 +89,10 @@ class AudioLayer {
     delay: (json['delay'] as num?)?.toDouble() ?? 0.0,
     offset: (json['offset'] as num?)?.toDouble() ?? 0.0,
     busId: json['busId'] as int? ?? 0,
+    fadeInMs: (json['fadeInMs'] as num?)?.toDouble() ?? 0.0,
+    fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 0.0,
+    trimStartMs: (json['trimStartMs'] as num?)?.toDouble() ?? 0.0,
+    trimEndMs: (json['trimEndMs'] as num?)?.toDouble() ?? 0.0,
   );
 }
 
@@ -107,6 +124,154 @@ extension ContainerTypeExtension on ContainerType {
     if (v < 0 || v >= ContainerType.values.length) return ContainerType.none;
     return ContainerType.values[v];
   }
+}
+
+// =============================================================================
+// P1.15: CONDITIONAL AUDIO RULES — Operators and conditions
+// =============================================================================
+
+/// P1.15: Comparison operators for conditional rules
+enum ConditionalOperator {
+  equals,         // ==
+  notEquals,      // !=
+  greaterThan,    // >
+  lessThan,       // <
+  greaterOrEqual, // >=
+  lessOrEqual,    // <=
+  contains,       // String/List contains
+  isNull,         // value == null
+  isNotNull,      // value != null
+  inRange,        // value >= min && value <= max (value is [min, max])
+}
+
+/// P1.15: A single condition to check against context payload
+class ConditionalRuleCondition {
+  final String field;              // Field name in context (e.g., 'win_tier', 'win_ratio')
+  final ConditionalOperator operator;
+  final dynamic value;             // Value to compare against
+  final bool allowNull;            // If true, null values pass isNull check
+
+  const ConditionalRuleCondition({
+    required this.field,
+    required this.operator,
+    this.value,
+    this.allowNull = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'field': field,
+    'operator': operator.name,
+    'value': value,
+    'allowNull': allowNull,
+  };
+
+  factory ConditionalRuleCondition.fromJson(Map<String, dynamic> json) {
+    return ConditionalRuleCondition(
+      field: json['field'] as String,
+      operator: ConditionalOperator.values.firstWhere(
+        (o) => o.name == json['operator'],
+        orElse: () => ConditionalOperator.equals,
+      ),
+      value: json['value'],
+      allowNull: json['allowNull'] as bool? ?? false,
+    );
+  }
+}
+
+/// P1.15: A conditional audio rule that can override event selection
+class ConditionalAudioRule {
+  final String id;
+  final String name;
+  final List<String> stagePatterns;        // Stages this rule applies to (supports '*' wildcard)
+  final List<ConditionalRuleCondition> conditions;  // All conditions must be true
+  final String? overrideEventId;           // If set, use this event instead
+  final Map<String, dynamic>? contextOverrides;  // Merge into context
+
+  const ConditionalAudioRule({
+    required this.id,
+    required this.name,
+    required this.stagePatterns,
+    required this.conditions,
+    this.overrideEventId,
+    this.contextOverrides,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'stagePatterns': stagePatterns,
+    'conditions': conditions.map((c) => c.toJson()).toList(),
+    'overrideEventId': overrideEventId,
+    'contextOverrides': contextOverrides,
+  };
+
+  factory ConditionalAudioRule.fromJson(Map<String, dynamic> json) {
+    return ConditionalAudioRule(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      stagePatterns: (json['stagePatterns'] as List).cast<String>(),
+      conditions: (json['conditions'] as List)
+          .map((c) => ConditionalRuleCondition.fromJson(c as Map<String, dynamic>))
+          .toList(),
+      overrideEventId: json['overrideEventId'] as String?,
+      contextOverrides: json['contextOverrides'] as Map<String, dynamic>?,
+    );
+  }
+}
+
+/// P1.15: Preset conditional rules for common scenarios
+class ConditionalAudioRulePresets {
+  /// Rule: Play big win fanfare only for wins >= 20x bet
+  static ConditionalAudioRule get bigWinThreshold => const ConditionalAudioRule(
+    id: 'preset_big_win_threshold',
+    name: 'Big Win Threshold',
+    stagePatterns: ['WIN_PRESENT*', 'BIGWIN*'],
+    conditions: [
+      ConditionalRuleCondition(
+        field: 'win_ratio',
+        operator: ConditionalOperator.greaterOrEqual,
+        value: 20.0,
+      ),
+    ],
+    overrideEventId: 'bigwin_fanfare',
+  );
+
+  /// Rule: Use epic music for epic/ultra wins
+  static ConditionalAudioRule get epicWinMusic => const ConditionalAudioRule(
+    id: 'preset_epic_win_music',
+    name: 'Epic Win Music Override',
+    stagePatterns: ['WIN_PRESENT*'],
+    conditions: [
+      ConditionalRuleCondition(
+        field: 'win_tier',
+        operator: ConditionalOperator.greaterOrEqual,
+        value: 4,  // EPIC = 4, ULTRA = 5
+      ),
+    ],
+    contextOverrides: {'use_epic_music': true, 'extra_particles': true},
+  );
+
+  /// Rule: Mute music during jackpot
+  static ConditionalAudioRule get jackpotMuteMusic => const ConditionalAudioRule(
+    id: 'preset_jackpot_mute_music',
+    name: 'Jackpot Mute Background',
+    stagePatterns: ['JACKPOT_*'],
+    conditions: [
+      ConditionalRuleCondition(
+        field: 'is_jackpot',
+        operator: ConditionalOperator.equals,
+        value: true,
+      ),
+    ],
+    contextOverrides: {'mute_background_music': true},
+  );
+
+  /// Get all presets
+  static List<ConditionalAudioRule> get all => [
+    bigWinThreshold,
+    epicWinMusic,
+    jackpotMuteMusic,
+  ];
 }
 
 // =============================================================================
@@ -304,6 +469,22 @@ const _pooledEventStages = {
 };
 
 class EventRegistry extends ChangeNotifier {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0.8: PRE-TRIGGER CONFIGURATION
+  // Fire anticipation audio earlier to compensate for latency
+  // ═══════════════════════════════════════════════════════════════════════════
+  static const double kAnticipationPreTriggerMs = 50.0; // Default pre-trigger for anticipation
+  static const double kReelStopPreTriggerMs = 20.0;     // Slight pre-trigger for reel stops
+  static const Set<String> _preTriggerStages = {
+    'ANTICIPATION_ON',
+    'ANTICIPATION_OFF',
+    'ANTICIPATION',
+    'SCATTER_ANTICIPATION',
+    'BONUS_ANTICIPATION',
+    'WILD_ANTICIPATION',
+    'JACKPOT_ANTICIPATION',
+  };
+
   // Stage → Event mapping
   final Map<String, AudioEvent> _stageToEvent = {};
 
@@ -409,6 +590,272 @@ class EventRegistry extends ChangeNotifier {
       AudioPlaybackService.instance.fadeOutVoice(entry.value, fadeMs: _spinLoopFadeMs);
     }
     _reelSpinLoopVoices.clear();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P1.10 + P1.13: CROSSFADE SYSTEM FOR STAGE TRANSITIONS
+  // Smooth audio transitions between stages instead of hard cuts
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// P1.10: Enable/disable crossfade system
+  bool _crossfadeEnabled = true;
+  bool get crossfadeEnabled => _crossfadeEnabled;
+  set crossfadeEnabled(bool value) {
+    _crossfadeEnabled = value;
+    debugPrint('[EventRegistry] P1.10: Crossfade ${value ? 'enabled' : 'disabled'}');
+  }
+
+  /// P1.10: Default crossfade duration for stage groups
+  static const int _defaultCrossfadeMs = 100;
+
+  /// P1.10: Crossfade durations per stage group (ms)
+  /// Higher values = smoother but slower transition
+  static const Map<String, int> _crossfadeDurations = {
+    // Music transitions need longer crossfade
+    'MUSIC': 500,
+    'MUSIC_BASE': 500,
+    'MUSIC_FEATURE': 400,
+    'MUSIC_TENSION': 300,
+    // Feature transitions
+    'FREESPIN': 200,
+    'BONUS': 200,
+    'HOLD': 200,
+    // Win stages - shorter for impact
+    'WIN': 100,
+    'BIGWIN': 150,
+    'MEGAWIN': 200,
+    'ROLLUP': 50,
+    // Spin stages - quick transitions
+    'SPIN': 50,
+    'REEL': 30,
+    // Ambient/background - longer for seamless feel
+    'AMBIENT': 400,
+    'ATTRACT': 500,
+    'IDLE': 400,
+  };
+
+  /// P1.13: Stage groups that should crossfade with each other
+  /// When a stage in group A ends and a stage in the same group starts, crossfade
+  static const Map<String, String> _stageCrossfadeGroups = {
+    // Music group - any music transition crossfades
+    'MUSIC_BASE': 'music',
+    'MUSIC_FEATURE': 'music',
+    'MUSIC_TENSION': 'music',
+    'MUSIC_JACKPOT': 'music',
+    'FS_MUSIC': 'music',
+    'HOLD_MUSIC': 'music',
+    'BONUS_MUSIC': 'music',
+    'ATTRACT_MUSIC': 'music',
+    // Ambient group
+    'AMBIENT_BASE': 'ambient',
+    'AMBIENT_FEATURE': 'ambient',
+    'AMBIENT_LOOP': 'ambient',
+    // Win presentation group (for tier transitions)
+    'WIN_PRESENT': 'win_tier',
+    'BIGWIN_START': 'win_tier',
+    'MEGAWIN_START': 'win_tier',
+    'EPICWIN_START': 'win_tier',
+    'ULTRAWIN_START': 'win_tier',
+  };
+
+  /// P1.10: Currently playing voices per crossfade group
+  /// Maps group name -> list of (voiceId, fadeOutTime)
+  final Map<String, List<({int voiceId, int fadeOutMs})>> _crossfadeGroupVoices = {};
+
+  /// P1.10: Get crossfade duration for a stage
+  int _getCrossfadeDuration(String stage) {
+    final upperStage = stage.toUpperCase();
+    // Try exact match first
+    if (_crossfadeDurations.containsKey(upperStage)) {
+      return _crossfadeDurations[upperStage]!;
+    }
+    // Try prefix match
+    for (final entry in _crossfadeDurations.entries) {
+      if (upperStage.startsWith(entry.key)) {
+        return entry.value;
+      }
+    }
+    return _defaultCrossfadeMs;
+  }
+
+  /// P1.13: Get crossfade group for a stage (null if not in a crossfade group)
+  String? _getCrossfadeGroup(String stage) {
+    final upperStage = stage.toUpperCase();
+    // Try exact match first
+    if (_stageCrossfadeGroups.containsKey(upperStage)) {
+      return _stageCrossfadeGroups[upperStage];
+    }
+    // Try prefix match
+    for (final entry in _stageCrossfadeGroups.entries) {
+      if (upperStage.startsWith(entry.key.split('_').first)) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  /// P1.10: Start crossfade for a group - fade out existing voices, return fade-in duration
+  int _startCrossfade(String stage, List<int> newVoiceIds) {
+    if (!_crossfadeEnabled) return 0;
+
+    final group = _getCrossfadeGroup(stage);
+    if (group == null) return 0;
+
+    final fadeMs = _getCrossfadeDuration(stage);
+
+    // Fade out existing voices in this group
+    final existingVoices = _crossfadeGroupVoices[group];
+    if (existingVoices != null && existingVoices.isNotEmpty) {
+      for (final voice in existingVoices) {
+        debugPrint('[EventRegistry] P1.10: Crossfading out voice ${voice.voiceId} (${voice.fadeOutMs}ms)');
+        AudioPlaybackService.instance.fadeOutVoice(voice.voiceId, fadeMs: voice.fadeOutMs);
+      }
+    }
+
+    // Track new voices for future crossfade
+    _crossfadeGroupVoices[group] = newVoiceIds.map((id) => (voiceId: id, fadeOutMs: fadeMs)).toList();
+
+    debugPrint('[EventRegistry] P1.10: Started crossfade for group "$group", stage "$stage", fadeMs=$fadeMs');
+    return fadeMs;
+  }
+
+  /// P1.13: Check if stage should trigger crossfade (is it in a crossfade group?)
+  bool _shouldCrossfade(String stage) {
+    return _crossfadeEnabled && _getCrossfadeGroup(stage) != null;
+  }
+
+  /// P1.10: Clear all crossfade tracking (call on stop/reset)
+  void clearCrossfadeTracking() {
+    _crossfadeGroupVoices.clear();
+    debugPrint('[EventRegistry] P1.10: Cleared crossfade tracking');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P1.15: CONDITIONAL AUDIO RULES BASED ON PAYLOAD
+  // Allows playing different audio based on stage payload values
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// P1.15: Conditional rule for audio selection
+  final List<ConditionalAudioRule> _conditionalRules = [];
+
+  /// P1.15: Register a conditional audio rule
+  void registerConditionalRule(ConditionalAudioRule rule) {
+    // Remove existing rule with same ID
+    _conditionalRules.removeWhere((r) => r.id == rule.id);
+    _conditionalRules.add(rule);
+    debugPrint('[EventRegistry] P1.15: Registered conditional rule: ${rule.id}');
+  }
+
+  /// P1.15: Remove a conditional rule
+  void removeConditionalRule(String ruleId) {
+    _conditionalRules.removeWhere((r) => r.id == ruleId);
+    debugPrint('[EventRegistry] P1.15: Removed conditional rule: $ruleId');
+  }
+
+  /// P1.15: Get all registered rules
+  List<ConditionalAudioRule> get conditionalRules => List.unmodifiable(_conditionalRules);
+
+  /// P1.15: Clear all conditional rules
+  void clearConditionalRules() {
+    _conditionalRules.clear();
+    debugPrint('[EventRegistry] P1.15: Cleared all conditional rules');
+  }
+
+  /// P1.15: Evaluate conditional rules and get modified event/context
+  /// Returns (modifiedEventId, modifiedContext) if a rule matches
+  ({String? eventId, Map<String, dynamic>? contextOverrides})? _evaluateConditionalRules(
+    String stage,
+    Map<String, dynamic>? context,
+  ) {
+    if (_conditionalRules.isEmpty || context == null) return null;
+
+    for (final rule in _conditionalRules) {
+      // Check if rule applies to this stage
+      if (!rule.stagePatterns.any((p) => _matchesStagePattern(stage, p))) {
+        continue;
+      }
+
+      // Check all conditions
+      bool allConditionsMet = true;
+      for (final condition in rule.conditions) {
+        if (!_evaluateCondition(condition, context)) {
+          allConditionsMet = false;
+          break;
+        }
+      }
+
+      if (allConditionsMet) {
+        debugPrint('[EventRegistry] P1.15: Rule "${rule.id}" matched for $stage');
+        return (
+          eventId: rule.overrideEventId,
+          contextOverrides: rule.contextOverrides,
+        );
+      }
+    }
+
+    return null;
+  }
+
+  /// P1.15: Check if stage matches a pattern (supports wildcards)
+  bool _matchesStagePattern(String stage, String pattern) {
+    if (pattern == '*') return true;
+    if (pattern.endsWith('*')) {
+      final prefix = pattern.substring(0, pattern.length - 1);
+      return stage.toUpperCase().startsWith(prefix.toUpperCase());
+    }
+    return stage.toUpperCase() == pattern.toUpperCase();
+  }
+
+  /// P1.15: Evaluate a single condition against context
+  bool _evaluateCondition(ConditionalRuleCondition condition, Map<String, dynamic> context) {
+    final value = context[condition.field];
+    if (value == null && !condition.allowNull) return false;
+
+    switch (condition.operator) {
+      case ConditionalOperator.equals:
+        return value == condition.value;
+      case ConditionalOperator.notEquals:
+        return value != condition.value;
+      case ConditionalOperator.greaterThan:
+        if (value is num && condition.value is num) {
+          return value > (condition.value as num);
+        }
+        return false;
+      case ConditionalOperator.lessThan:
+        if (value is num && condition.value is num) {
+          return value < (condition.value as num);
+        }
+        return false;
+      case ConditionalOperator.greaterOrEqual:
+        if (value is num && condition.value is num) {
+          return value >= (condition.value as num);
+        }
+        return false;
+      case ConditionalOperator.lessOrEqual:
+        if (value is num && condition.value is num) {
+          return value <= (condition.value as num);
+        }
+        return false;
+      case ConditionalOperator.contains:
+        if (value is String && condition.value is String) {
+          return value.contains(condition.value as String);
+        }
+        if (value is List) {
+          return value.contains(condition.value);
+        }
+        return false;
+      case ConditionalOperator.isNull:
+        return value == null;
+      case ConditionalOperator.isNotNull:
+        return value != null;
+      case ConditionalOperator.inRange:
+        if (value is num && condition.value is List && condition.value.length == 2) {
+          final min = (condition.value as List)[0] as num;
+          final max = (condition.value as List)[1] as num;
+          return value >= min && value <= max;
+        }
+        return false;
+    }
   }
 
   /// P1.4: Get recent trigger history (newest first)
@@ -558,6 +1005,19 @@ class EventRegistry extends ChangeNotifier {
     }
 
     return true;
+  }
+
+  /// P0.8: Check if stage should use pre-trigger timing
+  /// Pre-trigger fires audio earlier to compensate for latency
+  bool _isPreTriggerStage(String stage) {
+    final normalized = stage.toUpperCase();
+    // Check exact match
+    if (_preTriggerStages.contains(normalized)) return true;
+    // Check prefix match for numbered anticipation (ANTICIPATION_ON_3, etc.)
+    for (final preTriggerStage in _preTriggerStages) {
+      if (normalized.startsWith(preTriggerStage)) return true;
+    }
+    return false;
   }
 
   /// Get priority level for a stage (0-100, higher = more important)
@@ -1182,6 +1642,23 @@ class EventRegistry extends ChangeNotifier {
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0.8: PRE-TRIGGER FOR ANTICIPATION STAGES
+    // Fire audio slightly earlier to compensate for processing latency
+    // Creates tighter audio-visual sync for dramatic moments
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (_isPreTriggerStage(normalizedStage)) {
+      context = context != null ? Map.from(context) : {};
+      context['pre_trigger_ms'] = kAnticipationPreTriggerMs;
+      debugPrint('[EventRegistry] P0.8: Pre-trigger activated for $normalizedStage (${kAnticipationPreTriggerMs}ms)');
+    }
+    // Also apply slight pre-trigger to REEL_STOP for tighter sync
+    if (normalizedStage.startsWith('REEL_STOP')) {
+      context = context != null ? Map.from(context) : {};
+      context['pre_trigger_ms'] = (context['pre_trigger_ms'] as double? ?? 0.0) + kReelStopPreTriggerMs;
+      debugPrint('[EventRegistry] P0.8: Reel stop pre-trigger for $normalizedStage (${kReelStopPreTriggerMs}ms)');
+    }
+
     // Try exact match first, then normalized
     var event = _stageToEvent[stage];
     event ??= _stageToEvent[normalizedStage];
@@ -1380,6 +1857,33 @@ class EventRegistry extends ChangeNotifier {
     );
     _playingInstances.add(instance);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.10 + P1.13: CROSSFADE HANDLING
+    // If this stage is in a crossfade group, fade out existing voices first
+    // ═══════════════════════════════════════════════════════════════════════════
+    int crossfadeInMs = 0;
+    if (_shouldCrossfade(event.stage)) {
+      // Get crossfade duration and fade out existing voices
+      final fadeMs = _getCrossfadeDuration(event.stage);
+      final group = _getCrossfadeGroup(event.stage);
+
+      // Fade out existing voices in this group
+      final existingVoices = _crossfadeGroupVoices[group];
+      if (existingVoices != null && existingVoices.isNotEmpty) {
+        for (final voice in existingVoices) {
+          debugPrint('[EventRegistry] P1.10: Crossfading out voice ${voice.voiceId} (${voice.fadeOutMs}ms)');
+          AudioPlaybackService.instance.fadeOutVoice(voice.voiceId, fadeMs: voice.fadeOutMs);
+        }
+      }
+
+      crossfadeInMs = fadeMs;
+      debugPrint('[EventRegistry] P1.10: Crossfade initiated for group "$group", fadeIn=${fadeMs}ms');
+
+      // Add fade-in to context for _playLayer
+      context = context != null ? Map.from(context) : {};
+      context['crossfade_in_ms'] = crossfadeInMs;
+    }
+
     // Pokreni sve layer-e sa njihovim delay-ima
     for (final layer in event.layers) {
       _playLayer(
@@ -1390,6 +1894,21 @@ class EventRegistry extends ChangeNotifier {
         eventKey: event.stage,
         loop: event.loop, // P0.2: Pass loop flag for seamless looping (REEL_SPIN)
       );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.10: Track new voices for future crossfade (after small delay to let voices populate)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (_shouldCrossfade(event.stage)) {
+      // Wait a bit for async voice creation, then track them
+      Timer(const Duration(milliseconds: 50), () {
+        final group = _getCrossfadeGroup(event.stage);
+        if (group != null && voiceIds.isNotEmpty) {
+          final fadeMs = _getCrossfadeDuration(event.stage);
+          _crossfadeGroupVoices[group] = voiceIds.map((id) => (voiceId: id, fadeOutMs: fadeMs)).toList();
+          debugPrint('[EventRegistry] P1.10: Tracking ${voiceIds.length} voices for group "$group"');
+        }
+      });
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1561,7 +2080,13 @@ class EventRegistry extends ChangeNotifier {
     debugPrint('[EventRegistry] 🔊 Playing layer "${layer.name}" | path: ${layer.audioPath}');
 
     // Delay pre početka
-    final totalDelayMs = (layer.delay + layer.offset * 1000).round();
+    // P0.8: Apply pre-trigger offset (negative delay) for tighter audio-visual sync
+    final preTriggerMs = (context?['pre_trigger_ms'] as double?) ?? 0.0;
+    final baseDelayMs = (layer.delay + layer.offset * 1000).round();
+    final totalDelayMs = (baseDelayMs - preTriggerMs).round().clamp(0, 10000);
+    if (preTriggerMs > 0) {
+      debugPrint('[EventRegistry] P0.8: Pre-trigger ${preTriggerMs}ms, delay ${baseDelayMs}ms → ${totalDelayMs}ms');
+    }
     if (totalDelayMs > 0) {
       await Future.delayed(Duration(milliseconds: totalDelayMs));
     }
@@ -1703,13 +2228,48 @@ class EventRegistry extends ChangeNotifier {
         );
       } else {
         // Standard bus routing through PlaybackEngine
-        voiceId = AudioPlaybackService.instance.playFileToBus(
-          layer.audioPath,
-          volume: volume.clamp(0.0, 1.0),
-          pan: pan.clamp(-1.0, 1.0),
-          busId: layer.busId,
-          source: source,
-        );
+        // ═══════════════════════════════════════════════════════════════════════
+        // P1.10: Extract crossfade_in_ms from context for smooth transitions
+        // ═══════════════════════════════════════════════════════════════════════
+        final crossfadeInMs = (context != null && context['crossfade_in_ms'] != null)
+            ? (context['crossfade_in_ms'] as int)
+            : 0;
+
+        // Use the larger of layer fadeIn or crossfade fadeIn
+        final effectiveFadeInMs = crossfadeInMs > layer.fadeInMs
+            ? crossfadeInMs.toDouble()
+            : layer.fadeInMs;
+
+        // Use extended function if layer has fadeIn/fadeOut/trim OR crossfade is active
+        final hasFadeTrim = effectiveFadeInMs > 0 ||
+            layer.fadeOutMs > 0 ||
+            layer.trimStartMs > 0 ||
+            layer.trimEndMs > 0;
+
+        if (hasFadeTrim) {
+          voiceId = AudioPlaybackService.instance.playFileToBusEx(
+            layer.audioPath,
+            volume: volume.clamp(0.0, 1.0),
+            pan: pan.clamp(-1.0, 1.0),
+            busId: layer.busId,
+            source: source,
+            fadeInMs: effectiveFadeInMs,  // P1.10: Use effective fade-in (max of layer and crossfade)
+            fadeOutMs: layer.fadeOutMs,
+            trimStartMs: layer.trimStartMs,
+            trimEndMs: layer.trimEndMs,
+          );
+          if (crossfadeInMs > 0) {
+            debugPrint('[EventRegistry] P1.10: Crossfade-in ${crossfadeInMs}ms applied to ${layer.name}');
+          }
+        } else {
+          voiceId = AudioPlaybackService.instance.playFileToBus(
+            layer.audioPath,
+            volume: volume.clamp(0.0, 1.0),
+            pan: pan.clamp(-1.0, 1.0),
+            busId: layer.busId,
+            source: source,
+          );
+        }
       }
 
       if (voiceId >= 0) {

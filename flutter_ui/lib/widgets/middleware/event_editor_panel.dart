@@ -2542,6 +2542,46 @@ class _EventEditorPanelState extends State<EventEditorPanel>
           ),
         ]),
         const SizedBox(height: 16),
+        // Extended Playback Parameters (2026-01-26)
+        _buildInspectorSection('Extended Playback', [
+          _buildInspectorSlider(
+            'Fade In',
+            action.fadeInMs,
+            0,
+            2000,
+            'ms',
+            1,
+            (value) => _updateActionDebounced(event, action, fadeInMs: value),
+          ),
+          _buildInspectorSlider(
+            'Fade Out',
+            action.fadeOutMs,
+            0,
+            2000,
+            'ms',
+            1,
+            (value) => _updateActionDebounced(event, action, fadeOutMs: value),
+          ),
+          _buildInspectorSlider(
+            'Trim Start',
+            action.trimStartMs,
+            0,
+            10000,
+            'ms',
+            1,
+            (value) => _updateActionDebounced(event, action, trimStartMs: value),
+          ),
+          _buildInspectorSlider(
+            'Trim End',
+            action.trimEndMs,
+            0,
+            10000,
+            'ms',
+            1,
+            (value) => _updateActionDebounced(event, action, trimEndMs: value),
+          ),
+        ]),
+        const SizedBox(height: 16),
         _buildInspectorSection('Priority & Scope', [
           _buildInspectorDropdown(
             'Priority',
@@ -3823,6 +3863,11 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     double? pan,
     double? delay,
     bool? loop,
+    // Extended playback parameters
+    double? fadeInMs,
+    double? fadeOutMs,
+    double? trimStartMs,
+    double? trimEndMs,
   }) {
     final newAction = action.copyWith(
       type: type,
@@ -3836,6 +3881,11 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       pan: pan,
       delay: delay,
       loop: loop,
+      // Extended playback parameters
+      fadeInMs: fadeInMs,
+      fadeOutMs: fadeOutMs,
+      trimStartMs: trimStartMs,
+      trimEndMs: trimEndMs,
     );
 
     final newActions = event.actions.map((a) {
@@ -3867,6 +3917,11 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     double? pan,
     double? delay,
     double? fadeTime,
+    // Extended playback parameters
+    double? fadeInMs,
+    double? fadeOutMs,
+    double? trimStartMs,
+    double? trimEndMs,
   }) {
     // Mark this event as having pending edits to prevent provider overwrite
     _pendingEditEventId = event.id;
@@ -3877,6 +3932,11 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       pan: pan,
       delay: delay,
       fadeTime: fadeTime,
+      // Extended playback parameters
+      fadeInMs: fadeInMs,
+      fadeOutMs: fadeOutMs,
+      trimStartMs: trimStartMs,
+      trimEndMs: trimEndMs,
     );
 
     final newActions = event.actions.map((a) {

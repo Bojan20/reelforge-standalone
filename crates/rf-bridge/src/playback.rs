@@ -1574,6 +1574,41 @@ impl PlaybackEngine {
         }
     }
 
+    /// Extended one-shot playback with fadeIn, fadeOut, and trim parameters
+    /// fade_in_ms: fade-in duration at start (0 = no fade)
+    /// fade_out_ms: fade-out duration at end (0 = no fade)
+    /// trim_start_ms: start position in audio file (0 = from beginning)
+    /// trim_end_ms: end position in audio file (0 = play to end)
+    pub fn play_one_shot_to_bus_ex(
+        &self,
+        path: &str,
+        volume: f32,
+        pan: f32,
+        bus_id: u32,
+        source: u8,
+        fade_in_ms: f32,
+        fade_out_ms: f32,
+        trim_start_ms: f32,
+        trim_end_ms: f32,
+    ) -> u64 {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.play_one_shot_to_bus_ex(
+                path,
+                volume,
+                pan,
+                bus_id,
+                rf_engine::playback::PlaybackSource::from(source),
+                fade_in_ms,
+                fade_out_ms,
+                trim_start_ms,
+                trim_end_ms,
+            )
+        } else {
+            log::warn!("play_one_shot_to_bus_ex: engine not connected");
+            0
+        }
+    }
+
     /// Set active playback section (for section-based voice filtering)
     /// section: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
     pub fn set_active_section(&self, section: u8) {

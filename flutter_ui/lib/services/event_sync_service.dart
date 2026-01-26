@@ -163,6 +163,10 @@ class EventSyncService extends ChangeNotifier {
     double? delayMs,
     double? offsetSeconds,
     int? busId,
+    double? fadeInMs,
+    double? fadeOutMs,
+    double? trimStartMs,
+    double? trimEndMs,
   }) {
     if (_syncing) return;
     _syncing = true;
@@ -171,7 +175,7 @@ class EventSyncService extends ChangeNotifier {
       final existingEvent = _registry.getEventById(eventId);
       if (existingEvent == null) return;
 
-      // Find and update the layer
+      // Find and update the layer (preserving existing fadeIn/fadeOut/trim values)
       final updatedLayers = existingEvent.layers.map((layer) {
         if (layer.id == layerId) {
           return AudioLayer(
@@ -183,6 +187,10 @@ class EventSyncService extends ChangeNotifier {
             delay: delayMs ?? layer.delay,
             offset: offsetSeconds ?? layer.offset,
             busId: busId ?? layer.busId,
+            fadeInMs: fadeInMs ?? layer.fadeInMs,
+            fadeOutMs: fadeOutMs ?? layer.fadeOutMs,
+            trimStartMs: trimStartMs ?? layer.trimStartMs,
+            trimEndMs: trimEndMs ?? layer.trimEndMs,
           );
         }
         return layer;
@@ -323,7 +331,7 @@ class EventSyncService extends ChangeNotifier {
 
   /// Sync SlotCompositeEvent → AudioEvent
   void _syncCompositeToRegistry(SlotCompositeEvent composite) {
-    // Convert SlotEventLayers to AudioLayers
+    // Convert SlotEventLayers to AudioLayers (including fadeIn/fadeOut/trim parameters)
     final layers = composite.layers.map((layer) {
       return AudioLayer(
         id: layer.id,
@@ -334,6 +342,10 @@ class EventSyncService extends ChangeNotifier {
         delay: layer.offsetMs,
         offset: 0, // Combined into delay
         busId: layer.busId ?? 0,
+        fadeInMs: layer.fadeInMs,
+        fadeOutMs: layer.fadeOutMs,
+        trimStartMs: layer.trimStartMs,
+        trimEndMs: layer.trimEndMs,
       );
     }).toList();
 

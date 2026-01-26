@@ -215,9 +215,10 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
         // Wrap with DragTarget<Object> to accept both AudioAsset and String
         return DragTarget<Object>(
           onWillAcceptWithDetails: (details) {
-            // Accept AudioAsset, String (audio path), or AudioFileInfo
+            // Accept AudioAsset, String (audio path), List<String>, or AudioFileInfo
             if (details.data is AudioAsset ||
                 details.data is String ||
+                details.data is List<String> ||
                 details.data is AudioFileInfo) {
               setState(() => _isDragOver = true);
               return true;
@@ -234,25 +235,36 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
             debugPrint('[DropTargetWrapper] 🎯 onAcceptWithDetails called for ${widget.target.targetId}');
             debugPrint('[DropTargetWrapper]    data type: ${details.data.runtimeType}');
 
-            // Handle AudioAsset, String, and AudioFileInfo drops
-            AudioAsset asset;
+            // Handle AudioAsset, String, List<String>, and AudioFileInfo drops
+            List<AudioAsset> assets = [];
+
             if (details.data is AudioAsset) {
-              asset = details.data as AudioAsset;
-              debugPrint('[DropTargetWrapper]    AudioAsset: ${asset.path}');
+              assets.add(details.data as AudioAsset);
+              debugPrint('[DropTargetWrapper]    AudioAsset: ${assets.first.path}');
+            } else if (details.data is List<String>) {
+              // Multi-select drop - convert all paths to assets
+              final paths = details.data as List<String>;
+              debugPrint('[DropTargetWrapper]    List<String>: ${paths.length} files');
+              for (final path in paths) {
+                assets.add(_pathToAudioAsset(path));
+              }
             } else if (details.data is String) {
               final path = details.data as String;
               debugPrint('[DropTargetWrapper]    String path: $path');
-              asset = _pathToAudioAsset(path);
+              assets.add(_pathToAudioAsset(path));
             } else if (details.data is AudioFileInfo) {
               final info = details.data as AudioFileInfo;
               debugPrint('[DropTargetWrapper]    AudioFileInfo: ${info.path}');
-              asset = _audioFileInfoToAudioAsset(info);
+              assets.add(_audioFileInfoToAudioAsset(info));
             } else {
               debugPrint('[DropTargetWrapper]    ❌ Unsupported type!');
               return; // Unsupported type
             }
 
-            _handleDrop(asset, details.offset, provider);
+            // Process all dropped assets
+            for (final asset in assets) {
+              _handleDrop(asset, details.offset, provider);
+            }
           },
           builder: (context, candidateData, rejectedData) {
             return Stack(
