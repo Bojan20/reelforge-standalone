@@ -12,6 +12,9 @@
 
 import 'package:flutter/material.dart';
 
+/// Callback when layer drag starts
+typedef LayerDragStartCallback = void Function(String layerId, String eventId, double startOffsetMs);
+
 /// Callback when layer drag completes
 typedef LayerDragEndCallback = void Function(String layerId, String eventId, double finalOffsetMs);
 
@@ -32,6 +35,7 @@ class DraggableLayerWidget extends StatefulWidget {
   final bool muted;
   final String layerName;
   final List<double>? waveformData;
+  final LayerDragStartCallback? onDragStart;
   final LayerDragEndCallback onDragEnd;
   final GetFreshOffsetCallback getFreshOffset;
   final VoidCallback? onDelete;
@@ -50,6 +54,7 @@ class DraggableLayerWidget extends StatefulWidget {
     required this.muted,
     required this.layerName,
     this.waveformData,
+    this.onDragStart,
     required this.onDragEnd,
     required this.getFreshOffset,
     this.onDelete,
@@ -313,6 +318,10 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
     });
 
     debugPrint('[DraggableLayer] PAN START: layer=${widget.layerId}, startMs=$freshOffsetMs');
+
+    // CRITICAL: Notify parent that drag started (so _dragController knows)
+    // This prevents region.start from being updated during drag
+    widget.onDragStart?.call(widget.layerId, widget.eventId, freshOffsetMs);
   }
 
   void _onPanUpdate(DragUpdateDetails details) {

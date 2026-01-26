@@ -31,11 +31,104 @@ use rf_state::UndoManager;
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// INSTANT IMPORT SYSTEM — <1ms file registration
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Pending audio entry — lightweight registration before full metadata load
+#[derive(Debug)]
+pub struct PendingAudioEntry {
+    /// Unique ID for this entry
+    pub id: u64,
+    /// File path
+    pub path: String,
+    /// File name (extracted from path)
+    pub name: String,
+    /// File size in bytes (instant from fs::metadata)
+    pub file_size: u64,
+    /// File extension/format (wav, mp3, etc.)
+    pub format: String,
+    /// Loading state: 0=pending, 1=loading_metadata, 2=loaded, 3=error
+    pub state: std::sync::atomic::AtomicU8,
+    /// Duration in seconds (0.0 until metadata loaded)
+    pub duration_secs: std::sync::atomic::AtomicU64, // f64 bits
+    /// Sample rate (0 until metadata loaded)
+    pub sample_rate: std::sync::atomic::AtomicU32,
+    /// Channels (0 until metadata loaded)
+    pub channels: std::sync::atomic::AtomicU8,
+    /// Bit depth (0 until metadata loaded)
+    pub bit_depth: std::sync::atomic::AtomicU8,
+}
+
+impl PendingAudioEntry {
+    fn new(id: u64, path: String) -> Self {
+        let name = std::path::Path::new(&path)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "Unknown".to_string());
+
+        let file_size = std::fs::metadata(&path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+
+        let format = std::path::Path::new(&path)
+            .extension()
+            .map(|s| s.to_string_lossy().to_lowercase())
+            .unwrap_or_else(|| "unknown".to_string());
+
+        Self {
+            id,
+            path,
+            name,
+            file_size,
+            format,
+            state: std::sync::atomic::AtomicU8::new(0), // pending
+            duration_secs: std::sync::atomic::AtomicU64::new(0),
+            sample_rate: std::sync::atomic::AtomicU32::new(0),
+            channels: std::sync::atomic::AtomicU8::new(0),
+            bit_depth: std::sync::atomic::AtomicU8::new(0),
+        }
+    }
+
+    fn set_metadata(&self, duration: f64, sample_rate: u32, channels: u8, bit_depth: u8) {
+        use std::sync::atomic::Ordering;
+        self.duration_secs.store(duration.to_bits(), Ordering::Release);
+        self.sample_rate.store(sample_rate, Ordering::Release);
+        self.channels.store(channels, Ordering::Release);
+        self.bit_depth.store(bit_depth, Ordering::Release);
+        self.state.store(2, Ordering::Release); // loaded
+    }
+
+    fn set_error(&self) {
+        self.state.store(3, std::sync::atomic::Ordering::Release);
+    }
+
+    fn get_duration(&self) -> f64 {
+        f64::from_bits(self.duration_secs.load(std::sync::atomic::Ordering::Acquire))
+    }
+
+    fn get_state(&self) -> u8 {
+        self.state.load(std::sync::atomic::Ordering::Acquire)
+    }
+}
+
+/// Next pending ID counter (atomic)
+static NEXT_PENDING_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1_000_000);
+
 lazy_static::lazy_static! {
     static ref TRACK_MANAGER: Arc<TrackManager> = Arc::new(TrackManager::new());
     static ref WAVEFORM_CACHE: WaveformCache = WaveformCache::new();
     static ref IMPORTED_AUDIO: RwLock<std::collections::HashMap<ClipId, Arc<ImportedAudio>>> =
         RwLock::new(std::collections::HashMap::new());
+    /// Pending audio entries — instant registration, metadata loaded async
+    static ref PENDING_AUDIO: RwLock<std::collections::HashMap<u64, Arc<PendingAudioEntry>>> =
+        RwLock::new(std::collections::HashMap::new());
+    /// Background thread pool for metadata loading
+    static ref METADATA_THREAD_POOL: rayon::ThreadPool = rayon::ThreadPoolBuilder::new()
+        .num_threads(4)
+        .thread_name(|i| format!("ff-metadata-{}", i))
+        .build()
+        .expect("Failed to create metadata thread pool");
     static ref PLAYBACK_ENGINE: Arc<PlaybackEngine> = Arc::new(PlaybackEngine::new(Arc::clone(&TRACK_MANAGER), 48000));
     static ref UNDO_MANAGER: RwLock<UndoManager> = RwLock::new(UndoManager::new(500));
     /// Project dirty state tracking
@@ -15976,6 +16069,349 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
     );
 
     CString::new(json).unwrap_or_default().into_raw()
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INSTANT FILE IMPORT — <1ms registration + async metadata loading
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Register a single audio file INSTANTLY (<1ms)
+/// Returns pending ID immediately, metadata loads in background
+/// State: 0=pending, 1=loading, 2=loaded, 3=error
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_register_instant(path: *const c_char) -> u64 {
+    let path_str = match unsafe { cstr_to_string(path) } {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    // Validate file exists (instant check)
+    if !std::path::Path::new(&path_str).exists() {
+        return 0;
+    }
+
+    // Generate unique ID
+    let id = NEXT_PENDING_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+    // Create pending entry (instant — only extracts filename and file size)
+    let entry = Arc::new(PendingAudioEntry::new(id, path_str.clone()));
+
+    // Store in pending map
+    PENDING_AUDIO.write().insert(id, Arc::clone(&entry));
+
+    // Spawn background metadata loading
+    let entry_clone = Arc::clone(&entry);
+    METADATA_THREAD_POOL.spawn(move || {
+        load_metadata_async(entry_clone);
+    });
+
+    id
+}
+
+/// Register multiple audio files INSTANTLY (<1ms per file)
+/// Input: JSON array of paths ["path1", "path2", ...]
+/// Returns: JSON array of IDs [id1, id2, ...]
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_register_batch(paths_json: *const c_char) -> *mut c_char {
+    let json_str = match unsafe { cstr_to_string(paths_json) } {
+        Some(s) => s,
+        None => return CString::new("[]").unwrap().into_raw(),
+    };
+
+    // Parse JSON array of paths
+    let paths: Vec<String> = match serde_json::from_str(&json_str) {
+        Ok(p) => p,
+        Err(_) => return CString::new("[]").unwrap().into_raw(),
+    };
+
+    let mut ids = Vec::with_capacity(paths.len());
+    let mut entries_to_load = Vec::with_capacity(paths.len());
+
+    {
+        let mut pending = PENDING_AUDIO.write();
+
+        for path_str in paths {
+            // Validate file exists
+            if !std::path::Path::new(&path_str).exists() {
+                ids.push(0u64);
+                continue;
+            }
+
+            // Generate unique ID
+            let id = NEXT_PENDING_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+            // Create pending entry (instant)
+            let entry = Arc::new(PendingAudioEntry::new(id, path_str));
+            pending.insert(id, Arc::clone(&entry));
+            entries_to_load.push(entry);
+            ids.push(id);
+        }
+    }
+
+    // Spawn background metadata loading for all entries
+    for entry in entries_to_load {
+        METADATA_THREAD_POOL.spawn(move || {
+            load_metadata_async(entry);
+        });
+    }
+
+    // Return IDs as JSON array
+    let ids_json: Vec<String> = ids.iter().map(|id| id.to_string()).collect();
+    let result = format!("[{}]", ids_json.join(","));
+    CString::new(result).unwrap_or_default().into_raw()
+}
+
+/// Get list of all pending audio entries as JSON
+/// Returns: [{id, name, path, state, duration, sample_rate, channels, bit_depth, file_size}, ...]
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_list_pending() -> *mut c_char {
+    let pending = PENDING_AUDIO.read();
+
+    let mut entries = Vec::with_capacity(pending.len());
+    for entry in pending.values() {
+        let json = format!(
+            r#"{{"id":{},"name":"{}","path":"{}","state":{},"duration":{},"sample_rate":{},"channels":{},"bit_depth":{},"file_size":{},"format":"{}"}}"#,
+            entry.id,
+            entry.name.replace('\\', "\\\\").replace('"', "\\\""),
+            entry.path.replace('\\', "\\\\").replace('"', "\\\""),
+            entry.get_state(),
+            entry.get_duration(),
+            entry.sample_rate.load(std::sync::atomic::Ordering::Acquire),
+            entry.channels.load(std::sync::atomic::Ordering::Acquire),
+            entry.bit_depth.load(std::sync::atomic::Ordering::Acquire),
+            entry.file_size,
+            entry.format,
+        );
+        entries.push(json);
+    }
+
+    let result = format!("[{}]", entries.join(","));
+    CString::new(result).unwrap_or_default().into_raw()
+}
+
+/// Get combined list of all audio (pending + fully loaded) as JSON
+/// Returns: [{id, name, path, state, duration, sample_rate, channels, bit_depth, file_size, format}, ...]
+/// State: 0=pending, 1=loading, 2=loaded (pending), 3=error, 10=fully_imported
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_list_all() -> *mut c_char {
+    let mut entries = Vec::new();
+
+    // Add pending entries
+    {
+        let pending = PENDING_AUDIO.read();
+        for entry in pending.values() {
+            let json = format!(
+                r#"{{"id":{},"name":"{}","path":"{}","state":{},"duration":{},"sample_rate":{},"channels":{},"bit_depth":{},"file_size":{},"format":"{}"}}"#,
+                entry.id,
+                entry.name.replace('\\', "\\\\").replace('"', "\\\""),
+                entry.path.replace('\\', "\\\\").replace('"', "\\\""),
+                entry.get_state(),
+                entry.get_duration(),
+                entry.sample_rate.load(std::sync::atomic::Ordering::Acquire),
+                entry.channels.load(std::sync::atomic::Ordering::Acquire),
+                entry.bit_depth.load(std::sync::atomic::Ordering::Acquire),
+                entry.file_size,
+                entry.format,
+            );
+            entries.push(json);
+        }
+    }
+
+    // Add fully imported entries (state = 10)
+    {
+        let imported = IMPORTED_AUDIO.read();
+        for (clip_id, audio) in imported.iter() {
+            let file_size = std::fs::metadata(&audio.source_path)
+                .map(|m| m.len())
+                .unwrap_or(0);
+
+            let json = format!(
+                r#"{{"id":{},"name":"{}","path":"{}","state":10,"duration":{},"sample_rate":{},"channels":{},"bit_depth":{},"file_size":{},"format":"{}"}}"#,
+                clip_id.0,
+                audio.name.replace('\\', "\\\\").replace('"', "\\\""),
+                audio.source_path.replace('\\', "\\\\").replace('"', "\\\""),
+                audio.duration_secs,
+                audio.sample_rate,
+                audio.channels,
+                audio.bit_depth.unwrap_or(24),
+                file_size,
+                audio.format,
+            );
+            entries.push(json);
+        }
+    }
+
+    let result = format!("[{}]", entries.join(","));
+    CString::new(result).unwrap_or_default().into_raw()
+}
+
+/// Get pending entry state by ID
+/// Returns: 0=pending, 1=loading, 2=loaded, 3=error, -1=not found
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_get_pending_state(id: u64) -> i32 {
+    if let Some(entry) = PENDING_AUDIO.read().get(&id) {
+        entry.get_state() as i32
+    } else {
+        -1
+    }
+}
+
+/// Remove pending entry by ID
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_remove_pending(id: u64) -> i32 {
+    if PENDING_AUDIO.write().remove(&id).is_some() {
+        1
+    } else {
+        0
+    }
+}
+
+/// Clear all pending entries
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_clear_pending() -> i32 {
+    PENDING_AUDIO.write().clear();
+    1
+}
+
+/// Promote pending entry to full import (loads samples + waveform)
+/// This is called when user needs to play or view waveform
+/// Returns clip_id on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_promote_pending(pending_id: u64, track_id: u64, start_time: f64) -> u64 {
+    // Get pending entry
+    let entry = match PENDING_AUDIO.read().get(&pending_id) {
+        Some(e) => Arc::clone(e),
+        None => return 0,
+    };
+
+    // Check if metadata is loaded
+    if entry.get_state() != 2 {
+        return 0; // Not ready yet
+    }
+
+    // Use existing import function
+    let path_cstr = match CString::new(entry.path.clone()) {
+        Ok(c) => c,
+        Err(_) => return 0,
+    };
+
+    let clip_id = engine_import_audio(path_cstr.as_ptr(), track_id, start_time);
+
+    // Remove from pending if successful
+    if clip_id != 0 {
+        PENDING_AUDIO.write().remove(&pending_id);
+    }
+
+    clip_id
+}
+
+/// Background metadata loader (runs on thread pool)
+fn load_metadata_async(entry: Arc<PendingAudioEntry>) {
+    use std::sync::atomic::Ordering;
+
+    // Mark as loading
+    entry.state.store(1, Ordering::Release);
+
+    // Open file and probe metadata
+    let file = match std::fs::File::open(&entry.path) {
+        Ok(f) => f,
+        Err(_) => {
+            entry.set_error();
+            return;
+        }
+    };
+
+    use symphonia::core::io::MediaSourceStream;
+    use symphonia::core::probe::Hint;
+
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(ext) = std::path::Path::new(&entry.path).extension().and_then(|e| e.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let probed = match symphonia::default::get_probe().format(&hint, mss, &Default::default(), &Default::default()) {
+        Ok(p) => p,
+        Err(_) => {
+            entry.set_error();
+            return;
+        }
+    };
+
+    let mut format = probed.format;
+    let track = match format.default_track() {
+        Some(t) => t.clone(),
+        None => {
+            entry.set_error();
+            return;
+        }
+    };
+
+    let codec_params = &track.codec_params;
+    let sample_rate = codec_params.sample_rate.unwrap_or(48000);
+    let channels = codec_params.channels.map(|c| c.count()).unwrap_or(2) as u8;
+    let bit_depth = codec_params.bits_per_sample.unwrap_or(24) as u8;
+    let track_id = track.id;
+
+    // Calculate duration using 3-tier fallback
+    let mut duration_secs: f64 = 0.0;
+
+    // TIER 1: n_frames from codec params
+    if let Some(n_frames) = codec_params.n_frames {
+        duration_secs = n_frames as f64 / sample_rate as f64;
+    }
+
+    // TIER 2: time_base with n_frames
+    if duration_secs <= 0.0 {
+        if let Some(time_base) = codec_params.time_base {
+            if let Some(n_frames) = codec_params.n_frames {
+                let tb_num = time_base.numer as f64;
+                let tb_denom = time_base.denom as f64;
+                if tb_denom > 0.0 {
+                    duration_secs = n_frames as f64 * tb_num / tb_denom;
+                }
+            }
+        }
+    }
+
+    // TIER 3: Packet scan (for VBR MP3, etc.)
+    if duration_secs <= 0.0 {
+        let mut total_frames: u64 = 0;
+        let mut packet_count: u64 = 0;
+        const MAX_PACKETS: u64 = 100_000;
+
+        loop {
+            match format.next_packet() {
+                Ok(packet) => {
+                    if packet.track_id() == track_id {
+                        total_frames += packet.dur as u64;
+                        packet_count += 1;
+                        if packet_count >= MAX_PACKETS {
+                            break;
+                        }
+                    }
+                }
+                Err(symphonia::core::errors::Error::IoError(ref e))
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+                Err(_) => break,
+            }
+        }
+
+        if total_frames > 0 {
+            if let Some(time_base) = codec_params.time_base {
+                let tb_num = time_base.numer as f64;
+                let tb_denom = time_base.denom as f64;
+                if tb_denom > 0.0 {
+                    duration_secs = total_frames as f64 * tb_num / tb_denom;
+                }
+            } else {
+                duration_secs = total_frames as f64 / sample_rate as f64;
+            }
+        }
+    }
+
+    // Store metadata
+    entry.set_metadata(duration_secs, sample_rate, channels, bit_depth);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -779,7 +779,62 @@ Multi-selection radi u sve tri sekcije:
 |------|---------|
 | `audio_pool_panel.dart` | Multi-selection state, keyboard handling, drag support |
 | `stage_trace_widget.dart` | Updated DragTarget to accept `List<AudioFileInfo>` |
+
+### 9.10 Critical Fix: Listener vs GestureDetector (2026-01-26)
+
+**Problem:** Multi-selection ne radi sa `GestureDetector.onTap` + `HardwareKeyboard.instance`
+
+**Root Cause:**
+`GestureDetector.onTap` se trigeruje POSLE kompletiranja gesta (mouse up), a `HardwareKeyboard.instance` može imati outdated modifier key state u tom trenutku — modifier key može biti released pre nego što se callback pozove.
+
+**Rešenje:** Koristiti `Listener.onPointerDown` koji se trigeruje ODMAH kada pointer krene dole:
+
+```dart
+import 'dart:ui' show PointerDeviceKind;
+import 'package:flutter/gestures.dart' show kPrimaryButton;
+
+// ❌ LOŠE — GestureDetector.onTap sa HardwareKeyboard je unreliable
+GestureDetector(
+  onTap: () {
+    // HardwareKeyboard modifier keys mogu biti stale ovde!
+    final isCtrl = HardwareKeyboard.instance.isControlPressed;
+    _handleSelection(isCtrlPressed: isCtrl);  // MOŽE FAILOVATI
+  },
+)
+
+// ✅ DOBRO — Listener.onPointerDown hvata modifier keys pouzdano
+Listener(
+  onPointerDown: (event) {
+    final isCtrl = event.buttons == kPrimaryButton &&
+        (HardwareKeyboard.instance.isControlPressed ||
+         HardwareKeyboard.instance.isMetaPressed);
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+    if (event.kind == PointerDeviceKind.mouse) {
+      _handleFileSelection(file, index, isCtrlPressed: isCtrl, isShiftPressed: isShift);
+    }
+  },
+  child: GestureDetector(
+    onDoubleTap: () {
+      // Double-tap ostaje u GestureDetector (ne treba modifier keys)
+      widget.onFileDoubleClick?.call(file);
+    },
+    child: Container(/* ... */),
+  ),
+)
 ```
+
+**Imports potrebni:**
+```dart
+import 'dart:ui' show PointerDeviceKind;
+import 'package:flutter/gestures.dart' show kPrimaryButton;
+import 'package:flutter/services.dart' show HardwareKeyboard;
+```
+
+**Pravilo:**
+- **Modifier key detection** → `Listener.onPointerDown`
+- **Simple taps/double-taps** → `GestureDetector`
+- **NIKADA** ne kombinovati `GestureDetector.onTap` sa `HardwareKeyboard.instance` za modifier key detection
 
 ---
 

@@ -739,6 +739,54 @@ processor.process(job).await?;
 
 ---
 
+## Flutter UI Pravila (KRITIČNO)
+
+### Modifier Key Detection — Listener vs GestureDetector
+
+**Problem:** `GestureDetector.onTap` + `HardwareKeyboard.instance` je **UNRELIABLE** za modifier key detection.
+
+**Root Cause:** `GestureDetector.onTap` se trigeruje POSLE kompletiranja gesta (mouse up). `HardwareKeyboard.instance` može imati stale modifier key state — korisnik može pustiti Ctrl/Cmd pre nego što se callback pozove.
+
+**Rešenje:** Koristiti `Listener.onPointerDown` koji se trigeruje ODMAH:
+
+```dart
+import 'dart:ui' show PointerDeviceKind;
+import 'package:flutter/gestures.dart' show kPrimaryButton;
+
+// ❌ LOŠE — modifier keys mogu biti stale
+GestureDetector(
+  onTap: () {
+    final isCtrl = HardwareKeyboard.instance.isControlPressed;  // MOŽE FAILOVATI
+    _handleSelection(isCtrlPressed: isCtrl);
+  },
+)
+
+// ✅ DOBRO — modifier keys captured reliably
+Listener(
+  onPointerDown: (event) {
+    final isCtrl = event.buttons == kPrimaryButton &&
+        (HardwareKeyboard.instance.isControlPressed ||
+         HardwareKeyboard.instance.isMetaPressed);
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+    if (event.kind == PointerDeviceKind.mouse) {
+      _handleSelection(isCtrlPressed: isCtrl, isShiftPressed: isShift);
+    }
+  },
+  child: GestureDetector(
+    onDoubleTap: () => _handleDoubleClick(),  // OK bez modifier keys
+    child: Container(/* ... */),
+  ),
+)
+```
+
+**Pravilo:**
+- **Modifier key detection** → `Listener.onPointerDown`
+- **Simple taps/double-taps** → `GestureDetector`
+- **NIKADA** ne kombinovati `GestureDetector.onTap` + `HardwareKeyboard.instance` za modifier keys
+
+---
+
 ## DSP Pravila (KRITIČNO)
 
 ### Audio Thread Rules — NIKAD NE KRŠI

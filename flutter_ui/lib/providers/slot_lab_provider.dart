@@ -24,6 +24,144 @@ import 'middleware_provider.dart';
 import 'ale_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// P3.1: STAGE EVENT POOL — Reduce allocation during spin sequences
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Mutable wrapper for stage event data (reusable from pool)
+class PooledStageEvent {
+  String stageType = '';
+  double timestampMs = 0.0;
+  Map<String, dynamic> payload = const {};
+  Map<String, dynamic> rawStage = const {};
+  bool _inUse = false;
+
+  /// Reset this pooled event with new data
+  void reset({
+    required String stageType,
+    required double timestampMs,
+    required Map<String, dynamic> payload,
+    required Map<String, dynamic> rawStage,
+  }) {
+    this.stageType = stageType;
+    this.timestampMs = timestampMs;
+    this.payload = payload;
+    this.rawStage = rawStage;
+    _inUse = true;
+  }
+
+  /// Release back to pool
+  void release() {
+    _inUse = false;
+    stageType = '';
+    timestampMs = 0.0;
+    payload = const {};
+    rawStage = const {};
+  }
+
+  /// Convert from SlotLabStageEvent
+  void fromStageEvent(SlotLabStageEvent event) {
+    reset(
+      stageType: event.stageType,
+      timestampMs: event.timestampMs,
+      payload: event.payload,
+      rawStage: event.rawStage,
+    );
+  }
+}
+
+/// Object pool for stage events to reduce GC pressure during rapid spins
+class StageEventPool {
+  static final StageEventPool instance = StageEventPool._();
+  StageEventPool._();
+
+  static const int _initialPoolSize = 64;
+  static const int _maxPoolSize = 256;
+
+  final List<PooledStageEvent> _pool = [];
+  int _acquiredCount = 0;
+  int _totalAllocations = 0;
+  int _poolHits = 0;
+  int _poolMisses = 0;
+
+  /// Initialize pool with pre-allocated objects
+  void init() {
+    if (_pool.isEmpty) {
+      for (int i = 0; i < _initialPoolSize; i++) {
+        _pool.add(PooledStageEvent());
+      }
+      debugPrint('[StageEventPool] Initialized with $_initialPoolSize objects');
+    }
+  }
+
+  /// Acquire a pooled event (reuse or allocate new)
+  PooledStageEvent acquire() {
+    // Find unused event in pool
+    for (final event in _pool) {
+      if (!event._inUse) {
+        event._inUse = true;
+        _acquiredCount++;
+        _poolHits++;
+        return event;
+      }
+    }
+
+    // Pool exhausted — grow if under max
+    _poolMisses++;
+    if (_pool.length < _maxPoolSize) {
+      final newEvent = PooledStageEvent();
+      newEvent._inUse = true;
+      _pool.add(newEvent);
+      _acquiredCount++;
+      _totalAllocations++;
+      return newEvent;
+    }
+
+    // At max — create temporary (will be GC'd)
+    _totalAllocations++;
+    final temp = PooledStageEvent();
+    temp._inUse = true;
+    return temp;
+  }
+
+  /// Acquire and populate from SlotLabStageEvent
+  PooledStageEvent acquireFrom(SlotLabStageEvent source) {
+    final pooled = acquire();
+    pooled.fromStageEvent(source);
+    return pooled;
+  }
+
+  /// Release event back to pool
+  void release(PooledStageEvent event) {
+    event.release();
+    if (_acquiredCount > 0) _acquiredCount--;
+  }
+
+  /// Release all events
+  void releaseAll() {
+    for (final event in _pool) {
+      event.release();
+    }
+    _acquiredCount = 0;
+  }
+
+  /// Pool statistics
+  double get hitRate => _poolHits + _poolMisses > 0
+      ? _poolHits / (_poolHits + _poolMisses)
+      : 1.0;
+
+  String get statsString =>
+      'Pool: ${_pool.length}/$_maxPoolSize, Acquired: $_acquiredCount, '
+      'Hits: $_poolHits, Misses: $_poolMisses, Hit Rate: ${(hitRate * 100).toStringAsFixed(1)}%';
+
+  /// Reset statistics
+  void resetStats() {
+    _poolHits = 0;
+    _poolMisses = 0;
+    _totalAllocations = 0;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SLOT LAB PROVIDER
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -39,6 +177,18 @@ class SlotLabProvider extends ChangeNotifier {
   // ─── Last Spin Result ──────────────────────────────────────────────────────
   SlotLabSpinResult? _lastResult;
   List<SlotLabStageEvent> _lastStages = [];
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P3.1: POOLED STAGE EVENTS — Reduce allocation during spin sequences
+  // ═══════════════════════════════════════════════════════════════════════════
+  /// Pooled stage events for current spin (reused across spins)
+  final List<PooledStageEvent> _pooledStages = [];
+
+  /// Get pooled stages for timeline display (read-only view)
+  List<PooledStageEvent> get pooledStages => List.unmodifiable(_pooledStages);
+
+  /// Get pool statistics
+  String get stagePoolStats => StageEventPool.instance.statsString;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // P0.18: STAGE CACHING — Avoid re-parsing JSON for same spin
@@ -600,6 +750,9 @@ class SlotLabProvider extends ChangeNotifier {
         _lastStages = _ffi.slotLabGetStages();
       }
 
+      // P3.1: Populate pooled stages for timeline display
+      _populatePooledStages();
+
       // P0.18: Cache stages with spinId to prevent re-parsing
       _cachedStagesSpinId = _lastResult?.spinId;
 
@@ -676,6 +829,9 @@ class SlotLabProvider extends ChangeNotifier {
         _lastResult = _ffi.slotLabGetSpinResult();
         _lastStages = _ffi.slotLabGetStages();
       }
+
+      // P3.1: Populate pooled stages for timeline display
+      _populatePooledStages();
 
       // P0.18: Cache stages with spinId to prevent re-parsing
       _cachedStagesSpinId = _lastResult?.spinId;
@@ -1920,6 +2076,9 @@ class SlotLabProvider extends ChangeNotifier {
   bool initEngineV2() {
     if (_engineV2Initialized) return true;
 
+    // P3.1: Initialize stage event pool
+    StageEventPool.instance.init();
+
     final success = _ffi.slotLabV2Init();
     if (success) {
       _engineV2Initialized = true;
@@ -1988,6 +2147,24 @@ class SlotLabProvider extends ChangeNotifier {
   /// Convert V2 stages List to List<SlotLabStageEvent>
   List<SlotLabStageEvent> _convertV2Stages(List<Map<String, dynamic>> v2Stages) {
     return v2Stages.map((s) => SlotLabStageEvent.fromJson(s)).toList();
+  }
+
+  /// P3.1: Populate pooled stages from current _lastStages
+  /// Reuses objects from pool to reduce GC pressure
+  void _populatePooledStages() {
+    final pool = StageEventPool.instance;
+
+    // Release previous pooled stages back to pool
+    for (final pooled in _pooledStages) {
+      pool.release(pooled);
+    }
+    _pooledStages.clear();
+
+    // Acquire pooled events for current stages
+    for (final stage in _lastStages) {
+      final pooled = pool.acquireFrom(stage);
+      _pooledStages.add(pooled);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

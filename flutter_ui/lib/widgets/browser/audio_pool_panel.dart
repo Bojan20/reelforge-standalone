@@ -11,11 +11,41 @@
 // - Audio preview playback
 
 import 'dart:convert';
+import 'dart:ui' show PointerDeviceKind;
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../services/native_file_picker.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../debug/debug_console.dart';
+
+/// Audio file loading state
+/// 0=pending, 1=loading_metadata, 2=metadata_loaded, 3=error, 10=fully_imported
+enum AudioLoadState {
+  pending(0),
+  loadingMetadata(1),
+  metadataLoaded(2),
+  error(3),
+  fullyImported(10);
+
+  final int value;
+  const AudioLoadState(this.value);
+
+  static AudioLoadState fromInt(int value) {
+    switch (value) {
+      case 0: return AudioLoadState.pending;
+      case 1: return AudioLoadState.loadingMetadata;
+      case 2: return AudioLoadState.metadataLoaded;
+      case 3: return AudioLoadState.error;
+      case 10: return AudioLoadState.fullyImported;
+      default: return AudioLoadState.pending;
+    }
+  }
+
+  bool get isReady => this == AudioLoadState.metadataLoaded || this == AudioLoadState.fullyImported;
+  bool get isLoading => this == AudioLoadState.pending || this == AudioLoadState.loadingMetadata;
+}
 
 /// Audio file metadata
 class AudioFileInfo {
@@ -27,6 +57,8 @@ class AudioFileInfo {
   final int channels;
   final int bitDepth;
   final int fileSize; // bytes
+  final String format; // wav, mp3, flac, etc.
+  final AudioLoadState state; // Loading state
   final List<String> usedInClips; // Clip IDs where this file is used
   final bool isMissing;
   final String? waveformData;
@@ -40,6 +72,8 @@ class AudioFileInfo {
     this.channels = 2,
     this.bitDepth = 24,
     this.fileSize = 0,
+    this.format = 'wav',
+    this.state = AudioLoadState.fullyImported,
     this.usedInClips = const [],
     this.isMissing = false,
     this.waveformData,
@@ -57,8 +91,8 @@ class AudioFileInfo {
         ? rawDuration.toDouble()
         : (rawDuration as num?)?.toDouble() ?? 0.0;
 
-    // Debug log to verify duration parsing
-    debugLog('Parsing: $name, duration=$duration (raw=$rawDuration)', source: 'AudioPool');
+    // Parse state
+    final stateInt = json['state'] as int? ?? 10;
 
     return AudioFileInfo(
       id: json['id']?.toString() ?? '',
@@ -69,6 +103,8 @@ class AudioFileInfo {
       channels: json['channels'] ?? 2,
       bitDepth: json['bit_depth'] ?? 24,
       fileSize: json['file_size'] ?? 0,
+      format: json['format']?.toString() ?? 'wav',
+      state: AudioLoadState.fromInt(stateInt),
       usedInClips: List<String>.from(json['used_in_clips'] ?? []),
       isMissing: json['is_missing'] ?? false,
       waveformData: json['waveform_data'],
@@ -181,13 +217,27 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
   }
 
   void _loadFiles() {
-    final json = _ffi.audioPoolList();
+    // Use new audioPoolListAll() to get both pending and imported files
+    final json = _ffi.audioPoolListAll();
     debugLog('AudioPool JSON: $json', source: 'AudioPool');
     final list = jsonDecode(json) as List;
     debugLog('AudioPool parsed ${list.length} entries', source: 'AudioPool');
+
+    final newFiles = list.map((e) => AudioFileInfo.fromJson(e)).toList();
+
+    // Check if any pending files are still loading - schedule refresh
+    final hasLoadingFiles = newFiles.any((f) => f.state.isLoading);
+
     setState(() {
-      _files = list.map((e) => AudioFileInfo.fromJson(e)).toList();
+      _files = newFiles;
     });
+
+    // Auto-refresh while files are loading metadata
+    if (hasLoadingFiles) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) _loadFiles();
+      });
+    }
   }
 
   List<AudioFileInfo> get _filteredFiles {
@@ -242,9 +292,17 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
   }
 
   Future<void> _importFiles() async {
-    // TODO: Open file picker dialog and get path
-    const path = '/path/to/audio.wav'; // Placeholder until file picker integration
-    _ffi.audioPoolImport(path);
+    // Use native file picker for multiple file selection
+    final paths = await NativeFilePicker.pickAudioFiles();
+    if (paths.isEmpty) return;
+
+    debugLog('Importing ${paths.length} files instantly...', source: 'AudioPool');
+
+    // Use new batch instant import — returns immediately (<1ms per file)
+    final ids = _ffi.audioPoolRegisterBatch(paths);
+    debugLog('Registered ${ids.length} files instantly', source: 'AudioPool');
+
+    // Immediately refresh UI — files will show with "loading" state
     _loadFiles();
   }
 
@@ -825,12 +883,21 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
           widget.onFileDragStart?.call(file);
         }
       },
-      child: GestureDetector(
-        onTap: () {
-          final isCtrl = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
+      // Use Listener to capture raw pointer events with modifier keys
+      child: Listener(
+        onPointerDown: (event) {
+          // Check modifier keys at the time of click (more reliable than HardwareKeyboard)
+          final isCtrl = event.buttons == kPrimaryButton &&
+              (HardwareKeyboard.instance.isControlPressed ||
+               HardwareKeyboard.instance.isMetaPressed);
           final isShift = HardwareKeyboard.instance.isShiftPressed;
-          _handleFileSelection(file, index, isCtrlPressed: isCtrl, isShiftPressed: isShift);
+
+          // Single vs double click detection
+          if (event.kind == PointerDeviceKind.mouse) {
+            _handleFileSelection(file, index, isCtrlPressed: isCtrl, isShiftPressed: isShift);
+          }
         },
+        child: GestureDetector(
         onDoubleTap: () {
           // Double-click creates track + clip in timeline
           widget.onFileDoubleClick?.call(file);
@@ -959,6 +1026,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
           ),
         ),
       ),
+      ),  // Close Listener
     );
   }
 

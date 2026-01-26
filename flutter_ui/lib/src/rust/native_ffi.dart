@@ -11287,6 +11287,118 @@ extension AudioPoolAPI on NativeFFI {
     return NativeFFI.instance.importAudio(newPath, 0, 0.0) >= 0;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INSTANT IMPORT API — <1ms registration + async metadata loading
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static final _audioPoolRegisterInstant = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('audio_pool_register_instant');
+
+  static final _audioPoolRegisterBatch = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('audio_pool_register_batch');
+
+  static final _audioPoolListPending = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('audio_pool_list_pending');
+
+  static final _audioPoolListAll = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('audio_pool_list_all');
+
+  static final _audioPoolGetPendingState = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('audio_pool_get_pending_state');
+
+  static final _audioPoolRemovePending = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('audio_pool_remove_pending');
+
+  static final _audioPoolClearPending = _loadNativeLibrary().lookupFunction<
+      Int32 Function(),
+      int Function()>('audio_pool_clear_pending');
+
+  static final _audioPoolPromotePending = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(Uint64, Uint64, Double),
+      int Function(int, int, double)>('audio_pool_promote_pending');
+
+  /// Register audio file INSTANTLY (<1ms) - metadata loads in background
+  /// Returns pending ID (0 if failed)
+  /// Use audioPoolGetPendingState() to check when metadata is ready
+  int audioPoolRegisterInstant(String path) {
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _audioPoolRegisterInstant(pathPtr);
+    } finally {
+      malloc.free(pathPtr);
+    }
+  }
+
+  /// Register multiple audio files INSTANTLY (<1ms per file)
+  /// Returns list of pending IDs
+  List<int> audioPoolRegisterBatch(List<String> paths) {
+    final jsonStr = jsonEncode(paths);
+    final jsonPtr = jsonStr.toNativeUtf8();
+    try {
+      final resultPtr = _audioPoolRegisterBatch(jsonPtr);
+      if (resultPtr == nullptr) return [];
+      final resultJson = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      final List<dynamic> ids = jsonDecode(resultJson);
+      return ids.map((e) => e as int).toList();
+    } finally {
+      malloc.free(jsonPtr);
+    }
+  }
+
+  /// Get list of pending audio entries as JSON
+  /// Returns: [{id, name, path, state, duration, sample_rate, channels, bit_depth, file_size, format}, ...]
+  String audioPoolListPending() {
+    final ptr = _audioPoolListPending();
+    if (ptr == nullptr) return '[]';
+    final json = ptr.toDartString();
+    _freeRustString(ptr);
+    return json;
+  }
+
+  /// Get combined list of all audio (pending + fully imported) as JSON
+  /// State: 0=pending, 1=loading, 2=loaded, 3=error, 10=fully_imported
+  String audioPoolListAll() {
+    final ptr = _audioPoolListAll();
+    if (ptr == nullptr) return '[]';
+    final json = ptr.toDartString();
+    _freeRustString(ptr);
+    return json;
+  }
+
+  /// Get pending entry state by ID
+  /// Returns: 0=pending, 1=loading, 2=loaded, 3=error, -1=not found
+  int audioPoolGetPendingState(int pendingId) {
+    return _audioPoolGetPendingState(pendingId);
+  }
+
+  /// Check if pending metadata is ready (state == 2)
+  bool audioPoolIsPendingReady(int pendingId) {
+    return _audioPoolGetPendingState(pendingId) == 2;
+  }
+
+  /// Remove pending entry by ID
+  bool audioPoolRemovePending(int pendingId) {
+    return _audioPoolRemovePending(pendingId) == 1;
+  }
+
+  /// Clear all pending entries
+  bool audioPoolClearPending() {
+    return _audioPoolClearPending() == 1;
+  }
+
+  /// Promote pending entry to full import (loads samples + waveform)
+  /// Call this when user needs to play audio or view waveform
+  /// Returns clip_id on success, 0 on failure
+  int audioPoolPromotePending(int pendingId, {int trackId = 0, double startTime = 0.0}) {
+    return _audioPoolPromotePending(pendingId, trackId, startTime);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -6318,6 +6318,20 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       muted: muted,
       layerName: layer.name,
       waveformData: _getWaveformForPath(layer.audioPath),
+      onDragStart: (lid, eid, startOffsetMs) {
+        // CRITICAL: Notify drag controller so region.start doesn't update during drag
+        debugPrint('[SlotLab] DraggableLayerWidget.onDragStart: $lid -> ${startOffsetMs}ms');
+        _dragController?.startLayerDrag(
+          layerEventId: lid,
+          parentEventId: eid,
+          regionId: region.id,
+          absoluteOffsetSeconds: startOffsetMs / 1000.0,
+          regionDuration: region.duration,
+          layerDuration: realDuration,
+        );
+        // Auto-select event so Middleware parameter strip shows the offset
+        _middleware.selectCompositeEvent(eid);
+      },
       getFreshOffset: (lid, eid) {
         // Callback to get fresh offset from provider
         final event = _middleware.getCompositeEvent(eid);
@@ -6330,6 +6344,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         // Callback when drag completes — commit to provider
         debugPrint('[SlotLab] DraggableLayerWidget.onDragEnd: $lid -> ${finalOffsetMs}ms');
         _middleware.setLayerOffset(eid, lid, finalOffsetMs);
+        // End drag in controller
+        _dragController?.endLayerDrag();
       },
       onDelete: () => _deleteLayerFromTimeline(region, layer),
     );

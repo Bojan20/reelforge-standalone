@@ -2204,6 +2204,132 @@ if (normalizedStage.startsWith('CASCADE_STEP')) {
 
 ---
 
+## Layer Drag System Fix (2026-01-26)
+
+### Problem: Horizontal Layer Drag Not Working
+
+**Symptoms:**
+- Dragging a layer left/right on the timeline didn't move it
+- Layer would "snap back" to original position
+- Offset changes weren't visible in Middleware parameter strip
+
+**Root Cause Analysis:**
+
+1. `DraggableLayerWidget` has its own isolated drag state (`_isDragging`, `_currentOffsetMs`)
+2. When drag started, it set `_isDragging = true` **internally only**
+3. `TimelineDragController` was NOT notified → `isDraggingLayer(id)` returned `false`
+4. On any rebuild (triggered by provider changes), `_buildAudioRegionVisual()` checked:
+   ```dart
+   final anyLayerDragging = event.layers.any((l) =>
+       _dragController?.isDraggingLayer(l.id) ?? false);  // Always FALSE!
+
+   if (_draggingRegion != region && !anyLayerDragging) {
+     region.start = regionStartFromProvider;  // ← REGION.START UPDATED DURING DRAG!
+   }
+   ```
+5. Updating `region.start` during drag changed the coordinate system, causing `_offsetPixels` calculation to produce wrong values
+6. Result: Layer visually "jumped" or appeared stationary
+
+### Solution
+
+Added `onDragStart` callback to `DraggableLayerWidget` that notifies `TimelineDragController` when drag begins.
+
+**File Changes:**
+
+| File | Change |
+|------|--------|
+| `draggable_layer_widget.dart` | Added `LayerDragStartCallback` typedef and `onDragStart` parameter |
+| `slot_lab_screen.dart` | Wired `onDragStart` to call `_dragController.startLayerDrag()` |
+
+**DraggableLayerWidget (lines 15-19, 35, 53, 317-319):**
+
+```dart
+/// Callback when layer drag starts
+typedef LayerDragStartCallback = void Function(String layerId, String eventId, double startOffsetMs);
+
+class DraggableLayerWidget extends StatefulWidget {
+  // ...
+  final LayerDragStartCallback? onDragStart;
+  // ...
+}
+
+void _onPanStart(DragStartDetails details) {
+  // ... existing code ...
+
+  // CRITICAL: Notify parent that drag started (so _dragController knows)
+  widget.onDragStart?.call(widget.layerId, widget.eventId, freshOffsetMs);
+}
+```
+
+**slot_lab_screen.dart (lines 6320-6332, 6343):**
+
+```dart
+return DraggableLayerWidget(
+  // ...
+  onDragStart: (lid, eid, startOffsetMs) {
+    // CRITICAL: Notify drag controller so region.start doesn't update during drag
+    _dragController?.startLayerDrag(
+      layerEventId: lid,
+      parentEventId: eid,
+      regionId: region.id,
+      absoluteOffsetSeconds: startOffsetMs / 1000.0,
+      regionDuration: region.duration,
+      layerDuration: realDuration,
+    );
+    // Auto-select event so Middleware parameter strip shows the offset
+    _middleware.selectCompositeEvent(eid);
+  },
+  // ...
+  onDragEnd: (lid, eid, finalOffsetMs) {
+    _middleware.setLayerOffset(eid, lid, finalOffsetMs);
+    _dragController?.endLayerDrag();  // NEW: End drag in controller
+  },
+);
+```
+
+### Auto-Select Event for Middleware Visibility
+
+**Bonus Fix:** When drag starts, the event is now auto-selected via `_middleware.selectCompositeEvent(eid)`.
+
+This means the Middleware Lower Zone parameter strip (offset slider, pan, volume, etc.) immediately shows the layer's parameters and updates in real-time during drag.
+
+**Before:** User had to manually select the event in Middleware to see offset changes.
+**After:** Starting a drag auto-selects the event, making offset visible immediately.
+
+### Drag State Flow (Fixed)
+
+```
+1. User starts drag on layer
+   ↓
+2. DraggableLayerWidget._onPanStart()
+   ├── Sets _isDragging = true (local state)
+   ├── Captures start values (_dragStartOffsetMs, _capturedRegionStart)
+   └── Calls widget.onDragStart(lid, eid, startOffsetMs)  ← NEW
+       ↓
+3. slot_lab_screen.dart onDragStart callback
+   ├── _dragController.startLayerDrag(...)  ← Controller now knows!
+   └── _middleware.selectCompositeEvent(eid)  ← Event auto-selected
+       ↓
+4. On provider changes during drag:
+   _buildAudioRegionVisual() checks:
+   isDraggingLayer(l.id) == TRUE  ← Controller returns true
+   → region.start NOT updated  ← Coordinate system stable
+       ↓
+5. User drags layer horizontally
+   ├── _onPanUpdate calculates new _currentOffsetMs
+   ├── _offsetPixels uses stable _capturedRegionStart
+   └── Layer moves smoothly on screen
+       ↓
+6. User ends drag
+   ├── DraggableLayerWidget._onPanEnd()
+   │   └── Calls widget.onDragEnd(lid, eid, finalOffsetMs)
+   └── slot_lab_screen.dart onDragEnd callback
+       ├── _middleware.setLayerOffset(eid, lid, finalOffsetMs)
+       └── _dragController.endLayerDrag()
+```
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management

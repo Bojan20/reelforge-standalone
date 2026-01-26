@@ -754,6 +754,28 @@ class StageConfig {
       );
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P3.2: COLOR PICKER SUPPORT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get built-in (default) configuration for a stage type
+  /// Returns null if stage is not a built-in stage
+  StageConfigEntry? getBuiltInConfig(String stageType) {
+    final normalized = stageType.toLowerCase();
+    return _stages[normalized];
+  }
+
+  /// Reset all custom stages to their built-in defaults
+  void resetToDefaults() {
+    _customStages.clear();
+  }
+
+  /// Reset a specific stage to its built-in default
+  void resetStageToDefault(String stageType) {
+    final normalized = stageType.toLowerCase();
+    _customStages.remove(normalized);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
