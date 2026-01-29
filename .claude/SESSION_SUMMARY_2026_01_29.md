@@ -73,7 +73,36 @@
 
 **Decision Needed:** Skip for now or re-estimate with Opus?
 
-**Status:** ⏸️ PAUSED (awaiting decision)
+**Decision:** Re-scoped as Opus task (1-2 weeks)
+**Status:** ⏸️ PAUSED (awaiting Opus architectural analysis)
+
+**Quick Wins Completed:**
+
+#### ✅ SL-RP-P0.1: Delete Event Button (30 min)
+
+**Commit:** c9de2040
+**Changes:**
+- Added delete button to event rows (4th column after Layers)
+- Confirmation dialog before deletion
+- Calls middleware.deleteCompositeEvent(event.id)
+- Clears selection if deleted event was selected
+- flutter analyze: ✅ Passes
+
+**Status:** ✅ COMPLETE
+
+---
+
+#### ✅ SL-RP-P0.4: Add Layer Button (30 min)
+
+**Commit:** c9de2040
+**Changes:**
+- Enhanced existing Add Layer button
+- Now opens AudioWaveformPickerDialog for file selection
+- Creates layer with selected audio (not empty)
+- Default parameters: volume 100%, pan center, no delay
+- flutter analyze: ✅ Passes
+
+**Status:** ✅ COMPLETE
 
 ---
 
@@ -94,8 +123,14 @@
 **Overall SlotLab Status:**
 - Before: B- (71%, 63% complete)
 - After Task 1: B- (71.5%, +1% from data sync fix)
+- After Quick Wins: B- (72%, +2% from CRUD completion)
 - After Week 1: Target B (74%)
 - After all P0: Target B+ (77%)
+
+**Today's Implementation:**
+- ✅ 3/13 P0 tasks complete (23%)
+- ✅ 2h actual (vs 4h estimated)
+- ✅ All commits passing flutter analyze
 
 ---
 
