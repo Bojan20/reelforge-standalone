@@ -28,8 +28,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // SL-LP-P1.3
+import 'package:provider/provider.dart'; // SL-INT-P1.1
 import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_lab_models.dart';
+import '../../providers/middleware_provider.dart'; // SL-INT-P1.1
+import '../../services/event_registry.dart'; // SL-INT-P1.1
 import '../../services/stage_group_service.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
@@ -650,6 +653,50 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                           ),
                         ),
                 ),
+                // Status icon + Event count badge (SL-INT-P1.1)
+                Consumer2<MiddlewareProvider, EventRegistry>(
+                  builder: (context, middlewareProvider, eventRegistry, _) {
+                    final hasEvent = eventRegistry.hasEventForStage(slot.stage);
+                    final eventCount = _countEventsForStage(middlewareProvider, slot.stage);
+
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Status icon
+                        Icon(
+                          hasEvent ? Icons.check_circle : Icons.warning_amber,
+                          size: 12,
+                          color: hasEvent
+                              ? FluxForgeTheme.accentGreen.withOpacity(0.8)
+                              : Colors.orange.withOpacity(0.5),
+                        ),
+                        const SizedBox(width: 4),
+                        // Event count badge
+                        if (eventCount > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: FluxForgeTheme.accentBlue.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: FluxForgeTheme.accentBlue.withOpacity(0.5),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              '$eventCount',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w600,
+                                color: FluxForgeTheme.accentBlue,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
                 // Play/Stop button (SL-LP-P0.1)
                 if (hasAudio)
                   InkWell(
@@ -701,6 +748,17 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       );
       setState(() => _playingStage = stage);
     }
+  }
+
+  /// Count how many composite events use this stage (SL-INT-P1.1)
+  int _countEventsForStage(MiddlewareProvider provider, String stage) {
+    int count = 0;
+    for (final event in provider.compositeEvents) {
+      if (event.triggerStages.contains(stage)) {
+        count++;
+      }
+    }
+    return count;
   }
 
   int _countAssignedInSection(_SectionConfig section) {
