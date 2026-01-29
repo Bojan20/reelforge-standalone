@@ -662,6 +662,13 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         ? event.triggerStages.first
         : '—';
 
+    // Validation check (SL-RP-P1.3)
+    final hasLayers = event.layers.isNotEmpty;
+    final hasStages = event.triggerStages.isNotEmpty;
+    final hasAudio = event.layers.any((l) => l.audioPath.isNotEmpty);
+    final isComplete = hasLayers && hasStages && hasAudio;
+    final hasWarning = !isComplete && (hasLayers || hasStages);
+
     // Format stage for display (SPIN_START → Spin Start)
     String formatStage(String stage) {
       if (stage == '—') return stage;
@@ -748,6 +755,25 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                             overflow: TextOverflow.ellipsis,
                           ),
                   ),
+                  // Validation badge (SL-RP-P1.3)
+                  if (isComplete)
+                    Icon(
+                      Icons.check_circle,
+                      size: 12,
+                      color: FluxForgeTheme.accentGreen,
+                    )
+                  else if (hasWarning)
+                    Icon(
+                      Icons.warning,
+                      size: 12,
+                      color: FluxForgeTheme.accentOrange,
+                    )
+                  else
+                    Icon(
+                      Icons.error_outline,
+                      size: 12,
+                      color: Colors.white24,
+                    ),
                 ],
               ),
             ),
