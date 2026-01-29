@@ -36,6 +36,7 @@ import '../../services/event_registry.dart'; // SL-INT-P1.1
 import '../../services/stage_group_service.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
+import '../../services/variant_manager.dart'; // SL-LP-P1.4
 import '../../theme/fluxforge_theme.dart';
 
 /// Audio assignment callback with stage and path
@@ -545,6 +546,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     final hasAudio = audioPath != null;
     final fileName = hasAudio ? audioPath.split('/').last : null;
 
+    // Variant info (SL-LP-P1.4)
+    final variantCount = VariantManager.instance.getVariantCount(slot.stage);
+    final hasVariants = variantCount > 1;
+
     // Filter by search query (SL-LP-P1.2)
     if (_searchQuery.isNotEmpty) {
       final matchesStage = slot.stage.toLowerCase().contains(_searchQuery);
@@ -557,7 +562,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
-      child: DragTarget<Object>(
+      child: GestureDetector(
+        onLongPress: hasAudio ? () => _showVariantEditor(context, slot.stage, accentColor) : null,
+        child: DragTarget<Object>(
         onWillAcceptWithDetails: (details) {
           return details.data is AudioAsset ||
               details.data is List<AudioAsset> ||
@@ -653,6 +660,39 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                           ),
                         ),
                 ),
+                // Variant badge (SL-LP-P1.4) — shows count if >1
+                if (hasVariants)
+                  Container(
+                    margin: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.accentPurple.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: FluxForgeTheme.accentPurple.withOpacity(0.5),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.library_music,
+                          size: 8,
+                          color: FluxForgeTheme.accentPurple,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '$variantCount',
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w600,
+                            color: FluxForgeTheme.accentPurple,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 // Status icon + Event count badge (SL-INT-P1.1)
                 Consumer2<MiddlewareProvider, EventRegistry>(
                   builder: (context, middlewareProvider, eventRegistry, _) {
@@ -730,6 +770,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           );
         },
       ),
+      ),
     );
   }
 
@@ -748,6 +789,18 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       );
       setState(() => _playingStage = stage);
     }
+  }
+
+  /// Show variant editor dialog (SL-LP-P1.4)
+  void _showVariantEditor(BuildContext context, String stage, Color accentColor) {
+    showDialog(
+      context: context,
+      builder: (context) => _VariantEditorDialog(
+        stage: stage,
+        accentColor: accentColor,
+        onVariantsChanged: () => setState(() {}), // Refresh UI
+      ),
+    );
   }
 
   /// Count how many composite events use this stage (SL-INT-P1.1)
@@ -2465,4 +2518,326 @@ class _UISystemSection extends _SectionConfig {
       ],
     ),
   ];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Variant Editor Dialog (SL-LP-P1.4)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _VariantEditorDialog extends StatefulWidget {
+  final String stage;
+  final Color accentColor;
+  final VoidCallback onVariantsChanged;
+
+  const _VariantEditorDialog({
+    required this.stage,
+    required this.accentColor,
+    required this.onVariantsChanged,
+  });
+
+  @override
+  State<_VariantEditorDialog> createState() => _VariantEditorDialogState();
+}
+
+class _VariantEditorDialogState extends State<_VariantEditorDialog> {
+  late VariantSelectionMode _mode;
+  late List<AudioVariant> _variants;
+
+  @override
+  void initState() {
+    super.initState();
+    _variants = List.from(VariantManager.instance.getVariants(widget.stage));
+    // Default mode is random (VariantManager doesn't expose mode getter yet)
+    _mode = VariantSelectionMode.random;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF16161C),
+      child: Container(
+        width: 500,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Row(
+              children: [
+                Icon(Icons.library_music, color: widget.accentColor, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Variants: ${widget.stage}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white54),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Mode selector
+            Row(
+              children: [
+                const Text(
+                  'Selection Mode:',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SegmentedButton<VariantSelectionMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: VariantSelectionMode.random,
+                        label: Text('Random', style: TextStyle(fontSize: 11)),
+                        icon: Icon(Icons.shuffle, size: 14),
+                      ),
+                      ButtonSegment(
+                        value: VariantSelectionMode.sequence,
+                        label: Text('Sequence', style: TextStyle(fontSize: 11)),
+                        icon: Icon(Icons.format_list_numbered, size: 14),
+                      ),
+                      ButtonSegment(
+                        value: VariantSelectionMode.manual,
+                        label: Text('Manual', style: TextStyle(fontSize: 11)),
+                        icon: Icon(Icons.touch_app, size: 14),
+                      ),
+                    ],
+                    selected: {_mode},
+                    onSelectionChanged: (Set<VariantSelectionMode> newSelection) {
+                      setState(() => _mode = newSelection.first);
+                    },
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          return widget.accentColor.withOpacity(0.3);
+                        }
+                        return const Color(0xFF0D0D10);
+                      }),
+                      foregroundColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          return widget.accentColor;
+                        }
+                        return Colors.white54;
+                      }),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Variants list
+            Container(
+              height: 250,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D0D10),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+              child: _variants.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No variants yet. Drop audio files to add.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white38,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _variants.length,
+                      itemBuilder: (context, index) => _buildVariantItem(index),
+                    ),
+            ),
+            const SizedBox(height: 16),
+            // Add variant button (via drag-drop)
+            DragTarget<Object>(
+              onWillAcceptWithDetails: (details) =>
+                  details.data is AudioAsset ||
+                  details.data is List<AudioAsset> ||
+                  details.data is String,
+              onAcceptWithDetails: (details) {
+                List<String> paths = [];
+                if (details.data is AudioAsset) {
+                  paths = [(details.data as AudioAsset).path];
+                } else if (details.data is List<AudioAsset>) {
+                  paths = (details.data as List<AudioAsset>).map((a) => a.path).toList();
+                } else if (details.data is String) {
+                  paths = [details.data as String];
+                }
+                for (final path in paths) {
+                  _addVariant(path);
+                }
+              },
+              builder: (context, candidateData, rejectedData) {
+                final isHovering = candidateData.isNotEmpty;
+                return Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isHovering
+                        ? widget.accentColor.withOpacity(0.2)
+                        : const Color(0xFF0D0D10),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isHovering
+                          ? widget.accentColor
+                          : Colors.white.withOpacity(0.1),
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Drop audio to add variant',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isHovering ? widget.accentColor : Colors.white38,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            // Actions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _saveVariants,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.accentColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Save'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVariantItem(int index) {
+    final variant = _variants[index];
+    final fileName = variant.path.split('/').last;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16161C),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        children: [
+          // Index
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: widget.accentColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '${index + 1}',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: widget.accentColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // File name
+          Expanded(
+            child: Text(
+              fileName,
+              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Weight slider (for random mode)
+          if (_mode == VariantSelectionMode.random) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 80,
+              child: Slider(
+                value: variant.weight,
+                min: 0.1,
+                max: 3.0,
+                divisions: 29,
+                label: '${variant.weight.toStringAsFixed(1)}x',
+                activeColor: widget.accentColor,
+                onChanged: (value) {
+                  setState(() {
+                    _variants[index] = AudioVariant(
+                      path: variant.path,
+                      name: variant.name,
+                      weight: value,
+                    );
+                  });
+                },
+              ),
+            ),
+          ],
+          // Remove button
+          IconButton(
+            icon: const Icon(Icons.close, size: 16, color: Colors.white38),
+            onPressed: () => _removeVariant(index),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addVariant(String path) {
+    setState(() {
+      _variants.add(AudioVariant(
+        path: path,
+        name: path.split('/').last,
+        weight: 1.0,
+      ));
+    });
+  }
+
+  void _removeVariant(int index) {
+    setState(() {
+      _variants.removeAt(index);
+    });
+  }
+
+  void _saveVariants() {
+    // Clear existing variants for this stage
+    VariantManager.instance.clearStage(widget.stage);
+
+    // Add all variants
+    for (final variant in _variants) {
+      VariantManager.instance.addVariant(widget.stage, variant);
+    }
+
+    // Set mode
+    VariantManager.instance.setMode(widget.stage, _mode);
+
+    // Notify parent
+    widget.onVariantsChanged();
+
+    // Close dialog
+    Navigator.pop(context);
+  }
 }
