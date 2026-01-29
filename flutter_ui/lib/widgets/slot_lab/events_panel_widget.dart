@@ -18,6 +18,7 @@ import '../../providers/middleware_provider.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/event_registry.dart';
+import '../../services/favorites_service.dart'; // SL-RP-P1.5
 import '../../services/waveform_thumbnail_cache.dart'; // SL-RP-P1.6
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
@@ -1451,7 +1452,22 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         ),
         // File/Pool list
         Expanded(
-          child: _isPoolMode ? _buildPoolAssetsList() : _buildFileSystemList(),
+          child: ListenableBuilder(
+            listenable: FavoritesService.instance,
+            builder: (context, _) {
+              final hasFavorites = FavoritesService.instance.count > 0;
+              return Column(
+                children: [
+                  // Favorites section (SL-RP-P1.5)
+                  if (hasFavorites) _buildFavoritesSection(),
+                  // Main list
+                  Expanded(
+                    child: _isPoolMode ? _buildPoolAssetsList() : _buildFileSystemList(),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );
@@ -1527,6 +1543,67 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFavoritesSection() {
+    final favoritePaths = FavoritesService.instance.favorites;
+
+    // Get favorite items from current source (pool or filesystem)
+    final favoriteItems = _isPoolMode
+        ? AudioAssetManager.instance.assets
+            .where((a) => favoritePaths.contains(a.path))
+            .map((a) => _assetToAudioInfo(a))
+            .toList()
+        : _audioFiles
+            .whereType<File>()
+            .where((f) => favoritePaths.contains(f.path))
+            .map((f) => _fileToAudioInfo(f))
+            .toList();
+
+    if (favoriteItems.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.05),
+        border: Border(
+          bottom: BorderSide(color: Colors.amber.withOpacity(0.2), width: 1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Favorites header
+          Container(
+            height: 20,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            color: Colors.amber.withOpacity(0.1),
+            child: Row(
+              children: [
+                const Icon(Icons.star, size: 10, color: Colors.amber),
+                const SizedBox(width: 4),
+                Text(
+                  'FAVORITES (${favoriteItems.length})',
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.amber,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Favorite items (max 5)
+          ...favoriteItems.take(5).map((info) {
+            return _AudioBrowserItemWrapper(
+              audioInfo: info,
+              onDragStarted: () => widget.onAudioDragStarted?.call([info.path]),
+            );
+          }),
         ],
       ),
     );
@@ -1921,6 +1998,30 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
                       style: const TextStyle(fontSize: 8, color: Colors.white38, fontFamily: 'monospace'),
                     ),
                   ),
+                // Favorite star button (SL-RP-P1.5)
+                ListenableBuilder(
+                  listenable: FavoritesService.instance,
+                  builder: (context, _) {
+                    final isFavorite = FavoritesService.instance.isFavorite(widget.audioInfo.path);
+                    return InkWell(
+                      onTap: () => FavoritesService.instance.toggleFavorite(widget.audioInfo.path),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        alignment: Alignment.center,
+                        child: Icon(
+                          isFavorite ? Icons.star : Icons.star_border,
+                          size: 14,
+                          color: isFavorite
+                              ? Colors.amber
+                              : Colors.white38,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
                 // Play/Stop button (visible on hover or while playing)
                 if (_isHovered || _isPlaying)
                   InkWell(
