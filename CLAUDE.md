@@ -2738,9 +2738,9 @@ abstract class UndoableAction {
 - Svaka akcija bi imala `toJson()` / `fromJson()`
 - Disk offload starijih akcija preko LRU strategije
 
-### P2 Status Summary (2026-01-24)
+### P2 Status Summary (2026-01-29) ✅ ALL COMPLETE
 
-**Completed: 22/22 (100%)**
+**Completed: 26/26 (100%)**
 
 | Task | Status | Note |
 |------|--------|------|
@@ -2765,6 +2765,15 @@ abstract class UndoableAction {
 | P2.20 | ✅ | Bonus Game Simulator + FFI |
 | P2.21 | ✅ | Audio Waveform Picker Dialog |
 | P2.22 | ✅ | Schema Migration Service |
+
+**SlotLab UX Polish (2026-01-29):**
+
+| Task | Status | Note |
+|------|--------|------|
+| P2.5-SL | ✅ | Waveform Thumbnails (80x24px, LRU cache 500, ~435 LOC) |
+| P2.6-SL | ✅ | Multi-Select Layers (Ctrl/Shift+click, bulk ops) |
+| P2.7-SL | ✅ | Copy/Paste Layers (clipboard, new IDs, preserve props) |
+| P2.8-SL | ✅ | Fade Controls (0-2000ms, visual curves, draggable handles) |
 
 **Skipped: 1** (not blocking)
 - P2.16 — VoidCallback not serializable, needs full refactor (deferred to P4)

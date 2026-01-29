@@ -2,6 +2,20 @@
 
 Claude must always use the correct toolchain for the active subsystem.
 
+**Last Updated:** 2026-01-29
+
+---
+
+## Build Status Summary
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Rust Engine | ✅ Production | All P0-P4 complete |
+| Flutter UI | ✅ Production | All panels connected |
+| FFI Bridge | ✅ Production | 300+ FFI functions |
+| WASM Port | ✅ Production | ~100KB gzipped |
+| CI/CD | ✅ Active | 12 jobs, 39 tests |
+
 ---
 
 ## Rust Engine & DSP
