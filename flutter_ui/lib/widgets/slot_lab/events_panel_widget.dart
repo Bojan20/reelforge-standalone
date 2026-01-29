@@ -159,6 +159,105 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     });
   }
 
+  /// Show context menu for event (SL-RP-P1.1)
+  void _showEventContextMenu(BuildContext context, SlotCompositeEvent event, Offset position) {
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx + 200,
+        position.dy + 200,
+      ),
+      items: [
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(Icons.content_copy, size: 16, color: FluxForgeTheme.accentBlue),
+              const SizedBox(width: 10),
+              const Text('Duplicate Event'),
+            ],
+          ),
+          onTap: () {
+            final middleware = context.read<MiddlewareProvider>();
+            middleware.duplicateCompositeEvent(event.id);
+          },
+        ),
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(Icons.play_circle, size: 16, color: FluxForgeTheme.accentGreen),
+              const SizedBox(width: 10),
+              const Text('Test Playback'),
+            ],
+          ),
+          onTap: () => _testPlayEvent(event),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(Icons.file_download, size: 16, color: FluxForgeTheme.accentOrange),
+              const SizedBox(width: 10),
+              const Text('Export to JSON'),
+            ],
+          ),
+          onTap: () {
+            // TODO: Export single event to JSON
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Export "${event.name}" to JSON'),
+                backgroundColor: FluxForgeTheme.accentOrange,
+              ),
+            );
+          },
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(Icons.delete, size: 16, color: FluxForgeTheme.accentRed),
+              const SizedBox(width: 10),
+              const Text('Delete Event'),
+            ],
+          ),
+          onTap: () async {
+            // Delay to allow menu to close
+            await Future.delayed(const Duration(milliseconds: 100));
+            if (!context.mounted) return;
+
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                backgroundColor: const Color(0xFF1A1A22),
+                title: const Text('Delete Event', style: TextStyle(color: Colors.white)),
+                content: Text(
+                  'Delete "${event.name}"?',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                actions: [
+                  TextButton(
+                    child: const Text('Cancel'),
+                    onPressed: () => Navigator.pop(context, false),
+                  ),
+                  TextButton(
+                    child: Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
+                    onPressed: () => Navigator.pop(context, true),
+                  ),
+                ],
+              ),
+            );
+
+            if (confirm == true && context.mounted) {
+              final middleware = context.read<MiddlewareProvider>();
+              middleware.deleteCompositeEvent(event.id);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
   /// Test playback for event (SL-RP-P1.2)
   void _testPlayEvent(SlotCompositeEvent event) {
     if (_playingEventId == event.id) {
@@ -586,6 +685,10 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       onDoubleTap: () {
         // Enter edit mode on double-tap
         _startEditing(event);
+      },
+      onSecondaryTapDown: (details) {
+        // Right-click context menu (SL-RP-P1.1)
+        _showEventContextMenu(context, event, details.globalPosition);
       },
       child: Container(
         height: 28,
