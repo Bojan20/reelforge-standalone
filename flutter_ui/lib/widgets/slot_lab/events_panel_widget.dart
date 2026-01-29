@@ -18,6 +18,7 @@ import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
+import '../../services/event_registry.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
 import 'create_event_dialog.dart';
@@ -51,7 +52,8 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   String _currentDirectory = '';
   List<FileSystemEntity> _audioFiles = [];
   bool _showBrowser = true;
-  String _searchQuery = '';
+  String _searchQuery = ''; // Audio browser search
+  String _eventSearchQuery = ''; // Event list search (SL-RP-P1.4)
   bool _isPoolMode = false; // true = Project Pool (AudioAssetManager), false = File System
 
   // Inline editing state
@@ -61,6 +63,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
 
   // Layer property editing state (SL-RP-P0.3)
   Set<String> _expandedLayerIds = {};
+
+  // Test playback state (SL-RP-P1.2)
+  String? _playingEventId;
 
   // Effective selected event ID (prefers parent control)
   String? get _selectedEventId => widget.selectedEventId ?? _localSelectedEventId;
@@ -152,6 +157,32 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     setState(() {
       _editingEventId = null;
     });
+  }
+
+  /// Test playback for event (SL-RP-P1.2)
+  void _testPlayEvent(SlotCompositeEvent event) {
+    if (_playingEventId == event.id) {
+      // Stop if currently playing
+      AudioPlaybackService.instance.stopAll();
+      setState(() => _playingEventId = null);
+    } else {
+      // Stop previous and trigger event stages
+      AudioPlaybackService.instance.stopAll();
+
+      // Trigger all stages for this event
+      for (final stage in event.triggerStages) {
+        eventRegistry.triggerStage(stage);
+      }
+
+      setState(() => _playingEventId = event.id);
+
+      // Auto-stop after reasonable duration (estimate from layers)
+      Future.delayed(const Duration(seconds: 5), () {
+        if (_playingEventId == event.id && mounted) {
+          setState(() => _playingEventId = null);
+        }
+      });
+    }
   }
 
   void _onAssetManagerChanged() {
@@ -364,7 +395,16 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   Widget _buildEventsFolder() {
     return Consumer<MiddlewareProvider>(
       builder: (context, middleware, _) {
-        final events = middleware.compositeEvents;
+        // Filter events by search query (SL-RP-P1.4)
+        final allEvents = middleware.compositeEvents;
+        final events = _eventSearchQuery.isEmpty
+            ? allEvents
+            : allEvents.where((e) {
+                final query = _eventSearchQuery.toLowerCase();
+                return e.name.toLowerCase().contains(query) ||
+                    e.category.toLowerCase().contains(query) ||
+                    e.triggerStages.any((s) => s.toLowerCase().contains(query));
+              }).toList();
 
         return Container(
           height: 200,
@@ -402,6 +442,38 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   });
                 }
               }),
+              // Search field (SL-RP-P1.4)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: TextField(
+                  style: const TextStyle(fontSize: 10, color: Colors.white70),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: true,
+                    fillColor: const Color(0xFF16161C),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    hintText: 'Search events...',
+                    hintStyle: const TextStyle(color: Colors.white24, fontSize: 10),
+                    prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white24),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 28),
+                    suffixIcon: _eventSearchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 14, color: Colors.white38),
+                            onPressed: () => setState(() => _eventSearchQuery = ''),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                          )
+                        : null,
+                  ),
+                  onChanged: (value) {
+                    setState(() => _eventSearchQuery = value);
+                  },
+                ),
+              ),
               // Column headers
               if (events.isNotEmpty) _buildEventsHeader(),
               // Events list
@@ -674,8 +746,23 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               ),
             ),
 
-            // COL 4 (NEW): Delete button
+            // COL 4: Test playback button (SL-RP-P1.2)
             SizedBox(width: 4),
+            IconButton(
+              icon: Icon(
+                _playingEventId == event.id ? Icons.stop_circle : Icons.play_circle_outline,
+                size: 14,
+                color: _playingEventId == event.id
+                    ? FluxForgeTheme.accentGreen
+                    : Colors.white38,
+              ),
+              onPressed: () => _testPlayEvent(event),
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints.tightFor(width: 24, height: 24),
+              tooltip: _playingEventId == event.id ? 'Stop test' : 'Test playback',
+            ),
+
+            // COL 5: Delete button
             IconButton(
               icon: Icon(Icons.delete_outline, size: 14, color: Colors.white24),
               onPressed: () async {

@@ -60,6 +60,19 @@ class SlotLabProjectProvider extends ChangeNotifier {
   AleProvider? _aleProvider;
 
   // ==========================================================================
+  // UI STATE PERSISTENCE (SL-INT-P1.2, SL-INT-P1.4)
+  // ==========================================================================
+
+  /// Selected event ID (synced across panels)
+  String? _selectedEventId;
+
+  /// Lower Zone height
+  double? _lowerZoneHeight;
+
+  /// Audio browser current directory
+  String? _audioBrowserDirectory;
+
+  // ==========================================================================
   // GDD IMPORT STATE (V8)
   // ==========================================================================
 
@@ -91,6 +104,38 @@ class SlotLabProjectProvider extends ChangeNotifier {
   GameDesignDocument? get importedGdd => _importedGdd;
   GddGridConfig? get gridConfig => _gridConfig;
   bool get hasImportedGdd => _importedGdd != null;
+
+  // UI state getters (SL-INT-P1.2, SL-INT-P1.4)
+  String? get selectedEventId => _selectedEventId;
+  double? get lowerZoneHeight => _lowerZoneHeight;
+  String? get audioBrowserDirectory => _audioBrowserDirectory;
+
+  /// Set selected event ID and notify listeners (SL-INT-P1.2)
+  void setSelectedEventId(String? id) {
+    if (_selectedEventId != id) {
+      _selectedEventId = id;
+      _isDirty = true;
+      notifyListeners();
+    }
+  }
+
+  /// Set lower zone height and notify listeners (SL-INT-P1.4)
+  void setLowerZoneHeight(double? height) {
+    if (_lowerZoneHeight != height) {
+      _lowerZoneHeight = height;
+      _isDirty = true;
+      notifyListeners();
+    }
+  }
+
+  /// Set audio browser directory and notify listeners (SL-INT-P1.4)
+  void setAudioBrowserDirectory(String? dir) {
+    if (_audioBrowserDirectory != dir) {
+      _audioBrowserDirectory = dir;
+      _isDirty = true;
+      notifyListeners();
+    }
+  }
 
   /// Get complete project for serialization
   SlotLabProject get project => SlotLabProject(
