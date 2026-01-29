@@ -7882,6 +7882,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         armed: ch.armed,
         input: ultimate.InputSection(phaseInvert: ch.phaseInverted),
         inserts: inserts,
+        trackIndex: trackIdInt, // PDC indicator needs numeric track ID
         peakL: hasClips && isPlaying ? peakL : 0,
         peakR: hasClips && isPlaying ? peakR : 0,
         rmsL: hasClips && isPlaying ? rmsL : 0,

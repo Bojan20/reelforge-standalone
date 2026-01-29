@@ -18,7 +18,6 @@ import 'lower_zone_types.dart';
 import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
 import '../mixer/ultimate_mixer.dart' as ultimate;
-import '../mixer/knob.dart';
 import '../../providers/mixer_provider.dart';
 import 'daw_files_browser.dart';
 import '../../services/track_preset_service.dart';
@@ -28,11 +27,11 @@ import 'package:file_picker/file_picker.dart';
 import '../../services/service_locator.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
-import '../../src/rust/native_ffi.dart';
-import '../../services/project_archive_service.dart';
 import '../../utils/input_validator.dart'; // ✅ P0.3: Input validation
 import '../common/error_boundary.dart'; // ✅ P0.7: Error handling
 import '../meters/lufs_meter_widget.dart'; // ✅ P0.2: LUFS metering
+import 'workspace_preset_dropdown.dart'; // ✅ P1.1: Workspace presets
+import '../../models/workspace_preset.dart'; // ✅ P1.1: WorkspaceSection enum
 // ✅ P0.1: Extracted BROWSE panels
 import 'daw/browse/track_presets_panel.dart';
 import 'daw/browse/plugins_scanner_panel.dart';
@@ -51,6 +50,7 @@ import 'daw/process/eq_panel.dart';
 import 'daw/process/comp_panel.dart';
 import 'daw/process/limiter_panel.dart';
 import 'daw/process/fx_chain_panel.dart';
+import 'daw/process/sidechain_panel.dart'; // ✅ P0.5: Sidechain UI
 // ✅ P0.1: Extracted DELIVER panels
 import 'daw/deliver/export_panel.dart';
 import 'daw/deliver/stems_panel.dart';
@@ -144,15 +144,6 @@ class DawLowerZoneWidget extends StatefulWidget {
 }
 
 class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
-  // Archive options state
-  bool _archiveIncludeAudio = true;
-  bool _archiveIncludePresets = true;
-  bool _archiveIncludePlugins = false;
-  bool _archiveCompress = true;
-  bool _archiveInProgress = false;
-  double _archiveProgress = 0.0;
-  String _archiveStatus = '';
-
   @override
   void initState() {
     super.initState();
@@ -167,6 +158,22 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
   void _onControllerChanged() {
     setState(() {});
+  }
+
+  /// P1.4: Returns tooltips for current sub-tabs based on active super-tab
+  List<String> _getCurrentSubTabTooltips() {
+    switch (widget.controller.superTab) {
+      case DawSuperTab.browse:
+        return DawBrowseSubTab.values.map((t) => t.tooltip).toList();
+      case DawSuperTab.edit:
+        return DawEditSubTab.values.map((t) => t.tooltip).toList();
+      case DawSuperTab.mix:
+        return DawMixSubTab.values.map((t) => t.tooltip).toList();
+      case DawSuperTab.process:
+        return DawProcessSubTab.values.map((t) => t.tooltip).toList();
+      case DawSuperTab.deliver:
+        return DawDeliverSubTab.values.map((t) => t.tooltip).toList();
+    }
   }
 
   @override
@@ -188,14 +195,32 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           LowerZoneContextBar(
             superTabLabels: DawSuperTab.values.map((t) => t.label).toList(),
             superTabIcons: DawSuperTab.values.map((t) => t.icon).toList(),
+            superTabTooltips: DawSuperTab.values.map((t) => t.tooltip).toList(),
             selectedSuperTab: widget.controller.superTab.index,
             subTabLabels: widget.controller.subTabLabels,
+            subTabTooltips: _getCurrentSubTabTooltips(),
             selectedSubTab: widget.controller.currentSubTabIndex,
             accentColor: widget.controller.accentColor,
             isExpanded: widget.controller.isExpanded,
             onSuperTabSelected: widget.controller.setSuperTabIndex,
             onSubTabSelected: widget.controller.setSubTabIndex,
             onToggle: widget.controller.toggle,
+            // P1.5: Recent tabs quick access
+            recentTabs: widget.controller.recentTabs,
+            onRecentTabSelected: widget.controller.goToRecentTab,
+            // ✅ P1.1: Workspace presets dropdown
+            presetDropdown: WorkspacePresetDropdown(
+              section: WorkspaceSection.daw,
+              accentColor: widget.controller.accentColor,
+              onPresetApplied: _applyWorkspacePreset,
+              getCurrentState: _getCurrentWorkspaceState,
+            ),
+            // ✅ P2.1: Split view controls
+            splitEnabled: widget.controller.splitEnabled,
+            splitDirection: widget.controller.splitDirection,
+            onSplitToggle: widget.controller.toggleSplitView,
+            onSplitDirectionToggle: widget.controller.toggleSplitDirection,
+            onSwapPanes: widget.controller.swapPanes,
           ),
           // Content panel (only when expanded)
           if (widget.controller.isExpanded) ...[
@@ -234,6 +259,11 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   Widget _buildContentPanel() {
+    // P2.1: Split View Mode
+    if (widget.controller.splitEnabled) {
+      return _buildSplitViewContent();
+    }
+
     return Container(
       color: LowerZoneColors.bgDeep,
       child: ErrorBoundary( // ✅ P0.7: Wrap content in error boundary
@@ -256,6 +286,298 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         },
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P2.1: SPLIT VIEW MODE — View 2 panels simultaneously
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildSplitViewContent() {
+    final isHorizontal = widget.controller.splitDirection == SplitDirection.horizontal;
+    final ratio = widget.controller.splitRatio;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalSize = isHorizontal ? constraints.maxWidth : constraints.maxHeight;
+        final dividerSize = kSplitDividerWidth;
+        final availableSize = totalSize - dividerSize;
+        final firstPaneSize = availableSize * ratio;
+        final secondPaneSize = availableSize * (1 - ratio);
+
+        final children = <Widget>[
+          // First pane (uses main tabs)
+          SizedBox(
+            width: isHorizontal ? firstPaneSize : null,
+            height: isHorizontal ? null : firstPaneSize,
+            child: _buildPaneWithHeader(
+              superTab: widget.controller.superTab,
+              subTabIndex: widget.controller.currentSubTabIndex,
+              onSuperTabChanged: widget.controller.setSuperTab,
+              onSubTabChanged: widget.controller.setSubTabIndex,
+              paneIndex: 0,
+            ),
+          ),
+          // Draggable divider
+          _buildSplitDivider(isHorizontal, constraints),
+          // Second pane (uses second pane tabs)
+          SizedBox(
+            width: isHorizontal ? secondPaneSize : null,
+            height: isHorizontal ? null : secondPaneSize,
+            child: _buildPaneWithHeader(
+              superTab: widget.controller.secondPaneSuperTab,
+              subTabIndex: widget.controller.secondPaneCurrentSubTabIndex,
+              onSuperTabChanged: widget.controller.setSecondPaneSuperTab,
+              onSubTabChanged: widget.controller.setSecondPaneSubTabIndex,
+              paneIndex: 1,
+            ),
+          ),
+        ];
+
+        return isHorizontal
+            ? Row(children: children)
+            : Column(children: children);
+      },
+    );
+  }
+
+  Widget _buildPaneWithHeader({
+    required DawSuperTab superTab,
+    required int subTabIndex,
+    required void Function(DawSuperTab) onSuperTabChanged,
+    required void Function(int) onSubTabChanged,
+    required int paneIndex,
+  }) {
+    return Container(
+      color: LowerZoneColors.bgDeep,
+      child: Column(
+        children: [
+          // Mini tab bar for this pane
+          _buildPaneTabBar(
+            superTab: superTab,
+            subTabIndex: subTabIndex,
+            onSuperTabChanged: onSuperTabChanged,
+            onSubTabChanged: onSubTabChanged,
+            paneIndex: paneIndex,
+          ),
+          // Content
+          Expanded(
+            child: ErrorBoundary(
+              errorTitle: '${superTab.label} Panel Error',
+              child: _getContentForSuperTab(superTab, subTabIndex),
+              fallbackBuilder: (error, stack) {
+                return ErrorPanel(
+                  title: 'Failed to load ${superTab.label} panel',
+                  message: 'The panel encountered an error.',
+                  error: error,
+                  onRetry: () => setState(() {}),
+                );
+              },
+              onError: (error, stack) {
+                debugPrint('[DawLowerZone] Split pane $paneIndex error in ${superTab.label}: $error');
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaneTabBar({
+    required DawSuperTab superTab,
+    required int subTabIndex,
+    required void Function(DawSuperTab) onSuperTabChanged,
+    required void Function(int) onSubTabChanged,
+    required int paneIndex,
+  }) {
+    final subTabLabels = _getSubTabLabelsForSuperTab(superTab);
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgMid,
+        border: Border(
+          bottom: BorderSide(color: LowerZoneColors.border.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Super-tab dropdown
+          PopupMenuButton<DawSuperTab>(
+            initialValue: superTab,
+            tooltip: 'Change panel type',
+            onSelected: onSuperTabChanged,
+            itemBuilder: (context) => DawSuperTab.values.map((tab) {
+              return PopupMenuItem(
+                value: tab,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(tab.icon, size: 14, color: tab == superTab ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary),
+                    const SizedBox(width: 8),
+                    Text(tab.label, style: TextStyle(
+                      fontSize: 11,
+                      color: tab == superTab ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
+                    )),
+                  ],
+                ),
+              );
+            }).toList(),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: LowerZoneColors.dawAccent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(superTab.icon, size: 12, color: LowerZoneColors.dawAccent),
+                  const SizedBox(width: 4),
+                  Text(superTab.label, style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: LowerZoneColors.dawAccent,
+                  )),
+                  const SizedBox(width: 2),
+                  const Icon(Icons.arrow_drop_down, size: 14, color: LowerZoneColors.dawAccent),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Sub-tabs
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: List.generate(subTabLabels.length, (index) {
+                  final isSelected = index == subTabIndex;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: InkWell(
+                      onTap: () => onSubTabChanged(index),
+                      borderRadius: BorderRadius.circular(3),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isSelected ? LowerZoneColors.dawAccent.withValues(alpha: 0.2) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          subTabLabels[index],
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSplitDivider(bool isHorizontal, BoxConstraints constraints) {
+    return GestureDetector(
+      onPanUpdate: (details) {
+        final totalSize = isHorizontal ? constraints.maxWidth : constraints.maxHeight;
+        final delta = isHorizontal ? details.delta.dx : details.delta.dy;
+        final newRatio = widget.controller.splitRatio + (delta / totalSize);
+        widget.controller.setSplitRatio(newRatio);
+      },
+      child: MouseRegion(
+        cursor: isHorizontal ? SystemMouseCursors.resizeColumn : SystemMouseCursors.resizeRow,
+        child: Container(
+          width: isHorizontal ? kSplitDividerWidth : null,
+          height: isHorizontal ? null : kSplitDividerWidth,
+          color: LowerZoneColors.bgMid,
+          child: Center(
+            child: Container(
+              width: isHorizontal ? 2 : 24,
+              height: isHorizontal ? 24 : 2,
+              decoration: BoxDecoration(
+                color: LowerZoneColors.border,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<String> _getSubTabLabelsForSuperTab(DawSuperTab superTab) {
+    return switch (superTab) {
+      DawSuperTab.browse => DawBrowseSubTab.values.map((e) => e.label).toList(),
+      DawSuperTab.edit => DawEditSubTab.values.map((e) => e.label).toList(),
+      DawSuperTab.mix => DawMixSubTab.values.map((e) => e.label).toList(),
+      DawSuperTab.process => DawProcessSubTab.values.map((e) => e.label).toList(),
+      DawSuperTab.deliver => DawDeliverSubTab.values.map((e) => e.label).toList(),
+    };
+  }
+
+  /// Get content widget for a specific super-tab and sub-tab index
+  Widget _getContentForSuperTab(DawSuperTab superTab, int subTabIndex) {
+    return switch (superTab) {
+      DawSuperTab.browse => _getBrowseContentForIndex(subTabIndex),
+      DawSuperTab.edit => _getEditContentForIndex(subTabIndex),
+      DawSuperTab.mix => _getMixContentForIndex(subTabIndex),
+      DawSuperTab.process => _getProcessContentForIndex(subTabIndex),
+      DawSuperTab.deliver => _getDeliverContentForIndex(subTabIndex),
+    };
+  }
+
+  Widget _getBrowseContentForIndex(int index) {
+    return switch (DawBrowseSubTab.values[index.clamp(0, 3)]) {
+      DawBrowseSubTab.files => _buildFilesPanel(),
+      DawBrowseSubTab.presets => _buildPresetsPanel(),
+      DawBrowseSubTab.plugins => _buildPluginsPanel(),
+      DawBrowseSubTab.history => _buildHistoryPanel(),
+    };
+  }
+
+  Widget _getEditContentForIndex(int index) {
+    return switch (DawEditSubTab.values[index.clamp(0, 3)]) {
+      DawEditSubTab.timeline => _buildTimelinePanel(),
+      DawEditSubTab.pianoRoll => _buildPianoRollPanel(),
+      DawEditSubTab.fades => _buildFadesPanel(),
+      DawEditSubTab.grid => _buildGridPanel(),
+    };
+  }
+
+  Widget _getMixContentForIndex(int index) {
+    return switch (DawMixSubTab.values[index.clamp(0, 3)]) {
+      DawMixSubTab.mixer => _buildMixerPanel(),
+      DawMixSubTab.sends => _buildSendsPanel(),
+      DawMixSubTab.pan => _buildPanPanel(),
+      DawMixSubTab.automation => _buildAutomationPanel(),
+    };
+  }
+
+  Widget _getProcessContentForIndex(int index) {
+    return switch (DawProcessSubTab.values[index.clamp(0, 4)]) {
+      DawProcessSubTab.eq => _buildEqPanel(),
+      DawProcessSubTab.comp => _buildCompPanel(),
+      DawProcessSubTab.limiter => _buildLimiterPanel(),
+      DawProcessSubTab.fxChain => _buildFxChainPanel(),
+      DawProcessSubTab.sidechain => _buildSidechainPanel(),
+    };
+  }
+
+  Widget _getDeliverContentForIndex(int index) {
+    return switch (DawDeliverSubTab.values[index.clamp(0, 3)]) {
+      DawDeliverSubTab.export => _buildExportPanel(),
+      DawDeliverSubTab.stems => _buildStemsPanel(),
+      DawDeliverSubTab.bounce => _buildBouncePanel(),
+      DawDeliverSubTab.archive => _buildArchivePanel(),
+    };
   }
 
   Widget _getContentForCurrentTab() {
@@ -487,514 +809,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   // ✅ P0.1: Clip Properties + Fades extracted to daw/edit/clip_properties_panel.dart
   // Old code removed (was lines 1467-1597, ~131 LOC)
 
-  /// P0.2 + P1.4: Interactive Grid/Timeline Settings with tempo, time sig, snap
-
-
-  /// P1.4: Sub-section header
-  Widget _buildSubSectionHeader(String label) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 9,
-        fontWeight: FontWeight.bold,
-        color: LowerZoneColors.textMuted,
-        letterSpacing: 0.5,
-      ),
-    );
-  }
-
-  /// P1.4: Tempo control with tap-to-edit and tap-tempo
-  Widget _buildTempoControl() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: LowerZoneColors.border),
-      ),
-      child: Row(
-        children: [
-          // Tempo display (tap to edit)
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showTempoEditDialog(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.speed, size: 14, color: LowerZoneColors.dawAccent),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${widget.tempo.toStringAsFixed(1)} BPM',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: LowerZoneColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Tap to edit',
-                    style: TextStyle(
-                      fontSize: 8,
-                      color: LowerZoneColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Tap tempo button
-          GestureDetector(
-            onTap: () {
-              // Tap tempo feature - could track tap intervals
-              // For now, just show a snackbar
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Tap Tempo - keep tapping to set BPM'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: LowerZoneColors.bgMid,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: LowerZoneColors.border),
-              ),
-              child: Text(
-                'TAP',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: LowerZoneColors.textSecondary,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// P1.4: Show tempo edit dialog
-  void _showTempoEditDialog() {
-    final controller = TextEditingController(
-      text: widget.tempo.toStringAsFixed(1),
-    );
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: LowerZoneColors.bgMid,
-        title: Text(
-          'Set Tempo',
-          style: TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
-        ),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          style: TextStyle(color: LowerZoneColors.textPrimary),
-          decoration: InputDecoration(
-            suffixText: 'BPM',
-            suffixStyle: TextStyle(color: LowerZoneColors.textMuted),
-          ),
-          onSubmitted: (value) {
-            final newTempo = double.tryParse(value);
-            if (newTempo != null && newTempo >= 20 && newTempo <= 999) {
-              widget.onTempoChanged?.call(newTempo);
-            }
-            Navigator.pop(ctx);
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final newTempo = double.tryParse(controller.text);
-              if (newTempo != null && newTempo >= 20 && newTempo <= 999) {
-                widget.onTempoChanged?.call(newTempo);
-              }
-              Navigator.pop(ctx);
-            },
-            child: Text('Set'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// P1.4: Time signature control
-  Widget _buildTimeSignatureControl() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: LowerZoneColors.border),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.music_note, size: 14, color: LowerZoneColors.dawAccent),
-          const SizedBox(width: 8),
-          // Numerator dropdown
-          _buildTimeSignatureDropdown(
-            value: widget.timeSignatureNumerator,
-            items: [2, 3, 4, 5, 6, 7, 8, 9, 12],
-            onChanged: (v) => widget.onTimeSignatureChanged?.call(v, widget.timeSignatureDenominator),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              '/',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: LowerZoneColors.textPrimary,
-              ),
-            ),
-          ),
-          // Denominator dropdown
-          _buildTimeSignatureDropdown(
-            value: widget.timeSignatureDenominator,
-            items: [2, 4, 8, 16],
-            onChanged: (v) => widget.onTimeSignatureChanged?.call(widget.timeSignatureNumerator, v),
-          ),
-          const Spacer(),
-          // Common presets
-          _buildTimeSignaturePreset('4/4', 4, 4),
-          const SizedBox(width: 4),
-          _buildTimeSignaturePreset('3/4', 3, 4),
-          const SizedBox(width: 4),
-          _buildTimeSignaturePreset('6/8', 6, 8),
-        ],
-      ),
-    );
-  }
-
-  /// P1.4: Time signature dropdown
-  Widget _buildTimeSignatureDropdown({
-    required int value,
-    required List<int> items,
-    required ValueChanged<int> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgMid,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: DropdownButton<int>(
-        value: items.contains(value) ? value : items.first,
-        items: items.map((i) => DropdownMenuItem(
-          value: i,
-          child: Text(
-            '$i',
-            style: TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
-          ),
-        )).toList(),
-        onChanged: (v) => v != null ? onChanged(v) : null,
-        dropdownColor: LowerZoneColors.bgMid,
-        underline: const SizedBox(),
-        isDense: true,
-        style: TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
-      ),
-    );
-  }
-
-  /// P1.4: Time signature preset button
-  Widget _buildTimeSignaturePreset(String label, int num, int denom) {
-    final isActive = widget.timeSignatureNumerator == num &&
-                     widget.timeSignatureDenominator == denom;
-    return GestureDetector(
-      onTap: () => widget.onTimeSignatureChanged?.call(num, denom),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-        decoration: BoxDecoration(
-          color: isActive
-              ? LowerZoneColors.dawAccent.withOpacity(0.2)
-              : LowerZoneColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(
-            color: isActive
-                ? LowerZoneColors.dawAccent
-                : LowerZoneColors.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
-            color: isActive
-                ? LowerZoneColors.dawAccent
-                : LowerZoneColors.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// P0.2: Grid toggle with on/off state
-  Widget _buildGridToggle({
-    required String label,
-    required bool value,
-    required IconData icon,
-    ValueChanged<bool>? onChanged,
-  }) {
-    final isEnabled = onChanged != null;
-    return GestureDetector(
-      onTap: isEnabled ? () => onChanged(!value) : null,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: value
-              ? LowerZoneColors.dawAccent.withOpacity(0.15)
-              : LowerZoneColors.bgDeepest,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: value
-                ? LowerZoneColors.dawAccent.withOpacity(0.5)
-                : LowerZoneColors.border,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: value ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: value ? LowerZoneColors.textPrimary : LowerZoneColors.textSecondary,
-                ),
-              ),
-            ),
-            Container(
-              width: 36,
-              height: 20,
-              decoration: BoxDecoration(
-                color: value
-                    ? LowerZoneColors.dawAccent
-                    : LowerZoneColors.bgMid,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: AnimatedAlign(
-                duration: const Duration(milliseconds: 150),
-                alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-                child: Container(
-                  width: 16,
-                  height: 16,
-                  margin: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: value ? Colors.white : LowerZoneColors.textTertiary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// P0.2: Grid resolution selector with common note values
-  Widget _buildGridResolutionSelector() {
-    const resolutions = [
-      (0.0625, '1/64'),
-      (0.125, '1/32'),
-      (0.25, '1/16'),
-      (0.5, '1/8'),
-      (1.0, '1/4'),
-      (2.0, '1/2'),
-      (4.0, 'Bar'),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: LowerZoneColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.straighten, size: 14, color: LowerZoneColors.dawAccent),
-              const SizedBox(width: 8),
-              const Text(
-                'Grid Resolution',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
-              ),
-              const Spacer(),
-              Text(
-                _snapValueToLabel(widget.snapValue),
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: LowerZoneColors.dawAccent,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Resolution chips
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: resolutions.map((r) {
-              final (value, label) = r;
-              final isSelected = (widget.snapValue - value).abs() < 0.001;
-              return GestureDetector(
-                onTap: widget.onSnapValueChanged != null
-                    ? () => widget.onSnapValueChanged!(value)
-                    : null,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? LowerZoneColors.dawAccent
-                        : LowerZoneColors.bgMid,
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(
-                      color: isSelected
-                          ? LowerZoneColors.dawAccent
-                          : LowerZoneColors.border,
-                    ),
-                  ),
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// P0.2: Visual snap indicator showing current grid lines
-  Widget _buildSnapIndicator() {
-    final snapLabel = _snapValueToLabel(widget.snapValue);
-    final isActive = widget.snapEnabled;
-
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: isActive
-            ? LowerZoneColors.dawAccent.withOpacity(0.1)
-            : LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: isActive
-              ? LowerZoneColors.dawAccent.withOpacity(0.3)
-              : LowerZoneColors.border,
-        ),
-      ),
-      child: Row(
-        children: [
-          // Grid preview
-          Container(
-            width: 60,
-            height: 24,
-            decoration: BoxDecoration(
-              color: LowerZoneColors.bgMid,
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: CustomPaint(
-              painter: _GridPreviewPainter(
-                snapValue: widget.snapValue,
-                isActive: isActive,
-                accentColor: LowerZoneColors.dawAccent,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isActive ? 'Snap Active' : 'Snap Disabled',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
-                  ),
-                ),
-                Text(
-                  isActive
-                      ? 'Grid: $snapLabel${widget.tripletGrid ? ' (Triplet)' : ''}'
-                      : 'Free positioning enabled',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: LowerZoneColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            isActive ? Icons.lock : Icons.lock_open,
-            size: 16,
-            color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Convert snap value (beats) to display label
-  String _snapValueToLabel(double value) {
-    if (value <= 0.0625) return '1/64';
-    if (value <= 0.125) return '1/32';
-    if (value <= 0.25) return '1/16';
-    if (value <= 0.5) return '1/8';
-    if (value <= 1.0) return '1/4';
-    if (value <= 2.0) return '1/2';
-    return 'Bar';
-  }
-
-  Widget _buildSectionHeader(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: LowerZoneColors.dawAccent),
-        const SizedBox(width: 6),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: LowerZoneColors.dawAccent,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ],
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // MIX CONTENT — Integrated panels
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1215,410 +1029,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   Widget _buildPanPanel() => PanPanel(selectedTrackId: widget.selectedTrackId);
   Widget _buildAutomationPanel() => AutomationPanel(selectedTrackId: widget.selectedTrackId);
 
-  /// Compact sends panel with MiniKnobs connected to MixerProvider
-
-
-  /// Get selected channel from MixerProvider based on selectedTrackId
-  MixerChannel? _getSelectedChannel(MixerProvider? provider) {
-    if (provider == null || widget.selectedTrackId == null) return null;
-    // Find channel by track index
-    return provider.channels
-        .where((c) => c.trackIndex == widget.selectedTrackId)
-        .firstOrNull;
-  }
-
-  Widget _buildSendChannelWithKnob(
-    String name,
-    double level,
-    Color color, {
-    bool enabled = true,
-    ValueChanged<double>? onChanged,
-    VoidCallback? onMuteToggle,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          name,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: LowerZoneColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        LargeKnob(
-          label: '',
-          value: level,
-          size: 52,
-          accentColor: enabled ? color : LowerZoneColors.textMuted,
-          onChanged: onChanged,
-        ),
-        const SizedBox(height: 4),
-        // Mute button
-        GestureDetector(
-          onTap: onMuteToggle,
-          child: Container(
-            width: 28,
-            height: 18,
-            decoration: BoxDecoration(
-              color: !enabled
-                  ? LowerZoneColors.warning.withValues(alpha: 0.3)
-                  : LowerZoneColors.bgDeepest,
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(
-                color: !enabled ? LowerZoneColors.warning : LowerZoneColors.border,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                'M',
-                style: TextStyle(
-                  fontSize: 9,
-                  color: !enabled ? LowerZoneColors.warning : LowerZoneColors.textMuted,
-                  fontWeight: !enabled ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // P2.4: Pan law selection
-  String _selectedPanLaw = '-3dB';
-
-  /// Compact surround panner connected to MixerProvider
-
-
-  // P2.4: Convert string pan law to PanLaw enum
-  PanLaw _stringToPanLaw(String law) {
-    switch (law) {
-      case '0dB':
-        return PanLaw.noCenterAttenuation;
-      case '-3dB':
-        return PanLaw.constantPower;
-      case '-4.5dB':
-        return PanLaw.compromise;
-      case '-6dB':
-        return PanLaw.linear;
-      default:
-        return PanLaw.constantPower; // Default to -3dB
-    }
-  }
-
-  // P2.4: Apply pan law to all tracks via FFI
-  void _applyPanLaw(String law) {
-    final panLaw = _stringToPanLaw(law);
-    final ffi = NativeFFI.instance;
-    final mixer = context.read<MixerProvider>();
-
-    // Apply to all audio tracks
-    for (final channel in mixer.channels) {
-      final trackId = int.tryParse(channel.id) ?? 0;
-      ffi.stereoImagerSetPanLaw(trackId, panLaw);
-    }
-  }
-
-  // P2.4: Build pan law selection chips
-  List<Widget> _buildPanLawChips() {
-    const panLaws = ['0dB', '-3dB', '-4.5dB', '-6dB'];
-    return panLaws.map((law) {
-      final isSelected = _selectedPanLaw == law;
-      return Padding(
-        padding: const EdgeInsets.only(right: 4),
-        child: GestureDetector(
-          onTap: () {
-            setState(() {
-              _selectedPanLaw = law;
-            });
-            _applyPanLaw(law);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.bgSurface,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.border,
-                width: 1,
-              ),
-            ),
-            child: Text(
-              law,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
-              ),
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
-
-  // P2.4: Get pan law description for tooltip
-  String _getPanLawDescription(String panLaw) {
-    switch (panLaw) {
-      case '0dB':
-        return 'Linear Pan Law (0dB)\n'
-            'No center attenuation. Sum of L+R at center = +6dB.\n'
-            'Use for: LCR panning, hard-panned sources.';
-      case '-3dB':
-        return 'Equal Power Pan Law (-3dB)\n'
-            'Center attenuated by -3dB. Constant perceived loudness.\n'
-            'Use for: Most mixing scenarios. Industry standard.';
-      case '-4.5dB':
-        return 'Compromise Pan Law (-4.5dB)\n'
-            'Between -3dB and -6dB. Good for dense mixes.\n'
-            'Use for: Film/TV, orchestral, ambient.';
-      case '-6dB':
-        return 'Linear Sum Pan Law (-6dB)\n'
-            'Center attenuated by -6dB. Linear voltage sum.\n'
-            'Use for: Broadcast, mastering, mono-compatible mixes.';
-      default:
-        return 'Pan law controls center channel attenuation.';
-    }
-  }
-
-  Widget _buildPannerWidget({
-    required double pan,
-    required double panRight,
-    required bool isStereo,
-    ValueChanged<double>? onPanChanged,
-    ValueChanged<double>? onPanRightChanged,
-  }) {
-    // Pan display text
-    String panText(double p) {
-      if (p.abs() < 0.01) return 'C';
-      final percent = (p.abs() * 100).round();
-      return p < 0 ? 'L$percent' : 'R$percent';
-    }
-
-    if (!isStereo) {
-      // Mono: single pan knob
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('PAN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: LowerZoneColors.textPrimary)),
-          const SizedBox(height: 8),
-          LargeKnob(
-            label: '',
-            value: pan,
-            bipolar: true,
-            size: 72,
-            accentColor: LowerZoneColors.dawAccent,
-            onChanged: onPanChanged,
-          ),
-          const SizedBox(height: 4),
-          Text(panText(pan), style: const TextStyle(fontSize: 11, color: LowerZoneColors.textSecondary)),
-        ],
-      );
-    }
-
-    // Stereo: dual pan knobs (Pro Tools style)
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Left channel pan
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('L', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: LowerZoneColors.textMuted)),
-            const SizedBox(height: 8),
-            LargeKnob(
-              label: '',
-              value: pan,
-              bipolar: true,
-              size: 56,
-              accentColor: LowerZoneColors.dawAccent,
-              onChanged: onPanChanged,
-            ),
-            const SizedBox(height: 4),
-            Text(panText(pan), style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
-          ],
-        ),
-        const SizedBox(width: 32),
-        // Width indicator
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('WIDTH', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.textMuted)),
-            const SizedBox(height: 8),
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: LowerZoneColors.bgDeepest,
-                shape: BoxShape.circle,
-                border: Border.all(color: LowerZoneColors.border),
-              ),
-              child: CustomPaint(
-                painter: _StereoWidthPainter(
-                  panL: pan,
-                  panR: panRight,
-                  color: LowerZoneColors.dawAccent,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${((panRight - pan).abs() * 50 + 50).round()}%',
-              style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
-            ),
-          ],
-        ),
-        const SizedBox(width: 32),
-        // Right channel pan
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('R', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: LowerZoneColors.textMuted)),
-            const SizedBox(height: 8),
-            LargeKnob(
-              label: '',
-              value: panRight,
-              bipolar: true,
-              size: 56,
-              accentColor: LowerZoneColors.dawAccent,
-              onChanged: onPanRightChanged,
-            ),
-            const SizedBox(height: 4),
-            Text(panText(panRight), style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // P2.3: Automation panel state
-  String _automationMode = 'Read';
-  String _automationParameter = 'Volume';
-  List<Offset> _automationPoints = [];
-  int? _selectedAutomationPointIndex;
-
-  /// Compact automation panel for Lower Zone - P2.3 Enhanced
-
-
-  Widget _buildNoTrackAutomationPlaceholder() {
-    return Container(
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.timeline,
-              size: 40,
-              color: LowerZoneColors.textMuted.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Select a track to edit automation',
-              style: TextStyle(
-                fontSize: 11,
-                color: LowerZoneColors.textMuted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInteractiveAutomationEditor() {
-    return GestureDetector(
-      onTapDown: (details) {
-        if (_automationMode != 'Read') {
-          setState(() {
-            // Normalize point to 0-1 range
-            _automationPoints.add(details.localPosition);
-            // Sort by X position
-            _automationPoints.sort((a, b) => a.dx.compareTo(b.dx));
-          });
-        }
-      },
-      onPanStart: (details) {
-        // Find if we're near a point
-        for (int i = 0; i < _automationPoints.length; i++) {
-          if ((details.localPosition - _automationPoints[i]).distance < 12) {
-            setState(() => _selectedAutomationPointIndex = i);
-            break;
-          }
-        }
-      },
-      onPanUpdate: (details) {
-        if (_selectedAutomationPointIndex != null && _automationMode != 'Read') {
-          setState(() {
-            _automationPoints[_selectedAutomationPointIndex!] = details.localPosition;
-          });
-        }
-      },
-      onPanEnd: (_) {
-        if (_selectedAutomationPointIndex != null) {
-          setState(() {
-            // Re-sort after drag
-            _automationPoints.sort((a, b) => a.dx.compareTo(b.dx));
-            _selectedAutomationPointIndex = null;
-          });
-        }
-      },
-      onDoubleTap: () {
-        // Delete last point on double tap
-        if (_automationPoints.isNotEmpty && _automationMode != 'Read') {
-          setState(() => _automationPoints.removeLast());
-        }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: LowerZoneColors.bgDeepest,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: CustomPaint(
-          painter: _InteractiveAutomationCurvePainter(
-            color: LowerZoneColors.dawAccent,
-            points: _automationPoints,
-            selectedIndex: _selectedAutomationPointIndex,
-            isEditable: _automationMode != 'Read',
-          ),
-          size: Size.infinite,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAutomationModeChip(String label, bool isActive) {
-    return GestureDetector(
-      onTap: () => setState(() => _automationMode = label),
-      child: Container(
-        margin: const EdgeInsets.only(left: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: isActive
-              ? LowerZoneColors.dawAccent.withValues(alpha: 0.2)
-              : LowerZoneColors.bgSurface,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
-          ),
-        ),
-      ),
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // PROCESS CONTENT — FabFilter DSP Panels
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1630,6 +1040,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawProcessSubTab.comp => _buildCompPanel(),
       DawProcessSubTab.limiter => _buildLimiterPanel(),
       DawProcessSubTab.fxChain => _buildFxChainPanel(),
+      DawProcessSubTab.sidechain => _buildSidechainPanel(),
     };
   }
 
@@ -1649,551 +1060,11 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     onNavigateToSubTab: (subTab) => widget.controller.setProcessSubTab(subTab),
   );
 
-  /// P0.4: FX Chain View with DspChainProvider integration
-  Widget _buildFxChainView(int trackId) {
-    return ListenableBuilder(
-      listenable: DspChainProvider.instance,
-      builder: (context, _) {
-        final provider = DspChainProvider.instance;
+  /// P0.5: Sidechain — External/internal sidechain routing configuration
+  Widget _buildSidechainPanel() => SidechainPanel(
+    selectedTrackId: widget.selectedTrackId,
+  );
 
-        // Initialize chain if not exists
-        if (!provider.hasChain(trackId)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            provider.initializeChain(trackId);
-          });
-        }
-
-        final chain = provider.getChain(trackId);
-        final sortedNodes = chain.sortedNodes;
-
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Icon(Icons.link, size: 16, color: LowerZoneColors.dawAccent),
-                  const SizedBox(width: 8),
-                  Text(
-                    'FX CHAIN — Track $trackId',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: LowerZoneColors.dawAccent,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Chain bypass toggle
-                  _buildChainBypassToggle(trackId, chain.bypass),
-                  const Spacer(),
-                  // Add processor button with menu
-                  _buildAddProcessorButton(trackId),
-                  const SizedBox(width: 8),
-                  _buildChainActionButton(Icons.copy, 'Copy', () {
-                    provider.copyChain(trackId);
-                  }),
-                  if (provider.hasClipboard) ...[
-                    const SizedBox(width: 4),
-                    _buildChainActionButton(Icons.paste, 'Paste', () {
-                      provider.pasteChain(trackId);
-                    }),
-                  ],
-                  const SizedBox(width: 8),
-                  _buildChainActionButton(Icons.clear_all, 'Clear', () {
-                    provider.clearChain(trackId);
-                  }),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Chain visualization with reorder
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      // Input node
-                      _buildChainNode('INPUT', Icons.input, isEndpoint: true),
-                      _buildChainConnector(),
-                      // Processors (reorderable)
-                      if (sortedNodes.isEmpty)
-                        _buildEmptyChainPlaceholder(trackId)
-                      else
-                        ...sortedNodes.expand((node) => [
-                              _buildDraggableProcessor(trackId, node),
-                              _buildChainConnector(),
-                            ]),
-                      // Output node
-                      _buildChainNode('OUTPUT', Icons.output, isEndpoint: true),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// P0.4: Chain bypass toggle
-  Widget _buildChainBypassToggle(int trackId, bool bypassed) {
-    return GestureDetector(
-      onTap: () => DspChainProvider.instance.toggleChainBypass(trackId),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: bypassed
-              ? Colors.orange.withOpacity(0.2)
-              : LowerZoneColors.bgSurface,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: bypassed ? Colors.orange : LowerZoneColors.border,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              bypassed ? Icons.power_off : Icons.power,
-              size: 12,
-              color: bypassed ? Colors.orange : LowerZoneColors.textSecondary,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              bypassed ? 'BYPASSED' : 'ACTIVE',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: bypassed ? Colors.orange : LowerZoneColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// P0.4: Add processor button with dropdown menu
-  Widget _buildAddProcessorButton(int trackId) {
-    return PopupMenuButton<DspNodeType>(
-      tooltip: 'Add Processor',
-      offset: const Offset(0, 30),
-      color: LowerZoneColors.bgMid,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(6),
-        side: const BorderSide(color: LowerZoneColors.border),
-      ),
-      onSelected: (type) {
-        DspChainProvider.instance.addNode(trackId, type);
-      },
-      itemBuilder: (context) => DspNodeType.values.map((type) {
-        return PopupMenuItem(
-          value: type,
-          child: Row(
-            children: [
-              Icon(_nodeTypeIcon(type), size: 14, color: LowerZoneColors.dawAccent),
-              const SizedBox(width: 8),
-              Text(
-                type.fullName,
-                style: const TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: LowerZoneColors.dawAccent.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: LowerZoneColors.dawAccent.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.add, size: 12, color: LowerZoneColors.dawAccent),
-            const SizedBox(width: 4),
-            Text(
-              'Add',
-              style: TextStyle(
-                fontSize: 10,
-                color: LowerZoneColors.dawAccent,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// P0.4: Empty chain placeholder with drop zone
-  Widget _buildEmptyChainPlaceholder(int trackId) {
-    return DragTarget<DspNodeType>(
-      onAcceptWithDetails: (details) {
-        DspChainProvider.instance.addNode(trackId, details.data);
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isHovering = candidateData.isNotEmpty;
-        return Container(
-          width: 150,
-          height: 70,
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: isHovering
-                ? LowerZoneColors.dawAccent.withOpacity(0.1)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isHovering
-                  ? LowerZoneColors.dawAccent
-                  : LowerZoneColors.border,
-              style: BorderStyle.solid,
-            ),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.add_circle_outline,
-                  size: 20,
-                  color: isHovering
-                      ? LowerZoneColors.dawAccent
-                      : LowerZoneColors.textTertiary,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Add processor',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: isHovering
-                        ? LowerZoneColors.dawAccent
-                        : LowerZoneColors.textTertiary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// P0.4: Draggable processor node with bypass toggle
-  Widget _buildDraggableProcessor(int trackId, DspNode node) {
-    return Draggable<String>(
-      data: node.id,
-      feedback: Material(
-        color: Colors.transparent,
-        child: _buildProcessorCard(node, isDragging: true),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: _buildProcessorCard(node),
-      ),
-      child: DragTarget<String>(
-        onAcceptWithDetails: (details) {
-          final draggedId = details.data;
-          if (draggedId != node.id) {
-            DspChainProvider.instance.swapNodes(trackId, draggedId, node.id);
-          }
-        },
-        builder: (context, candidateData, rejectedData) {
-          final isHovering = candidateData.isNotEmpty;
-          return _buildProcessorCard(node, isDropTarget: isHovering, trackId: trackId);
-        },
-      ),
-    );
-  }
-
-  /// P0.4: Processor card with controls
-  Widget _buildProcessorCard(DspNode node, {bool isDragging = false, bool isDropTarget = false, int? trackId}) {
-    final isActive = !node.bypass;
-    return GestureDetector(
-      onTap: trackId != null ? () => _navigateToProcessor(node.type) : null,
-      child: Container(
-        width: 100,
-        height: 70,
-        decoration: BoxDecoration(
-          color: isDropTarget
-              ? LowerZoneColors.dawAccent.withOpacity(0.2)
-              : isActive
-                  ? LowerZoneColors.dawAccent.withOpacity(0.15)
-                  : LowerZoneColors.bgSurface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isDropTarget
-                ? LowerZoneColors.dawAccent
-                : isActive
-                    ? LowerZoneColors.dawAccent
-                    : LowerZoneColors.border,
-            width: isDropTarget ? 2 : 1,
-          ),
-          boxShadow: isDragging
-              ? [
-                  BoxShadow(
-                    color: LowerZoneColors.dawAccent.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : null,
-        ),
-        child: Stack(
-          children: [
-            // Main content
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  _nodeTypeIcon(node.type),
-                  size: 20,
-                  color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  node.type.shortName,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isActive ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted,
-                  ),
-                ),
-                if (node.wetDry < 1.0)
-                  Text(
-                    '${(node.wetDry * 100).toInt()}%',
-                    style: const TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary),
-                  ),
-              ],
-            ),
-            // Bypass toggle
-            if (trackId != null)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: GestureDetector(
-                  onTap: () => DspChainProvider.instance.toggleNodeBypass(trackId, node.id),
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: node.bypass
-                          ? Colors.orange.withOpacity(0.3)
-                          : LowerZoneColors.bgDeepest,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: node.bypass ? Colors.orange : LowerZoneColors.border,
-                      ),
-                    ),
-                    child: Icon(
-                      node.bypass ? Icons.power_off : Icons.power,
-                      size: 10,
-                      color: node.bypass ? Colors.orange : LowerZoneColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-            // Remove button
-            if (trackId != null)
-              Positioned(
-                top: 4,
-                left: 4,
-                child: GestureDetector(
-                  onTap: () => DspChainProvider.instance.removeNode(trackId, node.id),
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: LowerZoneColors.bgDeepest,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: LowerZoneColors.border),
-                    ),
-                    child: const Icon(Icons.close, size: 10, color: LowerZoneColors.textMuted),
-                  ),
-                ),
-              ),
-            // Drag indicator
-            Positioned(
-              bottom: 4,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Icon(
-                  Icons.drag_indicator,
-                  size: 12,
-                  color: LowerZoneColors.textTertiary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Navigate to processor panel
-  void _navigateToProcessor(DspNodeType type) {
-    final subTab = switch (type) {
-      DspNodeType.eq => DawProcessSubTab.eq,
-      DspNodeType.compressor => DawProcessSubTab.comp,
-      DspNodeType.limiter => DawProcessSubTab.limiter,
-      _ => null,
-    };
-    if (subTab != null) {
-      widget.controller.setProcessSubTab(subTab);
-    }
-  }
-
-  /// Get icon for node type
-  IconData _nodeTypeIcon(DspNodeType type) {
-    return switch (type) {
-      DspNodeType.eq => Icons.equalizer,
-      DspNodeType.compressor => Icons.compress,
-      DspNodeType.limiter => Icons.volume_up,
-      DspNodeType.gate => Icons.door_front_door,
-      DspNodeType.expander => Icons.expand,
-      DspNodeType.reverb => Icons.waves,
-      DspNodeType.delay => Icons.timer,
-      DspNodeType.saturation => Icons.whatshot,
-      DspNodeType.deEsser => Icons.record_voice_over,
-    };
-  }
-
-  Widget _buildChainActionButton(IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: LowerZoneColors.bgSurface,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: LowerZoneColors.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: LowerZoneColors.textSecondary),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 10,
-                color: LowerZoneColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChainNode(String label, IconData icon, {bool isEndpoint = false}) {
-    return Container(
-      width: 80,
-      height: 60,
-      decoration: BoxDecoration(
-        color: isEndpoint ? LowerZoneColors.bgDeepest : LowerZoneColors.bgMid,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isEndpoint ? LowerZoneColors.border : LowerZoneColors.dawAccent.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 20, color: isEndpoint ? LowerZoneColors.textMuted : LowerZoneColors.dawAccent),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: isEndpoint ? LowerZoneColors.textMuted : LowerZoneColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChainProcessor(String label, IconData icon, bool isActive, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 100,
-        height: 70,
-        decoration: BoxDecoration(
-          color: isActive
-              ? LowerZoneColors.dawAccent.withValues(alpha: 0.15)
-              : LowerZoneColors.bgSurface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isActive
-                ? LowerZoneColors.dawAccent
-                : LowerZoneColors.border,
-            width: isActive ? 2 : 1,
-          ),
-          boxShadow: isActive ? [
-            BoxShadow(
-              color: LowerZoneColors.dawAccent.withValues(alpha: 0.2),
-              blurRadius: 8,
-            ),
-          ] : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
-              ),
-            ),
-            if (isActive) ...[
-              const SizedBox(height: 2),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: LowerZoneColors.success,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChainConnector() {
-    return Container(
-      width: 30,
-      height: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            LowerZoneColors.dawAccent.withValues(alpha: 0.3),
-            LowerZoneColors.dawAccent.withValues(alpha: 0.6),
-            LowerZoneColors.dawAccent.withValues(alpha: 0.3),
-          ],
-        ),
-      ),
-    );
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DELIVER CONTENT
@@ -2225,191 +1096,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   // Note: _buildCompactExportSettings, _buildCompactStemExport, _buildCompactBounce
   // removed — replaced by DawExportPanel, DawStemsPanel, DawBouncePanel (P2.1)
 
-  Widget _buildBounceProgress(double progress) {
-    return Container(
-      height: 20,
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Stack(
-        children: [
-          FractionallySizedBox(
-            widthFactor: progress,
-            child: Container(
-              decoration: BoxDecoration(
-                color: LowerZoneColors.success,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ),
-          Center(
-            child: Text(
-              progress > 0 ? '${(progress * 100).toInt()}%' : 'Ready',
-              style: const TextStyle(fontSize: 9, color: LowerZoneColors.textPrimary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Compact Archive
-
-
-  /// Create project archive
-  Future<void> _createProjectArchive() async {
-    // Select save location
-    final result = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save Project Archive',
-      fileName: 'project_archive.zip',
-      type: FileType.custom,
-      allowedExtensions: ['zip'],
-    );
-
-    if (result == null || !mounted) return;
-
-    // Get project directory (use current working directory or a known project path)
-    final projectPath = Directory.current.path;
-
-    setState(() {
-      _archiveInProgress = true;
-      _archiveProgress = 0.0;
-      _archiveStatus = 'Starting...';
-    });
-
-    final archiveResult = await ProjectArchiveService.instance.createArchive(
-      projectPath: projectPath,
-      outputPath: result,
-      config: ArchiveConfig(
-        includeAudio: _archiveIncludeAudio,
-        includePresets: _archiveIncludePresets,
-        includePlugins: _archiveIncludePlugins,
-        compress: _archiveCompress,
-      ),
-      onProgress: (progress, status) {
-        if (mounted) {
-          setState(() {
-            _archiveProgress = progress;
-            _archiveStatus = status;
-          });
-        }
-      },
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      _archiveInProgress = false;
-      _archiveProgress = 0.0;
-      _archiveStatus = '';
-    });
-
-    if (archiveResult.success) {
-      final sizeKB = (archiveResult.totalBytes / 1024).toStringAsFixed(1);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Archive created: ${archiveResult.fileCount} files, $sizeKB KB'),
-          backgroundColor: LowerZoneColors.success,
-          action: SnackBarAction(
-            label: 'Open Folder',
-            textColor: Colors.white,
-            onPressed: () {
-              // Open containing folder
-              final dir = Directory(result).parent.path;
-              if (Platform.isMacOS) {
-                Process.run('open', [dir]);
-              } else if (Platform.isWindows) {
-                Process.run('explorer', [dir]);
-              } else if (Platform.isLinux) {
-                Process.run('xdg-open', [dir]);
-              }
-            },
-          ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Archive failed: ${archiveResult.error}'),
-          backgroundColor: LowerZoneColors.error,
-        ),
-      );
-    }
-  }
-
-  Widget _buildArchiveCheckbox(String label, bool value, ValueChanged<bool> onChanged) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 4),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: LowerZoneColors.bgDeepest,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              value ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 14,
-              color: value ? LowerZoneColors.success : LowerZoneColors.textMuted,
-            ),
-            const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildArchiveProgress() {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _archiveStatus,
-            style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary),
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: _archiveProgress,
-            backgroundColor: LowerZoneColors.bgMid,
-            valueColor: AlwaysStoppedAnimation<Color>(LowerZoneColors.dawAccent),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExportButton(String label, IconData icon, Color color, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 80,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 24, color: color),
-            const SizedBox(height: 6),
-            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // EMPTY STATE PANELS
@@ -2483,6 +1169,49 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           ),
         ],
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WORKSPACE PRESETS (P1.1)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Apply a workspace preset to the current layout
+  void _applyWorkspacePreset(WorkspacePreset preset) {
+    // Apply super tab from first activeTabs entry
+    if (preset.activeTabs.isNotEmpty) {
+      final tabIndex = DawSuperTab.values.indexWhere(
+        (t) => t.name == preset.activeTabs.first,
+      );
+      if (tabIndex >= 0) {
+        widget.controller.setSuperTabIndex(tabIndex);
+      }
+    }
+
+    // Apply height
+    widget.controller.setHeight(preset.lowerZoneHeight);
+
+    // Apply expanded state
+    if (!preset.lowerZoneExpanded && widget.controller.isExpanded) {
+      widget.controller.toggle();
+    } else if (preset.lowerZoneExpanded && !widget.controller.isExpanded) {
+      widget.controller.toggle();
+    }
+  }
+
+  /// Get current workspace state for saving as preset
+  WorkspacePreset _getCurrentWorkspaceState() {
+    final now = DateTime.now();
+    return WorkspacePreset(
+      id: 'custom_${now.millisecondsSinceEpoch}',
+      name: 'Custom Preset',
+      section: WorkspaceSection.daw,
+      activeTabs: [widget.controller.superTab.name],
+      lowerZoneHeight: widget.controller.height,
+      lowerZoneExpanded: widget.controller.isExpanded,
+      createdAt: now,
+      modifiedAt: now,
+      isBuiltIn: false,
     );
   }
 

@@ -16,6 +16,8 @@ import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../theme/liquid_glass_theme.dart';
 import '../../providers/theme_mode_provider.dart';
+import '../lower_zone/daw/mix/pdc_indicator.dart';
+import '../lower_zone/daw/mix/lufs_meter_widget.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -126,6 +128,8 @@ class UltimateMixerChannel {
   // LUFS metering (master only)
   final double lufsShort;
   final double lufsIntegrated;
+  // PDC (Plugin Delay Compensation) — numeric track index for FFI calls
+  final int trackIndex;
 
   const UltimateMixerChannel({
     required this.id,
@@ -151,6 +155,7 @@ class UltimateMixerChannel {
     this.correlation = 1.0,
     this.lufsShort = -70.0,
     this.lufsIntegrated = -70.0,
+    this.trackIndex = 0,
   });
 
   bool get isMaster => type == ChannelType.master;
@@ -637,7 +642,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
     );
   }
 
-  /// Input section: Gain knob + Phase Invert button
+  /// Input section: Gain knob + Phase Invert button + PDC indicator
   Widget _buildInputSection() {
     final input = widget.channel.input;
 
@@ -710,6 +715,8 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
               ),
             ],
           ),
+          // PDC indicator (Cubase-style, only shows when latency > 0)
+          PdcBadge(trackId: widget.channel.trackIndex),
         ],
       ),
     );
@@ -2055,23 +2062,13 @@ class _MasterStrip extends StatelessWidget {
               ),
             ),
           ),
-          // LUFS display
+          // LUFS display - real-time metering (P0.2)
           Container(
-            height: 20,
+            height: 22,
             margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: FluxForgeTheme.bgVoid.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: Center(
-              child: Text(
-                _formatLufs(channel.lufsIntegrated),
-                style: TextStyle(
-                  color: _getLufsColor(channel.lufsIntegrated),
-                  fontSize: 9,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w500,
-                ),
+            child: const Center(
+              child: LufsBadge(
+                target: LufsTarget.streaming,
               ),
             ),
           ),

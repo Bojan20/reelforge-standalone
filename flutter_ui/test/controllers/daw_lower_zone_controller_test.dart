@@ -12,7 +12,7 @@ void main() {
     });
 
     test('initializes with default state', () {
-      expect(controller.superTab, DawSuperTab.browse);
+      expect(controller.superTab, DawSuperTab.edit); // Default changed from browse to edit
       expect(controller.isExpanded, true);
       expect(controller.height, kLowerZoneDefaultHeight);
     });

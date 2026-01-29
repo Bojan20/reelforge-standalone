@@ -1,9 +1,11 @@
 /// DAW FX Chain Panel - FULL (P0.1)
+/// Updated: 2026-01-29 - Added per-processor CPU meters (P3.2)
 library;
 
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
 import '../../../../providers/dsp_chain_provider.dart';
+import '../shared/processor_cpu_meter.dart';
 
 class FxChainPanel extends StatelessWidget {
   final int? selectedTrackId;
@@ -56,6 +58,9 @@ class FxChainPanel extends StatelessWidget {
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: LowerZoneColors.dawAccent, letterSpacing: 1.0)),
                   const SizedBox(width: 12),
                   _buildChainBypassToggle(trackId, chain.bypass),
+                  const SizedBox(width: 12),
+                  // CPU usage badge (P3.2)
+                  ProcessorCpuBadge(trackId: trackId),
                   const Spacer(),
                   _buildAddProcessorButton(trackId, provider),
                   const SizedBox(width: 8),
@@ -163,7 +168,7 @@ class FxChainPanel extends StatelessWidget {
       builder: (context, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
         return Container(
-          width: 150, height: 70,
+          width: 150, height: 85,
           margin: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: isHovering ? LowerZoneColors.dawAccent.withValues(alpha: 0.1) : Colors.transparent,
@@ -204,7 +209,7 @@ class FxChainPanel extends StatelessWidget {
     return GestureDetector(
       onTap: trackId != null ? () => _navigateToProcessor(node.type) : null,
       child: Container(
-        width: 100, height: 70,
+        width: 100, height: 85, // Increased height to accommodate CPU meter
         decoration: BoxDecoration(
           color: isDropTarget ? LowerZoneColors.dawAccent.withValues(alpha: 0.2)
             : isActive ? LowerZoneColors.dawAccent.withValues(alpha: 0.15) : LowerZoneColors.bgSurface,
@@ -219,12 +224,23 @@ class FxChainPanel extends StatelessWidget {
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(_nodeTypeIcon(node.type), size: 20, color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted),
-                const SizedBox(height: 4),
-                Text(node.type.shortName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, 
+                Icon(_nodeTypeIcon(node.type), size: 18, color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted),
+                const SizedBox(height: 2),
+                Text(node.type.shortName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
                   color: isActive ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted)),
-                if (node.wetDry < 1.0) 
+                if (node.wetDry < 1.0)
                   Text('${(node.wetDry * 100).toInt()}%', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary)),
+                const SizedBox(height: 4),
+                // CPU meter (P3.2)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: ProcessorCpuMeterInline(
+                    processorType: node.type,
+                    isBypassed: node.bypass,
+                    width: 70,
+                    height: 6,
+                  ),
+                ),
               ],
             ),
             if (trackId != null) Positioned(
@@ -232,12 +248,12 @@ class FxChainPanel extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => DspChainProvider.instance.toggleNodeBypass(trackId, node.id),
                 child: Container(
-                  width: 18, height: 18,
+                  width: 16, height: 16,
                   decoration: BoxDecoration(
                     color: node.bypass ? Colors.orange.withValues(alpha: 0.3) : LowerZoneColors.bgDeepest,
                     shape: BoxShape.circle,
                     border: Border.all(color: node.bypass ? Colors.orange : LowerZoneColors.border)),
-                  child: Icon(node.bypass ? Icons.power_off : Icons.power, size: 10, 
+                  child: Icon(node.bypass ? Icons.power_off : Icons.power, size: 9,
                     color: node.bypass ? Colors.orange : LowerZoneColors.textSecondary),
                 ),
               ),
@@ -247,16 +263,16 @@ class FxChainPanel extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => DspChainProvider.instance.removeNode(trackId, node.id),
                 child: Container(
-                  width: 18, height: 18,
-                  decoration: BoxDecoration(color: LowerZoneColors.bgDeepest, shape: BoxShape.circle, 
+                  width: 16, height: 16,
+                  decoration: BoxDecoration(color: LowerZoneColors.bgDeepest, shape: BoxShape.circle,
                     border: Border.all(color: LowerZoneColors.border)),
-                  child: const Icon(Icons.close, size: 10, color: LowerZoneColors.textMuted),
+                  child: const Icon(Icons.close, size: 9, color: LowerZoneColors.textMuted),
                 ),
               ),
             ),
             const Positioned(
-              bottom: 4, left: 0, right: 0,
-              child: Center(child: Icon(Icons.drag_indicator, size: 12, color: LowerZoneColors.textTertiary)),
+              bottom: 3, left: 0, right: 0,
+              child: Center(child: Icon(Icons.drag_indicator, size: 10, color: LowerZoneColors.textTertiary)),
             ),
           ],
         ),
@@ -309,7 +325,7 @@ class FxChainPanel extends StatelessWidget {
 
   Widget _buildChainNode(String label, IconData icon, {bool isEndpoint = false}) {
     return Container(
-      width: 80, height: 60,
+      width: 80, height: 85,
       decoration: BoxDecoration(
         color: isEndpoint ? LowerZoneColors.bgDeepest : LowerZoneColors.bgMid,
         borderRadius: BorderRadius.circular(8),

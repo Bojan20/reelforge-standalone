@@ -154,6 +154,9 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 - .claude/guides/PRE_TASK_CHECKLIST.md — Mandatory validation before tasks
 - .claude/guides/PROVIDER_ACCESS_PATTERN.md — Code standard for Provider usage
 
+**Active Roadmaps:**
+- .claude/tasks/DAW_LOWER_ZONE_TODO_2026_01_26.md — DAW section improvements (P0/P1 ✅, P2/P3 ⏳)
+
 ---
 
 ## ⚡ MODEL SELECTION — Opus vs Sonnet vs Haiku
@@ -1633,6 +1636,88 @@ Complete 18-task improvement plan for DAW section.
 - **Pan Laws:** Equal Power (-3dB), Linear (0dB), Compromise (-4.5dB), Linear Sum (-6dB) — ✅ **FFI CONNECTED (2026-01-24)** via `stereoImagerSetPanLaw()`
 - **Keyboard Shortcuts:** Categorized by Transport/Edit/View/Tools/Mixer/Timeline/SlotLab/Global
 - **Gain Envelope:** Orange=boost, Cyan=cut, dB value at center
+
+### DAW Lower Zone TODO 2026-01-26 — ✅ P0+P1+P2 COMPLETE
+
+Comprehensive 47-task improvement plan for DAW section Lower Zone.
+
+**Task Document:** `.claude/tasks/DAW_LOWER_ZONE_TODO_2026_01_26.md`
+
+**Current Status (2026-01-29):**
+- ✅ **P0 (Critical):** 8/8 complete
+- ✅ **P1 (High):** 6/6 complete
+- ✅ **P2 (Medium):** 17/17 complete
+- ⏳ **P3 (Low):** 7 tasks pending
+
+#### P0 — Critical Tasks (Complete)
+
+| Task | Description | Status |
+|------|-------------|--------|
+| P0.1 | Split 5,540 LOC file into modules | ✅ 62% reduction (2,089 LOC) |
+| P0.2 | Real-time LUFS metering on master | ✅ Complete |
+| P0.3 | Input validation utilities | ✅ PathValidator, InputSanitizer, FFIBoundsChecker |
+| P0.4 | Test suite passing | ✅ 165 tests |
+| P0.5 | Timeline track↔mixer reorder sync | ✅ Bidirectional |
+| P0.6 | Plugin FFI insert/bypass | ✅ Connected |
+| P0.7 | Channel Strip DSP consistency | ✅ Verified |
+| P0.8 | Tempo sync with transport | ✅ Working |
+
+#### P1 — High Priority Tasks (Complete)
+
+| Task | Description | Status |
+|------|-------------|--------|
+| P1.1 | DAW workspace presets | ✅ 4 built-in presets |
+| P1.2 | Command Palette (Cmd+K) | ✅ 16 DAW commands |
+| P1.3 | PDC indicator | ✅ Visual latency display |
+| P1.4 | Master strip pan law selector | ✅ FFI connected |
+| P1.5 | Quick export format selector | ✅ WAV/FLAC/MP3 |
+| P1.6 | Track templates dropdown | ✅ Preset loading |
+
+**Key Implementations:**
+
+**P1.2 Command Palette:**
+- Location: `widgets/common/command_palette.dart`
+- Shortcut: **Cmd+K** (Mac) / **Ctrl+K** (Windows/Linux)
+- 16 pre-built commands via `FluxForgeCommands.forDaw()`
+- Features: Fuzzy search, keyboard navigation (↑/↓/Enter/Escape), shortcut badges
+
+**P0.1 File Cleanup:**
+- Removed 1,654 LOC dead code (44% reduction)
+- FX Chain, Pan/Automation, Tempo/Grid duplicates eliminated
+- Final size: 2,089 LOC (from 5,540)
+
+#### P2 — Medium Priority Tasks (Complete) — 2026-01-29
+
+| Task | Description | Status |
+|------|-------------|--------|
+| P2.1 | Meter ballistics customization | ✅ MeterBallisticsProvider |
+| P2.2 | Track filter/search | ✅ TrackSearchFilter |
+| P2.3 | Drag reorder tracks | ✅ Timeline sync |
+| P2.4 | Collapse/expand all | ✅ Track header actions |
+| P2.5 | Track notes panel | ✅ **NEW FILE** ~380 LOC |
+| P2.6 | Track quick actions | ✅ Context menu |
+| P2.7 | A/B comparison mode | ✅ DSP snapshots |
+| P2.8 | Parameter lock widget | ✅ **NEW FILE** ~400 LOC |
+| P2.9 | Solo defeat mode | ✅ AFLSoloProvider |
+| P2.10 | VCA fader grouping | ✅ VCAGroupProvider |
+| P2.11 | Channel strip presets | ✅ **NEW FILE** ~650 LOC |
+| P2.12 | Gain staging visualizer | ✅ GainStageIndicator |
+| P2.13 | Touch/pen mode | ✅ **NEW FILE** ~540 LOC |
+| P2.14 | Metering mode toggle | ✅ Peak/RMS/LUFS switch |
+| P2.15 | Panel opacity control | ✅ **NEW FILE** ~380 LOC |
+| P2.16 | Auto-hide panel mode | ✅ **NEW FILE** ~520 LOC |
+| P2.17 | Session notes integration | ✅ ProjectNotesProvider |
+
+**P2 New Files (~2,870 LOC):**
+
+| File | LOC | Description |
+|------|-----|-------------|
+| `widgets/daw/track_notes_panel.dart` | ~380 | Rich text notes per track |
+| `widgets/dsp/parameter_lock_widget.dart` | ~400 | Lock params during preset load |
+| `widgets/common/channel_strip_presets.dart` | ~650 | Full channel strip save/load |
+| `widgets/common/touch_pen_mode.dart` | ~540 | Touch/stylus optimized controls |
+| `widgets/common/panel_opacity_control.dart` | ~380 | Per-panel transparency |
+| `widgets/common/auto_hide_mode.dart` | ~520 | Auto-hiding panels |
 
 ### AudioPoolPanel Multi-Selection (2026-01-26) ✅
 
@@ -5301,10 +5386,11 @@ Five priority features from Ultimate System Analysis — all implemented.
    - Rust: `profiler_get_current_load()`, `profiler_get_stage_breakdown_json()`
 
 5. **Command Palette:**
-   - VS Code-style Ctrl+Shift+P
+   - VS Code-style shortcuts: **Cmd+K** (Mac) / **Ctrl+K** (Windows/Linux)
    - Fuzzy search with scoring
-   - Recent items tracking
-   - Pre-built FluxForge commands
+   - Keyboard navigation (↑/↓, Enter, Escape)
+   - 16 pre-built FluxForge DAW commands with shortcuts
+   - FluxForgeCommands class for extensibility
 
 **Usage:**
 

@@ -41,6 +41,36 @@ const double kSlotContextBarHeight = 28.0;
 /// Animation duration for expand/collapse
 const Duration kLowerZoneAnimationDuration = Duration(milliseconds: 200);
 
+/// Minimum width/height ratio for split view panes (prevents pane from being too small)
+const double kSplitViewMinRatio = 0.2;
+
+/// Maximum width/height ratio for split view panes
+const double kSplitViewMaxRatio = 0.8;
+
+/// Default split ratio (50/50)
+const double kSplitViewDefaultRatio = 0.5;
+
+/// Width of the split view divider
+const double kSplitDividerWidth = 6.0;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SPLIT VIEW — P2.1 Split View Mode for viewing 2 panels simultaneously
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Direction of the split view divider
+enum SplitDirection {
+  horizontal, // Left | Right
+  vertical,   // Top / Bottom
+}
+
+extension SplitDirectionX on SplitDirection {
+  String get label => this == SplitDirection.horizontal ? 'Horizontal' : 'Vertical';
+  IconData get icon => this == SplitDirection.horizontal ? Icons.view_column : Icons.view_agenda;
+  String get tooltip => this == SplitDirection.horizontal
+      ? 'Split panels side by side'
+      : 'Split panels top and bottom';
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPOGRAPHY — P0.1 Font sizes (minimum 10px for accessibility)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -152,6 +182,13 @@ extension DawSuperTabX on DawSuperTab {
   IconData get icon => [Icons.folder_open, Icons.content_cut, Icons.tune, Icons.equalizer, Icons.upload][index];
   String get shortcut => '${index + 1}';
   Color get color => LowerZoneColors.dawAccent;
+  String get tooltip => [
+    'Browse audio files, presets, and plugins',
+    'Edit timeline, MIDI, fades, and grid settings',
+    'Mix with faders, sends, panning, and automation',
+    'Process with EQ, dynamics, and FX chain',
+    'Deliver: export, stems, bounce, and archive',
+  ][index];
 }
 
 // --- DAW Sub-tabs ---
@@ -159,32 +196,68 @@ extension DawSuperTabX on DawSuperTab {
 enum DawBrowseSubTab { files, presets, plugins, history }
 enum DawEditSubTab { timeline, pianoRoll, fades, grid }
 enum DawMixSubTab { mixer, sends, pan, automation }
-enum DawProcessSubTab { eq, comp, limiter, fxChain }
+enum DawProcessSubTab { eq, comp, limiter, fxChain, sidechain }
 enum DawDeliverSubTab { export, stems, bounce, archive }
 
 extension DawBrowseSubTabX on DawBrowseSubTab {
   String get label => ['Files', 'Presets', 'Plugins', 'History'][index];
   String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  IconData get icon => [Icons.audio_file, Icons.save, Icons.extension, Icons.history][index];
+  String get tooltip => [
+    'Audio file browser with hover preview and drag-drop import',
+    'Track preset library with factory presets (Vocals, Guitar, Drums)',
+    'VST3/AU/CLAP plugin scanner with format filter',
+    'Undo/redo history stack with 100-item limit',
+  ][index];
 }
 
 extension DawEditSubTabX on DawEditSubTab {
   String get label => ['Timeline', 'Piano Roll', 'Fades', 'Grid'][index];
   String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  IconData get icon => [Icons.view_timeline, Icons.piano, Icons.gradient, Icons.grid_on][index];
+  String get tooltip => [
+    'Track arrangement view with clip positions and routing',
+    'MIDI editor with 128 notes, velocity, and CC automation',
+    'Crossfade curve editor (Equal Power, Linear, S-Curve)',
+    'Snap-to-grid settings, tempo (40-240 BPM), time signature',
+  ][index];
 }
 
 extension DawMixSubTabX on DawMixSubTab {
   String get label => ['Mixer', 'Sends', 'Pan', 'Auto'][index];
   String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  IconData get icon => [Icons.tune, Icons.call_split, Icons.swap_horiz, Icons.show_chart][index];
+  String get tooltip => [
+    'Full mixer console with faders, meters, sends, and inserts',
+    'Track→Bus routing matrix with send level controls',
+    'Stereo panning controls with pan law selection (0/-3/-4.5/-6dB)',
+    'Automation curve editor with draw/erase tools',
+  ][index];
 }
 
 extension DawProcessSubTabX on DawProcessSubTab {
-  String get label => ['EQ', 'Comp', 'Limiter', 'FX Chain'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  String get label => ['EQ', 'Comp', 'Limiter', 'FX Chain', 'Sidechain'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
+  IconData get icon => [Icons.equalizer, Icons.compress, Icons.volume_up, Icons.link, Icons.call_split][index];
+  String get tooltip => [
+    '64-band parametric EQ with GPU spectrum analyzer (60fps)',
+    'Pro-C style compressor with 14 styles and sidechain',
+    'Pro-L style limiter with True Peak and LUFS metering',
+    'Visual DSP chain with drag-drop reorder and bypass',
+    'Sidechain routing with key input source selection',
+  ][index];
 }
 
 extension DawDeliverSubTabX on DawDeliverSubTab {
   String get label => ['Export', 'Stems', 'Bounce', 'Archive'][index];
   String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  IconData get icon => [Icons.upload_file, Icons.layers, Icons.album, Icons.archive][index];
+  String get tooltip => [
+    'Quick export with last settings (WAV/FLAC/MP3, LUFS normalize)',
+    'Export individual tracks/buses as stems (batch export)',
+    'Master bounce with format/sample rate/normalize options',
+    'ZIP project with audio/presets/plugins (optional compression)',
+  ][index];
 }
 
 /// Complete DAW Lower Zone state
@@ -198,6 +271,22 @@ class DawLowerZoneState {
   bool isExpanded;
   double height;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P2.1: Split View Mode — View 2 panels simultaneously
+  // ═══════════════════════════════════════════════════════════════════════════
+  bool splitEnabled;
+  SplitDirection splitDirection;
+  double splitRatio; // 0.0-1.0, position of divider
+  bool syncScrollEnabled; // Linked scrolling between panes
+
+  // Second pane tabs (independent selection)
+  DawSuperTab secondPaneSuperTab;
+  DawBrowseSubTab secondPaneBrowseSubTab;
+  DawEditSubTab secondPaneEditSubTab;
+  DawMixSubTab secondPaneMixSubTab;
+  DawProcessSubTab secondPaneProcessSubTab;
+  DawDeliverSubTab secondPaneDeliverSubTab;
+
   DawLowerZoneState({
     this.superTab = DawSuperTab.edit,
     this.browseSubTab = DawBrowseSubTab.files,
@@ -207,6 +296,18 @@ class DawLowerZoneState {
     this.deliverSubTab = DawDeliverSubTab.export,
     this.isExpanded = true,
     this.height = kLowerZoneDefaultHeight,
+    // Split view defaults
+    this.splitEnabled = false,
+    this.splitDirection = SplitDirection.horizontal,
+    this.splitRatio = kSplitViewDefaultRatio,
+    this.syncScrollEnabled = false,
+    // Second pane defaults (different from first pane for usefulness)
+    this.secondPaneSuperTab = DawSuperTab.mix,
+    this.secondPaneBrowseSubTab = DawBrowseSubTab.files,
+    this.secondPaneEditSubTab = DawEditSubTab.timeline,
+    this.secondPaneMixSubTab = DawMixSubTab.mixer,
+    this.secondPaneProcessSubTab = DawProcessSubTab.eq,
+    this.secondPaneDeliverSubTab = DawDeliverSubTab.export,
   });
 
   /// Get current sub-tab index for active super-tab
@@ -228,7 +329,7 @@ class DawLowerZoneState {
       case DawSuperTab.mix:
         mixSubTab = DawMixSubTab.values[index.clamp(0, 3)];
       case DawSuperTab.process:
-        processSubTab = DawProcessSubTab.values[index.clamp(0, 3)];
+        processSubTab = DawProcessSubTab.values[index.clamp(0, 4)];
       case DawSuperTab.deliver:
         deliverSubTab = DawDeliverSubTab.values[index.clamp(0, 3)];
     }
@@ -236,6 +337,44 @@ class DawLowerZoneState {
 
   /// Get sub-tab labels for active super-tab
   List<String> get subTabLabels => switch (superTab) {
+    DawSuperTab.browse => DawBrowseSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.edit => DawEditSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.mix => DawMixSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.process => DawProcessSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.deliver => DawDeliverSubTab.values.map((e) => e.label).toList(),
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P2.1: Second Pane Tab Access (Split View Mode)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get current sub-tab index for second pane's active super-tab
+  int get secondPaneCurrentSubTabIndex => switch (secondPaneSuperTab) {
+    DawSuperTab.browse => secondPaneBrowseSubTab.index,
+    DawSuperTab.edit => secondPaneEditSubTab.index,
+    DawSuperTab.mix => secondPaneMixSubTab.index,
+    DawSuperTab.process => secondPaneProcessSubTab.index,
+    DawSuperTab.deliver => secondPaneDeliverSubTab.index,
+  };
+
+  /// Set sub-tab by index for second pane's active super-tab
+  void setSecondPaneSubTabIndex(int index) {
+    switch (secondPaneSuperTab) {
+      case DawSuperTab.browse:
+        secondPaneBrowseSubTab = DawBrowseSubTab.values[index.clamp(0, 3)];
+      case DawSuperTab.edit:
+        secondPaneEditSubTab = DawEditSubTab.values[index.clamp(0, 3)];
+      case DawSuperTab.mix:
+        secondPaneMixSubTab = DawMixSubTab.values[index.clamp(0, 3)];
+      case DawSuperTab.process:
+        secondPaneProcessSubTab = DawProcessSubTab.values[index.clamp(0, 4)];
+      case DawSuperTab.deliver:
+        secondPaneDeliverSubTab = DawDeliverSubTab.values[index.clamp(0, 3)];
+    }
+  }
+
+  /// Get sub-tab labels for second pane's active super-tab
+  List<String> get secondPaneSubTabLabels => switch (secondPaneSuperTab) {
     DawSuperTab.browse => DawBrowseSubTab.values.map((e) => e.label).toList(),
     DawSuperTab.edit => DawEditSubTab.values.map((e) => e.label).toList(),
     DawSuperTab.mix => DawMixSubTab.values.map((e) => e.label).toList(),
@@ -252,6 +391,17 @@ class DawLowerZoneState {
     DawDeliverSubTab? deliverSubTab,
     bool? isExpanded,
     double? height,
+    // Split view fields
+    bool? splitEnabled,
+    SplitDirection? splitDirection,
+    double? splitRatio,
+    bool? syncScrollEnabled,
+    DawSuperTab? secondPaneSuperTab,
+    DawBrowseSubTab? secondPaneBrowseSubTab,
+    DawEditSubTab? secondPaneEditSubTab,
+    DawMixSubTab? secondPaneMixSubTab,
+    DawProcessSubTab? secondPaneProcessSubTab,
+    DawDeliverSubTab? secondPaneDeliverSubTab,
   }) {
     return DawLowerZoneState(
       superTab: superTab ?? this.superTab,
@@ -262,6 +412,17 @@ class DawLowerZoneState {
       deliverSubTab: deliverSubTab ?? this.deliverSubTab,
       isExpanded: isExpanded ?? this.isExpanded,
       height: height ?? this.height,
+      // Split view
+      splitEnabled: splitEnabled ?? this.splitEnabled,
+      splitDirection: splitDirection ?? this.splitDirection,
+      splitRatio: splitRatio ?? this.splitRatio,
+      syncScrollEnabled: syncScrollEnabled ?? this.syncScrollEnabled,
+      secondPaneSuperTab: secondPaneSuperTab ?? this.secondPaneSuperTab,
+      secondPaneBrowseSubTab: secondPaneBrowseSubTab ?? this.secondPaneBrowseSubTab,
+      secondPaneEditSubTab: secondPaneEditSubTab ?? this.secondPaneEditSubTab,
+      secondPaneMixSubTab: secondPaneMixSubTab ?? this.secondPaneMixSubTab,
+      secondPaneProcessSubTab: secondPaneProcessSubTab ?? this.secondPaneProcessSubTab,
+      secondPaneDeliverSubTab: secondPaneDeliverSubTab ?? this.secondPaneDeliverSubTab,
     );
   }
 
@@ -275,6 +436,17 @@ class DawLowerZoneState {
     'deliverSubTab': deliverSubTab.index,
     'isExpanded': isExpanded,
     'height': height,
+    // Split view
+    'splitEnabled': splitEnabled,
+    'splitDirection': splitDirection.index,
+    'splitRatio': splitRatio,
+    'syncScrollEnabled': syncScrollEnabled,
+    'secondPaneSuperTab': secondPaneSuperTab.index,
+    'secondPaneBrowseSubTab': secondPaneBrowseSubTab.index,
+    'secondPaneEditSubTab': secondPaneEditSubTab.index,
+    'secondPaneMixSubTab': secondPaneMixSubTab.index,
+    'secondPaneProcessSubTab': secondPaneProcessSubTab.index,
+    'secondPaneDeliverSubTab': secondPaneDeliverSubTab.index,
   };
 
   /// Deserialize from JSON
@@ -288,6 +460,17 @@ class DawLowerZoneState {
       deliverSubTab: DawDeliverSubTab.values[json['deliverSubTab'] as int? ?? 0],
       isExpanded: json['isExpanded'] as bool? ?? true,
       height: (json['height'] as num?)?.toDouble() ?? kLowerZoneDefaultHeight,
+      // Split view
+      splitEnabled: json['splitEnabled'] as bool? ?? false,
+      splitDirection: SplitDirection.values[json['splitDirection'] as int? ?? 0],
+      splitRatio: (json['splitRatio'] as num?)?.toDouble() ?? kSplitViewDefaultRatio,
+      syncScrollEnabled: json['syncScrollEnabled'] as bool? ?? false,
+      secondPaneSuperTab: DawSuperTab.values[json['secondPaneSuperTab'] as int? ?? 2],
+      secondPaneBrowseSubTab: DawBrowseSubTab.values[json['secondPaneBrowseSubTab'] as int? ?? 0],
+      secondPaneEditSubTab: DawEditSubTab.values[json['secondPaneEditSubTab'] as int? ?? 0],
+      secondPaneMixSubTab: DawMixSubTab.values[json['secondPaneMixSubTab'] as int? ?? 0],
+      secondPaneProcessSubTab: DawProcessSubTab.values[json['secondPaneProcessSubTab'] as int? ?? 0],
+      secondPaneDeliverSubTab: DawDeliverSubTab.values[json['secondPaneDeliverSubTab'] as int? ?? 0],
     );
   }
 }

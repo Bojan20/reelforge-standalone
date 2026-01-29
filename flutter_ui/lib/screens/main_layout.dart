@@ -29,6 +29,7 @@ import '../widgets/glass/glass_panels.dart';
 import '../widgets/glass/glass_left_zone.dart';
 import '../providers/theme_mode_provider.dart';
 import '../widgets/common/keyboard_shortcuts_overlay.dart';
+import '../widgets/common/command_palette.dart';
 
 class MainLayout extends StatefulWidget {
   // PERFORMANCE: Custom control bar widget that handles its own provider listening
@@ -265,6 +266,29 @@ class _MainLayoutState extends State<MainLayout>
     }
   }
 
+  void _showCommandPalette() {
+    // P1.2: Command Palette with Cmd+K
+    final commands = FluxForgeCommands.forDaw(
+      onNewProject: () => widget.menuCallbacks?.onNewProject?.call(),
+      onOpenProject: () => widget.menuCallbacks?.onOpenProject?.call(),
+      onSaveProject: () => widget.onSave?.call(),
+      onExport: () => widget.menuCallbacks?.onExportAudio?.call(),
+      onUndo: () => widget.menuCallbacks?.onUndo?.call(),
+      onRedo: () => widget.menuCallbacks?.onRedo?.call(),
+      onToggleMixer: _toggleLower,
+      onToggleTimeline: () {}, // Timeline always visible in DAW
+      onAddTrack: () => widget.menuCallbacks?.onAddTrack?.call(),
+      onDeleteTrack: () => widget.menuCallbacks?.onDeleteTrack?.call(),
+      onToggleMetronome: () => widget.onMetronomeToggle?.call(),
+      onToggleSnap: () => widget.onSnapToggle?.call(),
+      onZoomIn: () => widget.menuCallbacks?.onZoomIn?.call(),
+      onZoomOut: () => widget.menuCallbacks?.onZoomOut?.call(),
+      onGoToStart: () => widget.onRewind?.call(),
+      onGoToEnd: () => widget.onForward?.call(),
+    );
+    CommandPalette.show(context, commands);
+  }
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
@@ -312,7 +336,12 @@ class _MainLayoutState extends State<MainLayout>
     } else if (key == LogicalKeyboardKey.keyR && !isCtrl) {
       widget.onRecord?.call();
       return KeyEventResult.handled;
-    } else if (key == LogicalKeyboardKey.keyK) {
+    } else if (isCtrl && key == LogicalKeyboardKey.keyK && !isShift) {
+      // Cmd+K / Ctrl+K - Open Command Palette
+      _showCommandPalette();
+      return KeyEventResult.handled;
+    } else if (!isCtrl && key == LogicalKeyboardKey.keyK) {
+      // K (no modifier) - Toggle Metronome
       widget.onMetronomeToggle?.call();
       return KeyEventResult.handled;
     } else if (key == LogicalKeyboardKey.comma) {
@@ -908,7 +937,10 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
   Widget _buildMixerContent() {
     return Consumer<MixerProvider>(
       builder: (context, mixerProvider, _) {
-        final channels = mixerProvider.channels.map((ch) {
+        final channels = mixerProvider.channels.asMap().entries.map((entry) {
+          final ch = entry.value;
+          final trackIdStr = ch.id.startsWith('ch_') ? ch.id.substring(3) : ch.id;
+          final trackIdx = int.tryParse(trackIdStr) ?? entry.key;
           return ultimate.UltimateMixerChannel(
             id: ch.id,
             name: ch.name,
@@ -921,6 +953,7 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
             muted: ch.muted,
             soloed: ch.soloed,
             armed: ch.armed,
+            trackIndex: trackIdx, // PDC indicator needs numeric track ID
             peakL: ch.peakL,
             peakR: ch.peakR,
             rmsL: ch.rmsL,

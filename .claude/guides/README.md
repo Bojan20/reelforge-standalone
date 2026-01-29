@@ -24,7 +24,7 @@
 ## 📚 Development Guides
 
 ### Code Patterns
-- [PROVIDER_ACCESS_PATTERN.md](PROVIDER_ACCESS_PATTERN.md) — Standard Provider usage (planned)
+- [PROVIDER_ACCESS_PATTERN.md](PROVIDER_ACCESS_PATTERN.md) — Standard Provider usage ✅
 
 ### Build & Deploy
 - [BUILD_PROCEDURES.md](../../CLAUDE.md#kritično-full-build-procedura) — See CLAUDE.md
@@ -66,8 +66,19 @@
 → [00_AUTHORITY.md](../.claude/00_AUTHORITY.md)
 
 **"What are the current tasks?"**
-→ `.claude/tasks/DAW_LOWER_ZONE_TODO_2026_01_26.md`
+→ `.claude/tasks/DAW_LOWER_ZONE_TODO_2026_01_26.md` (P0 ✅, P1 ✅, P2/P3 ⏳)
+
+**"How do I use the Command Palette?"**
+→ Press **Cmd+K** (Mac) or **Ctrl+K** (Windows/Linux) to open
 
 ---
 
-**Last Updated:** 2026-01-26
+**Last Updated:** 2026-01-29
+
+### Recent Completions
+
+| Date | Feature | Location |
+|------|---------|----------|
+| 2026-01-29 | P1.2 Command Palette (Cmd+K) | `widgets/common/command_palette.dart` |
+| 2026-01-29 | P0.1 Dead code cleanup (62% reduction) | `daw_lower_zone_widget.dart` |
+| 2026-01-29 | P0.2-P0.8 Critical fixes | Various DAW files |

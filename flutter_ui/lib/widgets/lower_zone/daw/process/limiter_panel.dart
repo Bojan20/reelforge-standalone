@@ -7,7 +7,6 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../../lower_zone_types.dart';
 import '../../../fabfilter/fabfilter_limiter_panel.dart';
 import '../shared/panel_helpers.dart';
 

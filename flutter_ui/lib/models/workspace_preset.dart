@@ -212,13 +212,83 @@ class BuiltInWorkspacePresets {
     isBuiltIn: true,
   );
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DAW Section Presets (P1.1)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// DAW Editing preset - timeline and clip editing
+  static final dawEditing = WorkspacePreset(
+    id: 'builtin_daw_editing',
+    name: 'Editing',
+    description: 'Focus on timeline and clip editing',
+    section: WorkspaceSection.daw,
+    activeTabs: ['edit'],
+    expandedCategories: ['edit'],
+    lowerZoneHeight: 350,
+    lowerZoneExpanded: true,
+    createdAt: now,
+    modifiedAt: now,
+    isBuiltIn: true,
+  );
+
+  /// DAW Mixing preset - mixer and sends
+  static final dawMixing = WorkspacePreset(
+    id: 'builtin_daw_mixing',
+    name: 'Mixing',
+    description: 'Focus on mixing and sends',
+    section: WorkspaceSection.daw,
+    activeTabs: ['mix'],
+    expandedCategories: ['mix'],
+    lowerZoneHeight: 400,
+    lowerZoneExpanded: true,
+    createdAt: now,
+    modifiedAt: now,
+    isBuiltIn: true,
+  );
+
+  /// DAW Processing preset - EQ, compression, effects
+  static final dawProcessing = WorkspacePreset(
+    id: 'builtin_daw_processing',
+    name: 'Processing',
+    description: 'Focus on DSP processing and effects',
+    section: WorkspaceSection.daw,
+    activeTabs: ['process'],
+    expandedCategories: ['process'],
+    lowerZoneHeight: 400,
+    lowerZoneExpanded: true,
+    createdAt: now,
+    modifiedAt: now,
+    isBuiltIn: true,
+  );
+
+  /// DAW Export preset - bounce and delivery
+  static final dawExport = WorkspacePreset(
+    id: 'builtin_daw_export',
+    name: 'Export',
+    description: 'Focus on bounce and delivery',
+    section: WorkspaceSection.daw,
+    activeTabs: ['deliver'],
+    expandedCategories: ['deliver'],
+    lowerZoneHeight: 300,
+    lowerZoneExpanded: true,
+    createdAt: now,
+    modifiedAt: now,
+    isBuiltIn: true,
+  );
+
   /// All built-in presets
   static List<WorkspacePreset> get all => [
+        // SlotLab presets
         audioDesign,
         routing,
         debug,
         mixing,
         spatial,
+        // DAW presets
+        dawEditing,
+        dawMixing,
+        dawProcessing,
+        dawExport,
       ];
 
   /// Get built-in presets by section

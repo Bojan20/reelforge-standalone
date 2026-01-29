@@ -1,322 +1,252 @@
-# Provider Access Pattern — Standard for FluxForge Studio
+# Provider Access Pattern Guide
 
-**Created:** 2026-01-26
-**Authority:** Code Standard (mandatory for all Flutter code)
-**Scope:** All widgets using Provider state management
-
----
-
-## 🎯 The Four Patterns
-
-### Pattern 1: READ-ONLY (Method Calls)
-
-**When to use:** Calling provider methods, NO UI dependency on state.
-
-**Example:**
-```dart
-void _handleButtonPress() {
-  final mixer = context.read<MixerProvider>();
-  mixer.createChannel(name: 'Audio 1');
-  // ✅ No rebuild needed — just calling a method
-}
-```
-
-**Why:** `context.read()` doesn't subscribe to changes — no rebuild when provider updates.
-
-**Performance:** ✅ BEST — No unnecessary rebuilds.
+**Created:** 2026-01-29
+**Purpose:** Standard patterns for accessing Providers in FluxForge Studio
+**Applies To:** All Flutter widgets in `flutter_ui/`
 
 ---
 
-### Pattern 2: REACTIVE (Full Provider)
+## Quick Reference
 
-**When to use:** Displaying provider data in UI, simple dependencies.
+| Need | Pattern | Example |
+|------|---------|---------|
+| Display data (UI must update) | `context.watch<T>()` | `final mixer = context.watch<MixerProvider>();` |
+| Call methods (no UI update needed) | `context.read<T>()` | `context.read<MixerProvider>().createChannel();` |
+| Select specific field | `context.select<T, V>()` | `final count = context.select<MixerProvider, int>((p) => p.channels.length);` |
+| Singleton (non-Provider) | Direct access | `DspChainProvider.instance.getChain(trackId)` |
 
-**Example:**
+---
+
+## Detailed Patterns
+
+### 1. REACTIVE ACCESS — `context.watch<T>()`
+
+**Use when:** Displaying provider data in UI that should rebuild when provider changes.
+
 ```dart
 Widget build(BuildContext context) {
   final mixer = context.watch<MixerProvider>();
-  return Text('Channels: ${mixer.channels.length}');
-  // ✅ Rebuilds when ANY provider field changes
-}
-```
 
-**Why:** `context.watch()` subscribes to ALL provider changes.
-
-**Performance:** ⚠️ OK for small widgets, but can cause excessive rebuilds.
-
----
-
-### Pattern 3: SELECTIVE (Specific Field)
-
-**When to use:** Large provider, only care about ONE field.
-
-**Example:**
-```dart
-Widget build(BuildContext context) {
-  // Only rebuilds when channels list changes (not when other fields change)
-  final channels = context.select<MixerProvider, List<MixerChannel>>(
-    (provider) => provider.channels,
+  return Column(
+    children: [
+      Text('Channels: ${mixer.channels.length}'),
+      for (final ch in mixer.channels)
+        ChannelWidget(channel: ch),
+    ],
   );
-  return ListView.builder(
-    itemCount: channels.length,
-    itemBuilder: (_, i) => ChannelWidget(channels[i]),
-  );
-  // ✅ Rebuilds ONLY when channels list changes
 }
 ```
 
-**Why:** Rebuilds only when selected field changes, not entire provider.
-
-**Performance:** ✅ BEST for large providers — reduces rebuilds by 60-80%.
+**Behavior:** Widget rebuilds whenever `notifyListeners()` is called on the provider.
 
 ---
 
-### Pattern 4: LISTENABLE BUILDER (Manual Control)
+### 2. READ-ONLY ACCESS — `context.read<T>()`
 
-**When to use:** Provider doesn't extend ChangeNotifier OR need manual control.
+**Use when:** Calling a method, performing an action, or accessing data that doesn't affect UI rebuild.
 
-**Example:**
+```dart
+void _handleCreateChannel() {
+  final mixer = context.read<MixerProvider>();
+  mixer.createChannel(name: 'Audio ${mixer.channels.length + 1}');
+}
+```
+
+**Behavior:** No rebuild triggered. Use in callbacks, button handlers, lifecycle methods.
+
+**Common use cases:**
+- Button `onPressed` handlers
+- Gesture callbacks
+- `initState()` / `dispose()`
+- Timer callbacks
+
+---
+
+### 3. SELECTIVE LISTENING — `context.select<T, V>()`
+
+**Use when:** Large provider but only need to rebuild when specific field changes.
+
 ```dart
 Widget build(BuildContext context) {
-  return ListenableBuilder(
-    listenable: DspChainProvider.instance,
-    builder: (context, _) {
-      final chain = DspChainProvider.instance.getChain(trackId);
-      return ChainView(chain: chain);
-    },
+  // Only rebuild when channel count changes, not on volume/pan changes
+  final channelCount = context.select<MixerProvider, int>(
+    (provider) => provider.channels.length,
   );
-  // ✅ Manual subscription to specific Listenable
+
+  return Text('$channelCount channels');
 }
 ```
 
-**Why:** Singleton providers or Listenable objects that aren't in Provider tree.
+**Behavior:** Only rebuilds when selected value changes. Reduces unnecessary rebuilds.
 
-**Performance:** ✅ GOOD — Explicit control over rebuilds.
+**Good for:**
+- Large providers with many fields
+- Performance-critical widgets
+- Derived values (counts, sums, booleans)
 
 ---
 
-## 🚫 Anti-Patterns (DO NOT USE)
+### 4. SINGLETON ACCESS
 
-### ❌ Anti-Pattern 1: Using watch() for Method Calls
+**Use when:** Provider is a singleton and doesn't need `context`.
 
 ```dart
-// ❌ BAD: Causes unnecessary rebuild every time provider changes
-void _handleButtonPress() {
-  final mixer = context.watch<MixerProvider>(); // WRONG!
-  mixer.createChannel(name: 'Audio 1');
+// DspChainProvider is a singleton
+final chain = DspChainProvider.instance.getChain(trackId);
+
+// With ListenableBuilder for reactivity
+ListenableBuilder(
+  listenable: DspChainProvider.instance,
+  builder: (context, _) {
+    final chain = DspChainProvider.instance.getChain(trackId);
+    return _buildChainView(chain);
+  },
+)
+```
+
+**Singleton providers in FluxForge:**
+- `DspChainProvider.instance`
+- `TrackPresetService.instance`
+- `NativeFFI.instance`
+
+---
+
+## Anti-Patterns (DO NOT USE)
+
+### Using `watch()` in callbacks
+
+```dart
+// BAD: Causes unnecessary rebuild
+void _handleClick() {
+  final mixer = context.watch<MixerProvider>(); // Should be read()!
+  mixer.doSomething();
 }
 
-// ✅ GOOD: No rebuild
-void _handleButtonPress() {
-  final mixer = context.read<MixerProvider>(); // CORRECT!
-  mixer.createChannel(name: 'Audio 1');
+// GOOD: Use read() for callbacks
+void _handleClick() {
+  final mixer = context.read<MixerProvider>();
+  mixer.doSomething();
 }
 ```
 
-**Why it's bad:** `watch()` subscribes to provider changes even though you're not displaying any data.
-
----
-
-### ❌ Anti-Pattern 2: Using read() for UI Display
+### Using `read()` for display data
 
 ```dart
-// ❌ BAD: Won't rebuild when channels change!
+// BAD: UI won't update when channels change
 Widget build(BuildContext context) {
-  final mixer = context.read<MixerProvider>(); // WRONG!
+  final mixer = context.read<MixerProvider>(); // Should be watch()!
   return Text('Channels: ${mixer.channels.length}');
 }
 
-// ✅ GOOD: Rebuilds when channels change
+// GOOD: Use watch() for reactive display
 Widget build(BuildContext context) {
-  final mixer = context.watch<MixerProvider>(); // CORRECT!
+  final mixer = context.watch<MixerProvider>();
   return Text('Channels: ${mixer.channels.length}');
 }
 ```
 
-**Why it's bad:** UI won't update when provider changes.
-
----
-
-### ❌ Anti-Pattern 3: Multiple watch() in Same Widget
+### Multiple `watch()` calls in same build
 
 ```dart
-// ❌ BAD: Each watch() causes separate rebuild subscription
+// BAD: Excessive rebuilds
 Widget build(BuildContext context) {
-  final mixer = context.watch<MixerProvider>(); // Rebuild 1
-  final dsp = context.watch<DspChainProvider>(); // Rebuild 2
-  final timeline = context.watch<TimelineProvider>(); // Rebuild 3
-  // Widget rebuilds 3x when ANY provider changes!
+  final mixer = context.watch<MixerProvider>();
+  final dsp = context.watch<DspChainProvider>();
+  final routing = context.watch<RoutingProvider>();
+  // Rebuilds on ANY change to ANY provider
 }
 
-// ✅ GOOD: Use Consumer2/Consumer3 or select()
+// BETTER: Use Consumer2/Consumer3
 Widget build(BuildContext context) {
   return Consumer2<MixerProvider, DspChainProvider>(
     builder: (context, mixer, dsp, _) {
-      // Single rebuild when either provider changes
+      return _buildContent(mixer, dsp);
     },
   );
 }
+
+// BEST: Use select() for specific fields
+Widget build(BuildContext context) {
+  final channelCount = context.select<MixerProvider, int>((p) => p.channels.length);
+  final chainCount = context.select<DspChainProvider, int>((p) => p.hasChain(trackId) ? 1 : 0);
+  return Text('$channelCount channels, $chainCount chains');
+}
 ```
 
-**Why it's bad:** Excessive rebuilds (3x in this example).
-
 ---
 
-## 📊 Decision Matrix
+## Provider Error Handling
 
-| Use Case | Pattern | Example |
-|----------|---------|---------|
-| **Button callback** | `read()` | `context.read<MixerProvider>().createChannel()` |
-| **Display simple data** | `watch()` | `final mixer = context.watch<MixerProvider>()` |
-| **Display from large provider** | `select()` | `context.select<Mixer, List>((p) => p.channels)` |
-| **Singleton provider** | `ListenableBuilder` | `ListenableBuilder(listenable: DspChainProvider.instance, ...)` |
-| **Multiple providers** | `Consumer2/3` | `Consumer2<MixerProvider, DspChainProvider>(...)` |
-
----
-
-## 🔧 Refactoring Checklist
-
-When refactoring existing code to use standard patterns:
-
-- [ ] Identify all `context.watch()` calls
-- [ ] Check if they're in method callbacks → Change to `read()`
-- [ ] Check if they're in build() → Keep `watch()` OR change to `select()` if large provider
-- [ ] Check for multiple `watch()` calls → Use `Consumer2/3` or multiple `select()`
-- [ ] Add comment explaining pattern choice (if non-obvious)
-
----
-
-## 💡 Examples from FluxForge
-
-### Example 1: Mixer Panel (GOOD)
+Always wrap provider access in try-catch when provider might not be available:
 
 ```dart
-// ✅ GOOD: Uses watch() for reactive UI
 Widget _buildMixerPanel() {
-  final mixer = context.watch<MixerProvider>();
-  return UltimateMixer(
-    channels: mixer.channels, // Rebuilds when channels change
-    onVolumeChange: (id, vol) {
-      // Don't need watch() here — just calling method
-      context.read<MixerProvider>().setChannelVolume(id, vol);
-    },
-  );
+  MixerProvider? mixer;
+  try {
+    mixer = context.watch<MixerProvider>();
+  } catch (_) {
+    return _buildProviderUnavailableUI('MixerProvider');
+  }
+
+  return _buildMixerContent(mixer);
 }
 ```
 
----
-
-### Example 2: FX Chain Panel (GOOD)
+Or use `ProviderErrorBoundary`:
 
 ```dart
-// ✅ GOOD: Uses ListenableBuilder for singleton
-Widget _buildFxChainPanel() {
-  return ListenableBuilder(
-    listenable: DspChainProvider.instance,
-    builder: (context, _) {
-      final chain = DspChainProvider.instance.getChain(trackId);
-      return ChainView(nodes: chain.nodes);
-    },
+Widget _buildMixerPanel() {
+  return ProviderErrorBoundary(
+    providerName: 'MixerProvider',
+    child: Consumer<MixerProvider>(
+      builder: (context, mixer, _) => _buildMixerContent(mixer),
+    ),
   );
 }
 ```
 
 ---
 
-### Example 3: Large Provider Optimization (BEST)
+## FluxForge Provider Inventory
 
-```dart
-// ❌ BEFORE: Rebuilds when ANY middleware field changes
-Widget build(BuildContext context) {
-  final middleware = context.watch<MiddlewareProvider>();
-  return ListView.builder(
-    itemCount: middleware.compositeEvents.length,
-    itemBuilder: (_, i) => EventCard(middleware.compositeEvents[i]),
-  );
-}
-
-// ✅ AFTER: Rebuilds ONLY when compositeEvents list changes
-Widget build(BuildContext context) {
-  final events = context.select<MiddlewareProvider, List<CompositeEvent>>(
-    (provider) => provider.compositeEvents,
-  );
-  return ListView.builder(
-    itemCount: events.length,
-    itemBuilder: (_, i) => EventCard(events[i]),
-  );
-}
-```
-
-**Performance Gain:** 60-80% fewer rebuilds.
+| Provider | Type | Access Pattern |
+|----------|------|----------------|
+| `MixerProvider` | ChangeNotifier | `context.watch/read` |
+| `RoutingProvider` | ChangeNotifier | `context.watch/read` |
+| `DspChainProvider` | Singleton | `.instance` + `ListenableBuilder` |
+| `MiddlewareProvider` | ChangeNotifier | `context.watch/read` |
+| `SlotLabProvider` | ChangeNotifier | `context.watch/read` |
+| `TimelinePlaybackProvider` | ChangeNotifier | `context.watch/read` |
+| `AudioAssetManager` | Singleton | `.instance` |
+| `NativeFFI` | Singleton | `.instance` |
 
 ---
 
-## 🎯 Pattern Selection Flowchart
+## Decision Flowchart
 
 ```
-┌─────────────────────────────────────────────┐
-│ Are you calling a provider METHOD?         │
-├─────────────────────────────────────────────┤
-│ YES → Use context.read<Provider>()         │
-│       (no rebuild needed)                   │
-└─────────────────────────────────────────────┘
-         │ NO ↓
-┌─────────────────────────────────────────────┐
-│ Are you displaying provider DATA?          │
-├─────────────────────────────────────────────┤
-│ YES → Continue ↓                            │
-└─────────────────────────────────────────────┘
-         │
-┌─────────────────────────────────────────────┐
-│ Is the provider LARGE (many fields)?       │
-├─────────────────────────────────────────────┤
-│ YES → Use context.select<Provider, Field>()│
-│       (rebuild only when field changes)     │
-│                                             │
-│ NO → Use context.watch<Provider>()         │
-│      (rebuild when any field changes)       │
-└─────────────────────────────────────────────┘
-         │
-┌─────────────────────────────────────────────┐
-│ Is it a SINGLETON (not in Provider tree)?  │
-├─────────────────────────────────────────────┤
-│ YES → Use ListenableBuilder                │
-│       (manual subscription)                 │
-│                                             │
-│ NO → Use watch() or select()               │
-└─────────────────────────────────────────────┘
+Do I need the UI to rebuild when provider changes?
+├─ YES → Is it a singleton?
+│        ├─ YES → Use ListenableBuilder
+│        └─ NO → Use context.watch<T>()
+└─ NO → Am I in a callback/action handler?
+         ├─ YES → Use context.read<T>()
+         └─ NO → Consider context.select<T,V>() for specific fields
 ```
 
 ---
 
-## ✅ Code Review Checklist
+## Verification Checklist
 
 When reviewing code, check:
 
-- [ ] All method calls use `read()`, not `watch()`
-- [ ] All UI data displays use `watch()` or `select()`
-- [ ] Large providers use `select()`, not `watch()`
-- [ ] No multiple `watch()` in same widget (use `Consumer2/3` instead)
-- [ ] Singleton providers use `ListenableBuilder`
-- [ ] Pattern choice is commented (if non-obvious)
+- [ ] `watch()` only in `build()` methods
+- [ ] `read()` in callbacks, not `watch()`
+- [ ] No multiple `watch()` when `select()` would suffice
+- [ ] Singleton providers accessed via `.instance`
+- [ ] Error handling for potentially missing providers
 
 ---
 
-## 📚 Further Reading
-
-**Provider Package Docs:**
-- https://pub.dev/packages/provider
-
-**Best Practices:**
-- https://flutter.dev/docs/development/data-and-backend/state-mgmt/simple
-
-**FluxForge Specific:**
-- See `.claude/architecture/` for provider architecture docs
-- See existing code in `flutter_ui/lib/providers/` for examples
-
----
-
-**End of Guide — Use This Standard for All Provider Code**
-
-**Last Updated:** 2026-01-26
-**Status:** Active Code Standard
+**Document Version:** 1.0
+**Last Updated:** 2026-01-29

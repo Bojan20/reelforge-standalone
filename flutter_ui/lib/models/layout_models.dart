@@ -410,6 +410,12 @@ class MenuCallbacks {
   final VoidCallback? onKeyboardShortcuts;
   // Audio menu
   final VoidCallback? onDirectOfflineProcessing;
+  // Track operations
+  final VoidCallback? onAddTrack;
+  final VoidCallback? onDeleteTrack;
+  // Zoom operations
+  final VoidCallback? onZoomIn;
+  final VoidCallback? onZoomOut;
   // Advanced panels
   final VoidCallback? onShowLogicalEditor;
   final VoidCallback? onShowScaleAssistant;
@@ -448,6 +454,10 @@ class MenuCallbacks {
     this.onShowAudioPool,
     this.onShowMarkers,
     this.onShowMidiEditor,
+    this.onAddTrack,
+    this.onDeleteTrack,
+    this.onZoomIn,
+    this.onZoomOut,
     this.onProjectSettings,
     this.onValidateProject,
     this.onBuildProject,

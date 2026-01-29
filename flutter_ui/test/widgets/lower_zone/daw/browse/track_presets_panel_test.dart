@@ -40,13 +40,14 @@ void main() {
       expect(find.text('Vocals'), findsWidgets);
     });
 
-    testWidgets('displays empty state when no presets', (tester) async {
-      TrackPresetService.instance.presets.clear();
-
+    testWidgets('displays empty state when no presets match filter', (tester) async {
+      // Note: We can't test truly empty presets because the widget auto-initializes
+      // factory presets when empty (lines 52-56 in track_presets_panel.dart).
+      // Instead, we test empty state via search filter that matches nothing.
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: TrackPresetsPanel(),
+            body: TrackPresetsPanel(searchQuery: 'xyz_no_match_12345'),
           ),
         ),
       );
