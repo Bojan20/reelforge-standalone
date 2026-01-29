@@ -11,7 +11,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/auto_event_builder_provider.dart';
+import '../../../providers/middleware_provider.dart';
+import '../../../models/slot_audio_events.dart';
 import '../../../theme/fluxforge_theme.dart';
 
 class EventListPanel extends StatefulWidget {
@@ -35,20 +36,20 @@ class _EventListPanelState extends State<EventListPanel> {
     super.dispose();
   }
 
-  List<CommittedEvent> _filterAndSortEvents(List<CommittedEvent> events) {
+  List<SlotCompositeEvent> _filterAndSortEvents(List<SlotCompositeEvent> events) {
     var filtered = events.where((e) {
       // Search filter
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
-        if (!e.eventId.toLowerCase().contains(query) &&
-            !e.bus.toLowerCase().contains(query) &&
-            !e.tags.any((t) => t.toLowerCase().contains(query))) {
+        if (!e.id.toLowerCase().contains(query) &&
+            !e.category.toLowerCase().contains(query) &&
+            !e.triggerStages.any((t) => t.toLowerCase().contains(query))) {
           return false;
         }
       }
 
       // Bus filter
-      if (_filterBus != 'All' && !e.bus.startsWith(_filterBus)) {
+      if (_filterBus != 'All' && !e.category.startsWith(_filterBus)) {
         return false;
       }
 
@@ -60,10 +61,10 @@ class _EventListPanelState extends State<EventListPanel> {
       int cmp;
       switch (_sortBy) {
         case 'name':
-          cmp = a.eventId.compareTo(b.eventId);
+          cmp = a.name.compareTo(b.name);
           break;
         case 'bus':
-          cmp = a.bus.compareTo(b.bus);
+          cmp = a.category.compareTo(b.category);
           break;
         case 'date':
           cmp = a.createdAt.compareTo(b.createdAt);
@@ -87,9 +88,9 @@ class _EventListPanelState extends State<EventListPanel> {
     });
   }
 
-  void _selectAll(List<CommittedEvent> events) {
+  void _selectAll(List<SlotCompositeEvent> events) {
     setState(() {
-      _selectedEventIds.addAll(events.map((e) => e.eventId));
+      _selectedEventIds.addAll(events.map((e) => e.id));
     });
   }
 
@@ -99,19 +100,19 @@ class _EventListPanelState extends State<EventListPanel> {
     });
   }
 
-  void _deleteSelected(AutoEventBuilderProvider provider) {
+  void _deleteSelected(MiddlewareProvider middleware) {
     for (final id in _selectedEventIds.toList()) {
-      provider.deleteEvent(id);
+      middleware.deleteCompositeEvent(id);
     }
     _clearSelection();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AutoEventBuilderProvider>(
-      builder: (context, provider, child) {
-        final events = _filterAndSortEvents(provider.events);
-        final busOptions = _getBusOptions(provider.events);
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, child) {
+        final events = _filterAndSortEvents(middleware.compositeEvents);
+        final busOptions = _getBusOptions(middleware.compositeEvents);
 
         return Container(
           padding: const EdgeInsets.all(12),
@@ -134,7 +135,7 @@ class _EventListPanelState extends State<EventListPanel> {
                 totalCount: events.length,
                 onSelectAll: () => _selectAll(events),
                 onClearSelection: _clearSelection,
-                onDeleteSelected: () => _deleteSelected(provider),
+                onDeleteSelected: () => _deleteSelected(middleware),
               ),
 
               const SizedBox(height: 8),
@@ -147,8 +148,7 @@ class _EventListPanelState extends State<EventListPanel> {
                         events: events,
                         selectedIds: _selectedEventIds,
                         onToggleSelect: _toggleSelect,
-                        onDelete: provider.deleteEvent,
-                        bindings: provider.bindings,
+                        onDelete: middleware.deleteCompositeEvent,
                       ),
               ),
             ],
@@ -158,10 +158,10 @@ class _EventListPanelState extends State<EventListPanel> {
     );
   }
 
-  List<String> _getBusOptions(List<CommittedEvent> events) {
+  List<String> _getBusOptions(List<SlotCompositeEvent> events) {
     final buses = events.map((e) {
-      final parts = e.bus.split('/');
-      return parts.isNotEmpty ? parts.first : e.bus;
+      final parts = e.category.split('/');
+      return parts.isNotEmpty ? parts.first : e.category;
     }).toSet().toList();
     buses.sort();
     return ['All', ...buses];
@@ -452,18 +452,16 @@ class _SmallButton extends StatelessWidget {
 // =============================================================================
 
 class _EventListView extends StatelessWidget {
-  final List<CommittedEvent> events;
+  final List<SlotCompositeEvent> events;
   final Set<String> selectedIds;
   final void Function(String eventId) onToggleSelect;
   final void Function(String eventId) onDelete;
-  final List<EventBinding> bindings;
 
   const _EventListView({
     required this.events,
     required this.selectedIds,
     required this.onToggleSelect,
     required this.onDelete,
-    required this.bindings,
   });
 
   @override
@@ -472,15 +470,15 @@ class _EventListView extends StatelessWidget {
       itemCount: events.length,
       itemBuilder: (context, index) {
         final event = events[index];
-        final isSelected = selectedIds.contains(event.eventId);
-        final bindingCount = bindings.where((b) => b.eventId == event.eventId).length;
+        final isSelected = selectedIds.contains(event.id);
+        final layerCount = event.layers.length;
 
         return _EventListItem(
           event: event,
           isSelected: isSelected,
-          bindingCount: bindingCount,
-          onToggleSelect: () => onToggleSelect(event.eventId),
-          onDelete: () => onDelete(event.eventId),
+          layerCount: layerCount,
+          onToggleSelect: () => onToggleSelect(event.id),
+          onDelete: () => onDelete(event.id),
         );
       },
     );
@@ -488,16 +486,16 @@ class _EventListView extends StatelessWidget {
 }
 
 class _EventListItem extends StatefulWidget {
-  final CommittedEvent event;
+  final SlotCompositeEvent event;
   final bool isSelected;
-  final int bindingCount;
+  final int layerCount;
   final VoidCallback onToggleSelect;
   final VoidCallback onDelete;
 
   const _EventListItem({
     required this.event,
     required this.isSelected,
-    required this.bindingCount,
+    required this.layerCount,
     required this.onToggleSelect,
     required this.onDelete,
   });
@@ -560,7 +558,7 @@ class _EventListItemState extends State<_EventListItem> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.event.eventId,
+                      widget.event.name,
                       style: TextStyle(
                         color: FluxForgeTheme.textPrimary,
                         fontSize: 12,
@@ -575,13 +573,13 @@ class _EventListItemState extends State<_EventListItem> {
                       children: [
                         _InfoChip(
                           icon: Icons.route,
-                          label: widget.event.bus,
+                          label: widget.event.category,
                           color: FluxForgeTheme.accentBlue,
                         ),
                         const SizedBox(width: 6),
                         _InfoChip(
                           icon: Icons.link,
-                          label: '${widget.bindingCount} binding${widget.bindingCount == 1 ? '' : 's'}',
+                          label: '${widget.layerCount} layer${widget.layerCount == 1 ? '' : 's'}',
                           color: FluxForgeTheme.accentGreen,
                         ),
                       ],
@@ -591,11 +589,11 @@ class _EventListItemState extends State<_EventListItem> {
               ),
 
               // Tags
-              if (widget.event.tags.isNotEmpty) ...[
+              if (widget.event.triggerStages.isNotEmpty) ...[
                 const SizedBox(width: 8),
                 Wrap(
                   spacing: 4,
-                  children: widget.event.tags.take(3).map((tag) {
+                  children: widget.event.triggerStages.take(3).map((tag) {
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
