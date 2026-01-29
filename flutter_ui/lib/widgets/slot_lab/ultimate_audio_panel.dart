@@ -101,6 +101,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   // Audio preview state (SL-LP-P0.1)
   String? _playingStage;
 
+  // Search state (SL-LP-P1.2)
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -157,6 +160,38 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(),
+          // Search field (SL-LP-P1.2)
+          Padding(
+            padding: const EdgeInsets.all(6),
+            child: TextField(
+              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: const Color(0xFF16161C),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                hintText: 'Search 341 slots...',
+                hintStyle: const TextStyle(color: Colors.white24, fontSize: 10),
+                prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white24),
+                prefixIconConstraints: const BoxConstraints(minWidth: 28),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 14, color: Colors.white38),
+                        onPressed: () => setState(() => _searchQuery = ''),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                      )
+                    : null,
+              ),
+              onChanged: (value) {
+                setState(() => _searchQuery = value.toLowerCase());
+              },
+            ),
+          ),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -422,6 +457,16 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     final audioPath = widget.audioAssignments[slot.stage];
     final hasAudio = audioPath != null;
     final fileName = hasAudio ? audioPath.split('/').last : null;
+
+    // Filter by search query (SL-LP-P1.2)
+    if (_searchQuery.isNotEmpty) {
+      final matchesStage = slot.stage.toLowerCase().contains(_searchQuery);
+      final matchesLabel = slot.label.toLowerCase().contains(_searchQuery);
+      final matchesFileName = fileName?.toLowerCase().contains(_searchQuery) ?? false;
+      if (!matchesStage && !matchesLabel && !matchesFileName) {
+        return const SizedBox.shrink(); // Hide non-matching slots
+      }
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
