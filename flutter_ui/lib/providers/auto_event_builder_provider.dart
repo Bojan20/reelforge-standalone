@@ -51,6 +51,10 @@ class AutoEventBuilderProvider extends ChangeNotifier {
   List<AudioAsset> get selectedAssets => const [];
   List<AudioAsset> get recentAssets => const [];
   List<CommittedEvent> get events => const [];
+  List<String> get presets => const []; // Stub for quick_sheet.dart
+
+  EventDraft? createDraft(AudioAsset asset, DropTarget target) => null; // Stub
+  void updateDraft({String? trigger, String? presetId}) {} // Stub
 
   void clearAudioAssets() {}
   void addAudioAssets(List<AudioAsset> assets) {}
