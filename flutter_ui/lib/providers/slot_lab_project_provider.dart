@@ -152,6 +152,10 @@ class SlotLabProjectProvider extends ChangeNotifier {
         // V8: Include GDD data
         gridConfig: _gridConfig,
         importedGdd: _importedGdd,
+        // V9: Include UI state (SL-INT-P1.2, P1.4)
+        selectedEventId: _selectedEventId,
+        lowerZoneHeight: _lowerZoneHeight,
+        audioBrowserDirectory: _audioBrowserDirectory,
       );
 
   // ==========================================================================

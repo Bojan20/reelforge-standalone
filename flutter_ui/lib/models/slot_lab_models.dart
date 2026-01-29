@@ -790,6 +790,11 @@ class SlotLabProject {
   final GddGridConfig? gridConfig;
   final GameDesignDocument? importedGdd;
 
+  // V9: UI State Persistence (SL-INT-P1.2, SL-INT-P1.4)
+  final String? selectedEventId;
+  final double? lowerZoneHeight;
+  final String? audioBrowserDirectory;
+
   const SlotLabProject({
     required this.name,
     this.version = '1.0',
@@ -812,6 +817,10 @@ class SlotLabProject {
     // V8: GDD data
     this.gridConfig,
     this.importedGdd,
+    // V9: UI state
+    this.selectedEventId,
+    this.lowerZoneHeight,
+    this.audioBrowserDirectory,
   });
 
   /// Create default project with standard symbols and contexts
@@ -841,6 +850,9 @@ class SlotLabProject {
     String? lastActiveTab,
     GddGridConfig? gridConfig,
     GameDesignDocument? importedGdd,
+    String? selectedEventId,
+    double? lowerZoneHeight,
+    String? audioBrowserDirectory,
   }) {
     return SlotLabProject(
       name: name ?? this.name,
@@ -856,6 +868,9 @@ class SlotLabProject {
       lastActiveTab: lastActiveTab ?? this.lastActiveTab,
       gridConfig: gridConfig ?? this.gridConfig,
       importedGdd: importedGdd ?? this.importedGdd,
+      selectedEventId: selectedEventId ?? this.selectedEventId,
+      lowerZoneHeight: lowerZoneHeight ?? this.lowerZoneHeight,
+      audioBrowserDirectory: audioBrowserDirectory ?? this.audioBrowserDirectory,
     );
   }
 
@@ -907,6 +922,10 @@ class SlotLabProject {
       importedGdd: json['importedGdd'] != null
           ? GameDesignDocument.fromJson(json['importedGdd'] as Map<String, dynamic>)
           : null,
+      // V9: UI state
+      selectedEventId: json['selectedEventId'] as String?,
+      lowerZoneHeight: (json['lowerZoneHeight'] as num?)?.toDouble(),
+      audioBrowserDirectory: json['audioBrowserDirectory'] as String?,
     );
   }
 
@@ -927,6 +946,10 @@ class SlotLabProject {
       // V8: GDD data
       if (gridConfig != null) 'gridConfig': gridConfig!.toJson(),
       if (importedGdd != null) 'importedGdd': importedGdd!.toJson(),
+      // V9: UI state
+      if (selectedEventId != null) 'selectedEventId': selectedEventId,
+      if (lowerZoneHeight != null) 'lowerZoneHeight': lowerZoneHeight,
+      if (audioBrowserDirectory != null) 'audioBrowserDirectory': audioBrowserDirectory,
     };
   }
 
