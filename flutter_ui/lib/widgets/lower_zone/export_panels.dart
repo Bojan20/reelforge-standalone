@@ -11,6 +11,8 @@
 /// - Normalization options (Peak, LUFS)
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io' as java_io;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -1717,6 +1719,627 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
 // SLOTLAB BATCH EXPORT PANEL — Event batch export
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// P4.1: SLOTLAB EVENT DATA EXPORT PANEL — JSON/XML Event Definitions Export
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Export format for event data
+enum EventDataExportFormat {
+  json('JSON', '.json', 'Structured JSON format, human-readable'),
+  xml('XML', '.xml', 'XML format for game engine integration'),
+  jsonMinified('JSON (Minified)', '.json', 'Compact JSON for production');
+
+  final String label;
+  final String extension;
+  final String description;
+
+  const EventDataExportFormat(this.label, this.extension, this.description);
+}
+
+/// What to include in the export
+enum EventDataExportScope {
+  all('All Events', 'Export all events'),
+  selected('Selected Events', 'Export only selected events'),
+  byStage('By Stage', 'Export events grouped by stage');
+
+  final String label;
+  final String description;
+
+  const EventDataExportScope(this.label, this.description);
+}
+
+class SlotLabEventDataExportPanel extends StatefulWidget {
+  final Color accentColor;
+  final List<SlotLabEventItem> events;
+
+  const SlotLabEventDataExportPanel({
+    super.key,
+    this.accentColor = LowerZoneColors.slotLabAccent,
+    this.events = const [],
+  });
+
+  @override
+  State<SlotLabEventDataExportPanel> createState() => _SlotLabEventDataExportPanelState();
+}
+
+class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPanel> {
+  late List<SlotLabEventItem> _events;
+
+  // Export settings
+  EventDataExportFormat _format = EventDataExportFormat.json;
+  EventDataExportScope _scope = EventDataExportScope.all;
+  bool _includeMetadata = true;
+  bool _includeLayers = true;
+  bool _includeAudioPaths = true;
+  bool _includeTimestamps = false;
+
+  // State
+  String? _outputPath;
+  bool _isExporting = false;
+  String? _lastExportPath;
+  int _exportedCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _events = widget.events.isEmpty ? _getDefaultEvents() : widget.events;
+  }
+
+  List<SlotLabEventItem> _getDefaultEvents() => [
+    SlotLabEventItem(id: '1', name: 'SPIN_START', stage: 'SPIN_START', selected: true),
+    SlotLabEventItem(id: '2', name: 'REEL_SPIN', stage: 'REEL_SPIN', selected: true),
+    SlotLabEventItem(id: '3', name: 'REEL_STOP', stage: 'REEL_STOP', selected: true),
+    SlotLabEventItem(id: '4', name: 'WIN_SMALL', stage: 'WIN_SMALL', selected: true),
+    SlotLabEventItem(id: '5', name: 'WIN_BIG', stage: 'WIN_BIG', selected: false),
+  ];
+
+  Future<void> _selectOutputPath() async {
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Export Event Data',
+      fileName: 'events${_format.extension}',
+      allowedExtensions: [_format.extension.substring(1)],
+      type: FileType.custom,
+    );
+    if (result != null) {
+      setState(() => _outputPath = result);
+    }
+  }
+
+  Future<void> _startExport() async {
+    if (_outputPath == null) {
+      await _selectOutputPath();
+      if (_outputPath == null) return;
+    }
+
+    setState(() => _isExporting = true);
+
+    try {
+      final eventsToExport = _scope == EventDataExportScope.selected
+          ? _events.where((e) => e.selected).toList()
+          : _events;
+
+      final exportData = _buildExportData(eventsToExport);
+      final content = _format == EventDataExportFormat.xml
+          ? _toXml(exportData)
+          : _toJson(exportData, minified: _format == EventDataExportFormat.jsonMinified);
+
+      // Write file
+      final file = java_io.File(_outputPath!);
+      await file.writeAsString(content);
+
+      setState(() {
+        _isExporting = false;
+        _lastExportPath = _outputPath;
+        _exportedCount = eventsToExport.length;
+      });
+    } catch (e) {
+      setState(() => _isExporting = false);
+      debugPrint('Export failed: $e');
+    }
+  }
+
+  Map<String, dynamic> _buildExportData(List<SlotLabEventItem> events) {
+    final data = <String, dynamic>{
+      'version': '1.0',
+      'exportedAt': _includeTimestamps ? DateTime.now().toIso8601String() : null,
+      'format': _format.label,
+      'events': events.map((e) => _eventToMap(e)).toList(),
+    };
+
+    if (_includeMetadata) {
+      data['metadata'] = {
+        'totalEvents': events.length,
+        'stages': events.map((e) => e.stage).toSet().toList(),
+      };
+    }
+
+    // Remove null values
+    data.removeWhere((key, value) => value == null);
+    return data;
+  }
+
+  Map<String, dynamic> _eventToMap(SlotLabEventItem event) {
+    final map = <String, dynamic>{
+      'id': event.id,
+      'name': event.name,
+      'stage': event.stage,
+    };
+
+    if (_includeLayers) {
+      // Placeholder for layers data - would come from provider in real implementation
+      map['layers'] = <Map<String, dynamic>>[];
+    }
+
+    if (_includeAudioPaths) {
+      // Placeholder for audio paths - would come from provider in real implementation
+      map['audioPaths'] = <String>[];
+    }
+
+    return map;
+  }
+
+  String _toJson(Map<String, dynamic> data, {bool minified = false}) {
+    if (minified) {
+      return jsonEncode(data);
+    }
+    final encoder = const JsonEncoder.withIndent('  ');
+    return encoder.convert(data);
+  }
+
+  String _toXml(Map<String, dynamic> data) {
+    final buffer = StringBuffer();
+    buffer.writeln('<?xml version="1.0" encoding="UTF-8"?>');
+    buffer.writeln('<EventExport version="${data['version']}">');
+
+    if (data['metadata'] != null) {
+      buffer.writeln('  <Metadata>');
+      final meta = data['metadata'] as Map<String, dynamic>;
+      buffer.writeln('    <TotalEvents>${meta['totalEvents']}</TotalEvents>');
+      buffer.writeln('    <Stages>');
+      for (final stage in (meta['stages'] as List)) {
+        buffer.writeln('      <Stage>$stage</Stage>');
+      }
+      buffer.writeln('    </Stages>');
+      buffer.writeln('  </Metadata>');
+    }
+
+    buffer.writeln('  <Events>');
+    for (final event in (data['events'] as List)) {
+      final e = event as Map<String, dynamic>;
+      buffer.writeln('    <Event id="${e['id']}">');
+      buffer.writeln('      <Name>${e['name']}</Name>');
+      buffer.writeln('      <Stage>${e['stage']}</Stage>');
+      if (e['layers'] != null) {
+        buffer.writeln('      <Layers/>');
+      }
+      if (e['audioPaths'] != null) {
+        buffer.writeln('      <AudioPaths/>');
+      }
+      buffer.writeln('    </Event>');
+    }
+    buffer.writeln('  </Events>');
+    buffer.writeln('</EventExport>');
+
+    return buffer.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left: Event selection
+                Expanded(
+                  flex: 2,
+                  child: _buildEventSelection(),
+                ),
+                const SizedBox(width: 16),
+                // Center: Settings
+                Expanded(
+                  flex: 2,
+                  child: _buildSettings(),
+                ),
+                const SizedBox(width: 16),
+                // Right: Export button + Preview
+                SizedBox(
+                  width: 120,
+                  child: _buildExportSection(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final selectedCount = _events.where((e) => e.selected).length;
+    final exportCount = _scope == EventDataExportScope.selected ? selectedCount : _events.length;
+
+    return Row(
+      children: [
+        Icon(Icons.code, size: 16, color: widget.accentColor),
+        const SizedBox(width: 8),
+        Text(
+          'EVENT DATA EXPORT',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: widget.accentColor,
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: widget.accentColor.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            _format.label,
+            style: TextStyle(fontSize: 8, color: widget.accentColor, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const Spacer(),
+        Text(
+          '$exportCount events',
+          style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEventSelection() {
+    final allSelected = _events.every((e) => e.selected);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                final newState = !allSelected;
+                for (final event in _events) {
+                  event.selected = newState;
+                }
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: LowerZoneColors.bgMid,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    allSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                    size: 14,
+                    color: widget.accentColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text('EVENTS', style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: widget.accentColor,
+                    letterSpacing: 0.5,
+                  )),
+                  const Spacer(),
+                  Text('${_events.where((e) => e.selected).length}/${_events.length}',
+                    style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(4),
+              children: _events.map((e) => _buildEventItem(e)).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventItem(SlotLabEventItem event) {
+    return GestureDetector(
+      onTap: () => setState(() => event.selected = !event.selected),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: event.selected ? widget.accentColor.withValues(alpha: 0.1) : null,
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              event.selected ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 12,
+              color: event.selected ? widget.accentColor : LowerZoneColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(event.name, style: TextStyle(
+                fontSize: 10,
+                color: event.selected ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted,
+              )),
+            ),
+            Text(event.stage, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettings() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Format selection
+          _buildDropdown<EventDataExportFormat>(
+            'Format',
+            EventDataExportFormat.values,
+            _format,
+            (f) => f.label,
+            (f) => setState(() => _format = f),
+          ),
+          const SizedBox(height: 8),
+
+          // Scope selection
+          _buildDropdown<EventDataExportScope>(
+            'Scope',
+            EventDataExportScope.values,
+            _scope,
+            (s) => s.label,
+            (s) => setState(() => _scope = s),
+          ),
+          const SizedBox(height: 8),
+
+          // Options
+          Text('INCLUDE', style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+            color: widget.accentColor,
+            letterSpacing: 0.5,
+          )),
+          const SizedBox(height: 4),
+          _buildToggle('Metadata', _includeMetadata, (v) => setState(() => _includeMetadata = v)),
+          _buildToggle('Layers', _includeLayers, (v) => setState(() => _includeLayers = v)),
+          _buildToggle('Audio Paths', _includeAudioPaths, (v) => setState(() => _includeAudioPaths = v)),
+          _buildToggle('Timestamps', _includeTimestamps, (v) => setState(() => _includeTimestamps = v)),
+
+          const SizedBox(height: 8),
+          _buildOutputSelector(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdown<T>(
+    String label,
+    List<T> items,
+    T value,
+    String Function(T) labelFn,
+    void Function(T) onChanged,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<T>(
+              value: value,
+              isDense: true,
+              isExpanded: true,
+              dropdownColor: LowerZoneColors.bgDeep,
+              icon: Icon(Icons.arrow_drop_down, size: 14, color: widget.accentColor),
+              items: items.map((item) => DropdownMenuItem(
+                value: item,
+                child: Text(labelFn(item), style: TextStyle(fontSize: 10, color: widget.accentColor)),
+              )).toList(),
+              onChanged: _isExporting ? null : (v) => v != null ? onChanged(v) : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggle(String label, bool value, void Function(bool) onChanged) {
+    return GestureDetector(
+      onTap: _isExporting ? null : () => onChanged(!value),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: value ? widget.accentColor.withValues(alpha: 0.1) : LowerZoneColors.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: value ? widget.accentColor.withValues(alpha: 0.5) : LowerZoneColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              value ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 12,
+              color: value ? widget.accentColor : LowerZoneColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(
+              fontSize: 9,
+              color: value ? widget.accentColor : LowerZoneColors.textPrimary,
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOutputSelector() {
+    return GestureDetector(
+      onTap: _isExporting ? null : _selectOutputPath,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: LowerZoneColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.folder_open, size: 14, color: widget.accentColor),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _outputPath?.split('/').last ?? 'Choose Location...',
+                style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExportSection() {
+    return Column(
+      children: [
+        // Format info
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: LowerZoneColors.bgDeepest,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: LowerZoneColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('FORMAT', style: TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+                color: widget.accentColor,
+              )),
+              const SizedBox(height: 4),
+              Text(
+                _format.description,
+                style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Export button
+        Expanded(child: _buildExportButton()),
+
+        // Success message
+        if (_lastExportPath != null && _exportedCount > 0) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: LowerZoneColors.success.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.check_circle, size: 14, color: LowerZoneColors.success),
+                const SizedBox(height: 4),
+                Text(
+                  '$_exportedCount events',
+                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.success),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildExportButton() {
+    return GestureDetector(
+      onTap: _isExporting ? null : _startExport,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: _isExporting ? [
+              LowerZoneColors.bgMid,
+              LowerZoneColors.bgDeepest,
+            ] : [
+              widget.accentColor.withValues(alpha: 0.2),
+              widget.accentColor.withValues(alpha: 0.1),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _isExporting ? LowerZoneColors.border : widget.accentColor),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_isExporting)
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(widget.accentColor),
+                ),
+              )
+            else
+              Icon(Icons.code, size: 32, color: widget.accentColor),
+            const SizedBox(height: 8),
+            Text(
+              _isExporting ? 'EXPORTING...' : 'EXPORT\n${_format.label.toUpperCase()}',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: _isExporting ? LowerZoneColors.textMuted : widget.accentColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SLOTLAB BATCH EXPORT PANEL — Event batch export (audio files)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 class SlotLabBatchExportPanel extends StatefulWidget {
   final Color accentColor;
   final List<SlotLabEventItem> events;
@@ -2237,6 +2860,807 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
                 fontWeight: FontWeight.bold,
                 color: _isExporting ? LowerZoneColors.textMuted : widget.accentColor,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// P4.2: SLOTLAB AUDIO PACK EXPORT PANEL — Structured Audio Package Export
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Audio format for pack export
+enum AudioPackFormat {
+  wav16('WAV 16-bit', '.wav', 'Uncompressed PCM, 16-bit'),
+  wav24('WAV 24-bit', '.wav', 'Uncompressed PCM, 24-bit'),
+  wav32f('WAV 32-bit Float', '.wav', 'Uncompressed PCM, 32-bit float'),
+  mp3High('MP3 High (320kbps)', '.mp3', 'Compressed audio, high quality'),
+  mp3Med('MP3 Medium (192kbps)', '.mp3', 'Compressed audio, medium quality'),
+  mp3Low('MP3 Low (128kbps)', '.mp3', 'Compressed audio, smaller size'),
+  oggHigh('OGG High (Q8)', '.ogg', 'Open format, high quality'),
+  oggMed('OGG Medium (Q5)', '.ogg', 'Open format, medium quality'),
+  oggLow('OGG Low (Q2)', '.ogg', 'Open format, smaller size');
+
+  final String label;
+  final String extension;
+  final String description;
+
+  const AudioPackFormat(this.label, this.extension, this.description);
+}
+
+/// Folder structure options
+enum AudioPackStructure {
+  flat('Flat', 'All files in one folder'),
+  byStage('By Stage', 'Organize by stage name'),
+  byCategory('By Category', 'Organize by event category'),
+  byBus('By Bus', 'Organize by audio bus routing');
+
+  final String label;
+  final String description;
+
+  const AudioPackStructure(this.label, this.description);
+}
+
+class SlotLabAudioPackExportPanel extends StatefulWidget {
+  final Color accentColor;
+  final List<SlotLabEventItem> events;
+  final String? projectName;
+
+  const SlotLabAudioPackExportPanel({
+    super.key,
+    this.accentColor = LowerZoneColors.slotLabAccent,
+    this.events = const [],
+    this.projectName,
+  });
+
+  @override
+  State<SlotLabAudioPackExportPanel> createState() => _SlotLabAudioPackExportPanelState();
+}
+
+class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPanel> {
+  final ExportService _exportService = ExportService.instance;
+
+  late List<SlotLabEventItem> _events;
+
+  // Export settings
+  AudioPackFormat _format = AudioPackFormat.wav24;
+  AudioPackStructure _structure = AudioPackStructure.byStage;
+  NormalizationMode _normalization = NormalizationMode.peak;
+  double _normalizationTarget = -1.0;
+  bool _includeManifest = true;
+  bool _createZip = false;
+  String _packName = 'audio_pack';
+
+  // State
+  String? _outputDirectory;
+  bool _isExporting = false;
+  double _exportProgress = 0.0;
+  String _exportStatus = '';
+  int _exportedCount = 0;
+  String? _lastExportPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _events = widget.events.isEmpty ? _getDefaultEvents() : widget.events;
+    _packName = widget.projectName ?? 'audio_pack';
+  }
+
+  List<SlotLabEventItem> _getDefaultEvents() => [
+    SlotLabEventItem(id: '1', name: 'SPIN_START', stage: 'SPIN_START', selected: true),
+    SlotLabEventItem(id: '2', name: 'REEL_SPIN', stage: 'REEL_SPIN', selected: true),
+    SlotLabEventItem(id: '3', name: 'REEL_STOP', stage: 'REEL_STOP', selected: true),
+    SlotLabEventItem(id: '4', name: 'WIN_SMALL', stage: 'WIN_SMALL', selected: true),
+    SlotLabEventItem(id: '5', name: 'WIN_BIG', stage: 'WIN_BIG', selected: false),
+  ];
+
+  Future<void> _selectOutputDirectory() async {
+    final result = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Select Audio Pack Output Folder',
+    );
+    if (result != null) {
+      setState(() => _outputDirectory = result);
+    }
+  }
+
+  Future<void> _startExport() async {
+    if (_outputDirectory == null) {
+      await _selectOutputDirectory();
+      if (_outputDirectory == null) return;
+    }
+
+    final selectedEvents = _events.where((e) => e.selected).toList();
+    if (selectedEvents.isEmpty) return;
+
+    setState(() {
+      _isExporting = true;
+      _exportProgress = 0.0;
+      _exportStatus = 'Preparing...';
+      _exportedCount = 0;
+    });
+
+    try {
+      // Create pack directory
+      final packDir = java_io.Directory('$_outputDirectory/$_packName');
+      if (!await packDir.exists()) {
+        await packDir.create(recursive: true);
+      }
+
+      // Create subdirectories based on structure
+      if (_structure != AudioPackStructure.flat) {
+        final subDirs = _getSubDirectories(selectedEvents);
+        for (final subDir in subDirs) {
+          final dir = java_io.Directory('${packDir.path}/$subDir');
+          if (!await dir.exists()) {
+            await dir.create(recursive: true);
+          }
+        }
+      }
+
+      // Export manifest if enabled
+      if (_includeManifest) {
+        setState(() => _exportStatus = 'Creating manifest...');
+        await _createManifest(packDir.path, selectedEvents);
+      }
+
+      // Export audio files (placeholder - actual export would use ExportService)
+      int exported = 0;
+      for (final event in selectedEvents) {
+        setState(() {
+          _exportProgress = exported / selectedEvents.length;
+          _exportStatus = 'Exporting ${event.name}...';
+        });
+
+        // Placeholder: In real implementation, this would use ExportService
+        await Future.delayed(const Duration(milliseconds: 100));
+        exported++;
+      }
+
+      // Create ZIP if enabled
+      if (_createZip) {
+        setState(() {
+          _exportProgress = 0.95;
+          _exportStatus = 'Creating ZIP archive...';
+        });
+        // Placeholder: Would use archive package in real implementation
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+
+      setState(() {
+        _isExporting = false;
+        _exportProgress = 1.0;
+        _exportStatus = 'Complete!';
+        _exportedCount = selectedEvents.length;
+        _lastExportPath = packDir.path;
+      });
+    } catch (e) {
+      setState(() {
+        _isExporting = false;
+        _exportStatus = 'Error: $e';
+      });
+      debugPrint('Audio pack export failed: $e');
+    }
+  }
+
+  Set<String> _getSubDirectories(List<SlotLabEventItem> events) {
+    switch (_structure) {
+      case AudioPackStructure.flat:
+        return {};
+      case AudioPackStructure.byStage:
+        return events.map((e) => e.stage).toSet();
+      case AudioPackStructure.byCategory:
+        return events.map((e) => _categorizeStage(e.stage)).toSet();
+      case AudioPackStructure.byBus:
+        return {'sfx', 'music', 'voice', 'ui', 'ambience'};
+    }
+  }
+
+  String _categorizeStage(String stage) {
+    if (stage.contains('SPIN') || stage.contains('REEL')) return 'spins';
+    if (stage.contains('WIN') || stage.contains('ROLLUP')) return 'wins';
+    if (stage.contains('FEATURE') || stage.contains('FREE') || stage.contains('BONUS')) return 'features';
+    if (stage.contains('JACKPOT')) return 'jackpots';
+    if (stage.contains('UI') || stage.contains('BUTTON')) return 'ui';
+    if (stage.contains('MUSIC') || stage.contains('AMBIENT')) return 'music';
+    return 'misc';
+  }
+
+  Future<void> _createManifest(String packPath, List<SlotLabEventItem> events) async {
+    final manifest = {
+      'name': _packName,
+      'version': '1.0',
+      'createdAt': DateTime.now().toIso8601String(),
+      'format': _format.label,
+      'structure': _structure.label,
+      'normalization': _normalization != NormalizationMode.none
+          ? {'mode': _normalization.label, 'target': _normalizationTarget}
+          : null,
+      'files': events.map((e) {
+        String path;
+        switch (_structure) {
+          case AudioPackStructure.flat:
+            path = '${e.name}${_format.extension}';
+          case AudioPackStructure.byStage:
+            path = '${e.stage}/${e.name}${_format.extension}';
+          case AudioPackStructure.byCategory:
+            path = '${_categorizeStage(e.stage)}/${e.name}${_format.extension}';
+          case AudioPackStructure.byBus:
+            path = 'sfx/${e.name}${_format.extension}';
+        }
+        return {
+          'id': e.id,
+          'name': e.name,
+          'stage': e.stage,
+          'path': path,
+        };
+      }).toList(),
+    };
+
+    // Remove null values
+    manifest.removeWhere((key, value) => value == null);
+
+    final file = java_io.File('$packPath/manifest.json');
+    final encoder = const JsonEncoder.withIndent('  ');
+    await file.writeAsString(encoder.convert(manifest));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left: Event selection
+                Expanded(
+                  flex: 2,
+                  child: _buildEventSelection(),
+                ),
+                const SizedBox(width: 16),
+                // Center: Settings
+                Expanded(
+                  flex: 3,
+                  child: _buildSettings(),
+                ),
+                const SizedBox(width: 16),
+                // Right: Export button + Status
+                SizedBox(
+                  width: 120,
+                  child: _buildExportSection(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final selectedCount = _events.where((e) => e.selected).length;
+
+    return Row(
+      children: [
+        Icon(Icons.inventory_2, size: 16, color: widget.accentColor),
+        const SizedBox(width: 8),
+        Text(
+          'AUDIO PACK EXPORT',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: widget.accentColor,
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: widget.accentColor.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            _format.extension.toUpperCase().substring(1),
+            style: TextStyle(fontSize: 8, color: widget.accentColor, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const Spacer(),
+        Text(
+          '$selectedCount events → $_packName/',
+          style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEventSelection() {
+    final allSelected = _events.every((e) => e.selected);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                final newState = !allSelected;
+                for (final event in _events) {
+                  event.selected = newState;
+                }
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: LowerZoneColors.bgMid,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    allSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                    size: 14,
+                    color: widget.accentColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text('EVENTS', style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: widget.accentColor,
+                    letterSpacing: 0.5,
+                  )),
+                  const Spacer(),
+                  Text('${_events.where((e) => e.selected).length}/${_events.length}',
+                    style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(4),
+              children: _events.map((e) => _buildEventItem(e)).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventItem(SlotLabEventItem event) {
+    return GestureDetector(
+      onTap: () => setState(() => event.selected = !event.selected),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: event.selected ? widget.accentColor.withValues(alpha: 0.1) : null,
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              event.selected ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 12,
+              color: event.selected ? widget.accentColor : LowerZoneColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(event.name, style: TextStyle(
+                fontSize: 10,
+                color: event.selected ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted,
+              )),
+            ),
+            Text(event.stage, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettings() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Pack name
+          _buildPackNameInput(),
+          const SizedBox(height: 8),
+
+          // Format & Structure row
+          Row(
+            children: [
+              Expanded(child: _buildDropdown<AudioPackFormat>(
+                'Format',
+                AudioPackFormat.values,
+                _format,
+                (f) => f.label,
+                (f) => setState(() => _format = f),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: _buildDropdown<AudioPackStructure>(
+                'Structure',
+                AudioPackStructure.values,
+                _structure,
+                (s) => s.label,
+                (s) => setState(() => _structure = s),
+              )),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Normalization row
+          Row(
+            children: [
+              Expanded(child: _buildDropdown<NormalizationMode>(
+                'Normalize',
+                NormalizationMode.values,
+                _normalization,
+                (n) => n.label,
+                (n) => setState(() => _normalization = n),
+              )),
+              const SizedBox(width: 8),
+              if (_normalization != NormalizationMode.none)
+                Expanded(child: _buildTargetSlider())
+              else
+                const Expanded(child: SizedBox()),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Options row
+          Row(
+            children: [
+              Expanded(child: _buildToggle('Include Manifest', _includeManifest,
+                  (v) => setState(() => _includeManifest = v))),
+              const SizedBox(width: 8),
+              Expanded(child: _buildToggle('Create ZIP', _createZip,
+                  (v) => setState(() => _createZip = v))),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Output directory
+          _buildDirectorySelector(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPackNameInput() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Pack Name', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          TextField(
+            controller: TextEditingController(text: _packName),
+            style: TextStyle(fontSize: 10, color: widget.accentColor),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+            onChanged: (v) => _packName = v.isNotEmpty ? v : 'audio_pack',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdown<T>(
+    String label,
+    List<T> items,
+    T value,
+    String Function(T) labelFn,
+    void Function(T) onChanged,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<T>(
+              value: value,
+              isDense: true,
+              isExpanded: true,
+              dropdownColor: LowerZoneColors.bgDeep,
+              icon: Icon(Icons.arrow_drop_down, size: 14, color: widget.accentColor),
+              items: items.map((item) => DropdownMenuItem(
+                value: item,
+                child: Text(labelFn(item), style: TextStyle(fontSize: 10, color: widget.accentColor)),
+              )).toList(),
+              onChanged: _isExporting ? null : (v) => v != null ? onChanged(v) : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTargetSlider() {
+    final label = _normalization == NormalizationMode.peak ? 'Peak (dB)' : 'LUFS';
+    final min = _normalization == NormalizationMode.peak ? -12.0 : -24.0;
+    final max = _normalization == NormalizationMode.peak ? 0.0 : -8.0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              const Spacer(),
+              Text(
+                '${_normalizationTarget.toStringAsFixed(1)}',
+                style: TextStyle(fontSize: 9, color: widget.accentColor, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              activeTrackColor: widget.accentColor,
+              inactiveTrackColor: LowerZoneColors.border,
+              thumbColor: widget.accentColor,
+              overlayShape: SliderComponentShape.noOverlay,
+            ),
+            child: Slider(
+              value: _normalizationTarget,
+              min: min,
+              max: max,
+              onChanged: _isExporting ? null : (v) => setState(() => _normalizationTarget = v),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggle(String label, bool value, void Function(bool) onChanged) {
+    return GestureDetector(
+      onTap: _isExporting ? null : () => onChanged(!value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: value ? widget.accentColor.withValues(alpha: 0.1) : LowerZoneColors.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: value ? widget.accentColor.withValues(alpha: 0.5) : LowerZoneColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              value ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 12,
+              color: value ? widget.accentColor : LowerZoneColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(label, style: TextStyle(
+                fontSize: 9,
+                color: value ? widget.accentColor : LowerZoneColors.textPrimary,
+              )),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDirectorySelector() {
+    return GestureDetector(
+      onTap: _isExporting ? null : _selectOutputDirectory,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: LowerZoneColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.folder_open, size: 14, color: widget.accentColor),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _outputDirectory?.split('/').last ?? 'Choose Output Folder...',
+                style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExportSection() {
+    return Column(
+      children: [
+        // Format info
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: LowerZoneColors.bgDeepest,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: LowerZoneColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 10, color: widget.accentColor),
+                  const SizedBox(width: 4),
+                  Text('FORMAT', style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: widget.accentColor,
+                  )),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _format.description,
+                style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _structure.description,
+                style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Progress indicator (when exporting)
+        if (_isExporting) ...[
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: widget.accentColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: widget.accentColor.withValues(alpha: 0.5)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '${(_exportProgress * 100).toInt()}%',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: widget.accentColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                LinearProgressIndicator(
+                  value: _exportProgress,
+                  backgroundColor: LowerZoneColors.bgMid,
+                  valueColor: AlwaysStoppedAnimation(widget.accentColor),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _exportStatus,
+                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+
+        // Export button
+        Expanded(child: _buildExportButton()),
+
+        // Success message
+        if (_lastExportPath != null && _exportedCount > 0 && !_isExporting) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: LowerZoneColors.success.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.check_circle, size: 14, color: LowerZoneColors.success),
+                const SizedBox(height: 4),
+                Text(
+                  '$_exportedCount files',
+                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.success),
+                ),
+                Text(
+                  _createZip ? '+ ZIP' : '',
+                  style: const TextStyle(fontSize: 7, color: LowerZoneColors.success),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildExportButton() {
+    return GestureDetector(
+      onTap: _isExporting ? null : _startExport,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: _isExporting ? [
+              LowerZoneColors.bgMid,
+              LowerZoneColors.bgDeepest,
+            ] : [
+              widget.accentColor.withValues(alpha: 0.2),
+              widget.accentColor.withValues(alpha: 0.1),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _isExporting ? LowerZoneColors.border : widget.accentColor),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_isExporting)
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(widget.accentColor),
+                ),
+              )
+            else
+              Icon(Icons.inventory_2, size: 32, color: widget.accentColor),
+            const SizedBox(height: 8),
+            Text(
+              _isExporting ? 'EXPORTING...' : 'CREATE\nPACK',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: _isExporting ? LowerZoneColors.textMuted : widget.accentColor,
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),

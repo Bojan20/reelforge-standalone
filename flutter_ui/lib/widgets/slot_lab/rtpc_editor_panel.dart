@@ -41,6 +41,11 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
   final Map<int, DateTime> _recentChanges = {};
   Timer? _activityTimer;
 
+  // P3.1: Value history for sparklines (last 60 samples at ~50ms = 3 seconds)
+  final Map<int, List<double>> _valueHistory = {};
+  static const int _historyLength = 60;
+  Timer? _historyTimer;
+
   // Curve points per RTPC (editable)
   final Map<int, List<Offset>> _curvePoints = {};
 
@@ -49,13 +54,49 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
     super.initState();
     _initializeLocalValues();
     _initializeCurvePoints();
+    _initializeValueHistory();
     _startActivityTimer();
+    _startHistoryTimer();
   }
 
   @override
   void dispose() {
     _activityTimer?.cancel();
+    _historyTimer?.cancel();
     super.dispose();
+  }
+
+  /// P3.1: Initialize value history for all RTPCs
+  void _initializeValueHistory() {
+    final rtpcs = SlotRtpcFactory.createAllRtpcs();
+    for (final rtpc in rtpcs) {
+      final value = _localValues[rtpc.id] ?? rtpc.defaultValue;
+      _valueHistory[rtpc.id] = List.filled(_historyLength, value);
+    }
+  }
+
+  /// P3.1: Start timer to record value history
+  void _startHistoryTimer() {
+    _historyTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (mounted) {
+        _updateValueHistory();
+      }
+    });
+  }
+
+  /// P3.1: Update history with current values
+  void _updateValueHistory() {
+    final rtpcs = SlotRtpcFactory.createAllRtpcs();
+    for (final rtpc in rtpcs) {
+      final value = _localValues[rtpc.id] ?? rtpc.defaultValue;
+      final history = _valueHistory[rtpc.id] ?? [];
+      if (history.length >= _historyLength) {
+        history.removeAt(0);
+      }
+      history.add(value);
+      _valueHistory[rtpc.id] = history;
+    }
+    if (mounted) setState(() {});
   }
 
   void _startActivityTimer() {
@@ -360,6 +401,20 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                     style: const TextStyle(color: Colors.white38, fontSize: 8),
                   ),
                 ],
+              ),
+            ),
+            // P3.1: Sparkline history visualization
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 16,
+              child: CustomPaint(
+                size: const Size(double.infinity, 16),
+                painter: _RtpcSparklinePainter(
+                  values: _valueHistory[rtpc.id] ?? [],
+                  minValue: rtpc.min,
+                  maxValue: rtpc.max,
+                  color: _getValueColor(normalizedValue),
+                ),
               ),
             ),
           ],
@@ -1004,4 +1059,99 @@ class _CurveEditorPainter extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.currentX != currentX ||
       oldDelegate.currentY != currentY;
+}
+
+/// P3.1: Compact sparkline painter for RTPC value history
+class _RtpcSparklinePainter extends CustomPainter {
+  final List<double> values;
+  final double minValue;
+  final double maxValue;
+  final Color color;
+
+  _RtpcSparklinePainter({
+    required this.values,
+    required this.minValue,
+    required this.maxValue,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+
+    // Draw background
+    final bgPaint = Paint()..color = Colors.white.withOpacity(0.03);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        const Radius.circular(2),
+      ),
+      bgPaint,
+    );
+
+    // Draw center line
+    final centerPaint = Paint()
+      ..color = Colors.white.withOpacity(0.1)
+      ..strokeWidth = 0.5;
+    canvas.drawLine(
+      Offset(0, size.height / 2),
+      Offset(size.width, size.height / 2),
+      centerPaint,
+    );
+
+    // Normalize values
+    final range = maxValue - minValue;
+    if (range <= 0) return;
+
+    // Create path for sparkline
+    final path = Path();
+    final fillPath = Path();
+    bool first = true;
+
+    for (int i = 0; i < values.length; i++) {
+      final x = (i / (values.length - 1)) * size.width;
+      final normalizedY = (values[i] - minValue) / range;
+      final y = size.height - (normalizedY * size.height);
+
+      if (first) {
+        path.moveTo(x, y);
+        fillPath.moveTo(x, size.height);
+        fillPath.lineTo(x, y);
+        first = false;
+      } else {
+        path.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
+    }
+
+    // Complete fill path
+    fillPath.lineTo(size.width, size.height);
+    fillPath.close();
+
+    // Draw fill
+    final fillPaint = Paint()
+      ..color = color.withOpacity(0.15)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(fillPath, fillPaint);
+
+    // Draw line
+    final linePaint = Paint()
+      ..color = color.withOpacity(0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(path, linePaint);
+
+    // Draw current value dot at end
+    if (values.isNotEmpty) {
+      final lastY = size.height - ((values.last - minValue) / range * size.height);
+      final dotPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(size.width - 2, lastY), 2, dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RtpcSparklinePainter oldDelegate) => true;
 }

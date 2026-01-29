@@ -10,9 +10,12 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:provider/provider.dart';
 
 import 'slotlab_lower_zone_controller.dart';
@@ -26,7 +29,7 @@ import '../../providers/dsp_chain_provider.dart';
 import '../../providers/mixer_dsp_provider.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
-import '../../models/middleware_models.dart' show ActionType;
+import '../../models/middleware_models.dart' show ActionType, CrossfadeCurve;
 import '../../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../../services/audio_playback_service.dart';
 import '../slot_lab/stage_trace_widget.dart';
@@ -91,6 +94,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   // P0.4: Stems export selection (bus IDs selected for export)
   final Set<String> _selectedStemBusIds = {'sfx', 'music', 'voice', 'master'};
 
+  // P2.6: Multi-select layers - track last selected for Shift+click range selection
+  String? _lastSelectedLayerId;
+
+  // P2.7: Focus node for keyboard shortcuts (Ctrl+C/V)
+  final FocusNode _layerListFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -112,7 +121,85 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
+    _layerListFocusNode.dispose();
     super.dispose();
+  }
+
+  /// P2.7: Handle keyboard shortcuts for layer list (Ctrl+C/V, Delete)
+  KeyEventResult _handleLayerListKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final isCtrl = HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+
+    final middleware = context.read<MiddlewareProvider>();
+    final selectedEvent = middleware.selectedCompositeEvent;
+    if (selectedEvent == null) return KeyEventResult.ignored;
+
+    // Ctrl+C: Copy selected layers
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyC) {
+      if (middleware.hasMultipleLayersSelected) {
+        middleware.copySelectedLayers(selectedEvent.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Copied ${middleware.selectedLayerIds.length} layers'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      } else if (middleware.selectedLayerId != null) {
+        middleware.copyLayer(selectedEvent.id, middleware.selectedLayerId!);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Copied layer'), duration: Duration(seconds: 1)),
+        );
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Ctrl+V: Paste layers
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyV) {
+      if (middleware.hasLayersInClipboard) {
+        final pasted = middleware.pasteSelectedLayers(selectedEvent.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pasted ${pasted.length} layers'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      } else if (middleware.hasLayerInClipboard) {
+        middleware.pasteLayer(selectedEvent.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pasted layer'), duration: Duration(seconds: 1)),
+        );
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Delete/Backspace: Delete selected layers
+    if (event.logicalKey == LogicalKeyboardKey.delete ||
+        event.logicalKey == LogicalKeyboardKey.backspace) {
+      if (middleware.hasMultipleLayersSelected) {
+        middleware.deleteSelectedLayers(selectedEvent.id);
+      } else if (middleware.selectedLayerId != null) {
+        middleware.removeLayerFromEvent(selectedEvent.id, middleware.selectedLayerId!);
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Ctrl+A: Select all layers
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyA) {
+      for (final layer in selectedEvent.layers) {
+        middleware.toggleLayerSelection(layer.id);
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Escape: Clear selection
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      middleware.clearLayerSelection();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   void _onControllerChanged() {
@@ -1607,27 +1694,35 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                                 ],
                               ),
                             ),
-                            // Layers list (flexible)
+                            // Layers list (flexible) - P2.7: Wrapped with Focus for keyboard shortcuts
                             Flexible(
                               fit: FlexFit.loose,
-                              child: selectedEvent.layers.isEmpty
-                                  ? const Center(
-                                      child: Text('No layers', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
-                                    )
-                                  : ListView.builder(
-                                      padding: const EdgeInsets.all(3),
-                                      shrinkWrap: true,
-                                      itemCount: selectedEvent.layers.length,
-                                      itemBuilder: (context, index) {
-                                        final event = selectedEvent!;
-                                        final layer = event.layers[index];
-                                        return _buildInteractiveLayerItem(
-                                          eventId: event.id,
-                                          layer: layer,
-                                          index: index,
-                                        );
-                                      },
-                                    ),
+                              child: Focus(
+                                focusNode: _layerListFocusNode,
+                                onKeyEvent: _handleLayerListKeyEvent,
+                                child: GestureDetector(
+                                  // Request focus on tap to enable keyboard shortcuts
+                                  onTap: () => _layerListFocusNode.requestFocus(),
+                                  child: selectedEvent.layers.isEmpty
+                                      ? const Center(
+                                          child: Text('No layers', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                                        )
+                                      : ListView.builder(
+                                          padding: const EdgeInsets.all(3),
+                                          shrinkWrap: true,
+                                          itemCount: selectedEvent.layers.length,
+                                          itemBuilder: (context, index) {
+                                            final event = selectedEvent!;
+                                            final layer = event.layers[index];
+                                            return _buildInteractiveLayerItem(
+                                              eventId: event.id,
+                                              layer: layer,
+                                              index: index,
+                                            );
+                                          },
+                                        ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -1641,6 +1736,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   /// SL-P1.1 FIX: Interactive layer item with editable parameters
+  /// P2.6: Multi-select support with Ctrl/Shift+click
   Widget _buildInteractiveLayerItem({
     required String eventId,
     required SlotEventLayer layer,
@@ -1648,96 +1744,306 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }) {
     final audioName = layer.audioPath.split('/').last;
     final middleware = context.read<MiddlewareProvider>();
+    final isSelected = middleware.isLayerSelected(layer.id);
+    final hasMultiSelect = middleware.hasMultipleLayersSelected;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgMid,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row: name, mute, play, delete
-          Row(
-            children: [
-              Icon(Icons.drag_indicator, size: 12, color: LowerZoneColors.textMuted),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'L${index + 1}: $audioName',
-                  style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
-                  overflow: TextOverflow.ellipsis,
+    return Listener(
+      // P2.6: Use Listener for reliable modifier key detection (per CLAUDE.md)
+      onPointerDown: (event) {
+        if (event.buttons != kPrimaryButton) return;
+
+        // P2.7: Request focus to enable keyboard shortcuts
+        _layerListFocusNode.requestFocus();
+
+        final isCtrl = HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed;
+        final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+        if (isShift && _lastSelectedLayerId != null) {
+          // Shift+click: Range selection
+          middleware.selectLayerRange(eventId, _lastSelectedLayerId!, layer.id);
+        } else if (isCtrl) {
+          // Ctrl/Cmd+click: Toggle selection
+          middleware.toggleLayerSelection(layer.id);
+        } else {
+          // Normal click: Single select
+          middleware.selectLayer(layer.id);
+        }
+        _lastSelectedLayerId = layer.id;
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isSelected ? LowerZoneColors.slotLabAccent.withOpacity(0.15) : LowerZoneColors.bgMid,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? LowerZoneColors.slotLabAccent : Colors.white.withOpacity(0.05),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row: checkbox, name, mute, play, delete
+            Row(
+              children: [
+                // P2.6: Selection checkbox
+                GestureDetector(
+                  onTap: () => middleware.toggleLayerSelection(layer.id),
+                  child: Icon(
+                    isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                    size: 14,
+                    color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
+                  ),
                 ),
-              ),
-              // Mute toggle
-              GestureDetector(
-                onTap: () {
-                  middleware.updateEventLayer(eventId, layer.copyWith(muted: !layer.muted));
-                },
-                child: Icon(
-                  layer.muted ? Icons.volume_off : Icons.volume_up,
-                  size: 14,
-                  color: layer.muted ? Colors.red : LowerZoneColors.textMuted,
+                const SizedBox(width: 4),
+                Icon(Icons.drag_indicator, size: 12, color: LowerZoneColors.textMuted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'L${index + 1}: $audioName',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              // Preview play
-              GestureDetector(
-                onTap: () {
-                  if (layer.audioPath.isNotEmpty) {
-                    AudioPlaybackService.instance.previewFile(
-                      layer.audioPath,
-                      volume: layer.volume,
-                      source: PlaybackSource.browser,
-                    );
-                  }
-                },
-                child: Icon(Icons.play_arrow, size: 14, color: LowerZoneColors.slotLabAccent),
-              ),
-              const SizedBox(width: 8),
-              // Delete
-              GestureDetector(
-                onTap: () => middleware.removeLayerFromEvent(eventId, layer.id),
-                child: const Icon(Icons.close, size: 14, color: LowerZoneColors.textMuted),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // Volume slider
-          _buildParameterSlider(
-            label: 'Vol',
-            value: layer.volume,
-            min: 0.0,
-            max: 1.0,
-            displayValue: '${(layer.volume * 100).toInt()}%',
-            onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(volume: v)),
-          ),
-          const SizedBox(height: 4),
-          // Pan slider
-          _buildParameterSlider(
-            label: 'Pan',
-            value: (layer.pan + 1) / 2, // Convert -1..1 to 0..1 for slider
-            min: 0.0,
-            max: 1.0,
-            displayValue: layer.pan == 0 ? 'C' : '${(layer.pan * 100).toInt().abs()}${layer.pan > 0 ? 'R' : 'L'}',
-            onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(pan: (v * 2) - 1)),
-          ),
-          const SizedBox(height: 4),
-          // Delay slider
-          _buildParameterSlider(
-            label: 'Delay',
-            value: (layer.offsetMs / 2000).clamp(0.0, 1.0), // 0-2000ms range
-            min: 0.0,
-            max: 1.0,
-            displayValue: '${layer.offsetMs.toInt()}ms',
-            onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(offsetMs: v * 2000)),
-          ),
-        ],
+                // Mute toggle
+                GestureDetector(
+                  onTap: () {
+                    middleware.updateEventLayer(eventId, layer.copyWith(muted: !layer.muted));
+                  },
+                  child: Icon(
+                    layer.muted ? Icons.volume_off : Icons.volume_up,
+                    size: 14,
+                    color: layer.muted ? Colors.red : LowerZoneColors.textMuted,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Preview play
+                GestureDetector(
+                  onTap: () {
+                    if (layer.audioPath.isNotEmpty) {
+                      AudioPlaybackService.instance.previewFile(
+                        layer.audioPath,
+                        volume: layer.volume,
+                        source: PlaybackSource.browser,
+                      );
+                    }
+                  },
+                  child: Icon(Icons.play_arrow, size: 14, color: LowerZoneColors.slotLabAccent),
+                ),
+                const SizedBox(width: 8),
+                // Delete (single or multi)
+                GestureDetector(
+                  onTap: () {
+                    if (hasMultiSelect && isSelected) {
+                      // Delete all selected layers
+                      middleware.deleteSelectedLayers(eventId);
+                    } else {
+                      // Delete single layer
+                      middleware.removeLayerFromEvent(eventId, layer.id);
+                    }
+                  },
+                  child: Icon(
+                    hasMultiSelect && isSelected ? Icons.delete_sweep : Icons.close,
+                    size: 14,
+                    color: hasMultiSelect && isSelected ? Colors.red : LowerZoneColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            // Volume slider
+            _buildParameterSlider(
+              label: 'Vol',
+              value: layer.volume,
+              min: 0.0,
+              max: 1.0,
+              displayValue: '${(layer.volume * 100).toInt()}%',
+              onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(volume: v)),
+            ),
+            const SizedBox(height: 4),
+            // Pan slider
+            _buildParameterSlider(
+              label: 'Pan',
+              value: (layer.pan + 1) / 2, // Convert -1..1 to 0..1 for slider
+              min: 0.0,
+              max: 1.0,
+              displayValue: layer.pan == 0 ? 'C' : '${(layer.pan * 100).toInt().abs()}${layer.pan > 0 ? 'R' : 'L'}',
+              onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(pan: (v * 2) - 1)),
+            ),
+            const SizedBox(height: 4),
+            // Delay slider
+            _buildParameterSlider(
+              label: 'Delay',
+              value: (layer.offsetMs / 2000).clamp(0.0, 1.0), // 0-2000ms range
+              min: 0.0,
+              max: 1.0,
+              displayValue: '${layer.offsetMs.toInt()}ms',
+              onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(offsetMs: v * 2000)),
+            ),
+            const SizedBox(height: 6),
+            // P2.8: Fade Controls section
+            _buildFadeControlsSection(eventId, layer, middleware),
+          ],
+        ),
       ),
     );
+  }
+
+  /// P2.8: Build fade controls section with visual curve overlay
+  Widget _buildFadeControlsSection(String eventId, SlotEventLayer layer, MiddlewareProvider middleware) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header with expand/collapse and visual curve preview
+        Row(
+          children: [
+            Text(
+              'FADES',
+              style: TextStyle(
+                fontSize: 8,
+                color: (layer.fadeInMs > 0 || layer.fadeOutMs > 0)
+                    ? LowerZoneColors.slotLabAccent
+                    : LowerZoneColors.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Visual fade curve preview (mini waveform representation)
+            Expanded(
+              child: SizedBox(
+                height: 16,
+                child: CustomPaint(
+                  painter: _FadeCurvePainter(
+                    fadeInMs: layer.fadeInMs,
+                    fadeOutMs: layer.fadeOutMs,
+                    fadeInCurve: layer.fadeInCurve,
+                    fadeOutCurve: layer.fadeOutCurve,
+                    color: LowerZoneColors.slotLabAccent,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        // Fade In slider
+        _buildParameterSlider(
+          label: 'In',
+          value: (layer.fadeInMs / 1000).clamp(0.0, 1.0), // 0-1000ms range
+          min: 0.0,
+          max: 1.0,
+          displayValue: '${layer.fadeInMs.toInt()}ms',
+          onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(fadeInMs: v * 1000)),
+        ),
+        const SizedBox(height: 2),
+        // Fade Out slider
+        _buildParameterSlider(
+          label: 'Out',
+          value: (layer.fadeOutMs / 1000).clamp(0.0, 1.0), // 0-1000ms range
+          min: 0.0,
+          max: 1.0,
+          displayValue: '${layer.fadeOutMs.toInt()}ms',
+          onChanged: (v) => middleware.updateEventLayer(eventId, layer.copyWith(fadeOutMs: v * 1000)),
+        ),
+        const SizedBox(height: 2),
+        // Curve type selectors (compact row)
+        Row(
+          children: [
+            const SizedBox(width: 32),
+            // Fade In Curve
+            _buildCompactCurveSelector(
+              label: 'In:',
+              value: layer.fadeInCurve,
+              onChanged: (curve) => middleware.updateEventLayer(eventId, layer.copyWith(fadeInCurve: curve)),
+            ),
+            const SizedBox(width: 12),
+            // Fade Out Curve
+            _buildCompactCurveSelector(
+              label: 'Out:',
+              value: layer.fadeOutCurve,
+              onChanged: (curve) => middleware.updateEventLayer(eventId, layer.copyWith(fadeOutCurve: curve)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// P2.8: Compact curve type selector
+  Widget _buildCompactCurveSelector({
+    required String label,
+    required CrossfadeCurve value,
+    required ValueChanged<CrossfadeCurve> onChanged,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 7, color: LowerZoneColors.textMuted)),
+        const SizedBox(width: 4),
+        PopupMenuButton<CrossfadeCurve>(
+          initialValue: value,
+          onSelected: onChanged,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _getCurveShortName(value),
+                  style: const TextStyle(fontSize: 7, color: LowerZoneColors.textSecondary),
+                ),
+                const Icon(Icons.arrow_drop_down, size: 10, color: LowerZoneColors.textMuted),
+              ],
+            ),
+          ),
+          itemBuilder: (context) => CrossfadeCurve.values.map((curve) {
+            return PopupMenuItem<CrossfadeCurve>(
+              value: curve,
+              height: 28,
+              child: Text(_getCurveDisplayName(curve), style: const TextStyle(fontSize: 10)),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  /// P2.8: Get short name for curve type (for compact display)
+  String _getCurveShortName(CrossfadeCurve curve) {
+    switch (curve) {
+      case CrossfadeCurve.linear:
+        return 'Lin';
+      case CrossfadeCurve.equalPower:
+        return 'EP';
+      case CrossfadeCurve.sCurve:
+        return 'S';
+      case CrossfadeCurve.sinCos:
+        return 'SC';
+    }
+  }
+
+  /// P2.8: Get display name for curve type
+  String _getCurveDisplayName(CrossfadeCurve curve) {
+    switch (curve) {
+      case CrossfadeCurve.linear:
+        return 'Linear';
+      case CrossfadeCurve.equalPower:
+        return 'Equal Power';
+      case CrossfadeCurve.sCurve:
+        return 'S-Curve';
+      case CrossfadeCurve.sinCos:
+        return 'Sin/Cos';
+    }
   }
 
   /// Compact parameter slider for layer editing
@@ -3215,5 +3521,126 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// =============================================================================
+// P2.8: FADE CURVE PAINTER
+// =============================================================================
+
+/// Custom painter for visualizing fade in/out curves on layer items
+class _FadeCurvePainter extends CustomPainter {
+  final double fadeInMs;
+  final double fadeOutMs;
+  final CrossfadeCurve fadeInCurve;
+  final CrossfadeCurve fadeOutCurve;
+  final Color color;
+
+  _FadeCurvePainter({
+    required this.fadeInMs,
+    required this.fadeOutMs,
+    required this.fadeInCurve,
+    required this.fadeOutCurve,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withOpacity(0.4)
+      ..style = PaintingStyle.fill;
+
+    final linePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    // Background line at y = height (bottom, representing 0 volume)
+    canvas.drawLine(
+      Offset(0, size.height),
+      Offset(size.width, size.height),
+      Paint()
+        ..color = Colors.white.withOpacity(0.1)
+        ..strokeWidth = 0.5,
+    );
+
+    // Calculate fade regions as percentage of total width
+    // Assume total duration is ~2000ms for visualization purposes
+    const totalDurationMs = 2000.0;
+    final fadeInWidth = (fadeInMs / totalDurationMs).clamp(0.0, 0.4) * size.width;
+    final fadeOutWidth = (fadeOutMs / totalDurationMs).clamp(0.0, 0.4) * size.width;
+
+    final path = Path();
+
+    // Start from bottom-left (0 volume at start)
+    path.moveTo(0, size.height);
+
+    // Fade In curve (rise from bottom to top = 0 to 1 volume)
+    if (fadeInMs > 0 && fadeInWidth > 2) {
+      const steps = 20;
+      for (int i = 0; i <= steps; i++) {
+        final t = i / steps;
+        final x = fadeInWidth * t;
+        final y = size.height - (size.height * _applyCurve(t, fadeInCurve));
+        path.lineTo(x, y);
+      }
+    } else {
+      // No fade in - instant rise to top
+      path.lineTo(0, 0);
+    }
+
+    // Sustain section (flat at top = full volume)
+    final sustainStartX = fadeInWidth > 0 ? fadeInWidth : 0.0;
+    final sustainEndX = size.width - (fadeOutWidth > 0 ? fadeOutWidth : 0.0);
+    path.lineTo(sustainStartX, 0);
+    path.lineTo(sustainEndX, 0);
+
+    // Fade Out curve (descend from top to bottom = 1 to 0 volume)
+    if (fadeOutMs > 0 && fadeOutWidth > 2) {
+      const steps = 20;
+      for (int i = 0; i <= steps; i++) {
+        final t = i / steps;
+        final x = sustainEndX + (fadeOutWidth * t);
+        final y = size.height * _applyCurve(t, fadeOutCurve);
+        path.lineTo(x, y);
+      }
+    } else {
+      // No fade out - instant drop to bottom
+      path.lineTo(size.width, 0);
+    }
+
+    // Close path at bottom-right
+    path.lineTo(size.width, size.height);
+    path.close();
+
+    // Draw filled area
+    canvas.drawPath(path, paint);
+
+    // Draw outline
+    canvas.drawPath(path, linePaint);
+  }
+
+  /// Apply curve transformation to normalized value (0-1)
+  double _applyCurve(double t, CrossfadeCurve curve) {
+    switch (curve) {
+      case CrossfadeCurve.linear:
+        return t;
+      case CrossfadeCurve.equalPower:
+        return math.sin(t * math.pi / 2);
+      case CrossfadeCurve.sCurve:
+        return (1 - math.cos(t * math.pi)) / 2;
+      case CrossfadeCurve.sinCos:
+        // Smooth sine-based curve
+        return 0.5 - 0.5 * math.cos(t * math.pi);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FadeCurvePainter oldDelegate) {
+    return oldDelegate.fadeInMs != fadeInMs ||
+        oldDelegate.fadeOutMs != fadeOutMs ||
+        oldDelegate.fadeInCurve != fadeInCurve ||
+        oldDelegate.fadeOutCurve != fadeOutCurve ||
+        oldDelegate.color != color;
   }
 }

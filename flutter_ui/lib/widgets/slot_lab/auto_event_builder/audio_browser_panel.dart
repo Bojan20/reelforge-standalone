@@ -10,15 +10,13 @@
 library;
 
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../models/auto_event_builder_models.dart';
 import '../../../providers/auto_event_builder_provider.dart';
 import '../../../services/audio_playback_service.dart';
-import '../../../services/waveform_cache_service.dart';
-import '../../../src/rust/native_ffi.dart';
+import '../../../services/waveform_thumbnail_cache.dart';
 import '../../../theme/fluxforge_theme.dart';
 import 'drop_target_wrapper.dart';
 
@@ -1402,7 +1400,7 @@ class MiniWaveformThumbnail extends StatefulWidget {
 }
 
 class _MiniWaveformThumbnailState extends State<MiniWaveformThumbnail> {
-  List<double>? _waveformData;
+  WaveformThumbnailData? _data;
   bool _isLoading = true;
   bool _hasError = false;
 
@@ -1420,86 +1418,40 @@ class _MiniWaveformThumbnailState extends State<MiniWaveformThumbnail> {
     }
   }
 
-  Future<void> _loadWaveform() async {
+  void _loadWaveform() {
+    final cache = WaveformThumbnailCache.instance;
+
+    // Check cache first (sync)
+    final cached = cache.get(widget.audioPath);
+    if (cached != null) {
+      setState(() {
+        _data = cached;
+        _isLoading = false;
+        _hasError = false;
+      });
+      return;
+    }
+
+    // Generate in background
     setState(() {
       _isLoading = true;
       _hasError = false;
     });
 
-    try {
-      // Try to get from cache service first
-      final cacheService = WaveformCacheService.instance;
-      await cacheService.init();
+    // Use Future.microtask to not block UI
+    Future.microtask(() {
+      if (!mounted) return;
 
-      var data = await cacheService.get(widget.audioPath);
-
-      if (data == null) {
-        // Generate via FFI if not cached
-        data = await _generateWaveformData();
-        if (data != null && data.isNotEmpty) {
-          await cacheService.put(widget.audioPath, data);
-        }
-      }
+      final data = cache.generate(widget.audioPath);
 
       if (mounted) {
         setState(() {
-          _waveformData = data != null ? _downsampleWaveform(data, 64) : null;
+          _data = data;
           _isLoading = false;
           _hasError = data == null;
         });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-        });
-      }
-    }
-  }
-
-  Future<List<double>?> _generateWaveformData() async {
-    try {
-      // Use NativeFFI to generate waveform peaks
-      final ffi = NativeFFI.instance;
-      if (!ffi.isLoaded) return null;
-
-      // This would call the actual FFI function
-      // For now, generate placeholder data based on path hash
-      final hash = widget.audioPath.hashCode;
-      final rng = math.Random(hash.abs());
-
-      // Generate 256 samples (enough for thumbnail)
-      return List.generate(256, (i) {
-        // Create a somewhat realistic waveform shape
-        final base = rng.nextDouble() * 0.6 + 0.2;
-        final envelope = math.sin(i / 256.0 * math.pi) * 0.3;
-        return (base + envelope).clamp(0.1, 1.0);
-      });
-    } catch (e) {
-      return null;
-    }
-  }
-
-  List<double> _downsampleWaveform(List<double> data, int targetSamples) {
-    if (data.length <= targetSamples) return data;
-
-    final result = <double>[];
-    final ratio = data.length / targetSamples;
-
-    for (int i = 0; i < targetSamples; i++) {
-      final start = (i * ratio).floor();
-      final end = ((i + 1) * ratio).floor().clamp(start + 1, data.length);
-
-      // Get max value in this chunk
-      var maxVal = 0.0;
-      for (int j = start; j < end; j++) {
-        if (data[j].abs() > maxVal) maxVal = data[j].abs();
-      }
-      result.add(maxVal);
-    }
-
-    return result;
+    });
   }
 
   @override
@@ -1517,12 +1469,12 @@ class _MiniWaveformThumbnailState extends State<MiniWaveformThumbnail> {
         borderRadius: BorderRadius.circular(4),
         child: _isLoading
             ? _buildLoadingState(fgColor)
-            : _hasError || _waveformData == null
+            : _hasError || _data == null
                 ? _buildErrorState()
                 : CustomPaint(
                     size: Size.infinite,
-                    painter: _MiniWaveformPainter(
-                      data: _waveformData!,
+                    painter: _MiniWaveformThumbnailPainter(
+                      data: _data!,
                       color: fgColor,
                     ),
                   ),
@@ -1554,48 +1506,71 @@ class _MiniWaveformThumbnailState extends State<MiniWaveformThumbnail> {
   }
 }
 
-/// Custom painter for mini waveform bars
-class _MiniWaveformPainter extends CustomPainter {
-  final List<double> data;
+/// Custom painter for mini waveform using WaveformThumbnailData (FFI-generated)
+class _MiniWaveformThumbnailPainter extends CustomPainter {
+  final WaveformThumbnailData data;
   final Color color;
 
-  _MiniWaveformPainter({
+  _MiniWaveformThumbnailPainter({
     required this.data,
     required this.color,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
+    if (data.peaks.isEmpty) return;
 
     final paint = Paint()
       ..color = color.withValues(alpha: 0.8)
       ..style = PaintingStyle.fill;
 
-    final barCount = data.length;
-    final barWidth = size.width / barCount;
-    final barSpacing = barWidth * 0.2;
-    final actualBarWidth = barWidth - barSpacing;
     final centerY = size.height / 2;
+    final halfHeight = size.height / 2 - 1;
 
-    for (int i = 0; i < barCount; i++) {
-      final amplitude = data[i].clamp(0.05, 1.0);
-      final barHeight = amplitude * size.height * 0.8;
+    // Draw filled waveform shape
+    final path = Path();
+    bool first = true;
 
-      final x = i * barWidth + barSpacing / 2;
-      final y = centerY - barHeight / 2;
+    // Top edge (max peaks)
+    for (int i = 0; i < kThumbnailWidth; i++) {
+      final x = (i / kThumbnailWidth) * size.width;
+      final (_, maxVal) = data.getPeakAt(i);
+      final y = centerY - (maxVal * halfHeight);
 
-      // Draw bar as a rounded rect
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, y, actualBarWidth, barHeight),
-        const Radius.circular(1),
-      );
-      canvas.drawRRect(rect, paint);
+      if (first) {
+        path.moveTo(x, y);
+        first = false;
+      } else {
+        path.lineTo(x, y);
+      }
     }
+
+    // Bottom edge (min peaks, reversed)
+    for (int i = kThumbnailWidth - 1; i >= 0; i--) {
+      final x = (i / kThumbnailWidth) * size.width;
+      final (minVal, _) = data.getPeakAt(i);
+      final y = centerY - (minVal * halfHeight);
+      path.lineTo(x, y);
+    }
+
+    path.close();
+
+    // Fill waveform
+    canvas.drawPath(path, paint);
+
+    // Draw center line
+    final centerPaint = Paint()
+      ..color = color.withValues(alpha: 0.3)
+      ..strokeWidth = 0.5;
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      centerPaint,
+    );
   }
 
   @override
-  bool shouldRepaint(_MiniWaveformPainter oldDelegate) {
+  bool shouldRepaint(_MiniWaveformThumbnailPainter oldDelegate) {
     return oldDelegate.data != data || oldDelegate.color != color;
   }
 }

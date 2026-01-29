@@ -644,7 +644,7 @@ class ContainerService {
 
       if (reversed) {
         // Add this step's duration for next step's delay
-        cumulativeDelay += step.durationMs ?? 200;
+        cumulativeDelay += step.durationMs;
       }
 
       final timer = Timer(Duration(milliseconds: adjustedDelay), () async {

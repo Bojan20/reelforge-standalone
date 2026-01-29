@@ -24,6 +24,12 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
   bool _showAddDialog = false;
   bool _showPreviewCurve = false;
 
+  /// P3.2: Grid vs List view mode
+  bool _showGridView = false;
+
+  /// P3.2: Standard buses for grid view
+  static const List<String> _gridBuses = ['Master', 'Music', 'SFX', 'Voice', 'UI', 'Ambience'];
+
   @override
   void initState() {
     super.initState();
@@ -101,6 +107,24 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
           ),
         ),
         const Spacer(),
+        // P3.2: Grid/List view toggle
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Container(
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.surface,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: FluxForgeTheme.border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildViewToggle(Icons.view_list, 'List', !_showGridView),
+                _buildViewToggle(Icons.grid_view, 'Grid', _showGridView),
+              ],
+            ),
+          ),
+        ),
         if (_selectedRuleId != null && !DuckingPreviewService.instance.isPreviewActive)
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -131,6 +155,28 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
           onTap: () => setState(() => _showAddDialog = true),
         ),
       ],
+    );
+  }
+
+  /// P3.2: View toggle button
+  Widget _buildViewToggle(IconData icon, String tooltip, bool isActive) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: () => setState(() => _showGridView = !_showGridView),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: isActive ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
+          ),
+        ),
+      ),
     );
   }
 
@@ -170,6 +216,11 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
   }
 
   Widget _buildMatrixView(List<DuckingRule> rules) {
+    // P3.2: Show grid view or list view
+    if (_showGridView) {
+      return _buildGridMatrixView(rules);
+    }
+
     if (rules.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(32),
@@ -245,6 +296,226 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
           color: FluxForgeTheme.textSecondary,
           fontSize: 10,
           fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  /// P3.2: Visual grid matrix view with buses on both axes
+  Widget _buildGridMatrixView(List<DuckingRule> rules) {
+    // Build a map for quick rule lookup: "sourceBus→targetBus" → rule
+    final ruleMap = <String, DuckingRule>{};
+    for (final rule in rules) {
+      ruleMap['${rule.sourceBus}→${rule.targetBus}'] = rule;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.surface.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: FluxForgeTheme.border),
+      ),
+      child: Column(
+        children: [
+          // Header row with target buses
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+            ),
+            child: Row(
+              children: [
+                // Empty corner cell
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    'Source ↓',
+                    style: TextStyle(
+                      color: FluxForgeTheme.textSecondary,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                // Target bus headers
+                ..._gridBuses.map((bus) => Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Target',
+                          style: TextStyle(
+                            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
+                            fontSize: 8,
+                          ),
+                        ),
+                        Text(
+                          bus,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.cyan,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )),
+              ],
+            ),
+          ),
+          // Grid rows (one per source bus)
+          ..._gridBuses.map((sourceBus) => _buildGridRow(sourceBus, ruleMap)),
+        ],
+      ),
+    );
+  }
+
+  /// P3.2: Single row in the grid matrix
+  Widget _buildGridRow(String sourceBus, Map<String, DuckingRule> ruleMap) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: FluxForgeTheme.border.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Source bus label
+          SizedBox(
+            width: 80,
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    sourceBus,
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Grid cells for each target
+          ..._gridBuses.map((targetBus) {
+            final key = '$sourceBus→$targetBus';
+            final rule = ruleMap[key];
+            return Expanded(
+              child: _buildGridCell(sourceBus, targetBus, rule),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// P3.2: Individual cell in the grid matrix
+  Widget _buildGridCell(String sourceBus, String targetBus, DuckingRule? rule) {
+    // Diagonal cells (same bus) are disabled
+    final isDiagonal = sourceBus == targetBus;
+
+    if (isDiagonal) {
+      return Container(
+        margin: const EdgeInsets.all(2),
+        height: 32,
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.surface.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: Icon(
+            Icons.block,
+            size: 12,
+            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
+          ),
+        ),
+      );
+    }
+
+    final hasRule = rule != null;
+    final isSelected = rule != null && _selectedRuleId == rule.id;
+    final isEnabled = rule?.enabled ?? false;
+
+    return GestureDetector(
+      onTap: () {
+        if (hasRule) {
+          // Select existing rule
+          setState(() {
+            _selectedRuleId = isSelected ? null : rule.id;
+          });
+        } else {
+          // Create new rule
+          context.read<MiddlewareProvider>().addDuckingRule(
+            sourceBus: sourceBus,
+            sourceBusId: kAllBuses.indexOf(sourceBus),
+            targetBus: targetBus,
+            targetBusId: kAllBuses.indexOf(targetBus),
+          );
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.all(2),
+        height: 32,
+        decoration: BoxDecoration(
+          color: hasRule
+              ? (isEnabled
+                  ? FluxForgeTheme.accentBlue.withValues(alpha: isSelected ? 0.4 : 0.2)
+                  : FluxForgeTheme.textSecondary.withValues(alpha: 0.1))
+              : FluxForgeTheme.surface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected
+                ? FluxForgeTheme.accentBlue
+                : (hasRule
+                    ? (isEnabled ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5) : FluxForgeTheme.border)
+                    : FluxForgeTheme.border.withValues(alpha: 0.5)),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Center(
+          child: hasRule
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${rule.duckAmountDb.toStringAsFixed(0)}dB',
+                      style: TextStyle(
+                        color: isEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (!isEnabled)
+                      Text(
+                        'OFF',
+                        style: TextStyle(
+                          color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
+                          fontSize: 7,
+                        ),
+                      ),
+                  ],
+                )
+              : Icon(
+                  Icons.add,
+                  size: 14,
+                  color: FluxForgeTheme.textSecondary.withValues(alpha: 0.4),
+                ),
         ),
       ),
     );

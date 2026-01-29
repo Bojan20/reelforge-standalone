@@ -174,9 +174,12 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   /// P2.17 FIX: Maximum number of composite events to prevent unbounded memory growth
   static const int _maxCompositeEvents = 500;
 
-  /// Layer clipboard for copy/paste
+  /// Layer clipboard for copy/paste (single layer)
   SlotEventLayer? _layerClipboard;
   String? _selectedLayerId;
+
+  /// Multi-layer clipboard for batch copy/paste
+  List<SlotEventLayer> _layersClipboard = [];
 
   /// Multi-select support for batch operations
   final Set<String> _selectedLayerIds = {};
@@ -218,10 +221,15 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   int get undoStackSize => _undoStack.length;
   int get redoStackSize => _redoStack.length;
 
-  /// Layer clipboard getters
+  /// Layer clipboard getters (single)
   bool get hasLayerInClipboard => _layerClipboard != null;
   SlotEventLayer? get layerClipboard => _layerClipboard;
   String? get selectedLayerId => _selectedLayerId;
+
+  /// Multi-layer clipboard getters
+  bool get hasLayersInClipboard => _layersClipboard.isNotEmpty;
+  List<SlotEventLayer> get layersClipboard => List.unmodifiable(_layersClipboard);
+  int get clipboardLayerCount => _layersClipboard.length;
 
   /// Multi-select getters
   Set<String> get selectedLayerIds => Set.unmodifiable(_selectedLayerIds);
@@ -931,9 +939,10 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     }
   }
 
-  /// Clear clipboard
+  /// Clear clipboard (both single and multi-layer)
   void clearClipboard() {
     _layerClipboard = null;
+    _layersClipboard.clear();
     notifyListeners();
   }
 
@@ -1016,6 +1025,57 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     _compositeEvents[eventId] = updated;
     _syncCompositeToMiddleware(updated);
     notifyListeners();
+  }
+
+  /// Copy all selected layers to clipboard
+  void copySelectedLayers(String eventId) {
+    if (_selectedLayerIds.isEmpty) return;
+
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+
+    // Copy selected layers to multi-layer clipboard
+    _layersClipboard = event.layers
+        .where((l) => _selectedLayerIds.contains(l.id))
+        .toList();
+
+    debugPrint('[Clipboard] Copied ${_layersClipboard.length} layers');
+    notifyListeners();
+  }
+
+  /// Paste all layers from clipboard to event
+  List<SlotEventLayer> pasteSelectedLayers(String eventId) {
+    if (_layersClipboard.isEmpty) return [];
+
+    final event = _compositeEvents[eventId];
+    if (event == null) return [];
+
+    _pushUndoState();
+
+    final pastedLayers = <SlotEventLayer>[];
+
+    for (final layer in _layersClipboard) {
+      final newId = 'layer_${_nextLayerId++}';
+      final pastedLayer = layer.copyWith(
+        id: newId,
+        name: '${layer.name} (copy)',
+        // Offset each pasted layer slightly to make them visible
+        offsetMs: layer.offsetMs + (pastedLayers.length * 50),
+      );
+      pastedLayers.add(pastedLayer);
+    }
+
+    final updated = event.copyWith(
+      layers: [...event.layers, ...pastedLayers],
+      modifiedAt: DateTime.now(),
+    );
+
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
+    notifyListeners();
+
+    debugPrint('[Clipboard] Pasted ${pastedLayers.length} layers');
+    return pastedLayers;
   }
 
   /// Adjust volume for all selected layers

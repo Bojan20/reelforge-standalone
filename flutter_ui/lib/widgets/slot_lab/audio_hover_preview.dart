@@ -16,6 +16,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../services/audio_playback_service.dart';
+import '../../services/waveform_thumbnail_cache.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIO FILE INFO MODEL
@@ -100,6 +101,7 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
   double _playbackProgress = 0.0;
   int _currentVoiceId = -1;
   DateTime? _playbackStartTime;
+  WaveformThumbnailData? _cachedWaveform;
 
   @override
   void initState() {
@@ -110,6 +112,27 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
     );
     _playbackController.addListener(() {
       setState(() => _playbackProgress = _playbackController.value);
+    });
+    _loadWaveform();
+  }
+
+  void _loadWaveform() {
+    final cache = WaveformThumbnailCache.instance;
+
+    // Check cache first (sync)
+    final cached = cache.get(widget.audioInfo.path);
+    if (cached != null) {
+      setState(() => _cachedWaveform = cached);
+      return;
+    }
+
+    // Generate in background
+    Future.microtask(() {
+      if (!mounted) return;
+      final data = cache.generate(widget.audioInfo.path);
+      if (mounted && data != null) {
+        setState(() => _cachedWaveform = data);
+      }
     });
   }
 
@@ -414,6 +437,7 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                   size: Size(constraints.maxWidth, 40),
                   painter: _MiniWaveformPainter(
                     waveformData: widget.audioInfo.waveformData,
+                    cachedData: _cachedWaveform,
                     progress: _playbackProgress,
                     isPlaying: isActuallyPlaying,
                   ),
@@ -547,24 +571,35 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
 
 class _MiniWaveformPainter extends CustomPainter {
   final List<double>? waveformData;
+  final WaveformThumbnailData? cachedData;
   final double progress;
   final bool isPlaying;
 
   _MiniWaveformPainter({
     this.waveformData,
+    this.cachedData,
     this.progress = 0,
     this.isPlaying = false,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final centerY = size.height / 2;
+    final halfHeight = size.height * 0.4;
+
+    // Use cached FFI data if available
+    if (cachedData != null) {
+      _paintFromCache(canvas, size, centerY, halfHeight);
+      return;
+    }
+
+    // Fall back to legacy data or fake waveform
     final data = waveformData ?? _generateFakeWaveform(64);
     final barWidth = size.width / data.length;
-    final centerY = size.height / 2;
 
     for (int i = 0; i < data.length; i++) {
       final x = i * barWidth;
-      final amplitude = data[i] * (size.height * 0.4);
+      final amplitude = data[i] * halfHeight;
       final isPastProgress = i / data.length < progress;
 
       final paint = Paint()
@@ -582,6 +617,64 @@ class _MiniWaveformPainter extends CustomPainter {
     }
   }
 
+  void _paintFromCache(Canvas canvas, Size size, double centerY, double halfHeight) {
+    final path = Path();
+    bool first = true;
+
+    // Top edge (max peaks)
+    for (int i = 0; i < kThumbnailWidth; i++) {
+      final x = (i / kThumbnailWidth) * size.width;
+      final (_, maxVal) = cachedData!.getPeakAt(i);
+      final y = centerY - (maxVal * halfHeight);
+      final isPastProgress = i / kThumbnailWidth < progress;
+
+      if (first) {
+        path.moveTo(x, y);
+        first = false;
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    // Bottom edge (min peaks, reversed)
+    for (int i = kThumbnailWidth - 1; i >= 0; i--) {
+      final x = (i / kThumbnailWidth) * size.width;
+      final (minVal, _) = cachedData!.getPeakAt(i);
+      final y = centerY - (minVal * halfHeight);
+      path.lineTo(x, y);
+    }
+
+    path.close();
+
+    // Fill waveform (base color)
+    final basePaint = Paint()
+      ..color = Colors.white.withOpacity(0.3)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(path, basePaint);
+
+    // Draw progress overlay if playing
+    if (isPlaying && progress > 0) {
+      final progressWidth = progress * size.width;
+      canvas.save();
+      canvas.clipRect(Rect.fromLTWH(0, 0, progressWidth, size.height));
+      final progressPaint = Paint()
+        ..color = FluxForgeTheme.accentGreen.withOpacity(0.8)
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(path, progressPaint);
+      canvas.restore();
+    }
+
+    // Draw center line
+    final centerPaint = Paint()
+      ..color = Colors.white.withOpacity(0.15)
+      ..strokeWidth = 0.5;
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      centerPaint,
+    );
+  }
+
   List<double> _generateFakeWaveform(int samples) {
     final random = math.Random(42);
     return List.generate(samples, (i) {
@@ -593,7 +686,8 @@ class _MiniWaveformPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MiniWaveformPainter oldDelegate) {
     return oldDelegate.progress != progress ||
-        oldDelegate.isPlaying != isPlaying;
+        oldDelegate.isPlaying != isPlaying ||
+        oldDelegate.cachedData != cachedData;
   }
 }
 

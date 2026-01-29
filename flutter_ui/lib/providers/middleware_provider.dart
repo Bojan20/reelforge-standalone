@@ -3458,6 +3458,13 @@ class MiddlewareProvider extends ChangeNotifier {
       _compositeEventSystemProvider.duplicateLayer(eventId, layerId);
   void clearClipboard() => _compositeEventSystemProvider.clearClipboard();
 
+  // Multi-layer clipboard operations
+  void copySelectedLayers(String eventId) => _compositeEventSystemProvider.copySelectedLayers(eventId);
+  List<SlotEventLayer> pasteSelectedLayers(String eventId) =>
+      _compositeEventSystemProvider.pasteSelectedLayers(eventId);
+  bool get hasLayersInClipboard => _compositeEventSystemProvider.hasLayersInClipboard;
+  int get clipboardLayerCount => _compositeEventSystemProvider.clipboardLayerCount;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // COMPOSITE EVENT METHODS (delegated to CompositeEventSystemProvider - P1.5)
   // ═══════════════════════════════════════════════════════════════════════════
