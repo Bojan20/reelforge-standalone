@@ -16,6 +16,13 @@ import 'package:flutter/foundation.dart';
 import '../models/auto_event_builder_models.dart';
 import '../models/middleware_models.dart' show ActionType;
 
+/// Stub EventDraft class for quick_sheet compatibility
+class EventDraft {
+  final String targetId;
+  final String stage;
+  const EventDraft({required this.targetId, required this.stage});
+}
+
 /// Stub CommittedEvent class - preserved for compatibility
 class CommittedEvent {
   final String eventId;
@@ -51,10 +58,11 @@ class AutoEventBuilderProvider extends ChangeNotifier {
   List<AudioAsset> get selectedAssets => const [];
   List<AudioAsset> get recentAssets => const [];
   List<CommittedEvent> get events => const [];
+  List<CommittedEvent> get committedEvents => const []; // Alias
   List<String> get presets => const []; // Stub for quick_sheet.dart
 
   EventDraft? createDraft(AudioAsset asset, DropTarget target) => null; // Stub
-  void updateDraft({String? trigger, String? presetId}) {} // Stub
+  void updateDraft({String? trigger, String? presetId, Map<String, dynamic>? parameters}) {} // Stub
 
   void clearAudioAssets() {}
   void addAudioAssets(List<AudioAsset> assets) {}
