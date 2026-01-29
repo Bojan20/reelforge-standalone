@@ -27,6 +27,7 @@
 /// matched to their correct stages using fuzzy filename matching.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // SL-LP-P1.3
 import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_lab_models.dart';
 import '../../services/stage_group_service.dart';
@@ -104,6 +105,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
   // Search state (SL-LP-P1.2)
   String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode(); // SL-LP-P1.3
+
+  // Keyboard navigation state (SL-LP-P1.3)
+  final FocusNode _panelFocusNode = FocusNode();
+  int _selectedSectionIndex = 0;
+  int _selectedGroupIndex = 0;
 
   @override
   void initState() {
@@ -147,24 +155,95 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     });
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _panelFocusNode.dispose(); // SL-LP-P1.3
+    super.dispose();
+  }
+
   /// Get effective expanded sections (external or local)
   Set<String> get _expandedSections => widget.expandedSections ?? _localExpandedSections;
 
   /// Get effective expanded groups (external or local)
   Set<String> get _expandedGroups => widget.expandedGroups ?? _localExpandedGroups;
 
+  /// Handle keyboard shortcuts (SL-LP-P1.3)
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final isCtrlOrCmd = event.logicalKey == LogicalKeyboardKey.controlLeft ||
+        event.logicalKey == LogicalKeyboardKey.controlRight ||
+        event.logicalKey == LogicalKeyboardKey.metaLeft ||
+        event.logicalKey == LogicalKeyboardKey.metaRight;
+
+    // Cmd/Ctrl+F: Focus search
+    if (isCtrlOrCmd && HardwareKeyboard.instance.isLogicalKeyPressed(LogicalKeyboardKey.keyF)) {
+      _searchFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+
+    // Escape: Clear search and unfocus
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      if (_searchQuery.isNotEmpty) {
+        setState(() {
+          _searchQuery = '';
+          _searchController.clear();
+        });
+      } else {
+        _searchFocusNode.unfocus();
+        _panelFocusNode.requestFocus();
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Space: Play first assigned slot (if any)
+    if (event.logicalKey == LogicalKeyboardKey.space && !_searchFocusNode.hasFocus) {
+      final firstAssigned = widget.audioAssignments.entries.firstOrNull;
+      if (firstAssigned != null) {
+        _togglePreview(firstAssigned.key, firstAssigned.value);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Arrow keys: Navigate sections/groups (when not in search)
+    if (!_searchFocusNode.hasFocus) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        setState(() {
+          if (_selectedSectionIndex > 0) _selectedSectionIndex--;
+        });
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        setState(() {
+          if (_selectedSectionIndex < 11) _selectedSectionIndex++; // 12 sections (0-11)
+        });
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFF0D0D10),
-      child: Column(
+    return Focus(
+      focusNode: _panelFocusNode,
+      onKeyEvent: _handleKeyEvent,
+      autofocus: true,
+      child: Container(
+        color: const Color(0xFF0D0D10),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(),
-          // Search field (SL-LP-P1.2)
+          // Search field (SL-LP-P1.2, enhanced with keyboard shortcuts SL-LP-P1.3)
           Padding(
             padding: const EdgeInsets.all(6),
             child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
               style: const TextStyle(fontSize: 11, color: Colors.white70),
               decoration: InputDecoration(
                 isDense: true,
@@ -182,7 +261,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 14, color: Colors.white38),
-                        onPressed: () => setState(() => _searchQuery = ''),
+                        onPressed: () => setState(() {
+                          _searchQuery = '';
+                          _searchController.clear();
+                        }),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                       )
@@ -223,6 +305,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
