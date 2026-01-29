@@ -9,7 +9,6 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -19,6 +18,7 @@ import '../../providers/middleware_provider.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/event_registry.dart';
+import '../../services/waveform_thumbnail_cache.dart'; // SL-RP-P1.6
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
 import 'create_event_dialog.dart';
@@ -169,8 +169,8 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         position.dx + 200,
         position.dy + 200,
       ),
-      items: [
-        PopupMenuItem(
+      items: <PopupMenuEntry>[
+        PopupMenuItem<void>(
           child: Row(
             children: [
               Icon(Icons.content_copy, size: 16, color: FluxForgeTheme.accentBlue),
@@ -183,7 +183,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             middleware.duplicateCompositeEvent(event.id);
           },
         ),
-        PopupMenuItem(
+        PopupMenuItem<void>(
           child: Row(
             children: [
               Icon(Icons.play_circle, size: 16, color: FluxForgeTheme.accentGreen),
@@ -194,7 +194,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           onTap: () => _testPlayEvent(event),
         ),
         const PopupMenuDivider(),
-        PopupMenuItem(
+        PopupMenuItem<void>(
           child: Row(
             children: [
               Icon(Icons.file_download, size: 16, color: FluxForgeTheme.accentOrange),
@@ -1957,10 +1957,18 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
                   ),
                   child: Stack(
                     children: [
-                      // Mini waveform visualization
-                      CustomPaint(
-                        size: const Size(double.infinity, 20),
-                        painter: _SimpleWaveformPainter(isPlaying: _isPlaying),
+                      // Real waveform visualization (SL-RP-P1.6)
+                      SizedBox(
+                        height: 20,
+                        child: WaveformThumbnail(
+                          filePath: widget.audioInfo.path,
+                          width: double.infinity,
+                          height: 20,
+                          color: _isPlaying
+                              ? FluxForgeTheme.accentGreen.withOpacity(0.6)
+                              : Colors.white.withOpacity(0.4),
+                          backgroundColor: Colors.transparent,
+                        ),
                       ),
                       // Playing indicator
                       if (_isPlaying)
@@ -2001,41 +2009,5 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
   }
 }
 
-/// Simple waveform painter for preview
-class _SimpleWaveformPainter extends CustomPainter {
-  final bool isPlaying;
-
-  _SimpleWaveformPainter({this.isPlaying = false});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = isPlaying
-          ? FluxForgeTheme.accentGreen.withOpacity(0.6)
-          : Colors.white.withOpacity(0.2)
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-
-    final random = math.Random(42); // Fixed seed for consistent visualization
-    final barCount = 40;
-    final barWidth = size.width / barCount;
-    final centerY = size.height / 2;
-
-    for (int i = 0; i < barCount; i++) {
-      final x = i * barWidth + barWidth / 2;
-      final envelope = math.sin(i / barCount * math.pi);
-      final amplitude = (random.nextDouble() * 0.5 + 0.3) * envelope * (size.height * 0.4);
-
-      canvas.drawLine(
-        Offset(x, centerY - amplitude),
-        Offset(x, centerY + amplitude),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SimpleWaveformPainter oldDelegate) {
-    return oldDelegate.isPlaying != isPlaying;
-  }
-}
+// SL-RP-P1.6: _SimpleWaveformPainter removed — now using real FFI-generated waveforms
+// via WaveformThumbnail widget from waveform_thumbnail_cache.dart

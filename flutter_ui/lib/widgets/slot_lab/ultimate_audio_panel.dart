@@ -31,6 +31,7 @@ import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_lab_models.dart';
 import '../../services/stage_group_service.dart';
 import '../../services/audio_playback_service.dart';
+import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import '../../theme/fluxforge_theme.dart';
 
 /// Audio assignment callback with stage and path
@@ -530,17 +531,41 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   ),
                 ),
                 const SizedBox(width: 4),
-                // Audio path or hint
+                // Audio path or hint with waveform thumbnail (SL-LP-P1.1)
                 Expanded(
-                  child: Text(
-                    hasAudio ? fileName! : 'Drop audio...',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: hasAudio ? Colors.white70 : Colors.white24,
-                      fontStyle: hasAudio ? FontStyle.normal : FontStyle.italic,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: hasAudio
+                      ? Row(
+                          children: [
+                            // Waveform thumbnail (80x20px)
+                            WaveformThumbnail(
+                              filePath: audioPath,
+                              width: 80,
+                              height: 20,
+                              color: accentColor.withOpacity(0.6),
+                              backgroundColor: Colors.black.withOpacity(0.3),
+                            ),
+                            const SizedBox(width: 6),
+                            // File name (truncated)
+                            Expanded(
+                              child: Text(
+                                fileName!,
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.white70,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          'Drop audio...',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            color: Colors.white24,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
                 ),
                 // Play/Stop button (SL-LP-P0.1)
                 if (hasAudio)
