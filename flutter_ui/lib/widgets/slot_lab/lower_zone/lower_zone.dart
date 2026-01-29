@@ -30,6 +30,8 @@ import 'lower_zone_context_bar.dart';
 import 'command_builder_panel.dart';
 import 'event_list_panel.dart';
 import 'bus_meters_panel.dart';
+import 'events/composite_editor_panel.dart';
+import 'bake/batch_export_panel.dart';
 
 // FabFilter DSP Panels
 import '../../fabfilter/fabfilter_compressor_panel.dart';
@@ -233,8 +235,9 @@ class _LowerZoneContent extends StatelessWidget {
       case 1: // RTPC Debugger
         return const RtpcDebuggerPanel();
       case 2: // Composite Editor
-        // TODO: Implement CompositeEditorPanel (SL-LZ-P0.3)
-        return _buildPlaceholder('Composite Editor\n(Coming Soon - SL-LZ-P0.3)');
+        return CompositeEditorPanel(
+          selectedEventId: null, // TODO: Wire selection from Event List
+        );
       default:
         return const EventListPanel();
     }
@@ -310,8 +313,9 @@ class _LowerZoneContent extends StatelessWidget {
     final subIndex = controller.activeSubTabIndex;
     switch (subIndex) {
       case 0: // Batch Export
-        // TODO: Implement BatchExportPanel (SL-LZ-P0.4)
-        return _buildPlaceholder('Batch Export\n(Coming Soon - SL-LZ-P0.4)');
+        return BatchExportPanel(
+          selectedEventIds: null, // TODO: Wire selected events
+        );
       case 1: // Validation
         return _buildPlaceholder('Validation Checks\n(Coming Soon)');
       case 2: // Package
