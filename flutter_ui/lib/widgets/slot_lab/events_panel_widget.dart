@@ -22,6 +22,7 @@ import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
 import 'create_event_dialog.dart';
 import 'audio_hover_preview.dart';
+import 'stage_editor_dialog.dart';
 
 /// Main Events Panel Widget
 class EventsPanelWidget extends StatefulWidget {
@@ -57,6 +58,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   String? _editingEventId;
   final TextEditingController _editController = TextEditingController();
   final FocusNode _editFocusNode = FocusNode();
+
+  // Layer property editing state (SL-RP-P0.3)
+  Set<String> _expandedLayerIds = {};
 
   // Effective selected event ID (prefers parent control)
   String? get _selectedEventId => widget.selectedEventId ?? _localSelectedEventId;
@@ -573,26 +577,58 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               ),
             ),
 
-            // COL 2: Stage (flex: 2)
+            // COL 2: Stage (flex: 2) — with edit button (SL-RP-P0.2)
             Expanded(
               flex: 2,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentGreen.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: Text(
-                  formatStage(primaryStage),
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontFamily: 'monospace',
-                    color: FluxForgeTheme.accentGreen.withOpacity(0.9),
+              child: Row(
+                children: [
+                  // Stage badge
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      margin: const EdgeInsets.only(right: 2),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentGreen.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        formatStage(primaryStage),
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontFamily: 'monospace',
+                          color: FluxForgeTheme.accentGreen.withOpacity(0.9),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
+                  // Edit icon button
+                  InkWell(
+                    onTap: () async {
+                      final newStages = await StageEditorDialog.show(
+                        context,
+                        event: event,
+                      );
+                      if (newStages != null) {
+                        final middleware = context.read<MiddlewareProvider>();
+                        middleware.updateCompositeEvent(
+                          event.copyWith(triggerStages: newStages),
+                        );
+                      }
+                    },
+                    child: Container(
+                      width: 20,
+                      height: 26,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.edit_outlined,
+                        size: 11,
+                        color: Colors.white38,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -804,6 +840,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   Widget _buildLayerItem(SlotCompositeEvent event, SlotEventLayer layer, int index) {
     final hasAudio = layer.audioPath.isNotEmpty;
     final fileName = hasAudio ? layer.audioPath.split('/').last : 'No audio';
+    final isExpanded = _expandedLayerIds.contains(layer.id);
 
     // Accept BOTH AudioAsset and String for drag-drop compatibility
     return DragTarget<Object>(
@@ -831,7 +868,6 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       builder: (ctx, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
         return Container(
-          height: 36,
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: isHovering
@@ -844,67 +880,243 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   : Colors.white.withOpacity(0.1),
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Drag handle
-              Container(
-                width: 24,
-                alignment: Alignment.center,
-                child: const Icon(Icons.drag_indicator, size: 14, color: Colors.white24),
-              ),
-              // Layer info
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      layer.name,
-                      style: const TextStyle(fontSize: 10, color: Colors.white70),
-                    ),
-                    Text(
-                      fileName,
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: hasAudio ? Colors.white38 : Colors.white24,
-                        fontStyle: hasAudio ? FontStyle.normal : FontStyle.italic,
+              // Header row (always visible)
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    if (isExpanded) {
+                      _expandedLayerIds.remove(layer.id);
+                    } else {
+                      _expandedLayerIds.add(layer.id);
+                    }
+                  });
+                },
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    children: [
+                      // Expand/collapse icon
+                      Icon(
+                        isExpanded ? Icons.expand_more : Icons.chevron_right,
+                        size: 14,
+                        color: Colors.white38,
                       ),
-                      overflow: TextOverflow.ellipsis,
+                      // Drag handle
+                      Icon(Icons.drag_indicator, size: 14, color: Colors.white24),
+                      const SizedBox(width: 4),
+                      // Layer info
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              layer.name,
+                              style: const TextStyle(fontSize: 10, color: Colors.white70),
+                            ),
+                            Text(
+                              fileName,
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: hasAudio ? Colors.white38 : Colors.white24,
+                                fontStyle: hasAudio ? FontStyle.normal : FontStyle.italic,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Mute
+                      IconButton(
+                        icon: Icon(
+                          layer.muted ? Icons.volume_off : Icons.volume_up,
+                          size: 14,
+                          color: layer.muted ? Colors.red : Colors.white38,
+                        ),
+                        onPressed: () {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(
+                            event.id,
+                            layer.copyWith(muted: !layer.muted),
+                          );
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                      ),
+                      // Delete
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 14, color: Colors.white24),
+                        onPressed: () {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.removeLayerFromEvent(event.id, layer.id);
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Property controls (SL-RP-P0.3) — shown when expanded
+              if (isExpanded)
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    border: Border(
+                      top: BorderSide(color: Colors.white.withOpacity(0.05)),
                     ),
-                  ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Volume slider
+                      _buildPropertySlider(
+                        label: 'Volume',
+                        value: layer.volume,
+                        min: 0.0,
+                        max: 2.0,
+                        divisions: 40,
+                        valueDisplay: '${(layer.volume * 100).toInt()}%',
+                        onChanged: (v) {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(
+                            event.id,
+                            layer.copyWith(volume: v),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Pan slider
+                      _buildPropertySlider(
+                        label: 'Pan',
+                        value: layer.pan,
+                        min: -1.0,
+                        max: 1.0,
+                        divisions: 20,
+                        valueDisplay: layer.pan == 0
+                            ? 'C'
+                            : layer.pan < 0
+                                ? 'L${(-layer.pan * 100).toInt()}'
+                                : 'R${(layer.pan * 100).toInt()}',
+                        onChanged: (v) {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(
+                            event.id,
+                            layer.copyWith(pan: v),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Delay slider
+                      _buildPropertySlider(
+                        label: 'Delay',
+                        value: layer.offsetMs,
+                        min: 0.0,
+                        max: 2000.0,
+                        divisions: 200,
+                        valueDisplay: '${layer.offsetMs.toInt()}ms',
+                        onChanged: (v) {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(
+                            event.id,
+                            layer.copyWith(offsetMs: v),
+                          );
+                        },
+                      ),
+
+                      // Preview button
+                      if (hasAudio) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 28,
+                          child: OutlinedButton.icon(
+                            icon: Icon(Icons.play_arrow, size: 14),
+                            label: const Text('Preview', style: TextStyle(fontSize: 10)),
+                            onPressed: () {
+                              AudioPlaybackService.instance.previewFile(
+                                layer.audioPath,
+                                volume: layer.volume,
+                                source: PlaybackSource.browser,
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: FluxForgeTheme.accentGreen,
+                              side: BorderSide(color: FluxForgeTheme.accentGreen.withOpacity(0.3)),
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-              // Mute/Solo
-              IconButton(
-                icon: Icon(
-                  layer.muted ? Icons.volume_off : Icons.volume_up,
-                  size: 14,
-                  color: layer.muted ? Colors.red : Colors.white38,
-                ),
-                onPressed: () {
-                  final middleware = context.read<MiddlewareProvider>();
-                  middleware.updateEventLayer(
-                    event.id,
-                    layer.copyWith(muted: !layer.muted),
-                  );
-                },
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              ),
-              // Delete
-              IconButton(
-                icon: const Icon(Icons.close, size: 14, color: Colors.white24),
-                onPressed: () {
-                  final middleware = context.read<MiddlewareProvider>();
-                  middleware.removeLayerFromEvent(event.id, layer.id);
-                },
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  /// Build property slider widget (SL-RP-P0.3)
+  Widget _buildPropertySlider({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required String valueDisplay,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 50,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 9, color: Colors.white54),
+          ),
+        ),
+        Expanded(
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 2,
+              thumbShape: RoundSliderThumbShape(enabledThumbRadius: 5),
+              overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
+            ),
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              label: valueDisplay,
+              onChanged: onChanged,
+              activeColor: FluxForgeTheme.accentBlue,
+              inactiveColor: Colors.white.withOpacity(0.1),
+            ),
+          ),
+        ),
+        SizedBox(
+          width: 50,
+          child: Text(
+            valueDisplay,
+            style: const TextStyle(
+              fontSize: 9,
+              color: Colors.white70,
+              fontFamily: 'monospace',
+            ),
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
     );
   }
 
