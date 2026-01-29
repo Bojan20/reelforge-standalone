@@ -44,12 +44,12 @@
 - Lower Zone Event List shows AutoEventBuilderProvider events ❌
 - Events created in one panel don't appear in the other
 
-**Effort:** 2 hours
+**Effort:** 2 hours (actual: 1 hour)
 **Assigned To:** Technical Director
-**Status:** ❌ NOT STARTED
+**Status:** ✅ COMPLETE (2026-01-29, commit 39912125)
 
-**Files to Modify:**
-- `flutter_ui/lib/widgets/slot_lab/lower_zone/event_list_panel.dart:14,94`
+**Files Modified:**
+- `flutter_ui/lib/widgets/slot_lab/lower_zone/event_list_panel.dart` — Provider migration complete
 
 **Implementation Steps:**
 1. Change import from `auto_event_builder_provider.dart` to `middleware_provider.dart`
