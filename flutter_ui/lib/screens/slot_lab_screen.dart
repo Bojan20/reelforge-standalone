@@ -68,6 +68,7 @@ import '../widgets/slot_lab/bus_hierarchy_panel.dart';
 import '../widgets/slot_lab/profiler_panel.dart';
 import '../widgets/slot_lab/volatility_dial.dart';
 import '../widgets/slot_lab/scenario_controls.dart';
+import '../widgets/slot_lab/batch_distribution_dialog.dart';
 import '../widgets/slot_lab/resources_panel.dart';
 import '../widgets/slot_lab/aux_sends_panel.dart';
 import '../widgets/slot_lab/slot_preview_widget.dart';
@@ -2379,8 +2380,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                             onGroupToggle: (groupId) {
                               projectProvider.toggleGroup(groupId);
                             },
-                            onBatchDistribute: (matched, unmatched) {
+                            onBatchDistribute: (matched, unmatched) async {
                               debugPrint('[SlotLab] 📦 Batch distribute: ${matched.length} matched, ${unmatched.length} unmatched');
+                              // Show results dialog (SL-LP-P0.3)
+                              await BatchDistributionDialog.show(
+                                context,
+                                matched: matched,
+                                unmatched: unmatched,
+                              );
                             },
                           ),
                         );

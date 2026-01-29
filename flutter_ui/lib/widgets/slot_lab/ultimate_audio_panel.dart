@@ -30,6 +30,7 @@ import 'package:flutter/material.dart';
 import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_lab_models.dart';
 import '../../services/stage_group_service.dart';
+import '../../services/audio_playback_service.dart';
 import '../../theme/fluxforge_theme.dart';
 
 /// Audio assignment callback with stage and path
@@ -96,6 +97,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   // Local expanded state (used when external state not provided)
   late Set<String> _localExpandedSections;
   late Set<String> _localExpandedGroups;
+
+  // Audio preview state (SL-LP-P0.1)
+  String? _playingStage;
 
   @override
   void initState() {
@@ -282,6 +286,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   ),
                 ),
                 const Spacer(),
+                // Assigned count badge
                 if (assignedCount > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -298,9 +303,66 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       ),
                     ),
                   ),
+                const SizedBox(width: 4),
+                // Completion percentage badge (SL-LP-P0.2)
+                Builder(
+                  builder: (context) {
+                    final percentage = _getSectionPercentage(config);
+                    final percentageColor = _getPercentageColor(percentage);
+                    final isComplete = percentage == 100;
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: percentageColor.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: percentageColor.withOpacity(0.4),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$percentage%',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: percentageColor,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                          if (isComplete) ...[
+                            const SizedBox(width: 3),
+                            Icon(Icons.check_circle, size: 10, color: percentageColor),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
+        ),
+        // Progress bar (SL-LP-P0.2) — shown when expanded and not 100%
+        if (isExpanded) Builder(
+          builder: (context) {
+            final percentage = _getSectionPercentage(config);
+            if (percentage >= 100) return const SizedBox.shrink();
+
+            return Container(
+              height: 3,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              child: LinearProgressIndicator(
+                value: percentage / 100,
+                backgroundColor: Colors.white.withOpacity(0.05),
+                color: config.color.withOpacity(0.6),
+                minHeight: 3,
+              ),
+            );
+          },
         ),
         // Section content
         if (isExpanded)
@@ -435,6 +497,23 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                // Play/Stop button (SL-LP-P0.1)
+                if (hasAudio)
+                  InkWell(
+                    onTap: () => _togglePreview(slot.stage, audioPath),
+                    child: Container(
+                      width: 22,
+                      height: 26,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        _playingStage == slot.stage ? Icons.stop : Icons.play_arrow,
+                        size: 12,
+                        color: _playingStage == slot.stage
+                            ? FluxForgeTheme.accentGreen
+                            : Colors.white54,
+                      ),
+                    ),
+                  ),
                 // Clear button
                 if (hasAudio)
                   InkWell(
@@ -454,12 +533,54 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     );
   }
 
+  /// Toggle audio preview playback (SL-LP-P0.1)
+  void _togglePreview(String stage, String audioPath) {
+    if (_playingStage == stage) {
+      // Stop if currently playing this stage
+      AudioPlaybackService.instance.stopAll();
+      setState(() => _playingStage = null);
+    } else {
+      // Stop previous and play new
+      AudioPlaybackService.instance.stopAll();
+      AudioPlaybackService.instance.previewFile(
+        audioPath,
+        source: PlaybackSource.browser, // Isolated engine
+      );
+      setState(() => _playingStage = stage);
+    }
+  }
+
   int _countAssignedInSection(_SectionConfig section) {
     int count = 0;
     for (final group in section.groups) {
       count += _countAssignedInGroup(group);
     }
     return count;
+  }
+
+  /// Get total slot count in section (SL-LP-P0.2)
+  int _getTotalSlotsInSection(_SectionConfig section) {
+    int total = 0;
+    for (final group in section.groups) {
+      total += group.slots.length;
+    }
+    return total;
+  }
+
+  /// Get completion percentage for section (SL-LP-P0.2)
+  int _getSectionPercentage(_SectionConfig section) {
+    final total = _getTotalSlotsInSection(section);
+    if (total == 0) return 0;
+    final assigned = _countAssignedInSection(section);
+    return ((assigned / total) * 100).toInt();
+  }
+
+  /// Get color for completion percentage (SL-LP-P0.2)
+  Color _getPercentageColor(int percentage) {
+    if (percentage == 100) return FluxForgeTheme.accentGreen;
+    if (percentage >= 75) return FluxForgeTheme.accentBlue;
+    if (percentage >= 50) return FluxForgeTheme.accentOrange;
+    return FluxForgeTheme.accentRed;
   }
 
   int _countAssignedInGroup(_GroupConfig group) {
