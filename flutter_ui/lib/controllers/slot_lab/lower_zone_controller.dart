@@ -1,15 +1,17 @@
 // Lower Zone Controller — SlotLab Collapsible Bottom Panel
 //
 // Manages the state of SlotLab's lower zone:
-// - Tab switching (Timeline, Command Builder, Event List, Meters)
+// - Super-tab switching (STAGES, EVENTS, MIX, MUSIC, DSP, BAKE, ENGINE)
+// - Sub-tab navigation within each super-tab
 // - Expand/collapse animation
 // - Resizable height (100-500px)
-// - Keyboard shortcuts (1-4 for tabs, ` for toggle)
+// - Keyboard shortcuts (Ctrl+Shift+T/E/X/A/G for super-tabs, 1-9 for sub-tabs)
 //
-// Based on SLOTLAB_AUTO_EVENT_BUILDER_FINAL.md Section 15.3
+// Updated 2026-01-29: Super-tab restructure per MASTER_TODO.md SL-LZ-P0.2
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import '../../widgets/slot_lab/lower_zone/lower_zone_types.dart';
 
 // ============ Types ============
 
@@ -210,10 +212,16 @@ const Duration kLowerZoneAnimationDuration = Duration(milliseconds: 200);
 
 /// Controller for SlotLab's lower zone panel
 ///
-/// Manages tab state, expand/collapse, resizable height, and category collapse state.
-/// Follows the same pattern as EditorModeProvider.
+/// Manages super-tab/sub-tab state, expand/collapse, resizable height.
+/// Updated 2026-01-29 for super-tab architecture per SL-LZ-P0.2.
 class LowerZoneController extends ChangeNotifier {
+  // Legacy tab (for backward compatibility during migration)
   LowerZoneTab _activeTab;
+
+  // NEW: Super-tab state
+  SuperTab _activeSuperTab;
+  final Map<SuperTab, int> _activeSubTabIndices;
+
   bool _isExpanded;
   double _height;
 
@@ -225,18 +233,44 @@ class LowerZoneController extends ChangeNotifier {
     LowerZoneCategory.advanced: true, // Advanced collapsed by default
   };
 
+  /// Selected menu panel (when [+] More menu item is chosen)
+  String? _activeMenuPanel;
+
   LowerZoneController({
     LowerZoneTab initialTab = LowerZoneTab.timeline,
+    SuperTab initialSuperTab = SuperTab.stages,
     bool initialExpanded = true,
     double initialHeight = kLowerZoneDefaultHeight,
   })  : _activeTab = initialTab,
+        _activeSuperTab = initialSuperTab,
+        _activeSubTabIndices = {
+          for (final superTab in SuperTab.values) superTab: 0,
+        },
         _isExpanded = initialExpanded,
         _height = initialHeight.clamp(kLowerZoneMinHeight, kLowerZoneMaxHeight);
 
   // ============ Getters ============
 
-  /// Currently active tab
+  /// Currently active legacy tab (for backward compatibility)
   LowerZoneTab get activeTab => _activeTab;
+
+  /// Currently active super-tab
+  SuperTab get activeSuperTab => _activeSuperTab;
+
+  /// Index of active sub-tab within current super-tab
+  int get activeSubTabIndex => _activeSubTabIndices[_activeSuperTab] ?? 0;
+
+  /// Get active sub-tab index for a specific super-tab
+  int getSubTabIndex(SuperTab superTab) => _activeSubTabIndices[superTab] ?? 0;
+
+  /// Configuration for the active super-tab
+  SuperTabConfig get activeSuperTabConfig => getSuperTabConfig(_activeSuperTab);
+
+  /// Sub-tabs for the active super-tab
+  List<SubTabConfig> get activeSubTabs => getSubTabsForSuperTab(_activeSuperTab);
+
+  /// Active menu panel ID (when menu item is selected)
+  String? get activeMenuPanel => _activeMenuPanel;
 
   /// Whether the lower zone content is visible
   bool get isExpanded => _isExpanded;
@@ -244,17 +278,26 @@ class LowerZoneController extends ChangeNotifier {
   /// Current height of the content area (excludes header)
   double get height => _height;
 
-  /// Total height including header
-  double get totalHeight => _isExpanded ? _height + kLowerZoneHeaderHeight : kLowerZoneHeaderHeight;
+  /// Total height including header (super-tabs + sub-tabs when expanded)
+  double get totalHeight {
+    if (!_isExpanded) {
+      return kLowerZoneHeaderHeight; // Just super-tab row
+    }
+    // Super-tab row (32) + Sub-tab row (28) + content
+    return _height + kLowerZoneHeaderHeight + 28;
+  }
 
-  /// Configuration for the active tab
+  /// Configuration for the active legacy tab
   LowerZoneTabConfig get activeTabConfig => kLowerZoneTabConfigs[_activeTab]!;
 
-  /// All available tab configurations
+  /// All available legacy tab configurations
   List<LowerZoneTabConfig> get tabs => kLowerZoneTabConfigs.values.toList();
 
-  /// Whether a specific tab is active
+  /// Whether a specific legacy tab is active
   bool isTabActive(LowerZoneTab tab) => _activeTab == tab;
+
+  /// Whether a specific super-tab is active
+  bool isSuperTabActive(SuperTab superTab) => _activeSuperTab == superTab;
 
   // ============ Category Getters (M3 Sprint - P1) ============
 
@@ -284,7 +327,7 @@ class LowerZoneController extends ChangeNotifier {
 
   // ============ Actions ============
 
-  /// Switch to a specific tab
+  /// Switch to a specific legacy tab
   ///
   /// If the lower zone is collapsed, it will auto-expand.
   /// If switching to the same tab while expanded, it will collapse.
@@ -301,13 +344,85 @@ class LowerZoneController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set tab directly without toggle logic (for restore/sync purposes)
+  /// Set legacy tab directly without toggle logic (for restore/sync purposes)
   ///
   /// Unlike [switchTo], this does NOT toggle collapse when clicking the active tab.
   /// Use this when syncing from external state.
   void setTab(LowerZoneTab tab) {
     if (_activeTab != tab) {
       _activeTab = tab;
+      notifyListeners();
+    }
+  }
+
+  // ============ Super-Tab Actions ============
+
+  /// Switch to a specific super-tab
+  ///
+  /// If the lower zone is collapsed, it will auto-expand.
+  /// If switching to the same super-tab while expanded, it will collapse.
+  void switchToSuperTab(SuperTab superTab) {
+    // Clear menu panel when switching super-tabs
+    _activeMenuPanel = null;
+
+    if (_activeSuperTab == superTab && _isExpanded) {
+      // Toggle collapse when clicking active super-tab
+      _isExpanded = false;
+    } else {
+      _activeSuperTab = superTab;
+      if (!_isExpanded) {
+        _isExpanded = true;
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Set super-tab directly without toggle logic (for restore/sync purposes)
+  void setSuperTab(SuperTab superTab) {
+    if (_activeSuperTab != superTab) {
+      _activeSuperTab = superTab;
+      _activeMenuPanel = null;
+      notifyListeners();
+    }
+  }
+
+  /// Switch to a specific sub-tab within the current super-tab
+  void switchToSubTab(int index) {
+    final subTabs = getSubTabsForSuperTab(_activeSuperTab);
+    if (index >= 0 && index < subTabs.length) {
+      _activeSubTabIndices[_activeSuperTab] = index;
+      if (!_isExpanded) {
+        _isExpanded = true;
+      }
+      notifyListeners();
+    }
+  }
+
+  /// Set sub-tab index for a specific super-tab
+  void setSubTabIndex(SuperTab superTab, int index) {
+    final subTabs = getSubTabsForSuperTab(superTab);
+    if (index >= 0 && index < subTabs.length) {
+      _activeSubTabIndices[superTab] = index;
+      notifyListeners();
+    }
+  }
+
+  /// Handle menu item selection from [+] More menu
+  void selectMenuItem(String menuItemId) {
+    _activeMenuPanel = menuItemId;
+    _activeSuperTab = SuperTab.menu;
+    if (!_isExpanded) {
+      _isExpanded = true;
+    }
+    notifyListeners();
+  }
+
+  /// Clear the active menu panel (return to normal tab view)
+  void clearMenuPanel() {
+    if (_activeMenuPanel != null) {
+      _activeMenuPanel = null;
+      // Switch to a default super-tab
+      _activeSuperTab = SuperTab.stages;
       notifyListeners();
     }
   }
@@ -386,11 +501,69 @@ class LowerZoneController extends ChangeNotifier {
 
   /// Handle keyboard shortcuts for tab switching and toggle
   ///
-  /// - `1-4`: Switch to tabs (without modifier)
-  /// - `` ` ``: Toggle expand/collapse (without modifier)
+  /// Super-tabs (with Ctrl+Shift or Cmd+Shift):
+  /// - Ctrl+Shift+T: STAGES
+  /// - Ctrl+Shift+E: EVENTS
+  /// - Ctrl+Shift+X: MIX
+  /// - Ctrl+Shift+A: MUSIC/ALE
+  /// - Ctrl+Shift+G: ENGINE
+  ///
+  /// Sub-tabs (without modifier):
+  /// - 1-9: Switch to sub-tab within current super-tab
+  /// - `: Toggle expand/collapse
   ///
   /// Returns [KeyEventResult.handled] if shortcut was processed.
   KeyEventResult handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final isCtrl = HardwareKeyboard.instance.isControlPressed;
+    final isMeta = HardwareKeyboard.instance.isMetaPressed;
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+    final isAlt = HardwareKeyboard.instance.isAltPressed;
+
+    // Check for super-tab shortcuts (Ctrl+Shift or Cmd+Shift)
+    final superTab = getSuperTabForShortcut(
+      event.logicalKey,
+      isCtrl,
+      isShift,
+      isAlt,
+      isMeta,
+    );
+    if (superTab != null) {
+      switchToSuperTab(superTab);
+      return KeyEventResult.handled;
+    }
+
+    // Don't process sub-tab shortcuts if any modifier is pressed
+    final hasModifier = isMeta || isCtrl || isAlt || isShift;
+    if (hasModifier) return KeyEventResult.ignored;
+
+    // Backtick = Toggle lower zone
+    if (event.logicalKey == LogicalKeyboardKey.backquote) {
+      toggle();
+      return KeyEventResult.handled;
+    }
+
+    // 1-9 = Switch to sub-tab (within current super-tab)
+    final subTabIndex = getSubTabIndexForShortcut(event.logicalKey);
+    if (subTabIndex != null) {
+      final subTabs = getSubTabsForSuperTab(_activeSuperTab);
+      if (subTabIndex < subTabs.length) {
+        switchToSubTab(subTabIndex);
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  /// Handle keyboard shortcuts for legacy tabs (backward compatibility)
+  ///
+  /// - `1-8`: Switch to legacy tabs (without modifier)
+  /// - `` ` ``: Toggle expand/collapse (without modifier)
+  ///
+  /// @deprecated Use handleKeyEvent instead for super-tab navigation
+  KeyEventResult handleLegacyKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
     // Don't handle if any modifier is pressed (let other handlers process)
@@ -462,7 +635,18 @@ class LowerZoneController extends ChangeNotifier {
 
   /// Export state for persistence
   Map<String, dynamic> toJson() => {
+        // Legacy tab (for backward compatibility)
         'activeTab': _activeTab.index,
+
+        // New super-tab state
+        'activeSuperTab': _activeSuperTab.index,
+        'activeSubTabIndices': {
+          for (final entry in _activeSubTabIndices.entries)
+            entry.key.name: entry.value,
+        },
+        'activeMenuPanel': _activeMenuPanel,
+
+        // Common state
         'isExpanded': _isExpanded,
         'height': _height,
         'categoryCollapsed': {
@@ -473,11 +657,34 @@ class LowerZoneController extends ChangeNotifier {
 
   /// Import state from persistence
   void fromJson(Map<String, dynamic> json) {
+    // Restore legacy tab (for backward compatibility)
     final tabIndex = json['activeTab'] as int?;
     if (tabIndex != null && tabIndex >= 0 && tabIndex < LowerZoneTab.values.length) {
       _activeTab = LowerZoneTab.values[tabIndex];
     }
 
+    // Restore super-tab state
+    final superTabIndex = json['activeSuperTab'] as int?;
+    if (superTabIndex != null && superTabIndex >= 0 && superTabIndex < SuperTab.values.length) {
+      _activeSuperTab = SuperTab.values[superTabIndex];
+    }
+
+    // Restore sub-tab indices
+    final subTabJson = json['activeSubTabIndices'] as Map<String, dynamic>?;
+    if (subTabJson != null) {
+      for (final superTab in SuperTab.values) {
+        final index = subTabJson[superTab.name] as int?;
+        if (index != null) {
+          final subTabs = getSubTabsForSuperTab(superTab);
+          _activeSubTabIndices[superTab] = index.clamp(0, subTabs.length - 1);
+        }
+      }
+    }
+
+    // Restore menu panel
+    _activeMenuPanel = json['activeMenuPanel'] as String?;
+
+    // Restore common state
     _isExpanded = json['isExpanded'] as bool? ?? true;
     _height = (json['height'] as num?)?.toDouble() ?? kLowerZoneDefaultHeight;
     _height = _height.clamp(kLowerZoneMinHeight, kLowerZoneMaxHeight);
