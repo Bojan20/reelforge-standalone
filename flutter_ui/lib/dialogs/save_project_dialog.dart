@@ -6,6 +6,7 @@
 // - Overwrite confirmation
 
 import 'package:flutter/material.dart';
+import '../src/rust/native_ffi.dart';
 import '../theme/fluxforge_theme.dart';
 
 enum ProjectFormat { json, binary, compressed }
@@ -114,10 +115,16 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
     setState(() => _isSaving = true);
 
     try {
-      // TODO: Call Rust API
-      // await api.projectSaveSync(_pathController.text);
+      // Call Rust API to save project
+      final success = NativeFFI.instance.projectSave(_pathController.text);
+      if (!success) {
+        throw Exception('Failed to save project');
+      }
 
-      await Future.delayed(const Duration(milliseconds: 500)); // Simulate save
+      // Update file path and add to recent
+      NativeFFI.instance.projectSetFilePath(_pathController.text);
+      NativeFFI.instance.projectRecentAdd(_pathController.text);
+      NativeFFI.instance.projectMarkClean();
 
       if (mounted) {
         Navigator.of(context).pop(_pathController.text);

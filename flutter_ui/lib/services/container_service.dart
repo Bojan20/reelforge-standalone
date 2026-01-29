@@ -611,25 +611,41 @@ class ContainerService {
   }
 
   /// Dart Timer fallback for sequence playback
+  /// [reversed] - if true, plays steps in reverse order (for ping-pong)
   int _triggerSequenceViaDartTimer(
     int containerId,
     SequenceContainer container,
     int busId,
-    Map<String, dynamic>? context,
-  ) {
+    Map<String, dynamic>? context, {
+    bool reversed = false,
+  }) {
     final instanceId = _nextSequenceId++;
     final voiceIds = <int>[];
     final timers = <Timer>[];
 
+    // Get steps in correct order (reversed for ping-pong return)
+    final stepsToPlay = reversed ? container.steps.reversed.toList() : container.steps;
+
+    // Calculate cumulative delays for reversed order
+    double cumulativeDelay = 0;
+
     // Schedule each step
-    for (final step in container.steps) {
+    for (final step in stepsToPlay) {
       if (step.audioPath == null || step.audioPath!.isEmpty) {
         debugPrint('[ContainerService] SequenceStep ${step.childName} has no audioPath');
         continue;
       }
 
-      // Apply speed modifier to delay
-      final adjustedDelay = (step.delayMs / container.speed).round();
+      // For reversed playback, use cumulative timing
+      // For forward playback, use original delayMs
+      final adjustedDelay = reversed
+          ? (cumulativeDelay / container.speed).round()
+          : (step.delayMs / container.speed).round();
+
+      if (reversed) {
+        // Add this step's duration for next step's delay
+        cumulativeDelay += step.durationMs ?? 200;
+      }
 
       final timer = Timer(Duration(milliseconds: adjustedDelay), () async {
         final playbackService = AudioPlaybackService.instance;
@@ -644,7 +660,7 @@ class ContainerService {
 
         if (voiceId > 0) {
           voiceIds.add(voiceId);
-          debugPrint('[ContainerService] ✅ Sequence step "${step.childName}" → voice $voiceId @ ${adjustedDelay}ms');
+          debugPrint('[ContainerService] ✅ Sequence step "${step.childName}" → voice $voiceId @ ${adjustedDelay}ms${reversed ? ' (reversed)' : ''}');
         }
       });
 
@@ -662,6 +678,7 @@ class ContainerService {
       durationMs: totalDuration,
       busId: busId,
       context: context,
+      reversed: reversed,
     );
 
     // Schedule end behavior handling
@@ -728,9 +745,23 @@ class ContainerService {
         break;
 
       case SequenceEndBehavior.pingPong:
-        // TODO: Implement ping-pong (reverse step order)
+        // Reverse direction and play again
         _activeSequences.remove(instanceId);
-        debugPrint('[ContainerService] Sequence $instanceId ping-pong (not yet implemented)');
+        final container = _middleware?.getSequenceContainer(instance.containerId);
+        if (container != null) {
+          // Toggle reversed state for next pass
+          final nextReversed = !instance.reversed;
+          _triggerSequenceViaDartTimer(
+            instance.containerId,
+            container,
+            instance.busId,
+            instance.context,
+            reversed: nextReversed,
+          );
+          debugPrint('[ContainerService] Sequence $instanceId ping-pong → ${nextReversed ? 'backward' : 'forward'}');
+        } else {
+          debugPrint('[ContainerService] Sequence $instanceId ping-pong: container not found');
+        }
         break;
     }
   }
@@ -962,6 +993,7 @@ class _SequenceInstance {
   final double durationMs;
   final int busId;
   final Map<String, dynamic>? context;
+  final bool reversed; // For ping-pong playback direction
 
   _SequenceInstance({
     required this.containerId,
@@ -971,6 +1003,7 @@ class _SequenceInstance {
     required this.endBehavior,
     required this.durationMs,
     required this.busId,
+    this.reversed = false,
     this.context,
   });
 }

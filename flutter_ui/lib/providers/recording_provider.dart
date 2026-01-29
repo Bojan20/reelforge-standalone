@@ -183,6 +183,13 @@ class RecordingProvider extends ChangeNotifier {
     _recordingCount = api.recordingRecordingCount();
   }
 
+  /// Get current project sample rate (defaults to 48000 if not available)
+  int _getSampleRate() {
+    if (!_ffi.isLoaded) return 48000;
+    final projectInfo = _ffi.projectGetInfo();
+    return projectInfo?.sampleRate ?? 48000;
+  }
+
   /// Refresh recording state (poll from Rust)
   Future<void> refresh() async {
     _updateCounts();
@@ -210,7 +217,8 @@ class RecordingProvider extends ChangeNotifier {
   void setPunchInTime(double seconds) {
     _punchInTime = seconds;
     if (_ffi.isLoaded) {
-      final samples = (seconds * 48000).round(); // TODO: use actual sample rate
+      final sampleRate = _getSampleRate();
+      final samples = (seconds * sampleRate).round();
       _ffi.recordingSetPunchIn(samples);
     }
     notifyListeners();
@@ -220,7 +228,8 @@ class RecordingProvider extends ChangeNotifier {
   void setPunchOutTime(double seconds) {
     _punchOutTime = seconds;
     if (_ffi.isLoaded) {
-      final samples = (seconds * 48000).round();
+      final sampleRate = _getSampleRate();
+      final samples = (seconds * sampleRate).round();
       _ffi.recordingSetPunchOut(samples);
     }
     notifyListeners();

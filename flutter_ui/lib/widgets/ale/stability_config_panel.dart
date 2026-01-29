@@ -59,7 +59,8 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
                           description: 'Minimum time between any level changes',
                           enabled: _isEditing,
                           onChanged: (v) {
-                            // TODO: Update via FFI
+                            ale.updateStability(config.copyWith(cooldownMs: v.toInt()));
+                            widget.onConfigChanged?.call();
                           },
                         ),
                         _ConfigSlider(
@@ -71,7 +72,8 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
                           description: 'Time to hold a level before allowing decrease',
                           enabled: _isEditing,
                           onChanged: (v) {
-                            // TODO: Update via FFI
+                            ale.updateStability(config.copyWith(holdMs: v.toInt()));
+                            widget.onConfigChanged?.call();
                           },
                         ),
                       ],
@@ -93,7 +95,8 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
                           description: 'Extra threshold to step up',
                           enabled: _isEditing,
                           onChanged: (v) {
-                            // TODO: Update via FFI
+                            ale.updateStability(config.copyWith(hysteresisUp: v));
+                            widget.onConfigChanged?.call();
                           },
                         ),
                         _ConfigSlider(
@@ -105,7 +108,8 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
                           description: 'Extra threshold to step down',
                           enabled: _isEditing,
                           onChanged: (v) {
-                            // TODO: Update via FFI
+                            ale.updateStability(config.copyWith(hysteresisDown: v));
+                            widget.onConfigChanged?.call();
                           },
                         ),
                       ],
@@ -127,7 +131,8 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
                           description: 'Resistance to level changes (0=none, 1=max)',
                           enabled: _isEditing,
                           onChanged: (v) {
-                            // TODO: Update via FFI
+                            ale.updateStability(config.copyWith(levelInertia: v));
+                            widget.onConfigChanged?.call();
                           },
                         ),
                         _ConfigSlider(
@@ -139,7 +144,8 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
                           description: 'Time before automatic level decay starts',
                           enabled: _isEditing,
                           onChanged: (v) {
-                            // TODO: Update via FFI
+                            ale.updateStability(config.copyWith(decayMs: v.toInt()));
+                            widget.onConfigChanged?.call();
                           },
                         ),
                         _ConfigSlider(
@@ -151,7 +157,8 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
                           description: 'Speed of automatic level decay',
                           enabled: _isEditing,
                           onChanged: (v) {
-                            // TODO: Update via FFI
+                            ale.updateStability(config.copyWith(decayRate: v));
+                            widget.onConfigChanged?.call();
                           },
                         ),
                       ],
@@ -173,7 +180,8 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
                           description: 'Time window for momentum calculation',
                           enabled: _isEditing,
                           onChanged: (v) {
-                            // TODO: Update via FFI
+                            ale.updateStability(config.copyWith(momentumWindow: v.toInt()));
+                            widget.onConfigChanged?.call();
                           },
                         ),
                       ],
@@ -192,7 +200,8 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
                           description: 'Use ML-based level prediction',
                           enabled: _isEditing,
                           onChanged: (v) {
-                            // TODO: Update via FFI
+                            ale.updateStability(config.copyWith(predictionEnabled: v));
+                            widget.onConfigChanged?.call();
                           },
                         ),
                       ],

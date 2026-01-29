@@ -498,11 +498,24 @@ impl OfflinePipeline {
                 }
             }
             NormalizationMode::TruePeak { target_db } => {
-                // Simple peak normalization for now
-                // TODO: Implement true peak detection with oversampling
-                let current_peak = buffer.peak_db();
-                if current_peak > -f64::INFINITY {
-                    let gain_db = target_db - current_peak;
+                // True peak detection with 4x oversampling (ITU-R BS.1770-4)
+                let mut meter = LoudnessMeter::new(buffer.sample_rate, buffer.channels);
+
+                // Process in blocks for true peak measurement
+                for chunk in buffer.samples.chunks(4096) {
+                    meter.process(chunk);
+                }
+
+                let info = meter.get_info();
+                // true_peak is linear, convert to dB
+                let current_tp_db = if info.true_peak > 0.0 {
+                    20.0 * info.true_peak.log10()
+                } else {
+                    -f64::INFINITY
+                };
+
+                if current_tp_db > -f64::INFINITY {
+                    let gain_db = target_db - current_tp_db;
                     let gain_linear = 10.0_f64.powf(gain_db / 20.0);
                     buffer.apply_gain(gain_linear);
                 }

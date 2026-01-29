@@ -822,8 +822,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
         widget.provider.triggerStageManually(index);
         break;
       case 'assign':
-        // TODO: Open file picker or show audio browser panel
-        _showAssignAudioHint(stage.stageType);
+        _showAssignAudioFilePicker(stage.stageType);
         break;
       case 'edit':
         // TODO: Navigate to event editor with this stage
@@ -842,22 +841,35 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
     }
   }
 
-  /// P1.5: Show hint for assigning audio
-  void _showAssignAudioHint(String stageType) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.info_outline, color: FluxForgeTheme.accentBlue, size: 16),
-            const SizedBox(width: 8),
-            Text('Drag audio from browser to ${_formatStageName(stageType)}'),
-          ],
-        ),
-        backgroundColor: FluxForgeTheme.bgMid,
-        duration: const Duration(seconds: 2),
-      ),
+  /// P1.5: Show file picker for assigning audio to a single stage
+  Future<void> _showAssignAudioFilePicker(String stageType) async {
+    // Use file_picker to select audio file
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['wav', 'mp3', 'ogg', 'flac', 'aiff'],
+      dialogTitle: 'Select audio for ${_formatStageName(stageType)}',
     );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    if (file.path == null) return;
+
+    // Create AudioFileInfo from picked file
+    final audioInfo = AudioFileInfo(
+      id: 'assign_${DateTime.now().millisecondsSinceEpoch}',
+      path: file.path!,
+      name: file.name,
+      duration: Duration.zero, // Placeholder — actual duration loaded on playback
+      format: file.extension?.toUpperCase() ?? 'WAV',
+    );
+
+    // Assign audio to stage via callback
+    widget.onAudioDropped?.call(audioInfo, stageType);
+    _showDropFeedback(stageType, audioInfo.name);
+
+    // Clear waveform cache so UI updates
+    _clearWaveformCache();
   }
 
   /// P1.5: Show hint for editing event

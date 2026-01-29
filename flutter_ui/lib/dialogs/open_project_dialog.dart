@@ -5,7 +5,9 @@
 // - File browser
 // - Project preview
 
+import 'dart:io';
 import 'package:flutter/material.dart';
+import '../src/rust/native_ffi.dart';
 import '../theme/fluxforge_theme.dart';
 
 class RecentProject {
@@ -58,27 +60,26 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Call Rust API
-      // final paths = await api.projectGetRecent();
+      // Call Rust API to get recent projects
+      final paths = NativeFFI.instance.projectGetRecentProjects();
 
-      // Mock data
-      _recentProjects = [
-        RecentProject(
-          path: '~/Documents/MyProject.rfproj',
-          name: 'MyProject',
-          lastOpened: DateTime.now().subtract(const Duration(hours: 2)),
-        ),
-        RecentProject(
-          path: '~/Documents/SoundDesign/Ambience.rfproj',
-          name: 'Ambience',
-          lastOpened: DateTime.now().subtract(const Duration(days: 1)),
-        ),
-        RecentProject(
-          path: '~/Documents/Music/Song1.rfproj',
-          name: 'Song1',
-          lastOpened: DateTime.now().subtract(const Duration(days: 3)),
-        ),
-      ];
+      _recentProjects = [];
+      for (final path in paths) {
+        // Extract name from path
+        final name = path.split('/').last.replaceAll('.rfproj', '');
+        // Check if file exists
+        final file = File(path.replaceFirst('~', Platform.environment['HOME'] ?? ''));
+        final exists = file.existsSync();
+        // Get last modified time if file exists
+        final lastOpened = exists ? file.lastModifiedSync() : DateTime.now();
+
+        _recentProjects.add(RecentProject(
+          path: path,
+          name: name,
+          lastOpened: lastOpened,
+          exists: exists,
+        ));
+      }
     } catch (e) {
       debugPrint('Error loading recent projects: $e');
     }
@@ -111,10 +112,14 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
     setState(() => _isOpening = true);
 
     try {
-      // TODO: Call Rust API
-      // await api.projectLoadSync(path);
+      // Call Rust API to load project
+      final success = NativeFFI.instance.projectLoad(path);
+      if (!success) {
+        throw Exception('Failed to load project');
+      }
 
-      await Future.delayed(const Duration(milliseconds: 500)); // Simulate load
+      // Add to recent projects
+      NativeFFI.instance.projectRecentAdd(path);
 
       if (mounted) {
         Navigator.of(context).pop(path);
@@ -135,10 +140,11 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
   }
 
   void _removeFromRecent(RecentProject project) {
+    // Call Rust API to remove from recent list
+    NativeFFI.instance.projectRecentRemove(project.path);
     setState(() {
       _recentProjects.remove(project);
     });
-    // TODO: Call Rust API to update recent list
   }
 
   String _formatDate(DateTime date) {

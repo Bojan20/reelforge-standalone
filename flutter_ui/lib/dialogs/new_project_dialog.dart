@@ -6,6 +6,7 @@
 // - Initial settings
 
 import 'package:flutter/material.dart';
+import '../src/rust/native_ffi.dart';
 import '../theme/fluxforge_theme.dart';
 
 enum ProjectTemplate {
@@ -74,12 +75,15 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
     setState(() => _isCreating = true);
 
     try {
-      // TODO: Call Rust API
-      // await api.projectNew(_nameController.text);
-      // await api.projectSetTempo(_tempo);
-      // await api.projectSetSampleRate(_sampleRate);
+      // Call Rust API to create project
+      final success = NativeFFI.instance.projectNew(_nameController.text.trim());
+      if (!success) {
+        throw Exception('Failed to create project');
+      }
 
-      await Future.delayed(const Duration(milliseconds: 300)); // Simulate
+      // Set project settings
+      NativeFFI.instance.projectSetTempo(_tempo);
+      NativeFFI.instance.projectSetSampleRate(_sampleRate);
 
       if (mounted) {
         Navigator.of(context).pop(NewProjectResult(

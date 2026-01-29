@@ -16914,6 +16914,50 @@ extension SlotLabFFI on NativeFFI {
     }
   }
 
+  /// Set stability config from JSON
+  bool aleSetStabilityJson(Map<String, dynamic> config) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('ale_set_stability_json');
+
+      final jsonStr = jsonEncode(config);
+      final ptr = jsonStr.toNativeUtf8();
+      try {
+        return fn(ptr) == 1;
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (e) {
+      print('[ALE] aleSetStabilityJson error: $e');
+      return false;
+    }
+  }
+
+  /// Get stability config as JSON
+  Map<String, dynamic>? aleGetStabilityJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'ale_get_stability_json',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'ale_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return jsonDecode(json) as Map<String, dynamic>?;
+    } catch (e) {
+      print('[ALE] aleGetStabilityJson error: $e');
+      return null;
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // AUTO SPATIAL ENGINE
   // ═══════════════════════════════════════════════════════════════════════════
@@ -20233,5 +20277,354 @@ extension PluginStateFFI on NativeFFI {
   }
 
 
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROJECT FFI EXTENSION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Project info returned from FFI
+class ProjectInfo {
+  final String name;
+  final String? author;
+  final String? description;
+  final int createdAt;
+  final int modifiedAt;
+  final double durationSec;
+  final int sampleRate;
+  final double tempo;
+  final int timeSigNum;
+  final int timeSigDenom;
+  final int trackCount;
+  final int busCount;
+  final bool isModified;
+  final String? filePath;
+
+  ProjectInfo({
+    required this.name,
+    this.author,
+    this.description,
+    required this.createdAt,
+    required this.modifiedAt,
+    required this.durationSec,
+    required this.sampleRate,
+    required this.tempo,
+    required this.timeSigNum,
+    required this.timeSigDenom,
+    required this.trackCount,
+    required this.busCount,
+    required this.isModified,
+    this.filePath,
+  });
+
+  factory ProjectInfo.fromJson(Map<String, dynamic> json) {
+    return ProjectInfo(
+      name: json['name'] as String? ?? 'Untitled',
+      author: json['author'] as String?,
+      description: json['description'] as String?,
+      createdAt: json['created_at'] as int? ?? 0,
+      modifiedAt: json['modified_at'] as int? ?? 0,
+      durationSec: (json['duration_sec'] as num?)?.toDouble() ?? 0.0,
+      sampleRate: json['sample_rate'] as int? ?? 44100,
+      tempo: (json['tempo'] as num?)?.toDouble() ?? 120.0,
+      timeSigNum: json['time_sig_num'] as int? ?? 4,
+      timeSigDenom: json['time_sig_denom'] as int? ?? 4,
+      trackCount: json['track_count'] as int? ?? 0,
+      busCount: json['bus_count'] as int? ?? 0,
+      isModified: json['is_modified'] as bool? ?? false,
+      filePath: json['file_path'] as String?,
+    );
+  }
+}
+
+/// Project FFI extension for project management
+extension ProjectFFI on NativeFFI {
+  // ─────────────────────────────────────────────────────────────────────────
+  // FFI BINDINGS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static final _projectNew = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('project_new');
+
+  static final _projectSave = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('project_save');
+
+  static final _projectLoad = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('project_load');
+
+  static final _projectSetName = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('project_set_name');
+
+  static final _projectGetName = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>, Uint32),
+      int Function(Pointer<Utf8>, int)>('project_get_name');
+
+  static final _projectSetAuthor = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('project_set_author');
+
+  static final _projectSetDescription = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('project_set_description');
+
+  static final _projectSetTempo = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('project_set_tempo');
+
+  static final _projectGetTempo = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('project_get_tempo');
+
+  static final _projectSetSampleRate = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('project_set_sample_rate');
+
+  static final _projectSetTimeSignature = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint8, Uint8),
+      int Function(int, int)>('project_set_time_signature');
+
+  static final _projectIsModified = _loadNativeLibrary().lookupFunction<
+      Int32 Function(),
+      int Function()>('project_is_modified');
+
+  static final _projectMarkDirty = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('project_mark_dirty');
+
+  static final _projectMarkClean = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('project_mark_clean');
+
+  static final _projectSetFilePath = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('project_set_file_path');
+
+  static final _projectGetFilePath = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>, Uint32),
+      int Function(Pointer<Utf8>, int)>('project_get_file_path');
+
+  static final _projectGetInfoJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('project_get_info_json');
+
+  static final _projectFreeString = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('project_free_string');
+
+  static final _projectRecentCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(),
+      int Function()>('project_recent_count');
+
+  static final _projectRecentGet = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Pointer<Utf8>, Uint32),
+      int Function(int, Pointer<Utf8>, int)>('project_recent_get');
+
+  static final _projectRecentAdd = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('project_recent_add');
+
+  static final _projectRecentRemove = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('project_recent_remove');
+
+  static final _projectRecentClear = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('project_recent_clear');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PUBLIC API
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Create a new project with the given name
+  bool projectNew(String name) {
+    final ptr = name.toNativeUtf8();
+    final result = _projectNew(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Save project to file
+  bool projectSave(String path) {
+    final ptr = path.toNativeUtf8();
+    final result = _projectSave(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Load project from file
+  bool projectLoad(String path) {
+    final ptr = path.toNativeUtf8();
+    final result = _projectLoad(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Set project name
+  bool projectSetName(String name) {
+    final ptr = name.toNativeUtf8();
+    final result = _projectSetName(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Get project name
+  String? projectGetName() {
+    final buffer = malloc.allocate<Utf8>(1024);
+    final len = _projectGetName(buffer, 1024);
+    if (len < 0) {
+      malloc.free(buffer);
+      return null;
+    }
+    final name = buffer.toDartString();
+    malloc.free(buffer);
+    return name;
+  }
+
+  /// Set project author
+  bool projectSetAuthor(String author) {
+    final ptr = author.toNativeUtf8();
+    final result = _projectSetAuthor(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Set project description
+  bool projectSetDescription(String description) {
+    final ptr = description.toNativeUtf8();
+    final result = _projectSetDescription(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Set project tempo (BPM)
+  bool projectSetTempo(double tempo) {
+    return _projectSetTempo(tempo) == 1;
+  }
+
+  /// Get project tempo (BPM)
+  double projectGetTempo() {
+    return _projectGetTempo();
+  }
+
+  /// Set project sample rate
+  bool projectSetSampleRate(int sampleRate) {
+    return _projectSetSampleRate(sampleRate) == 1;
+  }
+
+  /// Set project time signature
+  bool projectSetTimeSignature(int numerator, int denominator) {
+    return _projectSetTimeSignature(numerator, denominator) == 1;
+  }
+
+  /// Check if project has unsaved changes
+  bool projectIsModified() {
+    return _projectIsModified() == 1;
+  }
+
+  /// Mark project as dirty (has unsaved changes)
+  void projectMarkDirty() {
+    _projectMarkDirty();
+  }
+
+  /// Mark project as clean (just saved)
+  void projectMarkClean() {
+    _projectMarkClean();
+  }
+
+  /// Set project file path
+  void projectSetFilePath(String? path) {
+    if (path == null) {
+      _projectSetFilePath(nullptr);
+    } else {
+      final ptr = path.toNativeUtf8();
+      _projectSetFilePath(ptr);
+      malloc.free(ptr);
+    }
+  }
+
+  /// Get project file path
+  String? projectGetFilePath() {
+    final buffer = malloc.allocate<Utf8>(2048);
+    final len = _projectGetFilePath(buffer, 2048);
+    if (len < 0) {
+      malloc.free(buffer);
+      return null;
+    }
+    final path = buffer.toDartString();
+    malloc.free(buffer);
+    return path;
+  }
+
+  /// Get full project info
+  ProjectInfo? projectGetInfo() {
+    try {
+      final ptr = _projectGetInfoJson();
+      if (ptr == nullptr) return null;
+
+      final str = ptr.toDartString();
+      _projectFreeString(ptr);
+
+      final json = jsonDecode(str) as Map<String, dynamic>;
+      return ProjectInfo.fromJson(json);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get count of recent projects
+  int projectRecentCount() {
+    return _projectRecentCount();
+  }
+
+  /// Get recent project path by index
+  String? projectRecentGet(int index) {
+    final buffer = malloc.allocate<Utf8>(2048);
+    final len = _projectRecentGet(index, buffer, 2048);
+    if (len < 0) {
+      malloc.free(buffer);
+      return null;
+    }
+    final path = buffer.toDartString();
+    malloc.free(buffer);
+    return path;
+  }
+
+  /// Get all recent projects
+  List<String> projectGetRecentProjects() {
+    final count = projectRecentCount();
+    final projects = <String>[];
+    for (int i = 0; i < count; i++) {
+      final path = projectRecentGet(i);
+      if (path != null) {
+        projects.add(path);
+      }
+    }
+    return projects;
+  }
+
+  /// Add project to recent list
+  bool projectRecentAdd(String path) {
+    final ptr = path.toNativeUtf8();
+    final result = _projectRecentAdd(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Remove project from recent list
+  bool projectRecentRemove(String path) {
+    final ptr = path.toNativeUtf8();
+    final result = _projectRecentRemove(ptr);
+    malloc.free(ptr);
+    return result == 1;
+  }
+
+  /// Clear recent projects list
+  void projectRecentClear() {
+    _projectRecentClear();
+  }
 }
 

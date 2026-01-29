@@ -7,44 +7,10 @@
 /// - Author and description
 
 import 'package:flutter/material.dart';
+import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../widgets/project/schema_migration_panel.dart';
 import '../../services/schema_migration.dart';
-
-// Mock types until flutter_rust_bridge generates them
-class ProjectInfo {
-  final String name;
-  final String? author;
-  final String? description;
-  final int createdAt;
-  final int modifiedAt;
-  final double durationSec;
-  final int sampleRate;
-  final double tempo;
-  final int timeSigNum;
-  final int timeSigDenom;
-  final int trackCount;
-  final int busCount;
-  final bool isModified;
-  final String? filePath;
-
-  ProjectInfo({
-    required this.name,
-    this.author,
-    this.description,
-    required this.createdAt,
-    required this.modifiedAt,
-    required this.durationSec,
-    required this.sampleRate,
-    required this.tempo,
-    required this.timeSigNum,
-    required this.timeSigDenom,
-    required this.trackCount,
-    required this.busCount,
-    required this.isModified,
-    this.filePath,
-  });
-}
 
 class ProjectSettingsScreen extends StatefulWidget {
   const ProjectSettingsScreen({super.key});
@@ -84,34 +50,25 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Call Rust API
-      // _projectInfo = await api.projectGetInfo();
+      // Call Rust API to get project info
+      _projectInfo = NativeFFI.instance.projectGetInfo();
 
-      // Mock data
-      _projectInfo = ProjectInfo(
-        name: 'Untitled Project',
-        author: null,
-        description: null,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-        modifiedAt: DateTime.now().millisecondsSinceEpoch,
-        durationSec: 0.0,
-        sampleRate: 48000,
-        tempo: 120.0,
-        timeSigNum: 4,
-        timeSigDenom: 4,
-        trackCount: 0,
-        busCount: 6,
-        isModified: false,
-        filePath: null,
-      );
-
-      _nameController.text = _projectInfo!.name;
-      _authorController.text = _projectInfo!.author ?? '';
-      _descriptionController.text = _projectInfo!.description ?? '';
-      _tempo = _projectInfo!.tempo;
-      _timeSigNum = _projectInfo!.timeSigNum;
-      _timeSigDenom = _projectInfo!.timeSigDenom;
-      _sampleRate = _projectInfo!.sampleRate;
+      if (_projectInfo != null) {
+        _nameController.text = _projectInfo!.name;
+        _authorController.text = _projectInfo!.author ?? '';
+        _descriptionController.text = _projectInfo!.description ?? '';
+        _tempo = _projectInfo!.tempo;
+        _timeSigNum = _projectInfo!.timeSigNum;
+        _timeSigDenom = _projectInfo!.timeSigDenom;
+        _sampleRate = _projectInfo!.sampleRate;
+      } else {
+        // Fallback defaults if no project loaded
+        _nameController.text = 'Untitled Project';
+        _tempo = 120.0;
+        _timeSigNum = 4;
+        _timeSigDenom = 4;
+        _sampleRate = 48000;
+      }
     } catch (e) {
       debugPrint('Error loading project info: $e');
     }
@@ -124,13 +81,14 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
   }
 
   Future<void> _saveChanges() async {
-    // TODO: Call Rust API
-    // await api.projectSetName(_nameController.text);
-    // await api.projectSetAuthor(_authorController.text);
-    // await api.projectSetDescription(_descriptionController.text);
-    // await api.projectSetTempo(_tempo);
-    // await api.projectSetTimeSignature(_timeSigNum, _timeSigDenom);
-    // await api.projectSetSampleRate(_sampleRate);
+    // Call Rust API to save all settings
+    NativeFFI.instance.projectSetName(_nameController.text);
+    NativeFFI.instance.projectSetAuthor(_authorController.text);
+    NativeFFI.instance.projectSetDescription(_descriptionController.text);
+    NativeFFI.instance.projectSetTempo(_tempo);
+    NativeFFI.instance.projectSetTimeSignature(_timeSigNum, _timeSigDenom);
+    NativeFFI.instance.projectSetSampleRate(_sampleRate);
+    NativeFFI.instance.projectMarkDirty();
 
     setState(() => _hasChanges = false);
 

@@ -472,6 +472,18 @@ Failure Conditions:
 - Frame drops during recording
 - Non-deterministic file output
 
+### Recent Fixes (2026-01-29)
+
+| Fix | File | Description |
+|-----|------|-------------|
+| Dynamic Sample Rate | `recording_provider.dart` | Punch in/out now uses actual project sample rate instead of hardcoded 48000 |
+
+**Implementation Details:**
+
+- Added `_getSampleRate()` helper that reads from `NativeFFI.instance.projectGetInfo()?.sampleRate`
+- Falls back to 48000 if FFI not loaded or project info unavailable
+- `setPunchInTime()` and `setPunchOutTime()` now convert seconds to samples using actual project sample rate
+
 ---
 
 ## P1 — Export / Render
@@ -598,6 +610,26 @@ Files:
 
 - `flutter_ui/lib/widgets/slot_lab/events_panel_widget.dart`
 - `flutter_ui/lib/services/audio_playback_service.dart`
+
+### P2.4.1 — Stage Trace Context Menu Audio Assign (2026-01-29) ✅
+
+Exit Criteria:
+
+- ✅ Context menu "Assign audio..." action opens native file picker
+- ✅ Supports audio formats: WAV, MP3, OGG, FLAC, AIFF
+- ✅ Creates AudioFileInfo from selected file
+- ✅ Calls onAudioDropped callback with stage type
+- ✅ Shows drop feedback on successful assignment
+
+Implementation:
+
+- `_showAssignAudioFilePicker()` method using `FilePicker.platform.pickFiles()`
+- Replaces previous TODO hint with full file picker integration
+- Clears waveform cache after assignment for UI update
+
+Files:
+
+- `flutter_ui/lib/widgets/slot_lab/stage_trace_widget.dart`
 
 ---
 

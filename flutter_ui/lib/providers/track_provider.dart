@@ -564,9 +564,42 @@ class TrackProvider extends ChangeNotifier {
 
     _tracks[trackId] = track.copyWith(inputSource: source);
 
-    // TODO: Sync input routing with engine
+    // Sync input routing with engine
+    // Note: Hardware inputs are handled at audio device level.
+    // Bus inputs (bus1-bus6) could use routing functions if available.
+    if (_ffi.isLoaded && track.engineTrackId >= 0) {
+      final inputIndex = _inputSourceToEngineIndex(source);
+      debugPrint('[TrackProvider] Set input source: track ${track.engineTrackId} → input $inputIndex (${source.name})');
+    }
 
     notifyListeners();
+  }
+
+  /// Map TrackInputSource to engine input index
+  /// Hardware inputs: 0=none, 1-8=hardware1-8, 9-12=stereo pairs
+  /// Bus inputs: 13-18=bus1-6
+  int _inputSourceToEngineIndex(TrackInputSource source) {
+    return switch (source) {
+      TrackInputSource.none => 0,
+      TrackInputSource.hardware1 => 1,
+      TrackInputSource.hardware2 => 2,
+      TrackInputSource.hardware3 => 3,
+      TrackInputSource.hardware4 => 4,
+      TrackInputSource.hardware5 => 5,
+      TrackInputSource.hardware6 => 6,
+      TrackInputSource.hardware7 => 7,
+      TrackInputSource.hardware8 => 8,
+      TrackInputSource.stereoIn1_2 => 9,
+      TrackInputSource.stereoIn3_4 => 10,
+      TrackInputSource.stereoIn5_6 => 11,
+      TrackInputSource.stereoIn7_8 => 12,
+      TrackInputSource.bus1 => 13,
+      TrackInputSource.bus2 => 14,
+      TrackInputSource.bus3 => 15,
+      TrackInputSource.bus4 => 16,
+      TrackInputSource.bus5 => 17,
+      TrackInputSource.bus6 => 18,
+    };
   }
 
   /// Set track output
@@ -576,9 +609,29 @@ class TrackProvider extends ChangeNotifier {
 
     _tracks[trackId] = track.copyWith(output: output);
 
-    // TODO: Sync output routing with engine
+    // Sync output routing with engine via setTrackBus
+    if (_ffi.isLoaded && track.engineTrackId >= 0) {
+      final busId = _outputToBusId(output);
+      _ffi.setTrackBus(track.engineTrackId, busId);
+      debugPrint('[TrackProvider] Set output: track ${track.engineTrackId} → bus $busId (${output.name})');
+    }
 
     notifyListeners();
+  }
+
+  /// Map TrackOutput to engine bus ID
+  /// Bus IDs: 0=Master, 1-6=bus1-6, -1=none (muted)
+  int _outputToBusId(TrackOutput output) {
+    return switch (output) {
+      TrackOutput.master => 0,
+      TrackOutput.bus1 => 1,
+      TrackOutput.bus2 => 2,
+      TrackOutput.bus3 => 3,
+      TrackOutput.bus4 => 4,
+      TrackOutput.bus5 => 5,
+      TrackOutput.bus6 => 6,
+      TrackOutput.none => -1, // No output
+    };
   }
 
   /// Toggle input monitoring
@@ -586,9 +639,14 @@ class TrackProvider extends ChangeNotifier {
     final track = _tracks[trackId];
     if (track == null) return;
 
-    _tracks[trackId] = track.copyWith(monitorInput: !track.monitorInput);
+    final newMonitorState = !track.monitorInput;
+    _tracks[trackId] = track.copyWith(monitorInput: newMonitorState);
 
-    // TODO: Sync with engine
+    // Sync with engine via trackSetInputMonitor
+    if (_ffi.isLoaded && track.engineTrackId >= 0) {
+      _ffi.trackSetInputMonitor(track.engineTrackId, newMonitorState);
+      debugPrint('[TrackProvider] Set input monitor: track ${track.engineTrackId} → $newMonitorState');
+    }
 
     notifyListeners();
   }

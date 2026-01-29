@@ -447,6 +447,31 @@ class AleStabilityConfig {
     'momentum_window': momentumWindow,
     'prediction_enabled': predictionEnabled,
   };
+
+  /// Create a copy with updated values
+  AleStabilityConfig copyWith({
+    int? cooldownMs,
+    int? holdMs,
+    double? hysteresisUp,
+    double? hysteresisDown,
+    double? levelInertia,
+    int? decayMs,
+    double? decayRate,
+    int? momentumWindow,
+    bool? predictionEnabled,
+  }) {
+    return AleStabilityConfig(
+      cooldownMs: cooldownMs ?? this.cooldownMs,
+      holdMs: holdMs ?? this.holdMs,
+      hysteresisUp: hysteresisUp ?? this.hysteresisUp,
+      hysteresisDown: hysteresisDown ?? this.hysteresisDown,
+      levelInertia: levelInertia ?? this.levelInertia,
+      decayMs: decayMs ?? this.decayMs,
+      decayRate: decayRate ?? this.decayRate,
+      momentumWindow: momentumWindow ?? this.momentumWindow,
+      predictionEnabled: predictionEnabled ?? this.predictionEnabled,
+    );
+  }
 }
 
 /// Complete ALE profile
@@ -801,6 +826,45 @@ class AleProvider extends ChangeNotifier {
     }
 
     return success;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STABILITY MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Update stability configuration
+  ///
+  /// Syncs the new config to the Rust engine via FFI and updates the local profile.
+  bool updateStability(AleStabilityConfig config) {
+    if (!_initialized) return false;
+
+    // Sync to Rust via FFI
+    final success = _ffi.aleSetStabilityJson(config.toJson());
+    if (success) {
+      // Update local profile
+      if (_profile != null) {
+        _profile = AleProfile(
+          version: _profile!.version,
+          author: _profile!.author,
+          gameName: _profile!.gameName,
+          contexts: _profile!.contexts,
+          rules: _profile!.rules,
+          transitions: _profile!.transitions,
+          stability: config,
+        );
+      }
+      debugPrint('[AleProvider] Stability config updated');
+      notifyListeners();
+    } else {
+      debugPrint('[AleProvider] Failed to update stability config');
+    }
+
+    return success;
+  }
+
+  /// Get current stability configuration
+  AleStabilityConfig get stability {
+    return _profile?.stability ?? const AleStabilityConfig();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

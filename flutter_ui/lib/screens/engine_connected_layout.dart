@@ -6048,7 +6048,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                           itemBuilder: (context, index) {
                             final layer = layers[index];
                             final isSelected = index == _selectedLayerIndex;
-                            return _buildLayerTrackHeader(layer, index, isSelected);
+                            return _buildLayerTrackHeader(event, layer, index, isSelected);
                           },
                         ),
                       ),
@@ -6114,7 +6114,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   /// Track header for layer in middleware timeline
-  Widget _buildLayerTrackHeader(SlotEventLayer layer, int index, bool isSelected) {
+  Widget _buildLayerTrackHeader(SlotCompositeEvent event, SlotEventLayer layer, int index, bool isSelected) {
     final layerColor = FluxForgeTheme.accentBlue;
 
     return GestureDetector(
@@ -6174,7 +6174,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 size: 14,
                 color: layer.muted ? FluxForgeTheme.accentRed : FluxForgeTheme.textTertiary,
               ),
-              onPressed: () {}, // TODO: Toggle mute
+              onPressed: () {
+                context.read<MiddlewareProvider>().toggleLayerMute(event.id, layer.id);
+              },
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
               tooltip: layer.muted ? 'Unmute' : 'Mute',
@@ -6185,7 +6187,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 size: 14,
                 color: layer.solo ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
               ),
-              onPressed: () {}, // TODO: Toggle solo
+              onPressed: () {
+                context.read<MiddlewareProvider>().toggleLayerSolo(event.id, layer.id);
+              },
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
               tooltip: layer.solo ? 'Unsolo' : 'Solo',

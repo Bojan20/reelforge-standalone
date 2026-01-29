@@ -59,6 +59,7 @@ pub mod offline_ffi;
 pub mod profiler_ffi;
 pub mod memory_ffi;
 pub mod plugin_state_ffi;
+pub mod project_ffi;
 mod project;
 pub mod timestretch;
 mod transport;
@@ -342,3 +343,6 @@ pub use connector_ffi::*;
 
 // Re-export Offline DSP FFI (P2.6)
 pub use offline_ffi::*;
+
+// Re-export Project FFI
+pub use project_ffi::*;
