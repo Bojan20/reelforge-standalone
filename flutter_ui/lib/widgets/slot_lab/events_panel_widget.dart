@@ -19,6 +19,7 @@ import '../../providers/middleware_provider.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../common/audio_waveform_picker_dialog.dart';
 import 'create_event_dialog.dart';
 import 'audio_hover_preview.dart';
 
@@ -636,6 +637,51 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 ],
               ),
             ),
+
+            // COL 4 (NEW): Delete button
+            SizedBox(width: 4),
+            IconButton(
+              icon: Icon(Icons.delete_outline, size: 14, color: Colors.white24),
+              onPressed: () async {
+                // Confirmation dialog
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    backgroundColor: const Color(0xFF1A1A22),
+                    title: Text(
+                      'Delete Event',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    content: Text(
+                      'Delete "${event.name}"?\n\nThis will remove the event and all its layers.',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    actions: [
+                      TextButton(
+                        child: Text('Cancel'),
+                        onPressed: () => Navigator.pop(context, false),
+                      ),
+                      TextButton(
+                        child: Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
+                        onPressed: () => Navigator.pop(context, true),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirm == true) {
+                  final middleware = context.read<MiddlewareProvider>();
+                  middleware.deleteCompositeEvent(event.id);
+                  // Clear selection if deleted event was selected
+                  if (_selectedEventId == event.id) {
+                    _setSelectedEventId(null);
+                  }
+                }
+              },
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints.tightFor(width: 24, height: 24),
+              tooltip: 'Delete event',
+            ),
           ],
         ),
       ),
@@ -725,18 +771,26 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             Padding(
               padding: const EdgeInsets.all(8),
               child: OutlinedButton.icon(
-                onPressed: () {
-                  middleware.addLayerToEvent(
-                    selectedEvent.id,
-                    audioPath: '',
-                    name: 'Layer ${selectedEvent.layers.length + 1}',
+                onPressed: () async {
+                  // Open audio file picker dialog
+                  final audioPath = await AudioWaveformPickerDialog.show(
+                    context,
+                    title: 'Select Audio for Layer',
                   );
+
+                  if (audioPath != null && audioPath.isNotEmpty) {
+                    middleware.addLayerToEvent(
+                      selectedEvent.id,
+                      audioPath: audioPath,
+                      name: 'Layer ${selectedEvent.layers.length + 1}',
+                    );
+                  }
                 },
                 icon: const Icon(Icons.add, size: 14),
                 label: const Text('Add Layer', style: TextStyle(fontSize: 11)),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white54,
-                  side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                  foregroundColor: FluxForgeTheme.accentBlue,
+                  side: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.3)),
                   padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
               ),

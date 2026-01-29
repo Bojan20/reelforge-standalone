@@ -97,10 +97,10 @@ Consumer<MiddlewareProvider>(
 - Causes sync bugs with MiddlewareProvider
 - Adds complexity with no benefit
 
-**Effort:** 2 hours
-**Assigned To:** Technical Director
-**Status:** ❌ NOT STARTED
-**Depends On:** SL-INT-P0.1
+**Effort:** 1-2 weeks (REVISED from 2h — architectural refactor discovered)
+**Assigned To:** **Opus 4.5** (Chief Architect)
+**Status:** ⏸️ PAUSED (awaiting Opus architectural analysis)
+**Depends On:** SL-INT-P0.1 ✅ COMPLETE
 
 **Files to Delete:**
 - `flutter_ui/lib/providers/auto_event_builder_provider.dart` (~500 LOC)
@@ -481,12 +481,12 @@ class BatchExportPanel extends StatefulWidget {
 
 **Impact:** Can't delete events from UI, must manually edit provider
 
-**Effort:** 1 hour
+**Effort:** 1 hour (actual: 30 min)
 **Assigned To:** UI/UX Expert
-**Status:** ❌ NOT STARTED
+**Status:** ✅ COMPLETE (2026-01-29)
 
-**Files to Modify:**
-- `flutter_ui/lib/widgets/slot_lab/events_panel_widget.dart:480-620`
+**Files Modified:**
+- `flutter_ui/lib/widgets/slot_lab/events_panel_widget.dart:598-688` — Delete button added with confirmation dialog
 
 **Implementation Steps:**
 1. Add delete IconButton to event row
@@ -629,12 +629,12 @@ Widget _buildEventItem(SlotCompositeEvent event) {
 
 **Impact:** Workflow unclear — users don't know how to add layers besides drag-drop
 
-**Effort:** 1 day
+**Effort:** 1 day (actual: 30 min)
 **Assigned To:** UI/UX Expert
-**Status:** ❌ NOT STARTED
+**Status:** ✅ COMPLETE (2026-01-29)
 
-**Files to Modify:**
-- `flutter_ui/lib/widgets/slot_lab/events_panel_widget.dart:700-770`
+**Files Modified:**
+- `flutter_ui/lib/widgets/slot_lab/events_panel_widget.dart:770-796` — Enhanced Add Layer button with AudioWaveformPickerDialog
 
 **Implementation Steps:**
 1. Add "+ Add Layer" button at bottom of layers list
