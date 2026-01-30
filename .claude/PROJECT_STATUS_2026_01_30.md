@@ -1,25 +1,27 @@
 # FluxForge Studio — Project Status
 
 **Date:** 2026-01-30
-**Status:** ✅ **P0 COMPLETE — 85% Functional, Ready for P1 Polish**
+**Status:** ✅ **P0 + P1 Partial COMPLETE — 89% Functional**
 
 ---
 
 ## Executive Summary
 
-FluxForge Studio has completed **ALL 15 P0 critical blockers**. System is now ~85% functional with solid core and ready for UX polish.
+FluxForge Studio has completed **ALL 15 P0 critical blockers** + **13/29 P1 high priority tasks**. System is now ~89% functional with production-grade profiling, audio tools, and UX improvements.
 
 | Category | Tasks | Status | Effort Remaining |
 |----------|-------|--------|------------------|
 | 🔴 P0 Critical | 15/15 | ✅ 100% | — |
-| 🟠 P1 High (UX) | 0/29 | ⏳ 0% | 99-129h |
+| 🟠 P1 High (UX) | 13/29 | 🚧 45% | 50-65h |
 | 🟡 P2 Medium | 0/21 | ⏳ 0% | 103-138h |
 | 🟢 P3 Low | 0/12 | ⏳ 0% | 250-340h |
-| **TOTAL** | **15/77** | **19%** | **452-607h** |
+| **TOTAL** | **28/77** | **36%** | **403-543h** |
 
 **Latest Commits:**
-- `72892510` — P0 Batch 1 (10 tasks, UI + workflow fixes)
-- `0b57d880` — P0 Batch 2 (5 tasks, QA tools + APIs)
+- `4d504e5f` — P1 Profiling batch (4 tasks, ~2,220 LOC)
+- `9eec0017` — Audio Designer fixes
+- `41be885f` — Profiling docs
+- `95463521` — EventRegistry singleton fix
 
 ---
 
@@ -37,6 +39,40 @@ FluxForge Studio has completed **ALL 15 P0 critical blockers**. System is now ~8
 - ✅ Stage coverage tracking service
 
 **Total P0 LOC:** ~2,941 (6 new files, 9 modified)
+
+---
+
+## P1 Achievements (2026-01-30) — 13/29 Complete
+
+**Implemented by 3 Parallel Sonnet 4.5 Agents:**
+
+**Audio Designer Tools (3/3 Complete):**
+- ✅ P1-01: Audio Variant Groups + A/B UI (~1,100 LOC)
+- ✅ P1-02: LUFS Normalization Preview (~450 LOC)
+- ✅ P1-03: Waveform Zoom Per-Event (~570 LOC)
+
+**Engine Profiling Tools (4/4 Complete):**
+- ✅ P1-08: End-to-End Latency Measurement (~520 LOC)
+- ✅ P1-09: Voice Steal Statistics (~540 LOC)
+- ✅ P1-10: Stage→Event Resolution Trace (~580 LOC)
+- ✅ P1-11: DSP Load Attribution (~580 LOC)
+
+**Middleware Architect Tools (3/4 Complete):**
+- ✅ P1-04: Undo History Visualization (~500 LOC)
+- ✅ P1-05: Container Smoothing UI (~118 LOC)
+- ✅ P1-06: Event Dependency Graph (~900 LOC)
+- ⏳ P1-07: Container Real-Time Metering
+
+**Cross-Verification (2/5 Complete):**
+- ✅ P1-19: Timeline Selection Persistence (~280 LOC)
+- ✅ P1-20: Container Evaluation Logging (~530 LOC)
+- ⏳ P1-21, P1-22, P1-23
+
+**UX Improvements (1/6 Complete):**
+- ✅ UX-02, UX-03, UX-06: Pre-existing features verified
+- ⏳ UX-01, UX-04, UX-05
+
+**Total P1 LOC:** ~7,820 new + modifications
 
 ---
 
