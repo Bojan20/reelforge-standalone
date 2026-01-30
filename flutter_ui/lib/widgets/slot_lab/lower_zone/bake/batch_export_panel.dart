@@ -20,10 +20,9 @@ import 'package:file_picker/file_picker.dart';
 import '../../../../models/slot_audio_events.dart';
 import '../../../../providers/middleware_provider.dart';
 import '../../../../theme/fluxforge_theme.dart';
-// TODO: Real export implementation
-// import '../../../../services/export/unity_exporter.dart';
-// import '../../../../services/export/unreal_exporter.dart';
-// import '../../../../services/export/howler_exporter.dart';
+import '../../../../services/export/unity_exporter.dart';
+import '../../../../services/export/unreal_exporter.dart';
+import '../../../../services/export/howler_exporter.dart';
 
 enum ExportPlatform { universal, unity, unreal, howler }
 enum AudioFormat { wav16, wav24, wav32f, flac, mp3High }
@@ -418,23 +417,151 @@ class _BatchExportPanelState extends State<BatchExportPanel> {
     });
 
     try {
-      // Simulate export progress (real implementation would use actual exporter services)
-      for (int i = 0; i <= 100; i += 10) {
-        await Future.delayed(const Duration(milliseconds: 200));
+      // Get additional data from provider
+      final rtpcs = middleware.rtpcDefinitions;
+      final stateGroups = middleware.stateGroups;
+      final switchGroups = middleware.switchGroups;
+      final duckingRules = middleware.duckingRules;
+
+      setState(() {
+        _exportProgress = 0.1;
+        _exportStatus = 'Collecting middleware data...';
+      });
+
+      // Create export directory
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final platformName = _platform.name;
+      final exportDir = Directory('$outputPath/SlotLab_${platformName}_$timestamp');
+      await exportDir.create(recursive: true);
+
+      setState(() {
+        _exportProgress = 0.2;
+        _exportStatus = 'Generating code...';
+      });
+
+      // Generate export based on platform
+      Map<String, String> exportedFiles = {};
+
+      switch (_platform) {
+        case ExportPlatform.universal:
+          // Export all formats
+          final unityResult = const UnityExporter().export(
+            events: eventsToExport,
+            rtpcs: rtpcs,
+            stateGroups: stateGroups,
+            switchGroups: switchGroups,
+            duckingRules: duckingRules,
+          );
+          final unrealResult = const UnrealExporter().export(
+            events: eventsToExport,
+            rtpcs: rtpcs,
+            stateGroups: stateGroups,
+            switchGroups: switchGroups,
+            duckingRules: duckingRules,
+          );
+          final howlerResult = const HowlerExporter().export(
+            events: eventsToExport,
+            rtpcs: rtpcs,
+            stateGroups: stateGroups,
+            switchGroups: switchGroups,
+            duckingRules: duckingRules,
+          );
+
+          // Create subdirectories
+          await Directory('${exportDir.path}/Unity').create();
+          await Directory('${exportDir.path}/Unreal').create();
+          await Directory('${exportDir.path}/Howler').create();
+
+          // Write Unity files
+          for (final entry in unityResult.files.entries) {
+            exportedFiles['Unity/${entry.key}'] = entry.value;
+          }
+          // Write Unreal files
+          for (final entry in unrealResult.files.entries) {
+            exportedFiles['Unreal/${entry.key}'] = entry.value;
+          }
+          // Write Howler files
+          for (final entry in howlerResult.files.entries) {
+            exportedFiles['Howler/${entry.key}'] = entry.value;
+          }
+
+        case ExportPlatform.unity:
+          final result = const UnityExporter().export(
+            events: eventsToExport,
+            rtpcs: rtpcs,
+            stateGroups: stateGroups,
+            switchGroups: switchGroups,
+            duckingRules: duckingRules,
+          );
+          exportedFiles = result.files;
+
+        case ExportPlatform.unreal:
+          final result = const UnrealExporter().export(
+            events: eventsToExport,
+            rtpcs: rtpcs,
+            stateGroups: stateGroups,
+            switchGroups: switchGroups,
+            duckingRules: duckingRules,
+          );
+          exportedFiles = result.files;
+
+        case ExportPlatform.howler:
+          final result = const HowlerExporter().export(
+            events: eventsToExport,
+            rtpcs: rtpcs,
+            stateGroups: stateGroups,
+            switchGroups: switchGroups,
+            duckingRules: duckingRules,
+          );
+          exportedFiles = result.files;
+      }
+
+      setState(() {
+        _exportProgress = 0.5;
+        _exportStatus = 'Writing files...';
+      });
+
+      // Write all generated files
+      int fileCount = 0;
+      for (final entry in exportedFiles.entries) {
+        final filePath = '${exportDir.path}/${entry.key}';
+        final file = File(filePath);
+
+        // Create parent directories if needed
+        await file.parent.create(recursive: true);
+        await file.writeAsString(entry.value);
+
+        fileCount++;
         setState(() {
-          _exportProgress = i / 100;
-          _exportStatus = _getProgressStatus(i);
+          _exportProgress = 0.5 + (0.4 * fileCount / exportedFiles.length);
+          _exportStatus = 'Writing ${entry.key}...';
         });
       }
 
-      // Create export directory
-      final exportDir = Directory('$outputPath/SlotLab_Export_${DateTime.now().millisecondsSinceEpoch}');
-      await exportDir.create(recursive: true);
+      setState(() {
+        _exportProgress = 0.95;
+        _exportStatus = 'Finalizing...';
+      });
 
-      // Export based on platform (placeholder - would use real exporters)
-      final exportCount = eventsToExport.length;
-      final manifestPath = '${exportDir.path}/manifest.json';
-      await File(manifestPath).writeAsString('{"events": $exportCount, "platform": "${_platform.name}"}');
+      // Create summary file
+      final summary = StringBuffer();
+      summary.writeln('FluxForge Studio Export Summary');
+      summary.writeln('================================');
+      summary.writeln('Platform: ${_getPlatformName(_platform)}');
+      summary.writeln('Events: ${eventsToExport.length}');
+      summary.writeln('RTPCs: ${rtpcs.length}');
+      summary.writeln('State Groups: ${stateGroups.length}');
+      summary.writeln('Switch Groups: ${switchGroups.length}');
+      summary.writeln('Ducking Rules: ${duckingRules.length}');
+      summary.writeln('Files Generated: ${exportedFiles.length}');
+      summary.writeln('Timestamp: ${DateTime.now().toIso8601String()}');
+      summary.writeln('');
+      summary.writeln('Files:');
+      for (final fileName in exportedFiles.keys) {
+        summary.writeln('  - $fileName');
+      }
+
+      await File('${exportDir.path}/README.txt').writeAsString(summary.toString());
 
       setState(() {
         _isExporting = false;
@@ -446,9 +573,11 @@ class _BatchExportPanelState extends State<BatchExportPanel> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Exported $exportCount event${exportCount == 1 ? '' : 's'} to ${exportDir.path}'),
+          content: Text(
+            'Exported ${eventsToExport.length} events (${exportedFiles.length} files) to ${exportDir.path}',
+          ),
           backgroundColor: FluxForgeTheme.accentGreen,
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 4),
           action: SnackBarAction(
             label: 'Open',
             textColor: Colors.white,
@@ -496,15 +625,6 @@ class _BatchExportPanelState extends State<BatchExportPanel> {
     final cats = events.map((e) => e.category).toSet().toList();
     cats.sort();
     return ['All', ...cats];
-  }
-
-  String _getProgressStatus(int progress) {
-    if (progress < 20) return 'Preparing export...';
-    if (progress < 40) return 'Collecting events...';
-    if (progress < 60) return 'Processing audio...';
-    if (progress < 80) return 'Generating manifest...';
-    if (progress < 100) return 'Creating package...';
-    return 'Export complete!';
   }
 
   Widget _buildSectionHeader(String title) {

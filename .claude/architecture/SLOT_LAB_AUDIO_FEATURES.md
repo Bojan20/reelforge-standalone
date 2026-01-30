@@ -276,6 +276,111 @@ Audio: |-|-------- ANTICIPATION --------|
 
 ---
 
+## P0.6.1: Per-Reel Anticipation Tension System (2026-01-30) ✅
+
+**Reference:** `.claude/architecture/ANTICIPATION_SYSTEM.md` — Kompletna dokumentacija
+
+### Pregled
+
+Industry-standard anticipation sistem sa per-reel tension escalation. Scatter simboli (2+) trigeruju anticipation; svaki naredni scatter reel povećava tension level.
+
+### Tension Levels (L1-L4)
+
+| Level | Scatters | Color | Volume | Pitch | Stage Suffix |
+|-------|----------|-------|--------|-------|--------------|
+| L1 | 2 | Gold (#FFD700) | 0.6x | +1st | `_L1` |
+| L2 | 3 | Orange (#FFA500) | 0.7x | +2st | `_L2` |
+| L3 | 4 | Red-Orange (#FF6347) | 0.8x | +3st | `_L3` |
+| L4 | 5 | Red (#FF4500) | 0.9x | +4st | `_L4` |
+
+### Stage Naming Convention
+
+```
+ANTICIPATION_TENSION_R{reel}_L{level}
+
+Primeri:
+- ANTICIPATION_TENSION_R2_L1  → Reel 3, Tension Level 1 (2 scattera)
+- ANTICIPATION_TENSION_R3_L2  → Reel 4, Tension Level 2 (3 scattera)
+- ANTICIPATION_TENSION_R4_L4  → Reel 5, Tension Level 4 (5 scattera)
+```
+
+### Fallback Chain
+
+```
+ANTICIPATION_TENSION_R{reel}_L{level}
+    ↓ (not found)
+ANTICIPATION_TENSION_R{reel}
+    ↓ (not found)
+ANTICIPATION_TENSION_L{level}
+    ↓ (not found)
+ANTICIPATION_ON
+    ↓ (not found)
+(no audio)
+```
+
+### Implementation Flow
+
+```dart
+// slot_lab_provider.dart
+void _onScatterLand(int reelIndex, int scatterCount) {
+  if (scatterCount < 2) return;  // Need 2+ for anticipation
+
+  final tensionLevel = (scatterCount - 1).clamp(1, 4);
+  final stage = 'ANTICIPATION_TENSION_R${reelIndex}_L$tensionLevel';
+
+  // Trigger with context
+  eventRegistry.triggerStage(stage, context: {
+    'reelIndex': reelIndex,
+    'tensionLevel': tensionLevel,
+    'scatterCount': scatterCount,
+    'volumeMultiplier': 0.5 + (tensionLevel * 0.1),  // 0.6 - 0.9
+    'pitchSemitones': tensionLevel,  // +1 to +4 semitones
+  });
+}
+```
+
+### Rust Implementation
+
+```rust
+// crates/rf-slot-lab/src/anticipation.rs
+pub struct AnticipationInfo {
+    pub reels: Vec<u8>,           // Which reels have anticipation
+    pub reason: String,           // "scatter", "bonus", "wild"
+    pub tension_levels: Vec<u8>,  // L1-L4 per reel
+}
+
+// crates/rf-stage/src/lib.rs
+pub enum Stage {
+    AnticipationTension {
+        reel_index: u8,
+        tension_level: u8,
+        reason: Option<String>,
+    },
+    // ...
+}
+```
+
+### Audio Design Guidelines
+
+| Tension Level | Audio Characteristics |
+|---------------|----------------------|
+| L1 (Gold) | Subtle whoosh, light shimmer, gentle pulse |
+| L2 (Orange) | Rising tone, increased intensity, faster pulse |
+| L3 (Red-Orange) | Dramatic build, layered strings, heartbeat |
+| L4 (Red) | Maximum intensity, full orchestra, urgent rhythm |
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `crates/rf-slot-lab/src/anticipation.rs` | Rust logic |
+| `crates/rf-stage/src/lib.rs` | Stage enum |
+| `flutter_ui/lib/providers/slot_lab_provider.dart` | Trigger logic |
+| `flutter_ui/lib/services/event_registry.dart` | Fallback resolution |
+| `.claude/architecture/ANTICIPATION_SYSTEM.md` | Full documentation |
+
+---
+
 ## P0.7: Big Win Layered Audio
 
 ### Problem
@@ -1279,6 +1384,7 @@ Text(..., fontSize: 12),
 | P0.4 | Dynamic Cascade Timing | ✅ Kompletno |
 | P0.5 | Dynamic Rollup Speed | ✅ Kompletno |
 | P0.6 | Anticipation Pre-Trigger | ✅ Kompletno |
+| P0.6.1 | Per-Reel Anticipation Tension System | ✅ Kompletno (2026-01-30) |
 | P0.7 | Big Win Layered Audio | ✅ Kompletno |
 | P0.8 | RTL Rollup Animation | ✅ Kompletno (2026-01-25) |
 | P0.9 | Win Tier 1 Rollup Skip | ✅ Kompletno (2026-01-25) |

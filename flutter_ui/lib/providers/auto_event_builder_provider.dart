@@ -20,7 +20,136 @@ import '../models/middleware_models.dart' show ActionType;
 class EventDraft {
   final String targetId;
   final String stage;
-  const EventDraft({required this.targetId, required this.stage});
+  final String? eventId;
+  final String? trigger;
+  final String? presetId;
+  final List<String>? availableTriggers;
+  final AudioAsset? asset;
+  final String? target;
+  final String? bus;
+  final ActionType? actionType;
+  final String? stopTarget;
+  final String? actionReason;
+
+  const EventDraft({
+    required this.targetId,
+    required this.stage,
+    this.eventId,
+    this.trigger,
+    this.presetId,
+    this.availableTriggers,
+    this.asset,
+    this.target,
+    this.bus,
+    this.actionType,
+    this.stopTarget,
+    this.actionReason,
+  });
+
+  set eventId(String? value) {} // Stub setter
+}
+
+/// Stub CrossfadeConfig class for advanced_event_config compatibility
+class CrossfadeConfig {
+  final double fadeInMs;
+  final double fadeOutMs;
+  final String curve;
+  final bool enabled;
+
+  const CrossfadeConfig({
+    this.fadeInMs = 100,
+    this.fadeOutMs = 100,
+    this.curve = 'linear',
+    this.enabled = false,
+  });
+}
+
+/// Stub ConditionalTrigger class for advanced_event_config compatibility
+class ConditionalTrigger {
+  final String id;
+  final String name;
+  final List<TriggerCondition> conditions;
+
+  const ConditionalTrigger({
+    required this.id,
+    required this.name,
+    this.conditions = const [],
+  });
+}
+
+/// Stub TriggerCondition class
+class TriggerCondition {
+  final String field;
+  final String operator;
+  final dynamic value;
+
+  const TriggerCondition({
+    required this.field,
+    required this.operator,
+    required this.value,
+  });
+}
+
+/// Stub RtpcBinding class
+class RtpcBinding {
+  final String id;
+  final String rtpcId;
+  final String parameter;
+  final double minValue;
+  final double maxValue;
+
+  const RtpcBinding({
+    required this.id,
+    required this.rtpcId,
+    required this.parameter,
+    this.minValue = 0.0,
+    this.maxValue = 1.0,
+  });
+}
+
+/// Stub InheritanceResolver class
+class InheritanceResolver {
+  const InheritanceResolver();
+  Map<String, dynamic> resolve(String presetId) => {};
+}
+
+/// Stub PresetTreeNode class
+class PresetTreeNode {
+  final String id;
+  final String name;
+  final List<PresetTreeNode> children;
+
+  const PresetTreeNode({
+    required this.id,
+    required this.name,
+    this.children = const [],
+  });
+}
+
+/// Stub BindingGraph class
+class BindingGraph {
+  final List<BindingGraphNode> nodes;
+  final List<BindingGraphEdge> edges;
+
+  const BindingGraph({this.nodes = const [], this.edges = const []});
+}
+
+/// Stub BindingGraphNode class
+class BindingGraphNode {
+  final String id;
+  final String label;
+  double x;
+  double y;
+
+  BindingGraphNode({required this.id, required this.label, this.x = 0, this.y = 0});
+}
+
+/// Stub BindingGraphEdge class
+class BindingGraphEdge {
+  final String from;
+  final String to;
+
+  const BindingGraphEdge({required this.from, required this.to});
 }
 
 /// Stub CommittedEvent class - preserved for compatibility
@@ -34,6 +163,10 @@ class CommittedEvent {
   final ActionType actionType;
   final String? stopTarget;
   final double pan;
+  final List<String> dependencies;
+  final ConditionalTrigger? conditionalTrigger;
+  final List<RtpcBinding> rtpcBindings;
+  final CrossfadeConfig? crossfadeConfig;
 
   CommittedEvent({
     required this.eventId,
@@ -45,6 +178,10 @@ class CommittedEvent {
     this.actionType = ActionType.play,
     this.stopTarget,
     this.pan = 0.0,
+    this.dependencies = const [],
+    this.conditionalTrigger,
+    this.rtpcBindings = const [],
+    this.crossfadeConfig,
   });
 }
 
@@ -76,6 +213,48 @@ class AutoEventBuilderProvider extends ChangeNotifier {
   // Draft workflow stubs
   CommittedEvent? commitDraft() => null;
   void cancelDraft() {}
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P1.4: STUB METHODS FOR advanced_event_config.dart COMPATIBILITY
+  // These methods do nothing but prevent compile errors.
+  // The actual functionality has moved to MiddlewareProvider.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Dependency management stubs
+  bool hasCircularDependency(String eventId) => false;
+  void addEventDependency(String eventId, String dependencyId) {}
+  void removeEventDependency(String eventId, String dependencyId) {}
+
+  // Conditional trigger stubs
+  void setConditionalTrigger(String eventId, ConditionalTrigger? trigger) {}
+  void addTriggerCondition(String eventId, TriggerCondition condition) {}
+  void removeTriggerCondition(String eventId, String conditionId) {}
+
+  // RTPC binding stubs
+  void addRtpcBinding(String eventId, RtpcBinding binding) {}
+  void removeRtpcBinding(String eventId, String bindingId) {}
+
+  // Crossfade config stubs
+  void setMusicCrossfadeConfig(String eventId, CrossfadeConfig config) {}
+
+  // Preset management stubs
+  PresetTreeNode? getPresetTree() => null;
+  void addPreset(String name, Map<String, dynamic> config) {}
+  void removePreset(String presetId) {}
+  void registerInheritablePreset(String presetId, Map<String, dynamic> config) {}
+
+  // Inheritance resolver stub
+  InheritanceResolver? get inheritanceResolver => null;
+
+  // Batch operations stubs
+  void executeBatchDrop(List<AudioAsset> assets, DropTarget target) {}
+
+  // Graph operations stubs
+  BindingGraph? getEventSubgraph(String eventId) => null;
+  BindingGraph? getFilteredBindingGraph(String filter) => null;
+  BindingGraph buildBindingGraph() => const BindingGraph();
+  void applyGraphLayout(BindingGraph graph) {}
+  String exportGraphToDot(BindingGraph graph) => '';
 
   @override
   void dispose() {

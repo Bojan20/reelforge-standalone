@@ -13,8 +13,8 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../services/stage_configuration_service.dart';
-import '../theme/fluxforge_theme.dart';
+import '../../services/stage_configuration_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class MissingAudioReport extends StatelessWidget {
   final Map<String, String> audioAssignments;
@@ -136,7 +136,8 @@ class MissingAudioReport extends StatelessWidget {
                       itemBuilder: (context, index) {
                         final stage = missingStages[index];
                         final priority = StageConfigurationService.instance.getPriority(stage);
-                        final category = StageConfigurationService.instance.getCategory(stage);
+                        final stageDef = StageConfigurationService.instance.getStage(stage);
+                        final category = stageDef?.category ?? StageCategory.custom;
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 4),

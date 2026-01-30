@@ -18,6 +18,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../services/event_registry.dart';
+import '../../services/win_analytics_service.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'professional_reel_animation.dart';
@@ -1320,8 +1321,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         debugPrint('[SlotPreview] 🎯 V14: Winning symbols: ${_winningSymbolNames.join(', ')}');
 
         // Determine win tier and show overlay
+        // Uses configurable WinTierConfig from provider (default: standard slot thresholds)
         _targetWinAmount = result.totalWin.toDouble();
-        _winTier = _getWinTier(result.totalWin);
+        _winTier = widget.provider.getVisualTierForWin(result.totalWin.toDouble());
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ANALYTICS: Track win tier triggered
+        // ═══════════════════════════════════════════════════════════════════════
+        WinAnalyticsService.instance.trackWinTier(
+          _winTier,
+          winAmount: _targetWinAmount,
+          betAmount: widget.provider.betAmount,
+        );
 
         // ═══════════════════════════════════════════════════════════════════════
         // V9: WIN PRESENTATION SYSTEM
@@ -1380,6 +1391,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // ═══════════════════════════════════════════════════════════════════════
         Future.delayed(const Duration(milliseconds: symbolHighlightMs), () {
           if (!mounted) return;
+          // FIX: Guard against skip race condition
+          if (widget.provider.skipRequested) {
+            debugPrint('[SlotPreview] ⚠️ Phase 2 skipped — skip was requested during symbol highlight');
+            return;
+          }
 
           if (_winTier.isEmpty) {
             // ═══════════════════════════════════════════════════════════════════
@@ -1547,9 +1563,17 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _winningReels = {};
         _winTier = '';
         _currentDisplayTier = '';
+        // FIX: Clear pre-trigger flag so next win can trigger symbol highlights
+        _symbolHighlightPreTriggered = false;
       });
 
       debugPrint('[SlotPreview] ✅ Skip fade-out COMPLETE — calling onSkipComplete()');
+
+      // ANALYTICS: Track skip completed
+      WinAnalyticsService.instance.trackSkipCompleted(
+        _winTier,
+        fadeOutDurationMs: 200, // Fade-out duration
+      );
 
       // Notify provider that skip is complete
       widget.provider.onSkipComplete();
@@ -1651,6 +1675,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     return _lineWinsForPresentation[_currentPresentingLineIndex];
   }
 
+  /// @deprecated Use `widget.provider.getVisualTierForWin()` instead.
+  ///
+  /// This hardcoded method is kept for backward compatibility.
+  /// The configurable version uses WinTierConfig from provider which allows:
+  /// - Custom tier thresholds per game
+  /// - High volatility presets
+  /// - Jackpot tier support
+  /// - RTPC integration
+  ///
   /// Get win tier based on win-to-bet ratio (industry standard)
   /// Industry standard progression (Zynga, NetEnt, Pragmatic Play):
   /// - SMALL: < 5x — no plaque, just counter
@@ -1659,6 +1692,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// - MEGA WIN: 30x - 60x — third tier
   /// - EPIC WIN: 60x - 100x — fourth tier
   /// - ULTRA WIN: 100x+ — maximum celebration
+  @Deprecated('Use widget.provider.getVisualTierForWin() instead')
   String _getWinTier(double totalWin) {
     // Use bet from provider, fallback to 1.0 for ratio calculation
     final bet = widget.provider.betAmount;
@@ -1920,8 +1954,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
       // P0.16 FIX: Wait 800ms so player can SEE the plaque before fading
       // Without this delay, the plaque appears and immediately fades out
+      // FIX: Check for skip request to avoid race condition with new spin
       Future.delayed(const Duration(milliseconds: 800), () {
         if (!mounted) return;
+        // FIX: If skip was requested during delay, don't call onComplete
+        // The skip flow will handle completion via onSkipComplete()
+        if (widget.provider.skipRequested) {
+          debugPrint('[SlotPreview] ⚠️ Tier 1 callback skipped — skip was requested during delay');
+          return;
+        }
         onComplete?.call();
       });
       return;
@@ -1933,6 +1974,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final totalTicks = (duration / tickIntervalMs).round();
 
     debugPrint('[SlotPreview] 🔊 ROLLUP_START (tier: $tier, duration: ${duration}ms, ticks: $totalTicks, RTL: ON)');
+
+    // ANALYTICS: Track rollup started
+    WinAnalyticsService.instance.trackRollupStarted(
+      tier,
+      targetAmount: _targetWinAmount,
+    );
 
     // V9: Initialize rollup visual state with RTL mode enabled
     setState(() {
@@ -1965,6 +2012,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           });
           eventRegistry.triggerStage('ROLLUP_END');
           debugPrint('[SlotPreview] 🔊 ROLLUP_END (completed $totalTicks ticks)');
+
+          // ANALYTICS: Track rollup completed (not skipped)
+          WinAnalyticsService.instance.trackRollupCompleted(
+            tier,
+            durationMs: duration,
+          );
 
           // Call completion callback if provided
           onComplete?.call();
@@ -2166,6 +2219,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════════
     Future.delayed(const Duration(milliseconds: _bigWinIntroDurationMs), () {
       if (!mounted) return;
+      // FIX: Guard against skip race condition
+      if (widget.provider.skipRequested) {
+        debugPrint('[SlotPreview] ⚠️ Tier progression skipped — skip was requested during intro');
+        return;
+      }
       _advanceTierProgression(lineWinsForPhase3, onComplete);
     });
   }
@@ -2193,6 +2251,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _tierProgressionTimer?.cancel();
     _tierProgressionTimer = Timer(const Duration(milliseconds: _tierDisplayDurationMs), () {
       if (!mounted) return;
+      // FIX: Guard against skip race condition
+      if (widget.provider.skipRequested) {
+        debugPrint('[SlotPreview] ⚠️ Tier advance skipped — skip was requested');
+        return;
+      }
 
       _tierProgressionIndex++;
 
@@ -2220,6 +2283,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _tierProgressionTimer?.cancel();
     _tierProgressionTimer = Timer(const Duration(milliseconds: _bigWinEndDurationMs), () {
       if (!mounted) return;
+      // FIX: Guard against skip race condition
+      if (widget.provider.skipRequested) {
+        debugPrint('[SlotPreview] ⚠️ Big win end skipped — skip was requested');
+        return;
+      }
 
       _isInTierProgression = false;
 
@@ -3504,6 +3572,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   _buildDecorativeStar(tierColors.first, 14, glowIntensity),
                 ],
               ),
+
+              // ═══════════════════════════════════════════════════════════════
+              // WIN PROGRESS INDICATOR — Shows rollup progress (FIX: Race condition preporuka)
+              // ═══════════════════════════════════════════════════════════════
+              if (_isRollingUp || _rollupProgress > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _buildWinProgressIndicator(tierColors.first, glowIntensity),
+                ),
             ],
           ),
         ),
@@ -3577,6 +3654,108 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// ═══════════════════════════════════════════════════════════════════════════
+  /// WIN PROGRESS INDICATOR — Horizontal progress bar during rollup animation
+  /// ═══════════════════════════════════════════════════════════════════════════
+  /// Shows visual feedback of rollup progress (0.0 → 1.0) with tier-colored glow.
+  /// Appears below the win amount during rollup, fades when complete.
+  Widget _buildWinProgressIndicator(Color tierColor, double glowIntensity) {
+    final progress = _rollupProgress.clamp(0.0, 1.0);
+    final isComplete = progress >= 1.0;
+
+    // Fade out when complete
+    final opacity = isComplete ? 0.0 : 1.0;
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 300),
+      opacity: opacity,
+      child: Container(
+        width: 200,
+        height: 8,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          color: Colors.black.withOpacity(0.4),
+          border: Border.all(
+            color: tierColor.withOpacity(0.3),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: tierColor.withOpacity(0.2 * glowIntensity),
+              blurRadius: 8,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: Stack(
+            children: [
+              // Background track
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.grey.shade900,
+                      Colors.grey.shade800,
+                    ],
+                  ),
+                ),
+              ),
+              // Progress fill
+              FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: progress,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        tierColor.withOpacity(0.8),
+                        tierColor,
+                        HSLColor.fromColor(tierColor)
+                            .withLightness(
+                              (HSLColor.fromColor(tierColor).lightness + 0.2)
+                                  .clamp(0.0, 1.0),
+                            )
+                            .toColor(),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: tierColor.withOpacity(0.6 * glowIntensity),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Shimmer effect on progress edge
+              if (progress > 0.05 && progress < 1.0)
+                Positioned(
+                  left: (progress * 200) - 4,
+                  top: 0,
+                  bottom: 0,
+                  width: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          Colors.white.withOpacity(0.6),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

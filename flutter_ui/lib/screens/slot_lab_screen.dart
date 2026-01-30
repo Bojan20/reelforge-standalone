@@ -96,13 +96,10 @@ import '../controllers/slot_lab/lower_zone_controller.dart';
 import '../widgets/slot_lab/lower_zone/command_builder_panel.dart';
 import '../widgets/slot_lab/lower_zone/event_list_panel.dart';
 import '../widgets/slot_lab/lower_zone/bus_meters_panel.dart';
-import '../providers/auto_event_builder_provider.dart';
-import '../models/auto_event_builder_models.dart' show AssetType, AudioAsset;
+import '../models/auto_event_builder_models.dart' show AudioAsset, DropTarget, TargetType, StageContext;
 import '../widgets/spatial/auto_spatial_panel.dart';
 import '../widgets/slot_lab/auto_event_builder/audio_browser_panel.dart' as aeb;
-import '../widgets/slot_lab/auto_event_builder/droppable_slot_preview.dart';
 import '../widgets/slot_lab/auto_event_builder/drop_target_wrapper.dart';
-import '../models/auto_event_builder_models.dart';
 import '../providers/stage_ingest_provider.dart';
 import '../widgets/stage_ingest/stage_ingest_panel.dart';
 import '../widgets/slot_lab/gdd_import_wizard.dart';
@@ -693,9 +690,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // Lower Zone Controller (new unified bottom panel system)
   late final LowerZoneController _lowerZoneController;
 
-  // Auto Event Builder Provider
-  late final AutoEventBuilderProvider _autoEventBuilderProvider;
-
   // Fullscreen preview mode
   bool _isPreviewMode = false;
 
@@ -805,11 +799,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // Initialize Lower Zone Controller for unified bottom panel
     // NOTE: Listener is added AFTER restore completes to prevent overwriting persisted state
     _lowerZoneController = LowerZoneController();
-    _autoEventBuilderProvider = AutoEventBuilderProvider();
 
     _initializeTracks();
     _loadAudioPool();
-    _syncAudioPoolToProvider(); // Sync to AutoEventBuilderProvider for AudioBrowserPanel
     _initializeSlotEngine();
     _restorePersistedState();
     _initWaveformCache();
@@ -1919,7 +1911,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             _audioPool.addAll(newEntries);
           });
           _persistState();
-          _syncAudioPoolToProvider(); // Sync to AutoEventBuilderProvider
           debugPrint('[SlotLab] Batch added ${newEntries.length} files');
         }
       }
@@ -1976,7 +1967,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             _audioPool.addAll(newEntries);
           });
           _persistState();
-          _syncAudioPoolToProvider(); // Sync to AutoEventBuilderProvider
         }
         debugPrint('[SlotLab] Added ${newEntries.length} files from folder');
       }
@@ -2023,44 +2013,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     });
 
     debugPrint('[SlotLab] Added to pool: $name - ${entry['folder']}');
-    _syncAudioPoolToProvider();
-  }
-
-  /// Convert folder name to AssetType
-  AssetType _folderToAssetType(String folder) {
-    switch (folder) {
-      case 'Music':
-        return AssetType.music;
-      case 'Voice':
-        return AssetType.vo;
-      case 'Ambience':
-        return AssetType.amb;
-      default:
-        return AssetType.sfx;
-    }
-  }
-
-  /// Sync _audioPool to AutoEventBuilderProvider so AudioBrowserPanel can display them
-  void _syncAudioPoolToProvider() {
-    final assets = _audioPool.map((entry) {
-      final path = entry['path'] as String? ?? '';
-      final name = entry['name'] as String? ?? path.split('/').last;
-      final folder = entry['folder'] as String? ?? 'SFX';
-      final duration = ((entry['duration'] as num?)?.toDouble() ?? 2.0) * 1000; // seconds to ms
-
-      return AudioAsset(
-        assetId: 'asset_${path.hashCode}',
-        path: path,
-        assetType: _folderToAssetType(folder),
-        durationMs: duration.toInt(),
-        tags: [folder.toLowerCase()],
-      );
-    }).toList();
-
-    // Replace all assets in provider
-    _autoEventBuilderProvider.clearAudioAssets();
-    _autoEventBuilderProvider.addAudioAssets(assets);
-    debugPrint('[SlotLab] Synced ${assets.length} assets to AutoEventBuilderProvider');
   }
 
   @override
@@ -2098,7 +2050,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _lowerZoneController.removeListener(_onLowerZoneChanged);
     }
     _lowerZoneController.dispose();  // Dispose lower zone controller
-    _autoEventBuilderProvider.dispose();  // Dispose auto event builder provider
     super.dispose();
   }
 
@@ -2132,50 +2083,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     } catch (e) {
       debugPrint('[SlotLab] RTPC error: $e');
     }
-  }
-
-  /// Convert CommittedEvent (from AutoEventBuilder) to AudioEvent (for EventRegistry)
-  ///
-  /// CommittedEvent is the "draft" format from drop-zone UI.
-  /// AudioEvent is the "playable" format that EventRegistry can trigger.
-  AudioEvent? _convertCommittedEventToAudioEvent(CommittedEvent event) {
-    // Skip non-playable events (Stop actions without asset)
-    if (event.assetPath.isEmpty && event.actionType != ActionType.play) {
-      debugPrint('[SlotLab] Skip non-playable event: ${event.eventId}');
-      return null;
-    }
-
-    // Map bus name to numeric ID (using existing helper method at line ~7217)
-    final busId = _busNameToId(event.bus);
-
-    // Extract filename for layer name
-    final fileName = event.assetPath.split('/').last;
-    final layerName = fileName.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac|aiff)$', caseSensitive: false), '');
-
-    // Create audio layer from CommittedEvent data
-    final layer = AudioLayer(
-      id: '${event.eventId}_layer_0',
-      audioPath: event.assetPath,
-      name: layerName.isNotEmpty ? layerName : 'Audio',
-      volume: 1.0,
-      pan: event.pan,
-      delay: 0.0,
-      offset: 0.0,
-      busId: busId,
-    );
-
-    // Determine if event should loop (music events typically loop)
-    final isMusic = event.bus == 'Music' || event.intent.contains('MUSIC');
-
-    return AudioEvent(
-      id: event.eventId,
-      name: event.eventId,
-      stage: event.intent.toUpperCase().trim(), // Normalize stage name
-      layers: [layer],
-      duration: 0.0, // Will be determined at playback
-      loop: isMusic,
-      priority: _intentToPriority(event.intent),
-    );
   }
 
   /// Map intent/stage name to priority (0-100)
@@ -2244,11 +2151,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       );
     }
 
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<LowerZoneController>.value(value: _lowerZoneController),
-        ChangeNotifierProvider<AutoEventBuilderProvider>.value(value: _autoEventBuilderProvider),
-      ],
+    return ChangeNotifierProvider<LowerZoneController>.value(
+      value: _lowerZoneController,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _focusNode.requestFocus(),
@@ -7800,11 +7704,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             Positioned(
               left: 8,
               top: reelFrameTop + 8,
-              child: SymbolZonePanel(
-                onSymbolEventCreated: (symbolType, event) {
-                  _onEventBuilderEventCreated(event, symbolType);
-                },
-              ),
+              child: _buildSymbolZonePanel(),
             ),
 
             // EXIT + RESET buttons (top right corner - past header icons)
@@ -8040,9 +7940,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   /// Mini drop zone badge for compact overlay zones
   Widget _buildMiniDropZone(String label, String targetId, Color color) {
-    return Consumer<AutoEventBuilderProvider>(
+    return Consumer<MiddlewareProvider>(
       builder: (context, provider, _) {
-        final count = provider.getEventCountForTarget(targetId);
+        // Count events using the same logic as DropTargetWrapper
+        final stage = _targetIdToStage(targetId);
+        final count = provider.compositeEvents
+            .where((e) => e.triggerStages.contains(stage))
+            .length;
         final target = DropTarget(
           targetId: targetId,
           targetType: targetId.contains('jackpot') ? TargetType.overlay : TargetType.overlay,
@@ -8296,67 +8200,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Callback when event is created via drag-drop in Event Builder mode
-  /// CRITICAL: This bridges AutoEventBuilderProvider → MiddlewareProvider (SSoT)
-  void _onEventBuilderEventCreated(CommittedEvent event, String targetId) {
-    debugPrint('[SlotLab] Event Builder: Creating composite event for $targetId');
-
-    // Extract filename for display name
-    final fileName = event.assetPath.split('/').last;
-    final eventName = _generateEventNameFromTarget(targetId, fileName);
-
-    // Map targetId to stage name
-    final stage = _targetIdToStage(targetId);
-
-    // Map bus name to bus ID
-    final busId = _busNameToId(event.bus);
-
-    // Calculate pan from target (per-reel spatial positioning)
-    final pan = _calculatePanFromTarget(targetId, event.pan);
-
-    // Create SlotEventLayer from CommittedEvent
-    final layer = SlotEventLayer(
-      id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
-      name: fileName,
-      audioPath: event.assetPath,
-      volume: (event.parameters['volume'] as double?) ?? 1.0,
-      pan: pan,
-      offsetMs: (event.parameters['delayMs'] as double?) ?? 0.0,
-      fadeInMs: (event.parameters['fadeInMs'] as num?)?.toDouble() ?? 0.0,
-      fadeOutMs: (event.parameters['fadeOutMs'] as num?)?.toDouble() ?? 0.0,
-      muted: false,
-      solo: false,
-      busId: busId,
-    );
-
-    // Create SlotCompositeEvent
-    // Auto-detect looping based on stage configuration
-    final shouldLoop = StageConfigurationService.instance.isLooping(stage);
-
-    final now = DateTime.now();
-    final compositeEvent = SlotCompositeEvent(
-      id: event.eventId,
-      name: eventName,
-      category: _categoryFromTargetId(targetId),
-      color: _colorFromTargetId(targetId),
-      layers: [layer],
-      masterVolume: 1.0,
-      looping: shouldLoop,
-      maxInstances: shouldLoop ? 1 : 4, // Looping events = 1 instance, one-shots = 4
-      createdAt: now,
-      modifiedAt: now,
-      triggerStages: [stage],
-    );
-
-    // Add to MiddlewareProvider (Single Source of Truth)
-    // This will trigger _onMiddlewareChanged → timeline sync + EventRegistry sync
-    _middleware.addCompositeEvent(compositeEvent, select: true);
-
-    debugPrint('[SlotLab] ✅ Created composite event "${compositeEvent.name}" with stage "$stage"');
-    debugPrint('[SlotLab]    Layer: ${layer.name}, bus=$busId, pan=$pan');
+  /// DropTargetWrapper creates SlotCompositeEvent directly via MiddlewareProvider,
+  /// so this callback is for additional processing/feedback only.
+  void _onEventBuilderEventCreated(SlotCompositeEvent event, String targetId) {
+    debugPrint('[SlotLab] Event Builder: Event created for $targetId');
+    debugPrint('[SlotLab] ✅ Created composite event "${event.name}" with stages: ${event.triggerStages}');
 
     // Show feedback
     setState(() {
-      _lastDragStatus = '✅ Event: $eventName → $stage';
+      _lastDragStatus = '✅ Event: ${event.name}';
       _lastDragStatusTime = DateTime.now();
     });
   }
@@ -9412,8 +9264,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   Widget _buildEventBuilderRightContent() {
     switch (_rightPanelTab) {
       case 0:
-        // Events tab - shows committed events from AutoEventBuilderProvider
-        return _buildAutoEventsList();
+        // Events tab - shows composite events from MiddlewareProvider (SSoT)
+        return _buildCompositeEventsPanel();
       case 1:
         // Assets tab - AudioBrowserPanel for drag-drop
         return aeb.AudioBrowserPanel(
@@ -9427,11 +9279,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             children: [
               _buildPanelHeader('SYMBOL AUDIO', Icons.apps),
               const SizedBox(height: 8),
-              SymbolZonePanel(
-                onSymbolEventCreated: (symbolType, event) {
-                  _onEventBuilderEventCreated(event, 'symbol.$symbolType');
-                },
-              ),
+              _buildSymbolZonePanel(),
             ],
           ),
         );
@@ -9443,11 +9291,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             children: [
               _buildPanelHeader('BACKGROUND MUSIC', Icons.music_note),
               const SizedBox(height: 8),
-              MusicZonePanel(
-                onMusicEventCreated: (musicContext, event) {
-                  _onEventBuilderEventCreated(event, 'music.$musicContext');
-                },
-              ),
+              _buildMusicZonePanel(),
             ],
           ),
         );
@@ -9457,167 +9301,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           onEventsCreated: _handleBatchImportEvents,
         );
       default:
-        return _buildAutoEventsList();
+        return _buildCompositeEventsPanel();
     }
   }
-
-  /// List of committed events from AutoEventBuilderProvider
-  Widget _buildAutoEventsList() {
-    return Consumer<AutoEventBuilderProvider>(
-      builder: (context, provider, _) {
-        final events = provider.events;
-        return Column(
-          children: [
-            _buildPanelHeader('AUTO EVENTS', Icons.event_note),
-            Container(
-              height: 32,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A22),
-                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    '${events.length} events',
-                    style: const TextStyle(color: Colors.white38, fontSize: 10),
-                  ),
-                  const Spacer(),
-                  if (events.isNotEmpty)
-                    InkWell(
-                      onTap: () {
-                        // Export CommittedEvents to EventRegistry as AudioEvents
-                        int exported = 0;
-                        for (final event in events) {
-                          final audioEvent = _convertCommittedEventToAudioEvent(event);
-                          if (audioEvent != null) {
-                            eventRegistry.registerEvent(audioEvent);
-                            exported++;
-                            debugPrint('[SlotLab] ✅ Exported: ${event.eventId} → ${audioEvent.stage}');
-                          }
-                        }
-                        // Show feedback
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Exported $exported event(s) to EventRegistry'),
-                              backgroundColor: const Color(0xFF40FF90),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF40FF90).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: const Text(
-                          'Export',
-                          style: TextStyle(color: Color(0xFF40FF90), fontSize: 9),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: events.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.touch_app, size: 32, color: Colors.white.withOpacity(0.2)),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'No events yet',
-                            style: TextStyle(color: Colors.white38, fontSize: 11),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Drag assets to drop zones',
-                            style: TextStyle(color: Colors.white24, fontSize: 9),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(8),
-                      itemCount: events.length,
-                      itemBuilder: (context, index) => _buildAutoEventItem(events[index]),
-                    ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// Single auto event item display
-  Widget _buildAutoEventItem(CommittedEvent event) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A22),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 32,
-            decoration: BoxDecoration(
-              color: _getIntentColor(event.intent),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.eventId,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  event.intent,
-                  style: const TextStyle(color: Colors.white38, fontSize: 9),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 14, color: Colors.white24),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            onPressed: () {
-              context.read<AutoEventBuilderProvider>().deleteEvent(event.eventId);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getIntentColor(String intent) {
-    if (intent.contains('reel')) return FluxForgeTheme.accentOrange;
-    if (intent.contains('ui')) return FluxForgeTheme.accentBlue;
-    if (intent.contains('win') || intent.contains('jackpot')) return const Color(0xFFFFD700);
-    if (intent.contains('symbol')) return FluxForgeTheme.accentGreen;
-    if (intent.contains('music')) return const Color(0xFF9333EA);
-    return FluxForgeTheme.accentCyan;
-  }
-
 
   Widget _buildCompositeEventsPanel() {
     // Use Consumer to ensure we always get fresh data from MiddlewareProvider
@@ -12229,21 +11915,17 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // AUTO EVENT BUILDER TABS
+  // LOWER ZONE CONTENT BUILDERS
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildCommandBuilderContent() {
-    return ChangeNotifierProvider.value(
-      value: _autoEventBuilderProvider,
-      child: const CommandBuilderPanel(),
-    );
+    // CommandBuilderPanel uses MiddlewareProvider directly (no wrapper needed)
+    return const CommandBuilderPanel();
   }
 
   Widget _buildEventListContent() {
-    return ChangeNotifierProvider.value(
-      value: _autoEventBuilderProvider,
-      child: const EventListPanel(),
-    );
+    // EventListPanel uses MiddlewareProvider directly (no wrapper needed)
+    return const EventListPanel();
   }
 
   Widget _buildMetersContent() {
@@ -12376,6 +12058,108 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return Tooltip(message: tooltip, child: button);
     }
     return button;
+  }
+
+  /// Symbol zone panel for assigning audio to symbol types (HP1-5, MP1-5, LP1-5, etc.)
+  /// Uses MiddlewareProvider directly for event creation
+  Widget _buildSymbolZonePanel() {
+    // Symbol categories with their audio contexts
+    final symbolCategories = [
+      ('Special', ['WILD', 'SCATTER', 'BONUS'], const Color(0xFFFF6B6B)),
+      ('High Pay', ['HP1', 'HP2', 'HP3', 'HP4', 'HP5'], const Color(0xFFFFD700)),
+      ('Medium Pay', ['MP1', 'MP2', 'MP3', 'MP4', 'MP5'], const Color(0xFF40C8FF)),
+      ('Low Pay', ['LP1', 'LP2', 'LP3', 'LP4', 'LP5'], const Color(0xFF40FF90)),
+    ];
+
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A22),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (categoryName, symbols, color) in symbolCategories) ...[
+            Text(
+              categoryName,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: symbols.map((symbol) {
+                return _buildLabeledDropZone(
+                  'symbol.$symbol',
+                  symbol,
+                  color,
+                  compact: true,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Music zone panel for assigning background music to game contexts
+  /// Uses MiddlewareProvider directly for event creation
+  Widget _buildMusicZonePanel() {
+    final musicContexts = [
+      ('Base Game', 'base', const Color(0xFF40C8FF)),
+      ('Feature', 'feature', const Color(0xFFFF6B6B)),
+      ('Free Spins', 'freespins', const Color(0xFF40FF90)),
+      ('Bonus', 'bonus', const Color(0xFFFFD700)),
+      ('Jackpot', 'jackpot', const Color(0xFFFF9040)),
+      ('Hold & Win', 'holdwin', const Color(0xFF9370DB)),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A22),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Music Contexts',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: musicContexts.map((ctx) {
+              final (label, id, color) = ctx;
+              return _buildLabeledDropZone(
+                'music.$id',
+                label,
+                color,
+                compact: false,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -632,148 +632,84 @@ final offsetPixels = (currentOffsetSeconds * pixelsPerSecond).clamp(0.0, infinit
 
 ---
 
-## CRITICAL FIX: QuickSheet Double Calls (2026-01-23)
+## DEPRECATED: QuickSheet Double Calls (2026-01-23) — OBSOLETE
 
-### Problem
+> **Note (2026-01-30):** This section documents a historical bug that is now obsolete.
+> The QuickSheet component has been **REMOVED** and replaced with direct event creation.
 
-When dropping audio on slot element in Edit mode:
-- QuickSheet popup appears correctly
-- User clicks Commit
-- Popup closes
-- BUT event is NOT created in Events panel
-- Spin produces no audio
+### Historical Context
 
-### Root Cause #1: Double `commitDraft()`
+QuickSheet was a popup that appeared when dropping audio on slot elements. It allowed users to configure event properties before committing. This caused issues with double calls to `createDraft()` and `commitDraft()`.
 
-`provider.commitDraft()` was called **TWICE**:
+### New Implementation (2026-01-30)
 
-1. First call in `quick_sheet.dart` onCommit handler (line 63)
-2. Second call in `drop_target_wrapper.dart` callback (line 130)
-
-The first call consumed the draft and returned the `CommittedEvent`. The second call returned `null` because the draft was already consumed.
-
-### Root Cause #2: Double `createDraft()`
-
-`provider.createDraft()` was also called **TWICE**:
-
-1. First call in `drop_target_wrapper.dart` _handleDrop() (line 119)
-2. Second call in `quick_sheet.dart` showQuickSheet() (line 36)
-
-The second call overwrote the first draft with a new one (different event ID), causing inconsistent state.
-
-### Solution
-
-**Fix #1:** Removed `commitDraft()` from QuickSheet — let DropTargetWrapper handle it exclusively:
+QuickSheet has been completely removed. DropTargetWrapper now creates events directly:
 
 ```dart
-// quick_sheet.dart - FIXED:
-onCommit: () {
-  // NOTE: Don't call commitDraft() here!
-  // The onCommit callback (from DropTargetWrapper) handles commitDraft
-  // to properly capture the returned CommittedEvent.
-  Navigator.of(context).pop();
-  onCommit?.call();
-},
-```
+// drop_target_wrapper.dart - NEW SIMPLIFIED FLOW:
+void _handleDrop(AudioAsset asset, Offset position) {
+  final provider = context.read<MiddlewareProvider>();
+  final stage = _targetIdToStage(target.targetId);
 
-**Fix #2:** Removed `createDraft()` from DropTargetWrapper — let showQuickSheet handle it:
-
-```dart
-// drop_target_wrapper.dart - FIXED:
-void _handleDrop(AudioAsset asset, Offset globalPosition, AutoEventBuilderProvider provider) {
-  // NOTE: Don't call createDraft() here!
-  // showQuickSheet() handles draft creation internally to avoid double-create issues.
-  // The draft is created ONCE in showQuickSheet() and committed via onCommit callback.
-
-  showQuickSheet(
-    context: context,
-    provider: provider,
-    asset: asset,
-    target: widget.target,
-    position: globalPosition,
-    onCommit: () {
-      final event = provider.commitDraft();  // ← ONLY commitDraft call
-      if (event != null) {
-        _triggerPulse();
-        widget.onEventCreated?.call(event);
-      }
-    },
-    onCancel: provider.cancelDraft,
+  final event = SlotCompositeEvent(
+    id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
+    name: EventNamingService.instance.generateEventName(target.targetId, stage),
+    triggerStages: [stage],
+    layers: [
+      SlotEventLayer(
+        id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
+        audioPath: asset.path,
+        volume: 1.0,
+        pan: _calculatePan(target.targetId),
+        busId: _stageToBusId(stage),
+      ),
+    ],
   );
+
+  provider.addCompositeEvent(event);  // Direct creation!
+  widget.onEventCreated?.call(event);
 }
 ```
 
-### Complete Flow (Fixed)
+### Complete Flow (Current)
 
 ```
 1. User drops audio on slot element (Edit mode)
    ↓
 2. DropTargetWrapper._handleDrop() called
    ↓
-3. showQuickSheet() called (NO createDraft in _handleDrop!)
+3. SlotCompositeEvent created directly
    ↓
-4. showQuickSheet() internally calls provider.createDraft() ← ONLY call!
+4. MiddlewareProvider.addCompositeEvent(event)
    ↓
-5. QuickSheet popup displays with draft data
+5. MiddlewareProvider.notifyListeners()
    ↓
-6. User clicks "Commit" button
+6. _onMiddlewareChanged() listener fires
+   - EventRegistry.registerEvent(audioEvent)
    ↓
-7. QuickSheet onCommit:
-   - Navigator.pop() closes popup
-   - onCommit?.call() invokes DropTargetWrapper callback
+7. User presses Spin
    ↓
-8. DropTargetWrapper onCommit callback:
-   - final event = provider.commitDraft()  ← ONLY call!
-   - event != null ✅
-   - _triggerPulse() for visual feedback
-   - widget.onEventCreated?.call(event)
+8. EventRegistry.triggerStage("SPIN_START")
    ↓
-9. _onEventBuilderEventCreated(event, targetId)
-   - Creates SlotCompositeEvent
-   - _middleware.addCompositeEvent(compositeEvent)
-   ↓
-10. MiddlewareProvider.notifyListeners()
-    ↓
-11. _onMiddlewareChanged() listener fires
-    - _syncEventToRegistry(event)
-    - EventRegistry.registerEvent(audioEvent)
-    ↓
-12. User presses Spin (or any slot action)
-    ↓
-13. SlotLabProvider._triggerStage("SPIN_START")
-    ↓
-14. EventRegistry.triggerStage("SPIN_START")
-    - Finds registered event ✅
-    - AudioPlaybackService.playFileToBus()
-    ↓
-15. 🔊 Audio plays!
+9. 🔊 Audio plays!
 ```
 
-### Files Changed
+### Files Changed (2026-01-30)
 
 | File | Change |
 |------|--------|
-| `flutter_ui/lib/widgets/slot_lab/auto_event_builder/quick_sheet.dart` | Removed `provider.commitDraft()` from onCommit handler |
-| `flutter_ui/lib/widgets/slot_lab/auto_event_builder/drop_target_wrapper.dart` | Removed `provider.createDraft()` from _handleDrop() |
+| `quick_sheet.dart` | **DELETED** |
+| `drop_target_wrapper.dart` | Rewritten to use MiddlewareProvider directly |
 
-### Key Principle
+### Key Improvement
 
-**Single Responsibility:**
-- `showQuickSheet()` → creates draft (line 36)
-- `DropTargetWrapper.onCommit` → commits draft (line 130)
+- **No more double calls** — single event creation path
+- **No popup delay** — instant event creation on drop
+- **Simpler code** — ~600 LOC removed
 
-Each operation happens exactly ONCE in exactly ONE place.
+### Documentation
 
-### Verification Checklist
-
-1. Drop audio on SPIN button in Edit mode
-2. QuickSheet popup appears → Click "Commit"
-3. ✅ Popup closes
-4. ✅ Event appears in Events panel (right side)
-5. ✅ Event has the dropped audio as a layer
-6. Click Spin button
-7. ✅ Audio plays
-8. Repeat for other slot elements (reels, win overlays, etc.)
+See: `.claude/docs/AUTOEVENTBUILDER_REMOVAL_2026_01_30.md`
 
 ---
 
@@ -2204,6 +2140,100 @@ if (normalizedStage.startsWith('CASCADE_STEP')) {
 
 ---
 
+## Anticipation Tension Stage Handling (2026-01-30) ✅
+
+**Reference:** `.claude/architecture/ANTICIPATION_SYSTEM.md` — Kompletna dokumentacija
+
+### Stage Naming Convention
+
+Per-reel anticipation koristi specifičan naming pattern sa fallback chain-om:
+
+```
+Format: ANTICIPATION_TENSION_R{reelIndex}_L{tensionLevel}
+
+Where:
+- reelIndex: 0-4 (0-indexed, matches reel array)
+- tensionLevel: 1-4 (based on scatter count - 1)
+
+Examples:
+- ANTICIPATION_TENSION_R2_L1 → Reel 3, Level 1 (2 scatters)
+- ANTICIPATION_TENSION_R3_L2 → Reel 4, Level 2 (3 scatters)
+- ANTICIPATION_TENSION_R4_L4 → Reel 5, Level 4 (5 scatters)
+```
+
+### Fallback Resolution
+
+EventRegistry automatski traži fallback ako specifični stage ne postoji:
+
+```dart
+// event_registry.dart
+String? _resolveAnticipationStage(String stage) {
+  // Try exact match first
+  if (_hasEventForStage(stage)) return stage;
+
+  // ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2
+  if (stage.contains('_L')) {
+    final withoutLevel = stage.replaceFirst(RegExp(r'_L\d+$'), '');
+    if (_hasEventForStage(withoutLevel)) return withoutLevel;
+  }
+
+  // ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION_L3
+  if (stage.contains('_R')) {
+    final levelMatch = RegExp(r'_L(\d+)').firstMatch(stage);
+    if (levelMatch != null) {
+      final levelOnly = 'ANTICIPATION_TENSION_L${levelMatch.group(1)}';
+      if (_hasEventForStage(levelOnly)) return levelOnly;
+    }
+  }
+
+  // Fallback to generic ANTICIPATION_ON
+  if (_hasEventForStage('ANTICIPATION_ON')) return 'ANTICIPATION_ON';
+
+  return null;  // No audio for this stage
+}
+```
+
+### Tension Level Audio Parameters
+
+| Level | Trigger | Volume Mult | Pitch Offset | Color |
+|-------|---------|-------------|--------------|-------|
+| L1 | 2 scatters | 0.6x | +1 semitone | Gold (#FFD700) |
+| L2 | 3 scatters | 0.7x | +2 semitones | Orange (#FFA500) |
+| L3 | 4 scatters | 0.8x | +3 semitones | Red-Orange (#FF6347) |
+| L4 | 5 scatters | 0.9x | +4 semitones | Red (#FF4500) |
+
+### SlotLabProvider Integration
+
+```dart
+// slot_lab_provider.dart - Anticipation trigger on scatter land
+void _checkAnticipation(int reelIndex, List<Symbol> visibleSymbols) {
+  final scatterCount = _countScattersOnReels(0, reelIndex);
+  if (scatterCount >= 2 && reelIndex >= 2) {  // Need 2+ scatters, reel 3+
+    final tensionLevel = (scatterCount - 1).clamp(1, 4);
+    final stage = 'ANTICIPATION_TENSION_R${reelIndex}_L$tensionLevel';
+
+    _triggerStageWithContext(stage, {
+      'reelIndex': reelIndex,
+      'tensionLevel': tensionLevel,
+      'scatterCount': scatterCount,
+      'volumeMultiplier': 0.5 + (tensionLevel * 0.1),
+      'pitchSemitones': tensionLevel,
+    });
+  }
+}
+```
+
+### Key Files
+
+| File | Line | Purpose |
+|------|------|---------|
+| `slot_lab_provider.dart` | ~920 | `_checkAnticipation()` trigger |
+| `event_registry.dart` | ~485 | `_resolveAnticipationStage()` fallback |
+| `crates/rf-slot-lab/src/anticipation.rs` | — | Rust anticipation logic |
+| `crates/rf-stage/src/lib.rs` | — | `AnticipationTension` stage variant |
+
+---
+
 ## Layer Drag System Fix (2026-01-26)
 
 ### Problem: Horizontal Layer Drag Not Working
@@ -2337,4 +2367,6 @@ This means the Middleware Lower Zone parameter strip (offset slider, pan, volume
 - `.claude/architecture/PREMIUM_SLOT_PREVIEW.md` — Visual-sync timing implementation
 - `.claude/domains/slot-audio-events-master.md` — Full stage catalog (~600+ events)
 - `.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md` — P0/P1 audio feature details
+- `.claude/architecture/ANTICIPATION_SYSTEM.md` — **Industry-standard anticipation** (per-reel tension L1-L4)
+- `.claude/analysis/BASE_GAME_FLOW_ANALYSIS_2026_01_30.md` — 7-phase stage flow analysis
 - `.claude/project/fluxforge-studio.md` — Full project spec

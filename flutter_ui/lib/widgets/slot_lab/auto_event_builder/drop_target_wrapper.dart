@@ -1,23 +1,26 @@
-/// Drop Target Wrapper — Visual Feedback for Auto Event Builder
+/// Drop Target Wrapper — Direct Event Creation via MiddlewareProvider
 ///
 /// Wraps any SlotLab UI element to make it a drop target for audio assets.
+/// Creates events directly via MiddlewareProvider (SSoT) without intermediate
+/// AutoEventBuilderProvider.
+///
 /// Provides visual feedback:
 /// - Hover glow when dragging over
 /// - Pulse animation on valid drop
 /// - Event count badge
 /// - Target type indicator
-///
-/// Based on SLOTLAB_AUTO_EVENT_BUILDER_FINAL.md Section 15.4
 library;
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/auto_event_builder_models.dart';
-import '../../../providers/auto_event_builder_provider.dart';
+import '../../../models/slot_audio_events.dart';
+import '../../../providers/middleware_provider.dart';
 import '../../../services/audio_playback_service.dart';
+import '../../../services/event_naming_service.dart';
 import '../../../theme/fluxforge_theme.dart';
 import '../audio_hover_preview.dart' show AudioFileInfo;
-import 'quick_sheet.dart';
 
 /// Wrapper widget that adds drop target functionality to any child
 class DropTargetWrapper extends StatefulWidget {
@@ -36,8 +39,8 @@ class DropTargetWrapper extends StatefulWidget {
   /// Custom glow color (defaults to target type color)
   final Color? glowColor;
 
-  /// Called when an asset is dropped and committed
-  final void Function(CommittedEvent event)? onEventCreated;
+  /// Called when an event is created (via MiddlewareProvider)
+  final void Function(SlotCompositeEvent event)? onEventCreated;
 
   const DropTargetWrapper({
     super.key,
@@ -116,109 +119,187 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
     _pulseController.forward(from: 0);
   }
 
-  void _handleDrop(AudioAsset asset, Offset globalPosition, AutoEventBuilderProvider provider) {
-    debugPrint('[DropTargetWrapper] 🔧 _handleDrop called');
-    debugPrint('[DropTargetWrapper]    asset: ${asset.path}');
-    debugPrint('[DropTargetWrapper]    target: ${widget.target.targetId}');
-    // NOTE: Don't call createDraft() here!
-    // showQuickSheet() handles draft creation internally to avoid double-create issues.
-    // The draft is created ONCE in showQuickSheet() and committed via onCommit callback.
+  /// Determine stage from target ID using StageGroupService
+  String _targetIdToStage(String targetId) {
+    // Map common target patterns to stages
+    if (targetId == 'ui.spin') return 'SPIN_START';
+    if (targetId == 'ui.autospin') return 'AUTOSPIN_START';
+    if (targetId == 'ui.turbo') return 'TURBO_TOGGLE';
+    if (targetId.startsWith('reel.')) {
+      final reelIndex = int.tryParse(targetId.split('.').last);
+      if (reelIndex != null) return 'REEL_STOP_$reelIndex';
+      return 'REEL_STOP';
+    }
+    if (targetId.startsWith('overlay.win')) {
+      final tier = targetId.split('.').last.toUpperCase();
+      return 'WIN_PRESENT_$tier';
+    }
+    if (targetId.startsWith('overlay.jackpot')) {
+      final tier = targetId.split('.').last.toUpperCase();
+      return 'JACKPOT_${tier}';
+    }
+    if (targetId.startsWith('feature.')) {
+      final feature = targetId.split('.')[1].toUpperCase();
+      return '${feature}_TRIGGER';
+    }
+    if (targetId.startsWith('symbol.')) {
+      final symbol = targetId.split('.').last.toUpperCase();
+      return 'SYMBOL_LAND_$symbol';
+    }
+    if (targetId == 'music.base') return 'MUSIC_BASE';
+    if (targetId == 'music.feature') return 'MUSIC_FEATURE';
 
-    // Show QuickSheet popup - provider passed explicitly because showMenu
-    // creates an overlay OUTSIDE the provider tree
-    showQuickSheet(
-      context: context,
-      provider: provider,
-      asset: asset,
-      target: widget.target,
-      position: globalPosition,
-      onCommit: () {
-        debugPrint('[DropTargetWrapper] ✅ onCommit called');
-        final event = provider.commitDraft();
-        debugPrint('[DropTargetWrapper]    commitDraft returned: ${event != null ? event.eventId : "NULL"}');
-        if (event != null) {
-          _triggerPulse();
-
-          // Play brief audio preview as confirmation feedback
-          // This resolves the "cut off" feeling when drag stops hover preview
-          AudioPlaybackService.instance.previewFile(
-            asset.path,
-            volume: 0.7,
-            source: PlaybackSource.browser, // Use browser for instant playback
-          );
-
-          debugPrint('[DropTargetWrapper]    Calling widget.onEventCreated...');
-          widget.onEventCreated?.call(event);
-          debugPrint('[DropTargetWrapper]    ✅ Event created successfully!');
-        } else {
-          debugPrint('[DropTargetWrapper]    ❌ commitDraft returned null!');
-        }
-      },
-      onCancel: provider.cancelDraft,
-    );
+    // Default: convert targetId to uppercase stage
+    return targetId.toUpperCase().replaceAll('.', '_');
   }
 
-  /// Convert a String path to AudioAsset
-  AudioAsset _pathToAudioAsset(String path) {
-    // Determine asset type from path or name
-    AssetType assetType = AssetType.sfx;
-    if (path.contains('music') || path.contains('bgm')) {
-      assetType = AssetType.music;
-    } else if (path.contains('vo') || path.contains('voice')) {
-      assetType = AssetType.vo;
-    } else if (path.contains('amb') || path.contains('ambient')) {
-      assetType = AssetType.amb;
+  /// Determine bus ID from target type
+  int _targetTypeToBusId(TargetType type) {
+    switch (type) {
+      case TargetType.uiButton:
+      case TargetType.uiToggle:
+        return SlotBusIds.ui;
+      case TargetType.reelSurface:
+      case TargetType.reelStopZone:
+        return SlotBusIds.reels;
+      case TargetType.symbol:
+      case TargetType.symbolZone:
+        return SlotBusIds.sfx;
+      case TargetType.overlay:
+      case TargetType.featureContainer:
+        return SlotBusIds.wins;
+      case TargetType.hudCounter:
+      case TargetType.hudMeter:
+        return SlotBusIds.ui;
+      case TargetType.screenZone:
+        return SlotBusIds.sfx;
+      case TargetType.musicZone:
+        return SlotBusIds.music;
     }
-
-    return AudioAsset(
-      assetId: 'asset_${DateTime.now().millisecondsSinceEpoch}',
-      path: path,
-      assetType: assetType,
-    );
   }
 
-  /// Convert AudioFileInfo to AudioAsset
-  AudioAsset _audioFileInfoToAudioAsset(AudioFileInfo info) {
-    // Determine asset type from path or tags
-    AssetType assetType = AssetType.sfx;
-    final pathLower = info.path.toLowerCase();
-    final tagsLower = info.tags.map((t) => t.toLowerCase()).toList();
-
-    if (pathLower.contains('music') ||
-        pathLower.contains('bgm') ||
-        tagsLower.contains('music')) {
-      assetType = AssetType.music;
-    } else if (pathLower.contains('vo') ||
-        pathLower.contains('voice') ||
-        tagsLower.contains('voice')) {
-      assetType = AssetType.vo;
-    } else if (pathLower.contains('amb') ||
-        pathLower.contains('ambient') ||
-        tagsLower.contains('ambient')) {
-      assetType = AssetType.amb;
+  /// Determine category from target type
+  String _targetTypeToCategory(TargetType type) {
+    switch (type) {
+      case TargetType.uiButton:
+      case TargetType.uiToggle:
+        return 'ui';
+      case TargetType.reelSurface:
+      case TargetType.reelStopZone:
+        return 'spin';
+      case TargetType.symbol:
+      case TargetType.symbolZone:
+        return 'symbol';
+      case TargetType.overlay:
+        return 'win';
+      case TargetType.featureContainer:
+        return 'feature';
+      case TargetType.hudCounter:
+      case TargetType.hudMeter:
+        return 'ui';
+      case TargetType.screenZone:
+        return 'misc';
+      case TargetType.musicZone:
+        return 'music';
     }
+  }
 
-    return AudioAsset(
-      assetId: info.id,
-      path: info.path,
-      assetType: assetType,
-      durationMs: info.duration.inMilliseconds,
+  /// Create event directly via MiddlewareProvider
+  void _handleDrop(String audioPath, Offset globalPosition, MiddlewareProvider provider) {
+    debugPrint('[DropTargetWrapper] 🎯 Creating event for ${widget.target.targetId}');
+    debugPrint('[DropTargetWrapper]    audioPath: $audioPath');
+
+    final targetId = widget.target.targetId;
+    final stage = _targetIdToStage(targetId);
+    final busId = _targetTypeToBusId(widget.target.targetType);
+    final category = _targetTypeToCategory(widget.target.targetType);
+
+    // Generate event name using EventNamingService
+    final eventName = EventNamingService.instance.generateEventName(targetId, stage);
+    final eventId = 'evt_${DateTime.now().millisecondsSinceEpoch}';
+
+    // Create layer from audio path
+    final fileName = audioPath.split('/').last.split('.').first;
+    final layer = SlotEventLayer(
+      id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
+      name: fileName,
+      audioPath: audioPath,
+      volume: 1.0,
+      pan: 0.0,
+      offsetMs: 0.0,
+      busId: busId,
     );
+
+    // Create composite event
+    final event = SlotCompositeEvent(
+      id: eventId,
+      name: eventName,
+      category: category,
+      color: _targetColor,
+      layers: [layer],
+      masterVolume: 1.0,
+      targetBusId: busId,
+      looping: false,
+      maxInstances: 4,
+      createdAt: DateTime.now(),
+      modifiedAt: DateTime.now(),
+      triggerStages: [stage],
+      triggerConditions: const {},
+      timelinePositionMs: 0.0,
+      trackIndex: 0,
+    );
+
+    // Add to MiddlewareProvider (SSoT)
+    provider.addCompositeEvent(event);
+    debugPrint('[DropTargetWrapper] ✅ Created event: $eventName → $stage');
+
+    // Visual feedback
+    _triggerPulse();
+
+    // Audio preview as confirmation
+    AudioPlaybackService.instance.previewFile(
+      audioPath,
+      volume: 0.7,
+      source: PlaybackSource.browser,
+    );
+
+    // Notify listener
+    widget.onEventCreated?.call(event);
+  }
+
+  /// Convert a String path to validated audio path
+  String? _validateAudioPath(String path) {
+    // Check if file exists and is audio
+    final file = File(path);
+    if (!file.existsSync()) {
+      debugPrint('[DropTargetWrapper] ❌ File not found: $path');
+      return null;
+    }
+    final ext = path.split('.').last.toLowerCase();
+    if (!['wav', 'mp3', 'ogg', 'flac', 'aiff', 'aif', 'm4a'].contains(ext)) {
+      debugPrint('[DropTargetWrapper] ❌ Not an audio file: $path');
+      return null;
+    }
+    return path;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AutoEventBuilderProvider>(
+    return Consumer<MiddlewareProvider>(
       builder: (context, provider, _) {
-        final eventCount = provider.getEventCountForTarget(widget.target.targetId);
+        // Count events for this target by checking triggerStages
+        final stage = _targetIdToStage(widget.target.targetId);
+        final eventCount = provider.compositeEvents
+            .where((e) => e.triggerStages.contains(stage))
+            .length;
 
-        // Wrap with DragTarget<Object> to accept both AudioAsset and String
+        // Wrap with DragTarget<Object> to accept both String paths and AudioFileInfo
         return DragTarget<Object>(
           onWillAcceptWithDetails: (details) {
-            // Accept AudioAsset, String (audio path), List<String>, or AudioFileInfo
-            if (details.data is AudioAsset ||
-                details.data is String ||
+            // Accept String (audio path), List<String>, AudioAsset, or AudioFileInfo
+            if (details.data is String ||
                 details.data is List<String> ||
+                details.data is AudioAsset ||
                 details.data is AudioFileInfo) {
               setState(() => _isDragOver = true);
               return true;
@@ -232,38 +313,33 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
           onAcceptWithDetails: (details) {
             setState(() => _isDragOver = false);
 
-            debugPrint('[DropTargetWrapper] 🎯 onAcceptWithDetails called for ${widget.target.targetId}');
+            debugPrint('[DropTargetWrapper] 🎯 onAcceptWithDetails for ${widget.target.targetId}');
             debugPrint('[DropTargetWrapper]    data type: ${details.data.runtimeType}');
 
-            // Handle AudioAsset, String, List<String>, and AudioFileInfo drops
-            List<AudioAsset> assets = [];
+            // Extract audio paths from drop data
+            List<String> audioPaths = [];
 
-            if (details.data is AudioAsset) {
-              assets.add(details.data as AudioAsset);
-              debugPrint('[DropTargetWrapper]    AudioAsset: ${assets.first.path}');
+            if (details.data is String) {
+              final path = _validateAudioPath(details.data as String);
+              if (path != null) audioPaths.add(path);
             } else if (details.data is List<String>) {
-              // Multi-select drop - convert all paths to assets
-              final paths = details.data as List<String>;
-              debugPrint('[DropTargetWrapper]    List<String>: ${paths.length} files');
-              for (final path in paths) {
-                assets.add(_pathToAudioAsset(path));
+              for (final p in details.data as List<String>) {
+                final path = _validateAudioPath(p);
+                if (path != null) audioPaths.add(path);
               }
-            } else if (details.data is String) {
-              final path = details.data as String;
-              debugPrint('[DropTargetWrapper]    String path: $path');
-              assets.add(_pathToAudioAsset(path));
+            } else if (details.data is AudioAsset) {
+              final asset = details.data as AudioAsset;
+              final path = _validateAudioPath(asset.path);
+              if (path != null) audioPaths.add(path);
             } else if (details.data is AudioFileInfo) {
               final info = details.data as AudioFileInfo;
-              debugPrint('[DropTargetWrapper]    AudioFileInfo: ${info.path}');
-              assets.add(_audioFileInfoToAudioAsset(info));
-            } else {
-              debugPrint('[DropTargetWrapper]    ❌ Unsupported type!');
-              return; // Unsupported type
+              final path = _validateAudioPath(info.path);
+              if (path != null) audioPaths.add(path);
             }
 
-            // Process all dropped assets
-            for (final asset in assets) {
-              _handleDrop(asset, details.offset, provider);
+            // Create events for all valid audio paths
+            for (final audioPath in audioPaths) {
+              _handleDrop(audioPath, details.offset, provider);
             }
           },
           builder: (context, candidateData, rejectedData) {

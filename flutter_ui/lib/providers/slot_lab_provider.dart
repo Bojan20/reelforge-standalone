@@ -13,11 +13,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../models/stage_models.dart';
+import '../models/win_tier_config.dart';
 import '../services/stage_audio_mapper.dart';
 import '../services/event_registry.dart';
 import '../services/audio_pool.dart';
 import '../services/audio_asset_manager.dart';
 import '../services/unified_playback_controller.dart';
+import '../services/win_analytics_service.dart';
 import '../src/rust/native_ffi.dart';
 import '../src/rust/slot_lab_v2_ffi.dart';
 import 'middleware_provider.dart';
@@ -209,6 +211,11 @@ class SlotLabProvider extends ChangeNotifier {
   bool _cascadesEnabled = true;
   bool _freeSpinsEnabled = true;
 
+  // ─── Win Tier Configuration ────────────────────────────────────────────────
+  /// Configurable win tier thresholds for visual plaque and RTPC values.
+  /// Default: Standard slot configuration (5x=BIG, 20x=MEGA, 50x=EPIC)
+  WinTierConfig _winTierConfig = DefaultWinTierConfigs.standard;
+
   // ─── Audio Timing Configuration ─────────────────────────────────────────────
   /// P0.1: Timing configuration from Rust engine
   /// Contains audio latency compensation and pre-trigger offsets
@@ -394,6 +401,72 @@ class SlotLabProvider extends ChangeNotifier {
   bool get freeSpinsEnabled => _freeSpinsEnabled;
   bool get jackpotEnabled => _jackpotEnabled;
 
+  /// Get the current win tier configuration
+  WinTierConfig get winTierConfig => _winTierConfig;
+
+  /// Set a new win tier configuration
+  /// Use DefaultWinTierConfigs.standard, .highVolatility, or .jackpot
+  /// Or create a custom WinTierConfig with your own thresholds
+  void setWinTierConfig(WinTierConfig config) {
+    _winTierConfig = config;
+    notifyListeners();
+  }
+
+  /// Get the visual tier name for a win amount
+  /// Returns: '', 'BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA', or jackpot tiers
+  String getVisualTierForWin(double winAmount) {
+    if (_betAmount <= 0) return '';
+    final tier = _winTierConfig.getTierForWin(winAmount, _betAmount);
+    if (tier == null) return '';
+
+    // Map WinTier enum to visual tier name
+    switch (tier.tier) {
+      case WinTier.noWin:
+      case WinTier.smallWin:
+      case WinTier.mediumWin:
+        return ''; // No plaque for small/medium wins
+      case WinTier.bigWin:
+        return 'BIG';
+      case WinTier.megaWin:
+        return 'MEGA';
+      case WinTier.epicWin:
+        return 'EPIC';
+      case WinTier.ultraWin:
+        return 'ULTRA';
+      case WinTier.jackpotMini:
+        return 'JACKPOT MINI';
+      case WinTier.jackpotMinor:
+        return 'JACKPOT MINOR';
+      case WinTier.jackpotMajor:
+        return 'JACKPOT MAJOR';
+      case WinTier.jackpotGrand:
+        return 'JACKPOT GRAND';
+    }
+  }
+
+  /// Get RTPC value for a win amount (0.0 to 1.0)
+  double getRtpcForWin(double winAmount) {
+    return _winTierConfig.getRtpcForWin(winAmount, _betAmount);
+  }
+
+  /// Check if a win should trigger celebration animation
+  bool shouldTriggerCelebration(double winAmount) {
+    final tier = _winTierConfig.getTierForWin(winAmount, _betAmount);
+    return tier?.triggerCelebration ?? false;
+  }
+
+  /// Get rollup duration multiplier for a win
+  double getRollupMultiplier(double winAmount) {
+    final tier = _winTierConfig.getTierForWin(winAmount, _betAmount);
+    return tier?.rollupDurationMultiplier ?? 1.0;
+  }
+
+  /// Get the stage to trigger for a win
+  String? getTriggerStageForWin(double winAmount) {
+    final tier = _winTierConfig.getTierForWin(winAmount, _betAmount);
+    return tier?.triggerStage;
+  }
+
   bool get inFreeSpins => _inFreeSpins;
   int get freeSpinsRemaining => _freeSpinsRemaining;
 
@@ -440,6 +513,14 @@ class SlotLabProvider extends ChangeNotifier {
       onComplete();
       return;
     }
+
+    // ANALYTICS: Track skip requested (get current tier from last result)
+    final tier = getVisualTierForWin(_lastResult?.totalWin.toDouble() ?? 0.0);
+    WinAnalyticsService.instance.trackSkipRequested(
+      tier,
+      progressPercent: 0.0, // Could be enhanced to pass actual progress
+    );
+
     _skipRequested = true;
     _pendingSkipCallback = onComplete;
     notifyListeners(); // slot_preview_widget will see skipRequested = true
@@ -741,6 +822,9 @@ class SlotLabProvider extends ChangeNotifier {
       }
 
       _spinCount++;
+
+      // ANALYTICS: Track spin for win rate calculation
+      WinAnalyticsService.instance.trackSpin();
 
       // Get results from appropriate engine
       if (_engineV2Initialized) {

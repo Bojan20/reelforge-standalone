@@ -917,7 +917,13 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Actually remove via EventRegistry/MiddlewareProvider
+              // P1.2: Actually remove via EventRegistry
+              final normalizedStage = stageType.toUpperCase();
+              final event = eventRegistry.getEventForStage(normalizedStage);
+              if (event != null) {
+                eventRegistry.unregisterEvent(event.id);
+                debugPrint('[StageTrace] P1.2: Removed audio "${event.name}" from stage $normalizedStage');
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Audio removed from ${_formatStageName(stageType)}'),
@@ -1241,8 +1247,69 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
     final path = variant == 'A' ? _abVariantA : _abVariantB;
     if (path == null || _abSelectedStage == null) return;
 
-    // TODO: Update EventRegistry with selected path
-    // For now, just show feedback
+    // P1.2: Update EventRegistry with selected audio path
+    final normalizedStage = _abSelectedStage!.toUpperCase();
+    final existingEvent = eventRegistry.getEventForStage(normalizedStage);
+
+    if (existingEvent != null) {
+      // Update existing event with new audio path
+      final layerId = existingEvent.layers.isNotEmpty
+          ? existingEvent.layers.first.id
+          : 'layer_${DateTime.now().millisecondsSinceEpoch}';
+      final layerName = path.split('/').last.split('.').first;
+      final updatedEvent = AudioEvent(
+        id: existingEvent.id,
+        name: existingEvent.name,
+        stage: existingEvent.stage,
+        layers: [
+          AudioLayer(
+            id: layerId,
+            name: layerName,
+            audioPath: path,
+            volume: existingEvent.layers.isNotEmpty ? existingEvent.layers.first.volume : 1.0,
+            pan: existingEvent.layers.isNotEmpty ? existingEvent.layers.first.pan : 0.0,
+            delay: existingEvent.layers.isNotEmpty ? existingEvent.layers.first.delay : 0,
+            offset: existingEvent.layers.isNotEmpty ? existingEvent.layers.first.offset : 0,
+            busId: existingEvent.layers.isNotEmpty ? existingEvent.layers.first.busId : 2,
+          ),
+        ],
+        priority: existingEvent.priority,
+        loop: existingEvent.loop,
+      );
+      eventRegistry.unregisterEvent(existingEvent.id);
+      eventRegistry.registerEvent(updatedEvent);
+      debugPrint('[StageTrace] P1.2: Applied variant $variant to $normalizedStage');
+    } else {
+      // Create new event for this stage
+      final layerId = 'layer_${DateTime.now().millisecondsSinceEpoch}';
+      final layerName = path.split('/').last.split('.').first;
+      final newEvent = AudioEvent(
+        id: 'stage_${normalizedStage.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}',
+        name: _formatStageName(_abSelectedStage!),
+        stage: normalizedStage,
+        layers: [
+          AudioLayer(
+            id: layerId,
+            name: layerName,
+            audioPath: path,
+            volume: 1.0,
+            pan: 0.0,
+            delay: 0,
+            offset: 0,
+            busId: 2, // SFX bus
+          ),
+        ],
+        priority: 50,
+        loop: false,
+      );
+      eventRegistry.registerEvent(newEvent);
+      debugPrint('[StageTrace] P1.2: Created new event for $normalizedStage with variant $variant');
+    }
+
+    // Clear caches
+    _stageWaveformCache.remove(_abSelectedStage);
+    _stageAudioPathCache.remove(_abSelectedStage);
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Applied variant $variant to ${_formatStageName(_abSelectedStage!)}'),

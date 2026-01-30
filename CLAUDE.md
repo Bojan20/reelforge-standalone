@@ -157,6 +157,13 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 **Active Roadmaps:**
 - .claude/tasks/DAW_LOWER_ZONE_TODO_2026_01_26.md — DAW section improvements (P0/P1 ✅, P2/P3 ⏳)
 
+**SlotLab Architecture Documentation:**
+- .claude/architecture/ANTICIPATION_SYSTEM.md — **Industry-standard anticipation** (per-reel tension L1-L4, scatter-triggered)
+- .claude/architecture/SLOT_LAB_AUDIO_FEATURES.md — P0.1-P0.22, P1.1-P1.5 audio features
+- .claude/architecture/EVENT_SYNC_SYSTEM.md — Stage→Event mapping, per-reel spin loops
+- .claude/architecture/SLOT_LAB_SYSTEM.md — Full SlotLab architecture
+- .claude/analysis/BASE_GAME_FLOW_ANALYSIS_2026_01_30.md — 7-phase stage flow analysis
+
 ---
 
 ## ⚡ MODEL SELECTION — Opus vs Sonnet vs Haiku
@@ -4682,18 +4689,16 @@ EventNamingService.instance.generateEventName(targetId, stage);
 **Stage Coverage:** 100+ stage pattern-a pokriveno iz StageConfigurationService
 
 **Integration:**
-- `AutoEventBuilderProvider.createDraft()` koristi ovaj servis za generisanje eventId
-- QuickSheet automatski prikazuje semantičko ime
+- `DropTargetWrapper` koristi ovaj servis za generisanje eventId direktno
 - Events Panel prikazuje 3-kolonski format: NAME | STAGE | LAYERS
 
 **Event Name Editing (2026-01-24):**
 
 | Lokacija | Trigger | Behavior |
 |----------|---------|----------|
-| QuickSheet | Direktno | TextField, edit pre commit-a |
 | Events Panel | Double-tap | Inline edit mode, orange border |
 
-**QuickSheet:** Ime je editable TextField umesto readonly text. Korisnik može promeniti pre commit-a.
+**Note (2026-01-30):** QuickSheet je uklonjen. Event kreacija sada ide direktno kroz DropTargetWrapper → MiddlewareProvider.
 
 **Events Panel:** Double-tap na event ulazi u inline edit mode:
 - Orange border indikator
@@ -4725,15 +4730,15 @@ notifyListeners()
 
 **Dokumentacija:** `.claude/architecture/EVENT_SYNC_SYSTEM.md`
 
-### SlotLab Drop Zone System (2026-01-23) ✅
+### SlotLab Drop Zone System (2026-01-23, Updated 2026-01-30) ✅
 
 Drag-drop audio na mockup elemente → automatsko kreiranje eventa.
 
-**Arhitektura:**
+**Arhitektura (Updated 2026-01-30):**
 ```
-Audio File (Browser) → Drop on Mockup Element → CommittedEvent
+Audio File (Browser) → Drop on Mockup Element → DropTargetWrapper
                                                      ↓
-                                          SlotCompositeEvent
+                                          SlotCompositeEvent (direktno)
                                                      ↓
                                           MiddlewareProvider (SSoT)
                                                      ↓
@@ -4750,7 +4755,10 @@ Audio File (Browser) → Drop on Mockup Element → CommittedEvent
 - Bus routing (SFX, Reels, Wins, Music, UI, etc.)
 - Visual feedback (glow, pulse, event count badge)
 
-**Bridge Implementation:** `slot_lab_screen.dart:_onEventBuilderEventCreated()`
+**Implementation (2026-01-30):**
+- `DropTargetWrapper` kreira `SlotCompositeEvent` direktno putem `MiddlewareProvider`
+- QuickSheet popup uklonjen — streamlined flow
+- Callback `_onEventBuilderEventCreated()` samo prikazuje feedback SnackBar
 
 **Edit Mode UI (V6.1):**
 - Enhanced mode toggle button sa glow efektom (active) i clear labels
@@ -4758,7 +4766,9 @@ Audio File (Browser) → Drop on Mockup Element → CommittedEvent
 - EXIT button za brzi izlaz iz edit mode-a
 - Visual hierarchy: Banner → Slot Grid → Controls
 
-**Dokumentacija:** `.claude/architecture/SLOTLAB_DROP_ZONE_SPEC.md`
+**Dokumentacija:**
+- `.claude/architecture/SLOTLAB_DROP_ZONE_SPEC.md`
+- `.claude/docs/AUTOEVENTBUILDER_REMOVAL_2026_01_30.md`
 
 ### Dynamic Symbol Configuration (2026-01-25) 📋 SPEC READY
 

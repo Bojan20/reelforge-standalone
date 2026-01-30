@@ -1,10 +1,13 @@
 # SlotLab Drop Zone System — Ultimate Specification
 
-**Version:** 1.2.0
+**Version:** 2.0.0
 **Created:** 2026-01-23
-**Updated:** 2026-01-26
+**Updated:** 2026-01-30
 **Author:** Claude Code (Principal Engineer Documentation)
 **Status:** AUTHORITATIVE — Do Not Modify Without Review
+
+> **MAJOR UPDATE (2026-01-30):** AutoEventBuilderProvider has been removed.
+> DropTargetWrapper now creates events directly via MiddlewareProvider.
 
 ---
 
@@ -48,18 +51,10 @@ SlotLab Drop Zone System omogućava audio dizajnerima da direktno prevuku audio 
                               │  • Visual glow/pulse    │
                               │  • Badge count          │
                               │  • DragTarget widget    │
+                              │  • Direct event create  │
                               └───────────┬─────────────┘
                                           │
-                                          ▼
-                              ┌─────────────────────────┐
-                              │  AutoEventBuilderProv   │
-                              │                         │
-                              │  • createDraft()        │
-                              │  • commitDraft()        │
-                              │  • CommittedEvent       │
-                              └───────────┬─────────────┘
-                                          │
-                                          │  ◄── GAP: Need bridge
+                                          │ Creates SlotCompositeEvent directly
                                           ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      MIDDLEWARE PROVIDER (SSoT)                              │
