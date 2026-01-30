@@ -397,7 +397,7 @@ class OverlapDetector {
   static bool hasOverlap({
     required double startMs,
     required double durationMs,
-    required List<_RegionBounds> existingRegions,
+    required List<RegionBounds> existingRegions,
     String? excludeRegionId,
   }) {
     final endMs = startMs + durationMs;
@@ -416,12 +416,12 @@ class OverlapDetector {
 }
 
 /// Region bounds for overlap detection
-class _RegionBounds {
+class RegionBounds {
   final String id;
   final double startMs;
   final double endMs;
 
-  _RegionBounds({
+  RegionBounds({
     required this.id,
     required this.startMs,
     required this.endMs,

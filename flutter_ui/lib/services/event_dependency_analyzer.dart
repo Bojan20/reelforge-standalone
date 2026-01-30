@@ -117,39 +117,9 @@ class EventDependencyAnalyzer {
     Map<String, Set<String>> adjacencyList,
     List<EventDependency> allDependencies,
   ) {
-    for (final event in events) {
-      for (final layer in event.layers) {
-        for (final action in layer.actions) {
-          // If action is StopEvent, add dependency
-          if (action.actionType == ActionType.stopEvent && action.targetEventId != null) {
-            final targetId = action.targetEventId!;
-            if (adjacencyList.containsKey(targetId)) {
-              adjacencyList[event.id]!.add(targetId);
-              allDependencies.add(EventDependency(
-                fromEventId: event.id,
-                toEventId: targetId,
-                type: DependencyType.directTrigger,
-                context: 'stop action',
-              ));
-            }
-          }
-
-          // If action is PlayEvent, add dependency
-          if (action.actionType == ActionType.play && action.targetEventId != null) {
-            final targetId = action.targetEventId!;
-            if (adjacencyList.containsKey(targetId)) {
-              adjacencyList[event.id]!.add(targetId);
-              allDependencies.add(EventDependency(
-                fromEventId: event.id,
-                toEventId: targetId,
-                type: DependencyType.directTrigger,
-                context: 'play action',
-              ));
-            }
-          }
-        }
-      }
-    }
+    // TODO: Implement when SlotEventLayer has action references
+    // Currently SlotEventLayer only has actionType string, not event references
+    // This will be implemented when event→event trigger system is added
   }
 
   /// Add container dependencies (Event uses Container which has child Events)

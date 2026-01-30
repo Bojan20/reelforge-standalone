@@ -490,7 +490,7 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
           _FooterButton(
             label: 'Clear All',
             icon: Icons.clear_all,
-            color: FluxForgeTheme.errorAccent,
+            color: FluxForgeTheme.errorRed,
             enabled: undoManager.undoStackSize > 0 || undoManager.redoStackSize > 0,
             onTap: () {
               showDialog(
@@ -509,7 +509,7 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
                         Navigator.pop(context);
                       },
                       style: TextButton.styleFrom(
-                        foregroundColor: FluxForgeTheme.errorAccent,
+                        foregroundColor: FluxForgeTheme.errorRed,
                       ),
                       child: const Text('Clear'),
                     ),
