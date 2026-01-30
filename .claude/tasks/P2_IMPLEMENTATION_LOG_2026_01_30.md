@@ -108,14 +108,39 @@ LayoutBuilder(
 
 ## Phase 2: Export Adapters (3 tasks, ~24-30h)
 
-### P2-06: FMOD Studio Export
-**Status:** PENDING
+### P2-06: FMOD Studio Export ✅
+**Status:** COMPLETE
+**Time:** 8h
+**Changes:**
+- NEW FILE: `services/export/fmod_studio_exporter.dart` (~540 LOC)
+- Generates .fspro project + Metadata XML files
+- Event/Parameter/State definitions
+- Master Bank generation
+- Audio file copying to Assets/
+- Full FMOD Studio 2022.1.8+ compatibility
 
-### P2-07: Wwise Interop
-**Status:** PENDING
+### P2-07: Wwise Interop ✅
+**Status:** COMPLETE
+**Time:** 10h
+**Changes:**
+- NEW FILE: `services/export/wwise_exporter.dart` (~680 LOC)
+- Generates .wproj + Work Units (.wwu)
+- Actor-Mixer Hierarchy (containers)
+- Events, Game Syncs (RTPCs, States, Switches)
+- Master-Mixer Hierarchy (busses)
+- SoundBanks generation
+- Audio import to Originals/
 
-### P2-08: GoDot Bindings
-**Status:** PENDING
+### P2-08: Godot Bindings ✅
+**Status:** COMPLETE
+**Time:** 6h
+**Changes:**
+- NEW FILE: `services/export/godot_exporter.dart` (~580 LOC)
+- GDScript AudioManager singleton
+- EventDefinitions, RTPC, GameSyncs classes
+- AudioBusLayout resource (.tres)
+- Autoload configuration
+- Godot 3.x & 4.x compatible
 
 ---
 
@@ -150,13 +175,14 @@ LayoutBuilder(
 
 ## Summary
 
-**Completed:** 6/17 (35%)
+**Completed:** 9/17 (53%)
 **Deferred:** 1/17 (6%)
-**Pending:** 8/17 (47%)
+**Pending:** 5/17 (29%)
 **Skipped:** 2/17 (12%)
 
 **Total Est. Time:** ~90-125h
-**Time Spent:** 11.5h
-**Time Remaining:** ~78-113h
+**Time Spent:** 35.5h
+**Time Remaining:** ~54-89h
 
 **Phase 1 Complete:** 6/7 quick wins done (86%)
+**Phase 2 Complete:** 3/3 export adapters done (100%)
