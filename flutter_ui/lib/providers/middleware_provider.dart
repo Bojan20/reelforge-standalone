@@ -42,6 +42,8 @@ import 'subsystems/voice_pool_provider.dart';
 import 'subsystems/attenuation_curve_provider.dart';
 import 'subsystems/memory_manager_provider.dart';
 import 'subsystems/event_profiler_provider.dart';
+import '../services/hook_dispatcher.dart';
+import '../models/hook_models.dart';
 
 // ============ Type Definitions ============
 
@@ -3493,6 +3495,12 @@ class MiddlewareProvider extends ChangeNotifier {
 
   /// Delete a composite event
   void deleteCompositeEvent(String eventId) {
+    // Dispatch onDelete hook before deletion
+    HookDispatcher.instance.dispatch(HookContext.onDelete(
+      entityType: EntityType.event,
+      entityId: eventId,
+    ));
+
     _compositeEventSystemProvider.deleteCompositeEvent(eventId);
     _markChanged(changeCompositeEvents);
   }
@@ -3554,12 +3562,26 @@ class MiddlewareProvider extends ChangeNotifier {
   void addCompositeEvent(SlotCompositeEvent event, {bool select = true}) {
     _compositeEventSystemProvider.addCompositeEvent(event, select: select);
     _markChanged(changeCompositeEvents);
+
+    // Dispatch onCreate hook
+    HookDispatcher.instance.dispatch(HookContext.onCreate(
+      entityType: EntityType.event,
+      entityId: event.id,
+      data: {'name': event.name, 'stage': event.stage, 'category': event.category},
+    ));
   }
 
   /// Update composite event
   void updateCompositeEvent(SlotCompositeEvent event) {
     _compositeEventSystemProvider.updateCompositeEvent(event);
     _markChanged(changeCompositeEvents);
+
+    // Dispatch onUpdate hook
+    HookDispatcher.instance.dispatch(HookContext.onUpdate(
+      entityType: EntityType.event,
+      entityId: event.id,
+      data: {'name': event.name, 'stage': event.stage},
+    ));
   }
 
   /// Rename composite event
@@ -3583,6 +3605,14 @@ class MiddlewareProvider extends ChangeNotifier {
       waveformData: waveformData,
     );
     _markChanged(changeCompositeEvents);
+
+    // Dispatch onCreate hook for layer
+    HookDispatcher.instance.dispatch(HookContext.onCreate(
+      entityType: EntityType.layer,
+      entityId: layer.id,
+      data: {'eventId': eventId, 'audioPath': audioPath, 'name': name},
+    ));
+
     return layer;
   }
 

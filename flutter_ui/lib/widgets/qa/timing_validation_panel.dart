@@ -296,7 +296,7 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
                         entry.value,
                         _currentReport!.totalEvents,
                       );
-                    }).toList(),
+                    }),
                   ] else ...[
                     const Center(
                       child: Padding(

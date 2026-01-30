@@ -6,7 +6,6 @@
 /// Part of P1-12: Feature Template Library
 library;
 
-import 'dart:convert';
 import 'package:flutter/material.dart';
 
 // =============================================================================
@@ -167,8 +166,8 @@ class ParameterDef {
   final String label;
   final ParameterType type;
   final dynamic defaultValue;
-  final dynamic? minValue;
-  final dynamic? maxValue;
+  final dynamic minValue;
+  final dynamic maxValue;
   final List<dynamic>? allowedValues;
   final String? description;
   final bool required;

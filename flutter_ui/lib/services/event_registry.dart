@@ -31,6 +31,8 @@ import 'rtpc_modulation_service.dart';
 import 'stage_configuration_service.dart';
 import 'stage_coverage_service.dart';
 import 'unified_playback_controller.dart';
+import 'hook_dispatcher.dart';
+import '../models/hook_models.dart';
 
 // =============================================================================
 // P0 WF-06: CUSTOM EVENT HANDLER TYPEDEF (2026-01-30)
@@ -1642,6 +1644,15 @@ class EventRegistry extends ChangeNotifier {
     StageCoverageService.instance.recordTrigger(stage);
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // P1-15: DISPATCH HOOK FOR STAGE TRIGGERED (2026-01-30)
+    // Allow external observers to react to stage triggers
+    // ═══════════════════════════════════════════════════════════════════════════
+    HookDispatcher.instance.dispatch(HookContext.onStageTriggered(
+      stage: stage,
+      data: context ?? {},
+    ));
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // P0: PER-REEL SPIN LOOP FADE-OUT — Fade out this reel's loop before playing stop sound
     // ═══════════════════════════════════════════════════════════════════════════
     final fadeOutReelIndex = context?['fade_out_spin_reel'];
@@ -2397,6 +2408,24 @@ class EventRegistry extends ChangeNotifier {
         // Store voice info for debug display
         _lastTriggerError = 'voice=$voiceId, bus=${layer.busId}, section=$activeSection';
         debugPrint('[EventRegistry] ✅ Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})$poolStr$loopStr$spatialStr');
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // P1-15: DISPATCH HOOK FOR AUDIO PLAYED (2026-01-30)
+        // Allow external observers to react to audio playback
+        // ═══════════════════════════════════════════════════════════════════════
+        HookDispatcher.instance.dispatch(HookContext.onAudioPlayed(
+          eventId: eventKey ?? layer.id,
+          audioPath: layer.audioPath,
+          data: {
+            'voiceId': voiceId,
+            'busId': layer.busId,
+            'volume': volume,
+            'pan': pan,
+            'loop': loop,
+            'usePool': usePool,
+            'source': source.toString(),
+          },
+        ));
 
         // ═══════════════════════════════════════════════════════════════════════
         // P0: Track per-reel spin loop voices for individual fade-out on REEL_STOP

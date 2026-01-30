@@ -2,7 +2,6 @@
 // UI for multi-condition test case generation
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../services/test_combinator_service.dart';
 
 class TestCombinatorPanel extends StatefulWidget {
@@ -204,7 +203,7 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
                 });
               },
             );
-          }).toList(),
+          }),
 
           const Divider(height: 24),
 
