@@ -2937,14 +2937,16 @@ abstract class UndoableAction {
 | P2.21 | ✅ | Audio Waveform Picker Dialog |
 | P2.22 | ✅ | Schema Migration Service |
 
-**SlotLab UX Polish (2026-01-29):**
+**SlotLab UX Polish (2026-01-29, verified 2026-01-30):**
 
 | Task | Status | Note |
 |------|--------|------|
 | P2.5-SL | ✅ | Waveform Thumbnails (80x24px, LRU cache 500, ~435 LOC) |
 | P2.6-SL | ✅ | Multi-Select Layers (Ctrl/Shift+click, bulk ops) |
 | P2.7-SL | ✅ | Copy/Paste Layers (clipboard, new IDs, preserve props) |
-| P2.8-SL | ✅ | Fade Controls (0-2000ms, visual curves, draggable handles) |
+| P2.8-SL | ✅ | Fade Controls (0-1000ms, visual curves, CrossfadeCurve enum) |
+
+**Verification:** `.claude/tasks/SLOTLAB_P2_UX_VERIFICATION_2026_01_30.md`
 
 **Skipped: 1** (not blocking)
 - P2.16 — VoidCallback not serializable, needs full refactor (deferred to P4)
