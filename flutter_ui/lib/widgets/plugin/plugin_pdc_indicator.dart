@@ -61,10 +61,10 @@ class PluginPDCIndicator extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.deepBackground,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: hasWarning ? FluxForgeTheme.accentRed : FluxForgeTheme.surfaceBorder,
+          color: hasWarning ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle,
           width: hasWarning ? 2 : 1,
         ),
       ),
@@ -214,7 +214,7 @@ class _PDCTimelinePainter extends CustomPainter {
     if (plugins.isEmpty || totalLatencyMs <= 0) return;
 
     final timelinePaint = Paint()
-      ..color = FluxForgeTheme.surfaceBorder
+      ..color = FluxForgeTheme.borderSubtle
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
@@ -267,7 +267,7 @@ class _PDCTimelinePainter extends CustomPainter {
 
       // Draw segment border
       final borderPaint = Paint()
-        ..color = FluxForgeTheme.deepBackground
+        ..color = FluxForgeTheme.bgDeep
         ..strokeWidth = 1
         ..style = PaintingStyle.stroke;
 

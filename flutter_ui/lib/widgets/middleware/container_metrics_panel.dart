@@ -65,9 +65,9 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.deepBackground,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: FluxForgeTheme.surfaceBorder),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +75,7 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
           Text(
             'Container Performance Metrics',
             style: theme.textTheme.titleMedium?.copyWith(
-              color: FluxForgeTheme.primaryBlue,
+              color: FluxForgeTheme.accentBlue,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -102,7 +102,7 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.midBackground,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -236,10 +236,10 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isSelected ? FluxForgeTheme.primaryBlue.withOpacity(0.1) : FluxForgeTheme.deepBackground,
+        color: isSelected ? FluxForgeTheme.accentBlue.withOpacity(0.1) : FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: isSelected ? FluxForgeTheme.primaryBlue : FluxForgeTheme.surfaceBorder,
+          color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderSubtle,
           width: isSelected ? 2 : 1,
         ),
       ),
@@ -303,7 +303,7 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
         break;
       case ContainerType.random:
         icon = Icons.shuffle;
-        color = FluxForgeTheme.accentAmber;
+        color = FluxForgeTheme.accentOrange;
         break;
       case ContainerType.sequence:
         icon = Icons.view_timeline;
@@ -325,7 +325,7 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
         break;
       case ContainerType.random:
         label = 'RANDOM';
-        color = FluxForgeTheme.accentAmber;
+        color = FluxForgeTheme.accentOrange;
         break;
       case ContainerType.sequence:
         label = 'SEQUENCE';
@@ -367,7 +367,7 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.midBackground,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
