@@ -517,7 +517,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Section header
-              _buildSectionHeader('EVENTS', () async {
+              _buildSectionHeader('EVENT INSPECTOR', () async {
                 // Show create event dialog
                 final result = await CreateEventDialog.show(
                   context,

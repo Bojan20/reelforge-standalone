@@ -227,8 +227,8 @@ const List<SubTabConfig> kStagesSubTabs = [
 const List<SubTabConfig> kEventsSubTabs = [
   SubTabConfig(
     id: 'eventList',
-    label: 'Event List',
-    icon: Icons.list_alt,
+    label: 'Event Browser',
+    icon: Icons.view_list,
     shortcutKey: '1',
     description: 'Browse and manage events',
   ),
