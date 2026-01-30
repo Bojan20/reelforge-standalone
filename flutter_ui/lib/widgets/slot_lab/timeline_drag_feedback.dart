@@ -296,46 +296,98 @@ class DragOffsetTooltip extends StatelessWidget {
   }
 }
 
-/// Snap guide line showing grid snap target
-class SnapGuideLine extends StatelessWidget {
+/// Snap guide line showing grid snap target with magnetic animation
+class SnapGuideLine extends StatefulWidget {
   final double position;
   final double height;
   final bool isVertical;
+  final bool isMagnetic;
 
   const SnapGuideLine({
     super.key,
     required this.position,
     required this.height,
     this.isVertical = true,
+    this.isMagnetic = false,
   });
+
+  @override
+  State<SnapGuideLine> createState() => _SnapGuideLineState();
+}
+
+class _SnapGuideLineState extends State<SnapGuideLine>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _pulseAnimation = Tween<double>(begin: 0.4, end: 0.8).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    if (widget.isMagnetic) {
+      _pulseController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(SnapGuideLine oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isMagnetic != oldWidget.isMagnetic) {
+      if (widget.isMagnetic) {
+        _pulseController.repeat(reverse: true);
+      } else {
+        _pulseController.stop();
+        _pulseController.value = 0.4;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      left: isVertical ? position : 0,
-      top: isVertical ? 0 : position,
+      left: widget.isVertical ? widget.position : 0,
+      top: widget.isVertical ? 0 : widget.position,
       child: IgnorePointer(
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: isVertical ? 2 : double.infinity,
-          height: isVertical ? height : 2,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: isVertical ? Alignment.topCenter : Alignment.centerLeft,
-              end: isVertical ? Alignment.bottomCenter : Alignment.centerRight,
-              colors: [
-                FluxForgeTheme.accentBlue.withValues(alpha: 0.0),
-                FluxForgeTheme.accentBlue.withValues(alpha: 0.6),
-                FluxForgeTheme.accentBlue.withValues(alpha: 0.0),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
-                blurRadius: 4,
+        child: AnimatedBuilder(
+          animation: _pulseAnimation,
+          builder: (context, child) {
+            final opacity = widget.isMagnetic ? _pulseAnimation.value : 0.6;
+            return Container(
+              width: widget.isVertical ? 3 : double.infinity,
+              height: widget.isVertical ? widget.height : 3,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: widget.isVertical ? Alignment.topCenter : Alignment.centerLeft,
+                  end: widget.isVertical ? Alignment.bottomCenter : Alignment.centerRight,
+                  colors: [
+                    FluxForgeTheme.accentBlue.withValues(alpha: 0.0),
+                    FluxForgeTheme.accentBlue.withValues(alpha: opacity),
+                    FluxForgeTheme.accentBlue.withValues(alpha: 0.0),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: FluxForgeTheme.accentBlue.withValues(alpha: opacity * 0.5),
+                    blurRadius: widget.isMagnetic ? 8 : 4,
+                    spreadRadius: widget.isMagnetic ? 2 : 0,
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -426,4 +478,180 @@ class RegionBounds {
     required this.startMs,
     required this.endMs,
   });
+}
+
+/// Enhanced drag overlay showing all visual feedback at once
+class TimelineDragOverlay extends StatelessWidget {
+  final TimelineDragFeedback feedback;
+  final Offset cursorPosition;
+  final double regionWidth;
+  final double regionHeight;
+  final double timelineHeight;
+  final List<double> nearbySnapPoints;
+  final String layerLabel;
+  final List<OverlapWarning> overlapWarnings;
+
+  const TimelineDragOverlay({
+    super.key,
+    required this.feedback,
+    required this.cursorPosition,
+    required this.regionWidth,
+    required this.regionHeight,
+    required this.timelineHeight,
+    this.nearbySnapPoints = const [],
+    required this.layerLabel,
+    this.overlapWarnings = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Snap guide lines for nearby grid points
+        ...nearbySnapPoints.map((snapPoint) => SnapGuideLine(
+              position: snapPoint,
+              height: timelineHeight,
+              isVertical: true,
+              isMagnetic: feedback.isSnapped && (feedback.snapTargetMs! - feedback.currentOffsetMs).abs() < 10,
+            )),
+
+        // Ghost region at drag position
+        Positioned(
+          left: cursorPosition.dx,
+          top: cursorPosition.dy,
+          child: GhostRegion(
+            width: regionWidth,
+            height: regionHeight,
+            hasOverlap: feedback.hasOverlap,
+            isSnapped: feedback.isSnapped,
+            label: layerLabel,
+          ),
+        ),
+
+        // Offset tooltip
+        DragOffsetTooltip(
+          feedback: feedback,
+          position: cursorPosition,
+        ),
+
+        // Overlap warning indicators
+        ...overlapWarnings.map((warning) => _OverlapWarningIndicator(
+              warning: warning,
+              timelineHeight: timelineHeight,
+            )),
+      ],
+    );
+  }
+}
+
+/// Overlap warning data
+class OverlapWarning {
+  final double startMs;
+  final double endMs;
+  final String conflictingLayerName;
+
+  const OverlapWarning({
+    required this.startMs,
+    required this.endMs,
+    required this.conflictingLayerName,
+  });
+}
+
+/// Visual indicator for overlap warning
+class _OverlapWarningIndicator extends StatelessWidget {
+  final OverlapWarning warning;
+  final double timelineHeight;
+
+  const _OverlapWarningIndicator({
+    required this.warning,
+    required this.timelineHeight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: warning.startMs / 10, // Simplified position calculation
+      top: 0,
+      child: Container(
+        width: (warning.endMs - warning.startMs) / 10,
+        height: timelineHeight,
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.errorRed.withValues(alpha: 0.15),
+          border: Border.all(
+            color: FluxForgeTheme.errorRed.withValues(alpha: 0.5),
+            width: 2,
+          ),
+        ),
+        child: Center(
+          child: RotatedBox(
+            quarterTurns: 3,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.errorRed,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                'CONFLICT: ${warning.conflictingLayerName}',
+                style: const TextStyle(
+                  color: FluxForgeTheme.textPrimary,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Snap distance indicator showing how far from nearest snap point
+class SnapDistanceIndicator extends StatelessWidget {
+  final double distanceMs;
+  final bool isClose;
+
+  const SnapDistanceIndicator({
+    super.key,
+    required this.distanceMs,
+    required this.isClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isClose ? FluxForgeTheme.successGreen : FluxForgeTheme.textMuted;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: color.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.straighten,
+            size: 10,
+            color: color,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${distanceMs.abs().toStringAsFixed(0)}ms',
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
