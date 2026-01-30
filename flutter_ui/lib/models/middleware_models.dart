@@ -1857,6 +1857,7 @@ class BlendContainer {
   final List<BlendChild> children;
   final CrossfadeCurve crossfadeCurve;
   final bool enabled;
+  final double smoothingMs; // RTPC smoothing time (0-1000ms, critically damped spring)
 
   const BlendContainer({
     required this.id,
@@ -1865,6 +1866,7 @@ class BlendContainer {
     this.children = const [],
     this.crossfadeCurve = CrossfadeCurve.equalPower,
     this.enabled = true,
+    this.smoothingMs = 0.0, // Default: instant (no smoothing)
   });
 
   BlendContainer copyWith({
@@ -1874,6 +1876,7 @@ class BlendContainer {
     List<BlendChild>? children,
     CrossfadeCurve? crossfadeCurve,
     bool? enabled,
+    double? smoothingMs,
   }) {
     return BlendContainer(
       id: id ?? this.id,
@@ -1882,6 +1885,7 @@ class BlendContainer {
       children: children ?? this.children,
       crossfadeCurve: crossfadeCurve ?? this.crossfadeCurve,
       enabled: enabled ?? this.enabled,
+      smoothingMs: smoothingMs ?? this.smoothingMs,
     );
   }
 
@@ -1892,6 +1896,7 @@ class BlendContainer {
     'children': children.map((c) => c.toJson()).toList(),
     'crossfadeCurve': crossfadeCurve.value,
     'enabled': enabled,
+    'smoothingMs': smoothingMs,
   };
 
   factory BlendContainer.fromJson(Map<String, dynamic> json) {
@@ -1904,6 +1909,7 @@ class BlendContainer {
           .toList() ?? [],
       crossfadeCurve: CrossfadeCurveExtension.fromValue(json['crossfadeCurve'] as int? ?? 1),
       enabled: json['enabled'] as bool? ?? true,
+      smoothingMs: (json['smoothingMs'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

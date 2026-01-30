@@ -462,6 +462,9 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
           ],
         ),
         const SizedBox(height: 12),
+        // Smoothing Control
+        _buildSmoothingControl(context, container),
+        const SizedBox(height: 12),
         // RTPC Preview Slider
         BlendRtpcSlider(
           container: container,
@@ -826,6 +829,116 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
         setState(() => _showAddContainer = false);
       },
       onCancel: () => setState(() => _showAddContainer = false),
+    );
+  }
+
+  /// P1-05: RTPC Smoothing Control
+  /// Critically damped spring smoothing (0-1000ms)
+  Widget _buildSmoothingControl(BuildContext context, BlendContainer container) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.surface.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: FluxForgeTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.slow_motion_video, size: 14, color: Colors.orange),
+              const SizedBox(width: 6),
+              Text(
+                'RTPC Smoothing:',
+                style: TextStyle(
+                  color: FluxForgeTheme.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                container.smoothingMs == 0
+                    ? 'Instant'
+                    : '${container.smoothingMs.toStringAsFixed(0)}ms',
+                style: TextStyle(
+                  color: container.smoothingMs > 0 ? Colors.orange : FluxForgeTheme.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+              const Spacer(),
+              // Quick presets
+              ...[0.0, 50.0, 100.0, 200.0, 500.0].map((preset) {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: GestureDetector(
+                    onTap: () {
+                      final updated = container.copyWith(smoothingMs: preset);
+                      context.read<MiddlewareProvider>().updateBlendContainer(updated);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (container.smoothingMs - preset).abs() < 1
+                            ? Colors.orange.withValues(alpha: 0.2)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: (container.smoothingMs - preset).abs() < 1
+                              ? Colors.orange
+                              : FluxForgeTheme.border.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Text(
+                        preset == 0 ? 'OFF' : '${preset.toInt()}',
+                        style: TextStyle(
+                          color: (container.smoothingMs - preset).abs() < 1
+                              ? Colors.orange
+                              : FluxForgeTheme.textSecondary,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Slider
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: Colors.orange,
+              inactiveTrackColor: FluxForgeTheme.border,
+              thumbColor: Colors.orange,
+              overlayColor: Colors.orange.withValues(alpha: 0.2),
+              trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            ),
+            child: Slider(
+              value: container.smoothingMs.clamp(0, 1000),
+              min: 0,
+              max: 1000,
+              divisions: 100,
+              onChanged: (value) {
+                final updated = container.copyWith(smoothingMs: value);
+                context.read<MiddlewareProvider>().updateBlendContainer(updated);
+              },
+            ),
+          ),
+          // Description
+          Text(
+            'Smoothing prevents abrupt RTPC jumps. Uses critically damped spring (no overshoot).',
+            style: TextStyle(
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
+              fontSize: 9,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

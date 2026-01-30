@@ -103,6 +103,9 @@ class BlendContainersProvider extends ChangeNotifier {
     ContainerService.instance.unsyncBlendFromRust(container.id);
     ContainerService.instance.syncBlendToRust(container);
 
+    // P1-05: Sync smoothing parameter to Rust
+    _ffi.containerSetBlendSmoothing(container.id, container.smoothingMs);
+
     notifyListeners();
   }
 
