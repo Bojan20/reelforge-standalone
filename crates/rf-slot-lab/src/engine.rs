@@ -8,7 +8,7 @@ use rf_stage::{BigWinTier, FeatureType, JackpotTier, StageEvent};
 use crate::config::{FeatureConfig, SlotConfig, VolatilityProfile};
 use crate::paytable::PayTable;
 use crate::spin::{
-    AnticipationInfo, CascadeResult, ForcedOutcome, JackpotWin, SpinResult, TriggeredFeature,
+    AnticipationInfo, AnticipationReason, CascadeResult, ForcedOutcome, JackpotWin, SpinResult, TriggeredFeature,
 };
 use crate::symbols::{generate_balanced_strips, ReelStrip, StandardSymbolSet};
 use crate::timing::{TimestampGenerator, TimingConfig, TimingProfile};
@@ -502,10 +502,13 @@ impl SyntheticSlotEngine {
         // Apply near miss flag
         if matches!(outcome, ForcedOutcome::NearMiss) {
             result.near_miss = true;
-            result.anticipation = Some(AnticipationInfo {
-                reels: vec![2, 3, 4],
-                reason: "Near big win".into(),
-            });
+            // Near miss typically affects last 3 reels
+            result.anticipation = Some(AnticipationInfo::from_reels(
+                vec![2, 3, 4],
+                AnticipationReason::NearMiss,
+                self.config.grid.reels,
+                self.timing_config.anticipation_duration_ms as u32,
+            ));
         }
     }
 
@@ -554,20 +557,26 @@ impl SyntheticSlotEngine {
             let near_miss_roll: f64 = self.rng.r#gen::<f64>();
             if near_miss_roll < vol.near_miss_frequency {
                 result.near_miss = true;
-                result.anticipation = Some(AnticipationInfo {
-                    reels: vec![3, 4],
-                    reason: "Almost!".into(),
-                });
+                result.anticipation = Some(AnticipationInfo::from_reels(
+                    vec![3, 4],
+                    AnticipationReason::NearMiss,
+                    self.config.grid.reels,
+                    self.timing_config.anticipation_duration_ms as u32,
+                ));
             }
         }
 
-        // Anticipation for scatter
+        // Anticipation for scatter — INDUSTRY STANDARD
+        // When 2+ scatters detected, anticipation triggers on ALL remaining reels
+        // Example: Scatters on reels 0,1 → anticipation on reels 2,3,4
+        // Example: Scatters on reels 0,3 → anticipation on reels 4 (after rightmost scatter)
         if let Some(ref scatter) = result.scatter_win {
-            if scatter.count >= 2 {
-                result.anticipation = Some(AnticipationInfo {
-                    reels: (scatter.count..self.config.grid.reels).collect(),
-                    reason: "Scatter".into(),
-                });
+            if scatter.count >= 2 && !scatter.positions.is_empty() {
+                result.anticipation = AnticipationInfo::from_scatter_positions(
+                    scatter.positions.clone(),
+                    self.config.grid.reels,
+                    self.timing_config.anticipation_duration_ms as u32,
+                );
             }
         }
     }

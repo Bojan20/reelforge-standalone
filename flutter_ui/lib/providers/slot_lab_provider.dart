@@ -261,7 +261,8 @@ class SlotLabProvider extends ChangeNotifier {
   // ─── P0.3: Anticipation Visual-Audio Sync Callbacks ────────────────────────
   /// Called when anticipation starts on a specific reel
   /// UI should dim background and slow reel animation
-  void Function(int reelIndex, String reason)? onAnticipationStart;
+  /// tensionLevel: 1-4, higher = more intense (affects color: gold→orange→red-orange→red)
+  void Function(int reelIndex, String reason, {int tensionLevel})? onAnticipationStart;
 
   /// Called when anticipation ends on a specific reel
   /// UI should restore normal speed and remove dim
@@ -1165,9 +1166,29 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // P1.2: NEAR MISS AUDIO ESCALATION — Intensity-based anticipation
+    // P0.4/P0.5: ANTICIPATION TENSION LAYER — Per-reel escalating audio (v2)
     // ═══════════════════════════════════════════════════════════════════════════
-    if (stageType == 'ANTICIPATION_ON') {
+    if (stageType == 'ANTICIPATION_TENSION_LAYER') {
+      final reelIdx = stage.payload['reel_index'] as int? ??
+                      stage.rawStage['reel_index'] as int? ?? 0;
+      final tensionLevel = stage.payload['tension_level'] as int? ??
+                          stage.rawStage['tension_level'] as int? ?? 1;
+      final progress = (stage.payload['progress'] as num?)?.toDouble() ??
+                      (stage.rawStage['progress'] as num?)?.toDouble() ?? 0.0;
+
+      // Per-reel volume/pitch escalation
+      context['volumeMultiplier'] = 0.5 + (tensionLevel * 0.1);
+      context['pitchSemitones'] = tensionLevel.toDouble();
+      context['tensionLevel'] = tensionLevel;
+      context['progress'] = progress;
+
+      // Map to stage name for EventRegistry
+      effectiveStage = 'ANTICIPATION_TENSION_R${reelIdx}_L$tensionLevel';
+    }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.2: NEAR MISS AUDIO ESCALATION — Intensity-based anticipation (legacy)
+    // ═══════════════════════════════════════════════════════════════════════════
+    else if (stageType == 'ANTICIPATION_ON') {
       final escalationResult = _calculateAnticipationEscalation(stage);
       effectiveStage = escalationResult.effectiveStage;
       context['volumeMultiplier'] = escalationResult.volumeMultiplier;
@@ -1320,8 +1341,10 @@ class SlotLabProvider extends ChangeNotifier {
       final reelIdx = _extractReelIndexFromStage(stageType);
       final reason = stage.payload['reason'] as String? ??
           stage.rawStage['reason'] as String? ?? 'scatter';
-      debugPrint('[Stage] P0.3: ANTICIPATION_ON → invoking onAnticipationStart(reel=$reelIdx, reason=$reason)');
-      onAnticipationStart?.call(reelIdx, reason);
+      // Calculate tension level based on reel position: R1=L1, R2=L2, etc. (max L4)
+      final tensionLevel = reelIdx.clamp(1, 4);
+      debugPrint('[Stage] P0.3: ANTICIPATION_ON → invoking onAnticipationStart(reel=$reelIdx, reason=$reason, tension=L$tensionLevel)');
+      onAnticipationStart?.call(reelIdx, reason, tensionLevel: tensionLevel);
       // Continue to trigger audio below (don't return)
     } else if (stageType.startsWith('ANTICIPATION_OFF')) {
       final reelIdx = _extractReelIndexFromStage(stageType);
@@ -1345,9 +1368,62 @@ class SlotLabProvider extends ChangeNotifier {
     String effectiveStage = stageType;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // P1.2: NEAR MISS AUDIO ESCALATION — Intensity-based anticipation
+    // P0.4/P0.5: ANTICIPATION TENSION LAYER — Per-reel escalating audio
+    // New industry-standard stage with reel_index, tension_level (1-4), progress
+    // Each subsequent reel has HIGHER tension level for crescendo effect
     // ═══════════════════════════════════════════════════════════════════════════
-    if (stageType == 'ANTICIPATION_ON') {
+    if (stageType == 'ANTICIPATION_TENSION_LAYER') {
+      final reelIdx = stage.payload['reel_index'] as int? ??
+                      stage.rawStage['reel_index'] as int? ?? 0;
+      final tensionLevel = stage.payload['tension_level'] as int? ??
+                          stage.rawStage['tension_level'] as int? ?? 1;
+      final progress = (stage.payload['progress'] as num?)?.toDouble() ??
+                      (stage.rawStage['progress'] as num?)?.toDouble() ?? 0.0;
+      final reason = stage.payload['reason'] as String? ??
+                    stage.rawStage['reason'] as String? ?? 'scatter';
+
+      // Per-reel volume escalation: L1=0.6, L2=0.7, L3=0.8, L4=0.9
+      final volumeMultiplier = 0.5 + (tensionLevel * 0.1);
+      context['volumeMultiplier'] = volumeMultiplier;
+
+      // Per-reel pitch escalation: R2=+1st, R3=+2st, R4=+3st, R5=+4st
+      final pitchSemitones = tensionLevel.toDouble();
+      context['pitchSemitones'] = pitchSemitones;
+
+      // P2.3: Per-reel filter sweep DSP — cutoff rises with tension
+      // L1=500Hz, L2=2000Hz, L3=5000Hz, L4=8000Hz (low→high pass sweep)
+      final filterCutoffHz = switch (tensionLevel) {
+        1 => 500.0,
+        2 => 2000.0,
+        3 => 5000.0,
+        4 => 8000.0,
+        _ => 500.0 + (tensionLevel * 1875.0), // Linear fallback
+      };
+      context['filterCutoffHz'] = filterCutoffHz;
+      // Filter resonance increases slightly with tension
+      context['filterResonance'] = 0.5 + (tensionLevel * 0.1); // 0.6 to 0.9
+
+      // Per-reel color (for visual sync callback)
+      final colors = ['#FFD700', '#FFA500', '#FF6347', '#FF4500']; // gold→orange→red-orange→red
+      final colorIndex = (tensionLevel - 1).clamp(0, 3);
+      context['glowColor'] = colors[colorIndex];
+      context['tensionLevel'] = tensionLevel;
+      context['progress'] = progress;
+
+      // Invoke visual callback for anticipation start (if not already invoked by ANTICIPATION_ON)
+      if (progress == 0.0) {
+        debugPrint('[Stage] P0.4: ANTICIPATION_TENSION_LAYER reel=$reelIdx, level=$tensionLevel, reason=$reason');
+        onAnticipationStart?.call(reelIdx, reason, tensionLevel: tensionLevel);
+      }
+
+      // Map to stage name for EventRegistry: ANTICIPATION_TENSION_R{reel}_L{level}
+      effectiveStage = 'ANTICIPATION_TENSION_R${reelIdx}_L$tensionLevel';
+      debugPrint('[SlotLabProvider] P0.5 Tension: reel=$reelIdx L$tensionLevel vol=${volumeMultiplier.toStringAsFixed(2)} pitch=+${pitchSemitones.toInt()}st filter=${filterCutoffHz.toInt()}Hz');
+    }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.2: NEAR MISS AUDIO ESCALATION — Intensity-based anticipation (legacy)
+    // ═══════════════════════════════════════════════════════════════════════════
+    else if (stageType == 'ANTICIPATION_ON') {
       final escalationResult = _calculateAnticipationEscalation(stage);
       effectiveStage = escalationResult.effectiveStage;
       context['volumeMultiplier'] = escalationResult.volumeMultiplier;

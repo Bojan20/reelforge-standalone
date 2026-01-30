@@ -138,6 +138,39 @@ pub extern "C" fn stage_create_anticipation_off(reel_index: u8, timestamp_ms: f6
     create_event_json(Stage::AnticipationOff { reel_index }, timestamp_ms)
 }
 
+/// Create AnticipationTensionLayer event — per-reel tension with escalating intensity
+/// reel_index: which reel (0-4)
+/// tension_level: escalation level (1-4), higher = more intense
+/// reason: optional reason string (e.g. "scatter", "bonus")
+/// progress: 0.0 - 1.0 progress through anticipation
+#[unsafe(no_mangle)]
+pub extern "C" fn stage_create_anticipation_tension_layer(
+    reel_index: u8,
+    tension_level: u8,
+    reason: *const c_char,
+    progress: f32,
+    timestamp_ms: f64,
+) -> *mut c_char {
+    let reason_str = if reason.is_null() {
+        None
+    } else {
+        unsafe { CStr::from_ptr(reason) }
+            .to_str()
+            .ok()
+            .map(|s| s.to_string())
+    };
+
+    create_event_json(
+        Stage::AnticipationTensionLayer {
+            reel_index,
+            tension_level,
+            reason: reason_str,
+            progress,
+        },
+        timestamp_ms,
+    )
+}
+
 /// Create WinPresent event
 #[unsafe(no_mangle)]
 pub extern "C" fn stage_create_win_present(
@@ -765,6 +798,30 @@ fn parse_stage_string(s: &str) -> Option<Stage> {
             if let Some(idx) = parse_indexed_stage(&normalized, "ANTICIPATION_OFF") {
                 return Some(Stage::AnticipationOff {
                     reel_index: idx as u8,
+                });
+            }
+            // Parse ANTICIPATION_TENSION_LAYER_R2_L3 → reel 2, level 3
+            if normalized.starts_with("ANTICIPATION_TENSION_LAYER") {
+                // Try to parse _R{reel}_L{level} pattern
+                if let Some(rest) = normalized.strip_prefix("ANTICIPATION_TENSION_LAYER_R") {
+                    let parts: Vec<&str> = rest.split("_L").collect();
+                    if parts.len() == 2 {
+                        if let (Ok(reel), Ok(level)) = (parts[0].parse::<u8>(), parts[1].parse::<u8>()) {
+                            return Some(Stage::AnticipationTensionLayer {
+                                reel_index: reel,
+                                tension_level: level,
+                                reason: None,
+                                progress: 0.5,
+                            });
+                        }
+                    }
+                }
+                // Generic tension layer
+                return Some(Stage::AnticipationTensionLayer {
+                    reel_index: 0,
+                    tension_level: 1,
+                    reason: None,
+                    progress: 0.0,
                 });
             }
 

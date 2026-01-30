@@ -725,7 +725,59 @@ class StageConfigurationService extends ChangeNotifier {
     // Anticipation
     _register('ANTICIPATION_ON', StageCategory.symbol, 65, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_OFF', StageCategory.symbol, 45, SpatialBus.sfx, 'DEFAULT');
+    _register('ANTICIPATION_LOOP', StageCategory.symbol, 60, SpatialBus.sfx, 'ANTICIPATION', isLooping: true);
+
+    // P0.2: Per-reel tension stages — matches Rust engine output
+    // Fallback hierarchy: ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_ON
+    _register('ANTICIPATION_TENSION', StageCategory.symbol, 66, SpatialBus.sfx, 'ANTICIPATION');
+
+    // Per-reel tension (reel fallback — used when specific level not configured)
+    // Reel 1 (index 0) never has anticipation (first reel can't trigger anticipation)
+    _register('ANTICIPATION_TENSION_R1', StageCategory.symbol, 67, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_TENSION_R2', StageCategory.symbol, 68, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_TENSION_R3', StageCategory.symbol, 69, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_TENSION_R4', StageCategory.symbol, 70, SpatialBus.sfx, 'ANTICIPATION');
+
+    // Full specificity: per-reel + tension level (L1=low, L2=medium, L3=high, L4=max)
+    // Priority escalates with reel index and tension level (later reels + higher levels = more dramatic)
+    // R1 (Reel 2): L1 only possible
+    _register('ANTICIPATION_TENSION_R1_L1', StageCategory.symbol, 67, SpatialBus.sfx, 'ANTICIPATION');
+
+    // R2 (Reel 3): L1-L2 possible
+    _register('ANTICIPATION_TENSION_R2_L1', StageCategory.symbol, 68, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_TENSION_R2_L2', StageCategory.symbol, 69, SpatialBus.sfx, 'ANTICIPATION');
+
+    // R3 (Reel 4): L1-L3 possible
+    _register('ANTICIPATION_TENSION_R3_L1', StageCategory.symbol, 69, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_TENSION_R3_L2', StageCategory.symbol, 70, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_TENSION_R3_L3', StageCategory.symbol, 71, SpatialBus.sfx, 'ANTICIPATION');
+
+    // R4 (Reel 5): L1-L4 all possible (maximum tension on last reel)
+    _register('ANTICIPATION_TENSION_R4_L1', StageCategory.symbol, 70, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_TENSION_R4_L2', StageCategory.symbol, 71, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_TENSION_R4_L3', StageCategory.symbol, 72, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_TENSION_R4_L4', StageCategory.symbol, 75, SpatialBus.sfx, 'ANTICIPATION'); // MAX TENSION
+
+    // Legacy anticipation types (optional — designers can use these for specific effects)
+    _register('ANTICIPATION_HEARTBEAT', StageCategory.symbol, 64, SpatialBus.sfx, 'ANTICIPATION', isLooping: true);
+    _register('ANTICIPATION_RESOLVE', StageCategory.symbol, 50, SpatialBus.sfx, 'DEFAULT');
+
     _register('NEAR_MISS', StageCategory.symbol, 55, SpatialBus.sfx, 'NEAR_MISS');
+
+    // P3.3: Per-reel near-miss stages (different sounds for each reel that "missed")
+    // Later reels have higher priority (more dramatic)
+    _register('NEAR_MISS_REEL_0', StageCategory.symbol, 50, SpatialBus.sfx, 'NEAR_MISS');
+    _register('NEAR_MISS_REEL_1', StageCategory.symbol, 52, SpatialBus.sfx, 'NEAR_MISS');
+    _register('NEAR_MISS_REEL_2', StageCategory.symbol, 54, SpatialBus.sfx, 'NEAR_MISS');
+    _register('NEAR_MISS_REEL_3', StageCategory.symbol, 56, SpatialBus.sfx, 'NEAR_MISS');
+    _register('NEAR_MISS_REEL_4', StageCategory.symbol, 58, SpatialBus.sfx, 'NEAR_MISS');
+
+    // Near-miss type-specific stages
+    _register('NEAR_MISS_SCATTER', StageCategory.symbol, 60, SpatialBus.sfx, 'NEAR_MISS');
+    _register('NEAR_MISS_BONUS', StageCategory.symbol, 60, SpatialBus.sfx, 'NEAR_MISS');
+    _register('NEAR_MISS_WILD', StageCategory.symbol, 55, SpatialBus.sfx, 'NEAR_MISS');
+    _register('NEAR_MISS_FEATURE', StageCategory.symbol, 58, SpatialBus.sfx, 'NEAR_MISS');
+    _register('NEAR_MISS_JACKPOT', StageCategory.symbol, 65, SpatialBus.sfx, 'NEAR_MISS');
 
     // ─────────────────────────────────────────────────────────────────────────
     // UI — COMPREHENSIVE INDUSTRY STANDARD (NetEnt, Pragmatic, IGT, BTG)

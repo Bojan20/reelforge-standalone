@@ -297,10 +297,32 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   Set<String> _nearMissPositions = {}; // Positions that "just missed"
   final Map<int, Timer> _anticipationTimers = {}; // Per-reel anticipation timers
   final Map<int, double> _anticipationProgress = {}; // Per-reel progress (0.0 → 1.0)
+  final Map<int, int> _anticipationTensionLevel = {}; // Per-reel tension level (1-4)
+  final Map<int, String> _anticipationReason = {}; // Per-reel reason (scatter, bonus, wild, jackpot)
   static const int _anticipationDurationMs = 3000; // 3 seconds per reel
   static const int _scatterSymbolId = 2; // SCATTER symbol ID (matches Rust SymbolType::Scatter = 2)
   static const int _scattersNeededForAnticipation = 2; // 2 scatters needed to trigger
   Set<int> _scatterReels = {}; // Reels that have landed with scatter symbols
+
+  // P2.2: Anticipation particle trail system
+  // Intensity escalates per tension level (L1: 5 particles/tick, L2: 10, L3: 15, L4: 20)
+  final List<_AnticipationParticle> _anticipationParticles = [];
+  final _AnticipationParticlePool _anticipationParticlePool = _AnticipationParticlePool();
+
+  // P3.1: Camera zoom — zoom intensity escalates with number of reels in anticipation
+  // Industry standard: subtle zoom (1.02-1.08) creates focus and tension
+  double _anticipationZoom = 1.0; // 1.0 = no zoom, 1.08 = max zoom
+  static const double _anticipationZoomBase = 1.02; // Base zoom per reel
+  static const double _anticipationZoomMax = 1.08; // Maximum zoom
+
+  // Industry-standard color progression by tension level
+  // L1=Gold, L2=Orange, L3=Red-Orange, L4=Red
+  static const Map<int, Color> _tensionColors = {
+    1: Color(0xFFFFD700), // Gold
+    2: Color(0xFFFFA500), // Orange
+    3: Color(0xFFFF6347), // Red-Orange (Tomato)
+    4: Color(0xFFFF4500), // Red (OrangeRed)
+  };
 
   // Cascade state
   bool _isCascading = false;
@@ -437,7 +459,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     widget.provider.addListener(_onProviderUpdate);
 
     // P0.3: Connect anticipation callbacks for visual-audio sync
-    widget.provider.onAnticipationStart = _onProviderAnticipationStart;
+    // Wrapper needed for named parameter support (tensionLevel)
+    widget.provider.onAnticipationStart = (reelIndex, reason, {int tensionLevel = 1}) {
+      _onProviderAnticipationStart(reelIndex, reason, tensionLevel: tensionLevel);
+    };
     widget.provider.onAnticipationEnd = _onProviderAnticipationEnd;
   }
 
@@ -596,6 +621,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _updateParticles() {
     if (!mounted) return;
     setState(() {
+      // Update win particles
       for (final particle in _particles) {
         particle.update();
       }
@@ -603,7 +629,63 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       final deadParticles = _particles.where((p) => p.isDead).toList();
       _particlePool.releaseAll(deadParticles);
       _particles.removeWhere((p) => p.isDead);
+
+      // P2.2: Update anticipation particles
+      for (final particle in _anticipationParticles) {
+        particle.update();
+      }
+      final deadAnticipationParticles = _anticipationParticles.where((p) => p.isDead).toList();
+      _anticipationParticlePool.releaseAll(deadAnticipationParticles);
+      _anticipationParticles.removeWhere((p) => p.isDead);
+
+      // P2.2: Emit new anticipation particles for each anticipating reel
+      _emitAnticipationParticles();
     });
+  }
+
+  /// P2.2: Emit anticipation particles per reel based on tension level
+  /// L1: 2 particles/tick, L2: 4, L3: 6, L4: 8
+  void _emitAnticipationParticles() {
+    if (_anticipationReels.isEmpty) return;
+
+    final reelWidth = 1.0 / widget.reels;
+
+    for (final reelIndex in _anticipationReels) {
+      final tensionLevel = _anticipationTensionLevel[reelIndex] ?? 1;
+      final color = _tensionColors[tensionLevel] ?? const Color(0xFFFFD700);
+
+      // Particle count escalates with tension level
+      final particleCount = tensionLevel * 2; // L1=2, L2=4, L3=6, L4=8
+
+      // Particle size escalates with tension
+      final baseSize = 2.0 + tensionLevel * 0.5; // L1=2.5, L2=3, L3=3.5, L4=4
+
+      // Fade speed decreases with tension (particles last longer)
+      final fadeSpeed = 0.025 - (tensionLevel * 0.003); // L1=0.022, L4=0.013
+
+      for (int i = 0; i < particleCount; i++) {
+        // Random position within reel column
+        final reelCenterX = (reelIndex + 0.5) * reelWidth;
+        final x = reelCenterX + (_random.nextDouble() - 0.5) * reelWidth * 0.8;
+        final y = _random.nextDouble(); // Random vertical position
+
+        // Upward drift with slight horizontal spread
+        final vx = (_random.nextDouble() - 0.5) * 0.002;
+        final vy = -0.001 - _random.nextDouble() * 0.002 * tensionLevel; // Faster up for higher tension
+
+        _anticipationParticles.add(_anticipationParticlePool.acquire(
+          x: x,
+          y: y,
+          vx: vx,
+          vy: vy,
+          size: baseSize + _random.nextDouble() * 1.5,
+          color: color,
+          fadeSpeed: fadeSpeed,
+          rotation: _random.nextDouble() * math.pi * 2,
+          rotationSpeed: (_random.nextDouble() - 0.5) * 0.1,
+        ));
+      }
+    }
   }
 
   void _initializeGrid() {
@@ -1117,11 +1199,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _displayedWinAmount = 0;
       _targetWinAmount = 0;
       _particles.clear();
+      // P2.2: Clear anticipation particles on spin start
+      _anticipationParticlePool.releaseAll(_anticipationParticles);
+      _anticipationParticles.clear();
       // Reset anticipation/near miss state
       _isAnticipation = false;
       _isNearMiss = false;
       _anticipationReels = {};
       _nearMissPositions = {};
+      _anticipationTensionLevel.clear();
+      _anticipationReason.clear();
       // V9: Reset scatter tracking for condition-based anticipation
       _scatterReels = {};
       // Clear reel stopped flags for new spin
@@ -1129,6 +1216,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // Reset IGT-style sequential buffer for new spin
       _nextExpectedReelIndex = 0;
       _pendingReelStops.clear();
+      // P3.1: Reset zoom for new spin
+      _anticipationZoom = 1.0;
     });
 
     // Hide win overlay
@@ -2189,6 +2278,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _isAnticipation = true;
       _anticipationReels.add(reelIndex);
       _anticipationProgress[reelIndex] = 0.0;
+
+      // P3.1: Calculate zoom based on number of reels in anticipation
+      // More reels = more zoom (tension escalation)
+      _anticipationZoom = _calculateAnticipationZoom();
     });
 
     // Trigger audio stage
@@ -2236,6 +2329,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _anticipationProgress.remove(reelIndex);
       // Update global flag
       _isAnticipation = _anticipationReels.isNotEmpty;
+
+      // P3.1: Update zoom when reel leaves anticipation
+      _anticipationZoom = _calculateAnticipationZoom();
     });
 
     // Trigger audio stage
@@ -2272,7 +2368,45 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _isAnticipation = false;
       _anticipationReels = {};
       _anticipationProgress.clear();
+      _anticipationTensionLevel.clear();
+      _anticipationReason.clear();
+
+      // P2.2: Clear anticipation particles
+      _anticipationParticlePool.releaseAll(_anticipationParticles);
+      _anticipationParticles.clear();
+
+      // P3.1: Reset zoom
+      _anticipationZoom = 1.0;
     });
+  }
+
+  /// P3.1: Calculate camera zoom based on anticipation state
+  /// Zoom escalates with:
+  /// 1. Number of reels in anticipation (more reels = more zoom)
+  /// 2. Maximum tension level (higher tension = more zoom)
+  double _calculateAnticipationZoom() {
+    if (_anticipationReels.isEmpty) return 1.0;
+
+    // Base zoom per reel: 1.02 per reel in anticipation
+    final reelCount = _anticipationReels.length;
+    final reelZoom = _anticipationZoomBase + (reelCount - 1) * 0.015;
+
+    // Additional zoom for high tension (L3+: extra 0.01, L4: extra 0.02)
+    double tensionBonus = 0.0;
+    for (final reelIndex in _anticipationReels) {
+      final tension = _anticipationTensionLevel[reelIndex] ?? 1;
+      if (tension >= 4) {
+        tensionBonus += 0.02;
+      } else if (tension >= 3) {
+        tensionBonus += 0.01;
+      }
+    }
+
+    // Clamp to max zoom
+    final totalZoom = (reelZoom + tensionBonus).clamp(1.0, _anticipationZoomMax);
+
+    debugPrint('[SlotPreview] 🔍 ZOOM: $totalZoom (reels: $reelCount, tensionBonus: $tensionBonus)');
+    return totalZoom;
   }
 
   /// Stop anticipation on a specific reel (e.g., when it lands)
@@ -2287,15 +2421,23 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// P0.3: Handle anticipation start from provider (visual only, no audio)
-  void _onProviderAnticipationStart(int reelIndex, String reason) {
+  /// tensionLevel: 1-4, higher = more intense (calculated from reel position)
+  void _onProviderAnticipationStart(int reelIndex, String reason, {int? tensionLevel}) {
     if (_anticipationReels.contains(reelIndex)) return; // Already anticipating
 
-    debugPrint('[SlotPreview] P0.3: PROVIDER ANTICIPATION START: reel=$reelIndex, reason=$reason');
+    // Calculate tension level based on reel position if not provided
+    // Reel 1 (index 1) = L1, Reel 2 = L2, etc. (max L4)
+    // First reel (index 0) never has anticipation
+    final level = tensionLevel ?? (reelIndex).clamp(1, 4);
+
+    debugPrint('[SlotPreview] P0.3: PROVIDER ANTICIPATION START: reel=$reelIndex, reason=$reason, tension=L$level');
 
     setState(() {
       _isAnticipation = true;
       _anticipationReels.add(reelIndex);
       _anticipationProgress[reelIndex] = 0.0;
+      _anticipationTensionLevel[reelIndex] = level;
+      _anticipationReason[reelIndex] = reason;
     });
 
     // Slow down reel animation (P0.3 speed multiplier)
@@ -2351,6 +2493,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     setState(() {
       _anticipationReels.remove(reelIndex);
       _anticipationProgress.remove(reelIndex);
+      _anticipationTensionLevel.remove(reelIndex);
+      _anticipationReason.remove(reelIndex);
       _isAnticipation = _anticipationReels.isNotEmpty;
     });
 
@@ -2358,17 +2502,61 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     if (_anticipationReels.isEmpty) {
       _anticipationController.stop();
       _anticipationController.reset();
+
+      // P2.2: Clear anticipation particles when all anticipation ends
+      _anticipationParticlePool.releaseAll(_anticipationParticles);
+      _anticipationParticles.clear();
     }
   }
 
-  /// Trigger near miss visual effect
+  /// Trigger near miss visual effect with per-reel audio
+  /// P3.3: Near-miss audio — different sounds depending on which reel "missed"
   void _triggerNearMiss(SlotLabSpinResult? result) {
+    // Detect which reel(s) caused the near-miss
+    final nearMissReels = _detectNearMissReels(result);
+    final nearMissType = _detectNearMissType(result);
+
+    // Build positions set for visual effect
+    final positions = <String>{};
+    for (final reelIndex in nearMissReels) {
+      // Near-miss symbols are typically in the middle row
+      positions.add('$reelIndex,1');
+    }
+
     setState(() {
       _isNearMiss = true;
-      // Near miss typically highlights the symbol that "just missed"
-      // Usually the last reel, middle row
-      _nearMissPositions = {'${widget.reels - 1},1'};
+      _nearMissPositions = positions.isNotEmpty
+          ? positions
+          : {'${widget.reels - 1},1'}; // Fallback to last reel
     });
+
+    // P3.3: Trigger per-reel near-miss audio stages
+    for (final reelIndex in nearMissReels) {
+      // Calculate pan position: L=-0.8, C=0.0, R=+0.8
+      final pan = (reelIndex - (widget.reels - 1) / 2) * 0.4;
+      // Calculate intensity: later reels = more dramatic (higher pitch/volume)
+      final intensity = 0.7 + (reelIndex / widget.reels) * 0.3;
+
+      eventRegistry.triggerStage('NEAR_MISS_REEL_$reelIndex', context: {
+        'reel_index': reelIndex,
+        'pan': pan.clamp(-1.0, 1.0),
+        'intensity': intensity,
+        'near_miss_type': nearMissType,
+      });
+
+      debugPrint('[SlotPreview] 🎯 Near-miss on reel $reelIndex (type: $nearMissType, pan: ${pan.toStringAsFixed(2)})');
+    }
+
+    // Also trigger generic near-miss stage for backwards compatibility
+    eventRegistry.triggerStage('NEAR_MISS', context: {
+      'reel_count': nearMissReels.length,
+      'near_miss_type': nearMissType,
+    });
+
+    // Trigger type-specific near-miss stage
+    if (nearMissType != 'generic') {
+      eventRegistry.triggerStage('NEAR_MISS_${nearMissType.toUpperCase()}');
+    }
 
     _nearMissController.forward(from: 0).then((_) {
       if (mounted) {
@@ -2378,6 +2566,117 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         });
       }
     });
+  }
+
+  /// Detect which reels caused the near-miss by analyzing the grid
+  /// Returns list of reel indices where the "miss" occurred
+  Set<int> _detectNearMissReels(SlotLabSpinResult? result) {
+    if (result == null || result.grid.isEmpty) {
+      return {widget.reels - 1}; // Default to last reel
+    }
+
+    final nearMissReels = <int>{};
+    final grid = result.grid;
+    final rows = widget.rows;
+    final middleRow = rows ~/ 2;
+
+    // For each reel starting from reel 2, check if it "just missed" a match
+    // A near-miss is when reels 0-1 (or 0-N) have matching symbols in a line,
+    // but reel N+1 has the symbol just above or below the payline
+    for (int reel = 2; reel < grid.length && reel < widget.reels; reel++) {
+      final col = grid[reel];
+      if (col.isEmpty) continue;
+
+      // Check if the middle row symbol differs from a potential winning pattern
+      // but the same symbol exists in adjacent rows
+      final middleSymbol = col[middleRow];
+
+      // Check if matching symbol is one row above or below (just missed)
+      bool nearMissDetected = false;
+
+      // Check row above middle (if exists)
+      if (middleRow > 0 && col.length > middleRow - 1) {
+        final aboveSymbol = col[middleRow - 1];
+        // If the symbol above would have made a win with previous reels
+        if (_wouldMakeWin(grid, reel, aboveSymbol)) {
+          nearMissDetected = true;
+        }
+      }
+
+      // Check row below middle (if exists)
+      if (middleRow < rows - 1 && col.length > middleRow + 1) {
+        final belowSymbol = col[middleRow + 1];
+        // If the symbol below would have made a win with previous reels
+        if (_wouldMakeWin(grid, reel, belowSymbol)) {
+          nearMissDetected = true;
+        }
+      }
+
+      if (nearMissDetected) {
+        nearMissReels.add(reel);
+      }
+    }
+
+    // If no specific near-miss detected, default to last reel
+    if (nearMissReels.isEmpty) {
+      nearMissReels.add(widget.reels - 1);
+    }
+
+    return nearMissReels;
+  }
+
+  /// Check if a symbol at a given reel would complete a winning pattern
+  bool _wouldMakeWin(List<List<int>> grid, int reelIndex, int symbolId) {
+    if (reelIndex < 2) return false;
+
+    final rows = widget.rows;
+    final middleRow = rows ~/ 2;
+
+    // Check if all previous reels have this symbol in the middle row
+    int matchingReels = 0;
+    for (int r = 0; r < reelIndex; r++) {
+      if (grid[r].length > middleRow && grid[r][middleRow] == symbolId) {
+        matchingReels++;
+      }
+    }
+
+    // If all previous reels match, this would have been a win
+    return matchingReels == reelIndex;
+  }
+
+  /// Detect the type of near-miss (scatter, bonus, wild, jackpot, feature, generic)
+  String _detectNearMissType(SlotLabSpinResult? result) {
+    if (result == null) return 'generic';
+
+    // Check if this was a near-miss for specific features
+    // by looking at the grid for special symbols
+
+    final grid = result.grid;
+    int scatterCount = 0;
+    int bonusCount = 0;
+    int wildCount = 0;
+
+    for (final col in grid) {
+      for (final symbolId in col) {
+        // Symbol ID conventions (based on SlotSymbol definitions):
+        // 2 = Scatter, 3 = Wild, 13 = Bonus (check SlotSymbol.getSymbol)
+        if (symbolId == 2) scatterCount++;
+        if (symbolId == 3) wildCount++;
+        if (symbolId == 13) bonusCount++;
+      }
+    }
+
+    // Near-miss type based on what was "almost" achieved
+    // 2 scatters = near-miss scatter (needed 3)
+    if (scatterCount == 2) return 'scatter';
+    // 2 bonus = near-miss bonus
+    if (bonusCount == 2) return 'bonus';
+    // Multiple wilds without win = near-miss wild
+    if (wildCount >= 2 && !result.isWin) return 'wild';
+    // Feature was almost triggered
+    if (result.featureTriggered == false && scatterCount >= 1) return 'feature';
+
+    return 'generic';
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2578,9 +2877,69 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(4),
-                  child: _buildReelTable(constraints.maxWidth - 12, constraints.maxHeight - 12),
+                  // P3.1: Apply anticipation zoom to reel table
+                  // Zoom escalates with number of reels in anticipation
+                  child: AnimatedScale(
+                    scale: _anticipationZoom,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    child: _buildReelTable(constraints.maxWidth - 12, constraints.maxHeight - 12),
+                  ),
                 ),
               ),
+
+              // ═══════════════════════════════════════════════════════════════════════
+              // P2.1: ANTICIPATION VIGNETTE — Dark edges grow with tension level
+              // Intensity increases as more reels enter anticipation
+              // ═══════════════════════════════════════════════════════════════════════
+              if (_isAnticipation && !reduceMotion)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _anticipationPulse,
+                      builder: (context, child) {
+                        // Calculate max tension level across all anticipating reels
+                        final maxTension = _anticipationTensionLevel.values.fold<int>(
+                          1, (max, level) => level > max ? level : max,
+                        );
+                        // Get color for highest tension level
+                        final vignetteColor = _tensionColors[maxTension] ?? const Color(0xFFFFD700);
+                        // Intensity based on tension (L1=0.3, L2=0.4, L3=0.5, L4=0.6)
+                        final baseIntensity = 0.2 + (maxTension * 0.1);
+                        final pulseValue = _anticipationPulse.value;
+
+                        return CustomPaint(
+                          painter: _AnticipationVignettePainter(
+                            intensity: baseIntensity + pulseValue * 0.1,
+                            color: vignetteColor,
+                            pulseValue: pulseValue,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+              // ═══════════════════════════════════════════════════════════════════════
+              // P2.2: ANTICIPATION PARTICLE TRAIL — Rising sparkles during anticipation
+              // Intensity escalates per tension level (L1: subtle, L4: intense)
+              // ═══════════════════════════════════════════════════════════════════════
+              if (_anticipationParticles.isNotEmpty && !reduceMotion)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _anticipationPulse,
+                      builder: (context, child) {
+                        return CustomPaint(
+                          painter: _AnticipationTrailPainter(
+                            particles: _anticipationParticles,
+                            pulseValue: _anticipationPulse.value,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
 
               // ═══════════════════════════════════════════════════════════════════════
               // V5: BIG WIN BACKGROUND EFFECT — Industry standard celebration atmosphere
@@ -3263,51 +3622,200 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             child: _buildAnticipationOverlay(reelIndex, progress, cellSize, tableHeight),
           );
         }),
+
+        // P1.2: Scatter counter badge — Shows "2/3" when anticipation is active
+        if (_isAnticipation && _scatterReels.isNotEmpty)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: tableOffsetY - 60, // Above anticipation overlays
+            child: Center(
+              child: _buildScatterCounterBadge(),
+            ),
+          ),
       ],
     );
   }
 
-  /// Build anticipation overlay for a specific reel
-  Widget _buildAnticipationOverlay(int reelIndex, double progress, double width, double tableHeight) {
-    final pulseValue = _anticipationPulse.value;
-    final color = const Color(0xFFFFD700); // Gold
+  /// P1.2: Build scatter counter badge widget
+  /// Shows current scatter count vs required (e.g., "2/3 SCATTERS")
+  Widget _buildScatterCounterBadge() {
+    final currentCount = _scatterReels.length;
+    final requiredCount = 3; // Standard: 3 scatters for free spins
+    final isComplete = currentCount >= requiredCount;
+
+    // Get tension color based on how close we are
+    final Color badgeColor;
+    if (isComplete) {
+      badgeColor = const Color(0xFF40FF90); // Green - triggered!
+    } else if (currentCount >= 2) {
+      badgeColor = const Color(0xFFFF4500); // Red - almost there!
+    } else {
+      badgeColor = const Color(0xFFFFD700); // Gold - building
+    }
 
     return AnimatedBuilder(
       animation: _anticipationPulse,
       builder: (context, child) {
-        // Glowing border animation around the reel - no progress bar or loading sign
+        final pulseValue = _anticipationPulse.value;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.85),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: badgeColor.withOpacity(0.8 + pulseValue * 0.2),
+              width: 2 + pulseValue,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: badgeColor.withOpacity(0.4 + pulseValue * 0.3),
+                blurRadius: 15 + pulseValue * 10,
+                spreadRadius: 2 + pulseValue * 3,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Scatter icon
+              Text(
+                '💎',
+                style: TextStyle(fontSize: 18 + pulseValue * 2),
+              ),
+              const SizedBox(width: 8),
+              // Counter text
+              Text(
+                '$currentCount/$requiredCount',
+                style: TextStyle(
+                  color: badgeColor,
+                  fontSize: 20 + pulseValue * 2,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      color: badgeColor.withOpacity(0.5),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Label
+              Text(
+                isComplete ? 'TRIGGERED!' : 'SCATTERS',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Build anticipation overlay for a specific reel
+  /// Uses tension level for color progression: L1=Gold → L2=Orange → L3=Red-Orange → L4=Red
+  Widget _buildAnticipationOverlay(int reelIndex, double progress, double width, double tableHeight) {
+    final pulseValue = _anticipationPulse.value;
+    final tensionLevel = _anticipationTensionLevel[reelIndex] ?? 1;
+    final color = _tensionColors[tensionLevel] ?? const Color(0xFFFFD700);
+
+    // Intensity multiplier based on tension level (higher tension = more intense effect)
+    final intensityMultiplier = 0.7 + (tensionLevel * 0.1); // L1=0.8, L2=0.9, L3=1.0, L4=1.1
+
+    return AnimatedBuilder(
+      animation: _anticipationPulse,
+      builder: (context, child) {
+        // Glowing border animation around the reel - intensity scales with tension
         return Container(
           width: width + 8, // Slightly wider than reel for border visibility
           height: tableHeight + 8,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            // Pulsing outer glow
+            // Pulsing outer glow - intensity scales with tension level
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(pulseValue * 0.8),
-                blurRadius: 20 + (pulseValue * 15),
-                spreadRadius: 2 + (pulseValue * 4),
+                color: color.withOpacity(pulseValue * 0.8 * intensityMultiplier),
+                blurRadius: (20 + (pulseValue * 15)) * intensityMultiplier,
+                spreadRadius: (2 + (pulseValue * 4)) * intensityMultiplier,
               ),
               BoxShadow(
-                color: color.withOpacity(pulseValue * 0.5),
-                blurRadius: 40 + (pulseValue * 20),
-                spreadRadius: 4 + (pulseValue * 6),
+                color: color.withOpacity(pulseValue * 0.5 * intensityMultiplier),
+                blurRadius: (40 + (pulseValue * 20)) * intensityMultiplier,
+                spreadRadius: (4 + (pulseValue * 6)) * intensityMultiplier,
               ),
+              // Extra outer glow for high tension levels (L3, L4)
+              if (tensionLevel >= 3)
+                BoxShadow(
+                  color: color.withOpacity(pulseValue * 0.3),
+                  blurRadius: 60 + (pulseValue * 30),
+                  spreadRadius: 8 + (pulseValue * 8),
+                ),
             ],
             // Animated gradient border
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                color.withOpacity(pulseValue * 0.15),
+                color.withOpacity(pulseValue * 0.15 * intensityMultiplier),
                 Colors.transparent,
-                color.withOpacity(pulseValue * 0.15),
+                color.withOpacity(pulseValue * 0.15 * intensityMultiplier),
               ],
             ),
             border: Border.all(
               color: color.withOpacity(0.7 + pulseValue * 0.3),
-              width: 3 + pulseValue * 2,
+              width: (3 + pulseValue * 2) * intensityMultiplier,
             ),
+          ),
+          // P1.1: Progress arc indicator + tension level badge
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Progress arc at top
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: SizedBox(
+                  width: width * 0.8,
+                  height: 8,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.black.withOpacity(0.3),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        color.withOpacity(0.9 + pulseValue * 0.1),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Tension level indicator badge for L3+ (high tension)
+              if (tensionLevel >= 3)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withOpacity(0.5),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    tensionLevel == 4 ? '🔥' : '⚡',
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                ),
+            ],
           ),
         );
       },
@@ -4394,6 +4902,211 @@ class _PlaqueBurstPainter extends CustomPainter {
     return oldDelegate.progress != progress ||
            oldDelegate.pulseValue != pulseValue ||
            oldDelegate.tierColor != tierColor;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P2.1: ANTICIPATION VIGNETTE PAINTER — Dark edges with tension color glow
+// Intensity increases with tension level (L1-L4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _AnticipationVignettePainter extends CustomPainter {
+  final double intensity;
+  final Color color;
+  final double pulseValue;
+
+  _AnticipationVignettePainter({
+    required this.intensity,
+    required this.color,
+    required this.pulseValue,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Dark vignette at edges
+    final vignetteOpacity = intensity * (0.7 + pulseValue * 0.3);
+
+    final vignettePaint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 1.3,
+        colors: [
+          Colors.transparent,
+          Colors.transparent,
+          Colors.black.withOpacity(vignetteOpacity * 0.4),
+          Colors.black.withOpacity(vignetteOpacity * 0.8),
+        ],
+        stops: const [0.0, 0.4, 0.7, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), vignettePaint);
+
+    // Colored glow at edges (tension color)
+    final glowOpacity = intensity * 0.3 * (0.5 + pulseValue * 0.5);
+
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 1.5,
+        colors: [
+          Colors.transparent,
+          Colors.transparent,
+          color.withOpacity(glowOpacity * 0.5),
+          color.withOpacity(glowOpacity),
+        ],
+        stops: const [0.0, 0.5, 0.8, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), glowPaint);
+  }
+
+  @override
+  bool shouldRepaint(_AnticipationVignettePainter oldDelegate) {
+    return oldDelegate.intensity != intensity ||
+           oldDelegate.color != color ||
+           oldDelegate.pulseValue != pulseValue;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P2.2: ANTICIPATION PARTICLE TRAIL SYSTEM
+// Per-reel particle trails that escalate in intensity with tension level
+// L1: Subtle sparkles, L2: More particles, L3: Dense trail, L4: Maximum intensity
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _AnticipationParticle {
+  double x = 0, y = 0;
+  double vx = 0, vy = 0;
+  double size = 3;
+  Color color = const Color(0xFFFFD700);
+  double life = 1.0;
+  double fadeSpeed = 0.02;
+  double rotation = 0;
+  double rotationSpeed = 0;
+
+  void reset({
+    required double x,
+    required double y,
+    required double vx,
+    required double vy,
+    required double size,
+    required Color color,
+    required double fadeSpeed,
+    required double rotation,
+    required double rotationSpeed,
+  }) {
+    this.x = x;
+    this.y = y;
+    this.vx = vx;
+    this.vy = vy;
+    this.size = size;
+    this.color = color;
+    this.fadeSpeed = fadeSpeed;
+    this.rotation = rotation;
+    this.rotationSpeed = rotationSpeed;
+    life = 1.0;
+  }
+
+  void update() {
+    x += vx;
+    y += vy;
+    vy -= 0.0001; // Slight upward drift (tension rising)
+    vx *= 0.98; // Horizontal damping
+    rotation += rotationSpeed;
+    life -= fadeSpeed;
+  }
+
+  bool get isDead => life <= 0 || y < -0.1 || y > 1.1 || x < -0.1 || x > 1.1;
+}
+
+class _AnticipationParticlePool {
+  final List<_AnticipationParticle> _available = [];
+  static const int maxPoolSize = 200;
+
+  _AnticipationParticle acquire({
+    required double x,
+    required double y,
+    required double vx,
+    required double vy,
+    required double size,
+    required Color color,
+    required double fadeSpeed,
+    required double rotation,
+    required double rotationSpeed,
+  }) {
+    final particle = _available.isNotEmpty
+        ? _available.removeLast()
+        : _AnticipationParticle();
+    particle.reset(
+      x: x, y: y, vx: vx, vy: vy,
+      size: size, color: color, fadeSpeed: fadeSpeed,
+      rotation: rotation, rotationSpeed: rotationSpeed,
+    );
+    return particle;
+  }
+
+  void release(_AnticipationParticle particle) {
+    if (_available.length < maxPoolSize) {
+      _available.add(particle);
+    }
+  }
+
+  void releaseAll(Iterable<_AnticipationParticle> particles) {
+    for (final p in particles) {
+      release(p);
+    }
+  }
+}
+
+class _AnticipationTrailPainter extends CustomPainter {
+  final List<_AnticipationParticle> particles;
+  final double pulseValue;
+
+  _AnticipationTrailPainter({
+    required this.particles,
+    required this.pulseValue,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final p in particles) {
+      final opacity = (p.life * (0.7 + pulseValue * 0.3)).clamp(0.0, 1.0);
+
+      // Core particle
+      final paint = Paint()
+        ..color = p.color.withOpacity(opacity)
+        ..style = PaintingStyle.fill;
+
+      final x = p.x * size.width;
+      final y = p.y * size.height;
+
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(p.rotation);
+
+      // Sparkle/diamond shape
+      final path = Path()
+        ..moveTo(0, -p.size)
+        ..lineTo(p.size * 0.5, 0)
+        ..lineTo(0, p.size)
+        ..lineTo(-p.size * 0.5, 0)
+        ..close();
+
+      canvas.drawPath(path, paint);
+
+      // Glow effect
+      final glowPaint = Paint()
+        ..color = p.color.withOpacity(opacity * 0.4)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, p.size);
+      canvas.drawCircle(Offset.zero, p.size * 0.8, glowPaint);
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_AnticipationTrailPainter oldDelegate) {
+    return true; // Always repaint for smooth animation
   }
 }
 

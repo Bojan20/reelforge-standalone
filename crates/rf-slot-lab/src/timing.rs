@@ -23,6 +23,141 @@ impl Default for TimingProfile {
     }
 }
 
+/// Anticipation-specific configuration for industry-standard anticipation system
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnticipationConfig {
+    /// Minimum scatter symbols needed to trigger anticipation (default: 2)
+    pub min_scatters_to_trigger: u8,
+
+    /// Duration per reel in anticipation (ms) — each reel gets this much time
+    pub duration_per_reel_ms: f64,
+
+    /// Base intensity multiplier for visual/audio effects (0.0-1.0)
+    pub base_intensity: f64,
+
+    /// Escalation factor per tension level (multiplied for each level)
+    pub escalation_factor: f64,
+
+    /// Number of tension layers (typically 4: L1-L4)
+    pub tension_layer_count: u8,
+
+    /// Speed multiplier when in anticipation (0.3 = 30% of normal speed)
+    pub speed_multiplier: f64,
+
+    /// Audio pre-trigger offset (ms) — audio starts this much before visual
+    pub audio_pre_trigger_ms: f64,
+
+    /// Whether to enable per-reel color progression
+    pub enable_color_progression: bool,
+
+    /// Whether to enable particle effects
+    pub enable_particles: bool,
+
+    /// Whether to enable screen vignette darkening
+    pub enable_vignette: bool,
+}
+
+impl Default for AnticipationConfig {
+    fn default() -> Self {
+        Self {
+            min_scatters_to_trigger: 2,
+            duration_per_reel_ms: 1500.0,
+            base_intensity: 0.7,
+            escalation_factor: 1.15,
+            tension_layer_count: 4,
+            speed_multiplier: 0.3,
+            audio_pre_trigger_ms: 50.0,
+            enable_color_progression: true,
+            enable_particles: true,
+            enable_vignette: true,
+        }
+    }
+}
+
+impl AnticipationConfig {
+    /// Normal gameplay anticipation config
+    pub fn normal() -> Self {
+        Self::default()
+    }
+
+    /// Turbo mode — faster anticipation
+    pub fn turbo() -> Self {
+        Self {
+            duration_per_reel_ms: 800.0,
+            audio_pre_trigger_ms: 30.0,
+            ..Self::default()
+        }
+    }
+
+    /// Mobile optimized — slightly faster, fewer effects
+    pub fn mobile() -> Self {
+        Self {
+            duration_per_reel_ms: 1000.0,
+            audio_pre_trigger_ms: 40.0,
+            enable_particles: false, // Save GPU on mobile
+            ..Self::default()
+        }
+    }
+
+    /// Studio mode — longer for testing/debugging
+    pub fn studio() -> Self {
+        Self {
+            duration_per_reel_ms: 2000.0,
+            audio_pre_trigger_ms: 30.0,
+            ..Self::default()
+        }
+    }
+
+    /// High tension mode — more dramatic escalation
+    pub fn high_tension() -> Self {
+        Self {
+            base_intensity: 0.8,
+            escalation_factor: 1.25,
+            duration_per_reel_ms: 2000.0,
+            ..Self::default()
+        }
+    }
+
+    /// Calculate tension level for a given reel position in anticipation sequence
+    pub fn tension_level_for_position(&self, position: usize) -> u8 {
+        ((position + 1) as u8).min(self.tension_layer_count)
+    }
+
+    /// Calculate intensity for a given tension level
+    pub fn intensity_for_tension(&self, tension_level: u8) -> f64 {
+        let level = tension_level.min(self.tension_layer_count) as f64;
+        self.base_intensity * self.escalation_factor.powf(level - 1.0)
+    }
+
+    /// Calculate total anticipation duration for N reels
+    pub fn total_duration_for_reels(&self, reel_count: u8) -> f64 {
+        self.duration_per_reel_ms * reel_count as f64
+    }
+
+    /// Get color for tension level (Gold → Orange → Red-Orange → Red)
+    pub fn color_for_tension(&self, tension_level: u8) -> (u8, u8, u8) {
+        if !self.enable_color_progression {
+            return (255, 215, 0); // Gold always
+        }
+        match tension_level {
+            1 => (255, 215, 0),   // Gold #FFD700
+            2 => (255, 165, 0),   // Orange #FFA500
+            3 => (255, 99, 71),   // Red-Orange #FF6347
+            _ => (255, 69, 0),    // Red #FF4500
+        }
+    }
+
+    /// Get volume multiplier for tension level
+    pub fn volume_for_tension(&self, tension_level: u8) -> f64 {
+        0.5 + (tension_level.min(self.tension_layer_count) as f64 * 0.1)
+    }
+
+    /// Get pitch semitones for tension level
+    pub fn pitch_semitones_for_tension(&self, tension_level: u8) -> f64 {
+        tension_level.min(self.tension_layer_count) as f64
+    }
+}
+
 /// Detailed timing configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimingConfig {
@@ -83,6 +218,13 @@ pub struct TimingConfig {
     /// Audio starts this much before the reel visually stops
     #[serde(default)]
     pub reel_stop_audio_pre_trigger_ms: f64,
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANTICIPATION CONFIGURATION (P2.4)
+    // ═══════════════════════════════════════════════════════════════════════════
+    /// Full anticipation configuration for industry-standard anticipation system
+    #[serde(default)]
+    pub anticipation_config: AnticipationConfig,
 }
 
 impl TimingConfig {
@@ -105,6 +247,8 @@ impl TimingConfig {
             visual_audio_sync_offset_ms: 0.0,
             anticipation_audio_pre_trigger_ms: 50.0,
             reel_stop_audio_pre_trigger_ms: 20.0,
+            // Anticipation config
+            anticipation_config: AnticipationConfig::normal(),
         }
     }
 
@@ -127,6 +271,8 @@ impl TimingConfig {
             visual_audio_sync_offset_ms: 0.0,
             anticipation_audio_pre_trigger_ms: 30.0,
             reel_stop_audio_pre_trigger_ms: 10.0,
+            // Anticipation config
+            anticipation_config: AnticipationConfig::turbo(),
         }
     }
 
@@ -149,6 +295,8 @@ impl TimingConfig {
             visual_audio_sync_offset_ms: 0.0,
             anticipation_audio_pre_trigger_ms: 40.0,
             reel_stop_audio_pre_trigger_ms: 15.0,
+            // Anticipation config
+            anticipation_config: AnticipationConfig::mobile(),
         }
     }
 
@@ -173,6 +321,8 @@ impl TimingConfig {
             visual_audio_sync_offset_ms: 0.0,
             anticipation_audio_pre_trigger_ms: 30.0,
             reel_stop_audio_pre_trigger_ms: 15.0,
+            // Anticipation config
+            anticipation_config: AnticipationConfig::studio(),
         }
     }
 
@@ -206,6 +356,11 @@ impl TimingConfig {
             visual_audio_sync_offset_ms: self.visual_audio_sync_offset_ms,
             anticipation_audio_pre_trigger_ms: self.anticipation_audio_pre_trigger_ms,
             reel_stop_audio_pre_trigger_ms: self.reel_stop_audio_pre_trigger_ms,
+            // Scale anticipation duration but keep other config intact
+            anticipation_config: AnticipationConfig {
+                duration_per_reel_ms: self.anticipation_config.duration_per_reel_ms * factor,
+                ..self.anticipation_config.clone()
+            },
         }
     }
 

@@ -3746,6 +3746,7 @@ class MiddlewareProvider extends ChangeNotifier {
     // Anticipation
     'anticipation_on',
     'anticipation_off',
+    'anticipation_tension_layer',
     // Win Lifecycle
     'win_present',
     'win_line_show',
@@ -3799,6 +3800,7 @@ class MiddlewareProvider extends ChangeNotifier {
       'spin_end' => 'Spin End',
       'anticipation_on' => 'Anticipation ON',
       'anticipation_off' => 'Anticipation OFF',
+      'anticipation_tension_layer' => 'Anticipation Tension',
       'win_present' => 'Win Present',
       'win_line_show' => 'Win Line Show',
       'rollup_start' => 'Rollup Start',
@@ -3840,7 +3842,7 @@ class MiddlewareProvider extends ChangeNotifier {
   static String getStageCategory(String stageType) {
     return switch (stageType) {
       'spin_start' || 'reel_spinning' || 'reel_stop' || 'evaluate_wins' || 'spin_end' => 'Spin Lifecycle',
-      'anticipation_on' || 'anticipation_off' => 'Anticipation',
+      'anticipation_on' || 'anticipation_off' || 'anticipation_tension_layer' => 'Anticipation',
       'win_present' || 'win_line_show' || 'rollup_start' || 'rollup_tick' || 'rollup_end' || 'bigwin_tier' => 'Win Lifecycle',
       'feature_enter' || 'feature_step' || 'feature_retrigger' || 'feature_exit' => 'Feature',
       'cascade_start' || 'cascade_step' || 'cascade_end' => 'Cascade',

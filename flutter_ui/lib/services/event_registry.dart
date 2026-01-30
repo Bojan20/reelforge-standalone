@@ -479,6 +479,8 @@ class EventRegistry extends ChangeNotifier {
     'ANTICIPATION_ON',
     'ANTICIPATION_OFF',
     'ANTICIPATION',
+    'ANTICIPATION_TENSION',
+    'ANTICIPATION_TENSION_LAYER',
     'SCATTER_ANTICIPATION',
     'BONUS_ANTICIPATION',
     'WILD_ANTICIPATION',
@@ -1520,6 +1522,30 @@ class EventRegistry extends ChangeNotifier {
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0.4: ANTICIPATION TENSION LAYER FALLBACK — Multi-level fallback chain
+    // ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_ON
+    // This allows designers to create generic anticipation sounds that work for all reels
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stage.startsWith('ANTICIPATION_TENSION_R')) {
+      // Pattern: ANTICIPATION_TENSION_R{reel}_L{level}
+      final match = RegExp(r'^ANTICIPATION_TENSION_R(\d+)_L(\d+)$').firstMatch(stage);
+      if (match != null) {
+        final reel = match.group(1);
+        // First fallback: Try ANTICIPATION_TENSION_R{reel} (without level)
+        return 'ANTICIPATION_TENSION_R$reel';
+      }
+      // Second fallback: Try ANTICIPATION_TENSION (generic)
+      final reelOnlyMatch = RegExp(r'^ANTICIPATION_TENSION_R\d+$').firstMatch(stage);
+      if (reelOnlyMatch != null) {
+        return 'ANTICIPATION_TENSION';
+      }
+    }
+    // Third fallback: ANTICIPATION_TENSION → ANTICIPATION_ON
+    if (stage == 'ANTICIPATION_TENSION') {
+      return 'ANTICIPATION_ON';
+    }
+
     return null;
   }
 
@@ -2127,6 +2153,17 @@ class EventRegistry extends ChangeNotifier {
         final cascadeVolume = (context['cascade_volume'] as num?)?.toDouble() ?? 1.0;
         volume *= cascadeVolume;
         debugPrint('[EventRegistry] P1.4 Cascade modulation: volume=${volume.toStringAsFixed(2)}');
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // P3.3: NEAR-MISS INTENSITY MODULATION — Later reels have more dramatic audio
+      // Applied to NEAR_MISS_REEL_X stages for per-reel audio customization
+      // Intensity ranges from 0.7 (early reels) to 1.0 (late reels)
+      // ═══════════════════════════════════════════════════════════════════════
+      if (context != null && context.containsKey('intensity')) {
+        final intensity = (context['intensity'] as num?)?.toDouble() ?? 1.0;
+        volume *= intensity.clamp(0.5, 1.5);
+        debugPrint('[EventRegistry] P3.3 Near-miss intensity: ${intensity.toStringAsFixed(2)}, volume=${volume.toStringAsFixed(2)}');
       }
 
       // ═══════════════════════════════════════════════════════════════════════

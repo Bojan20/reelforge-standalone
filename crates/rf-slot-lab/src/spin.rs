@@ -2,6 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Default total reels (5) for anticipation calculations
+fn default_total_reels() -> u8 {
+    5
+}
+
 use rf_stage::{
     BigWinTier, FeatureType, JackpotTier, Stage, StageEvent, StagePayload,
 };
@@ -73,13 +78,248 @@ pub struct CascadeResult {
     pub multiplier: f64,
 }
 
-/// Anticipation info
+/// Reason for anticipation trigger
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AnticipationReason {
+    /// Scatter symbols detected (most common)
+    Scatter,
+    /// Bonus symbols detected
+    Bonus,
+    /// Wild symbols detected (expanding wild, etc.)
+    Wild,
+    /// Jackpot symbols detected
+    Jackpot,
+    /// Near miss anticipation
+    NearMiss,
+    /// Custom reason (game-specific)
+    Custom,
+}
+
+impl Default for AnticipationReason {
+    fn default() -> Self {
+        Self::Scatter
+    }
+}
+
+impl AnticipationReason {
+    /// Convert to string for legacy compatibility
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Scatter => "scatter",
+            Self::Bonus => "bonus",
+            Self::Wild => "wild",
+            Self::Jackpot => "jackpot",
+            Self::NearMiss => "near_miss",
+            Self::Custom => "custom",
+        }
+    }
+
+    /// Parse from string (case-insensitive)
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "scatter" => Self::Scatter,
+            "bonus" => Self::Bonus,
+            "wild" => Self::Wild,
+            "jackpot" => Self::Jackpot,
+            "near_miss" | "nearmiss" => Self::NearMiss,
+            _ => Self::Custom,
+        }
+    }
+
+    /// Get audio intensity layer for this reason (1-4)
+    /// Higher = more important = louder tension
+    pub fn base_intensity(&self) -> u8 {
+        match self {
+            Self::Jackpot => 4,    // Highest priority
+            Self::Bonus => 3,
+            Self::Scatter => 2,
+            Self::Wild => 2,
+            Self::NearMiss => 1,
+            Self::Custom => 1,
+        }
+    }
+}
+
+/// Per-reel anticipation data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReelAnticipation {
+    /// Which reel (0-indexed)
+    pub reel_index: u8,
+    /// Tension layer level (1-4, escalates per reel)
+    pub tension_level: u8,
+    /// Progress through anticipation (0.0 - 1.0)
+    pub progress: f32,
+    /// Duration for this reel's anticipation (ms)
+    pub duration_ms: u32,
+}
+
+/// Anticipation info — enhanced for per-reel system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnticipationInfo {
-    /// Which reels had anticipation
+    /// Which reels had anticipation (legacy compatibility)
     pub reels: Vec<u8>,
-    /// Reason (scatter, bonus, etc.)
+    /// Reason enum (new)
+    #[serde(default)]
+    pub reason_type: AnticipationReason,
+    /// Reason string (legacy compatibility)
     pub reason: String,
+    /// Number of trigger symbols detected (e.g., 2 scatters)
+    #[serde(default)]
+    pub trigger_count: u8,
+    /// Positions of trigger symbols [(reel, row), ...]
+    #[serde(default)]
+    pub trigger_positions: Vec<(u8, u8)>,
+    /// Per-reel anticipation data (new)
+    #[serde(default)]
+    pub reel_data: Vec<ReelAnticipation>,
+    /// Total number of reels in the game (for calculating intensity)
+    #[serde(default = "default_total_reels")]
+    pub total_reels: u8,
+}
+
+impl AnticipationInfo {
+    /// Create anticipation info for scatter-based anticipation
+    ///
+    /// When 2+ scatters detected, anticipation triggers on ALL remaining reels.
+    /// Example: Scatters on reel 0,1 → anticipation on reels 2,3,4
+    /// Example: Scatters on reel 0,3 → anticipation on reels 4,5 (if exists)
+    pub fn from_scatter_positions(
+        scatter_positions: Vec<(u8, u8)>,
+        total_reels: u8,
+        base_duration_ms: u32,
+    ) -> Option<Self> {
+        if scatter_positions.len() < 2 {
+            return None; // Need at least 2 scatters for anticipation
+        }
+
+        // Find the rightmost reel with a scatter
+        let last_scatter_reel = scatter_positions.iter()
+            .map(|(reel, _)| *reel)
+            .max()
+            .unwrap_or(0);
+
+        // Anticipation happens on ALL reels AFTER the last scatter
+        let anticipation_reels: Vec<u8> = ((last_scatter_reel + 1)..total_reels).collect();
+
+        if anticipation_reels.is_empty() {
+            return None; // No reels left for anticipation
+        }
+
+        // Build per-reel anticipation data with escalating tension
+        let reel_data: Vec<ReelAnticipation> = anticipation_reels.iter()
+            .enumerate()
+            .map(|(idx, &reel)| {
+                // Tension level escalates: first anticipation reel = L1, second = L2, etc.
+                // Capped at L4 for maximum tension
+                let tension_level = ((idx + 1) as u8).min(4);
+
+                ReelAnticipation {
+                    reel_index: reel,
+                    tension_level,
+                    progress: 0.0,
+                    duration_ms: base_duration_ms,
+                }
+            })
+            .collect();
+
+        Some(Self {
+            reels: anticipation_reels,
+            reason_type: AnticipationReason::Scatter,
+            reason: "scatter".to_string(),
+            trigger_count: scatter_positions.len() as u8,
+            trigger_positions: scatter_positions,
+            reel_data,
+            total_reels,
+        })
+    }
+
+    /// Create anticipation from a generic reason and reel indices
+    pub fn from_reels(
+        reels: Vec<u8>,
+        reason: AnticipationReason,
+        total_reels: u8,
+        base_duration_ms: u32,
+    ) -> Self {
+        let reel_data: Vec<ReelAnticipation> = reels.iter()
+            .enumerate()
+            .map(|(idx, &reel)| {
+                let tension_level = ((idx + 1) as u8).min(4);
+                ReelAnticipation {
+                    reel_index: reel,
+                    tension_level,
+                    progress: 0.0,
+                    duration_ms: base_duration_ms,
+                }
+            })
+            .collect();
+
+        Self {
+            reels: reels.clone(),
+            reason_type: reason,
+            reason: reason.as_str().to_string(),
+            trigger_count: 0,
+            trigger_positions: Vec::new(),
+            reel_data,
+            total_reels,
+        }
+    }
+
+    /// Get tension level for a specific reel (1-4, or 0 if not in anticipation)
+    pub fn tension_level_for_reel(&self, reel_index: u8) -> u8 {
+        self.reel_data.iter()
+            .find(|r| r.reel_index == reel_index)
+            .map(|r| r.tension_level)
+            .unwrap_or(0)
+    }
+
+    /// Check if a specific reel is in anticipation
+    pub fn has_reel(&self, reel_index: u8) -> bool {
+        self.reels.contains(&reel_index)
+    }
+
+    /// Get the first reel in anticipation
+    pub fn first_anticipation_reel(&self) -> Option<u8> {
+        self.reels.first().copied()
+    }
+
+    /// Get the last reel in anticipation
+    pub fn last_anticipation_reel(&self) -> Option<u8> {
+        self.reels.last().copied()
+    }
+
+    /// Get color progression hex for a reel based on its position in anticipation sequence
+    /// Returns: Gold → Orange → Red-Orange → Red
+    pub fn color_for_reel(&self, reel_index: u8) -> &'static str {
+        let tension = self.tension_level_for_reel(reel_index);
+        match tension {
+            1 => "#FFD700", // Gold
+            2 => "#FFA500", // Orange
+            3 => "#FF6347", // Red-Orange (Tomato)
+            4 => "#FF4500", // Red (OrangeRed)
+            _ => "#FFD700", // Default gold
+        }
+    }
+
+    /// Get pitch multiplier for RTPC based on reel position
+    /// Returns semitones to add: R2=+1st, R3=+2st, R4=+3st, R5=+4st
+    pub fn pitch_semitones_for_reel(&self, reel_index: u8) -> f32 {
+        let tension = self.tension_level_for_reel(reel_index);
+        tension as f32
+    }
+
+    /// Get volume multiplier for this reel's tension layer
+    /// L1=0.6, L2=0.7, L3=0.8, L4=0.9
+    pub fn volume_for_reel(&self, reel_index: u8) -> f32 {
+        let tension = self.tension_level_for_reel(reel_index);
+        match tension {
+            1 => 0.6,
+            2 => 0.7,
+            3 => 0.8,
+            4 => 0.9,
+            _ => 0.5,
+        }
+    }
 }
 
 impl SpinResult {
@@ -188,6 +428,8 @@ impl SpinResult {
 
             if has_anticipation {
                 let antic = self.anticipation.as_ref().unwrap();
+                let tension_level = antic.tension_level_for_reel(reel);
+
                 // Anticipation ON happens at current timeline position (before stop)
                 let antic_time = timing.anticipation_start();
                 events.push(StageEvent::new(
@@ -197,6 +439,33 @@ impl SpinResult {
                     },
                     antic_time,
                 ));
+
+                // Generate AnticipationTensionLayer stage for audio escalation
+                // Tension level escalates per reel: L1 → L2 → L3 → L4
+                if tension_level > 0 {
+                    events.push(StageEvent::new(
+                        Stage::AnticipationTensionLayer {
+                            reel_index: reel,
+                            tension_level,
+                            reason: Some(antic.reason.clone()),
+                            progress: 0.0,
+                        },
+                        antic_time,
+                    ));
+
+                    // Also generate progress updates during anticipation (0.0 → 0.5 → 1.0)
+                    let antic_duration = timing.config().anticipation_duration_ms;
+                    let progress_50_time = antic_time + (antic_duration * 0.5);
+                    events.push(StageEvent::new(
+                        Stage::AnticipationTensionLayer {
+                            reel_index: reel,
+                            tension_level,
+                            reason: Some(antic.reason.clone()),
+                            progress: 0.5,
+                        },
+                        progress_50_time,
+                    ));
+                }
 
                 // Anticipation OFF after duration (timeline advances)
                 let antic_end = timing.anticipation_end();

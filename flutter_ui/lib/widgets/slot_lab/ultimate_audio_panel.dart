@@ -1327,26 +1327,44 @@ class _BaseGameLoopSection extends _SectionConfig {
       ],
     ),
     // ─── ANTICIPATION ───
+    // CRITICAL: Stage names MUST match Rust engine output!
+    // Rust generates: anticipation_on, anticipation_off, anticipation_tension_layer
+    // Provider maps to: ANTICIPATION_TENSION_R{reel}_L{level}
+    // Fallback chain: ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_ON
     _GroupConfig(
       id: 'anticipation',
       title: 'Anticipation',
       icon: '⏳',
       slots: [
-        _SlotConfig(stage: 'ANTICIPATION_ON', label: 'Antic Start'),
+        // === BASIC ANTICIPATION (from Rust engine) ===
+        _SlotConfig(stage: 'ANTICIPATION_ON', label: '🎯 Antic Start (Fallback)'),
         _SlotConfig(stage: 'ANTICIPATION_OFF', label: 'Antic End'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION', label: '🎯 Antic Tension (Fallback)'),
+
+        // === PER-REEL TENSION (matches ANTICIPATION_TENSION_R{reel}) ===
+        // These are fallbacks when specific L1/L2/L3/L4 not configured
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1', label: '⚡ Reel 2 Tension'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2', label: '⚡ Reel 3 Tension'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3', label: '⚡ Reel 4 Tension'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4', label: '⚡ Reel 5 Tension'),
+
+        // === PER-REEL + TENSION LEVEL (full specificity) ===
+        // L1 = Low tension (first reel in anticipation)
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1_L1', label: 'R2 Level 1'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L1', label: 'R3 Level 1'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L2', label: 'R3 Level 2'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L1', label: 'R4 Level 1'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L2', label: 'R4 Level 2'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L3', label: 'R4 Level 3'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L1', label: 'R5 Level 1'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L2', label: 'R5 Level 2'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L3', label: 'R5 Level 3'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L4', label: 'R5 Level 4 (MAX)'),
+
+        // === LEGACY/OPTIONAL STAGES ===
         _SlotConfig(stage: 'ANTICIPATION_LOOP', label: 'Antic Loop'),
-        _SlotConfig(stage: 'ANTICIPATION_REEL_0', label: 'Antic Reel 1'),
-        _SlotConfig(stage: 'ANTICIPATION_REEL_1', label: 'Antic Reel 2'),
-        _SlotConfig(stage: 'ANTICIPATION_REEL_2', label: 'Antic Reel 3'),
-        _SlotConfig(stage: 'ANTICIPATION_REEL_3', label: 'Antic Reel 4'),
-        _SlotConfig(stage: 'ANTICIPATION_REEL_4', label: 'Antic Reel 5'),
-        _SlotConfig(stage: 'ANTICIPATION_LOW', label: 'Antic Low'),
-        _SlotConfig(stage: 'ANTICIPATION_MEDIUM', label: 'Antic Medium'),
-        _SlotConfig(stage: 'ANTICIPATION_HIGH', label: 'Antic High'),
-        _SlotConfig(stage: 'ANTICIPATION_HEARTBEAT', label: 'Antic Heartbeat'),
-        _SlotConfig(stage: 'ANTICIPATION_BUILDUP', label: 'Antic Buildup'),
-        _SlotConfig(stage: 'ANTICIPATION_CLIMAX', label: 'Antic Climax'),
-        _SlotConfig(stage: 'ANTICIPATION_RESOLVE', label: 'Antic Resolve'),
+        _SlotConfig(stage: 'ANTICIPATION_HEARTBEAT', label: 'Heartbeat'),
+        _SlotConfig(stage: 'ANTICIPATION_RESOLVE', label: 'Resolve'),
       ],
     ),
     // ─── SPIN END ───
@@ -1357,6 +1375,14 @@ class _BaseGameLoopSection extends _SectionConfig {
       slots: [
         _SlotConfig(stage: 'SPIN_END', label: 'Spin End'),
         _SlotConfig(stage: 'NO_WIN', label: 'No Win'),
+        // P3.3: Per-reel near-miss audio (different sounds for each reel)
+        _SlotConfig(stage: 'NEAR_MISS', label: 'Near Miss (Generic)'),
+        _SlotConfig(stage: 'NEAR_MISS_REEL_0', label: 'Near Miss R1'),
+        _SlotConfig(stage: 'NEAR_MISS_REEL_1', label: 'Near Miss R2'),
+        _SlotConfig(stage: 'NEAR_MISS_REEL_2', label: 'Near Miss R3'),
+        _SlotConfig(stage: 'NEAR_MISS_REEL_3', label: 'Near Miss R4'),
+        _SlotConfig(stage: 'NEAR_MISS_REEL_4', label: 'Near Miss R5'),
+        // Type-specific near-miss
         _SlotConfig(stage: 'NEAR_MISS_SCATTER', label: 'Near Miss Scatter'),
         _SlotConfig(stage: 'NEAR_MISS_BONUS', label: 'Near Miss Bonus'),
         _SlotConfig(stage: 'NEAR_MISS_JACKPOT', label: 'Near Miss JP'),

@@ -56,9 +56,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # GPU Shaders for spectrum analyzer
+  # GPU Shaders for spectrum analyzer and anticipation effects
   shaders:
     - shaders/spectrum.frag
+    - shaders/anticipation_glow.frag
 
   # Assets - add when needed
   # assets:

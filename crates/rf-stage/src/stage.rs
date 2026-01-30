@@ -73,6 +73,21 @@ pub enum Stage {
         reel_index: u8,
     },
 
+    /// Per-reel anticipation tension layer (escalating audio)
+    /// Audio intensity increases with each reel: L1 → L2 → L3 → L4
+    AnticipationTensionLayer {
+        /// Which reel (0-indexed)
+        reel_index: u8,
+        /// Tension layer level (1-4)
+        tension_level: u8,
+        /// Reason for anticipation (scatter, bonus, wild, jackpot)
+        #[serde(default)]
+        reason: Option<String>,
+        /// Progress through this reel's anticipation (0.0 - 1.0)
+        #[serde(default)]
+        progress: f32,
+    },
+
     // ═══════════════════════════════════════════════════════════════════════
     // WIN LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════
@@ -474,9 +489,9 @@ impl Stage {
             | Stage::EvaluateWins
             | Stage::SpinEnd => StageCategory::SpinLifecycle,
 
-            Stage::AnticipationOn { .. } | Stage::AnticipationOff { .. } => {
-                StageCategory::Anticipation
-            }
+            Stage::AnticipationOn { .. }
+            | Stage::AnticipationOff { .. }
+            | Stage::AnticipationTensionLayer { .. } => StageCategory::Anticipation,
 
             Stage::WinPresent { .. }
             | Stage::WinLineShow { .. }
@@ -544,6 +559,7 @@ impl Stage {
             Stage::SpinEnd => "spin_end",
             Stage::AnticipationOn { .. } => "anticipation_on",
             Stage::AnticipationOff { .. } => "anticipation_off",
+            Stage::AnticipationTensionLayer { .. } => "anticipation_tension_layer",
             Stage::WinPresent { .. } => "win_present",
             Stage::WinLineShow { .. } => "win_line_show",
             Stage::RollupStart { .. } => "rollup_start",
@@ -598,6 +614,7 @@ impl Stage {
             Stage::ReelSpinning { .. }
                 | Stage::ReelSpinningStart { .. } // P0.1: Per-reel spin loop
                 | Stage::AnticipationOn { .. }
+                | Stage::AnticipationTensionLayer { .. } // Per-reel tension layer loops
                 | Stage::RollupTick { .. }
                 | Stage::IdleLoop
                 | Stage::JackpotCelebration { .. } // P1.5: Celebration loops until dismissed
@@ -630,6 +647,7 @@ impl Stage {
             "spin_end",
             "anticipation_on",
             "anticipation_off",
+            "anticipation_tension_layer",
             "win_present",
             "win_line_show",
             "rollup_start",
@@ -731,6 +749,12 @@ impl Stage {
             }),
             "anticipation_off" => Some(Stage::AnticipationOff {
                 reel_index: get_u8("reel_index"),
+            }),
+            "anticipation_tension_layer" => Some(Stage::AnticipationTensionLayer {
+                reel_index: get_u8("reel_index"),
+                tension_level: get_u8("tension_level").max(1).min(4),
+                reason: get_string("reason"),
+                progress: data.get("progress").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
             }),
             "win_present" => Some(Stage::WinPresent {
                 win_amount: get_f64("win_amount"),
