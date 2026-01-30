@@ -1,22 +1,42 @@
-# FluxForge Studio — Final Project Status
+# FluxForge Studio — Project Status
 
 **Date:** 2026-01-30
-**Status:** ✅ **100% COMPLETE — PRODUCTION READY**
+**Status:** ✅ **P0 COMPLETE — 85% Functional, Ready for P1 Polish**
 
 ---
 
 ## Executive Summary
 
-FluxForge Studio is now **fully production-ready** with all 139 tasks across all priority levels complete.
+FluxForge Studio has completed **ALL 15 P0 critical blockers**. System is now ~85% functional with solid core and ready for UX polish.
 
-| Category | Tasks | Status | LOC |
-|----------|-------|--------|-----|
-| P0 Critical | 26/26 | ✅ 100% | ~15,000 |
-| P1 High | 35/35 | ✅ 100% | ~18,000 |
-| P2 Medium | 35/35 | ✅ 100% | ~22,000 |
-| P3 Low | 17/17 | ✅ 100% | ~12,000 |
-| P4 Advanced | 26/26 | ✅ 100% | ~12,912 |
-| **TOTAL** | **139/139** | **✅ 100%** | **~79,912** |
+| Category | Tasks | Status | Effort Remaining |
+|----------|-------|--------|------------------|
+| 🔴 P0 Critical | 15/15 | ✅ 100% | — |
+| 🟠 P1 High (UX) | 0/29 | ⏳ 0% | 99-129h |
+| 🟡 P2 Medium | 0/21 | ⏳ 0% | 103-138h |
+| 🟢 P3 Low | 0/12 | ⏳ 0% | 250-340h |
+| **TOTAL** | **15/77** | **19%** | **452-607h** |
+
+**Latest Commits:**
+- `72892510` — P0 Batch 1 (10 tasks, UI + workflow fixes)
+- `0b57d880` — P0 Batch 2 (5 tasks, QA tools + APIs)
+
+---
+
+## P0 Achievements (2026-01-30)
+
+**Implemented by Opus 4.5 + Sonnet 4.5 (hybrid workflow):**
+- ✅ All UI connectivity gaps fixed (Events Folder, Grid sync, Timing sync)
+- ✅ 20× UI overflow bugs resolved
+- ✅ GDD auto-generates symbol + win tier stages
+- ✅ ALE layer selector UI operational
+- ✅ Audio preview respects layer offsets
+- ✅ Custom event handler extension API
+- ✅ Stage→Asset CSV export for QA
+- ✅ Test template library (5 presets)
+- ✅ Stage coverage tracking service
+
+**Total P0 LOC:** ~2,941 (6 new files, 9 modified)
 
 ---
 
