@@ -403,6 +403,10 @@ class _BatchExportPanelState extends State<BatchExportPanel> {
       return;
     }
 
+    // P3.1: Show export preview dialog first
+    final confirmed = await _showExportPreviewDialog(context, eventsToExport, middleware);
+    if (!confirmed) return;
+
     // Pick save location
     final outputPath = await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Select Export Destination',
@@ -704,5 +708,370 @@ class _BatchExportPanelState extends State<BatchExportPanel> {
       case AudioFormat.mp3High:
         return 'MP3 320kbps';
     }
+  }
+
+  /// P3.1: Show Export Preview Dialog before exporting
+  Future<bool> _showExportPreviewDialog(
+    BuildContext context,
+    List<SlotCompositeEvent> eventsToExport,
+    MiddlewareProvider middleware,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => ExportPreviewDialog(
+        events: eventsToExport,
+        platform: _platform,
+        audioFormat: _audioFormat,
+        rtpcCount: middleware.rtpcDefinitions.length,
+        stateGroupCount: middleware.stateGroups.length,
+        switchGroupCount: middleware.switchGroups.length,
+        duckingRuleCount: middleware.duckingRules.length,
+      ),
+    );
+    return result ?? false;
+  }
+}
+
+/// P3.1: Export Preview Dialog
+/// Shows what will be exported before the actual export
+class ExportPreviewDialog extends StatelessWidget {
+  final List<SlotCompositeEvent> events;
+  final ExportPlatform platform;
+  final AudioFormat audioFormat;
+  final int rtpcCount;
+  final int stateGroupCount;
+  final int switchGroupCount;
+  final int duckingRuleCount;
+
+  const ExportPreviewDialog({
+    super.key,
+    required this.events,
+    required this.platform,
+    required this.audioFormat,
+    required this.rtpcCount,
+    required this.stateGroupCount,
+    required this.switchGroupCount,
+    required this.duckingRuleCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Collect all unique audio files
+    final audioFiles = <String>{};
+    int eventsWithAudio = 0;
+    int eventsWithoutAudio = 0;
+
+    for (final event in events) {
+      if (event.layers.isEmpty) {
+        eventsWithoutAudio++;
+      } else {
+        eventsWithAudio++;
+        for (final layer in event.layers) {
+          if (layer.audioPath.isNotEmpty) {
+            audioFiles.add(layer.audioPath);
+          }
+        }
+      }
+    }
+
+    final hasWarnings = eventsWithoutAudio > 0;
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1A1A22),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: Row(
+        children: [
+          Icon(Icons.preview, color: FluxForgeTheme.accentBlue, size: 24),
+          const SizedBox(width: 10),
+          const Text('Export Preview', style: TextStyle(fontSize: 16, color: Colors.white)),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Summary section with donut chart
+              _buildSummaryWithDonut(eventsWithAudio, eventsWithoutAudio, audioFiles.length),
+              const SizedBox(height: 16),
+              const Divider(color: Colors.white12),
+              const SizedBox(height: 16),
+
+              // Breakdown
+              _buildBreakdownSection(),
+              const SizedBox(height: 16),
+              const Divider(color: Colors.white12),
+              const SizedBox(height: 16),
+
+              // Warnings (if any)
+              if (hasWarnings) ...[
+                _buildWarningsSection(eventsWithoutAudio),
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white12),
+                const SizedBox(height: 16),
+              ],
+
+              // Audio files list
+              _buildAudioFilesList(audioFiles),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('Cancel', style: TextStyle(color: Colors.white54)),
+        ),
+        ElevatedButton.icon(
+          onPressed: () => Navigator.of(context).pop(true),
+          icon: const Icon(Icons.file_download, size: 18),
+          label: const Text('Export'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: FluxForgeTheme.accentGreen,
+            foregroundColor: Colors.black,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryWithDonut(int withAudio, int withoutAudio, int audioFileCount) {
+    final total = withAudio + withoutAudio;
+    final completionPercent = total > 0 ? (withAudio / total * 100).round() : 0;
+
+    return Row(
+      children: [
+        // Donut chart
+        SizedBox(
+          width: 80,
+          height: 80,
+          child: CustomPaint(
+            painter: _DonutChartPainter(
+              segments: [
+                _DonutSegment(value: withAudio.toDouble(), color: FluxForgeTheme.accentGreen),
+                _DonutSegment(value: withoutAudio.toDouble(), color: FluxForgeTheme.accentOrange),
+              ],
+              centerText: '$completionPercent%',
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Stats
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('$total Events', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Container(width: 10, height: 10, decoration: BoxDecoration(color: FluxForgeTheme.accentGreen, shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Text('$withAudio with audio', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Container(width: 10, height: 10, decoration: BoxDecoration(color: FluxForgeTheme.accentOrange, shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Text('$withoutAudio without audio', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text('$audioFileCount unique audio files', style: TextStyle(fontSize: 10, color: Colors.white38)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBreakdownSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('EXPORT CONTENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white54, letterSpacing: 1)),
+        const SizedBox(height: 10),
+        _buildBreakdownRow(Icons.event, 'Events', events.length),
+        _buildBreakdownRow(Icons.tune, 'RTPCs', rtpcCount),
+        _buildBreakdownRow(Icons.layers, 'State Groups', stateGroupCount),
+        _buildBreakdownRow(Icons.toggle_on, 'Switch Groups', switchGroupCount),
+        _buildBreakdownRow(Icons.volume_down, 'Ducking Rules', duckingRuleCount),
+      ],
+    );
+  }
+
+  Widget _buildBreakdownRow(IconData icon, String label, int count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: Colors.white38),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+          const Spacer(),
+          Text('$count', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'monospace')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWarningsSection(int missingCount) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.accentOrange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: FluxForgeTheme.accentOrange.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber, color: FluxForgeTheme.accentOrange, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$missingCount events have no audio assigned',
+              style: TextStyle(fontSize: 11, color: FluxForgeTheme.accentOrange),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAudioFilesList(Set<String> audioFiles) {
+    final sortedFiles = audioFiles.toList()..sort();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('AUDIO FILES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white54, letterSpacing: 1)),
+            const Spacer(),
+            Text('${audioFiles.length} files', style: const TextStyle(fontSize: 10, color: Colors.white38)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          constraints: const BoxConstraints(maxHeight: 150),
+          decoration: BoxDecoration(
+            color: const Color(0xFF12121A),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: sortedFiles.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text('No audio files', style: TextStyle(fontSize: 10, color: Colors.white38)),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: sortedFiles.length,
+                  itemBuilder: (ctx, i) {
+                    final path = sortedFiles[i];
+                    final fileName = path.split('/').last;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      child: Row(
+                        children: [
+                          Icon(Icons.audiotrack, size: 12, color: FluxForgeTheme.accentBlue),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(fileName, style: const TextStyle(fontSize: 10, color: Colors.white70), overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+/// P3.2: Donut Chart Painter for progress visualization
+class _DonutSegment {
+  final double value;
+  final Color color;
+  const _DonutSegment({required this.value, required this.color});
+}
+
+class _DonutChartPainter extends CustomPainter {
+  final List<_DonutSegment> segments;
+  final String centerText;
+  final double strokeWidth;
+
+  _DonutChartPainter({
+    required this.segments,
+    required this.centerText,
+    this.strokeWidth = 10,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+
+    // Draw background arc
+    final bgPaint = Paint()
+      ..color = Colors.white.withOpacity(0.05)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // Calculate total
+    final total = segments.fold<double>(0, (sum, s) => sum + s.value);
+    if (total == 0) return;
+
+    // Draw segments
+    double startAngle = -90 * (3.14159 / 180); // Start from top
+    for (final segment in segments) {
+      if (segment.value <= 0) continue;
+
+      final sweepAngle = (segment.value / total) * 2 * 3.14159;
+      final paint = Paint()
+        ..color = segment.color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle - 0.05, // Small gap between segments
+        false,
+        paint,
+      );
+
+      startAngle += sweepAngle;
+    }
+
+    // Draw center text
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: centerText,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    textPainter.paint(
+      canvas,
+      center - Offset(textPainter.width / 2, textPainter.height / 2),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutChartPainter oldDelegate) {
+    return oldDelegate.segments != segments || oldDelegate.centerText != centerText;
   }
 }

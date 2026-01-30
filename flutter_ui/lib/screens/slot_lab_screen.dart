@@ -92,7 +92,9 @@ import '../widgets/slot_lab/game_model_editor.dart';
 import '../widgets/slot_lab/scenario_editor.dart';
 import '../widgets/slot_lab/gdd_import_panel.dart';
 import '../services/gdd_import_service.dart'; // GddSymbol, SymbolTier
-import '../controllers/slot_lab/lower_zone_controller.dart';
+import '../widgets/lower_zone/slotlab_lower_zone_controller.dart';
+import '../widgets/lower_zone/slotlab_lower_zone_widget.dart';
+import '../widgets/lower_zone/lower_zone_types.dart' show SlotLabSuperTab;
 import '../widgets/slot_lab/lower_zone/command_builder_panel.dart';
 import '../widgets/slot_lab/lower_zone/event_list_panel.dart';
 import '../widgets/slot_lab/lower_zone/bus_meters_panel.dart';
@@ -687,8 +689,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   double _bottomPanelHeight = 280.0;
   bool _bottomPanelCollapsed = false;
 
-  // Lower Zone Controller (new unified bottom panel system)
-  late final LowerZoneController _lowerZoneController;
+  // Lower Zone Controller (new unified bottom panel system with super-tabs)
+  late final SlotLabLowerZoneController _lowerZoneController;
 
   // Fullscreen preview mode
   bool _isPreviewMode = false;
@@ -796,9 +798,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   void initState() {
     super.initState();
 
-    // Initialize Lower Zone Controller for unified bottom panel
+    // Initialize Lower Zone Controller for unified bottom panel with super-tabs
     // NOTE: Listener is added AFTER restore completes to prevent overwriting persisted state
-    _lowerZoneController = LowerZoneController();
+    _lowerZoneController = SlotLabLowerZoneController();
 
     _initializeTracks();
     _loadAudioPool();
@@ -1027,77 +1029,23 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     debugPrint('[SlotLab] Synced ${_compositeEvents.length} events from MiddlewareProvider (+ EventRegistry + TrackManager)');
   }
 
-  /// Callback when LowerZoneController changes (persist tab state)
+  /// Callback when SlotLabLowerZoneController changes (persist tab state)
   void _onLowerZoneChanged() {
     debugPrint('[SlotLab] _onLowerZoneChanged: mounted=$mounted, hasProvider=$_hasSlotLabProvider, restoreComplete=$_lowerZoneRestoreComplete');
-    debugPrint('[SlotLab] _onLowerZoneChanged: activeTab=${_lowerZoneController.activeTab}');
+    debugPrint('[SlotLab] _onLowerZoneChanged: superTab=${_lowerZoneController.superTab}');
     // CRITICAL: Don't persist until restore is complete, otherwise we overwrite saved state
     if (!mounted || !_hasSlotLabProvider || !_lowerZoneRestoreComplete) {
       debugPrint('[SlotLab] _onLowerZoneChanged: SKIPPING persist (conditions not met)');
       return;
     }
     // Persist lower zone state to provider (survives screen switches)
-    debugPrint('[SlotLab] _onLowerZoneChanged: PERSISTING tab=${_lowerZoneController.activeTab.index}');
-    _slotLabProvider.setLowerZoneTabIndex(_lowerZoneController.activeTab.index);
+    debugPrint('[SlotLab] _onLowerZoneChanged: PERSISTING superTab=${_lowerZoneController.superTab.index}');
+    _slotLabProvider.setLowerZoneTabIndex(_lowerZoneController.superTab.index);
     _slotLabProvider.setLowerZoneExpanded(_lowerZoneController.isExpanded);
     _slotLabProvider.setLowerZoneHeight(_lowerZoneController.height);
   }
 
-  /// Map LowerZoneTab to _BottomPanelTab
-  /// Returns null for tabs that don't have a direct mapping
-  /// Map LowerZoneTab to _BottomPanelTab (V6 layout)
-  _BottomPanelTab? _lowerZoneTabToBottomTab(LowerZoneTab tab) {
-    switch (tab) {
-      case LowerZoneTab.timeline:
-        return _BottomPanelTab.timeline;
-      case LowerZoneTab.commandBuilder:
-        return null; // Now in [+] menu, opens as dialog
-      case LowerZoneTab.eventList:
-        return _BottomPanelTab.events; // V6: eventList merged into events
-      case LowerZoneTab.meters:
-        return _BottomPanelTab.meters;
-      // DSP panels don't map to _BottomPanelTab
-      case LowerZoneTab.dspCompressor:
-      case LowerZoneTab.dspLimiter:
-      case LowerZoneTab.dspGate:
-      case LowerZoneTab.dspReverb:
-        return null;
-    }
-  }
-
-  /// Map _BottomPanelTab to LowerZoneTab (V6 layout)
-  /// Returns null for tabs that don't need persistence
-  LowerZoneTab? _bottomTabToLowerZoneTab(_BottomPanelTab tab) {
-    switch (tab) {
-      case _BottomPanelTab.timeline:
-        return LowerZoneTab.timeline;
-      case _BottomPanelTab.events:
-        return LowerZoneTab.eventList; // V6: events maps to legacy eventList
-      case _BottomPanelTab.meters:
-        return LowerZoneTab.meters;
-      default:
-        return null; // Other tabs not persisted via LowerZoneController
-    }
-  }
-
-  /// Set bottom tab with persistence and LowerZoneController sync
-  void _setBottomTab(_BottomPanelTab tab) {
-    _selectedBottomTab = tab;
-    _bottomPanelCollapsed = false;
-
-    // Persist ALL tabs directly to provider (not just LowerZoneController's 4 tabs)
-    if (_hasSlotLabProvider && _lowerZoneRestoreComplete) {
-      debugPrint('[SlotLab] _setBottomTab: PERSISTING tab=${tab.index} (${tab.name})');
-      _slotLabProvider.setLowerZoneTabIndex(tab.index);
-      _slotLabProvider.setLowerZoneExpanded(true);
-    }
-
-    // Also sync to LowerZoneController for keyboard shortcuts (if applicable)
-    final lowerZoneTab = _bottomTabToLowerZoneTab(tab);
-    if (lowerZoneTab != null) {
-      _lowerZoneController.setTab(lowerZoneTab);
-    }
-  }
+  // Legacy mapping functions removed — now using SlotLabLowerZoneWidget with super-tabs
 
   /// Restore state from provider (survives screen switches)
   void _restorePersistedState() {
@@ -1157,30 +1105,23 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       final provider = _slotLabProvider;
 
       // Restore lower zone tab state (survives screen switches)
-      // NOTE: We persist ALL 13 _BottomPanelTab values, not just the 4 LowerZoneTab values
+      // NOTE: We persist SlotLabSuperTab index (0-4: stages, events, mix, dsp, bake)
       final tabIndex = provider.persistedLowerZoneTabIndex;
       debugPrint('[SlotLab] Provider persistedLowerZoneTabIndex=$tabIndex');
-      debugPrint('[SlotLab] Current _selectedBottomTab BEFORE restore: $_selectedBottomTab');
+      debugPrint('[SlotLab] Current superTab BEFORE restore: ${_lowerZoneController.superTab}');
 
-      if (tabIndex >= 0 && tabIndex < _BottomPanelTab.values.length) {
-        // Directly restore _selectedBottomTab from persisted index
-        _selectedBottomTab = _BottomPanelTab.values[tabIndex];
-        _bottomPanelCollapsed = !provider.persistedLowerZoneExpanded;
-        _bottomPanelHeight = provider.persistedLowerZoneHeight;
-
-        debugPrint('[SlotLab] ✅ Restored _selectedBottomTab to $_selectedBottomTab (index=$tabIndex)');
-
-        // Also sync LowerZoneController for the 4 tabs it manages (for keyboard shortcuts)
-        final lowerZoneTab = _bottomTabToLowerZoneTab(_selectedBottomTab);
-        if (lowerZoneTab != null) {
-          _lowerZoneController.fromJson({
-            'activeTab': lowerZoneTab.index,
-            'isExpanded': provider.persistedLowerZoneExpanded,
-            'height': provider.persistedLowerZoneHeight,
-          });
+      if (tabIndex >= 0 && tabIndex < SlotLabSuperTab.values.length) {
+        // Restore super-tab via controller
+        final superTab = SlotLabSuperTab.values[tabIndex];
+        _lowerZoneController.setSuperTab(superTab);
+        if (!provider.persistedLowerZoneExpanded) {
+          _lowerZoneController.collapse();
         }
+        _lowerZoneController.setHeight(provider.persistedLowerZoneHeight);
+
+        debugPrint('[SlotLab] ✅ Restored superTab to $superTab (index=$tabIndex)');
       } else {
-        debugPrint('[SlotLab] ⚠️ tabIndex $tabIndex out of range (max=${_BottomPanelTab.values.length - 1}), skipping restore');
+        debugPrint('[SlotLab] ⚠️ tabIndex $tabIndex out of range (max=${SlotLabSuperTab.values.length - 1}), skipping restore');
       }
 
       // NOW add listener and set flag - after restore is complete
@@ -2151,7 +2092,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       );
     }
 
-    return ChangeNotifierProvider<LowerZoneController>.value(
+    return ChangeNotifierProvider<SlotLabLowerZoneController>.value(
       value: _lowerZoneController,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -2266,6 +2207,31 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
                               debugPrint('[SlotLab]   ✅ Event registered for stage: $stage');
                               debugPrint('[SlotLab]   ✅ CompositeEvent added to Middleware: $eventId');
+
+                              // SL-INT-P1.1: Show SnackBar confirmation
+                              if (mounted) {
+                                final fileName = audioPath.split('/').last;
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        const Icon(Icons.audiotrack, color: Color(0xFF40FF90), size: 16),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Assigned "$fileName" → ${stage.replaceAll("_", " ")}',
+                                            style: const TextStyle(fontSize: 11),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: FluxForgeTheme.bgMid,
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(milliseconds: 1500),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                );
+                              }
                             },
                             onAudioClear: (stage) {
                               debugPrint('[SlotLab] 🗑️ UltimateAudioPanel.onAudioClear: $stage');
@@ -2327,9 +2293,17 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                 ),
               ),
 
-              // Bottom Panel
-              if (!_bottomPanelCollapsed) _buildBottomPanel(),
-              _buildBottomPanelHeader(),
+              // Bottom Panel - SlotLabLowerZoneWidget with super-tabs
+              SlotLabLowerZoneWidget(
+                controller: _lowerZoneController,
+                slotLabProvider: _slotLabProvider,
+                onSpin: _handleSpin,
+                onForceOutcome: _handleForceOutcome,
+                onAudioDropped: _handleAudioDroppedOnStage,
+                onPause: () => _slotLabProvider.stopStagePlayback(),
+                onResume: () {}, // Resume not implemented
+                onStop: () => _slotLabProvider.stopStagePlayback(),
+              ),
             ],
           ),
 
@@ -2685,47 +2659,36 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         HardwareKeyboard.instance.isShiftPressed;
 
     if (isCtrlShift) {
-      // V6 Keyboard shortcuts for Lower Zone tabs
+      // V6 Keyboard shortcuts for Lower Zone tabs (now using super-tabs: 1-5)
+      // STAGES=1, EVENTS=2, MIX=3, DSP=4, BAKE=5
 
-      // Ctrl+Shift+T = Timeline tab
-      if (key == LogicalKeyboardKey.keyT) {
-        setState(() => _setBottomTab(_BottomPanelTab.timeline));
+      // Ctrl+Shift+1 = STAGES tab
+      if (key == LogicalKeyboardKey.digit1) {
+        _lowerZoneController.setSuperTab(SlotLabSuperTab.stages);
         return KeyEventResult.handled;
       }
 
-      // Ctrl+Shift+E = Events tab
-      if (key == LogicalKeyboardKey.keyE) {
-        setState(() => _setBottomTab(_BottomPanelTab.events));
+      // Ctrl+Shift+2 = EVENTS tab
+      if (key == LogicalKeyboardKey.digit2) {
+        _lowerZoneController.setSuperTab(SlotLabSuperTab.events);
         return KeyEventResult.handled;
       }
 
-      // Ctrl+Shift+X = Mixer tab
-      if (key == LogicalKeyboardKey.keyX) {
-        setState(() => _setBottomTab(_BottomPanelTab.mixer));
+      // Ctrl+Shift+3 = MIX tab
+      if (key == LogicalKeyboardKey.digit3) {
+        _lowerZoneController.setSuperTab(SlotLabSuperTab.mix);
         return KeyEventResult.handled;
       }
 
-      // Ctrl+Shift+A = Music/ALE tab
-      if (key == LogicalKeyboardKey.keyA) {
-        setState(() => _setBottomTab(_BottomPanelTab.musicAle));
+      // Ctrl+Shift+4 = DSP tab
+      if (key == LogicalKeyboardKey.digit4) {
+        _lowerZoneController.setSuperTab(SlotLabSuperTab.dsp);
         return KeyEventResult.handled;
       }
 
-      // Ctrl+Shift+M = Meters tab
-      if (key == LogicalKeyboardKey.keyM) {
-        setState(() => _setBottomTab(_BottomPanelTab.meters));
-        return KeyEventResult.handled;
-      }
-
-      // Ctrl+Shift+D = Debug tab
-      if (key == LogicalKeyboardKey.keyD) {
-        setState(() => _setBottomTab(_BottomPanelTab.debug));
-        return KeyEventResult.handled;
-      }
-
-      // Ctrl+Shift+G = Engine tab
-      if (key == LogicalKeyboardKey.keyG) {
-        setState(() => _setBottomTab(_BottomPanelTab.engine));
+      // Ctrl+Shift+5 = BAKE tab
+      if (key == LogicalKeyboardKey.digit5) {
+        _lowerZoneController.setSuperTab(SlotLabSuperTab.bake);
         return KeyEventResult.handled;
       }
 
@@ -8211,6 +8174,50 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _lastDragStatus = '✅ Event: ${event.name}';
       _lastDragStatusTime = DateTime.now();
     });
+
+    // SL-INT-P1.1: Show SnackBar confirmation for visual feedback loop
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Color(0xFF40FF90), size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Event Created: ${event.name}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      'Stage: ${event.triggerStages.join(", ")} → ${event.layers.isNotEmpty ? event.layers.first.audioPath.split("/").last : "No audio"}',
+                      style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.7)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: FluxForgeTheme.bgMid,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          action: SnackBarAction(
+            label: 'EDIT',
+            textColor: const Color(0xFF4A9EFF),
+            onPressed: () {
+              // Select the event in Events panel
+              _middleware.selectCompositeEvent(event.id);
+              // Switch to Events super-tab
+              _lowerZoneController.setSuperTab(SlotLabSuperTab.events);
+            },
+          ),
+        ),
+      );
+    }
   }
 
   /// Handle batch import events from GroupBatchImportPanel
@@ -8289,6 +8296,38 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _lastDragStatus = '✅ Batch: ${expandedSpecs.length} events created';
       _lastDragStatusTime = DateTime.now();
     });
+
+    // SL-INT-P1.1: Show SnackBar confirmation for batch import
+    if (mounted && expandedSpecs.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.playlist_add_check, color: Color(0xFF40FF90), size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Batch Import: ${expandedSpecs.length} events created',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: FluxForgeTheme.bgMid,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          action: SnackBarAction(
+            label: 'VIEW',
+            textColor: const Color(0xFF4A9EFF),
+            onPressed: () {
+              // Switch to Events super-tab to see created events
+              _lowerZoneController.setSuperTab(SlotLabSuperTab.events);
+            },
+          ),
+        ),
+      );
+    }
   }
 
   /// Expand generic stages to per-index events with stereo panning
@@ -8880,6 +8919,69 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // Fallback to mock spin
     _handleMockSpin();
+  }
+
+  /// Handle forced outcome from Lower Zone widget
+  void _handleForceOutcome(String outcome) {
+    if (_isSpinning) return;
+
+    // Map outcome string to ForcedOutcome enum
+    ForcedOutcome? forcedOutcome;
+    switch (outcome.toLowerCase()) {
+      case 'lose':
+        forcedOutcome = ForcedOutcome.lose;
+        break;
+      case 'smallwin':
+      case 'small_win':
+        forcedOutcome = ForcedOutcome.smallWin;
+        break;
+      case 'bigwin':
+      case 'big_win':
+        forcedOutcome = ForcedOutcome.bigWin;
+        break;
+      case 'megawin':
+      case 'mega_win':
+        forcedOutcome = ForcedOutcome.megaWin;
+        break;
+      case 'epicwin':
+      case 'epic_win':
+        forcedOutcome = ForcedOutcome.epicWin;
+        break;
+      case 'freespins':
+      case 'free_spins':
+        forcedOutcome = ForcedOutcome.freeSpins;
+        break;
+      case 'jackpotgrand':
+      case 'jackpot_grand':
+        forcedOutcome = ForcedOutcome.jackpotGrand;
+        break;
+      case 'nearmiss':
+      case 'near_miss':
+        forcedOutcome = ForcedOutcome.nearMiss;
+        break;
+      case 'cascade':
+        forcedOutcome = ForcedOutcome.cascade;
+        break;
+      case 'ultrawin':
+      case 'ultra_win':
+        forcedOutcome = ForcedOutcome.ultraWin;
+        break;
+      default:
+        forcedOutcome = null; // Random outcome
+    }
+
+    if (_engineInitialized) {
+      _handleEngineSpin(forcedOutcome: forcedOutcome);
+    } else {
+      _handleMockSpin();
+    }
+  }
+
+  /// Handle audio dropped on stage from Lower Zone widget
+  void _handleAudioDroppedOnStage(dynamic audio, String stageType) {
+    debugPrint('[SlotLab] Audio dropped on stage: $stageType, audio: $audio');
+    // This is handled by the stage trace widget in the lower zone
+    // The actual drop logic is in SlotLabLowerZoneWidget
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -11259,7 +11361,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                   };
 
                   return InkWell(
-                    onTap: () => setState(() => _setBottomTab(tab)),
+                    onTap: () => setState(() => _selectedBottomTab = tab),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
@@ -11883,7 +11985,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       onModelChanged: (model) {
         _slotLabProvider.updateGameModel(model);
       },
-      onClose: () => setState(() => _setBottomTab(_BottomPanelTab.timeline)),
+      onClose: () => _lowerZoneController.setSuperTab(SlotLabSuperTab.stages),
     );
   }
 
@@ -11895,7 +11997,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       onScenarioChanged: (scenario) {
         _slotLabProvider.registerScenarioFromDemoScenario(scenario);
       },
-      onClose: () => setState(() => _setBottomTab(_BottomPanelTab.timeline)),
+      onClose: () => _lowerZoneController.setSuperTab(SlotLabSuperTab.stages),
     );
   }
 
@@ -11910,7 +12012,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           ),
         );
       },
-      onClose: () => setState(() => _setBottomTab(_BottomPanelTab.timeline)),
+      onClose: () => _lowerZoneController.setSuperTab(SlotLabSuperTab.stages),
     );
   }
 

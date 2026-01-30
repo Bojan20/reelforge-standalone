@@ -4,6 +4,470 @@ This file tracks significant architectural changes and milestones.
 
 ---
 
+## 2026-01-30 — Branding Customization (P4.18) 🎨
+
+**Type:** Feature Implementation
+**Impact:** SlotLab White-labeling & Marketing
+
+### Summary
+
+Implemented **Branding Customization** system for white-labeling SlotLab displays. Provides complete theming with colors, fonts, text labels, and asset management. Includes 5 built-in presets and support for custom presets.
+
+### Architecture
+
+**3-Component System:**
+
+| Component | File | LOC | Description |
+|-----------|------|-----|-------------|
+| **Models** | `branding_models.dart` | ~527 | BrandingConfig, Colors, Fonts, Assets, Text |
+| **Service** | `branding_service.dart` | ~277 | CRUD, apply/revert, persistence, import/export |
+| **UI Widgets** | `branding_panel.dart` | ~927 | Preset selector, color editor, text editor, settings |
+
+### Key Features
+
+**Branding Colors:**
+- Primary, Secondary, Accent colors
+- Background, Surface colors
+- Text, Success, Warning, Error colors
+
+**Branding Text:**
+- App name, Company name, Slogan
+- Copyright notice
+- Button labels (Spin, Auto, Turbo, Balance, Bet, Win)
+
+**Branding Fonts:**
+- Title, Body, Mono font families
+- Configurable font sizes
+
+**Branding Assets:**
+- Logo, Icon, Splash paths
+- Background, Watermark images
+- Watermark opacity control
+
+**Built-in Presets (5):**
+- FluxForge Default — Standard blue theme
+- Dark Gold Casino — Gold/black luxury theme
+- Neon Vegas — Pink/cyan neon theme
+- Classic Red — Red/gold traditional casino theme
+- Ocean Blue — Blue/cyan underwater theme
+
+**Service Features:**
+- Create, update, delete custom presets
+- Apply/revert branding
+- Duplicate presets
+- Export/import JSON
+- SharedPreferences persistence
+
+### Files Created
+
+- `flutter_ui/lib/models/branding_models.dart` — ~527 LOC
+- `flutter_ui/lib/services/branding_service.dart` — ~277 LOC
+- `flutter_ui/lib/widgets/branding/branding_panel.dart` — ~927 LOC
+
+**Total:** ~1,730 LOC
+
+---
+
+## 2026-01-30 — Demo Mode Auto-Play (P4.17) 🎰
+
+**Type:** Feature Implementation
+**Impact:** SlotLab QA, Demos & Marketing
+
+### Summary
+
+Implemented **Demo Mode Auto-Play** for automatic spin sequences in SlotLab. Provides continuous auto-spin, scripted demo sequences with forced outcomes, pause/resume/stop controls, and comprehensive statistics tracking.
+
+### Architecture
+
+**2-Component System:**
+
+| Component | File | LOC | Description |
+|-----------|------|-----|-------------|
+| **Service** | `demo_mode_service.dart` | ~480 | Demo mode state machine, sequences, config, statistics |
+| **UI Widgets** | `demo_mode_panel.dart` | ~400 | Demo button, status badge, control panel, quick menu |
+
+### Key Features
+
+**Demo Sequences:**
+- Quick Showcase — Mix of different win types
+- Big Wins Showcase — Big/Mega/Epic/Ultra wins progression
+- Features Showcase — Free spins, cascades, jackpots
+- Continuous Random — Random spins for RTP testing
+
+**Controls:**
+- Start/Stop — Start auto-spin or stop sequence
+- Pause/Resume — Pause without losing position
+- Sequence Selector — Choose built-in or custom sequences
+- Loop Configuration — Single run or infinite loops
+
+**Statistics Tracking:**
+- Total spins count
+- Win count and win rate
+- Big wins count
+- Bonus triggers count
+- Total bet/win amounts
+- Real-time RTP calculation
+- Session play time
+
+**DemoModeConfig:**
+- Default spin interval (3000ms)
+- Big win pause duration (5000ms)
+- Auto-resume after win
+- Sound enabled toggle
+- UI overlay visibility
+
+### Files Created
+
+- `flutter_ui/lib/services/demo_mode_service.dart` — ~480 LOC
+- `flutter_ui/lib/widgets/demo_mode/demo_mode_panel.dart` — ~400 LOC
+
+**Total:** ~880 LOC
+
+---
+
+## 2026-01-30 — Screenshot Mode (P4.16) 📸
+
+**Type:** Feature Implementation
+**Impact:** SlotLab QA & Marketing
+
+### Summary
+
+Implemented **Screenshot Mode** for capturing high-quality screenshots of SlotLab displays. Provides configurable format, quality settings, and a full screenshot mode overlay for professional captures.
+
+### Architecture
+
+**2-Component System:**
+
+| Component | File | LOC | Description |
+|-----------|------|-----|-------------|
+| **Service** | `screenshot_service.dart` | ~280 | Capture logic, config, history, file management |
+| **UI Widgets** | `screenshot_controls.dart` | ~270 | Button, settings panel, history, mode overlay |
+
+### Key Features
+
+**Screenshot Formats:**
+- PNG (lossless, default)
+- JPEG (lossy, smaller files)
+
+**Quality Presets:**
+- Low (1.0x pixel ratio)
+- Medium (1.5x pixel ratio)
+- High (2.0x pixel ratio, default)
+- Maximum (3.0x pixel ratio)
+
+**UI Components:**
+- `ScreenshotButton` — Quick capture button with tooltip
+- `ScreenshotSettingsPanel` — Format, quality, toggle settings
+- `ScreenshotHistoryPanel` — Thumbnails of recent captures
+- `ScreenshotModeOverlay` — Full-screen capture mode
+
+**Service Features:**
+- Auto-naming with timestamps
+- Cross-platform screenshots directory
+- History tracking (last 50 screenshots)
+- Open folder in system file browser
+- Delete screenshot management
+
+### Keyboard Shortcut
+
+- **⌘+Shift+S** (Mac) / **Ctrl+Shift+S** (Windows/Linux) — Capture screenshot
+
+### Files Created
+
+- `flutter_ui/lib/services/screenshot_service.dart` — ~280 LOC
+- `flutter_ui/lib/widgets/screenshot/screenshot_controls.dart` — ~270 LOC
+
+**Total:** ~550 LOC
+
+---
+
+## 2026-01-30 — Edge Case Presets (P4.14) 🧪
+
+**Type:** Feature Implementation
+**Impact:** SlotLab Testing & QA
+
+### Summary
+
+Implemented **Edge Case Presets** system for quick testing of slot game edge cases. Provides predefined configurations for testing betting limits, balance scenarios, feature states, stress testing, and audio conditions.
+
+### Architecture
+
+**3-Component System:**
+
+| Component | File | LOC | Description |
+|-----------|------|-----|-------------|
+| **Models** | `edge_case_models.dart` | ~450 | EdgeCasePreset, EdgeCaseConfig, BuiltInEdgeCasePresets |
+| **Service** | `edge_case_service.dart` | ~280 | Preset CRUD, apply presets, SharedPreferences storage |
+| **UI Widgets** | `edge_case_quick_menu.dart` | ~450 | Quick menu, active badge, full presets panel |
+
+### Key Features
+
+**Edge Case Categories:**
+- **Betting:** Max bet, min bet, custom amounts
+- **Balance:** Zero balance, low balance, high balance, negative scenarios
+- **Feature:** Free spins active, bonus active, hold & win, cascades
+- **Stress:** Rapid spins, many reels, extreme volatility
+- **Audio:** Music off, SFX off, low volume
+- **Visual:** Various visual edge cases
+- **Custom:** User-defined presets
+
+**Built-in Presets (16+):**
+- Max Bet Spin, Min Bet Spin
+- Zero Balance, Low Balance (<10x bet), Negative Balance
+- Free Spins Active, Bonus Game Active, Hold & Win Active
+- Cascade Chain (10 cascades), High Multiplier (50x)
+- Rapid Fire Mode, Stress Test (100 spins)
+- Music Muted, All Audio Off
+
+**UI Components:**
+- `EdgeCaseQuickMenu` — Popup menu for quick preset selection
+- `EdgeCaseActiveBadge` — Shows currently active preset
+- `EdgeCasePresetsPanel` — Full browsing panel with search and categories
+
+**Service Features:**
+- SharedPreferences persistence for custom presets
+- Recent presets history (up to 10)
+- Search by name, description, tags
+- JSON import/export for preset sharing
+
+### Models
+
+```dart
+enum EdgeCaseCategory {
+  betting, balance, feature, stress, audio, visual, custom
+}
+
+class EdgeCaseConfig {
+  // Betting
+  final double? betAmount;
+  final bool? maxBet;
+  final bool? minBet;
+
+  // Balance
+  final double? balance;
+  final bool? zeroBalance;
+  final bool? negativeBalance;
+
+  // Feature
+  final bool? freespinsActive;
+  final bool? bonusActive;
+  final bool? holdWinActive;
+  final int? cascadeCount;
+  final double? multiplier;
+
+  // Audio
+  final bool? musicEnabled;
+  final bool? sfxEnabled;
+  final double? volume;
+
+  // ... more configs
+}
+```
+
+### Integration Points
+
+- **SlotLabProvider:** `setBetAmount()` for bet configuration
+- **NativeFFI:** `setBusMute()` for audio toggles, `setMasterVolume()` for volume
+- **SlotLabScreen:** Quick menu integration in toolbar
+
+### Files Created
+
+- `flutter_ui/lib/models/edge_case_models.dart` — ~450 LOC
+- `flutter_ui/lib/services/edge_case_service.dart` — ~280 LOC
+- `flutter_ui/lib/widgets/edge_case/edge_case_quick_menu.dart` — ~450 LOC
+
+**Total:** ~1,180 LOC
+
+---
+
+## 2026-01-30 — Test Automation API (P4.11) 🧪
+
+**Type:** Feature Implementation
+**Impact:** SlotLab QA & Testing
+
+### Summary
+
+Implemented complete **Test Automation API** for automated testing of SlotLab scenarios. Provides scenario-based testing with assertions, built-in test scenarios, and comprehensive result reporting.
+
+### Architecture
+
+**3-Component System:**
+
+| Component | File | LOC | Description |
+|-----------|------|-----|-------------|
+| **Models** | `test_automation_models.dart` | ~750 | Test scenarios, steps, actions, assertions |
+| **Service** | `test_automation_service.dart` | ~550 | TestRunner, TestScenarioBuilder, TestStorage, TestReportGenerator |
+| **UI Panel** | `test_automation_panel.dart` | ~850 | Scenarios tab, runner tab, results tab, log tab |
+
+### Key Features
+
+**Test Scenarios:**
+- TestScenario with steps, assertions, and categories
+- TestStep combining actions and expected outcomes
+- TestAction (spin, spinForced, wait, setSignal, triggerStage, etc.)
+- TestAssertion with 9 comparison operators
+
+**TestRunner:**
+- Step-by-step execution with callbacks
+- Timeout handling (per-step and per-scenario)
+- Stop/abort support
+- Real-time progress reporting
+
+**Built-in Scenarios (5):**
+- Smoke Test: Basic spin functionality
+- Win Presentation: Win tier verification
+- Audio Events: Stage→audio mapping
+- Forced Outcomes: All outcome types
+- Performance: 100-spin stress test
+
+**TestScenarioBuilder:**
+- Fluent API for test creation
+- Step builder for action/assertion grouping
+- Category and tag support
+
+**TestStorage:**
+- Platform-aware paths
+- JSON serialization
+- Scenario CRUD operations
+- Result history with limit
+
+**TestReportGenerator:**
+- Markdown report generation
+- JSON export
+- CSV export for spreadsheets
+
+### Models
+
+```dart
+enum TestStatus {
+  pending, running, passed, failed, skipped, error, timeout
+}
+
+enum TestCategory {
+  smoke, regression, audio, performance, feature, integration, custom
+}
+
+enum AssertionType {
+  equals, notEquals, greaterThan, lessThan,
+  greaterOrEqual, lessOrEqual, contains, notContains, matches
+}
+
+class TestAssertion {
+  factory TestAssertion.winAmountEquals(double expected);
+  factory TestAssertion.hasWin();
+  factory TestAssertion.stageTriggered(String stage);
+  factory TestAssertion.audioPlayed(String eventId);
+}
+```
+
+### Files Created
+
+- `flutter_ui/lib/models/test_automation_models.dart` — ~750 LOC
+- `flutter_ui/lib/services/test_automation_service.dart` — ~550 LOC
+- `flutter_ui/lib/widgets/test_automation/test_automation_panel.dart` — ~850 LOC
+
+**Total:** ~2,150 LOC
+
+---
+
+## 2026-01-30 — Session Replay System (P4.9) 🎬
+
+**Type:** Feature Implementation
+**Impact:** SlotLab QA & Testing
+
+### Summary
+
+Implemented complete **Session Replay System** for recording and replaying SlotLab sessions with deterministic audio. Enables QA teams to reproduce exact spin sequences for bug verification and regression testing.
+
+### Architecture
+
+**3-Component System:**
+
+| Component | File | LOC | Description |
+|-----------|------|-----|-------------|
+| **Models** | `session_replay_models.dart` | ~600 | Recording state, replay state, session data structures |
+| **Service** | `session_replay_service.dart` | ~700 | Recorder, replay engine, storage, validator |
+| **UI Panel** | `session_replay_panel.dart` | ~850 | Recording controls, session list, replay timeline |
+
+### Key Features
+
+**Recording:**
+- Capture all spin results with full state
+- RNG seed snapshot per spin (via Rust seed logging)
+- Audio event tracking with timing
+- Stage sequence capture
+- Auto-naming with timestamps
+
+**Replay:**
+- 60fps playback loop with smooth interpolation
+- Speed control (0.25x, 0.5x, 1x, 1.5x, 2x, 4x)
+- Seek to any spin position
+- Deterministic RNG restoration
+- Audio re-triggering with original timing
+
+**Storage:**
+- Platform-aware paths (macOS/Windows/Linux)
+- JSON serialization with versioning
+- Session metadata for quick browsing
+- Validation before replay
+
+### Models
+
+```dart
+// Recording state machine
+enum RecordingState { idle, recording, paused }
+
+// Playback speed
+enum ReplaySpeed {
+  quarter(0.25), half(0.5), normal(1.0),
+  oneAndHalf(1.5), twice(2.0), quadruple(4.0)
+}
+
+// Core data structures
+class RecordedSpin { spinIndex, result, seedSnapshot, stageTrace, audioEvents, timestamp }
+class RecordedSession { id, name, gameId, spins, config, statistics, createdAt }
+class ReplayPosition { spinIndex, timeWithinSpin, isPlaying }
+```
+
+### UI Panel
+
+| Section | Features |
+|---------|----------|
+| **Recording Controls** | Start/Stop/Pause, session naming, status indicator |
+| **Session List** | Browse saved sessions, metadata preview, delete |
+| **Replay Timeline** | Visual spin markers, scrubber, current position |
+| **Playback Controls** | Play/Pause, speed selector, seek buttons |
+| **Spin Details** | Current spin info, win amount, stage count |
+
+### Integration Points
+
+- **SlotLabProvider** — Spin results, stage traces
+- **EventRegistry** — Audio event capture and replay
+- **SeedLogEntry** — RNG state capture (via existing Rust FFI)
+- **EventProfilerProvider** — Latency tracking during replay
+
+### Files Created
+
+| File | Location | LOC |
+|------|----------|-----|
+| `session_replay_models.dart` | `flutter_ui/lib/models/` | ~600 |
+| `session_replay_service.dart` | `flutter_ui/lib/services/` | ~700 |
+| `session_replay_panel.dart` | `flutter_ui/lib/widgets/session_replay/` | ~850 |
+
+### Verification
+
+```bash
+flutter analyze
+# Result: No issues found (0 errors, 0 warnings)
+```
+
+### Progress Update
+
+- **P4 Progress:** 5/26 complete (19%)
+- **Overall Progress:** 85% (118/139 tasks)
+
+---
+
 ## 2026-01-30 — Instant Audio Import System ⚡
 
 **Type:** Performance Optimization

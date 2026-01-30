@@ -1436,6 +1436,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
     return GestureDetector(
       onTap: () => middleware.selectCompositeEvent(event.id),
+      // SL-RP-P1.1: Context menu on right-click
+      onSecondaryTapUp: (details) => _showEventContextMenu(context, event, middleware, details.globalPosition),
       child: Container(
         margin: const EdgeInsets.only(bottom: 2),
         padding: const EdgeInsets.all(6),
@@ -1516,6 +1518,174 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// SL-RP-P1.1: Event context menu (duplicate, export, test)
+  void _showEventContextMenu(
+    BuildContext context,
+    SlotCompositeEvent event,
+    MiddlewareProvider middleware,
+    Offset position,
+  ) async {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final result = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromPoints(position, position),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'duplicate',
+          child: Row(
+            children: [
+              Icon(Icons.copy, size: 16, color: LowerZoneColors.slotLabAccent),
+              const SizedBox(width: 8),
+              const Text('Duplicate', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'test',
+          child: Row(
+            children: [
+              Icon(Icons.play_circle, size: 16, color: LowerZoneColors.success),
+              const SizedBox(width: 8),
+              const Text('Test Playback', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'export_json',
+          child: Row(
+            children: [
+              Icon(Icons.code, size: 16, color: LowerZoneColors.textMuted),
+              const SizedBox(width: 8),
+              const Text('Export as JSON', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'export_audio',
+          child: Row(
+            children: [
+              Icon(Icons.audio_file, size: 16, color: LowerZoneColors.textMuted),
+              const SizedBox(width: 8),
+              const Text('Export Audio Bundle', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete, size: 16, color: LowerZoneColors.error),
+              const SizedBox(width: 8),
+              Text('Delete', style: TextStyle(fontSize: 12, color: LowerZoneColors.error)),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (!mounted || result == null) return;
+
+    switch (result) {
+      case 'duplicate':
+        middleware.duplicateCompositeEvent(event.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Duplicated: ${event.name}'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+        break;
+      case 'test':
+        middleware.previewCompositeEvent(event.id);
+        break;
+      case 'export_json':
+        _exportEventAsJson(event);
+        break;
+      case 'export_audio':
+        _exportEventAudioBundle(event);
+        break;
+      case 'delete':
+        _confirmDeleteEvent(context, event, middleware);
+        break;
+    }
+  }
+
+  /// SL-RP-P1.1: Export event as JSON
+  void _exportEventAsJson(SlotCompositeEvent event) {
+    final json = event.toJson();
+    debugPrint('[SlotLab] Event JSON:\n$json');
+    // Copy to clipboard
+    Clipboard.setData(ClipboardData(text: json.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Event JSON copied to clipboard'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// SL-RP-P1.1: Export event audio bundle
+  void _exportEventAudioBundle(SlotCompositeEvent event) {
+    if (event.layers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No audio layers to export')),
+      );
+      return;
+    }
+    // For now just show paths, future: create ZIP bundle
+    final paths = event.layers.map((l) => l.audioPath).join('\n');
+    debugPrint('[SlotLab] Audio paths for ${event.name}:\n$paths');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${event.layers.length} audio file(s) in ${event.name}'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// SL-RP-P1.1: Confirm delete with dialog
+  void _confirmDeleteEvent(BuildContext context, SlotCompositeEvent event, MiddlewareProvider middleware) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: LowerZoneColors.bgMid,
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber, color: LowerZoneColors.error),
+            const SizedBox(width: 8),
+            const Text('Delete Event', style: TextStyle(fontSize: 14)),
+          ],
+        ),
+        content: Text(
+          'Delete "${event.name}"?\n\nThis will remove the event and all its layers.',
+          style: const TextStyle(fontSize: 12),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              middleware.deleteCompositeEvent(event.id);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Deleted: ${event.name}')),
+              );
+            },
+            child: Text('Delete', style: TextStyle(color: LowerZoneColors.error)),
+          ),
+        ],
       ),
     );
   }
