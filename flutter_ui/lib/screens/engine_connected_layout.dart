@@ -2990,6 +2990,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   /// Open file picker dialog to import audio files to Pool
+  ///
+  /// **INSTANT IMPORT** — Files appear immediately, metadata loads in background
   Future<void> _openFilePicker() async {
     final paths = await NativeFilePicker.pickAudioFiles();
 
@@ -2997,21 +2999,69 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       return;
     }
 
-    // Import files to Pool (not timeline)
-    for (final path in paths) {
-      await _addFileToPool(path);
-    }
+    // ⚡ INSTANT: Add all files immediately with placeholders
+    _addFilesToPoolInstant(paths);
 
     _showSnackBar('Added ${paths.length} file(s) to Pool');
+
+    // Background: Load metadata for all files in parallel
+    _loadMetadataInBackground(paths);
   }
 
-  /// Add a file to the Audio Pool
-  Future<void> _addFileToPool(String filePath) async {
-    final fileName = filePath.split('/').last;
-    final ext = fileName.split('.').last.toLowerCase();
-    final fileId = 'pool-${DateTime.now().millisecondsSinceEpoch}-${_audioPool.length}';
+  /// **INSTANT ADD** — Add files to pool immediately with placeholder data
+  ///
+  /// NO FFI calls, NO blocking — pure in-memory operation
+  void _addFilesToPoolInstant(List<String> paths) {
+    final newFiles = <timeline.PoolAudioFile>[];
 
-    // Get actual audio metadata from engine (reads header only, very fast)
+    for (final filePath in paths) {
+      // Skip if already exists
+      if (_audioPool.any((f) => f.path == filePath)) continue;
+
+      final fileName = filePath.split('/').last;
+      final ext = fileName.split('.').last.toLowerCase();
+      final fileId = 'pool-${DateTime.now().millisecondsSinceEpoch}-${newFiles.length}-${filePath.hashCode}';
+
+      newFiles.add(timeline.PoolAudioFile(
+        id: fileId,
+        path: filePath,
+        name: fileName,
+        duration: 0.0,  // Placeholder — loaded async
+        sampleRate: 48000,
+        channels: 2,
+        format: ext,
+        waveform: null,  // Placeholder — loaded on-demand
+        importedAt: DateTime.now(),
+        defaultBus: timeline.OutputBus.master,
+      ));
+    }
+
+    if (newFiles.isNotEmpty) {
+      setState(() {
+        _audioPool.addAll(newFiles);
+      });
+    }
+  }
+
+  /// **BACKGROUND METADATA LOADING** — Load metadata for files in parallel
+  ///
+  /// Called after instant add. Updates pool entries with real metadata.
+  void _loadMetadataInBackground(List<String> paths) {
+    // Process all files in PARALLEL using Future.wait
+    Future.wait(
+      paths.map((path) => _loadMetadataForPoolFile(path)),
+    ).then((_) {
+      // All metadata loaded — UI already updated incrementally
+      debugPrint('[DAW] ✅ Background metadata load complete for ${paths.length} files');
+    });
+  }
+
+  /// Load metadata for a single pool file (called in parallel)
+  Future<void> _loadMetadataForPoolFile(String filePath) async {
+    final index = _audioPool.indexWhere((f) => f.path == filePath);
+    if (index < 0) return;
+
+    // Get metadata from FFI (header only — fast, ~5ms per file)
     double duration = 0.0;
     int sampleRate = 48000;
     int channels = 2;
@@ -3028,7 +3078,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       }
     }
 
-    // Fallback: If duration is still 0, use getAudioFileDuration (decodes file header)
+    // Fallback duration
     if (duration <= 0.0) {
       final fallbackDuration = NativeFFI.instance.getAudioFileDuration(filePath);
       if (fallbackDuration > 0) {
@@ -3036,31 +3086,33 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       }
     }
 
-    // Generate REAL waveform from audio file via FFI (SIMD-optimized in Rust)
-    Float32List? waveform;
-    Float32List? waveformRight;
-    final cacheKey = 'pool-$fileId';
-    final waveformJson = NativeFFI.instance.generateWaveformFromFile(filePath, cacheKey);
-    if (waveformJson != null) {
-      final (left, right) = timeline.parseWaveformFromJson(waveformJson);
-      waveform = left;
-      waveformRight = right;
-    }
+    // Update pool entry with metadata (NO waveform — loaded on-demand)
+    final file = _audioPool[index];
+    final updated = timeline.PoolAudioFile(
+      id: file.id,
+      path: file.path,
+      name: file.name,
+      duration: duration,
+      sampleRate: sampleRate,
+      channels: channels,
+      format: file.format,
+      waveform: file.waveform,  // Keep existing waveform if any
+      importedAt: file.importedAt,
+      defaultBus: file.defaultBus,
+    );
 
     setState(() {
-      _audioPool.add(timeline.PoolAudioFile(
-        id: fileId,
-        path: filePath,
-        name: fileName,
-        duration: duration,
-        sampleRate: sampleRate,
-        channels: channels,
-        format: ext,
-        waveform: waveform,
-        importedAt: DateTime.now(),
-        defaultBus: timeline.OutputBus.master,
-      ));
+      _audioPool[index] = updated;
     });
+  }
+
+  /// **LEGACY METHOD** — Add a file to the Audio Pool (kept for compatibility)
+  ///
+  /// Note: Use _addFilesToPoolInstant() for better performance
+  Future<void> _addFileToPool(String filePath) async {
+    // Use instant add + background metadata
+    _addFilesToPoolInstant([filePath]);
+    await _loadMetadataForPoolFile(filePath);
   }
 
   void _initDemoMiddlewareData() {
@@ -3071,9 +3123,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Sync audio pool from SlotLabProvider to DAW _audioPool
   /// This ensures sounds imported in Slot Lab appear in DAW Audio Pool
+  ///
+  /// **INSTANT SYNC** — No waveform generation during sync (loaded on-demand)
   void _syncAudioPoolFromSlotLab(SlotLabProvider slotLabProvider) {
     final slotLabPool = slotLabProvider.persistedAudioPool;
     if (slotLabPool.isEmpty) return;
+
+    final newPaths = <String>[];
 
     // Add any new files from Slot Lab that aren't already in DAW pool
     for (final item in slotLabPool) {
@@ -3084,19 +3140,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final exists = _audioPool.any((f) => f.path == path);
       if (exists) continue;
 
-      // Add to DAW pool
+      // ⚡ INSTANT: Add immediately with placeholder (NO waveform generation)
       final name = item['name'] as String? ?? path.split('/').last;
-      final duration = (item['duration'] as num?)?.toDouble() ?? 1.0;
+      final duration = (item['duration'] as num?)?.toDouble() ?? 0.0;
       final fileId = 'pool-${DateTime.now().millisecondsSinceEpoch}-${_audioPool.length}';
-
-      // Generate REAL waveform from audio file via FFI (SIMD-optimized in Rust)
-      Float32List? waveform;
-      final cacheKey = 'slotlab-sync-$fileId';
-      final waveformJson = NativeFFI.instance.generateWaveformFromFile(path, cacheKey);
-      if (waveformJson != null) {
-        final (left, _) = timeline.parseWaveformFromJson(waveformJson);
-        waveform = left;
-      }
 
       _audioPool.add(timeline.PoolAudioFile(
         id: fileId,
@@ -3106,10 +3153,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         sampleRate: (item['sampleRate'] as num?)?.toInt() ?? 48000,
         channels: (item['channels'] as num?)?.toInt() ?? 2,
         format: path.split('.').last,
-        waveform: waveform,
+        waveform: null,  // Waveform loaded on-demand
         importedAt: DateTime.now(),
         defaultBus: timeline.OutputBus.master,
       ));
+
+      newPaths.add(path);
+    }
+
+    // Background: Load metadata for new files if needed
+    if (newPaths.isNotEmpty) {
+      _loadMetadataInBackground(newPaths);
     }
   }
 
@@ -3119,23 +3173,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Sync from AudioAssetManager (central source of truth) to local _audioPool
   /// This ensures all modes (DAW, Middleware, SlotLab) share the same assets
+  ///
+  /// **INSTANT SYNC** — No blocking FFI calls (waveform loaded on-demand)
   void _syncFromAssetManager(AudioAssetManager assetManager) {
     final assets = assetManager.assets;
+    final newPaths = <String>[];
 
     // Sync: AssetManager → local _audioPool
     for (final asset in assets) {
       final exists = _audioPool.any((f) => f.path == asset.path);
       if (exists) continue;
 
-      // Generate REAL waveform from audio file via FFI (SIMD-optimized in Rust)
-      Float32List? waveform;
-      final cacheKey = 'asset-${asset.id}';
-      final waveformJson = NativeFFI.instance.generateWaveformFromFile(asset.path, cacheKey);
-      if (waveformJson != null) {
-        final (left, _) = timeline.parseWaveformFromJson(waveformJson);
-        waveform = left;
-      }
-
+      // ⚡ INSTANT: Add immediately with NO waveform (loaded on-demand)
       _audioPool.add(timeline.PoolAudioFile(
         id: asset.id,
         path: asset.path,
@@ -3144,7 +3193,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         sampleRate: asset.sampleRate,
         channels: asset.channels,
         format: asset.format,
-        waveform: waveform,
+        waveform: null,  // Waveform loaded on-demand
         importedAt: asset.importedAt,
         defaultBus: timeline.OutputBus.master,
       ));

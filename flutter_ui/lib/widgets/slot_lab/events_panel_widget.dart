@@ -325,6 +325,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   }
 
   /// Import audio files via file picker and add to AudioAssetManager
+  /// ⚡ INSTANT IMPORT — Files appear immediately, metadata loads in background
   Future<void> _importAudioFiles() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -333,21 +334,25 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     );
 
     if (result != null && result.files.isNotEmpty) {
-      int importedCount = 0;
-
       // Sort files by name for consistent order
       final sortedFiles = List.of(result.files)
         ..sort((a, b) => (a.name).toLowerCase().compareTo((b.name).toLowerCase()));
 
-      for (final file in sortedFiles) {
-        if (file.path != null) {
-          final asset = await AudioAssetManager.instance.importFile(
-            file.path!,
-            folder: 'SlotLab',
-          );
-          if (asset != null) importedCount++;
-        }
-      }
+      // ⚡ INSTANT: Collect all valid paths
+      final paths = sortedFiles
+          .where((f) => f.path != null)
+          .map((f) => f.path!)
+          .toList();
+
+      if (paths.isEmpty) return;
+
+      // ⚡ INSTANT: Add ALL files immediately with placeholders (NO FFI blocking)
+      final importedAssets = AudioAssetManager.instance.importFilesInstant(
+        paths,
+        folder: 'SlotLab',
+      );
+
+      final importedCount = importedAssets.length;
 
       if (importedCount > 0 && mounted) {
         // Switch to pool mode to show imported files
@@ -366,6 +371,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   }
 
   /// Import entire folder of audio files
+  /// ⚡ INSTANT IMPORT — Files appear immediately, metadata loads in background
   Future<void> _importAudioFolder() async {
     final result = await FilePicker.platform.getDirectoryPath();
 
@@ -373,7 +379,6 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       final dir = Directory(result);
       if (!dir.existsSync()) return;
 
-      int importedCount = 0;
       final folderName = result.split('/').last;
 
       // Find all audio files in the folder (non-recursive)
@@ -390,14 +395,29 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         ..sort((a, b) => a.path.split('/').last.toLowerCase()
             .compareTo(b.path.split('/').last.toLowerCase()));
 
-      // Import in sorted order
-      for (final file in audioFiles) {
-        final asset = await AudioAssetManager.instance.importFile(
-          file.path,
-          folder: folderName,
-        );
-        if (asset != null) importedCount++;
+      if (audioFiles.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No audio files found in folder'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
       }
+
+      // ⚡ INSTANT: Collect all paths
+      final paths = audioFiles.map((f) => f.path).toList();
+
+      // ⚡ INSTANT: Add ALL files immediately with placeholders (NO FFI blocking)
+      final importedAssets = AudioAssetManager.instance.importFilesInstant(
+        paths,
+        folder: folderName,
+      );
+
+      final importedCount = importedAssets.length;
 
       if (importedCount > 0 && mounted) {
         // Switch to pool mode to show imported files
@@ -409,14 +429,6 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             content: Text('Imported $importedCount audio file${importedCount > 1 ? 's' : ''} from "$folderName"'),
             backgroundColor: FluxForgeTheme.accentGreen,
             duration: const Duration(seconds: 2),
-          ),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No audio files found in folder'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
           ),
         );
       }
