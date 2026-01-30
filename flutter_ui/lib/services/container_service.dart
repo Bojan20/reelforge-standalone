@@ -21,6 +21,7 @@ import '../models/middleware_models.dart';
 import '../providers/middleware_provider.dart';
 import '../src/rust/native_ffi.dart';
 import 'audio_playback_service.dart';
+import 'container_eval_history.dart';
 
 /// Service for container-based audio playback
 class ContainerService {
@@ -54,6 +55,11 @@ class ContainerService {
 
   // P3A: Active Rust tick-based sequences (instanceId → _SequenceInstanceRust)
   final Map<int, _SequenceInstanceRust> _activeRustSequences = {};
+
+  // P2-17: Container evaluation history tracking
+  final List<ContainerEvalHistoryEntry> _evalHistory = [];
+  bool _trackHistory = false;
+  int _maxHistorySize = 1000;
 
   /// Initialize with middleware provider
   void init(MiddlewareProvider middleware) {
@@ -128,6 +134,16 @@ class ContainerService {
       result[child.id] = volume.clamp(0.0, 1.0);
     }
 
+    // P2-17: Record evaluation history
+    containerEvalHistory.record(ContainerEvalHistoryEntry(
+      timestampMs: DateTime.now().millisecondsSinceEpoch,
+      containerType: 'blend',
+      containerId: container.id,
+      containerName: container.name,
+      result: result,
+      context: {'rtpcValue': rtpcValue, 'rtpcId': container.rtpcId},
+    ));
+
     return result;
   }
 
@@ -154,16 +170,29 @@ class ContainerService {
   int selectRandomChild(RandomContainer container) {
     if (!container.enabled || container.children.isEmpty) return -1;
 
-    switch (container.mode) {
-      case RandomMode.random:
-        return _selectWeightedRandom(container);
-      case RandomMode.shuffle:
-        return _selectShuffle(container, useHistory: false);
-      case RandomMode.shuffleWithHistory:
-        return _selectShuffle(container, useHistory: true);
-      case RandomMode.roundRobin:
-        return _selectRoundRobin(container);
+    final selected = switch (container.mode) {
+      RandomMode.random => _selectWeightedRandom(container),
+      RandomMode.shuffle => _selectShuffle(container, useHistory: false),
+      RandomMode.shuffleWithHistory => _selectShuffle(container, useHistory: true),
+      RandomMode.roundRobin => _selectRoundRobin(container),
+    };
+
+    // P2-17: Record evaluation history
+    if (selected >= 0) {
+      containerEvalHistory.record(ContainerEvalHistoryEntry(
+        timestampMs: DateTime.now().millisecondsSinceEpoch,
+        containerType: 'random',
+        containerId: container.id,
+        containerName: container.name,
+        result: selected,
+        context: {
+          'mode': container.mode.name,
+          'childCount': container.children.length,
+        },
+      ));
     }
+
+    return selected;
   }
 
   /// Weighted random selection

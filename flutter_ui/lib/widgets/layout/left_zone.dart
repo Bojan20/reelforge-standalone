@@ -137,37 +137,48 @@ class _LeftZoneState extends State<LeftZone> {
   Widget build(BuildContext context) {
     if (widget.collapsed) return const SizedBox.shrink();
 
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeep,
-        border: Border(
-          right: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
-        ),
-      ),
-      child: Column(
-        children: [
-          _Header(
-            activeTab: widget.activeTab,
-            onTabChange: widget.onTabChange,
-            onToggleCollapse: widget.onToggleCollapse,
-            projectTabLabel: _projectTabLabel,
-            projectTabIcon: _projectTabIcon,
-            accentColor: _modeAccentColor,
-            editorMode: widget.editorMode,
+    // P2-11: Responsive width constraints (220-400px)
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double effectiveWidth = 280.0.clamp(
+          220.0, // min width
+          constraints.maxWidth.isFinite ? constraints.maxWidth.clamp(220.0, 400.0) : 400.0,
+        );
+        final bool isNarrow = effectiveWidth < 260;
+
+        return Container(
+          width: effectiveWidth,
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.bgDeep,
+            border: Border(
+              right: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
+            ),
           ),
-          Expanded(
-            child: _buildContent(),
+          child: Column(
+            children: [
+              _Header(
+                activeTab: widget.activeTab,
+                onTabChange: widget.onTabChange,
+                onToggleCollapse: widget.onToggleCollapse,
+                projectTabLabel: _projectTabLabel,
+                projectTabIcon: _projectTabIcon,
+                accentColor: _modeAccentColor,
+                editorMode: widget.editorMode,
+              ),
+              Expanded(
+                child: _buildContent(isNarrow: isNarrow),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent({required bool isNarrow}) {
     switch (widget.activeTab) {
       case LeftZoneTab.project:
-        return _buildProjectExplorer();
+        return _buildProjectExplorer(isNarrow: isNarrow);
       case LeftZoneTab.channel:
         return _buildChannelPanel();
     }
@@ -209,7 +220,7 @@ class _LeftZoneState extends State<LeftZone> {
     }
   }
 
-  Widget _buildProjectExplorer() {
+  Widget _buildProjectExplorer({required bool isNarrow}) {
     return Column(
       children: [
         // Mode indicator bar
@@ -221,6 +232,7 @@ class _LeftZoneState extends State<LeftZone> {
           controller: _searchController,
           onChanged: widget.onSearchChange,
           placeholder: _getSearchPlaceholder(),
+          isNarrow: isNarrow, // P2-11: Compact search on narrow width
         ),
         Expanded(
           child: widget.tree.isEmpty
@@ -484,11 +496,13 @@ class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
   final String placeholder;
+  final bool isNarrow;
 
   const _SearchBar({
     required this.controller,
     this.onChanged,
     this.placeholder = 'Search...',
+    this.isNarrow = false,
   });
 
   @override
@@ -508,21 +522,23 @@ class _SearchBar extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 8),
               child: Icon(Icons.search, size: 14, color: FluxForgeTheme.textSecondary),
             ),
-            Expanded(
-              child: TextField(
-                controller: controller,
-                onChanged: onChanged,
-                style: const TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary),
-                decoration: InputDecoration(
-                  hintText: placeholder,
-                  hintStyle: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  isDense: true,
+            // P2-11: Hide text field on narrow width, show icon only
+            if (!isNarrow)
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  onChanged: onChanged,
+                  style: const TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: placeholder,
+                    hintStyle: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
                 ),
               ),
-            ),
-            if (controller.text.isNotEmpty)
+            if (!isNarrow && controller.text.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.close, size: 14),
                 padding: EdgeInsets.zero,

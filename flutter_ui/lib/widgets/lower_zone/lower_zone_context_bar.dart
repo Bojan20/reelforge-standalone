@@ -136,40 +136,44 @@ class LowerZoneContextBar extends StatelessWidget {
   }
 
   Widget _buildSuperTabs() {
+    // P2-13: Overflow defensive — SingleChildScrollView horizontal scroll
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        children: [
-          // Toggle button
-          _buildToggleButton(),
-          const SizedBox(width: 8),
-          // Super-tabs
-          ...List.generate(superTabLabels.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: _buildSuperTab(index),
-            );
-          }),
-          const Spacer(),
-          // P1.5: Recent tabs quick access
-          if (recentTabs != null && recentTabs!.isNotEmpty) ...[
-            _buildRecentTabs(),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // Toggle button
+            _buildToggleButton(),
             const SizedBox(width: 8),
+            // Super-tabs
+            ...List.generate(superTabLabels.length, (index) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: _buildSuperTab(index),
+              );
+            }),
+            const SizedBox(width: 16), // Spacer replacement
+            // P1.5: Recent tabs quick access
+            if (recentTabs != null && recentTabs!.isNotEmpty) ...[
+              _buildRecentTabs(),
+              const SizedBox(width: 8),
+            ],
+            // Preset dropdown (optional)
+            if (presetDropdown != null) ...[
+              presetDropdown!,
+              const SizedBox(width: 8),
+            ],
+            // P2.1: Split view controls (if available)
+            if (onSplitToggle != null) ...[
+              _buildSplitViewControls(),
+              const SizedBox(width: 8),
+            ],
+            // Search (placeholder)
+            _buildSearchField(),
           ],
-          // Preset dropdown (optional)
-          if (presetDropdown != null) ...[
-            presetDropdown!,
-            const SizedBox(width: 8),
-          ],
-          // P2.1: Split view controls (if available)
-          if (onSplitToggle != null) ...[
-            _buildSplitViewControls(),
-            const SizedBox(width: 8),
-          ],
-          // Search (placeholder)
-          _buildSearchField(),
-        ],
+        ),
       ),
     );
   }

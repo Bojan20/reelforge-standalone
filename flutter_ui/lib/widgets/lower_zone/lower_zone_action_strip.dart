@@ -37,42 +37,46 @@ class LowerZoneActionStrip extends StatelessWidget {
   /// Optional left-side content (e.g., slot context dropdowns)
   final Widget? leftContent;
 
+  /// Minimum height for action strip (default: 36px)
+  final double minHeight;
+
   const LowerZoneActionStrip({
     super.key,
     required this.actions,
     required this.accentColor,
     this.statusText,
     this.leftContent,
+    this.minHeight = kActionStripHeight,
   });
 
   @override
   Widget build(BuildContext context) {
+    // P2-10: Flexible height — wraps actions if needed
     return Container(
-      height: kActionStripHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      constraints: BoxConstraints(minHeight: minHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: const BoxDecoration(
         color: LowerZoneColors.bgMid,
         border: Border(
           top: BorderSide(color: LowerZoneColors.borderSubtle),
         ),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           // Left content (optional)
           if (leftContent != null) ...[
             leftContent!,
-            const SizedBox(width: 16),
             Container(width: 1, height: 20, color: LowerZoneColors.border),
-            const SizedBox(width: 16),
           ],
           // Actions
-          ...actions.map((action) => Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _buildActionButton(action),
-          )),
-          const Spacer(),
-          // Status text
-          if (statusText != null)
+          ...actions.map(_buildActionButton),
+          // Spacer replaced with flexible gap
+          if (statusText != null) ...[
+            const SizedBox(width: 16), // Gap before status
+            // Status text
             Text(
               statusText!,
               style: TextStyle(
@@ -80,6 +84,7 @@ class LowerZoneActionStrip extends StatelessWidget {
                 color: LowerZoneColors.textTertiary,
               ),
             ),
+          ],
         ],
       ),
     );
