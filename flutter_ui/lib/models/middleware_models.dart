@@ -230,6 +230,9 @@ class MiddlewareAction {
   final double trimStartMs; // Non-destructive trim start in ms (0 = beginning)
   final double trimEndMs;   // Non-destructive trim end in ms (0 = full length)
 
+  // P0 WF-04: ALE layer assignment (2026-01-30)
+  final int? aleLayerId;    // ALE layer level (1-5: L1=Calm to L5=Epic)
+
   const MiddlewareAction({
     required this.id,
     this.type = ActionType.play,
@@ -249,6 +252,8 @@ class MiddlewareAction {
     this.fadeOutMs = 0.0,
     this.trimStartMs = 0.0,
     this.trimEndMs = 0.0,
+    // P0 WF-04: ALE layer assignment
+    this.aleLayerId,
   });
 
   MiddlewareAction copyWith({
@@ -270,6 +275,8 @@ class MiddlewareAction {
     double? fadeOutMs,
     double? trimStartMs,
     double? trimEndMs,
+    // P0 WF-04: ALE layer assignment
+    int? aleLayerId,
   }) {
     return MiddlewareAction(
       id: id ?? this.id,
@@ -290,6 +297,8 @@ class MiddlewareAction {
       fadeOutMs: fadeOutMs ?? this.fadeOutMs,
       trimStartMs: trimStartMs ?? this.trimStartMs,
       trimEndMs: trimEndMs ?? this.trimEndMs,
+      // P0 WF-04: ALE layer assignment
+      aleLayerId: aleLayerId ?? this.aleLayerId,
     );
   }
 
@@ -311,6 +320,8 @@ class MiddlewareAction {
     'fadeOutMs': fadeOutMs,
     'trimStartMs': trimStartMs,
     'trimEndMs': trimEndMs,
+    // P0 WF-04: ALE layer assignment
+    'aleLayerId': aleLayerId,
   };
 
   factory MiddlewareAction.fromJson(Map<String, dynamic> json) {
@@ -332,6 +343,8 @@ class MiddlewareAction {
       fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 0.0,
       trimStartMs: (json['trimStartMs'] as num?)?.toDouble() ?? 0.0,
       trimEndMs: (json['trimEndMs'] as num?)?.toDouble() ?? 0.0,
+      // P0 WF-04: ALE layer assignment
+      aleLayerId: json['aleLayerId'] as int?,
     );
   }
 }

@@ -1465,6 +1465,7 @@ class SlotEventLayer {
   final double? durationSeconds;
   final int? busId; // Target bus for routing
   final String actionType; // Action type: Play, Stop, SetVolume, etc.
+  final int? aleLayerId; // ALE layer assignment (1-5: L1=Calm to L5=Epic) — P0 WF-04
 
   const SlotEventLayer({
     required this.id,
@@ -1485,6 +1486,7 @@ class SlotEventLayer {
     this.durationSeconds,
     this.busId,
     this.actionType = 'Play',
+    this.aleLayerId,
   });
 
   SlotEventLayer copyWith({
@@ -1506,6 +1508,7 @@ class SlotEventLayer {
     double? durationSeconds,
     int? busId,
     String? actionType,
+    int? aleLayerId,
   }) {
     return SlotEventLayer(
       id: id ?? this.id,
@@ -1526,6 +1529,7 @@ class SlotEventLayer {
       durationSeconds: durationSeconds ?? this.durationSeconds,
       busId: busId ?? this.busId,
       actionType: actionType ?? this.actionType,
+      aleLayerId: aleLayerId ?? this.aleLayerId,
     );
   }
 
@@ -1551,6 +1555,7 @@ class SlotEventLayer {
     'durationSeconds': durationSeconds,
     'busId': busId,
     'actionType': actionType,
+    'aleLayerId': aleLayerId, // P0 WF-04
     // Note: waveformData is not saved - it's regenerated on load
   };
 
@@ -1580,6 +1585,7 @@ class SlotEventLayer {
       durationSeconds: (json['durationSeconds'] as num?)?.toDouble(),
       busId: json['busId'] as int?,
       actionType: json['actionType'] as String? ?? 'Play',
+      aleLayerId: json['aleLayerId'] as int?, // P0 WF-04
     );
   }
 }

@@ -2582,6 +2582,19 @@ class _EventEditorPanelState extends State<EventEditorPanel>
           ),
         ]),
         const SizedBox(height: 16),
+        // P0 WF-04: ALE Layer Assignment (2026-01-30)
+        _buildInspectorSection('ALE Layer Assignment', [
+          _buildInspectorDropdown(
+            'Layer Level',
+            _aleLayerDisplayName(action.aleLayerId),
+            ['None', 'L1 - Calm', 'L2 - Tense', 'L3 - Excited', 'L4 - Intense', 'L5 - Epic'],
+            (value) {
+              final layerId = _parseAleLayerId(value);
+              _updateAction(event, action, aleLayerId: layerId);
+            },
+          ),
+        ]),
+        const SizedBox(height: 16),
         _buildInspectorSection('Priority & Scope', [
           _buildInspectorDropdown(
             'Priority',
@@ -3214,6 +3227,29 @@ class _EventEditorPanelState extends State<EventEditorPanel>
 
   Set<String> _getUniqueBuses(MiddlewareEvent event) {
     return event.actions.map((a) => a.bus).toSet();
+  }
+
+  // P0 WF-04: ALE Layer Helpers (2026-01-30)
+  String _aleLayerDisplayName(int? layerId) {
+    if (layerId == null) return 'None';
+    switch (layerId) {
+      case 1: return 'L1 - Calm';
+      case 2: return 'L2 - Tense';
+      case 3: return 'L3 - Excited';
+      case 4: return 'L4 - Intense';
+      case 5: return 'L5 - Epic';
+      default: return 'None';
+    }
+  }
+
+  int? _parseAleLayerId(String displayName) {
+    if (displayName == 'None') return null;
+    if (displayName.startsWith('L1')) return 1;
+    if (displayName.startsWith('L2')) return 2;
+    if (displayName.startsWith('L3')) return 3;
+    if (displayName.startsWith('L4')) return 4;
+    if (displayName.startsWith('L5')) return 5;
+    return null;
   }
 
   IconData _getCategoryIcon(String category) {
@@ -3868,6 +3904,8 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     double? fadeOutMs,
     double? trimStartMs,
     double? trimEndMs,
+    // P0 WF-04: ALE layer assignment (2026-01-30)
+    int? aleLayerId,
   }) {
     final newAction = action.copyWith(
       type: type,
@@ -3886,6 +3924,8 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       fadeOutMs: fadeOutMs,
       trimStartMs: trimStartMs,
       trimEndMs: trimEndMs,
+      // P0 WF-04: ALE layer assignment (2026-01-30)
+      aleLayerId: aleLayerId,
     );
 
     final newActions = event.actions.map((a) {

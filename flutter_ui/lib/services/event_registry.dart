@@ -29,7 +29,16 @@ import 'ducking_service.dart';
 import 'recent_favorites_service.dart';
 import 'rtpc_modulation_service.dart';
 import 'stage_configuration_service.dart';
+import 'stage_coverage_service.dart';
 import 'unified_playback_controller.dart';
+
+// =============================================================================
+// P0 WF-06: CUSTOM EVENT HANDLER TYPEDEF (2026-01-30)
+// =============================================================================
+
+/// Custom event handler that can be registered to intercept stage triggers
+/// before default event processing. Returns true to prevent default handling.
+typedef CustomEventHandler = bool Function(String stage, Map<String, dynamic>? context);
 
 // =============================================================================
 // AUDIO LAYER — Pojedinačni zvuk u eventu
@@ -492,6 +501,10 @@ class EventRegistry extends ChangeNotifier {
 
   // Event ID → Event
   final Map<String, AudioEvent> _events = {};
+
+  // P0 WF-06: Custom Event Handler Extension (2026-01-30)
+  // Allows external systems to register custom handlers that run before default event triggering
+  final Map<String, CustomEventHandler> _customHandlers = {};
 
   // P1.3: Constructor starts cleanup timer
   EventRegistry() {
@@ -1113,6 +1126,43 @@ class EventRegistry extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0 WF-06: CUSTOM EVENT HANDLER EXTENSION METHODS (2026-01-30)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Register a custom handler for a specific stage name
+  /// Handler is called BEFORE default event triggering
+  /// If handler returns true, default event processing is skipped
+  void registerCustomHandler(String stageName, CustomEventHandler handler) {
+    _customHandlers[stageName.toUpperCase().trim()] = handler;
+    debugPrint('[EventRegistry] Registered custom handler for stage: $stageName');
+  }
+
+  /// Unregister a custom handler
+  void unregisterCustomHandler(String stageName) {
+    final removed = _customHandlers.remove(stageName.toUpperCase().trim());
+    if (removed != null) {
+      debugPrint('[EventRegistry] Unregistered custom handler for stage: $stageName');
+    }
+  }
+
+  /// Clear all custom handlers
+  void clearCustomHandlers() {
+    final count = _customHandlers.length;
+    _customHandlers.clear();
+    debugPrint('[EventRegistry] Cleared $count custom handlers');
+  }
+
+  /// Get registered custom handler for a stage (if any)
+  CustomEventHandler? getCustomHandler(String stageName) {
+    return _customHandlers[stageName.toUpperCase().trim()];
+  }
+
+  /// Check if a custom handler is registered for a stage
+  bool hasCustomHandler(String stageName) {
+    return _customHandlers.containsKey(stageName.toUpperCase().trim());
+  }
+
   /// Auto-expand generic stages to per-index events with stereo panning
   /// e.g., REEL_STOP → REEL_STOP_0, REEL_STOP_1, ..., REEL_STOP_4
   void _autoExpandToPerIndexEvents(AudioEvent event) {
@@ -1561,6 +1611,29 @@ class EventRegistry extends ChangeNotifier {
   /// - Only A-Z, 0-9, underscore allowed
   /// - Empty strings rejected
   Future<void> triggerStage(String stage, {Map<String, dynamic>? context}) async {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0 WF-06: CHECK CUSTOM HANDLERS FIRST (2026-01-30)
+    // If a custom handler is registered and it returns true, skip default processing
+    // ═══════════════════════════════════════════════════════════════════════════
+    final customHandlerKey = stage.toUpperCase().trim();
+    final customHandler = _customHandlers[customHandlerKey];
+    if (customHandler != null) {
+      final preventDefault = customHandler(stage, context);
+      if (preventDefault) {
+        debugPrint('[EventRegistry] Custom handler intercepted stage: $stage (prevented default)');
+        // P0 WF-10: Still record coverage even if custom handler prevents default
+        StageCoverageService.instance.recordTrigger(stage);
+        return; // Skip default event triggering
+      }
+      debugPrint('[EventRegistry] Custom handler processed stage: $stage (continuing default)');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0 WF-10: RECORD STAGE COVERAGE (2026-01-30)
+    // Track all triggered stages for QA validation
+    // ═══════════════════════════════════════════════════════════════════════════
+    StageCoverageService.instance.recordTrigger(stage);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // P0: PER-REEL SPIN LOOP FADE-OUT — Fade out this reel's loop before playing stop sound
     // ═══════════════════════════════════════════════════════════════════════════
