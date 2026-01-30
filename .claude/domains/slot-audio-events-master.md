@@ -1,12 +1,23 @@
 # Slot Audio Events - Master Catalog
 
-**Version:** 1.2
-**Last Updated:** 2026-01-25
-**Total Events:** 450+
+**Version:** 1.3
+**Last Updated:** 2026-01-30
+**Total Events:** 490+
 **Event Names:** 70+ custom mappings via `generateEventName()`
 
 Kompletna lista svih audio eventa koji mogu da se dese u slot igri.
 Organizovano po kategorijama sa prioritetom, trajanjem i opisom.
+
+## Industry-Standard Anticipation Update (2026-01-30)
+
+V1.3 dodaje **26 novih anticipation stage-ova** za per-reel tension layer sistem:
+- **ANTICIPATION_TENSION_R{1-4}_L{1-4}** — Per-reel, per-level tension
+- **ANTICIPATION_TENSION_R{1-4}** — Per-reel fallback
+- **ANTICIPATION_TENSION_L{1-4}** — Per-level fallback
+- **ANTICIPATION_TENSION** — Ultimate generic fallback
+
+Implementirano po IGT, Pragmatic Play, NetEnt, Play'n GO industry standardima.
+Vidi [ANTICIPATION_SYSTEM.md](../architecture/ANTICIPATION_SYSTEM.md) za detalje.
 
 ## Industry-Standard Update (2026-01-25)
 
@@ -389,11 +400,48 @@ Eventi vezani za simbole.
 
 ---
 
-## 5. ANTICIPATION & TENSION (25 events)
+## 5. ANTICIPATION & TENSION (51 events)
 
-Gradnja napetosti i near-miss.
+Gradnja napetosti i near-miss. Vidi [ANTICIPATION_SYSTEM.md](../architecture/ANTICIPATION_SYSTEM.md) za kompletnu dokumentaciju.
 
-### Anticipation
+### Per-Reel Tension Layers (NEW — 2026-01-30)
+
+Industry-standard per-reel anticipation sa tension escalation (IGT, Pragmatic Play, NetEnt pattern).
+
+| Event ID | Priority | Duration | Color | Volume | Pitch |
+|----------|----------|----------|-------|--------|-------|
+| `ANTICIPATION_TENSION_R1_L1` | HIGH | Loop | Gold #FFD700 | 0.6x | +1st |
+| `ANTICIPATION_TENSION_R1_L2` | HIGH | Loop | Orange #FFA500 | 0.7x | +2st |
+| `ANTICIPATION_TENSION_R1_L3` | HIGH | Loop | Red-Orange #FF6347 | 0.8x | +3st |
+| `ANTICIPATION_TENSION_R1_L4` | HIGH | Loop | Red #FF4500 | 0.9x | +4st |
+| `ANTICIPATION_TENSION_R2_L1` | HIGH | Loop | Gold | 0.6x | +1st |
+| `ANTICIPATION_TENSION_R2_L2` | HIGH | Loop | Orange | 0.7x | +2st |
+| `ANTICIPATION_TENSION_R2_L3` | HIGH | Loop | Red-Orange | 0.8x | +3st |
+| `ANTICIPATION_TENSION_R2_L4` | HIGH | Loop | Red | 0.9x | +4st |
+| `ANTICIPATION_TENSION_R3_L1` | HIGH | Loop | Gold | 0.6x | +1st |
+| `ANTICIPATION_TENSION_R3_L2` | HIGH | Loop | Orange | 0.7x | +2st |
+| `ANTICIPATION_TENSION_R3_L3` | HIGH | Loop | Red-Orange | 0.8x | +3st |
+| `ANTICIPATION_TENSION_R3_L4` | HIGH | Loop | Red | 0.9x | +4st |
+| `ANTICIPATION_TENSION_R4_L1` | HIGH | Loop | Gold | 0.6x | +1st |
+| `ANTICIPATION_TENSION_R4_L2` | HIGH | Loop | Orange | 0.7x | +2st |
+| `ANTICIPATION_TENSION_R4_L3` | HIGH | Loop | Red-Orange | 0.8x | +3st |
+| `ANTICIPATION_TENSION_R4_L4` | HIGH | Loop | Red | 0.9x | +4st |
+
+**Fallback Eventi (za generičke zvukove):**
+
+| Event ID | Priority | Duration | Description |
+|----------|----------|----------|-------------|
+| `ANTICIPATION_TENSION` | HIGH | Loop | Generic tension (any reel) |
+| `ANTICIPATION_TENSION_R1` | HIGH | Loop | Reel 1 tension (any level) |
+| `ANTICIPATION_TENSION_R2` | HIGH | Loop | Reel 2 tension (any level) |
+| `ANTICIPATION_TENSION_R3` | HIGH | Loop | Reel 3 tension (any level) |
+| `ANTICIPATION_TENSION_R4` | HIGH | Loop | Reel 4 tension (any level) |
+| `ANTICIPATION_TENSION_L1` | HIGH | Loop | Level 1 tension (any reel) |
+| `ANTICIPATION_TENSION_L2` | HIGH | Loop | Level 2 tension (any reel) |
+| `ANTICIPATION_TENSION_L3` | HIGH | Loop | Level 3 tension (any reel) |
+| `ANTICIPATION_TENSION_L4` | HIGH | Loop | Level 4 tension (any reel) |
+
+### Legacy Anticipation
 
 | Event ID | Priority | Duration | Description |
 |----------|----------|----------|-------------|

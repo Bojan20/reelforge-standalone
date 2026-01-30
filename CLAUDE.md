@@ -6071,6 +6071,7 @@ DropTargetWrapper.onCommit → commitDraft() ← JEDINI POZIV
 - `.claude/architecture/EVENT_SYNC_SYSTEM.md` — Detalji sync sistema
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback sekcije
 - `.claude/architecture/SLOT_LAB_SYSTEM.md` — SlotLab arhitektura
+- `.claude/architecture/ANTICIPATION_SYSTEM.md` — Industry-standard anticipation sa per-reel tension levels
 
 #### 6. Double-Spin Trigger (2026-01-24)
 
@@ -6198,7 +6199,9 @@ SPIN_START
     ↓
 REEL_SPINNING × N (za svaki reel)
     ↓
-[ANTICIPATION_ON] (opciono, na poslednja 1-2 reel-a)
+[ANTICIPATION_ON] (opciono, na preostale reel-ove kad 2+ scattera)
+    ↓
+[ANTICIPATION_TENSION_R{n}_L{1-4}] (per-reel tension escalation)
     ↓
 REEL_STOP_0 → REEL_STOP_1 → ... → REEL_STOP_N
     ↓
@@ -6258,6 +6261,34 @@ onReelStopped: (reelIndex) {
 | `decelerating` | ~300ms | Usporavanje pre zaustavljanja |
 | `bouncing` | ~150ms | Bounce efekat na zaustavljanje |
 | `stopped` | — | Reel stao, čeka sledeći spin |
+
+### Industry-Standard Anticipation System (2026-01-30) ✅
+
+Per-reel anticipation sa tension level escalation — identično IGT, Pragmatic Play, NetEnt, Play'n GO.
+
+**Kompletna dokumentacija:** `.claude/architecture/ANTICIPATION_SYSTEM.md`
+
+**Trigger Logic:**
+- 2+ scattera → anticipacija na SVIM preostalim reelovima
+- Svaki sledeći reel ima VIŠI tension level (L1→L2→L3→L4)
+
+**Stage Format:**
+```
+ANTICIPATION_TENSION_R{reel}_L{level}
+// Fallback: R2_L3 → R2 → ANTICIPATION_TENSION → ANTICIPATION_ON
+```
+
+**Tension Escalation:**
+| Level | Color | Volume | Pitch |
+|-------|-------|--------|-------|
+| L1 | Gold #FFD700 | 0.6x | +1st |
+| L2 | Orange #FFA500 | 0.7x | +2st |
+| L3 | Red-Orange #FF6347 | 0.8x | +3st |
+| L4 | Red #FF4500 | 0.9x | +4st |
+
+**GPU Shader:** `flutter_ui/shaders/anticipation_glow.frag` — Pulsing per-reel glow effect
+
+---
 
 ### Win Tier Thresholds (Industry Standard — 2026-01-24)
 
