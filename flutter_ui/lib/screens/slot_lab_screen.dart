@@ -76,7 +76,7 @@ import '../widgets/slot_lab/premium_slot_preview.dart';
 import '../widgets/slot_lab/embedded_slot_mockup.dart';
 import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/audio_hover_preview.dart';
-import '../widgets/slot_lab/slot_lab_settings_panel.dart';
+import '../widgets/slot_lab/slot_lab_settings_panel.dart' as settings;
 import '../widgets/glass/glass_slot_lab.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
@@ -326,7 +326,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   final FocusNode _focusNode = FocusNode();
 
   // Slot Lab settings
-  SlotLabSettings _slotLabSettings = const SlotLabSettings();
+  settings.SlotLabSettings _slotLabSettings = const settings.SlotLabSettings();
 
   // Game spec state (derived from settings for backward compatibility)
   int get _reelCount => _slotLabSettings.reels;
@@ -3310,17 +3310,36 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
-        child: SlotLabSettingsPanel(
+        child: settings.SlotLabSettingsPanel(
           settings: _slotLabSettings,
           onSettingsChanged: (newSettings) {
+            final oldSettings = _slotLabSettings;
             setState(() {
               _slotLabSettings = newSettings;
             });
+
+            // Sync timing profile to provider/FFI
+            if (oldSettings.timingProfile != newSettings.timingProfile) {
+              final providerProfile = _timingProfileToProvider(newSettings.timingProfile);
+              final provider = context.read<SlotLabProvider>();
+              provider.setTimingProfile(providerProfile);
+              debugPrint('[SlotLab] ⏱️ Timing profile changed: ${newSettings.timingProfile.label}');
+            }
           },
           onClose: () => Navigator.of(context).pop(),
         ),
       ),
     );
+  }
+
+  /// Map UI TimingProfile enum to Provider/FFI TimingProfileType enum
+  TimingProfileType _timingProfileToProvider(settings.TimingProfile uiProfile) {
+    return switch (uiProfile) {
+      settings.TimingProfile.normal => TimingProfileType.normal,
+      settings.TimingProfile.turbo => TimingProfileType.turbo,
+      settings.TimingProfile.mobile => TimingProfileType.mobile,
+      settings.TimingProfile.studio => TimingProfileType.studio,
+    };
   }
 
   Widget _buildTransportControls() {
@@ -11983,7 +12002,25 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     return GameModelEditor(
       initialModel: _slotLabProvider.currentGameModel,
       onModelChanged: (model) {
+        // Update provider (FFI sync)
         _slotLabProvider.updateGameModel(model);
+
+        // Extract grid dimensions and sync to local settings
+        final grid = model['grid'] as Map<String, dynamic>?;
+        if (grid != null) {
+          final newReels = grid['reels'] as int? ?? _slotLabSettings.reels;
+          final newRows = grid['rows'] as int? ?? _slotLabSettings.rows;
+
+          if (newReels != _slotLabSettings.reels || newRows != _slotLabSettings.rows) {
+            setState(() {
+              _slotLabSettings = _slotLabSettings.copyWith(
+                reels: newReels,
+                rows: newRows,
+              );
+            });
+            debugPrint('[SlotLab] 📐 Grid synced from GameModel: ${newReels}x$newRows');
+          }
+        }
       },
       onClose: () => _lowerZoneController.setSuperTab(SlotLabSuperTab.stages),
     );

@@ -5010,6 +5010,20 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     });
   }
 
+  @override
+  void didUpdateWidget(PremiumSlotPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Grid dimensions changed — reset reel state arrays
+    if (oldWidget.reels != widget.reels || oldWidget.rows != widget.rows) {
+      debugPrint('[PremiumSlotPreview] 📐 Grid changed: ${oldWidget.reels}x${oldWidget.rows} → ${widget.reels}x${widget.rows}');
+      setState(() {
+        _reelsStopped = List.filled(widget.reels, true);
+        // Force re-render with new dimensions
+      });
+    }
+  }
+
   /// Load settings from SharedPreferences
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();

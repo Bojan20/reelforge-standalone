@@ -175,6 +175,9 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                   ],
                 ),
               ),
+              // Action strip at bottom
+              if (selectedEvent != null)
+                _buildActionStrip(context, data, selectedEvent),
             ],
           ),
         ),
@@ -420,6 +423,9 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
         setState(() {
           _selectedLayerId = null;
         });
+      },
+      onSecondaryTapDown: (details) {
+        _showEventContextMenu(context, event, details.globalPosition);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1220,6 +1226,187 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
         },
       ),
     );
+  }
+
+  /// Build action strip with event controls
+  Widget _buildActionStrip(
+    BuildContext context,
+    EventsFolderData data,
+    SlotCompositeEvent selectedEvent,
+  ) {
+    final middleware = context.read<MiddlewareProvider>();
+
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: FluxforgeColors.surfaceBg,
+        border: Border(top: BorderSide(color: FluxforgeColors.divider)),
+      ),
+      child: Row(
+        children: [
+          // Preview button (plays all layers)
+          TextButton.icon(
+            onPressed: () => _previewEvent(selectedEvent),
+            icon: const Icon(Icons.play_arrow, size: 16),
+            label: const Text('PREVIEW', style: TextStyle(fontSize: 11)),
+            style: TextButton.styleFrom(
+              foregroundColor: FluxforgeColors.accent,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Remove/Delete button
+          TextButton.icon(
+            onPressed: () => _deleteEvent(context, middleware, selectedEvent),
+            icon: const Icon(Icons.delete_outline, size: 16),
+            label: const Text('REMOVE', style: TextStyle(fontSize: 11)),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red.withValues(alpha: 0.8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Duplicate button
+          TextButton.icon(
+            onPressed: () => middleware.duplicateCompositeEvent(selectedEvent.id),
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('DUPLICATE', style: TextStyle(fontSize: 11)),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white70,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            ),
+          ),
+          const Spacer(),
+          // Selected layer count
+          if (data.selectedLayerCount > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: FluxforgeColors.accent.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '${data.selectedLayerCount} selected',
+                style: const TextStyle(fontSize: 10, color: FluxforgeColors.accent),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Preview event (play all layers)
+  void _previewEvent(SlotCompositeEvent event) {
+    if (event.layers.isEmpty) return;
+
+    // Play all non-muted layers
+    for (final layer in event.layers) {
+      if (!layer.muted && layer.audioPath.isNotEmpty) {
+        AudioPlaybackService.instance.previewFile(layer.audioPath);
+      }
+    }
+  }
+
+  /// Delete event with confirmation
+  void _deleteEvent(
+    BuildContext context,
+    MiddlewareProvider middleware,
+    SlotCompositeEvent event,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FluxforgeColors.surfaceBg,
+        title: const Text('Delete Event?'),
+        content: Text(
+          'Are you sure you want to delete "${event.name}"?\nThis action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              middleware.deleteCompositeEvent(event.id);
+              Navigator.pop(ctx);
+              // Force immediate UI update
+              if (mounted) setState(() {});
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show context menu on right-click
+  void _showEventContextMenu(
+    BuildContext context,
+    SlotCompositeEvent event,
+    Offset globalPosition,
+  ) {
+    final middleware = context.read<MiddlewareProvider>();
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(globalPosition, globalPosition),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<String>(
+      context: context,
+      position: position,
+      color: FluxforgeColors.surfaceBg,
+      items: [
+        PopupMenuItem(
+          value: 'preview',
+          child: Row(
+            children: [
+              Icon(Icons.play_arrow, size: 16, color: FluxforgeColors.accent),
+              const SizedBox(width: 8),
+              const Text('Preview Event'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'duplicate',
+          child: Row(
+            children: [
+              const Icon(Icons.copy, size: 16, color: Colors.white70),
+              const SizedBox(width: 8),
+              const Text('Duplicate'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+              const SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: Colors.red.withValues(alpha: 0.8))),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == null) return;
+
+      switch (value) {
+        case 'preview':
+          _previewEvent(event);
+          break;
+        case 'duplicate':
+          middleware.duplicateCompositeEvent(event.id);
+          break;
+        case 'delete':
+          _deleteEvent(context, middleware, event);
+          break;
+      }
+    });
   }
 }
 
