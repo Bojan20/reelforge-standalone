@@ -393,7 +393,7 @@ class _ApiReferenceDialog extends StatelessWidget {
                   fontSize: 12,
                 ),
               ),
-              leading: const Icon(Icons.function_variant, size: 16),
+              leading: Icon(Icons.functions, size: 16),
             );
           },
         ),
