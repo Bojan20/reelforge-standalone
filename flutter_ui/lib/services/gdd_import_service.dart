@@ -1147,18 +1147,24 @@ class GddImportService {
       'WIN_LINE_HIDE',
     ]);
 
-    // Win tiers
+    // Win tiers (legacy per-GDD)
     for (final tier in gdd.math.winTiers) {
       final stageName = 'WIN_${tier.id.toUpperCase()}';
       stages.add(stageName);
     }
 
-    // Symbol lands by tier
+    // Win tier templates (P0 WF-02: Auto-generation)
+    stages.addAll(generateWinTierStages());
+
+    // Symbol lands by tier (legacy, kept for backward compat)
     for (final tier in SymbolTier.values) {
       if (gdd.symbols.any((s) => s.tier == tier)) {
         stages.add('SYMBOL_LAND_${tier.name.toUpperCase()}');
       }
     }
+
+    // Per-symbol stages (P0 WF-01: Auto-generation)
+    stages.addAll(generateSymbolStages(gdd.symbols));
 
     // Wild stages
     if (gdd.symbols.any((s) => s.isWild)) {
@@ -1610,5 +1616,72 @@ class GddImportService {
 
     const encoder = JsonEncoder.withIndent('  ');
     return encoder.convert(sample.toJson());
+  }
+
+  /// Generate per-symbol audio stage events (P0 WF-01)
+  ///
+  /// For each symbol in GDD, generates:
+  /// - SYMBOL_LAND_{SYMBOL_ID}
+  /// - WIN_SYMBOL_HIGHLIGHT_{SYMBOL_ID}
+  /// - SYMBOL_EXPAND_{SYMBOL_ID} (if Wild)
+  /// - SYMBOL_LOCK_{SYMBOL_ID} (if Hold & Win)
+  ///
+  /// Returns list of stage names to register in StageConfigurationService
+  List<String> generateSymbolStages(List<GddSymbol> symbols) {
+    final stages = <String>[];
+
+    for (final symbol in symbols) {
+      final symbolId = symbol.id.toUpperCase();
+
+      // Core stages (all symbols)
+      stages.add('SYMBOL_LAND_$symbolId');
+      stages.add('WIN_SYMBOL_HIGHLIGHT_$symbolId');
+
+      // Wild-specific stages
+      if (symbol.isWild) {
+        stages.add('WILD_EXPAND_$symbolId');
+        stages.add('WILD_SUBSTITUTE_$symbolId');
+        stages.add('WILD_STICKY_$symbolId');
+      }
+
+      // Scatter-specific stages
+      if (symbol.isScatter) {
+        stages.add('SCATTER_COLLECT_$symbolId');
+        stages.add('SCATTER_TRIGGER_$symbolId');
+      }
+
+      // Bonus-specific stages
+      if (symbol.isBonus) {
+        stages.add('BONUS_COLLECT_$symbolId');
+        stages.add('BONUS_TRIGGER_$symbolId');
+      }
+    }
+
+    return stages;
+  }
+
+  /// Generate win tier audio stage events (P0 WF-02)
+  ///
+  /// For standard win tiers, generates:
+  /// - WIN_PRESENT_{TIER} (Small/Big/Super/Mega/Epic/Ultra)
+  /// - WIN_LINE_SHOW_{TIER}
+  /// - ROLLUP_START_{TIER}
+  /// - ROLLUP_TICK_{TIER}
+  /// - ROLLUP_END_{TIER}
+  ///
+  /// Returns list of stage names to register
+  List<String> generateWinTierStages() {
+    final tiers = ['SMALL', 'BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA'];
+    final stages = <String>[];
+
+    for (final tier in tiers) {
+      stages.add('WIN_PRESENT_$tier');
+      stages.add('WIN_LINE_SHOW_$tier');
+      stages.add('ROLLUP_START_$tier');
+      stages.add('ROLLUP_TICK_$tier');
+      stages.add('ROLLUP_END_$tier');
+    }
+
+    return stages;
   }
 }

@@ -5,15 +5,17 @@
 
 ---
 
-## 📊 REALISTIC STATUS (After Ultimate Analysis)
+## 📊 REALISTIC STATUS (After Ultimate Analysis + Cross-Verification)
 
 | Phase | Tasks | Done | Remaining | Effort | Status |
 |-------|-------|------|-----------|--------|--------|
 | 🔴 **P0 Critical (Blockers)** | 15 | 3 | 12 | 35-50h | 🚧 20% |
-| 🟠 **P1 High (Major UX)** | 24 | 0 | 24 | 85-110h | ❌ 0% |
-| 🟡 **P2 Medium (Polish)** | 18 | 0 | 18 | 90-120h | ❌ 0% |
+| 🟠 **P1 High (Major UX)** | 29 | 0 | 29 | 99-129h | ❌ 0% |
+| 🟡 **P2 Medium (Polish)** | 21 | 0 | 21 | 103-138h | ❌ 0% |
 | 🟢 **P3 Low (Future)** | 12 | 0 | 12 | 250-340h | ❌ 0% |
-| **TOTAL** | **69** | **3** | **66** | **460-620h** | **4%** |
+| **TOTAL** | **77** | **3** | **74** | **487-657h** | **4%** |
+
+**Cross-Verified By:** Claude Sonnet (added 8 gaps Opus missed)
 
 ⚠️ **CORE WORKS, WORKFLOWS NEED POLISH** — 6-10 weeks to production-ready
 
@@ -106,7 +108,17 @@
 
 ---
 
-## 🟠 P1 HIGH PRIORITY TASKS (24 Total, 0 Done)
+## 🟠 P1 HIGH PRIORITY TASKS (29 Total, 0 Done)
+
+### Cross-Verification Additions (5 new tasks from Sonnet)
+
+| ID | Task | Impact | Effort |
+|----|------|--------|--------|
+| P1-19 | DAW Timeline selection state persistence | Cross-section state loss | 2-3h |
+| P1-20 | Container evaluation logging | QA debugging | 3-4h |
+| P1-21 | Plugin PDC visualization in FX Chain | DSP transparency | 4-5h |
+| P1-22 | Cross-section event playback validation | Data integrity | 3-4h |
+| P1-23 | FFI function binding audit (1688 vs 33) | Completeness check | 2-3h |
 
 ### Audio Designer Improvements (3 tasks)
 
@@ -174,7 +186,15 @@
 
 ---
 
-## 🟡 P2 MEDIUM PRIORITY TASKS (18 Total)
+## 🟡 P2 MEDIUM PRIORITY TASKS (21 Total)
+
+### Cross-Verification Additions (3 new tasks from Sonnet)
+
+| ID | Task | Impact | Effort |
+|----|------|--------|--------|
+| P2-19 | Performance regression tests in CI | Catch perf drops | 6-8h |
+| P2-20 | Input validation consistency audit | Security/stability | 4-6h |
+| P2-21 | Memory leak risk in dispose() methods | Memory stability | 3-4h |
 
 [See `.claude/ULTIMATE_SLOTLAB_GAPS_2026_01_30.md` for full list]
 

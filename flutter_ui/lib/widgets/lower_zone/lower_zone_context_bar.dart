@@ -352,16 +352,20 @@ class LowerZoneContextBar extends StatelessWidget {
           bottom: BorderSide(color: LowerZoneColors.borderSubtle),
         ),
       ),
-      child: Row(
-        children: [
-          const SizedBox(width: 32), // Align with super-tabs (toggle button space)
-          ...List.generate(subTabLabels.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: _buildSubTab(index),
-            );
-          }),
-        ],
+      clipBehavior: Clip.hardEdge,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            const SizedBox(width: 32), // Align with super-tabs (toggle button space)
+            ...List.generate(subTabLabels.length, (index) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: _buildSubTab(index),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }

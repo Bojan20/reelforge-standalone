@@ -2271,6 +2271,10 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// Update game model (re-initializes engine)
   bool updateGameModel(Map<String, dynamic> model) {
+    // Extract old grid dimensions
+    final oldGrid = _currentGameModel?['grid'] as Map<String, dynamic>?;
+    final oldReels = oldGrid?['reels'] as int? ?? 5;
+
     // Shutdown existing engine
     if (_engineV2Initialized) {
       _ffi.slotLabV2Shutdown();
@@ -2283,11 +2287,25 @@ class SlotLabProvider extends ChangeNotifier {
     if (success) {
       _engineV2Initialized = true;
       _currentGameModel = _ffi.slotLabV2GetModel();
+
+      // Check if grid dimensions changed (P0 WF-03)
+      final newGrid = model['grid'] as Map<String, dynamic>?;
+      final newReels = newGrid?['reels'] as int? ?? 5;
+
+      if (newReels != oldReels) {
+        debugPrint('[SlotLabProvider] 📐 Grid changed: $oldReels → $newReels reels');
+        // Trigger reel stage regeneration callback
+        onGridDimensionsChanged?.call(newReels);
+      }
+
       debugPrint('[SlotLabProvider] Game model updated');
       notifyListeners();
     }
     return success;
   }
+
+  /// Callback when grid dimensions change (P0 WF-03)
+  void Function(int newReelCount)? onGridDimensionsChanged;
 
   /// Shutdown Engine V2
   void shutdownEngineV2() {

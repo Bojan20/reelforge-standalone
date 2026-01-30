@@ -832,6 +832,31 @@ class AudioPlaybackService extends ChangeNotifier {
     return _eventVoices[eventId] ?? [];
   }
 
+  /// Preview composite event with respect to layer offsets (P0 WF-05)
+  ///
+  /// Plays all non-muted layers with correct timing (offsetMs)
+  void previewCompositeEvent(SlotCompositeEvent event) {
+    if (event.layers.isEmpty) return;
+
+    debugPrint('[AudioPlayback] 🎵 Previewing event: ${event.name} (${event.layers.length} layers)');
+
+    for (final layer in event.layers) {
+      if (layer.muted || layer.audioPath.isEmpty) continue;
+
+      if (layer.offsetMs > 0) {
+        // Schedule delayed playback
+        Future.delayed(Duration(milliseconds: layer.offsetMs.round()), () {
+          final voiceId = previewFile(layer.audioPath);
+          debugPrint('[AudioPlayback]   Layer "${layer.id}" @ +${layer.offsetMs}ms → voice=$voiceId');
+        });
+      } else {
+        // Play immediately
+        final voiceId = previewFile(layer.audioPath);
+        debugPrint('[AudioPlayback]   Layer "${layer.id}" @ 0ms → voice=$voiceId');
+      }
+    }
+  }
+
   /// Dispose service
   @override
   void dispose() {

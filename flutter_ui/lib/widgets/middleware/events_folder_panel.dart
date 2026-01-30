@@ -1298,14 +1298,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
 
   /// Preview event (play all layers)
   void _previewEvent(SlotCompositeEvent event) {
-    if (event.layers.isEmpty) return;
-
-    // Play all non-muted layers
-    for (final layer in event.layers) {
-      if (!layer.muted && layer.audioPath.isNotEmpty) {
-        AudioPlaybackService.instance.previewFile(layer.audioPath);
-      }
-    }
+    // Use new offset-aware preview (P0 WF-05)
+    AudioPlaybackService.instance.previewCompositeEvent(event);
   }
 
   /// Delete event with confirmation

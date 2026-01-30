@@ -504,7 +504,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           border: Border.all(color: LowerZoneColors.slotLabAccent),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          // mainAxisSize removed — fills Flexible parent
           children: [
             Icon(Icons.casino, size: 14, color: LowerZoneColors.slotLabAccent),
             const SizedBox(width: 4),
@@ -533,7 +533,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     final isPaused = provider.isPaused;
 
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      // mainAxisSize removed — fills Flexible parent
       children: [
         // Play/Pause toggle button
         Tooltip(
@@ -562,7 +562,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 ),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
+                // mainAxisSize removed — fills Flexible parent
                 children: [
                   Icon(
                     isPaused ? Icons.play_arrow : Icons.pause,
@@ -933,7 +933,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        // mainAxisSize removed — fills Flexible parent
         children: [
           // Header row (compact)
           Row(
@@ -1085,7 +1085,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           padding: const EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+            // mainAxisSize removed — fills Flexible parent
             children: [
               // Header (compact)
               Row(
@@ -1264,7 +1264,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        // mainAxisSize removed — fills Flexible parent
         children: [
           // Header (compact)
           Row(
@@ -1300,7 +1300,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     border: Border.all(color: LowerZoneColors.slotLabAccent),
                   ),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                    // mainAxisSize removed — fills Flexible parent
                     children: [
                       Icon(Icons.add, size: 10, color: LowerZoneColors.slotLabAccent),
                       const SizedBox(width: 2),
@@ -1792,7 +1792,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           padding: const EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+            // mainAxisSize removed — fills Flexible parent
             children: [
               // Header (compact)
               Row(
@@ -1839,7 +1839,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                           ),
                         )
                       : Column(
-                          mainAxisSize: MainAxisSize.min,
+                          // mainAxisSize removed — fills Flexible parent
                           children: [
                             // Event header (compact)
                             Container(
@@ -2152,7 +2152,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     required ValueChanged<CrossfadeCurve> onChanged,
   }) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      // mainAxisSize removed — fills Flexible parent
       children: [
         Text(label, style: const TextStyle(fontSize: 7, color: LowerZoneColors.textMuted)),
         const SizedBox(width: 4),
@@ -2166,7 +2166,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               borderRadius: BorderRadius.circular(3),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              // mainAxisSize removed — fills Flexible parent
               children: [
                 Text(
                   _getCurveShortName(value),
@@ -2286,7 +2286,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        // mainAxisSize removed — fills Flexible parent
         children: [
           // Header (compact)
           Row(
@@ -2353,7 +2353,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         border: Border.all(color: LowerZoneColors.border),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        // mainAxisSize removed — fills Flexible parent
         children: [
           Text(label, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
           const SizedBox(width: 4),
@@ -2414,7 +2414,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        // mainAxisSize removed — fills Flexible parent
         children: [
           _buildPanelHeader('STEREO PANNER', Icons.surround_sound),
           const SizedBox(height: 8),
@@ -2512,7 +2512,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        // mainAxisSize removed — fills Flexible parent
         children: [
           _buildPanelHeader('SIGNAL CHAIN', Icons.link),
           const SizedBox(height: 8),
@@ -2522,7 +2522,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  // mainAxisSize removed — fills Flexible parent
                   children: [
                     _buildDspNode('IN', Icons.input, isEndpoint: true),
                     _buildDspArrow(),
@@ -2628,7 +2628,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        // mainAxisSize removed — fills Flexible parent
         children: [
           Row(
             children: [
@@ -2740,7 +2740,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           border: Border.all(color: LowerZoneColors.slotLabAccent),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          // mainAxisSize removed — fills Flexible parent
           children: [
             Icon(icon, size: 12, color: LowerZoneColors.slotLabAccent),
             const SizedBox(width: 4),
@@ -2774,7 +2774,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        // mainAxisSize removed — fills Flexible parent
         children: [
           Row(
             children: [
@@ -2801,7 +2801,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               children: [
                 Expanded(
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    // mainAxisSize removed — fills Flexible parent
                     children: [
                       _buildInteractiveVariationSlider(
                         'Pitch',
@@ -2830,7 +2830,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     border: Border.all(color: LowerZoneColors.border),
                   ),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    // mainAxisSize removed — fills Flexible parent
                     children: [
                       Text('Children', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
                       const SizedBox(height: 4),
@@ -2955,7 +2955,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        // mainAxisSize removed — fills Flexible parent
         children: [
           Row(
             children: [
@@ -2975,7 +2975,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               children: [
                 Expanded(
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    // mainAxisSize removed — fills Flexible parent
                     children: [
                       _buildExportOption('Platform', 'All'),
                       _buildExportOption('Compression', 'Vorbis Q6'),
@@ -3557,7 +3557,7 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
         width: 420,
         padding: const EdgeInsets.all(20),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          // mainAxisSize removed — fills Flexible parent
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header

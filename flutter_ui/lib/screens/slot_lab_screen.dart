@@ -1657,6 +1657,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
           _slotLabProvider.connectMiddleware(middleware);
 
+          // Setup grid change callback (P0 WF-03)
+          _slotLabProvider.onGridDimensionsChanged = (newReelCount) {
+            debugPrint('[SlotLab] 🔄 Regenerating reel stages for $newReelCount reels');
+            _regenerateReelStages(newReelCount);
+          };
+
           // Connect to ALE for signal sync
           try {
             final ale = Provider.of<AleProvider>(context, listen: false);
@@ -12299,6 +12305,27 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         ],
       ),
     );
+  }
+
+  /// Regenerate reel-specific stages when grid dimensions change (P0 WF-03)
+  void _regenerateReelStages(int newReelCount) {
+    final eventRegistry = EventRegistry.instance;
+
+    // Clear old reel-specific events (REEL_STOP_0..old count)
+    for (var i = 0; i < 10; i++) {
+      // Clear up to 10 reels (max possible)
+      eventRegistry.unregisterStage('REEL_STOP_$i');
+      eventRegistry.unregisterStage('REEL_SPINNING_START_$i');
+      eventRegistry.unregisterStage('REEL_SPINNING_STOP_$i');
+    }
+
+    debugPrint('[SlotLab] ♻️ Cleared old reel stages (0-9)');
+    debugPrint('[SlotLab] 🎯 Will regenerate for $newReelCount reels');
+
+    // Note: New reel events will be created when audio is assigned
+    // Pan law will be auto-calculated based on new reel count:
+    //   pan = (reelIndex - (newReelCount / 2)) * 0.8 / (newReelCount / 2)
+    //   Example for 6 reels: reel 0 = -0.8, reel 2.5 = 0.0, reel 5 = +0.8
   }
 }
 
