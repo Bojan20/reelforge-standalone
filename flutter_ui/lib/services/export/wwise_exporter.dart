@@ -273,11 +273,11 @@ class WwiseExporter {
     xml.writeln('      <ChildrenList>');
 
     for (final event in events) {
-      xml.writeln('        <Event Name="${_sanitizeName(event.eventName)}" ID="{${_generateGuid()}}">');
+      xml.writeln('        <Event Name="${_sanitizeName(event.name)}" ID="{${_generateGuid()}}">');
       xml.writeln('          <ChildrenList>');
       xml.writeln('            <Action Name="Play" ID="{${_generateGuid()}}" Type="Play">');
       xml.writeln('              <PropertyList>');
-      xml.writeln('                <Property Name="FadeTime" Type="Real64" Value="${event.fadeTimeMs / 1000.0}"/>');
+      xml.writeln('                <Property Name="FadeTime" Type="Real64" Value="${event.fadeInMs / 1000.0}"/>');
       xml.writeln('              </PropertyList>');
       xml.writeln('            </Action>');
       xml.writeln('          </ChildrenList>');
@@ -312,7 +312,7 @@ class WwiseExporter {
       xml.writeln('      <PropertyList>');
       xml.writeln('        <Property Name="Min" Type="Real64" Value="${rtpc.min}"/>');
       xml.writeln('        <Property Name="Max" Type="Real64" Value="${rtpc.max}"/>');
-      xml.writeln('        <Property Name="InitialValue" Type="Real64" Value="${rtpc.value}"/>');
+      xml.writeln('        <Property Name="InitialValue" Type="Real64" Value="${rtpc.id}"/>');
       xml.writeln('      </PropertyList>');
       xml.writeln('    </GameParameter>');
     }
@@ -393,7 +393,7 @@ class WwiseExporter {
     xml.writeln('        <SoundBank Name="Main" ID="{${_generateGuid()}}">');
     xml.writeln('          <Inclusions>');
     for (final event in events) {
-      xml.writeln('            <Event Name="${_sanitizeName(event.eventName)}"/>');
+      xml.writeln('            <Event Name="${_sanitizeName(event.name)}"/>');
     }
     xml.writeln('          </Inclusions>');
     xml.writeln('        </SoundBank>');

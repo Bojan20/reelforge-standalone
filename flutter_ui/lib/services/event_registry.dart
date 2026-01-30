@@ -2710,3 +2710,12 @@ class EventRegistry extends ChangeNotifier {
 // =============================================================================
 
 final eventRegistry = EventRegistry();
+
+  /// Unregister stage (P0 WF-03 support)
+  void unregisterStage(String stage) {
+    final normalized = stage.toUpperCase().trim();
+    _eventsByStage.remove(normalized);
+    debugPrint('[EventRegistry] 🗑 Unregistered: $stage');
+    notifyListeners();
+  }
+}

@@ -10,7 +10,7 @@
 /// - Warning for excessive latency (>100ms)
 
 import 'package:flutter/material.dart';
-import '../../theme/theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// PDC information for a single plugin
 class PluginDelayInfo {

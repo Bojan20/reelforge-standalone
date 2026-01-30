@@ -193,7 +193,7 @@ class FmodStudioExporter {
     xml.writeln('<objects serializationModel="Studio.02.02.00">');
     xml.writeln('  <object class="Event" id="{${_generateGuid()}}">');
     xml.writeln('    <property name="name">');
-    xml.writeln('      <value>${_sanitizeName(event.eventName)}</value>');
+    xml.writeln('      <value>${_sanitizeName(event.name)}</value>');
     xml.writeln('    </property>');
 
     // Event tracks (layers)
@@ -249,7 +249,7 @@ class FmodStudioExporter {
     xml.writeln('      <value>${rtpc.max}</value>');
     xml.writeln('    </property>');
     xml.writeln('    <property name="initialValue">');
-    xml.writeln('      <value>${rtpc.value}</value>');
+    xml.writeln('      <value>${rtpc.id}</value>');
     xml.writeln('    </property>');
     xml.writeln('  </object>');
     xml.writeln('</objects>');
@@ -302,7 +302,7 @@ class FmodStudioExporter {
     // Include all events in master bank
     xml.writeln('    <relationship name="eventReferences">');
     for (final event in events) {
-      xml.writeln('      <destination>event:/${_sanitizeName(event.eventName)}</destination>');
+      xml.writeln('      <destination>event:/${_sanitizeName(event.name)}</destination>');
     }
     xml.writeln('    </relationship>');
 

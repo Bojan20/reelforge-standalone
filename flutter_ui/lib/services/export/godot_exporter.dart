@@ -172,7 +172,7 @@ class GodotExporter {
     gd.writeln();
     gd.writeln('\t# Initialize RTPC values');
     for (final rtpc in rtpcs) {
-      gd.writeln('\t_rtpc_values["${_sanitizeName(rtpc.name)}"] = ${rtpc.value}');
+      gd.writeln('\t_rtpc_values["${_sanitizeName(rtpc.name)}"] = ${rtpc.id}');
     }
     gd.writeln();
     gd.writeln('# Post event');
@@ -266,16 +266,16 @@ class GodotExporter {
     gd.writeln();
     gd.writeln('# Event names as constants');
     for (final event in events) {
-      final constName = _toConstantName(event.eventName);
-      gd.writeln('const $constName = "${event.eventName}"');
+      final constName = _toConstantName(event.name);
+      gd.writeln('const $constName = "${event.name}"');
     }
     gd.writeln();
     gd.writeln('# Event data dictionary');
     gd.writeln('static var EVENT_DATA = {');
     for (final event in events) {
-      gd.writeln('\t"${event.eventName}": {');
+      gd.writeln('\t"${event.name}": {');
       gd.writeln('\t\t"id": "${event.id}",');
-      gd.writeln('\t\t"fade_ms": ${event.fadeTimeMs},');
+      gd.writeln('\t\t"fade_ms": ${event.fadeInMs},');
       gd.writeln('\t\t"layers": ${event.layers.length},');
       gd.writeln('\t},');
     }
@@ -315,7 +315,7 @@ class GodotExporter {
       gd.writeln('\t"${rtpc.name}": {');
       gd.writeln('\t\t"min": ${rtpc.min},');
       gd.writeln('\t\t"max": ${rtpc.max},');
-      gd.writeln('\t\t"default": ${rtpc.value},');
+      gd.writeln('\t\t"default": ${rtpc.id},');
       gd.writeln('\t},');
     }
     gd.writeln('}');
