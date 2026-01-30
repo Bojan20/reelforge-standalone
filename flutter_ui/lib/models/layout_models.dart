@@ -107,7 +107,6 @@ class TabGroup {
 class InsertSlot {
   final String id;
   final String name;
-  final String? processorType; // P2-02 support
   final String type; // 'eq', 'comp', 'reverb', 'delay', 'filter', 'fx', 'utility', 'custom', 'empty'
   final bool bypassed;
   final bool isPreFader;
@@ -115,7 +114,6 @@ class InsertSlot {
   final Map<String, dynamic>? params;
 
   const InsertSlot({
-    this.processorType,
     required this.id,
     required this.name,
     required this.type,
@@ -126,7 +124,6 @@ class InsertSlot {
   });
 
   /// Wet/dry as percentage (0-100)
-    String? processorType,
   int get wetDryPercent => (wetDry * 100).round();
 
   /// Create an empty insert slot
@@ -137,7 +134,6 @@ class InsertSlot {
     isPreFader: isPreFader,
   );
 
-      processorType: processorType ?? this.processorType,
   bool get isEmpty => type == 'empty' || name.isEmpty;
 
   InsertSlot copyWith({

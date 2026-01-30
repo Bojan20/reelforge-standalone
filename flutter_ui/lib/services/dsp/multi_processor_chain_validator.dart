@@ -196,11 +196,11 @@ class MultiProcessorChainValidator {
     // Find pairs of EQs with potentially opposing curves
     for (int i = 0; i < chain.length; i++) {
       if (chain[i].bypassed) continue;
-      if (chain[i].processorType != 'eq') continue;
+      if (chain[i].type != 'eq') continue;
 
       for (int j = i + 1; j < chain.length; j++) {
         if (chain[j].bypassed) continue;
-        if (chain[j].processorType != 'eq') continue;
+        if (chain[j].type != 'eq') continue;
 
         // Simple heuristic: if both are EQs close together, check for opposite gains
         // In real implementation, would analyze actual frequency response curves
@@ -264,7 +264,7 @@ class MultiProcessorChainValidator {
     final typeCounts = <String, List<int>>{};
     for (int i = 0; i < chain.length; i++) {
       if (chain[i].bypassed) continue;
-      typeCounts.putIfAbsent(chain[i].processorType, () => []).add(i);
+      typeCounts.putIfAbsent(chain[i].type, () => []).add(i);
     }
 
     for (final entry in typeCounts.entries) {
@@ -288,7 +288,7 @@ class MultiProcessorChainValidator {
 
     // Ideal order: EQ → Dynamics → Time-based (reverb/delay) → Limiting
     // Check if order is non-optimal
-    final types = chain.where((p) => !p.bypassed).map((p) => p.processorType).toList();
+    final types = chain.where((p) => !p.bypassed).map((p) => p.type).toList();
 
     // Find indices of each category
     int? lastEqIdx, lastDynamicsIdx, lastTimeIdx, lastLimiterIdx;
@@ -296,7 +296,7 @@ class MultiProcessorChainValidator {
     for (int i = 0; i < chain.length; i++) {
       if (chain[i].bypassed) continue;
 
-      switch (chain[i].processorType) {
+      switch (chain[i].type) {
         case 'eq':
           lastEqIdx = i;
           break;
@@ -349,7 +349,7 @@ class MultiProcessorChainValidator {
       if (processor.bypassed) continue;
 
       // Rough CPU estimates per processor type (%)
-      load += switch (processor.processorType) {
+      load += switch (processor.type) {
         'eq' => 5.0,
         'compressor' => 8.0,
         'limiter' => 6.0,
@@ -374,7 +374,7 @@ class MultiProcessorChainValidator {
       if (processor.bypassed) continue;
 
       // Rough latency estimates per processor type (ms)
-      latencyMs += switch (processor.processorType) {
+      latencyMs += switch (processor.type) {
         'eq' => 0.0, // Zero-latency
         'compressor' => 0.5, // Lookahead
         'limiter' => 1.0, // Lookahead
@@ -394,7 +394,7 @@ class MultiProcessorChainValidator {
   /// Estimate gain added by processor (linear)
   double _estimateProcessorGain(InsertSlot processor) {
     // Rough estimates — in real implementation would analyze actual parameters
-    return switch (processor.processorType) {
+    return switch (processor.type) {
       'eq' => 1.0, // Can vary greatly
       'compressor' => 0.8, // Typically reduces peaks
       'limiter' => 0.9, // Reduces peaks
