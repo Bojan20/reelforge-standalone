@@ -198,12 +198,71 @@ jobs:
       - name: Run benchmarks
         run: cargo bench --workspace -- --output-format bencher | tee bench-results.txt
 
+      - name: Download baseline (if exists)
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: baseline/
+
+      - name: Compare with baseline (P2-19)
+        continue-on-error: true
+        run: |
+          if [ -f baseline/bench-results.txt ]; then
+            echo "📊 Comparing with baseline..."
+            python3 - <<'EOF'
+          import sys
+          baseline = {}
+          with open('baseline/bench-results.txt', 'r') as f:
+              for line in f:
+                  if 'bench:' in line:
+                      parts = line.split()
+                      name = parts[1]
+                      time_ns = int(parts[3].replace(',', ''))
+                      baseline[name] = time_ns
+
+          current = {}
+          with open('bench-results.txt', 'r') as f:
+              for line in f:
+                  if 'bench:' in line:
+                      parts = line.split()
+                      name = parts[1]
+                      time_ns = int(parts[3].replace(',', ''))
+                      current[name] = time_ns
+
+          print("Performance Regression Report:")
+          regressions = []
+          for name in current:
+              if name in baseline:
+                  delta = ((current[name] - baseline[name]) / baseline[name]) * 100
+                  if delta > 5:  # >5% slower = regression
+                      regressions.append((name, delta))
+                      print(f"⚠️ REGRESSION: {name} +{delta:.1f}%")
+                  elif delta < -5:  # >5% faster = improvement
+                      print(f"✅ IMPROVEMENT: {name} {delta:.1f}%")
+
+          if regressions:
+              print(f"\n❌ {len(regressions)} performance regressions detected!")
+              sys.exit(1)
+          else:
+              print("\n✅ No regressions detected")
+          EOF
+          fi
+
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
           path: bench-results.txt
           retention-days: 30
+
+      - name: Save as baseline (main branch only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: bench-results.txt
+          retention-days: 90
 
   # ============================================
   # Security Audit
