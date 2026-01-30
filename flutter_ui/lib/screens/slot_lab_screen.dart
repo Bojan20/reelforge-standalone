@@ -376,6 +376,19 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   DateTime? _lastDragStatusTime;
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // P2-12: RESPONSIVE PANEL VISIBILITY
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Breakpoints: <900px = hide right, <1200px = hide left, <700px = hide both
+  static const double _breakpointHideRight = 900.0;
+  static const double _breakpointHideLeft = 1200.0;
+  static const double _breakpointHideBoth = 700.0;
+  static const double _minCenterWidth = 400.0;  // Minimum center panel width
+
+  // Manual override (user can toggle panels regardless of breakpoint)
+  bool _leftPanelManuallyHidden = false;
+  bool _rightPanelManuallyHidden = false;
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // ULTIMATE AUDIO PANEL STATE — now persisted in SlotLabProjectProvider
   // ═══════════════════════════════════════════════════════════════════════════
   // NOTE: _audioAssignments moved to SlotLabProjectProvider for persistence
@@ -2132,12 +2145,36 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               // Header
               _buildHeader(),
 
-              // Main area - V6 3-Panel Layout
+              // Main area - V6 3-Panel Layout with P2-12 Responsive Breakpoints
               Expanded(
-                child: Row(
-                  children: [
-                    // LEFT: Ultimate Audio Panel (V7 — replaces SymbolStripWidget)
-                    Consumer<SlotLabProjectProvider>(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final availableWidth = constraints.maxWidth;
+
+                    // Determine panel visibility based on breakpoints
+                    final showLeftPanel = availableWidth >= _breakpointHideLeft &&
+                        !_leftPanelManuallyHidden;
+                    final showRightPanel = availableWidth >= _breakpointHideRight &&
+                        !_rightPanelManuallyHidden;
+
+                    // Force hide both if extremely narrow
+                    final forceHideBoth = availableWidth < _breakpointHideBoth;
+
+                    // Calculate center width to ensure minimum
+                    final leftWidth = (showLeftPanel && !forceHideBoth) ? 240.0 : 0.0;
+                    final rightWidth = (showRightPanel && !forceHideBoth) ? 300.0 : 0.0;
+                    final centerWidth = availableWidth - leftWidth - rightWidth;
+
+                    // If center would be too small, hide side panels
+                    final actualShowLeft = showLeftPanel && !forceHideBoth && centerWidth >= _minCenterWidth;
+                    final actualShowRight = showRightPanel && !forceHideBoth &&
+                        (centerWidth >= _minCenterWidth || !actualShowLeft);
+
+                    return Row(
+                      children: [
+                        // LEFT: Ultimate Audio Panel (V7 — replaces SymbolStripWidget)
+                        if (actualShowLeft)
+                          Consumer<SlotLabProjectProvider>(
                       builder: (context, projectProvider, _) {
                         return SizedBox(
                           width: 240,
@@ -2268,34 +2305,39 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                           ),
                         );
                       },
-                    ),
+                    ), // End of if (actualShowLeft) Consumer
 
-                    // CENTER: Premium Slot Preview
-                    Expanded(
-                      child: Center(
-                        child: _buildMockSlot(),
-                      ),
-                    ),
+                        // CENTER: Premium Slot Preview (with min width constraint)
+                        Expanded(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minWidth: _minCenterWidth),
+                            child: Center(
+                              child: _buildMockSlot(),
+                            ),
+                          ),
+                        ),
 
-                    // RIGHT: Events Panel (V6)
-                    // Uses context.watch<MiddlewareProvider>() internally
-                    SizedBox(
-                      width: 300,
-                      child: EventsPanelWidget(
-                        selectedEventId: _selectedEventId,
-                        onSelectionChanged: (eventId) {
-                          setState(() {
-                            _selectedEventId = eventId;
-                          });
-                        },
-                        onAudioDragStarted: (audioPaths) {
-                          setState(() {
-                            _draggingAudioPaths = audioPaths;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
+                        // RIGHT: Events Panel (V6) — conditional visibility
+                        if (actualShowRight)
+                          SizedBox(
+                            width: 300,
+                            child: EventsPanelWidget(
+                              selectedEventId: _selectedEventId,
+                              onSelectionChanged: (eventId) {
+                                setState(() {
+                                  _selectedEventId = eventId;
+                                });
+                              },
+                              onAudioDragStarted: (audioPaths) {
+                                setState(() {
+                                  _draggingAudioPaths = audioPaths;
+                                });
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
 
@@ -2908,6 +2950,28 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             icon: Icons.settings,
             onTap: _showSettingsDialog,
             tooltip: 'Settings',
+          ),
+
+          // P2-12: Panel visibility toggles
+          const SizedBox(width: 8),
+          Container(
+            height: 24,
+            width: 1,
+            color: Colors.white24,
+          ),
+          const SizedBox(width: 8),
+          _buildGlassButton(
+            icon: Icons.view_sidebar,
+            onTap: _toggleLeftPanel,
+            tooltip: _leftPanelManuallyHidden ? 'Show Audio Panel' : 'Hide Audio Panel',
+            isActive: !_leftPanelManuallyHidden,
+          ),
+          const SizedBox(width: 4),
+          _buildGlassButton(
+            icon: Icons.view_sidebar_outlined,
+            onTap: _toggleRightPanel,
+            tooltip: _rightPanelManuallyHidden ? 'Show Events Panel' : 'Hide Events Panel',
+            isActive: !_rightPanelManuallyHidden,
           ),
 
           const SizedBox(width: 8),
@@ -6948,6 +7012,40 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         }
       }
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P2-12: RESPONSIVE PANEL TOGGLE METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Toggle left panel visibility (manual override)
+  void _toggleLeftPanel() {
+    setState(() {
+      _leftPanelManuallyHidden = !_leftPanelManuallyHidden;
+    });
+  }
+
+  /// Toggle right panel visibility (manual override)
+  void _toggleRightPanel() {
+    setState(() {
+      _rightPanelManuallyHidden = !_rightPanelManuallyHidden;
+    });
+  }
+
+  /// Check if left panel is currently visible (considering both auto and manual)
+  bool _isLeftPanelVisible(double screenWidth) {
+    if (_leftPanelManuallyHidden) return false;
+    if (screenWidth < _breakpointHideBoth) return false;
+    if (screenWidth < _breakpointHideLeft) return false;
+    return true;
+  }
+
+  /// Check if right panel is currently visible (considering both auto and manual)
+  bool _isRightPanelVisible(double screenWidth) {
+    if (_rightPanelManuallyHidden) return false;
+    if (screenWidth < _breakpointHideBoth) return false;
+    if (screenWidth < _breakpointHideRight) return false;
+    return true;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

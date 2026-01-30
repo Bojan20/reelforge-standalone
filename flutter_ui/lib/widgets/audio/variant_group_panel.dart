@@ -173,7 +173,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
     return ListView.separated(
       padding: const EdgeInsets.all(8),
       itemCount: groups.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _a) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final group = groups[index];
         final isExpanded = _expandedGroupId == group.id;

@@ -67,7 +67,7 @@ enum DitheringType {
   none('None'),
   triangular('Triangular (TPDF)'),
   shaped('Noise Shaped'),
-  pow_r('POW-r');
+  powR('POW-r');
 
   final String displayName;
 

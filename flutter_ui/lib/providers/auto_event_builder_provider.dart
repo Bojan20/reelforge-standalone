@@ -255,9 +255,4 @@ class AutoEventBuilderProvider extends ChangeNotifier {
   BindingGraph buildBindingGraph() => const BindingGraph();
   void applyGraphLayout(BindingGraph graph) {}
   String exportGraphToDot(BindingGraph graph) => '';
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

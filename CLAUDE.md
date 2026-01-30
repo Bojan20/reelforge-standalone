@@ -2,6 +2,27 @@
 
 ---
 
+## 🚫 APSOLUTNA ZABRANA SHIPOVANJA 🚫
+
+**NEMA SHIPOVANJA DOK:**
+
+1. **100% FUNKCIONALNO** — SVE funkcionalnosti moraju raditi bez izuzetka
+2. **100% IMPLEMENTIRANO** — SVE planirane feature-e moraju biti ubačene (P0, P1, P2, P3, P4)
+3. **100% TESTIRANO** — SVE mora proći kroz kompletno testiranje:
+   - `flutter analyze` = 0 errors
+   - `cargo test` = 100% pass
+   - `flutter test` = 100% pass
+   - Manual QA = sve sekcije proverene
+   - Regression tests = svi prolaze
+
+**TRENUTNI STATUS:** Proveri `.claude/MASTER_TODO.md` za tačan procenat.
+
+**SHIP KRITERIJUM:** 100% across the board — NIŠTA MANJE.
+
+**AKO NISI SIGURAN DA LI JE SPREMNO → NIJE SPREMNO.**
+
+---
+
 ## ⚠️ STOP — OBAVEZNO PRE SVAKE AKCIJE ⚠️
 
 **NIKADA ne menjaj kod dok ne uradiš OVO:**

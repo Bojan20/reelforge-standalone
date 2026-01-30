@@ -14,7 +14,7 @@
 import '../models/slot_audio_events.dart';
 import '../providers/middleware_provider.dart';
 import '../services/event_registry.dart';
-import '../services/stage_configuration_service.dart';
+// StageConfigurationService referenced in comment only (line 195)
 import 'dart:io';
 
 enum ValidationSeverity {

@@ -8,7 +8,6 @@ import '../../services/cross_section_validator.dart';
 import '../../services/event_registry.dart';
 import '../../providers/middleware_provider.dart';
 import '../../theme/fluxforge_theme.dart';
-import '../../theme/fluxforge_theme.dart';
 
 class CrossSectionValidationPanel extends StatefulWidget {
   const CrossSectionValidationPanel({super.key});

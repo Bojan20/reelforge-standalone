@@ -2702,8 +2702,8 @@ class EventRegistry extends ChangeNotifier {
   void unregisterStage(String stage) {
     final normalized = stage.toUpperCase().trim();
 
-    if (_eventsByStage.containsKey(normalized)) {
-      _eventsByStage.remove(normalized);
+    if (_stageToEvent.containsKey(normalized)) {
+      _stageToEvent.remove(normalized);
       debugPrint('[EventRegistry] 🗑️ Unregistered stage: $stage');
       notifyListeners();
     } else {

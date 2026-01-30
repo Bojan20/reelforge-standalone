@@ -15,10 +15,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
-import '../../providers/middleware_provider.dart';
-import '../../providers/slot_lab_provider.dart';
 import 'tutorial_steps.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

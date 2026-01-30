@@ -291,32 +291,6 @@ class ContainerEvaluationLogger {
       newestTimestamp: _logs.isEmpty ? null : _logs.last.timestamp,
     );
   }
-
-  /// Export evaluation history to JSON (P2-17)
-  ///
-  /// Returns JSON string with all evaluation logs and metadata.
-  /// Suitable for QA analysis, debugging, or external tool integration.
-  String exportToJson() {
-    final data = _logs.map((log) => {
-      'id': log.id,
-      'timestamp': log.timestamp.toIso8601String(),
-      'type': log.type.toString().split('.').last,
-      'containerId': log.containerId,
-      'containerName': log.containerName,
-      'evaluation': log.evaluation,
-    }).toList();
-
-    return jsonEncode({
-      'evaluations': data,
-      'stats': {
-        'total': _logs.length,
-        'blend': _logs.where((e) => e.type == ContainerEvaluationType.blend).length,
-        'random': _logs.where((e) => e.type == ContainerEvaluationType.random).length,
-        'sequence': _logs.where((e) => e.type == ContainerEvaluationType.sequence).length,
-      },
-      'exported': DateTime.now().toIso8601String(),
-    });
-  }
 }
 
 /// Statistics about container evaluations

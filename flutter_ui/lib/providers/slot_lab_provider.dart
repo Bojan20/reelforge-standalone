@@ -2322,7 +2322,7 @@ class SlotLabProvider extends ChangeNotifier {
     return SlotLabSpinResult.fromJson(v2Result);
   }
 
-  /// Convert V2 stages List to List<SlotLabStageEvent>
+  /// Convert V2 stages List to List of [SlotLabStageEvent]
   List<SlotLabStageEvent> _convertV2Stages(List<Map<String, dynamic>> v2Stages) {
     return v2Stages.map((s) => SlotLabStageEvent.fromJson(s)).toList();
   }

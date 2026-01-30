@@ -277,7 +277,7 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: nodes.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _a) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final node = nodes[index];
                       return _buildProcessorRow(node, index);

@@ -479,7 +479,7 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

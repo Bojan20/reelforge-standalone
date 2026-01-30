@@ -20,7 +20,7 @@ class ContainerEvalHistoryEntry {
   final String? containerName;
 
   /// Evaluation result (depends on type)
-  /// - Blend: Map<childId, volume>
+  /// - Blend: Map of childId to volume
   /// - Random: selected childId
   /// - Sequence: step index
   final dynamic result;

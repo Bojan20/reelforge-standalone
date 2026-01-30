@@ -706,7 +706,7 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
         child: ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: gdd.symbols.length,
-          separatorBuilder: (_, __) => Divider(
+          separatorBuilder: (_, _a) => Divider(
             color: Colors.white.withValues(alpha: 0.08),
             height: 1,
           ),
@@ -1009,7 +1009,7 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                 _featureDetail('Trigger', feature.triggerCondition!, color),
               if (feature.initialSpins != null)
                 _featureDetail('Spins', '${feature.initialSpins}', color),
-              if (feature.retriggerable == true)
+              if (feature.retriggerable != null && feature.retriggerable! > 0)
                 _featureDetail('', 'Retriggerable', color),
             ],
           ),
@@ -1451,7 +1451,7 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
           Expanded(
             child: ListView.separated(
               itemCount: tiers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, _a) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final tier = tiers[index];
                 final color = _winTierColor(tier.name);

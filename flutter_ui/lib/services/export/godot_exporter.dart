@@ -275,7 +275,7 @@ class GodotExporter {
     for (final event in events) {
       gd.writeln('\t"${event.name}": {');
       gd.writeln('\t\t"id": "${event.id}",');
-      gd.writeln('\t\t"fade_ms": ${event.fadeInMs},');
+      gd.writeln('\t\t"fade_ms": ${event.layers.isNotEmpty ? event.layers.first.fadeInMs : 0},');
       gd.writeln('\t\t"layers": ${event.layers.length},');
       gd.writeln('\t},');
     }

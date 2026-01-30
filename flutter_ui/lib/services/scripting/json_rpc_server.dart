@@ -272,7 +272,7 @@ class JsonRpcServer {
       'successfulRequests': _successfulRequests,
       'failedRequests': _failedRequests,
       'successRate': _totalRequests > 0
-          ? (_successfulRequests / _totalRequests * 100).toStringAsFixed(1) + '%'
+          ? '${(_successfulRequests / _totalRequests * 100).toStringAsFixed(1)}%'
           : '0%',
       'requestsByMethod': _requestsByMethod,
     };

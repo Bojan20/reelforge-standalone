@@ -208,7 +208,10 @@ class WwiseExporter {
       for (final child in container.children) {
         xml.writeln('            <Sound Name="Layer_${child.id}" ID="{${_generateGuid()}}">');
         xml.writeln('              <PropertyList>');
-        xml.writeln('                <Property Name="Volume" Type="Real64" Value="${_linearToDb(child.volume)}"/>');
+        // BlendChild doesn't have volume — use default 0dB (linear 1.0)
+        xml.writeln('                <Property Name="Volume" Type="Real64" Value="0.0"/>');
+        xml.writeln('                <Property Name="RtpcStart" Type="Real64" Value="${child.rtpcStart}"/>');
+        xml.writeln('                <Property Name="RtpcEnd" Type="Real64" Value="${child.rtpcEnd}"/>');
         xml.writeln('              </PropertyList>');
         xml.writeln('            </Sound>');
       }
@@ -243,9 +246,10 @@ class WwiseExporter {
       xml.writeln('          </PropertyList>');
       xml.writeln('          <ChildrenList>');
       for (final step in container.steps) {
-        xml.writeln('            <Sound Name="Step_${step.id}" ID="{${_generateGuid()}}">');
+        xml.writeln('            <Sound Name="Step_${step.index}" ID="{${_generateGuid()}}">');
         xml.writeln('              <PropertyList>');
         xml.writeln('                <Property Name="Volume" Type="Real64" Value="${_linearToDb(step.volume)}"/>');
+        xml.writeln('                <Property Name="Delay" Type="Real64" Value="${step.delayMs / 1000.0}"/>');
         xml.writeln('              </PropertyList>');
         xml.writeln('            </Sound>');
       }
@@ -277,7 +281,9 @@ class WwiseExporter {
       xml.writeln('          <ChildrenList>');
       xml.writeln('            <Action Name="Play" ID="{${_generateGuid()}}" Type="Play">');
       xml.writeln('              <PropertyList>');
-      xml.writeln('                <Property Name="FadeTime" Type="Real64" Value="${event.fadeInMs / 1000.0}"/>');
+      // SlotCompositeEvent doesn't have fadeInMs directly — get from first layer
+      final fadeMs = event.layers.isNotEmpty ? event.layers.first.fadeInMs : 0.0;
+      xml.writeln('                <Property Name="FadeTime" Type="Real64" Value="${fadeMs / 1000.0}"/>');
       xml.writeln('              </PropertyList>');
       xml.writeln('            </Action>');
       xml.writeln('          </ChildrenList>');

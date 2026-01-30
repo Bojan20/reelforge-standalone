@@ -185,7 +185,7 @@ class BatchAssetConverter {
     return results;
   }
 
-  /// Convert single file
+  /// Convert single file using rf-offline FFI
   Future<ConversionResult> _convertSingle(
     ConversionJob job,
     void Function(double progress)? onProgress,
@@ -203,21 +203,7 @@ class BatchAssetConverter {
         );
       }
 
-      // TODO: Call rf-offline FFI functions
-      // In real implementation:
-      // 1. Create offline pipeline: offlinePipelineCreate()
-      // 2. Set format: offlinePipelineSetFormat(formatId)
-      // 3. Set normalization: offlinePipelineSetNormalization(mode, target)
-      // 4. Process file: offlineProcessFile(inputPath, outputPath)
-      // 5. Destroy pipeline: offlinePipelineDestroy(handle)
-
-      // Simulate processing
-      await Future.delayed(const Duration(milliseconds: 100));
-      onProgress?.call(50.0);
-      await Future.delayed(const Duration(milliseconds: 100));
-      onProgress?.call(100.0);
-
-      // For now, just copy file (placeholder)
+      // Verify input file exists
       final inputFile = File(job.inputPath);
       if (!await inputFile.exists()) {
         return ConversionResult(
@@ -232,21 +218,146 @@ class BatchAssetConverter {
       final outputFile = File(job.outputPath);
       await outputFile.parent.create(recursive: true);
 
-      // Placeholder: just copy file
-      await inputFile.copy(job.outputPath);
+      // Get input file info for metadata
+      final audioInfo = _ffi.offlineGetAudioInfo(job.inputPath);
+      final inputSampleRate = audioInfo?['sample_rate'] as int? ?? 0;
+      final inputChannels = audioInfo?['channels'] as int? ?? 0;
+      final inputDuration = audioInfo?['duration'] as double? ?? 0.0;
 
-      final duration = DateTime.now().difference(startTime).inMilliseconds / 1000.0;
+      onProgress?.call(5.0);
 
-      return ConversionResult(
-        inputPath: job.inputPath,
-        outputPath: job.outputPath,
-        success: true,
-        durationSeconds: duration,
-        metadata: {
-          'format': job.format.name,
-          'normalized': job.normalize is! NoNormalization,
-        },
-      );
+      // ═══════════════════════════════════════════════════════════════════════
+      // REAL RF-OFFLINE FFI IMPLEMENTATION
+      // ═══════════════════════════════════════════════════════════════════════
+
+      // 1. Create offline pipeline
+      final pipelineHandle = _ffi.offlinePipelineCreate();
+      if (pipelineHandle == 0) {
+        final error = _ffi.offlineGetLastError() ?? 'Failed to create pipeline';
+        return ConversionResult(
+          inputPath: job.inputPath,
+          outputPath: job.outputPath,
+          success: false,
+          error: error,
+        );
+      }
+
+      try {
+        onProgress?.call(10.0);
+
+        // 2. Set output format
+        final formatId = _formatToId(job.format);
+        _ffi.offlinePipelineSetFormat(pipelineHandle, formatId);
+
+        onProgress?.call(15.0);
+
+        // 3. Set normalization if specified
+        final (normMode, normTarget) = _normalizationToParams(job.normalize);
+        if (normMode > 0) {
+          _ffi.offlinePipelineSetNormalization(pipelineHandle, normMode, normTarget);
+        }
+
+        onProgress?.call(20.0);
+
+        // 4. Process file
+        final jobId = _ffi.offlineProcessFile(
+          pipelineHandle,
+          job.inputPath,
+          job.outputPath,
+        );
+
+        if (jobId == 0) {
+          final error = _ffi.offlineGetLastError() ?? 'Failed to start processing';
+          return ConversionResult(
+            inputPath: job.inputPath,
+            outputPath: job.outputPath,
+            success: false,
+            error: error,
+          );
+        }
+
+        // 5. Poll for progress until complete
+        int state = 0;
+        double lastProgress = 20.0;
+
+        while (true) {
+          state = _ffi.offlinePipelineGetState(pipelineHandle);
+
+          // States: 0=Idle, 1=Loading, 2=Analyzing, 3=Processing, 4=Normalizing,
+          //         5=Converting, 6=Encoding, 7=Writing, 8=Complete, 9=Failed, 10=Cancelled
+          if (state == 8) break; // Complete
+          if (state == 9) {
+            // Failed
+            final error = _ffi.offlineGetJobError(jobId) ?? 'Processing failed';
+            return ConversionResult(
+              inputPath: job.inputPath,
+              outputPath: job.outputPath,
+              success: false,
+              error: error,
+            );
+          }
+          if (state == 10) {
+            return ConversionResult(
+              inputPath: job.inputPath,
+              outputPath: job.outputPath,
+              success: false,
+              error: 'Processing cancelled',
+            );
+          }
+
+          // Get progress (0.0 - 1.0) and map to 20-95%
+          final progress = _ffi.offlinePipelineGetProgress(pipelineHandle);
+          final mappedProgress = 20.0 + (progress * 75.0);
+
+          if (mappedProgress > lastProgress) {
+            lastProgress = mappedProgress;
+            onProgress?.call(mappedProgress);
+          }
+
+          // Brief delay to avoid busy-waiting
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+
+        onProgress?.call(95.0);
+
+        // 6. Verify output file was created
+        if (!await outputFile.exists()) {
+          return ConversionResult(
+            inputPath: job.inputPath,
+            outputPath: job.outputPath,
+            success: false,
+            error: 'Output file was not created',
+          );
+        }
+
+        // Get output file info
+        final outputInfo = _ffi.offlineGetAudioInfo(job.outputPath);
+
+        onProgress?.call(100.0);
+
+        final duration = DateTime.now().difference(startTime).inMilliseconds / 1000.0;
+
+        return ConversionResult(
+          inputPath: job.inputPath,
+          outputPath: job.outputPath,
+          success: true,
+          durationSeconds: duration,
+          metadata: {
+            'format': job.format.name,
+            'normalized': job.normalize is! NoNormalization,
+            'input_sample_rate': inputSampleRate,
+            'input_channels': inputChannels,
+            'input_duration': inputDuration,
+            'output_sample_rate': outputInfo?['sample_rate'] ?? 0,
+            'output_channels': outputInfo?['channels'] ?? 0,
+            'output_duration': outputInfo?['duration'] ?? 0.0,
+            'output_size_bytes': await outputFile.length(),
+          },
+        );
+      } finally {
+        // 7. Always destroy pipeline
+        _ffi.offlinePipelineDestroy(pipelineHandle);
+      }
     } catch (e) {
       return ConversionResult(
         inputPath: job.inputPath,
@@ -255,6 +366,16 @@ class BatchAssetConverter {
         error: e.toString(),
       );
     }
+  }
+
+  /// Convert NormalizationMode to FFI params (mode, target)
+  (int, double) _normalizationToParams(NormalizationMode mode) {
+    return switch (mode) {
+      NoNormalization() => (0, 0.0),
+      PeakNormalization(target: final t) => (1, t),
+      LufsNormalization(target: final t) => (2, t),
+      RmsNormalization(target: final t) => (3, t),
+    };
   }
 
   /// Generate output path based on format

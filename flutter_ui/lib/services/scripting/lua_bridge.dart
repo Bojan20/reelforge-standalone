@@ -251,10 +251,10 @@ class LuaBridge {
       'successfulExecutions': _successfulExecutions,
       'failedExecutions': _failedExecutions,
       'successRate': _totalExecutions > 0
-          ? (_successfulExecutions / _totalExecutions * 100).toStringAsFixed(1) + '%'
+          ? '${(_successfulExecutions / _totalExecutions * 100).toStringAsFixed(1)}%'
           : '0%',
       'avgExecutionTime': _totalExecutions > 0
-          ? (_totalExecutionTime.inMilliseconds / _totalExecutions).toStringAsFixed(1) + 'ms'
+          ? '${(_totalExecutionTime.inMilliseconds / _totalExecutions).toStringAsFixed(1)}ms'
           : '0ms',
       'totalExecutionTime': '${_totalExecutionTime.inMilliseconds}ms',
     };

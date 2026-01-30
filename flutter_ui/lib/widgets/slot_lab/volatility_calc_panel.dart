@@ -9,7 +9,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/volatility_calculator.dart';
-import 'dart:math' as math;
 
 class VolatilityCalcPanel extends StatefulWidget {
   const VolatilityCalcPanel({super.key});

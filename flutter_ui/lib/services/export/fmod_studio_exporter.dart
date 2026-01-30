@@ -206,12 +206,12 @@ class FmodStudioExporter {
       xml.writeln('          </property>');
 
       // Audio file reference
-      if (layer.audioPath != null) {
+      if (layer.audioPath.isNotEmpty) {
         xml.writeln('          <relationship name="modules">');
         xml.writeln('            <destination>');
         xml.writeln('              <object class="SingleSound">');
         xml.writeln('                <property name="audioFile">');
-        xml.writeln('                  <value>event:/${_getRelativeAudioPath(layer.audioPath!)}</value>');
+        xml.writeln('                  <value>event:/${_getRelativeAudioPath(layer.audioPath)}</value>');
         xml.writeln('                </property>');
         xml.writeln('                <property name="volume">');
         xml.writeln('                  <value>${layer.volume}</value>');

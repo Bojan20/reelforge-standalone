@@ -8,10 +8,6 @@
 ///
 /// P2-16: Medium priority — QA tool for audio designers
 
-import 'dart:collection';
-import '../models/middleware_models.dart';
-import '../models/slot_audio_events.dart';
-
 /// Collision type
 enum CollisionType {
   /// Multiple events playing on same bus simultaneously

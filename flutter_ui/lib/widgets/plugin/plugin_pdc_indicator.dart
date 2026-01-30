@@ -159,7 +159,7 @@ class PluginPDCIndicator extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        ...plugins.map((plugin) => _buildPluginRow(context, plugin)).toList(),
+        ...plugins.map((plugin) => _buildPluginRow(context, plugin)),
       ],
     );
   }

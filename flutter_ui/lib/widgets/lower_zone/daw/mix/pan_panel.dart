@@ -133,7 +133,8 @@ class _PanPanelState extends State<PanPanel> {
   MixerChannel? _getSelectedChannel(MixerProvider? provider) {
     if (provider == null || widget.selectedTrackId == null) return null;
     try {
-      return provider.channels.firstWhere((ch) => ch.id == widget.selectedTrackId);
+      final trackIdStr = widget.selectedTrackId.toString();
+      return provider.channels.firstWhere((ch) => ch.id == trackIdStr);
     } catch (_) {
       return null;
     }

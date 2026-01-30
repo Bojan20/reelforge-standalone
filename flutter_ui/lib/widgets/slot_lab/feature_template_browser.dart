@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/feature_template.dart';
 import '../../services/feature_template_service.dart';
-import '../../providers/slot_lab_project_provider.dart';
 
 class FeatureTemplateBrowser extends StatefulWidget {
   const FeatureTemplateBrowser({super.key});
