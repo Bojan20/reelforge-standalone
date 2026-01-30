@@ -7,6 +7,7 @@
 /// Voice-level playback management for preview/event audio.
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import '../models/slot_audio_events.dart';
 import '../src/rust/native_ffi.dart';
@@ -66,6 +67,11 @@ class AudioPlaybackService extends ChangeNotifier {
 
   bool _isPlaying = false;
 
+  // ─── LUFS Normalization State (P1-02) ────────────────────────────────────
+  bool _lufsNormalizationEnabled = false;
+  double _targetLufs = -14.0; // Default streaming loudness target
+  final Map<String, double> _audioLufsCache = {}; // audioPath → measured LUFS
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   /// Map PlaybackSource to engine source ID (matches Rust PlaybackSource enum)
@@ -89,6 +95,13 @@ class AudioPlaybackService extends ChangeNotifier {
 
   /// Last error from FFI playback operation (for debugging)
   String get lastPlaybackToBusError => _ffi.lastPlaybackToBusError;
+
+  /// LUFS normalization toggle (P1-02)
+  bool get lufsNormalizationEnabled => _lufsNormalizationEnabled;
+  double get targetLufs => _targetLufs;
+
+  /// Get cached LUFS value for audio file (or null if not measured)
+  double? getLufsForAudio(String audioPath) => _audioLufsCache[audioPath];
 
   // ===========================================================================
   // DELEGATED MODE — Respects UnifiedPlaybackController
@@ -161,14 +174,17 @@ class AudioPlaybackService extends ChangeNotifier {
     _acquirePlayback(source);
 
     try {
-      final voiceId = _ffi.previewAudioFile(path, volume: volume);
+      // Apply LUFS normalization if enabled (P1-02)
+      final normalizedVolume = _calculateNormalizedVolume(path, volume);
+
+      final voiceId = _ffi.previewAudioFile(path, volume: normalizedVolume);
       if (voiceId >= 0) {
         _activeVoices.add(VoiceInfo(
           voiceId: voiceId,
           audioPath: path,
           source: source,
         ));
-        debugPrint('[AudioPlayback] Preview started: $path (voice $voiceId, source: $source)');
+        debugPrint('[AudioPlayback] Preview started: $path (voice $voiceId, source: $source, vol: $normalizedVolume)');
       }
       return voiceId;
     } catch (e) {
@@ -855,6 +871,98 @@ class AudioPlaybackService extends ChangeNotifier {
         debugPrint('[AudioPlayback]   Layer "${layer.id}" @ 0ms → voice=$voiceId');
       }
     }
+  }
+
+  // ===========================================================================
+  // LUFS NORMALIZATION (P1-02)
+  // ===========================================================================
+
+  /// Enable/disable LUFS normalization for preview playback
+  void setLufsNormalization(bool enabled, {double? targetLufs}) {
+    _lufsNormalizationEnabled = enabled;
+    if (targetLufs != null) {
+      _targetLufs = targetLufs.clamp(-40.0, 0.0);
+    }
+    notifyListeners();
+    debugPrint('[AudioPlayback] LUFS normalization: ${enabled ? "ON" : "OFF"} (target: $_targetLufs LUFS)');
+  }
+
+  /// Set target LUFS level
+  void setTargetLufs(double lufs) {
+    _targetLufs = lufs.clamp(-40.0, 0.0);
+    notifyListeners();
+  }
+
+  /// Measure LUFS for audio file via rf-offline FFI
+  /// Returns measured LUFS value or null on error
+  Future<double?> measureLufs(String audioPath) async {
+    // Check cache first
+    if (_audioLufsCache.containsKey(audioPath)) {
+      return _audioLufsCache[audioPath];
+    }
+
+    try {
+      // TODO: Call rf-offline FFI function for EBU R128 LUFS metering
+      // This requires implementing:
+      // - offlineMeasureLufs(audioPath) → double (integrated LUFS)
+      //
+      // For now, return a placeholder value
+      // Real implementation would call:
+      // final lufs = _ffi.offlineMeasureLufs(audioPath);
+
+      debugPrint('[AudioPlayback] LUFS measurement for $audioPath not yet implemented');
+      return null;
+    } catch (e) {
+      debugPrint('[AudioPlayback] LUFS measurement error: $e');
+      return null;
+    }
+  }
+
+  /// Calculate normalized volume based on measured LUFS
+  /// Returns volume multiplier (linear gain)
+  double _calculateNormalizedVolume(String audioPath, double baseVolume) {
+    if (!_lufsNormalizationEnabled) return baseVolume;
+
+    final measuredLufs = _audioLufsCache[audioPath];
+    if (measuredLufs == null) {
+      // Not measured yet — play at base volume
+      // Optionally trigger async measurement for next time
+      measureLufs(audioPath).then((lufs) {
+        if (lufs != null) {
+          _audioLufsCache[audioPath] = lufs;
+        }
+      });
+      return baseVolume;
+    }
+
+    // Calculate gain adjustment in dB
+    final gainDb = _targetLufs - measuredLufs;
+
+    // Convert dB to linear gain
+    // Clamp to reasonable range (-12dB to +12dB)
+    final clampedGainDb = gainDb.clamp(-12.0, 12.0);
+    final linearGain = _dbToLinear(clampedGainDb);
+
+    final normalizedVolume = baseVolume * linearGain;
+
+    debugPrint(
+      '[AudioPlayback] LUFS normalize: measured=${measuredLufs.toStringAsFixed(1)} '
+      'target=$_targetLufs → gain=${clampedGainDb.toStringAsFixed(1)}dB '
+      '(vol: $baseVolume → ${normalizedVolume.toStringAsFixed(2)})',
+    );
+
+    return normalizedVolume;
+  }
+
+  /// Convert dB to linear gain
+  double _dbToLinear(double db) {
+    return math.pow(10, db / 20).toDouble();
+  }
+
+  /// Clear LUFS cache (for testing/reset)
+  void clearLufsCache() {
+    _audioLufsCache.clear();
+    notifyListeners();
   }
 
   /// Dispose service
