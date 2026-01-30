@@ -479,6 +479,13 @@ const _pooledEventStages = {
 
 class EventRegistry extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
+  // SINGLETON PATTERN
+  // ═══════════════════════════════════════════════════════════════════════════
+  static final EventRegistry _instance = EventRegistry._internal();
+  static EventRegistry get instance => _instance;
+  EventRegistry._internal();
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // P0.8: PRE-TRIGGER CONFIGURATION
   // Fire anticipation audio earlier to compensate for latency
   // ═══════════════════════════════════════════════════════════════════════════
