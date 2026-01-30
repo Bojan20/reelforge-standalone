@@ -318,3 +318,16 @@ class ContainerEvaluationStats {
     return newestTimestamp!.difference(oldestTimestamp!);
   }
 }
+
+  /// Export evaluation history to JSON (P2-17)
+  String exportToJson() {
+    final data = _history.map((e) => {
+      'timestamp': e.timestamp.toIso8601String(),
+      'containerId': e.containerId,
+      'containerType': e.containerType.name,
+      'evaluationTimeUs': e.evaluationTimeUs,
+      'result': e.result,
+    }).toList();
+    return jsonEncode({'evaluations': data, 'exported': DateTime.now().toIso8601String()});
+  }
+}
