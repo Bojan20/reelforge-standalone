@@ -153,7 +153,7 @@ class HookDispatcher {
 
     final startTime = DateTime.now();
     int executedCount = 0;
-    final errors = <String, Object>[];
+    final errors = <String, Object>{};
 
     for (final hook in hooks) {
       if (!hook.enabled) continue;
@@ -188,7 +188,7 @@ class HookDispatcher {
 
     final startTime = DateTime.now();
     int executedCount = 0;
-    final errors = <String, Object>[];
+    final errors = <String, Object>{};
 
     for (final hook in hooks) {
       if (!hook.enabled) continue;
@@ -246,16 +246,16 @@ class HookDispatcher {
 
   /// Get all registered hooks
   Map<HookType, List<HookRegistration>> getAllHooks() {
-    return Map.unmodifiable(_hooks.map(
-      (type, hooks) => MapEntry(type, List.unmodifiable(hooks)),
+    return Map<HookType, List<HookRegistration>>.unmodifiable(_hooks.map(
+      (type, hooks) => MapEntry(type, List<HookRegistration>.unmodifiable(hooks)),
     ));
   }
 
   /// Get execution history
   List<HookExecutionRecord> getHistory({int? limit}) {
-    if (limit == null) return List.unmodifiable(_history);
+    if (limit == null) return List<HookExecutionRecord>.unmodifiable(_history);
     final start = _history.length - limit;
-    return List.unmodifiable(_history.sublist(start.clamp(0, _history.length)));
+    return List<HookExecutionRecord>.unmodifiable(_history.sublist(start.clamp(0, _history.length)));
   }
 
   /// Get statistics

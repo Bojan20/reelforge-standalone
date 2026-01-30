@@ -3567,7 +3567,7 @@ class MiddlewareProvider extends ChangeNotifier {
     HookDispatcher.instance.dispatch(HookContext.onCreate(
       entityType: EntityType.event,
       entityId: event.id,
-      data: {'name': event.name, 'stage': event.stage, 'category': event.category},
+      data: {'name': event.name, 'category': event.category},
     ));
   }
 
@@ -3580,7 +3580,7 @@ class MiddlewareProvider extends ChangeNotifier {
     HookDispatcher.instance.dispatch(HookContext.onUpdate(
       entityType: EntityType.event,
       entityId: event.id,
-      data: {'name': event.name, 'stage': event.stage},
+      data: {'name': event.name},
     ));
   }
 

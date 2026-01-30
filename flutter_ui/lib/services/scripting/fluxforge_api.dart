@@ -13,11 +13,9 @@
 //   final result = await api.createEvent({'name': 'Test', 'stage': 'SPIN_START'});
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
-import '../../models/middleware_models.dart';
+import 'package:flutter/material.dart';
 import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
-import '../../providers/slot_lab_provider.dart';
 import '../../services/event_registry.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/service_locator.dart';
@@ -40,13 +38,16 @@ class FluxForgeApi {
     }
 
     final provider = sl<MiddlewareProvider>();
+    final now = DateTime.now();
     final event = SlotCompositeEvent(
-      id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'evt_${now.millisecondsSinceEpoch}',
       name: name,
-      stage: stage ?? '',
       category: category ?? 'Uncategorized',
+      color: Colors.blue,
       layers: [],
-      stages: stage != null ? [stage] : [],
+      createdAt: now,
+      modifiedAt: now,
+      triggerStages: stage != null ? [stage] : [],
     );
 
     provider.addCompositeEvent(event);
@@ -102,7 +103,7 @@ class FluxForgeApi {
       events = events.where((e) => e.category == category).toList();
     }
     if (stage != null) {
-      events = events.where((e) => e.stages.contains(stage)).toList();
+      events = events.where((e) => e.triggerStages.contains(stage)).toList();
     }
 
     return {
@@ -115,24 +116,31 @@ class FluxForgeApi {
   Future<Map<String, dynamic>> addLayer(Map<String, dynamic> params) async {
     final eventId = params['eventId'] as String?;
     final audioPath = params['audioPath'] as String?;
+    final name = params['name'] as String? ?? 'Layer';
     final volume = (params['volume'] as num?)?.toDouble() ?? 1.0;
     final pan = (params['pan'] as num?)?.toDouble() ?? 0.0;
-    final delay = (params['delay'] as num?)?.toInt() ?? 0;
+    final delay = (params['delay'] as num?)?.toDouble() ?? 0.0;
 
     if (eventId == null || audioPath == null) {
       throw ArgumentError('Missing required parameters: eventId, audioPath');
     }
 
     final provider = sl<MiddlewareProvider>();
-    final layer = SlotEventLayer(
-      id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
+    final layer = provider.addLayerToEvent(
+      eventId,
       audioPath: audioPath,
-      volume: volume,
-      pan: pan,
-      offsetMs: delay,
+      name: name,
     );
 
-    provider.addLayerToEvent(eventId, layer);
+    // Update layer properties if specified
+    if (volume != 1.0 || pan != 0.0 || delay != 0.0) {
+      final updatedLayer = layer.copyWith(
+        volume: volume,
+        pan: pan,
+        offsetMs: delay.toDouble(),
+      );
+      provider.updateEventLayer(eventId, updatedLayer);
+    }
 
     return {
       'success': true,
@@ -180,7 +188,7 @@ class FluxForgeApi {
     final newLayer = oldLayer.copyWith(
       volume: (params['volume'] as num?)?.toDouble(),
       pan: (params['pan'] as num?)?.toDouble(),
-      offsetMs: (params['delay'] as num?)?.toInt(),
+      offsetMs: (params['delay'] as num?)?.toDouble(),
       audioPath: params['audioPath'] as String?,
     );
 
@@ -394,9 +402,8 @@ class FluxForgeApi {
     return {
       'id': event.id,
       'name': event.name,
-      'stage': event.stage,
       'category': event.category,
-      'stages': event.stages,
+      'triggerStages': event.triggerStages,
       'layers': event.layers.map(_layerToJson).toList(),
     };
   }
