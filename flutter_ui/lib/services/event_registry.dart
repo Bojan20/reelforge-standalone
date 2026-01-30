@@ -2692,6 +2692,26 @@ class EventRegistry extends ChangeNotifier {
   }
 
   // ==========================================================================
+  // STAGE MANAGEMENT (P0 WF-03)
+  // ==========================================================================
+
+  /// Unregister stage mapping
+  ///
+  /// Removes all event mappings for a specific stage.
+  /// Used when grid dimensions change and reel-specific stages need regeneration.
+  void unregisterStage(String stage) {
+    final normalized = stage.toUpperCase().trim();
+
+    if (_eventsByStage.containsKey(normalized)) {
+      _eventsByStage.remove(normalized);
+      debugPrint('[EventRegistry] 🗑️ Unregistered stage: $stage');
+      notifyListeners();
+    } else {
+      debugPrint('[EventRegistry] ⚠️ Stage not found for unregister: $stage');
+    }
+  }
+
+  // ==========================================================================
   // CLEANUP
   // ==========================================================================
 
@@ -2710,12 +2730,3 @@ class EventRegistry extends ChangeNotifier {
 // =============================================================================
 
 final eventRegistry = EventRegistry();
-
-  /// Unregister stage (P0 WF-03 support)
-  void unregisterStage(String stage) {
-    final normalized = stage.toUpperCase().trim();
-    _eventsByStage.remove(normalized);
-    debugPrint('[EventRegistry] 🗑 Unregistered: $stage');
-    notifyListeners();
-  }
-}

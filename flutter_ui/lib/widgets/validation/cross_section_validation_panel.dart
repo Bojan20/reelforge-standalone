@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import '../../services/cross_section_validator.dart';
 import '../../services/event_registry.dart';
 import '../../providers/middleware_provider.dart';
-import '../../theme/theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../theme/fluxforge_theme.dart';
 
 class CrossSectionValidationPanel extends StatefulWidget {
@@ -54,7 +54,7 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
         Icon(
           Icons.verified_user,
           size: 28,
-          color: FluxForgeTheme.primaryBlue,
+          color: FluxForgeTheme.accentBlue,
         ),
         const SizedBox(width: 12),
         Column(
@@ -97,7 +97,7 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
           label: Text(_isValidating ? 'Validating...' : 'Run Validation'),
           onPressed: _isValidating ? null : _runValidation,
           style: ElevatedButton.styleFrom(
-            backgroundColor: FluxForgeTheme.primaryBlue,
+            backgroundColor: FluxForgeTheme.accentBlue,
           ),
         ),
         const SizedBox(width: 12),
@@ -228,7 +228,7 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
         severityIcon = Icons.error;
         break;
       case ValidationSeverity.warning:
-        severityColor = FluxForgeTheme.accentAmber;
+        severityColor = FluxForgeTheme.accentOrange;
         severityIcon = Icons.warning;
         break;
       case ValidationSeverity.info:
@@ -241,7 +241,7 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.deepBackground,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: severityColor, width: 2),
       ),
@@ -265,16 +265,16 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: FluxForgeTheme.primaryBlue.withOpacity(0.2),
+                  color: FluxForgeTheme.accentBlue.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: FluxForgeTheme.primaryBlue),
+                  border: Border.all(color: FluxForgeTheme.accentBlue),
                 ),
                 child: Text(
                   issue.section,
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: FluxForgeTheme.primaryBlue,
+                    color: FluxForgeTheme.accentBlue,
                   ),
                 ),
               ),

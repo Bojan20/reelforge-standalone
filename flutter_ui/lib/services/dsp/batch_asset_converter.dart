@@ -1,4 +1,5 @@
 /// Batch Asset Conversion Service
+import 'dart:math' as math;
 ///
 /// P2-05: Bulk audio file conversion with progress tracking.
 /// Leverages rf-offline crate for format conversion, normalization, and processing.

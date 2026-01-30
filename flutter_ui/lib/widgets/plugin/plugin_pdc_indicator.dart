@@ -337,7 +337,7 @@ class _PDCTimelinePainter extends CustomPainter {
   Color _getColorForLatency(double latencyMs) {
     if (latencyMs < 10) return FluxForgeTheme.accentGreen;
     if (latencyMs < 30) return FluxForgeTheme.accentCyan;
-    if (latencyMs < 50) return FluxForgeTheme.accentAmber;
+    if (latencyMs < 50) return FluxForgeTheme.accentOrange;
     return FluxForgeTheme.accentRed;
   }
 
