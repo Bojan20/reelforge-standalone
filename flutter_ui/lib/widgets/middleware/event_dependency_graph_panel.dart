@@ -170,7 +170,7 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
           Icon(
             Icons.account_tree,
             size: 18,
-            color: hasCycles ? FluxForgeTheme.errorAccent : FluxForgeTheme.accentBlue,
+            color: hasCycles ? FluxForgeTheme.errorRed : FluxForgeTheme.accentBlue,
           ),
           const SizedBox(width: 8),
           Text(
@@ -188,10 +188,10 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: FluxForgeTheme.errorAccent.withValues(alpha: 0.15),
+                color: FluxForgeTheme.errorRed.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: FluxForgeTheme.errorAccent,
+                  color: FluxForgeTheme.errorRed,
                   width: 1,
                 ),
               ),
@@ -201,13 +201,13 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
                   Icon(
                     Icons.warning_rounded,
                     size: 16,
-                    color: FluxForgeTheme.errorAccent,
+                    color: FluxForgeTheme.errorRed,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     '$cycleCount CYCLE${cycleCount > 1 ? 'S' : ''} DETECTED',
                     style: TextStyle(
-                      color: FluxForgeTheme.errorAccent,
+                      color: FluxForgeTheme.errorRed,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -219,10 +219,10 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: FluxForgeTheme.successAccent.withValues(alpha: 0.15),
+                color: FluxForgeTheme.successGreen.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: FluxForgeTheme.successAccent,
+                  color: FluxForgeTheme.successGreen,
                   width: 1,
                 ),
               ),
@@ -232,13 +232,13 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
                   Icon(
                     Icons.check_circle,
                     size: 16,
-                    color: FluxForgeTheme.successAccent,
+                    color: FluxForgeTheme.successGreen,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     'NO CYCLES',
                     style: TextStyle(
-                      color: FluxForgeTheme.successAccent,
+                      color: FluxForgeTheme.successGreen,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -327,12 +327,12 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
             height: 60,
             decoration: BoxDecoration(
               color: isInCycle
-                  ? FluxForgeTheme.errorAccent
+                  ? FluxForgeTheme.errorRed
                   : (isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgSurface),
               shape: BoxShape.circle,
               border: Border.all(
                 color: isInCycle
-                    ? FluxForgeTheme.errorAccent
+                    ? FluxForgeTheme.errorRed
                     : (isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderSubtle),
                 width: isSelected ? 3 : 2,
               ),
@@ -391,7 +391,7 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
           // Legend
           _buildLegendItem(Icons.circle, 'Normal', FluxForgeTheme.bgSurface),
           const SizedBox(width: 12),
-          _buildLegendItem(Icons.error, 'Cycle', FluxForgeTheme.errorAccent),
+          _buildLegendItem(Icons.error, 'Cycle', FluxForgeTheme.errorRed),
           const SizedBox(width: 12),
           _buildLegendItem(Icons.arrow_forward, 'Dependency', FluxForgeTheme.accentBlue),
 
@@ -501,7 +501,7 @@ class _GraphPainter extends CustomPainter {
   void _drawArrow(Canvas canvas, Offset from, Offset to, bool isInCycle) {
     final paint = Paint()
       ..color = isInCycle
-          ? FluxForgeTheme.errorAccent
+          ? FluxForgeTheme.errorRed
           : FluxForgeTheme.accentBlue.withValues(alpha: 0.4)
       ..strokeWidth = isInCycle ? 3 : 2
       ..style = PaintingStyle.stroke;
@@ -532,7 +532,7 @@ class _GraphPainter extends CustomPainter {
       canvas.drawPath(
         arrowPath,
         Paint()
-          ..color = isInCycle ? FluxForgeTheme.errorAccent : FluxForgeTheme.accentBlue
+          ..color = isInCycle ? FluxForgeTheme.errorRed : FluxForgeTheme.accentBlue
           ..style = PaintingStyle.fill,
       );
     }

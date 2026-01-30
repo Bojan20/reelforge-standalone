@@ -238,13 +238,8 @@ class AudioVariantService extends ChangeNotifier {
   Future<Map<String, dynamic>> _analyzeAudioMetadata(String audioPath) async {
     try {
       // Use rf-offline FFI to get audio info
-      final infoJson = _ffi.offlineGetAudioInfo(audioPath);
-      if (infoJson == null || infoJson.isEmpty) {
-        return _fallbackMetadata(audioPath);
-      }
-
-      final info = jsonDecode(infoJson) as Map<String, dynamic>?;
-      if (info == null) {
+      final info = _ffi.offlineGetAudioInfo(audioPath);
+      if (info == null || info.isEmpty) {
         return _fallbackMetadata(audioPath);
       }
 

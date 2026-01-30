@@ -57,7 +57,7 @@ class GhostRegion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseColor = hasOverlap
-        ? FluxForgeTheme.errorAccent
+        ? FluxForgeTheme.errorRed
         : (isSnapped ? FluxForgeTheme.accentBlue : FluxForgeTheme.textMuted);
 
     return Container(
@@ -178,7 +178,7 @@ class DragOffsetTooltip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tooltipColor = feedback.hasOverlap
-        ? FluxForgeTheme.errorAccent
+        ? FluxForgeTheme.errorRed
         : (feedback.isSnapped ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgSurface);
 
     return Positioned(
@@ -232,8 +232,8 @@ class DragOffsetTooltip extends StatelessWidget {
                   feedback.deltaString,
                   style: TextStyle(
                     color: feedback.deltaMs >= 0
-                        ? FluxForgeTheme.successAccent
-                        : FluxForgeTheme.warningAccent,
+                        ? FluxForgeTheme.successGreen
+                        : FluxForgeTheme.warningOrange,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     fontFamily: 'monospace',
