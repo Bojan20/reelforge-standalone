@@ -36,24 +36,25 @@ class TemplateBuilderService {
   }
 
   /// Generate additional per-reel stages not already in coreStages
+  ///
+  /// Note: REEL_SPIN_LOOP is a single loop for all reels (not per-reel).
+  /// Only REEL_STOP is per-reel for stereo panning.
   List<TemplateStageDefinition> generatePerReelStages(SlotTemplate source) {
     final stages = <TemplateStageDefinition>[];
     final reelCount = source.reelCount;
 
-    // REEL_SPINNING per reel
-    for (int i = 0; i < reelCount; i++) {
-      stages.add(TemplateStageDefinition(
-        id: 'REEL_SPINNING_$i',
-        name: 'Reel $i Spinning',
-        category: TemplateStageCategory.reel,
-        priority: 30,
-        isPooled: false,
-        isLooping: true,
-        description: 'Reel $i spinning loop',
-      ));
-    }
+    // Single spin loop for all reels (NOT per-reel)
+    stages.add(TemplateStageDefinition(
+      id: 'REEL_SPIN_LOOP',
+      name: 'Reel Spin Loop',
+      category: TemplateStageCategory.reel,
+      priority: 30,
+      isPooled: false,
+      isLooping: true,
+      description: 'Spinning loop for all reels',
+    ));
 
-    // REEL_STOP per reel
+    // REEL_STOP per reel (for stereo panning)
     for (int i = 0; i < reelCount; i++) {
       stages.add(TemplateStageDefinition(
         id: 'REEL_STOP_$i',
@@ -438,12 +439,16 @@ class TemplateBuilderService {
   }
 
   /// Generate anticipation stages
+  ///
+  /// Note: Anticipation NEVER triggers on reel 0 (first reel).
+  /// It only activates on reels 1+ when 2+ scatters have landed.
   List<TemplateStageDefinition> generateAnticipationStages(SlotTemplate source) {
     final stages = <TemplateStageDefinition>[];
     final reelCount = source.reelCount;
 
     // Per-reel anticipation with tension levels
-    for (int reel = 0; reel < reelCount; reel++) {
+    // Start from reel 1 (NOT reel 0 - anticipation never on first reel)
+    for (int reel = 1; reel < reelCount; reel++) {
       for (int level = 1; level <= 4; level++) {
         stages.add(TemplateStageDefinition(
           id: 'ANTICIPATION_TENSION_R${reel}_L$level',

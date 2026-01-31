@@ -16,6 +16,7 @@ import '../../providers/middleware_provider.dart';
 import '../../services/audio_playback_service.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
+import '../common/fluxforge_search_field.dart';
 
 // =============================================================================
 // THEME SHORTCUTS
@@ -300,22 +301,16 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
     return Container(
       padding: const EdgeInsets.all(8),
       color: FluxforgeColors.surfaceBg,
-      child: TextField(
+      child: FluxForgeSearchField(
         controller: _searchController,
-        style: const TextStyle(fontSize: 12, color: Colors.white),
-        decoration: InputDecoration(
-          hintText: 'Search events...',
-          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-          prefixIcon: Icon(Icons.search, size: 18, color: Colors.white.withValues(alpha: 0.5)),
-          filled: true,
-          fillColor: FluxforgeColors.deepBg,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide.none,
-          ),
+        hintText: 'Search events...',
+        onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+        onCleared: () => setState(() => _searchQuery = ''),
+        style: FluxForgeSearchFieldStyle(
+          backgroundColor: FluxforgeColors.deepBg,
+          borderColor: FluxforgeColors.divider,
+          focusBorderColor: FluxforgeColors.accent,
         ),
-        onChanged: (value) => setState(() => _searchQuery = value),
       ),
     );
   }

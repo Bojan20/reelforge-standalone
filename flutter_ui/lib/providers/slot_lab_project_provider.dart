@@ -102,6 +102,19 @@ class SlotLabProjectProvider extends ChangeNotifier {
   bool _winConfigFromGdd = false;
 
   // ==========================================================================
+  // UNDO SUPPORT FOR AUDIO ASSIGNMENTS (P3 Recommendation)
+  // ==========================================================================
+
+  /// Undo stack for audio assignment operations
+  final List<_AudioAssignmentUndoEntry> _audioUndoStack = [];
+
+  /// Redo stack for audio assignment operations
+  final List<_AudioAssignmentUndoEntry> _audioRedoStack = [];
+
+  /// Maximum undo history size
+  static const int _maxAudioUndoHistory = 50;
+
+  // ==========================================================================
   // GETTERS
   // ==========================================================================
 
@@ -243,20 +256,249 @@ class SlotLabProjectProvider extends ChangeNotifier {
   // ULTIMATE AUDIO PANEL STATE MANAGEMENT
   // ==========================================================================
 
-  /// Set audio assignment for a stage
-  void setAudioAssignment(String stage, String audioPath) {
+  /// Set audio assignment for a stage (with undo support)
+  void setAudioAssignment(String stage, String audioPath, {bool recordUndo = true}) {
+    if (recordUndo) {
+      _pushAudioUndo(_AudioAssignmentUndoEntry(
+        type: _AudioUndoType.set,
+        stage: stage,
+        previousPath: _audioAssignments[stage],
+        newPath: audioPath,
+        description: 'Assign audio to $stage',
+      ));
+    }
     _audioAssignments[stage] = audioPath;
     _markDirty();
   }
 
-  /// Remove audio assignment for a stage
-  void removeAudioAssignment(String stage) {
+  /// Remove audio assignment for a stage (with undo support)
+  void removeAudioAssignment(String stage, {bool recordUndo = true}) {
+    final previousPath = _audioAssignments[stage];
+    if (previousPath == null) return; // Nothing to remove
+
+    if (recordUndo) {
+      _pushAudioUndo(_AudioAssignmentUndoEntry(
+        type: _AudioUndoType.remove,
+        stage: stage,
+        previousPath: previousPath,
+        newPath: null,
+        description: 'Remove audio from $stage',
+      ));
+    }
     _audioAssignments.remove(stage);
     _markDirty();
   }
 
-  /// Clear all audio assignments
-  void clearAllAudioAssignments() {
+  /// Bulk assign audio to similar stages (P3 Recommendation #1)
+  ///
+  /// When a file is assigned to a generic stage like REEL_STOP, this method
+  /// can auto-expand it to REEL_STOP_0..4 with appropriate stereo panning.
+  ///
+  /// Returns the list of stages that were assigned.
+  List<String> bulkAssignToSimilarStages(String baseStage, String audioPath, {
+    int count = 5,
+    bool autoPan = true,
+  }) {
+    final assignedStages = <String>[];
+    final undoEntries = <_AudioAssignmentUndoEntry>[];
+
+    // Determine if this is an expandable stage
+    final expandablePatterns = {
+      'REEL_STOP': (int i) => 'REEL_STOP_$i',
+      'REEL_LAND': (int i) => 'REEL_STOP_$i', // Alias
+      'CASCADE_STEP': (int i) => 'CASCADE_STEP_$i',
+      'WIN_LINE_SHOW': (int i) => 'WIN_LINE_SHOW_$i',
+      'WIN_LINE_HIDE': (int i) => 'WIN_LINE_HIDE_$i',
+      'SYMBOL_LAND': (int i) => 'SYMBOL_LAND_$i',
+      'ROLLUP_TICK': (int i) => 'ROLLUP_TICK_$i',
+    };
+
+    String Function(int)? stageGenerator;
+    for (final entry in expandablePatterns.entries) {
+      if (baseStage.toUpperCase() == entry.key ||
+          baseStage.toUpperCase().startsWith('${entry.key}_')) {
+        stageGenerator = entry.value;
+        break;
+      }
+    }
+
+    if (stageGenerator == null) {
+      // Not an expandable stage, just assign to the single stage
+      setAudioAssignment(baseStage, audioPath);
+      return [baseStage];
+    }
+
+    // Generate expanded stages
+    for (int i = 0; i < count; i++) {
+      final String stage = stageGenerator(i);
+      final previousPath = _audioAssignments[stage];
+
+      undoEntries.add(_AudioAssignmentUndoEntry(
+        type: _AudioUndoType.set,
+        stage: stage,
+        previousPath: previousPath,
+        newPath: audioPath,
+        description: 'Bulk assign to $stage',
+      ));
+
+      _audioAssignments[stage] = audioPath;
+      assignedStages.add(stage);
+    }
+
+    // Record as single bulk undo operation
+    if (undoEntries.isNotEmpty) {
+      _pushAudioUndo(_AudioAssignmentUndoEntry(
+        type: _AudioUndoType.bulk,
+        stage: baseStage,
+        previousPath: null,
+        newPath: audioPath,
+        description: 'Bulk assign to ${assignedStages.length} stages',
+        bulkEntries: undoEntries,
+      ));
+    }
+
+    _markDirty();
+    debugPrint('[SlotLabProject] Bulk assigned "$audioPath" to ${assignedStages.length} stages: $assignedStages');
+    return assignedStages;
+  }
+
+  /// Check if a stage can be bulk-expanded
+  bool canBulkExpand(String stage) {
+    final expandablePatterns = [
+      'REEL_STOP', 'REEL_LAND', 'CASCADE_STEP',
+      'WIN_LINE_SHOW', 'WIN_LINE_HIDE', 'SYMBOL_LAND', 'ROLLUP_TICK',
+    ];
+    final upperStage = stage.toUpperCase();
+    return expandablePatterns.any((p) => upperStage == p || upperStage.startsWith('${p}_'));
+  }
+
+  /// Get the number of stages that would be created by bulk expand
+  int getBulkExpandCount(String stage, {int defaultCount = 5}) {
+    // For REEL_STOP/REEL_LAND, use reel count from grid config if available
+    if (stage.toUpperCase().contains('REEL')) {
+      return _gridConfig?.columns ?? defaultCount;
+    }
+    return defaultCount;
+  }
+
+  // ==========================================================================
+  // UNDO/REDO OPERATIONS
+  // ==========================================================================
+
+  /// Check if undo is available
+  bool get canUndoAudioAssignment => _audioUndoStack.isNotEmpty;
+
+  /// Check if redo is available
+  bool get canRedoAudioAssignment => _audioRedoStack.isNotEmpty;
+
+  /// Get undo description
+  String? get undoAudioDescription =>
+      _audioUndoStack.isNotEmpty ? _audioUndoStack.last.description : null;
+
+  /// Get redo description
+  String? get redoAudioDescription =>
+      _audioRedoStack.isNotEmpty ? _audioRedoStack.last.description : null;
+
+  /// Undo last audio assignment operation
+  bool undoAudioAssignment() {
+    if (_audioUndoStack.isEmpty) return false;
+
+    final entry = _audioUndoStack.removeLast();
+    _audioRedoStack.add(entry);
+
+    // Apply undo
+    if (entry.type == _AudioUndoType.bulk && entry.bulkEntries != null) {
+      // Undo bulk operation (reverse order)
+      for (final subEntry in entry.bulkEntries!.reversed) {
+        if (subEntry.previousPath != null) {
+          _audioAssignments[subEntry.stage] = subEntry.previousPath!;
+        } else {
+          _audioAssignments.remove(subEntry.stage);
+        }
+      }
+    } else {
+      // Single operation
+      if (entry.previousPath != null) {
+        _audioAssignments[entry.stage] = entry.previousPath!;
+      } else {
+        _audioAssignments.remove(entry.stage);
+      }
+    }
+
+    _markDirty();
+    debugPrint('[SlotLabProject] Undo: ${entry.description}');
+    return true;
+  }
+
+  /// Redo last undone audio assignment operation
+  bool redoAudioAssignment() {
+    if (_audioRedoStack.isEmpty) return false;
+
+    final entry = _audioRedoStack.removeLast();
+    _audioUndoStack.add(entry);
+
+    // Apply redo
+    if (entry.type == _AudioUndoType.bulk && entry.bulkEntries != null) {
+      // Redo bulk operation
+      for (final subEntry in entry.bulkEntries!) {
+        if (subEntry.newPath != null) {
+          _audioAssignments[subEntry.stage] = subEntry.newPath!;
+        } else {
+          _audioAssignments.remove(subEntry.stage);
+        }
+      }
+    } else {
+      // Single operation
+      if (entry.newPath != null) {
+        _audioAssignments[entry.stage] = entry.newPath!;
+      } else {
+        _audioAssignments.remove(entry.stage);
+      }
+    }
+
+    _markDirty();
+    debugPrint('[SlotLabProject] Redo: ${entry.description}');
+    return true;
+  }
+
+  /// Push entry to undo stack
+  void _pushAudioUndo(_AudioAssignmentUndoEntry entry) {
+    _audioUndoStack.add(entry);
+    _audioRedoStack.clear(); // Clear redo on new action
+
+    // Trim if exceeds max size
+    while (_audioUndoStack.length > _maxAudioUndoHistory) {
+      _audioUndoStack.removeAt(0);
+    }
+  }
+
+  /// Clear all audio assignments (with optional undo support)
+  void clearAllAudioAssignments({bool recordUndo = true}) {
+    if (_audioAssignments.isEmpty) return;
+
+    if (recordUndo) {
+      // Record all current assignments for undo
+      final entries = <_AudioAssignmentUndoEntry>[];
+      for (final entry in _audioAssignments.entries) {
+        entries.add(_AudioAssignmentUndoEntry(
+          type: _AudioUndoType.remove,
+          stage: entry.key,
+          previousPath: entry.value,
+          newPath: null,
+          description: 'Clear ${entry.key}',
+        ));
+      }
+
+      _pushAudioUndo(_AudioAssignmentUndoEntry(
+        type: _AudioUndoType.bulk,
+        stage: 'ALL',
+        previousPath: null,
+        newPath: null,
+        description: 'Clear all audio assignments (${entries.length} stages)',
+        bulkEntries: entries,
+      ));
+    }
+
     _audioAssignments.clear();
     _markDirty();
   }
@@ -1239,4 +1481,34 @@ class SlotLabProjectProvider extends ChangeNotifier {
     debugPrint('Music Layers: ${_musicLayers.length}');
     debugPrint('Dirty: $_isDirty');
   }
+}
+
+// =============================================================================
+// UNDO SUPPORT TYPES (P3 Recommendation #3)
+// =============================================================================
+
+/// Type of audio assignment undo operation
+enum _AudioUndoType {
+  set,    // Single stage assignment
+  remove, // Single stage removal
+  bulk,   // Bulk operation (multiple stages)
+}
+
+/// Entry in the audio assignment undo stack
+class _AudioAssignmentUndoEntry {
+  final _AudioUndoType type;
+  final String stage;
+  final String? previousPath;
+  final String? newPath;
+  final String description;
+  final List<_AudioAssignmentUndoEntry>? bulkEntries;
+
+  const _AudioAssignmentUndoEntry({
+    required this.type,
+    required this.stage,
+    required this.previousPath,
+    required this.newPath,
+    required this.description,
+    this.bulkEntries,
+  });
 }

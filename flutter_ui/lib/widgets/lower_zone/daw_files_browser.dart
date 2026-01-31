@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../../services/audio_asset_manager.dart';
+import '../common/fluxforge_search_field.dart';
 import '../slot_lab/audio_hover_preview.dart';
 import 'lower_zone_types.dart';
 
@@ -436,48 +437,12 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
           // Search field
           Expanded(
             flex: 2,
-            child: Container(
-              height: 26,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: LowerZoneColors.bgDeepest,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: LowerZoneColors.border),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.search, size: 14, color: LowerZoneColors.textMuted),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: LowerZoneColors.textPrimary,
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'Search files...',
-                        hintStyle: TextStyle(
-                          fontSize: 11,
-                          color: LowerZoneColors.textMuted,
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ),
-                  if (_searchQuery.isNotEmpty)
-                    GestureDetector(
-                      onTap: () => _searchController.clear(),
-                      child: const Icon(
-                        Icons.clear,
-                        size: 12,
-                        color: LowerZoneColors.textMuted,
-                      ),
-                    ),
-                ],
-              ),
+            child: FluxForgeSearchField(
+              controller: _searchController,
+              hintText: 'Search files...',
+              onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+              onCleared: () => setState(() => _searchQuery = ''),
+              style: FluxForgeSearchFieldStyle.lowerZone,
             ),
           ),
           const SizedBox(width: 12),

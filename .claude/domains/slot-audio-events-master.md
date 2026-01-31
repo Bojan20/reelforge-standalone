@@ -1,12 +1,48 @@
 # Slot Audio Events - Master Catalog
 
-**Version:** 1.3
-**Last Updated:** 2026-01-30
-**Total Events:** 490+
+**Version:** 1.4
+**Last Updated:** 2026-01-31
+**Total Events:** 600+ (expanded)
 **Event Names:** 70+ custom mappings via `generateEventName()`
+**UltimateAudioPanel Slots:** 415+ across 12 sections
 
 Kompletna lista svih audio eventa koji mogu da se dese u slot igri.
 Organizovano po kategorijama sa prioritetom, trajanjem i opisom.
+
+## Ultimate Audio Panel Analysis Update (2026-01-31)
+
+V1.4 ažurira katalog na osnovu detaljne analize UltimateAudioPanel V8:
+- **12 sekcija** sa 415+ audio slotova
+- **~17 redundantnih** stage-ova identifikovano za konsolidaciju
+- **3 nova** stage-a preporučena za dodavanje
+- **Overall Grade:** A- (95% complete)
+
+### Identified Redundancies
+
+| Sekcija | Redundant Stage | Consolidate To |
+|---------|-----------------|----------------|
+| Base Game | REEL_SPIN | REEL_SPIN_LOOP |
+| Base Game | REEL_SPINNING | REEL_SPIN_LOOP |
+| Base Game | REEL_SPINNING_LOOP | REEL_SPIN_LOOP |
+| Base Game | SPIN_BUTTON | SPIN_START |
+| Base Game | SPIN_INITIATED | SPIN_START |
+| Win Present | SYMBOL_HIGHLIGHT | WIN_SYMBOL_HIGHLIGHT |
+| Cascade | TUMBLE_* | CASCADE_* (use generic) |
+| Hold & Win | HOLD_SYMBOL_APPEAR | HOLD_NEW_SYMBOL |
+| Gamble | DOUBLE_UP_* | GAMBLE_* |
+
+### Recommended New Stages
+
+| Stage ID | Priority | Category | Description |
+|----------|----------|----------|-------------|
+| `ATTRACT_EXIT` | LOW | Ambient | Attract mode ends (transition back) |
+| `IDLE_TO_ACTIVE` | LOW | System | Player returns from idle state |
+| `SPIN_CANCEL` | MEDIUM | Spin | Spin cancelled before completion |
+
+### Section-by-Section Analysis Reference
+
+Detaljna analiza svake sekcije sa ocenama i preporukama:
+→ `.claude/analysis/ULTIMATE_AUDIO_PANEL_ANALYSIS_2026_01_31.md`
 
 ## Industry-Standard Anticipation Update (2026-01-30)
 
@@ -231,6 +267,7 @@ Pokretanje i osnovna spin mehanika.
 | `SPIN_AUTO_START` | MEDIUM | 100ms | Autoplay spin start |
 | `SPIN_INSUFFICIENT_FUNDS` | MEDIUM | 200ms | Not enough balance |
 | `SPIN_BET_CONFIRM` | LOW | 50ms | Bet locked for spin |
+| `SPIN_CANCEL` | MEDIUM | 100ms | Spin cancelled before completion (NEW V1.4) |
 
 ### Reel Spin Sounds
 
@@ -996,7 +1033,9 @@ Pozadinska muzika i ambient.
 | `ATTRACT_LOOP` | LOW | Loop | Attract music/demo |
 | `ATTRACT_HIGHLIGHT` | LOW | Variable | Feature highlight |
 | `ATTRACT_END` | LOW | 300ms | Attract ends |
+| `ATTRACT_EXIT` | LOW | 300ms | Attract mode exit transition (NEW V1.4) |
 | `IDLE_REMINDER` | LOW | 200ms | Idle reminder |
+| `IDLE_TO_ACTIVE` | LOW | 200ms | Player returns from idle (NEW V1.4) |
 | `IDLE_VARIATION` | LOWEST | Variable | Idle sound change |
 | `DEMO_START` | LOW | 300ms | Demo mode start |
 | `DEMO_END` | LOW | 200ms | Demo mode end |
@@ -1227,34 +1266,51 @@ Generički simboli za standardne igre.
 
 ## Summary Statistics
 
-| Category | Event Count |
-|----------|-------------|
-| UI Events | 25 |
-| Spin Events | 20 |
-| Reel Stop Events | 35 |
-| Symbol Events | 50 |
-| Anticipation & Tension | 25 |
-| Win Evaluation | 15 |
-| Win Celebration | 40 |
-| Cascade/Tumble | 25 |
-| Free Spins | 40 |
-| Hold & Spin | 35 |
-| Bonus Games | 45 |
-| Jackpot | 30 |
-| Multiplier | 20 |
-| Modifiers | 25 |
-| Gamble | 15 |
-| Ambient & Music | 25 |
-| System | 20 |
-| Voice Overs (V1.2) | 25 |
-| Megaways (V1.2) | 15 |
-| Buy Feature (V1.2) | 15 |
-| Wheel Bonus (V1.2) | 15 |
-| Win Effects (V1.2) | 15 |
-| Music Stingers (V1.2) | 15 |
-| Ambient Extended (V1.2) | 12 |
-| Medium/Low Pay (V1.2) | 20 |
-| **TOTAL** | **~600+ events** |
+| Category | Event Count | UltimateAudioPanel Slots |
+|----------|-------------|-------------------------|
+| UI Events | 25 | 22 (UI & System section) |
+| Spin Events | 21 (+1 V1.4) | Included in Base Game |
+| Reel Stop Events | 35 | 63 (Base Game section) |
+| Symbol Events | 50 | 46 (Symbols & Lands) |
+| Anticipation & Tension | 51 | Included in Base Game |
+| Win Evaluation | 15 | — |
+| Win Celebration | 40 | 41 (Win Presentation) |
+| Cascade/Tumble | 25 | 24 (Cascading Mechanics) |
+| Free Spins | 40 | 24 (Free Spins section) |
+| Hold & Spin | 35 | 32 (Hold & Win section) |
+| Bonus Games | 45 | 32 (Bonus Games section) |
+| Jackpot | 30 | 38 (Jackpots 🏆 section) |
+| Multiplier | 20 | 18 (Multipliers section) |
+| Modifiers | 25 | — |
+| Gamble | 15 | 15 (Gamble section) |
+| Ambient & Music | 27 (+2 V1.4) | 46+ (Music & Ambience) |
+| System | 20 | 36 (UI & System section) |
+| Voice Overs (V1.2) | 25 | Included in various |
+| Megaways (V1.2) | 15 | — |
+| Buy Feature (V1.2) | 15 | — |
+| Wheel Bonus (V1.2) | 15 | Included in Bonus Games |
+| Win Effects (V1.2) | 15 | Included in Win Present |
+| Music Stingers (V1.2) | 15 | Included in Music section |
+| Ambient Extended (V1.2) | 12 | Included in Music section |
+| Medium/Low Pay (V1.2) | 20 | Included in Symbols |
+| **TOTAL** | **~603+ events** | **415+ slots** |
+
+### UltimateAudioPanel V8 Section Mapping
+
+| # | Section | Slots | Grade | Notes |
+|---|---------|-------|-------|-------|
+| 1 | Base Game Loop | 63 | A- | 8 redundancies identified |
+| 2 | Symbols & Lands | 46 | A+ | Complete coverage |
+| 3 | Win Presentation | 41 | A+ | Industry-standard |
+| 4 | Cascading Mechanics | 24 | A | Tumble→Cascade consolidate |
+| 5 | Multipliers | 18 | A | Full coverage |
+| 6 | Free Spins | 24 | A | Complete |
+| 7 | Bonus Games | 32 | A | Pick+Wheel+Trail |
+| 8 | Hold & Win | 32 | A- | 2 redundancies |
+| 9 | Jackpots 🏆 | 38 | A+ | Premium tier complete |
+| 10 | Gamble | 15 | A | Optional feature |
+| 11 | Music & Ambience | 46+ | A- | Attract stages missing |
+| 12 | UI & System | 36 | B+ | 4 stages missing |
 
 ---
 

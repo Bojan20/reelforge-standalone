@@ -441,7 +441,7 @@ impl SlotEngineV2 {
         rows: usize,
         scatter_count: usize,
     ) -> Vec<Vec<u32>> {
-        let scatter_id = 10u32; // Scatter symbol
+        let scatter_id = 12u32; // Scatter symbol (matches StandardSymbolSet ID 12)
         let mut grid = Vec::with_capacity(reels);
         let mut placed = 0;
 
@@ -486,7 +486,7 @@ impl SlotEngineV2 {
     }
 
     fn count_scatters(&self, grid: &[Vec<u32>]) -> u8 {
-        let scatter_id = 10u32;
+        let scatter_id = 12u32; // Scatter symbol (matches StandardSymbolSet ID 12)
         grid.iter()
             .flat_map(|col| col.iter())
             .filter(|&&s| s == scatter_id)

@@ -328,6 +328,11 @@ class _CommandPaletteState extends State<CommandPalette> {
                       suffixText: '${_filteredCommands.length} commands',
                       suffixStyle: const TextStyle(fontSize: 11, color: LowerZoneColors.textTertiary),
                     ),
+                    // Enable proper text selection behaviors
+                    enableInteractiveSelection: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
+                    cursorColor: LowerZoneColors.dawAccent,
                   ),
                 ),
                 // Command list

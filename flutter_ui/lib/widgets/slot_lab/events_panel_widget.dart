@@ -22,6 +22,7 @@ import '../../services/favorites_service.dart'; // SL-RP-P1.5
 import '../../services/waveform_thumbnail_cache.dart'; // SL-RP-P1.6
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
+import '../common/fluxforge_search_field.dart';
 import 'create_event_dialog.dart';
 import 'audio_hover_preview.dart';
 import 'stage_editor_dialog.dart';
@@ -560,33 +561,19 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               // Search field (SL-RP-P1.4)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: TextField(
-                  style: const TextStyle(fontSize: 10, color: Colors.white70),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    filled: true,
-                    fillColor: const Color(0xFF16161C),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    hintText: 'Search events...',
-                    hintStyle: const TextStyle(color: Colors.white24, fontSize: 10),
-                    prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white24),
-                    prefixIconConstraints: const BoxConstraints(minWidth: 28),
-                    suffixIcon: _eventSearchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 14, color: Colors.white38),
-                            onPressed: () => setState(() => _eventSearchQuery = ''),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                          )
-                        : null,
+                child: FluxForgeSearchField(
+                  hintText: 'Search events...',
+                  onChanged: (value) => setState(() => _eventSearchQuery = value),
+                  onCleared: () => setState(() => _eventSearchQuery = ''),
+                  style: const FluxForgeSearchFieldStyle(
+                    backgroundColor: Color(0xFF16161C),
+                    borderColor: Color(0xFF16161C),
+                    hintColor: Color(0x40FFFFFF),
+                    iconColor: Color(0x40FFFFFF),
+                    fontSize: 10,
+                    iconSize: 14,
+                    height: 24,
                   ),
-                  onChanged: (value) {
-                    setState(() => _eventSearchQuery = value);
-                  },
                 ),
               ),
               // Column headers
@@ -1444,25 +1431,19 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         // Search
         Padding(
           padding: const EdgeInsets.all(4),
-          child: TextField(
-            style: const TextStyle(fontSize: 11, color: Colors.white70),
-            decoration: InputDecoration(
-              isDense: true,
-              filled: true,
-              fillColor: const Color(0xFF16161C),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              hintText: 'Search...',
-              hintStyle: const TextStyle(color: Colors.white24, fontSize: 11),
-              prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white24),
-              prefixIconConstraints: const BoxConstraints(minWidth: 28),
+          child: FluxForgeSearchField(
+            hintText: 'Search...',
+            onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+            onCleared: () => setState(() => _searchQuery = ''),
+            style: const FluxForgeSearchFieldStyle(
+              backgroundColor: Color(0xFF16161C),
+              borderColor: Color(0xFF16161C),
+              hintColor: Color(0x40FFFFFF),
+              iconColor: Color(0x40FFFFFF),
+              fontSize: 11,
+              iconSize: 14,
+              height: 26,
             ),
-            onChanged: (value) {
-              setState(() => _searchQuery = value.toLowerCase());
-            },
           ),
         ),
         // File/Pool list

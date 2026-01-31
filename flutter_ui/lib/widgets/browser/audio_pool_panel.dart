@@ -17,6 +17,7 @@ import '../../services/native_file_picker.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../debug/debug_console.dart';
+import '../common/fluxforge_search_field.dart';
 
 /// Audio file loading state
 /// 0=pending, 1=loading_metadata, 2=metadata_loaded, 3=error, 10=fully_imported
@@ -630,26 +631,11 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
           const SizedBox(width: 8),
           // Search
           Expanded(
-            child: Container(
-              height: 26,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: FluxForgeTheme.bgDeep,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: TextField(
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-                decoration: const InputDecoration(
-                  hintText: 'Search files...',
-                  hintStyle: TextStyle(color: Colors.white38, fontSize: 12),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 6),
-                  prefixIcon: Icon(Icons.search, size: 14, color: Colors.white38),
-                  prefixIconConstraints: BoxConstraints(minWidth: 24),
-                ),
-                onChanged: (v) => setState(() => _searchQuery = v),
-              ),
+            child: FluxForgeSearchField(
+              hintText: 'Search files...',
+              onChanged: (v) => setState(() => _searchQuery = v),
+              onCleared: () => setState(() => _searchQuery = ''),
+              style: FluxForgeSearchFieldStyle.compact,
             ),
           ),
           const SizedBox(width: 8),

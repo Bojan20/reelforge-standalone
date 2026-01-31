@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/plugin_provider.dart';
+import '../common/fluxforge_search_field.dart';
 
 /// Plugin browser panel for selecting and loading plugins
 class PluginBrowser extends StatefulWidget {
@@ -178,30 +179,16 @@ class _PluginBrowserState extends State<PluginBrowser> {
           child: Column(
             children: [
               // Search field
-              TextField(
+              FluxForgeSearchField(
                 controller: _searchController,
+                hintText: 'Search plugins...',
                 onChanged: _onSearchChanged,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-                decoration: InputDecoration(
-                  hintText: 'Search plugins...',
-                  hintStyle: const TextStyle(color: Color(0xFF606060)),
-                  prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF606060)),
-                  suffixIcon: provider.searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 16, color: Color(0xFF606060)),
-                          onPressed: () {
-                            _searchController.clear();
-                            _onSearchChanged('');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: const Color(0xFF0A0A0C),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                onCleared: () => _onSearchChanged(''),
+                style: const FluxForgeSearchFieldStyle(
+                  backgroundColor: Color(0xFF0A0A0C),
+                  borderColor: Color(0xFF2A2A30),
+                  hintColor: Color(0xFF606060),
+                  iconColor: Color(0xFF606060),
                 ),
               ),
               const SizedBox(height: 8),

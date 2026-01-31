@@ -1,14 +1,20 @@
-# Anticipation System — Industry Standard Implementation
+# Anticipation System V2 — Industry Standard Implementation
 
-**Datum:** 2026-01-30
-**Verzija:** 1.0
-**Status:** ✅ FULLY IMPLEMENTED
+**Datum:** 2026-01-31
+**Verzija:** 2.0
+**Status:** ✅ FULLY IMPLEMENTED (P7 Complete)
 
 ---
 
 ## Overview
 
-FluxForge Studio implementira **industry-standard anticipation sistem** sa per-reel tension escalation, identičan sistemima u IGT, Pragmatic Play, NetEnt, Big Time Gaming i Play'n GO slot igrama.
+FluxForge Studio implementira **industry-standard anticipation sistem V2** sa per-reel tension escalation, identičan sistemima u IGT, Pragmatic Play, NetEnt, Big Time Gaming i Play'n GO slot igrama.
+
+**V2 Improvements (P7):**
+- ✅ Wild symbol NIKADA ne trigeruje anticipaciju
+- ✅ Sekvencijalno zaustavljanje reelova (jedan po jedan)
+- ✅ Podrška za ograničene scatter pozicije (Tip A/B)
+- ✅ Bonus symbol kao trigger
 
 **Related Documentation:**
 - [SLOT_LAB_SYSTEM.md](./SLOT_LAB_SYSTEM.md) — Main SlotLab documentation
@@ -16,6 +22,7 @@ FluxForge Studio implementira **industry-standard anticipation sistem** sa per-r
 - [SLOT_LAB_AUDIO_FEATURES.md](./SLOT_LAB_AUDIO_FEATURES.md) — P0.6/P0.6.1 anticipation audio features
 - [EVENT_SYNC_SYSTEM.md](./EVENT_SYNC_SYSTEM.md) — Stage→Event mapping, anticipation fallback resolution
 - [slot-audio-events-master.md](../domains/slot-audio-events-master.md) — ANTICIPATION_* stage catalog
+- [ANTICIPATION_SYSTEM_V2_SPEC.md](../specs/ANTICIPATION_SYSTEM_V2_SPEC.md) — V2 specification (P7)
 
 ---
 
@@ -23,13 +30,54 @@ FluxForge Studio implementira **industry-standard anticipation sistem** sa per-r
 
 | Feature | Implementacija |
 |---------|----------------|
-| **Trigger** | 2+ scattera na prvim reelovima |
+| **Trigger** | 2+ scattera/bonus na dozvoljenim reelovima (Wild NIKADA!) |
 | **Per-Reel** | Svaki preostali reel ima nezavisnu anticipaciju |
+| **Sequential Stopping** | Reelovi se zaustavljaju JEDAN PO JEDAN |
 | **Tension Levels** | 4 nivoa (L1-L4) sa progresivnom eskalacijom |
 | **Color Progression** | Gold → Orange → Red-Orange → Red |
 | **Audio Escalation** | Volume 0.6x→0.9x, Pitch +1st→+4st |
 | **Visual Effects** | Glow, particles, vignette, speed slowdown |
 | **GPU Shader** | `anticipation_glow.frag` za real-time glow |
+| **Tip A/B Support** | Sve reelove ili samo specifične (0, 2, 4) |
+
+### V2 Trigger Rules (P7)
+
+| Symbol | Anticipation | Reason |
+|--------|--------------|--------|
+| **Scatter** | ✅ YES | Triggers Free Spins |
+| **Bonus** | ✅ YES | Triggers Jackpot, Pick Game, Wheel |
+| **Wild** | ❌ **NO** | Only substitutes symbols, no feature trigger |
+
+### Configuration Types
+
+**Tip A: Scatter na SVIM reelovima**
+```
+Reelovi:     [0] [1] [2] [3] [4]
+Scatter:      ✅  ✅  ✅  ✅  ✅  (može pasti bilo gde)
+Trigger:     3, 4, ili 5 scattera = Free Spins
+Anticipacija: 2+ scattera → anticipacija na preostalim reelovima
+```
+
+**Tip B: Scatter SAMO na određenim reelovima**
+```
+Reelovi:     [0] [1] [2] [3] [4]
+Scatter:      ✅  ❌  ✅  ❌  ✅  (samo reel 0, 2, 4)
+Trigger:     Tačno 3 scattera = Free Spins
+Anticipacija: Scatter na 0 I 2 → anticipacija na reel 4
+```
+
+### Sequential Stopping (V2)
+
+**Industry Standard Flow:**
+```
+REEL 2: ANTIC_ON ══════ ANTIC_OFF → STOP_2
+                                        ↓ (waits for previous)
+REEL 3:                         ANTIC_ON ══════ ANTIC_OFF → STOP_3
+                                                                ↓ (waits)
+REEL 4:                                                 ANTIC_ON ══════ ANTIC_OFF → STOP_4
+```
+
+Each reel MUST wait for the previous anticipation to complete before starting its own.
 
 ---
 
@@ -225,7 +273,132 @@ impl Stage {
 }
 ```
 
-### AnticipationConfig (timing.rs)
+### AnticipationConfig V2 (config.rs)
+
+```rust
+/// V2 Anticipation configuration with Tip A/B support
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnticipationConfig {
+    /// Symbol IDs that can trigger anticipation (Scatter, Bonus - NOT Wild!)
+    pub trigger_symbol_ids: Vec<u32>,
+
+    /// Minimum trigger symbols needed for anticipation (default: 2)
+    pub min_trigger_count: u8,
+
+    /// Which reels can have trigger symbols (empty = all reels)
+    pub allowed_reels: Vec<u8>,
+
+    /// How many triggers needed for feature (Exact(3) or AtLeast(3))
+    pub trigger_rules: TriggerRules,
+
+    /// Sequential or Parallel stopping mode
+    pub mode: AnticipationMode,
+
+    /// Duration per reel in anticipation (ms)
+    pub duration_per_reel_ms: f64,
+
+    /// Speed multiplier when in anticipation (0.3 = 30% of normal speed)
+    pub speed_multiplier: f64,
+}
+
+/// Factory methods for common configurations
+impl AnticipationConfig {
+    /// Tip A: Scatter on ALL reels, 3+ for feature
+    pub fn tip_a(scatter_id: u32, bonus_id: Option<u32>) -> Self {
+        let mut triggers = vec![scatter_id];
+        if let Some(b) = bonus_id { triggers.push(b); }
+        Self {
+            trigger_symbol_ids: triggers,
+            min_trigger_count: 2,
+            allowed_reels: vec![0, 1, 2, 3, 4], // All reels
+            trigger_rules: TriggerRules::AtLeast(3),
+            mode: AnticipationMode::Sequential,
+            ..Default::default()
+        }
+    }
+
+    /// Tip B: Scatter only on specific reels, exactly 3 for feature
+    pub fn tip_b(scatter_id: u32, bonus_id: Option<u32>) -> Self {
+        let mut triggers = vec![scatter_id];
+        if let Some(b) = bonus_id { triggers.push(b); }
+        Self {
+            trigger_symbol_ids: triggers,
+            min_trigger_count: 2,
+            allowed_reels: vec![0, 2, 4], // Only reels 1, 3, 5 (0-indexed)
+            trigger_rules: TriggerRules::Exact(3),
+            mode: AnticipationMode::Sequential,
+            ..Default::default()
+        }
+    }
+
+    /// Check if symbol can trigger anticipation
+    pub fn is_trigger_symbol(&self, symbol_id: u32) -> bool {
+        self.trigger_symbol_ids.contains(&symbol_id)
+    }
+}
+
+/// Trigger rules for feature activation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TriggerRules {
+    /// Exactly N triggers needed (Tip B)
+    Exact(u8),
+    /// At least N triggers needed (Tip A)
+    AtLeast(u8),
+}
+
+/// Anticipation stopping mode
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AnticipationMode {
+    /// Reels stop one by one (industry standard)
+    Sequential,
+    /// All anticipation reels stop together (legacy)
+    Parallel,
+}
+```
+
+### TensionLevel Enum (config.rs)
+
+```rust
+/// Tension level for anticipation escalation
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TensionLevel {
+    L1, L2, L3, L4,
+}
+
+impl TensionLevel {
+    /// Get color for tension level
+    pub fn color(&self) -> &str {
+        match self {
+            TensionLevel::L1 => "#FFD700",  // Gold
+            TensionLevel::L2 => "#FFA500",  // Orange
+            TensionLevel::L3 => "#FF6347",  // Red-Orange
+            TensionLevel::L4 => "#FF4500",  // Red
+        }
+    }
+
+    /// Get volume multiplier (0.6 → 0.9)
+    pub fn volume(&self) -> f32 {
+        match self {
+            TensionLevel::L1 => 0.6,
+            TensionLevel::L2 => 0.7,
+            TensionLevel::L3 => 0.8,
+            TensionLevel::L4 => 0.9,
+        }
+    }
+
+    /// Get pitch offset in semitones (+1 → +4)
+    pub fn pitch_semitones(&self) -> i8 {
+        match self {
+            TensionLevel::L1 => 1,
+            TensionLevel::L2 => 2,
+            TensionLevel::L3 => 3,
+            TensionLevel::L4 => 4,
+        }
+    }
+}
+```
+
+### Legacy AnticipationConfig (timing.rs)
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -675,8 +848,9 @@ slotLabProvider.setAnticipationConfig(config);
 | Date | Version | Changes |
 |------|---------|---------|
 | 2026-01-30 | 1.0 | Initial documentation |
+| 2026-01-31 | 2.0 | **P7 Complete** — V2 implementation with: Wild symbol exclusion, Sequential stopping, Tip A/B support, Bonus trigger, TensionLevel enum |
 
 ---
 
 **Author:** Claude Opus 4.5
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-01-31

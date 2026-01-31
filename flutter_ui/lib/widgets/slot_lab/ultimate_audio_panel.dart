@@ -96,6 +96,31 @@ class UltimateAudioPanel extends StatefulWidget {
   /// P5: Win tier configuration for dynamic stage generation
   final SlotWinConfiguration? winConfiguration;
 
+  // ==========================================================================
+  // P3 RECOMMENDATIONS — Undo/Redo and Bulk Assign
+  // ==========================================================================
+
+  /// Called when undo is requested
+  final VoidCallback? onUndo;
+
+  /// Called when redo is requested
+  final VoidCallback? onRedo;
+
+  /// Whether undo is available
+  final bool canUndo;
+
+  /// Whether redo is available
+  final bool canRedo;
+
+  /// Undo description for tooltip
+  final String? undoDescription;
+
+  /// Redo description for tooltip
+  final String? redoDescription;
+
+  /// Called for bulk assign (e.g., REEL_STOP → REEL_STOP_0..4)
+  final Function(String baseStage, String audioPath)? onBulkAssign;
+
   const UltimateAudioPanel({
     super.key,
     this.audioAssignments = const {},
@@ -113,6 +138,14 @@ class UltimateAudioPanel extends StatefulWidget {
     this.expandedSections,
     this.expandedGroups,
     this.winConfiguration,
+    // P3 Recommendations
+    this.onUndo,
+    this.onRedo,
+    this.canUndo = false,
+    this.canRedo = false,
+    this.undoDescription,
+    this.redoDescription,
+    this.onBulkAssign,
   });
 
   @override
@@ -356,6 +389,58 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         children: [
           const Icon(Icons.audiotrack, size: 14, color: Colors.white54), // Reduced from 16
           const SizedBox(width: 4), // Reduced from 6
+          // P3: Undo/Redo buttons (compact)
+          if (widget.onUndo != null || widget.onRedo != null) ...[
+            Tooltip(
+              message: widget.canUndo
+                  ? 'Undo: ${widget.undoDescription ?? "last action"}'
+                  : 'Nothing to undo',
+              waitDuration: const Duration(milliseconds: 300),
+              child: MouseRegion(
+                cursor: widget.canUndo ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                child: GestureDetector(
+                  onTap: widget.canUndo ? widget.onUndo : null,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      color: Colors.transparent,
+                    ),
+                    child: Icon(
+                      Icons.undo,
+                      size: 14,
+                      color: widget.canUndo ? Colors.white70 : Colors.white24,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Tooltip(
+              message: widget.canRedo
+                  ? 'Redo: ${widget.redoDescription ?? "last undone action"}'
+                  : 'Nothing to redo',
+              waitDuration: const Duration(milliseconds: 300),
+              child: MouseRegion(
+                cursor: widget.canRedo ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                child: GestureDetector(
+                  onTap: widget.canRedo ? widget.onRedo : null,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      color: Colors.transparent,
+                    ),
+                    child: Icon(
+                      Icons.redo,
+                      size: 14,
+                      color: widget.canRedo ? Colors.white70 : Colors.white24,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
           // Removed "Audio Panel" text to save space
           const Spacer(),
           // M2-8: Quick Assign Mode toggle (icon only when inactive to save space)
@@ -1506,7 +1591,9 @@ class _BaseGameLoopSection extends _SectionConfig {
       icon: '💤',
       slots: [
         _SlotConfig(stage: 'ATTRACT_LOOP', label: 'Attract Loop'),
+        _SlotConfig(stage: 'ATTRACT_EXIT', label: 'Attract Exit'),  // P9.3.1: NEW
         _SlotConfig(stage: 'IDLE_LOOP', label: 'Idle Loop'),
+        _SlotConfig(stage: 'IDLE_TO_ACTIVE', label: 'Idle → Active'),  // P9.3.2: NEW
         _SlotConfig(stage: 'GAME_READY', label: 'Game Ready'),
         _SlotConfig(stage: 'GAME_START', label: 'Game Start'),
       ],
@@ -1518,13 +1605,14 @@ class _BaseGameLoopSection extends _SectionConfig {
       icon: '🔄',
       slots: [
         _SlotConfig(stage: 'SPIN_START', label: 'Spin Press'),
+        _SlotConfig(stage: 'SPIN_CANCEL', label: 'Spin Cancel'),  // P9.3.3: NEW
         _SlotConfig(stage: 'UI_STOP_PRESS', label: 'Stop Press'),
         _SlotConfig(stage: 'QUICK_STOP', label: 'Quick Stop'),
         _SlotConfig(stage: 'SLAM_STOP', label: 'Slam Stop'),
         _SlotConfig(stage: 'SLAM_STOP_IMPACT', label: 'Slam Impact'),
         _SlotConfig(stage: 'AUTOPLAY_START', label: 'AutoSpin On'),
         _SlotConfig(stage: 'AUTOPLAY_STOP', label: 'AutoSpin Off'),
-        _SlotConfig(stage: 'AUTOPLAY_SPIN', label: 'AutoSpin Spin'),
+        // NOTE: AUTOPLAY_SPIN removed — use SPIN_START with autoplay flag
         _SlotConfig(stage: 'UI_TURBO_ON', label: 'Turbo On'),
         _SlotConfig(stage: 'UI_TURBO_OFF', label: 'Turbo Off'),
       ],
@@ -1535,8 +1623,8 @@ class _BaseGameLoopSection extends _SectionConfig {
       title: 'Reel Animation',
       icon: '🔃',
       slots: [
-        _SlotConfig(stage: 'REEL_SPIN', label: 'Spin Loop'),
-        _SlotConfig(stage: 'REEL_SPINNING', label: 'Spinning'),
+        _SlotConfig(stage: 'REEL_SPIN_LOOP', label: 'Spin Loop'),
+        // NOTE: REEL_SPIN + REEL_SPINNING consolidated → REEL_SPIN_LOOP
         _SlotConfig(stage: 'SPIN_ACCELERATION', label: 'Spin Accel'),
         _SlotConfig(stage: 'SPIN_DECELERATION', label: 'Spin Decel'),
         _SlotConfig(stage: 'TURBO_SPIN_LOOP', label: 'Turbo Loop'),
@@ -2443,7 +2531,7 @@ class _HoldAndWinSection extends _SectionConfig {
         _SlotConfig(stage: 'COIN_COLLECT_ALL', label: 'Collect All'),
         _SlotConfig(stage: 'STICKY_ADD', label: 'Sticky Add'),
         _SlotConfig(stage: 'STICKY_REMOVE', label: 'Sticky Remove'),
-        _SlotConfig(stage: 'MULTIPLIER_LAND', label: 'Multi Land'),
+        // NOTE: MULTIPLIER_LAND → Use Section 5 (Multipliers)
         _SlotConfig(stage: 'SPECIAL_SYMBOL_LAND', label: 'Special Land'),
       ],
     ),
@@ -2707,15 +2795,8 @@ class _MusicSection extends _SectionConfig {
             _SlotConfig(stage: 'MUSIC_LAYER_3', label: 'Layer 3'),
           ],
         ),
-        _GroupConfig(
-          id: 'attract',
-          title: 'Attract / Idle',
-          icon: '🔇',
-          slots: [
-            _SlotConfig(stage: 'ATTRACT_LOOP', label: 'Attract Loop'),
-            _SlotConfig(stage: 'GAME_START', label: 'Game Start'),
-          ],
-        ),
+        // NOTE: ATTRACT_LOOP and GAME_START moved to Section 1 (Base Game Loop)
+        // to avoid duplication — see 'idle' group in _BaseGameLoopSection
         // ═══════════════════════════════════════════════════════════════════
         // TENSION MUSIC (P3 — 8 slots)
         // Dynamic tension escalation
@@ -2836,10 +2917,8 @@ class _UISystemSection extends _SectionConfig {
         _SlotConfig(stage: 'UI_SPIN_RELEASE', label: 'Spin Release'),
         _SlotConfig(stage: 'UI_BET_CHANGE', label: 'Bet Change'),
         _SlotConfig(stage: 'UI_LINES_CHANGE', label: 'Lines Change'),
-        _SlotConfig(stage: 'UI_AUTOPLAY_ON', label: 'Autoplay On'),
-        _SlotConfig(stage: 'UI_AUTOPLAY_OFF', label: 'Autoplay Off'),
-        _SlotConfig(stage: 'UI_TURBO_ON', label: 'Turbo On'),
-        _SlotConfig(stage: 'UI_TURBO_OFF', label: 'Turbo Off'),
+        // NOTE: AUTOPLAY_ON/OFF → Use AUTOPLAY_START/STOP in Section 1
+        // NOTE: TURBO_ON/OFF → Use UI_TURBO_ON/OFF in Section 1
       ],
     ),
     // ═══════════════════════════════════════════════════════════════════════

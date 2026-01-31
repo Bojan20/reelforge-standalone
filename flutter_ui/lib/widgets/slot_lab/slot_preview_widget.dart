@@ -332,7 +332,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   final Map<int, int> _anticipationTensionLevel = {}; // Per-reel tension level (1-4)
   final Map<int, String> _anticipationReason = {}; // Per-reel reason (scatter, bonus, wild, jackpot)
   static const int _anticipationDurationMs = 3000; // 3 seconds per reel
-  static const int _scatterSymbolId = 2; // SCATTER symbol ID (matches Rust SymbolType::Scatter = 2)
+  static const int _scatterSymbolId = 12; // SCATTER symbol ID (matches StandardSymbolSet ID 12)
   static const int _scattersNeededForAnticipation = 2; // 2 scatters needed to trigger
   Set<int> _scatterReels = {}; // Reels that have landed with scatter symbols
 
@@ -340,6 +340,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // Intensity escalates per tension level (L1: 5 particles/tick, L2: 10, L3: 15, L4: 20)
   final List<_AnticipationParticle> _anticipationParticles = [];
   final _AnticipationParticlePool _anticipationParticlePool = _AnticipationParticlePool();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P7.2.1: SEQUENTIAL ANTICIPATION MODE — Reels stop one-by-one during anticipation
+  // Industry standard (IGT, Pragmatic Play, NetEnt): Each reel waits for previous to
+  // complete its anticipation phase before stopping. Creates maximum tension.
+  // ═══════════════════════════════════════════════════════════════════════════
+  bool _sequentialAnticipationMode = false; // When true, reels stop sequentially
+  final List<int> _sequentialAnticipationQueue = []; // Queue of reels waiting to stop
+  int? _currentSequentialReel; // Reel currently in anticipation sequence
 
   // P3.1: Camera zoom — zoom intensity escalates with number of reels in anticipation
   // Industry standard: subtle zoom (1.02-1.08) creates focus and tension
@@ -947,6 +956,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   /// Check if the stopped reel has scatter symbols and trigger anticipation if 2+ found
+  /// P7.2.1: Now activates SEQUENTIAL anticipation mode where reels stop one-by-one
   void _checkScatterAndTriggerAnticipation(int reelIndex) {
     // Check if this reel has any scatter symbols
     if (reelIndex < _targetGrid.length) {
@@ -970,22 +980,162 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           if (remainingReels.isNotEmpty) {
             debugPrint('[SlotPreview] 🎯 ANTICIPATION TRIGGERED! Scatters: $_scatterReels, extending reels: $remainingReels');
 
-            // Extend spin time for remaining reels by 3000ms (3 seconds)
-            for (final remainingReel in remainingReels) {
-              _reelAnimController.extendReelSpinTime(remainingReel, _anticipationDurationMs);
-              // Also trigger visual anticipation overlay
-              _startReelAnticipation(remainingReel);
-            }
+            // ═══════════════════════════════════════════════════════════════════════════
+            // P7.2.1: SEQUENTIAL ANTICIPATION MODE
+            // Industry standard (IGT, Pragmatic Play, NetEnt): Reels stop one-by-one
+            // Each reel waits for previous to complete anticipation before stopping
+            // ═══════════════════════════════════════════════════════════════════════════
+            setState(() {
+              _sequentialAnticipationMode = true;
+              _sequentialAnticipationQueue.clear();
+              _sequentialAnticipationQueue.addAll(remainingReels..sort()); // Sort ascending
+              _currentSequentialReel = null;
+              _isAnticipation = true;
+            });
+
+            debugPrint('[SlotPreview] P7.2.1: SEQUENTIAL MODE ACTIVATED, queue: $_sequentialAnticipationQueue');
+
+            // Start first reel in sequence
+            _startNextSequentialAnticipationReel();
 
             // Trigger anticipation audio stage
             eventRegistry.triggerStage('ANTICIPATION_ON');
-            setState(() {
-              _isAnticipation = true;
-            });
           }
         }
       }
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P7.2.1: SEQUENTIAL ANTICIPATION REEL PROCESSING
+  // Each reel gets anticipation → tension escalation → stop → next reel
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Start anticipation on the next reel in the sequential queue
+  void _startNextSequentialAnticipationReel() {
+    if (_sequentialAnticipationQueue.isEmpty) {
+      debugPrint('[SlotPreview] P7.2.1: Sequential queue empty, all anticipation reels processed');
+      _sequentialAnticipationMode = false;
+      _currentSequentialReel = null;
+      return;
+    }
+
+    final nextReel = _sequentialAnticipationQueue.removeAt(0);
+    _currentSequentialReel = nextReel;
+
+    // Calculate tension level based on position in queue (L1 → L2 → L3 → L4)
+    // First anticipation reel = L1, second = L2, etc.
+    final tensionLevel = (_anticipationReels.length + 1).clamp(1, 4);
+
+    debugPrint('[SlotPreview] P7.2.1: Starting SEQUENTIAL anticipation on reel $nextReel (tension L$tensionLevel, remaining: $_sequentialAnticipationQueue)');
+
+    // Extend spin time SIGNIFICANTLY for this reel (others stay spinning)
+    _reelAnimController.extendReelSpinTime(nextReel, _anticipationDurationMs);
+
+    // Start visual anticipation with tension level
+    _startSequentialReelAnticipation(nextReel, tensionLevel);
+
+    // Trigger per-reel anticipation audio with tension level
+    eventRegistry.triggerStage('ANTICIPATION_TENSION_R${nextReel}_L$tensionLevel', context: {
+      'reel_index': nextReel,
+      'tension_level': tensionLevel,
+    });
+  }
+
+  /// Start anticipation on a specific reel in sequential mode
+  /// This version schedules the reel to stop after anticipation completes
+  void _startSequentialReelAnticipation(int reelIndex, int tensionLevel) {
+    if (_anticipationReels.contains(reelIndex)) return;
+
+    debugPrint('[SlotPreview] P7.2.1: SEQUENTIAL ANTICIPATION START: Reel $reelIndex, tension L$tensionLevel');
+
+    setState(() {
+      _anticipationReels.add(reelIndex);
+      _anticipationProgress[reelIndex] = 0.0;
+      _anticipationTensionLevel[reelIndex] = tensionLevel;
+      _anticipationReason[reelIndex] = 'scatter';
+      _anticipationZoom = _calculateAnticipationZoom();
+    });
+
+    // Slow down this reel animation
+    _reelAnimController.setReelSpeedMultiplier(reelIndex, 0.3);
+
+    // Start anticipation overlay animation
+    _anticipationController.repeat(reverse: true);
+
+    // Progress timer with sequential completion callback
+    const updateInterval = 50;
+    int elapsed = 0;
+    _anticipationTimers[reelIndex]?.cancel();
+    _anticipationTimers[reelIndex] = Timer.periodic(
+      const Duration(milliseconds: updateInterval),
+      (timer) {
+        elapsed += updateInterval;
+        final progress = (elapsed / _anticipationDurationMs).clamp(0.0, 1.0);
+
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+
+        setState(() {
+          _anticipationProgress[reelIndex] = progress;
+        });
+
+        // Anticipation complete — stop this reel and start next
+        if (elapsed >= _anticipationDurationMs) {
+          timer.cancel();
+          _completeSequentialReelAnticipation(reelIndex);
+        }
+      },
+    );
+  }
+
+  /// Complete anticipation for a reel and trigger next in sequence
+  void _completeSequentialReelAnticipation(int reelIndex) {
+    debugPrint('[SlotPreview] P7.2.1: SEQUENTIAL ANTICIPATION COMPLETE: Reel $reelIndex → stopping reel');
+
+    // End anticipation visuals
+    _anticipationTimers[reelIndex]?.cancel();
+    _anticipationTimers.remove(reelIndex);
+
+    // Restore normal speed (reel will stop naturally now)
+    _reelAnimController.setReelSpeedMultiplier(reelIndex, 1.0);
+
+    // Trigger per-reel anticipation off
+    eventRegistry.triggerStage('ANTICIPATION_OFF_$reelIndex', context: {'reel_index': reelIndex});
+
+    setState(() {
+      _anticipationReels.remove(reelIndex);
+      _anticipationProgress.remove(reelIndex);
+      _anticipationTensionLevel.remove(reelIndex);
+      _anticipationReason.remove(reelIndex);
+      _isAnticipation = _anticipationReels.isNotEmpty || _sequentialAnticipationQueue.isNotEmpty;
+      _anticipationZoom = _calculateAnticipationZoom();
+    });
+
+    // Force reel to stop NOW (don't wait for natural stop)
+    _reelAnimController.forceStopReel(reelIndex);
+
+    // After brief delay for reel stop animation, start next sequential reel
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      if (_sequentialAnticipationMode && _sequentialAnticipationQueue.isNotEmpty) {
+        _startNextSequentialAnticipationReel();
+      } else {
+        // All sequential reels processed
+        _sequentialAnticipationMode = false;
+        _currentSequentialReel = null;
+
+        // Stop global anticipation overlay if no more reels
+        if (_anticipationReels.isEmpty) {
+          _anticipationController.stop();
+          _anticipationController.reset();
+          _anticipationParticlePool.releaseAll(_anticipationParticles);
+          _anticipationParticles.clear();
+        }
+      }
+    });
   }
 
   /// Flush buffered reel stops that are now in sequence
@@ -1250,6 +1400,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _pendingReelStops.clear();
       // P3.1: Reset zoom for new spin
       _anticipationZoom = 1.0;
+      // P7.2.1: Reset sequential anticipation mode for new spin
+      _sequentialAnticipationMode = false;
+      _sequentialAnticipationQueue.clear();
+      _currentSequentialReel = null;
     });
 
     // Hide win overlay

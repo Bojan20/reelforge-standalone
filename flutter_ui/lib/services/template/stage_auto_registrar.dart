@@ -132,10 +132,9 @@ class StageAutoRegistrar {
       return 'reel_stop_$reelIndex';
     }
 
-    final reelSpinMatch = RegExp(r'REEL_SPINNING_(\d+)').firstMatch(stageId);
-    if (reelSpinMatch != null) {
-      final reelIndex = int.parse(reelSpinMatch.group(1)!);
-      return 'reel_spinning_$reelIndex';
+    // REEL_SPIN_LOOP is center (single loop for all reels)
+    if (stageId == 'REEL_SPIN_LOOP') {
+      return 'CENTER';
     }
 
     // Feature intents

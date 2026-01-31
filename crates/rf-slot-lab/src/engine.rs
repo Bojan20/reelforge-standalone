@@ -566,19 +566,45 @@ impl SyntheticSlotEngine {
             }
         }
 
-        // Anticipation for scatter — INDUSTRY STANDARD
-        // When 2+ scatters detected, anticipation triggers on ALL remaining reels
-        // Example: Scatters on reels 0,1 → anticipation on reels 2,3,4
-        // Example: Scatters on reels 0,3 → anticipation on reels 4 (after rightmost scatter)
+        // ═══════════════════════════════════════════════════════════════════════════
+        // P7.1.5: Industry-Standard Anticipation System (V2)
+        //
+        // Uses AnticipationConfig from SlotConfig to determine:
+        // - Which symbols trigger anticipation (Scatter, Bonus — NEVER Wild!)
+        // - Which reels are allowed for triggers (Tip A: all, Tip B: 0,2,4)
+        // - How many triggers needed (min_trigger_count)
+        // - Sequential vs parallel reel stop during anticipation
+        //
+        // IMPORTANT: Wild symbols NEVER trigger anticipation per user requirement:
+        // "Wild symbols should NEVER trigger anticipation"
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        // Get anticipation config from SlotConfig
+        let antic_config = &self.config.anticipation;
+
+        // First, try scatter positions
         if let Some(ref scatter) = result.scatter_win {
-            if scatter.count >= 2 && !scatter.positions.is_empty() {
-                result.anticipation = AnticipationInfo::from_scatter_positions(
-                    scatter.positions.clone(),
-                    self.config.grid.reels,
-                    self.timing_config.anticipation_duration_ms as u32,
-                );
+            if scatter.count >= antic_config.min_trigger_count && !scatter.positions.is_empty() {
+                // Check if scatter_id is a trigger symbol
+                if antic_config.is_trigger_symbol(self.paytable.scatter_id) {
+                    result.anticipation = AnticipationInfo::from_trigger_positions_with_config(
+                        scatter.positions.clone(),
+                        antic_config,
+                        self.config.grid.reels,
+                        self.timing_config.anticipation_duration_ms as u32,
+                        AnticipationReason::Scatter,
+                    );
+                }
             }
         }
+
+        // Check for bonus symbols (if not already triggered by scatter)
+        // NOTE: This would require bonus detection logic which isn't in current paytable
+        // Placeholder for future bonus symbol anticipation
+
+        // CRITICAL: Wild symbols are NEVER checked for anticipation trigger
+        // Even if result has wild_positions, we don't use them for anticipation
+        // This is per explicit user requirement: "Wild symbols should NEVER trigger anticipation"
     }
 
     fn process_cascades(&mut self, result: &mut SpinResult) {

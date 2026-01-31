@@ -150,6 +150,236 @@ class _SlotTheme {
 }
 
 // =============================================================================
+// P6: DEVICE SIMULATION MODE
+// =============================================================================
+
+/// Device simulation presets for responsive testing
+enum DeviceSimulation {
+  desktop,         // Full size (no constraints)
+  tablet,          // 1024x768 (iPad)
+  mobileLandscape, // 844x390 (iPhone 14 Pro landscape)
+  mobilePortrait,  // 390x844 (iPhone 14 Pro portrait)
+}
+
+extension DeviceSimulationExtension on DeviceSimulation {
+  String get label {
+    return switch (this) {
+      DeviceSimulation.desktop => 'Desktop',
+      DeviceSimulation.tablet => 'Tablet',
+      DeviceSimulation.mobileLandscape => 'Mobile (L)',
+      DeviceSimulation.mobilePortrait => 'Mobile (P)',
+    };
+  }
+
+  IconData get icon {
+    return switch (this) {
+      DeviceSimulation.desktop => Icons.desktop_mac,
+      DeviceSimulation.tablet => Icons.tablet_mac,
+      DeviceSimulation.mobileLandscape => Icons.phone_android,
+      DeviceSimulation.mobilePortrait => Icons.smartphone,
+    };
+  }
+
+  Size? get size {
+    return switch (this) {
+      DeviceSimulation.desktop => null, // No constraint
+      DeviceSimulation.tablet => const Size(1024, 768),
+      DeviceSimulation.mobileLandscape => const Size(844, 390),
+      DeviceSimulation.mobilePortrait => const Size(390, 844),
+    };
+  }
+}
+
+// =============================================================================
+// P6: SLOT THEME PRESETS
+// =============================================================================
+
+/// Visual theme presets for A/B testing
+enum SlotThemePreset {
+  casino,   // Current dark casino theme (default)
+  neon,     // Cyberpunk neon
+  royal,    // Gold & purple luxury
+  nature,   // Green & wood organic
+  retro,    // 80s arcade
+  minimal,  // Clean white
+}
+
+extension SlotThemePresetExtension on SlotThemePreset {
+  String get label {
+    return switch (this) {
+      SlotThemePreset.casino => 'Casino',
+      SlotThemePreset.neon => 'Neon',
+      SlotThemePreset.royal => 'Royal',
+      SlotThemePreset.nature => 'Nature',
+      SlotThemePreset.retro => 'Retro',
+      SlotThemePreset.minimal => 'Minimal',
+    };
+  }
+
+  SlotThemeData get data {
+    return switch (this) {
+      SlotThemePreset.casino => SlotThemeData.casino,
+      SlotThemePreset.neon => SlotThemeData.neon,
+      SlotThemePreset.royal => SlotThemeData.royal,
+      SlotThemePreset.nature => SlotThemeData.nature,
+      SlotThemePreset.retro => SlotThemeData.retro,
+      SlotThemePreset.minimal => SlotThemeData.minimal,
+    };
+  }
+}
+
+/// Complete theme data for slot UI
+class SlotThemeData {
+  final Color bgDeep;
+  final Color bgDark;
+  final Color bgMid;
+  final Color bgSurface;
+  final Color gold;
+  final Color accent;
+  final Color winSmall;
+  final Color winBig;
+  final Color winMega;
+  final Color winEpic;
+  final Color winUltra;
+  final List<Color> jackpotColors;
+  final Color border;
+  final Color textPrimary;
+  final Color textSecondary;
+
+  const SlotThemeData({
+    required this.bgDeep,
+    required this.bgDark,
+    required this.bgMid,
+    required this.bgSurface,
+    required this.gold,
+    required this.accent,
+    required this.winSmall,
+    required this.winBig,
+    required this.winMega,
+    required this.winEpic,
+    required this.winUltra,
+    required this.jackpotColors,
+    required this.border,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  // Casino (default) - Current dark casino theme
+  static const casino = SlotThemeData(
+    bgDeep: Color(0xFF0a0a12),
+    bgDark: Color(0xFF121218),
+    bgMid: Color(0xFF1a1a24),
+    bgSurface: Color(0xFF242432),
+    gold: Color(0xFFFFD700),
+    accent: Color(0xFF4A9EFF),
+    winSmall: Color(0xFF40C8FF),
+    winBig: Color(0xFF40FF90),
+    winMega: Color(0xFFFFD700),
+    winEpic: Color(0xFFE040FB),
+    winUltra: Color(0xFFFF4080),
+    jackpotColors: [Color(0xFFFFD700), Color(0xFFFF4080), Color(0xFF8B5CF6), Color(0xFF4CAF50)],
+    border: Color(0xFF3a3a48),
+    textPrimary: Color(0xFFFFFFFF),
+    textSecondary: Color(0xFFB0B0B8),
+  );
+
+  // Neon - Cyberpunk neon
+  static const neon = SlotThemeData(
+    bgDeep: Color(0xFF0a0010),
+    bgDark: Color(0xFF140020),
+    bgMid: Color(0xFF1e0030),
+    bgSurface: Color(0xFF280040),
+    gold: Color(0xFF00FFFF),
+    accent: Color(0xFFFF00FF),
+    winSmall: Color(0xFF00FF00),
+    winBig: Color(0xFF00FFFF),
+    winMega: Color(0xFFFF00FF),
+    winEpic: Color(0xFFFFFF00),
+    winUltra: Color(0xFFFF0080),
+    jackpotColors: [Color(0xFFFF00FF), Color(0xFF00FFFF), Color(0xFF00FF00), Color(0xFFFFFF00)],
+    border: Color(0xFF800080),
+    textPrimary: Color(0xFFFFFFFF),
+    textSecondary: Color(0xFFFF80FF),
+  );
+
+  // Royal - Gold & purple luxury
+  static const royal = SlotThemeData(
+    bgDeep: Color(0xFF0a0512),
+    bgDark: Color(0xFF150a20),
+    bgMid: Color(0xFF201530),
+    bgSurface: Color(0xFF2a1f40),
+    gold: Color(0xFFFFD700),
+    accent: Color(0xFF9B59B6),
+    winSmall: Color(0xFFC0C0C0),
+    winBig: Color(0xFFFFD700),
+    winMega: Color(0xFFE040FB),
+    winEpic: Color(0xFF9B59B6),
+    winUltra: Color(0xFFFF6B9D),
+    jackpotColors: [Color(0xFFFFD700), Color(0xFF9B59B6), Color(0xFFE040FB), Color(0xFFC0C0C0)],
+    border: Color(0xFF5a3a68),
+    textPrimary: Color(0xFFFFFDF0),
+    textSecondary: Color(0xFFD4AF37),
+  );
+
+  // Nature - Green & wood organic
+  static const nature = SlotThemeData(
+    bgDeep: Color(0xFF0a120a),
+    bgDark: Color(0xFF141E14),
+    bgMid: Color(0xFF1E2A1E),
+    bgSurface: Color(0xFF283828),
+    gold: Color(0xFFFFE082),
+    accent: Color(0xFF4CAF50),
+    winSmall: Color(0xFF81C784),
+    winBig: Color(0xFF66BB6A),
+    winMega: Color(0xFFFFE082),
+    winEpic: Color(0xFFFFD54F),
+    winUltra: Color(0xFFFF8A65),
+    jackpotColors: [Color(0xFFFFE082), Color(0xFF4CAF50), Color(0xFF8BC34A), Color(0xFF795548)],
+    border: Color(0xFF3E5A3E),
+    textPrimary: Color(0xFFF5F5DC),
+    textSecondary: Color(0xFFA5D6A7),
+  );
+
+  // Retro - 80s arcade
+  static const retro = SlotThemeData(
+    bgDeep: Color(0xFF000020),
+    bgDark: Color(0xFF101030),
+    bgMid: Color(0xFF202050),
+    bgSurface: Color(0xFF303070),
+    gold: Color(0xFFFFFF00),
+    accent: Color(0xFFFF6B00),
+    winSmall: Color(0xFF00FF00),
+    winBig: Color(0xFFFFFF00),
+    winMega: Color(0xFFFF6B00),
+    winEpic: Color(0xFFFF0000),
+    winUltra: Color(0xFFFF00FF),
+    jackpotColors: [Color(0xFFFFFF00), Color(0xFFFF6B00), Color(0xFFFF0000), Color(0xFF00FF00)],
+    border: Color(0xFF4040A0),
+    textPrimary: Color(0xFFFFFFFF),
+    textSecondary: Color(0xFF00FFFF),
+  );
+
+  // Minimal - Clean white
+  static const minimal = SlotThemeData(
+    bgDeep: Color(0xFFF5F5F5),
+    bgDark: Color(0xFFEEEEEE),
+    bgMid: Color(0xFFE0E0E0),
+    bgSurface: Color(0xFFFFFFFF),
+    gold: Color(0xFF1976D2),
+    accent: Color(0xFF1976D2),
+    winSmall: Color(0xFF4CAF50),
+    winBig: Color(0xFF2196F3),
+    winMega: Color(0xFF9C27B0),
+    winEpic: Color(0xFFE91E63),
+    winUltra: Color(0xFFFF5722),
+    jackpotColors: [Color(0xFF1976D2), Color(0xFF9C27B0), Color(0xFFE91E63), Color(0xFF4CAF50)],
+    border: Color(0xFFBDBDBD),
+    textPrimary: Color(0xFF212121),
+    textSecondary: Color(0xFF757575),
+  );
+}
+
+// =============================================================================
 // A. HEADER ZONE
 // =============================================================================
 
@@ -166,6 +396,23 @@ class _HeaderZone extends StatelessWidget {
   final VoidCallback onFullscreenToggle;
   final VoidCallback onExit;
 
+  // P6: Device simulation
+  final DeviceSimulation deviceSimulation;
+  final ValueChanged<DeviceSimulation> onDeviceChanged;
+
+  // P6: Theme
+  final SlotThemePreset currentTheme;
+  final ValueChanged<SlotThemePreset> onThemeChanged;
+
+  // P6: Recording
+  final bool isRecording;
+  final Duration recordingDuration;
+  final VoidCallback onRecordingToggle;
+
+  // P6: Debug
+  final bool showDebugToolbar;
+  final VoidCallback onDebugToggle;
+
   const _HeaderZone({
     required this.balance,
     required this.vipLevel,
@@ -178,6 +425,16 @@ class _HeaderZone extends StatelessWidget {
     required this.onSettingsTap,
     required this.onFullscreenToggle,
     required this.onExit,
+    // P6 params
+    this.deviceSimulation = DeviceSimulation.desktop,
+    required this.onDeviceChanged,
+    this.currentTheme = SlotThemePreset.casino,
+    required this.onThemeChanged,
+    this.isRecording = false,
+    this.recordingDuration = Duration.zero,
+    required this.onRecordingToggle,
+    this.showDebugToolbar = false,
+    required this.onDebugToggle,
   });
 
   @override
@@ -221,6 +478,39 @@ class _HeaderZone extends StatelessWidget {
           _VipBadge(level: vipLevel),
 
           const Spacer(),
+
+          // P6: Device simulation dropdown
+          _DeviceSimulationDropdown(
+            value: deviceSimulation,
+            onChanged: onDeviceChanged,
+          ),
+          const SizedBox(width: 12),
+
+          // P6: Theme dropdown
+          _ThemeDropdown(
+            value: currentTheme,
+            onChanged: onThemeChanged,
+          ),
+          const SizedBox(width: 12),
+
+          // P6: Recording button
+          _RecordingButton(
+            isRecording: isRecording,
+            duration: recordingDuration,
+            onTap: onRecordingToggle,
+          ),
+          const SizedBox(width: 12),
+
+          // P6: Debug toggle (debug mode only)
+          if (kDebugMode) ...[
+            _HeaderIconButton(
+              icon: showDebugToolbar ? Icons.bug_report : Icons.bug_report_outlined,
+              tooltip: 'Debug Toolbar (D)',
+              isActive: showDebugToolbar,
+              onTap: onDebugToggle,
+            ),
+            const SizedBox(width: 12),
+          ],
 
           // Audio controls
           _HeaderIconButton(
@@ -360,6 +650,390 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// P6: DEVICE SIMULATION DROPDOWN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _DeviceSimulationDropdown extends StatelessWidget {
+  final DeviceSimulation value;
+  final ValueChanged<DeviceSimulation> onChanged;
+
+  const _DeviceSimulationDropdown({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _SlotTheme.bgMid.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _SlotTheme.border.withOpacity(0.5)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<DeviceSimulation>(
+          value: value,
+          isDense: true,
+          icon: const Icon(Icons.arrow_drop_down, color: _SlotTheme.textSecondary, size: 18),
+          dropdownColor: _SlotTheme.bgDark,
+          style: const TextStyle(color: _SlotTheme.textPrimary, fontSize: 12),
+          items: DeviceSimulation.values.map((device) {
+            return DropdownMenuItem(
+              value: device,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(device.icon, size: 16, color: _SlotTheme.textSecondary),
+                  const SizedBox(width: 6),
+                  Text(device.label),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (newValue) {
+            if (newValue != null) onChanged(newValue);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// P6: THEME DROPDOWN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _ThemeDropdown extends StatelessWidget {
+  final SlotThemePreset value;
+  final ValueChanged<SlotThemePreset> onChanged;
+
+  const _ThemeDropdown({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _SlotTheme.bgMid.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _SlotTheme.border.withOpacity(0.5)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<SlotThemePreset>(
+          value: value,
+          isDense: true,
+          icon: const Icon(Icons.arrow_drop_down, color: _SlotTheme.textSecondary, size: 18),
+          dropdownColor: _SlotTheme.bgDark,
+          style: const TextStyle(color: _SlotTheme.textPrimary, fontSize: 12),
+          items: SlotThemePreset.values.map((theme) {
+            return DropdownMenuItem(
+              value: theme,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.palette, size: 16, color: theme.data.accent),
+                  const SizedBox(width: 6),
+                  Text(theme.label),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (newValue) {
+            if (newValue != null) onChanged(newValue);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// P6: RECORDING BUTTON
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _RecordingButton extends StatelessWidget {
+  final bool isRecording;
+  final Duration duration;
+  final VoidCallback onTap;
+
+  const _RecordingButton({
+    required this.isRecording,
+    required this.duration,
+    required this.onTap,
+  });
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: isRecording ? 'Stop Recording (R)' : 'Start Recording (R)',
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: isRecording
+                ? FluxForgeTheme.accentRed.withOpacity(0.2)
+                : _SlotTheme.bgMid.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isRecording
+                  ? FluxForgeTheme.accentRed.withOpacity(0.5)
+                  : _SlotTheme.border.withOpacity(0.5),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Pulsing red dot when recording
+              if (isRecording)
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.5, end: 1.0),
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, child) {
+                    return Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentRed.withOpacity(value),
+                        shape: BoxShape.circle,
+                      ),
+                    );
+                  },
+                )
+              else
+                Icon(
+                  Icons.fiber_manual_record,
+                  size: 14,
+                  color: _SlotTheme.textSecondary,
+                ),
+              const SizedBox(width: 6),
+              Text(
+                isRecording ? _formatDuration(duration) : 'REC',
+                style: TextStyle(
+                  color: isRecording
+                      ? FluxForgeTheme.accentRed
+                      : _SlotTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// P6: DEBUG TOOLBAR
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _DebugToolbar extends StatelessWidget {
+  final int fps;
+  final int activeVoices;
+  final int memoryMb;
+  final bool showStageTrace;
+  final VoidCallback onStageTraceToggle;
+  final ValueChanged<int> onForceOutcome;
+
+  const _DebugToolbar({
+    required this.fps,
+    required this.activeVoices,
+    required this.memoryMb,
+    required this.showStageTrace,
+    required this.onStageTraceToggle,
+    required this.onForceOutcome,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _SlotTheme.bgDark.withOpacity(0.95),
+        border: const Border(
+          bottom: BorderSide(color: _SlotTheme.border, width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Debug label
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.accentOrange.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.bug_report, size: 14, color: FluxForgeTheme.accentOrange),
+                SizedBox(width: 4),
+                Text(
+                  'DEBUG',
+                  style: TextStyle(
+                    color: FluxForgeTheme.accentOrange,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+
+          // Forced outcome buttons
+          _DebugOutcomeButton(label: 'Lose', index: 1, onTap: onForceOutcome),
+          _DebugOutcomeButton(label: 'Small', index: 2, onTap: onForceOutcome),
+          _DebugOutcomeButton(label: 'Big', index: 3, onTap: onForceOutcome),
+          _DebugOutcomeButton(label: 'Mega', index: 4, onTap: onForceOutcome),
+          _DebugOutcomeButton(label: 'FS', index: 5, onTap: onForceOutcome),
+          _DebugOutcomeButton(label: 'JP', index: 6, onTap: onForceOutcome),
+
+          const Spacer(),
+
+          // Stats
+          _DebugStat(label: 'FPS', value: '$fps', color: fps >= 55 ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed),
+          const SizedBox(width: 16),
+          _DebugStat(label: 'Voices', value: '$activeVoices/48', color: _SlotTheme.textSecondary),
+          const SizedBox(width: 16),
+          _DebugStat(label: 'Mem', value: '${memoryMb}MB', color: _SlotTheme.textSecondary),
+          const SizedBox(width: 16),
+
+          // Stage trace toggle
+          GestureDetector(
+            onTap: onStageTraceToggle,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: showStageTrace
+                    ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: showStageTrace
+                      ? FluxForgeTheme.accentBlue.withOpacity(0.5)
+                      : _SlotTheme.border.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.timeline,
+                    size: 14,
+                    color: showStageTrace
+                        ? FluxForgeTheme.accentBlue
+                        : _SlotTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Stages',
+                    style: TextStyle(
+                      color: showStageTrace
+                          ? FluxForgeTheme.accentBlue
+                          : _SlotTheme.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DebugOutcomeButton extends StatelessWidget {
+  final String label;
+  final int index;
+  final ValueChanged<int> onTap;
+
+  const _DebugOutcomeButton({
+    required this.label,
+    required this.index,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: GestureDetector(
+        onTap: () => onTap(index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _SlotTheme.bgMid.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: _SlotTheme.border.withOpacity(0.3)),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: _SlotTheme.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DebugStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _DebugStat({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            color: _SlotTheme.textSecondary,
+            fontSize: 11,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -4431,6 +5105,7 @@ class _MenuItemState extends State<_MenuItem> {
 // H. AUDIO/VISUAL CONTROLS
 // =============================================================================
 
+/// P6: Consolidated Settings Panel — combines Audio, Visual, Device, Theme, Recording, Debug
 class _AudioVisualPanel extends StatelessWidget {
   final double volume;
   final bool isMusicOn;
@@ -4444,6 +5119,32 @@ class _AudioVisualPanel extends StatelessWidget {
   final VoidCallback onAnimationsToggle;
   final VoidCallback onClose;
 
+  // P6: Device simulation
+  final DeviceSimulation deviceSimulation;
+  final ValueChanged<DeviceSimulation> onDeviceChanged;
+
+  // P6: Theme
+  final SlotThemePreset currentTheme;
+  final SlotThemePreset? comparisonTheme;
+  final ValueChanged<SlotThemePreset> onThemeChanged;
+  final ValueChanged<SlotThemePreset?> onComparisonThemeChanged;
+
+  // P6: Recording
+  final bool isRecording;
+  final bool hideUiForRecording;
+  final VoidCallback onRecordingToggle;
+  final VoidCallback onHideUiToggle;
+
+  // P6: Debug
+  final bool showFps;
+  final bool showVoices;
+  final bool showMemory;
+  final bool showStageTrace;
+  final VoidCallback onShowFpsToggle;
+  final VoidCallback onShowVoicesToggle;
+  final VoidCallback onShowMemoryToggle;
+  final VoidCallback onShowStageTraceToggle;
+
   const _AudioVisualPanel({
     required this.volume,
     required this.isMusicOn,
@@ -4456,6 +5157,25 @@ class _AudioVisualPanel extends StatelessWidget {
     required this.onQualityChanged,
     required this.onAnimationsToggle,
     required this.onClose,
+    // P6 params
+    this.deviceSimulation = DeviceSimulation.desktop,
+    required this.onDeviceChanged,
+    this.currentTheme = SlotThemePreset.casino,
+    this.comparisonTheme,
+    required this.onThemeChanged,
+    required this.onComparisonThemeChanged,
+    this.isRecording = false,
+    this.hideUiForRecording = false,
+    required this.onRecordingToggle,
+    required this.onHideUiToggle,
+    this.showFps = true,
+    this.showVoices = true,
+    this.showMemory = true,
+    this.showStageTrace = false,
+    required this.onShowFpsToggle,
+    required this.onShowVoicesToggle,
+    required this.onShowMemoryToggle,
+    required this.onShowStageTraceToggle,
   });
 
   @override
@@ -4608,6 +5328,229 @@ class _AudioVisualPanel extends StatelessWidget {
             isOn: animationsEnabled,
             onToggle: onAnimationsToggle,
           ),
+
+          const Divider(color: _SlotTheme.border, height: 24),
+
+          // P6: Device Section
+          const Text(
+            '📱 DEVICE',
+            style: TextStyle(
+              color: _SlotTheme.textMuted,
+              fontSize: 10,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: DeviceSimulation.values.map((device) {
+              final isSelected = device == deviceSimulation;
+              return GestureDetector(
+                onTap: () => onDeviceChanged(device),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                        : _SlotTheme.bgSurface,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isSelected
+                          ? FluxForgeTheme.accentBlue.withOpacity(0.5)
+                          : _SlotTheme.border.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(device.icon, size: 14,
+                        color: isSelected ? FluxForgeTheme.accentBlue : _SlotTheme.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        device.label,
+                        style: TextStyle(
+                          color: isSelected ? FluxForgeTheme.accentBlue : _SlotTheme.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          const Divider(color: _SlotTheme.border, height: 24),
+
+          // P6: Theme Section
+          const Text(
+            '🎨 THEME',
+            style: TextStyle(
+              color: _SlotTheme.textMuted,
+              fontSize: 10,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _ThemeDropdown(
+                  value: currentTheme,
+                  onChanged: onThemeChanged,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Comparison theme dropdown (optional)
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _SlotTheme.bgMid.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _SlotTheme.border.withOpacity(0.5)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<SlotThemePreset?>(
+                      value: comparisonTheme,
+                      isDense: true,
+                      hint: const Text('Compare', style: TextStyle(color: _SlotTheme.textMuted, fontSize: 12)),
+                      icon: const Icon(Icons.arrow_drop_down, color: _SlotTheme.textSecondary, size: 18),
+                      dropdownColor: _SlotTheme.bgDark,
+                      style: const TextStyle(color: _SlotTheme.textPrimary, fontSize: 12),
+                      items: [
+                        const DropdownMenuItem<SlotThemePreset?>(
+                          value: null,
+                          child: Text('None'),
+                        ),
+                        ...SlotThemePreset.values.map((theme) {
+                          return DropdownMenuItem(
+                            value: theme,
+                            child: Text(theme.label),
+                          );
+                        }),
+                      ],
+                      onChanged: onComparisonThemeChanged,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const Divider(color: _SlotTheme.border, height: 24),
+
+          // P6: Recording Section
+          const Text(
+            '🎬 RECORDING',
+            style: TextStyle(
+              color: _SlotTheme.textMuted,
+              fontSize: 10,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: onRecordingToggle,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isRecording
+                    ? FluxForgeTheme.accentRed.withOpacity(0.2)
+                    : _SlotTheme.bgSurface,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isRecording
+                      ? FluxForgeTheme.accentRed.withOpacity(0.5)
+                      : _SlotTheme.border.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isRecording ? Icons.stop : Icons.fiber_manual_record,
+                    size: 16,
+                    color: isRecording ? FluxForgeTheme.accentRed : _SlotTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isRecording ? 'Stop Recording' : 'Start Recording',
+                    style: TextStyle(
+                      color: isRecording ? FluxForgeTheme.accentRed : _SlotTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _SettingToggle(
+            icon: Icons.visibility_off,
+            label: 'Hide UI for recording',
+            isOn: hideUiForRecording,
+            onToggle: onHideUiToggle,
+          ),
+
+          // P6: Debug Section (debug mode only)
+          if (kDebugMode) ...[
+            const Divider(color: _SlotTheme.border, height: 24),
+            const Text(
+              '🔧 DEBUG',
+              style: TextStyle(
+                color: _SlotTheme.textMuted,
+                fontSize: 10,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _SettingToggle(
+                    icon: Icons.speed,
+                    label: 'FPS',
+                    isOn: showFps,
+                    onToggle: onShowFpsToggle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SettingToggle(
+                    icon: Icons.record_voice_over,
+                    label: 'Voices',
+                    isOn: showVoices,
+                    onToggle: onShowVoicesToggle,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _SettingToggle(
+                    icon: Icons.memory,
+                    label: 'Memory',
+                    isOn: showMemory,
+                    onToggle: onShowMemoryToggle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SettingToggle(
+                    icon: Icons.timeline,
+                    label: 'Stages',
+                    isOn: showStageTrace,
+                    onToggle: onShowStageTraceToggle,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -4882,6 +5825,32 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   bool _animationsEnabled = true;
   bool _isFullscreen = true;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P6: DEVICE SIMULATION & THEME STATE
+  // ═══════════════════════════════════════════════════════════════════════════
+  DeviceSimulation _deviceSimulation = DeviceSimulation.desktop;
+  SlotThemePreset _themeA = SlotThemePreset.casino;
+  SlotThemePreset? _themeB; // null = no comparison mode
+  bool _showThemeComparison = false;
+
+  // P6: DEBUG TOOLBAR STATE
+  bool _showDebugToolbar = false;
+  bool _showFpsCounter = true;
+  bool _showVoiceCount = true;
+  bool _showMemoryUsage = true;
+  bool _showStageTrace = false;
+  int _currentFps = 60;
+  int _activeVoices = 0;
+  int _memoryUsageMb = 0;
+  Timer? _debugStatsTimer;
+
+  // P6: RECORDING STATE
+  bool _isRecording = false;
+  Duration _recordingDuration = Duration.zero;
+  Timer? _recordingTimer;
+  bool _hideUiForRecording = false;
+  static const _recordingChannel = MethodChannel('fluxforge/screen_recording');
+
   // SharedPreferences keys
   static const _prefKeyTurbo = 'psp_turbo';
   static const _prefKeyMusic = 'psp_music';
@@ -4889,6 +5858,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   static const _prefKeyVolume = 'psp_volume';
   static const _prefKeyQuality = 'psp_quality';
   static const _prefKeyAnimations = 'psp_animations';
+  static const _prefKeyDeviceSimulation = 'psp_device_simulation';
+  static const _prefKeyTheme = 'psp_theme';
 
   // UI state
   bool _showSettingsPanel = false;
@@ -4960,6 +5931,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _masterVolume = prefs.getDouble(_prefKeyVolume) ?? 0.8;
       _graphicsQuality = prefs.getInt(_prefKeyQuality) ?? 2;
       _animationsEnabled = prefs.getBool(_prefKeyAnimations) ?? true;
+
+      // P6: Load device simulation and theme
+      final deviceIndex = prefs.getInt(_prefKeyDeviceSimulation) ?? 0;
+      _deviceSimulation = DeviceSimulation.values[deviceIndex.clamp(0, DeviceSimulation.values.length - 1)];
+      final themeIndex = prefs.getInt(_prefKeyTheme) ?? 0;
+      _themeA = SlotThemePreset.values[themeIndex.clamp(0, SlotThemePreset.values.length - 1)];
     });
 
     // Apply loaded settings to FFI
@@ -4977,6 +5954,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     await prefs.setDouble(_prefKeyVolume, _masterVolume);
     await prefs.setInt(_prefKeyQuality, _graphicsQuality);
     await prefs.setBool(_prefKeyAnimations, _animationsEnabled);
+
+    // P6: Save device simulation and theme
+    await prefs.setInt(_prefKeyDeviceSimulation, _deviceSimulation.index);
+    await prefs.setInt(_prefKeyTheme, _themeA.index);
   }
 
   /// Load game rules configuration from engine
@@ -5072,6 +6053,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       timer.cancel();
     }
     _reelStopTimers.clear();
+
+    // P6: Cleanup recording and debug timers
+    _recordingTimer?.cancel();
+    _debugStatsTimer?.cancel();
+
     super.dispose();
   }
 
@@ -5116,6 +6102,343 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   void _toggleTurbo() {
     setState(() => _isTurbo = !_isTurbo);
     _saveSettings();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P6: DEVICE SIMULATION METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set device simulation mode
+  void _setDeviceSimulation(DeviceSimulation device) {
+    setState(() => _deviceSimulation = device);
+    _saveSettings();
+  }
+
+  /// Build device frame wrapper around content
+  Widget _buildDeviceFrame(Widget child) {
+    final size = _deviceSimulation.size;
+    if (size == null) {
+      // Desktop mode — no frame, full size
+      return child;
+    }
+
+    switch (_deviceSimulation) {
+      case DeviceSimulation.desktop:
+        return child;
+      case DeviceSimulation.tablet:
+        return _buildTabletFrame(child, size);
+      case DeviceSimulation.mobileLandscape:
+        return _buildPhoneFrame(child, size, isLandscape: true);
+      case DeviceSimulation.mobilePortrait:
+        return _buildPhoneFrame(child, size, isLandscape: false);
+    }
+  }
+
+  /// Build phone frame with bezels and notch
+  Widget _buildPhoneFrame(Widget child, Size size, {required bool isLandscape}) {
+    final bezelH = 20.0;
+    final bezelV = isLandscape ? 20.0 : 40.0;
+    final notchHeight = isLandscape ? 0.0 : 30.0;
+
+    return Center(
+      child: Container(
+        width: size.width + bezelH * 2,
+        height: size.height + bezelV * 2 + notchHeight,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(isLandscape ? 24 : 40),
+          border: Border.all(color: Colors.grey.shade800, width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 20,
+              spreadRadius: 5,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Notch (only in portrait)
+            if (!isLandscape)
+              Container(
+                width: 120,
+                height: notchHeight,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(15),
+                    bottomRight: Radius.circular(15),
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 60,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade900,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ),
+            // Screen content
+            ClipRRect(
+              borderRadius: BorderRadius.circular(isLandscape ? 20 : 36),
+              child: SizedBox(
+                width: size.width,
+                height: size.height,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: SizedBox(
+                    width: size.width,
+                    height: size.height,
+                    child: child,
+                  ),
+                ),
+              ),
+            ),
+            // Home indicator
+            if (!isLandscape)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Container(
+                  width: 100,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade700,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build tablet frame with thinner bezels
+  Widget _buildTabletFrame(Widget child, Size size) {
+    const bezel = 16.0;
+
+    return Center(
+      child: Container(
+        width: size.width + bezel * 2,
+        height: size.height + bezel * 2,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade800, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 15,
+              spreadRadius: 3,
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(bezel),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            width: size.width,
+            height: size.height,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox(
+                width: size.width,
+                height: size.height,
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P6: THEME SYSTEM METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set primary theme
+  void _setThemeA(SlotThemePreset theme) {
+    setState(() => _themeA = theme);
+    _saveSettings();
+  }
+
+  /// Set comparison theme (null to disable comparison)
+  void _setThemeB(SlotThemePreset? theme) {
+    setState(() {
+      _themeB = theme;
+      _showThemeComparison = theme != null;
+    });
+  }
+
+  /// Toggle theme comparison mode
+  void _toggleThemeComparison() {
+    setState(() {
+      if (_showThemeComparison) {
+        _showThemeComparison = false;
+        _themeB = null;
+      } else {
+        // Default to neon for B if not set
+        _themeB ??= SlotThemePreset.neon;
+        _showThemeComparison = true;
+      }
+    });
+  }
+
+  /// Swap themes A and B
+  void _swapThemes() {
+    if (_themeB == null) return;
+    setState(() {
+      final temp = _themeA;
+      _themeA = _themeB!;
+      _themeB = temp;
+    });
+    _saveSettings();
+  }
+
+  /// Get current theme data
+  SlotThemeData get _currentThemeData => _themeA.data;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P6: RECORDING MODE METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Start screen recording
+  Future<void> _startRecording() async {
+    try {
+      final filename = 'slot_demo_${DateTime.now().toIso8601String().replaceAll(':', '-')}.mp4';
+      await _recordingChannel.invokeMethod<String>('startRecording', {
+        'filename': filename,
+        'fps': 60,
+        'quality': 'high',
+      });
+      setState(() {
+        _isRecording = true;
+        _recordingDuration = Duration.zero;
+      });
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) {
+          setState(() => _recordingDuration += const Duration(seconds: 1));
+        }
+      });
+    } catch (e) {
+      // Recording not available on this platform
+      debugPrint('[PSP] Recording not available: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Screen recording not available on this platform'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Stop screen recording
+  Future<String?> _stopRecording() async {
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    try {
+      final path = await _recordingChannel.invokeMethod<String>('stopRecording');
+      setState(() => _isRecording = false);
+      return path;
+    } catch (e) {
+      debugPrint('[PSP] Failed to stop recording: $e');
+      setState(() => _isRecording = false);
+      return null;
+    }
+  }
+
+  /// Toggle recording state
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      final path = await _stopRecording();
+      if (path != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Recording saved: ${path.split('/').last}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } else {
+      await _startRecording();
+    }
+  }
+
+  /// Toggle hide UI for recording
+  void _toggleHideUiForRecording() {
+    setState(() => _hideUiForRecording = !_hideUiForRecording);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P6: DEBUG TOOLBAR METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Toggle debug toolbar visibility
+  void _toggleDebugToolbar() {
+    setState(() {
+      _showDebugToolbar = !_showDebugToolbar;
+      if (_showDebugToolbar) {
+        _startDebugStatsTimer();
+      } else {
+        _debugStatsTimer?.cancel();
+        _debugStatsTimer = null;
+      }
+    });
+  }
+
+  /// Start timer to update debug stats
+  void _startDebugStatsTimer() {
+    _debugStatsTimer?.cancel();
+    _debugStatsTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted) return;
+      setState(() {
+        // Get real stats from FFI when available
+        try {
+          final stats = NativeFFI.instance.getVoicePoolStats();
+          _activeVoices = stats.activeCount;
+        } catch (_) {
+          _activeVoices = 0;
+        }
+        // FPS would come from SchedulerBinding in production
+        _currentFps = 60; // Placeholder
+        // Memory from platform channel in production
+        _memoryUsageMb = 128; // Placeholder
+      });
+    });
+  }
+
+  /// Force a specific outcome (debug)
+  void _forceOutcome(int outcomeIndex) {
+    final provider = context.read<SlotLabProvider>();
+    switch (outcomeIndex) {
+      case 1:
+        provider.spinForced(ForcedOutcome.lose);
+      case 2:
+        provider.spinForced(ForcedOutcome.smallWin);
+      case 3:
+        provider.spinForced(ForcedOutcome.bigWin);
+      case 4:
+        provider.spinForced(ForcedOutcome.megaWin);
+      case 5:
+        provider.spinForced(ForcedOutcome.freeSpins);
+      case 6:
+        provider.spinForced(ForcedOutcome.jackpotGrand);
+      case 7:
+        provider.spinForced(ForcedOutcome.nearMiss);
+      case 8:
+        provider.spinForced(ForcedOutcome.cascade);
+      case 9:
+        provider.spinForced(ForcedOutcome.epicWin);
+      case 0:
+        provider.spinForced(ForcedOutcome.ultraWin);
+    }
   }
 
   void _handleSpin(SlotLabProvider provider) {
@@ -5793,11 +7116,30 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.keyT:
-        _toggleTurbo();
+        // P6: T = Cycle themes (A→B→A), Shift+T = Turbo toggle
+        if (HardwareKeyboard.instance.isShiftPressed) {
+          _toggleTurbo();
+        } else {
+          // Cycle through themes
+          final themes = SlotThemePreset.values;
+          final currentIndex = themes.indexOf(_themeA);
+          final nextIndex = (currentIndex + 1) % themes.length;
+          _setThemeA(themes[nextIndex]);
+        }
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.keyA:
         _handleAutoSpinToggle();
+        return KeyEventResult.handled;
+
+      // P6: D = Debug toolbar toggle
+      case LogicalKeyboardKey.keyD:
+        if (kDebugMode) _toggleDebugToolbar();
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
+
+      // P6: R = Recording toggle
+      case LogicalKeyboardKey.keyR:
+        _toggleRecording();
         return KeyEventResult.handled;
 
       // Forced outcomes (debug only)
@@ -5872,7 +7214,31 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   }),
                   onFullscreenToggle: () {},
                   onExit: widget.onExit,
+                  // P6: Device simulation
+                  deviceSimulation: _deviceSimulation,
+                  onDeviceChanged: _setDeviceSimulation,
+                  // P6: Theme
+                  currentTheme: _themeA,
+                  onThemeChanged: _setThemeA,
+                  // P6: Recording
+                  isRecording: _isRecording,
+                  recordingDuration: _recordingDuration,
+                  onRecordingToggle: _toggleRecording,
+                  // P6: Debug
+                  showDebugToolbar: _showDebugToolbar,
+                  onDebugToggle: _toggleDebugToolbar,
                 ),
+
+                // P6: Debug Toolbar (below header when active)
+                if (_showDebugToolbar)
+                  _DebugToolbar(
+                    fps: _currentFps,
+                    activeVoices: _activeVoices,
+                    memoryMb: _memoryUsageMb,
+                    showStageTrace: _showStageTrace,
+                    onStageTraceToggle: () => setState(() => _showStageTrace = !_showStageTrace),
+                    onForceOutcome: _forceOutcome,
+                  ),
 
                 // B. Jackpot Zone
                 _JackpotZone(
@@ -5883,14 +7249,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   progressiveContribution: _progressiveContribution,
                 ),
 
-                // C. Main Game Zone
+                // C. Main Game Zone (with P6 device frame wrapper)
                 Expanded(
-                  child: _MainGameZone(
-                    provider: provider,
-                    projectProvider: widget.projectProvider,
-                    reels: widget.reels,
-                    rows: widget.rows,
-                    winTier: _currentWinTier,
+                  child: _buildDeviceFrame(
+                    _MainGameZone(
+                      provider: provider,
+                      projectProvider: widget.projectProvider,
+                      reels: widget.reels,
+                      rows: widget.rows,
+                      winTier: _currentWinTier,
+                    ),
                   ),
                 ),
 
@@ -6063,23 +7431,47 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                 ),
               ),
 
-            // H. Settings Panel (overlay)
+            // H. Settings Panel (overlay) — P6: Consolidated with all settings
             if (_showSettingsPanel)
               Positioned(
                 top: 70,
                 right: 16,
-                child: _AudioVisualPanel(
-                  volume: _masterVolume,
-                  isMusicOn: _isMusicOn,
-                  isSfxOn: _isSfxOn,
-                  quality: _graphicsQuality,
-                  animationsEnabled: _animationsEnabled,
-                  onVolumeChanged: _setMasterVolume,
-                  onMusicToggle: _toggleMusic,
-                  onSfxToggle: _toggleSfx,
-                  onQualityChanged: _setGraphicsQuality,
-                  onAnimationsToggle: _toggleAnimations,
-                  onClose: () => setState(() => _showSettingsPanel = false),
+                child: SingleChildScrollView(
+                  child: _AudioVisualPanel(
+                    volume: _masterVolume,
+                    isMusicOn: _isMusicOn,
+                    isSfxOn: _isSfxOn,
+                    quality: _graphicsQuality,
+                    animationsEnabled: _animationsEnabled,
+                    onVolumeChanged: _setMasterVolume,
+                    onMusicToggle: _toggleMusic,
+                    onSfxToggle: _toggleSfx,
+                    onQualityChanged: _setGraphicsQuality,
+                    onAnimationsToggle: _toggleAnimations,
+                    onClose: () => setState(() => _showSettingsPanel = false),
+                    // P6: Device
+                    deviceSimulation: _deviceSimulation,
+                    onDeviceChanged: _setDeviceSimulation,
+                    // P6: Theme
+                    currentTheme: _themeA,
+                    comparisonTheme: _themeB,
+                    onThemeChanged: _setThemeA,
+                    onComparisonThemeChanged: _setThemeB,
+                    // P6: Recording
+                    isRecording: _isRecording,
+                    hideUiForRecording: _hideUiForRecording,
+                    onRecordingToggle: _toggleRecording,
+                    onHideUiToggle: _toggleHideUiForRecording,
+                    // P6: Debug
+                    showFps: _showFpsCounter,
+                    showVoices: _showVoiceCount,
+                    showMemory: _showMemoryUsage,
+                    showStageTrace: _showStageTrace,
+                    onShowFpsToggle: () => setState(() => _showFpsCounter = !_showFpsCounter),
+                    onShowVoicesToggle: () => setState(() => _showVoiceCount = !_showVoiceCount),
+                    onShowMemoryToggle: () => setState(() => _showMemoryUsage = !_showMemoryUsage),
+                    onShowStageTraceToggle: () => setState(() => _showStageTrace = !_showStageTrace),
+                  ),
                 ),
               ),
           ],

@@ -246,6 +246,274 @@ impl Default for FeatureConfig {
     }
 }
 
+// ============================================================================
+// ANTICIPATION SYSTEM V2 — Industry-Standard Per-Reel Tension
+// ============================================================================
+
+/// Trigger rule for anticipation activation
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TriggerRules {
+    /// Require exactly N trigger symbols (e.g., "exactly 3 scatters" for restricted reels)
+    Exact(u8),
+    /// Require at least N trigger symbols (e.g., "3 or more scatters" for all reels)
+    AtLeast(u8),
+}
+
+impl Default for TriggerRules {
+    fn default() -> Self {
+        TriggerRules::AtLeast(3)
+    }
+}
+
+/// Anticipation tension level (L1-L4)
+/// Each level increases intensity: color saturation, volume, pitch
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum TensionLevel {
+    /// Level 1: Gold (#FFD700), 60% volume, +1 semitone
+    L1 = 1,
+    /// Level 2: Orange (#FFA500), 70% volume, +2 semitones
+    L2 = 2,
+    /// Level 3: Red-Orange (#FF6347), 80% volume, +3 semitones
+    L3 = 3,
+    /// Level 4: Red (#FF4500), 90% volume, +4 semitones
+    L4 = 4,
+}
+
+impl TensionLevel {
+    /// Get color hex for this tension level
+    pub fn color_hex(&self) -> &'static str {
+        match self {
+            TensionLevel::L1 => "#FFD700", // Gold
+            TensionLevel::L2 => "#FFA500", // Orange
+            TensionLevel::L3 => "#FF6347", // Red-Orange (Tomato)
+            TensionLevel::L4 => "#FF4500", // Red (OrangeRed)
+        }
+    }
+
+    /// Get volume multiplier for this tension level
+    pub fn volume_multiplier(&self) -> f64 {
+        match self {
+            TensionLevel::L1 => 0.6,
+            TensionLevel::L2 => 0.7,
+            TensionLevel::L3 => 0.8,
+            TensionLevel::L4 => 0.9,
+        }
+    }
+
+    /// Get pitch offset in semitones for this tension level
+    pub fn pitch_semitones(&self) -> i32 {
+        match self {
+            TensionLevel::L1 => 1,
+            TensionLevel::L2 => 2,
+            TensionLevel::L3 => 3,
+            TensionLevel::L4 => 4,
+        }
+    }
+
+    /// Get next higher tension level (clamped at L4)
+    pub fn escalate(&self) -> TensionLevel {
+        match self {
+            TensionLevel::L1 => TensionLevel::L2,
+            TensionLevel::L2 => TensionLevel::L3,
+            TensionLevel::L3 => TensionLevel::L4,
+            TensionLevel::L4 => TensionLevel::L4,
+        }
+    }
+
+    /// Create from 1-based index (clamps to valid range)
+    pub fn from_index(idx: u8) -> TensionLevel {
+        match idx {
+            0 | 1 => TensionLevel::L1,
+            2 => TensionLevel::L2,
+            3 => TensionLevel::L3,
+            _ => TensionLevel::L4,
+        }
+    }
+}
+
+/// Anticipation configuration for a slot game
+///
+/// Defines which symbols trigger anticipation and on which reels.
+///
+/// # Examples
+///
+/// ## Tip A: Scatter on all reels, 3+ rule
+/// ```ignore
+/// AnticipationConfig {
+///     trigger_symbol_ids: vec![SCATTER_ID, BONUS_ID],
+///     min_trigger_count: 2,  // Universal rule: 2 triggers = anticipation
+///     allowed_reels: None,   // All reels allowed
+///     trigger_rules: TriggerRules::AtLeast(3),  // Game awards FS at 3+
+/// }
+/// ```
+///
+/// ## Tip B: Scatter only on reels 0, 2, 4 (exactly 3)
+/// ```ignore
+/// AnticipationConfig {
+///     trigger_symbol_ids: vec![SCATTER_ID],
+///     min_trigger_count: 2,  // Universal rule: 2 triggers = anticipation
+///     allowed_reels: Some(vec![0, 2, 4]),  // Restricted positions
+///     trigger_rules: TriggerRules::Exact(3),  // Game requires exactly 3
+/// }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnticipationConfig {
+    /// Symbol IDs that can trigger anticipation (Scatter, Bonus)
+    /// NOTE: Wild symbols should NEVER be included here
+    pub trigger_symbol_ids: Vec<u32>,
+
+    /// Minimum number of triggers on allowed reels to activate anticipation
+    /// Universal rule: This is always 2 for industry-standard anticipation
+    pub min_trigger_count: u8,
+
+    /// Which reels can have trigger symbols (None = all reels)
+    /// Examples:
+    /// - None: Scatter can land on any reel (Tip A)
+    /// - Some([0, 2, 4]): Scatter only on reels 0, 2, 4 (Tip B)
+    pub allowed_reels: Option<Vec<u8>>,
+
+    /// How many triggers are needed for the actual feature (FS, Bonus)
+    /// This affects the "game rule" but not anticipation activation
+    pub trigger_rules: TriggerRules,
+
+    /// Enable sequential reel stopping during anticipation
+    /// When true, each anticipation reel stops one-by-one (industry standard)
+    pub sequential_stop: bool,
+
+    /// Enable tension level escalation (L1→L2→L3→L4)
+    pub tension_escalation: bool,
+}
+
+impl Default for AnticipationConfig {
+    fn default() -> Self {
+        Self {
+            // Default: Scatter (ID 10) and Bonus (ID 11) trigger anticipation
+            // Wild (ID 9) does NOT trigger anticipation
+            trigger_symbol_ids: vec![10, 11],
+            min_trigger_count: 2, // Universal industry rule
+            allowed_reels: None,  // All reels by default
+            trigger_rules: TriggerRules::AtLeast(3),
+            sequential_stop: true,
+            tension_escalation: true,
+        }
+    }
+}
+
+impl AnticipationConfig {
+    /// Create config for "Tip A" games: Scatter on all reels, 3+ triggers
+    pub fn tip_a(scatter_id: u32, bonus_id: Option<u32>) -> Self {
+        let mut trigger_ids = vec![scatter_id];
+        if let Some(bid) = bonus_id {
+            trigger_ids.push(bid);
+        }
+        Self {
+            trigger_symbol_ids: trigger_ids,
+            min_trigger_count: 2,
+            allowed_reels: None,
+            trigger_rules: TriggerRules::AtLeast(3),
+            sequential_stop: true,
+            tension_escalation: true,
+        }
+    }
+
+    /// Create config for "Tip B" games: Scatter only on reels 0, 2, 4 (exactly 3)
+    pub fn tip_b(scatter_id: u32, bonus_id: Option<u32>) -> Self {
+        let mut trigger_ids = vec![scatter_id];
+        if let Some(bid) = bonus_id {
+            trigger_ids.push(bid);
+        }
+        Self {
+            trigger_symbol_ids: trigger_ids,
+            min_trigger_count: 2,
+            allowed_reels: Some(vec![0, 2, 4]),
+            trigger_rules: TriggerRules::Exact(3),
+            sequential_stop: true,
+            tension_escalation: true,
+        }
+    }
+
+    /// Check if a symbol ID is a trigger symbol
+    pub fn is_trigger_symbol(&self, symbol_id: u32) -> bool {
+        self.trigger_symbol_ids.contains(&symbol_id)
+    }
+
+    /// Check if a reel is allowed for trigger symbols
+    pub fn is_reel_allowed(&self, reel_index: u8) -> bool {
+        match &self.allowed_reels {
+            None => true, // All reels allowed
+            Some(allowed) => allowed.contains(&reel_index),
+        }
+    }
+
+    /// Get effective allowed reels for a given total reel count
+    pub fn effective_allowed_reels(&self, total_reels: u8) -> Vec<u8> {
+        match &self.allowed_reels {
+            None => (0..total_reels).collect(),
+            Some(allowed) => allowed.iter()
+                .filter(|&&r| r < total_reels)
+                .copied()
+                .collect(),
+        }
+    }
+
+    /// Calculate which reels should have anticipation based on trigger positions
+    ///
+    /// # Arguments
+    /// * `trigger_positions` - List of (reel_index, row_index) where triggers landed
+    /// * `total_reels` - Total number of reels in the game
+    ///
+    /// # Returns
+    /// List of reel indices that should have anticipation (in order)
+    ///
+    /// # Algorithm
+    /// 1. Filter triggers to only those on allowed reels
+    /// 2. If count < min_trigger_count, return empty (no anticipation)
+    /// 3. Find the last (rightmost) trigger reel
+    /// 4. Return all allowed reels AFTER the last trigger reel
+    pub fn calculate_anticipation_reels(
+        &self,
+        trigger_positions: &[(u8, u8)],
+        total_reels: u8,
+    ) -> Vec<u8> {
+        let effective_allowed = self.effective_allowed_reels(total_reels);
+
+        // Get trigger reels that are on allowed positions
+        let trigger_reels: Vec<u8> = trigger_positions
+            .iter()
+            .map(|(reel, _row)| *reel)
+            .filter(|r| effective_allowed.contains(r))
+            .collect();
+
+        // Need at least min_trigger_count triggers
+        if trigger_reels.len() < self.min_trigger_count as usize {
+            return vec![];
+        }
+
+        // Find the last (rightmost) trigger reel
+        let last_trigger_reel = trigger_reels.iter().max().copied().unwrap_or(0);
+
+        // Return all allowed reels AFTER the last trigger
+        effective_allowed
+            .into_iter()
+            .filter(|&r| r > last_trigger_reel)
+            .collect()
+    }
+
+    /// Calculate tension level for an anticipation reel
+    ///
+    /// Tension escalates with each subsequent anticipation reel:
+    /// - First anticipation reel: L1
+    /// - Second anticipation reel: L2
+    /// - Third anticipation reel: L3
+    /// - Fourth+ anticipation reel: L4
+    pub fn tension_level_for_reel(&self, anticipation_reel_index: usize) -> TensionLevel {
+        if !self.tension_escalation {
+            return TensionLevel::L1;
+        }
+        TensionLevel::from_index((anticipation_reel_index + 1) as u8)
+    }
+}
+
 /// Complete slot configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlotConfig {
@@ -257,6 +525,8 @@ pub struct SlotConfig {
     pub volatility: VolatilityProfile,
     /// Feature configuration
     pub features: FeatureConfig,
+    /// Anticipation configuration (V2 — industry-standard per-reel tension)
+    pub anticipation: AnticipationConfig,
     /// Default bet amount
     pub default_bet: f64,
     /// Available bet levels
@@ -272,6 +542,7 @@ impl Default for SlotConfig {
             grid: GridSpec::default(),
             volatility: VolatilityProfile::default(),
             features: FeatureConfig::default(),
+            anticipation: AnticipationConfig::default(),
             default_bet: 1.0,
             bet_levels: vec![0.20, 0.50, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0],
             target_rtp: 96.5,
@@ -292,8 +563,21 @@ impl SlotConfig {
                 max_cascade_steps: 3,
                 ..Default::default()
             },
+            anticipation: AnticipationConfig::default(),
             ..Default::default()
         }
+    }
+
+    /// Create config with Tip A anticipation (scatter on all reels, 3+)
+    pub fn with_tip_a_anticipation(mut self, scatter_id: u32, bonus_id: Option<u32>) -> Self {
+        self.anticipation = AnticipationConfig::tip_a(scatter_id, bonus_id);
+        self
+    }
+
+    /// Create config with Tip B anticipation (scatter on 0, 2, 4 only)
+    pub fn with_tip_b_anticipation(mut self, scatter_id: u32, bonus_id: Option<u32>) -> Self {
+        self.anticipation = AnticipationConfig::tip_b(scatter_id, bonus_id);
+        self
     }
 }
 
@@ -319,5 +603,202 @@ mod tests {
 
         assert!(mid.hit_rate > high.hit_rate);
         assert!(mid.hit_rate < low.hit_rate);
+    }
+
+    // =========================================================================
+    // ANTICIPATION SYSTEM V2 TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_tension_level_properties() {
+        assert_eq!(TensionLevel::L1.color_hex(), "#FFD700");
+        assert_eq!(TensionLevel::L2.color_hex(), "#FFA500");
+        assert_eq!(TensionLevel::L3.color_hex(), "#FF6347");
+        assert_eq!(TensionLevel::L4.color_hex(), "#FF4500");
+
+        assert_eq!(TensionLevel::L1.volume_multiplier(), 0.6);
+        assert_eq!(TensionLevel::L4.volume_multiplier(), 0.9);
+
+        assert_eq!(TensionLevel::L1.pitch_semitones(), 1);
+        assert_eq!(TensionLevel::L4.pitch_semitones(), 4);
+    }
+
+    #[test]
+    fn test_tension_level_escalation() {
+        assert_eq!(TensionLevel::L1.escalate(), TensionLevel::L2);
+        assert_eq!(TensionLevel::L2.escalate(), TensionLevel::L3);
+        assert_eq!(TensionLevel::L3.escalate(), TensionLevel::L4);
+        assert_eq!(TensionLevel::L4.escalate(), TensionLevel::L4); // Clamp at L4
+    }
+
+    #[test]
+    fn test_tension_level_from_index() {
+        assert_eq!(TensionLevel::from_index(0), TensionLevel::L1);
+        assert_eq!(TensionLevel::from_index(1), TensionLevel::L1);
+        assert_eq!(TensionLevel::from_index(2), TensionLevel::L2);
+        assert_eq!(TensionLevel::from_index(3), TensionLevel::L3);
+        assert_eq!(TensionLevel::from_index(4), TensionLevel::L4);
+        assert_eq!(TensionLevel::from_index(99), TensionLevel::L4); // Clamp
+    }
+
+    #[test]
+    fn test_anticipation_tip_a_all_reels() {
+        // Tip A: Scatter can land on any reel, 3+ triggers
+        let config = AnticipationConfig::tip_a(10, Some(11));
+
+        // All reels should be allowed
+        assert!(config.is_reel_allowed(0));
+        assert!(config.is_reel_allowed(1));
+        assert!(config.is_reel_allowed(2));
+        assert!(config.is_reel_allowed(3));
+        assert!(config.is_reel_allowed(4));
+
+        // Effective allowed reels for 5-reel game
+        let effective = config.effective_allowed_reels(5);
+        assert_eq!(effective, vec![0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_anticipation_tip_b_restricted_reels() {
+        // Tip B: Scatter only on reels 0, 2, 4 (exactly 3)
+        let config = AnticipationConfig::tip_b(10, None);
+
+        // Only reels 0, 2, 4 should be allowed
+        assert!(config.is_reel_allowed(0));
+        assert!(!config.is_reel_allowed(1));
+        assert!(config.is_reel_allowed(2));
+        assert!(!config.is_reel_allowed(3));
+        assert!(config.is_reel_allowed(4));
+
+        // Effective allowed reels
+        let effective = config.effective_allowed_reels(5);
+        assert_eq!(effective, vec![0, 2, 4]);
+    }
+
+    #[test]
+    fn test_anticipation_tip_a_two_scatters_on_reels_0_1() {
+        // Tip A: Scatter on all reels
+        // 2 scatters on reels 0 and 1 → anticipation on 2, 3, 4
+        let config = AnticipationConfig::tip_a(10, None);
+        let trigger_positions = vec![(0, 1), (1, 0)]; // Scatter on reel 0 and 1
+
+        let antic_reels = config.calculate_anticipation_reels(&trigger_positions, 5);
+        assert_eq!(antic_reels, vec![2, 3, 4]);
+    }
+
+    #[test]
+    fn test_anticipation_tip_a_two_scatters_on_reels_0_2() {
+        // Tip A: Scatter on all reels
+        // 2 scatters on reels 0 and 2 → anticipation on 3, 4
+        let config = AnticipationConfig::tip_a(10, None);
+        let trigger_positions = vec![(0, 1), (2, 0)];
+
+        let antic_reels = config.calculate_anticipation_reels(&trigger_positions, 5);
+        assert_eq!(antic_reels, vec![3, 4]);
+    }
+
+    #[test]
+    fn test_anticipation_tip_a_single_scatter_no_anticipation() {
+        // Tip A: Only 1 scatter → no anticipation
+        let config = AnticipationConfig::tip_a(10, None);
+        let trigger_positions = vec![(0, 1)];
+
+        let antic_reels = config.calculate_anticipation_reels(&trigger_positions, 5);
+        assert!(antic_reels.is_empty());
+    }
+
+    #[test]
+    fn test_anticipation_tip_b_two_scatters_on_0_and_2() {
+        // Tip B: Scatter only on 0, 2, 4
+        // 2 scatters on reels 0 and 2 → anticipation on 4
+        let config = AnticipationConfig::tip_b(10, None);
+        let trigger_positions = vec![(0, 1), (2, 0)];
+
+        let antic_reels = config.calculate_anticipation_reels(&trigger_positions, 5);
+        assert_eq!(antic_reels, vec![4]);
+    }
+
+    #[test]
+    fn test_anticipation_tip_b_scatter_on_non_allowed_reel_ignored() {
+        // Tip B: Scatter only on 0, 2, 4
+        // Scatter on reel 1 (not allowed) should be ignored
+        let config = AnticipationConfig::tip_b(10, None);
+        let trigger_positions = vec![(0, 1), (1, 0)]; // Reel 1 not allowed!
+
+        let antic_reels = config.calculate_anticipation_reels(&trigger_positions, 5);
+        // Only 1 valid scatter → no anticipation
+        assert!(antic_reels.is_empty());
+    }
+
+    #[test]
+    fn test_anticipation_tip_b_scatter_only_on_0_no_anticipation() {
+        // Tip B: Scatter only on 0, 2, 4
+        // 1 scatter on reel 0 → no anticipation (need 2)
+        let config = AnticipationConfig::tip_b(10, None);
+        let trigger_positions = vec![(0, 1)];
+
+        let antic_reels = config.calculate_anticipation_reels(&trigger_positions, 5);
+        assert!(antic_reels.is_empty());
+    }
+
+    #[test]
+    fn test_anticipation_no_reels_after_last_trigger() {
+        // If scatters are on the last possible reels, no anticipation
+        let config = AnticipationConfig::tip_a(10, None);
+        let trigger_positions = vec![(3, 0), (4, 1)]; // Scatters on reels 3 and 4
+
+        let antic_reels = config.calculate_anticipation_reels(&trigger_positions, 5);
+        assert!(antic_reels.is_empty()); // No reels after 4
+    }
+
+    #[test]
+    fn test_anticipation_tension_level_escalation() {
+        let config = AnticipationConfig::default();
+
+        // First anticipation reel: L1
+        assert_eq!(config.tension_level_for_reel(0), TensionLevel::L1);
+        // Second anticipation reel: L2
+        assert_eq!(config.tension_level_for_reel(1), TensionLevel::L2);
+        // Third anticipation reel: L3
+        assert_eq!(config.tension_level_for_reel(2), TensionLevel::L3);
+        // Fourth+ anticipation reel: L4
+        assert_eq!(config.tension_level_for_reel(3), TensionLevel::L4);
+        assert_eq!(config.tension_level_for_reel(10), TensionLevel::L4);
+    }
+
+    #[test]
+    fn test_anticipation_tension_disabled() {
+        let mut config = AnticipationConfig::default();
+        config.tension_escalation = false;
+
+        // All reels should be L1 when escalation is disabled
+        assert_eq!(config.tension_level_for_reel(0), TensionLevel::L1);
+        assert_eq!(config.tension_level_for_reel(1), TensionLevel::L1);
+        assert_eq!(config.tension_level_for_reel(2), TensionLevel::L1);
+    }
+
+    #[test]
+    fn test_is_trigger_symbol() {
+        let config = AnticipationConfig::tip_a(10, Some(11));
+
+        assert!(config.is_trigger_symbol(10)); // Scatter
+        assert!(config.is_trigger_symbol(11)); // Bonus
+        assert!(!config.is_trigger_symbol(9)); // Wild - NOT a trigger
+        assert!(!config.is_trigger_symbol(0)); // Random symbol
+    }
+
+    #[test]
+    fn test_slot_config_with_anticipation() {
+        let config = SlotConfig::default()
+            .with_tip_a_anticipation(10, Some(11));
+
+        assert!(config.anticipation.is_trigger_symbol(10));
+        assert!(config.anticipation.is_trigger_symbol(11));
+        assert!(config.anticipation.allowed_reels.is_none());
+
+        let config_b = SlotConfig::default()
+            .with_tip_b_anticipation(10, None);
+
+        assert_eq!(config_b.anticipation.allowed_reels, Some(vec![0, 2, 4]));
     }
 }

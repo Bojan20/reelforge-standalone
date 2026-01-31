@@ -26,6 +26,25 @@ import 'middleware_provider.dart';
 import 'ale_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// P7.2.3: ANTICIPATION CONFIGURATION TYPE — Industry-standard trigger rules
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Anticipation configuration type
+/// - tipA: Scatter on ALL reels, 3+ triggers for feature, 2+ for anticipation
+/// - tipB: Scatter on specific reels (e.g., 0,2,4), must land on BOTH first two
+enum AnticipationConfigType {
+  /// Tip A: Universal rule — Scatter on all reels (0,1,2,3,4)
+  /// 2 triggers = anticipation on remaining reels
+  /// 3+ triggers = feature trigger
+  tipA,
+
+  /// Tip B: Restricted rule — Scatter only on specific reels (default: 0,2,4)
+  /// Scatter MUST land on BOTH first two allowed reels for anticipation
+  /// e.g., reels 0 AND 2 must have scatter for anticipation on reel 4
+  tipB,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // P3.1: STAGE EVENT POOL — Reduce allocation during spin sequences
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -290,6 +309,106 @@ class SlotLabProvider extends ChangeNotifier {
   /// Called when anticipation ends on a specific reel
   /// UI should restore normal speed and remove dim
   void Function(int reelIndex)? onAnticipationEnd;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P7.2.3: ANTICIPATION CONFIGURATION — Industry-standard trigger rules
+  // Two types supported:
+  //   Tip A: Scatter on ALL reels (0,1,2,3,4), 3+ triggers for feature, 2 for anticipation
+  //   Tip B: Scatter on specific reels (e.g., 0,2,4), must land on BOTH first two allowed
+  // Wild symbols NEVER trigger anticipation.
+  // ═══════════════════════════════════════════════════════════════════════════
+  AnticipationConfigType _anticipationConfigType = AnticipationConfigType.tipA;
+
+  /// Current anticipation configuration
+  AnticipationConfigType get anticipationConfigType => _anticipationConfigType;
+
+  /// Scatter symbol ID for anticipation detection (default: 12)
+  int _scatterSymbolId = 12;
+  int get scatterSymbolId => _scatterSymbolId;
+
+  /// Bonus symbol ID (default: 11)
+  int _bonusSymbolId = 11;
+  int get bonusSymbolId => _bonusSymbolId;
+
+  /// Allowed reels for Tip B configuration (default: 0, 2, 4)
+  List<int> _tipBAllowedReels = [0, 2, 4];
+  List<int> get tipBAllowedReels => List.unmodifiable(_tipBAllowedReels);
+
+  /// Set anticipation configuration type
+  void setAnticipationConfigType(AnticipationConfigType type) {
+    _anticipationConfigType = type;
+    debugPrint('[SlotLabProvider] P7.2.3: Anticipation config type: ${type.name}');
+    notifyListeners();
+  }
+
+  /// Set scatter symbol ID for anticipation detection
+  void setScatterSymbolId(int symbolId) {
+    _scatterSymbolId = symbolId;
+    debugPrint('[SlotLabProvider] P7.2.3: Scatter symbol ID: $symbolId');
+    notifyListeners();
+  }
+
+  /// Set bonus symbol ID
+  void setBonusSymbolId(int symbolId) {
+    _bonusSymbolId = symbolId;
+    debugPrint('[SlotLabProvider] P7.2.3: Bonus symbol ID: $symbolId');
+    notifyListeners();
+  }
+
+  /// Set allowed reels for Tip B configuration
+  void setTipBAllowedReels(List<int> reels) {
+    _tipBAllowedReels = List.from(reels)..sort();
+    debugPrint('[SlotLabProvider] P7.2.3: Tip B allowed reels: $_tipBAllowedReels');
+    notifyListeners();
+  }
+
+  /// Check if a symbol can trigger anticipation
+  /// Wild symbols (ID 10) NEVER trigger anticipation
+  bool canTriggerAnticipation(int symbolId) {
+    const wildSymbolId = 10; // StandardSymbolSet Wild ID
+    if (symbolId == wildSymbolId) return false;
+    return symbolId == _scatterSymbolId || symbolId == _bonusSymbolId;
+  }
+
+  /// P7.2.3: Check if anticipation should trigger based on current config
+  /// For Tip B: Returns true only if triggers landed on BOTH first two allowed reels
+  bool shouldTriggerAnticipation(Set<int> triggerReels) {
+    if (triggerReels.length < 2) return false;
+
+    if (_anticipationConfigType == AnticipationConfigType.tipB) {
+      // Tip B: Must land on BOTH first two allowed reels
+      if (_tipBAllowedReels.length < 2) return false;
+      final firstTwo = _tipBAllowedReels.take(2).toSet();
+      return firstTwo.every((r) => triggerReels.contains(r));
+    } else {
+      // Tip A: Any 2+ triggers activate anticipation
+      return triggerReels.length >= 2;
+    }
+  }
+
+  /// P7.2.3: Get anticipation reels based on current config
+  /// Returns list of reels that should show anticipation effect
+  List<int> getAnticipationReels(Set<int> triggerReels, int totalReels) {
+    final result = <int>[];
+
+    if (_anticipationConfigType == AnticipationConfigType.tipB) {
+      // Tip B: Only anticipate on allowed reels that haven't triggered yet
+      for (final reel in _tipBAllowedReels) {
+        if (!triggerReels.contains(reel) && reel < totalReels) {
+          result.add(reel);
+        }
+      }
+    } else {
+      // Tip A: Anticipate on all remaining reels
+      for (int r = 0; r < totalReels; r++) {
+        if (!triggerReels.contains(r)) {
+          result.add(r);
+        }
+      }
+    }
+
+    return result..sort();
+  }
 
   // ─── P1.2: Rollup Progress Tracking (for pitch/volume dynamics) ───────────
   double _rollupStartTimestampMs = 0.0;

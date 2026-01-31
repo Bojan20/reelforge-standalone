@@ -805,8 +805,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   String _selectedBrowserFolder = 'All';
 
 
-  // Preview panel
-  bool _showPreviewPanel = true;
+  // Audio preview state
   String? _previewingAudioPath;
   bool _isPreviewPlaying = false;
 
@@ -2412,6 +2411,101 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                                 unmatched: unmatched,
                               );
                             },
+                            // ═══════════════════════════════════════════════════════
+                            // P3 RECOMMENDATIONS: Undo/Redo & Bulk Assign
+                            // ═══════════════════════════════════════════════════════
+                            canUndo: projectProvider.canUndoAudioAssignment,
+                            canRedo: projectProvider.canRedoAudioAssignment,
+                            undoDescription: projectProvider.undoAudioDescription,
+                            redoDescription: projectProvider.redoAudioDescription,
+                            onUndo: () {
+                              final success = projectProvider.undoAudioAssignment();
+                              if (success && mounted) {
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(
+                                    content: const Row(
+                                      children: [
+                                        Icon(Icons.undo, color: Color(0xFF40C8FF), size: 16),
+                                        SizedBox(width: 8),
+                                        Text('Undo successful', style: TextStyle(fontSize: 11)),
+                                      ],
+                                    ),
+                                    backgroundColor: FluxForgeTheme.bgMid,
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(milliseconds: 1200),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                );
+                              }
+                            },
+                            onRedo: () {
+                              final success = projectProvider.redoAudioAssignment();
+                              if (success && mounted) {
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(
+                                    content: const Row(
+                                      children: [
+                                        Icon(Icons.redo, color: Color(0xFF40C8FF), size: 16),
+                                        SizedBox(width: 8),
+                                        Text('Redo successful', style: TextStyle(fontSize: 11)),
+                                      ],
+                                    ),
+                                    backgroundColor: FluxForgeTheme.bgMid,
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(milliseconds: 1200),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                );
+                              }
+                            },
+                            onBulkAssign: (baseStage, audioPath) {
+                              final expandedStages = projectProvider.bulkAssignToSimilarStages(
+                                baseStage,
+                                audioPath,
+                              );
+                              if (expandedStages.isNotEmpty && mounted) {
+                                // Register all expanded events to EventRegistry
+                                for (final stage in expandedStages) {
+                                  eventRegistry.registerEvent(AudioEvent(
+                                    id: 'audio_$stage',
+                                    name: stage.replaceAll('_', ' '),
+                                    stage: stage,
+                                    layers: [
+                                      AudioLayer(
+                                        id: 'layer_$stage',
+                                        name: '${stage.replaceAll('_', ' ')} Audio',
+                                        audioPath: audioPath,
+                                        volume: 1.0,
+                                        pan: _getPanForStage(stage),
+                                        delay: 0.0,
+                                        busId: _getBusForStage(stage),
+                                      ),
+                                    ],
+                                  ));
+                                }
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        const Icon(Icons.copy_all, color: Color(0xFF40FF90), size: 16),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Bulk assigned to ${expandedStages.length} stages: ${expandedStages.join(", ")}',
+                                            style: const TextStyle(fontSize: 11),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: FluxForgeTheme.bgMid,
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(milliseconds: 2500),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                );
+                                debugPrint('[SlotLab] 📦 Bulk assigned $baseStage → ${expandedStages.length} stages');
+                              }
+                            },
                           ),
                         );
                       },
@@ -3052,24 +3146,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
           const SizedBox(width: 8),
 
-          // Fullscreen preview button
-          _buildPreviewButton(),
-
-          const SizedBox(width: 8),
-
           // View toggles
           _buildGlassButton(
             icon: Icons.folder_open,
             onTap: () => setState(() => _showAudioBrowser = !_showAudioBrowser),
             tooltip: 'Audio Browser',
             isActive: _showAudioBrowser,
-          ),
-          const SizedBox(width: 4),
-          _buildGlassButton(
-            icon: Icons.preview,
-            onTap: () => setState(() => _showPreviewPanel = !_showPreviewPanel),
-            tooltip: 'Preview Panel',
-            isActive: _showPreviewPanel,
           ),
           const SizedBox(width: 4),
           _buildGlassButton(
@@ -10387,53 +10469,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           fontSize: 9,
           fontWeight: FontWeight.w600,
           letterSpacing: 1,
-        ),
-      ),
-    );
-  }
-
-  /// Preview button - enters fullscreen slot preview mode (F11)
-  Widget _buildPreviewButton() {
-    return Tooltip(
-      message: 'Fullscreen Preview (F11)',
-      child: GestureDetector(
-        onTap: () => setState(() => _isPreviewMode = true),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                FluxForgeTheme.accentBlue.withOpacity(0.3),
-                FluxForgeTheme.accentBlue.withOpacity(0.1),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: FluxForgeTheme.accentBlue.withOpacity(0.5),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.play_circle_filled,
-                color: FluxForgeTheme.accentBlue,
-                size: 16,
-              ),
-              const SizedBox(width: 6),
-              const Text(
-                'PREVIEW',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

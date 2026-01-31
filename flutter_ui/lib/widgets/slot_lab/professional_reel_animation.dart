@@ -118,6 +118,15 @@ class ReelAnimationState {
   bool isInAnticipation = false;  // Visual indicator for anticipation state
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // P7.2.2: PER-REEL ANTICIPATION STATE — Industry-standard tension escalation
+  // Tension levels L1→L4: Gold→Orange→Red-Orange→Red
+  // Each level increases intensity of visual/audio effects
+  // ═══════════════════════════════════════════════════════════════════════════
+  int tensionLevel = 1;           // 1-4, higher = more intense (L1=Gold, L4=Red)
+  String anticipationReason = ''; // 'scatter', 'bonus', 'jackpot', etc.
+  double anticipationProgress = 0.0; // 0.0 → 1.0 progress through anticipation phase
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // P0.3: SPEED MULTIPLIER — For anticipation slowdown visual effect
   // ═══════════════════════════════════════════════════════════════════════════
   double speedMultiplier = 1.0;   // 1.0 = normal, 0.3 = slow (30%), 2.0 = fast
@@ -131,15 +140,33 @@ class ReelAnimationState {
   int get stopTime => profile.getReelStopTime(reelIndex) + stopTimeExtensionMs;
 
   /// Extend this reel's spin time (for anticipation)
-  void extendSpinTime(int extensionMs) {
+  /// P7.2.2: Now accepts tension level and reason for escalation
+  void extendSpinTime(int extensionMs, {int level = 1, String reason = 'scatter'}) {
     stopTimeExtensionMs = extensionMs;
     isInAnticipation = true;
+    tensionLevel = level.clamp(1, 4);
+    anticipationReason = reason;
+    anticipationProgress = 0.0;
   }
 
   /// Clear anticipation extension
+  /// P7.2.2: Reset all anticipation state
   void clearAnticipation() {
     stopTimeExtensionMs = 0;
     isInAnticipation = false;
+    tensionLevel = 1;
+    anticipationReason = '';
+    anticipationProgress = 0.0;
+  }
+
+  /// P7.2.2: Update anticipation progress (0.0 → 1.0)
+  void updateAnticipationProgress(double progress) {
+    anticipationProgress = progress.clamp(0.0, 1.0);
+  }
+
+  /// P7.2.2: Set tension level dynamically (for escalation during anticipation)
+  void setTensionLevel(int level) {
+    tensionLevel = level.clamp(1, 4);
   }
 
   /// P0.3: Set speed multiplier for anticipation slowdown effect
@@ -147,9 +174,44 @@ class ReelAnimationState {
     speedMultiplier = multiplier.clamp(0.1, 2.0);
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P7.2.1: FORCE STOP — Skip remaining spin time and transition to decel/stop
+  // Used in sequential anticipation mode after anticipation completes
+  // ═══════════════════════════════════════════════════════════════════════════
+  bool _forceStopRequested = false;
+
+  /// Force this reel to stop immediately (skips remaining spin time)
+  void forceStop() {
+    _forceStopRequested = true;
+    // Clear any spin time extension
+    stopTimeExtensionMs = 0;
+    isInAnticipation = false;
+    speedMultiplier = 1.0;
+  }
+
+  /// Check if force stop was requested
+  bool get forceStopRequested => _forceStopRequested;
+
+  /// Clear force stop flag (called when reel actually stops)
+  void clearForceStop() {
+    _forceStopRequested = false;
+  }
+
   /// Update state based on elapsed time since spin start
   void update(int elapsedMs, List<int> targetSymbols) {
     if (phase == ReelPhase.idle || phase == ReelPhase.stopped) return;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P7.2.1: FORCE STOP — Skip to deceleration phase immediately
+    // Used in sequential anticipation mode after anticipation completes
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (_forceStopRequested && phase != ReelPhase.decelerating && phase != ReelPhase.bouncing) {
+      _forceStopRequested = false;
+      // Jump directly to start of deceleration phase
+      phase = ReelPhase.decelerating;
+      phaseProgress = 0.0;
+      // Continue update with deceleration logic below
+    }
 
     final stopT = stopTime;
     final accelEnd = profile.accelerationMs;
@@ -157,23 +219,28 @@ class ReelAnimationState {
     final bounceStart = stopT;
     final bounceEnd = stopT + profile.bounceMs;
 
-    if (elapsedMs < accelEnd) {
+    // P7.2.1: If force stop triggered, treat as if we're at decelStart
+    final effectiveElapsedMs = (_forceStopRequested || phase == ReelPhase.decelerating && phaseProgress < 0.1)
+        ? decelStart
+        : elapsedMs;
+
+    if (effectiveElapsedMs < accelEnd && phase == ReelPhase.accelerating) {
       // PHASE: Acceleration (0 → max velocity)
       phase = ReelPhase.accelerating;
-      phaseProgress = elapsedMs / accelEnd;
+      phaseProgress = effectiveElapsedMs / accelEnd;
       final t = phaseProgress;
       velocity = _easeOutQuad(t) * 1.0; // Max velocity = 1.0
       scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
       spinCycles = scrollOffset / 10.0; // Track spin cycles
-    } else if (elapsedMs < decelStart) {
+    } else if (effectiveElapsedMs < decelStart && phase != ReelPhase.decelerating && phase != ReelPhase.bouncing) {
       // PHASE: Full-speed spinning
       phase = ReelPhase.spinning;
       velocity = 1.0;
       scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
       final spinDuration = decelStart - accelEnd;
-      phaseProgress = (elapsedMs - accelEnd) / spinDuration.clamp(1, double.infinity);
+      phaseProgress = (effectiveElapsedMs - accelEnd) / spinDuration.clamp(1, double.infinity);
       spinCycles = scrollOffset / 10.0; // Track spin cycles for visual effect
-    } else if (elapsedMs < bounceStart) {
+    } else if (effectiveElapsedMs < bounceStart || phase == ReelPhase.decelerating) {
       // PHASE: Deceleration (max → 0 velocity)
       phase = ReelPhase.decelerating;
       phaseProgress = (elapsedMs - decelStart) / (bounceStart - decelStart);
@@ -333,10 +400,11 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
   /// Extend spin time for a specific reel (for anticipation)
   /// Call this when scatter condition is met (e.g., 2 scatters landed)
-  void extendReelSpinTime(int reelIndex, int extensionMs) {
+  /// P7.2.2: Now accepts tension level and reason
+  void extendReelSpinTime(int reelIndex, int extensionMs, {int tensionLevel = 1, String reason = 'scatter'}) {
     if (reelIndex >= 0 && reelIndex < reelCount) {
-      debugPrint('[ReelAnimController] 🎯 ANTICIPATION: Extending reel $reelIndex spin by ${extensionMs}ms');
-      _reelStates[reelIndex].extendSpinTime(extensionMs);
+      debugPrint('[ReelAnimController] 🎯 ANTICIPATION: Extending reel $reelIndex spin by ${extensionMs}ms (tension L$tensionLevel, reason: $reason)');
+      _reelStates[reelIndex].extendSpinTime(extensionMs, level: tensionLevel, reason: reason);
       notifyListeners();
     }
   }
@@ -347,6 +415,61 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
       return _reelStates[reelIndex].isInAnticipation;
     }
     return false;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P7.2.2: PER-REEL ANTICIPATION STATE ACCESSORS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get tension level for a reel (1-4)
+  int getReelTensionLevel(int reelIndex) {
+    if (reelIndex >= 0 && reelIndex < reelCount) {
+      return _reelStates[reelIndex].tensionLevel;
+    }
+    return 1;
+  }
+
+  /// Get anticipation reason for a reel
+  String getReelAnticipationReason(int reelIndex) {
+    if (reelIndex >= 0 && reelIndex < reelCount) {
+      return _reelStates[reelIndex].anticipationReason;
+    }
+    return '';
+  }
+
+  /// Get anticipation progress for a reel (0.0 → 1.0)
+  double getReelAnticipationProgress(int reelIndex) {
+    if (reelIndex >= 0 && reelIndex < reelCount) {
+      return _reelStates[reelIndex].anticipationProgress;
+    }
+    return 0.0;
+  }
+
+  /// Update anticipation progress for a reel
+  void updateReelAnticipationProgress(int reelIndex, double progress) {
+    if (reelIndex >= 0 && reelIndex < reelCount) {
+      _reelStates[reelIndex].updateAnticipationProgress(progress);
+      notifyListeners();
+    }
+  }
+
+  /// Set tension level for a reel dynamically
+  void setReelTensionLevel(int reelIndex, int level) {
+    if (reelIndex >= 0 && reelIndex < reelCount) {
+      _reelStates[reelIndex].setTensionLevel(level);
+      notifyListeners();
+    }
+  }
+
+  /// Get all reels currently in anticipation mode
+  List<int> getAnticipatingReels() {
+    final result = <int>[];
+    for (int i = 0; i < reelCount; i++) {
+      if (_reelStates[i].isInAnticipation) {
+        result.add(i);
+      }
+    }
+    return result;
   }
 
   /// Clear all anticipation states (called on spin start)
@@ -385,6 +508,24 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
     for (final state in _reelStates) {
       state.setSpeedMultiplier(1.0);
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P7.2.1: FORCE STOP REEL — For sequential anticipation mode
+  // Forces a specific reel to stop immediately (skips remaining spin time)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Force a specific reel to stop immediately
+  /// Used in sequential anticipation mode after anticipation completes
+  void forceStopReel(int reelIndex) {
+    if (reelIndex < 0 || reelIndex >= reelCount) return;
+    if (_reelStates[reelIndex].phase == ReelPhase.stopped) return;
+
+    debugPrint('[ReelAnimController] P7.2.1: FORCE STOP reel $reelIndex');
+
+    // Transition directly to decelerating phase with minimal remaining time
+    _reelStates[reelIndex].forceStop();
+    notifyListeners();
   }
 
   /// Start spin animation

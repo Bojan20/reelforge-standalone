@@ -178,11 +178,12 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 **Active Roadmaps:**
 - .claude/tasks/DAW_LOWER_ZONE_TODO_2026_01_26.md — DAW section improvements (P0/P1/P2 ✅ COMPLETE)
 - .claude/tasks/P4_COMPLETE_VERIFICATION_2026_01_30.md — **ALL P4 TASKS COMPLETE** (26/26 ✅)
+- .claude/tasks/P9_AUDIO_PANEL_CONSOLIDATION_2026_01_31.md — **P9 COMPLETE** (12/12 ✅)
 
 **SlotLab Architecture Documentation:**
 - .claude/architecture/ANTICIPATION_SYSTEM.md — **Industry-standard anticipation** (per-reel tension L1-L4, scatter-triggered)
 - .claude/architecture/SLOT_LAB_AUDIO_FEATURES.md — P0.1-P0.22, P1.1-P1.5 audio features
-- .claude/architecture/EVENT_SYNC_SYSTEM.md — Stage→Event mapping, per-reel spin loops
+- .claude/architecture/EVENT_SYNC_SYSTEM.md — Stage→Event mapping, single REEL_SPIN_LOOP
 - .claude/architecture/SLOT_LAB_SYSTEM.md — Full SlotLab architecture
 - .claude/architecture/TEMPLATE_GALLERY_SYSTEM.md — **P3-12 Template system** (8 built-in templates, JSON-based)
 - .claude/analysis/BASE_GAME_FLOW_ANALYSIS_2026_01_30.md — 7-phase stage flow analysis
@@ -3488,7 +3489,7 @@ class StageDefinition {
 **Stage Categories:**
 | Category | Examples |
 |----------|----------|
-| `spin` | SPIN_START, SPIN_END, REEL_SPINNING |
+| `spin` | SPIN_START, SPIN_END, REEL_SPIN_LOOP |
 | `win` | WIN_PRESENT, WIN_LINE_SHOW, ROLLUP_* |
 | `feature` | FEATURE_ENTER, FREESPIN_*, BONUS_* |
 | `cascade` | CASCADE_START, CASCADE_STEP, CASCADE_END |
@@ -5166,22 +5167,10 @@ Svaki reel ima nezavisni REEL_SPIN_LOOP voice koji se fade-out-uje individualno.
 // event_registry.dart
 final Map<int, int> _reelSpinLoopVoices = {};  // reelIndex → voiceId
 
-void _trackReelSpinLoopVoice(int reelIndex, int voiceId) {
-  _reelSpinLoopVoices[reelIndex] = voiceId;
-}
-
-void _fadeOutReelSpinLoop(int reelIndex) {
-  final voiceId = _reelSpinLoopVoices.remove(reelIndex);
-  if (voiceId != null) {
-    AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: 50);
-  }
-}
-```
-
 **Auto-detekcija stage-ova:**
-- `REEL_SPINNING_0..4` → Pokreće spin loop za specifični reel
-- `REEL_STOP_0..4` → Fade-out spin loop za specifični reel
-- `SPIN_END` → Fallback: zaustavlja sve preostale spin loop-ove
+- `REEL_SPIN_LOOP` → Jedan looping audio za sve reel-ove
+- `REEL_STOP_0..4` → Per-reel stop sa stereo pan, fade-out spin loop
+- `SPIN_END` → Fallback: zaustavlja spin loop ako je još aktivan
 
 **P1.1: WIN_EVAL Stage**
 
@@ -5322,17 +5311,15 @@ void clearAllSpeedMultipliers();  // Called on spin start
 
 ### Advanced Audio Features (2026-01-25) ✅
 
-**P0.20: Per-Reel Spin Loop System**
+**Reel Spin Audio System (Updated 2026-01-31)**
 
-Fina kontrola per-reel spin loop-ova sa individualnim fade-out-om:
+| Stage | Svrha |
+|-------|-------|
+| `REEL_SPIN_LOOP` | Jedan looping audio za sve reel-ove tokom spina |
+| `REEL_STOP_0..4` | Per-reel stop zvuk sa automatskim stereo pan-om |
 
-| Stage Pattern | Svrha |
-|---------------|-------|
-| `REEL_SPINNING_START_0..4` | Pokreni spin loop za specifični reel |
-| `REEL_SPINNING_STOP_0..4` | Early fade-out PRE vizualnog zaustavljanja |
-| `REEL_SPINNING_0..4` | Legacy per-reel spin (backwards compat) |
-
-**Implementacija:** `event_registry.dart` — `_reelSpinLoopVoices` map, `_fadeOutReelSpinLoop()`
+**Note:** Per-reel spinning (`REEL_SPINNING_0..4`) je uklonjen — koristi se jedan `REEL_SPIN_LOOP`.
+Stereo pozicioniranje se postiže kroz `REEL_STOP_0..4` sa pan vrednostima (-0.8 do +0.8).
 
 **P0.21: CASCADE_STEP Pitch/Volume Escalation**
 
@@ -5964,7 +5951,7 @@ Engine JSON/Events → Adapter → STAGES → FluxForge Audio
 **Kanonske STAGES (60+ definisanih):**
 ```
 // Spin Flow
-SPIN_START, SPIN_END, REEL_SPINNING, REEL_STOP, REEL_STOP_0..4
+SPIN_START, SPIN_END, REEL_SPIN_LOOP, REEL_STOP, REEL_STOP_0..4
 
 // Win Flow
 WIN_PRESENT, WIN_LINE_SHOW, WIN_LINE_HIDE, ROLLUP_START, ROLLUP_TICK, ROLLUP_END
@@ -6360,13 +6347,13 @@ Redosled stage-ova generisan u `crates/rf-slot-lab/src/spin.rs`:
 ```
 SPIN_START
     ↓
-REEL_SPINNING × N (za svaki reel)
+REEL_SPIN_LOOP (jedan loop za sve reel-ove)
     ↓
-[ANTICIPATION_ON] (opciono, na preostale reel-ove kad 2+ scattera)
+[ANTICIPATION_ON] (opciono, na reel-ove 1+ kad 2+ scattera — NIKAD na reel 0)
     ↓
-[ANTICIPATION_TENSION_R{n}_L{1-4}] (per-reel tension escalation)
+[ANTICIPATION_TENSION_R{1-4}_L{1-4}] (per-reel tension escalation, počinje od reel 1)
     ↓
-REEL_STOP_0 → REEL_STOP_1 → ... → REEL_STOP_N
+REEL_STOP_0 → REEL_STOP_1 → ... → REEL_STOP_N (per-reel sa stereo pan)
     ↓
 [ANTICIPATION_OFF] (ako je bio uključen)
     ↓
@@ -6386,6 +6373,11 @@ EVALUATE_WINS
     ↓
 SPIN_END
 ```
+
+**Važna pravila:**
+- `REEL_SPIN_LOOP` je **jedan audio loop za sve reel-ove** (ne per-reel)
+- `REEL_STOP_0..N` su **per-reel sa automatskim stereo pan-om** (-0.8 do +0.8)
+- **Anticipation NIKAD ne trigeruje na reel 0** — počinje tek od reel 1 (kad su 2+ scattera)
 
 ### Visual-Sync Mode
 
@@ -6583,32 +6575,33 @@ void setWinPresentationActive(bool active) {
 }
 ```
 
-**UltimateAudioPanel V8 (2026-01-25) ✅ CURRENT:**
+**UltimateAudioPanel V8.1 (2026-01-31) ✅ CURRENT:**
 
-Game Flow-based slot audio panel sa **341 audio slotova** organizovanih u **12 sekcija** po toku igre.
+Game Flow-based slot audio panel sa **~408 audio slotova** organizovanih u **12 sekcija** po toku igre.
 
 | # | Sekcija | Tier | Slots | Boja |
 |---|---------|------|-------|------|
-| 1 | Base Game Loop | Primary | 41 | #4A9EFF |
+| 1 | Base Game Loop | Primary | 44 | #4A9EFF |
 | 2 | Symbols & Lands | Primary | 46 | #9370DB |
 | 3 | Win Presentation | Primary | 41 | #FFD700 |
 | 4 | Cascading Mechanics | Secondary | 24 | #FF6B6B |
 | 5 | Multipliers | Secondary | 18 | #FF9040 |
 | 6 | Free Spins | Feature | 24 | #40FF90 |
 | 7 | Bonus Games | Feature | 32 | #9370DB |
-| 8 | Hold & Win | Feature | 24 | #40C8FF |
+| 8 | Hold & Win | Feature | 23 | #40C8FF |
 | 9 | Jackpots | Premium 🏆 | 26 | #FFD700 |
 | 10 | Gamble | Optional | 16 | #FF6B6B |
-| 11 | Music & Ambience | Background | 27 | #40C8FF |
-| 12 | UI & System | Utility | 22 | #808080 |
+| 11 | Music & Ambience | Background | 25 | #40C8FF |
+| 12 | UI & System | Utility | 18 | #808080 |
 
-**V8 Ključne promene:**
+**V8.1 Ključne promene (P9 Consolidation):**
+- **Duplikati uklonjeni** — 7 redundantnih stage-ova uklonjeno
+- **Stage konsolidacija** — `REEL_SPIN` + `REEL_SPINNING` → `REEL_SPIN_LOOP`
+- **Novi stage-ovi** — `ATTRACT_EXIT`, `IDLE_TO_ACTIVE`, `SPIN_CANCEL`
 - **Game Flow organizacija** — Sekcije prate tok igre (Spin→Stop→Win→Feature)
 - **Pooled eventi označeni** — ⚡ ikona za rapid-fire (ROLLUP_TICK, CASCADE_STEP, REEL_STOP)
 - **Jackpot izdvojen** — 🏆 Premium sekcija sa validation badge
-- **Cascade/Tumble/Avalanche ujedinjeni** — Jedna sekcija za sve cascade mehanike
-- **Tier vizualna hijerarhija** — Primary/Secondary/Feature/Premium/Background/Utility
-- **Quick Assign Mode (P3-19)** — Click slot → Click audio = Done! workflow (alternativa drag-drop-u)
+- **Quick Assign Mode (P3-19)** — Click slot → Click audio = Done! workflow
 
 **Quick Assign Mode API (P3-19):**
 ```dart

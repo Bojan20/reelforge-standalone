@@ -23,9 +23,11 @@ impl Default for TimingProfile {
     }
 }
 
-/// Anticipation-specific configuration for industry-standard anticipation system
+/// Anticipation TIMING configuration for industry-standard anticipation system
+/// NOTE: This handles timing/effects parameters. For trigger rules (which symbols,
+/// which reels), see `AnticipationConfig` in config.rs
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnticipationConfig {
+pub struct AnticipationTimingConfig {
     /// Minimum scatter symbols needed to trigger anticipation (default: 2)
     pub min_scatters_to_trigger: u8,
 
@@ -57,7 +59,7 @@ pub struct AnticipationConfig {
     pub enable_vignette: bool,
 }
 
-impl Default for AnticipationConfig {
+impl Default for AnticipationTimingConfig {
     fn default() -> Self {
         Self {
             min_scatters_to_trigger: 2,
@@ -74,7 +76,7 @@ impl Default for AnticipationConfig {
     }
 }
 
-impl AnticipationConfig {
+impl AnticipationTimingConfig {
     /// Normal gameplay anticipation config
     pub fn normal() -> Self {
         Self::default()
@@ -224,7 +226,7 @@ pub struct TimingConfig {
     // ═══════════════════════════════════════════════════════════════════════════
     /// Full anticipation configuration for industry-standard anticipation system
     #[serde(default)]
-    pub anticipation_config: AnticipationConfig,
+    pub anticipation_timing: AnticipationTimingConfig,
 }
 
 impl TimingConfig {
@@ -248,7 +250,7 @@ impl TimingConfig {
             anticipation_audio_pre_trigger_ms: 50.0,
             reel_stop_audio_pre_trigger_ms: 20.0,
             // Anticipation config
-            anticipation_config: AnticipationConfig::normal(),
+            anticipation_timing: AnticipationTimingConfig::normal(),
         }
     }
 
@@ -272,7 +274,7 @@ impl TimingConfig {
             anticipation_audio_pre_trigger_ms: 30.0,
             reel_stop_audio_pre_trigger_ms: 10.0,
             // Anticipation config
-            anticipation_config: AnticipationConfig::turbo(),
+            anticipation_timing: AnticipationTimingConfig::turbo(),
         }
     }
 
@@ -296,7 +298,7 @@ impl TimingConfig {
             anticipation_audio_pre_trigger_ms: 40.0,
             reel_stop_audio_pre_trigger_ms: 15.0,
             // Anticipation config
-            anticipation_config: AnticipationConfig::mobile(),
+            anticipation_timing: AnticipationTimingConfig::mobile(),
         }
     }
 
@@ -322,7 +324,7 @@ impl TimingConfig {
             anticipation_audio_pre_trigger_ms: 30.0,
             reel_stop_audio_pre_trigger_ms: 15.0,
             // Anticipation config
-            anticipation_config: AnticipationConfig::studio(),
+            anticipation_timing: AnticipationTimingConfig::studio(),
         }
     }
 
@@ -357,9 +359,9 @@ impl TimingConfig {
             anticipation_audio_pre_trigger_ms: self.anticipation_audio_pre_trigger_ms,
             reel_stop_audio_pre_trigger_ms: self.reel_stop_audio_pre_trigger_ms,
             // Scale anticipation duration but keep other config intact
-            anticipation_config: AnticipationConfig {
-                duration_per_reel_ms: self.anticipation_config.duration_per_reel_ms * factor,
-                ..self.anticipation_config.clone()
+            anticipation_timing: AnticipationTimingConfig {
+                duration_per_reel_ms: self.anticipation_timing.duration_per_reel_ms * factor,
+                ..self.anticipation_timing.clone()
             },
         }
     }
