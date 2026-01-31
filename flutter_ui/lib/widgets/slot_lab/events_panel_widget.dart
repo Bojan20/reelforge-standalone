@@ -9,6 +9,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -27,6 +28,38 @@ import 'create_event_dialog.dart';
 import 'audio_hover_preview.dart';
 import 'stage_editor_dialog.dart';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P0 PERFORMANCE: Top-level isolate function for async directory scanning
+// Must be top-level or static (not a closure) to work with compute()
+// ═══════════════════════════════════════════════════════════════════════════
+List<FileSystemEntity> _scanDirectoryIsolate(String directoryPath) {
+  try {
+    final dir = Directory(directoryPath);
+    if (!dir.existsSync()) return [];
+
+    final entities = dir.listSync();
+
+    // Filter audio files and directories
+    final filtered = entities.where((e) {
+      if (e is Directory) return true;
+      final ext = e.path.split('.').last.toLowerCase();
+      return ['wav', 'mp3', 'flac', 'ogg', 'aiff', 'aif'].contains(ext);
+    }).toList();
+
+    // Sort: directories first, then files, alphabetically
+    filtered.sort((a, b) {
+      if (a is Directory && b is! Directory) return -1;
+      if (a is! Directory && b is Directory) return 1;
+      return a.path.split('/').last.toLowerCase()
+          .compareTo(b.path.split('/').last.toLowerCase());
+    });
+
+    return filtered;
+  } catch (e) {
+    return [];
+  }
+}
+
 /// Main Events Panel Widget
 class EventsPanelWidget extends StatefulWidget {
   final double? height;
@@ -36,6 +69,8 @@ class EventsPanelWidget extends StatefulWidget {
   final Function(String? eventId)? onSelectionChanged;
   /// P3-19: Callback when audio file is clicked (for Quick Assign Mode)
   final Function(String audioPath)? onAudioClicked;
+  /// External control for showing/hiding audio browser section
+  final bool showAudioBrowser;
 
   const EventsPanelWidget({
     super.key,
@@ -44,6 +79,7 @@ class EventsPanelWidget extends StatefulWidget {
     this.selectedEventId,
     this.onSelectionChanged,
     this.onAudioClicked,
+    this.showAudioBrowser = true,
   });
 
   @override
@@ -72,6 +108,10 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   // Test playback state (SL-RP-P1.2)
   String? _playingEventId;
 
+  // P0 PERFORMANCE: Cached filtered file list (pre-computed before build)
+  List<FileSystemEntity> _filteredAudioFiles = [];
+  bool _isLoadingFiles = false;
+
   // Effective selected event ID (prefers parent control)
   String? get _selectedEventId => widget.selectedEventId ?? _localSelectedEventId;
 
@@ -98,6 +138,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
 
   @override
   void dispose() {
+    _assetManagerDebounce?.cancel(); // P0: Cancel debounce timer
     AudioAssetManager.instance.removeListener(_onAssetManagerChanged);
     _editController.dispose();
     _editFocusNode.removeListener(_onEditFocusChanged);
@@ -289,10 +330,19 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     }
   }
 
+  // P0 PERFORMANCE: Debounce timer for batch updates
+  Timer? _assetManagerDebounce;
+
   void _onAssetManagerChanged() {
-    // Rebuild when assets are added/removed from DAW
+    // P0 PERFORMANCE: Debounce rapid updates during batch import
+    // Only rebuild once per 100ms even if many assets are added
     if (_isPoolMode && mounted) {
-      setState(() {});
+      _assetManagerDebounce?.cancel();
+      _assetManagerDebounce = Timer(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          setState(() {});
+        }
+      });
     }
   }
 
@@ -302,30 +352,53 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     final musicDir = Directory('$home/Music');
     if (musicDir.existsSync()) {
       _currentDirectory = musicDir.path;
-      _loadAudioFiles();
+      _loadAudioFiles(); // P0: Now async — won't block initial render
     }
   }
 
-  void _loadAudioFiles() {
+  /// P0 PERFORMANCE: Async directory scanning using compute isolate
+  /// Prevents UI blocking during folder navigation
+  Future<void> _loadAudioFiles() async {
     if (_currentDirectory.isEmpty) return;
-    final dir = Directory(_currentDirectory);
-    if (!dir.existsSync()) return;
 
-    final entities = dir.listSync()
-      ..sort((a, b) {
-        // Directories first, then files
-        if (a is Directory && b is! Directory) return -1;
-        if (a is! Directory && b is Directory) return 1;
-        return a.path.toLowerCase().compareTo(b.path.toLowerCase());
-      });
+    // Don't start another load while loading
+    if (_isLoadingFiles) return;
 
-    setState(() {
-      _audioFiles = entities.where((e) {
-        if (e is Directory) return true;
-        final ext = e.path.split('.').last.toLowerCase();
-        return ['wav', 'mp3', 'flac', 'ogg', 'aiff'].contains(ext);
+    setState(() => _isLoadingFiles = true);
+
+    try {
+      // Run expensive I/O in isolate to prevent UI blocking
+      final files = await compute(_scanDirectoryIsolate, _currentDirectory);
+
+      if (mounted) {
+        setState(() {
+          _audioFiles = files;
+          _updateFilteredFiles(); // Pre-compute filtered list
+          _isLoadingFiles = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[EventsPanel] Directory scan error: $e');
+      if (mounted) {
+        setState(() {
+          _audioFiles = [];
+          _filteredAudioFiles = [];
+          _isLoadingFiles = false;
+        });
+      }
+    }
+  }
+
+  /// P0 PERFORMANCE: Pre-compute filtered file list (called when search/files change)
+  void _updateFilteredFiles() {
+    if (_searchQuery.isEmpty) {
+      _filteredAudioFiles = _audioFiles;
+    } else {
+      _filteredAudioFiles = _audioFiles.where((entity) {
+        final name = entity.path.split('/').last.toLowerCase();
+        return name.contains(_searchQuery);
       }).toList();
-    });
+    }
   }
 
   /// Import audio files via file picker and add to AudioAssetManager
@@ -458,8 +531,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 // Divider with drag handle
                 _buildDivider(),
                 // Selected event / Audio browser toggle
+                // Only show audio browser if both internal toggle AND external control allow it
                 Expanded(
-                  child: _showBrowser
+                  child: (_showBrowser && widget.showAudioBrowser)
                       ? _buildAudioBrowser()
                       : _buildSelectedEvent(),
                 ),
@@ -1261,6 +1335,8 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                             icon: Icon(Icons.play_arrow, size: 14),
                             label: const Text('Preview', style: TextStyle(fontSize: 10)),
                             onPressed: () {
+                              // Stop any other browser preview before starting new one
+                              AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
                               AudioPlaybackService.instance.previewFile(
                                 layer.audioPath,
                                 volume: layer.volume,
@@ -1405,10 +1481,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   onTap: () {
                     if (_currentDirectory.isNotEmpty) {
                       final parent = Directory(_currentDirectory).parent;
-                      setState(() {
-                        _currentDirectory = parent.path;
-                        _loadAudioFiles();
-                      });
+                      // P0 PERFORMANCE: Update directory, load async
+                      _currentDirectory = parent.path;
+                      _loadAudioFiles(); // Async — won't block UI
                     }
                   },
                   child: const Icon(Icons.arrow_upward, size: 14, color: Colors.white38),
@@ -1422,8 +1497,14 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   ),
                 ),
                 InkWell(
-                  onTap: _loadAudioFiles,
-                  child: const Icon(Icons.refresh, size: 14, color: Colors.white38),
+                  onTap: () => _loadAudioFiles(), // P0: Already async
+                  child: _isLoadingFiles
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        )
+                      : const Icon(Icons.refresh, size: 14, color: Colors.white38),
                 ),
               ],
             ),
@@ -1433,8 +1514,18 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           padding: const EdgeInsets.all(4),
           child: FluxForgeSearchField(
             hintText: 'Search...',
-            onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
-            onCleared: () => setState(() => _searchQuery = ''),
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value.toLowerCase();
+                _updateFilteredFiles(); // P0 PERFORMANCE: Pre-compute filtered list
+              });
+            },
+            onCleared: () {
+              setState(() {
+                _searchQuery = '';
+                _updateFilteredFiles(); // P0 PERFORMANCE: Pre-compute filtered list
+              });
+            },
             style: const FluxForgeSearchFieldStyle(
               backgroundColor: Color(0xFF16161C),
               borderColor: Color(0xFF16161C),
@@ -1680,22 +1771,33 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   }
 
   Widget _buildFileSystemList() {
-    if (_audioFiles.isEmpty) {
-      return _buildEmptyState('No audio files', 'Navigate to a folder');
+    // P0 PERFORMANCE: Show loading indicator during async directory scan
+    if (_isLoadingFiles) {
+      return const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
     }
 
+    // P0 PERFORMANCE: Use pre-computed filtered list (not per-frame filtering)
+    final files = _filteredAudioFiles;
+
+    if (files.isEmpty) {
+      return _buildEmptyState(
+        _searchQuery.isNotEmpty ? 'No matches' : 'No audio files',
+        _searchQuery.isNotEmpty ? 'Try different search' : 'Navigate to a folder',
+      );
+    }
+
+    // P0 PERFORMANCE: itemCount matches filtered list exactly
+    // This prevents ListView from calling itemBuilder for hidden items
     return ListView.builder(
-      itemCount: _audioFiles.length,
+      itemCount: files.length,
       itemBuilder: (ctx, i) {
-        final entity = _audioFiles[i];
-        final name = entity.path.split('/').last;
-
-        // Filter by search
-        if (_searchQuery.isNotEmpty &&
-            !name.toLowerCase().contains(_searchQuery)) {
-          return const SizedBox.shrink();
-        }
-
+        final entity = files[i];
         if (entity is Directory) {
           return _buildFolderItem(entity);
         } else {
@@ -1709,10 +1811,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     final name = dir.path.split('/').last;
     return InkWell(
       onTap: () {
-        setState(() {
-          _currentDirectory = dir.path;
-          _loadAudioFiles();
-        });
+        // P0 PERFORMANCE: Update directory first, then load async
+        _currentDirectory = dir.path;
+        _loadAudioFiles(); // Async — won't block UI
       },
       child: Container(
         height: 28,
@@ -1810,13 +1911,11 @@ class _AudioBrowserItemWrapper extends StatelessWidget {
     this.onTap,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    // Use custom Draggable that returns String instead of AudioFileInfo
-    return Draggable<String>(
-      data: audioInfo.path,
-      onDragStarted: onDragStarted,
-      feedback: Material(
+  /// P0 PERFORMANCE: Build feedback widget with RepaintBoundary to isolate from
+  /// main widget tree during drag operations
+  Widget _buildFeedback() {
+    return RepaintBoundary(
+      child: Material(
         color: Colors.transparent,
         child: Container(
           width: 200,
@@ -1853,6 +1952,17 @@ class _AudioBrowserItemWrapper extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Use custom Draggable that returns String instead of AudioFileInfo
+    return Draggable<String>(
+      data: audioInfo.path,
+      onDragStarted: onDragStarted,
+      // P0 PERFORMANCE: RepaintBoundary isolates feedback from main tree
+      feedback: _buildFeedback(),
       childWhenDragging: Opacity(
         opacity: 0.5,
         child: _buildAudioBrowserItemContent(),
@@ -1870,6 +1980,10 @@ class _AudioBrowserItemWrapper extends StatelessWidget {
   }
 }
 
+/// Global notifier for currently playing audio preview path
+/// All _HoverPreviewItem instances listen to this to sync their play/stop state
+final _currentlyPlayingPath = ValueNotifier<String?>(null);
+
 /// Item with hover preview functionality
 class _HoverPreviewItem extends StatefulWidget {
   final AudioFileInfo audioInfo;
@@ -1882,13 +1996,31 @@ class _HoverPreviewItem extends StatefulWidget {
 
 class _HoverPreviewItemState extends State<_HoverPreviewItem> {
   bool _isHovered = false;
-  bool _isPlaying = false;
   int _currentVoiceId = -1;
+
+  /// Check if THIS item is currently playing (compare path with global notifier)
+  bool get _isPlaying => _currentlyPlayingPath.value == widget.audioInfo.path;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to global playback state changes
+    _currentlyPlayingPath.addListener(_onPlaybackStateChanged);
+  }
 
   @override
   void dispose() {
-    _stopPlayback();
+    _currentlyPlayingPath.removeListener(_onPlaybackStateChanged);
+    // Only stop if THIS item was playing
+    if (_isPlaying) {
+      _stopPlayback();
+    }
     super.dispose();
+  }
+
+  void _onPlaybackStateChanged() {
+    // Rebuild when global playback state changes
+    if (mounted) setState(() {});
   }
 
   void _onHoverStart() {
@@ -1904,24 +2036,27 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
   void _startPlayback() {
     if (_isPlaying) return;
 
+    // Stop any other browser preview before starting new one (prevents overlap)
+    AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
+
     _currentVoiceId = AudioPlaybackService.instance.previewFile(
       widget.audioInfo.path,
       source: PlaybackSource.browser,
     );
 
     if (_currentVoiceId >= 0) {
-      setState(() => _isPlaying = true);
+      // Update global state — this notifies ALL items
+      _currentlyPlayingPath.value = widget.audioInfo.path;
     }
   }
 
   void _stopPlayback() {
-    if (!_isPlaying) return;
-
     if (_currentVoiceId >= 0) {
       AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
       _currentVoiceId = -1;
     }
-    setState(() => _isPlaying = false);
+    // Clear global state — this notifies ALL items
+    _currentlyPlayingPath.value = null;
   }
 
   @override
