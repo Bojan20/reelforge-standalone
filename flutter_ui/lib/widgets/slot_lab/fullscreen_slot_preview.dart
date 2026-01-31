@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/slot_lab_provider.dart';
+import '../../providers/slot_lab_project_provider.dart';
 import '../../src/rust/native_ffi.dart' show ForcedOutcome, SlotLabSpinResult, SlotLabStageEvent;
 import '../../theme/fluxforge_theme.dart';
 import 'slot_preview_widget.dart';
@@ -946,11 +947,16 @@ class FullscreenSlotPreview extends StatefulWidget {
   final int reels;
   final int rows;
 
+  /// P5: Project provider for dynamic win tier configuration
+  /// When null, uses context.read<SlotLabProjectProvider>() fallback
+  final SlotLabProjectProvider? projectProvider;
+
   const FullscreenSlotPreview({
     super.key,
     required this.onExit,
     this.reels = 5,
     this.rows = 3,
+    this.projectProvider,
   });
 
   @override
@@ -1862,6 +1868,7 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
             borderRadius: BorderRadius.circular(12),
             child: SlotPreviewWidget(
               provider: provider,
+              projectProvider: widget.projectProvider ?? context.read<SlotLabProjectProvider>(),
               reels: widget.reels,
               rows: widget.rows,
             ),

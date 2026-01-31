@@ -911,6 +911,7 @@ class _ProgressiveMeter extends StatelessWidget {
 
 class _MainGameZone extends StatelessWidget {
   final SlotLabProvider provider;
+  final SlotLabProjectProvider? projectProvider;
   final int reels;
   final int rows;
   final String? winTier;
@@ -922,6 +923,7 @@ class _MainGameZone extends StatelessWidget {
 
   const _MainGameZone({
     required this.provider,
+    this.projectProvider,
     required this.reels,
     required this.rows,
     this.winTier,
@@ -1035,6 +1037,7 @@ class _MainGameZone extends StatelessWidget {
                   SlotPreviewWidget(
                     key: ValueKey('slot_preview_${reels}x$rows'),
                     provider: provider,
+                    projectProvider: projectProvider ?? context.read<SlotLabProjectProvider>(),
                     reels: reels,
                     rows: rows,
                   ),
@@ -5884,6 +5887,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                 Expanded(
                   child: _MainGameZone(
                     provider: provider,
+                    projectProvider: widget.projectProvider,
                     reels: widget.reels,
                     rows: widget.rows,
                     winTier: _currentWinTier,
