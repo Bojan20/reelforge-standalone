@@ -1,0 +1,155 @@
+{
+  "id": "cascading_reels",
+  "name": "Cascading Reels",
+  "version": "1.0.0",
+  "category": "video",
+  "description": "Tumbling reels with increasing multipliers. Winning symbols explode and new ones fall in for consecutive wins.",
+  "author": "FluxForge Studio",
+  "reelCount": 5,
+  "rowCount": 4,
+  "hasMegaways": false,
+  "symbols": [
+    {"id": "HP1", "type": "highPay", "tier": 1, "audioContexts": ["land", "win"], "description": "Premium Symbol 1"},
+    {"id": "HP2", "type": "highPay", "tier": 2, "audioContexts": ["land", "win"], "description": "Premium Symbol 2"},
+    {"id": "HP3", "type": "highPay", "tier": 3, "audioContexts": ["land", "win"], "description": "Premium Symbol 3"},
+    {"id": "MP1", "type": "mediumPay", "tier": 4, "audioContexts": ["land", "win"], "description": "Medium Symbol 1"},
+    {"id": "MP2", "type": "mediumPay", "tier": 5, "audioContexts": ["land", "win"], "description": "Medium Symbol 2"},
+    {"id": "LP1", "type": "lowPay", "tier": 6, "audioContexts": ["land"], "description": "Low Pay 1"},
+    {"id": "LP2", "type": "lowPay", "tier": 7, "audioContexts": ["land"], "description": "Low Pay 2"},
+    {"id": "LP3", "type": "lowPay", "tier": 8, "audioContexts": ["land"], "description": "Low Pay 3"},
+    {"id": "LP4", "type": "lowPay", "tier": 9, "audioContexts": ["land"], "description": "Low Pay 4"},
+    {"id": "WILD", "type": "wild", "tier": 0, "audioContexts": ["land", "win", "expand"], "description": "Wild Symbol"},
+    {"id": "SCATTER", "type": "scatter", "tier": 0, "audioContexts": ["land", "win", "trigger"], "description": "Scatter Symbol"}
+  ],
+  "winTiers": [
+    {"tier": "tier1", "label": "Win", "threshold": 1.0, "volumeMultiplier": 0.75, "pitchOffset": 0.0, "rollupDurationMs": 1000, "hasScreenEffect": false},
+    {"tier": "tier2", "label": "Nice Win", "threshold": 5.0, "volumeMultiplier": 0.85, "pitchOffset": 0.0, "rollupDurationMs": 2000, "hasScreenEffect": false},
+    {"tier": "tier3", "label": "Big Win", "threshold": 15.0, "volumeMultiplier": 0.95, "pitchOffset": 0.0, "rollupDurationMs": 4000, "hasScreenEffect": true},
+    {"tier": "tier4", "label": "Super Win", "threshold": 30.0, "volumeMultiplier": 1.0, "pitchOffset": 0.5, "rollupDurationMs": 6000, "hasScreenEffect": true},
+    {"tier": "tier5", "label": "Mega Win", "threshold": 60.0, "volumeMultiplier": 1.1, "pitchOffset": 1.0, "rollupDurationMs": 10000, "hasScreenEffect": true},
+    {"tier": "tier6", "label": "Epic Win", "threshold": 100.0, "volumeMultiplier": 1.2, "pitchOffset": 1.5, "rollupDurationMs": 15000, "hasScreenEffect": true}
+  ],
+  "coreStages": [
+    {"id": "SPIN_START", "name": "Spin Start", "category": "spin", "priority": 80, "bus": "sfx", "isPooled": false, "isLooping": false},
+    {"id": "SPIN_END", "name": "Spin End", "category": "spin", "priority": 70, "bus": "sfx", "isPooled": false, "isLooping": false},
+    {"id": "WIN_EVAL", "name": "Win Evaluation", "category": "win", "priority": 60, "bus": "sfx", "isPooled": false, "isLooping": false},
+    {"id": "ROLLUP_START", "name": "Rollup Start", "category": "win", "priority": 55, "bus": "sfx", "isPooled": false, "isLooping": false},
+    {"id": "ROLLUP_TICK", "name": "Rollup Tick", "category": "win", "priority": 50, "bus": "sfx", "isPooled": true, "isLooping": false},
+    {"id": "ROLLUP_END", "name": "Rollup End", "category": "win", "priority": 55, "bus": "sfx", "isPooled": false, "isLooping": false},
+    {"id": "IDLE_LOOP", "name": "Idle Loop", "category": "ambient", "priority": 10, "bus": "music", "isPooled": false, "isLooping": true}
+  ],
+  "modules": [
+    {
+      "id": "cascade",
+      "name": "Cascading Wins",
+      "type": "cascade",
+      "description": "Winning symbols explode and new ones tumble down",
+      "stages": [
+        {"id": "CASCADE_START", "name": "Cascade Start", "category": "feature", "priority": 70, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "CASCADE_STEP", "name": "Cascade Step", "category": "feature", "priority": 65, "bus": "sfx", "isPooled": true, "isLooping": false},
+        {"id": "CASCADE_POP", "name": "Symbol Pop", "category": "feature", "priority": 60, "bus": "sfx", "isPooled": true, "isLooping": false},
+        {"id": "CASCADE_DROP", "name": "Symbols Drop", "category": "feature", "priority": 55, "bus": "sfx", "isPooled": true, "isLooping": false},
+        {"id": "CASCADE_LAND", "name": "Symbols Land", "category": "feature", "priority": 55, "bus": "sfx", "isPooled": true, "isLooping": false},
+        {"id": "CASCADE_END", "name": "Cascade End", "category": "feature", "priority": 70, "bus": "sfx", "isPooled": false, "isLooping": false}
+      ],
+      "conflictsWith": [],
+      "interactsWith": ["multiplier", "free_spins"],
+      "defaultConfig": {}
+    },
+    {
+      "id": "multiplier",
+      "name": "Win Multiplier",
+      "type": "multiplier",
+      "description": "Increasing multiplier with each cascade",
+      "stages": [
+        {"id": "MULT_INCREASE", "name": "Multiplier Increase", "category": "feature", "priority": 75, "bus": "sfx", "isPooled": true, "isLooping": false},
+        {"id": "MULT_APPLY", "name": "Multiplier Apply", "category": "feature", "priority": 70, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "MULT_RESET", "name": "Multiplier Reset", "category": "feature", "priority": 60, "bus": "sfx", "isPooled": false, "isLooping": false}
+      ],
+      "conflictsWith": [],
+      "interactsWith": ["cascade", "free_spins"],
+      "defaultConfig": {"startMultiplier": 1, "incrementPerCascade": 1, "maxMultiplier": 0}
+    },
+    {
+      "id": "free_spins",
+      "name": "Free Spins",
+      "type": "freeSpins",
+      "description": "Free spins with persistent multiplier",
+      "stages": [
+        {"id": "FS_TRIGGER", "name": "Free Spins Trigger", "category": "feature", "priority": 85, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "FS_ENTER", "name": "Free Spins Enter", "category": "feature", "priority": 80, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "FS_MUSIC", "name": "Free Spins Music", "category": "music", "priority": 20, "bus": "music", "isPooled": false, "isLooping": true},
+        {"id": "FS_SPIN", "name": "Free Spin Start", "category": "feature", "priority": 75, "bus": "sfx", "isPooled": true, "isLooping": false},
+        {"id": "FS_RETRIGGER", "name": "Free Spins Retrigger", "category": "feature", "priority": 85, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "FS_EXIT", "name": "Free Spins Exit", "category": "feature", "priority": 80, "bus": "sfx", "isPooled": false, "isLooping": false}
+      ],
+      "conflictsWith": [],
+      "interactsWith": ["cascade", "multiplier"],
+      "defaultConfig": {"spins": 10, "persistMultiplier": true}
+    }
+  ],
+  "duckingRules": [
+    {"sourceBus": "sfx", "targetBus": "music", "duckAmountDb": -6.0, "attackMs": 50.0, "releaseMs": 500.0},
+    {"sourceBus": "wins", "targetBus": "music", "duckAmountDb": -8.0, "attackMs": 30.0, "releaseMs": 800.0}
+  ],
+  "aleContexts": [
+    {
+      "id": "base_game",
+      "name": "Base Game",
+      "layers": [
+        {"index": 0, "assetPattern": "base_L1_*", "baseVolume": 0.7},
+        {"index": 1, "assetPattern": "base_L2_*", "baseVolume": 0.75},
+        {"index": 2, "assetPattern": "base_L3_*", "baseVolume": 0.8}
+      ],
+      "entryStages": ["SPIN_END", "CASCADE_END"],
+      "exitStages": ["FS_ENTER"]
+    },
+    {
+      "id": "cascade_active",
+      "name": "Cascade Active",
+      "layers": [
+        {"index": 0, "assetPattern": "cascade_L1_*", "baseVolume": 0.75},
+        {"index": 1, "assetPattern": "cascade_L2_*", "baseVolume": 0.8},
+        {"index": 2, "assetPattern": "cascade_L3_*", "baseVolume": 0.85},
+        {"index": 3, "assetPattern": "cascade_L4_*", "baseVolume": 0.9}
+      ],
+      "entryStages": ["CASCADE_START"],
+      "exitStages": ["CASCADE_END"]
+    },
+    {
+      "id": "free_spins",
+      "name": "Free Spins",
+      "layers": [
+        {"index": 0, "assetPattern": "fs_L1_*", "baseVolume": 0.8},
+        {"index": 1, "assetPattern": "fs_L2_*", "baseVolume": 0.85},
+        {"index": 2, "assetPattern": "fs_L3_*", "baseVolume": 0.9}
+      ],
+      "entryStages": ["FS_ENTER"],
+      "exitStages": ["FS_EXIT"]
+    }
+  ],
+  "winMultiplierRtpc": {
+    "name": "winMultiplier",
+    "min": 0.0,
+    "max": 100.0,
+    "defaultValue": 0.0,
+    "volumeCurve": [
+      {"x": 0.0, "y": 0.75},
+      {"x": 0.2, "y": 0.85},
+      {"x": 0.5, "y": 0.95},
+      {"x": 1.0, "y": 1.0}
+    ],
+    "pitchCurve": [
+      {"x": 0.0, "y": 0.0},
+      {"x": 0.5, "y": 0.5},
+      {"x": 1.0, "y": 2.0}
+    ]
+  },
+  "mappingPatterns": [],
+  "metadata": {
+    "gridSize": "5x4",
+    "cascadeType": "tumble",
+    "multiplierProgression": [1, 2, 3, 5, 10, 25, 50, 100],
+    "volatility": "high"
+  }
+}

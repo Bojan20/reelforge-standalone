@@ -184,6 +184,7 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 - .claude/architecture/SLOT_LAB_AUDIO_FEATURES.md — P0.1-P0.22, P1.1-P1.5 audio features
 - .claude/architecture/EVENT_SYNC_SYSTEM.md — Stage→Event mapping, per-reel spin loops
 - .claude/architecture/SLOT_LAB_SYSTEM.md — Full SlotLab architecture
+- .claude/architecture/TEMPLATE_GALLERY_SYSTEM.md — **P3-12 Template system** (8 built-in templates, JSON-based)
 - .claude/analysis/BASE_GAME_FLOW_ANALYSIS_2026_01_30.md — 7-phase stage flow analysis
 
 ---
@@ -3577,6 +3578,85 @@ class EventDraft {
 2. Drop `fs_music.wav` on `FS_TRIGGER` → **PLAY** (play FS music when FS starts)
 3. Drop `spin_sfx.wav` on anything → **PLAY** (SFX always plays)
 4. Drop `base_music.wav` on `FS_EXIT` → **STOP** (stop music when leaving)
+
+---
+
+### P3-12 — Template Gallery System ✅ 2026-01-31
+
+JSON-based starter templates for rapid SlotLab project setup.
+
+**Documentation:** `.claude/architecture/TEMPLATE_GALLERY_SYSTEM.md`
+
+**Core Features:**
+- Templates are **pure JSON** (no audio files)
+- Use **generic symbol IDs** (HP1, HP2, MP1, LP1, WILD, SCATTER, BONUS)
+- **RTPC win system** with configurable tier thresholds
+- Auto-wiring: stages, events, buses, ducking, ALE, RTPC
+
+**Files Structure:**
+```
+flutter_ui/
+├── lib/
+│   ├── models/template_models.dart          (~650 LOC)
+│   ├── services/template/                   (~1,780 LOC)
+│   │   ├── template_builder_service.dart
+│   │   ├── template_validation_service.dart
+│   │   ├── stage_auto_registrar.dart
+│   │   ├── event_auto_registrar.dart
+│   │   ├── bus_auto_configurator.dart
+│   │   ├── ducking_auto_configurator.dart
+│   │   ├── ale_auto_configurator.dart
+│   │   └── rtpc_auto_configurator.dart
+│   └── widgets/template/
+│       └── template_gallery_panel.dart      (~780 LOC)
+└── assets/templates/                        (8 JSON files)
+```
+
+**Built-in Templates (8):**
+
+| Template | Category | Grid | Key Features |
+|----------|----------|------|--------------|
+| `classic_5x3` | classic | 5×3 | 10 paylines, Free Spins |
+| `ways_243` | video | 5×3 | 243 ways, multiplier wilds |
+| `megaways_117649` | megaways | 6×7* | Cascade, Free Spins |
+| `cluster_pays` | cluster | 7×7 | Cluster wins, Cascade |
+| `hold_and_win` | holdWin | 5×3 | Coins, Respins, 4-tier jackpots |
+| `cascading_reels` | video | 5×4 | Tumble, escalating multipliers |
+| `jackpot_network` | jackpot | 5×3 | Progressive jackpots, wheel |
+| `bonus_buy` | video | 5×4 | Feature buy, multiplier wilds |
+
+**TemplateCategory Enum:**
+```dart
+enum TemplateCategory {
+  classic,    // Classic payline slots
+  video,      // Modern video slots
+  megaways,   // Dynamic reel slots
+  cluster,    // Cluster pays
+  holdWin,    // Hold & Win / Lightning Link
+  jackpot,    // Progressive jackpot
+  branded,    // Licensed/themed
+  custom,     // User-created
+}
+```
+
+**Win Tiers (Configurable):**
+```dart
+class WinTierConfig {
+  final WinTier tier;           // tier1-tier6
+  final String label;           // "Win", "Big Win", "Mega Win"
+  final double threshold;       // x bet (1.0, 5.0, 15.0, 30.0, 60.0, 100.0)
+  final double volumeMultiplier;
+  final double pitchOffset;
+  final int rollupDurationMs;
+  final bool hasScreenEffect;
+}
+```
+
+**Usage Flow:**
+1. Select template from gallery
+2. `TemplateBuilderService.buildTemplate()` auto-wires all systems
+3. User assigns audio files to placeholder events
+4. Test in SlotLab → Export
 
 ---
 

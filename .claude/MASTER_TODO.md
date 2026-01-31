@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
 **Updated:** 2026-01-31
-**Status:** ✅ **P0-P4 COMPLETE (100%)** | P3 PENDING
+**Status:** ✅ **P0-P4 COMPLETE (100%)** | P3: 1/14 Done
 
 ---
 
@@ -24,9 +24,9 @@
 | 🔴 **P0 Critical** | 15 | 15 | ✅ 100% |
 | 🟠 **P1 High** | 29 | 29 | ✅ 100% |
 | 🟡 **P2 Medium** | 19 | 19 | ✅ 100% |
-| 🟢 **P3 Low** | 14 | 0 | ⏳ 0% |
+| 🟢 **P3 Low** | 14 | 1 | ⏳ 7% |
 | 🔵 **P4 SlotLab Spec** | 64 | 64 | ✅ **100% COMPLETE** |
-| **TOTAL** | **141** | **127** | **90%** |
+| **TOTAL** | **141** | **128** | **91%** |
 
 **P2-14** → P3-13 (Collaborative Projects — zahteva 8-12 nedelja)
 **P2-15** → COMPLETE (Stage Ingest već implementiran)
@@ -90,7 +90,7 @@ P3 taskovi su **nice-to-have** — ne blokiraju ship.
 | P3-09 | Accessibility (a11y) | 2-3w | Screen reader |
 | P3-10 | Documentation Gen | 1w | Auto-docs |
 | P3-11 | Plugin Marketplace | 4-6w | Store integration |
-| P3-12 | Template Gallery | 1-2w | Starter templates |
+| P3-12 | Template Gallery | ✅ DONE | 8 built-in templates, JSON-based |
 | P3-13 | Collaborative (ex P2-14) | 8-12w | CRDT, WebSocket |
 | P3-14 | Offline Mode | 2-3w | Offline-first |
 

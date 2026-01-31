@@ -1,0 +1,149 @@
+{
+  "id": "jackpot_network",
+  "name": "Jackpot Network",
+  "version": "1.0.0",
+  "category": "jackpot",
+  "description": "Progressive jackpot slot with 4-tier network jackpots. Random jackpot triggers with wheel bonus.",
+  "author": "FluxForge Studio",
+  "reelCount": 5,
+  "rowCount": 3,
+  "hasMegaways": false,
+  "symbols": [
+    {"id": "HP1", "type": "highPay", "tier": 1, "audioContexts": ["land", "win"], "description": "Premium Symbol 1"},
+    {"id": "HP2", "type": "highPay", "tier": 2, "audioContexts": ["land", "win"], "description": "Premium Symbol 2"},
+    {"id": "HP3", "type": "highPay", "tier": 3, "audioContexts": ["land", "win"], "description": "Premium Symbol 3"},
+    {"id": "MP1", "type": "mediumPay", "tier": 4, "audioContexts": ["land", "win"], "description": "Medium Symbol 1"},
+    {"id": "MP2", "type": "mediumPay", "tier": 5, "audioContexts": ["land", "win"], "description": "Medium Symbol 2"},
+    {"id": "LP1", "type": "lowPay", "tier": 6, "audioContexts": ["land"], "description": "Card A"},
+    {"id": "LP2", "type": "lowPay", "tier": 7, "audioContexts": ["land"], "description": "Card K"},
+    {"id": "LP3", "type": "lowPay", "tier": 8, "audioContexts": ["land"], "description": "Card Q"},
+    {"id": "LP4", "type": "lowPay", "tier": 9, "audioContexts": ["land"], "description": "Card J"},
+    {"id": "WILD", "type": "wild", "tier": 0, "audioContexts": ["land", "win", "expand"], "description": "Wild Symbol"},
+    {"id": "SCATTER", "type": "scatter", "tier": 0, "audioContexts": ["land", "win", "trigger"], "description": "Scatter Symbol"},
+    {"id": "JACKPOT", "type": "bonus", "tier": 0, "audioContexts": ["land", "trigger", "jackpot"], "description": "Jackpot Symbol"}
+  ],
+  "winTiers": [
+    {"tier": "tier1", "label": "Win", "threshold": 1.0, "volumeMultiplier": 0.75, "pitchOffset": 0.0, "rollupDurationMs": 1000, "hasScreenEffect": false},
+    {"tier": "tier2", "label": "Nice Win", "threshold": 5.0, "volumeMultiplier": 0.85, "pitchOffset": 0.0, "rollupDurationMs": 2000, "hasScreenEffect": false},
+    {"tier": "tier3", "label": "Big Win", "threshold": 15.0, "volumeMultiplier": 0.95, "pitchOffset": 0.0, "rollupDurationMs": 4000, "hasScreenEffect": true},
+    {"tier": "tier4", "label": "Super Win", "threshold": 30.0, "volumeMultiplier": 1.0, "pitchOffset": 0.5, "rollupDurationMs": 6000, "hasScreenEffect": true},
+    {"tier": "tier5", "label": "Mega Win", "threshold": 60.0, "volumeMultiplier": 1.1, "pitchOffset": 1.0, "rollupDurationMs": 10000, "hasScreenEffect": true},
+    {"tier": "tier6", "label": "Epic Win", "threshold": 100.0, "volumeMultiplier": 1.2, "pitchOffset": 1.5, "rollupDurationMs": 20000, "hasScreenEffect": true}
+  ],
+  "coreStages": [
+    {"id": "SPIN_START", "name": "Spin Start", "category": "spin", "priority": 80, "bus": "sfx", "isPooled": false, "isLooping": false},
+    {"id": "SPIN_END", "name": "Spin End", "category": "spin", "priority": 70, "bus": "sfx", "isPooled": false, "isLooping": false},
+    {"id": "WIN_EVAL", "name": "Win Evaluation", "category": "win", "priority": 60, "bus": "sfx", "isPooled": false, "isLooping": false},
+    {"id": "ROLLUP_START", "name": "Rollup Start", "category": "win", "priority": 55, "bus": "sfx", "isPooled": false, "isLooping": false},
+    {"id": "ROLLUP_TICK", "name": "Rollup Tick", "category": "win", "priority": 50, "bus": "sfx", "isPooled": true, "isLooping": false},
+    {"id": "ROLLUP_END", "name": "Rollup End", "category": "win", "priority": 55, "bus": "sfx", "isPooled": false, "isLooping": false},
+    {"id": "IDLE_LOOP", "name": "Idle Loop", "category": "ambient", "priority": 10, "bus": "music", "isPooled": false, "isLooping": true}
+  ],
+  "modules": [
+    {
+      "id": "jackpot",
+      "name": "Progressive Jackpot",
+      "type": "jackpot",
+      "description": "4-tier progressive jackpot with wheel bonus",
+      "stages": [
+        {"id": "JACKPOT_CHANCE", "name": "Jackpot Chance", "category": "feature", "priority": 90, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_TRIGGER", "name": "Jackpot Trigger", "category": "feature", "priority": 95, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_WHEEL_ENTER", "name": "Wheel Enter", "category": "feature", "priority": 90, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_WHEEL_MUSIC", "name": "Wheel Music", "category": "music", "priority": 25, "bus": "music", "isPooled": false, "isLooping": true},
+        {"id": "JACKPOT_WHEEL_SPIN", "name": "Wheel Spin", "category": "feature", "priority": 85, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_WHEEL_TICK", "name": "Wheel Tick", "category": "feature", "priority": 80, "bus": "sfx", "isPooled": true, "isLooping": false},
+        {"id": "JACKPOT_WHEEL_SLOW", "name": "Wheel Slow", "category": "feature", "priority": 85, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_WHEEL_STOP", "name": "Wheel Stop", "category": "feature", "priority": 90, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_MINI", "name": "Mini Jackpot", "category": "feature", "priority": 95, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_MINOR", "name": "Minor Jackpot", "category": "feature", "priority": 96, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_MAJOR", "name": "Major Jackpot", "category": "feature", "priority": 98, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_GRAND", "name": "Grand Jackpot", "category": "feature", "priority": 100, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_CELEBRATION", "name": "Jackpot Celebration", "category": "feature", "priority": 95, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "JACKPOT_EXIT", "name": "Jackpot Exit", "category": "feature", "priority": 85, "bus": "sfx", "isPooled": false, "isLooping": false}
+      ],
+      "conflictsWith": [],
+      "interactsWith": [],
+      "defaultConfig": {"tiers": ["Mini", "Minor", "Major", "Grand"], "triggerChance": 0.01}
+    },
+    {
+      "id": "free_spins",
+      "name": "Free Spins",
+      "type": "freeSpins",
+      "description": "Free spins with increased jackpot chance",
+      "stages": [
+        {"id": "FS_TRIGGER", "name": "Free Spins Trigger", "category": "feature", "priority": 85, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "FS_ENTER", "name": "Free Spins Enter", "category": "feature", "priority": 80, "bus": "sfx", "isPooled": false, "isLooping": false},
+        {"id": "FS_MUSIC", "name": "Free Spins Music", "category": "music", "priority": 20, "bus": "music", "isPooled": false, "isLooping": true},
+        {"id": "FS_SPIN", "name": "Free Spin Start", "category": "feature", "priority": 75, "bus": "sfx", "isPooled": true, "isLooping": false},
+        {"id": "FS_EXIT", "name": "Free Spins Exit", "category": "feature", "priority": 80, "bus": "sfx", "isPooled": false, "isLooping": false}
+      ],
+      "conflictsWith": [],
+      "interactsWith": ["jackpot"],
+      "defaultConfig": {"spins": 10, "jackpotChanceMultiplier": 2.0}
+    }
+  ],
+  "duckingRules": [
+    {"sourceBus": "sfx", "targetBus": "music", "duckAmountDb": -6.0, "attackMs": 50.0, "releaseMs": 500.0},
+    {"sourceBus": "wins", "targetBus": "music", "duckAmountDb": -12.0, "attackMs": 30.0, "releaseMs": 1500.0}
+  ],
+  "aleContexts": [
+    {
+      "id": "base_game",
+      "name": "Base Game",
+      "layers": [
+        {"index": 0, "assetPattern": "base_L1_*", "baseVolume": 0.7},
+        {"index": 1, "assetPattern": "base_L2_*", "baseVolume": 0.75},
+        {"index": 2, "assetPattern": "base_L3_*", "baseVolume": 0.8}
+      ],
+      "entryStages": ["SPIN_END"],
+      "exitStages": ["FS_ENTER", "JACKPOT_TRIGGER"]
+    },
+    {
+      "id": "jackpot_wheel",
+      "name": "Jackpot Wheel",
+      "layers": [
+        {"index": 0, "assetPattern": "jackpot_L1_*", "baseVolume": 0.85},
+        {"index": 1, "assetPattern": "jackpot_L2_*", "baseVolume": 0.9},
+        {"index": 2, "assetPattern": "jackpot_L3_*", "baseVolume": 0.95},
+        {"index": 3, "assetPattern": "jackpot_L4_*", "baseVolume": 1.0}
+      ],
+      "entryStages": ["JACKPOT_WHEEL_ENTER"],
+      "exitStages": ["JACKPOT_EXIT"]
+    },
+    {
+      "id": "free_spins",
+      "name": "Free Spins",
+      "layers": [
+        {"index": 0, "assetPattern": "fs_L1_*", "baseVolume": 0.8},
+        {"index": 1, "assetPattern": "fs_L2_*", "baseVolume": 0.85},
+        {"index": 2, "assetPattern": "fs_L3_*", "baseVolume": 0.9}
+      ],
+      "entryStages": ["FS_ENTER"],
+      "exitStages": ["FS_EXIT"]
+    }
+  ],
+  "winMultiplierRtpc": {
+    "name": "winMultiplier",
+    "min": 0.0,
+    "max": 1000.0,
+    "defaultValue": 0.0,
+    "volumeCurve": [
+      {"x": 0.0, "y": 0.7},
+      {"x": 0.1, "y": 0.85},
+      {"x": 0.5, "y": 0.95},
+      {"x": 1.0, "y": 1.0}
+    ],
+    "pitchCurve": [
+      {"x": 0.0, "y": 0.0},
+      {"x": 0.5, "y": 1.0},
+      {"x": 1.0, "y": 3.0}
+    ]
+  },
+  "mappingPatterns": [],
+  "metadata": {
+    "jackpotTiers": ["Mini", "Minor", "Major", "Grand"],
+    "jackpotSeeds": [50, 500, 5000, 50000],
+    "contributionRate": 0.02,
+    "volatility": "very-high"
+  }
+}
