@@ -58,6 +58,7 @@ import 'providers/slot_lab_project_provider.dart';
 import 'providers/ale_provider.dart';
 import 'providers/soundbank_provider.dart';
 import 'services/audio_asset_manager.dart';
+import 'services/event_registry.dart';
 import 'services/service_locator.dart';
 import 'services/lower_zone_persistence_service.dart';
 import 'services/stage_configuration_service.dart';
@@ -250,6 +251,9 @@ class FluxForgeApp extends StatelessWidget {
 
         // Soundbank Building System
         ChangeNotifierProvider(create: (_) => SoundbankProvider(NativeFFI.instance)),
+
+        // Event Registry (Stage → Audio mapping)
+        ChangeNotifierProvider.value(value: EventRegistry.instance),
       ],
       child: MaterialApp(
         title: 'FluxForge Studio',

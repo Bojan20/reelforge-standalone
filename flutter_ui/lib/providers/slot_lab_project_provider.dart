@@ -9,13 +9,21 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/slot_lab_models.dart';
+import '../models/win_tier_config.dart';
 import '../providers/ale_provider.dart';
 import '../providers/git_provider.dart';
 import '../services/gdd_import_service.dart';
 import '../services/stage_configuration_service.dart';
+import '../src/rust/native_ffi.dart';
 
 /// Provider for SlotLab V6 project state
 class SlotLabProjectProvider extends ChangeNotifier {
+  /// Constructor — initializes P5 win tier stages
+  SlotLabProjectProvider() {
+    // Register default win tier stages on construction
+    _syncWinTierStages();
+  }
+
   // Project metadata
   String _projectName = 'Untitled Project';
   bool _isDirty = false;
@@ -84,6 +92,16 @@ class SlotLabProjectProvider extends ChangeNotifier {
   GddGridConfig? _gridConfig;
 
   // ==========================================================================
+  // WIN TIER CONFIGURATION (P5)
+  // ==========================================================================
+
+  /// Complete win tier configuration (regular + big wins)
+  SlotWinConfiguration _winConfiguration = SlotWinConfiguration.defaultConfig();
+
+  /// Flag to track if win config was imported from GDD
+  bool _winConfigFromGdd = false;
+
+  // ==========================================================================
   // GETTERS
   // ==========================================================================
 
@@ -105,6 +123,27 @@ class SlotLabProjectProvider extends ChangeNotifier {
   GameDesignDocument? get importedGdd => _importedGdd;
   GddGridConfig? get gridConfig => _gridConfig;
   bool get hasImportedGdd => _importedGdd != null;
+
+  // Win Tier Configuration getters (P5)
+  SlotWinConfiguration get winConfiguration => _winConfiguration;
+  RegularWinTierConfig get regularWinConfig => _winConfiguration.regularWins;
+  BigWinConfig get bigWinConfig => _winConfiguration.bigWins;
+  bool get winConfigFromGdd => _winConfigFromGdd;
+
+  /// Get all win tier stage names (for UltimateAudioPanel)
+  List<String> get allWinTierStages => _winConfiguration.allStageNames;
+
+  /// Get regular win tier stages only
+  List<String> get regularWinStages =>
+      _winConfiguration.regularWins.tiers.map((t) => t.stageName).toList();
+
+  /// Get big win tier stages only
+  List<String> get bigWinStages => [
+    'BIG_WIN_INTRO',
+    ..._winConfiguration.bigWins.tiers.map((t) => t.stageName),
+    'BIG_WIN_END',
+    'BIG_WIN_FADE_OUT',
+  ];
 
   // UI state getters (SL-INT-P1.2, SL-INT-P1.4)
   String? get selectedEventId => _selectedEventId;
@@ -314,6 +353,15 @@ class SlotLabProjectProvider extends ChangeNotifier {
       _symbols = List.from(generatedSymbols);
       _symbolAudio = []; // Clear audio assignments when replacing symbols
       _syncSymbolStages();
+    }
+
+    // P5: Convert GDD win tiers to SlotWinConfiguration
+    if (gdd.math.winTiers.isNotEmpty) {
+      final winConfig = convertGddWinTiersToP5(gdd.math);
+      setWinConfigurationFromGdd(winConfig);
+      debugPrint('[SlotLabProject]   Win tiers: ${gdd.math.winTiers.length} (converted to P5)');
+      debugPrint('[SlotLabProject]     Regular tiers: ${winConfig.regularWins.tiers.length}');
+      debugPrint('[SlotLabProject]     Big win threshold: ${winConfig.bigWins.threshold}x');
     }
 
     debugPrint('[SlotLabProject] Imported GDD: ${gdd.name}');
@@ -658,6 +706,310 @@ class SlotLabProjectProvider extends ChangeNotifier {
       }
     }
     return result;
+  }
+
+  // ==========================================================================
+  // WIN TIER CONFIGURATION MANAGEMENT (P5)
+  // ==========================================================================
+
+  /// Set complete win tier configuration
+  void setWinConfiguration(SlotWinConfiguration config) {
+    _winConfiguration = config;
+    _winConfigFromGdd = false;
+    _syncWinTierStages();
+    _markDirty();
+    debugPrint('[SlotLabProject] Win configuration updated');
+    debugPrint('[SlotLabProject]   Regular tiers: ${config.regularWins.tiers.length}');
+    debugPrint('[SlotLabProject]   Big win threshold: ${config.bigWins.threshold}x');
+    debugPrint('[SlotLabProject]   Big win tiers: ${config.bigWins.tiers.length}');
+  }
+
+  /// Set win configuration from GDD import
+  void setWinConfigurationFromGdd(SlotWinConfiguration config) {
+    _winConfiguration = config;
+    _winConfigFromGdd = true;
+    _syncWinTierStages();
+    _markDirty();
+    debugPrint('[SlotLabProject] Win configuration imported from GDD');
+  }
+
+  /// Add a new regular win tier
+  void addRegularWinTier(WinTierDefinition tier) {
+    final currentTiers = List<WinTierDefinition>.from(_winConfiguration.regularWins.tiers);
+
+    // Check for ID collision
+    if (currentTiers.any((t) => t.tierId == tier.tierId)) {
+      debugPrint('[SlotLabProject] Warning: Tier ID ${tier.tierId} already exists');
+      return;
+    }
+
+    currentTiers.add(tier);
+    currentTiers.sort((a, b) => a.tierId.compareTo(b.tierId));
+
+    _winConfiguration = _winConfiguration.copyWith(
+      regularWins: _winConfiguration.regularWins.copyWith(tiers: currentTiers),
+    );
+    _winConfigFromGdd = false;
+    _syncWinTierStages();
+    _markDirty();
+    debugPrint('[SlotLabProject] Added regular win tier: ${tier.stageName}');
+  }
+
+  /// Update existing regular win tier
+  void updateRegularWinTier(int tierId, WinTierDefinition tier) {
+    final currentTiers = List<WinTierDefinition>.from(_winConfiguration.regularWins.tiers);
+    final index = currentTiers.indexWhere((t) => t.tierId == tierId);
+
+    if (index == -1) {
+      debugPrint('[SlotLabProject] Warning: Tier ID $tierId not found');
+      return;
+    }
+
+    currentTiers[index] = tier;
+
+    _winConfiguration = _winConfiguration.copyWith(
+      regularWins: _winConfiguration.regularWins.copyWith(tiers: currentTiers),
+    );
+    _winConfigFromGdd = false;
+    _syncWinTierStages();
+    _markDirty();
+    debugPrint('[SlotLabProject] Updated regular win tier: ${tier.stageName}');
+  }
+
+  /// Remove regular win tier
+  void removeRegularWinTier(int tierId) {
+    final currentTiers = List<WinTierDefinition>.from(_winConfiguration.regularWins.tiers);
+    final removed = currentTiers.where((t) => t.tierId == tierId).firstOrNull;
+
+    if (removed == null) {
+      debugPrint('[SlotLabProject] Warning: Tier ID $tierId not found');
+      return;
+    }
+
+    currentTiers.removeWhere((t) => t.tierId == tierId);
+
+    _winConfiguration = _winConfiguration.copyWith(
+      regularWins: _winConfiguration.regularWins.copyWith(tiers: currentTiers),
+    );
+    _winConfigFromGdd = false;
+    _syncWinTierStages();
+    _markDirty();
+    debugPrint('[SlotLabProject] Removed regular win tier: ${removed.stageName}');
+  }
+
+  /// Update big win tier
+  void updateBigWinTier(int tierId, BigWinTierDefinition tier) {
+    final currentTiers = List<BigWinTierDefinition>.from(_winConfiguration.bigWins.tiers);
+    final index = currentTiers.indexWhere((t) => t.tierId == tierId);
+
+    if (index == -1) {
+      debugPrint('[SlotLabProject] Warning: Big win tier ID $tierId not found');
+      return;
+    }
+
+    currentTiers[index] = tier;
+
+    _winConfiguration = _winConfiguration.copyWith(
+      bigWins: _winConfiguration.bigWins.copyWith(tiers: currentTiers),
+    );
+    _winConfigFromGdd = false;
+    _markDirty();
+    debugPrint('[SlotLabProject] Updated big win tier: ${tier.stageName}');
+  }
+
+  /// Update big win threshold
+  void setBigWinThreshold(double threshold) {
+    _winConfiguration = _winConfiguration.copyWith(
+      bigWins: _winConfiguration.bigWins.copyWith(threshold: threshold),
+    );
+    _winConfigFromGdd = false;
+    _markDirty();
+    debugPrint('[SlotLabProject] Big win threshold set to ${threshold}x');
+  }
+
+  /// Get win tier for a specific win amount and bet
+  /// Returns null if no win, or the tier definition
+  WinTierResult? getWinTierForAmount(double winAmount, double betAmount) {
+    if (winAmount <= 0 || betAmount <= 0) return null;
+
+    final multiplier = winAmount / betAmount;
+
+    // Check if it's a big win first
+    if (_winConfiguration.bigWins.isBigWin(winAmount, betAmount)) {
+      final maxTier = _winConfiguration.bigWins.getMaxTierForWin(winAmount, betAmount);
+      final bigTier = _winConfiguration.bigWins.tiers.firstWhere(
+        (t) => t.tierId == maxTier,
+        orElse: () => _winConfiguration.bigWins.tiers.first,
+      );
+      return WinTierResult(
+        isBigWin: true,
+        multiplier: multiplier,
+        regularTier: null,
+        bigWinTier: bigTier,
+        bigWinMaxTier: maxTier,
+      );
+    }
+
+    // Regular win
+    final regularTier = _winConfiguration.regularWins.getTierForWin(winAmount, betAmount);
+    if (regularTier != null) {
+      return WinTierResult(
+        isBigWin: false,
+        multiplier: multiplier,
+        regularTier: regularTier,
+        bigWinTier: null,
+        bigWinMaxTier: null,
+      );
+    }
+
+    return null;
+  }
+
+  /// Validate current win tier configuration
+  bool validateWinConfiguration() {
+    return _winConfiguration.regularWins.validate() &&
+           _winConfiguration.bigWins.validate();
+  }
+
+  /// Reset win configuration to defaults
+  void resetWinConfiguration() {
+    _winConfiguration = SlotWinConfiguration.defaultConfig();
+    _winConfigFromGdd = false;
+    _syncWinTierStages();
+    _markDirty();
+    debugPrint('[SlotLabProject] Win configuration reset to defaults');
+  }
+
+  /// Sync win tier stages to StageConfigurationService AND Rust engine
+  void _syncWinTierStages() {
+    // 1. Register all win tier stages with StageConfigurationService (Dart side)
+    StageConfigurationService.instance.registerWinTierStages(_winConfiguration);
+    final stages = _winConfiguration.allStageNames;
+    debugPrint('[SlotLabProject] Synced ${stages.length} win tier stages to StageConfigurationService');
+
+    // 2. Sync P5 win tier config to Rust engine (FFI)
+    _syncWinTierConfigToRust();
+  }
+
+  /// Sync P5 win tier config to Rust SlotLab engine
+  void _syncWinTierConfigToRust() {
+    try {
+      final ffi = NativeFFI.instance;
+
+      // Convert SlotWinConfiguration to Rust JSON format
+      final jsonConfig = _winConfiguration.toJson();
+
+      // Convert Dart model names to Rust model names:
+      // Dart: regularWins.tiers[].tierId, fromMultiplier, toMultiplier, displayLabel, rollupDurationMs, rollupTickRate
+      // Rust: regular_wins.tiers[].tier_id, from_multiplier, to_multiplier, display_label, rollup_duration_ms, rollup_tick_rate
+      final rustJson = _convertToRustJson(jsonConfig);
+      final jsonStr = _jsonEncode(rustJson);
+
+      final success = ffi.winTierSetConfigJson(jsonStr);
+      if (success) {
+        debugPrint('[SlotLabProject] ✅ P5 win tier config synced to Rust engine');
+      } else {
+        debugPrint('[SlotLabProject] ⚠️ Failed to sync P5 win tier config to Rust');
+      }
+    } catch (e) {
+      debugPrint('[SlotLabProject] ❌ Error syncing P5 win tier to Rust: $e');
+    }
+  }
+
+  /// Convert Dart JSON format to Rust JSON format (snake_case)
+  Map<String, dynamic> _convertToRustJson(Map<String, dynamic> dartJson) {
+    final regularWins = dartJson['regularWins'] as Map<String, dynamic>?;
+    final bigWins = dartJson['bigWins'] as Map<String, dynamic>?;
+
+    return {
+      'regular_wins': {
+        'tiers': (regularWins?['tiers'] as List?)?.map((t) => {
+          'tier_id': t['tierId'],
+          'from_multiplier': t['fromMultiplier'],
+          'to_multiplier': t['toMultiplier'],
+          'display_label': t['displayLabel'] ?? '',
+          'rollup_duration_ms': t['rollupDurationMs'] ?? 1000,
+          'rollup_tick_rate': t['rollupTickRate'] ?? 15,
+          'particle_burst_count': t['particleBurstCount'] ?? 0,
+        }).toList() ?? [],
+      },
+      'big_wins': {
+        'threshold': bigWins?['threshold'] ?? 20.0,
+        'intro_duration_ms': bigWins?['introDurationMs'] ?? 500,
+        'end_duration_ms': bigWins?['endDurationMs'] ?? 4000,
+        'fade_out_duration_ms': bigWins?['fadeOutDurationMs'] ?? 1000,
+        'tiers': (bigWins?['tiers'] as List?)?.map((t) => {
+          'tier_id': t['tierId'],
+          'from_multiplier': t['fromMultiplier'],
+          'to_multiplier': t['toMultiplier'],
+          'display_label': t['displayLabel'] ?? '',
+          'duration_ms': t['durationMs'] ?? 4000,
+          'rollup_tick_rate': t['rollupTickRate'] ?? 10,
+          'particle_burst_count': t['particleBurstCount'] ?? 20,
+        }).toList() ?? [],
+      },
+    };
+  }
+
+  /// Simple JSON encode without importing dart:convert (already in scope via other imports)
+  String _jsonEncode(Map<String, dynamic> map) {
+    // Use the same encoder as toJsonString
+    return _winConfiguration.toJsonString().isNotEmpty
+        ? _encodeMap(map)
+        : '{}';
+  }
+
+  String _encodeMap(dynamic value) {
+    if (value == null) return 'null';
+    if (value is bool) return value.toString();
+    if (value is num) return value.toString();
+    if (value is String) return '"${value.replaceAll('"', '\\"')}"';
+    if (value is List) {
+      return '[${value.map(_encodeMap).join(',')}]';
+    }
+    if (value is Map) {
+      final entries = value.entries.map((e) => '"${e.key}":${_encodeMap(e.value)}');
+      return '{${entries.join(',')}}';
+    }
+    return '"$value"';
+  }
+
+  /// Apply a win tier preset configuration
+  void applyWinTierPreset(SlotWinConfiguration preset) {
+    _winConfiguration = preset;
+    _winConfigFromGdd = false;
+    _syncWinTierStages();
+    _markDirty();
+    debugPrint('[SlotLabProject] Applied win tier preset');
+    debugPrint('[SlotLabProject]   Regular tiers: ${preset.regularWins.tiers.length}');
+    debugPrint('[SlotLabProject]   Big win threshold: ${preset.bigWins.threshold}x');
+    debugPrint('[SlotLabProject]   Big win tiers: ${preset.bigWins.tiers.length}');
+  }
+
+  /// Export win configuration to JSON string
+  String exportWinConfigurationJson() {
+    return _winConfiguration.toJsonString();
+  }
+
+  /// Import win configuration from JSON string
+  /// Returns true if import was successful
+  bool importWinConfigurationJson(String jsonString) {
+    try {
+      final config = SlotWinConfiguration.fromJsonString(jsonString);
+      if (!config.regularWins.validate() || !config.bigWins.validate()) {
+        debugPrint('[SlotLabProject] Import failed: Invalid configuration');
+        return false;
+      }
+      _winConfiguration = config;
+      _winConfigFromGdd = false;
+      _syncWinTierStages();
+      _markDirty();
+      debugPrint('[SlotLabProject] Win configuration imported from JSON');
+      return true;
+    } catch (e) {
+      debugPrint('[SlotLabProject] Import failed: $e');
+      return false;
+    }
   }
 
   // ==========================================================================

@@ -1334,7 +1334,7 @@ final stateGroups = sl<StateGroupsProvider>();
 | 3 | `UnifiedPlaybackController`, `AudioPlaybackService`, `AudioPool`, `SlotLabTrackBridge`, `SessionPersistenceService` | Playback |
 | 4 | `DuckingService`, `RtpcModulationService`, `ContainerService`, `DuckingPreviewService` | Audio processing |
 | 5 | `StateGroupsProvider`, `SwitchGroupsProvider`, `RtpcSystemProvider`, `DuckingSystemProvider`, `EventSystemProvider`, `CompositeEventSystemProvider` | Middleware subsystems |
-| 5.5 | `SlotLabProjectProvider` | SlotLab V6 project state (symbols, contexts, layers) |
+| 5.5 | `SlotLabProjectProvider` | SlotLab V6 project state (symbols, contexts, layers, **P5 win tiers**) |
 | 6 | `BusHierarchyProvider`, `AuxSendProvider` | Bus routing subsystems |
 | 7 | `StageIngestProvider` | Stage Ingest (engine integration) |
 | 8 | `WorkspacePresetService` | Layout presets (M3.2) |
@@ -3507,7 +3507,30 @@ class StageDefinition {
 - `_stageToBus()` → `StageConfigurationService.instance.getBus()`
 - `_stageToIntent()` → `StageConfigurationService.instance.getSpatialIntent()`
 
+**P5 Win Tier Integration (2026-01-31):**
+```dart
+// Register all P5 win tier stages
+void registerWinTierStages(SlotWinConfiguration config);
+
+// Check if stage is from P5 system
+bool isWinTierGenerated(String stage);
+
+// Get all P5 stage names
+Set<String> get allWinTierStageNames;
+```
+
+**P5 Registered Stages:**
+| Stage Category | Priority | Pooled | Description |
+|----------------|----------|--------|-------------|
+| WIN_LOW..WIN_6 | 45-80 | ❌ | Regular win tiers |
+| WIN_PRESENT_* | 50-85 | ❌ | Win presentation |
+| ROLLUP_TICK_* | 40 | ✅ | Rapid-fire rollup |
+| BIG_WIN_INTRO | 85 | ❌ | Big win start |
+| BIG_WIN_TIER_1..5 | 82-90 | ❌ | Big win tiers |
+| BIG_WIN_ROLLUP_TICK | 60 | ✅ | Big win rollup |
+
 **Initialization:** `main.dart` — `StageConfigurationService.instance.init();`
+**P5 Auto-Sync:** `SlotLabProjectProvider()` constructor calls `_syncWinTierStages()`
 
 ---
 
@@ -6444,6 +6467,92 @@ ANTICIPATION_TENSION_R{reel}_L{level}
 | ULTRA | 100x+ | WIN_PRESENT_ULTRA | "ULTRA WIN!" |
 
 **Industry Sources:** Wizard of Oz Slots (Zynga), Know Your Slots, NetEnt, Pragmatic Play
+
+### P5 Win Tier System (2026-01-31) ✅ COMPLETE
+
+Konfigurisljiv win tier sistem sa 100% dynamic labels — NO hardcoded "MEGA WIN!" etc.
+
+**Arhitektura:**
+```
+Regular Wins (< threshold):    Big Wins (≥ threshold):
+├── WIN_LOW   (< 1x)           ├── BIG_WIN_TIER_1 (20x-50x)
+├── WIN_EQUAL (= 1x)           ├── BIG_WIN_TIER_2 (50x-100x)
+├── WIN_1     (1x-2x)          ├── BIG_WIN_TIER_3 (100x-250x)
+├── WIN_2     (2x-5x)          ├── BIG_WIN_TIER_4 (250x-500x)
+├── WIN_3     (5x-8x)          └── BIG_WIN_TIER_5 (500x+)
+├── WIN_4     (8x-12x)
+├── WIN_5     (12x-16x)
+└── WIN_6     (16x-20x)
+```
+
+**Key Files:**
+
+| File | LOC | Description |
+|------|-----|-------------|
+| `flutter_ui/lib/models/win_tier_config.dart` | ~1,350 | All data models + 4 presets |
+| `flutter_ui/lib/widgets/slot_lab/win_tier_editor_panel.dart` | ~1,225 | UI editor panel |
+| `flutter_ui/lib/providers/slot_lab_project_provider.dart` | +225 | Provider integration + constructor |
+| `flutter_ui/lib/services/gdd_import_service.dart` | +180 | GDD import conversion |
+| `flutter_ui/lib/services/stage_configuration_service.dart` | +120 | Stage registration |
+| `crates/rf-slot-lab/src/model/win_tiers.rs` | ~1,030 | Rust engine + 12 tests |
+| `flutter_ui/test/models/win_tier_config_test.dart` | ~350 | 25 unit tests |
+
+**Presets (SlotWinConfigurationPresets):**
+- `standard` — Balanced for most slots (7 regular tiers, 20x threshold)
+- `highVolatility` — Higher thresholds, longer celebrations (25x threshold)
+- `jackpotFocus` — Emphasis on big wins, streamlined regular tiers (15x threshold)
+- `mobileOptimized` — Faster celebrations for mobile sessions (20x threshold)
+
+**Provider API:**
+```dart
+// Get current configuration
+final config = projectProvider.winConfiguration;
+final regularTiers = projectProvider.regularWinConfig;
+final bigWinConfig = projectProvider.bigWinConfig;
+
+// Apply preset
+projectProvider.applyWinTierPreset(SlotWinConfigurationPresets.highVolatility);
+
+// Export/Import JSON
+final json = projectProvider.exportWinConfigurationJson();
+projectProvider.importWinConfigurationJson(json);
+
+// Evaluate win
+final result = projectProvider.getWinTierForAmount(winAmount, betAmount);
+if (result?.isBigWin == true) {
+  // Trigger big win celebration
+}
+```
+
+**GDD Import Integration:**
+```dart
+// Automatic conversion from GDD volatility
+final winConfig = convertGddWinTiersToP5(gdd.math);
+// - very_high/extreme → 25x threshold
+// - high → 20x threshold
+// - medium → 15x threshold
+// - low → 10x threshold
+```
+
+**Dynamic Stage Names:**
+```dart
+// Regular: WIN_LOW, WIN_EQUAL, WIN_1, WIN_2, ...
+tier.stageName           // "WIN_3"
+tier.presentStageName    // "WIN_PRESENT_3"
+tier.rollupStartStageName // "ROLLUP_START_3"
+
+// Big Win: BIG_WIN_INTRO, BIG_WIN_TIER_1, ...
+bigTier.stageName        // "BIG_WIN_TIER_2"
+bigTier.presentStageName // "BIG_WIN_PRESENT_2"
+```
+
+**Stage Registration (2026-01-31):**
+- `SlotLabProjectProvider()` constructor auto-registers all P5 stages
+- `_syncWinTierStages()` calls `StageConfigurationService.registerWinTierStages()`
+- Pooled stages: `ROLLUP_TICK_*`, `BIG_WIN_ROLLUP_TICK` (rapid-fire)
+- Priority range: 40-90 based on tier importance
+
+**Dokumentacija:** `.claude/specs/WIN_TIER_SYSTEM_SPEC.md`, `.claude/tasks/P5_WIN_TIER_COMPLETE_2026_01_31.md`
 
 ### Big Win Celebration System (2026-01-25) ✅
 

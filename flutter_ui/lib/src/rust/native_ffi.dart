@@ -15812,6 +15812,87 @@ extension SlotLabFFI on NativeFFI {
     }
   }
 
+  /// Execute a spin with P5 Win Tier evaluation
+  ///
+  /// This uses the dynamic, user-configurable P5 win tier config
+  /// instead of the hardcoded legacy thresholds.
+  /// Returns spin ID (same as regular spin).
+  int slotLabSpinP5() {
+    try {
+      final fn = _lib.lookupFunction<Uint64 Function(), int Function()>(
+        'slot_lab_spin_p5',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabSpinP5 error: $e');
+      return 0;
+    }
+  }
+
+  /// Execute a forced spin with P5 Win Tier evaluation
+  ///
+  /// Combines forced outcome with P5 win tier config evaluation.
+  int slotLabSpinForcedP5(ForcedOutcome outcome) {
+    try {
+      final fn = _lib.lookupFunction<Uint64 Function(Int32), int Function(int)>(
+        'slot_lab_spin_forced_p5',
+      );
+      return fn(outcome.value);
+    } catch (e) {
+      print('[SlotLab] slotLabSpinForcedP5 error: $e');
+      return 0;
+    }
+  }
+
+  /// Get last spin's P5 tier evaluation result as JSON
+  ///
+  /// Returns:
+  /// {
+  ///   "is_big_win": bool,
+  ///   "multiplier": double,
+  ///   "regular_tier_id": int|null,
+  ///   "big_win_max_tier": int|null,
+  ///   "primary_stage": string,
+  ///   "display_label": string,
+  ///   "rollup_duration_ms": int
+  /// }
+  Map<String, dynamic>? slotLabGetLastSpinP5TierJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_get_last_spin_p5_tier_json',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      if (json.isEmpty || json == '{}') return null;
+
+      return jsonDecode(json) as Map<String, dynamic>;
+    } catch (e) {
+      print('[SlotLab] slotLabGetLastSpinP5TierJson error: $e');
+      return null;
+    }
+  }
+
+  /// Check if P5 win tier system is enabled
+  bool slotLabIsP5WinTierEnabled() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_is_p5_win_tier_enabled',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[SlotLab] slotLabIsP5WinTierEnabled error: $e');
+      return false;
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // RESULT RETRIEVAL
   // ═══════════════════════════════════════════════════════════════════════
@@ -16958,6 +17039,333 @@ extension SlotLabFFI on NativeFFI {
     } catch (e) {
       print('[Cascade] cascadeGetStateJson error: $e');
       return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WIN TIER CONFIGURATION (P5)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set complete win tier configuration from JSON
+  ///
+  /// JSON structure:
+  /// {
+  ///   "regular_wins": {
+  ///     "config_id": "default",
+  ///     "name": "Standard",
+  ///     "tiers": [
+  ///       {"tier_id": -1, "from_multiplier": 0.0, "to_multiplier": 1.0, "display_label": "", ...},
+  ///       {"tier_id": 0, "from_multiplier": 1.0, "to_multiplier": 1.001, "display_label": "PUSH", ...},
+  ///       {"tier_id": 1, "from_multiplier": 1.001, "to_multiplier": 2.0, "display_label": "WIN", ...},
+  ///       ...
+  ///     ]
+  ///   },
+  ///   "big_wins": {
+  ///     "threshold": 20.0,
+  ///     "intro_duration_ms": 500,
+  ///     "end_duration_ms": 4000,
+  ///     "fade_out_duration_ms": 1000,
+  ///     "tiers": [
+  ///       {"tier_id": 1, "from_multiplier": 20.0, "to_multiplier": 50.0, "duration_ms": 4000, ...},
+  ///       ...
+  ///     ]
+  ///   }
+  /// }
+  bool winTierSetConfigJson(String json) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_lab_win_tier_set_config_json');
+
+      final jsonPtr = json.toNativeUtf8();
+      final result = fn(jsonPtr);
+      calloc.free(jsonPtr);
+
+      return result == 1;
+    } catch (e) {
+      print('[WinTier] winTierSetConfigJson error: $e');
+      return false;
+    }
+  }
+
+  /// Get current win tier configuration as JSON
+  String? winTierGetConfigJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_win_tier_get_config_json',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return json;
+    } catch (e) {
+      print('[WinTier] winTierGetConfigJson error: $e');
+      return null;
+    }
+  }
+
+  /// Evaluate win amount and get tier result
+  ///
+  /// Returns JSON with:
+  /// {
+  ///   "is_big_win": bool,
+  ///   "multiplier": double,
+  ///   "regular_tier_id": int|null,
+  ///   "big_win_max_tier": int|null,
+  ///   "primary_stage": string,
+  ///   "display_label": string,
+  ///   "rollup_duration_ms": int
+  /// }
+  Map<String, dynamic>? winTierEvaluate(double winAmount, double betAmount) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Double, Double),
+          Pointer<Utf8> Function(double, double)
+      >('slot_lab_win_tier_evaluate');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn(winAmount, betAmount);
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return jsonDecode(json) as Map<String, dynamic>;
+    } catch (e) {
+      print('[WinTier] winTierEvaluate error: $e');
+      return null;
+    }
+  }
+
+  /// Get big win threshold multiplier
+  double winTierGetBigWinThreshold() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_win_tier_get_big_win_threshold',
+      );
+      return fn();
+    } catch (e) {
+      print('[WinTier] winTierGetBigWinThreshold error: $e');
+      return 20.0;
+    }
+  }
+
+  /// Set big win threshold multiplier
+  bool winTierSetBigWinThreshold(double threshold) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Double),
+          int Function(double)
+      >('slot_lab_win_tier_set_big_win_threshold');
+
+      return fn(threshold) == 1;
+    } catch (e) {
+      print('[WinTier] winTierSetBigWinThreshold error: $e');
+      return false;
+    }
+  }
+
+  /// Get number of regular win tiers
+  int winTierRegularCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+        'slot_lab_win_tier_regular_count',
+      );
+      return fn();
+    } catch (e) {
+      print('[WinTier] winTierRegularCount error: $e');
+      return 0;
+    }
+  }
+
+  /// Get number of big win tiers
+  int winTierBigCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+        'slot_lab_win_tier_big_count',
+      );
+      return fn();
+    } catch (e) {
+      print('[WinTier] winTierBigCount error: $e');
+      return 0;
+    }
+  }
+
+  /// Add a regular tier
+  bool winTierAddRegular(String tierJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_lab_win_tier_add_regular');
+
+      final jsonPtr = tierJson.toNativeUtf8();
+      final result = fn(jsonPtr);
+      calloc.free(jsonPtr);
+
+      return result == 1;
+    } catch (e) {
+      print('[WinTier] winTierAddRegular error: $e');
+      return false;
+    }
+  }
+
+  /// Update a regular tier
+  bool winTierUpdateRegular(int tierId, String tierJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Int32, Pointer<Utf8>),
+          int Function(int, Pointer<Utf8>)
+      >('slot_lab_win_tier_update_regular');
+
+      final jsonPtr = tierJson.toNativeUtf8();
+      final result = fn(tierId, jsonPtr);
+      calloc.free(jsonPtr);
+
+      return result == 1;
+    } catch (e) {
+      print('[WinTier] winTierUpdateRegular error: $e');
+      return false;
+    }
+  }
+
+  /// Remove a regular tier
+  bool winTierRemoveRegular(int tierId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Int32),
+          int Function(int)
+      >('slot_lab_win_tier_remove_regular');
+
+      return fn(tierId) == 1;
+    } catch (e) {
+      print('[WinTier] winTierRemoveRegular error: $e');
+      return false;
+    }
+  }
+
+  /// Update a big win tier
+  bool winTierUpdateBig(int tierId, String tierJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint32, Pointer<Utf8>),
+          int Function(int, Pointer<Utf8>)
+      >('slot_lab_win_tier_update_big');
+
+      final jsonPtr = tierJson.toNativeUtf8();
+      final result = fn(tierId, jsonPtr);
+      calloc.free(jsonPtr);
+
+      return result == 1;
+    } catch (e) {
+      print('[WinTier] winTierUpdateBig error: $e');
+      return false;
+    }
+  }
+
+  /// Get all stage names for win tier audio assignment
+  List<String> winTierGetAllStageNames() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_win_tier_get_all_stage_names',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return [];
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      final list = jsonDecode(json) as List;
+      return list.cast<String>();
+    } catch (e) {
+      print('[WinTier] winTierGetAllStageNames error: $e');
+      return [];
+    }
+  }
+
+  /// Reset win tier configuration to defaults
+  void winTierResetToDefaults() {
+    try {
+      final fn = _lib.lookupFunction<Void Function(), void Function()>(
+        'slot_lab_win_tier_reset_to_defaults',
+      );
+      fn();
+    } catch (e) {
+      print('[WinTier] winTierResetToDefaults error: $e');
+    }
+  }
+
+  /// Validate win tier configuration
+  bool winTierValidate() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_win_tier_validate',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[WinTier] winTierValidate error: $e');
+      return false;
+    }
+  }
+
+  /// Get validation errors
+  List<String> winTierGetValidationErrors() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_win_tier_get_validation_errors',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return [];
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      final list = jsonDecode(json) as List;
+      return list.cast<String>();
+    } catch (e) {
+      print('[WinTier] winTierGetValidationErrors error: $e');
+      return [];
+    }
+  }
+
+  /// Set big win durations
+  bool winTierSetBigWinDurations({
+    int? introDurationMs,
+    int? endDurationMs,
+    int? fadeOutDurationMs,
+  }) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint32, Uint32, Uint32),
+          int Function(int, int, int)
+      >('slot_lab_win_tier_set_big_win_durations');
+
+      return fn(
+        introDurationMs ?? 0,
+        endDurationMs ?? 0,
+        fadeOutDurationMs ?? 0,
+      ) == 1;
+    } catch (e) {
+      print('[WinTier] winTierSetBigWinDurations error: $e');
+      return false;
     }
   }
 

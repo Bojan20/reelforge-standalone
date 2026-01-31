@@ -13,6 +13,7 @@ library;
 
 import 'package:flutter/foundation.dart';
 import '../models/slot_lab_models.dart';
+import '../models/win_tier_config.dart' show SlotWinConfiguration, BigWinConfig;
 import '../spatial/auto_spatial.dart' show SpatialBus;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -268,6 +269,146 @@ class StageConfigurationService extends ChangeNotifier {
     if (_customStages.remove(normalized) != null) {
       notifyListeners();
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P5 WIN TIER STAGE GENERATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Track which stages were generated from win tier config (for cleanup)
+  final Set<String> _winTierGeneratedStages = {};
+
+  /// Register all stages from a win tier configuration (P5 system)
+  ///
+  /// Generates stages like:
+  /// - WIN_LOW, WIN_EQUAL, WIN_1..6 — Regular win tiers
+  /// - WIN_PRESENT_LOW, WIN_PRESENT_1..6 — Win presentation
+  /// - ROLLUP_START_*, ROLLUP_TICK_*, ROLLUP_END_* — Rollup stages
+  /// - BIG_WIN_INTRO, BIG_WIN_TIER_1..5, BIG_WIN_END — Big win celebration
+  void registerWinTierStages(SlotWinConfiguration config) {
+    // Clear previous win tier stages
+    for (final stageName in _winTierGeneratedStages) {
+      _customStages.remove(stageName);
+    }
+    _winTierGeneratedStages.clear();
+
+    // Register regular win tier stages
+    for (final tier in config.regularWins.tiers) {
+      // Main tier stage (WIN_LOW, WIN_1, etc.)
+      _registerWinStage(
+        name: tier.stageName,
+        category: StageCategory.win,
+        priority: 50 + tier.tierId.clamp(-1, 6) * 5, // Higher tier = higher priority
+        description: 'Regular win tier: ${tier.tierId == -1 ? "LOW" : tier.tierId == 0 ? "EQUAL" : tier.tierId.toString()}',
+      );
+
+      // Presentation stage
+      _registerWinStage(
+        name: tier.presentStageName,
+        category: StageCategory.win,
+        priority: 55 + tier.tierId.clamp(-1, 6) * 5,
+        description: 'Win presentation for tier ${tier.tierId}',
+      );
+
+      // Rollup stages (not for WIN_LOW which is instant)
+      if (tier.rollupStartStageName != null) {
+        _registerWinStage(
+          name: tier.rollupStartStageName!,
+          category: StageCategory.win,
+          priority: 45,
+          description: 'Rollup start for tier ${tier.tierId}',
+        );
+        _registerWinStage(
+          name: tier.rollupTickStageName!,
+          category: StageCategory.win,
+          priority: 40,
+          isPooled: true, // Rapid-fire event
+          description: 'Rollup tick for tier ${tier.tierId}',
+        );
+        _registerWinStage(
+          name: tier.rollupEndStageName!,
+          category: StageCategory.win,
+          priority: 45,
+          description: 'Rollup end for tier ${tier.tierId}',
+        );
+      }
+    }
+
+    // Register big win stages
+    _registerWinStage(
+      name: BigWinConfig.introStageName, // BIG_WIN_INTRO
+      category: StageCategory.win,
+      priority: 85,
+      ducksMusic: true,
+      description: 'Big win intro (threshold: ${config.bigWins.threshold}x)',
+    );
+
+    for (final tier in config.bigWins.tiers) {
+      _registerWinStage(
+        name: tier.stageName, // BIG_WIN_TIER_1..5
+        category: StageCategory.win,
+        priority: 80 + tier.tierId * 2, // Higher tier = higher priority
+        ducksMusic: true,
+        description: 'Big win tier ${tier.tierId}: ${tier.fromMultiplier}x-${tier.toMultiplier}x',
+      );
+    }
+
+    _registerWinStage(
+      name: BigWinConfig.endStageName, // BIG_WIN_END
+      category: StageCategory.win,
+      priority: 75,
+      description: 'Big win celebration end',
+    );
+
+    _registerWinStage(
+      name: BigWinConfig.fadeOutStageName, // BIG_WIN_FADE_OUT
+      category: StageCategory.win,
+      priority: 70,
+      description: 'Big win fade out transition',
+    );
+
+    _registerWinStage(
+      name: BigWinConfig.rollupTickStageName, // BIG_WIN_ROLLUP_TICK
+      category: StageCategory.win,
+      priority: 60,
+      isPooled: true, // Rapid-fire event
+      description: 'Big win rollup tick',
+    );
+
+    notifyListeners();
+    debugPrint('[StageConfig] Registered ${_winTierGeneratedStages.length} P5 win tier stages');
+  }
+
+  /// Helper to register a single win stage
+  void _registerWinStage({
+    required String name,
+    required StageCategory category,
+    required int priority,
+    bool isPooled = false,
+    bool ducksMusic = false,
+    String? description,
+  }) {
+    final def = StageDefinition(
+      name: name,
+      category: category,
+      priority: priority,
+      bus: SpatialBus.sfx,
+      spatialIntent: 'win_celebration',
+      isPooled: isPooled,
+      isLooping: false,
+      ducksMusic: ducksMusic,
+      description: description ?? 'P5 win tier stage',
+    );
+    _customStages[name] = def;
+    _winTierGeneratedStages.add(name);
+  }
+
+  /// Get all win tier generated stage names
+  Set<String> get allWinTierStageNames => Set.unmodifiable(_winTierGeneratedStages);
+
+  /// Check if a stage was generated from win tier config
+  bool isWinTierGenerated(String stage) {
+    return _winTierGeneratedStages.contains(stage.toUpperCase());
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

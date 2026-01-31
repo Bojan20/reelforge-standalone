@@ -359,7 +359,7 @@ impl SpinResult {
         self
     }
 
-    /// Set big win tier based on ratio
+    /// Set big win tier based on ratio (LEGACY - uses hardcoded thresholds)
     pub fn with_big_win_tier(mut self, thresholds: &crate::config::WinTierThresholds) -> Self {
         if self.win_ratio >= thresholds.ultra_win {
             self.big_win_tier = Some(BigWinTier::UltraWin);
@@ -373,6 +373,42 @@ impl SpinResult {
             self.big_win_tier = Some(BigWinTier::Win);
         }
         self
+    }
+
+    /// Set win tier using P5 SlotWinConfig (dynamic, user-configurable)
+    ///
+    /// This replaces the legacy `with_big_win_tier` when P5 config is available.
+    /// Returns the P5 `WinTierResult` which contains:
+    /// - `is_big_win`: whether win qualifies for big win celebration
+    /// - `regular_tier_id`: tier ID for regular wins (-1=LOW, 0=EQUAL, 1-6)
+    /// - `big_win_max_tier`: max big win tier reached (1-5)
+    /// - `primary_stage`: stage name to trigger
+    /// - `display_label`: user-editable display label
+    /// - `rollup_duration_ms`: rollup animation duration
+    pub fn with_p5_win_tier(mut self, config: &crate::model::SlotWinConfig) -> (Self, crate::model::WinTierResult) {
+        let result = config.evaluate(self.total_win, self.bet);
+
+        // Map P5 result to legacy BigWinTier for backwards compatibility
+        if result.is_big_win {
+            // Map big win max tier to legacy enum
+            self.big_win_tier = match result.big_win_max_tier {
+                Some(5) => Some(BigWinTier::UltraWin),
+                Some(4) => Some(BigWinTier::EpicWin),
+                Some(3) => Some(BigWinTier::MegaWin),
+                Some(2) => Some(BigWinTier::BigWin),
+                Some(1) => Some(BigWinTier::BigWin),
+                _ => Some(BigWinTier::BigWin),
+            };
+        } else if self.total_win > 0.0 {
+            self.big_win_tier = Some(BigWinTier::Win);
+        }
+
+        // Set win tier name from P5 result
+        if !result.primary_stage.is_empty() && result.primary_stage != "NO_WIN" {
+            self.win_tier_name = Some(result.primary_stage.clone());
+        }
+
+        (self, result)
     }
 
     /// Check if this is a win

@@ -27,7 +27,7 @@ import '../../providers/slot_lab_project_provider.dart';
 import '../../providers/middleware_provider.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../providers/mixer_dsp_provider.dart';
-import '../../src/rust/native_ffi.dart';
+import '../../src/rust/native_ffi.dart' show NativeFFI, SlotLabStageEvent, VolatilityPreset, TimingProfileType, VoicePoolFFI;
 import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
 import '../../models/middleware_models.dart' show ActionType, CrossfadeCurve;
 import '../../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
@@ -212,61 +212,81 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: kLowerZoneAnimationDuration,
-      height: widget.controller.totalHeight,
-      decoration: const BoxDecoration(
-        color: LowerZoneColors.bgDeep,
-        border: Border(
-          top: BorderSide(color: LowerZoneColors.border, width: 1),
-        ),
-      ),
-      clipBehavior: Clip.hardEdge, // Prevent visual overflow
-      child: Column(
-        // NOTE: Do NOT use mainAxisSize.min — AnimatedContainer has fixed height
-        // and we want Column to fill it completely
+    // P0 FIX: When collapsed, total height = 4 (resize) + 32 (context bar) = 36px
+    final isCollapsed = !widget.controller.isExpanded;
+    final totalHeight = widget.controller.totalHeight;
+
+    // P0 CRITICAL FIX: Use Stack to place border OUTSIDE the content area
+    // This prevents the 1px border from causing overflow
+    return SizedBox(
+      height: totalHeight,
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
         children: [
-          // Resize handle (fixed: 4px)
-          _buildResizeHandle(),
-          // Context bar (fixed: 60px) with shortcuts help button
-          Row(
-            children: [
-              Expanded(
-                child: LowerZoneContextBar(
-                  superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
-                  superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
-                  selectedSuperTab: widget.controller.superTab.index,
-                  subTabLabels: widget.controller.subTabLabels,
-                  selectedSubTab: widget.controller.currentSubTabIndex,
-                  accentColor: widget.controller.accentColor,
-                  isExpanded: widget.controller.isExpanded,
-                  onSuperTabSelected: widget.controller.setSuperTabIndex,
-                  onSubTabSelected: widget.controller.setSubTabIndex,
-                  onToggle: widget.controller.toggle,
-                ),
-              ),
-              // P0.3: Keyboard shortcuts help button
-              _buildShortcutsHelpButton(),
-            ],
-          ),
-          // Content panel (only when expanded)
-          if (widget.controller.isExpanded)
-            Expanded(
-              child: Column(
-                // NOTE: Do NOT use mainAxisSize.min here — this Column is inside
-                // Expanded and needs to fill available space for inner Expanded to work
-                children: [
-                  // Spin Control Bar (fixed: 32px)
-                  _buildSpinControlBar(),
-                  // Content panel (flexible)
-                  Expanded(
-                    child: ClipRect(child: _buildContentPanel()),
+          // Main content (fills entire height)
+          AnimatedContainer(
+            duration: kLowerZoneAnimationDuration,
+            height: totalHeight,
+            color: LowerZoneColors.bgDeep,
+            clipBehavior: Clip.hardEdge,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Resize handle (fixed: 4px)
+                _buildResizeHandle(),
+                // Context bar (dynamic: 60px expanded, 32px collapsed) with shortcuts help button
+                SizedBox(
+                  height: isCollapsed ? kContextBarCollapsedHeight : kContextBarHeight,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: LowerZoneContextBar(
+                          superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
+                          superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
+                          selectedSuperTab: widget.controller.superTab.index,
+                          subTabLabels: widget.controller.subTabLabels,
+                          selectedSubTab: widget.controller.currentSubTabIndex,
+                          accentColor: widget.controller.accentColor,
+                          isExpanded: widget.controller.isExpanded,
+                          onSuperTabSelected: widget.controller.setSuperTabIndex,
+                          onSubTabSelected: widget.controller.setSubTabIndex,
+                          onToggle: widget.controller.toggle,
+                        ),
+                      ),
+                      // P0.3: Keyboard shortcuts help button (adapts to context bar height)
+                      _buildShortcutsHelpButton(),
+                    ],
                   ),
-                  // Action strip (fixed: 36px)
-                  _buildActionStrip(),
-                ],
-              ),
+                ),
+                // Content panel (only when expanded)
+                if (!isCollapsed)
+                  Expanded(
+                    child: Column(
+                      children: [
+                        // Spin Control Bar (fixed: 32px)
+                        _buildSpinControlBar(),
+                        // Content panel (flexible)
+                        Expanded(
+                          child: ClipRect(child: _buildContentPanel()),
+                        ),
+                        // Action strip (fixed: 36px)
+                        _buildActionStrip(),
+                      ],
+                    ),
+                  ),
+              ],
             ),
+          ),
+          // Top border line - positioned at top, doesn't affect layout
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 1,
+              color: LowerZoneColors.border,
+            ),
+          ),
         ],
       ),
     );
@@ -297,28 +317,39 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// P0.3: Keyboard shortcuts help button
+  /// P0.3: Keyboard shortcuts help button (adapts to collapsed/expanded state)
   Widget _buildShortcutsHelpButton() {
-    return Tooltip(
-      message: 'Keyboard Shortcuts (?)',
-      child: GestureDetector(
-        onTap: () => KeyboardShortcutsOverlay.show(context),
-        child: Container(
-          width: 28,
-          height: 28,
-          margin: const EdgeInsets.only(right: 8, top: 2),
-          decoration: BoxDecoration(
-            color: LowerZoneColors.bgMid,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: LowerZoneColors.border),
-          ),
-          child: const Center(
-            child: Text(
-              '?',
-              style: TextStyle(
-                color: LowerZoneColors.textSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+    // Smaller button when collapsed to fit in 32px height
+    final isCollapsed = !widget.controller.isExpanded;
+    final buttonSize = isCollapsed ? 22.0 : 26.0;
+    final fontSize = isCollapsed ? 11.0 : 13.0;
+
+    // Use Align to center vertically within the row instead of margin
+    return Align(
+      alignment: Alignment.center,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Tooltip(
+          message: 'Keyboard Shortcuts (?)',
+          child: GestureDetector(
+            onTap: () => KeyboardShortcutsOverlay.show(context),
+            child: Container(
+              width: buttonSize,
+              height: buttonSize,
+              decoration: BoxDecoration(
+                color: LowerZoneColors.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: LowerZoneColors.border),
+              ),
+              child: Center(
+                child: Text(
+                  '?',
+                  style: TextStyle(
+                    color: LowerZoneColors.textSecondary,
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ),
@@ -1152,10 +1183,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   /// P2.5: Build single stage item for timeline
-  Widget _buildStageTimelineItem(dynamic stage, int index) {
-    // Stage is a map with 'stage_type', 'delay_ms', etc.
-    final stageType = stage['stage_type'] ?? 'UNKNOWN';
-    final delayMs = stage['delay_ms'] ?? 0;
+  Widget _buildStageTimelineItem(SlotLabStageEvent stage, int index) {
+    // Stage is SlotLabStageEvent with stageType, timestampMs, payload, rawStage
+    final stageType = stage.stageType;
+    final delayMs = stage.timestampMs.round();
 
     // Color coding by stage type
     Color stageColor = LowerZoneColors.slotLabAccent;
@@ -3392,9 +3423,16 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         },
         onRemove: () {
           final selectedEvent = middleware?.selectedCompositeEvent;
-          if (selectedEvent != null && selectedEvent.layers.isNotEmpty) {
-            // Remove last layer
-            middleware?.removeLayerFromEvent(selectedEvent.id, selectedEvent.layers.last.id);
+          if (selectedEvent != null && middleware != null) {
+            // Delete the selected event (with confirmation)
+            _confirmDeleteEvent(context, selectedEvent, middleware);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Select an event first'),
+                duration: Duration(milliseconds: 800),
+              ),
+            );
           }
         },
         onDuplicate: () {

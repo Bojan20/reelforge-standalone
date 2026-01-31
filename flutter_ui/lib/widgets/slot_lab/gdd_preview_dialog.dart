@@ -1717,15 +1717,19 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
   }
 
   Color _tierColor(SymbolTier tier) {
+    // Industry-standard colors with MAXIMUM CONTRAST between tiers
+    // HP: Precious gems (Ruby, Emerald, Sapphire, Amethyst)
+    // LP: Fruit colors (Lemon, Orange, Grape, Lime, Strawberry, Blueberry)
+    // Special: Electric/Neon (Gold, Magenta, Cyan)
     return switch (tier) {
-      SymbolTier.low => const Color(0xFF7986cb),
-      SymbolTier.mid => const Color(0xFF4caf50),
-      SymbolTier.high => const Color(0xFFff6699),
-      SymbolTier.premium => const Color(0xFFffd700),
-      SymbolTier.wild => const Color(0xFFffd700),
-      SymbolTier.scatter => const Color(0xFFe040fb),
-      SymbolTier.bonus => const Color(0xFF40c8ff),
-      SymbolTier.special => const Color(0xFFff4060),
+      SymbolTier.low => const Color(0xFF4169E1),       // Blueberry blue (LP)
+      SymbolTier.mid => const Color(0xFF6B3FA0),       // Grape purple (LP)
+      SymbolTier.high => const Color(0xFF0F52BA),      // Sapphire blue (HP)
+      SymbolTier.premium => const Color(0xFFDC143C),   // Ruby red (HP1 - highest)
+      SymbolTier.wild => const Color(0xFFFFD700),      // Brilliant gold
+      SymbolTier.scatter => const Color(0xFFFF00FF),   // Electric magenta
+      SymbolTier.bonus => const Color(0xFF00FFFF),     // Neon cyan
+      SymbolTier.special => const Color(0xFFFF4060),   // Keep as red accent
     };
   }
 

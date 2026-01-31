@@ -31,6 +31,7 @@ import 'package:flutter/services.dart'; // SL-LP-P1.3
 import 'package:provider/provider.dart'; // SL-INT-P1.1
 import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_lab_models.dart';
+import '../../models/win_tier_config.dart'; // P5 Win Tier System
 import '../../providers/middleware_provider.dart'; // SL-INT-P1.1
 import '../../services/event_registry.dart'; // SL-INT-P1.1
 import '../../services/stage_group_service.dart';
@@ -92,6 +93,9 @@ class UltimateAudioPanel extends StatefulWidget {
   /// Persisted expanded groups (optional - uses local state if null)
   final Set<String>? expandedGroups;
 
+  /// P5: Win tier configuration for dynamic stage generation
+  final SlotWinConfiguration? winConfiguration;
+
   const UltimateAudioPanel({
     super.key,
     this.audioAssignments = const {},
@@ -108,6 +112,7 @@ class UltimateAudioPanel extends StatefulWidget {
     this.contexts = const [],
     this.expandedSections,
     this.expandedGroups,
+    this.winConfiguration,
   });
 
   @override
@@ -338,8 +343,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     final unassignedCount = stats.$2;
     final totalSlots = stats.$1;
     return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      height: 32, // Reduced from 36 to fit better
+      padding: const EdgeInsets.symmetric(horizontal: 6), // Reduced from 8
+      clipBehavior: Clip.hardEdge, // Prevent overflow
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A22),
         border: Border(
@@ -348,25 +354,18 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.audiotrack, size: 16, color: Colors.white54),
-          const SizedBox(width: 6),
-          const Text(
-            'Audio Panel',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white70,
-            ),
-          ),
+          const Icon(Icons.audiotrack, size: 14, color: Colors.white54), // Reduced from 16
+          const SizedBox(width: 4), // Reduced from 6
+          // Removed "Audio Panel" text to save space
           const Spacer(),
-          // M2-8: Quick Assign Mode toggle
+          // M2-8: Quick Assign Mode toggle (icon only when inactive to save space)
           if (widget.onQuickAssignSlotSelected != null)
             Tooltip(
               message: widget.quickAssignMode
                   ? 'Quick Assign ON: Click slot to select, then click audio in browser'
                   : 'Enable Quick Assign: Click slot → Click audio = Done!',
               child: Container(
-                margin: const EdgeInsets.only(right: 6),
+                margin: const EdgeInsets.only(right: 4), // Reduced from 6
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -374,10 +373,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       // Toggle is managed by parent - signal with empty string
                       widget.onQuickAssignSlotSelected?.call('__TOGGLE__');
                     },
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(3),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: widget.quickAssignMode ? 4 : 3, // Reduced
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         gradient: widget.quickAssignMode
                             ? LinearGradient(
@@ -388,66 +390,50 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                               )
                             : null,
                         color: widget.quickAssignMode ? null : Colors.transparent,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(3),
                         border: Border.all(
                           color: widget.quickAssignMode
                               ? FluxForgeTheme.accentGreen.withOpacity(0.6)
                               : Colors.white.withOpacity(0.15),
-                          width: widget.quickAssignMode ? 1.5 : 1,
+                          width: widget.quickAssignMode ? 1 : 1,
                         ),
                         boxShadow: widget.quickAssignMode
                             ? [
                                 BoxShadow(
                                   color: FluxForgeTheme.accentGreen.withOpacity(0.3),
-                                  blurRadius: 8,
+                                  blurRadius: 6,
                                   spreadRadius: 0,
                                 ),
                               ]
                             : null,
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            widget.quickAssignMode ? Icons.touch_app : Icons.touch_app_outlined,
-                            size: 12,
-                            color: widget.quickAssignMode
-                                ? FluxForgeTheme.accentGreen
-                                : Colors.white38,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Quick',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: widget.quickAssignMode ? FontWeight.w600 : FontWeight.normal,
-                              color: widget.quickAssignMode
-                                  ? FluxForgeTheme.accentGreen
-                                  : Colors.white54,
-                            ),
-                          ),
-                        ],
+                      child: Icon(
+                        widget.quickAssignMode ? Icons.touch_app : Icons.touch_app_outlined,
+                        size: 11, // Reduced from 12
+                        color: widget.quickAssignMode
+                            ? FluxForgeTheme.accentGreen
+                            : Colors.white38,
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          // P3-17: Unassigned filter toggle
+          // P3-17: Unassigned filter toggle (compact)
           Tooltip(
             message: _showUnassignedOnly
                 ? 'Showing $unassignedCount unassigned slots. Click to show all.'
                 : 'Click to show only unassigned slots ($unassignedCount remaining)',
             child: InkWell(
               onTap: () => setState(() => _showUnassignedOnly = !_showUnassignedOnly),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(3),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), // Reduced
                 decoration: BoxDecoration(
                   color: _showUnassignedOnly
                       ? Colors.orange.withOpacity(0.2)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(3),
                   border: Border.all(
                     color: _showUnassignedOnly
                         ? Colors.orange.withOpacity(0.5)
@@ -459,14 +445,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   children: [
                     Icon(
                       _showUnassignedOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
-                      size: 12,
+                      size: 10, // Reduced from 12
                       color: _showUnassignedOnly ? Colors.orange : Colors.white38,
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 2), // Reduced from 4
                     Text(
-                      _showUnassignedOnly ? '$unassignedCount/$totalSlots' : 'All',
+                      _showUnassignedOnly ? '$unassignedCount' : 'All', // Shortened
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 8, // Reduced from 9
                         color: _showUnassignedOnly ? Colors.orange : Colors.white54,
                         fontWeight: _showUnassignedOnly ? FontWeight.w600 : FontWeight.normal,
                       ),
@@ -476,18 +462,18 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4), // Reduced from 6
           if (totalAssigned > 0)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), // Reduced
               decoration: BoxDecoration(
                 color: FluxForgeTheme.accentBlue.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
-                '$totalAssigned assigned',
+                '$totalAssigned', // Shortened from "X assigned"
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 8, // Reduced from 10
                   color: FluxForgeTheme.accentBlue,
                   fontWeight: FontWeight.w500,
                 ),
@@ -745,6 +731,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             height: 26,
+            clipBehavior: Clip.hardEdge,
             decoration: BoxDecoration(
               color: isQuickAssignSelected
                   ? FluxForgeTheme.accentGreen.withOpacity(0.25)
@@ -778,12 +765,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             ),
             child: Row(
               children: [
-                // Stage label
+                // Stage label (reduced width to prevent overflow)
                 Container(
-                  width: 90,
+                  width: 70,
                   height: 26,
                   alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.only(left: 4),
                   decoration: BoxDecoration(
                     color: accentColor.withOpacity(0.1),
                     borderRadius: const BorderRadius.horizontal(left: Radius.circular(3)),
@@ -791,28 +778,29 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   child: Text(
                     slot.label,
                     style: const TextStyle(
-                      fontSize: 9,
+                      fontSize: 8,
                       fontWeight: FontWeight.w500,
                       color: Colors.white60,
                     ),
                     overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
                 // Audio path or hint with waveform thumbnail (SL-LP-P1.1)
                 Expanded(
                   child: hasAudio
                       ? Row(
                           children: [
-                            // Waveform thumbnail (80x20px)
+                            // Waveform thumbnail (60x18px - reduced to prevent overflow)
                             WaveformThumbnail(
                               filePath: audioPath,
-                              width: 80,
-                              height: 20,
+                              width: 60,
+                              height: 18,
                               color: accentColor.withOpacity(0.6),
                               backgroundColor: Colors.black.withOpacity(0.3),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 4),
                             // File name (truncated)
                             Expanded(
                               child: Text(
@@ -822,6 +810,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                                   color: Colors.white70,
                                 ),
                                 overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ),
                           ],
@@ -949,33 +938,33 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     );
                   },
                 ),
-                const SizedBox(width: 4),
-                // Play/Stop button (SL-LP-P0.1)
+                const SizedBox(width: 2),
+                // Play/Stop button (SL-LP-P0.1) - compact
                 if (hasAudio)
                   InkWell(
                     onTap: () => _togglePreview(slot.stage, audioPath),
                     child: Container(
-                      width: 22,
+                      width: 18,
                       height: 26,
                       alignment: Alignment.center,
                       child: Icon(
                         _playingStage == slot.stage ? Icons.stop : Icons.play_arrow,
-                        size: 12,
+                        size: 11,
                         color: _playingStage == slot.stage
                             ? FluxForgeTheme.accentGreen
                             : Colors.white54,
                       ),
                     ),
                   ),
-                // Clear button
+                // Clear button - compact
                 if (hasAudio)
                   InkWell(
                     onTap: () => widget.onAudioClear?.call(slot.stage),
                     child: Container(
-                      width: 22,
+                      width: 18,
                       height: 26,
                       alignment: Alignment.center,
-                      child: const Icon(Icons.close, size: 12, color: Colors.white38),
+                      child: const Icon(Icons.close, size: 11, color: Colors.white38),
                     ),
                   ),
               ],
@@ -1780,8 +1769,9 @@ class _SymbolsSection extends _SectionConfig {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SECTION 3: WIN PRESENTATION [PRIMARY] — 50 slots
+// SECTION 3: WIN PRESENTATION [PRIMARY] — DYNAMIC from SlotWinConfiguration
 // Win detection → Line show → Tier display → Rollup → Celebration
+// P5: Uses SlotWinConfiguration for dynamic tier generation
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _WinPresentationSection extends _SectionConfig {
@@ -1794,105 +1784,225 @@ class _WinPresentationSection extends _SectionConfig {
   @override Color get color => const Color(0xFFFFD700);
 
   @override
-  List<_GroupConfig> get groups => const [
-    // ─── WIN EVALUATION ───
-    _GroupConfig(
-      id: 'eval',
-      title: 'Win Evaluation',
-      icon: '🔍',
-      slots: [
-        _SlotConfig(stage: 'WIN_EVAL', label: 'Win Evaluate'),
-        _SlotConfig(stage: 'WIN_DETECTED', label: 'Win Detected'),
-        _SlotConfig(stage: 'WIN_CALCULATE', label: 'Win Calculate'),
-        _SlotConfig(stage: 'NO_WIN', label: 'No Win'),
-      ],
-    ),
-    // ─── WIN LINES ⚡ (pooled) ───
-    _GroupConfig(
-      id: 'lines',
-      title: 'Win Lines ⚡',
-      icon: '📊',
-      slots: [
-        _SlotConfig(stage: 'WIN_LINE_SHOW', label: 'Line Show'),
-        _SlotConfig(stage: 'WIN_LINE_HIDE', label: 'Line Hide'),
-        _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT', label: 'Symbol Highlight'),
-        _SlotConfig(stage: 'WIN_LINE_CYCLE', label: 'Line Cycle'),
-      ],
-    ),
-    // ─── WIN TIERS ───
-    _GroupConfig(
-      id: 'tiers',
-      title: 'Win Tiers',
-      icon: '🎖️',
-      slots: [
-        _SlotConfig(stage: 'WIN_PRESENT_SMALL', label: 'Small Win (<5x)'),
-        _SlotConfig(stage: 'WIN_PRESENT_BIG', label: 'Big Win (5-15x)'),
-        _SlotConfig(stage: 'WIN_PRESENT_SUPER', label: 'Super Win (15-30x)'),
-        _SlotConfig(stage: 'WIN_PRESENT_MEGA', label: 'Mega Win (30-60x)'),
-        _SlotConfig(stage: 'WIN_PRESENT_EPIC', label: 'Epic Win (60-100x)'),
-        _SlotConfig(stage: 'WIN_PRESENT_ULTRA', label: 'Ultra Win (100x+)'),
+  List<_GroupConfig> get groups {
+    final config = widget.winConfiguration;
+
+    // Build dynamic Win Tiers group from configuration
+    final List<_SlotConfig> tierSlots = [];
+
+    // P5: Regular win tiers (< bigWinThreshold)
+    if (config != null) {
+      for (final tier in config.regularWins.tiers) {
+        // Format multiplier range for label
+        final fromStr = tier.fromMultiplier.toStringAsFixed(tier.fromMultiplier.truncateToDouble() == tier.fromMultiplier ? 0 : 1);
+        final toStr = tier.toMultiplier == double.infinity
+            ? '∞'
+            : tier.toMultiplier.toStringAsFixed(tier.toMultiplier.truncateToDouble() == tier.toMultiplier ? 0 : 1);
+
+        // Primary stage (present stage)
+        tierSlots.add(_SlotConfig(
+          stage: tier.presentStageName,
+          label: '${tier.displayLabel} (${fromStr}x-${toStr}x)',
+        ));
+
+        // Rollup stages for this tier (if not instant/WIN_LOW)
+        if (tier.rollupStartStageName != null) {
+          tierSlots.add(_SlotConfig(
+            stage: tier.rollupStartStageName!,
+            label: '${tier.displayLabel} Rollup Start',
+          ));
+          tierSlots.add(_SlotConfig(
+            stage: tier.rollupTickStageName!,
+            label: '${tier.displayLabel} Rollup Tick ⚡',
+          ));
+          tierSlots.add(_SlotConfig(
+            stage: tier.rollupEndStageName!,
+            label: '${tier.displayLabel} Rollup End',
+          ));
+        }
+      }
+
+      // P5: Big Win tier entry (threshold crossing)
+      final threshold = config.bigWins.threshold;
+      tierSlots.add(_SlotConfig(
+        stage: 'BIG_WIN_TRIGGER',
+        label: 'Big Win Trigger (≥${threshold.toStringAsFixed(0)}x)',
+      ));
+
+      // P5: Big Win internal tiers (escalation)
+      for (final bigTier in config.bigWins.tiers) {
+        final fromStr = bigTier.fromMultiplier.toStringAsFixed(bigTier.fromMultiplier.truncateToDouble() == bigTier.fromMultiplier ? 0 : 1);
+        final toStr = bigTier.toMultiplier == double.infinity
+            ? '∞'
+            : bigTier.toMultiplier.toStringAsFixed(bigTier.toMultiplier.truncateToDouble() == bigTier.toMultiplier ? 0 : 1);
+
+        // Use displayLabel if set, otherwise generate default
+        final label = bigTier.displayLabel.isNotEmpty
+            ? bigTier.displayLabel
+            : 'Big Win Tier ${bigTier.tierId}';
+
+        tierSlots.add(_SlotConfig(
+          stage: bigTier.stageName,
+          label: '$label (${fromStr}x-${toStr}x)',
+        ));
+      }
+
+      // Big Win common stages
+      tierSlots.addAll(const [
+        _SlotConfig(stage: 'BIG_WIN_INTRO', label: 'Big Win Intro'),
         _SlotConfig(stage: 'BIG_WIN_LOOP', label: 'Big Win Loop'),
         _SlotConfig(stage: 'BIG_WIN_COINS', label: 'Big Win Coins'),
-        _SlotConfig(stage: 'BIG_WIN_INTRO', label: 'Big Win Intro'),
         _SlotConfig(stage: 'BIG_WIN_IMPACT', label: 'Big Win Impact'),
+        _SlotConfig(stage: 'BIG_WIN_UPGRADE', label: 'Big Win Upgrade'),
         _SlotConfig(stage: 'BIG_WIN_OUTRO', label: 'Big Win Outro'),
-        _SlotConfig(stage: 'MEGA_WIN_UPGRADE', label: 'Mega Upgrade'),
-        _SlotConfig(stage: 'SUPER_WIN_UPGRADE', label: 'Super Upgrade'),
-        _SlotConfig(stage: 'EPIC_WIN_UPGRADE', label: 'Epic Upgrade'),
-      ],
-    ),
-    // ─── ROLLUP / COUNTER ⚡ (pooled) ───
-    _GroupConfig(
-      id: 'rollup',
-      title: 'Rollup / Counter ⚡',
-      icon: '🔢',
-      slots: [
-        _SlotConfig(stage: 'ROLLUP_START', label: 'Rollup Start'),
-        _SlotConfig(stage: 'ROLLUP_TICK', label: 'Rollup Tick'),
-        _SlotConfig(stage: 'ROLLUP_TICK_FAST', label: 'Rollup Fast'),
-        _SlotConfig(stage: 'ROLLUP_TICK_SLOW', label: 'Rollup Slow'),
-        _SlotConfig(stage: 'ROLLUP_ACCELERATION', label: 'Rollup Accel'),
-        _SlotConfig(stage: 'ROLLUP_DECELERATION', label: 'Rollup Decel'),
-        _SlotConfig(stage: 'ROLLUP_END', label: 'Rollup End'),
-        _SlotConfig(stage: 'ROLLUP_SKIP', label: 'Rollup Skip'),
-      ],
-    ),
-    // ─── WIN CELEBRATION ───
-    _GroupConfig(
-      id: 'celebration',
-      title: 'Win Celebration',
-      icon: '🎊',
-      slots: [
-        _SlotConfig(stage: 'COIN_BURST', label: 'Coin Burst'),
-        _SlotConfig(stage: 'COIN_DROP', label: 'Coin Drop'),
-        _SlotConfig(stage: 'COIN_SHOWER', label: 'Coin Shower'),
-        _SlotConfig(stage: 'COIN_RAIN', label: 'Coin Rain'),
-        _SlotConfig(stage: 'SCREEN_SHAKE', label: 'Screen Shake'),
-        _SlotConfig(stage: 'LIGHT_FLASH', label: 'Light Flash'),
-        _SlotConfig(stage: 'CONFETTI_BURST', label: 'Confetti Burst'),
-        _SlotConfig(stage: 'FIREWORKS_LAUNCH', label: 'Fireworks Launch'),
-        _SlotConfig(stage: 'FIREWORKS_EXPLODE', label: 'Fireworks Explode'),
-        _SlotConfig(stage: 'WIN_FANFARE', label: 'Win Fanfare'),
-      ],
-    ),
-    // ─── VOICE OVERS ───
-    _GroupConfig(
-      id: 'voice',
-      title: 'Voice Overs',
-      icon: '🎙️',
-      slots: [
-        _SlotConfig(stage: 'VO_WIN_SMALL', label: 'VO Small Win'),
-        _SlotConfig(stage: 'VO_WIN_MEDIUM', label: 'VO Medium Win'),
-        _SlotConfig(stage: 'VO_WIN_BIG', label: 'VO Big Win'),
-        _SlotConfig(stage: 'VO_WIN_MEGA', label: 'VO Mega Win'),
-        _SlotConfig(stage: 'VO_WIN_EPIC', label: 'VO Epic Win'),
-        _SlotConfig(stage: 'VO_WIN_ULTRA', label: 'VO Ultra Win'),
-        _SlotConfig(stage: 'VO_CONGRATULATIONS', label: 'VO Congrats'),
-        _SlotConfig(stage: 'VO_INCREDIBLE', label: 'VO Incredible'),
-        _SlotConfig(stage: 'VO_SENSATIONAL', label: 'VO Sensational'),
-      ],
-    ),
-  ];
+      ]);
+    } else {
+      // Fallback: Default slots when no config (legacy compatibility)
+      tierSlots.addAll(const [
+        _SlotConfig(stage: 'WIN_PRESENT_LOW', label: 'Low Win (< bet)'),
+        _SlotConfig(stage: 'WIN_PRESENT_EQUAL', label: 'Equal Win (= bet)'),
+        _SlotConfig(stage: 'WIN_PRESENT_1', label: 'Win Tier 1'),
+        _SlotConfig(stage: 'WIN_PRESENT_2', label: 'Win Tier 2'),
+        _SlotConfig(stage: 'WIN_PRESENT_3', label: 'Win Tier 3'),
+        _SlotConfig(stage: 'WIN_PRESENT_4', label: 'Win Tier 4'),
+        _SlotConfig(stage: 'WIN_PRESENT_5', label: 'Win Tier 5'),
+        _SlotConfig(stage: 'WIN_PRESENT_6', label: 'Win Tier 6'),
+        _SlotConfig(stage: 'BIG_WIN_TRIGGER', label: 'Big Win Trigger (≥20x)'),
+        _SlotConfig(stage: 'BIG_WIN_TIER_1', label: 'Big Win Tier 1 (20x-50x)'),
+        _SlotConfig(stage: 'BIG_WIN_TIER_2', label: 'Big Win Tier 2 (50x-100x)'),
+        _SlotConfig(stage: 'BIG_WIN_TIER_3', label: 'Big Win Tier 3 (100x-250x)'),
+        _SlotConfig(stage: 'BIG_WIN_TIER_4', label: 'Big Win Tier 4 (250x-500x)'),
+        _SlotConfig(stage: 'BIG_WIN_TIER_5', label: 'Big Win Tier 5 (500x+)'),
+        _SlotConfig(stage: 'BIG_WIN_INTRO', label: 'Big Win Intro'),
+        _SlotConfig(stage: 'BIG_WIN_LOOP', label: 'Big Win Loop'),
+        _SlotConfig(stage: 'BIG_WIN_COINS', label: 'Big Win Coins'),
+        _SlotConfig(stage: 'BIG_WIN_IMPACT', label: 'Big Win Impact'),
+        _SlotConfig(stage: 'BIG_WIN_UPGRADE', label: 'Big Win Upgrade'),
+        _SlotConfig(stage: 'BIG_WIN_OUTRO', label: 'Big Win Outro'),
+      ]);
+    }
+
+    return [
+      // ─── WIN EVALUATION ───
+      const _GroupConfig(
+        id: 'eval',
+        title: 'Win Evaluation',
+        icon: '🔍',
+        slots: [
+          _SlotConfig(stage: 'WIN_EVAL', label: 'Win Evaluate'),
+          _SlotConfig(stage: 'WIN_DETECTED', label: 'Win Detected'),
+          _SlotConfig(stage: 'WIN_CALCULATE', label: 'Win Calculate'),
+          _SlotConfig(stage: 'NO_WIN', label: 'No Win'),
+        ],
+      ),
+      // ─── WIN LINES ⚡ (pooled) ───
+      const _GroupConfig(
+        id: 'lines',
+        title: 'Win Lines ⚡',
+        icon: '📊',
+        slots: [
+          _SlotConfig(stage: 'WIN_LINE_SHOW', label: 'Line Show'),
+          _SlotConfig(stage: 'WIN_LINE_HIDE', label: 'Line Hide'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT', label: 'Symbol Highlight'),
+          _SlotConfig(stage: 'WIN_LINE_CYCLE', label: 'Line Cycle'),
+        ],
+      ),
+      // ─── WIN TIERS (P5 DYNAMIC) ───
+      _GroupConfig(
+        id: 'tiers',
+        title: 'Win Tiers (P5)',
+        icon: '🎖️',
+        slots: tierSlots,
+      ),
+      // ─── ROLLUP / COUNTER ⚡ (pooled) ───
+      const _GroupConfig(
+        id: 'rollup',
+        title: 'Rollup / Counter ⚡',
+        icon: '🔢',
+        slots: [
+          _SlotConfig(stage: 'ROLLUP_START', label: 'Rollup Start'),
+          _SlotConfig(stage: 'ROLLUP_TICK', label: 'Rollup Tick'),
+          _SlotConfig(stage: 'ROLLUP_TICK_FAST', label: 'Rollup Fast'),
+          _SlotConfig(stage: 'ROLLUP_TICK_SLOW', label: 'Rollup Slow'),
+          _SlotConfig(stage: 'ROLLUP_ACCELERATION', label: 'Rollup Accel'),
+          _SlotConfig(stage: 'ROLLUP_DECELERATION', label: 'Rollup Decel'),
+          _SlotConfig(stage: 'ROLLUP_END', label: 'Rollup End'),
+          _SlotConfig(stage: 'ROLLUP_SKIP', label: 'Rollup Skip'),
+        ],
+      ),
+      // ─── WIN CELEBRATION ───
+      const _GroupConfig(
+        id: 'celebration',
+        title: 'Win Celebration',
+        icon: '🎊',
+        slots: [
+          _SlotConfig(stage: 'COIN_BURST', label: 'Coin Burst'),
+          _SlotConfig(stage: 'COIN_DROP', label: 'Coin Drop'),
+          _SlotConfig(stage: 'COIN_SHOWER', label: 'Coin Shower'),
+          _SlotConfig(stage: 'COIN_RAIN', label: 'Coin Rain'),
+          _SlotConfig(stage: 'SCREEN_SHAKE', label: 'Screen Shake'),
+          _SlotConfig(stage: 'LIGHT_FLASH', label: 'Light Flash'),
+          _SlotConfig(stage: 'CONFETTI_BURST', label: 'Confetti Burst'),
+          _SlotConfig(stage: 'FIREWORKS_LAUNCH', label: 'Fireworks Launch'),
+          _SlotConfig(stage: 'FIREWORKS_EXPLODE', label: 'Fireworks Explode'),
+          _SlotConfig(stage: 'WIN_FANFARE', label: 'Win Fanfare'),
+        ],
+      ),
+      // ─── VOICE OVERS (Dynamic) ───
+      _GroupConfig(
+        id: 'voice',
+        title: 'Voice Overs',
+        icon: '🎙️',
+        slots: _buildVoiceOverSlots(config),
+      ),
+    ];
+  }
+
+  /// Build voice over slots dynamically based on win configuration
+  List<_SlotConfig> _buildVoiceOverSlots(SlotWinConfiguration? config) {
+    final slots = <_SlotConfig>[];
+
+    if (config != null) {
+      // Voice over for each regular tier
+      for (final tier in config.regularWins.tiers) {
+        slots.add(_SlotConfig(
+          stage: 'VO_${tier.stageName}',
+          label: 'VO ${tier.displayLabel}',
+        ));
+      }
+
+      // Voice over for Big Win tiers
+      for (final bigTier in config.bigWins.tiers) {
+        final label = bigTier.displayLabel.isNotEmpty
+            ? bigTier.displayLabel
+            : 'Big Win Tier ${bigTier.tierId}';
+        slots.add(_SlotConfig(
+          stage: 'VO_${bigTier.stageName}',
+          label: 'VO $label',
+        ));
+      }
+    } else {
+      // Fallback default voice overs
+      slots.addAll(const [
+        _SlotConfig(stage: 'VO_WIN_1', label: 'VO Win Tier 1'),
+        _SlotConfig(stage: 'VO_WIN_2', label: 'VO Win Tier 2'),
+        _SlotConfig(stage: 'VO_WIN_3', label: 'VO Win Tier 3'),
+        _SlotConfig(stage: 'VO_WIN_4', label: 'VO Win Tier 4'),
+        _SlotConfig(stage: 'VO_WIN_5', label: 'VO Win Tier 5'),
+        _SlotConfig(stage: 'VO_WIN_6', label: 'VO Win Tier 6'),
+        _SlotConfig(stage: 'VO_BIG_WIN', label: 'VO Big Win'),
+      ]);
+    }
+
+    // Common voice overs
+    slots.addAll(const [
+      _SlotConfig(stage: 'VO_CONGRATULATIONS', label: 'VO Congrats'),
+      _SlotConfig(stage: 'VO_INCREDIBLE', label: 'VO Incredible'),
+      _SlotConfig(stage: 'VO_SENSATIONAL', label: 'VO Sensational'),
+    ]);
+
+    return slots;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -1945,69 +1945,73 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => _onHoverStart(),
-      onExit: (_) => _onHoverEnd(),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: _isHovered || _isPlaying ? 72 : 44,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: _isHovered
-              ? Colors.white.withOpacity(0.05)
-              : Colors.transparent,
-          border: Border(
-            bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
-            left: BorderSide(
-              color: _isPlaying
-                  ? FluxForgeTheme.accentGreen
-                  : (_isHovered ? FluxForgeTheme.accentBlue : Colors.transparent),
-              width: 2,
+    // P0 PERFORMANCE FIX: Use RepaintBoundary to isolate hover state changes
+    // and fixed height to prevent ListView re-layout
+    return RepaintBoundary(
+      child: MouseRegion(
+        onEnter: (_) => _onHoverStart(),
+        onExit: (_) => _onHoverEnd(),
+        child: Container(
+          // P0 FIX: Fixed height prevents ListView re-layout on hover
+          // Waveform is always rendered but with opacity change
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? Colors.white.withOpacity(0.05)
+                : Colors.transparent,
+            border: Border(
+              bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+              left: BorderSide(
+                color: _isPlaying
+                    ? FluxForgeTheme.accentGreen
+                    : (_isHovered ? FluxForgeTheme.accentBlue : Colors.transparent),
+                width: 2,
+              ),
             ),
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top row: icon, name, format, duration, play button
-            Row(
-              children: [
-                Icon(
-                  Icons.audiotrack,
-                  size: 14,
-                  color: _isPlaying
-                      ? FluxForgeTheme.accentGreen
-                      : FluxForgeTheme.accentBlue,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.audioInfo.name,
-                        style: const TextStyle(fontSize: 11, color: Colors.white70),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Row(
-                        children: [
-                          Text(
-                            widget.audioInfo.format,
-                            style: const TextStyle(fontSize: 8, color: Colors.white38),
-                          ),
-                          if (widget.audioInfo.tags.isNotEmpty) ...[
-                            const Text(' · ', style: TextStyle(fontSize: 8, color: Colors.white24)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top row: icon, name, format, duration, play button
+              Row(
+                children: [
+                  Icon(
+                    Icons.audiotrack,
+                    size: 14,
+                    color: _isPlaying
+                        ? FluxForgeTheme.accentGreen
+                        : FluxForgeTheme.accentBlue,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.audioInfo.name,
+                          style: const TextStyle(fontSize: 11, color: Colors.white70),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Row(
+                          children: [
                             Text(
-                              widget.audioInfo.tags.first,
+                              widget.audioInfo.format,
                               style: const TextStyle(fontSize: 8, color: Colors.white38),
                             ),
+                            if (widget.audioInfo.tags.isNotEmpty) ...[
+                              const Text(' · ', style: TextStyle(fontSize: 8, color: Colors.white24)),
+                              Text(
+                                widget.audioInfo.tags.first,
+                                style: const TextStyle(fontSize: 8, color: Colors.white38),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
                 // Duration
                 if (widget.audioInfo.duration.inMilliseconds > 0)
                   Container(
@@ -2071,11 +2075,14 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
                   ),
               ],
             ),
-            // Preview waveform on hover
-            if (_isHovered || _isPlaying)
-              Expanded(
+            // Preview waveform - always rendered, visibility controlled by opacity
+            // P0 PERFORMANCE FIX: Always render waveform to prevent costly rebuild
+            Expanded(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 150),
+                opacity: (_isHovered || _isPlaying) ? 1.0 : 0.0,
                 child: Container(
-                  margin: const EdgeInsets.only(top: 4),
+                  margin: const EdgeInsets.only(top: 2),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0D0D10),
                     borderRadius: BorderRadius.circular(3),
@@ -2106,13 +2113,13 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
                               Container(
                                 width: 6,
                                 height: 6,
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: FluxForgeTheme.accentGreen,
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              Text(
+                              const Text(
                                 'PLAYING',
                                 style: TextStyle(
                                   fontSize: 7,
@@ -2127,10 +2134,12 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
                   ),
                 ),
               ),
+            ),
           ],
         ),
       ),
-    );
+    ),  // Close MouseRegion
+    );  // Close RepaintBoundary
   }
 }
 

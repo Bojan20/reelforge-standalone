@@ -31,8 +31,10 @@ class SlotLabLowerZoneController extends ChangeNotifier {
   List<String> get subTabLabels => _state.subTabLabels;
 
   /// Total height including all fixed-height elements
-  /// When expanded: content + context bar (60px) + action strip + resize handle + spin control bar
-  /// When collapsed: just resize handle + super-tabs row (32px, no sub-tabs)
+  /// When expanded: content + context bar (60px) + action strip + resize handle + spin control bar + 1px border
+  /// When collapsed: just resize handle + super-tabs row (32px, no sub-tabs) + 1px border
+  /// NOTE: The +1.0 accounts for the top border (BorderSide width: 1) to prevent 1px overflow
+  // Border is now rendered via Positioned in Stack, doesn't affect layout height
   double get totalHeight => _state.isExpanded
       ? _state.height + kContextBarHeight + kActionStripHeight + kResizeHandleHeight + kSpinControlBarHeight
       : kResizeHandleHeight + kContextBarCollapsedHeight;

@@ -11,8 +11,6 @@
 // - Audio preview playback
 
 import 'dart:convert';
-import 'dart:ui' show PointerDeviceKind;
-import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/native_file_picker.dart';
@@ -811,224 +809,41 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
         }
         return KeyEventResult.ignored;
       },
+      // PERFORMANCE: Use fixed itemExtent for O(1) layout calculation
       child: ListView.builder(
         padding: const EdgeInsets.all(8),
         itemCount: files.length,
-        itemBuilder: (context, index) => _buildFileItem(files[index], index),
+        itemExtent: 68, // Fixed height: 60px content + 4px margin + 4px padding
+        // PERFORMANCE: Use addAutomaticKeepAlives: false to reduce memory
+        addAutomaticKeepAlives: false,
+        // PERFORMANCE: Use addRepaintBoundaries for isolation
+        addRepaintBoundaries: true,
+        itemBuilder: (context, index) => _AudioFileListItem(
+          key: ValueKey(files[index].id),
+          file: files[index],
+          index: index,
+          isSelected: _selectedFileIds.contains(files[index].id),
+          isMultiSelected: _selectedFileIds.length > 1,
+          isPlaying: _isPlaying && _selectedFile?.id == files[index].id,
+          selectedFiles: _selectedFileIds.length > 1 ? selectedFiles : null,
+          onSelect: _handleFileSelection,
+          onDoubleClick: widget.onFileDoubleClick,
+          onTogglePreview: _togglePreview,
+          onRemove: _removeFile,
+          onLocate: _locateMissingFile,
+          onDragStart: (files) {
+            if (files.length > 1) {
+              widget.onFilesDragStart?.call(files);
+            } else {
+              widget.onFileDragStart?.call(files.first);
+            }
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildFileItem(AudioFileInfo file, int index) {
-    final isSelected = _selectedFileIds.contains(file.id);
-    final isMultiSelected = _selectedFileIds.length > 1;
-    final isPlayingThis = _isPlaying && isSelected;
-
-    // Determine what files to drag - if dragging a selected file, drag all selected
-    final filesToDrag = isSelected && isMultiSelected ? selectedFiles : [file];
-
-    return Draggable<List<AudioFileInfo>>(
-      data: filesToDrag,
-      feedback: Material(
-        elevation: 8,
-        borderRadius: BorderRadius.circular(4),
-        child: Container(
-          width: 200,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.audiotrack, size: 16, color: Colors.white),
-              const SizedBox(width: 8),
-              Expanded(
-                child: filesToDrag.length > 1
-                    ? Text(
-                        '${filesToDrag.length} files',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                      )
-                    : Text(
-                        file.name,
-                        style: const TextStyle(color: Colors.white, fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-              ),
-              if (filesToDrag.length > 1)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${filesToDrag.length}',
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-      onDragStarted: () {
-        // If dragging an unselected file, select it first
-        if (!isSelected) {
-          _handleFileSelection(file, index);
-        }
-        if (filesToDrag.length > 1) {
-          widget.onFilesDragStart?.call(filesToDrag);
-        } else {
-          widget.onFileDragStart?.call(file);
-        }
-      },
-      // Use Listener to capture raw pointer events with modifier keys
-      child: Listener(
-        onPointerDown: (event) {
-          // Check modifier keys at the time of click (more reliable than HardwareKeyboard)
-          final isCtrl = event.buttons == kPrimaryButton &&
-              (HardwareKeyboard.instance.isControlPressed ||
-               HardwareKeyboard.instance.isMetaPressed);
-          final isShift = HardwareKeyboard.instance.isShiftPressed;
-
-          // Single vs double click detection
-          if (event.kind == PointerDeviceKind.mouse) {
-            _handleFileSelection(file, index, isCtrlPressed: isCtrl, isShiftPressed: isShift);
-          }
-        },
-        child: GestureDetector(
-        onDoubleTap: () {
-          // Double-click creates track + clip in timeline
-          widget.onFileDoubleClick?.call(file);
-        },
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 4),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? (isMultiSelected
-                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.25)
-                    : FluxForgeTheme.accentBlue.withValues(alpha: 0.15))
-                : FluxForgeTheme.bgMid,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: file.isMissing
-                  ? FluxForgeTheme.accentRed.withValues(alpha: 0.5)
-                  : isSelected
-                      ? FluxForgeTheme.accentBlue
-                      : FluxForgeTheme.borderSubtle,
-              width: isSelected && isMultiSelected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              // Play button
-              GestureDetector(
-                onTap: () => _togglePreview(file),
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: isPlayingThis
-                        ? FluxForgeTheme.accentGreen
-                        : FluxForgeTheme.bgDeep,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    isPlayingThis ? Icons.stop : Icons.play_arrow,
-                    size: 16,
-                    color: isPlayingThis ? Colors.black : Colors.white54,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              // File info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        if (file.isMissing)
-                          const Padding(
-                            padding: EdgeInsets.only(right: 4),
-                            child: Icon(Icons.warning, size: 12, color: FluxForgeTheme.accentRed),
-                          ),
-                        Expanded(
-                          child: Text(
-                            file.name,
-                            style: TextStyle(
-                              color: file.isMissing ? FluxForgeTheme.accentRed : Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Text(
-                          file.formattedDuration,
-                          style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'JetBrains Mono'),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${file.sampleRate ~/ 1000}kHz',
-                          style: const TextStyle(color: Colors.white38, fontSize: 10),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          file.channelsLabel,
-                          style: const TextStyle(color: Colors.white38, fontSize: 10),
-                        ),
-                        const Spacer(),
-                        if (file.usedInClips.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              '${file.usedInClips.length}x',
-                              style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 9),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              // Actions
-              if (file.isMissing)
-                IconButton(
-                  icon: const Icon(Icons.search, size: 16),
-                  color: FluxForgeTheme.accentOrange,
-                  onPressed: () => _locateMissingFile(file),
-                  tooltip: 'Locate File',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 16),
-                color: Colors.white38,
-                onPressed: () => _removeFile(file),
-                tooltip: 'Remove',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-              ),
-            ],
-          ),
-        ),
-      ),
-      ),  // Close Listener
-    );
-  }
+  // _buildFileItem removed - replaced with _AudioFileListItem widget below
 
   Widget _buildPreviewPanel() {
     final file = _selectedFile!;
@@ -1126,6 +941,305 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
           const Spacer(),
           Text(value, style: const TextStyle(color: Colors.white, fontSize: 10, fontFamily: 'JetBrains Mono')),
         ],
+      ),
+    );
+  }
+}
+
+/// PERFORMANCE OPTIMIZED: Extracted to separate StatelessWidget
+/// - Uses const constructors where possible
+/// - Avoids rebuilding parent on hover/selection
+/// - Deferred drag feedback creation (only when dragging)
+/// - RepaintBoundary isolation
+class _AudioFileListItem extends StatelessWidget {
+  final AudioFileInfo file;
+  final int index;
+  final bool isSelected;
+  final bool isMultiSelected;
+  final bool isPlaying;
+  final List<AudioFileInfo>? selectedFiles;
+  final void Function(AudioFileInfo file, int index, {bool isCtrlPressed, bool isShiftPressed}) onSelect;
+  final void Function(AudioFileInfo file)? onDoubleClick;
+  final void Function(AudioFileInfo file) onTogglePreview;
+  final void Function(AudioFileInfo file) onRemove;
+  final void Function(AudioFileInfo file) onLocate;
+  final void Function(List<AudioFileInfo> files) onDragStart;
+
+  const _AudioFileListItem({
+    super.key,
+    required this.file,
+    required this.index,
+    required this.isSelected,
+    required this.isMultiSelected,
+    required this.isPlaying,
+    required this.selectedFiles,
+    required this.onSelect,
+    required this.onDoubleClick,
+    required this.onTogglePreview,
+    required this.onRemove,
+    required this.onLocate,
+    required this.onDragStart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // PERFORMANCE: Calculate once, reuse
+    final filesToDrag = isSelected && isMultiSelected && selectedFiles != null
+        ? selectedFiles!
+        : [file];
+
+    return RepaintBoundary(
+      child: Draggable<List<AudioFileInfo>>(
+        data: filesToDrag,
+        // PERFORMANCE: Deferred feedback - only created when actually dragging
+        feedback: _DragFeedback(files: filesToDrag, fileName: file.name),
+        onDragStarted: () {
+          onDragStart(filesToDrag);
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) {
+            // PERFORMANCE: Check modifiers synchronously
+            final isCtrl = HardwareKeyboard.instance.isControlPressed ||
+                HardwareKeyboard.instance.isMetaPressed;
+            final isShift = HardwareKeyboard.instance.isShiftPressed;
+            onSelect(file, index, isCtrlPressed: isCtrl, isShiftPressed: isShift);
+          },
+          onDoubleTap: () => onDoubleClick?.call(file),
+          child: Container(
+            height: 60,
+            margin: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? (isMultiSelected
+                      ? const Color(0xFF2A4A6A) // FluxForgeTheme.accentBlue @ 0.25
+                      : const Color(0xFF1E3A5A)) // FluxForgeTheme.accentBlue @ 0.15
+                  : FluxForgeTheme.bgMid,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: file.isMissing
+                    ? const Color(0x80FF4060) // FluxForgeTheme.accentRed @ 0.5
+                    : isSelected
+                        ? FluxForgeTheme.accentBlue
+                        : FluxForgeTheme.borderSubtle,
+                width: isSelected && isMultiSelected ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                // Play button - isolated with its own GestureDetector
+                _PlayButton(
+                  isPlaying: isPlaying,
+                  onTap: () => onTogglePreview(file),
+                ),
+                const SizedBox(width: 10),
+                // File info - const where possible
+                Expanded(
+                  child: _FileInfo(file: file),
+                ),
+                // Actions - only shown when needed
+                if (file.isMissing)
+                  _ActionButton(
+                    icon: Icons.search,
+                    color: FluxForgeTheme.accentOrange,
+                    tooltip: 'Locate File',
+                    onTap: () => onLocate(file),
+                  ),
+                _ActionButton(
+                  icon: Icons.delete_outline,
+                  color: Colors.white38,
+                  tooltip: 'Remove',
+                  onTap: () => onRemove(file),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// PERFORMANCE: Isolated play button to minimize repaints
+class _PlayButton extends StatelessWidget {
+  final bool isPlaying;
+  final VoidCallback onTap;
+
+  const _PlayButton({required this.isPlaying, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: isPlaying ? FluxForgeTheme.accentGreen : FluxForgeTheme.bgDeep,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(
+          isPlaying ? Icons.stop : Icons.play_arrow,
+          size: 16,
+          color: isPlaying ? Colors.black : Colors.white54,
+        ),
+      ),
+    );
+  }
+}
+
+/// PERFORMANCE: File info extracted - mostly static content
+class _FileInfo extends StatelessWidget {
+  final AudioFileInfo file;
+
+  const _FileInfo({required this.file});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          children: [
+            if (file.isMissing)
+              const Padding(
+                padding: EdgeInsets.only(right: 4),
+                child: Icon(Icons.warning, size: 12, color: FluxForgeTheme.accentRed),
+              ),
+            Expanded(
+              child: Text(
+                file.name,
+                style: TextStyle(
+                  color: file.isMissing ? FluxForgeTheme.accentRed : Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Row(
+          children: [
+            Text(
+              file.formattedDuration,
+              style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'JetBrains Mono'),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${file.sampleRate ~/ 1000}kHz',
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              file.channelsLabel,
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+            const Spacer(),
+            if (file.usedInClips.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Text(
+                  '${file.usedInClips.length}x',
+                  style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 9),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// PERFORMANCE: Minimal action button
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          child: Icon(icon, size: 16, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+/// PERFORMANCE: Drag feedback - only created when actually dragging
+class _DragFeedback extends StatelessWidget {
+  final List<AudioFileInfo> files;
+  final String fileName;
+
+  const _DragFeedback({required this.files, required this.fileName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 8,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        width: 180,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.accentBlue.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.audiotrack, size: 14, color: Colors.white),
+            const SizedBox(width: 6),
+            Expanded(
+              child: files.length > 1
+                  ? Text(
+                      '${files.length} files',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : Text(
+                      fileName,
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+            ),
+            if (files.length > 1)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${files.length}',
+                  style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

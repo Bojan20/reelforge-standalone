@@ -16,6 +16,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
+import '../../models/win_tier_config.dart';
+import '../../providers/slot_lab_project_provider.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../services/event_registry.dart';
 import '../../services/win_analytics_service.dart';
@@ -69,73 +71,95 @@ class SlotSymbol {
   // Rust StandardSymbolSet: HP1=1, HP2=2, HP3=3, HP4=4, LP1=5..LP6=10, WILD=11, SCATTER=12, BONUS=13
   // ═══════════════════════════════════════════════════════════════════════════
   static const Map<int, SlotSymbol> _defaultSymbols = {
-    // High Paying symbols (HP1 = highest, HP4 = lowest of high tier)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HIGH PAYING SYMBOLS — PRECIOUS/ROYAL COLORS (Maximum Contrast)
+    // Industry standard: Precious gems/metals for highest value symbols
+    // ═══════════════════════════════════════════════════════════════════════════
     1: SlotSymbol(
       id: 1, name: 'HP1', displayChar: '7',
-      gradientColors: [Color(0xFFFF6699), Color(0xFFFF4080), Color(0xFFCC0044)],
-      glowColor: Color(0xFFFF4080),
+      // RUBY RED — Highest value, most prestigious
+      gradientColors: [Color(0xFFFF4444), Color(0xFFDC143C), Color(0xFF8B0000)],
+      glowColor: Color(0xFFFF2222),
     ),
     2: SlotSymbol(
       id: 2, name: 'HP2', displayChar: '▬',
-      gradientColors: [Color(0xFF88FF88), Color(0xFF4CAF50), Color(0xFF2E7D32)],
-      glowColor: Color(0xFF4CAF50),
+      // EMERALD GREEN — Premium, distinct from fruit greens
+      gradientColors: [Color(0xFF66FFCC), Color(0xFF50C878), Color(0xFF006644)],
+      glowColor: Color(0xFF50C878),
     ),
     3: SlotSymbol(
       id: 3, name: 'HP3', displayChar: '🔔',
-      gradientColors: [Color(0xFFFFFF88), Color(0xFFFFEB3B), Color(0xFFCCAA00)],
-      glowColor: Color(0xFFFFEB3B),
+      // SAPPHIRE BLUE — Royal, no fruit uses this blue
+      gradientColors: [Color(0xFF6699FF), Color(0xFF0F52BA), Color(0xFF000080)],
+      glowColor: Color(0xFF4488FF),
     ),
     4: SlotSymbol(
       id: 4, name: 'HP4', displayChar: '🍒',
-      gradientColors: [Color(0xFFFF8866), Color(0xFFFF5722), Color(0xFFBB3300)],
-      glowColor: Color(0xFFFF5722),
+      // AMETHYST PURPLE — Rich purple, distinct from grape
+      gradientColors: [Color(0xFFDD99FF), Color(0xFF9966CC), Color(0xFF4B0082)],
+      glowColor: Color(0xFFBB77FF),
     ),
-    // Low Paying symbols (LP1 = highest of low tier, LP6 = lowest)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LOW PAYING SYMBOLS — FRUIT COLORS (Clear Visual Hierarchy)
+    // Industry standard: Classic fruit machine symbols
+    // ═══════════════════════════════════════════════════════════════════════════
     5: SlotSymbol(
       id: 5, name: 'LP1', displayChar: '🍋',
-      gradientColors: [Color(0xFFFFFF99), Color(0xFFFFEB3B), Color(0xFFAFB42B)],
-      glowColor: Color(0xFFCDDC39),
+      // LEMON YELLOW — Bright, cheerful
+      gradientColors: [Color(0xFFFFFF66), Color(0xFFFFD700), Color(0xFFCC9900)],
+      glowColor: Color(0xFFFFDD00),
     ),
     6: SlotSymbol(
       id: 6, name: 'LP2', displayChar: '🍊',
-      gradientColors: [Color(0xFFFFCC66), Color(0xFFFF9800), Color(0xFFCC6600)],
-      glowColor: Color(0xFFFF9800),
+      // ORANGE — Warm, distinct from other fruits
+      gradientColors: [Color(0xFFFFAA44), Color(0xFFFF8C00), Color(0xFFCC5500)],
+      glowColor: Color(0xFFFF9933),
     ),
     7: SlotSymbol(
       id: 7, name: 'LP3', displayChar: '🍇',
-      gradientColors: [Color(0xFFCC66FF), Color(0xFF9C27B0), Color(0xFF6A1B9A)],
-      glowColor: Color(0xFF9C27B0),
+      // GRAPE — Deeper purple than Amethyst HP4
+      gradientColors: [Color(0xFF9966CC), Color(0xFF6B3FA0), Color(0xFF3D1F5C)],
+      glowColor: Color(0xFF8855BB),
     ),
     8: SlotSymbol(
       id: 8, name: 'LP4', displayChar: '🍏',
-      gradientColors: [Color(0xFF99FF99), Color(0xFF66BB6A), Color(0xFF388E3C)],
-      glowColor: Color(0xFF66BB6A),
+      // LIME GREEN — Bright, distinct from Emerald HP2
+      gradientColors: [Color(0xFFAAFF66), Color(0xFF90EE90), Color(0xFF228B22)],
+      glowColor: Color(0xFF77DD44),
     ),
     9: SlotSymbol(
       id: 9, name: 'LP5', displayChar: '🍓',
-      gradientColors: [Color(0xFFFF9999), Color(0xFFE57373), Color(0xFFD32F2F)],
-      glowColor: Color(0xFFE57373),
+      // STRAWBERRY — Pinkish red, distinct from Ruby HP1
+      gradientColors: [Color(0xFFFF7777), Color(0xFFFF6B6B), Color(0xFFCC4444)],
+      glowColor: Color(0xFFFF5555),
     ),
     10: SlotSymbol(
       id: 10, name: 'LP6', displayChar: '🫐',
-      gradientColors: [Color(0xFF9999FF), Color(0xFF7986CB), Color(0xFF3F51B5)],
-      glowColor: Color(0xFF7986CB),
+      // BLUEBERRY — Deep blue, distinct from Sapphire HP3
+      gradientColors: [Color(0xFF7799DD), Color(0xFF4169E1), Color(0xFF2E4A8A)],
+      glowColor: Color(0xFF5577CC),
     ),
-    // Special symbols
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SPECIAL SYMBOLS — MAXIMUM VISUAL IMPACT
+    // Industry standard: Instantly recognizable, bright, animated
+    // ═══════════════════════════════════════════════════════════════════════════
     11: SlotSymbol(
       id: 11, name: 'WILD', displayChar: '★',
-      gradientColors: [Color(0xFFFFE55C), Color(0xFFFFD700), Color(0xFFCC9900)],
-      glowColor: Color(0xFFFFD700), isSpecial: true,
+      // BRILLIANT GOLD — Most valuable special symbol
+      gradientColors: [Color(0xFFFFEE77), Color(0xFFFFD700), Color(0xFFDD9900)],
+      glowColor: Color(0xFFFFDD00), isSpecial: true,
     ),
     12: SlotSymbol(
       id: 12, name: 'SCATTER', displayChar: '◆',
-      gradientColors: [Color(0xFFFF66FF), Color(0xFFE040FB), Color(0xFF9C27B0)],
-      glowColor: Color(0xFFE040FB), isSpecial: true,
+      // ELECTRIC MAGENTA — Triggers features, must pop
+      gradientColors: [Color(0xFFFF77FF), Color(0xFFFF00FF), Color(0xFFAA00AA)],
+      glowColor: Color(0xFFFF44FF), isSpecial: true,
     ),
     13: SlotSymbol(
       id: 13, name: 'BONUS', displayChar: '♦',
-      gradientColors: [Color(0xFF80EEFF), Color(0xFF40C8FF), Color(0xFF0088CC)],
-      glowColor: Color(0xFF40C8FF), isSpecial: true,
+      // NEON CYAN — Bonus trigger, electric and exciting
+      gradientColors: [Color(0xFF77FFFF), Color(0xFF00FFFF), Color(0xFF008B8B)],
+      glowColor: Color(0xFF44FFFF), isSpecial: true,
     ),
     // Fallback for ID 0 (should not occur in normal operation)
     0: SlotSymbol(
@@ -200,6 +224,12 @@ class SlotSymbol {
 
 class SlotPreviewWidget extends StatefulWidget {
   final SlotLabProvider provider;
+
+  /// P5: Project provider for dynamic win tier configuration
+  /// When provided, win tier stages use P5 configurable thresholds
+  /// When null, falls back to legacy hardcoded thresholds
+  final SlotLabProjectProvider? projectProvider;
+
   final int reels;
   final int rows;
 
@@ -210,6 +240,7 @@ class SlotPreviewWidget extends StatefulWidget {
   const SlotPreviewWidget({
     super.key,
     required this.provider,
+    this.projectProvider,
     this.reels = 5,
     this.rows = 3,
     this.onSpaceKeyHandled,
@@ -1678,68 +1709,328 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// @deprecated Use `widget.provider.getVisualTierForWin()` instead.
   ///
   /// This hardcoded method is kept for backward compatibility.
-  /// The configurable version uses WinTierConfig from provider which allows:
-  /// - Custom tier thresholds per game
-  /// - High volatility presets
-  /// - Jackpot tier support
-  /// - RTPC integration
-  ///
-  /// Get win tier based on win-to-bet ratio (industry standard)
-  /// Industry standard progression (Zynga, NetEnt, Pragmatic Play):
-  /// - SMALL: < 5x — no plaque, just counter
-  /// - BIG WIN: 5x - 15x — FIRST major tier (industry standard)
-  /// - SUPER WIN: 15x - 30x — second tier
-  /// - MEGA WIN: 30x - 60x — third tier
-  /// - EPIC WIN: 60x - 100x — fourth tier
-  /// - ULTRA WIN: 100x+ — maximum celebration
-  @Deprecated('Use widget.provider.getVisualTierForWin() instead')
-  String _getWinTier(double totalWin) {
-    // Use bet from provider, fallback to 1.0 for ratio calculation
-    final bet = widget.provider.betAmount;
-    if (bet <= 0) return ''; // No bet = no tier
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P5 WIN TIER SYSTEM — Dynamic, configurable win tiers
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // Uses SlotLabProjectProvider.getWinTierForAmount() when available.
+  // Falls back to legacy hardcoded logic when projectProvider is null.
+  //
+  // P5 Regular Tiers (< bigWinThreshold):
+  //   WIN_LOW, WIN_EQUAL, WIN_1, WIN_2, WIN_3, WIN_4, WIN_5, WIN_6
+  //   All labels are FULLY CONFIGURABLE by user
+  //
+  // P5 Big Win Tiers (>= bigWinThreshold, default 20x):
+  //   BIG_WIN_TIER_1 (20x-50x), BIG_WIN_TIER_2 (50x-100x),
+  //   BIG_WIN_TIER_3 (100x-250x), BIG_WIN_TIER_4 (250x-500x),
+  //   BIG_WIN_TIER_5 (500x+)
+  //   All labels are FULLY CONFIGURABLE (no hardcoded "MEGA WIN!" etc.)
+  //
+  // ═══════════════════════════════════════════════════════════════════════════
 
+  /// P5: Get complete win tier result from configurable system
+  /// Returns null for no win, or full WinTierResult with tier info
+  WinTierResult? _getP5WinTierResult(double totalWin) {
+    final projectProvider = widget.projectProvider;
+    final bet = widget.provider.betAmount;
+
+    if (totalWin <= 0 || bet <= 0) return null;
+
+    // P5 system: use project provider's configurable tiers
+    if (projectProvider != null) {
+      return projectProvider.getWinTierForAmount(totalWin, bet);
+    }
+
+    // Legacy fallback: simulate P5 result with hardcoded thresholds
+    return _legacyGetWinTierResult(totalWin, bet);
+  }
+
+  /// Legacy fallback when projectProvider is not available
+  /// Returns P5-compatible WinTierResult with hardcoded thresholds
+  WinTierResult? _legacyGetWinTierResult(double totalWin, double bet) {
     final ratio = totalWin / bet;
-    if (ratio >= 100) return 'ULTRA';
-    if (ratio >= 50) return 'EPIC';
-    if (ratio >= 25) return 'MEGA';
-    if (ratio >= 10) return 'SUPER';
-    if (ratio >= 5) return 'BIG';
-    // Small wins (below 5x) return empty - no plaque shown
+
+    // Big Win threshold (legacy: 20x)
+    if (ratio >= 20) {
+      // Determine which big win tier (1-5)
+      final int bigTierId;
+      if (ratio >= 500) {
+        bigTierId = 5;
+      } else if (ratio >= 250) {
+        bigTierId = 4;
+      } else if (ratio >= 100) {
+        bigTierId = 3;
+      } else if (ratio >= 50) {
+        bigTierId = 2;
+      } else {
+        bigTierId = 1;
+      }
+
+      return WinTierResult(
+        isBigWin: true,
+        multiplier: ratio,
+        regularTier: null,
+        bigWinTier: BigWinTierDefinition(
+          tierId: bigTierId,
+          fromMultiplier: bigTierId == 1 ? 20 : (bigTierId == 2 ? 50 : (bigTierId == 3 ? 100 : (bigTierId == 4 ? 250 : 500))),
+          toMultiplier: bigTierId == 5 ? double.infinity : (bigTierId == 4 ? 500 : (bigTierId == 3 ? 250 : (bigTierId == 2 ? 100 : 50))),
+          displayLabel: _legacyBigWinLabel(bigTierId),
+        ),
+        bigWinMaxTier: bigTierId,
+      );
+    }
+
+    // Regular win tiers (legacy)
+    final int regularTierId;
+    final String regularLabel;
+    if (ratio < 1) {
+      regularTierId = 0; // WIN_LOW
+      regularLabel = 'Win';
+    } else if (ratio == 1) {
+      regularTierId = -1; // WIN_EQUAL
+      regularLabel = 'Win';
+    } else if (ratio <= 2) {
+      regularTierId = 1;
+      regularLabel = 'Small Win';
+    } else if (ratio <= 4) {
+      regularTierId = 2;
+      regularLabel = 'Nice Win';
+    } else if (ratio <= 6) {
+      regularTierId = 3;
+      regularLabel = 'Good Win';
+    } else if (ratio <= 10) {
+      regularTierId = 4;
+      regularLabel = 'Great Win';
+    } else if (ratio <= 15) {
+      regularTierId = 5;
+      regularLabel = 'Super Win';
+    } else {
+      regularTierId = 6;
+      regularLabel = 'Huge Win';
+    }
+
+    return WinTierResult(
+      isBigWin: false,
+      multiplier: ratio,
+      regularTier: WinTierDefinition(
+        tierId: regularTierId,
+        fromMultiplier: 0,
+        toMultiplier: 20,
+        displayLabel: regularLabel,
+        rollupDurationMs: _legacyRegularRollupDuration(regularTierId),
+        rollupTickRate: 15,
+      ),
+      bigWinTier: null,
+      bigWinMaxTier: null,
+    );
+  }
+
+  /// Legacy regular tier rollup duration mapping
+  int _legacyRegularRollupDuration(int tierId) {
+    return switch (tierId) {
+      0 => 500,   // WIN_EQUAL
+      1 => 500,   // WIN_1 (tiny)
+      2 => 1000,  // WIN_2
+      3 => 1500,  // WIN_3
+      4 => 2000,  // WIN_4
+      5 => 2500,  // WIN_5
+      6 => 3000,  // WIN_6
+      _ => 500,   // fallback
+    };
+  }
+
+  /// Legacy big win label mapping (fallback only)
+  String _legacyBigWinLabel(int tierId) {
+    return switch (tierId) {
+      1 => 'BIG WIN!',
+      2 => 'MEGA WIN!',
+      3 => 'SUPER WIN!',
+      4 => 'EPIC WIN!',
+      5 => 'ULTRA WIN!',
+      _ => 'BIG WIN!',
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P5 TIER LABEL SYSTEM — Fully Configurable Labels from SlotLabProjectProvider
+  // Maps tier ID strings ('BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA') to user-defined labels
+  // Falls back to industry-standard defaults when projectProvider is null
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get tier label from P5 configuration
+  /// Tier ID: 'BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA', or '' for small wins
+  /// Returns fully configurable label from SlotWinConfiguration
+  String _getP5TierLabel(String tierStringId) {
+    final projectProvider = widget.projectProvider;
+
+    // Map string tier ID to numeric P5 tier ID
+    final p5TierId = switch (tierStringId) {
+      'BIG' => 1,
+      'SUPER' => 2,
+      'MEGA' => 3,
+      'EPIC' => 4,
+      'ULTRA' => 5,
+      _ => 0, // Small win or unknown
+    };
+
+    // Small win — return "WIN!"
+    if (p5TierId == 0) {
+      return 'WIN!';
+    }
+
+    // P5 system: get label from configuration
+    if (projectProvider != null) {
+      final config = projectProvider.winConfiguration;
+      final bigTiers = config.bigWins.tiers;
+
+      // Find matching tier
+      for (final tier in bigTiers) {
+        if (tier.tierId == p5TierId) {
+          // Use displayLabel if set, otherwise fall back to default
+          final label = tier.displayLabel;
+          if (label.isNotEmpty) {
+            return label;
+          }
+          break;
+        }
+      }
+    }
+
+    // Neutral fallback — user can customize via P5 config
+    return switch (tierStringId) {
+      'ULTRA' => 'Tier 5',
+      'EPIC' => 'Tier 4',
+      'MEGA' => 'Tier 3',
+      'SUPER' => 'Tier 2',
+      'BIG' => 'Tier 1',
+      _ => 'WIN!',
+    };
+  }
+
+  /// Get all tier labels as a map for tier progression display
+  /// Used to show tier escalation: BIG → SUPER → MEGA → EPIC → ULTRA
+  Map<String, String> get _p5TierLabels {
+    return {
+      'BIG': _getP5TierLabel('BIG'),
+      'SUPER': _getP5TierLabel('SUPER'),
+      'MEGA': _getP5TierLabel('MEGA'),
+      'EPIC': _getP5TierLabel('EPIC'),
+      'ULTRA': _getP5TierLabel('ULTRA'),
+    };
+  }
+
+  /// Get display label for win tier plaque
+  /// Returns empty string for small wins (no plaque)
+  String _getWinTierDisplayLabel(double totalWin) {
+    final tierResult = _getP5WinTierResult(totalWin);
+    if (tierResult == null) return '';
+
+    if (tierResult.isBigWin) {
+      return tierResult.bigWinTier?.displayLabel ?? 'BIG WIN!';
+    }
+
+    // Regular wins don't show plaque (return empty)
+    // Unless it's a significant regular win (tier 4+)
+    final regularTier = tierResult.regularTier;
+    if (regularTier != null && regularTier.tierId >= 4) {
+      return regularTier.displayLabel;
+    }
+
     return '';
   }
 
+  /// Get primary stage name to trigger for this win
+  String _getWinTierStageName(double totalWin) {
+    final tierResult = _getP5WinTierResult(totalWin);
+    if (tierResult == null) return 'WIN_PRESENT';
+
+    return tierResult.primaryStageName;
+  }
+
+  /// Check if this win qualifies as a "big win" celebration
+  bool _isBigWinTier(double totalWin) {
+    final tierResult = _getP5WinTierResult(totalWin);
+    return tierResult?.isBigWin ?? false;
+  }
+
+  /// Get big win tier ID (1-5) for audio/visual escalation
+  int? _getBigWinTierId(double totalWin) {
+    final tierResult = _getP5WinTierResult(totalWin);
+    return tierResult?.bigWinMaxTier;
+  }
+
+  /// Legacy compatibility: Get win tier string ('BIG', 'MEGA', etc.)
+  /// Used for existing visual tier logic - maps P5 to legacy format
+  @Deprecated('Use _getWinTierDisplayLabel() for P5 system')
+  String _getWinTier(double totalWin) {
+    final tierResult = _getP5WinTierResult(totalWin);
+    if (tierResult == null || !tierResult.isBigWin) return '';
+
+    // Map P5 big win tier ID to legacy string
+    return switch (tierResult.bigWinMaxTier) {
+      1 => 'BIG',
+      2 => 'MEGA',
+      3 => 'SUPER',
+      4 => 'EPIC',
+      5 => 'ULTRA',
+      _ => 'BIG',
+    };
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
-  // WIN PRESENTATION TIER SYSTEM — Audio based on win/bet ratio
-  // ═══════════════════════════════════════════════════════════════════════════
-  //
-  // WIN_PRESENT_1: win ≤ 1x bet   — 0.5s duration (tiny win)
-  // WIN_PRESENT_2: 1x < win ≤ 2x  — 1.0s duration
-  // WIN_PRESENT_3: 2x < win ≤ 4x  — 1.5s duration
-  // WIN_PRESENT_4: 4x < win ≤ 8x  — 2.0s duration
-  // WIN_PRESENT_5: 8x < win ≤ 13x — 3.0s duration
-  // WIN_PRESENT_6: win > 13x      — 4.0s duration (mega/epic/ultra)
-  //
-  // This is THE win presentation audio — replaces all other win sound stages
-  // Visual tier (BIG WIN!, MEGA WIN!, etc.) is handled separately
+  // WIN PRESENTATION AUDIO SYSTEM — P5 Dynamic Stage Triggering
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Get WIN_PRESENT tier (1-6) based on win/bet ratio
-  /// Returns tier number for stage name: WIN_PRESENT_1, WIN_PRESENT_2, etc.
+  /// Get WIN_PRESENT tier for audio triggering
+  /// P5: Uses configurable tier system with proper stage names
+  /// Legacy: Falls back to WIN_PRESENT_1 through WIN_PRESENT_6
   int _getWinPresentTier(double totalWin) {
-    final bet = widget.provider.betAmount;
-    if (bet <= 0) return 1; // Fallback to tier 1
+    final tierResult = _getP5WinTierResult(totalWin);
+    if (tierResult == null) return 1;
 
-    final ratio = totalWin / bet;
-    if (ratio > 13) return 6;      // WIN_PRESENT_6: > 13x (mega/epic/ultra)
-    if (ratio > 8) return 5;       // WIN_PRESENT_5: > 8x and ≤ 13x
-    if (ratio > 4) return 4;       // WIN_PRESENT_4: > 4x and ≤ 8x
-    if (ratio > 2) return 3;       // WIN_PRESENT_3: > 2x and ≤ 4x
-    if (ratio > 1) return 2;       // WIN_PRESENT_2: > 1x and ≤ 2x
-    return 1;                       // WIN_PRESENT_1: ≤ 1x (tiny win)
+    if (tierResult.isBigWin) {
+      // Big win uses tier ID (1-5) for audio stages
+      return tierResult.bigWinMaxTier ?? 1;
+    }
+
+    // Regular win: map to tier 1-6 based on regular tier ID
+    final regularTierId = tierResult.regularTier?.tierId ?? 0;
+    return (regularTierId + 1).clamp(1, 6);
   }
 
   /// Get WIN_PRESENT duration in milliseconds for the given tier
+  /// P5: Uses configured rollup duration when available
   int _getWinPresentDurationMs(int tier) {
+    final projectProvider = widget.projectProvider;
+
+    // P5: Get duration from configuration if available
+    if (projectProvider != null) {
+      final config = projectProvider.winConfiguration;
+
+      // For big win tiers (1-5)
+      if (tier >= 1 && tier <= 5) {
+        final bigTiers = config.bigWins.tiers;
+        for (final bigTier in bigTiers) {
+          if (bigTier.tierId == tier) {
+            return bigTier.durationMs; // P5: Use durationMs field
+          }
+        }
+      }
+
+      // For regular tiers, find matching tier and use its rollupDurationMs
+      for (final regularTier in config.regularWins.tiers) {
+        if (regularTier.tierId == tier) {
+          return regularTier.rollupDurationMs;
+        }
+      }
+
+      // Fallback to first regular tier duration
+      if (config.regularWins.tiers.isNotEmpty) {
+        return config.regularWins.tiers.first.rollupDurationMs;
+      }
+    }
+
+    // Legacy fallback
     return switch (tier) {
       1 => 500,   // 0.5s
       2 => 1000,  // 1.0s
@@ -3250,17 +3541,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _ => [const Color(0xFF40FF90), const Color(0xFF4CAF50)],
     };
 
-    // Tier label tekst — Industry standard (Zynga, NetEnt, Pragmatic)
-    // SMALL = "WIN!" (total win plaque), BIG+ = tier labels
-    // BIG WIN plaque IS the total win for big wins (no separate plaque)
-    final tierLabel = switch (tier) {
-      'ULTRA' => 'ULTRA WIN!',
-      'EPIC' => 'EPIC WIN!',
-      'MEGA' => 'MEGA WIN!',
-      'SUPER' => 'SUPER WIN!',
-      'BIG' => 'BIG WIN!',
-      _ => 'WIN!',         // Small wins and fallback
-    };
+    // Tier label tekst — P5 CONFIGURABLE SYSTEM
+    // Uses SlotLabProjectProvider.winConfiguration for fully customizable labels
+    // Falls back to legacy hardcoded labels only when projectProvider is null
+    final tierLabel = _getP5TierLabel(tier);
 
     // Font size baziran na tier-u — ENHANCED za bolju vidljivost
     final tierFontSize = switch (tier) {
@@ -3404,6 +3688,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 ],
               ),
               const SizedBox(height: 8),
+
+              // ═══════════════════════════════════════════════════════════════
+              // TIER ESCALATION INDICATOR — Shows tier progression path
+              // Only visible during tier progression (multiple tiers)
+              // Example: BIG → SUPER → [MEGA] (current tier highlighted)
+              // ═══════════════════════════════════════════════════════════════
+              if (_tierProgressionList.length > 1) ...[
+                _buildTierEscalationIndicator(tier, tierColors.first),
+                const SizedBox(height: 6),
+              ],
 
               // ═══════════════════════════════════════════════════════════════
               // TIER LABEL — Premium metallic text with enhanced styling
@@ -3610,6 +3904,104 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           ),
         ),
       ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TIER ESCALATION INDICATOR — Shows progression through win tiers
+  // Displays: BIG → SUPER → [MEGA] with current tier highlighted
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Build tier escalation indicator showing tier progression path
+  /// Current tier is highlighted with glow, previous tiers are dimmed
+  Widget _buildTierEscalationIndicator(String currentTier, Color tierColor) {
+    final currentIndex = _tierProgressionList.indexOf(currentTier);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < _tierProgressionList.length; i++) ...[
+          if (i > 0) ...[
+            // Arrow separator between tiers
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Icon(
+                Icons.arrow_forward_ios,
+                size: 10,
+                color: Colors.white.withOpacity(i <= currentIndex ? 0.8 : 0.3),
+              ),
+            ),
+          ],
+          // Tier badge
+          _buildTierBadge(
+            tierStringId: _tierProgressionList[i],
+            isCurrentTier: i == currentIndex,
+            isPastTier: i < currentIndex,
+            tierColor: tierColor,
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Build individual tier badge for escalation indicator
+  Widget _buildTierBadge({
+    required String tierStringId,
+    required bool isCurrentTier,
+    required bool isPastTier,
+    required Color tierColor,
+  }) {
+    // Get short label for badge display (e.g., "BIG", "MEGA")
+    final shortLabel = tierStringId;
+
+    // Current tier: bright with glow
+    // Past tier: dimmed but visible
+    // Future tier: very dimmed
+    final opacity = isCurrentTier ? 1.0 : (isPastTier ? 0.6 : 0.3);
+    final scale = isCurrentTier ? 1.15 : 1.0;
+    final fontSize = isCurrentTier ? 11.0 : 9.0;
+
+    return Transform.scale(
+      scale: scale,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: isCurrentTier
+              ? tierColor.withOpacity(0.3)
+              : Colors.black.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: tierColor.withOpacity(isCurrentTier ? 0.8 : 0.3),
+            width: isCurrentTier ? 1.5 : 0.5,
+          ),
+          boxShadow: isCurrentTier
+              ? [
+                  BoxShadow(
+                    color: tierColor.withOpacity(0.5),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          shortLabel,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: isCurrentTier ? FontWeight.w900 : FontWeight.w600,
+            color: Colors.white.withOpacity(opacity),
+            letterSpacing: 1,
+            shadows: isCurrentTier
+                ? [
+                    Shadow(
+                      color: tierColor,
+                      blurRadius: 4,
+                    ),
+                  ]
+                : null,
+          ),
+        ),
+      ),
     );
   }
 

@@ -13,6 +13,7 @@ library;
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
+import '../models/win_tier_config.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GDD MODELS
@@ -490,6 +491,241 @@ class GddImportResult {
 
   bool get hasErrors => errors.isNotEmpty;
   bool get hasWarnings => warnings.isNotEmpty;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P5 WIN TIER CONVERSION FROM GDD
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Convert GDD win tiers to P5 SlotWinConfiguration
+///
+/// Maps GDD win tiers (simple multiplier ranges) to the full P5 system with:
+/// - Regular wins (< threshold)
+/// - Big wins (>= threshold)
+/// - Rollup durations calculated from multiplier ranges
+SlotWinConfiguration convertGddWinTiersToP5(GddMathModel math) {
+  final gddTiers = math.winTiers;
+
+  // Determine big win threshold based on GDD volatility
+  // Higher volatility = higher threshold for big wins
+  final bigWinThreshold = switch (math.volatility.toLowerCase()) {
+    'very_high' || 'extreme' => 25.0,
+    'high' => 20.0,
+    'medium' || 'med' => 15.0,
+    'low' => 10.0,
+    _ => 20.0, // Default
+  };
+
+  // Split tiers into regular and big wins
+  final regularGddTiers = gddTiers.where((t) => t.minMultiplier < bigWinThreshold).toList();
+  final bigGddTiers = gddTiers.where((t) => t.minMultiplier >= bigWinThreshold).toList();
+
+  // Build regular win tiers (P5 format)
+  final regularTiers = <WinTierDefinition>[];
+
+  // Add WIN_LOW tier (< 1x bet)
+  regularTiers.add(const WinTierDefinition(
+    tierId: -1,
+    fromMultiplier: 0.0,
+    toMultiplier: 1.0,
+    displayLabel: 'Win',
+    rollupDurationMs: 800,
+    rollupTickRate: 20,
+  ));
+
+  // Convert each GDD regular tier to P5 tier
+  int tierId = 1;
+  for (final gddTier in regularGddTiers) {
+    // Skip tiers that would overlap with bigWin
+    if (gddTier.maxMultiplier > bigWinThreshold) {
+      // Clamp to bigWinThreshold
+      final clampedMax = bigWinThreshold;
+      if (gddTier.minMultiplier >= clampedMax) continue;
+
+      regularTiers.add(WinTierDefinition(
+        tierId: tierId,
+        fromMultiplier: gddTier.minMultiplier,
+        toMultiplier: clampedMax,
+        displayLabel: gddTier.name,
+        rollupDurationMs: _calculateRollupDuration(gddTier.minMultiplier, clampedMax),
+        rollupTickRate: _calculateTickRate(gddTier.minMultiplier),
+      ));
+    } else {
+      regularTiers.add(WinTierDefinition(
+        tierId: tierId,
+        fromMultiplier: gddTier.minMultiplier,
+        toMultiplier: gddTier.maxMultiplier,
+        displayLabel: gddTier.name,
+        rollupDurationMs: _calculateRollupDuration(gddTier.minMultiplier, gddTier.maxMultiplier),
+        rollupTickRate: _calculateTickRate(gddTier.minMultiplier),
+      ));
+    }
+    tierId++;
+    if (tierId > 6) break; // Max 6 regular tiers (WIN_1 to WIN_6)
+  }
+
+  // Build big win tiers (P5 format)
+  final bigWinTiers = <BigWinTierDefinition>[];
+
+  // If GDD has explicit big win tiers, use them
+  if (bigGddTiers.isNotEmpty) {
+    int bigTierId = 1;
+    for (final gddTier in bigGddTiers) {
+      bigWinTiers.add(BigWinTierDefinition(
+        tierId: bigTierId,
+        fromMultiplier: gddTier.minMultiplier,
+        toMultiplier: gddTier.maxMultiplier > 9999 ? double.infinity : gddTier.maxMultiplier,
+        displayLabel: gddTier.name.toUpperCase(),
+        durationMs: _calculateBigWinDuration(bigTierId, math.volatility),
+        rollupTickRate: _calculateBigWinTickRate(bigTierId),
+      ));
+      bigTierId++;
+      if (bigTierId > 5) break; // Max 5 big win tiers
+    }
+  }
+
+  // If no big win tiers in GDD, generate defaults
+  if (bigWinTiers.isEmpty) {
+    bigWinTiers.addAll(_defaultBigWinTiersForVolatility(math.volatility, bigWinThreshold));
+  }
+
+  // Ensure we have 5 big win tiers (fill gaps)
+  while (bigWinTiers.length < 5) {
+    final lastTier = bigWinTiers.lastOrNull;
+    final nextTierId = (lastTier?.tierId ?? 0) + 1;
+    final fromMult = lastTier?.toMultiplier ?? bigWinThreshold;
+
+    bigWinTiers.add(BigWinTierDefinition(
+      tierId: nextTierId,
+      fromMultiplier: fromMult,
+      toMultiplier: nextTierId == 5 ? double.infinity : fromMult * 2,
+      displayLabel: 'BIG WIN ${nextTierId}',
+      durationMs: _calculateBigWinDuration(nextTierId, math.volatility),
+      rollupTickRate: _calculateBigWinTickRate(nextTierId),
+    ));
+  }
+
+  return SlotWinConfiguration(
+    regularWins: RegularWinTierConfig(
+      configId: 'gdd_imported',
+      name: 'GDD Import',
+      source: WinTierConfigSource.gddImport,
+      tiers: regularTiers,
+    ),
+    bigWins: BigWinConfig(
+      threshold: bigWinThreshold,
+      tiers: bigWinTiers,
+    ),
+  );
+}
+
+/// Calculate rollup duration based on multiplier range
+int _calculateRollupDuration(double fromMult, double toMult) {
+  final midMult = (fromMult + toMult) / 2;
+  // Base duration scales with multiplier
+  if (midMult < 1) return 800;
+  if (midMult < 2) return 1000;
+  if (midMult < 5) return 1500;
+  if (midMult < 10) return 2000;
+  if (midMult < 15) return 2500;
+  return 3000;
+}
+
+/// Calculate tick rate (slower for higher wins)
+int _calculateTickRate(double fromMult) {
+  if (fromMult < 1) return 25;
+  if (fromMult < 2) return 20;
+  if (fromMult < 5) return 15;
+  if (fromMult < 10) return 12;
+  if (fromMult < 15) return 10;
+  return 8;
+}
+
+/// Calculate big win duration based on tier and volatility
+int _calculateBigWinDuration(int tierId, String volatility) {
+  final isHighVol = volatility.toLowerCase().contains('high');
+
+  // Higher tiers = longer celebrations
+  final baseDuration = switch (tierId) {
+    1 => 3000,
+    2 => 5000,
+    3 => 8000,
+    4 => 12000,
+    5 => 18000,
+    _ => 3000,
+  };
+
+  // High volatility games have longer celebrations
+  return isHighVol ? (baseDuration * 1.3).round() : baseDuration;
+}
+
+/// Calculate big win tick rate (slower for higher tiers)
+int _calculateBigWinTickRate(int tierId) {
+  return switch (tierId) {
+    1 => 12,
+    2 => 10,
+    3 => 8,
+    4 => 6,
+    5 => 4,
+    _ => 10,
+  };
+}
+
+/// Generate default big win tiers based on volatility
+List<BigWinTierDefinition> _defaultBigWinTiersForVolatility(String volatility, double threshold) {
+  final volLower = volatility.toLowerCase();
+
+  // Determine tier multiplier ranges based on volatility
+  final (t1End, t2End, t3End, t4End) = switch (volLower) {
+    'very_high' || 'extreme' => (50.0, 100.0, 250.0, 500.0),
+    'high' => (40.0, 80.0, 150.0, 300.0),
+    'medium' || 'med' => (30.0, 60.0, 100.0, 200.0),
+    'low' => (25.0, 50.0, 80.0, 150.0),
+    _ => (40.0, 80.0, 150.0, 300.0),
+  };
+
+  return [
+    BigWinTierDefinition(
+      tierId: 1,
+      fromMultiplier: threshold,
+      toMultiplier: t1End,
+      displayLabel: 'BIG WIN',
+      durationMs: _calculateBigWinDuration(1, volatility),
+      rollupTickRate: _calculateBigWinTickRate(1),
+    ),
+    BigWinTierDefinition(
+      tierId: 2,
+      fromMultiplier: t1End,
+      toMultiplier: t2End,
+      displayLabel: 'SUPER WIN',
+      durationMs: _calculateBigWinDuration(2, volatility),
+      rollupTickRate: _calculateBigWinTickRate(2),
+    ),
+    BigWinTierDefinition(
+      tierId: 3,
+      fromMultiplier: t2End,
+      toMultiplier: t3End,
+      displayLabel: 'MEGA WIN',
+      durationMs: _calculateBigWinDuration(3, volatility),
+      rollupTickRate: _calculateBigWinTickRate(3),
+    ),
+    BigWinTierDefinition(
+      tierId: 4,
+      fromMultiplier: t3End,
+      toMultiplier: t4End,
+      displayLabel: 'EPIC WIN',
+      durationMs: _calculateBigWinDuration(4, volatility),
+      rollupTickRate: _calculateBigWinTickRate(4),
+    ),
+    BigWinTierDefinition(
+      tierId: 5,
+      fromMultiplier: t4End,
+      toMultiplier: double.infinity,
+      displayLabel: 'ULTRA WIN',
+      durationMs: _calculateBigWinDuration(5, volatility),
+      rollupTickRate: _calculateBigWinTickRate(5),
+    ),
+  ];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -73,7 +73,6 @@ import '../widgets/slot_lab/resources_panel.dart';
 import '../widgets/slot_lab/aux_sends_panel.dart';
 import '../widgets/slot_lab/slot_preview_widget.dart';
 import '../widgets/slot_lab/premium_slot_preview.dart';
-import '../widgets/slot_lab/embedded_slot_mockup.dart';
 import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/audio_hover_preview.dart';
 import '../widgets/slot_lab/slot_lab_settings_panel.dart' as settings;
@@ -81,7 +80,6 @@ import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
 import '../services/slotlab_track_bridge.dart';
 import '../services/waveform_cache_service.dart';
-import '../services/stage_configuration_service.dart';
 import '../controllers/slot_lab/timeline_drag_controller.dart';
 import '../widgets/slot_lab/timeline_toolbar.dart';
 import '../widgets/slot_lab/timeline_grid_overlay.dart';
@@ -97,10 +95,7 @@ import '../widgets/lower_zone/lower_zone_types.dart' show SlotLabSuperTab;
 import '../widgets/slot_lab/lower_zone/command_builder_panel.dart';
 import '../widgets/slot_lab/lower_zone/event_list_panel.dart';
 import '../widgets/slot_lab/lower_zone/bus_meters_panel.dart';
-import '../models/auto_event_builder_models.dart' show AudioAsset, DropTarget, TargetType, StageContext;
 import '../widgets/spatial/auto_spatial_panel.dart';
-import '../widgets/slot_lab/auto_event_builder/audio_browser_panel.dart' as aeb;
-import '../widgets/slot_lab/auto_event_builder/drop_target_wrapper.dart';
 import '../providers/stage_ingest_provider.dart';
 import '../widgets/stage_ingest/stage_ingest_panel.dart';
 import '../widgets/slot_lab/gdd_import_wizard.dart';
@@ -109,10 +104,9 @@ import '../widgets/ale/ale_panel.dart';
 // import '../widgets/slot_lab/symbol_strip_widget.dart'; // LEGACY - replaced by UltimateAudioPanel
 import '../widgets/slot_lab/ultimate_audio_panel.dart';
 import '../widgets/slot_lab/events_panel_widget.dart';
+import '../services/waveform_thumbnail_cache.dart';
 import '../providers/slot_lab_project_provider.dart';
 import '../models/slot_lab_models.dart';
-import '../widgets/slot_lab/group_batch_import_panel.dart';
-import '../services/stage_group_service.dart';
 import '../widgets/template/template_gallery_panel.dart';
 import '../widgets/slot_lab/project_dashboard_dialog.dart';
 import '../models/template_models.dart' show BuiltTemplate;
@@ -810,9 +804,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   String _browserSearchQuery = '';
   String _selectedBrowserFolder = 'All';
 
-  // Auto Event Builder mode
-  bool _eventBuilderMode = false;
-  int _rightPanelTab = 0; // 0 = Events, 1 = Audio Browser (Auto Event Builder)
 
   // Preview panel
   bool _showPreviewPanel = true;
@@ -1041,9 +1032,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // manages spin/stop toggle when in fullscreen (F11) mode. In that mode,
     // PremiumSlotPreview has guaranteed focus.
     //
-    // BUT: When in embedded mode (_eventBuilderMode = false), PremiumSlotPreview
-    // does NOT have focus (slot_lab_screen's GestureDetector takes focus),
-    // so we MUST handle Space here.
+    // BUT: When in embedded mode, PremiumSlotPreview does NOT have focus
+    // (slot_lab_screen's GestureDetector takes focus), so we MUST handle Space here.
     // ═══════════════════════════════════════════════════════════════════════════
     if (_isPreviewMode) {
       debugPrint('[SlotLab] 🌍 GLOBAL Space — SKIPPED (Fullscreen PremiumSlotPreview handles it)');
@@ -1062,7 +1052,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     }
     _lastSpaceKeyTime = now;
 
-    debugPrint('[SlotLab] 🌍 GLOBAL Space key handler (editMode=$_eventBuilderMode, isReelsSpinning=${_slotLabProvider.isReelsSpinning}, isPlayingStages=${_slotLabProvider.isPlayingStages})');
+    debugPrint('[SlotLab] 🌍 GLOBAL Space key handler (isReelsSpinning=${_slotLabProvider.isReelsSpinning}, isPlayingStages=${_slotLabProvider.isPlayingStages})');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SPACE KEY LOGIC (matches premium_slot_preview.dart):
@@ -2205,6 +2195,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         reels: _reelCount,
         rows: _rowCount,
         isFullscreen: true, // Fullscreen mode — handles SPACE key internally
+        // P5: Pass project provider for dynamic win tier configuration
+        projectProvider: context.read<SlotLabProjectProvider>(),
       );
     }
 
@@ -2281,6 +2273,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                             contexts: projectProvider.contexts,
                             expandedSections: projectProvider.expandedSections,
                             expandedGroups: projectProvider.expandedGroups,
+                            // P5: Dynamic win tier configuration
+                            winConfiguration: projectProvider.winConfiguration,
                             // P3-19: Quick Assign Mode
                             quickAssignMode: _quickAssignMode,
                             quickAssignSelectedSlot: _quickAssignSelectedSlot,
@@ -2472,9 +2466,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               SlotLabLowerZoneWidget(
                 controller: _lowerZoneController,
                 slotLabProvider: _slotLabProvider,
-                onSpin: _handleSpin,
-                onForceOutcome: _handleForceOutcome,
-                onAudioDropped: _handleAudioDroppedOnStage,
+                onSpin: () => _slotLabProvider.spin(),
+                onForceOutcome: (outcome) => _slotLabProvider.spinForced(_parseOutcome(outcome)),
+                onAudioDropped: null, // Edit Mode removed - audio drop via UltimateAudioPanel
                 onPause: () => _slotLabProvider.stopStagePlayback(),
                 onResume: () {}, // Resume not implemented
                 onStop: () => _slotLabProvider.stopStagePlayback(),
@@ -3847,53 +3841,62 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Get gradient colors for symbol tier (for reel rendering)
+  /// Uses industry-standard colors with MAXIMUM CONTRAST:
+  /// - HP: Precious gems (Ruby, Emerald, Sapphire, Amethyst)
+  /// - LP: Fruit colors (Lemon, Orange, Grape, Lime, Strawberry, Blueberry)
+  /// - Special: Electric/Neon (Gold, Magenta, Cyan)
   Map<String, List<Color>> _getSymbolColorsForTier(SymbolTier tier, bool isWild, bool isScatter, bool isBonus) {
-    // Special symbols override tier colors
+    // Special symbols override tier colors — MAXIMUM VISUAL IMPACT
     if (isWild || tier == SymbolTier.wild) {
       return {
-        'gradient': [const Color(0xFFFFE55C), const Color(0xFFFFD700), const Color(0xFFCC9900)],
-        'glow': [const Color(0xFFFFD700)],
+        'gradient': [const Color(0xFFFFEE77), const Color(0xFFFFD700), const Color(0xFFDD9900)],
+        'glow': [const Color(0xFFFFDD00)],
       };
     }
     if (isScatter || tier == SymbolTier.scatter) {
       return {
-        'gradient': [const Color(0xFFFF66FF), const Color(0xFFE040FB), const Color(0xFF9C27B0)],
-        'glow': [const Color(0xFFE040FB)],
+        'gradient': [const Color(0xFFFF77FF), const Color(0xFFFF00FF), const Color(0xFFAA00AA)],
+        'glow': [const Color(0xFFFF44FF)],
       };
     }
     if (isBonus || tier == SymbolTier.bonus) {
       return {
-        'gradient': [const Color(0xFF80EEFF), const Color(0xFF40C8FF), const Color(0xFF0088CC)],
-        'glow': [const Color(0xFF40C8FF)],
+        'gradient': [const Color(0xFF77FFFF), const Color(0xFF00FFFF), const Color(0xFF008B8B)],
+        'glow': [const Color(0xFF44FFFF)],
       };
     }
 
-    // Tier-based colors
+    // Tier-based colors — PRECIOUS gems for HP, FRUIT for LP
     switch (tier) {
       case SymbolTier.premium:
+        // RUBY RED — Highest value HP1
         return {
-          'gradient': [const Color(0xFFFFD700), const Color(0xFFFFAA00), const Color(0xFFCC8800)],
-          'glow': [const Color(0xFFFFD700)],
+          'gradient': [const Color(0xFFFF4444), const Color(0xFFDC143C), const Color(0xFF8B0000)],
+          'glow': [const Color(0xFFFF2222)],
         };
       case SymbolTier.high:
+        // EMERALD GREEN — HP2/HP3/HP4 (mapped to Emerald/Sapphire/Amethyst)
         return {
-          'gradient': [const Color(0xFFFF6699), const Color(0xFFFF4080), const Color(0xFFCC0044)],
-          'glow': [const Color(0xFFFF4080)],
+          'gradient': [const Color(0xFF66FFCC), const Color(0xFF50C878), const Color(0xFF006644)],
+          'glow': [const Color(0xFF50C878)],
         };
       case SymbolTier.mid:
+        // GRAPE PURPLE — LP1/LP2/LP3 (medium tier fruits)
         return {
-          'gradient': [const Color(0xFF88FF88), const Color(0xFF4CAF50), const Color(0xFF2E7D32)],
-          'glow': [const Color(0xFF4CAF50)],
+          'gradient': [const Color(0xFF9966CC), const Color(0xFF6B3FA0), const Color(0xFF3D1F5C)],
+          'glow': [const Color(0xFF8855BB)],
         };
       case SymbolTier.low:
+        // BLUEBERRY BLUE — LP4/LP5/LP6 (lowest tier)
         return {
-          'gradient': [const Color(0xFF9999FF), const Color(0xFF7986CB), const Color(0xFF3F51B5)],
-          'glow': [const Color(0xFF7986CB)],
+          'gradient': [const Color(0xFF7799DD), const Color(0xFF4169E1), const Color(0xFF2E4A8A)],
+          'glow': [const Color(0xFF5577CC)],
         };
       case SymbolTier.special:
+        // ORANGE — Special/mystery symbols
         return {
-          'gradient': [const Color(0xFFFF9966), const Color(0xFFFF7043), const Color(0xFFE64A19)],
-          'glow': [const Color(0xFFFF7043)],
+          'gradient': [const Color(0xFFFFAA44), const Color(0xFFFF8C00), const Color(0xFFCC5500)],
+          'glow': [const Color(0xFFFF9933)],
         };
       default:
         return {
@@ -7583,2331 +7586,16 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   Widget _buildMockSlot() {
     return Container(
       margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
-      child: Column(
-        children: [
-          // Slot Preview Area - Same premium mockup in both modes
-          // Edit mode adds drop zone overlays via _buildDroppableSlotPreview()
-          Expanded(
-            child: Row(
-              children: [
-                // Premium Embedded Slot Mockup - fills available space
-                Expanded(
-                  child: _eventBuilderMode
-                      ? _buildDroppableSlotPreview()
-                      : PremiumSlotPreview(
-                          key: ValueKey('premium_slot_${_reelCount}x$_rowCount'),
-                          onExit: () {}, // Embedded mode - no fullscreen exit
-                          reels: _reelCount,
-                          rows: _rowCount,
-                          isFullscreen: false, // Embedded mode — SPACE handled by global handler
-                        ),
-                ),
-                // Event Builder Mode Toggle (compact sidebar)
-                Container(
-                  width: 50,
-                  padding: const EdgeInsets.all(4),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Event Builder Mode Toggle
-                      _buildModeToggle(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: PremiumSlotPreview(
+        key: ValueKey('premium_slot_${_reelCount}x$_rowCount'),
+        onExit: () {}, // Embedded mode - no fullscreen exit
+        reels: _reelCount,
+        rows: _rowCount,
+        isFullscreen: false, // Embedded mode — SPACE handled by global handler
+        // P5: Pass project provider for dynamic win tier configuration
+        projectProvider: context.read<SlotLabProjectProvider>(),
       ),
     );
-  }
-
-  /// Toggle button for Event Builder mode (DROP ZONE)
-  Widget _buildModeToggle() {
-    return GestureDetector(
-      onTap: () => setState(() => _eventBuilderMode = !_eventBuilderMode),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: _eventBuilderMode
-                ? [const Color(0xFF9333EA), const Color(0xFF7C3AED)]
-                : [const Color(0xFF2A2A35), const Color(0xFF1A1A22)],
-          ),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: _eventBuilderMode
-                ? const Color(0xFFAB7EF6)
-                : Colors.white.withOpacity(0.2),
-            width: _eventBuilderMode ? 2 : 1,
-          ),
-          boxShadow: _eventBuilderMode
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF9333EA).withOpacity(0.5),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _eventBuilderMode ? Icons.my_location : Icons.ads_click,
-              size: 16,
-              color: _eventBuilderMode ? Colors.white : Colors.white54,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              _eventBuilderMode ? 'DROP\nMODE' : 'EDIT\nMODE',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _eventBuilderMode ? Colors.white : Colors.white54,
-                fontSize: 8,
-                fontWeight: FontWeight.w700,
-                height: 1.1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Droppable Slot Preview - Active in Event Builder mode
-  /// Uses LayoutBuilder to position drop zones EXACTLY on PremiumSlotPreview elements
-  ///
-  /// PIXEL-PERFECT LAYOUT MAP (from premium_slot_preview.dart):
-  /// ┌─────────────────────────────────────────────────────────────────────────┐
-  /// │ HEADER (48px) - horizontal padding 16px                                  │
-  /// │ ├── Menu (38x38) @ left:16                                              │
-  /// │ ├── Logo (32x32 + text) @ ~70px                                         │
-  /// │ ├── Balance (~160px) @ ~180px                                           │
-  /// │ ├── VIP (~80px)                                                         │
-  /// │ ├── [spacer]                                                            │
-  /// │ ├── Music (38x38) ├── SFX (38x38) ├── Settings (38x38)                  │
-  /// │ └── Fullscreen (38x38) ├── Exit (38x38) @ right:16                      │
-  /// ├─────────────────────────────────────────────────────────────────────────┤
-  /// │ JACKPOT ZONE (60px) - padding h16 v6                                    │
-  /// │ ├── MINI (85px) ├── MINOR (100px) ├── MAJOR (115px) ├── GRAND (140px)   │
-  /// │ └── Progressive meter (180px)                                           │
-  /// ├─────────────────────────────────────────────────────────────────────────┤
-  /// │ MAIN GAME ZONE (Expanded)                                               │
-  /// │ ├── 5 reel columns (each ~20% width)                                    │
-  /// │ ├── 3 symbol rows per reel                                              │
-  /// │ └── Win overlay area (centered)                                         │
-  /// ├─────────────────────────────────────────────────────────────────────────┤
-  /// │ CONTROL BAR (104px) - padding h16 v8                                    │
-  /// │ ├── LINES selector (~90px)                                              │
-  /// │ ├── COIN selector (~90px)                                               │
-  /// │ ├── BET selector (~90px)                                                │
-  /// │ ├── TOTAL BET (~100px)                                                  │
-  /// │ ├── MAX BET (54x54)                                                     │
-  /// │ ├── AUTO (54x54)                                                        │
-  /// │ ├── TURBO (54x54)                                                       │
-  /// │ └── SPIN (88x88) - centered                                             │
-  /// └─────────────────────────────────────────────────────────────────────────┘
-  Widget _buildDroppableSlotPreview() {
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PIXEL-PERFECT DIMENSIONS extracted from premium_slot_preview.dart
-    // ═══════════════════════════════════════════════════════════════════════════
-    //
-    // Layout structure (top to bottom):
-    // ┌─────────────────────────────────────────────────────────────────────────┐
-    // │ _HeaderZone         height: 48px   padding: h16                         │
-    // ├─────────────────────────────────────────────────────────────────────────┤
-    // │ _JackpotZone        padding: v6 h16   Row(center): MINI+MINOR+MAJOR+GRAND│
-    // ├─────────────────────────────────────────────────────────────────────────┤
-    // │ _FeatureIndicators  padding: v8 h16 (conditional, 0 if empty)           │
-    // ├─────────────────────────────────────────────────────────────────────────┤
-    // │ _MainGameZone       Expanded - fills remaining space                    │
-    // │   └─ SlotPreviewWidget centered, 80% width, 85% height                  │
-    // ├─────────────────────────────────────────────────────────────────────────┤
-    // │ _ControlBar         padding: v8 h16   Row(center): selectors+buttons    │
-    // └─────────────────────────────────────────────────────────────────────────┘
-
-    // === HEADER ZONE (48px) ===
-    const headerH = 48.0;
-    const headerPadding = 16.0;
-    const headerIconSize = 38.0; // Icon 22px + padding 8*2 = 38px
-
-    // === JACKPOT ZONE ===
-    // Content height ~ 48px (label + amount text), plus 12px vertical padding
-    const jackpotPaddingV = 6.0;
-    const jackpotPaddingH = 16.0;
-    const jackpotContentH = 48.0; // Estimated from _JackpotTicker layout
-    const jackpotTotalH = jackpotContentH + jackpotPaddingV * 2; // ~60px
-
-    // Jackpot ticker widths (from _JackpotDimensions)
-    const miniW = 85.0;
-    const minorW = 100.0;
-    const majorW = 115.0;
-    const grandW = 140.0;
-    const progressiveMeterW = 180.0;
-    // Gaps: MINI -12- MINOR -16- MAJOR -16- GRAND -24- PROGRESSIVE
-    const jackpotRowW = miniW + 12 + minorW + 16 + majorW + 16 + grandW + 24 + progressiveMeterW;
-
-    // === CONTROL BAR ===
-    const controlBarPaddingV = 8.0;
-    const controlBarPaddingH = 16.0;
-    const spinButtonSize = 88.0;
-    const controlBarH = spinButtonSize + controlBarPaddingV * 2; // 104px
-
-    const actionButtonSize = 54.0;
-    const maxBetSize = 54.0;
-
-    // _BetSelector dimensions: padding h8 v6, chevron(28) + gap(8) + col(50) + gap(8) + chevron(28) + padding
-    // Total = 8 + 28 + 8 + 50 + 8 + 28 + 8 = 138px
-    const betSelectorW = 138.0;
-    const betSelectorH = 50.0; // Approximate content height
-
-    // _TotalBetDisplay: padding h16 v8, content ~80px
-    const totalBetW = 112.0; // 16 + ~80 + 16
-
-    // Info panel buttons (left side positioned)
-    const infoPanelTop = 160.0;
-    const infoPanelLeft = 16.0;
-    const infoPanelButtonW = 50.0; // From _InfoButton: width: 50
-    const infoPanelButtonH = 48.0; // padding v10 + icon(20) + spacing(4) + text
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final totalH = constraints.maxHeight;
-        final totalW = constraints.maxWidth;
-        final centerX = totalW / 2;
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // MAIN GAME ZONE CALCULATIONS
-        // ═══════════════════════════════════════════════════════════════════════
-        final mainGameTop = headerH + jackpotTotalH;
-        final mainGameBottom = totalH - controlBarH;
-        final mainGameH = mainGameBottom - mainGameTop;
-
-        // Reel frame fills ENTIRE Main Game Zone (Positioned.fill in _MainGameZone)
-        final reelFrameW = totalW;
-        final reelFrameH = mainGameH;
-        final reelFrameLeft = 0.0;
-        final reelFrameTop = mainGameTop;
-
-        // Individual reel column width (full width / reel count)
-        final reelColW = reelFrameW / _reelCount;
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // ACTUAL REEL CELL SIZE (matching slot_preview_widget.dart)
-        // slot_preview_widget uses: constraints.maxWidth - 12, constraints.maxHeight - 12
-        // Then: cellSize = min(width/reels, height/rows) * 0.82
-        // Table is centered with Center()
-        // ═══════════════════════════════════════════════════════════════════════
-        // Account for padding (4px all sides) + border (2px) in SlotPreviewWidget
-        final availableW = reelFrameW - 12;
-        final availableH = reelFrameH - 12;
-        final cellW = availableW / _reelCount;
-        final cellH = availableH / _rowCount;
-        final reelCellSize = (cellW < cellH ? cellW : cellH) * 0.82;
-        final actualReelGridW = reelCellSize * _reelCount;
-        final actualReelGridH = reelCellSize * _rowCount;
-        // Grid is centered within reelFrame (via Center widget in SlotPreviewWidget)
-        final reelGridOffsetX = (reelFrameW - actualReelGridW) / 2;
-        final reelGridOffsetY = (reelFrameH - actualReelGridH) / 2;
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // JACKPOT ZONE CALCULATIONS (centered Row)
-        // ═══════════════════════════════════════════════════════════════════════
-        // Row is center-aligned, so left edge = (totalW - rowWidth) / 2
-        final jackpotRowLeft = (totalW - jackpotRowW) / 2;
-        final jackpotY = headerH + jackpotPaddingV;
-        final jackpotTickerH = jackpotContentH;
-
-        // Calculate individual jackpot X positions
-        final miniX = jackpotRowLeft;
-        final minorX = miniX + miniW + 12;
-        final majorX = minorX + minorW + 16;
-        final grandX = majorX + majorW + 16;
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // CONTROL BAR CALCULATIONS (centered Row)
-        // ═══════════════════════════════════════════════════════════════════════
-        // Row layout: LINES-12-COIN-12-BET-16-TOTAL-16-MAXBET-10-AUTO-10-TURBO-20-SPIN
-        // Total control row width:
-        final controlRowW = betSelectorW + 12 + betSelectorW + 12 + betSelectorW + 16 +
-            totalBetW + 16 + maxBetSize + 10 + actionButtonSize + 10 + actionButtonSize + 20 + spinButtonSize;
-        final controlRowLeft = (totalW - controlRowW) / 2;
-
-        // Calculate positions from left edge of control row
-        final linesX = controlRowLeft;
-        final coinX = linesX + betSelectorW + 12;
-        final betX = coinX + betSelectorW + 12;
-        final totalBetX = betX + betSelectorW + 16;
-        final maxBetX = totalBetX + totalBetW + 16;
-        final autoX = maxBetX + maxBetSize + 10;
-        final turboX = autoX + actionButtonSize + 10;
-        final spinX = turboX + actionButtonSize + 20;
-
-        // Vertical positioning within control bar
-        final controlBarTop = totalH - controlBarH;
-        final selectorY = controlBarPaddingV + (spinButtonSize - betSelectorH) / 2;
-        final actionY = controlBarPaddingV + (spinButtonSize - actionButtonSize) / 2;
-        final spinY = controlBarPaddingV;
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // HEADER RIGHT SIDE CALCULATIONS
-        // ═══════════════════════════════════════════════════════════════════════
-        // From right: EXIT-8-FULLSCREEN-8-SETTINGS-16-SFX-8-MUSIC
-        // Positions calculated from right edge
-        final headerIconY = (headerH - headerIconSize) / 2;
-
-        return Stack(
-          children: [
-            // ═══════════════════════════════════════════════════════════════════
-            // BASE: Dark background (EDIT mode shows only drop zones)
-            // ═══════════════════════════════════════════════════════════════════
-            Container(
-              color: const Color(0xFF0A0A0C),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // HEADER DROP ZONES (48px total height)
-            // ═══════════════════════════════════════════════════════════════════
-
-            // Menu button (left side)
-            Positioned(
-              top: headerIconY,
-              left: headerPadding,
-              width: headerIconSize,
-              height: headerIconSize,
-              child: _buildLabeledDropZone('ui.menu', 'MENU', const Color(0xFF9333EA)),
-            ),
-
-            // Right side buttons (from right: EXIT, FULLSCREEN, SETTINGS, SFX, MUSIC)
-            // EXIT
-            Positioned(
-              top: headerIconY,
-              right: headerPadding,
-              width: headerIconSize,
-              height: headerIconSize,
-              child: _buildLabeledDropZone('ui.exit', 'EXIT', const Color(0xFFFF4040)),
-            ),
-            // FULLSCREEN
-            Positioned(
-              top: headerIconY,
-              right: headerPadding + headerIconSize + 8,
-              width: headerIconSize,
-              height: headerIconSize,
-              child: _buildLabeledDropZone('ui.fullscreen', 'FULL', const Color(0xFF8B5CF6)),
-            ),
-            // SETTINGS
-            Positioned(
-              top: headerIconY,
-              right: headerPadding + (headerIconSize + 8) * 2,
-              width: headerIconSize,
-              height: headerIconSize,
-              child: _buildLabeledDropZone('ui.settings', 'SET', const Color(0xFFFF9040)),
-            ),
-            // SFX (16px gap after settings)
-            Positioned(
-              top: headerIconY,
-              right: headerPadding + (headerIconSize + 8) * 2 + headerIconSize + 16,
-              width: headerIconSize,
-              height: headerIconSize,
-              child: _buildLabeledDropZone('ui.sfx', 'SFX', const Color(0xFF40FF90)),
-            ),
-            // MUSIC
-            Positioned(
-              top: headerIconY,
-              right: headerPadding + (headerIconSize + 8) * 2 + headerIconSize + 16 + headerIconSize + 8,
-              width: headerIconSize,
-              height: headerIconSize,
-              child: _buildLabeledDropZone('ui.music', 'MUSIC', const Color(0xFF40C8FF)),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // JACKPOT DROP ZONES (centered row)
-            // ═══════════════════════════════════════════════════════════════════
-            // MINI
-            Positioned(
-              top: jackpotY,
-              left: miniX,
-              width: miniW,
-              height: jackpotTickerH,
-              child: _buildLabeledDropZone('overlay.jackpot.mini', 'MINI', const Color(0xFF4CAF50)),
-            ),
-            // MINOR
-            Positioned(
-              top: jackpotY,
-              left: minorX,
-              width: minorW,
-              height: jackpotTickerH,
-              child: _buildLabeledDropZone('overlay.jackpot.minor', 'MINOR', const Color(0xFF8B5CF6)),
-            ),
-            // MAJOR
-            Positioned(
-              top: jackpotY,
-              left: majorX,
-              width: majorW,
-              height: jackpotTickerH,
-              child: _buildLabeledDropZone('overlay.jackpot.major', 'MAJOR', const Color(0xFFFF4080)),
-            ),
-            // GRAND
-            Positioned(
-              top: jackpotY,
-              left: grandX,
-              width: grandW,
-              height: jackpotTickerH,
-              child: _buildLabeledDropZone('overlay.jackpot.grand', 'GRAND', const Color(0xFFFFD700)),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // REEL COLUMN DROP ZONES — TWO-LEVEL STRUCTURE
-            // OUTER: Full reel column (REEL_STOP, REEL_SPIN sounds)
-            // INNER: Cell drop zones (SYMBOL_LAND at specific positions)
-            // Gap between outer and inner = reel-level drop target area
-            // ═══════════════════════════════════════════════════════════════════
-            for (int r = 0; r < _reelCount; r++)
-              Positioned(
-                top: reelFrameTop + reelGridOffsetY,
-                left: reelFrameLeft + reelGridOffsetX + (r * reelCellSize),
-                width: reelCellSize,
-                height: actualReelGridH,
-                child: _buildReelOuterDropZone(
-                  reelIndex: r,
-                  reelCellSize: reelCellSize,
-                  rowCount: _rowCount,
-                ),
-              ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // WIN PRESENTATION DROP ZONES (horizontal row at BOTTOM of reel area)
-            // WIN_PRESENT_1-6: Audio based on win/bet ratio (1=≤1x, 2=>1x-2x, 3=>2x-4x, 4=>4x-8x, 5=>8x-13x, 6=>13x+)
-            // ═══════════════════════════════════════════════════════════════════
-            // Calculate horizontal layout: 6 zones × 58px + 5 gaps × 6px = 378px
-            // Positioned 50px above bottom of reel frame to avoid control bar overlap
-            Positioned(
-              top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 189,
-              width: 58,
-              height: 32,
-              child: _buildLabeledDropZone('audio.win_present.1', 'WIN 1', const Color(0xFF40C8FF), compact: true),
-            ),
-            Positioned(
-              top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 189 + 64,
-              width: 58,
-              height: 32,
-              child: _buildLabeledDropZone('audio.win_present.2', 'WIN 2', const Color(0xFF60D8FF), compact: true),
-            ),
-            Positioned(
-              top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 189 + 128,
-              width: 58,
-              height: 32,
-              child: _buildLabeledDropZone('audio.win_present.3', 'WIN 3', const Color(0xFF40FF90), compact: true),
-            ),
-            Positioned(
-              top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 189 + 192,
-              width: 58,
-              height: 32,
-              child: _buildLabeledDropZone('audio.win_present.4', 'WIN 4', const Color(0xFFFFD700), compact: true),
-            ),
-            Positioned(
-              top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 189 + 256,
-              width: 58,
-              height: 32,
-              child: _buildLabeledDropZone('audio.win_present.5', 'WIN 5', const Color(0xFFE040FB), compact: true),
-            ),
-            Positioned(
-              top: reelFrameTop + reelFrameH - 50,
-              left: centerX - 189 + 320,
-              width: 58,
-              height: 32,
-              child: _buildLabeledDropZone('audio.win_present.6', 'WIN 6', const Color(0xFFFF4080), compact: true),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // INFO PANEL DROP ZONES (left side, Positioned at top:160, left:16)
-            // ═══════════════════════════════════════════════════════════════════
-            // PAY
-            Positioned(
-              top: infoPanelTop,
-              left: infoPanelLeft,
-              width: infoPanelButtonW,
-              height: infoPanelButtonH,
-              child: _buildLabeledDropZone('ui.paytable', 'PAY', const Color(0xFF4A9EFF), compact: true),
-            ),
-            // INFO
-            Positioned(
-              top: infoPanelTop + infoPanelButtonH + 8,
-              left: infoPanelLeft,
-              width: infoPanelButtonW,
-              height: infoPanelButtonH,
-              child: _buildLabeledDropZone('ui.rules', 'INFO', const Color(0xFF40C8FF), compact: true),
-            ),
-            // HIST
-            Positioned(
-              top: infoPanelTop + (infoPanelButtonH + 8) * 2,
-              left: infoPanelLeft,
-              width: infoPanelButtonW,
-              height: infoPanelButtonH,
-              child: _buildLabeledDropZone('ui.history', 'HIST', const Color(0xFF40FF90), compact: true),
-            ),
-            // STAT
-            Positioned(
-              top: infoPanelTop + (infoPanelButtonH + 8) * 3,
-              left: infoPanelLeft,
-              width: infoPanelButtonW,
-              height: infoPanelButtonH,
-              child: _buildLabeledDropZone('ui.stats', 'STAT', const Color(0xFFFF9040), compact: true),
-            ),
-            // HELP (below stats)
-            Positioned(
-              top: infoPanelTop + (infoPanelButtonH + 8) * 4,
-              left: infoPanelLeft,
-              width: infoPanelButtonW,
-              height: infoPanelButtonH,
-              child: _buildLabeledDropZone('ui.help', 'HELP', const Color(0xFF9333EA), compact: true),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // HUD DROP ZONES — Balance, Win displays (header center area)
-            // ═══════════════════════════════════════════════════════════════════
-            // BALANCE display (center-left of header)
-            Positioned(
-              top: headerIconY,
-              left: headerPadding + headerIconSize + 24,
-              width: 80,
-              height: headerIconSize,
-              child: _buildLabeledDropZone('ui.balance', 'BALANCE', const Color(0xFF00E676)),
-            ),
-            // WIN display (center-right, before right buttons)
-            Positioned(
-              top: headerIconY,
-              right: headerPadding + (headerIconSize + 8) * 2 + headerIconSize + 16 + headerIconSize + 8 + headerIconSize + 24,
-              width: 70,
-              height: headerIconSize,
-              child: _buildLabeledDropZone('hud.win', 'WIN', const Color(0xFFFFD700)),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // BUY FEATURE DROP ZONE (near bottom-left, common in BTG/Pragmatic)
-            // ═══════════════════════════════════════════════════════════════════
-            Positioned(
-              top: controlBarTop + selectorY,
-              left: infoPanelLeft,
-              width: 70,
-              height: betSelectorH,
-              child: _buildLabeledDropZone('ui.buyin', 'BUY', const Color(0xFFE040FB)),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // JACKPOT TICKER DROP ZONES (for progressive increment audio)
-            // These are SEPARATE from jackpot triggers - for meter tick sounds
-            // ═══════════════════════════════════════════════════════════════════
-            Positioned(
-              top: jackpotY + jackpotTickerH + 4,
-              left: miniX,
-              width: miniW,
-              height: 20,
-              child: _buildLabeledDropZone('ui.jackpot.mini', 'TICK', const Color(0xFF4CAF50), compact: true),
-            ),
-            Positioned(
-              top: jackpotY + jackpotTickerH + 4,
-              left: minorX,
-              width: minorW,
-              height: 20,
-              child: _buildLabeledDropZone('ui.jackpot.minor', 'TICK', const Color(0xFF8B5CF6), compact: true),
-            ),
-            Positioned(
-              top: jackpotY + jackpotTickerH + 4,
-              left: majorX,
-              width: majorW,
-              height: 20,
-              child: _buildLabeledDropZone('ui.jackpot.major', 'TICK', const Color(0xFFFF4080), compact: true),
-            ),
-            Positioned(
-              top: jackpotY + jackpotTickerH + 4,
-              left: grandX,
-              width: grandW,
-              height: 20,
-              child: _buildLabeledDropZone('ui.jackpot.grand', 'TICK', const Color(0xFFFFD700), compact: true),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // NOTIFICATION / ALERT AREA (top center)
-            // ═══════════════════════════════════════════════════════════════════
-            Positioned(
-              top: jackpotY + jackpotTickerH + 28,
-              left: (totalW - 120) / 2,
-              width: 120,
-              height: 24,
-              child: _buildLabeledDropZone('ui.notification', 'NOTIF', const Color(0xFFFF9040), compact: true),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // STOP BUTTON (separate from spin for early stop audio)
-            // Positioned to left of spin button
-            // ═══════════════════════════════════════════════════════════════════
-            Positioned(
-              top: controlBarTop + spinY + spinButtonSize * 0.25,
-              left: spinX - 45,
-              width: 38,
-              height: spinButtonSize * 0.5,
-              child: _buildLabeledDropZone('ui.stop', 'STOP', const Color(0xFFFF4040), compact: true),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // QUICK SPIN TOGGLE (next to turbo)
-            // ═══════════════════════════════════════════════════════════════════
-            Positioned(
-              top: controlBarTop + actionY + actionButtonSize + 4,
-              left: turboX,
-              width: actionButtonSize,
-              height: 24,
-              child: _buildLabeledDropZone('ui.quickspin', 'QUICK', const Color(0xFFE91E63), compact: true),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════════
-            // CONTROL BAR DROP ZONES (centered row at bottom)
-            // ═══════════════════════════════════════════════════════════════════
-
-            // LINES selector
-            Positioned(
-              top: controlBarTop + selectorY,
-              left: linesX,
-              width: betSelectorW,
-              height: betSelectorH,
-              child: _buildLabeledDropZone('ui.lines', 'LINES', const Color(0xFF7C4DFF)),
-            ),
-
-            // COIN selector
-            Positioned(
-              top: controlBarTop + selectorY,
-              left: coinX,
-              width: betSelectorW,
-              height: betSelectorH,
-              child: _buildLabeledDropZone('ui.coin', 'COIN', const Color(0xFF00BCD4)),
-            ),
-
-            // BET selector
-            Positioned(
-              top: controlBarTop + selectorY,
-              left: betX,
-              width: betSelectorW,
-              height: betSelectorH,
-              child: _buildLabeledDropZone('ui.bet', 'BET', const Color(0xFF9C27B0)),
-            ),
-
-            // TOTAL BET display
-            Positioned(
-              top: controlBarTop + selectorY,
-              left: totalBetX,
-              width: totalBetW,
-              height: betSelectorH,
-              child: _buildLabeledDropZone('ui.totalbet', 'TOTAL', const Color(0xFFFFD700)),
-            ),
-
-            // MAX BET button
-            Positioned(
-              top: controlBarTop + actionY,
-              left: maxBetX,
-              width: maxBetSize,
-              height: maxBetSize,
-              child: _buildLabeledDropZone('ui.maxbet', 'MAX', const Color(0xFFFF9040)),
-            ),
-
-            // AUTO button
-            Positioned(
-              top: controlBarTop + actionY,
-              left: autoX,
-              width: actionButtonSize,
-              height: actionButtonSize,
-              child: _buildLabeledDropZone('ui.autospin', 'AUTO', const Color(0xFF00E676)),
-            ),
-
-            // TURBO button
-            Positioned(
-              top: controlBarTop + actionY,
-              left: turboX,
-              width: actionButtonSize,
-              height: actionButtonSize,
-              child: _buildLabeledDropZone('ui.turbo', 'TURBO', const Color(0xFFFF5722)),
-            ),
-
-            // SPIN button (circular, center of control bar)
-            Positioned(
-              top: controlBarTop + spinY,
-              left: spinX,
-              width: spinButtonSize,
-              height: spinButtonSize,
-              child: _buildLabeledDropZone('ui.spin', 'SPIN', const Color(0xFF4A9EFF), circular: true),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════
-            // GROUP DROP ZONES - Batch import by category (right side, vertical)
-            // ═══════════════════════════════════════════════════════════════
-            Positioned(
-              right: 8,
-              top: reelFrameTop + 8,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _buildGroupDropZone(StageGroup.spinsAndReels),
-                  const SizedBox(height: 8),
-                  _buildGroupDropZone(StageGroup.wins),
-                  const SizedBox(height: 8),
-                  _buildGroupDropZone(StageGroup.musicAndFeatures),
-                ],
-              ),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════
-            // EDIT MODE BANNER (top)
-            // ═══════════════════════════════════════════════════════════════
-            Positioned(
-              top: 0,
-              left: totalW * 0.25,
-              right: totalW * 0.25,
-              height: 28,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF9333EA), Color(0xFF7C3AED)],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(12),
-                    bottomRight: Radius.circular(12),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF9333EA).withOpacity(0.5),
-                      blurRadius: 12,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: const Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.ads_click, size: 14, color: Colors.white),
-                      SizedBox(width: 6),
-                      Text(
-                        'DROP ZONE MODE — Drag audio files to elements',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ═══════════════════════════════════════════════════════════════
-            // SYMBOL AUDIO PANEL (LEFT SIDE - vertical)
-            // Contains: Special, HP1-5, MP1-5, LP1-5, Win Lines
-            // ═══════════════════════════════════════════════════════════════
-            Positioned(
-              left: 8,
-              top: reelFrameTop + 8,
-              child: _buildSymbolZonePanel(),
-            ),
-
-            // EXIT + RESET buttons (top right corner - past header icons)
-            // Header icons end at approximately right: 250
-            // Position these buttons further right to avoid overlap
-            Positioned(
-              top: 0,
-              right: 0,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // RESET button - clears recently created events
-                  Consumer<MiddlewareProvider>(
-                    builder: (ctx, middleware, _) {
-                      final recentCount = middleware.compositeEvents.length;
-                      if (recentCount == 0) return const SizedBox.shrink();
-                      return GestureDetector(
-                        onTap: () => _showResetEventsConfirmation(middleware, recentCount),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF9040),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFFF9040).withOpacity(0.4),
-                                blurRadius: 6,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.refresh, size: 12, color: Colors.white),
-                              const SizedBox(width: 3),
-                              Text(
-                                'RESET ($recentCount)',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  // EXIT button
-                  GestureDetector(
-                    onTap: () => setState(() => _eventBuilderMode = false),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF4060),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF4060).withOpacity(0.4),
-                            blurRadius: 6,
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.close, size: 12, color: Colors.white),
-                          SizedBox(width: 3),
-                          Text(
-                            'EXIT',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// REEL DROP ZONE — Full reel column for reel-level sounds (REEL_STOP, REEL_SPIN)
-  /// Reel dimensions are UNCHANGED
-  Widget _buildReelOuterDropZone({
-    required int reelIndex,
-    required double reelCellSize,
-    required int rowCount,
-  }) {
-    final reelColor = _getReelColor(reelIndex);
-
-    return DropTargetWrapper(
-      target: DropTarget(
-        targetId: 'reel.$reelIndex',
-        targetType: TargetType.reelSurface,
-        stageContext: StageContext.global,
-      ),
-      showBadge: false,
-      glowColor: reelColor,
-      onEventCreated: (event) => _onEventBuilderEventCreated(event, 'reel.$reelIndex'),
-      child: Container(
-        decoration: BoxDecoration(
-          // VISIBLE background for outer reel zone
-          color: reelColor.withOpacity(0.1),
-          // THICK VISIBLE border for outer zone
-          border: Border.all(
-            color: reelColor.withOpacity(0.9),
-            width: 3,
-          ),
-          borderRadius: BorderRadius.circular(10),
-          // Glow effect
-          boxShadow: [
-            BoxShadow(
-              color: reelColor.withOpacity(0.3),
-              blurRadius: 8,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
-        child: Center(
-          child: Text(
-            'REEL ${reelIndex + 1}',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.8),
-                  blurRadius: 4,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Labeled drop zone with VISIBLE border and label
-  Widget _buildLabeledDropZone(
-    String targetId,
-    String label,
-    Color color, {
-    bool compact = false,
-    bool circular = false,
-  }) {
-    final targetType = targetId.startsWith('reel') || targetId.startsWith('symbol')
-        ? TargetType.reelSurface
-        : targetId.startsWith('ui')
-            ? TargetType.uiButton
-            : TargetType.overlay;
-
-    final target = DropTarget(
-      targetId: targetId,
-      targetType: targetType,
-      stageContext: StageContext.global,
-    );
-
-    return DropTargetWrapper(
-      target: target,
-      showBadge: false,
-      glowColor: color,
-      onEventCreated: (event) => _onEventBuilderEventCreated(event, targetId),
-      child: Container(
-        decoration: BoxDecoration(
-          // VISIBLE background
-          color: color.withOpacity(0.15),
-          // THICK VISIBLE border
-          border: Border.all(
-            color: color.withOpacity(0.9),
-            width: compact ? 2 : 3,
-          ),
-          borderRadius: circular
-              ? BorderRadius.circular(100)
-              : BorderRadius.circular(compact ? 6 : 10),
-          // Glow effect
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.3),
-              blurRadius: 8,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
-        child: Center(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: compact ? 9 : 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.8),
-                  blurRadius: 4,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Legacy overlay drop zone (kept for compatibility)
-  Widget _buildOverlayDropZone(String targetId, Color color) {
-    return _buildLabeledDropZone(targetId, targetId.split('.').last.toUpperCase(), color);
-  }
-
-  Color _getReelColor(int index) {
-    const colors = [
-      Color(0xFF4A9EFF),
-      Color(0xFF40C8FF),
-      Color(0xFF40FF90),
-      Color(0xFFFF9040),
-      Color(0xFFFF4060),
-    ];
-    return colors[index % colors.length];
-  }
-
-  /// Mini drop zone badge for compact overlay zones
-  Widget _buildMiniDropZone(String label, String targetId, Color color) {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, provider, _) {
-        // Count events using the same logic as DropTargetWrapper
-        final stage = _targetIdToStage(targetId);
-        final count = provider.compositeEvents
-            .where((e) => e.triggerStages.contains(stage))
-            .length;
-        final target = DropTarget(
-          targetId: targetId,
-          targetType: targetId.contains('jackpot') ? TargetType.overlay : TargetType.overlay,
-          stageContext: StageContext.global,
-        );
-
-        return DropTargetWrapper(
-          target: target,
-          showBadge: false,
-          glowColor: color,
-          onEventCreated: (event) => _onEventBuilderEventCreated(event, targetId),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: count > 0
-                  ? color.withOpacity(0.3)
-                  : Colors.black.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: count > 0 ? color : color.withOpacity(0.4),
-                width: count > 0 ? 1.5 : 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: count > 0 ? Colors.white : color,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (count > 0) ...[
-                  const SizedBox(width: 3),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: Text(
-                      '$count',
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 7,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Group drop zone for batch imports by category
-  /// Accepts both `List<AudioAsset>` from browser and single `AudioAsset`
-  /// Also clickable to open file picker
-  Widget _buildGroupDropZone(StageGroup group) {
-    final color = _groupColor(group);
-    final icon = _groupIcon(group);
-    final label = group.displayName;
-
-    return DragTarget<Object>(
-      onWillAcceptWithDetails: (details) {
-        final data = details.data;
-        // Accept List<AudioAsset> from browser or single AudioAsset
-        if (data is List<AudioAsset>) return true;
-        if (data is AudioAsset) return true;
-        return false;
-      },
-      onAcceptWithDetails: (details) {
-        final data = details.data;
-        List<String> paths;
-        if (data is List<AudioAsset>) {
-          paths = data.map((a) => a.path).toList();
-        } else if (data is AudioAsset) {
-          paths = [data.path];
-        } else {
-          return;
-        }
-        _handleGroupDrop(group, paths);
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isHovering = candidateData.isNotEmpty;
-
-        return GestureDetector(
-          onTap: () => _showGroupFilePicker(group),
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: Container(
-              width: 100,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isHovering
-                      ? [color.withOpacity(0.5), color.withOpacity(0.3)]
-                      : [Colors.black.withOpacity(0.85), Colors.black.withOpacity(0.7)],
-                ),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isHovering ? color : color.withOpacity(0.6),
-                  width: isHovering ? 2 : 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isHovering ? color.withOpacity(0.5) : Colors.black45,
-                    blurRadius: isHovering ? 12 : 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 18, color: isHovering ? Colors.white : color),
-                  const SizedBox(height: 4),
-                  Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: isHovering ? Colors.white : color,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    isHovering ? 'RELEASE' : 'DROP / CLICK',
-                    style: TextStyle(
-                      color: isHovering ? Colors.white70 : color.withOpacity(0.7),
-                      fontSize: 7,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Show file picker for group batch import
-  Future<void> _showGroupFilePicker(StageGroup group) async {
-    try {
-      final paths = await NativeFilePicker.pickAudioFiles();
-      if (paths.isNotEmpty) {
-        _handleGroupDrop(group, paths);
-      }
-    } catch (e) {
-      debugPrint('[SlotLab] Group file picker error: $e');
-    }
-  }
-
-  Color _groupColor(StageGroup group) {
-    switch (group) {
-      case StageGroup.spinsAndReels:
-        return const Color(0xFF4A9EFF);
-      case StageGroup.wins:
-        return const Color(0xFFFFCA28);
-      case StageGroup.musicAndFeatures:
-        return const Color(0xFFE040FB);
-    }
-  }
-
-  IconData _groupIcon(StageGroup group) {
-    switch (group) {
-      case StageGroup.spinsAndReels:
-        return Icons.casino;
-      case StageGroup.wins:
-        return Icons.emoji_events;
-      case StageGroup.musicAndFeatures:
-        return Icons.music_note;
-    }
-  }
-
-  void _handleGroupDrop(StageGroup group, List<String> audioPaths) {
-    if (audioPaths.isEmpty) return;
-
-    debugPrint('[SlotLab] ═══════════════════════════════════════════════════════');
-    debugPrint('[SlotLab] Group Drop: ${audioPaths.length} files → ${group.displayName}');
-
-    // Use StageGroupService to match files to stages
-    final service = StageGroupService.instance;
-    final result = service.matchFilesToGroup(group: group, audioPaths: audioPaths);
-
-    // Debug: show all matches
-    debugPrint('[SlotLab] Matched ${result.matched.length} files:');
-    for (final match in result.matched) {
-      debugPrint('[SlotLab]   📁 "${match.audioFileName}" → ${match.stage} (${(match.confidence * 100).toStringAsFixed(0)}%)');
-      debugPrint('[SlotLab]      Keywords: ${match.matchedKeywords.join(", ")}');
-    }
-
-    // Debug: show unmatched
-    if (result.unmatched.isNotEmpty) {
-      debugPrint('[SlotLab] Unmatched ${result.unmatched.length} files:');
-      for (final unmatched in result.unmatched) {
-        debugPrint('[SlotLab]   ❌ "${unmatched.audioFileName}"');
-        if (unmatched.suggestions.isNotEmpty) {
-          debugPrint('[SlotLab]      Suggestions: ${unmatched.suggestions.map((s) => "${s.stage}(${(s.confidence * 100).toStringAsFixed(0)}%)").join(", ")}');
-        }
-      }
-    }
-    debugPrint('[SlotLab] ═══════════════════════════════════════════════════════');
-
-    // Create events for matched files
-    int created = 0;
-    for (final match in result.matched) {
-      final stage = match.stage;
-      final path = match.audioPath;
-
-      // Create event via _handleBatchImportEvents
-      // Use proper naming convention: onReelLand1, onWinBig, etc.
-      final spec = BatchEventSpec(
-        eventName: generateEventName(stage),
-        stage: stage,
-        audioPath: path,
-        volume: 1.0,
-        pan: 0.0,
-      );
-      _handleBatchImportEvents([spec]);
-      created++;
-    }
-
-    // Show result
-    final message = created > 0
-        ? '✅ Created $created events for ${group.displayName}'
-        : '⚠️ No matches found for ${group.displayName}';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: created > 0 ? Colors.green.shade800 : Colors.orange.shade800,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-
-    // Show unmatched files if any
-    if (result.unmatched.isNotEmpty) {
-      debugPrint('[SlotLab] Unmatched: ${result.unmatched.length} files');
-      // Could show a dialog or open the Batch tab for manual assignment
-    }
-  }
-
-  /// Callback when event is created via drag-drop in Event Builder mode
-  /// DropTargetWrapper creates SlotCompositeEvent directly via MiddlewareProvider,
-  /// so this callback is for additional processing/feedback only.
-  void _onEventBuilderEventCreated(SlotCompositeEvent event, String targetId) {
-    debugPrint('[SlotLab] Event Builder: Event created for $targetId');
-    debugPrint('[SlotLab] ✅ Created composite event "${event.name}" with stages: ${event.triggerStages}');
-
-    // Show feedback
-    setState(() {
-      _lastDragStatus = '✅ Event: ${event.name}';
-      _lastDragStatusTime = DateTime.now();
-    });
-
-    // SL-INT-P1.1: Show SnackBar confirmation for visual feedback loop
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Color(0xFF40FF90), size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Event Created: ${event.name}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                    ),
-                    Text(
-                      'Stage: ${event.triggerStages.join(", ")} → ${event.layers.isNotEmpty ? event.layers.first.audioPath.split("/").last : "No audio"}',
-                      style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.7)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: FluxForgeTheme.bgMid,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          action: SnackBarAction(
-            label: 'EDIT',
-            textColor: const Color(0xFF4A9EFF),
-            onPressed: () {
-              // Select the event in Events panel
-              _middleware.selectCompositeEvent(event.id);
-              // Switch to Events super-tab
-              _lowerZoneController.setSuperTab(SlotLabSuperTab.events);
-            },
-          ),
-        ),
-      );
-    }
-  }
-
-  /// Handle batch import events from GroupBatchImportPanel
-  void _handleBatchImportEvents(List<BatchEventSpec> specs) {
-    debugPrint('[SlotLab] Batch Import: Creating ${specs.length} events');
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // AUTO-EXPAND: Generic stages → Per-index events
-    // When user imports REEL_STOP (generic), auto-create REEL_STOP_0..4
-    // Each per-reel event has the same audio but different stereo panning
-    // ═══════════════════════════════════════════════════════════════════════════
-    final expandedSpecs = <BatchEventSpec>[];
-    for (final spec in specs) {
-      final expanded = _expandGenericStage(spec);
-      expandedSpecs.addAll(expanded);
-    }
-
-    debugPrint('[SlotLab] Batch Import: Expanded ${specs.length} → ${expandedSpecs.length} events');
-
-    for (final spec in expandedSpecs) {
-      final fileName = spec.audioPath.split('/').last;
-
-      // Get correct bus from StageConfigurationService
-      final stageBus = StageConfigurationService.instance.getBus(spec.stage);
-      final busId = stageBus.index; // SpatialBus enum index (ui=0, reels=1, sfx=2, vo=3, music=4, ambience=5)
-
-      // Create layer
-      final layer = SlotEventLayer(
-        id: 'layer_${DateTime.now().millisecondsSinceEpoch}_${expandedSpecs.indexOf(spec)}',
-        name: fileName,
-        audioPath: spec.audioPath,
-        volume: spec.volume,
-        pan: spec.pan,
-        offsetMs: 0.0,
-        fadeInMs: 0.0,
-        fadeOutMs: 0.0,
-        muted: false,
-        solo: false,
-        busId: busId, // Correct bus from stage config
-      );
-
-      // Determine if event should loop
-      final shouldLoop = StageConfigurationService.instance.isLooping(spec.stage);
-
-      // Create composite event
-      final now = DateTime.now();
-      final compositeEvent = SlotCompositeEvent(
-        id: 'batch_${now.millisecondsSinceEpoch}_${expandedSpecs.indexOf(spec)}',
-        name: spec.eventName,
-        category: _categoryFromStage(spec.stage),
-        color: _colorFromStage(spec.stage),
-        layers: [layer],
-        masterVolume: 1.0,
-        looping: shouldLoop,
-        maxInstances: shouldLoop ? 1 : 4,
-        createdAt: now,
-        modifiedAt: now,
-        triggerStages: [spec.stage],
-      );
-
-      // Add to MiddlewareProvider
-      _middleware.addCompositeEvent(compositeEvent, select: false);
-
-      debugPrint('[SlotLab] ✅ Batch: "${compositeEvent.name}" → ${spec.stage} (pan: ${spec.pan.toStringAsFixed(2)})');
-    }
-
-    // Select the last event
-    if (expandedSpecs.isNotEmpty) {
-      final events = _middleware.compositeEvents;
-      if (events.isNotEmpty) {
-        _middleware.selectCompositeEvent(events.last.id);
-      }
-    }
-
-    setState(() {
-      _lastDragStatus = '✅ Batch: ${expandedSpecs.length} events created';
-      _lastDragStatusTime = DateTime.now();
-    });
-
-    // SL-INT-P1.1: Show SnackBar confirmation for batch import
-    if (mounted && expandedSpecs.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.playlist_add_check, color: Color(0xFF40FF90), size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Batch Import: ${expandedSpecs.length} events created',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: FluxForgeTheme.bgMid,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          action: SnackBarAction(
-            label: 'VIEW',
-            textColor: const Color(0xFF4A9EFF),
-            onPressed: () {
-              // Switch to Events super-tab to see created events
-              _lowerZoneController.setSuperTab(SlotLabSuperTab.events);
-            },
-          ),
-        ),
-      );
-    }
-  }
-
-  /// Expand generic stages to per-index events with stereo panning
-  /// e.g., REEL_STOP → REEL_STOP_0, REEL_STOP_1, ..., REEL_STOP_4
-  ///
-  /// Returns list of expanded specs (or original if not expandable)
-  List<BatchEventSpec> _expandGenericStage(BatchEventSpec spec) {
-    final stage = spec.stage.toUpperCase();
-
-    // Check if this is already a specific stage (has trailing _N)
-    if (RegExp(r'_\d+$').hasMatch(stage)) {
-      return [spec]; // Already specific, don't expand
-    }
-
-    // Patterns that should auto-expand with stereo panning
-    const expandableWithPanning = {
-      'REEL_STOP': 5,      // 5 reels
-      'REEL_LAND': 5,      // Alternative name
-      'WIN_LINE_SHOW': 5,  // Win line highlights per reel
-      'WIN_LINE_HIDE': 5,
-    };
-
-    // Patterns that should auto-expand WITHOUT panning
-    const expandableNoPanning = {
-      'CASCADE_STEP': 5,
-      'SYMBOL_LAND': 5,
-    };
-
-    final countWithPanning = expandableWithPanning[stage];
-    final countNoPanning = expandableNoPanning[stage];
-    final count = countWithPanning ?? countNoPanning;
-    final applyPanning = countWithPanning != null;
-
-    if (count == null) {
-      return [spec]; // Not expandable, return as-is
-    }
-
-    debugPrint('[SlotLab] 🔄 Auto-expanding $stage → ${stage}_0..${count - 1}');
-
-    final result = <BatchEventSpec>[];
-    for (int i = 0; i < count; i++) {
-      // Pan calculation: distribute across stereo field
-      // -0.8, -0.4, 0.0, +0.4, +0.8 for 5 reels
-      final pan = applyPanning && count > 1
-          ? (i - (count - 1) / 2) * (2.0 / (count - 1)) * 0.8
-          : 0.0;
-
-      final specificStage = '${stage}_$i';
-      final eventName = generateEventName(specificStage);
-
-      result.add(BatchEventSpec(
-        eventName: eventName,
-        stage: specificStage,
-        audioPath: spec.audioPath,
-        volume: spec.volume,
-        pan: pan,
-      ));
-
-      debugPrint('[SlotLab] 🎰 Auto: $specificStage (pan: ${pan.toStringAsFixed(2)})');
-    }
-
-    return result;
-  }
-
-  /// Generate event name from target ID and filename
-  String _generateEventNameFromTarget(String targetId, String fileName) {
-    // Remove extension from filename
-    final baseName = fileName.contains('.') ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
-
-    // Generate readable name based on target
-    if (targetId.startsWith('ui.spin')) return 'Spin $baseName';
-    if (targetId.startsWith('ui.')) return 'UI $baseName';
-    if (targetId.startsWith('reel.surface')) return 'Reel Spin $baseName';
-    if (targetId.startsWith('reel.')) {
-      final reelIndex = targetId.split('.').last;
-      return 'Reel $reelIndex $baseName';
-    }
-    if (targetId.startsWith('overlay.win.')) {
-      final tier = targetId.split('.').last;
-      return 'Win ${tier.toUpperCase()} $baseName';
-    }
-    if (targetId.startsWith('overlay.jackpot.')) {
-      final tier = targetId.split('.').last;
-      return 'Jackpot ${tier.toUpperCase()} $baseName';
-    }
-    if (targetId.startsWith('symbol.')) {
-      final symbolType = targetId.split('.').last;
-      return 'Symbol ${symbolType.toUpperCase()} $baseName';
-    }
-    if (targetId.startsWith('music.')) {
-      final context = targetId.split('.').last;
-      return 'Music ${context.toUpperCase()} $baseName';
-    }
-    if (targetId.startsWith('feature.')) {
-      final feature = targetId.split('.').last;
-      return 'Feature ${feature.toUpperCase()} $baseName';
-    }
-    if (targetId.startsWith('hud.')) {
-      final element = targetId.split('.').last;
-      return 'HUD ${element.toUpperCase()} $baseName';
-    }
-
-    return baseName;
-  }
-
-  /// Map targetId to canonical stage name
-  /// Industry-standard UI stages based on NetEnt, Pragmatic, BTG, IGT, Aristocrat
-  ///
-  /// FIX 2026-01-25: ui.spin now maps to SPIN_START (not UI_SPIN_PRESS)
-  /// Reason: SlotLabProvider triggers SPIN_START, not UI_SPIN_PRESS
-  /// User expects: drop on spin → sound plays when spin starts
-  String _targetIdToStage(String targetId) {
-    // ═══════════════════════════════════════════════════════════════════════
-    // SPIN CONTROLS
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.spin') return 'SPIN_START';  // FIX: Match SlotLabProvider trigger
-    if (targetId == 'ui.spin.press') return 'UI_SPIN_PRESS';  // Optional: Button click sound
-    if (targetId == 'ui.spin.hover') return 'UI_SPIN_HOVER';
-    if (targetId == 'ui.stop') return 'UI_STOP_PRESS';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // AUTOPLAY
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.autospin') return 'AUTOPLAY_START';
-    if (targetId == 'ui.autospin.start') return 'AUTOPLAY_START';
-    if (targetId == 'ui.autospin.stop') return 'AUTOPLAY_STOP';
-    if (targetId == 'ui.autospin.config') return 'UI_AUTOPLAY_CONFIG_OPEN';
-    if (targetId == 'ui.autospin.tick') return 'UI_AUTOPLAY_SPIN_TICK';
-    if (targetId == 'ui.autospin.loss') return 'UI_AUTOPLAY_LOSS_LIMIT';
-    if (targetId == 'ui.autospin.win') return 'UI_AUTOPLAY_WIN_LIMIT';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // TURBO / QUICK SPIN
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.turbo') return 'UI_TURBO_ON';
-    if (targetId == 'ui.turbo.on') return 'UI_TURBO_ON';
-    if (targetId == 'ui.turbo.off') return 'UI_TURBO_OFF';
-    if (targetId == 'ui.quickspin') return 'UI_QUICKSPIN_ON';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // BET CONTROLS
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.maxbet') return 'UI_BET_MAX';
-    if (targetId == 'ui.bet') return 'UI_BET_CHANGE';
-    if (targetId == 'ui.bet.up') return 'UI_BET_UP';
-    if (targetId == 'ui.bet.down') return 'UI_BET_DOWN';
-    if (targetId == 'ui.totalbet') return 'UI_TOTALBET_CHANGE';
-    if (targetId == 'ui.coin') return 'UI_COIN_CHANGE';
-    if (targetId == 'ui.coin.up') return 'UI_COIN_UP';
-    if (targetId == 'ui.coin.down') return 'UI_COIN_DOWN';
-    if (targetId == 'ui.lines') return 'UI_LINES_UP';
-    if (targetId == 'ui.lines.up') return 'UI_LINES_UP';
-    if (targetId == 'ui.lines.down') return 'UI_LINES_DOWN';
-    if (targetId == 'ui.lines.max') return 'UI_LINES_MAX';
-    if (targetId.startsWith('ui.bet.')) return 'UI_BET_CHANGE';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // MENUS & NAVIGATION
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.menu') return 'MENU_OPEN';
-    if (targetId == 'ui.menu.open') return 'MENU_OPEN';
-    if (targetId == 'ui.menu.close') return 'MENU_CLOSE';
-    if (targetId == 'ui.menu.hover') return 'UI_MENU_HOVER';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // PAYTABLE / INFO / RULES / HISTORY / STATS
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.paytable') return 'UI_PAYTABLE_OPEN';
-    if (targetId == 'ui.paytable.open') return 'UI_PAYTABLE_OPEN';
-    if (targetId == 'ui.paytable.close') return 'UI_PAYTABLE_CLOSE';
-    if (targetId == 'ui.paytable.page') return 'UI_PAYTABLE_PAGE';
-    if (targetId == 'ui.rules') return 'UI_RULES_OPEN';
-    if (targetId == 'ui.rules.open') return 'UI_RULES_OPEN';
-    if (targetId == 'ui.rules.close') return 'UI_RULES_CLOSE';
-    if (targetId == 'ui.history') return 'UI_HISTORY_OPEN';
-    if (targetId == 'ui.history.open') return 'UI_HISTORY_OPEN';
-    if (targetId == 'ui.history.close') return 'UI_HISTORY_CLOSE';
-    if (targetId == 'ui.stats') return 'UI_STATS_OPEN';
-    if (targetId == 'ui.stats.open') return 'UI_STATS_OPEN';
-    if (targetId == 'ui.stats.close') return 'UI_STATS_CLOSE';
-    if (targetId == 'ui.help') return 'UI_HELP_OPEN';
-    if (targetId == 'ui.info') return 'UI_INFO_PRESS';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // SETTINGS
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.settings') return 'UI_SETTINGS_OPEN';
-    if (targetId == 'ui.settings.open') return 'UI_SETTINGS_OPEN';
-    if (targetId == 'ui.settings.close') return 'UI_SETTINGS_CLOSE';
-    if (targetId == 'ui.settings.change') return 'UI_SETTINGS_CHANGE';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // AUDIO CONTROLS
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.sfx') return 'UI_SFX_ON';
-    if (targetId == 'ui.sfx.on') return 'UI_SFX_ON';
-    if (targetId == 'ui.sfx.off') return 'UI_SFX_OFF';
-    if (targetId == 'ui.music') return 'UI_MUSIC_ON';
-    if (targetId == 'ui.music.on') return 'UI_MUSIC_ON';
-    if (targetId == 'ui.music.off') return 'UI_MUSIC_OFF';
-    if (targetId == 'ui.sound') return 'UI_SOUND_ON';
-    if (targetId == 'ui.sound.on') return 'UI_SOUND_ON';
-    if (targetId == 'ui.sound.off') return 'UI_SOUND_OFF';
-    if (targetId == 'ui.volume') return 'UI_VOLUME_CHANGE';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // FULLSCREEN / EXIT
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.fullscreen') return 'UI_FULLSCREEN_ENTER';
-    if (targetId == 'ui.fullscreen.enter') return 'UI_FULLSCREEN_ENTER';
-    if (targetId == 'ui.fullscreen.exit') return 'UI_FULLSCREEN_EXIT';
-    if (targetId == 'ui.exit') return 'UI_EXIT_PRESS';
-    if (targetId == 'ui.home') return 'UI_HOME_PRESS';
-    if (targetId == 'ui.minimize') return 'UI_MINIMIZE';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // POPUPS & DIALOGS
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.popup') return 'UI_POPUP_OPEN';
-    if (targetId == 'ui.popup.open') return 'UI_POPUP_OPEN';
-    if (targetId == 'ui.popup.close') return 'UI_POPUP_CLOSE';
-    if (targetId == 'ui.dialog') return 'UI_DIALOG_OPEN';
-    if (targetId == 'ui.dialog.confirm') return 'UI_DIALOG_CONFIRM';
-    if (targetId == 'ui.dialog.cancel') return 'UI_DIALOG_CANCEL';
-    if (targetId == 'ui.tooltip') return 'UI_TOOLTIP_SHOW';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // BALANCE / CURRENCY
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.balance') return 'UI_BALANCE_UPDATE';
-    if (targetId == 'ui.balance.update') return 'UI_BALANCE_UPDATE';
-    if (targetId == 'ui.balance.low') return 'UI_BALANCE_LOW';
-    if (targetId == 'ui.balance.empty') return 'UI_BALANCE_EMPTY';
-    if (targetId == 'ui.balance.add') return 'UI_BALANCE_ADD';
-    if (targetId == 'ui.credit') return 'UI_CREDIT_METER_TICK';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // JACKPOT METERS
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.jackpot.tick') return 'UI_JACKPOT_METER_TICK';
-    if (targetId == 'ui.jackpot.mini') return 'UI_JACKPOT_MINI_TICK';
-    if (targetId == 'ui.jackpot.minor') return 'UI_JACKPOT_MINOR_TICK';
-    if (targetId == 'ui.jackpot.major') return 'UI_JACKPOT_MAJOR_TICK';
-    if (targetId == 'ui.jackpot.grand') return 'UI_JACKPOT_GRAND_TICK';
-    if (targetId == 'ui.progressive') return 'UI_PROGRESSIVE_GROW';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // NOTIFICATIONS
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.notification') return 'UI_NOTIFICATION';
-    if (targetId == 'ui.success') return 'UI_SUCCESS';
-    if (targetId == 'ui.error') return 'UI_ERROR';
-    if (targetId == 'ui.warning') return 'UI_WARNING';
-    if (targetId == 'ui.alert') return 'UI_ALERT';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // GAMIFICATION (Loyalty, achievements)
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.achievement') return 'UI_ACHIEVEMENT_UNLOCK';
-    if (targetId == 'ui.levelup') return 'UI_LEVEL_UP';
-    if (targetId == 'ui.xp') return 'UI_XP_GAIN';
-    if (targetId == 'ui.reward') return 'UI_REWARD_CLAIM';
-    if (targetId == 'ui.badge') return 'UI_BADGE_EARN';
-    if (targetId == 'ui.daily') return 'UI_DAILY_BONUS';
-    if (targetId == 'ui.loyalty') return 'UI_LOYALTY_POINT';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // GAME STATE
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.loading') return 'UI_GAME_LOADING';
-    if (targetId == 'ui.loaded') return 'UI_GAME_LOADED';
-    if (targetId == 'ui.ready') return 'UI_GAME_READY';
-    if (targetId == 'ui.start') return 'UI_GAME_START';
-    if (targetId == 'ui.pause') return 'UI_GAME_PAUSE';
-    if (targetId == 'ui.resume') return 'UI_GAME_RESUME';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // CONNECTION / NETWORK
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.connection.lost') return 'UI_CONNECTION_LOST';
-    if (targetId == 'ui.connection.restored') return 'UI_CONNECTION_RESTORED';
-    if (targetId == 'ui.reconnecting') return 'UI_RECONNECTING';
-    if (targetId == 'ui.timeout') return 'UI_SESSION_TIMEOUT';
-    if (targetId == 'ui.server.error') return 'UI_SERVER_ERROR';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // RESPONSIBLE GAMING
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.reality') return 'UI_REALITY_CHECK';
-    if (targetId == 'ui.session.limit') return 'UI_SESSION_LIMIT';
-    if (targetId == 'ui.playtime') return 'UI_PLAY_TIME_WARNING';
-    if (targetId == 'ui.deposit.limit') return 'UI_DEPOSIT_LIMIT';
-    if (targetId == 'ui.loss.limit') return 'UI_LOSS_LIMIT_WARNING';
-    if (targetId == 'ui.cooloff') return 'UI_COOL_OFF_PERIOD';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // BUY FEATURE
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.buyin') return 'UI_BUYIN_OPEN';
-    if (targetId == 'ui.buyin.open') return 'UI_BUYIN_OPEN';
-    if (targetId == 'ui.buyin.close') return 'UI_BUYIN_CLOSE';
-    if (targetId == 'ui.buyin.confirm') return 'UI_BUYIN_CONFIRM';
-    if (targetId == 'ui.buyin.cancel') return 'UI_BUYIN_CANCEL';
-    if (targetId == 'ui.feature.info') return 'UI_FEATURE_INFO';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // GENERIC UI INTERACTIONS
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'ui.button') return 'UI_BUTTON_PRESS';
-    if (targetId == 'ui.button.hover') return 'UI_BUTTON_HOVER';
-    if (targetId == 'ui.tab') return 'UI_TAB_SWITCH';
-    if (targetId == 'ui.scroll') return 'UI_SCROLL';
-    if (targetId == 'ui.page') return 'UI_PAGE_FLIP';
-    if (targetId == 'ui.checkbox') return 'UI_CHECKBOX_ON';
-    if (targetId == 'ui.slider') return 'UI_SLIDER_DRAG';
-    if (targetId == 'ui.dropdown') return 'UI_DROPDOWN_OPEN';
-    if (targetId.startsWith('ui.')) return 'UI_BUTTON_PRESS'; // Fallback
-
-    // Reels
-    if (targetId == 'reel.surface') return 'REEL_SPINNING';
-    if (targetId.startsWith('reel.')) {
-      final reelIndex = targetId.split('.').last;
-      return 'REEL_STOP_$reelIndex';
-    }
-
-    // Win presentation audio (WIN_PRESENT_1-6 based on win/bet ratio)
-    if (targetId.startsWith('audio.win_present.')) {
-      final level = targetId.split('.').last;
-      return 'WIN_PRESENT_$level';
-    }
-
-    // Jackpot overlays
-    if (targetId == 'overlay.jackpot.mini') return 'JACKPOT_MINI';
-    if (targetId == 'overlay.jackpot.minor') return 'JACKPOT_MINOR';
-    if (targetId == 'overlay.jackpot.major') return 'JACKPOT_MAJOR';
-    if (targetId == 'overlay.jackpot.grand') return 'JACKPOT_GRAND';
-
-    // Symbols — Land events (when symbol lands on reel)
-    if (targetId == 'symbol.wild') return 'WILD_LAND';
-    if (targetId == 'symbol.scatter') return 'SCATTER_LAND';
-    if (targetId == 'symbol.bonus') return 'BONUS_SYMBOL_LAND';
-    if (targetId.startsWith('symbol.hp')) return 'SYMBOL_LAND_HP';
-    if (targetId.startsWith('symbol.mp')) return 'SYMBOL_LAND_MP'; // Medium pay symbols
-    if (targetId.startsWith('symbol.lp')) return 'SYMBOL_LAND_LP';
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // V14: Symbol-specific WIN HIGHLIGHTS — Per-symbol win audio
-    // When HP1 is part of winning line → WIN_SYMBOL_HIGHLIGHT_HP1
-    // ═══════════════════════════════════════════════════════════════════════
-    if (targetId == 'symbol.win') return 'WIN_SYMBOL_HIGHLIGHT'; // Generic (all symbols)
-    if (targetId == 'symbol.win.all') return 'WIN_SYMBOL_HIGHLIGHT';
-    if (targetId.startsWith('symbol.win.')) {
-      // symbol.win.hp1 → WIN_SYMBOL_HIGHLIGHT_HP1
-      // symbol.win.wild → WIN_SYMBOL_HIGHLIGHT_WILD
-      final symbolType = targetId.split('.').last.toUpperCase();
-      return 'WIN_SYMBOL_HIGHLIGHT_$symbolType';
-    }
-
-    // Win Lines (P0 FIX: Win line presentation audio)
-    if (targetId == 'winline.generic') return 'WIN_LINE_SHOW';
-    if (targetId.startsWith('winline.')) return 'WIN_LINE_SHOW';
-
-    // Music zones
-    if (targetId == 'music.base') return 'MUSIC_BASE';
-    if (targetId == 'music.freespins') return 'MUSIC_FS';
-    if (targetId == 'music.bonus') return 'MUSIC_BONUS';
-    if (targetId == 'music.bigwin') return 'MUSIC_BIGWIN';
-    if (targetId == 'music.anticipation') return 'ANTICIPATION_MUSIC';
-
-    // Features
-    if (targetId.startsWith('feature.')) {
-      final feature = targetId.split('.').last.toUpperCase();
-      return '${feature}_ENTER';
-    }
-
-    // HUD
-    if (targetId == 'hud.balance') return 'BALANCE_CHANGE';
-    if (targetId == 'hud.win') return 'ROLLUP_START';
-    if (targetId == 'hud.win.tick' || targetId == 'rollup.tick') return 'ROLLUP_TICK'; // P0 FIX: Counter tick audio
-    if (targetId == 'hud.win.end' || targetId == 'rollup.end') return 'ROLLUP_END';
-
-    // Default: convert targetId to uppercase stage format
-    return targetId.replaceAll('.', '_').toUpperCase();
-  }
-
-  /// Map bus name to bus ID
-  int _busNameToId(String busName) {
-    final lower = busName.toLowerCase();
-    if (lower.contains('master')) return SlotBusIds.master;
-    if (lower.contains('music')) return SlotBusIds.music;
-    if (lower.contains('sfx')) return SlotBusIds.sfx;
-    if (lower.contains('voice')) return SlotBusIds.voice;
-    if (lower.contains('ui')) return SlotBusIds.ui;
-    if (lower.contains('reel')) return SlotBusIds.reels;
-    if (lower.contains('win')) return SlotBusIds.wins;
-    if (lower.contains('anticipation')) return SlotBusIds.anticipation;
-    return SlotBusIds.sfx; // Default to SFX
-  }
-
-  /// Calculate pan value from target (per-reel spatial positioning)
-  double _calculatePanFromTarget(String targetId, double defaultPan) {
-    // Per-reel auto-pan: reel.0 = -0.8, reel.2 = 0.0, reel.4 = +0.8
-    if (targetId.startsWith('reel.') && targetId != 'reel.surface') {
-      final indexStr = targetId.split('.').last;
-      final index = int.tryParse(indexStr);
-      if (index != null && index >= 0 && index <= 4) {
-        // Map 0-4 to -0.8 to +0.8 (centered at 2)
-        return (index - 2) * 0.4;
-      }
-    }
-    return defaultPan;
-  }
-
-  /// Get category from targetId
-  String _categoryFromTargetId(String targetId) {
-    if (targetId.startsWith('ui.spin')) return 'spin';
-    if (targetId.startsWith('ui.')) return 'ui';
-    if (targetId.startsWith('reel.')) return 'reelStop';
-    if (targetId.startsWith('overlay.win.')) return 'win';
-    if (targetId.startsWith('overlay.jackpot.')) return 'bigWin';
-    if (targetId.startsWith('symbol.')) return 'symbol';
-    if (targetId.startsWith('music.')) return 'music';
-    if (targetId.startsWith('feature.')) return 'feature';
-    if (targetId.startsWith('hud.')) return 'ui';
-    return 'general';
-  }
-
-  /// Get color from targetId
-  Color _colorFromTargetId(String targetId) {
-    final category = _categoryFromTargetId(targetId);
-    return switch (category) {
-      'spin' => const Color(0xFF4A9EFF),
-      'ui' => const Color(0xFF4A9EFF),
-      'reelStop' => const Color(0xFF9B59B6),
-      'win' => const Color(0xFFF1C40F),
-      'bigWin' => const Color(0xFFFF9040),
-      'symbol' => const Color(0xFF40FF90),
-      'music' => const Color(0xFF9333EA),
-      'feature' => const Color(0xFF40C8FF),
-      _ => const Color(0xFF888888),
-    };
-  }
-
-  Widget _buildReel(int reelIndex) {
-    final isStoppedOrStopping = _currentStoppingReel >= reelIndex;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: const Color(0xFFFFD700).withOpacity(0.2),
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final symbolHeight = (constraints.maxHeight / _rowCount).clamp(12.0, 30.0);
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(
-              _rowCount,
-              (row) => SizedBox(
-                height: symbolHeight,
-                child: _buildSymbol(_reelSymbols[reelIndex][row], isStoppedOrStopping),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSymbol(String symbol, bool visible) {
-    Color symbolColor;
-    switch (symbol) {
-      case '7':
-        symbolColor = const Color(0xFFFF4040);
-        break;
-      case 'WILD':
-        symbolColor = const Color(0xFFFFD700);
-        break;
-      case 'BONUS':
-        symbolColor = const Color(0xFF40FF90);
-        break;
-      default:
-        symbolColor = Colors.white;
-    }
-
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 200),
-      opacity: visible ? 1.0 : 0.3,
-      child: Text(
-        symbol,
-        style: TextStyle(
-          color: symbolColor,
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-
-  Widget _buildSlotButton(String label, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [color, color.withOpacity(0.7)],
-          ),
-          borderRadius: BorderRadius.circular(6),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Small button for forced outcomes
-  Widget _buildSmallButton(String label, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: _isSpinning ? null : onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: _isSpinning
-                ? [Colors.grey, Colors.grey.shade700]
-                : [color, color.withOpacity(0.7)],
-          ),
-          borderRadius: BorderRadius.circular(4),
-          boxShadow: _isSpinning
-              ? []
-              : [
-                  BoxShadow(
-                    color: color.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: _isSpinning ? Colors.grey.shade400 : Colors.black,
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _handleSpin() {
-    if (_isSpinning) return;
-
-    // Use synthetic engine if available
-    if (_engineInitialized) {
-      _handleEngineSpin();
-      return;
-    }
-
-    // Fallback to mock spin
-    _handleMockSpin();
-  }
-
-  /// Handle forced outcome from Lower Zone widget
-  void _handleForceOutcome(String outcome) {
-    if (_isSpinning) return;
-
-    // Map outcome string to ForcedOutcome enum
-    ForcedOutcome? forcedOutcome;
-    switch (outcome.toLowerCase()) {
-      case 'lose':
-        forcedOutcome = ForcedOutcome.lose;
-        break;
-      case 'smallwin':
-      case 'small_win':
-        forcedOutcome = ForcedOutcome.smallWin;
-        break;
-      case 'bigwin':
-      case 'big_win':
-        forcedOutcome = ForcedOutcome.bigWin;
-        break;
-      case 'megawin':
-      case 'mega_win':
-        forcedOutcome = ForcedOutcome.megaWin;
-        break;
-      case 'epicwin':
-      case 'epic_win':
-        forcedOutcome = ForcedOutcome.epicWin;
-        break;
-      case 'freespins':
-      case 'free_spins':
-        forcedOutcome = ForcedOutcome.freeSpins;
-        break;
-      case 'jackpotgrand':
-      case 'jackpot_grand':
-        forcedOutcome = ForcedOutcome.jackpotGrand;
-        break;
-      case 'nearmiss':
-      case 'near_miss':
-        forcedOutcome = ForcedOutcome.nearMiss;
-        break;
-      case 'cascade':
-        forcedOutcome = ForcedOutcome.cascade;
-        break;
-      case 'ultrawin':
-      case 'ultra_win':
-        forcedOutcome = ForcedOutcome.ultraWin;
-        break;
-      default:
-        forcedOutcome = null; // Random outcome
-    }
-
-    if (_engineInitialized) {
-      _handleEngineSpin(forcedOutcome: forcedOutcome);
-    } else {
-      _handleMockSpin();
-    }
-  }
-
-  /// Handle audio dropped on stage from Lower Zone widget
-  void _handleAudioDroppedOnStage(dynamic audio, String stageType) {
-    debugPrint('[SlotLab] Audio dropped on stage: $stageType, audio: $audio');
-    // This is handled by the stage trace widget in the lower zone
-    // The actual drop logic is in SlotLabLowerZoneWidget
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // VISUAL-SYNC: Trigger stages from visual mockup callbacks
-  // These ensure audio is perfectly synchronized with visual animations
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// Trigger a stage directly from visual event (bypasses SlotLabProvider timing)
-  void _triggerVisualStage(String stage, {Map<String, dynamic>? context}) {
-    // Use EventRegistry directly for instant audio response
-    eventRegistry.triggerStage(stage, context: context);
-    debugPrint('[SlotLab] VISUAL-SYNC: $stage ${context ?? ''}');
-  }
-
-  /// Trigger appropriate win stages based on win type
-  void _triggerWinStage(WinType winType, double amount) {
-    final winStage = switch (winType) {
-      WinType.noWin => null,
-      WinType.smallWin => 'WIN_SMALL',
-      WinType.mediumWin => 'WIN_MEDIUM',
-      WinType.bigWin => 'WIN_BIG',
-      WinType.megaWin => 'WIN_MEGA',
-      WinType.epicWin => 'WIN_EPIC',
-    };
-
-    if (winStage != null) {
-      final multiplier = _bet > 0 ? amount / _bet : 0.0;
-      eventRegistry.triggerStage(winStage, context: {
-        'win_amount': amount,
-        'win_multiplier': multiplier,
-        'win_type': winType.name,
-      });
-      debugPrint('[SlotLab] VISUAL-SYNC: $winStage (${multiplier.toStringAsFixed(1)}x)');
-
-      // Also trigger rollup start
-      eventRegistry.triggerStage('ROLLUP_START', context: {
-        'win_amount': amount,
-        'win_multiplier': multiplier,
-      });
-    }
-  }
-
-  /// Spin using the Synthetic Slot Engine (real)
-  void _handleEngineSpin({ForcedOutcome? forcedOutcome}) async {
-    if (_isSpinning) return;
-
-    // Stop all previous audio to prevent overlapping sounds
-    try {
-      final mw = Provider.of<MiddlewareProvider>(context, listen: false);
-      mw.stopAllEvents(fadeMs: 50);
-    } catch (_) {}
-
-    setState(() {
-      _isSpinning = true;
-      _balance -= _bet;
-      _currentStoppingReel = -1;
-      _inAnticipation = false;
-      _lastWin = 0;
-    });
-
-    // Update bet in engine
-    _slotLabProvider.setBetAmount(_bet);
-
-    // Execute spin (engine handles audio via stages)
-    final result = forcedOutcome != null
-        ? await _slotLabProvider.spinForced(forcedOutcome)
-        : await _slotLabProvider.spin();
-
-    if (result == null) {
-      // Engine error, fallback to mock
-      _handleMockSpin();
-      return;
-    }
-
-    // Update UI with engine result
-    _updateFromEngineResult(result);
-  }
-
-  void _updateFromEngineResult(SlotLabSpinResult result) {
-    // Animate reel stops
-    _startEngineReelSequence(result);
-  }
-
-  void _startEngineReelSequence(SlotLabSpinResult result) {
-    final grid = result.grid;
-    int reelIndex = 0;
-    const reelDelay = Duration(milliseconds: 350);
-
-    _spinTimer = Timer.periodic(reelDelay, (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      // Check for anticipation (last 2 reels on potential big win)
-      if (reelIndex >= 2 && reelIndex < _reelCount - 1 && !_inAnticipation) {
-        // Trigger anticipation for big wins or near misses
-        if (result.nearMiss || (result.isWin && result.winRatio >= 10.0)) {
-          setState(() => _inAnticipation = true);
-          // Audio triggered by stage events from engine
-        }
-      }
-
-      // Update symbols for this reel
-      if (reelIndex < grid.length) {
-        setState(() {
-          _reelSymbols[reelIndex] = _gridToSymbols([grid[reelIndex]])[0];
-          _currentStoppingReel = reelIndex;
-        });
-      }
-
-      reelIndex++;
-
-      if (reelIndex >= _reelCount) {
-        timer.cancel();
-        _onEngineReelsStopped(result);
-      }
-    });
-  }
-
-  void _onEngineReelsStopped(SlotLabSpinResult result) {
-    if (_inAnticipation) {
-      setState(() => _inAnticipation = false);
-    }
-
-    // Update win display
-    if (result.isWin) {
-      setState(() {
-        _lastWin = result.totalWin;
-        _balance += result.totalWin;
-      });
-    }
-
-    // Spin complete
-    setState(() {
-      _isSpinning = false;
-    });
-  }
-
-  /// Mock spin (fallback when engine not available)
-  void _handleMockSpin() {
-    // Stop all previous audio to prevent overlapping sounds
-    try {
-      final mw = Provider.of<MiddlewareProvider>(context, listen: false);
-      mw.stopAllEvents(fadeMs: 50);
-    } catch (_) {}
-
-    setState(() {
-      _isSpinning = true;
-      _balance -= _bet;
-      _currentStoppingReel = -1;
-      _inAnticipation = false;
-      _lastWin = 0;
-    });
-
-    _postAudioEvent('slot_spin_start', context: {
-      'bet_amount': _bet,
-      'balance': _balance,
-    });
-
-    final normalizedBet = (_bet.clamp(0.1, 100) / 100).clamp(0.0, 1.0);
-    _setRtpc(SlotRtpcIds.betLevel, normalizedBet);
-
-    _startReelSequence();
-  }
-
-  void _startReelSequence() {
-    _postAudioEvent('slot_reel_spin');
-
-    int reelIndex = 0;
-    const reelDelay = Duration(milliseconds: 400);
-
-    _spinTimer = Timer.periodic(reelDelay, (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      if (reelIndex >= 2 && reelIndex < _reelCount - 1 && !_inAnticipation) {
-        if (_random.nextDouble() < 0.3) {
-          _inAnticipation = true;
-          _postAudioEvent('slot_anticipation_on');
-          _setRtpc(SlotRtpcIds.tension, 0.8);
-        }
-      }
-
-      setState(() {
-        _currentStoppingReel = reelIndex;
-      });
-      _postAudioEvent('slot_reel_stop');
-
-      reelIndex++;
-
-      if (reelIndex >= _reelCount) {
-        timer.cancel();
-        _onAllReelsStopped();
-      }
-    });
-  }
-
-  void _onAllReelsStopped() {
-    if (_inAnticipation) {
-      _inAnticipation = false;
-      _postAudioEvent('slot_anticipation_off');
-      _setRtpc(SlotRtpcIds.tension, 0.0);
-    }
-
-    _postAudioEvent('slot_spin_end');
-
-    final hasWin = _random.nextDouble() < 0.4;
-    final winMultiplier = hasWin ? (_random.nextDouble() * 50 + 1) : 0.0;
-    final winAmount = _bet * winMultiplier;
-
-    if (hasWin && winAmount > 0) {
-      _handleWin(winAmount, winMultiplier);
-    } else {
-      setState(() {
-        _isSpinning = false;
-        _lastWin = 0;
-      });
-    }
-  }
-
-  void _handleWin(double amount, double multiplier) {
-    setState(() {
-      _lastWin = amount;
-      _balance += amount;
-    });
-
-    _setRtpc(SlotRtpcIds.winMultiplier, multiplier.clamp(0.0, 1000.0));
-
-    if (multiplier >= 100) {
-      _postAudioEvent('slot_bigwin_tier_epic', context: {
-        'win_amount': amount,
-        'bet_amount': _bet,
-        'multiplier': multiplier,
-      });
-    } else if (multiplier >= 50) {
-      _postAudioEvent('slot_bigwin_tier_mega', context: {
-        'win_amount': amount,
-        'bet_amount': _bet,
-        'multiplier': multiplier,
-      });
-    } else if (multiplier >= 20) {
-      _postAudioEvent('slot_bigwin_tier_super', context: {
-        'win_amount': amount,
-        'bet_amount': _bet,
-        'multiplier': multiplier,
-      });
-    } else if (multiplier >= 10) {
-      _postAudioEvent('slot_bigwin_tier_nice', context: {
-        'win_amount': amount,
-        'bet_amount': _bet,
-        'multiplier': multiplier,
-      });
-    } else {
-      _postAudioEvent('slot_win_present', context: {
-        'win_amount': amount,
-        'bet_amount': _bet,
-      });
-    }
-
-    _postAudioEvent('slot_rollup_start');
-
-    final rollupDuration = Duration(milliseconds: (500 + multiplier * 20).toInt().clamp(500, 3000));
-
-    Future.delayed(rollupDuration, () {
-      if (mounted) {
-        _postAudioEvent('slot_rollup_end');
-        _setRtpc(SlotRtpcIds.winMultiplier, 0.0);
-        setState(() {
-          _isSpinning = false;
-        });
-      }
-    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -9925,136 +7613,68 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       ),
       child: Column(
         children: [
-          // Tab Header for Event Builder mode
-          if (_eventBuilderMode) _buildRightPanelTabs(),
-
-          // Content based on mode/tab
+          // Composite Events
           Expanded(
-            child: _eventBuilderMode
-                ? _buildEventBuilderRightContent()
-                : Column(
-                    children: [
-                      // Composite Events
-                      Expanded(
-                        flex: 2,
-                        child: _buildCompositeEventsPanel(),
-                      ),
-                      const Divider(color: Color(0xFF2A2A35), height: 1),
-                      // Audio Browser
-                      if (_showAudioBrowser)
-                        Expanded(
-                          flex: 3,
-                          child: _buildAudioBrowser(),
-                        ),
-                    ],
-                  ),
+            flex: 2,
+            child: _buildCompositeEventsPanel(),
           ),
-        ],
-      ),
-    );
-  }
-
-  /// Tab selector for Event Builder mode
-  Widget _buildRightPanelTabs() {
-    return Container(
-      height: 36,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A22),
-        border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
-      ),
-      child: Row(
-        children: [
-          _buildTabButton('Events', 0, Icons.event_note),
-          _buildTabButton('Assets', 1, Icons.folder_open),
-          _buildTabButton('Symbols', 2, Icons.apps),
-          _buildTabButton('Music', 3, Icons.music_note),
-          _buildTabButton('Batch', 4, Icons.library_add),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabButton(String label, int index, IconData icon) {
-    final isSelected = _rightPanelTab == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _rightPanelTab = index),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF9333EA).withOpacity(0.2) : Colors.transparent,
-            border: Border(
-              bottom: BorderSide(
-                color: isSelected ? const Color(0xFF9333EA) : Colors.transparent,
-                width: 2,
-              ),
+          const Divider(color: Color(0xFF2A2A35), height: 1),
+          // Audio Browser
+          if (_showAudioBrowser)
+            Expanded(
+              flex: 3,
+              child: _buildAudioBrowser(),
             ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 14,
-                color: isSelected ? const Color(0xFFAB7EF6) : Colors.white38,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? const Color(0xFFAB7EF6) : Colors.white38,
-                  fontSize: 9,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
 
-  /// Content for Event Builder mode right panel
-  Widget _buildEventBuilderRightContent() {
-    switch (_rightPanelTab) {
-      case 0:
-        // Events tab - shows composite events from MiddlewareProvider (SSoT)
-        return _buildCompositeEventsPanel();
-      case 1:
-        // Assets tab - AudioBrowserPanel for drag-drop
-        return aeb.AudioBrowserPanel(
-          isExpanded: true,
-        );
-      case 2:
-        // Symbols tab - Symbol drop zones
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            children: [
-              _buildPanelHeader('SYMBOL AUDIO', Icons.apps),
-              const SizedBox(height: 8),
-              _buildSymbolZonePanel(),
-            ],
-          ),
-        );
-      case 3:
-        // Music tab - Music zone drop zones
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            children: [
-              _buildPanelHeader('BACKGROUND MUSIC', Icons.music_note),
-              const SizedBox(height: 8),
-              _buildMusicZonePanel(),
-            ],
-          ),
-        );
-      case 4:
-        // Batch tab - Group batch import panel
-        return GroupBatchImportPanel(
-          onEventsCreated: _handleBatchImportEvents,
-        );
+  /// Parse string outcome to ForcedOutcome enum
+  ForcedOutcome _parseOutcome(String outcome) {
+    switch (outcome.toLowerCase()) {
+      case 'lose':
+        return ForcedOutcome.lose;
+      case 'smallwin':
+      case 'small_win':
+        return ForcedOutcome.smallWin;
+      case 'mediumwin':
+      case 'medium_win':
+        return ForcedOutcome.mediumWin;
+      case 'bigwin':
+      case 'big_win':
+        return ForcedOutcome.bigWin;
+      case 'megawin':
+      case 'mega_win':
+        return ForcedOutcome.megaWin;
+      case 'epicwin':
+      case 'epic_win':
+        return ForcedOutcome.epicWin;
+      case 'ultrawin':
+      case 'ultra_win':
+        return ForcedOutcome.ultraWin;
+      case 'freespins':
+      case 'free_spins':
+        return ForcedOutcome.freeSpins;
+      case 'jackpotmini':
+      case 'jackpot_mini':
+        return ForcedOutcome.jackpotMini;
+      case 'jackpotminor':
+      case 'jackpot_minor':
+        return ForcedOutcome.jackpotMinor;
+      case 'jackpotmajor':
+      case 'jackpot_major':
+        return ForcedOutcome.jackpotMajor;
+      case 'jackpotgrand':
+      case 'jackpot_grand':
+        return ForcedOutcome.jackpotGrand;
+      case 'nearmiss':
+      case 'near_miss':
+        return ForcedOutcome.nearMiss;
+      case 'cascade':
+        return ForcedOutcome.cascade;
       default:
-        return _buildCompositeEventsPanel();
+        return ForcedOutcome.lose;
     }
   }
 
@@ -11918,48 +9538,74 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                 : Colors.transparent,
           ),
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Preview button
-            InkWell(
-              onTap: () {
-                final path = audio['path'] as String;
-                if (_previewingAudioPath == path && _isPreviewPlaying) {
-                  // Stop preview
-                  _stopAudioPreview();
-                } else {
-                  // Start preview
-                  _startAudioPreview(path);
-                }
-              },
-              child: Icon(
-                _previewingAudioPath == audio['path'] && _isPreviewPlaying
-                    ? Icons.stop
-                    : Icons.play_arrow,
-                size: 16,
-                color: FluxForgeTheme.accentBlue,
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Audio info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    audio['name'] as String,
-                    style: const TextStyle(color: Colors.white, fontSize: 10),
-                    overflow: TextOverflow.ellipsis,
+            Row(
+              children: [
+                // Preview button
+                InkWell(
+                  onTap: () {
+                    final path = audio['path'] as String;
+                    if (_previewingAudioPath == path && _isPreviewPlaying) {
+                      // Stop preview
+                      _stopAudioPreview();
+                    } else {
+                      // Start preview
+                      _startAudioPreview(path);
+                    }
+                  },
+                  child: Icon(
+                    _previewingAudioPath == audio['path'] && _isPreviewPlaying
+                        ? Icons.stop
+                        : Icons.play_arrow,
+                    size: 16,
+                    color: FluxForgeTheme.accentBlue,
                   ),
-                  Text(
-                    '${(audio['duration'] as double).toStringAsFixed(1)}s',
-                    style: const TextStyle(color: Colors.white38, fontSize: 9),
+                ),
+                const SizedBox(width: 8),
+                // Audio info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        audio['name'] as String,
+                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${(audio['duration'] as double).toStringAsFixed(1)}s',
+                        style: const TextStyle(color: Colors.white38, fontSize: 9),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                // Drag handle
+                const Icon(Icons.drag_indicator, size: 14, color: Colors.white24),
+              ],
             ),
-            // Drag handle
-            const Icon(Icons.drag_indicator, size: 14, color: Colors.white24),
+            // Waveform preview when selected/playing
+            if (_previewingAudioPath == audio['path'])
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Container(
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: WaveformThumbnail(
+                    filePath: audio['path'] as String,
+                    width: double.infinity,
+                    height: 24,
+                    color: _isPreviewPlaying
+                        ? FluxForgeTheme.accentGreen.withOpacity(0.7)
+                        : FluxForgeTheme.accentBlue.withOpacity(0.5),
+                    backgroundColor: Colors.transparent,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -12827,108 +10473,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return Tooltip(message: tooltip, child: button);
     }
     return button;
-  }
-
-  /// Symbol zone panel for assigning audio to symbol types (HP1-5, MP1-5, LP1-5, etc.)
-  /// Uses MiddlewareProvider directly for event creation
-  Widget _buildSymbolZonePanel() {
-    // Symbol categories with their audio contexts
-    final symbolCategories = [
-      ('Special', ['WILD', 'SCATTER', 'BONUS'], const Color(0xFFFF6B6B)),
-      ('High Pay', ['HP1', 'HP2', 'HP3', 'HP4', 'HP5'], const Color(0xFFFFD700)),
-      ('Medium Pay', ['MP1', 'MP2', 'MP3', 'MP4', 'MP5'], const Color(0xFF40C8FF)),
-      ('Low Pay', ['LP1', 'LP2', 'LP3', 'LP4', 'LP5'], const Color(0xFF40FF90)),
-    ];
-
-    return Container(
-      width: 180,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A22),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final (categoryName, symbols, color) in symbolCategories) ...[
-            Text(
-              categoryName,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: symbols.map((symbol) {
-                return _buildLabeledDropZone(
-                  'symbol.$symbol',
-                  symbol,
-                  color,
-                  compact: true,
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Music zone panel for assigning background music to game contexts
-  /// Uses MiddlewareProvider directly for event creation
-  Widget _buildMusicZonePanel() {
-    final musicContexts = [
-      ('Base Game', 'base', const Color(0xFF40C8FF)),
-      ('Feature', 'feature', const Color(0xFFFF6B6B)),
-      ('Free Spins', 'freespins', const Color(0xFF40FF90)),
-      ('Bonus', 'bonus', const Color(0xFFFFD700)),
-      ('Jackpot', 'jackpot', const Color(0xFFFF9040)),
-      ('Hold & Win', 'holdwin', const Color(0xFF9370DB)),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A22),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Music Contexts',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: musicContexts.map((ctx) {
-              final (label, id, color) = ctx;
-              return _buildLabeledDropZone(
-                'music.$id',
-                label,
-                color,
-                compact: false,
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
   }
 
   /// Regenerate reel-specific stages when grid dimensions change (P0 WF-03)

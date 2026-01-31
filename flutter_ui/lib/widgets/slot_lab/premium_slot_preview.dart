@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../models/win_tier_config.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../services/event_registry.dart';
@@ -918,8 +919,6 @@ class _MainGameZone extends StatelessWidget {
   final bool showWildExpansion;
   final bool showScatterCollect;
   final bool showCascade;
-  final List<_AmbientParticle> particles;
-  final double animationTime;
 
   const _MainGameZone({
     required this.provider,
@@ -931,8 +930,6 @@ class _MainGameZone extends StatelessWidget {
     this.showWildExpansion = false,
     this.showScatterCollect = false,
     this.showCascade = false,
-    required this.particles,
-    required this.animationTime,
   });
 
   @override
@@ -942,15 +939,6 @@ class _MainGameZone extends StatelessWidget {
       children: [
         // Background theme layer
         _buildBackgroundLayer(),
-
-        // Ambient particle layer
-        CustomPaint(
-          size: Size.infinite,
-          painter: _AmbientParticlePainter(
-            particles: particles,
-            time: animationTime,
-          ),
-        ),
 
         // Reel frame with effects - fills entire space
         Positioned.fill(
@@ -4782,74 +4770,6 @@ class _QualityButtonState extends State<_QualityButton> {
 // =============================================================================
 // AMBIENT PARTICLES (Reused)
 // =============================================================================
-
-class _AmbientParticle {
-  double x, y, vx, vy, size, opacity, pulsePhase;
-  Color color;
-
-  _AmbientParticle({
-    required this.x,
-    required this.y,
-    required this.vx,
-    required this.vy,
-    required this.size,
-    required this.opacity,
-    required this.pulsePhase,
-    required this.color,
-  });
-
-  void update() {
-    x += vx;
-    y += vy;
-
-    if (x < -0.1) x = 1.1;
-    if (x > 1.1) x = -0.1;
-    if (y < -0.1) y = 1.1;
-    if (y > 1.1) y = -0.1;
-
-    vy += (math.Random().nextDouble() - 0.5) * 0.0001;
-    vy = vy.clamp(-0.002, 0.002);
-  }
-}
-
-class _AmbientParticlePainter extends CustomPainter {
-  final List<_AmbientParticle> particles;
-  final double time;
-
-  _AmbientParticlePainter({required this.particles, required this.time});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final p in particles) {
-      final pulse = (math.sin(time * 2 + p.pulsePhase) + 1) / 2;
-      final opacity = p.opacity * (0.3 + pulse * 0.7);
-
-      final paint = Paint()
-        ..color = p.color.withOpacity(opacity.clamp(0.0, 1.0))
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, p.size * 0.5);
-
-      canvas.drawCircle(
-        Offset(p.x * size.width, p.y * size.height),
-        p.size,
-        paint,
-      );
-
-      final corePaint = Paint()
-        ..color = Colors.white.withOpacity((opacity * 0.5).clamp(0.0, 1.0));
-      canvas.drawCircle(
-        Offset(p.x * size.width, p.y * size.height),
-        p.size * 0.3,
-        corePaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _AmbientParticlePainter oldDelegate) =>
-      oldDelegate.time != time;
-}
-
-// =============================================================================
 // MAIN PREMIUM SLOT PREVIEW WIDGET
 // =============================================================================
 
@@ -4861,12 +4781,17 @@ class PremiumSlotPreview extends StatefulWidget {
   /// When false (embedded mode), SPACE is ignored and handled by parent (slot_lab_screen).
   final bool isFullscreen;
 
+  /// P5: Project provider for dynamic win tier configuration
+  /// When null, uses context.read<SlotLabProjectProvider>() or legacy fallback
+  final SlotLabProjectProvider? projectProvider;
+
   const PremiumSlotPreview({
     super.key,
     required this.onExit,
     this.reels = 5,
     this.rows = 3,
     this.isFullscreen = false,
+    this.projectProvider,
   });
 
   @override
@@ -4878,11 +4803,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   final FocusNode _focusNode = FocusNode();
 
   // Animation controllers
-  late AnimationController _ambientController;
   late AnimationController _jackpotTickController;
 
-  // Particles
-  final List<_AmbientParticle> _particles = [];
   final _random = math.Random();
 
   // === STATE ===
@@ -5001,7 +4923,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     super.initState();
     _reelsStopped = List.filled(widget.reels, true); // Start as stopped
     _initAnimations();
-    _initParticles();
     _loadSettings(); // Load persisted settings
     _loadGameConfig(); // Load game rules from engine
 
@@ -5079,46 +5000,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   void _initAnimations() {
-    _ambientController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat();
-    _ambientController.addListener(_updateParticles);
-
     _jackpotTickController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 100),
     )..repeat();
     _jackpotTickController.addListener(_tickJackpots);
-  }
-
-  void _initParticles() {
-    final colors = [
-      FluxForgeTheme.accentBlue.withOpacity(0.6),
-      FluxForgeTheme.accentCyan.withOpacity(0.5),
-      _SlotTheme.gold.withOpacity(0.4),
-      _SlotTheme.jackpotMinor.withOpacity(0.3),
-    ];
-
-    for (int i = 0; i < 40; i++) {
-      _particles.add(_AmbientParticle(
-        x: _random.nextDouble(),
-        y: _random.nextDouble(),
-        vx: (_random.nextDouble() - 0.5) * 0.001,
-        vy: (_random.nextDouble() - 0.5) * 0.001,
-        size: _random.nextDouble() * 4 + 2,
-        opacity: _random.nextDouble() * 0.4 + 0.2,
-        pulsePhase: _random.nextDouble() * math.pi * 2,
-        color: colors[_random.nextInt(colors.length)],
-      ));
-    }
-  }
-
-  void _updateParticles() {
-    if (!mounted) return;
-    for (final p in _particles) {
-      p.update();
-    }
   }
 
   void _tickJackpots() {
@@ -5176,7 +5062,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   @override
   void dispose() {
-    _ambientController.dispose();
     _jackpotTickController.dispose();
     _focusNode.dispose();
     // Cancel any pending Visual-Sync timers
@@ -5589,14 +5474,141 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P5 WIN TIER SYSTEM — Dynamic, configurable win tiers
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get project provider (widget parameter or context)
+  SlotLabProjectProvider? get _projectProvider {
+    if (widget.projectProvider != null) return widget.projectProvider;
+    try {
+      return context.read<SlotLabProjectProvider>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// P5: Get complete win tier result from configurable system
+  WinTierResult? _getP5WinTierResult(double totalWin, double bet) {
+    if (totalWin <= 0 || bet <= 0) return null;
+
+    final projectProvider = _projectProvider;
+    if (projectProvider != null) {
+      return projectProvider.getWinTierForAmount(totalWin, bet);
+    }
+
+    // Legacy fallback
+    return _legacyGetWinTierResult(totalWin, bet);
+  }
+
+  /// Legacy fallback when projectProvider is not available
+  WinTierResult? _legacyGetWinTierResult(double totalWin, double bet) {
+    final ratio = totalWin / bet;
+
+    // Big Win threshold (legacy: 20x)
+    if (ratio >= 20) {
+      final int bigTierId;
+      if (ratio >= 500) {
+        bigTierId = 5;
+      } else if (ratio >= 250) {
+        bigTierId = 4;
+      } else if (ratio >= 100) {
+        bigTierId = 3;
+      } else if (ratio >= 50) {
+        bigTierId = 2;
+      } else {
+        bigTierId = 1;
+      }
+
+      return WinTierResult(
+        isBigWin: true,
+        multiplier: ratio,
+        regularTier: null,
+        bigWinTier: BigWinTierDefinition(
+          tierId: bigTierId,
+          fromMultiplier: bigTierId == 1 ? 20 : (bigTierId == 2 ? 50 : (bigTierId == 3 ? 100 : (bigTierId == 4 ? 250 : 500))),
+          toMultiplier: bigTierId == 5 ? double.infinity : (bigTierId == 4 ? 500 : (bigTierId == 3 ? 250 : (bigTierId == 2 ? 100 : 50))),
+          displayLabel: _legacyBigWinLabel(bigTierId),
+        ),
+        bigWinMaxTier: bigTierId,
+      );
+    }
+
+    // Regular win (legacy - just return empty tier for small wins)
+    final regularTierId = ratio >= 5 ? 4 : (ratio >= 2 ? 2 : 1);
+    return WinTierResult(
+      isBigWin: false,
+      multiplier: ratio,
+      regularTier: WinTierDefinition(
+        tierId: regularTierId,
+        fromMultiplier: 0,
+        toMultiplier: 20,
+        displayLabel: '',
+        rollupDurationMs: _legacyRegularRollupDuration(regularTierId),
+        rollupTickRate: 15,
+      ),
+      bigWinTier: null,
+      bigWinMaxTier: null,
+    );
+  }
+
+  /// Legacy regular tier rollup duration mapping
+  int _legacyRegularRollupDuration(int tierId) {
+    return switch (tierId) {
+      0 => 500,
+      1 => 500,
+      2 => 1000,
+      3 => 1500,
+      4 => 2000,
+      5 => 2500,
+      6 => 3000,
+      _ => 500,
+    };
+  }
+
+  /// Legacy big win label mapping (fallback only)
+  String _legacyBigWinLabel(int tierId) {
+    return switch (tierId) {
+      1 => 'BIG WIN!',
+      2 => 'MEGA WIN!',
+      3 => 'SUPER WIN!',
+      4 => 'EPIC WIN!',
+      5 => 'ULTRA WIN!',
+      _ => 'BIG WIN!',
+    };
+  }
+
+  /// P5: Get win tier string for UI display
+  /// Returns 'BIG', 'MEGA', etc. for legacy compatibility
   String _getWinTier(double win) {
-    final ratio = win;
-    if (ratio >= 100) return 'ULTRA';
-    if (ratio >= 50) return 'EPIC';
-    if (ratio >= 25) return 'MEGA';
-    if (ratio >= 10) return 'SUPER';
-    if (ratio >= 5) return 'BIG';
-    // No plaque for small wins (below 5x)
+    // win parameter is actually totalWin in this context
+    // We need bet amount to calculate ratio properly
+    final bet = _totalBetAmount > 0 ? _totalBetAmount : 1.0;
+    final tierResult = _getP5WinTierResult(win, bet);
+
+    if (tierResult == null || !tierResult.isBigWin) return '';
+
+    // Map P5 big win tier ID to legacy string
+    return switch (tierResult.bigWinMaxTier) {
+      1 => 'BIG',
+      2 => 'MEGA',
+      3 => 'SUPER',
+      4 => 'EPIC',
+      5 => 'ULTRA',
+      _ => 'BIG',
+    };
+  }
+
+  /// P5: Get display label from configurable tier system
+  /// Returns user-configured label instead of hardcoded "BIG WIN!" etc.
+  String _getP5WinTierDisplayLabel(double totalWin, double bet) {
+    final tierResult = _getP5WinTierResult(totalWin, bet);
+    if (tierResult == null) return '';
+
+    if (tierResult.isBigWin) {
+      return tierResult.bigWinTier?.displayLabel ?? 'BIG WIN!';
+    }
+
     return '';
   }
 
@@ -5875,8 +5887,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                     reels: widget.reels,
                     rows: widget.rows,
                     winTier: _currentWinTier,
-                    particles: _particles,
-                    animationTime: _ambientController.value * 10,
                   ),
                 ),
 

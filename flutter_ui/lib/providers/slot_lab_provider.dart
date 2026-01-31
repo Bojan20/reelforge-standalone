@@ -233,6 +233,22 @@ class SlotLabProvider extends ChangeNotifier {
   int _reelStopPreTriggerMs = 0;
   bool _jackpotEnabled = true;
 
+  // ─── P5 Win Tier Integration ─────────────────────────────────────────────────
+  /// When true, uses P5 dynamic win tier evaluation from SlotLabProjectProvider
+  /// instead of legacy hardcoded thresholds. This enables user-configurable
+  /// win tier ranges, display labels, and rollup durations.
+  bool _useP5WinTier = true;
+
+  /// Getter for P5 win tier mode
+  bool get useP5WinTier => _useP5WinTier;
+
+  /// Enable/disable P5 win tier evaluation
+  void setUseP5WinTier(bool enabled) {
+    _useP5WinTier = enabled;
+    debugPrint('[SlotLabProvider] P5 Win Tier mode: ${enabled ? "ENABLED" : "DISABLED"}');
+    notifyListeners();
+  }
+
   // ─── Free Spins State ──────────────────────────────────────────────────────
   bool _inFreeSpins = false;
   int _freeSpinsRemaining = 0;
@@ -804,10 +820,15 @@ class SlotLabProvider extends ChangeNotifier {
 
     try {
       // Use V2 engine if initialized (has custom GDD config), else V1
+      // With P5 Win Tier enabled, use P5 spin functions for dynamic tier evaluation
       final int spinId;
       if (_engineV2Initialized) {
         debugPrint('[SlotLabProvider] Calling FFI slotLabV2Spin() (V2 engine with GDD)...');
         spinId = _ffi.slotLabV2Spin();
+      } else if (_useP5WinTier) {
+        // P5 Win Tier mode: Use FFI function that applies P5 config after spin
+        debugPrint('[SlotLabProvider] Calling FFI slotLabSpinP5() (V1 + P5 win tier)...');
+        spinId = _ffi.slotLabSpinP5();
       } else {
         debugPrint('[SlotLabProvider] Calling FFI slotLabSpin() (V1 default engine)...');
         spinId = _ffi.slotLabSpin();
@@ -890,10 +911,15 @@ class SlotLabProvider extends ChangeNotifier {
 
     try {
       // Use V2 engine if initialized (has custom GDD config), else V1
+      // With P5 Win Tier enabled, use P5 spin functions for dynamic tier evaluation
       final int spinId;
       if (_engineV2Initialized) {
         debugPrint('[SlotLabProvider] Calling FFI slotLabV2SpinForced(${outcome.index}) (V2 engine with GDD)...');
         spinId = _ffi.slotLabV2SpinForced(outcome.index);
+      } else if (_useP5WinTier) {
+        // P5 Win Tier mode: Use FFI function that applies P5 config after spin
+        debugPrint('[SlotLabProvider] Calling FFI slotLabSpinForcedP5() (V1 + P5 win tier)...');
+        spinId = _ffi.slotLabSpinForcedP5(outcome);
       } else {
         debugPrint('[SlotLabProvider] Calling FFI slotLabSpinForced() (V1 default engine)...');
         spinId = _ffi.slotLabSpinForced(outcome);

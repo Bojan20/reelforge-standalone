@@ -484,6 +484,187 @@ pub extern "C" fn slot_lab_spin_forced(outcome: i32) -> u64 {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// P5 WIN TIER SPIN FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Execute a spin with P5 Win Tier evaluation
+///
+/// This uses the dynamic P5 SlotWinConfig to evaluate win tiers instead of
+/// the legacy hardcoded thresholds. The spin result includes:
+/// - win_tier_name: P5 stage name (e.g., "WIN_3", "BIG_WIN_INTRO")
+/// - big_win_tier: Legacy enum for backwards compatibility
+///
+/// Returns spin ID (> 0) on success, 0 if engine not initialized
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_spin_p5() -> u64 {
+    let mut guard = SLOT_ENGINE.write();
+    let Some(ref mut engine) = *guard else {
+        log::warn!("slot_lab_spin_p5: Engine not initialized");
+        return 0;
+    };
+
+    // Execute spin (uses legacy win tier internally)
+    let (mut result, mut stages) = engine.spin_with_stages();
+
+    // Reevaluate with P5 Win Tier config
+    let win_config = WIN_TIER_CONFIG.read();
+    let p5_result = win_config.evaluate(result.total_win, result.bet);
+
+    // Update SpinResult with P5 tier info
+    result.win_tier_name = if p5_result.primary_stage.is_empty() || p5_result.primary_stage == "NO_WIN" {
+        None
+    } else {
+        Some(p5_result.primary_stage.clone())
+    };
+
+    // Map P5 result to legacy BigWinTier for backwards compatibility
+    if p5_result.is_big_win {
+        result.big_win_tier = match p5_result.big_win_max_tier {
+            Some(5) => Some(rf_stage::BigWinTier::UltraWin),
+            Some(4) => Some(rf_stage::BigWinTier::EpicWin),
+            Some(3) => Some(rf_stage::BigWinTier::MegaWin),
+            Some(2) => Some(rf_stage::BigWinTier::BigWin),
+            Some(1) => Some(rf_stage::BigWinTier::BigWin),
+            _ => Some(rf_stage::BigWinTier::BigWin),
+        };
+    } else if result.total_win > 0.0 {
+        result.big_win_tier = Some(rf_stage::BigWinTier::Win);
+    }
+
+    drop(win_config); // Release read lock before storing
+
+    let spin_id = SPIN_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
+    *LAST_SPIN_RESULT.write() = Some(result);
+    *LAST_STAGES.write() = stages;
+
+    log::debug!("slot_lab_spin_p5: spin_id={}", spin_id);
+    spin_id
+}
+
+/// Execute a forced spin with P5 Win Tier evaluation
+///
+/// Combines forced outcome with P5 dynamic win tier evaluation.
+/// Returns spin ID (> 0) on success, 0 if engine not initialized or invalid outcome
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_spin_forced_p5(outcome: i32) -> u64 {
+    // Validate outcome range first
+    if !(FORCED_OUTCOME_MIN..=FORCED_OUTCOME_MAX).contains(&outcome) {
+        log::warn!(
+            "slot_lab_spin_forced_p5: Invalid outcome value {} (valid range: {}-{})",
+            outcome,
+            FORCED_OUTCOME_MIN,
+            FORCED_OUTCOME_MAX
+        );
+        return 0;
+    }
+
+    let mut guard = SLOT_ENGINE.write();
+    let Some(ref mut engine) = *guard else {
+        log::warn!("slot_lab_spin_forced_p5: Engine not initialized");
+        return 0;
+    };
+
+    let forced = match outcome {
+        0 => ForcedOutcome::Lose,
+        1 => ForcedOutcome::SmallWin,
+        2 => ForcedOutcome::MediumWin,
+        3 => ForcedOutcome::BigWin,
+        4 => ForcedOutcome::MegaWin,
+        5 => ForcedOutcome::EpicWin,
+        6 => ForcedOutcome::UltraWin,
+        7 => ForcedOutcome::FreeSpins,
+        8 => ForcedOutcome::JackpotMini,
+        9 => ForcedOutcome::JackpotMinor,
+        10 => ForcedOutcome::JackpotMajor,
+        11 => ForcedOutcome::JackpotGrand,
+        12 => ForcedOutcome::NearMiss,
+        13 => ForcedOutcome::Cascade,
+        _ => {
+            log::error!("slot_lab_spin_forced_p5: Unexpected outcome after validation: {}", outcome);
+            return 0;
+        }
+    };
+
+    // Execute spin (uses legacy win tier internally)
+    let (mut result, mut stages) = engine.spin_forced_with_stages(forced);
+
+    // Reevaluate with P5 Win Tier config
+    let win_config = WIN_TIER_CONFIG.read();
+    let p5_result = win_config.evaluate(result.total_win, result.bet);
+
+    // Update SpinResult with P5 tier info
+    result.win_tier_name = if p5_result.primary_stage.is_empty() || p5_result.primary_stage == "NO_WIN" {
+        None
+    } else {
+        Some(p5_result.primary_stage.clone())
+    };
+
+    // Map P5 result to legacy BigWinTier for backwards compatibility
+    if p5_result.is_big_win {
+        result.big_win_tier = match p5_result.big_win_max_tier {
+            Some(5) => Some(rf_stage::BigWinTier::UltraWin),
+            Some(4) => Some(rf_stage::BigWinTier::EpicWin),
+            Some(3) => Some(rf_stage::BigWinTier::MegaWin),
+            Some(2) => Some(rf_stage::BigWinTier::BigWin),
+            Some(1) => Some(rf_stage::BigWinTier::BigWin),
+            _ => Some(rf_stage::BigWinTier::BigWin),
+        };
+    } else if result.total_win > 0.0 {
+        result.big_win_tier = Some(rf_stage::BigWinTier::Win);
+    }
+
+    drop(win_config); // Release read lock before storing
+
+    let spin_id = SPIN_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
+    *LAST_SPIN_RESULT.write() = Some(result);
+    *LAST_STAGES.write() = stages;
+
+    log::debug!("slot_lab_spin_forced_p5: outcome={:?}, spin_id={}", forced, spin_id);
+    spin_id
+}
+
+/// Get P5 Win Tier result for last spin as JSON
+///
+/// Returns JSON with full P5 tier evaluation:
+/// {
+///   "is_big_win": false,
+///   "multiplier": 5.5,
+///   "regular_tier_id": 4,
+///   "big_win_max_tier": null,
+///   "primary_stage": "WIN_4",
+///   "display_label": "NICE WIN",
+///   "rollup_duration_ms": 1500
+/// }
+///
+/// CALLER MUST FREE using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_get_last_spin_p5_tier_json() -> *mut c_char {
+    let spin_result = LAST_SPIN_RESULT.read();
+    let Some(ref result) = *spin_result else {
+        let empty = r#"{"error":"No spin result available"}"#;
+        return CString::new(empty).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+    };
+
+    let win_config = WIN_TIER_CONFIG.read();
+    let p5_result = win_config.evaluate(result.total_win, result.bet);
+    drop(win_config);
+
+    let json = serde_json::to_string(&p5_result).unwrap_or_else(|_| "{}".to_string());
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Check if P5 Win Tier config is being used (always true now)
+/// This is a compatibility function - P5 is always available
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_is_p5_win_tier_enabled() -> i32 {
+    1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // RESULT RETRIEVAL
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -2187,6 +2368,346 @@ pub extern "C" fn slot_lab_cascade_get_state_json() -> *mut c_char {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// WIN TIER CONFIGURATION FFI (P5)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+use rf_slot_lab::model::{
+    SlotWinConfig, RegularWinConfig, RegularWinTier, BigWinConfig, BigWinTier, WinTierResult,
+};
+
+/// Global Win Tier Configuration
+static WIN_TIER_CONFIG: Lazy<RwLock<SlotWinConfig>> =
+    Lazy::new(|| RwLock::new(SlotWinConfig::default()));
+
+/// Set complete win tier configuration from JSON
+///
+/// JSON structure:
+/// {
+///   "regular_wins": {
+///     "tiers": [
+///       {"tier_id": -1, "from_multiplier": 0.0, "to_multiplier": 1.0, "display_label": "Low Win", ...},
+///       {"tier_id": 0, "from_multiplier": 1.0, "to_multiplier": 1.0, "display_label": "Equal Win", ...},
+///       {"tier_id": 1, "from_multiplier": 1.0, "to_multiplier": 2.0, "display_label": "Win 1", ...},
+///       ...
+///     ]
+///   },
+///   "big_wins": {
+///     "threshold": 20.0,
+///     "intro_duration_ms": 500,
+///     "end_duration_ms": 1000,
+///     "fade_out_duration_ms": 500,
+///     "tiers": [
+///       {"tier_id": 1, "from_multiplier": 20.0, "to_multiplier": 50.0, "display_label": "Big Win!", ...},
+///       ...
+///     ]
+///   }
+/// }
+///
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_set_config_json(json: *const c_char) -> i32 {
+    if json.is_null() {
+        log::warn!("slot_lab_win_tier_set_config_json: Null input");
+        return 0;
+    }
+
+    let json_str = unsafe {
+        match CStr::from_ptr(json).to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                log::warn!("slot_lab_win_tier_set_config_json: Invalid UTF-8");
+                return 0;
+            }
+        }
+    };
+
+    match serde_json::from_str::<SlotWinConfig>(json_str) {
+        Ok(config) => {
+            *WIN_TIER_CONFIG.write() = config;
+            log::info!("slot_lab_win_tier_set_config_json: Configuration set successfully");
+            1
+        }
+        Err(e) => {
+            log::error!("slot_lab_win_tier_set_config_json: Parse error: {}", e);
+            0
+        }
+    }
+}
+
+/// Get current win tier configuration as JSON
+///
+/// CALLER MUST FREE using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_get_config_json() -> *mut c_char {
+    let config = WIN_TIER_CONFIG.read();
+    let json = serde_json::to_string(&*config).unwrap_or_else(|_| "{}".to_string());
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Evaluate win amount and get tier result as JSON
+///
+/// win_amount: Total win amount
+/// bet_amount: Bet for this spin
+///
+/// Returns JSON with tier info:
+/// {
+///   "is_big_win": false,
+///   "multiplier": 3.5,
+///   "primary_stage": "WIN_2",
+///   "display_label": "Win 2",
+///   "rollup_duration_ms": 2000,
+///   "regular_tier_id": 2,
+///   "big_win_tier_id": null
+/// }
+///
+/// CALLER MUST FREE using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_evaluate(win_amount: f64, bet_amount: f64) -> *mut c_char {
+    if bet_amount <= 0.0 {
+        log::warn!("slot_lab_win_tier_evaluate: Invalid bet amount: {}", bet_amount);
+        let error = r#"{"error":"Invalid bet amount"}"#;
+        return CString::new(error).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+    }
+
+    let config = WIN_TIER_CONFIG.read();
+    let result = config.evaluate(win_amount, bet_amount);
+
+    let json = serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string());
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get big win threshold multiplier
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_get_big_win_threshold() -> f64 {
+    WIN_TIER_CONFIG.read().big_wins.threshold
+}
+
+/// Set big win threshold multiplier
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_set_big_win_threshold(threshold: f64) {
+    if threshold > 0.0 {
+        WIN_TIER_CONFIG.write().big_wins.threshold = threshold;
+        log::debug!("slot_lab_win_tier_set_big_win_threshold: Set to {}x", threshold);
+    }
+}
+
+/// Get number of regular win tiers
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_regular_count() -> i32 {
+    WIN_TIER_CONFIG.read().regular_wins.tiers.len() as i32
+}
+
+/// Get number of big win tiers
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_big_count() -> i32 {
+    WIN_TIER_CONFIG.read().big_wins.tiers.len() as i32
+}
+
+/// Add a regular win tier
+///
+/// Returns 1 on success, 0 on failure (invalid parameters or duplicate tier_id)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_add_regular(
+    tier_id: i32,
+    from_multiplier: f64,
+    to_multiplier: f64,
+    display_label: *const c_char,
+    rollup_duration_ms: u32,
+) -> i32 {
+    let label = if display_label.is_null() {
+        format!("Win {}", tier_id)
+    } else {
+        unsafe {
+            CStr::from_ptr(display_label)
+                .to_str()
+                .unwrap_or(&format!("Win {}", tier_id))
+                .to_string()
+        }
+    };
+
+    let tier = RegularWinTier {
+        tier_id,
+        from_multiplier,
+        to_multiplier,
+        display_label: label,
+        rollup_duration_ms,
+        rollup_tick_rate: 15, // Default
+        particle_burst_count: 10, // Default
+    };
+
+    let mut config = WIN_TIER_CONFIG.write();
+
+    // Check for duplicate
+    if config.regular_wins.tiers.iter().any(|t| t.tier_id == tier_id) {
+        log::warn!("slot_lab_win_tier_add_regular: Tier {} already exists", tier_id);
+        return 0;
+    }
+
+    config.regular_wins.tiers.push(tier);
+    config.regular_wins.tiers.sort_by(|a, b| a.tier_id.cmp(&b.tier_id));
+
+    log::debug!("slot_lab_win_tier_add_regular: Added tier {}", tier_id);
+    1
+}
+
+/// Update a regular win tier
+///
+/// Returns 1 on success, 0 on failure (tier not found)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_update_regular(
+    tier_id: i32,
+    from_multiplier: f64,
+    to_multiplier: f64,
+    display_label: *const c_char,
+    rollup_duration_ms: u32,
+) -> i32 {
+    let mut config = WIN_TIER_CONFIG.write();
+
+    if let Some(tier) = config.regular_wins.tiers.iter_mut().find(|t| t.tier_id == tier_id) {
+        tier.from_multiplier = from_multiplier;
+        tier.to_multiplier = to_multiplier;
+        tier.rollup_duration_ms = rollup_duration_ms;
+
+        if !display_label.is_null() {
+            if let Ok(label) = unsafe { CStr::from_ptr(display_label).to_str() } {
+                tier.display_label = label.to_string();
+            }
+        }
+
+        log::debug!("slot_lab_win_tier_update_regular: Updated tier {}", tier_id);
+        1
+    } else {
+        log::warn!("slot_lab_win_tier_update_regular: Tier {} not found", tier_id);
+        0
+    }
+}
+
+/// Remove a regular win tier
+///
+/// Returns 1 on success, 0 on failure (tier not found)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_remove_regular(tier_id: i32) -> i32 {
+    let mut config = WIN_TIER_CONFIG.write();
+    let original_len = config.regular_wins.tiers.len();
+    config.regular_wins.tiers.retain(|t| t.tier_id != tier_id);
+
+    if config.regular_wins.tiers.len() < original_len {
+        log::debug!("slot_lab_win_tier_remove_regular: Removed tier {}", tier_id);
+        1
+    } else {
+        log::warn!("slot_lab_win_tier_remove_regular: Tier {} not found", tier_id);
+        0
+    }
+}
+
+/// Update a big win tier
+///
+/// tier_id: 1-5 (internal big win tier)
+/// Returns 1 on success, 0 on failure (tier not found)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_update_big(
+    tier_id: u32,
+    from_multiplier: f64,
+    to_multiplier: f64,
+    display_label: *const c_char,
+    duration_ms: u32,
+) -> i32 {
+    let mut config = WIN_TIER_CONFIG.write();
+
+    if let Some(tier) = config.big_wins.tiers.iter_mut().find(|t| t.tier_id == tier_id) {
+        tier.from_multiplier = from_multiplier;
+        tier.to_multiplier = to_multiplier;
+        tier.duration_ms = duration_ms;
+
+        if !display_label.is_null() {
+            if let Ok(label) = unsafe { CStr::from_ptr(display_label).to_str() } {
+                tier.display_label = label.to_string();
+            }
+        }
+
+        log::debug!("slot_lab_win_tier_update_big: Updated big win tier {}", tier_id);
+        1
+    } else {
+        log::warn!("slot_lab_win_tier_update_big: Big win tier {} not found", tier_id);
+        0
+    }
+}
+
+/// Get all stage names that need audio events
+///
+/// Returns JSON array of stage names:
+/// ["WIN_LOW", "WIN_EQUAL", "WIN_1", "WIN_2", ..., "BIG_WIN_TIER_1", "BIG_WIN_TIER_2", ...]
+///
+/// CALLER MUST FREE using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_get_all_stage_names() -> *mut c_char {
+    let config = WIN_TIER_CONFIG.read();
+    let stages = config.all_stage_names();
+    let json = serde_json::to_string(&stages).unwrap_or_else(|_| "[]".to_string());
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Reset win tier configuration to defaults
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_reset_to_defaults() {
+    *WIN_TIER_CONFIG.write() = SlotWinConfig::default();
+    log::info!("slot_lab_win_tier_reset_to_defaults: Configuration reset");
+}
+
+/// Validate current win tier configuration
+///
+/// Returns 1 if valid, 0 if invalid
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_validate() -> i32 {
+    let config = WIN_TIER_CONFIG.read();
+    if config.validate() { 1 } else { 0 }
+}
+
+/// Get validation errors as JSON array
+///
+/// Returns JSON array of error strings (empty if valid)
+///
+/// CALLER MUST FREE using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_get_validation_errors() -> *mut c_char {
+    let config = WIN_TIER_CONFIG.read();
+    let errors = config.validation_errors();
+    let json = serde_json::to_string(&errors).unwrap_or_else(|_| "[]".to_string());
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Set big win intro/end/fadeout durations
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_win_tier_set_big_win_durations(
+    intro_duration_ms: u32,
+    end_duration_ms: u32,
+    fade_out_duration_ms: u32,
+) {
+    let mut config = WIN_TIER_CONFIG.write();
+    config.big_wins.intro_duration_ms = intro_duration_ms;
+    config.big_wins.end_duration_ms = end_duration_ms;
+    config.big_wins.fade_out_duration_ms = fade_out_duration_ms;
+    log::debug!("slot_lab_win_tier_set_big_win_durations: intro={}ms, end={}ms, fadeout={}ms",
+        intro_duration_ms, end_duration_ms, fade_out_duration_ms);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2235,5 +2756,61 @@ mod tests {
         assert_eq!(slot_lab_last_spin_is_win(), 0);
 
         slot_lab_shutdown();
+    }
+
+    #[test]
+    fn test_win_tier_configuration() {
+        let _guard = TEST_LOCK.lock().unwrap();
+
+        // Reset to defaults
+        slot_lab_win_tier_reset_to_defaults();
+
+        // Check defaults
+        assert!(slot_lab_win_tier_get_big_win_threshold() >= 20.0);
+        assert!(slot_lab_win_tier_regular_count() >= 8); // -1, 0, 1-6
+        assert_eq!(slot_lab_win_tier_big_count(), 5);
+
+        // Add a custom tier
+        let label = CString::new("Custom Win").unwrap();
+        assert_eq!(slot_lab_win_tier_add_regular(7, 15.0, 20.0, label.as_ptr(), 3000), 1);
+        assert!(slot_lab_win_tier_regular_count() >= 9);
+
+        // Try adding duplicate
+        assert_eq!(slot_lab_win_tier_add_regular(7, 15.0, 20.0, label.as_ptr(), 3000), 0);
+
+        // Update tier
+        let new_label = CString::new("Updated Custom Win").unwrap();
+        assert_eq!(slot_lab_win_tier_update_regular(7, 16.0, 20.0, new_label.as_ptr(), 3500), 1);
+
+        // Remove tier
+        assert_eq!(slot_lab_win_tier_remove_regular(7), 1);
+        assert_eq!(slot_lab_win_tier_remove_regular(7), 0); // Already removed
+
+        // Validate
+        assert_eq!(slot_lab_win_tier_validate(), 1);
+
+        // Reset
+        slot_lab_win_tier_reset_to_defaults();
+    }
+
+    #[test]
+    fn test_win_tier_evaluation() {
+        let _guard = TEST_LOCK.lock().unwrap();
+
+        slot_lab_win_tier_reset_to_defaults();
+
+        // Test regular win (3x bet)
+        let result_ptr = slot_lab_win_tier_evaluate(30.0, 10.0);
+        assert!(!result_ptr.is_null());
+        let result_str = unsafe { CStr::from_ptr(result_ptr).to_str().unwrap() };
+        assert!(result_str.contains("\"is_big_win\":false"));
+        slot_lab_free_string(result_ptr);
+
+        // Test big win (25x bet)
+        let result_ptr = slot_lab_win_tier_evaluate(250.0, 10.0);
+        assert!(!result_ptr.is_null());
+        let result_str = unsafe { CStr::from_ptr(result_ptr).to_str().unwrap() };
+        assert!(result_str.contains("\"is_big_win\":true"));
+        slot_lab_free_string(result_ptr);
     }
 }
