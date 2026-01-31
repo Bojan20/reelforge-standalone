@@ -11,8 +11,6 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:provider/provider.dart';
-import '../../providers/theme_mode_provider.dart';
 import '../../src/rust/engine_api.dart' as api;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -154,7 +152,6 @@ class _ExportDialogState extends State<ExportDialog>
     super.dispose();
   }
 
-  bool get _isGlass => context.watch<ThemeModeProvider>().isGlassMode;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BUILD
@@ -192,22 +189,14 @@ class _ExportDialogState extends State<ExportDialog>
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: _isGlass
-            ? [
-                const Color(0xFF1a1a2e).withValues(alpha: 0.95),
-                const Color(0xFF16213e).withValues(alpha: 0.9),
-                const Color(0xFF0f0f23).withValues(alpha: 0.95),
-              ]
-            : [
-                const Color(0xFF0d0d12).withValues(alpha: 0.98),
-                const Color(0xFF121218).withValues(alpha: 0.98),
-                const Color(0xFF0a0a0e).withValues(alpha: 0.98),
-              ],
+        colors: [
+          const Color(0xFF0d0d12).withValues(alpha: 0.98),
+          const Color(0xFF121218).withValues(alpha: 0.98),
+          const Color(0xFF0a0a0e).withValues(alpha: 0.98),
+        ],
       ),
       border: Border.all(
-        color: _isGlass
-            ? Colors.white.withValues(alpha: 0.15 + _glowAnim.value * 0.05)
-            : const Color(0xFF2a2a35),
+        color: const Color(0xFF2a2a35),
         width: 1.5,
       ),
       boxShadow: [

@@ -13,15 +13,12 @@
 
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:cross_file/cross_file.dart';
-import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
-import '../../providers/theme_mode_provider.dart';
 import '../../models/timeline_models.dart';
 import '../../models/comping_models.dart';
 import '../../src/rust/engine_api.dart';
@@ -1844,22 +1841,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
           child: LayoutBuilder(
             builder: (context, constraints) {
               _containerWidth = constraints.maxWidth - _headerWidth;
-              final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
 
               Widget timelineContent = Container(
-                // Theme-aware timeline background
-                decoration: isGlassMode
-                    ? BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.02),
-                            Colors.black.withValues(alpha: 0.03),
-                          ],
-                        ),
-                      )
-                    : const BoxDecoration(color: FluxForgeTheme.bgMid),
+                // Classic timeline background
+                decoration: const BoxDecoration(color: FluxForgeTheme.bgMid),
                 child: Stack(
                   children: [
                     Column(
@@ -1872,18 +1857,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                         // Header spacer
                         Container(
                           width: _headerWidth,
-                          decoration: isGlassMode
-                              ? BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Colors.white.withValues(alpha: 0.03),
-                                      Colors.black.withValues(alpha: 0.02),
-                                    ],
-                                  ),
-                                )
-                              : const BoxDecoration(color: FluxForgeTheme.bgMid),
+                          decoration: const BoxDecoration(color: FluxForgeTheme.bgMid),
                         ),
                         // Resize handle
                         _buildHeaderResizeHandle(),
@@ -2366,16 +2340,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                   ],
                 ), // Stack
               );
-
-              // Apply Glass blur wrapper
-              if (isGlassMode) {
-                timelineContent = ClipRect(
-                  child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                    child: timelineContent,
-                  ),
-                );
-              }
 
               return timelineContent;
             },

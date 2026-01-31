@@ -9,9 +9,7 @@
 
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
-import '../../providers/theme_mode_provider.dart';
 import '../../models/timeline_models.dart';
 
 class TimeRuler extends StatefulWidget {
@@ -111,8 +109,6 @@ class _TimeRulerState extends State<TimeRuler> {
 
   @override
   Widget build(BuildContext context) {
-    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
-
     Widget ruler = MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() {
@@ -139,40 +135,12 @@ class _TimeRulerState extends State<TimeRuler> {
             playheadPosition: widget.playheadPosition,
             hoverX: _isHovering ? _hoverX : -1,
             isDragging: _isDragging,
-            isGlassMode: isGlassMode,
             stageMarkers: widget.stageMarkers,
           ),
           size: Size(widget.width, 28),
         ),
       ),
     );
-
-    // Glass mode: wrap with glass styling
-    if (isGlassMode) {
-      ruler = ClipRect(
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withValues(alpha: 0.08),
-                  Colors.black.withValues(alpha: 0.04),
-                ],
-              ),
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
-                ),
-              ),
-            ),
-            child: ruler,
-          ),
-        ),
-      );
-    }
 
     return ruler;
   }
@@ -190,7 +158,6 @@ class _TimeRulerPainter extends CustomPainter {
   final double playheadPosition;
   final double hoverX;
   final bool isDragging;
-  final bool isGlassMode;
   final List<StageMarker> stageMarkers;
 
   _TimeRulerPainter({
@@ -205,17 +172,14 @@ class _TimeRulerPainter extends CustomPainter {
     required this.playheadPosition,
     this.hoverX = -1,
     this.isDragging = false,
-    this.isGlassMode = false,
     this.stageMarkers = const [],
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Background - transparent in Glass mode (handled by wrapper)
-    if (!isGlassMode) {
-      final bgPaint = Paint()..color = FluxForgeTheme.bgDeep;
-      canvas.drawRect(Offset.zero & size, bgPaint);
-    }
+    // Background
+    final bgPaint = Paint()..color = FluxForgeTheme.bgDeep;
+    canvas.drawRect(Offset.zero & size, bgPaint);
 
     // Draw loop region
     if (loopRegion != null) {
@@ -685,6 +649,5 @@ class _TimeRulerPainter extends CustomPainter {
       playheadPosition != oldDelegate.playheadPosition ||
       hoverX != oldDelegate.hoverX ||
       isDragging != oldDelegate.isDragging ||
-      isGlassMode != oldDelegate.isGlassMode ||
       stageMarkers != oldDelegate.stageMarkers;
 }

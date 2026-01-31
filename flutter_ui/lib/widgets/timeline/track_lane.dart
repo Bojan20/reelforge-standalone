@@ -5,17 +5,13 @@
 /// - Clips (stereo handled by ClipWidget based on trackHeight)
 /// - Crossfades
 /// - Drop zone for audio
-/// - Theme-aware: Glass/Classic mode support
 
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../models/timeline_models.dart';
 import '../../providers/midi_provider.dart';
 import '../../theme/fluxforge_theme.dart';
-import '../../providers/theme_mode_provider.dart';
 import 'grid_lines.dart';
-import '../glass/glass_clip_widget.dart';
+import 'clip_widget.dart';
 import '../midi/midi_clip_widget.dart';
 import 'crossfade_overlay.dart';
 
@@ -120,37 +116,17 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
     // Use track color for lane background (Logic Pro style)
     // Audio tracks: subtle blue tint, MIDI: green tint, etc.
     final trackColor = widget.track.color;
 
-    // Build decoration based on theme mode
-    BoxDecoration decoration;
-    if (isGlassMode) {
-      // Glass mode: subtle gradient with track color tint
-      decoration = BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            trackColor.withValues(alpha: 0.08),
-            Colors.black.withValues(alpha: 0.04),
-          ],
-        ),
-        border: Border(
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-        ),
-      );
-    } else {
-      // Classic mode: solid color blend
-      decoration = BoxDecoration(
-        color: Color.lerp(FluxForgeTheme.bgDeep, trackColor, 0.18),
-        border: Border(
-          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
-        ),
-      );
-    }
+    // Classic mode: solid color blend
+    final decoration = BoxDecoration(
+      color: Color.lerp(FluxForgeTheme.bgDeep, trackColor, 0.18),
+      border: Border(
+        bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
+      ),
+    );
 
     Widget content = Container(
       height: widget.trackHeight,
@@ -176,7 +152,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
 
               // Clips - ClipWidget handles stereo display internally based on trackHeight
               // (stereo split shown when trackHeight > 80px)
-              ...widget.clips.map((clip) => ThemeAwareClipWidget(
+              ...widget.clips.map((clip) => ClipWidget(
                       key: ValueKey('${clip.id}_${clip.color?.value ?? 0}'),
                       clip: clip,
                       zoom: widget.zoom,
@@ -249,16 +225,6 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
         },
       ),
     );
-
-    // Wrap with Glass blur in Glass mode
-    if (isGlassMode) {
-      content = ClipRect(
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-          child: content,
-        ),
-      );
-    }
 
     return content;
   }

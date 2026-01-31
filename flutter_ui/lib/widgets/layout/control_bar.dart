@@ -27,7 +27,6 @@ import '../../providers/macro_control_provider.dart';
 import '../../providers/track_versions_provider.dart';
 import '../../providers/groove_quantize_provider.dart';
 import '../../providers/scale_assistant_provider.dart';
-import '../../providers/theme_mode_provider.dart';
 // P3 Cloud Services
 import '../../services/cloud_sync_service.dart';
 import '../../services/collaboration_service.dart';
@@ -425,9 +424,6 @@ class _ControlBarState extends State<ControlBar> {
                           enabled: widget.pdcEnabled,
                           onTap: widget.onPdcTap,
                         ),
-
-                      // Theme Toggle
-                      _ThemeModeToggle(compact: isCompact),
 
                       // P3 Cloud Status Badges
                       if (!isVeryCompact)
@@ -2621,91 +2617,6 @@ class _MacroControlsButton extends StatelessWidget {
                           : FluxForgeTheme.textSecondary,
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// THEME MODE TOGGLE (Glass/Classic)
-// ════════════════════════════════════════════════════════════════════════════
-
-class _ThemeModeToggle extends StatelessWidget {
-  final bool compact;
-
-  const _ThemeModeToggle({this.compact = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<ThemeModeProvider>(
-      builder: (context, provider, _) {
-        final isGlass = provider.isGlassMode;
-
-        return Tooltip(
-          message: isGlass ? 'Switch to Classic Theme' : 'Switch to Glass Theme',
-          child: GestureDetector(
-            onTap: provider.toggleMode,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 6 : 8,
-                vertical: 4,
-              ),
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(
-                gradient: isGlass
-                    ? LinearGradient(
-                        colors: [
-                          const Color(0xFF4a9eff).withValues(alpha: 0.3),
-                          const Color(0xFF40c8ff).withValues(alpha: 0.2),
-                        ],
-                      )
-                    : null,
-                color: isGlass ? null : FluxForgeTheme.bgMid,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: isGlass
-                      ? const Color(0xFF4a9eff).withValues(alpha: 0.5)
-                      : FluxForgeTheme.borderSubtle,
-                  width: isGlass ? 1.5 : 1,
-                ),
-                boxShadow: isGlass
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF4a9eff).withValues(alpha: 0.3),
-                          blurRadius: 8,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isGlass ? Icons.blur_on : Icons.blur_off,
-                    size: 12,
-                    color: isGlass
-                        ? const Color(0xFF4a9eff)
-                        : FluxForgeTheme.textSecondary,
-                  ),
-                  if (!compact) ...[
-                    const SizedBox(width: 4),
-                    Text(
-                      isGlass ? 'Glass' : 'Classic',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: isGlass
-                            ? const Color(0xFF4a9eff)
-                            : FluxForgeTheme.textSecondary,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

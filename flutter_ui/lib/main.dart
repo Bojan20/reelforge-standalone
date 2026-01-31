@@ -46,7 +46,6 @@ import 'providers/logical_editor_provider.dart';
 import 'providers/groove_quantize_provider.dart';
 import 'providers/audio_alignment_provider.dart';
 import 'providers/scale_assistant_provider.dart';
-import 'providers/theme_mode_provider.dart';
 import 'providers/error_provider.dart';
 import 'providers/recent_projects_provider.dart';
 import 'providers/plugin_provider.dart';
@@ -218,9 +217,6 @@ class FluxForgeApp extends StatelessWidget {
 
         // Scale Assistant (Cubase-style key/scale helper)
         ChangeNotifierProvider(create: (_) => ScaleAssistantProvider()),
-
-        // Theme Mode (Classic/Liquid Glass toggle)
-        ChangeNotifierProvider(create: (_) => ThemeModeProvider()),
 
         // Error Handling
         ChangeNotifierProvider(create: (_) => ErrorProvider()),

@@ -19,15 +19,9 @@ import '../widgets/layout/control_bar.dart';
 import '../widgets/layout/left_zone.dart' show LeftZone, LeftZoneTab;
 import '../widgets/layout/right_zone.dart' show RightZone, InspectedObjectType;
 import '../widgets/layout/lower_zone.dart' show LowerZone;
-import '../widgets/layout/lower_zone_glass.dart' show LowerZoneGlass;
 import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
 import '../providers/mixer_provider.dart';
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
-import '../widgets/glass/glass_app_shell.dart';
-import '../widgets/glass/glass_control_bar.dart';
-import '../widgets/glass/glass_panels.dart';
-import '../widgets/glass/glass_left_zone.dart';
-import '../providers/theme_mode_provider.dart';
 import '../widgets/common/keyboard_shortcuts_overlay.dart';
 import '../widgets/common/command_palette.dart';
 
@@ -363,167 +357,24 @@ class _MainLayoutState extends State<MainLayout>
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = context.watch<ThemeModeProvider>();
-    final isGlassMode = themeMode.isGlassMode;
+    // Build classic layout
+    Widget content = _buildClassicLayout();
 
-    // Build content based on theme mode
-    Widget content = isGlassMode
-        ? _buildGlassLayout()
-        : _buildClassicLayout();
-
-    // Wrap with appropriate shell
-    // Note: Both modes need Scaffold for ScaffoldMessenger.showSnackBar to work
+    // Wrap with shell for ScaffoldMessenger.showSnackBar to work
     return Focus(
       onKeyEvent: _handleKeyEvent,
       autofocus: true,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: isGlassMode
-            ? GlassAppShell(child: content)
-            : Container(
-                color: FluxForgeTheme.bgDeepest,
-                child: content,
-              ),
+        body: Container(
+          color: FluxForgeTheme.bgDeepest,
+          child: content,
+        ),
       ),
     );
   }
 
-  /// Build Glass-themed layout with all Glass components
-  Widget _buildGlassLayout() {
-    return Column(
-      children: [
-        // Glass Control Bar
-        widget.customControlBar ?? GlassControlBar(
-          editorMode: widget.editorMode,
-          onEditorModeChange: widget.onEditorModeChange,
-          isPlaying: widget.isPlaying,
-          isRecording: widget.isRecording,
-          onPlay: widget.onPlay,
-          onStop: widget.onStop,
-          onRecord: widget.onRecord,
-          onRewind: widget.onRewind,
-          onForward: widget.onForward,
-          tempo: widget.tempo,
-          onTempoChange: widget.onTempoChange,
-          timeSignature: widget.timeSignature,
-          currentTime: widget.currentTime,
-          timeDisplayMode: widget.timeDisplayMode,
-          onTimeDisplayModeChange: widget.onTimeDisplayModeChange,
-          loopEnabled: widget.loopEnabled,
-          onLoopToggle: widget.onLoopToggle,
-          metronomeEnabled: widget.metronomeEnabled,
-          onMetronomeToggle: widget.onMetronomeToggle,
-          cpuUsage: widget.cpuUsage,
-          memoryUsage: widget.memoryUsage,
-          projectName: widget.projectName,
-          onSave: widget.onSave,
-          onToggleLeftZone: _toggleLeft,
-          onToggleRightZone: _toggleRight,
-          onToggleLowerZone: _toggleLower,
-          menuCallbacks: widget.menuCallbacks,
-        ),
-
-        // Main Content Area
-        Expanded(
-          child: Row(
-            children: [
-              // Left Zone - Glass Browser + Channel
-              if (_leftVisible)
-                GlassLeftZone(
-                  editorMode: widget.editorMode,
-                  tree: widget.projectTree,
-                  selectedId: widget.selectedProjectId,
-                  onSelect: widget.onProjectSelect,
-                  onDoubleClick: widget.onProjectDoubleClick,
-                  searchQuery: widget.projectSearchQuery,
-                  onSearchChange: widget.onProjectSearchChange,
-                  onAdd: widget.onProjectAdd,
-                  onToggleCollapse: _toggleLeft,
-                  activeTab: widget.activeLeftTab,
-                  onTabChange: widget.onLeftTabChange,
-                  channelData: widget.channelData,
-                  onChannelVolumeChange: widget.onChannelVolumeChange,
-                  onChannelPanChange: widget.onChannelPanChange,
-                  onChannelPanRightChange: widget.onChannelPanRightChange,
-                  onChannelMuteToggle: widget.onChannelMuteToggle,
-                  onChannelSoloToggle: widget.onChannelSoloToggle,
-                  onChannelArmToggle: widget.onChannelArmToggle,
-                  onChannelMonitorToggle: widget.onChannelMonitorToggle,
-                  onChannelPhaseInvertToggle: widget.onChannelPhaseInvertToggle,
-                  onChannelInsertClick: widget.onChannelInsertClick,
-                  onChannelSendClick: widget.onChannelSendClick,
-                  onChannelSendLevelChange: widget.onChannelSendLevelChange,
-                  onChannelEQToggle: widget.onChannelEQToggle,
-                  onChannelOutputClick: widget.onChannelOutputClick,
-                  onChannelInputClick: widget.onChannelInputClick,
-                  onChannelInsertBypassToggle: widget.onChannelInsertBypassToggle,
-                  onChannelInsertWetDryChange: widget.onChannelInsertWetDryChange,
-                  onChannelInsertRemove: widget.onChannelInsertRemove,
-                  onChannelInsertOpenEditor: widget.onChannelInsertOpenEditor,
-                  selectedClip: widget.selectedClip,
-                  selectedClipTrack: widget.selectedClipTrack,
-                  onClipChanged: widget.onClipChanged,
-                ),
-
-              // Center Zone + Lower Zone Container
-              Expanded(
-                child: Column(
-                  children: [
-                    // Center Zone with glass styling
-                    Expanded(
-                      child: _buildGlassCenterZone(),
-                    ),
-
-                    // Lower Zone - Glass version
-                    LowerZoneGlass(
-                      collapsed: !_lowerVisible,
-                      tabs: widget.lowerTabs,
-                      tabGroups: widget.lowerTabGroups,
-                      activeTabId: widget.activeLowerTabId,
-                      onTabChange: widget.onLowerTabChange,
-                      onToggleCollapse: _toggleLower,
-                      height: _lowerZoneHeight,
-                      onHeightChange: (h) =>
-                          setState(() => _lowerZoneHeight = h),
-                      minHeight: 300,
-                      maxHeight: 500,
-                    ),
-                  ],
-                ),
-              ),
-
-              // Right Zone - Glass Inspector (only for non-DAW modes)
-              if (widget.editorMode != EditorMode.daw && _rightVisible)
-                SizedBox(
-                  width: 280,
-                  child: GlassInspector(
-                    title: widget.inspectorName ?? 'Inspector',
-                    sections: widget.inspectorSections.map((s) =>
-                      GlassInspectorSection(
-                        title: s.title,
-                        child: s.content,
-                      )
-                    ).toList(),
-                    onClose: _toggleRight,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Build Glass-styled center zone
-  Widget _buildGlassCenterZone() {
-    // No extra BackdropFilter here - child widgets (timeline, mixer) have their own
-    // Adding another BackdropFilter causes visual artifacts (white rays/stripes)
-    return RepaintBoundary(
-      child: widget.child,
-    );
-  }
-
-  /// Build Classic layout (original implementation)
+  /// Build Classic layout
   Widget _buildClassicLayout() {
     return Column(
       children: [

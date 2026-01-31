@@ -9,13 +9,9 @@
 /// - Metering bridge (K-System, correlation)
 
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
-import '../../theme/liquid_glass_theme.dart';
-import '../../providers/theme_mode_provider.dart';
 import '../lower_zone/daw/mix/pdc_indicator.dart';
 import '../lower_zone/daw/mix/lufs_meter_widget.dart';
 
@@ -257,30 +253,17 @@ class _UltimateMixerState extends State<UltimateMixer> {
 
   @override
   Widget build(BuildContext context) {
-    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
     final stripWidth = widget.compact ? kStripWidthCompact : kStripWidthExpanded;
     final hasSolo = widget.channels.any((c) => c.soloed) ||
                     widget.buses.any((c) => c.soloed) ||
                     widget.auxes.any((c) => c.soloed);
 
     Widget mixerContent = Container(
-      decoration: isGlassMode
-          ? BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withValues(alpha: 0.08),
-                  Colors.white.withValues(alpha: 0.04),
-                  Colors.black.withValues(alpha: 0.15),
-                ],
-              ),
-            )
-          : const BoxDecoration(color: FluxForgeTheme.bgDeepest),
+      decoration: const BoxDecoration(color: FluxForgeTheme.bgDeepest),
       child: Column(
         children: [
           // Toolbar
-          _buildToolbar(isGlassMode),
+          _buildToolbar(),
           // Mixer strips
           Expanded(
             child: SingleChildScrollView(
@@ -326,7 +309,6 @@ class _UltimateMixerState extends State<UltimateMixer> {
                           showSends: widget.showSends,
                           showInput: widget.showInput,
                           hasSoloActive: hasSolo,
-                          isGlassMode: isGlassMode,
                           onVolumeChange: (v) => widget.onVolumeChange?.call(ch.id, v),
                           onPanChange: (p) => widget.onPanChange?.call(ch.id, p),
                           onPanRightChange: (p) => widget.onPanRightChange?.call(ch.id, p),
@@ -359,7 +341,6 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         showInserts: widget.showInserts,
                         showSends: false,
                         hasSoloActive: hasSolo,
-                        isGlassMode: isGlassMode,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(aux.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(aux.id, p),
                         onPanRightChange: (p) => widget.onPanRightChange?.call(aux.id, p),
@@ -382,7 +363,6 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         showInserts: widget.showInserts,
                         showSends: false,
                         hasSoloActive: hasSolo,
-                        isGlassMode: isGlassMode,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(bus.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(bus.id, p),
                         onPanRightChange: (p) => widget.onPanRightChange?.call(bus.id, p),
@@ -402,7 +382,6 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         channel: vca,
                         width: stripWidth,
                         compact: widget.compact,
-                        isGlassMode: isGlassMode,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(vca.id, v),
                         onMuteToggle: () => widget.onMuteToggle?.call(vca.id),
                       ),
@@ -417,7 +396,6 @@ class _UltimateMixerState extends State<UltimateMixer> {
                       channel: widget.master,
                       width: kMasterStripWidth,
                       compact: widget.compact,
-                      isGlassMode: isGlassMode,
                       onVolumeChange: (v) => widget.onVolumeChange?.call(widget.master.id, v),
                       onInsertClick: (idx) => widget.onInsertClick?.call(widget.master.id, idx),
                     ),
@@ -431,40 +409,18 @@ class _UltimateMixerState extends State<UltimateMixer> {
       ),
     );
 
-    // Apply Glass blur effect
-    if (isGlassMode) {
-      return ClipRect(
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-          child: mixerContent,
-        ),
-      );
-    }
     return mixerContent;
   }
 
-  Widget _buildToolbar(bool isGlassMode) {
+  Widget _buildToolbar() {
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        // Glass mode: subtle gradient
-        gradient: isGlassMode
-            ? LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withValues(alpha: 0.06),
-                  Colors.white.withValues(alpha: 0.02),
-                ],
-              )
-            : null,
-        color: isGlassMode ? null : FluxForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         border: Border(
           bottom: BorderSide(
-            color: isGlassMode
-                ? Colors.white.withValues(alpha: 0.08)
-                : FluxForgeTheme.textPrimary.withOpacity(0.1),
+            color: FluxForgeTheme.textPrimary.withOpacity(0.1),
           ),
         ),
       ),
@@ -475,9 +431,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
             icon: Icon(
               Icons.add,
               size: 18,
-              color: isGlassMode
-                  ? LiquidGlassTheme.textSecondary
-                  : FluxForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -502,7 +456,6 @@ class _UltimateChannelStrip extends StatefulWidget {
   final bool showSends;
   final bool showInput;
   final bool hasSoloActive;
-  final bool isGlassMode;
   final ValueChanged<double>? onVolumeChange;
   final ValueChanged<double>? onPanChange;
   final ValueChanged<double>? onPanRightChange; // Pro Tools stereo pan
@@ -527,7 +480,6 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.showSends = true,
     this.showInput = false,
     this.hasSoloActive = false,
-    this.isGlassMode = false,
     this.onVolumeChange,
     this.onPanChange,
     this.onPanRightChange,
@@ -576,33 +528,14 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             width: widget.width,
             margin: const EdgeInsets.symmetric(horizontal: 1),
             decoration: BoxDecoration(
-              // Glass mode: frosted glass gradient
-              gradient: widget.isGlassMode
-                  ? LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.white.withValues(alpha: ch.selected ? 0.12 : 0.06),
-                        Colors.white.withValues(alpha: ch.selected ? 0.08 : 0.03),
-                        Colors.black.withValues(alpha: 0.15),
-                      ],
-                    )
-                  : null,
-              // Classic mode: solid color
-              color: widget.isGlassMode
-                  ? null
-                  : ch.selected
-                      ? FluxForgeTheme.bgMid.withOpacity(0.8)
-                      : FluxForgeTheme.bgDeep,
+              color: ch.selected
+                  ? FluxForgeTheme.bgMid.withOpacity(0.8)
+                  : FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: widget.isGlassMode
-                    ? ch.selected
-                        ? ch.color.withValues(alpha: 0.6)
-                        : Colors.white.withValues(alpha: 0.1)
-                    : ch.selected
-                        ? ch.color.withOpacity(0.6)
-                        : FluxForgeTheme.textPrimary.withOpacity(0.05),
+                color: ch.selected
+                    ? ch.color.withOpacity(0.6)
+                    : FluxForgeTheme.textPrimary.withOpacity(0.05),
               ),
             ),
             child: Column(
@@ -1838,7 +1771,6 @@ class _VcaStrip extends StatelessWidget {
   final UltimateMixerChannel channel;
   final double width;
   final bool compact;
-  final bool isGlassMode;
   final ValueChanged<double>? onVolumeChange;
   final VoidCallback? onMuteToggle;
 
@@ -1847,7 +1779,6 @@ class _VcaStrip extends StatelessWidget {
     required this.channel,
     required this.width,
     this.compact = false,
-    this.isGlassMode = false,
     this.onVolumeChange,
     this.onMuteToggle,
   });
@@ -1858,24 +1789,10 @@ class _VcaStrip extends StatelessWidget {
       width: width,
       margin: const EdgeInsets.symmetric(horizontal: 1),
       decoration: BoxDecoration(
-        // Glass mode: frosted gradient
-        gradient: isGlassMode
-            ? LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withValues(alpha: 0.08),
-                  Colors.white.withValues(alpha: 0.04),
-                  Colors.black.withValues(alpha: 0.15),
-                ],
-              )
-            : null,
-        color: isGlassMode ? null : FluxForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isGlassMode
-              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.4)
-              : FluxForgeTheme.accentGreen.withOpacity(0.3),
+          color: FluxForgeTheme.accentGreen.withOpacity(0.3),
         ),
       ),
       child: Column(
@@ -1981,7 +1898,6 @@ class _MasterStrip extends StatelessWidget {
   final UltimateMixerChannel channel;
   final double width;
   final bool compact;
-  final bool isGlassMode;
   final ValueChanged<double>? onVolumeChange;
   final void Function(int index)? onInsertClick;
 
@@ -1989,7 +1905,6 @@ class _MasterStrip extends StatelessWidget {
     required this.channel,
     required this.width,
     this.compact = false,
-    this.isGlassMode = false,
     this.onVolumeChange,
     this.onInsertClick,
   });
@@ -2002,22 +1917,14 @@ class _MasterStrip extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: isGlassMode
-              ? [
-                  Colors.white.withValues(alpha: 0.12),
-                  Colors.white.withValues(alpha: 0.06),
-                  Colors.black.withValues(alpha: 0.2),
-                ]
-              : [
-                  FluxForgeTheme.bgMid,
-                  FluxForgeTheme.bgDeep,
-                ],
+          colors: [
+            FluxForgeTheme.bgMid,
+            FluxForgeTheme.bgDeep,
+          ],
         ),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isGlassMode
-              ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5)
-              : FluxForgeTheme.accentOrange.withOpacity(0.3),
+          color: FluxForgeTheme.accentOrange.withOpacity(0.3),
         ),
       ),
       child: Column(

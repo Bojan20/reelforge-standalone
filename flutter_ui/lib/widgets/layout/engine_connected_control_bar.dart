@@ -3,17 +3,13 @@
 /// PERFORMANCE: Isolated control bar that directly listens to EngineProvider.
 /// This prevents the entire MainLayout from rebuilding on every transport update.
 /// Only the control bar rebuilds when transport state changes.
-///
-/// Theme-aware: Automatically switches between Glass and Classic control bars.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/engine_provider.dart';
-import '../../providers/theme_mode_provider.dart';
 import '../../models/layout_models.dart';
 import '../../src/rust/native_ffi.dart';
 import 'control_bar.dart';
-import '../glass/glass_control_bar.dart';
 
 class EngineConnectedControlBar extends StatelessWidget {
   final EditorMode editorMode;
@@ -70,9 +66,6 @@ class EngineConnectedControlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Watch theme mode for Glass/Classic switching
-    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
-
     // PERFORMANCE: Use Selector to only rebuild on transport changes we care about
     return Selector<EngineProvider, _ControlBarData>(
       selector: (_, engine) {
@@ -118,43 +111,6 @@ class EngineConnectedControlBar extends StatelessWidget {
         void onTempoChanged(double t) => engine.setTempo(t);
         void onLoopToggle() => engine.toggleLoop();
 
-        // Use Glass Control Bar when in Glass mode
-        if (isGlassMode) {
-          return GlassControlBar(
-            editorMode: editorMode,
-            onEditorModeChange: onEditorModeChange,
-            isPlaying: data.isPlaying,
-            isRecording: data.isRecording,
-            onPlay: onPlay,
-            onStop: onStop,
-            onRecord: onRecord,
-            onRewind: onRewind,
-            onForward: onForward,
-            tempo: data.tempo,
-            onTempoChange: onTempoChanged,
-            timeSignature: TimeSignature(data.timeSigNum, data.timeSigDenom),
-            currentTime: data.positionSeconds,
-            timeDisplayMode: timeDisplayMode,
-            onTimeDisplayModeChange: onTimeDisplayModeChange,
-            loopEnabled: data.loopEnabled,
-            onLoopToggle: onLoopToggle,
-            metronomeEnabled: metronomeEnabled,
-            onMetronomeToggle: onMetronomeToggle,
-            cpuUsage: data.cpuUsage,
-            memoryUsage: memoryUsage,
-            projectName: data.projectName,
-            onSave: onSave,
-            onToggleLeftZone: onToggleLeftZone,
-            onToggleRightZone: onToggleRightZone,
-            onToggleLowerZone: onToggleLowerZone,
-            menuCallbacks: menuCallbacks,
-            // P3 Cloud callbacks
-            onCloudSyncTap: onCloudSyncTap,
-            onCollaborationTap: onCollaborationTap,
-            onCrdtSyncTap: onCrdtSyncTap,
-          );
-        }
-
         // PDC toggle callback
         void onPdcToggle() {
           final ffi = NativeFFI.instance;
@@ -163,7 +119,6 @@ class EngineConnectedControlBar extends StatelessWidget {
           }
         }
 
-        // Classic Control Bar
         return ControlBar(
           editorMode: editorMode,
           onEditorModeChange: onEditorModeChange,

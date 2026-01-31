@@ -10,12 +10,8 @@
 /// Designed for clarity over feature density.
 
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
-import '../../theme/liquid_glass_theme.dart';
-import '../../providers/theme_mode_provider.dart';
 import '../../models/timeline_models.dart';
 
 class TrackHeaderSimple extends StatefulWidget {
@@ -94,7 +90,6 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
   @override
   Widget build(BuildContext context) {
     final track = widget.track;
-    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
 
     // Build the content stack
     Widget contentStack = Stack(
@@ -116,9 +111,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
                       child: Text(
                         '${widget.trackNumber}',
                         style: TextStyle(
-                          color: isGlassMode
-                              ? LiquidGlassTheme.textTertiary
-                              : FluxForgeTheme.textTertiary,
+                          color: FluxForgeTheme.textTertiary,
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                         ),
@@ -169,41 +162,18 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
       ],
     );
 
-    // Build the container with theme-aware decoration
-    BoxDecoration decoration;
-    if (isGlassMode) {
-      // Glass mode decoration
-      decoration = BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            track.color.withValues(alpha: widget.isSelected ? 0.20 : (_isHovered ? 0.12 : 0.08)),
-            Colors.black.withValues(alpha: 0.04),
-          ],
-        ),
-        border: Border(
-          left: BorderSide(
-            color: track.color.withValues(alpha: widget.isSelected ? 0.9 : 0.6),
-            width: 3,
-          ),
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-      );
-    } else {
-      // Classic mode decoration
-      decoration = BoxDecoration(
-        color: widget.isSelected
-            ? track.color.withValues(alpha: 0.18)
-            : (_isHovered
-                ? track.color.withValues(alpha: 0.10)
-                : track.color.withValues(alpha: 0.06)),
-        border: Border(
-          left: BorderSide(color: track.color, width: 3),
-          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
-        ),
-      );
-    }
+    // Build the container with classic decoration
+    final decoration = BoxDecoration(
+      color: widget.isSelected
+          ? track.color.withValues(alpha: 0.18)
+          : (_isHovered
+              ? track.color.withValues(alpha: 0.10)
+              : track.color.withValues(alpha: 0.06)),
+      border: Border(
+        left: BorderSide(color: track.color, width: 3),
+        bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
+      ),
+    );
 
     Widget container = Container(
       width: widget.width,
@@ -211,16 +181,6 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
       decoration: decoration,
       child: contentStack,
     );
-
-    // Wrap with Glass blur in Glass mode
-    if (isGlassMode) {
-      container = ClipRect(
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-          child: container,
-        ),
-      );
-    }
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),

@@ -77,7 +77,6 @@ import '../widgets/slot_lab/embedded_slot_mockup.dart';
 import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/audio_hover_preview.dart';
 import '../widgets/slot_lab/slot_lab_settings_panel.dart' as settings;
-import '../widgets/glass/glass_slot_lab.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
 import '../services/slotlab_track_bridge.dart';
@@ -12449,12 +12448,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   Widget _buildEventLogContent() {
     final middleware = context.read<MiddlewareProvider>();
-    return GlassEventLogWrapper(
-      child: EventLogPanel(
-        slotLabProvider: _slotLabProvider,
-        middlewareProvider: middleware,
-        height: _bottomPanelHeight - 8,
-      ),
+    return EventLogPanel(
+      slotLabProvider: _slotLabProvider,
+      middlewareProvider: middleware,
+      height: _bottomPanelHeight - 8,
     );
   }
 

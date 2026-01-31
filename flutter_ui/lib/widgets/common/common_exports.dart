@@ -7,5 +7,4 @@ export 'meter.dart';
 export 'fader.dart';
 export 'mixer_panel.dart';
 export 'animated_widgets.dart';
-export 'glass_panel.dart';
 export 'error_dialog.dart';
