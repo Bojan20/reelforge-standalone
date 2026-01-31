@@ -150,6 +150,13 @@ import '../widgets/middleware/event_editor_panel.dart';
 import '../widgets/ale/ale_panel.dart';
 import '../services/unified_playback_controller.dart';
 import '../providers/timeline_playback_provider.dart';
+// P3 Future Services and Widgets
+import '../services/cloud_sync_service.dart';
+import '../services/ai_mixing_service.dart';
+import '../widgets/common/collaboration_panel.dart';
+import '../widgets/common/asset_cloud_panel.dart';
+import '../widgets/common/marketplace_panel.dart';
+import '../widgets/common/crdt_sync_panel.dart';
 // Section-specific Lower Zone imports (DAW and Middleware)
 // SlotLab uses its own fullscreen layout with dedicated bottom panel
 import '../widgets/lower_zone/daw_lower_zone_widget.dart';
@@ -2914,6 +2921,297 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P3 CLOUD MENU HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Cloud Sync Settings dialog (P3-01)
+  void _showCloudSyncDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        child: SizedBox(
+          width: 500,
+          height: 400,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_sync, color: Color(0xFF4A9EFF)),
+                    const SizedBox(width: 12),
+                    const Text('Cloud Sync Settings', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListenableBuilder(
+                  listenable: CloudSyncService.instance,
+                  builder: (context, _) {
+                    final service = CloudSyncService.instance;
+                    return ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        _buildCloudStatusTile('Status', service.status.name),
+                        _buildCloudStatusTile('Provider', service.provider.name),
+                        _buildCloudStatusTile('Auto-sync', service.isEnabled ? 'Enabled' : 'Disabled'),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.sync),
+                          label: const Text('Sync Now'),
+                          onPressed: () => service.syncProject('current'),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCloudStatusTile(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.7))),
+          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  /// Collaboration dialog (P3-04)
+  void _showCollaborationDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        child: SizedBox(
+          width: 600,
+          height: 500,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                ),
+                child: Row(
+                  children: [
+                    const CollaborationStatusBadge(),
+                    const SizedBox(width: 12),
+                    const Text('Real-time Collaboration', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+              ),
+              const Expanded(child: CollaborationPanel()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Asset Cloud dialog (P3-06)
+  void _showAssetCloudDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        child: SizedBox(
+          width: 800,
+          height: 600,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                ),
+                child: Row(
+                  children: [
+                    const AssetCloudStatusBadge(),
+                    const SizedBox(width: 12),
+                    const Text('Asset Cloud Library', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+              ),
+              const Expanded(child: AssetCloudPanel()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Marketplace dialog (P3-11)
+  void _showMarketplaceDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        child: SizedBox(
+          width: 900,
+          height: 700,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                ),
+                child: Row(
+                  children: [
+                    const MarketplaceStatusBadge(),
+                    const SizedBox(width: 12),
+                    const Text('Plugin Marketplace', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+              ),
+              const Expanded(child: MarketplacePanel()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// AI Mixing Assistant dialog (P3-03)
+  void _showAiMixingDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        child: SizedBox(
+          width: 600,
+          height: 500,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.auto_fix_high, color: Color(0xFF9370DB)),
+                    const SizedBox(width: 12),
+                    const Text('AI Mixing Assistant', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListenableBuilder(
+                  listenable: AiMixingService.instance,
+                  builder: (context, _) {
+                    final service = AiMixingService.instance;
+                    return ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        _buildCloudStatusTile('Status', service.isAnalyzing ? 'Analyzing...' : 'Ready'),
+                        _buildCloudStatusTile('Model', service.currentModel),
+                        _buildCloudStatusTile('Suggestions', '${service.suggestions.length}'),
+                        const SizedBox(height: 16),
+                        if (service.suggestions.isNotEmpty) ...[
+                          const Text('Suggestions:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          ...service.suggestions.take(5).map((s) => Card(
+                            color: Colors.white.withOpacity(0.05),
+                            child: ListTile(
+                              leading: Icon(_getAiSuggestionIcon(s.type.name), color: const Color(0xFF9370DB)),
+                              title: Text(s.title, style: const TextStyle(color: Colors.white)),
+                              subtitle: Text(s.description, style: TextStyle(color: Colors.white.withOpacity(0.6))),
+                              trailing: TextButton(
+                                onPressed: () => service.applySuggestion(s),
+                                child: const Text('APPLY'),
+                              ),
+                            ),
+                          )),
+                        ],
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.analytics),
+                          label: const Text('Analyze Project'),
+                          onPressed: () => service.analyzeProject(),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _getAiSuggestionIcon(String type) {
+    switch (type) {
+      case 'eq': return Icons.equalizer;
+      case 'compression': return Icons.compress;
+      case 'volume': return Icons.volume_up;
+      case 'pan': return Icons.swap_horiz;
+      case 'reverb': return Icons.waves;
+      default: return Icons.auto_fix_high;
+    }
+  }
+
+  /// CRDT Sync dialog (P3-13)
+  void _showCrdtSyncDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        child: SizedBox(
+          width: 700,
+          height: 550,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                ),
+                child: Row(
+                  children: [
+                    const CrdtSyncStatusBadge(size: 24),
+                    const SizedBox(width: 12),
+                    const Text('Collaborative Project Sync', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+              ),
+              const Expanded(child: CrdtSyncPanel()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Track templates dialog
   void _handleTrackTemplates() {
     showDialog(
@@ -4221,6 +4519,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       _activeLowerTab = getDefaultTabForMode(EditorMode.middleware);
                     })
                   : null,
+              // P3 Cloud callbacks
+              onCloudSyncTap: _showCloudSyncDialog,
+              onCollaborationTap: _showCollaborationDialog,
+              onCrdtSyncTap: _showCrdtSyncDialog,
             ),
 
             // These props are no longer used when customControlBar is provided
@@ -4495,6 +4797,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onShowTrackVersions: () => _showAdvancedPanel('track-versions'),
       onShowMacroControls: () => _showAdvancedPanel('macro-controls'),
       onShowClipGainEnvelope: () => _showAdvancedPanel('clip-gain-envelope'),
+      // CLOUD MENU (P3 Services)
+      onCloudSync: () => _showCloudSyncDialog(),
+      onCollaboration: () => _showCollaborationDialog(),
+      onAssetCloud: () => _showAssetCloudDialog(),
+      onMarketplace: () => _showMarketplaceDialog(),
+      onAiMixing: () => _showAiMixingDialog(),
+      onCrdtSync: () => _showCrdtSyncDialog(),
     );
   }
 

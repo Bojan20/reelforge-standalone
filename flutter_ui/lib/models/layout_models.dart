@@ -424,6 +424,13 @@ class MenuCallbacks {
   final VoidCallback? onShowTrackVersions;
   final VoidCallback? onShowMacroControls;
   final VoidCallback? onShowClipGainEnvelope;
+  // Cloud menu (P3 services)
+  final VoidCallback? onCloudSync;
+  final VoidCallback? onCollaboration;
+  final VoidCallback? onAssetCloud;
+  final VoidCallback? onMarketplace;
+  final VoidCallback? onAiMixing;
+  final VoidCallback? onCrdtSync;
 
   const MenuCallbacks({
     this.onNewProject,
@@ -476,6 +483,13 @@ class MenuCallbacks {
     this.onShowTrackVersions,
     this.onShowMacroControls,
     this.onShowClipGainEnvelope,
+    // Cloud menu (P3 services)
+    this.onCloudSync,
+    this.onCollaboration,
+    this.onAssetCloud,
+    this.onMarketplace,
+    this.onAiMixing,
+    this.onCrdtSync,
   });
 }
 

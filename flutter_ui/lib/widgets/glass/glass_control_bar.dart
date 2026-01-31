@@ -18,6 +18,9 @@ import '../../providers/edit_mode_pro_provider.dart';
 import '../../providers/smart_tool_provider.dart';
 import '../../providers/keyboard_focus_provider.dart';
 import '../../providers/theme_mode_provider.dart';
+import '../../services/cloud_sync_service.dart';
+import '../../services/collaboration_service.dart';
+import '../../services/crdt_sync_service.dart';
 import 'glass_widgets.dart';
 
 // ==============================================================================
@@ -53,6 +56,10 @@ class GlassControlBar extends StatelessWidget {
   final VoidCallback? onToggleRightZone;
   final VoidCallback? onToggleLowerZone;
   final MenuCallbacks? menuCallbacks;
+  // P3 Cloud callbacks
+  final VoidCallback? onCloudSyncTap;
+  final VoidCallback? onCollaborationTap;
+  final VoidCallback? onCrdtSyncTap;
 
   const GlassControlBar({
     super.key,
@@ -84,6 +91,9 @@ class GlassControlBar extends StatelessWidget {
     this.onToggleRightZone,
     this.onToggleLowerZone,
     this.menuCallbacks,
+    this.onCloudSyncTap,
+    this.onCollaborationTap,
+    this.onCrdtSyncTap,
   });
 
   String get _formattedTime {
@@ -304,6 +314,14 @@ class GlassControlBar extends StatelessWidget {
                                 cpuUsage: cpuUsage,
                                 memoryUsage: memoryUsage,
                                 cpuColor: _cpuColor,
+                              ),
+
+                            // P3 Cloud Status Badges
+                            if (!isVeryCompact)
+                              _GlassCloudStatusBadges(
+                                onCloudSyncTap: onCloudSyncTap,
+                                onCollaborationTap: onCollaborationTap,
+                                onCrdtSyncTap: onCrdtSyncTap,
                               ),
                           ],
                         ),
@@ -1470,6 +1488,207 @@ class _GlassDivider extends StatelessWidget {
             Colors.white.withValues(alpha: 0.2),
             Colors.white.withValues(alpha: 0),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==============================================================================
+// GLASS CLOUD STATUS BADGES (P3)
+// ==============================================================================
+
+class _GlassCloudStatusBadges extends StatelessWidget {
+  final VoidCallback? onCloudSyncTap;
+  final VoidCallback? onCollaborationTap;
+  final VoidCallback? onCrdtSyncTap;
+
+  const _GlassCloudStatusBadges({
+    this.onCloudSyncTap,
+    this.onCollaborationTap,
+    this.onCrdtSyncTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Cloud Sync Status
+          ListenableBuilder(
+            listenable: CloudSyncService.instance,
+            builder: (context, _) {
+              final service = CloudSyncService.instance;
+              return _GlassCloudBadge(
+                icon: Icons.cloud,
+                label: 'SYNC',
+                isActive: service.isEnabled,
+                isSyncing: service.isSyncing,
+                color: service.lastSyncTime != null
+                    ? LiquidGlassTheme.accentGreen
+                    : LiquidGlassTheme.textTertiary,
+                onTap: onCloudSyncTap,
+                tooltip: service.isSyncing
+                    ? 'Syncing...'
+                    : service.lastSyncTime != null
+                        ? 'Last sync: ${_formatTime(service.lastSyncTime!)}'
+                        : 'Cloud sync disabled',
+              );
+            },
+          ),
+          const SizedBox(width: 4),
+          // Collaboration Status
+          ListenableBuilder(
+            listenable: CollaborationService.instance,
+            builder: (context, _) {
+              final service = CollaborationService.instance;
+              final peerCount = service.connectedPeers.length;
+              return _GlassCloudBadge(
+                icon: Icons.people,
+                label: peerCount > 0 ? '$peerCount' : 'COLLAB',
+                isActive: service.isConnected,
+                isSyncing: false,
+                color: service.isConnected
+                    ? LiquidGlassTheme.accentCyan
+                    : LiquidGlassTheme.textTertiary,
+                onTap: onCollaborationTap,
+                tooltip: service.isConnected
+                    ? '$peerCount peer${peerCount != 1 ? 's' : ''} connected'
+                    : 'Collaboration offline',
+              );
+            },
+          ),
+          const SizedBox(width: 4),
+          // CRDT Sync Status
+          ListenableBuilder(
+            listenable: CrdtSyncService.instance,
+            builder: (context, _) {
+              final service = CrdtSyncService.instance;
+              final opCount = service.pendingOperations.length;
+              return _GlassCloudBadge(
+                icon: Icons.sync_alt,
+                label: opCount > 0 ? '$opCount' : 'CRDT',
+                isActive: service.isConnected,
+                isSyncing: service.isSyncing,
+                color: service.hasConflicts
+                    ? LiquidGlassTheme.accentOrange
+                    : service.isConnected
+                        ? LiquidGlassTheme.accentBlue
+                        : LiquidGlassTheme.textTertiary,
+                onTap: onCrdtSyncTap,
+                tooltip: service.hasConflicts
+                    ? '${service.conflicts.length} conflict${service.conflicts.length != 1 ? 's' : ''}'
+                    : service.isSyncing
+                        ? 'Syncing operations...'
+                        : service.isConnected
+                            ? 'CRDT sync active'
+                            : 'CRDT sync offline',
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    if (diff.inSeconds < 60) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+}
+
+class _GlassCloudBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final bool isSyncing;
+  final Color color;
+  final VoidCallback? onTap;
+  final String tooltip;
+
+  const _GlassCloudBadge({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.isSyncing,
+    required this.color,
+    this.onTap,
+    required this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                gradient: isActive
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          color.withValues(alpha: 0.2),
+                          color.withValues(alpha: 0.1),
+                        ],
+                      )
+                    : null,
+                color: isActive ? null : LiquidGlassTheme.glassTintLight,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isActive
+                      ? color.withValues(alpha: 0.5)
+                      : LiquidGlassTheme.borderLight,
+                ),
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.3),
+                          blurRadius: 6,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isSyncing)
+                    SizedBox(
+                      width: 10,
+                      height: 10,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        valueColor: AlwaysStoppedAnimation(color),
+                      ),
+                    )
+                  else
+                    Icon(icon, size: 10, color: color),
+                  const SizedBox(width: 3),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
