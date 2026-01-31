@@ -77,9 +77,11 @@ enum BakeSubTab {
 
 /// Sub-tabs for ENGINE super-tab
 enum EngineSubTab {
-  profiler,    // DSP profiler
-  resources,   // Resource dashboard
-  stageIngest, // Stage ingest panel
+  profiler,       // DSP profiler
+  resources,      // Resource dashboard
+  stageIngest,    // Stage ingest panel
+  versionControl, // Git version control (P3-05)
+  analytics,      // Analytics dashboard (P3-07)
 }
 
 /// Sub-tabs for MENU (popup items, not actual tabs)
@@ -391,6 +393,20 @@ const List<SubTabConfig> kEngineSubTabs = [
     icon: Icons.input,
     shortcutKey: '3',
     description: 'Stage ingest panel',
+  ),
+  SubTabConfig(
+    id: 'versionControl',
+    label: 'Git',
+    icon: Icons.source,
+    shortcutKey: '4',
+    description: 'Version control (Git)',
+  ),
+  SubTabConfig(
+    id: 'analytics',
+    label: 'Analytics',
+    icon: Icons.analytics,
+    shortcutKey: '5',
+    description: 'Usage metrics dashboard (P3-07)',
   ),
 ];
 

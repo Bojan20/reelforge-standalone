@@ -3658,6 +3658,30 @@ class WinTierConfig {
 3. User assigns audio files to placeholder events
 4. Test in SlotLab → Export
 
+**UI Integration (P3-15, 2026-01-31):**
+- 📦 Templates button u SlotLab header (levo od status chips)
+- Blue gradient button sa tooltip
+- Otvara modal dialog sa TemplateGalleryPanel
+- "Apply" primenjuje template na projekat (reelCount, rowCount)
+
+---
+
+### P3-16 — Coverage Indicator ✅ 2026-01-31
+
+Audio assignment progress tracking u SlotLab header-u.
+
+**Implementacija:**
+- Kompaktni badge: `X/341` sa mini progress bar-om
+- Boje: Red (<25%), Orange (25-75%), Green (>75%)
+- Klik otvara breakdown popup po sekcijama
+- Consumer<SlotLabProjectProvider> za reaktivno ažuriranje
+
+**Files:**
+- `flutter_ui/lib/screens/slot_lab_screen.dart`:
+  - `_buildCoverageBadge()` (~80 LOC)
+  - `_showCoverageBreakdown()` — popup dialog
+  - `_buildCoverageRow()` — helper za breakdown
+
 ---
 
 ### P3.4 — GDD Import Wizard ✅ 2026-01-23 (V9: 2026-01-26)
@@ -6475,6 +6499,47 @@ Game Flow-based slot audio panel sa **341 audio slotova** organizovanih u **12 s
 - **Jackpot izdvojen** — 🏆 Premium sekcija sa validation badge
 - **Cascade/Tumble/Avalanche ujedinjeni** — Jedna sekcija za sve cascade mehanike
 - **Tier vizualna hijerarhija** — Primary/Secondary/Feature/Premium/Background/Utility
+- **Quick Assign Mode (P3-19)** — Click slot → Click audio = Done! workflow (alternativa drag-drop-u)
+
+**Quick Assign Mode API (P3-19):**
+```dart
+// Widget parameters (ultimate_audio_panel.dart)
+UltimateAudioPanel(
+  quickAssignMode: bool,                            // Whether mode is active
+  quickAssignSelectedSlot: String?,                 // Currently selected slot stage
+  onQuickAssignSlotSelected: (String stage) {...},  // Callback on slot click
+  // Signal '__TOGGLE__' = toggle mode, else = slot selection
+)
+
+// Parent integration (slot_lab_screen.dart)
+bool _quickAssignMode = false;
+String? _quickAssignSelectedSlot;
+
+// UltimateAudioPanel callback
+onQuickAssignSlotSelected: (stage) {
+  if (stage == '__TOGGLE__') {
+    setState(() {
+      _quickAssignMode = !_quickAssignMode;
+      if (!_quickAssignMode) _quickAssignSelectedSlot = null;
+    });
+  } else {
+    setState(() => _quickAssignSelectedSlot = stage);
+  }
+},
+
+// EventsPanelWidget audio click callback
+onAudioClicked: (audioPath) {
+  if (_quickAssignMode && _quickAssignSelectedSlot != null) {
+    _handleQuickAssign(audioPath, _quickAssignSelectedSlot!, provider);
+    setState(() => _quickAssignSelectedSlot = null);
+  }
+},
+```
+
+**Workflow:**
+1. Klikni **Quick Assign** toggle u header → zeleni glow
+2. Klikni audio slot → **SELECTED** badge + zeleni border
+3. Klikni audio fajl u Audio Browser → **ASSIGNED** sa ⚡ SnackBar
 
 **Persistence:** All expanded states and audio assignments saved via `SlotLabProjectProvider`
 

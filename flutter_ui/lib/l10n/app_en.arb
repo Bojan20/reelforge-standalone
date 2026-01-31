@@ -1,0 +1,215 @@
+{
+  "@@locale": "en",
+  "@@last_modified": "2026-01-31",
+
+  "appTitle": "FluxForge Studio",
+  "@appTitle": {
+    "description": "Application title"
+  },
+
+  "sectionDaw": "DAW",
+  "@sectionDaw": {
+    "description": "DAW section name"
+  },
+  "sectionMiddleware": "Middleware",
+  "@sectionMiddleware": {
+    "description": "Middleware section name"
+  },
+  "sectionSlotLab": "SlotLab",
+  "@sectionSlotLab": {
+    "description": "SlotLab section name"
+  },
+
+  "tabTimeline": "Timeline",
+  "tabEvents": "Events",
+  "tabMix": "Mix",
+  "tabMusic": "Music",
+  "tabDsp": "DSP",
+  "tabBake": "Bake",
+  "tabEngine": "Engine",
+
+  "actionSpin": "Spin",
+  "actionStop": "Stop",
+  "actionPlay": "Play",
+  "actionPause": "Pause",
+  "actionExport": "Export",
+  "actionImport": "Import",
+  "actionSave": "Save",
+  "actionLoad": "Load",
+  "actionDelete": "Delete",
+  "actionDuplicate": "Duplicate",
+  "actionRename": "Rename",
+  "actionCreate": "Create",
+  "actionCancel": "Cancel",
+  "actionConfirm": "Confirm",
+  "actionApply": "Apply",
+  "actionReset": "Reset",
+  "actionClose": "Close",
+  "actionOpen": "Open",
+  "actionAdd": "Add",
+  "actionRemove": "Remove",
+  "actionEdit": "Edit",
+  "actionPreview": "Preview",
+  "actionRefresh": "Refresh",
+  "actionSearch": "Search",
+  "actionFilter": "Filter",
+  "actionSort": "Sort",
+  "actionCopy": "Copy",
+  "actionPaste": "Paste",
+  "actionCut": "Cut",
+  "actionUndo": "Undo",
+  "actionRedo": "Redo",
+  "actionSelectAll": "Select All",
+  "actionClearAll": "Clear All",
+
+  "labelVolume": "Volume",
+  "labelPan": "Pan",
+  "labelMute": "Mute",
+  "labelSolo": "Solo",
+  "labelBypass": "Bypass",
+  "labelGain": "Gain",
+  "labelFrequency": "Frequency",
+  "labelResonance": "Resonance",
+  "labelAttack": "Attack",
+  "labelRelease": "Release",
+  "labelThreshold": "Threshold",
+  "labelRatio": "Ratio",
+  "labelDelay": "Delay",
+  "labelReverb": "Reverb",
+  "labelDryWet": "Dry/Wet",
+
+  "labelBpm": "BPM",
+  "labelKey": "Key",
+  "labelTimeSignature": "Time Signature",
+  "labelSampleRate": "Sample Rate",
+  "labelBitDepth": "Bit Depth",
+  "labelChannels": "Channels",
+  "labelDuration": "Duration",
+  "labelSize": "Size",
+
+  "eventName": "Event Name",
+  "eventStage": "Stage",
+  "eventLayers": "Layers",
+  "eventPriority": "Priority",
+  "eventBus": "Bus",
+
+  "containerBlend": "Blend Container",
+  "containerRandom": "Random Container",
+  "containerSequence": "Sequence Container",
+
+  "busTypeMaster": "Master",
+  "busTypeMusic": "Music",
+  "busTypeSfx": "SFX",
+  "busTypeVoice": "Voice",
+  "busTypeAmbience": "Ambience",
+  "busTypeUi": "UI",
+
+  "winTierSmall": "Small Win",
+  "winTierBig": "Big Win",
+  "winTierSuper": "Super Win",
+  "winTierMega": "Mega Win",
+  "winTierEpic": "Epic Win",
+  "winTierUltra": "Ultra Win",
+
+  "featureFreeSpins": "Free Spins",
+  "featureBonus": "Bonus",
+  "featureHoldWin": "Hold & Win",
+  "featureJackpot": "Jackpot",
+  "featureCascade": "Cascade",
+  "featureGamble": "Gamble",
+
+  "statusConnected": "Connected",
+  "statusDisconnected": "Disconnected",
+  "statusLoading": "Loading...",
+  "statusError": "Error",
+  "statusSuccess": "Success",
+  "statusPending": "Pending",
+  "statusActive": "Active",
+  "statusInactive": "Inactive",
+
+  "errorGeneric": "An error occurred",
+  "errorNotFound": "Not found",
+  "errorInvalidInput": "Invalid input",
+  "errorFileNotFound": "File not found",
+  "errorConnectionFailed": "Connection failed",
+  "errorExportFailed": "Export failed",
+  "errorImportFailed": "Import failed",
+  "errorSaveFailed": "Save failed",
+  "errorLoadFailed": "Load failed",
+
+  "confirmDelete": "Are you sure you want to delete this?",
+  "confirmDiscard": "Discard unsaved changes?",
+  "confirmOverwrite": "Overwrite existing file?",
+
+  "tooltipSettings": "Settings",
+  "tooltipHelp": "Help",
+  "tooltipFullscreen": "Toggle Fullscreen",
+  "tooltipMinimize": "Minimize",
+  "tooltipMaximize": "Maximize",
+
+  "projectNew": "New Project",
+  "projectOpen": "Open Project",
+  "projectSave": "Save Project",
+  "projectSaveAs": "Save Project As",
+  "projectExport": "Export Project",
+  "projectImport": "Import Project",
+  "projectRecent": "Recent Projects",
+
+  "audioImport": "Import Audio",
+  "audioExport": "Export Audio",
+  "audioPool": "Audio Pool",
+  "audioPreview": "Preview Audio",
+  "audioBrowser": "Audio Browser",
+
+  "settingsGeneral": "General",
+  "settingsAudio": "Audio",
+  "settingsDisplay": "Display",
+  "settingsKeyboard": "Keyboard",
+  "settingsLanguage": "Language",
+  "settingsTheme": "Theme",
+
+  "languageEnglish": "English",
+  "languageSerbian": "Serbian",
+  "languageGerman": "German",
+  "languageSpanish": "Spanish",
+  "languageFrench": "French",
+  "languageJapanese": "Japanese",
+  "languageChinese": "Chinese",
+
+  "nEventsRegistered": "{count} events registered",
+  "@nEventsRegistered": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "nFilesSelected": "{count} files selected",
+  "@nFilesSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "durationSeconds": "{seconds}s",
+  "@durationSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "double",
+        "format": "decimalPattern"
+      }
+    }
+  },
+
+  "percentComplete": "{percent}% complete",
+  "@percentComplete": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  }
+}

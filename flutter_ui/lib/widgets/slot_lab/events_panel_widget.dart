@@ -33,6 +33,8 @@ class EventsPanelWidget extends StatefulWidget {
   final Function(List<String> audioPaths)? onAudioDragStarted;
   final String? selectedEventId;
   final Function(String? eventId)? onSelectionChanged;
+  /// P3-19: Callback when audio file is clicked (for Quick Assign Mode)
+  final Function(String audioPath)? onAudioClicked;
 
   const EventsPanelWidget({
     super.key,
@@ -40,6 +42,7 @@ class EventsPanelWidget extends StatefulWidget {
     this.onAudioDragStarted,
     this.selectedEventId,
     this.onSelectionChanged,
+    this.onAudioClicked,
   });
 
   @override
@@ -1614,6 +1617,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             return _AudioBrowserItemWrapper(
               audioInfo: info,
               onDragStarted: () => widget.onAudioDragStarted?.call([info.path]),
+              onTap: () => widget.onAudioClicked?.call(info.path),
             );
           }),
         ],
@@ -1653,6 +1657,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     return _AudioBrowserItemWrapper(
       audioInfo: audioInfo,
       onDragStarted: () => widget.onAudioDragStarted?.call([asset.path]),
+      onTap: () => widget.onAudioClicked?.call(asset.path),
     );
   }
 
@@ -1755,6 +1760,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     return _AudioBrowserItemWrapper(
       audioInfo: audioInfo,
       onDragStarted: () => widget.onAudioDragStarted?.call([file.path]),
+      onTap: () => widget.onAudioClicked?.call(file.path),
     );
   }
 
@@ -1814,10 +1820,13 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
 class _AudioBrowserItemWrapper extends StatelessWidget {
   final AudioFileInfo audioInfo;
   final VoidCallback? onDragStarted;
+  /// P3-19: Callback when item is clicked (for Quick Assign Mode)
+  final VoidCallback? onTap;
 
   const _AudioBrowserItemWrapper({
     required this.audioInfo,
     this.onDragStarted,
+    this.onTap,
   });
 
   @override
@@ -1867,7 +1876,10 @@ class _AudioBrowserItemWrapper extends StatelessWidget {
         opacity: 0.5,
         child: _buildAudioBrowserItemContent(),
       ),
-      child: _buildAudioBrowserItemContent(),
+      child: GestureDetector(
+        onTap: onTap,
+        child: _buildAudioBrowserItemContent(),
+      ),
     );
   }
 

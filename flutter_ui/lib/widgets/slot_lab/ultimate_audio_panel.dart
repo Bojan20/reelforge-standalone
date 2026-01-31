@@ -45,6 +45,9 @@ typedef OnAudioAssign = void Function(String stage, String audioPath);
 /// Callback for batch auto-distribution results
 typedef OnBatchDistribute = void Function(List<StageMatch> matched, List<UnmatchedFile> unmatched);
 
+/// Callback when slot is selected in Quick Assign mode
+typedef OnQuickAssignSlotSelected = void Function(String stage);
+
 /// Ultimate Audio Panel — all audio drops in one place
 class UltimateAudioPanel extends StatefulWidget {
   /// Current audio assignments (stage → audioPath)
@@ -68,6 +71,15 @@ class UltimateAudioPanel extends StatefulWidget {
   /// Called when group is toggled (for state persistence)
   final Function(String groupId)? onGroupToggle;
 
+  /// Quick Assign Mode: Called when slot is clicked in quick assign mode
+  final OnQuickAssignSlotSelected? onQuickAssignSlotSelected;
+
+  /// Quick Assign Mode: Currently selected slot (highlighted)
+  final String? quickAssignSelectedSlot;
+
+  /// Quick Assign Mode: Whether quick assign mode is active
+  final bool quickAssignMode;
+
   /// Symbol definitions for symbol section
   final List<SymbolDefinition> symbols;
 
@@ -89,6 +101,9 @@ class UltimateAudioPanel extends StatefulWidget {
     this.onClearSection,
     this.onSectionToggle,
     this.onGroupToggle,
+    this.onQuickAssignSlotSelected,
+    this.quickAssignSelectedSlot,
+    this.quickAssignMode = false,
     this.symbols = const [],
     this.contexts = const [],
     this.expandedSections,
@@ -111,6 +126,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode(); // SL-LP-P1.3
+
+  // Unassigned filter state (P3-17)
+  bool _showUnassignedOnly = false;
 
   // Keyboard navigation state (SL-LP-P1.3)
   final FocusNode _panelFocusNode = FocusNode();
@@ -316,6 +334,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
   Widget _buildHeader() {
     final totalAssigned = widget.audioAssignments.length;
+    final stats = _getUnassignedStats();
+    final unassignedCount = stats.$2;
+    final totalSlots = stats.$1;
     return Container(
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -338,6 +359,124 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             ),
           ),
           const Spacer(),
+          // M2-8: Quick Assign Mode toggle
+          if (widget.onQuickAssignSlotSelected != null)
+            Tooltip(
+              message: widget.quickAssignMode
+                  ? 'Quick Assign ON: Click slot to select, then click audio in browser'
+                  : 'Enable Quick Assign: Click slot → Click audio = Done!',
+              child: Container(
+                margin: const EdgeInsets.only(right: 6),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      // Toggle is managed by parent - signal with empty string
+                      widget.onQuickAssignSlotSelected?.call('__TOGGLE__');
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        gradient: widget.quickAssignMode
+                            ? LinearGradient(
+                                colors: [
+                                  FluxForgeTheme.accentGreen.withOpacity(0.3),
+                                  FluxForgeTheme.accentGreen.withOpacity(0.15),
+                                ],
+                              )
+                            : null,
+                        color: widget.quickAssignMode ? null : Colors.transparent,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: widget.quickAssignMode
+                              ? FluxForgeTheme.accentGreen.withOpacity(0.6)
+                              : Colors.white.withOpacity(0.15),
+                          width: widget.quickAssignMode ? 1.5 : 1,
+                        ),
+                        boxShadow: widget.quickAssignMode
+                            ? [
+                                BoxShadow(
+                                  color: FluxForgeTheme.accentGreen.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  spreadRadius: 0,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            widget.quickAssignMode ? Icons.touch_app : Icons.touch_app_outlined,
+                            size: 12,
+                            color: widget.quickAssignMode
+                                ? FluxForgeTheme.accentGreen
+                                : Colors.white38,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Quick',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: widget.quickAssignMode ? FontWeight.w600 : FontWeight.normal,
+                              color: widget.quickAssignMode
+                                  ? FluxForgeTheme.accentGreen
+                                  : Colors.white54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          // P3-17: Unassigned filter toggle
+          Tooltip(
+            message: _showUnassignedOnly
+                ? 'Showing $unassignedCount unassigned slots. Click to show all.'
+                : 'Click to show only unassigned slots ($unassignedCount remaining)',
+            child: InkWell(
+              onTap: () => setState(() => _showUnassignedOnly = !_showUnassignedOnly),
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _showUnassignedOnly
+                      ? Colors.orange.withOpacity(0.2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: _showUnassignedOnly
+                        ? Colors.orange.withOpacity(0.5)
+                        : Colors.white.withOpacity(0.1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _showUnassignedOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
+                      size: 12,
+                      color: _showUnassignedOnly ? Colors.orange : Colors.white38,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _showUnassignedOnly ? '$unassignedCount/$totalSlots' : 'All',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: _showUnassignedOnly ? Colors.orange : Colors.white54,
+                        fontWeight: _showUnassignedOnly ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
           if (totalAssigned > 0)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -550,6 +689,15 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     final variantCount = VariantManager.instance.getVariantCount(slot.stage);
     final hasVariants = variantCount > 1;
 
+    // M2-8: Quick Assign Mode - is this slot selected?
+    final isQuickAssignSelected = widget.quickAssignMode &&
+        widget.quickAssignSelectedSlot == slot.stage;
+
+    // P3-17: Filter by unassigned only
+    if (_showUnassignedOnly && hasAudio) {
+      return const SizedBox.shrink(); // Hide assigned slots when filter is active
+    }
+
     // Filter by search query (SL-LP-P1.2)
     if (_searchQuery.isNotEmpty) {
       final matchesStage = slot.stage.toLowerCase().contains(_searchQuery);
@@ -563,6 +711,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
       child: GestureDetector(
+        // M2-8: Quick Assign Mode - click to select slot
+        onTap: widget.quickAssignMode
+            ? () => widget.onQuickAssignSlotSelected?.call(slot.stage)
+            : null,
         onLongPress: hasAudio ? () => _showVariantEditor(context, slot.stage, accentColor) : null,
         child: DragTarget<Object>(
         onWillAcceptWithDetails: (details) {
@@ -586,20 +738,43 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         },
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
-          return Container(
+          // M2-8: Quick Assign visual feedback
+          final showQuickAssignHighlight = isQuickAssignSelected ||
+              (widget.quickAssignMode && isHovering);
+
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
             height: 26,
             decoration: BoxDecoration(
-              color: isHovering
-                  ? accentColor.withOpacity(0.2)
-                  : const Color(0xFF16161C),
+              color: isQuickAssignSelected
+                  ? FluxForgeTheme.accentGreen.withOpacity(0.25)
+                  : isHovering
+                      ? accentColor.withOpacity(0.2)
+                      : widget.quickAssignMode
+                          ? const Color(0xFF1A1A22) // Slightly lighter in quick mode
+                          : const Color(0xFF16161C),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: isHovering
-                    ? accentColor
-                    : hasAudio
-                        ? accentColor.withOpacity(0.4)
-                        : Colors.white.withOpacity(0.08),
+                color: isQuickAssignSelected
+                    ? FluxForgeTheme.accentGreen
+                    : isHovering
+                        ? accentColor
+                        : hasAudio
+                            ? accentColor.withOpacity(0.4)
+                            : widget.quickAssignMode
+                                ? Colors.white.withOpacity(0.15) // More visible in quick mode
+                                : Colors.white.withOpacity(0.08),
+                width: isQuickAssignSelected ? 2 : 1,
               ),
+              boxShadow: isQuickAssignSelected
+                  ? [
+                      BoxShadow(
+                        color: FluxForgeTheme.accentGreen.withOpacity(0.4),
+                        blurRadius: 8,
+                        spreadRadius: 0,
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               children: [
@@ -652,16 +827,54 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                           ],
                         )
                       : Text(
-                          'Drop audio...',
-                          style: const TextStyle(
+                          // M2-8: Different hint text in Quick Assign mode
+                          widget.quickAssignMode
+                              ? (isQuickAssignSelected ? '← Click audio to assign' : 'Click to select')
+                              : 'Drop audio...',
+                          style: TextStyle(
                             fontSize: 9,
-                            color: Colors.white24,
+                            color: isQuickAssignSelected
+                                ? FluxForgeTheme.accentGreen
+                                : widget.quickAssignMode
+                                    ? Colors.white38
+                                    : Colors.white24,
                             fontStyle: FontStyle.italic,
+                            fontWeight: isQuickAssignSelected ? FontWeight.w600 : FontWeight.normal,
                           ),
                         ),
                 ),
+                // M2-8: Quick Assign selected indicator
+                if (isQuickAssignSelected)
+                  Container(
+                    margin: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.accentGreen.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.touch_app,
+                          size: 8,
+                          color: FluxForgeTheme.accentGreen,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          'SELECTED',
+                          style: TextStyle(
+                            fontSize: 7,
+                            fontWeight: FontWeight.w700,
+                            color: FluxForgeTheme.accentGreen,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 // Variant badge (SL-LP-P1.4) — shows count if >1
-                if (hasVariants)
+                if (hasVariants && !isQuickAssignSelected)
                   Container(
                     margin: const EdgeInsets.only(right: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -855,6 +1068,37 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       }
     }
     return count;
+  }
+
+  /// P3-17: Get total slot count and unassigned count for filter display
+  (int total, int unassigned) _getUnassignedStats() {
+    int total = 0;
+    int unassigned = 0;
+    final sections = [
+      _BaseGameLoopSection(widget: widget),
+      _SymbolsSection(widget: widget),
+      _WinPresentationSection(widget: widget),
+      _CascadingSection(widget: widget),
+      _MultipliersSection(widget: widget),
+      _FreeSpinsSection(widget: widget),
+      _BonusGamesSection(widget: widget),
+      _HoldAndWinSection(widget: widget),
+      _JackpotsSection(widget: widget),
+      _GambleSection(widget: widget),
+      _MusicSection(widget: widget),
+      _UISystemSection(widget: widget),
+    ];
+    for (final section in sections) {
+      for (final group in section.groups) {
+        for (final slot in group.slots) {
+          total++;
+          if (!widget.audioAssignments.containsKey(slot.stage)) {
+            unassigned++;
+          }
+        }
+      }
+    }
+    return (total, unassigned);
   }
 
   /// Handle folder drop on a group — auto-distribute files

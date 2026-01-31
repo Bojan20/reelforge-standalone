@@ -42,6 +42,10 @@ import '../fabfilter/fabfilter.dart';
 import '../common/audio_waveform_picker_dialog.dart';
 import 'realtime_bus_meters.dart';
 import 'export_panels.dart';
+import '../common/git_panel.dart';
+import '../common/analytics_dashboard.dart';
+import '../common/documentation_viewer.dart';
+import '../../providers/git_provider.dart';
 
 class SlotLabLowerZoneWidget extends StatefulWidget {
   final SlotLabLowerZoneController controller;
@@ -872,6 +876,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabBakeSubTab.stems => _buildStemsPanel(),
       SlotLabBakeSubTab.variations => _buildVariationsPanel(),
       SlotLabBakeSubTab.package => _buildPackagePanel(),
+      SlotLabBakeSubTab.git => _buildGitPanel(),
+      SlotLabBakeSubTab.analytics => _buildAnalyticsPanel(),
+      SlotLabBakeSubTab.docs => _buildDocsPanel(),
     };
   }
 
@@ -881,6 +888,155 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   Widget _buildStemsPanel() => _buildCompactStemsPanel();
   Widget _buildVariationsPanel() => _buildCompactVariationsPanel();
   Widget _buildPackagePanel() => _buildCompactPackagePanel();
+
+  /// P3-05: Git version control panel
+  Widget _buildGitPanel() {
+    return Consumer<SlotLabProjectProvider>(
+      builder: (context, projectProvider, _) {
+        final projectPath = projectProvider.projectPath;
+
+        if (projectPath == null || projectPath.isEmpty) {
+          return _buildNoProjectPanel();
+        }
+
+        // Initialize GitProvider with project path
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!GitProvider.instance.isInitialized ||
+              GitProvider.instance.repoPath != projectPath) {
+            GitProvider.instance.init(projectPath);
+          }
+        });
+
+        return ListenableBuilder(
+          listenable: GitProvider.instance,
+          builder: (context, _) {
+            final state = GitProvider.instance.state;
+
+            if (state.isLoading && !state.isRepo) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF40FF90),
+                ),
+              );
+            }
+
+            if (!state.isRepo) {
+              return _buildInitRepoPanel(projectPath);
+            }
+
+            return GitPanel(
+              repoPath: projectPath,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// P3-07: Analytics dashboard panel
+  Widget _buildAnalyticsPanel() {
+    return const AnalyticsDashboard();
+  }
+
+  /// P3-10: Documentation generator panel
+  Widget _buildDocsPanel() {
+    return const DocumentationViewer();
+  }
+
+  /// Panel shown when no project is loaded
+  Widget _buildNoProjectPanel() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.folder_off_outlined,
+            size: 48,
+            color: Colors.white24,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No Project Loaded',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Save your project to enable version control',
+            style: TextStyle(
+              color: Colors.white38,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Panel to initialize a new git repository
+  Widget _buildInitRepoPanel(String projectPath) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.source_outlined,
+            size: 48,
+            color: Colors.white24,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No Git Repository',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Initialize a repository to track changes',
+            style: TextStyle(
+              color: Colors.white38,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final success = await GitProvider.instance.initRepo();
+              if (success && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Color(0xFF40FF90)),
+                        SizedBox(width: 8),
+                        Text('Git repository initialized'),
+                      ],
+                    ),
+                    backgroundColor: const Color(0xFF1A1A20),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('Initialize Repository'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF40FF90).withValues(alpha: 0.2),
+              foregroundColor: const Color(0xFF40FF90),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HELPER METHODS

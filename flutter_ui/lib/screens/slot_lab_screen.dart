@@ -114,6 +114,9 @@ import '../providers/slot_lab_project_provider.dart';
 import '../models/slot_lab_models.dart';
 import '../widgets/slot_lab/group_batch_import_panel.dart';
 import '../services/stage_group_service.dart';
+import '../widgets/template/template_gallery_panel.dart';
+import '../widgets/slot_lab/project_dashboard_dialog.dart';
+import '../models/template_models.dart' show BuiltTemplate;
 
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
@@ -392,6 +395,101 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // ULTIMATE AUDIO PANEL STATE — now persisted in SlotLabProjectProvider
   // ═══════════════════════════════════════════════════════════════════════════
   // NOTE: _audioAssignments moved to SlotLabProjectProvider for persistence
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // QUICK ASSIGN MODE (P3-19)
+  // ═══════════════════════════════════════════════════════════════════════════
+  bool _quickAssignMode = false;
+  String? _quickAssignSelectedSlot;
+
+  /// P3-19: Handle Quick Assign — reuses existing audio assignment logic
+  void _handleQuickAssign(String audioPath, String stage, SlotLabProjectProvider projectProvider) {
+    debugPrint('[SlotLab] 🎵 Quick Assign:');
+    debugPrint('[SlotLab]   stage: $stage');
+    debugPrint('[SlotLab]   audioPath: ${audioPath.split('/').last}');
+
+    // Update provider (persisted state)
+    projectProvider.setAudioAssignment(stage, audioPath);
+
+    // Register event to EventRegistry for instant playback
+    final eventRegistry = EventRegistry.instance;
+    eventRegistry.registerEvent(AudioEvent(
+      id: 'audio_$stage',
+      name: stage.replaceAll('_', ' '),
+      stage: stage,
+      layers: [
+        AudioLayer(
+          id: 'layer_$stage',
+          name: '${stage.replaceAll('_', ' ')} Audio',
+          audioPath: audioPath,
+          volume: 1.0,
+          pan: _getPanForStage(stage),
+          delay: 0.0,
+          busId: _getBusForStage(stage),
+        ),
+      ],
+    ));
+
+    // Create composite event for Middleware Event Folder
+    final middleware = context.read<MiddlewareProvider>();
+    final now = DateTime.now();
+    final eventId = 'audio_$stage';
+    final category = _getCategoryForStage(stage);
+    final color = _getColorForCategory(category);
+
+    final compositeEvent = SlotCompositeEvent(
+      id: eventId,
+      name: stage.replaceAll('_', ' ').split(' ').map((w) =>
+        w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
+      ).join(' '),
+      category: category,
+      color: color,
+      layers: [
+        SlotEventLayer(
+          id: 'layer_$stage',
+          name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+          audioPath: audioPath,
+          volume: 1.0,
+          pan: _getPanForStage(stage),
+          busId: _getBusForStage(stage),
+        ),
+      ],
+      triggerStages: [stage],
+      targetBusId: _getBusForStage(stage),
+      createdAt: now,
+      modifiedAt: now,
+    );
+
+    middleware.addCompositeEvent(compositeEvent, select: false);
+
+    debugPrint('[SlotLab]   ✅ Event registered for stage: $stage');
+    debugPrint('[SlotLab]   ✅ CompositeEvent added to Middleware: $eventId');
+
+    // Show SnackBar confirmation
+    if (mounted) {
+      final fileName = audioPath.split('/').last;
+      ScaffoldMessenger.of(this.context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.flash_on, color: Color(0xFF40FF90), size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Quick Assigned "$fileName" → ${stage.replaceAll("_", " ")}',
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: FluxForgeTheme.bgMid,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 1500),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        ),
+      );
+    }
+  }
 
   /// Get stereo pan position for a stage (per-reel panning for REEL_STOP_*)
   double _getPanForStage(String stage) {
@@ -2184,6 +2282,25 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                             contexts: projectProvider.contexts,
                             expandedSections: projectProvider.expandedSections,
                             expandedGroups: projectProvider.expandedGroups,
+                            // P3-19: Quick Assign Mode
+                            quickAssignMode: _quickAssignMode,
+                            quickAssignSelectedSlot: _quickAssignSelectedSlot,
+                            onQuickAssignSlotSelected: (stage) {
+                              if (stage == '__TOGGLE__') {
+                                // Toggle mode
+                                setState(() {
+                                  _quickAssignMode = !_quickAssignMode;
+                                  if (!_quickAssignMode) {
+                                    _quickAssignSelectedSlot = null;
+                                  }
+                                });
+                                debugPrint('[SlotLab] ⚡ Quick Assign Mode: ${_quickAssignMode ? "ON" : "OFF"}');
+                              } else {
+                                // Select slot
+                                setState(() => _quickAssignSelectedSlot = stage);
+                                debugPrint('[SlotLab] ⚡ Quick Assign: Selected slot "$stage"');
+                              }
+                            },
                             onAudioAssign: (stage, audioPath) {
                               debugPrint('[SlotLab] 🎵 UltimateAudioPanel.onAudioAssign:');
                               debugPrint('[SlotLab]   stage: $stage');
@@ -2332,6 +2449,17 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                                 setState(() {
                                   _draggingAudioPaths = audioPaths;
                                 });
+                              },
+                              // P3-19: Quick Assign Mode — click audio to assign to selected slot
+                              onAudioClicked: (audioPath) {
+                                if (_quickAssignMode && _quickAssignSelectedSlot != null) {
+                                  debugPrint('[SlotLab] ⚡ Quick Assign: "$audioPath" → "$_quickAssignSelectedSlot"');
+                                  // Use existing onAudioAssign logic
+                                  final projectProvider = context.read<SlotLabProjectProvider>();
+                                  _handleQuickAssign(audioPath, _quickAssignSelectedSlot!, projectProvider);
+                                  // Clear selection after assign
+                                  setState(() => _quickAssignSelectedSlot = null);
+                                }
                               },
                             ),
                           ),
@@ -2894,6 +3022,17 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           // Transport controls
           _buildTransportControls(),
 
+          const SizedBox(width: 16),
+
+          // ═══════════════════════════════════════════════════════════════════
+          // P3-15 + P3-16 + M1-4: Templates, Coverage, Dashboard
+          // ═══════════════════════════════════════════════════════════════════
+          _buildTemplatesButton(),
+          const SizedBox(width: 8),
+          _buildCoverageBadge(),
+          const SizedBox(width: 8),
+          _buildDashboardButton(),
+
           const Spacer(),
 
           // Status indicators - wrapped to prevent overflow
@@ -2977,6 +3116,396 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           const SizedBox(width: 8),
         ],
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P3-15: Templates Gallery Button
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildTemplatesButton() {
+    return Tooltip(
+      message: 'Template Gallery',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showTemplateGallery,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF4A9EFF).withOpacity(0.2),
+                  const Color(0xFF4A9EFF).withOpacity(0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: const Color(0xFF4A9EFF).withOpacity(0.4),
+                width: 1,
+              ),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.dashboard_customize, size: 14, color: Color(0xFF4A9EFF)),
+                SizedBox(width: 6),
+                Text(
+                  'Templates',
+                  style: TextStyle(
+                    color: Color(0xFF4A9EFF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showTemplateGallery() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: SizedBox(
+          width: 900,
+          height: 650,
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFF333340), width: 1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.dashboard_customize, color: Color(0xFF4A9EFF), size: 24),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Template Gallery',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            'Start with a pre-configured slot audio template',
+                            style: TextStyle(color: Colors.white54, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white54),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              // Template Gallery Panel
+              Expanded(
+                child: TemplateGalleryPanel(
+                  onTemplateApplied: (builtTemplate) async {
+                    Navigator.of(ctx).pop();
+                    await _applyTemplate(builtTemplate);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _applyTemplate(BuiltTemplate builtTemplate) async {
+    // ignore: unused_local_variable
+    final projectProvider = context.read<SlotLabProjectProvider>();
+    final template = builtTemplate.source;
+
+    // Apply template configuration to project
+    // This would register stages, create events, set up buses, etc.
+    debugPrint('[SlotLab] 📦 Applying template: ${template.name}');
+
+    // Update grid settings from template
+    setState(() {
+      _slotLabSettings = _slotLabSettings.copyWith(
+        reels: template.reelCount,
+        rows: template.rowCount,
+      );
+    });
+
+    // Show success
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Applied template "${template.name}" — ${template.symbols.length} symbols, ${template.coreStages.length} stages'),
+          backgroundColor: const Color(0xFF40FF90),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P3-16: Coverage Indicator Badge
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildCoverageBadge() {
+    return Consumer<SlotLabProjectProvider>(
+      builder: (ctx, provider, _) {
+        final counts = provider.getAudioAssignmentCounts();
+        final assigned = (counts['symbol_total'] ?? 0) + (counts['music_total'] ?? 0);
+        const total = 341; // Total audio slots in UltimateAudioPanel
+        final percent = total > 0 ? (assigned / total * 100).round() : 0;
+
+        // Color based on progress
+        Color progressColor;
+        if (percent < 25) {
+          progressColor = const Color(0xFFFF6B6B); // Red
+        } else if (percent < 75) {
+          progressColor = const Color(0xFFFFAA00); // Orange/Yellow
+        } else {
+          progressColor = const Color(0xFF40FF90); // Green
+        }
+
+        return Tooltip(
+          message: 'Audio Coverage: $assigned of $total slots assigned\nClick for breakdown',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _showCoverageBreakdown(counts, assigned, total),
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D0D12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: progressColor.withOpacity(0.4),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Icon
+                    Icon(
+                      percent >= 100 ? Icons.check_circle : Icons.pie_chart,
+                      size: 12,
+                      color: progressColor,
+                    ),
+                    const SizedBox(width: 6),
+                    // Text
+                    Text(
+                      '$assigned/$total',
+                      style: TextStyle(
+                        color: progressColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Mini progress bar
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white10,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: (percent / 100).clamp(0.0, 1.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: progressColor,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    // Percentage
+                    Text(
+                      '$percent%',
+                      style: TextStyle(
+                        color: progressColor.withOpacity(0.8),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCoverageBreakdown(Map<String, int> counts, int assigned, int total) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.pie_chart, color: Color(0xFF4A9EFF), size: 20),
+            SizedBox(width: 8),
+            Text('Audio Coverage Breakdown', style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
+        content: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildCoverageRow('Symbol Audio', counts['symbol_total'] ?? 0, 280),
+              const SizedBox(height: 8),
+              _buildCoverageRow('Music Layers', counts['music_total'] ?? 0, 61),
+              const Divider(color: Colors.white24, height: 24),
+              _buildCoverageRow('Total', assigned, total, isTotal: true),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // M1 Task 4: Project Dashboard Button
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildDashboardButton() {
+    return Tooltip(
+      message: 'Project Dashboard\nOverview, validation, and notes',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showProjectDashboard,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF40C8FF).withValues(alpha: 0.2),
+                  const Color(0xFF40C8FF).withValues(alpha: 0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFF40C8FF).withValues(alpha: 0.3)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.dashboard, color: Color(0xFF40C8FF), size: 14),
+                SizedBox(width: 6),
+                Text(
+                  'Dashboard',
+                  style: TextStyle(
+                    color: Color(0xFF40C8FF),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showProjectDashboard() {
+    ProjectDashboardDialog.show(context);
+  }
+
+  Widget _buildCoverageRow(String label, int count, int max, {bool isTotal = false}) {
+    final percent = max > 0 ? (count / max * 100).round() : 0;
+    final color = percent < 25
+        ? const Color(0xFFFF6B6B)
+        : percent < 75
+            ? const Color(0xFFFFAA00)
+            : const Color(0xFF40FF90);
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isTotal ? Colors.white : Colors.white70,
+              fontWeight: isTotal ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: (percent / 100).clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 60,
+                child: Text(
+                  '$count/$max',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

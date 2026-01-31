@@ -63,6 +63,9 @@ import 'services/service_locator.dart';
 import 'services/lower_zone_persistence_service.dart';
 import 'services/stage_configuration_service.dart';
 import 'services/workspace_preset_service.dart';
+import 'services/analytics_service.dart';
+import 'services/offline_service.dart';
+import 'services/localization_service.dart';
 import 'src/rust/native_ffi.dart';
 
 void main() async {
@@ -70,6 +73,9 @@ void main() async {
 
   // Initialize dependency injection (GetIt)
   await ServiceLocator.init();
+
+  // Initialize Analytics Service (usage tracking, P3-07)
+  await AnalyticsService.instance.init();
 
   // Initialize Lower Zone persistence (SharedPreferences)
   await LowerZonePersistenceService.instance.init();
@@ -79,6 +85,12 @@ void main() async {
 
   // Initialize Workspace Preset Service (layout presets)
   await WorkspacePresetService.instance.init();
+
+  // Initialize Localization Service (P3-08)
+  await LocalizationService.instance.init();
+
+  // Initialize Offline Service (P3-14)
+  await OfflineService.instance.init();
 
   runApp(const FluxForgeApp());
 }

@@ -44,6 +44,7 @@ import '../providers/subsystems/attenuation_curve_provider.dart';
 import '../providers/subsystems/memory_manager_provider.dart';
 import '../providers/subsystems/event_profiler_provider.dart';
 import '../providers/slot_lab_project_provider.dart';
+import '../providers/git_provider.dart';
 import 'audio_pool.dart';
 import 'audio_playback_service.dart';
 import 'unified_playback_controller.dart';
@@ -60,6 +61,7 @@ import 'unified_search_service.dart';
 import 'recent_favorites_service.dart';
 import 'plugin_state_service.dart';
 import 'missing_plugin_detector.dart';
+import 'analytics_service.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -189,13 +191,23 @@ class ServiceLocator {
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // LAYER 6: UX Services (search, recent/favorites)
+    // LAYER 5.6: Git Provider (P3-05 Version Control)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<GitProvider>(
+      () => GitProvider.instance,
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 6: UX Services (search, recent/favorites, analytics)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<UnifiedSearchService>(
       () => UnifiedSearchService.instance,
     );
     sl.registerLazySingleton<RecentFavoritesService>(
       () => RecentFavoritesService.instance,
+    );
+    sl.registerLazySingleton<AnalyticsService>(
+      () => AnalyticsService.instance,
     );
 
     // Initialize search providers

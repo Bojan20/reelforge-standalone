@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/slot_lab_models.dart';
 import '../providers/ale_provider.dart';
+import '../providers/git_provider.dart';
 import '../services/gdd_import_service.dart';
 import '../services/stage_configuration_service.dart';
 
@@ -664,12 +665,33 @@ class SlotLabProjectProvider extends ChangeNotifier {
   // ==========================================================================
 
   /// Save project to file
-  Future<void> saveProject(String path) async {
+  ///
+  /// If [autoCommit] is true (default), changes will be auto-committed
+  /// to the git repository after saving.
+  Future<void> saveProject(String path, {bool autoCommit = true}) async {
     final file = File(path);
     await file.writeAsString(project.toJsonString());
     _projectPath = path;
     _isDirty = false;
     notifyListeners();
+
+    // P3-05: Auto-commit on project save
+    if (autoCommit) {
+      final repoPath = file.parent.path;
+      try {
+        final gitProvider = GitProvider.instance;
+        if (!gitProvider.isInitialized || gitProvider.repoPath != repoPath) {
+          await gitProvider.init(repoPath);
+        }
+        if (gitProvider.state.isRepo && gitProvider.state.hasChanges) {
+          await gitProvider.autoCommit(
+            customMessage: 'Auto-save: $_projectName',
+          );
+        }
+      } catch (e) {
+        debugPrint('[SlotLabProjectProvider] Auto-commit failed: $e');
+      }
+    }
   }
 
   /// Load project from file

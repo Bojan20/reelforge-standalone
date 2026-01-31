@@ -1461,6 +1461,26 @@ class EventRegistry extends ChangeNotifier {
     }
   }
 
+  /// Clear all events and stage mappings
+  /// Used when unwiring a template
+  void clearAllEvents() {
+    // Stop all playing sounds first
+    for (final eventId in _events.keys.toList()) {
+      _stopEventSync(eventId);
+    }
+
+    _events.clear();
+    _stageToEvent.clear();
+    _preloadedPaths.clear();
+    stopAllSpinLoops();
+    clearCrossfadeTracking();
+    clearConditionalRules();
+    clearHistory();
+
+    debugPrint('[EventRegistry] Cleared all events and stage mappings');
+    notifyListeners();
+  }
+
   // ==========================================================================
   // AUDIO FILE PRELOADING (FFI parallel cache)
   // ==========================================================================
