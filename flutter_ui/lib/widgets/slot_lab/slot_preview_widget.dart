@@ -72,94 +72,100 @@ class SlotSymbol {
   // ═══════════════════════════════════════════════════════════════════════════
   static const Map<int, SlotSymbol> _defaultSymbols = {
     // ═══════════════════════════════════════════════════════════════════════════
-    // HIGH PAYING SYMBOLS — PRECIOUS/ROYAL COLORS (Maximum Contrast)
-    // Industry standard: Precious gems/metals for highest value symbols
+    // HIGH PAYING SYMBOLS — PRECIOUS GEM/METAL COLORS (Saturated, Bright, Premium)
+    // Design principle: HP uses WARM spectrum (Red→Gold) with high saturation
+    // Visual hierarchy: More valuable = brighter, more saturated, warmer
     // ═══════════════════════════════════════════════════════════════════════════
     1: SlotSymbol(
       id: 1, name: 'HP1', displayChar: '7',
-      // RUBY RED — Highest value, most prestigious
-      gradientColors: [Color(0xFFFF4444), Color(0xFFDC143C), Color(0xFF8B0000)],
-      glowColor: Color(0xFFFF2222),
+      // RUBY RED — Pure crimson, maximum prestige, no pink/orange tint
+      gradientColors: [Color(0xFFFF3333), Color(0xFFE60000), Color(0xFF990000)],
+      glowColor: Color(0xFFFF0000),
     ),
     2: SlotSymbol(
       id: 2, name: 'HP2', displayChar: '▬',
-      // EMERALD GREEN — Premium, distinct from fruit greens
-      gradientColors: [Color(0xFF66FFCC), Color(0xFF50C878), Color(0xFF006644)],
-      glowColor: Color(0xFF50C878),
+      // ROYAL GOLD — Rich metallic gold, distinct from yellow fruits
+      gradientColors: [Color(0xFFFFDD44), Color(0xFFDAA520), Color(0xFFB8860B)],
+      glowColor: Color(0xFFFFCC00),
     ),
     3: SlotSymbol(
       id: 3, name: 'HP3', displayChar: '🔔',
-      // SAPPHIRE BLUE — Royal, no fruit uses this blue
-      gradientColors: [Color(0xFF6699FF), Color(0xFF0F52BA), Color(0xFF000080)],
-      glowColor: Color(0xFF4488FF),
+      // BRONZE/COPPER — Warm metallic, completely distinct from any fruit
+      gradientColors: [Color(0xFFE8A060), Color(0xFFCD7F32), Color(0xFF8B4513)],
+      glowColor: Color(0xFFD4954A),
     ),
     4: SlotSymbol(
       id: 4, name: 'HP4', displayChar: '🍒',
-      // AMETHYST PURPLE — Rich purple, distinct from grape
-      gradientColors: [Color(0xFFDD99FF), Color(0xFF9966CC), Color(0xFF4B0082)],
-      glowColor: Color(0xFFBB77FF),
+      // HOT PINK/MAGENTA — Warm but distinct, NOT purple (no LP confusion)
+      gradientColors: [Color(0xFFFF66AA), Color(0xFFFF1493), Color(0xFFB30059)],
+      glowColor: Color(0xFFFF3399),
     ),
     // ═══════════════════════════════════════════════════════════════════════════
-    // LOW PAYING SYMBOLS — FRUIT COLORS (Clear Visual Hierarchy)
-    // Industry standard: Classic fruit machine symbols
+    // LOW PAYING SYMBOLS — NATURAL FRUIT COLORS (Cooler, Less Saturated, Muted)
+    // Design principle: LP uses COOL spectrum (Green→Blue→Purple) with lower saturation
+    // Visual hierarchy: Clearly "lesser value" through muted, cooler tones
     // ═══════════════════════════════════════════════════════════════════════════
     5: SlotSymbol(
       id: 5, name: 'LP1', displayChar: '🍋',
-      // LEMON YELLOW — Bright, cheerful
-      gradientColors: [Color(0xFFFFFF66), Color(0xFFFFD700), Color(0xFFCC9900)],
-      glowColor: Color(0xFFFFDD00),
+      // LEMON — Pale yellow-green, NOT gold (distinct from HP2)
+      gradientColors: [Color(0xFFE8E855), Color(0xFFCDCD00), Color(0xFF9A9A00)],
+      glowColor: Color(0xFFD4D400),
     ),
     6: SlotSymbol(
       id: 6, name: 'LP2', displayChar: '🍊',
-      // ORANGE — Warm, distinct from other fruits
-      gradientColors: [Color(0xFFFFAA44), Color(0xFFFF8C00), Color(0xFFCC5500)],
-      glowColor: Color(0xFFFF9933),
+      // ORANGE — Muted orange, NOT bright like HP colors
+      gradientColors: [Color(0xFFE89040), Color(0xFFCC7722), Color(0xFF995511)],
+      glowColor: Color(0xFFDD8833),
     ),
     7: SlotSymbol(
       id: 7, name: 'LP3', displayChar: '🍇',
-      // GRAPE — Deeper purple than Amethyst HP4
-      gradientColors: [Color(0xFF9966CC), Color(0xFF6B3FA0), Color(0xFF3D1F5C)],
-      glowColor: Color(0xFF8855BB),
+      // GRAPE — DEEP VIOLET/INDIGO, NOT purple-pink like HP4
+      gradientColors: [Color(0xFF7744AA), Color(0xFF4B0082), Color(0xFF2E0052)],
+      glowColor: Color(0xFF6633AA),
     ),
     8: SlotSymbol(
       id: 8, name: 'LP4', displayChar: '🍏',
-      // LIME GREEN — Bright, distinct from Emerald HP2
-      gradientColors: [Color(0xFFAAFF66), Color(0xFF90EE90), Color(0xFF228B22)],
-      glowColor: Color(0xFF77DD44),
+      // APPLE GREEN — Cool green, NOT warm/bright
+      gradientColors: [Color(0xFF88CC55), Color(0xFF669944), Color(0xFF446622)],
+      glowColor: Color(0xFF77BB44),
     ),
     9: SlotSymbol(
       id: 9, name: 'LP5', displayChar: '🍓',
-      // STRAWBERRY — Pinkish red, distinct from Ruby HP1
-      gradientColors: [Color(0xFFFF7777), Color(0xFFFF6B6B), Color(0xFFCC4444)],
-      glowColor: Color(0xFFFF5555),
+      // STRAWBERRY — Muted coral/salmon, NOT pure red like HP1
+      gradientColors: [Color(0xFFDD7766), Color(0xFFBB5544), Color(0xFF883322)],
+      glowColor: Color(0xFFCC6655),
     ),
     10: SlotSymbol(
       id: 10, name: 'LP6', displayChar: '🫐',
-      // BLUEBERRY — Deep blue, distinct from Sapphire HP3
-      gradientColors: [Color(0xFF7799DD), Color(0xFF4169E1), Color(0xFF2E4A8A)],
-      glowColor: Color(0xFF5577CC),
+      // BLUEBERRY — Deep teal/blue-green, cool and muted
+      gradientColors: [Color(0xFF5588AA), Color(0xFF336688), Color(0xFF224455)],
+      glowColor: Color(0xFF447799),
     ),
     // ═══════════════════════════════════════════════════════════════════════════
-    // SPECIAL SYMBOLS — MAXIMUM VISUAL IMPACT
-    // Industry standard: Instantly recognizable, bright, animated
+    // SPECIAL SYMBOLS — MAXIMUM VISUAL IMPACT (Neon/Electric, Ultra-Bright)
+    // Design principle: MUST be instantly recognizable from any HP/LP symbol
+    // Uses electric/neon colors that NO other symbol uses
     // ═══════════════════════════════════════════════════════════════════════════
     11: SlotSymbol(
       id: 11, name: 'WILD', displayChar: '★',
-      // BRILLIANT GOLD — Most valuable special symbol
-      gradientColors: [Color(0xFFFFEE77), Color(0xFFFFD700), Color(0xFFDD9900)],
-      glowColor: Color(0xFFFFDD00), isSpecial: true,
+      // RAINBOW/IRIDESCENT — Multi-color shimmer effect (white-gold-silver)
+      // NOT plain gold (HP2 uses gold now), uses platinum/silver-white
+      gradientColors: [Color(0xFFFFFFEE), Color(0xFFE8E8D0), Color(0xFFC0C0A0)],
+      glowColor: Color(0xFFFFFFCC), isSpecial: true,
     ),
     12: SlotSymbol(
       id: 12, name: 'SCATTER', displayChar: '◆',
-      // ELECTRIC MAGENTA — Triggers features, must pop
-      gradientColors: [Color(0xFFFF77FF), Color(0xFFFF00FF), Color(0xFFAA00AA)],
-      glowColor: Color(0xFFFF44FF), isSpecial: true,
+      // ELECTRIC LIME/CHARTREUSE — Neon green-yellow, triggers features
+      // NOT magenta (too close to HP4 pink), uses unique neon green
+      gradientColors: [Color(0xFFCCFF00), Color(0xFFAADD00), Color(0xFF77AA00)],
+      glowColor: Color(0xFFBBEE00), isSpecial: true,
     ),
     13: SlotSymbol(
       id: 13, name: 'BONUS', displayChar: '♦',
-      // NEON CYAN — Bonus trigger, electric and exciting
-      gradientColors: [Color(0xFF77FFFF), Color(0xFF00FFFF), Color(0xFF008B8B)],
-      glowColor: Color(0xFF44FFFF), isSpecial: true,
+      // ELECTRIC CYAN/AQUA — Pure cyan, bonus trigger
+      // Distinct from all LP blues (which are teal/muted)
+      gradientColors: [Color(0xFF00FFFF), Color(0xFF00DDDD), Color(0xFF009999)],
+      glowColor: Color(0xFF00EEEE), isSpecial: true,
     ),
     // Fallback for ID 0 (should not occur in normal operation)
     0: SlotSymbol(
@@ -913,6 +919,41 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     eventRegistry.triggerStage('REEL_STOP_$reelIndex', context: {'timestamp_ms': timestampMs});
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // SPECIAL SYMBOL LAND EVENTS — Trigger when WILD, SCATTER, BONUS land on reel
+    // This connects the left panel symbol audio assignments to actual gameplay
+    // Symbol IDs: WILD=11, SCATTER=12, BONUS=13 (matches StandardSymbolSet)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (reelIndex < _targetGrid.length) {
+      final reelSymbols = _targetGrid[reelIndex];
+      for (int rowIndex = 0; rowIndex < reelSymbols.length; rowIndex++) {
+        final symbolId = reelSymbols[rowIndex];
+        String? symbolLandStage;
+
+        switch (symbolId) {
+          case 11: // WILD
+            symbolLandStage = 'SYMBOL_LAND_WILD';
+            break;
+          case 12: // SCATTER
+            symbolLandStage = 'SYMBOL_LAND_SCATTER';
+            break;
+          case 13: // BONUS
+            symbolLandStage = 'SYMBOL_LAND_BONUS';
+            break;
+        }
+
+        if (symbolLandStage != null) {
+          debugPrint('[SlotPreview] ✨ SPECIAL SYMBOL LAND: $symbolLandStage at reel $reelIndex, row $rowIndex');
+          eventRegistry.triggerStage(symbolLandStage, context: {
+            'reel_index': reelIndex,
+            'row_index': rowIndex,
+            'symbol_id': symbolId,
+            'timestamp_ms': timestampMs,
+          });
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // P0.2: PRE-TRIGGER WIN_SYMBOL_HIGHLIGHT ON LAST REEL
     // Industry standard: Eliminate 50-100ms silence gap between reel stop and win reveal
     // Trigger symbol highlight IMMEDIATELY on last reel stop if there's a win
@@ -924,8 +965,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         debugPrint('[SlotPreview] P0.2: Last reel stopped with WIN → pre-triggering WIN_SYMBOL_HIGHLIGHT');
 
         // Pre-populate winning symbols info (normally done in _finalizeSpin)
+        // WILD PRIORITY RULE: When WILD substitutes for another symbol in a win,
+        // WILD gets audio priority. Check actual grid symbols, not just lineWin.symbolName.
         _winningPositionsBySymbol.clear();
         _winningSymbolNames.clear();
+
+        // Track WILD symbols in winning positions
+        // NOTE: WILD gets win priority because it SUBSTITUTES for other symbols
+        // SCATTER and BONUS do NOT get win priority - they trigger features (free spins, bonus)
+        // Their audio plays on LAND (SYMBOL_LAND_SCATTER/BONUS), not on WIN
+        bool hasWildInWin = false;
+        final Set<String> wildPositions = {};
+
         for (final lineWin in result.lineWins) {
           final symbolName = lineWin.symbolName.toUpperCase();
           if (symbolName.isNotEmpty) {
@@ -934,14 +985,33 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           }
           for (final pos in lineWin.positions) {
             if (pos.length >= 2) {
-              final posKey = '${pos[0]},${pos[1]}';
+              final reelIdx = pos[0];
+              final rowIdx = pos[1];
+              final posKey = '$reelIdx,$rowIdx';
               _winningPositions.add(posKey);
-              _winningReels.add(pos[0]);
+              _winningReels.add(reelIdx);
               if (symbolName.isNotEmpty) {
                 _winningPositionsBySymbol[symbolName]!.add(posKey);
               }
+
+              // WILD PRIORITY: Check if actual symbol on grid is WILD
+              // When WILD substitutes for another symbol, WILD's win audio should play
+              if (reelIdx < _targetGrid.length && rowIdx < _targetGrid[reelIdx].length) {
+                final actualSymbolId = _targetGrid[reelIdx][rowIdx];
+                if (actualSymbolId == 11) { // WILD
+                  hasWildInWin = true;
+                  wildPositions.add(posKey);
+                }
+              }
             }
           }
+        }
+
+        // WILD PRIORITY: Add WILD to winning symbols if present in any win
+        if (hasWildInWin) {
+          _winningSymbolNames.add('WILD');
+          _winningPositionsBySymbol['WILD'] = wildPositions;
+          debugPrint('[SlotPreview] P0.2: ⭐ WILD detected in win (${wildPositions.length} positions)');
         }
 
         // Trigger symbol-specific highlights (V14)
@@ -1506,8 +1576,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
         // V14: Collect winning positions AND group by symbol name
         // This enables symbol-specific audio triggers: WIN_SYMBOL_HIGHLIGHT_HP1, etc.
+        //
+        // WILD PRIORITY RULE: When WILD substitutes for another symbol in a win,
+        // WILD gets audio priority. Check actual grid symbols, not just lineWin.symbolName.
         _winningPositionsBySymbol.clear();
         _winningSymbolNames.clear();
+
+        // Track WILD symbols in winning positions
+        // NOTE: Only WILD gets win priority because it SUBSTITUTES for other symbols
+        // SCATTER and BONUS do NOT get win priority - they trigger features (free spins, bonus)
+        // Their audio plays on LAND (SYMBOL_LAND_SCATTER/BONUS), not on WIN
+        bool hasWildInWin = false;
+        final Set<String> wildPositions = {};
 
         for (final lineWin in result.lineWins) {
           final symbolName = lineWin.symbolName.toUpperCase();
@@ -1518,18 +1598,38 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
           for (final pos in lineWin.positions) {
             if (pos.length >= 2) {
-              _winningReels.add(pos[0]);
-              final posKey = '${pos[0]},${pos[1]}';
+              final reelIdx = pos[0];
+              final rowIdx = pos[1];
+              _winningReels.add(reelIdx);
+              final posKey = '$reelIdx,$rowIdx';
               _winningPositions.add(posKey);
 
               // Track position by symbol name
               if (symbolName.isNotEmpty) {
                 _winningPositionsBySymbol[symbolName]!.add(posKey);
               }
+
+              // WILD PRIORITY: Check if actual symbol on grid is WILD
+              // When WILD substitutes for another symbol, WILD's win audio should play
+              if (reelIdx < _targetGrid.length && rowIdx < _targetGrid[reelIdx].length) {
+                final actualSymbolId = _targetGrid[reelIdx][rowIdx];
+                if (actualSymbolId == 11) { // WILD
+                  hasWildInWin = true;
+                  wildPositions.add(posKey);
+                }
+              }
             } else if (pos.isNotEmpty) {
               _winningReels.add(pos[0]);
             }
           }
+        }
+
+        // WILD PRIORITY: Add WILD to winning symbols if present in any win
+        // This ensures WIN_SYMBOL_HIGHLIGHT_WILD triggers when WILD substitutes
+        if (hasWildInWin) {
+          _winningSymbolNames.add('WILD');
+          _winningPositionsBySymbol['WILD'] = wildPositions;
+          debugPrint('[SlotPreview] ⭐ WILD detected in win (${wildPositions.length} positions)');
         }
 
         debugPrint('[SlotPreview] 🎯 V14: Winning symbols: ${_winningSymbolNames.join(', ')}');

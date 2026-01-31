@@ -764,6 +764,11 @@ class StageConfigurationService extends ChangeNotifier {
     _register('WIN_LINE_HIDE', StageCategory.win, 20, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_SYMBOL_HIGHLIGHT', StageCategory.win, 30, SpatialBus.sfx, 'DEFAULT', isPooled: true);
 
+    // Special Symbol Win Highlights — Triggered when WILD/SCATTER/BONUS are in winning combination
+    _register('WIN_SYMBOL_HIGHLIGHT_WILD', StageCategory.win, 65, SpatialBus.sfx, 'WIN_BIG');
+    _register('WIN_SYMBOL_HIGHLIGHT_SCATTER', StageCategory.win, 70, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
+    _register('WIN_SYMBOL_HIGHLIGHT_BONUS', StageCategory.win, 70, SpatialBus.sfx, 'FEATURE_ENTER');
+
     // ─────────────────────────────────────────────────────────────────────────
     // FEATURE / FREE SPINS
     // ─────────────────────────────────────────────────────────────────────────
@@ -848,6 +853,12 @@ class StageConfigurationService extends ChangeNotifier {
     _register('SYMBOL_LAND_LOW', StageCategory.symbol, 25, SpatialBus.reels, 'DEFAULT', isPooled: true);
     _register('SYMBOL_LAND_MID', StageCategory.symbol, 30, SpatialBus.reels, 'DEFAULT', isPooled: true);
     _register('SYMBOL_LAND_HIGH', StageCategory.symbol, 35, SpatialBus.reels, 'DEFAULT', isPooled: true);
+
+    // Special Symbol Lands — Connected to slot_preview_widget.dart _triggerReelStopAudio()
+    // These fire when WILD (id=11), SCATTER (id=12), BONUS (id=13) land on reels
+    _register('SYMBOL_LAND_WILD', StageCategory.symbol, 60, SpatialBus.sfx, 'DEFAULT');
+    _register('SYMBOL_LAND_SCATTER', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('SYMBOL_LAND_BONUS', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
 
     // Wild
     _register('WILD_LAND', StageCategory.symbol, 60, SpatialBus.sfx, 'DEFAULT');
