@@ -6336,6 +6336,38 @@ Debug log bi trebao pokazati:
 - `flutter_ui/lib/widgets/slot_lab/premium_slot_preview.dart:4861,5712`
 - `flutter_ui/lib/screens/slot_lab_screen.dart:923,2237,7052`
 
+#### 8. Reel Phase Transition Infinite Loop (2026-01-31)
+
+**Simptom:**
+- Win presentation ne počinje automatski nakon što se reelovi zaustave
+- `isSpinning` ostaje `true` zauvek
+- Mora se ponovo pritisnuti SPIN da bi se nešto desilo
+
+**Uzrok:**
+Bug u `professional_reel_animation.dart` linija 243:
+```dart
+// BUG:
+} else if (effectiveElapsedMs < bounceStart || phase == ReelPhase.decelerating) {
+```
+
+`|| phase == ReelPhase.decelerating` kreira beskonačnu petlju — kada reel uđe u `decelerating` fazu, uslov je uvek `true`, pa reel nikada ne može preći u `bouncing` ili `stopped`.
+
+**Fix (2026-01-31):**
+```dart
+// FIXED:
+} else if (elapsedMs < bounceStart) {
+  // NOTE: Removed "|| phase == ReelPhase.decelerating" which caused infinite loop!
+```
+
+**Phase Flow (Corrected):**
+```
+idle → accelerating → spinning → decelerating → bouncing → stopped
+                                      ↑
+                                   FIX HERE
+```
+
+**Dokumentacija:** `.claude/analysis/REEL_PHASE_TRANSITION_FIX_2026_01_31.md`
+
 ---
 
 ## 🎰 SLOTLAB STAGE FLOW (2026-01-24) ✅

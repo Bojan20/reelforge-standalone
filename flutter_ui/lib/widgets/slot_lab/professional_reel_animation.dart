@@ -240,11 +240,12 @@ class ReelAnimationState {
       final spinDuration = decelStart - accelEnd;
       phaseProgress = (effectiveElapsedMs - accelEnd) / spinDuration.clamp(1, double.infinity);
       spinCycles = scrollOffset / 10.0; // Track spin cycles for visual effect
-    } else if (effectiveElapsedMs < bounceStart || phase == ReelPhase.decelerating) {
+    } else if (elapsedMs < bounceStart) {
       // PHASE: Deceleration (max → 0 velocity)
+      // NOTE: Removed "|| phase == ReelPhase.decelerating" which caused infinite loop!
       phase = ReelPhase.decelerating;
-      phaseProgress = (elapsedMs - decelStart) / (bounceStart - decelStart);
-      final t = phaseProgress;
+      phaseProgress = (elapsedMs - decelStart) / (bounceStart - decelStart).clamp(1, double.infinity);
+      final t = phaseProgress.clamp(0.0, 1.0);
       velocity = (1.0 - _easeInQuad(t)) * 1.0;
       scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
 
@@ -350,6 +351,9 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
   final _random = math.Random();
 
+  /// DEBUG: Public access to reel states
+  List<ReelAnimationState> get reelStates => _reelStates;
+
   ProfessionalReelAnimationController({
     required this.reelCount,
     required this.rowCount,
@@ -378,6 +382,18 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
   /// Is any reel currently spinning?
   bool get isSpinning => _isSpinning;
+
+  /// Check if all reels have landed (bouncing or stopped)
+  bool get allReelsLanded {
+    for (final state in _reelStates) {
+      if (state.phase != ReelPhase.stopped &&
+          state.phase != ReelPhase.idle &&
+          state.phase != ReelPhase.bouncing) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   /// Get target grid
   List<List<int>> get targetGrid => _targetGrid;
@@ -567,6 +583,12 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
     final elapsed = DateTime.now().millisecondsSinceEpoch - _startTime;
     bool anyStillSpinning = false;
 
+    // DEBUG: Log elapsed time and all reel phases periodically
+    if (elapsed % 500 < 17) {
+      final phases = _reelStates.map((s) => s.phase.name[0].toUpperCase()).join('');
+      debugPrint('[tick] elapsed=${elapsed}ms phases=$phases');
+    }
+
     for (int i = 0; i < reelCount; i++) {
       final state = _reelStates[i];
       final previousPhase = state.phase;
@@ -584,10 +606,21 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
                           && previousPhase != ReelPhase.idle;
 
       if (wasStillMoving && state.phase == ReelPhase.bouncing) {
+        debugPrint('[ReelAnimController] 🔔 REEL $i → BOUNCING at ${elapsed}ms (stopTime=${state.stopTime}ms, prev=$previousPhase)');
         onReelStop?.call(i);  // Audio triggers at visual landing
       }
 
-      if (state.phase != ReelPhase.stopped && state.phase != ReelPhase.idle) {
+      // ═══════════════════════════════════════════════════════════════════════════
+      // FIX (2026-01-31): Include BOUNCING as "landed" state for callback timing
+      // BOUNCING is purely visual (overshoot effect AFTER landing) — the reel has
+      // already reached its target position, so win evaluation can start.
+      // Previously: bouncing was counted as "still spinning", delaying the callback
+      // by 200ms and causing win presentation to require manual spin button press.
+      // ═══════════════════════════════════════════════════════════════════════════
+      final isLanded = state.phase == ReelPhase.stopped ||
+                       state.phase == ReelPhase.idle ||
+                       state.phase == ReelPhase.bouncing;
+      if (!isLanded) {
         anyStillSpinning = true;
       }
     }
@@ -596,7 +629,6 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
     // Check if all reels stopped (after bounce completes)
     if (!anyStillSpinning && _isSpinning) {
-      debugPrint('[ReelAnimController] 🏁 All reels stopped naturally, setting _isSpinning=false');
       _isSpinning = false;
       onAllReelsStopped?.call();
     }

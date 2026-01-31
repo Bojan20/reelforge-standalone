@@ -375,6 +375,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // ═══════════════════════════════════════════════════════════════════════════
   final Map<int, double> _landingFlashProgress = {}; // Per-reel flash (0.0 - 1.0)
   final Map<int, double> _landingPopScale = {}; // Per-reel scale pop (1.0 - 1.05 - 1.0)
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPINNING→DECEL TRANSITION FIX — Prevent symbol jump when phase changes
+  // Store last spinning verticalOffset per reel to interpolate smoothly
+  // ═══════════════════════════════════════════════════════════════════════════
+  final Map<int, double> _lastSpinningOffset = {}; // Per-reel last offset in spinning phase
   bool _screenShakeActive = false; // Screen shake on last reel (big wins only)
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -534,6 +540,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Create ticker for continuous animation updates
     _animationTicker = createTicker((_) {
       _reelAnimController.tick();
+
+      // Backup finalize check: Widget spinning but controller done
+      // Primary callback is onAllReelsStopped (line 538), this is just safety net
+      if (_isSpinning && !_spinFinalized && !_reelAnimController.isSpinning) {
+        _onAllReelsStoppedVisual();
+      }
+
       if (mounted) setState(() {}); // Trigger rebuild for visual update
     });
     _animationTicker!.start();
@@ -1153,21 +1166,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _onAllReelsStoppedVisual() {
     if (!mounted) return;
 
-    // CRITICAL: Guard against multiple calls (stopImmediately also fires this callback)
-    if (_spinFinalized || !_isSpinning) {
-      debugPrint('[SlotPreview] ⚠️ _onAllReelsStoppedVisual SKIPPED: already finalized=$_spinFinalized, spinning=$_isSpinning');
-      return;
-    }
+    // Guard against multiple calls (stopImmediately also fires this callback)
+    if (_spinFinalized) return;
 
-    debugPrint('[SlotPreview] ✅ ALL REELS STOPPED → finalize spin');
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // NOTIFY PROVIDER: Reels no longer spinning (for STOP button visibility)
-    // This MUST be called before any win presentation starts
-    // ═══════════════════════════════════════════════════════════════════════════
+    // Notify provider: Reels no longer spinning (for STOP button visibility)
     widget.provider.onAllReelsVisualStop();
 
-    // Now finalize with the result
+    // Finalize with the result
     final result = widget.provider.lastResult;
     if (result != null) {
       _finalizeSpin(result);
@@ -1266,15 +1271,20 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Reset finalized flag when provider stops playing (ready for next spin)
     if (!isPlaying && _spinFinalized) {
       debugPrint('[SlotPreview] 🔄 RESET: spinFinalized false → ready for next spin');
-      _spinFinalized = false;
+      setState(() {
+        _spinFinalized = false;
+        _isSpinning = false; // CRITICAL: Reset spinning state so STOP→SPIN button transition happens
+      });
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STOP BUTTON HANDLER — If provider stopped but reels are still spinning,
-    // force-stop ALL reels immediately
+    // STOP BUTTON HANDLER — Only activates when user explicitly pressed STOP
+    // CRITICAL: Check provider.isReelsSpinning to differentiate:
+    //   - STOP button: isPlayingStages=false AND isReelsSpinning=false (provider reset both)
+    //   - Normal end:  isPlayingStages=false BUT isReelsSpinning=true (wait for animation)
     // ═══════════════════════════════════════════════════════════════════════════
-    if (!isPlaying && _isSpinning) {
-      debugPrint('[SlotPreview] ⏹️ STOP DETECTED: Provider stopped while reels spinning → force stop all reels');
+    if (!isPlaying && _isSpinning && !widget.provider.isReelsSpinning) {
+      debugPrint('[SlotPreview] ⏹️ STOP BUTTON DETECTED: Provider explicitly stopped → force stop all reels');
 
       // Stop the visual animation immediately
       if (_reelAnimController.isSpinning) {
@@ -1301,6 +1311,23 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           _spinFinalized = true;
         });
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FIX (2026-01-31): AUTOMATIC FINALIZE WHEN ANIMATION COMPLETES
+    // This handles the case where:
+    //   - Provider finished stages (!isPlaying)
+    //   - Widget thinks spin is active (_isSpinning)
+    //   - Provider thinks reels are spinning (isReelsSpinning=true)
+    //   - BUT animation controller has actually finished (!_reelAnimController.isSpinning)
+    // This happens when the callback chain breaks or timing mismatches occur.
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (!isPlaying && _isSpinning && widget.provider.isReelsSpinning && !_reelAnimController.isSpinning) {
+      debugPrint('[SlotPreview] 🔧 AUTO-FINALIZE: Animation done but callback missed!');
+      debugPrint('  → Provider stages: DONE, widget spinning: YES, provider reels: YES, controller: DONE');
+
+      // Manually trigger the same flow as onAllReelsStopped callback
+      _onAllReelsStoppedVisual();
     }
 
     // Check for anticipation events
@@ -1404,6 +1431,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _sequentialAnticipationMode = false;
       _sequentialAnticipationQueue.clear();
       _currentSequentialReel = null;
+      // SPINNING→DECEL FIX: Clear last spinning offsets for new spin
+      _lastSpinningOffset.clear();
     });
 
     // Hide win overlay
@@ -1701,10 +1730,24 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _winLineCycleTimer?.cancel();
     _winLineCycleTimer = null;
     _stopRollupTicks(); // Also stop any ongoing rollup audio
-    _isShowingWinLines = false;
-    _lineWinsForPresentation = [];
-    _currentPresentingLineIndex = 0;
-    _currentLinePositions = {};
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FIX (2026-01-31): Use setState to ensure UI immediately reflects the change
+    // Without setState, win lines could remain visible during the next spin start
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (mounted) {
+      setState(() {
+        _isShowingWinLines = false;
+        _lineWinsForPresentation = [];
+        _currentPresentingLineIndex = 0;
+        _currentLinePositions = {};
+      });
+    } else {
+      _isShowingWinLines = false;
+      _lineWinsForPresentation = [];
+      _currentPresentingLineIndex = 0;
+      _currentLinePositions = {};
+    }
 
     // V13: Mark win presentation as COMPLETE — allows next spin
     widget.provider.setWinPresentationActive(false);
@@ -4632,10 +4675,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         } else if (isAnticipationReel && _isAnticipation && isReelSpinning) {
           borderColor = const Color(0xFFFFD700).withOpacity(_anticipationPulse.value);
           borderWidth = 2.0;
-        } else if (isWinningReel) {
-          borderColor = FluxForgeTheme.accentGreen.withOpacity(_winPulseAnimation.value * 0.5);
-          borderWidth = 1.5;
         } else {
+          // REMOVED: isWinningReel animation on ALL cells of winning reel
+          // Now only winning POSITIONS get animation, not entire reel
           borderColor = const Color(0xFF2A2A38);
           borderWidth = 1;
         }
@@ -4813,21 +4855,25 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         final cyclePosition = (reelState.spinCycles * totalSymbols).floor();
         symbolId = spinSyms[(cyclePosition + rowIndex) % totalSymbols];
         verticalOffset = (reelState.spinCycles * cellSize * 3) % cellSize;
+        // SPINNING→DECEL FIX: Store current offset for smooth transition to decel phase
+        if (rowIndex == 0) {
+          _lastSpinningOffset[reelIndex] = verticalOffset;
+        }
 
       case ReelPhase.decelerating:
-        // Slowing down: reduce blur, approach target
+        // ═══════════════════════════════════════════════════════════════════════════
+        // DECELERATING PHASE: Show target symbols IMMEDIATELY, NO vertical movement
+        // CRITICAL: When reel starts decelerating, symbols are LOCKED in place
+        // Only blur fades out — symbols do NOT move during deceleration
+        // ═══════════════════════════════════════════════════════════════════════════
         final decelProgress = reelState.phaseProgress;
-        blurIntensity = (1 - decelProgress) * 0.5; // Fade blur
+        blurIntensity = (1 - decelProgress) * 0.5; // Fade blur only
 
-        // Interpolate towards target symbol
-        if (decelProgress > 0.7) {
-          symbolId = _targetGrid[reelIndex][rowIndex];
-          verticalOffset = (1 - decelProgress) * cellSize * 0.3;
-        } else {
-          final remaining = ((1 - decelProgress) * 5).floor();
-          symbolId = spinSyms[(remaining + rowIndex) % totalSymbols];
-          verticalOffset = (1 - decelProgress) * cellSize;
-        }
+        // ALWAYS show target symbols during deceleration (symbols are "locked")
+        symbolId = _targetGrid[reelIndex][rowIndex];
+
+        // NO vertical offset — symbols stay exactly where they landed
+        verticalOffset = 0;
 
       case ReelPhase.bouncing:
         // Bouncing: show target symbol with bounce offset
