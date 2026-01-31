@@ -1365,8 +1365,10 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     if (shouldStopReelSpin) {
+      // Stop both spin loop variants
+      eventRegistry.stopEvent('REEL_SPIN_LOOP');
       eventRegistry.stopEvent('REEL_SPIN');
-      debugPrint('[SlotLabProvider] REEL_SPIN stopped (UI-only, last reel, index: $reelIdx)');
+      debugPrint('[SlotLabProvider] REEL_SPIN + REEL_SPIN_LOOP stopped (UI-only, last reel, index: $reelIdx)');
 
       // AUTO-TRIGGER SPIN_END immediately after last reel stop
       if (eventRegistry.hasEventForStage('SPIN_END')) {
@@ -1799,9 +1801,16 @@ class SlotLabProvider extends ChangeNotifier {
       eventRegistry.triggerStage(stageType, context: context);
     }
 
-    // Za SPIN_START, trigeruj i REEL_SPIN (loop audio dok se vrti)
-    if (stageType == 'SPIN_START' && eventRegistry.hasEventForStage('REEL_SPIN')) {
-      eventRegistry.triggerStage('REEL_SPIN', context: context);
+    // Za SPIN_START, trigeruj spin loop audio (REEL_SPIN ili REEL_SPIN_LOOP)
+    // UI (UltimateAudioPanel) koristi REEL_SPIN_LOOP, legacy koristi REEL_SPIN
+    if (stageType == 'SPIN_START') {
+      if (eventRegistry.hasEventForStage('REEL_SPIN_LOOP')) {
+        eventRegistry.triggerStage('REEL_SPIN_LOOP', context: context);
+        debugPrint('[SlotLabProvider] ▶️ REEL_SPIN_LOOP triggered on SPIN_START');
+      } else if (eventRegistry.hasEventForStage('REEL_SPIN')) {
+        eventRegistry.triggerStage('REEL_SPIN', context: context);
+        debugPrint('[SlotLabProvider] ▶️ REEL_SPIN triggered on SPIN_START (legacy)');
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1845,7 +1854,10 @@ class SlotLabProvider extends ChangeNotifier {
       }
 
       if (shouldStopReelSpin) {
+        // Stop both spin loop variants
+        eventRegistry.stopEvent('REEL_SPIN_LOOP');
         eventRegistry.stopEvent('REEL_SPIN');
+        debugPrint('[SlotLabProvider] ⏹️ Spin loop stopped (REEL_SPIN + REEL_SPIN_LOOP)');
         if (eventRegistry.hasEventForStage('SPIN_END')) {
           eventRegistry.triggerStage('SPIN_END', context: context);
           debugPrint('[Stage] SPIN_END (auto after last REEL_STOP)');
@@ -1856,6 +1868,7 @@ class SlotLabProvider extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     // SPIN_END: Handle explicit SPIN_END stage from Rust (backup)
     if (stageType == 'SPIN_END') {
+      eventRegistry.stopEvent('REEL_SPIN_LOOP');
       eventRegistry.stopEvent('REEL_SPIN');
     }
 

@@ -1995,7 +1995,6 @@ class _HoverPreviewItem extends StatefulWidget {
 }
 
 class _HoverPreviewItemState extends State<_HoverPreviewItem> {
-  bool _isHovered = false;
   int _currentVoiceId = -1;
 
   /// Check if THIS item is currently playing (compare path with global notifier)
@@ -2021,16 +2020,6 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
   void _onPlaybackStateChanged() {
     // Rebuild when global playback state changes
     if (mounted) setState(() {});
-  }
-
-  void _onHoverStart() {
-    setState(() => _isHovered = true);
-    // NOTE: Auto-playback on hover disabled — use play/stop button instead
-  }
-
-  void _onHoverEnd() {
-    setState(() => _isHovered = false);
-    // NOTE: Playback continues until manually stopped via button
   }
 
   void _startPlayback() {
@@ -2061,31 +2050,28 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
 
   @override
   Widget build(BuildContext context) {
-    // P0 PERFORMANCE FIX: Use RepaintBoundary to isolate hover state changes
+    // P0 PERFORMANCE FIX: Use RepaintBoundary to isolate state changes
     // and fixed height to prevent ListView re-layout
     return RepaintBoundary(
-      child: MouseRegion(
-        onEnter: (_) => _onHoverStart(),
-        onExit: (_) => _onHoverEnd(),
-        child: Container(
-          // P0 FIX: Fixed height prevents ListView re-layout on hover
-          // Waveform is always rendered but with opacity change
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? Colors.white.withOpacity(0.05)
-                : Colors.transparent,
-            border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
-              left: BorderSide(
-                color: _isPlaying
-                    ? FluxForgeTheme.accentGreen
-                    : (_isHovered ? FluxForgeTheme.accentBlue : Colors.transparent),
-                width: 2,
-              ),
+      child: Container(
+        // P0 FIX: Fixed height prevents ListView re-layout
+        // Waveform is always rendered but with opacity change
+        height: 64,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: _isPlaying
+              ? FluxForgeTheme.accentGreen.withOpacity(0.05)
+              : Colors.transparent,
+          border: Border(
+            bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+            left: BorderSide(
+              color: _isPlaying
+                  ? FluxForgeTheme.accentGreen
+                  : Colors.transparent,
+              width: 2,
             ),
           ),
+        ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2166,29 +2152,28 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
                   },
                 ),
                 const SizedBox(width: 4),
-                // Play/Stop button (visible on hover or while playing)
-                if (_isHovered || _isPlaying)
-                  InkWell(
-                    onTap: _isPlaying ? _stopPlayback : _startPlayback,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: _isPlaying
-                            ? FluxForgeTheme.accentGreen.withOpacity(0.2)
-                            : FluxForgeTheme.accentBlue.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        _isPlaying ? Icons.stop : Icons.play_arrow,
-                        size: 12,
-                        color: _isPlaying
-                            ? FluxForgeTheme.accentGreen
-                            : FluxForgeTheme.accentBlue,
-                      ),
+                // Play/Stop button — always visible
+                InkWell(
+                  onTap: _isPlaying ? _stopPlayback : _startPlayback,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: _isPlaying
+                          ? FluxForgeTheme.accentGreen.withOpacity(0.2)
+                          : Colors.white.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isPlaying ? Icons.stop : Icons.play_arrow,
+                      size: 12,
+                      color: _isPlaying
+                          ? FluxForgeTheme.accentGreen
+                          : Colors.white54,
                     ),
                   ),
+                ),
               ],
             ),
             // Preview waveform - only visible while playing (not on hover)
@@ -2254,7 +2239,6 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
           ],
         ),
       ),
-    ),  // Close MouseRegion
     );  // Close RepaintBoundary
   }
 }

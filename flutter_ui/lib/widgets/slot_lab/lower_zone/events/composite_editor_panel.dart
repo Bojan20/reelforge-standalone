@@ -502,6 +502,8 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
                         icon: const Icon(Icons.play_arrow, size: 16),
                         label: const Text('Preview', style: TextStyle(fontSize: 11)),
                         onPressed: () {
+                          // Stop any other browser preview before starting new one
+                          AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
                           AudioPlaybackService.instance.previewFile(
                             layer.audioPath,
                             volume: layer.volume,

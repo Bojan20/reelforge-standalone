@@ -123,6 +123,8 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
     if (_isPreviewPlaying) return;
 
     final playbackService = AudioPlaybackService.instance;
+    // Stop any other browser preview before starting new one
+    playbackService.stopSource(PlaybackSource.browser);
     _previewVoiceId = playbackService.previewFile(
       asset.path,
       volume: 0.8,

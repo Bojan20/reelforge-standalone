@@ -1789,6 +1789,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         // ═══════════════════════════════════════════════════════════════════════
         _syncSymbolAudioToRegistry();
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // CRITICAL FIX 2026-01-31: Re-register UltimateAudioPanel audio on mount
+        // Audio assignments from UltimateAudioPanel (REEL_STOP_0, SPIN_START, etc.)
+        // are stored in SlotLabProjectProvider.audioAssignments but NOT persisted
+        // in EventRegistry. Must sync here to restore audio playback after navigation.
+        // ═══════════════════════════════════════════════════════════════════════
+        _syncAudioAssignmentsToRegistry();
+
         // Initialize reel symbols (fallback or empty for engine)
         _reelSymbols = List.from(_fallbackReelSymbols);
         setState(() {});
@@ -2548,6 +2556,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                                   setState(() => _quickAssignSelectedSlot = null);
                                 }
                               },
+                              // Connect header toggle to audio browser visibility
+                              showAudioBrowser: _showAudioBrowser,
                             ),
                           ),
                       ],
@@ -9156,11 +9166,18 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       final stage = stages[i];
       final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
 
+      // Determine target bus from first layer (or default to SFX=2)
+      final targetBus = layers.isNotEmpty ? layers.first.busId : 2;
+
       final audioEvent = AudioEvent(
         id: eventId,
         name: event.name,
         stage: stage,
         layers: layers,
+        loop: event.looping,
+        overlap: event.overlap,
+        crossfadeMs: event.crossfadeMs,
+        targetBusId: targetBus,
       );
 
       eventRegistry.registerEvent(audioEvent);
@@ -9264,6 +9281,55 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       }
     } catch (e) {
       debugPrint('[SlotLab] Error syncing symbol audio: $e');
+    }
+  }
+
+  /// ═══════════════════════════════════════════════════════════════════════════
+  /// CRITICAL FIX 2026-01-31: Re-register UltimateAudioPanel audio to EventRegistry
+  /// Audio assignments from UltimateAudioPanel are stored in SlotLabProjectProvider
+  /// but NOT in EventRegistry (which is singleton but can be cleared). This method
+  /// re-registers all audio assignments on screen mount.
+  /// ═══════════════════════════════════════════════════════════════════════════
+  void _syncAudioAssignmentsToRegistry() {
+    try {
+      final projectProvider = Provider.of<SlotLabProjectProvider>(context, listen: false);
+      final audioAssignments = projectProvider.audioAssignments;
+
+      if (audioAssignments.isEmpty) {
+        debugPrint('[SlotLab] No audio assignments to sync');
+        return;
+      }
+
+      debugPrint('[SlotLab] 🔄 Syncing ${audioAssignments.length} audio assignments to EventRegistry');
+
+      for (final entry in audioAssignments.entries) {
+        final stage = entry.key;
+        final audioPath = entry.value;
+
+        final audioEvent = AudioEvent(
+          id: 'audio_$stage',
+          name: stage.replaceAll('_', ' '),
+          stage: stage,
+          layers: [
+            AudioLayer(
+              id: 'layer_$stage',
+              name: '${stage.replaceAll('_', ' ')} Audio',
+              audioPath: audioPath,
+              volume: 1.0,
+              pan: _getPanForStage(stage),
+              delay: 0.0,
+              busId: _getBusForStage(stage),
+            ),
+          ],
+        );
+
+        eventRegistry.registerEvent(audioEvent);
+        debugPrint('[SlotLab] ✅ Synced audio assignment: $stage → ${audioPath.split('/').last}');
+      }
+
+      debugPrint('[SlotLab] ✅ Audio assignments sync complete');
+    } catch (e) {
+      debugPrint('[SlotLab] Error syncing audio assignments: $e');
     }
   }
 

@@ -1624,6 +1624,14 @@ class SlotCompositeEvent {
   /// Container integration: ID of the container (if using container)
   final int? containerId;
 
+  /// Music overlap control: when false, stops any other music on same bus before playing
+  /// Default: true (overlapping allowed)
+  /// For music events (busId == 1), this should be false to prevent music overlap
+  final bool overlap;
+
+  /// Default crossfade duration in ms when transitioning music (when overlap=false)
+  final int crossfadeMs;
+
   const SlotCompositeEvent({
     required this.id,
     required this.name,
@@ -1642,6 +1650,8 @@ class SlotCompositeEvent {
     this.trackIndex = 0,
     this.containerType = ContainerType.none,
     this.containerId,
+    this.overlap = true,
+    this.crossfadeMs = 500,
   });
 
   SlotCompositeEvent copyWith({
@@ -1662,6 +1672,8 @@ class SlotCompositeEvent {
     int? trackIndex,
     ContainerType? containerType,
     int? containerId,
+    bool? overlap,
+    int? crossfadeMs,
   }) {
     return SlotCompositeEvent(
       id: id ?? this.id,
@@ -1681,6 +1693,8 @@ class SlotCompositeEvent {
       trackIndex: trackIndex ?? this.trackIndex,
       containerType: containerType ?? this.containerType,
       containerId: containerId ?? this.containerId,
+      overlap: overlap ?? this.overlap,
+      crossfadeMs: crossfadeMs ?? this.crossfadeMs,
     );
   }
 
@@ -1731,6 +1745,8 @@ class SlotCompositeEvent {
     'trackIndex': trackIndex,
     'containerType': containerType.index,
     'containerId': containerId,
+    'overlap': overlap,
+    'crossfadeMs': crossfadeMs,
   };
 
   /// Create from JSON
@@ -1762,7 +1778,22 @@ class SlotCompositeEvent {
       trackIndex: json['trackIndex'] as int? ?? 0,
       containerType: ContainerTypeExtension.fromValue(json['containerType'] as int? ?? 0),
       containerId: json['containerId'] as int?,
+      overlap: json['overlap'] as bool? ?? true,
+      crossfadeMs: json['crossfadeMs'] as int? ?? 500,
     );
+  }
+
+  /// Check if this event is a music event (targets music bus)
+  bool get isMusicEvent => targetBusId == SlotBusIds.music;
+
+  /// Check if this event should auto-loop (music without _END in name)
+  bool get shouldAutoLoop {
+    if (!isMusicEvent) return false;
+    final upperName = name.toUpperCase();
+    // If name contains _END, don't loop
+    if (upperName.contains('_END')) return false;
+    // Music events loop by default
+    return true;
   }
 }
 

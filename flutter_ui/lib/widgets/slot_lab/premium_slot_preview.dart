@@ -3000,9 +3000,10 @@ class _WinPresenterState extends State<_WinPresenter>
 
                     const SizedBox(height: 16),
 
-                    // Win amount (rollup)
-                    Text(
-                      '\$${_displayedAmount.toStringAsFixed(2)}',
+                    // Win amount (RTL rollup — industry standard right-to-left counting)
+                    _RtlRollupCounter(
+                      targetAmount: widget.winAmount,
+                      progress: _rollupController.value,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 56,
@@ -3159,6 +3160,96 @@ class _WinButtonState extends State<_WinButton> {
         ),
       ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RTL ROLLUP COUNTER — Industry-standard right-to-left digit counting
+// Each digit position "rolls" independently from rightmost (cents) to leftmost
+// Like a mechanical odometer or classic slot machine win counter
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _RtlRollupCounter extends StatelessWidget {
+  final double targetAmount;
+  final double progress; // 0.0 to 1.0
+  final TextStyle? style;
+
+  const _RtlRollupCounter({
+    required this.targetAmount,
+    required this.progress,
+    this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Format target amount to get digit count
+    final targetStr = targetAmount.toStringAsFixed(2);
+    final targetCents = (targetAmount * 100).round();
+
+    // Calculate current value using RTL progression
+    // Each digit position completes at different times (right to left)
+    final displayStr = _computeRtlDisplay(targetCents, progress);
+
+    return Text(
+      '\$$displayStr',
+      style: style,
+    );
+  }
+
+  /// Compute RTL rollup display string
+  /// Right digits complete first, left digits complete last
+  String _computeRtlDisplay(int targetCents, double progress) {
+    if (progress >= 1.0) {
+      return (targetCents / 100).toStringAsFixed(2);
+    }
+    if (progress <= 0.0) {
+      return '0.00';
+    }
+
+    // Convert target to digit array (reversed for RTL processing)
+    final targetStr = targetCents.toString().padLeft(3, '0'); // At least 3 digits (X.XX)
+    final digits = targetStr.split('').reversed.toList();
+    final numDigits = digits.length;
+
+    // Result digits (will reverse at end)
+    final resultDigits = <String>[];
+
+    // Each digit position has its own "completion time"
+    // Rightmost digit (index 0) completes at progress = 1/numDigits
+    // Leftmost digit (index numDigits-1) completes at progress = 1.0
+    for (int i = 0; i < numDigits; i++) {
+      final targetDigit = int.parse(digits[i]);
+
+      // Calculate when this digit position starts and ends rolling
+      // RTL: right digits start first and complete first
+      final startProgress = i / (numDigits + 1);
+      final endProgress = (i + 2) / (numDigits + 1);
+
+      if (progress <= startProgress) {
+        // This digit hasn't started rolling yet
+        resultDigits.add('0');
+      } else if (progress >= endProgress) {
+        // This digit has finished rolling
+        resultDigits.add(digits[i]);
+      } else {
+        // This digit is currently rolling
+        final digitProgress = (progress - startProgress) / (endProgress - startProgress);
+
+        // Roll through all values 0-9 multiple times, ending at target
+        // Number of full cycles based on position (more cycles for right digits)
+        final cycles = (numDigits - i).clamp(1, 3);
+        final totalSteps = targetDigit + (cycles * 10);
+        final currentStep = (totalSteps * digitProgress).floor();
+        final displayDigit = currentStep % 10;
+
+        resultDigits.add(displayDigit.toString());
+      }
+    }
+
+    // Reverse back to normal order and format as currency
+    final valueStr = resultDigits.reversed.join('');
+    final cents = int.tryParse(valueStr) ?? 0;
+    return (cents / 100).toStringAsFixed(2);
   }
 }
 
@@ -3462,47 +3553,55 @@ class _FeatureMeter extends StatelessWidget {
 // F. CONTROL BAR
 // =============================================================================
 
+/// Modern Control Bar — Total Bet Only (Pragmatic Play / BTG / Hacksaw style)
+///
+/// Features:
+/// - Single TOTAL BET display with +/- buttons
+/// - Quick Bet Presets row for one-tap bet selection
+/// - Static WAYS info badge (from GDD)
+/// - No LINES/COIN/BET LEVEL controls (legacy removed)
 class _ControlBar extends StatelessWidget {
-  final int lines;
-  final int maxLines;
-  final double coinValue;
-  final List<double> coinValues;
-  final int betLevel;
-  final int maxBetLevel;
+  // Modern bet system
   final double totalBet;
+  final double minBet;
+  final double maxBet;
+  final double betStep;
+  final List<double> quickBetPresets;
+  final int? waysCount; // null = paylines mode, value = ways mode
+  final int? paylinesCount; // for paylines slots
+
+  // Spin controls
   final bool isSpinning;
-  final bool showStopButton; // True ONLY during actual reel spinning
+  final bool showStopButton;
   final bool isAutoSpin;
   final int autoSpinCount;
   final bool isTurbo;
   final bool canSpin;
-  final ValueChanged<int> onLinesChanged;
-  final ValueChanged<double> onCoinChanged;
-  final ValueChanged<int> onBetLevelChanged;
+
+  // Callbacks
+  final ValueChanged<double> onBetChanged;
   final VoidCallback onMaxBet;
   final VoidCallback onSpin;
   final VoidCallback onStop;
   final VoidCallback onAutoSpinToggle;
   final VoidCallback onTurboToggle;
-  final VoidCallback? onAfterInteraction; // Request focus back after any interaction
+  final VoidCallback? onAfterInteraction;
 
   const _ControlBar({
-    required this.lines,
-    required this.maxLines,
-    required this.coinValue,
-    required this.coinValues,
-    required this.betLevel,
-    required this.maxBetLevel,
     required this.totalBet,
+    required this.minBet,
+    required this.maxBet,
+    required this.betStep,
+    required this.quickBetPresets,
+    this.waysCount,
+    this.paylinesCount,
     required this.isSpinning,
     required this.showStopButton,
     required this.isAutoSpin,
     required this.autoSpinCount,
     required this.isTurbo,
     required this.canSpin,
-    required this.onLinesChanged,
-    required this.onCoinChanged,
-    required this.onBetLevelChanged,
+    required this.onBetChanged,
     required this.onMaxBet,
     required this.onSpin,
     required this.onStop,
@@ -3514,7 +3613,7 @@ class _ControlBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Reduced padding
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -3528,159 +3627,285 @@ class _ControlBar extends StatelessWidget {
           top: BorderSide(color: Color(0xFF3a3a48), width: 1),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Lines selector
-          _BetSelector(
-            label: 'LINES',
-            value: '$lines',
-            onDecrease: lines > 1 ? () { onLinesChanged(lines - 1); onAfterInteraction?.call(); } : null,
-            onIncrease: lines < maxLines ? () { onLinesChanged(lines + 1); onAfterInteraction?.call(); } : null,
+          // Quick Bet Presets row
+          _QuickBetPresetsRow(
+            presets: quickBetPresets,
+            currentBet: totalBet,
             isDisabled: isSpinning,
+            onPresetSelected: (bet) {
+              onBetChanged(bet);
+              onAfterInteraction?.call();
+            },
           ),
-          const SizedBox(width: 12),
+          const SizedBox(height: 8),
 
-          // Coin selector
-          _BetSelector(
-            label: 'COIN',
-            value: coinValue.toStringAsFixed(2),
-            onDecrease: coinValues.indexOf(coinValue) > 0
-                ? () { onCoinChanged(coinValues[coinValues.indexOf(coinValue) - 1]); onAfterInteraction?.call(); }
-                : null,
-            onIncrease: coinValues.indexOf(coinValue) < coinValues.length - 1
-                ? () { onCoinChanged(coinValues[coinValues.indexOf(coinValue) + 1]); onAfterInteraction?.call(); }
-                : null,
-            isDisabled: isSpinning,
-          ),
-          const SizedBox(width: 12),
+          // Main controls row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // WAYS/PAYLINES info badge (static, from GDD)
+              if (waysCount != null || paylinesCount != null)
+                _InfoBadge(
+                  label: waysCount != null ? 'WAYS' : 'LINES',
+                  value: waysCount != null
+                      ? _formatWays(waysCount!)
+                      : '$paylinesCount',
+                ),
+              if (waysCount != null || paylinesCount != null)
+                const SizedBox(width: 16),
 
-          // Bet level selector
-          _BetSelector(
-            label: 'BET',
-            value: '$betLevel',
-            onDecrease: betLevel > 1 ? () { onBetLevelChanged(betLevel - 1); onAfterInteraction?.call(); } : null,
-            onIncrease: betLevel < maxBetLevel ? () { onBetLevelChanged(betLevel + 1); onAfterInteraction?.call(); } : null,
-            isDisabled: isSpinning,
-          ),
-          const SizedBox(width: 16),
+              // Total Bet control with +/- buttons
+              _ModernBetControl(
+                totalBet: totalBet,
+                minBet: minBet,
+                maxBet: maxBet,
+                betStep: betStep,
+                isDisabled: isSpinning,
+                onDecrease: () {
+                  final newBet = (totalBet - betStep).clamp(minBet, maxBet);
+                  onBetChanged(newBet);
+                  onAfterInteraction?.call();
+                },
+                onIncrease: () {
+                  final newBet = (totalBet + betStep).clamp(minBet, maxBet);
+                  onBetChanged(newBet);
+                  onAfterInteraction?.call();
+                },
+              ),
+              const SizedBox(width: 16),
 
-          // Total bet display
-          _TotalBetDisplay(totalBet: totalBet),
-          const SizedBox(width: 16),
+              // Max bet button
+              _ControlButton(
+                label: 'MAX\nBET',
+                gradient: _SlotTheme.maxBetGradient,
+                onTap: isSpinning ? null : () {
+                  onMaxBet();
+                  onAfterInteraction?.call();
+                },
+                width: 54,
+                height: 54,
+              ),
+              const SizedBox(width: 10),
 
-          // Max bet button
-          _ControlButton(
-            label: 'MAX\nBET',
-            gradient: _SlotTheme.maxBetGradient,
-            onTap: isSpinning ? null : () { onMaxBet(); onAfterInteraction?.call(); },
-            width: 54,
-            height: 54,
-          ),
-          const SizedBox(width: 10),
+              // Auto spin button
+              _ControlButton(
+                label: isAutoSpin ? 'STOP\n$autoSpinCount' : 'AUTO\nSPIN',
+                gradient: isAutoSpin ? _SlotTheme.autoSpinGradient : null,
+                onTap: () {
+                  onAutoSpinToggle();
+                  onAfterInteraction?.call();
+                },
+                width: 54,
+                height: 54,
+                isActive: isAutoSpin,
+              ),
+              const SizedBox(width: 10),
 
-          // Auto spin button
-          _ControlButton(
-            label: isAutoSpin ? 'STOP\n$autoSpinCount' : 'AUTO\nSPIN',
-            gradient: isAutoSpin ? _SlotTheme.autoSpinGradient : null,
-            onTap: () { onAutoSpinToggle(); onAfterInteraction?.call(); },
-            width: 54,
-            height: 54,
-            isActive: isAutoSpin,
-          ),
-          const SizedBox(width: 10),
+              // Turbo toggle
+              _ControlButton(
+                icon: Icons.bolt,
+                label: 'TURBO',
+                gradient: isTurbo ? [FluxForgeTheme.accentOrange, const Color(0xFFFF6020)] : null,
+                onTap: () {
+                  onTurboToggle();
+                  onAfterInteraction?.call();
+                },
+                width: 54,
+                height: 54,
+                isActive: isTurbo,
+              ),
+              const SizedBox(width: 20),
 
-          // Turbo toggle
-          _ControlButton(
-            icon: Icons.bolt,
-            label: 'TURBO',
-            gradient: isTurbo ? [FluxForgeTheme.accentOrange, const Color(0xFFFF6020)] : null,
-            onTap: () { onTurboToggle(); onAfterInteraction?.call(); },
-            width: 54,
-            height: 54,
-            isActive: isTurbo,
-          ),
-          const SizedBox(width: 20),
-
-          // Main spin/stop button
-          _SpinButton(
-            isSpinning: isSpinning,
-            showStopButton: showStopButton,
-            canSpin: canSpin,
-            onSpin: onSpin,
-            onStop: onStop,
+              // Main spin/stop button
+              _SpinButton(
+                isSpinning: isSpinning,
+                showStopButton: showStopButton,
+                canSpin: canSpin,
+                onSpin: onSpin,
+                onStop: onStop,
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+
+  /// Format ways count for display (e.g., 243, 1024, 117649)
+  String _formatWays(int ways) {
+    if (ways >= 100000) return '${(ways / 1000).toStringAsFixed(0)}K';
+    return ways.toString();
+  }
 }
 
-class _BetSelector extends StatelessWidget {
-  final String label;
-  final String value;
-  final VoidCallback? onDecrease;
-  final VoidCallback? onIncrease;
+/// Quick Bet Presets row — one-tap bet selection
+class _QuickBetPresetsRow extends StatelessWidget {
+  final List<double> presets;
+  final double currentBet;
   final bool isDisabled;
+  final ValueChanged<double> onPresetSelected;
 
-  const _BetSelector({
-    required this.label,
-    required this.value,
-    this.onDecrease,
-    this.onIncrease,
-    this.isDisabled = false,
+  const _QuickBetPresetsRow({
+    required this.presets,
+    required this.currentBet,
+    required this.isDisabled,
+    required this.onPresetSelected,
   });
 
   @override
   Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: presets.map((preset) {
+          final isSelected = (preset - currentBet).abs() < 0.01;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: _QuickBetChip(
+              amount: preset,
+              isSelected: isSelected,
+              isDisabled: isDisabled,
+              onTap: () => onPresetSelected(preset),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+/// Quick Bet chip button
+class _QuickBetChip extends StatelessWidget {
+  final double amount;
+  final bool isSelected;
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  const _QuickBetChip({
+    required this.amount,
+    required this.isSelected,
+    required this.isDisabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isDisabled ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(colors: [_SlotTheme.gold, _SlotTheme.gold.withOpacity(0.7)])
+              : null,
+          color: isSelected ? null : _SlotTheme.bgPanel,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? _SlotTheme.gold : _SlotTheme.border,
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [BoxShadow(color: _SlotTheme.gold.withOpacity(0.4), blurRadius: 6)]
+              : null,
+        ),
+        child: Text(
+          _formatAmount(amount),
+          style: TextStyle(
+            color: isSelected ? _SlotTheme.bgDark : _SlotTheme.textSecondary,
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatAmount(double amount) {
+    if (amount >= 1.0) {
+      return '\$${amount.toStringAsFixed(0)}';
+    }
+    return '\$${amount.toStringAsFixed(2)}';
+  }
+}
+
+/// Modern Bet Control with +/- buttons and total display
+class _ModernBetControl extends StatelessWidget {
+  final double totalBet;
+  final double minBet;
+  final double maxBet;
+  final double betStep;
+  final bool isDisabled;
+  final VoidCallback onDecrease;
+  final VoidCallback onIncrease;
+
+  const _ModernBetControl({
+    required this.totalBet,
+    required this.minBet,
+    required this.maxBet,
+    required this.betStep,
+    required this.isDisabled,
+    required this.onDecrease,
+    required this.onIncrease,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canDecrease = !isDisabled && totalBet > minBet;
+    final canIncrease = !isDisabled && totalBet < maxBet;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
-        color: _SlotTheme.bgPanel,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _SlotTheme.border),
+        color: _SlotTheme.bgSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _SlotTheme.gold.withOpacity(0.5), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Decrease button
-          _SelectorArrow(
-            icon: Icons.chevron_left,
-            onTap: isDisabled ? null : onDecrease,
+          _BetArrowButton(
+            icon: Icons.remove,
+            onTap: canDecrease ? onDecrease : null,
           ),
           const SizedBox(width: 8),
 
-          // Value display
-          SizedBox(
-            width: 50,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: _SlotTheme.textMuted,
-                    fontSize: 9,
-                    letterSpacing: 1,
-                  ),
+          // Total Bet display
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'TOTAL BET',
+                style: TextStyle(
+                  color: _SlotTheme.gold,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
                 ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: _SlotTheme.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '\$${totalBet.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: _SlotTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(width: 8),
 
           // Increase button
-          _SelectorArrow(
-            icon: Icons.chevron_right,
-            onTap: isDisabled ? null : onIncrease,
+          _BetArrowButton(
+            icon: Icons.add,
+            onTap: canIncrease ? onIncrease : null,
           ),
         ],
       ),
@@ -3688,85 +3913,73 @@ class _BetSelector extends StatelessWidget {
   }
 }
 
-class _SelectorArrow extends StatefulWidget {
+/// Arrow button for bet control (+/-)
+class _BetArrowButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
 
-  const _SelectorArrow({required this.icon, this.onTap});
-
-  @override
-  State<_SelectorArrow> createState() => _SelectorArrowState();
-}
-
-class _SelectorArrowState extends State<_SelectorArrow> {
-  bool _isHovered = false;
+  const _BetArrowButton({required this.icon, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final isEnabled = widget.onTap != null;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: _isHovered && isEnabled
-                ? FluxForgeTheme.accentBlue.withOpacity(0.2)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
+    final isEnabled = onTap != null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: isEnabled ? _SlotTheme.gold.withOpacity(0.2) : _SlotTheme.bgPanel,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isEnabled ? _SlotTheme.gold : _SlotTheme.border,
           ),
-          child: Icon(
-            widget.icon,
-            color: isEnabled
-                ? (_isHovered ? FluxForgeTheme.accentBlue : _SlotTheme.textSecondary)
-                : _SlotTheme.textMuted.withOpacity(0.5),
-            size: 20,
-          ),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: isEnabled ? _SlotTheme.gold : _SlotTheme.textSecondary.withOpacity(0.5),
         ),
       ),
     );
   }
 }
 
-class _TotalBetDisplay extends StatelessWidget {
-  final double totalBet;
+/// Static info badge (WAYS or LINES)
+class _InfoBadge extends StatelessWidget {
+  final String label;
+  final String value;
 
-  const _TotalBetDisplay({required this.totalBet});
+  const _InfoBadge({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: _SlotTheme.bgSurface,
+        color: _SlotTheme.bgPanel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _SlotTheme.gold.withOpacity(0.5)),
+        border: Border.all(color: _SlotTheme.border),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'TOTAL BET',
-            style: TextStyle(
-              color: _SlotTheme.gold,
-              fontSize: 10,
+          Text(
+            label,
+            style: const TextStyle(
+              color: _SlotTheme.textSecondary,
+              fontSize: 9,
               fontWeight: FontWeight.bold,
               letterSpacing: 1,
             ),
           ),
           const SizedBox(height: 2),
           Text(
-            '\$${totalBet.toStringAsFixed(2)}',
+            value,
             style: const TextStyle(
               color: _SlotTheme.textPrimary,
-              fontSize: 20,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -3774,6 +3987,9 @@ class _TotalBetDisplay extends StatelessWidget {
     );
   }
 }
+
+// Legacy _BetSelector, _SelectorArrow, _TotalBetDisplay removed
+// Now using: _ModernBetControl, _QuickBetPresetsRow, _QuickBetChip, _BetArrowButton, _InfoBadge
 
 class _ControlButton extends StatefulWidget {
   final String label;
@@ -5758,7 +5974,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   // Session
   double _balance = 1000.0;
   int _vipLevel = 3;
-  double _totalBet = 0.0;
+  double _sessionTotalBet = 0.0; // Total amount bet in session (for RTP calc)
   double _totalWin = 0.0;
   int _totalSpins = 0;
   int _wins = 0;
@@ -5793,11 +6009,33 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   double _grandJackpot = _grandJackpotSeed + 25000.00;
   double _progressiveContribution = 0.0;
 
-  // Bet settings
-  int _lines = 25;
-  double _coinValue = 0.10;
-  int _betLevel = 5;
-  double get _totalBetAmount => _lines * _coinValue * _betLevel;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MODERN BET SYSTEM — Total Bet Only (Pragmatic Play style)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Current total bet amount (the ONLY bet control)
+  double _totalBet = 2.00;
+
+  /// Quick bet presets for one-tap selection
+  static const List<double> _quickBetPresets = [
+    0.20, 0.50, 1.00, 2.00, 5.00, 10.00, 20.00, 50.00, 100.00,
+  ];
+
+  /// Minimum and maximum bet limits
+  static const double _minBet = 0.20;
+  static const double _maxBet = 100.00;
+
+  /// Bet step for +/- buttons (adjusts based on current bet)
+  double get _betStep {
+    if (_totalBet < 1.00) return 0.10;
+    if (_totalBet < 5.00) return 0.50;
+    if (_totalBet < 20.00) return 1.00;
+    if (_totalBet < 50.00) return 5.00;
+    return 10.00;
+  }
+
+  /// Legacy getter for compatibility (returns _totalBet directly)
+  double get _totalBetAmount => _totalBet;
 
   // Game rules config (loaded from engine)
   _GameRulesConfig _gameConfig = const _GameRulesConfig();
@@ -5889,8 +6127,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Timers for scheduled reel stops (canceled on dispose)
   final List<Timer> _reelStopTimers = [];
 
-  // Coin values
-  static const List<double> _coinValues = [0.01, 0.02, 0.05, 0.10, 0.20, 0.50, 1.00];
+  // (Legacy coin values removed — using modern Total Bet system)
 
   @override
   void initState() {
@@ -6486,7 +6723,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   void _executeSpinAfterSkip(SlotLabProvider provider) {
     setState(() {
       _balance -= _totalBetAmount;
-      _totalBet += _totalBetAmount;
+      _sessionTotalBet += _totalBetAmount; // Session tracking for RTP calculation
       _totalSpins++;
       // Progressive contribution based on bet amount (1% of bet goes to jackpot pool)
       _progressiveContribution = _jackpotContributionRate * _totalBetAmount;
@@ -6538,7 +6775,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   void _executeForcedSpinAfterSkip(SlotLabProvider provider, ForcedOutcome outcome) {
     setState(() {
       _balance -= _totalBetAmount;
-      _totalBet += _totalBetAmount;
+      _sessionTotalBet += _totalBetAmount; // Session tracking for RTP calculation
       _totalSpins++;
       _showWinPresenter = false;
     });
@@ -7025,9 +7262,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   void _handleMaxBet() {
     setState(() {
-      _lines = 25;
-      _coinValue = _coinValues.last;
-      _betLevel = 10;
+      _totalBet = _maxBet;
     });
   }
 
@@ -7180,7 +7415,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     final isReelsActuallySpinning = provider.isReelsSpinning;
     final isInitialized = provider.initialized;
     final canSpin = isInitialized && _balance >= _totalBetAmount && !isSpinning;
-    final sessionRtp = _totalBet > 0 ? (_totalWin / _totalBet * 100) : 0.0;
+    final sessionRtp = _sessionTotalBet > 0 ? (_totalWin / _sessionTotalBet * 100) : 0.0;
     // Get GDD symbols from project provider (if imported)
     final gddSymbols = projectProvider.gddSymbols;
 
@@ -7262,30 +7497,32 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   ),
                 ),
 
-                // F. Control Bar
+                // F. Control Bar — Modern Total Bet System
                 _ControlBar(
-                  lines: _lines,
-                  maxLines: 25,
-                  coinValue: _coinValue,
-                  coinValues: _coinValues,
-                  betLevel: _betLevel,
-                  maxBetLevel: 10,
-                  totalBet: _totalBetAmount,
+                  // Modern bet system
+                  totalBet: _totalBet,
+                  minBet: _minBet,
+                  maxBet: _maxBet,
+                  betStep: _betStep,
+                  quickBetPresets: _quickBetPresets,
+                  // WAYS/PAYLINES from GDD (if available)
+                  waysCount: projectProvider.gridConfig?.ways,
+                  paylinesCount: projectProvider.gridConfig?.paylines ?? 20, // default 20 paylines
+                  // Spin controls
                   isSpinning: isSpinning,
-                  showStopButton: isReelsActuallySpinning, // STOP only during reel spinning
+                  showStopButton: isReelsActuallySpinning,
                   isAutoSpin: _isAutoSpin,
                   autoSpinCount: _autoSpinRemaining,
                   isTurbo: _isTurbo,
                   canSpin: canSpin,
-                  onLinesChanged: (v) => setState(() => _lines = v),
-                  onCoinChanged: (v) => setState(() => _coinValue = v),
-                  onBetLevelChanged: (v) => setState(() => _betLevel = v),
+                  // Callbacks
+                  onBetChanged: (v) => setState(() => _totalBet = v),
                   onMaxBet: _handleMaxBet,
                   onSpin: () => _handleSpin(provider),
                   onStop: _handleStop,
                   onAutoSpinToggle: _handleAutoSpinToggle,
                   onTurboToggle: _toggleTurbo,
-                  onAfterInteraction: () => _focusNode.requestFocus(), // Restore focus after button clicks
+                  onAfterInteraction: () => _focusNode.requestFocus(),
                 ),
               ],
             ),

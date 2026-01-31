@@ -204,6 +204,12 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
     }
   }
 
+  /// Check if file name indicates a non-looping music (contains _END)
+  bool _isMusicEndFile(String audioPath) {
+    final fileName = audioPath.split('/').last.toUpperCase();
+    return fileName.contains('_END');
+  }
+
   /// Create event directly via MiddlewareProvider
   void _handleDrop(String audioPath, Offset globalPosition, MiddlewareProvider provider) {
     debugPrint('[DropTargetWrapper] 🎯 Creating event for ${widget.target.targetId}');
@@ -230,7 +236,28 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
       busId: busId,
     );
 
-    // Create composite event
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MUSIC DEFAULT RULES:
+    // 1. overlap = FALSE for music (never overlap, fade out previous)
+    // 2. looping = TRUE for music UNLESS filename contains _END
+    // 3. crossfadeMs = 500ms default for smooth transitions
+    // ═══════════════════════════════════════════════════════════════════════════
+    final isMusicBus = busId == SlotBusIds.music;
+    final isEndFile = _isMusicEndFile(audioPath);
+
+    // Music defaults: overlap=false, loop unless _END file
+    final shouldOverlap = !isMusicBus; // false for music, true for everything else
+    final shouldLoop = isMusicBus && !isEndFile; // loop music unless it's an _END file
+    final crossfadeDuration = isMusicBus ? 500 : 0; // 500ms crossfade for music
+
+    if (isMusicBus) {
+      debugPrint('[DropTargetWrapper] 🎵 MUSIC EVENT DETECTED');
+      debugPrint('[DropTargetWrapper]    overlap: $shouldOverlap (always false for music)');
+      debugPrint('[DropTargetWrapper]    looping: $shouldLoop (${isEndFile ? "END file - no loop" : "auto-loop"})');
+      debugPrint('[DropTargetWrapper]    crossfadeMs: $crossfadeDuration');
+    }
+
+    // Create composite event with music-aware defaults
     final event = SlotCompositeEvent(
       id: eventId,
       name: eventName,
@@ -239,14 +266,16 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
       layers: [layer],
       masterVolume: 1.0,
       targetBusId: busId,
-      looping: false,
-      maxInstances: 4,
+      looping: shouldLoop,
+      maxInstances: isMusicBus ? 1 : 4, // Music: only 1 instance, SFX: allow 4
       createdAt: DateTime.now(),
       modifiedAt: DateTime.now(),
       triggerStages: [stage],
       triggerConditions: const {},
       timelinePositionMs: 0.0,
       trackIndex: 0,
+      overlap: shouldOverlap,
+      crossfadeMs: crossfadeDuration,
     );
 
     // Add to MiddlewareProvider (SSoT)
@@ -256,7 +285,8 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
     // Visual feedback
     _triggerPulse();
 
-    // Audio preview as confirmation
+    // Audio preview as confirmation (stop any previous first)
+    AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
     AudioPlaybackService.instance.previewFile(
       audioPath,
       volume: 0.7,

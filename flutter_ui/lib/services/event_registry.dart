@@ -302,6 +302,23 @@ class AudioEvent {
   final ContainerType containerType;  // Type of container to use
   final int? containerId;             // ID of the container (if using container)
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MUSIC OVERLAP & CROSSFADE CONTROL (2026-01-31)
+  // ═══════════════════════════════════════════════════════════════════════════
+  /// When false, stops any other audio on the same bus before playing this event.
+  /// Default: true (overlapping allowed)
+  /// For MUSIC events, this should be false to prevent music overlap.
+  final bool overlap;
+
+  /// Crossfade duration in milliseconds when transitioning (when overlap=false).
+  /// Default: 0 (no crossfade, instant cut)
+  /// For MUSIC events, recommended 500-1000ms for smooth transitions.
+  final int crossfadeMs;
+
+  /// Target bus ID for this event (0=master, 1=music, 2=sfx, etc.)
+  /// Used for overlap detection - only non-overlapping events on SAME bus affect each other
+  final int targetBusId;
+
   const AudioEvent({
     required this.id,
     required this.name,
@@ -312,6 +329,9 @@ class AudioEvent {
     this.priority = 0,
     this.containerType = ContainerType.none,
     this.containerId,
+    this.overlap = true,
+    this.crossfadeMs = 0,
+    this.targetBusId = 0,
   });
 
   /// Returns true if this event uses a container instead of direct layers
@@ -327,6 +347,9 @@ class AudioEvent {
     'priority': priority,
     'containerType': containerType.value,
     'containerId': containerId,
+    'overlap': overlap,
+    'crossfadeMs': crossfadeMs,
+    'targetBusId': targetBusId,
   };
 
   factory AudioEvent.fromJson(Map<String, dynamic> json) => AudioEvent(
@@ -341,7 +364,13 @@ class AudioEvent {
     priority: json['priority'] as int? ?? 0,
     containerType: ContainerTypeExtension.fromValue(json['containerType'] as int? ?? 0),
     containerId: json['containerId'] as int?,
+    overlap: json['overlap'] as bool? ?? true,
+    crossfadeMs: json['crossfadeMs'] as int? ?? 0,
+    targetBusId: json['targetBusId'] as int? ?? 0,
   );
+
+  /// Check if this is a music event (targets music bus)
+  bool get isMusicEvent => targetBusId == 1; // SlotBusIds.music
 
   /// Create a copy with modified fields
   AudioEvent copyWith({
@@ -354,6 +383,9 @@ class AudioEvent {
     int? priority,
     ContainerType? containerType,
     int? containerId,
+    bool? overlap,
+    int? crossfadeMs,
+    int? targetBusId,
   }) {
     return AudioEvent(
       id: id ?? this.id,
@@ -365,6 +397,9 @@ class AudioEvent {
       priority: priority ?? this.priority,
       containerType: containerType ?? this.containerType,
       containerId: containerId ?? this.containerId,
+      overlap: overlap ?? this.overlap,
+      crossfadeMs: crossfadeMs ?? this.crossfadeMs,
+      targetBusId: targetBusId ?? this.targetBusId,
     );
   }
 }
@@ -752,6 +787,64 @@ class EventRegistry extends ChangeNotifier {
   void clearCrossfadeTracking() {
     _crossfadeGroupVoices.clear();
     debugPrint('[EventRegistry] P1.10: Cleared crossfade tracking');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MUSIC BUS NON-OVERLAP SYSTEM (2026-01-31)
+  // Ensures only one music plays at a time with smooth crossfade transitions.
+  // When event.overlap = false, fades out any active voices on the same bus.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Active voices per bus for non-overlapping events
+  /// Maps busId -> list of (voiceId, eventId, crossfadeMs)
+  final Map<int, List<({int voiceId, String eventId, int crossfadeMs})>> _activeBusVoices = {};
+
+  /// Fade out all active voices on a specific bus
+  /// Returns the crossfade duration to use for fade-in (max of all active voices)
+  int _fadeOutBusVoices(int busId, {int? overrideFadeMs}) {
+    final activeVoices = _activeBusVoices[busId];
+    if (activeVoices == null || activeVoices.isEmpty) {
+      return overrideFadeMs ?? 0;
+    }
+
+    int maxFadeMs = overrideFadeMs ?? 0;
+    for (final voice in activeVoices) {
+      final fadeMs = overrideFadeMs ?? voice.crossfadeMs;
+      if (fadeMs > maxFadeMs) maxFadeMs = fadeMs;
+
+      debugPrint('[EventRegistry] 🎵 Music crossfade: fading out voice ${voice.voiceId} '
+          'from event "${voice.eventId}" (${fadeMs}ms)');
+      AudioPlaybackService.instance.fadeOutVoice(voice.voiceId, fadeMs: fadeMs);
+    }
+
+    // Clear the tracking for this bus
+    _activeBusVoices[busId] = [];
+    return maxFadeMs;
+  }
+
+  /// Track a voice for non-overlapping bus playback
+  void _trackBusVoice(int busId, int voiceId, String eventId, int crossfadeMs) {
+    _activeBusVoices.putIfAbsent(busId, () => []);
+    _activeBusVoices[busId]!.add((
+      voiceId: voiceId,
+      eventId: eventId,
+      crossfadeMs: crossfadeMs,
+    ));
+    debugPrint('[EventRegistry] 🎵 Tracking music voice $voiceId on bus $busId '
+        '(event: $eventId, crossfade: ${crossfadeMs}ms)');
+  }
+
+  /// Stop all music voices (e.g., when feature ends)
+  void stopAllMusicVoices({int fadeMs = 500}) {
+    const musicBusId = 1; // SlotBusIds.music
+    _fadeOutBusVoices(musicBusId, overrideFadeMs: fadeMs);
+    debugPrint('[EventRegistry] 🎵 Stopped all music voices (${fadeMs}ms fade)');
+  }
+
+  /// Clear all bus voice tracking (call on stop/reset)
+  void clearBusVoiceTracking() {
+    _activeBusVoices.clear();
+    debugPrint('[EventRegistry] 🎵 Cleared bus voice tracking');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1995,11 +2088,31 @@ class EventRegistry extends ChangeNotifier {
     _playingInstances.add(instance);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // P1.10 + P1.13: CROSSFADE HANDLING
-    // If this stage is in a crossfade group, fade out existing voices first
+    // MUSIC NON-OVERLAP: Fade out any active audio on the same bus before playing
+    // This ensures only one music plays at a time (overlap=false on music events)
     // ═══════════════════════════════════════════════════════════════════════════
     int crossfadeInMs = 0;
-    if (_shouldCrossfade(event.stage)) {
+
+    if (!event.overlap) {
+      // Non-overlapping event: fade out all active voices on the same bus
+      final busId = event.targetBusId;
+      crossfadeInMs = _fadeOutBusVoices(busId, overrideFadeMs: event.crossfadeMs);
+
+      if (crossfadeInMs > 0) {
+        debugPrint('[EventRegistry] 🎵 Non-overlap event "${event.name}": '
+            'fading out bus $busId voices (${crossfadeInMs}ms crossfade)');
+
+        // Add fade-in to context for _playLayer
+        context = context != null ? Map.from(context) : {};
+        context['crossfade_in_ms'] = crossfadeInMs;
+      }
+    }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.10 + P1.13: CROSSFADE HANDLING (legacy stage-group based)
+    // If this stage is in a crossfade group, fade out existing voices first
+    // NOTE: This is ADDITIONAL to the per-event overlap system above
+    // ═══════════════════════════════════════════════════════════════════════════
+    else if (_shouldCrossfade(event.stage)) {
       // Get crossfade duration and fade out existing voices
       final fadeMs = _getCrossfadeDuration(event.stage);
       final group = _getCrossfadeGroup(event.stage);
@@ -2034,9 +2147,23 @@ class EventRegistry extends ChangeNotifier {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // P1.10: Track new voices for future crossfade (after small delay to let voices populate)
+    // VOICE TRACKING: Track voices for future crossfade/non-overlap handling
     // ═══════════════════════════════════════════════════════════════════════════
-    if (_shouldCrossfade(event.stage)) {
+
+    // Track for non-overlapping bus playback (new system)
+    if (!event.overlap) {
+      Timer(const Duration(milliseconds: 50), () {
+        if (voiceIds.isNotEmpty) {
+          for (final voiceId in voiceIds) {
+            _trackBusVoice(event.targetBusId, voiceId, event.id, event.crossfadeMs);
+          }
+          debugPrint('[EventRegistry] 🎵 Tracking ${voiceIds.length} non-overlap voices '
+              'on bus ${event.targetBusId} for event "${event.name}"');
+        }
+      });
+    }
+    // Track for legacy stage-group crossfade (P1.10)
+    else if (_shouldCrossfade(event.stage)) {
       // Wait a bit for async voice creation, then track them
       Timer(const Duration(milliseconds: 50), () {
         final group = _getCrossfadeGroup(event.stage);
