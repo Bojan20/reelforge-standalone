@@ -16595,6 +16595,373 @@ extension SlotLabFFI on NativeFFI {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // JACKPOT FEATURE (P4-F03 COMPLETE)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Check if Jackpot feature is currently active (won jackpot pending)
+  bool jackpotIsActive() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_jackpot_is_active',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[Jackpot] jackpotIsActive error: $e');
+      return false;
+    }
+  }
+
+  /// Get value of a specific jackpot tier (0=Mini, 1=Minor, 2=Major, 3=Grand)
+  double jackpotGetTierValue(int tier) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Int32), double Function(int)>(
+        'slot_lab_jackpot_get_tier_value',
+      );
+      return fn(tier);
+    } catch (e) {
+      print('[Jackpot] jackpotGetTierValue error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get all jackpot tier values as JSON array [mini, minor, major, grand]
+  List<double>? jackpotGetAllValues() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_jackpot_get_all_values_json',
+      );
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final jsonStr = ptr.toDartString();
+      calloc.free(ptr);
+      final list = jsonDecode(jsonStr) as List;
+      return list.cast<double>();
+    } catch (e) {
+      print('[Jackpot] jackpotGetAllValues error: $e');
+      return null;
+    }
+  }
+
+  /// Get total contributions to jackpot pool
+  double jackpotTotalContributions() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_jackpot_total_contributions',
+      );
+      return fn();
+    } catch (e) {
+      print('[Jackpot] jackpotTotalContributions error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get won jackpot tier (-1 if none, 0=Mini, 1=Minor, 2=Major, 3=Grand)
+  int jackpotWonTier() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_jackpot_won_tier',
+      );
+      return fn();
+    } catch (e) {
+      print('[Jackpot] jackpotWonTier error: $e');
+      return -1;
+    }
+  }
+
+  /// Get won jackpot amount
+  double jackpotWonAmount() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_jackpot_won_amount',
+      );
+      return fn();
+    } catch (e) {
+      print('[Jackpot] jackpotWonAmount error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Force trigger a jackpot win (for testing/demo) - tier: 0=Mini, 1=Minor, 2=Major, 3=Grand
+  bool jackpotForceTrigger(int tier) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Int32), int Function(int)>(
+        'slot_lab_jackpot_force_trigger',
+      );
+      return fn(tier) == 1;
+    } catch (e) {
+      print('[Jackpot] jackpotForceTrigger error: $e');
+      return false;
+    }
+  }
+
+  /// Complete jackpot celebration and get payout amount
+  double jackpotComplete() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_jackpot_complete',
+      );
+      return fn();
+    } catch (e) {
+      print('[Jackpot] jackpotComplete error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get complete jackpot state as JSON
+  Map<String, dynamic>? jackpotGetStateJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_jackpot_get_state_json',
+      );
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final jsonStr = ptr.toDartString();
+      calloc.free(ptr);
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      print('[Jackpot] jackpotGetStateJson error: $e');
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FREE SPINS FEATURE (P4-F01 COMPLETE)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Check if Free Spins feature is currently active
+  bool freeSpinsIsActive() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_free_spins_is_active',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[FreeSpins] freeSpinsIsActive error: $e');
+      return false;
+    }
+  }
+
+  /// Get remaining free spins count (P4 complete API)
+  int freeSpinsRemaining() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_free_spins_remaining',
+      );
+      return fn();
+    } catch (e) {
+      print('[FreeSpins] freeSpinsRemaining error: $e');
+      return 0;
+    }
+  }
+
+  /// Get total free spins awarded
+  int freeSpinsTotal() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_free_spins_total',
+      );
+      return fn();
+    } catch (e) {
+      print('[FreeSpins] freeSpinsTotal error: $e');
+      return 0;
+    }
+  }
+
+  /// Get current multiplier in free spins
+  double freeSpinsMultiplier() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_free_spins_multiplier',
+      );
+      return fn();
+    } catch (e) {
+      print('[FreeSpins] freeSpinsMultiplier error: $e');
+      return 1.0;
+    }
+  }
+
+  /// Get total win accumulated in free spins session
+  double freeSpinsTotalWin() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_free_spins_total_win',
+      );
+      return fn();
+    } catch (e) {
+      print('[FreeSpins] freeSpinsTotalWin error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Force trigger free spins (for testing/demo)
+  bool freeSpinsForceTrigger(int numSpins) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Int32), int Function(int)>(
+        'slot_lab_free_spins_force_trigger',
+      );
+      return fn(numSpins) == 1;
+    } catch (e) {
+      print('[FreeSpins] freeSpinsForceTrigger error: $e');
+      return false;
+    }
+  }
+
+  /// Add extra free spins (retrigger)
+  bool freeSpinsAdd(int extraSpins) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Int32), int Function(int)>(
+        'slot_lab_free_spins_add',
+      );
+      return fn(extraSpins) == 1;
+    } catch (e) {
+      print('[FreeSpins] freeSpinsAdd error: $e');
+      return false;
+    }
+  }
+
+  /// Complete free spins and get total payout
+  double freeSpinsComplete() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_free_spins_complete',
+      );
+      return fn();
+    } catch (e) {
+      print('[FreeSpins] freeSpinsComplete error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get complete free spins state as JSON
+  Map<String, dynamic>? freeSpinsGetStateJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_free_spins_get_state_json',
+      );
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final jsonStr = ptr.toDartString();
+      calloc.free(ptr);
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      print('[FreeSpins] freeSpinsGetStateJson error: $e');
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CASCADE/TUMBLE FEATURE (P4-F04 COMPLETE)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Check if Cascade/Tumble feature is currently active
+  bool cascadeIsActive() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_cascade_is_active',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[Cascade] cascadeIsActive error: $e');
+      return false;
+    }
+  }
+
+  /// Get current cascade step number (0-based)
+  int cascadeCurrentStep() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_cascade_current_step',
+      );
+      return fn();
+    } catch (e) {
+      print('[Cascade] cascadeCurrentStep error: $e');
+      return 0;
+    }
+  }
+
+  /// Get current cascade multiplier
+  double cascadeMultiplier() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_cascade_multiplier',
+      );
+      return fn();
+    } catch (e) {
+      print('[Cascade] cascadeMultiplier error: $e');
+      return 1.0;
+    }
+  }
+
+  /// Get peak multiplier reached in current cascade chain
+  double cascadePeakMultiplier() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_cascade_peak_multiplier',
+      );
+      return fn();
+    } catch (e) {
+      print('[Cascade] cascadePeakMultiplier error: $e');
+      return 1.0;
+    }
+  }
+
+  /// Get total win accumulated in current cascade chain
+  double cascadeTotalWin() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_cascade_total_win',
+      );
+      return fn();
+    } catch (e) {
+      print('[Cascade] cascadeTotalWin error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Force trigger cascade (for testing/demo)
+  bool cascadeForceTrigger() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_cascade_force_trigger',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[Cascade] cascadeForceTrigger error: $e');
+      return false;
+    }
+  }
+
+  /// Complete cascade chain and get total payout
+  double cascadeComplete() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_cascade_complete',
+      );
+      return fn();
+    } catch (e) {
+      print('[Cascade] cascadeComplete error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get complete cascade state as JSON
+  Map<String, dynamic>? cascadeGetStateJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_cascade_get_state_json',
+      );
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final jsonStr = ptr.toDartString();
+      calloc.free(ptr);
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      print('[Cascade] cascadeGetStateJson error: $e');
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // ADAPTIVE LAYER ENGINE (ALE)
   // ═══════════════════════════════════════════════════════════════════════════
 

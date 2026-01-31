@@ -932,6 +932,348 @@ impl SlotEngineV2 {
             }).to_string()
         })
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // JACKPOT FEATURE ACCESSORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Check if Jackpot feature is currently active (won jackpot pending)
+    pub fn is_jackpot_active(&self) -> bool {
+        self.features
+            .get(&crate::features::FeatureId::new("jackpot"))
+            .map(|f| f.is_active())
+            .unwrap_or(false)
+    }
+
+    /// Get Jackpot feature state snapshot
+    pub fn jackpot_state(&self) -> Option<crate::features::FeatureSnapshot> {
+        self.features
+            .get(&crate::features::FeatureId::new("jackpot"))
+            .map(|f| f.snapshot())
+    }
+
+    /// Get current jackpot value for a specific tier (0=Mini, 1=Minor, 2=Major, 3=Grand)
+    pub fn jackpot_get_tier_value(&self, tier: usize) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("jackpot"))
+            .and_then(|f| {
+                let snapshot = f.snapshot();
+                snapshot.data.get("current_values")
+                    .and_then(|v| v.as_array())
+                    .and_then(|arr| arr.get(tier))
+                    .and_then(|v| v.as_f64())
+            })
+            .unwrap_or(0.0)
+    }
+
+    /// Get all jackpot tier values as array [Mini, Minor, Major, Grand]
+    pub fn jackpot_get_all_values(&self) -> [f64; 4] {
+        let mut values = [0.0; 4];
+        self.features
+            .get(&crate::features::FeatureId::new("jackpot"))
+            .map(|f| {
+                let snapshot = f.snapshot();
+                if let Some(arr) = snapshot.data.get("current_values").and_then(|v| v.as_array()) {
+                    for (i, v) in arr.iter().enumerate().take(4) {
+                        if let Some(val) = v.as_f64() {
+                            values[i] = val;
+                        }
+                    }
+                }
+            });
+        values
+    }
+
+    /// Get total contributions made to jackpots in this session
+    pub fn jackpot_total_contributions(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("jackpot"))
+            .and_then(|f| {
+                let snapshot = f.snapshot();
+                snapshot.data.get("total_contributions")
+                    .and_then(|v| v.as_f64())
+            })
+            .unwrap_or(0.0)
+    }
+
+    /// Get won jackpot tier (if any is pending)
+    pub fn jackpot_won_tier(&self) -> Option<usize> {
+        self.features
+            .get(&crate::features::FeatureId::new("jackpot"))
+            .and_then(|f| {
+                let snapshot = f.snapshot();
+                snapshot.data.get("won_tier")
+                    .and_then(|v| v.as_u64())
+                    .map(|t| t as usize)
+            })
+    }
+
+    /// Get won jackpot amount (if any is pending)
+    pub fn jackpot_won_amount(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("jackpot"))
+            .map(|f| f.snapshot().accumulated_win)
+            .unwrap_or(0.0)
+    }
+
+    /// Force trigger a specific jackpot tier (for testing)
+    /// tier: 0=Mini, 1=Minor, 2=Major, 3=Grand
+    pub fn force_trigger_jackpot(&mut self, tier: usize) -> bool {
+        let mut activation_ctx = ActivationContext::new(6, self.current_bet);
+        activation_ctx.trigger_data.insert(
+            "force_tier".to_string(),
+            serde_json::Value::from(tier),
+        );
+
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("jackpot")) {
+            if feature.can_activate(&activation_ctx) {
+                feature.activate(&activation_ctx);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Complete jackpot celebration and return won amount
+    pub fn jackpot_complete(&mut self) -> f64 {
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("jackpot")) {
+            if feature.is_active() {
+                let total = feature.snapshot().accumulated_win;
+                feature.deactivate();
+                return total;
+            }
+        }
+        0.0
+    }
+
+    /// Get Jackpot state as JSON string
+    pub fn jackpot_get_state_json(&self) -> Option<String> {
+        self.jackpot_state().map(|snapshot| {
+            let values = self.jackpot_get_all_values();
+            serde_json::json!({
+                "is_active": snapshot.is_active,
+                "tier_values": {
+                    "mini": values[0],
+                    "minor": values[1],
+                    "major": values[2],
+                    "grand": values[3],
+                },
+                "won_tier": self.jackpot_won_tier(),
+                "won_amount": snapshot.accumulated_win,
+                "total_contributions": self.jackpot_total_contributions(),
+            }).to_string()
+        })
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FREE SPINS FEATURE ACCESSORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Check if Free Spins feature is currently active
+    pub fn is_free_spins_active(&self) -> bool {
+        self.features
+            .get(&crate::features::FeatureId::new("free_spins"))
+            .map(|f| f.is_active())
+            .unwrap_or(false)
+    }
+
+    /// Get Free Spins feature state snapshot
+    pub fn free_spins_state(&self) -> Option<crate::features::FeatureSnapshot> {
+        self.features
+            .get(&crate::features::FeatureId::new("free_spins"))
+            .filter(|f| f.is_active())
+            .map(|f| f.snapshot())
+    }
+
+    /// Get remaining free spins count
+    pub fn free_spins_remaining(&self) -> u32 {
+        self.features
+            .get(&crate::features::FeatureId::new("free_spins"))
+            .and_then(|f| {
+                let snapshot = f.snapshot();
+                snapshot.data.get("remaining")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as u32)
+            })
+            .unwrap_or(0)
+    }
+
+    /// Get total free spins awarded
+    pub fn free_spins_total(&self) -> u32 {
+        self.features
+            .get(&crate::features::FeatureId::new("free_spins"))
+            .and_then(|f| {
+                let snapshot = f.snapshot();
+                snapshot.total_steps.map(|s| s as u32)
+            })
+            .unwrap_or(0)
+    }
+
+    /// Get current multiplier in free spins
+    pub fn free_spins_multiplier(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("free_spins"))
+            .map(|f| f.snapshot().multiplier)
+            .unwrap_or(1.0)
+    }
+
+    /// Get total win accumulated in free spins session
+    pub fn free_spins_total_win(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("free_spins"))
+            .map(|f| f.snapshot().accumulated_win)
+            .unwrap_or(0.0)
+    }
+
+    /// Force trigger Free Spins feature (for testing)
+    pub fn force_trigger_free_spins(&mut self, num_spins: u32) -> bool {
+        let mut activation_ctx = ActivationContext::new(6, self.current_bet);
+        activation_ctx.trigger_data.insert(
+            "spins_awarded".to_string(),
+            serde_json::Value::from(num_spins),
+        );
+
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("free_spins")) {
+            if !feature.is_active() && feature.can_activate(&activation_ctx) {
+                feature.activate(&activation_ctx);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Add extra free spins (retrigger)
+    pub fn free_spins_add(&mut self, extra_spins: u32) -> bool {
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("free_spins")) {
+            if feature.is_active() {
+                // Use configure to add spins
+                let mut config = crate::features::FeatureConfig::new();
+                config.set("add_spins", extra_spins);
+                return feature.configure(&config).is_ok();
+            }
+        }
+        false
+    }
+
+    /// Complete Free Spins and return total win
+    pub fn free_spins_complete(&mut self) -> f64 {
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("free_spins")) {
+            if feature.is_active() {
+                let total = feature.snapshot().accumulated_win;
+                feature.deactivate();
+                return total;
+            }
+        }
+        0.0
+    }
+
+    /// Get Free Spins state as JSON string
+    pub fn free_spins_get_state_json(&self) -> Option<String> {
+        self.free_spins_state().map(|snapshot| {
+            serde_json::json!({
+                "is_active": snapshot.is_active,
+                "remaining": self.free_spins_remaining(),
+                "total": snapshot.total_steps.unwrap_or(0),
+                "multiplier": snapshot.multiplier,
+                "total_win": snapshot.accumulated_win,
+                "spins_played": snapshot.current_step,
+            }).to_string()
+        })
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CASCADE FEATURE ACCESSORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Check if Cascade feature is currently active
+    pub fn is_cascade_active(&self) -> bool {
+        self.features
+            .get(&crate::features::FeatureId::new("cascades"))
+            .map(|f| f.is_active())
+            .unwrap_or(false)
+    }
+
+    /// Get Cascade feature state snapshot
+    pub fn cascade_state(&self) -> Option<crate::features::FeatureSnapshot> {
+        self.features
+            .get(&crate::features::FeatureId::new("cascades"))
+            .filter(|f| f.is_active())
+            .map(|f| f.snapshot())
+    }
+
+    /// Get current cascade step (depth)
+    pub fn cascade_current_step(&self) -> u32 {
+        self.features
+            .get(&crate::features::FeatureId::new("cascades"))
+            .map(|f| f.snapshot().current_step as u32)
+            .unwrap_or(0)
+    }
+
+    /// Get current cascade multiplier
+    pub fn cascade_multiplier(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("cascades"))
+            .map(|f| f.snapshot().multiplier)
+            .unwrap_or(1.0)
+    }
+
+    /// Get peak multiplier reached in current cascade sequence
+    pub fn cascade_peak_multiplier(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("cascades"))
+            .and_then(|f| {
+                let snapshot = f.snapshot();
+                snapshot.data.get("peak_multiplier")
+                    .and_then(|v| v.as_f64())
+            })
+            .unwrap_or(1.0)
+    }
+
+    /// Get total win accumulated in cascade sequence
+    pub fn cascade_total_win(&self) -> f64 {
+        self.features
+            .get(&crate::features::FeatureId::new("cascades"))
+            .map(|f| f.snapshot().accumulated_win)
+            .unwrap_or(0.0)
+    }
+
+    /// Force trigger Cascade feature (for testing)
+    pub fn force_trigger_cascade(&mut self) -> bool {
+        let activation_ctx = ActivationContext::new(3, self.current_bet);
+
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("cascades")) {
+            if !feature.is_active() && feature.can_activate(&activation_ctx) {
+                feature.activate(&activation_ctx);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Complete Cascade and return total win
+    pub fn cascade_complete(&mut self) -> f64 {
+        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("cascades")) {
+            if feature.is_active() {
+                let total = feature.snapshot().accumulated_win;
+                feature.deactivate();
+                return total;
+            }
+        }
+        0.0
+    }
+
+    /// Get Cascade state as JSON string
+    pub fn cascade_get_state_json(&self) -> Option<String> {
+        self.cascade_state().map(|snapshot| {
+            serde_json::json!({
+                "is_active": snapshot.is_active,
+                "current_step": snapshot.current_step,
+                "multiplier": snapshot.multiplier,
+                "peak_multiplier": self.cascade_peak_multiplier(),
+                "total_win": snapshot.accumulated_win,
+            }).to_string()
+        })
+    }
 }
 
 impl Default for SlotEngineV2 {

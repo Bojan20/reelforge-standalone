@@ -636,10 +636,10 @@ pub extern "C" fn slot_lab_in_free_spins() -> i32 {
     }
 }
 
-/// Get remaining free spins
+/// Get remaining free spins (legacy wrapper - uses ENGINE_V2)
 #[unsafe(no_mangle)]
-pub extern "C" fn slot_lab_free_spins_remaining() -> u32 {
-    let guard = SLOT_ENGINE.read();
+pub extern "C" fn slot_lab_free_spins_remaining_legacy() -> u32 {
+    let guard = ENGINE_V2.read();
     match &*guard {
         Some(engine) => engine.free_spins_remaining(),
         None => 0,
@@ -1815,6 +1815,375 @@ pub extern "C" fn slot_lab_gamble_get_state_json() -> *mut c_char {
             }
         }
         None => std::ptr::null_mut(),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// JACKPOT FEATURE FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Check if Jackpot feature is currently active (won jackpot pending)
+/// Returns 1 if active, 0 otherwise
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_jackpot_is_active() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => if engine.is_jackpot_active() { 1 } else { 0 },
+        None => 0,
+    }
+}
+
+/// Get jackpot value for a specific tier
+/// tier: 0=Mini, 1=Minor, 2=Major, 3=Grand
+/// Returns current progressive value for that tier
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_jackpot_get_tier_value(tier: i32) -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.jackpot_get_tier_value(tier as usize),
+        None => 0.0,
+    }
+}
+
+/// Get all jackpot tier values as JSON
+/// Returns JSON: {"mini": 50.0, "minor": 200.0, "major": 1000.0, "grand": 10000.0}
+/// CALLER MUST FREE using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_jackpot_get_all_values_json() -> *mut c_char {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => {
+            let values = engine.jackpot_get_all_values();
+            let json = serde_json::json!({
+                "mini": values[0],
+                "minor": values[1],
+                "major": values[2],
+                "grand": values[3],
+            });
+            match CString::new(json.to_string()) {
+                Ok(cstr) => cstr.into_raw(),
+                Err(_) => ptr::null_mut(),
+            }
+        }
+        None => ptr::null_mut(),
+    }
+}
+
+/// Get total contributions made to jackpots in this session
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_jackpot_total_contributions() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.jackpot_total_contributions(),
+        None => 0.0,
+    }
+}
+
+/// Get won jackpot tier (if any is pending)
+/// Returns -1 if no jackpot won, otherwise 0=Mini, 1=Minor, 2=Major, 3=Grand
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_jackpot_won_tier() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.jackpot_won_tier().map(|t| t as i32).unwrap_or(-1),
+        None => -1,
+    }
+}
+
+/// Get won jackpot amount (if any is pending)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_jackpot_won_amount() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.jackpot_won_amount(),
+        None => 0.0,
+    }
+}
+
+/// Force trigger a specific jackpot tier (for testing)
+/// tier: 0=Mini, 1=Minor, 2=Major, 3=Grand
+/// Returns 1 if triggered, 0 if failed
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_jackpot_force_trigger(tier: i32) -> i32 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => if engine.force_trigger_jackpot(tier as usize) { 1 } else { 0 },
+        None => 0,
+    }
+}
+
+/// Complete jackpot celebration and return won amount
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_jackpot_complete() -> f64 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => engine.jackpot_complete(),
+        None => 0.0,
+    }
+}
+
+/// Get complete Jackpot state as JSON
+/// Returns JSON with tier_values, won_tier, won_amount, total_contributions
+/// CALLER MUST FREE using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_jackpot_get_state_json() -> *mut c_char {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => {
+            if let Some(json_str) = engine.jackpot_get_state_json() {
+                match CString::new(json_str) {
+                    Ok(cstr) => cstr.into_raw(),
+                    Err(_) => ptr::null_mut(),
+                }
+            } else {
+                // Return basic state if no snapshot
+                let values = engine.jackpot_get_all_values();
+                let json = serde_json::json!({
+                    "is_active": false,
+                    "tier_values": {
+                        "mini": values[0],
+                        "minor": values[1],
+                        "major": values[2],
+                        "grand": values[3],
+                    },
+                    "won_tier": null,
+                    "won_amount": 0.0,
+                    "total_contributions": engine.jackpot_total_contributions(),
+                });
+                match CString::new(json.to_string()) {
+                    Ok(cstr) => cstr.into_raw(),
+                    Err(_) => ptr::null_mut(),
+                }
+            }
+        }
+        None => ptr::null_mut(),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FREE SPINS FEATURE FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Check if Free Spins feature is currently active
+/// Returns 1 if active, 0 otherwise
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_free_spins_is_active() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => if engine.is_free_spins_active() { 1 } else { 0 },
+        None => 0,
+    }
+}
+
+/// Get remaining free spins count (P4 complete API)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_free_spins_remaining() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.free_spins_remaining() as i32,
+        None => 0,
+    }
+}
+
+/// Get total free spins awarded
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_free_spins_total() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.free_spins_total() as i32,
+        None => 0,
+    }
+}
+
+/// Get current multiplier in free spins
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_free_spins_multiplier() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.free_spins_multiplier(),
+        None => 1.0,
+    }
+}
+
+/// Get total win accumulated in free spins session
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_free_spins_total_win() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.free_spins_total_win(),
+        None => 0.0,
+    }
+}
+
+/// Force trigger Free Spins feature (for testing)
+/// num_spins: number of spins to award
+/// Returns 1 if triggered, 0 if failed
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_free_spins_force_trigger(num_spins: i32) -> i32 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => if engine.force_trigger_free_spins(num_spins as u32) { 1 } else { 0 },
+        None => 0,
+    }
+}
+
+/// Add extra free spins (retrigger)
+/// Returns 1 if added, 0 if failed (not in free spins)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_free_spins_add(extra_spins: i32) -> i32 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => if engine.free_spins_add(extra_spins as u32) { 1 } else { 0 },
+        None => 0,
+    }
+}
+
+/// Complete Free Spins and return total win
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_free_spins_complete() -> f64 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => engine.free_spins_complete(),
+        None => 0.0,
+    }
+}
+
+/// Get complete Free Spins state as JSON
+/// CALLER MUST FREE using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_free_spins_get_state_json() -> *mut c_char {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => {
+            if let Some(json_str) = engine.free_spins_get_state_json() {
+                match CString::new(json_str) {
+                    Ok(cstr) => cstr.into_raw(),
+                    Err(_) => ptr::null_mut(),
+                }
+            } else {
+                // Return inactive state
+                let json = serde_json::json!({
+                    "is_active": false,
+                    "remaining": 0,
+                    "total": 0,
+                    "multiplier": 1.0,
+                    "total_win": 0.0,
+                    "spins_played": 0,
+                });
+                match CString::new(json.to_string()) {
+                    Ok(cstr) => cstr.into_raw(),
+                    Err(_) => ptr::null_mut(),
+                }
+            }
+        }
+        None => ptr::null_mut(),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CASCADE FEATURE FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Check if Cascade feature is currently active
+/// Returns 1 if active, 0 otherwise
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_cascade_is_active() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => if engine.is_cascade_active() { 1 } else { 0 },
+        None => 0,
+    }
+}
+
+/// Get current cascade step (depth)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_cascade_current_step() -> i32 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.cascade_current_step() as i32,
+        None => 0,
+    }
+}
+
+/// Get current cascade multiplier
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_cascade_multiplier() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.cascade_multiplier(),
+        None => 1.0,
+    }
+}
+
+/// Get peak multiplier reached in current cascade sequence
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_cascade_peak_multiplier() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.cascade_peak_multiplier(),
+        None => 1.0,
+    }
+}
+
+/// Get total win accumulated in cascade sequence
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_cascade_total_win() -> f64 {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => engine.cascade_total_win(),
+        None => 0.0,
+    }
+}
+
+/// Force trigger Cascade feature (for testing)
+/// Returns 1 if triggered, 0 if failed
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_cascade_force_trigger() -> i32 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => if engine.force_trigger_cascade() { 1 } else { 0 },
+        None => 0,
+    }
+}
+
+/// Complete Cascade and return total win
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_cascade_complete() -> f64 {
+    let mut guard = ENGINE_V2.write();
+    match &mut *guard {
+        Some(engine) => engine.cascade_complete(),
+        None => 0.0,
+    }
+}
+
+/// Get complete Cascade state as JSON
+/// CALLER MUST FREE using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_cascade_get_state_json() -> *mut c_char {
+    let guard = ENGINE_V2.read();
+    match &*guard {
+        Some(engine) => {
+            if let Some(json_str) = engine.cascade_get_state_json() {
+                match CString::new(json_str) {
+                    Ok(cstr) => cstr.into_raw(),
+                    Err(_) => ptr::null_mut(),
+                }
+            } else {
+                // Return inactive state
+                let json = serde_json::json!({
+                    "is_active": false,
+                    "current_step": 0,
+                    "multiplier": 1.0,
+                    "peak_multiplier": 1.0,
+                    "total_win": 0.0,
+                });
+                match CString::new(json.to_string()) {
+                    Ok(cstr) => cstr.into_raw(),
+                    Err(_) => ptr::null_mut(),
+                }
+            }
+        }
+        None => ptr::null_mut(),
     }
 }
 
