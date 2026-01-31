@@ -2683,17 +2683,34 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // V9: RIGHT-TO-LEFT DIGIT REVEAL — Slot machine style counter animation
-  // Rightmost digit lands first, then cascades left toward the leftmost digit
-  // Examples: progress 0.0 → "?.???" | progress 0.5 → "??.56" | progress 1.0 → "123.56"
+  // V11: RIGHT-TO-LEFT DIGIT REVEAL — Industry-standard slot machine counter
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Pattern used by IGT, Aristocrat, Novomatic, NetEnt, Pragmatic Play:
+  // - All digits start spinning (random values)
+  // - RIGHTMOST digit LANDS FIRST (stops on final value)
+  // - Each digit to the left lands progressively
+  // - LEFTMOST digit lands LAST
+  //
+  // Examples for "1,234.56":
+  // progress 0.0 → "?,???.??" (all spinning)
+  // progress 0.3 → "?,???.56" (last 2 landed)
+  // progress 0.5 → "?,?34.56" (last 4 landed)
+  // progress 1.0 → "1,234.56" (all landed)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Format rollup display with RTL (right-to-left) digit reveal animation
-  /// Each digit position "lands" from right to left as progress increases
-  /// This creates the classic slot machine counter rolling effect
+  /// Format rollup display with RTL (right-to-left) digit reveal animation.
+  /// Rightmost digits land first, leftmost digits land last.
+  /// Creates the classic slot machine counter rolling effect.
   String _formatRtlRollupDisplay(double targetAmount, double progress) {
     // Get the final formatted string (e.g., "1,234.56")
     final targetStr = _currencyFormatter.format(targetAmount);
+
+    // Handle edge cases
+    if (progress >= 1.0) return targetStr;
+    if (progress <= 0.0) {
+      // All spinning — replace all digits with random
+      return _allDigitsSpinning(targetStr);
+    }
 
     // Extract only the numeric digits (remove commas and decimal point for counting)
     final digitsOnly = targetStr.replaceAll(RegExp(r'[,.]'), '');
@@ -2703,11 +2720,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // Calculate how many digits from the RIGHT have "landed" (reached final value)
     // progress 0.0 = 0 digits landed, progress 1.0 = all digits landed
-    final landedCount = (progress * numDigits).ceil().clamp(0, numDigits);
+    // Using floor() so digits land progressively, not prematurely
+    final landedCount = (progress * numDigits).floor().clamp(0, numDigits);
 
     // Build result by iterating through the formatted string
     final result = StringBuffer();
-    int digitIndex = 0; // Track position in digitsOnly
+    int digitIndex = 0; // Track position in digitsOnly (0 = leftmost digit)
 
     for (int i = 0; i < targetStr.length; i++) {
       final char = targetStr[i];
@@ -2717,19 +2735,34 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         result.write(char);
       } else {
         // This is a digit - check if it has "landed"
+        // posFromRight: 0 = rightmost, numDigits-1 = leftmost
         final posFromRight = numDigits - 1 - digitIndex;
 
         if (posFromRight < landedCount) {
-          // This digit has landed - show real value
+          // This digit has LANDED — show final value
           result.write(char);
         } else {
-          // This digit is still spinning - show random digit
+          // This digit is still SPINNING — show random digit
           result.write(_random.nextInt(10).toString());
         }
         digitIndex++;
       }
     }
 
+    return result.toString();
+  }
+
+  /// Generate all-spinning display (progress = 0) — all digits are random
+  String _allDigitsSpinning(String targetStr) {
+    final result = StringBuffer();
+    for (int i = 0; i < targetStr.length; i++) {
+      final char = targetStr[i];
+      if (char == ',' || char == '.') {
+        result.write(char);
+      } else {
+        result.write(_random.nextInt(10).toString());
+      }
+    }
     return result.toString();
   }
 

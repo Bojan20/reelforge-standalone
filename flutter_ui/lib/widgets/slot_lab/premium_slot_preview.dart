@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -3169,7 +3170,18 @@ class _WinButtonState extends State<_WinButton> {
 // Like a mechanical odometer or classic slot machine win counter
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _RtlRollupCounter extends StatelessWidget {
+/// ═══════════════════════════════════════════════════════════════════════════
+/// RTL ROLLUP COUNTER — Industry-standard right-to-left digit reveal
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Pattern used by IGT, Aristocrat, Novomatic, NetEnt, Pragmatic Play:
+/// - All digits start spinning (random values)
+/// - Rightmost digit LANDS FIRST (stops on final value)
+/// - Each digit to the left lands progressively
+/// - Leftmost digit lands LAST
+/// Example for "1,234.56" with progress 0.5:
+/// - "?" spinning | "?" spinning | "?" spinning | "4" landed | "5" landed | "6" landed
+/// ═══════════════════════════════════════════════════════════════════════════
+class _RtlRollupCounter extends StatefulWidget {
   final double targetAmount;
   final double progress; // 0.0 to 1.0
   final TextStyle? style;
@@ -3181,75 +3193,96 @@ class _RtlRollupCounter extends StatelessWidget {
   });
 
   @override
+  State<_RtlRollupCounter> createState() => _RtlRollupCounterState();
+}
+
+class _RtlRollupCounterState extends State<_RtlRollupCounter> {
+  final _random = math.Random();
+
+  // Cache random digits to prevent flickering on rebuild
+  List<int> _spinningDigits = [];
+  int _lastDigitCount = 0;
+
+  @override
   Widget build(BuildContext context) {
-    // Format target amount to get digit count
-    final targetStr = targetAmount.toStringAsFixed(2);
-    final targetCents = (targetAmount * 100).round();
-
-    // Calculate current value using RTL progression
-    // Each digit position completes at different times (right to left)
-    final displayStr = _computeRtlDisplay(targetCents, progress);
-
+    final displayStr = _computeRtlDisplay(widget.targetAmount, widget.progress);
     return Text(
       '\$$displayStr',
-      style: style,
+      style: widget.style,
     );
   }
 
-  /// Compute RTL rollup display string
-  /// Right digits complete first, left digits complete last
-  String _computeRtlDisplay(int targetCents, double progress) {
-    if (progress >= 1.0) {
-      return (targetCents / 100).toStringAsFixed(2);
-    }
+  /// Compute RTL rollup display — rightmost digit lands first, leftmost last
+  String _computeRtlDisplay(double targetAmount, double progress) {
+    // Format target with thousand separators: 1234.56 → "1,234.56"
+    final formatter = NumberFormat('#,##0.00', 'en_US');
+    final targetStr = formatter.format(targetAmount);
+
+    if (progress >= 1.0) return targetStr;
     if (progress <= 0.0) {
-      return '0.00';
+      // All spinning — show random digits but keep separators
+      return _allSpinning(targetStr);
     }
 
-    // Convert target to digit array (reversed for RTL processing)
-    final targetStr = targetCents.toString().padLeft(3, '0'); // At least 3 digits (X.XX)
-    final digits = targetStr.split('').reversed.toList();
-    final numDigits = digits.length;
+    // Extract only numeric digits for counting (ignore , and .)
+    final digitsOnly = targetStr.replaceAll(RegExp(r'[,.]'), '');
+    final numDigits = digitsOnly.length;
 
-    // Result digits (will reverse at end)
-    final resultDigits = <String>[];
+    if (numDigits == 0) return targetStr;
 
-    // Each digit position has its own "completion time"
-    // Rightmost digit (index 0) completes at progress = 1/numDigits
-    // Leftmost digit (index numDigits-1) completes at progress = 1.0
-    for (int i = 0; i < numDigits; i++) {
-      final targetDigit = int.parse(digits[i]);
+    // Regenerate spinning digits if digit count changed
+    if (_lastDigitCount != numDigits) {
+      _spinningDigits = List.generate(numDigits, (_) => _random.nextInt(10));
+      _lastDigitCount = numDigits;
+    }
 
-      // Calculate when this digit position starts and ends rolling
-      // RTL: right digits start first and complete first
-      final startProgress = i / (numDigits + 1);
-      final endProgress = (i + 2) / (numDigits + 1);
+    // Calculate how many digits from the RIGHT have landed
+    // progress 0.0 = 0 landed, progress 1.0 = all landed
+    final landedCount = (progress * numDigits).ceil().clamp(0, numDigits);
 
-      if (progress <= startProgress) {
-        // This digit hasn't started rolling yet
-        resultDigits.add('0');
-      } else if (progress >= endProgress) {
-        // This digit has finished rolling
-        resultDigits.add(digits[i]);
+    // Build result character by character
+    final result = StringBuffer();
+    int digitIndex = 0; // Position in digitsOnly (0 = leftmost digit)
+
+    for (int i = 0; i < targetStr.length; i++) {
+      final char = targetStr[i];
+
+      if (char == ',' || char == '.') {
+        // Preserve separators
+        result.write(char);
       } else {
-        // This digit is currently rolling
-        final digitProgress = (progress - startProgress) / (endProgress - startProgress);
+        // This is a digit — check if it has landed
+        // posFromRight: rightmost digit = 0, leftmost = numDigits-1
+        final posFromRight = numDigits - 1 - digitIndex;
 
-        // Roll through all values 0-9 multiple times, ending at target
-        // Number of full cycles based on position (more cycles for right digits)
-        final cycles = (numDigits - i).clamp(1, 3);
-        final totalSteps = targetDigit + (cycles * 10);
-        final currentStep = (totalSteps * digitProgress).floor();
-        final displayDigit = currentStep % 10;
-
-        resultDigits.add(displayDigit.toString());
+        if (posFromRight < landedCount) {
+          // This digit has LANDED — show final value
+          result.write(char);
+        } else {
+          // This digit is still SPINNING — show cached random
+          // Update random on each frame for spinning effect
+          _spinningDigits[digitIndex] = _random.nextInt(10);
+          result.write(_spinningDigits[digitIndex]);
+        }
+        digitIndex++;
       }
     }
 
-    // Reverse back to normal order and format as currency
-    final valueStr = resultDigits.reversed.join('');
-    final cents = int.tryParse(valueStr) ?? 0;
-    return (cents / 100).toStringAsFixed(2);
+    return result.toString();
+  }
+
+  /// Generate all-spinning display (progress = 0)
+  String _allSpinning(String targetStr) {
+    final result = StringBuffer();
+    for (int i = 0; i < targetStr.length; i++) {
+      final char = targetStr[i];
+      if (char == ',' || char == '.') {
+        result.write(char);
+      } else {
+        result.write(_random.nextInt(10));
+      }
+    }
+    return result.toString();
   }
 }
 
