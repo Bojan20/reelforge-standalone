@@ -5827,8 +5827,12 @@ class _AnticipationVignettePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Clamp input values to valid ranges
+    final safeIntensity = intensity.clamp(0.0, 1.0);
+    final safePulse = pulseValue.clamp(0.0, 1.0);
+
     // Dark vignette at edges
-    final vignetteOpacity = intensity * (0.7 + pulseValue * 0.3);
+    final vignetteOpacity = (safeIntensity * (0.7 + safePulse * 0.3)).clamp(0.0, 1.0);
 
     final vignettePaint = Paint()
       ..shader = RadialGradient(
@@ -5837,8 +5841,8 @@ class _AnticipationVignettePainter extends CustomPainter {
         colors: [
           Colors.transparent,
           Colors.transparent,
-          Colors.black.withOpacity(vignetteOpacity * 0.4),
-          Colors.black.withOpacity(vignetteOpacity * 0.8),
+          Colors.black.withOpacity((vignetteOpacity * 0.4).clamp(0.0, 1.0)),
+          Colors.black.withOpacity((vignetteOpacity * 0.8).clamp(0.0, 1.0)),
         ],
         stops: const [0.0, 0.4, 0.7, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -5846,7 +5850,7 @@ class _AnticipationVignettePainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), vignettePaint);
 
     // Colored glow at edges (tension color)
-    final glowOpacity = intensity * 0.3 * (0.5 + pulseValue * 0.5);
+    final glowOpacity = (safeIntensity * 0.3 * (0.5 + safePulse * 0.5)).clamp(0.0, 1.0);
 
     final glowPaint = Paint()
       ..shader = RadialGradient(
@@ -5855,7 +5859,7 @@ class _AnticipationVignettePainter extends CustomPainter {
         colors: [
           Colors.transparent,
           Colors.transparent,
-          color.withOpacity(glowOpacity * 0.5),
+          color.withOpacity((glowOpacity * 0.5).clamp(0.0, 1.0)),
           color.withOpacity(glowOpacity),
         ],
         stops: const [0.0, 0.5, 0.8, 1.0],
@@ -5973,8 +5977,13 @@ class _AnticipationTrailPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Clamp pulse value to valid range
+    final safePulse = pulseValue.clamp(0.0, 1.0);
+
     for (final p in particles) {
-      final opacity = (p.life * (0.7 + pulseValue * 0.3)).clamp(0.0, 1.0);
+      // Clamp life to valid range (can be negative before cleanup)
+      final safeLife = p.life.clamp(0.0, 1.0);
+      final opacity = (safeLife * (0.7 + safePulse * 0.3)).clamp(0.0, 1.0);
 
       // Core particle
       final paint = Paint()
@@ -6000,9 +6009,9 @@ class _AnticipationTrailPainter extends CustomPainter {
 
       // Glow effect
       final glowPaint = Paint()
-        ..color = p.color.withOpacity(opacity * 0.4)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, p.size);
-      canvas.drawCircle(Offset.zero, p.size * 0.8, glowPaint);
+        ..color = p.color.withOpacity((opacity * 0.4).clamp(0.0, 1.0))
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, p.size.abs());
+      canvas.drawCircle(Offset.zero, p.size.abs() * 0.8, glowPaint);
 
       canvas.restore();
     }
