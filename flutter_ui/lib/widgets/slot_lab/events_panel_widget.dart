@@ -2191,12 +2191,12 @@ class _HoverPreviewItemState extends State<_HoverPreviewItem> {
                   ),
               ],
             ),
-            // Preview waveform - always rendered, visibility controlled by opacity
+            // Preview waveform - only visible while playing (not on hover)
             // P0 PERFORMANCE FIX: Always render waveform to prevent costly rebuild
             Expanded(
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 150),
-                opacity: (_isHovered || _isPlaying) ? 1.0 : 0.0,
+                opacity: _isPlaying ? 1.0 : 0.0,
                 child: Container(
                   margin: const EdgeInsets.only(top: 2),
                   decoration: BoxDecoration(
