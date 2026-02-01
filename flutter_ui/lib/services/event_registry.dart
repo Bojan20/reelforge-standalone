@@ -436,11 +436,13 @@ class _PlayingInstance {
   final String eventId;
   final List<int> voiceIds; // Rust voice IDs from PlaybackEngine one-shots
   final DateTime startTime;
+  final bool isLooping; // P0: Looping instances are NOT auto-cleaned
 
   _PlayingInstance({
     required this.eventId,
     required this.voiceIds,
     required this.startTime,
+    this.isLooping = false,
   });
 
   Future<void> stop() async {
@@ -562,11 +564,17 @@ class EventRegistry extends ChangeNotifier {
   }
 
   /// P1.3: Remove instances older than _instanceMaxAge
+  /// CRITICAL: Skip looping instances — they are meant to play indefinitely!
   void _cleanupStaleInstances() {
     final now = DateTime.now();
     final toRemove = <_PlayingInstance>[];
 
     for (final instance in _playingInstances) {
+      // NEVER auto-clean looping instances (GAME_START, MUSIC_*, etc.)
+      // They must be explicitly stopped via stopEvent()
+      if (instance.isLooping) {
+        continue;
+      }
       final age = now.difference(instance.startTime);
       if (age > _instanceMaxAge) {
         toRemove.add(instance);
@@ -2092,11 +2100,13 @@ class EventRegistry extends ChangeNotifier {
     }
 
     // Kreiraj playing instance
+    // P0: Track isLooping so cleanup timer doesn't kill looping voices
     final voiceIds = <int>[];
     final instance = _PlayingInstance(
       eventId: eventId,
       voiceIds: voiceIds,
       startTime: DateTime.now(),
+      isLooping: event.loop,
     );
     _playingInstances.add(instance);
 
