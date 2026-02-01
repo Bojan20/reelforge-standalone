@@ -7307,7 +7307,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (tierResult == null) return '';
 
     if (tierResult.isBigWin) {
-      return tierResult.bigWinTier?.displayLabel ?? 'BIG WIN!';
+      return tierResult.bigWinTier?.displayLabel ?? 'BIG WIN TIER 1';
     }
 
     return '';

@@ -2089,33 +2089,33 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       );
     }
 
-    // Regular win tiers (legacy)
+    // Regular win tiers (legacy) - using simple tier identifiers
     final int regularTierId;
     final String regularLabel;
     if (ratio < 1) {
       regularTierId = 0; // WIN_LOW
-      regularLabel = 'Win';
+      regularLabel = 'WIN LOW';
     } else if (ratio == 1) {
       regularTierId = -1; // WIN_EQUAL
-      regularLabel = 'Win';
+      regularLabel = 'WIN =';
     } else if (ratio <= 2) {
       regularTierId = 1;
-      regularLabel = 'Small Win';
+      regularLabel = 'WIN 1';
     } else if (ratio <= 4) {
       regularTierId = 2;
-      regularLabel = 'Nice Win';
+      regularLabel = 'WIN 2';
     } else if (ratio <= 6) {
       regularTierId = 3;
-      regularLabel = 'Good Win';
+      regularLabel = 'WIN 3';
     } else if (ratio <= 10) {
       regularTierId = 4;
-      regularLabel = 'Great Win';
+      regularLabel = 'WIN 4';
     } else if (ratio <= 15) {
       regularTierId = 5;
-      regularLabel = 'Super Win';
+      regularLabel = 'WIN 5';
     } else {
       regularTierId = 6;
-      regularLabel = 'Huge Win';
+      regularLabel = 'WIN 5'; // No WIN_6, use WIN 5 for high regular wins
     }
 
     return WinTierResult(
@@ -2149,14 +2149,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   /// Legacy big win label mapping (fallback only)
+  /// Uses simple tier identifiers - NO hardcoded labels
   String _legacyBigWinLabel(int tierId) {
     return switch (tierId) {
-      1 => 'BIG WIN!',
-      2 => 'MEGA WIN!',
-      3 => 'SUPER WIN!',
-      4 => 'EPIC WIN!',
-      5 => 'ULTRA WIN!',
-      _ => 'BIG WIN!',
+      1 => 'BIG WIN TIER 1',
+      2 => 'BIG WIN TIER 2',
+      3 => 'BIG WIN TIER 3',
+      4 => 'BIG WIN TIER 4',
+      5 => 'BIG WIN TIER 5',
+      _ => 'BIG WIN',
     };
   }
 
@@ -2235,7 +2236,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     if (tierResult == null) return '';
 
     if (tierResult.isBigWin) {
-      return tierResult.bigWinTier?.displayLabel ?? 'BIG WIN!';
+      return tierResult.bigWinTier?.displayLabel ?? 'BIG WIN TIER 1';
     }
 
     // Regular wins don't show plaque (return empty)

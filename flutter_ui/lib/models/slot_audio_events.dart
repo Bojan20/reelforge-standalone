@@ -277,67 +277,67 @@ class SlotAudioEventFactory {
   }
 
   // ─── BIG WIN TIERS ─────────────────────────────────────────────────────────
-  // Tier system: Nice (10x) → Super (20x) → Mega (50x) → Epic (100x) → Ultra (200x+)
+  // Tier system: BIG_WIN_TIER_1 (20x-50x) → BIG_WIN_TIER_2 (50x-100x) → BIG_WIN_TIER_3 (100x-250x) → BIG_WIN_TIER_4 (250x-500x) → BIG_WIN_TIER_5 (500x+)
 
   static List<MiddlewareEvent> createBigWinEvents() {
     return [
-      // Nice Win — 10x-20x bet multiplier
+      // BIG WIN TIER 1 — 20x-50x bet multiplier
       MiddlewareEvent(
-        id: 'slot_bigwin_nice',
-        name: 'Nice Win',
+        id: 'slot_bigwin_tier_1',
+        name: 'BIG WIN TIER 1',
         category: 'Slot_BigWin',
         actions: [
           MiddlewareAction(id: _nextActionId(), type: ActionType.setVolume, bus: 'Music', gain: 0.5, fadeTime: 0.1),
-          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'sfx_win_nice', bus: 'Wins'),
+          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'sfx_bigwin_tier_1', bus: 'Wins'),
           MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'sfx_coins_light', bus: 'SFX', delay: 0.1),
         ],
       ),
-      // Super Win — 20x-50x bet multiplier
+      // BIG WIN TIER 2 — 50x-100x bet multiplier
       MiddlewareEvent(
-        id: 'slot_bigwin_super',
-        name: 'Super Win',
+        id: 'slot_bigwin_tier_2',
+        name: 'BIG WIN TIER 2',
         category: 'Slot_BigWin',
         actions: [
           MiddlewareAction(id: _nextActionId(), type: ActionType.setVolume, bus: 'Music', gain: 0.4, fadeTime: 0.1),
-          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'mus_bigwin_super', bus: 'Wins'),
+          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'mus_bigwin_tier_2', bus: 'Wins'),
           MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'sfx_coins_shower', bus: 'SFX', delay: 0.15),
         ],
       ),
-      // Mega Win — 50x-100x bet multiplier
+      // BIG WIN TIER 3 — 100x-250x bet multiplier
       MiddlewareEvent(
-        id: 'slot_bigwin_mega',
-        name: 'Mega Win',
+        id: 'slot_bigwin_tier_3',
+        name: 'BIG WIN TIER 3',
         category: 'Slot_BigWin',
         actions: [
           MiddlewareAction(id: _nextActionId(), type: ActionType.setVolume, bus: 'Music', gain: 0.3, fadeTime: 0.1),
-          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'mus_bigwin_mega', bus: 'Wins'),
+          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'mus_bigwin_tier_3', bus: 'Wins'),
           MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'sfx_crowd_cheer', bus: 'SFX', delay: 0.1),
           MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'sfx_coins_cascade', bus: 'SFX', delay: 0.3),
         ],
       ),
-      // Epic Win — 100x-200x bet multiplier
+      // BIG WIN TIER 4 — 250x-500x bet multiplier
       MiddlewareEvent(
-        id: 'slot_bigwin_epic',
-        name: 'Epic Win',
+        id: 'slot_bigwin_tier_4',
+        name: 'BIG WIN TIER 4',
         category: 'Slot_BigWin',
         actions: [
           MiddlewareAction(id: _nextActionId(), type: ActionType.setVolume, bus: 'Music', gain: 0.2, fadeTime: 0.1),
-          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'mus_bigwin_epic', bus: 'Wins'),
+          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'mus_bigwin_tier_4', bus: 'Wins'),
           MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'sfx_crowd_roar', bus: 'SFX', delay: 0.1),
           MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'sfx_fireworks', bus: 'SFX', delay: 0.5),
         ],
       ),
-      // Ultra Win — 200x+ bet multiplier (max tier)
+      // BIG WIN TIER 5 — 500x+ bet multiplier (max tier)
       MiddlewareEvent(
-        id: 'slot_bigwin_ultra',
-        name: 'Ultra Win',
+        id: 'slot_bigwin_tier_5',
+        name: 'BIG WIN TIER 5',
         category: 'Slot_BigWin',
         actions: [
           MiddlewareAction(id: _nextActionId(), type: ActionType.stopAll, bus: 'Music', fadeTime: 0.1),
-          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'mus_bigwin_ultra', bus: 'Wins'),
+          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'mus_bigwin_tier_5', bus: 'Wins'),
           MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'sfx_crowd_eruption', bus: 'SFX', delay: 0.1),
           MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'sfx_explosion_shower', bus: 'SFX', delay: 0.3),
-          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'vo_ultra_win', bus: 'Voice', delay: 0.5),
+          MiddlewareAction(id: _nextActionId(), type: ActionType.play, assetId: 'vo_bigwin_tier_5', bus: 'Voice', delay: 0.5),
         ],
       ),
     ];
