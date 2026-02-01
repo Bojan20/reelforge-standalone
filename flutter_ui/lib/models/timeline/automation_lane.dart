@@ -4,6 +4,7 @@
 // Supports bezier interpolation, multiple curve types.
 
 import 'dart:math' as math;
+import 'package:flutter/material.dart';
 
 /// Interpolation curve type
 enum CurveType {

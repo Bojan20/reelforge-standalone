@@ -1836,11 +1836,25 @@ pub extern "C" fn slot_lab_hold_and_win_force_trigger() -> i32 {
 ///
 /// Returns 1 on success, 0 on failure
 #[unsafe(no_mangle)]
+/// P12.0.5: BOUNDS CHECKED — validates position and symbol_type
 pub extern "C" fn slot_lab_hold_and_win_add_locked_symbol(
     position: u8,
     value: f64,
     symbol_type: i32,
 ) -> i32 {
+    // P12.0.5: Validate position (typical 5x3 grid = 15 positions, use 100 as safe max)
+    const MAX_GRID_POSITIONS: u8 = 100;
+    if position >= MAX_GRID_POSITIONS {
+        log::error!("slot_lab_hold_and_win_add_locked_symbol: Position {} exceeds max {}", position, MAX_GRID_POSITIONS);
+        return 0;
+    }
+
+    // P12.0.5: Validate symbol_type (0-4 for Normal/Mini/Minor/Major/Grand)
+    if symbol_type < 0 || symbol_type > 4 {
+        log::error!("slot_lab_hold_and_win_add_locked_symbol: Invalid symbol_type {}", symbol_type);
+        return 0;
+    }
+
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
         Some(engine) => {

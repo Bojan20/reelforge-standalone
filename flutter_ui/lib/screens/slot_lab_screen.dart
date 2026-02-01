@@ -81,9 +81,11 @@ import '../services/event_registry.dart';
 import '../services/slotlab_track_bridge.dart';
 import '../services/waveform_cache_service.dart';
 import '../controllers/slot_lab/timeline_drag_controller.dart';
+import '../controllers/slot_lab/timeline_controller.dart' as ultimate;
 import '../widgets/slot_lab/timeline_toolbar.dart';
 import '../widgets/slot_lab/timeline_grid_overlay.dart';
 import '../widgets/slot_lab/draggable_layer_widget.dart';
+import '../widgets/slot_lab/timeline/ultimate_timeline_widget.dart';
 import '../providers/undo_manager.dart';
 import '../widgets/slot_lab/game_model_editor.dart';
 import '../widgets/slot_lab/scenario_editor.dart';
@@ -318,6 +320,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // Timeline drag controller (centralized drag state management)
   TimelineDragController? _dragController;
   TimelineDragController get dragController => _dragController!;
+
+  // P14: Ultimate Timeline controller (new professional timeline)
+  ultimate.TimelineController? _ultimateTimelineController;
 
   // FFI instance
   final _ffi = NativeFFI.instance;
@@ -866,6 +871,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Initialize Lower Zone Controller for unified bottom panel with super-tabs
     // NOTE: Listener is added AFTER restore completes to prevent overwriting persisted state
     _lowerZoneController = SlotLabLowerZoneController();
+
+    // P14: Initialize Ultimate Timeline controller
+    _ultimateTimelineController = ultimate.TimelineController();
 
     _initializeTracks();
     _loadAudioPool();
@@ -2199,6 +2207,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Dispose drag controller
     _dragController?.removeListener(_onDragControllerChanged);
     _dragController?.dispose();
+
+    // P14: Dispose Ultimate Timeline controller
+    _ultimateTimelineController?.dispose();
 
     _spinTimer?.cancel();
     _playbackTimer?.cancel();
@@ -6411,6 +6422,69 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   Widget _buildTimelineContent() {
+    // P14: Use ULTIMATE TIMELINE (professional DAW-style)
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // DUAL MODE: Legacy timeline for backward compatibility, Ultimate for new workflow
+        final useUltimateTimeline = true; // TODO: Make this a user preference
+
+        if (useUltimateTimeline) {
+          return _buildUltimateTimelineMode(constraints);
+        }
+
+        // LEGACY MODE (preserved for backward compatibility)
+        return _buildLegacyTimelineMode(constraints);
+      },
+    );
+  }
+
+  /// P14: Ultimate Timeline Mode (NEW — Professional DAW-style)
+  Widget _buildUltimateTimelineMode(BoxConstraints constraints) {
+    return Consumer<SlotLabProvider>(
+      builder: (context, slotLabProvider, _) {
+        // Sync stage markers from SlotLabProvider
+        _syncStageMarkersToUltimateTimeline(slotLabProvider);
+
+        return UltimateTimeline(
+          height: constraints.maxHeight,
+          controller: _ultimateTimelineController,
+        );
+      },
+    );
+  }
+
+  /// Sync stage markers from SlotLabProvider to Ultimate Timeline
+  void _syncStageMarkersToUltimateTimeline(SlotLabProvider provider) {
+    if (_ultimateTimelineController == null) return;
+
+    final stages = provider.lastStages;
+    if (stages.isEmpty) return;
+
+    // Clear existing markers
+    final currentMarkers = _ultimateTimelineController!.state.markers;
+    if (currentMarkers.length > 100) {
+      // Prevent marker overflow — clear old markers
+      for (final marker in currentMarkers.take(currentMarkers.length - 50)) {
+        _ultimateTimelineController!.removeMarker(marker.id);
+      }
+    }
+
+    // Add markers from stage events
+    for (final stage in stages) {
+      final timeSeconds = stage.timestamp / 1000.0; // Convert ms to seconds
+
+      // Use TimelineState's StageMarker model (imported as ultimate.StageMarker would conflict)
+      final marker = ultimate.StageMarker.fromStageId(
+        stage.stageType,
+        timeSeconds,
+      );
+
+      _ultimateTimelineController!.addMarker(marker);
+    }
+  }
+
+  /// Legacy Timeline Mode (PRESERVED — old implementation)
+  Widget _buildLegacyTimelineMode(BoxConstraints constraints) {
     return DragTarget<Object>(
       onAcceptWithDetails: (details) {
         if (details.data is String) {
@@ -6424,7 +6498,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       onWillAcceptWithDetails: (details) => details.data is String || details.data is SlotCompositeEvent,
       builder: (context, candidateData, rejectedData) {
         return LayoutBuilder(
-          builder: (context, constraints) {
+          builder: (context, legacyConstraints) {
             // Apply zoom to timeline width
             final zoomedWidth = constraints.maxWidth * _timelineZoom;
 

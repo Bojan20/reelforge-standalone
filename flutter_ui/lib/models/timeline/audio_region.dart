@@ -3,6 +3,7 @@
 // Represents a single audio clip on the timeline with waveform,
 // non-destructive editing (trim, fade), and visual properties.
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// Fade curve types

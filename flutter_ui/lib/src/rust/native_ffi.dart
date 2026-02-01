@@ -1004,6 +1004,10 @@ typedef InsertGetParamDart = double Function(int trackId, int slotIndex, int par
 typedef InsertIsLoadedNative = Int32 Function(Uint32 trackId, Uint32 slotIndex);
 typedef InsertIsLoadedDart = int Function(int trackId, int slotIndex);
 
+// P10.0.1: Per-processor metering FFI
+typedef InsertGetMeteringJsonNative = Pointer<Utf8> Function(Uint32 trackId, Uint32 slotIndex);
+typedef InsertGetMeteringJsonDart = Pointer<Utf8> Function(int trackId, int slotIndex);
+
 typedef InsertOpenEditorNative = Int32 Function(Uint32 trackId, Uint32 slotIndex);
 typedef InsertOpenEditorDart = int Function(int trackId, int slotIndex);
 
@@ -2377,6 +2381,7 @@ class NativeFFI {
   late final InsertSetParamDart _insertSetParam;
   late final InsertGetParamDart _insertGetParam;
   late final InsertIsLoadedDart _insertIsLoaded;
+  late final InsertGetMeteringJsonDart _insertGetMeteringJson; // P10.0.1
   late final InsertOpenEditorDart _insertOpenEditor;
 
   // Bus Insert Effects (Music=1, Sfx=2, Voice=3, Amb=4, Aux=5)
@@ -3037,6 +3042,7 @@ class NativeFFI {
     _insertSetParam = _lib.lookupFunction<InsertSetParamNative, InsertSetParamDart>('insert_set_param');
     _insertGetParam = _lib.lookupFunction<InsertGetParamNative, InsertGetParamDart>('insert_get_param');
     _insertIsLoaded = _lib.lookupFunction<InsertIsLoadedNative, InsertIsLoadedDart>('insert_is_loaded');
+    _insertGetMeteringJson = _lib.lookupFunction<InsertGetMeteringJsonNative, InsertGetMeteringJsonDart>('insert_get_metering_json'); // P10.0.1
     _insertOpenEditor = _lib.lookupFunction<InsertOpenEditorNative, InsertOpenEditorDart>('insert_open_editor');
 
     // Bus Insert Effects (Music=1, Sfx=2, Voice=3, Amb=4, Aux=5)
@@ -5837,6 +5843,45 @@ class NativeFFI {
   bool insertIsLoaded(int trackId, int slotIndex) {
     if (!_loaded) return false;
     return _insertIsLoaded(trackId, slotIndex) != 0;
+  }
+
+  /// P10.0.1: Get per-processor metering data as JSON
+  ///
+  /// Returns JSON with 10 metering fields:
+  /// ```json
+  /// {
+  ///   "input_peak_l": 0.5,
+  ///   "input_peak_r": 0.5,
+  ///   "input_rms_l": 0.3,
+  ///   "input_rms_r": 0.3,
+  ///   "output_peak_l": 0.4,
+  ///   "output_peak_r": 0.4,
+  ///   "output_rms_l": 0.25,
+  ///   "output_rms_r": 0.25,
+  ///   "gain_reduction_db": -3.5,
+  ///   "load_percent": 12.5
+  /// }
+  /// ```
+  ///
+  /// [trackId] - Track ID (0 = master bus)
+  /// [slotIndex] - Insert slot index (0-7)
+  ///
+  /// Returns null if:
+  /// - FFI not loaded
+  /// - Slot is not loaded
+  /// - Track not found
+  ///
+  /// Use case: Display input/output meters per processor, verify gain staging
+  String? insertGetMeteringJson(int trackId, int slotIndex) {
+    if (!_loaded) return null;
+
+    final ptr = _insertGetMeteringJson(trackId, slotIndex);
+    if (ptr.address == 0) return null;
+
+    final result = ptr.toDartString();
+    freeString(ptr);
+
+    return result;
   }
 
   /// Open plugin editor for insert slot
