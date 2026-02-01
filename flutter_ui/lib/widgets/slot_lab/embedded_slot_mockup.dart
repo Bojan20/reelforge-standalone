@@ -219,6 +219,9 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
   List<Timer?> _reelStopTimers = [];
   // Flag to prevent double reveal processing when reels stop before controller finishes
   bool _revealProcessed = false;
+  // V3 FIX: Store pending forced outcome for use when all reels stop
+  // (since _revealResult is now called from _scheduleReelStops, not from controller callback)
+  ForcedOutcome? _pendingForcedOutcome;
 
   // Currency formatter for rollup display
   final _currencyFormatter = NumberFormat('#,##0.00', 'en_US');
@@ -288,6 +291,8 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
     // Reset reveal flag for new spin
     _revealProcessed = false;
+    // V3 FIX: Clear any pending forced outcome
+    _pendingForcedOutcome = null;
 
     setState(() {
       _gameState = GameState.spinning;
@@ -306,9 +311,20 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
     _reelController.duration = Duration(milliseconds: _turbo ? 800 : 2000);
 
     // Start spin animation
-    _reelController.forward(from: 0).then((_) {
-      _revealResult();
-    });
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V3 FIX: Do NOT call _revealResult() from controller callback!
+    //
+    // PROBLEM: With anticipation, total reel stop time can exceed controller duration:
+    // - Controller: 2000ms (normal) / 800ms (turbo)
+    // - With anticipation: ~2900ms (5 reels × 800ms anticipation delay)
+    //
+    // If _revealResult() is called from .then(), it fires BEFORE all reels stop!
+    // This caused win presentation to appear while reels were still spinning.
+    //
+    // SOLUTION: Only call _revealResult() from _scheduleReelStops() when ALL reels stop.
+    // The controller animation is just for visual spinning effect, not for timing.
+    // ═══════════════════════════════════════════════════════════════════════════
+    _reelController.forward(from: 0);
 
     // Staggered reel stops
     _scheduleReelStops();
@@ -319,6 +335,8 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
     // Reset reveal flag for new spin
     _revealProcessed = false;
+    // V3 FIX: Store forced outcome for use when all reels stop
+    _pendingForcedOutcome = outcome;
 
     setState(() {
       _gameState = GameState.spinning;
@@ -334,9 +352,9 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
     widget.onForcedSpin?.call(outcome);
 
     _reelController.duration = Duration(milliseconds: _turbo ? 800 : 2000);
-    _reelController.forward(from: 0).then((_) {
-      _revealResult(forcedOutcome: outcome);
-    });
+    // V3 FIX: Do NOT call _revealResult() from controller callback!
+    // See comment in _startSpin() for explanation.
+    _reelController.forward(from: 0);
 
     _scheduleReelStops();
   }
@@ -373,6 +391,37 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
     // For now, randomly trigger 25% of the time, starting at reel 2 (index 2)
     final shouldAnticipate = _rng.nextDouble() < 0.25;
     final anticipationStartReel = shouldAnticipate ? 2 : -1;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V5 FIX: Pre-calculate TOTAL spin duration including anticipation delays
+    // CRITICAL: AnimationController must run LONGER than all reel stop timers!
+    //
+    // Without this fix, the AnimationController ends at 2000ms (normal) or 800ms (turbo)
+    // but anticipation reels can have cumulative delays of 2900ms+, causing:
+    // - AnimatedBuilder stops rebuilding at 2000ms
+    // - Reel timers fire at 2100ms, 2900ms → NO visual update!
+    // - Fourth reel appears "stuck" with spin visuals
+    // ═══════════════════════════════════════════════════════════════════════════
+    int totalSpinDuration = 0;
+    for (int i = 0; i < widget.reels; i++) {
+      if (anticipationStartReel >= 0 && i >= anticipationStartReel) {
+        totalSpinDuration += anticipationDelay;
+      } else {
+        totalSpinDuration += baseDelay;
+      }
+    }
+    // Add small buffer to ensure controller outlasts all timers
+    totalSpinDuration += 100;
+
+    // V5 FIX: Update controller duration to match actual spin time
+    if (_reelController.duration?.inMilliseconds != totalSpinDuration) {
+      _reelController.duration = Duration(milliseconds: totalSpinDuration);
+      // Restart the controller with new duration if it was already running
+      if (_reelController.isAnimating) {
+        final currentValue = _reelController.value;
+        _reelController.forward(from: currentValue);
+      }
+    }
 
     int cumulativeDelay = 0;
 
@@ -425,46 +474,68 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
         }
 
         // Stop this reel
+        debugPrint('[V4 DEBUG] Reel $i STOPPING at ${DateTime.now().millisecondsSinceEpoch % 10000}ms');
         setState(() {
           _reelStopped[i] = true;
         });
+        debugPrint('[V4 DEBUG] Reel $i STOPPED, _reelStopped=$_reelStopped');
 
         // VISUAL-SYNC: Trigger REEL_STOP_i stage
         widget.onReelStop?.call(i);
 
         // Handle anticipation state AFTER reel stops
-        if (_anticipationReelIndex >= 0) {
-          if (i == _anticipationReelIndex) {
-            // The anticipation reel just stopped
-            if (i < widget.reels - 1) {
-              // Move anticipation glow to NEXT reel (which is still spinning)
-              setState(() {
-                _anticipationReelIndex = i + 1;
-              });
-              widget.onAnticipationMove?.call(i + 1);
-            } else {
-              // LAST reel stopped — END anticipation completely
-              setState(() {
-                _anticipationReelIndex = -1;
-                // Don't change gameState here — let _revealResult handle it
-              });
-              widget.onAnticipationEnd?.call();
+        // V4 FIX: Check if anticipation needs to move, not just if this is THE anticipation reel
+        // This handles race conditions where timers fire slightly out of order
+        if (_anticipationReelIndex >= 0 && _anticipationReelIndex <= i) {
+          debugPrint('[V4 DEBUG] Reel $i stopped, anticipationReelIndex=$_anticipationReelIndex (needs update)');
+
+          // Find the NEXT spinning reel (if any)
+          int nextSpinningReel = -1;
+          for (int j = i + 1; j < widget.reels; j++) {
+            if (!_reelStopped[j]) {
+              nextSpinningReel = j;
+              break;
             }
+          }
+
+          if (nextSpinningReel >= 0) {
+            // Move anticipation glow to next spinning reel
+            debugPrint('[V4 DEBUG] Moving anticipation to next spinning reel $nextSpinningReel');
+            setState(() {
+              _anticipationReelIndex = nextSpinningReel;
+            });
+            widget.onAnticipationMove?.call(nextSpinningReel);
+          } else {
+            // No more spinning reels — END anticipation completely
+            debugPrint('[V4 DEBUG] No more spinning reels, ending anticipation');
+            setState(() {
+              _anticipationReelIndex = -1;
+              // Don't change gameState here — let _revealResult handle it
+            });
+            widget.onAnticipationEnd?.call();
           }
         }
 
         // Check if ALL reels have stopped
+        debugPrint('[V4 DEBUG] After reel $i stop: _reelStopped=$_reelStopped, '
+            'gameState=$_gameState, anticipationIdx=$_anticipationReelIndex');
         if (_reelStopped.every((stopped) => stopped)) {
+          debugPrint('[V4 DEBUG] ✅ ALL REELS STOPPED! Calling _revealResult()...');
           // ═══════════════════════════════════════════════════════════════════
-          // CRITICAL FIX: Immediately transition to revealing state
-          // This prevents ANY lingering animations after all reels stop
-          // The _reelController may still be running, but gameState change
-          // ensures all visual effects stop immediately
+          // V3 FIX: ALL reels stopped — now safe to reveal
+          //
+          // CRITICAL: This is the ONLY place where _revealResult() should be called.
+          // We removed the call from _reelController.then() callback because with
+          // anticipation delays, the controller can finish BEFORE all reels stop.
+          //
+          // FLOW:
+          // 1. Clear anticipation state
+          // 2. Change gameState to revealing
+          // 3. Stop controller (if still running)
+          // 4. Call _revealResult() to show wins
           // ═══════════════════════════════════════════════════════════════════
           setState(() {
             _anticipationReelIndex = -1;
-            // CRITICAL: Change state to revealing IMMEDIATELY when all reels stop
-            // Don't wait for _reelController to finish!
             if (_gameState == GameState.spinning || _gameState == GameState.anticipation) {
               _gameState = GameState.revealing;
             }
@@ -475,20 +546,32 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
           if (_reelController.isAnimating) {
             _reelController.stop();
           }
+
+          // V3 FIX: NOW call _revealResult with any pending forced outcome
+          _revealResult(forcedOutcome: _pendingForcedOutcome);
         }
       });
     }
   }
 
   void _revealResult({ForcedOutcome? forcedOutcome}) {
+    debugPrint('[V4 DEBUG] _revealResult() called, _revealProcessed=$_revealProcessed, '
+        'gameState=$_gameState, forcedOutcome=$forcedOutcome');
     // Guard: Don't process reveal twice
     // This can happen when:
     // 1. All reels stop (timer sets gameState to revealing + stops controller)
     // 2. Controller.then() callback fires (would try to reveal again)
-    if (_revealProcessed) return;
-    if (_gameState == GameState.celebrating || _gameState == GameState.idle) return;
+    if (_revealProcessed) {
+      debugPrint('[V4 DEBUG] ⚠️ _revealResult() SKIPPED: already processed');
+      return;
+    }
+    if (_gameState == GameState.celebrating || _gameState == GameState.idle) {
+      debugPrint('[V4 DEBUG] ⚠️ _revealResult() SKIPPED: wrong state');
+      return;
+    }
 
     _revealProcessed = true;
+    debugPrint('[V4 DEBUG] _revealResult() PROCESSING...');
 
     // Generate final symbols
     setState(() {
@@ -934,6 +1017,7 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
                                 _gameState == GameState.anticipation) &&
                                !isStopped;
 
+
     // CRITICAL: Only show anticipation effects if we're still in anticipation state
     // AND this reel has not stopped yet
     final isInAnticipationPhase = _gameState == GameState.anticipation;
@@ -972,8 +1056,19 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
     // This was the ROOT CAUSE of the fourth reel animation issue!
     // ═══════════════════════════════════════════════════════════════════════════
     if (!isActivelySpinning) {
+      // V4 DEBUG: Log when switching to static rendering
+      if (reelIdx == 3 || reelIdx == 2) {
+        debugPrint('[V4 RENDER] Reel $reelIdx → STATIC (isStopped=$isStopped, '
+            'isAnticipationReel=$isAnticipationReel, borderColor=${borderColor == _T.jpMajor ? "ANTICIPATION" : "normal"})');
+      }
       // Static reel - no animation needed, render directly
       return _buildStaticReel(reelIdx, cellSize, borderColor, borderWidth);
+    }
+
+    // V4 DEBUG: Log when using AnimatedBuilder (spinning)
+    if (reelIdx == 3 || reelIdx == 2) {
+      debugPrint('[V4 RENDER] Reel $reelIdx → ANIMATED (isAnticipationReel=$isAnticipationReel, '
+          'anticipationIdx=$_anticipationReelIndex)');
     }
 
     // Only use AnimatedBuilder for actively spinning reels
@@ -988,6 +1083,7 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
         if (!stillSpinning) {
           // State changed during animation - render static immediately
+          debugPrint('[V4 RENDER] Reel $reelIdx → STATIC (from inside AnimatedBuilder!)');
           return _buildStaticReel(reelIdx, cellSize, _T.border, 1);
         }
 

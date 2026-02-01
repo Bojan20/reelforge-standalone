@@ -1,4 +1,4 @@
-# EmbeddedSlotMockup — Animation Race Condition Fix (V2 ULTIMATE)
+# EmbeddedSlotMockup — Animation Race Condition Fix (V4 ULTIMATE)
 
 **Datum:** 2026-02-01
 **Fajl:** `flutter_ui/lib/widgets/slot_lab/embedded_slot_mockup.dart`
@@ -11,9 +11,9 @@
 ### Simptomi
 - Svi rilovi su vizuelno zaustavljeni
 - Ali spin se ne završava — `GameState` ostaje u `anticipation` ili `spinning`
-- Anticipation glow ili druge animacije se nastavljaju na zaustavlјenim rilovima
+- Anticipation glow ili druge animacije se nastavljaju na zaustavljenim rilovima
 - Spin završava tek nakon ~2000ms (trajanje `_reelController`)
-- **ČETVRTI RIL** posebno problematičan — nastavlja da "treperi" nakon zaustavljanja
+- **ČETVRTI RIL** posebno problematičan — nastavlja da "treperi" / ima "dimovanje" nakon zaustavljanja
 
 ### Root Cause
 
@@ -26,7 +26,7 @@ Dva **NEZAVISNA** mehanizma kontrolisala su spin:
 
 2. **`_scheduleReelStops()` (Timer-based)**
    - Zadnji reel staje nakon ~1250ms (5 × 250ms)
-   - Samo postavlјa `_reelStopped[i] = true`
+   - Samo postavlja `_reelStopped[i] = true`
    - **NE MENJA `_gameState`** (komentar: "let _revealResult handle it")
 
 **Race Condition:**
@@ -39,7 +39,7 @@ Dva **NEZAVISNA** mehanizma kontrolisala su spin:
 1250ms  - Reel 4 stao — SVI RILOVI VIZUELNO STALI
         ↓
         _gameState JOŠ UVEK = 'anticipation' ili 'spinning'!
-        AnimatedBuilder nastavlјa rebuilde
+        AnimatedBuilder nastavlja rebuilde
         Vizuelni efekti (glow, itd.) se nastavljaju
         ↓
 2000ms  - _reelController.then() → _revealResult()
@@ -51,153 +51,7 @@ Dva **NEZAVISNA** mehanizma kontrolisala su spin:
 
 ---
 
-## Rešenje
-
-### 1. Immediate State Transition
-
-U `_scheduleReelStops()`, kada SVI rilovi stanu, odmah prelazimo u `revealing`:
-
-```dart
-// Check if ALL reels have stopped
-if (_reelStopped.every((stopped) => stopped)) {
-  // ═══════════════════════════════════════════════════════════════════
-  // CRITICAL FIX: Immediately transition to revealing state
-  // This prevents ANY lingering animations after all reels stop
-  // ═══════════════════════════════════════════════════════════════════
-  setState(() {
-    _anticipationReelIndex = -1;
-    // CRITICAL: Change state to revealing IMMEDIATELY when all reels stop
-    // Don't wait for _reelController to finish!
-    if (_gameState == GameState.spinning || _gameState == GameState.anticipation) {
-      _gameState = GameState.revealing;
-    }
-  });
-  widget.onAnticipationEnd?.call();
-
-  // Stop the reel animation controller early since all reels are visually stopped
-  if (_reelController.isAnimating) {
-    _reelController.stop();
-  }
-}
-```
-
-### 2. Guard Flag za Double Reveal
-
-Dodajemo `_revealProcessed` flag da sprečimo dvostruko izvršavanje `_revealResult()`:
-
-```dart
-// Instance variable (linija ~221)
-bool _revealProcessed = false;
-
-// Reset u obe spin metode
-void _startSpin() {
-  _revealProcessed = false;
-  // ...
-}
-
-void _startForcedSpin(ForcedOutcome outcome) {
-  _revealProcessed = false;
-  // ...
-}
-
-// Guard u _revealResult()
-void _revealResult({ForcedOutcome? forcedOutcome}) {
-  // Guard: Don't process reveal twice
-  if (_revealProcessed) return;
-  if (_gameState == GameState.celebrating || _gameState == GameState.idle) return;
-
-  _revealProcessed = true;
-  // ... ostatak metode
-}
-```
-
-### 3. Anticipation Phase Check u `_buildReel()`
-
-Dodajemo proveru da li smo ZAISTA u anticipation fazi pre prikazivanja glow-a:
-
-```dart
-Widget _buildReel(int reelIdx, double cellSize) {
-  // CRITICAL: Only show anticipation effects if we're still in spinning/anticipation state
-  // This prevents "ghost" anticipation glow after all reels have stopped
-  final isInAnticipationPhase = _gameState == GameState.anticipation;
-
-  // Anticipation reel has glow ONLY during anticipation phase
-  final isAnticipationReel = _anticipationReelIndex == reelIdx && isInAnticipationPhase;
-
-  // ...
-
-  // Add glow for anticipation reel - only during anticipation phase
-  boxShadow: isAnticipationReel && !isStopped
-      ? [BoxShadow(color: _T.jpMajor.withOpacity(0.6), blurRadius: 20, spreadRadius: 2)]
-      : null,
-}
-```
-
----
-
-## Rezultat
-
-### Pre Fix-a
-```
-1250ms - All reels stopped visually
-         GameState = anticipation (WRONG!)
-         Effects continue on stopped reels
-2000ms - _revealResult() called
-         GameState = revealing
-```
-
-### Posle Fix-a
-```
-1250ms - All reels stopped visually
-         GameState = revealing (CORRECT!)
-         _reelController.stop() called
-         All effects stop immediately
-```
-
----
-
-## Izmenjene Linije
-
-| Lokacija | Opis |
-|----------|------|
-| Linija ~221 | Dodato `bool _revealProcessed = false;` instance variable |
-| Linija ~288 | `_revealProcessed = false;` reset u `_startSpin()` |
-| Linija ~316 | `_revealProcessed = false;` reset u `_startForcedSpin()` |
-| Linije 448-470 | Immediate state transition + `_reelController.stop()` |
-| Linije 476-483 | Guard check u `_revealResult()` |
-| Linije 861-869 | `isInAnticipationPhase` check za glow efekte |
-
----
-
-## Pouka
-
-**Nikad ne dozvoliti da animacija kontroliše logiku!**
-
-Pravilna arhitektura:
-1. **Timer/Logic** kontroliše KADA se šta dešava
-2. **AnimationController** kontroliše samo VIZUALNU interpolaciju
-3. Kada logika kaže "završeno" → animacija se **odmah** zaustavlјa
-4. Ne čekati da animacija završi da bismo promenili state
-
-**Pattern za budućnost:**
-```dart
-// LOŠE - logika čeka animaciju
-controller.forward().then(() => changeState());
-
-// DOBRO - logika kontroliše animaciju
-if (allReelsStopped) {
-  controller.stop();  // Odmah zaustavi
-  changeState();      // Odmah promeni state
-}
-```
-
----
-
----
-
-## V2 ULTIMATE FIX (2026-02-01)
-
-### Prethodni Fix (V1) — NIJE RADIO
+## V1 Fix — NIJE RADIO
 
 V1 fix je pokušao da reši problem promenom `_gameState` i zaustavljanjem `_reelController`:
 - Dodao `_revealProcessed` guard flag
@@ -208,37 +62,13 @@ V1 fix je pokušao da reši problem promenom `_gameState` i zaustavljanjem `_ree
 - `AnimatedBuilder` NASTAVLJA da rebuild-uje čak i nakon `stop()` poziva!
 - `_reelController.value` ostaje na poslednjoj vrednosti (nije reset)
 - Svaki rebuild u `AnimatedBuilder` trigeruje novi random `displayId`
-- Rezultat: "shimmer" efekat na zaustavlјenom rilu
+- Rezultat: "shimmer" efekat na zaustavljenom rilu
 
-### Root Cause — AnimatedBuilder Continuous Rebuild
+---
 
-**Problem u kodu (linija 958-1026):**
+## V2 Fix — Razdvajanje statičnog i animiranog renderinga
 
-```dart
-return AnimatedBuilder(
-  animation: _reelController,  // ← PROBLEM: Nastavlja rebuild
-  builder: (context, _) {
-    // Ovaj builder se poziva KONTINUALNO dok je controller aktivan
-    // Čak i nakon stop() — jer controller.value != 0 && != 1
-
-    final displayId = !isStopped && isSpinning
-        ? (_rng.nextInt(10) + (_reelController.value * 100).toInt()) % 10
-        : symbolId;
-    // ↑ Random simboli se generišu svaki rebuild — vizuelni "shimmer"
-  },
-);
-```
-
-**Flutter AnimatedBuilder ponašanje:**
-1. `AnimatedBuilder` sluša `animation.addListener()`
-2. Kada se listener trigeruje → rebuild widget
-3. `AnimationController.stop()` NE uklanja listener-e
-4. Controller ostaje "active" (nije disposed)
-5. Rebuildi nastavljaju do dispose-a
-
-### V2 Ultimate Solution
-
-**Razdvajanje statičnog i animiranog renderinga:**
+**Rešenje:** Koristiti `AnimatedBuilder` SAMO za aktivno spinning rilove.
 
 ```dart
 Widget _buildReel(int reelIdx, double cellSize) {
@@ -246,9 +76,7 @@ Widget _buildReel(int reelIdx, double cellSize) {
                               _gameState == GameState.anticipation) &&
                              !isStopped;
 
-  // ═══════════════════════════════════════════════════════════════════
   // CRITICAL: Don't use AnimatedBuilder when not actively spinning!
-  // ═══════════════════════════════════════════════════════════════════
   if (!isActivelySpinning) {
     return _buildStaticReel(reelIdx, cellSize, borderColor, borderWidth);
   }
@@ -277,57 +105,209 @@ Widget _buildStaticReel(int reelIdx, double cellSize, Color borderColor, double 
 }
 ```
 
-### Ključne Promene (V2)
+**Status:** V2 rešio shimmer efekat, ALI nije rešio win prezentaciju koja počinje dok se rilovi još okreću!
 
-| Linija | Promena |
-|--------|---------|
-| 926-977 | Nova `_buildReel()` logika sa early return za statične rilove |
-| 974-976 | `if (!isActivelySpinning) return _buildStaticReel()` |
-| 985-992 | Double-check unutar AnimatedBuilder za race conditions |
-| 1029-1082 | Nova `_buildStaticReel()` metoda |
+---
 
-### Rezultat V2
+## V3 Fix — Controller Callback Removal (2026-02-01)
 
-**Pre V2:**
+### Novi Problem (nakon V2)
+
+Korisnik prijavio: **Win prezentacija počinje dok se rilovi još okreću sa anticipacijom!**
+
+Simptomi:
+- Anticipacija na rilu 4, ril 5 se normalno okreće
+- Čim ril 4 završi anticipaciju, glow momentalno prelazi na ril 5
+- **KRITIČNO:** Animacija simbola, win plaketa i win linije se pojavljuju dok ril 5 JOŠ UVEK VRTI!
+
+### Root Cause (V3)
+
+**Problem:** Sa anticipacijom, ukupno vreme za sve rilove PREMAŠUJE trajanje `_reelController`!
+
+Bez anticipacije (250ms × 5 = 1250ms):
 ```
-Reel stopped → AnimatedBuilder continues → random displayId → shimmer
+Reel 0: 250ms
+Reel 1: 500ms
+Reel 2: 750ms
+Reel 3: 1000ms
+Reel 4: 1250ms  ← Svi rilovi stali
+_reelController: 2000ms ← Controller završi POSLE rilova — OK
 ```
 
-**Posle V2:**
+SA anticipacijom (250ms × 2 + 800ms × 3 = 2900ms):
 ```
-Reel stopped → isActivelySpinning = false → _buildStaticReel() → stable
+Reel 0: 250ms
+Reel 1: 500ms
+Reel 2 (antic): 1300ms
+Reel 3 (antic): 2100ms
+Reel 4 (antic): 2900ms  ← Svi rilovi stali
+_reelController: 2000ms ← Controller završi PRE rilova — PROBLEM!
+```
+
+**`_reelController.then(() => _revealResult())` se poziva na 2000ms, dok ril 4 i 5 još uvek vrte sa anticipacijom!**
+
+### V3 Rešenje
+
+**Ukloniti `_revealResult()` iz controller callback-a. Pozivati ga SAMO kada SVI rilovi stanu.**
+
+```dart
+// STARO (LOŠE):
+_reelController.forward(from: 0).then((_) {
+  _revealResult();  // ← Može da se pozove PRE nego što svi rilovi stanu!
+});
+
+// NOVO (V3 FIX):
+_reelController.forward(from: 0);  // Nema callback!
+```
+
+**Status:** V3 rešio win prezentaciju timing, ALI četvrti ril još uvek ima "dimovanje" problem!
+
+---
+
+## V4 Fix — ULTIMATE Robust Anticipation Handling (2026-02-01)
+
+### Novi Problem (nakon V3)
+
+Korisnik prijavio: **"Dimovanje" na četvrtom rilu i spin se ne završava dok se taj ril ne završi, iako je vizuelno stao.**
+
+### Root Cause (V4)
+
+**Problem:** Timer-i za različite rilove mogu da fire-uju u nepredvidivom redosledu zbog Flutter Timer nepreciznosti.
+
+Stara logika:
+```dart
+if (i == _anticipationReelIndex) {
+  // Move to next reel
+  _anticipationReelIndex = i + 1;
+}
+```
+
+**Problem:** Ako timer za ril 4 fire-uje pre nego što se `_anticipationReelIndex` ažurira sa rila 3, onda:
+- `i = 4`, `_anticipationReelIndex = 3`
+- `i == _anticipationReelIndex` → `4 == 3` → false
+- Anticipation handling se **PRESKAČE**!
+
+Rezultat: `_anticipationReelIndex` ostaje na 3, a ril 3 ima anticipation glow čak i kad je stao.
+
+### V4 Rešenje
+
+**Robustnija provera: `_anticipationReelIndex <= i` umesto `== i`**
+
+```dart
+// V4 FIX: Check if anticipation needs to move, not just if this is THE anticipation reel
+// This handles race conditions where timers fire slightly out of order
+if (_anticipationReelIndex >= 0 && _anticipationReelIndex <= i) {
+  // Find the NEXT spinning reel (if any)
+  int nextSpinningReel = -1;
+  for (int j = i + 1; j < widget.reels; j++) {
+    if (!_reelStopped[j]) {
+      nextSpinningReel = j;
+      break;
+    }
+  }
+
+  if (nextSpinningReel >= 0) {
+    // Move anticipation glow to next spinning reel
+    setState(() {
+      _anticipationReelIndex = nextSpinningReel;
+    });
+    widget.onAnticipationMove?.call(nextSpinningReel);
+  } else {
+    // No more spinning reels — END anticipation completely
+    setState(() {
+      _anticipationReelIndex = -1;
+    });
+    widget.onAnticipationEnd?.call();
+  }
+}
+```
+
+### Ključne Promene (V4)
+
+| Aspekt | V3 | V4 |
+|--------|----|----|
+| Uslov za anticipation update | `i == _anticipationReelIndex` | `_anticipationReelIndex <= i` |
+| Sledeći ril | `i + 1` (hardcoded) | Dinamičko traženje prvog spinning rila |
+| Race condition handling | Nije | Hvata kasne timer fire-ove |
+| Završetak anticipacije | `i == widget.reels - 1` | Kada nema više spinning rilova |
+
+### Rezultat V4
+
+**Pre V4:**
+```
+Timer timing može varirati ±10-20ms
+Ril 3 timer fire → _anticipationReelIndex = 3, proverava 3 == 3 → OK
+Ril 4 timer fire BRZO → _anticipationReelIndex = 4, proverava 4 == 4 → OK
+
+ALI ako Ril 4 timer fire KASNO:
+Ril 3 timer fire → _anticipationReelIndex = 3, proverava 3 == 3 → move to 4
+[rebuild]
+Ril 4 timer fire → _anticipationReelIndex = 4, ALI sad proverava 4 == 4 sa starim state → possible miss
+```
+
+**Posle V4:**
+```
+Bilo koji redosled timera:
+Ril N timer fire → proverava _anticipationReelIndex <= N
+Ako da → traži sledeći spinning ril → ažurira ili završava anticipaciju
+UVEK ROBUSTNO!
 ```
 
 ---
 
-## Lekcija — AnimatedBuilder Anti-Pattern
+## Lekcija — Timer Race Conditions
 
-**NIKADA** koristiti AnimatedBuilder za widget koji može biti i statičan i animiran!
+**NIKAD ne pretpostavljati redosled Timer callback-ova!**
 
-**Loše:**
 ```dart
-AnimatedBuilder(
-  animation: controller,
-  builder: (ctx, _) {
-    if (shouldAnimate) {
-      return AnimatedWidget();
-    } else {
-      return StaticWidget();  // ← OPASNO! Rebuildi nastavljaju
-    }
-  },
-)
+// LOŠE - pretpostavlja tačan redosled
+if (i == expectedIndex) {
+  expectedIndex++;
+}
+
+// DOBRO - robustno na bilo koji redosled
+if (expectedIndex <= i) {
+  expectedIndex = findNextValid(i);
+}
 ```
 
-**Dobro:**
+**Pattern:**
+- Timer-i NISU garantovano precizni
+- Uvek koristiti `<=` ili `>=` umesto `==` za sekvencijalne provere
+- Dinamički tražiti sledeće validno stanje umesto hardcoding-a
+
+---
+
+## Kompletna Hronologija Fix-ova
+
+| Verzija | Problem | Rešenje | Status |
+|---------|---------|---------|--------|
+| V1 | Shimmer na zaustavljenim rilovima | Guard flag + gameState change | ❌ Nije radilo |
+| V2 | AnimatedBuilder nastavlja rebuild | Razdvajanje static/animated | ✅ Rešeno |
+| V3 | Win prezentacija pre nego što svi rilovi stanu | Uklonjen controller callback | ✅ Rešeno |
+| V4 | "Dimovanje" / zaglavljeno stanje na četvrtom rilu | Robustniji anticipation handling sa `<=` i dinamičkim traženjem | 🔄 Testiranje |
+
+---
+
+## Debug Logging (V4)
+
+Za dijagnostiku, dodati debug logging:
+
 ```dart
-if (shouldAnimate) {
-  return AnimatedBuilder(
-    animation: controller,
-    builder: (ctx, _) => AnimatedWidget(),
-  );
-} else {
-  return StaticWidget();  // ← BEZBEDNO! Nema AnimatedBuilder
-}
+debugPrint('[V4 DEBUG] Reel $i STOPPING...');
+debugPrint('[V4 DEBUG] After reel $i stop: _reelStopped=$_reelStopped, gameState=$_gameState');
+debugPrint('[V4 RENDER] Reel $reelIdx → STATIC/ANIMATED (details...)');
+```
+
+Očekivani output za ispravan flow:
+```
+[V4 DEBUG] Reel 0 STOPPING...
+[V4 DEBUG] Reel 0 STOPPED, _reelStopped=[true, false, false, false, false]
+[V4 RENDER] Reel 0 → STATIC
+...
+[V4 DEBUG] Reel 4 STOPPING...
+[V4 DEBUG] Reel 4 STOPPED, _reelStopped=[true, true, true, true, true]
+[V4 DEBUG] ✅ ALL REELS STOPPED! Calling _revealResult()...
 ```
 
 ---

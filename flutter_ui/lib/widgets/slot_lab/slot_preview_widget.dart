@@ -1765,25 +1765,31 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             return;
           }
 
-          if (_winTier.isEmpty) {
+          // Check if BIG WIN (tier progression) vs REGULAR WIN (simple plaque)
+          final projectProvider = widget.projectProvider;
+          final bet = widget.provider.betAmount;
+          final tierResult = projectProvider?.getWinTierForAmount(_targetWinAmount, bet);
+          final isBigWin = tierResult?.isBigWin ?? false;
+
+          if (!isBigWin) {
             // ═══════════════════════════════════════════════════════════════════
-            // SMALL WIN (< 5x): "WIN!" total win plaque with counter, then win lines
+            // REGULAR WIN: Simple plaque with counter, then win lines
             // WIN_PRESENT_X audio triggers NOW when plaque appears (not during symbol highlight)
             // ═══════════════════════════════════════════════════════════════════
-            debugPrint('[SlotPreview] 💰 PHASE 2: Total win plaque (win: ${result.totalWin})');
+            debugPrint('[SlotPreview] 💰 PHASE 2: Regular win plaque (tier: $_winTier, win: ${result.totalWin})');
 
             // 🔊 Trigger WIN_PRESENT audio when plaque appears
             eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
 
-            // Show plaque with "WIN!" label (empty tier = small win)
+            // Show plaque with tier label (WIN_1, WIN_2, etc.)
             setState(() {
-              _currentDisplayTier = '';
+              _currentDisplayTier = _winTier;
             });
             _winAmountController.forward(from: 0);
 
             // Start rollup with callback for win lines
             // V9: Pass winPresentTier for tier 1 skip logic (≤ 1x wins skip animation)
-            _startTierBasedRollupWithCallback('', () {
+            _startTierBasedRollupWithCallback(_winTier, () {
               if (!mounted) return;
 
               // Fade out plaque
@@ -1792,11 +1798,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
                 // Start win line presentation
                 if (lineWinsForPhase3.isNotEmpty) {
-                  debugPrint('[SlotPreview] 🎰 PHASE 3: Win lines (after small win)');
+                  debugPrint('[SlotPreview] 🎰 PHASE 3: Win lines (after regular win)');
                   _startWinLinePresentation(lineWinsForPhase3);
                 } else {
                   // V13: No win lines — win presentation is COMPLETE
-                  debugPrint('[SlotPreview] 🏁 Win presentation COMPLETE (small win, no lines)');
+                  debugPrint('[SlotPreview] 🏁 Win presentation COMPLETE (regular win, no lines)');
                   widget.provider.setWinPresentationActive(false);
                 }
               });
@@ -2217,18 +2223,27 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final projectProvider = widget.projectProvider;
     final bet = widget.provider.betAmount;
 
+    debugPrint('[WIN DEBUG] ═══════════════════════════════════════');
+    debugPrint('[WIN DEBUG] Bet: \$${bet.toStringAsFixed(2)}, Win: \$${totalWin.toStringAsFixed(2)}');
+    debugPrint('[WIN DEBUG] Multiplier: ${bet > 0 ? (totalWin/bet).toStringAsFixed(2) : "N/A"}x');
+
     if (projectProvider == null || bet <= 0 || totalWin <= 0) {
-      // Fallback to legacy M4 system
+      debugPrint('[WIN DEBUG] ⚠️ Fallback to legacy (provider=$projectProvider, bet=$bet, win=$totalWin)');
       return widget.provider.getVisualTierForWin(totalWin);
     }
 
     // P5 System: Get tier result from project provider
     final tierResult = projectProvider.getWinTierForAmount(totalWin, bet);
-    if (tierResult == null) return '';
+    if (tierResult == null) {
+      debugPrint('[WIN DEBUG] ❌ tierResult is NULL!');
+      return '';
+    }
+
+    debugPrint('[WIN DEBUG] isBigWin: ${tierResult.isBigWin}, maxTier: ${tierResult.bigWinMaxTier}');
 
     // Big Win — return big win tier ID for progression system
     if (tierResult.isBigWin) {
-      return switch (tierResult.bigWinMaxTier) {
+      final tierId = switch (tierResult.bigWinMaxTier) {
         1 => 'BIG_WIN_TIER_1',
         2 => 'BIG_WIN_TIER_2',
         3 => 'BIG_WIN_TIER_3',
@@ -2236,13 +2251,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         5 => 'BIG_WIN_TIER_5',
         _ => 'BIG_WIN_TIER_1',
       };
+      debugPrint('[WIN DEBUG] ✅ BIG WIN: Tier=$tierId (maxTier=${tierResult.bigWinMaxTier})');
+      return tierId;
     }
 
     // Regular Win — return stage name as tier ID (WIN_LOW, WIN_1, WIN_2, etc.)
     if (tierResult.regularTier != null) {
-      return tierResult.regularTier!.stageName; // 'WIN_LOW', 'WIN_1', 'WIN_2', etc.
+      final stageName = tierResult.regularTier!.stageName;
+      debugPrint('[WIN DEBUG] ✅ REGULAR WIN: Tier=$stageName (${tierResult.regularTier!.displayLabel})');
+      return stageName;
     }
 
+    debugPrint('[WIN DEBUG] ⚠️ No tier matched!');
     return '';
   }
 
@@ -2685,8 +2705,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final tickRate = _rollupTickRateByTier[tier] ?? _defaultRollupTickRate;
     final tickIntervalMs = (1000 / tickRate).round();
     final totalTicks = (duration / tickIntervalMs).round();
+    final incrementPerTick = _targetWinAmount / totalTicks;
 
-    debugPrint('[SlotPreview] 🔊 ROLLUP_START (tier: $tier, duration: ${duration}ms, ticks: $totalTicks, RTL: ON)');
+    debugPrint('[WIN DEBUG] ═══════════════════════════════════════');
+    debugPrint('[WIN DEBUG] ROLLUP CONFIG:');
+    debugPrint('[WIN DEBUG]   Tier: $tier');
+    debugPrint('[WIN DEBUG]   Duration: ${duration}ms');
+    debugPrint('[WIN DEBUG]   Tick Rate: $tickRate ticks/s');
+    debugPrint('[WIN DEBUG]   Tick Interval: ${tickIntervalMs}ms');
+    debugPrint('[WIN DEBUG]   Total Ticks: $totalTicks');
+    debugPrint('[WIN DEBUG]   Increment/Tick: \$${incrementPerTick.toStringAsFixed(2)}');
+    debugPrint('[WIN DEBUG]   Target: \$${_targetWinAmount.toStringAsFixed(2)}');
+    debugPrint('[WIN DEBUG] ═══════════════════════════════════════');
 
     // ANALYTICS: Track rollup started
     WinAnalyticsService.instance.trackRollupStarted(
@@ -2702,8 +2732,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _rtlRollupProgress = 0.0;
     });
 
-    // Update counter controller duration dynamically
-    _winCounterController.duration = Duration(milliseconds: duration);
+    // INDUSTRY STANDARD: Counter rolls up FAST (300-600ms), plaque stays visible
+    // Plaque duration = celebration time (4s), counter finishes in <600ms
+    const counterDurationMs = 500; // Industry standard: fast rollup
+    _winCounterController.duration = const Duration(milliseconds: counterDurationMs);
     _winCounterController.forward(from: 0);
 
     // Start tick audio
@@ -2867,14 +2899,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CALCULATE TOTAL ROLLUP DURATION
-    // Rollup spans entire tier progression: intro + all tiers + most of end
+    // Counter broji kroz SVE tierove + BIG_WIN_END, zaustavlja se na kraju
     // ═══════════════════════════════════════════════════════════════════════════
     final numTiers = _tierProgressionList.length;
-    final totalProgressionMs = _bigWinIntroDurationMs +
-                               (numTiers * _tierDisplayDurationMs) +
-                               (_bigWinEndDurationMs - 500); // Leave 500ms before fade
+    // Counter STAJE na početku BIG_WIN_END (ne traje kroz END)
+    final counterDurationMs = _bigWinIntroDurationMs +
+                              (numTiers * _tierDisplayDurationMs);
 
-    debugPrint('[SlotPreview] 🏆 Rollup duration: ${totalProgressionMs}ms (${numTiers} tiers)');
+    debugPrint('[SlotPreview] 🏆 Counter duration: ${counterDurationMs}ms (intro 500ms + ${numTiers} tiers × 4s) — STOPS at BIG_WIN_END');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STEP 1: BIG_WIN_INTRO (0.5s) — Entry fanfare
@@ -2890,15 +2922,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _winAmountController.forward(from: 0);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // START COUNTER ROLLUP — The tier plaque IS the total win plaque
-    // Counter animation + ROLLUP audio run throughout tier progression
+    // COUNTER: Broji SVE VREME dok traju tierovi, zaustavlja se na BIG_WIN_END
     // ═══════════════════════════════════════════════════════════════════════════
-    _winCounterController.duration = Duration(milliseconds: totalProgressionMs);
+    _winCounterController.duration = Duration(milliseconds: counterDurationMs);
     _winCounterController.forward(from: 0);
 
     // Start ROLLUP audio
     eventRegistry.triggerStage('ROLLUP_START');
-    _startTierProgressionRollupTicks(totalProgressionMs);
+    _startTierProgressionRollupTicks(counterDurationMs);
 
     // V8: Screen flash for dramatic entrance
     setState(() => _showScreenFlash = true);
@@ -2973,17 +3004,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STEP 3: BIG_WIN_END (4s) — Exit celebration / Outro
-    // FIX: Change display tier to 'TOTAL' to visually separate from last tier
-    // This ensures BIG_WIN_END phase is clearly distinguishable from tier display
+    // Plaketa prikazuje IME POSLEDNJEG TIER-A (ne menja se na "TOTAL")
+    // Counter je već STAO (dostigao target na kraju tier-ova)
     // ═══════════════════════════════════════════════════════════════════════════
     eventRegistry.triggerStage('BIG_WIN_END');
     final lastTier = _currentDisplayTier;
-    debugPrint('[SlotPreview] 🏆 BIG_WIN_END — final tier: $lastTier → TOTAL');
+    debugPrint('[SlotPreview] 🏆 BIG_WIN_END — plaque ostaje: $lastTier');
 
-    // FIX: Visual separation — show "TOTAL WIN" during BIG_WIN_END phase
-    setState(() {
-      _currentDisplayTier = 'TOTAL';
-    });
+    // Plaketa OSTAJE sa poslednjim tier-om (ne menja se)
+    // Counter je već stao i ostaje na finalnoj vrednosti
+    // setState() NIJE potreban — _currentDisplayTier već ima pravi tier
 
     _tierProgressionTimer?.cancel();
     _tierProgressionTimer = Timer(const Duration(milliseconds: _bigWinEndDurationMs), () {
