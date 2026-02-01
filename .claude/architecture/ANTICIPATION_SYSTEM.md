@@ -40,13 +40,14 @@ FluxForge Studio implementira **industry-standard anticipation sistem V2** sa pe
 | **GPU Shader** | `anticipation_glow.frag` za real-time glow |
 | **Tip A/B Support** | Sve reelove ili samo specifične (0, 2, 4) |
 
-### V2 Trigger Rules (P7)
+### V2 Trigger Rules (P7, Updated 2026-02-01)
 
 | Symbol | Anticipation | Reason |
 |--------|--------------|--------|
 | **Scatter** | ✅ YES | Triggers Free Spins |
 | **Bonus** | ✅ YES | Triggers Jackpot, Pick Game, Wheel |
 | **Wild** | ❌ **NO** | Only substitutes symbols, no feature trigger |
+| **Near Miss** | ⚙️ **CONFIGURABLE** | Default: OFF (enable via `AnticipationConfig.enable_near_miss_anticipation`) |
 
 ### Configuration Types
 
@@ -65,6 +66,38 @@ Scatter:      ✅  ❌  ✅  ❌  ✅  (samo reel 0, 2, 4)
 Trigger:     Tačno 3 scattera = Free Spins
 Anticipacija: Scatter na 0 I 2 → anticipacija na reel 4
 ```
+
+### Near Miss Control (2026-02-01)
+
+**Problem:** Near miss anticipation triggerovao se na 15-30% no-win spinova bez obzira na scatter-e.
+
+**Rešenje:** `enable_near_miss_anticipation` config flag (default: **false**)
+
+| Config Value | Behavior |
+|--------------|----------|
+| `false` (default) | Near miss NE triggeruje anticipaciju (samo scatter/bonus) |
+| `true` | Near miss triggeruje anticipaciju sa `volatility.near_miss_frequency` verovatnoćom |
+
+**Engine Logic:**
+```rust
+// Near miss detection respects config
+if !result.is_win() {
+    if near_miss_roll < vol.near_miss_frequency {
+        result.near_miss = true; // Flag still sets for analytics
+
+        // Anticipation ONLY if enabled
+        if self.config.anticipation.enable_near_miss_anticipation {
+            result.anticipation = Some(AnticipationInfo::from_reels(
+                vec![3, 4], // Hardcoded reels for near miss
+                AnticipationReason::NearMiss,
+                ...
+            ));
+        }
+    }
+}
+```
+
+**Files:** `config.rs:385-394`, `engine.rs:522-531, 577-589`
 
 ### Sequential Stopping (V2)
 
@@ -273,7 +306,7 @@ impl Stage {
 }
 ```
 
-### AnticipationConfig V2 (config.rs)
+### AnticipationConfig V2 (config.rs, Updated 2026-02-01)
 
 ```rust
 /// V2 Anticipation configuration with Tip A/B support
@@ -285,20 +318,24 @@ pub struct AnticipationConfig {
     /// Minimum trigger symbols needed for anticipation (default: 2)
     pub min_trigger_count: u8,
 
-    /// Which reels can have trigger symbols (empty = all reels)
-    pub allowed_reels: Vec<u8>,
+    /// Which reels can have trigger symbols (None = all reels)
+    pub allowed_reels: Option<Vec<u8>>,
 
     /// How many triggers needed for feature (Exact(3) or AtLeast(3))
     pub trigger_rules: TriggerRules,
 
     /// Sequential or Parallel stopping mode
-    pub mode: AnticipationMode,
+    pub sequential_stop: bool,
 
-    /// Duration per reel in anticipation (ms)
-    pub duration_per_reel_ms: f64,
+    /// Enable tension level escalation (L1→L2→L3→L4)
+    pub tension_escalation: bool,
 
-    /// Speed multiplier when in anticipation (0.3 = 30% of normal speed)
-    pub speed_multiplier: f64,
+    /// Enable near miss anticipation (2026-02-01)
+    /// When false, near miss will NOT trigger anticipation effects
+    /// When true, near miss uses volatility.near_miss_frequency (15-30% chance)
+    /// Default: false (only scatter/bonus trigger anticipation)
+    #[serde(default)]
+    pub enable_near_miss_anticipation: bool,
 }
 
 /// Factory methods for common configurations

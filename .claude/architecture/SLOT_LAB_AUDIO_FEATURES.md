@@ -282,7 +282,9 @@ Audio: |-|-------- ANTICIPATION --------|
 
 ### Pregled
 
-Industry-standard anticipation sistem sa per-reel tension escalation. Scatter simboli (2+) trigeruju anticipation; svaki naredni scatter reel povećava tension level.
+Industry-standard anticipation sistem sa per-reel tension escalation. Scatter ili Bonus simboli (2+) trigeruju anticipation; svaki naredni scatter reel povećava tension level.
+
+**Near Miss Control (2026-02-01):** Near miss anticipation je **DISABLED po defaultu**. Enable preko `AnticipationConfig.enable_near_miss_anticipation = true` (Rust config).
 
 ### Tension Levels (L1-L4)
 
