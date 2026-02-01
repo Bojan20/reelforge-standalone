@@ -2138,12 +2138,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// WIN_1: >1x,≤2x | WIN_2: >2x,≤4x | WIN_3: >4x,≤8x | WIN_4: >8x,≤13x | WIN_5: >13x
   int _legacyRegularRollupDuration(int tierId) {
     return switch (tierId) {
-      0 => 500,   // WIN_EQUAL
-      1 => 500,   // WIN_1 (>1x, ≤2x)
-      2 => 1000,  // WIN_2 (>2x, ≤4x)
-      3 => 1500,  // WIN_3 (>4x, ≤8x)
-      4 => 2000,  // WIN_4 (>8x, ≤13x)
-      5 => 2500,  // WIN_5 (>13x — default for regular wins)
+      0 => 500,   // WIN_EQUAL (push - short)
+      1 => 1000,  // WIN_1: 1 second
+      2 => 1500,  // WIN_2: 1.5 seconds
+      3 => 2000,  // WIN_3: 2 seconds
+      4 => 3000,  // WIN_4: 3 seconds
+      5 => 4000,  // WIN_5: 4 seconds
       _ => 500,   // fallback
     };
   }

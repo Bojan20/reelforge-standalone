@@ -305,54 +305,54 @@ class RegularWinTierConfig {
           rollupTickRate: 20,
           particleBurstCount: 0,
         ),
-        // WIN_1: >1x, ≤2x bet
+        // WIN_1: >1x, ≤2x bet — 1 second rollup
         const WinTierDefinition(
           tierId: 1,
           displayLabel: 'WIN',
           fromMultiplier: 1.001,
           toMultiplier: 2,
-          rollupDurationMs: 800,
-          rollupTickRate: 18,
+          rollupDurationMs: 1000,  // 1 second
+          rollupTickRate: 15,
           particleBurstCount: 5,
         ),
-        // WIN_2: >2x, ≤4x bet
+        // WIN_2: >2x, ≤4x bet — 1.5 seconds rollup
         const WinTierDefinition(
           tierId: 2,
           displayLabel: 'WIN',
           fromMultiplier: 2,
           toMultiplier: 4,
-          rollupDurationMs: 1000,
-          rollupTickRate: 16,
+          rollupDurationMs: 1500,  // 1.5 seconds
+          rollupTickRate: 13,
           particleBurstCount: 8,
         ),
-        // WIN_3: >4x, ≤8x bet
+        // WIN_3: >4x, ≤8x bet — 2 seconds rollup
         const WinTierDefinition(
           tierId: 3,
           displayLabel: 'NICE',
           fromMultiplier: 4,
           toMultiplier: 8,
-          rollupDurationMs: 1200,
-          rollupTickRate: 15,
+          rollupDurationMs: 2000,  // 2 seconds
+          rollupTickRate: 12,
           particleBurstCount: 12,
         ),
-        // WIN_4: >8x, ≤13x bet
+        // WIN_4: >8x, ≤13x bet — 3 seconds rollup
         const WinTierDefinition(
           tierId: 4,
           displayLabel: 'NICE WIN',
           fromMultiplier: 8,
           toMultiplier: 13,
-          rollupDurationMs: 1500,
-          rollupTickRate: 14,
+          rollupDurationMs: 3000,  // 3 seconds
+          rollupTickRate: 10,
           particleBurstCount: 18,
         ),
-        // WIN_5: >13x bet (default for regular wins before BIG_WIN)
+        // WIN_5: >13x bet (default for regular wins) — 4 seconds rollup
         const WinTierDefinition(
           tierId: 5,
           displayLabel: 'GREAT WIN',
           fromMultiplier: 13,
           toMultiplier: 20, // up to BIG_WIN threshold
-          rollupDurationMs: 2000,
-          rollupTickRate: 12,
+          rollupDurationMs: 4000,  // 4 seconds
+          rollupTickRate: 8,
           particleBurstCount: 25,
         ),
         // WIN_6 REMOVED - WIN_5 is now default for >13x

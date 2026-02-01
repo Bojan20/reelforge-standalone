@@ -3025,17 +3025,17 @@ class _WinPresenterState extends State<_WinPresenter>
                         ],
                       ),
                     ] else ...[
-                      // REGULAR WIN: Show simple "TOTAL WIN" header
+                      // REGULAR WIN: Show tier-specific plaque (WIN_1 through WIN_5)
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.stars, color: Colors.white, size: 24),
+                          Icon(_getRegularWinIcon(), color: Colors.white, size: 24),
                           const SizedBox(width: 8),
-                          const Text(
-                            'TOTAL WIN',
-                            style: TextStyle(
+                          Text(
+                            _getRegularWinLabel(),
+                            style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 24,
+                              fontSize: 28,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 3,
                               shadows: [
@@ -3047,7 +3047,7 @@ class _WinPresenterState extends State<_WinPresenter>
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.stars, color: Colors.white, size: 24),
+                          Icon(_getRegularWinIcon(), color: Colors.white, size: 24),
                         ],
                       ),
                     ],
@@ -3144,9 +3144,16 @@ class _WinPresenterState extends State<_WinPresenter>
   }
 
   Color _getWinColor() {
-    // For regular wins (isBigWin=false), use a simple blue color
+    // For regular wins (isBigWin=false), use tier-specific colors
     if (!widget.isBigWin) {
-      return const Color(0xFF2196F3); // Blue for regular TOTAL WIN
+      return switch (widget.winTier) {
+        'WIN_5' => const Color(0xFFFF6B6B), // Red-coral for highest regular tier
+        'WIN_4' => const Color(0xFFFF9040), // Orange
+        'WIN_3' => const Color(0xFFFFD700), // Gold
+        'WIN_2' => const Color(0xFF4CAF50), // Green
+        'WIN_1' => const Color(0xFF2196F3), // Blue
+        _ => const Color(0xFF2196F3), // Default blue
+      };
     }
     // For big wins, use tier-specific colors
     return switch (widget.winTier) {
@@ -3156,6 +3163,34 @@ class _WinPresenterState extends State<_WinPresenter>
       'SUPER' => _SlotTheme.winBig,
       'BIG' => const Color(0xFF4CAF50), // Green for BIG
       _ => _SlotTheme.winSmall,
+    };
+  }
+
+  /// Returns the label for regular win tiers (WIN_1 through WIN_5)
+  String _getRegularWinLabel() {
+    return switch (widget.winTier) {
+      'WIN_5' => 'GREAT WIN!',    // >13x bet
+      'WIN_4' => 'NICE WIN!',     // >8x, ≤13x bet
+      'WIN_3' => 'GOOD WIN!',     // >4x, ≤8x bet
+      'WIN_2' => 'WIN!',          // >2x, ≤4x bet
+      'WIN_1' => 'WIN',           // >1x, ≤2x bet
+      'WIN_EQUAL' => 'PUSH',      // =1x bet (push)
+      'WIN_LOW' => 'SMALL WIN',   // <1x bet
+      _ => 'WIN',
+    };
+  }
+
+  /// Returns the icon for regular win tiers
+  IconData _getRegularWinIcon() {
+    return switch (widget.winTier) {
+      'WIN_5' => Icons.local_fire_department, // Fire for highest
+      'WIN_4' => Icons.star,                   // Star
+      'WIN_3' => Icons.emoji_events,           // Trophy
+      'WIN_2' => Icons.thumb_up,               // Thumbs up
+      'WIN_1' => Icons.check_circle,           // Check
+      'WIN_EQUAL' => Icons.balance,            // Balance for push
+      'WIN_LOW' => Icons.arrow_circle_up,      // Small arrow
+      _ => Icons.stars,
     };
   }
 
@@ -7147,16 +7182,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   /// Legacy regular tier rollup duration mapping
+  /// WIN_1: 1s | WIN_2: 1.5s | WIN_3: 2s | WIN_4: 3s | WIN_5: 4s
   int _legacyRegularRollupDuration(int tierId) {
     return switch (tierId) {
-      0 => 500,
-      1 => 500,
-      2 => 1000,
-      3 => 1500,
-      4 => 2000,
-      5 => 2500,
-      6 => 3000,
-      _ => 500,
+      0 => 500,   // WIN_EQUAL (push)
+      1 => 1000,  // WIN_1: 1 second
+      2 => 1500,  // WIN_2: 1.5 seconds
+      3 => 2000,  // WIN_3: 2 seconds
+      4 => 3000,  // WIN_4: 3 seconds
+      5 => 4000,  // WIN_5: 4 seconds
+      _ => 500,   // fallback
     };
   }
 
@@ -7176,16 +7211,41 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// This is the CORRECT method - uses ratio without bet calculation errors
   /// Returns 'BIG', 'MEGA', etc. for legacy compatibility, or '' for small wins
   String _getWinTierFromRatio(double winRatio) {
-    // P5 big win threshold is typically 20x
-    // Use ratio directly - no bet calculation needed!
-    if (winRatio < 20.0) return ''; // Small win, no plaque
+    // P5 big win threshold is 20x
+    // For regular wins (< 20x), return WIN_1 through WIN_5
+    // For big wins (>= 20x), return BIG, MEGA, SUPER, EPIC, ULTRA
 
-    // Map ratio to tier
+    // Big wins first (>= 20x)
     if (winRatio >= 100.0) return 'ULTRA';
     if (winRatio >= 60.0) return 'EPIC';
     if (winRatio >= 30.0) return 'SUPER';
     if (winRatio >= 25.0) return 'MEGA';
-    return 'BIG'; // 20x-25x
+    if (winRatio >= 20.0) return 'BIG';
+
+    // Regular wins (< 20x) - P5 tier system
+    // WIN_5: >13x bet (highest regular tier)
+    // WIN_4: >8x, ≤13x bet
+    // WIN_3: >4x, ≤8x bet
+    // WIN_2: >2x, ≤4x bet
+    // WIN_1: >1x, ≤2x bet
+    // WIN_EQUAL: =1x bet (push)
+    // WIN_LOW: <1x bet
+    if (winRatio > 13.0) return 'WIN_5';
+    if (winRatio > 8.0) return 'WIN_4';
+    if (winRatio > 4.0) return 'WIN_3';
+    if (winRatio > 2.0) return 'WIN_2';
+    if (winRatio > 1.0) return 'WIN_1';
+    if (winRatio >= 1.0) return 'WIN_EQUAL';
+    return 'WIN_LOW';
+  }
+
+  /// Check if tier is a BIG WIN tier (20x+ - BIG, MEGA, SUPER, EPIC, ULTRA)
+  /// Returns false for regular wins (WIN_1 through WIN_5, WIN_EQUAL, WIN_LOW)
+  bool _isBigWinTier(String tier) {
+    return switch (tier) {
+      'BIG' || 'MEGA' || 'SUPER' || 'EPIC' || 'ULTRA' => true,
+      _ => false,
+    };
   }
 
   /// LEGACY: Get win tier string for UI display (DEPRECATED - use _getWinTierFromRatio)
@@ -7610,7 +7670,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                       showGamble: false, // Gamble disabled for basic mockup
                       onCollect: _collectWin,
                       onGamble: _startGamble,
-                      isBigWin: _currentWinTier.isNotEmpty, // Big Win has tier, Regular Win doesn't
+                      // Big Win = 20x+ (BIG, MEGA, SUPER, EPIC, ULTRA)
+                      // Regular Win = < 20x (WIN_1 through WIN_5, WIN_EQUAL, WIN_LOW)
+                      isBigWin: _isBigWinTier(_currentWinTier),
                     ),
                   ),
                 ),
