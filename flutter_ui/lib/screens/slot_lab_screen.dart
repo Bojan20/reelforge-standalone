@@ -409,6 +409,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // Register event to EventRegistry for instant playback
     final eventRegistry = EventRegistry.instance;
+    // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
+    final shouldLoop = StageConfigurationService.instance.isLooping(stage);
+
     eventRegistry.registerEvent(AudioEvent(
       id: 'audio_$stage',
       name: stage.replaceAll('_', ' '),
@@ -424,6 +427,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           busId: _getBusForStage(stage),
         ),
       ],
+      loop: shouldLoop,
     ));
 
     // Create composite event for Middleware Event Folder
@@ -976,6 +980,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       final eventId = 'audio_$stage';
 
       // Register to EventRegistry for playback
+      // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
+      final shouldLoop = StageConfigurationService.instance.isLooping(stage);
+
       eventRegistry.registerEvent(AudioEvent(
         id: eventId,
         name: stage.replaceAll('_', ' '),
@@ -991,6 +998,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             busId: _getBusForStage(stage),
           ),
         ],
+        loop: shouldLoop,
       ));
 
       // Add to MiddlewareProvider if not already present
@@ -9607,6 +9615,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         final stage = entry.key;
         final audioPath = entry.value;
 
+        // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
+        final shouldLoop = StageConfigurationService.instance.isLooping(stage);
+
         final audioEvent = AudioEvent(
           id: 'audio_$stage',
           name: stage.replaceAll('_', ' '),
@@ -9622,10 +9633,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               busId: _getBusForStage(stage),
             ),
           ],
+          loop: shouldLoop,
         );
 
         eventRegistry.registerEvent(audioEvent);
-        debugPrint('[SlotLab] ✅ Synced audio assignment: $stage → ${audioPath.split('/').last}');
+        debugPrint('[SlotLab] ✅ Synced audio assignment: $stage → ${audioPath.split('/').last} [loop=$shouldLoop]');
       }
 
       debugPrint('[SlotLab] ✅ Audio assignments sync complete');
