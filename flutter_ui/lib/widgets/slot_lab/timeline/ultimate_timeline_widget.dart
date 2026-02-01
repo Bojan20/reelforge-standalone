@@ -18,6 +18,7 @@ import '../../../models/timeline/audio_region.dart';
 import '../../../controllers/slot_lab/timeline_controller.dart';
 import 'timeline_ruler.dart';
 import 'timeline_grid_painter.dart';
+import 'timeline_waveform_painter.dart';
 
 class UltimateTimeline extends StatefulWidget {
   final double height;
@@ -385,14 +386,32 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
           ),
           child: Stack(
             children: [
-              // Waveform (Phase 2)
-              Center(
-                child: Text(
-                  region.audioPath.split('/').last,
-                  style: const TextStyle(fontSize: 9, color: Colors.white54),
-                  overflow: TextOverflow.ellipsis,
+              // Waveform rendering
+              if (region.waveformData != null && region.waveformData!.isNotEmpty)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: TimelineWaveformPainter(
+                      waveformData: region.waveformData,
+                      sampleRate: 44100,  // Default (FFI provides actual rate if needed)
+                      channels: 2,        // Default stereo
+                      style: WaveformStyle.peaks,
+                      isSelected: region.isSelected,
+                      isMuted: region.isMuted,
+                      zoom: state.zoom,
+                      trimStart: region.trimStart,  // Already in seconds
+                      trimEnd: region.trimEnd,      // Already in seconds
+                    ),
+                  ),
+                )
+              else
+                // Placeholder while waveform loads
+                Center(
+                  child: Text(
+                    region.audioPath.split('/').last,
+                    style: const TextStyle(fontSize: 9, color: Colors.white54),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
 
               // Fade overlays
               if (region.fadeInMs > 0)

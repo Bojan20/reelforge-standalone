@@ -2811,8 +2811,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 onPause: () => _slotLabProvider.stopStagePlayback(),
                 onResume: () {}, // Resume not implemented
                 onStop: () => _slotLabProvider.stopStagePlayback(),
-                // P14: Pass timeline controller to Lower Zone
-                timelineController: _ultimateTimelineController,
+                // P14: Delegate timeline rendering to slot_lab_screen
+                onBuildTimelineContent: _buildTimelineContent,
               ),
             ],
           ),
