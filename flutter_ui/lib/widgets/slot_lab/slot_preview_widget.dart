@@ -181,6 +181,32 @@ class SlotSymbol {
   /// Get symbol by ID — uses dynamic symbols if set, falls back to defaults
   static SlotSymbol getSymbol(int id) => effectiveSymbols[id] ?? effectiveSymbols[7] ?? _defaultSymbols[7]!; // Fallback to LP3
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DYNAMIC SCATTER DETECTION — Works with both default and GDD-imported symbols
+  // Returns ALL symbol IDs that are scatter-type (name contains 'SCATTER' or 'SCAT')
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get all scatter symbol IDs (dynamic detection)
+  /// Works with both default symbols (ID 12) and GDD-imported symbols (any ID)
+  static Set<int> get scatterSymbolIds {
+    final scatterIds = <int>{};
+    for (final entry in effectiveSymbols.entries) {
+      final name = entry.value.name.toUpperCase();
+      // Match "SCATTER", "SCAT", or anything with "SCATTER" in name
+      if (name.contains('SCATTER') || name == 'SCAT') {
+        scatterIds.add(entry.key);
+      }
+    }
+    // Fallback: if no scatter found, use default ID 12
+    if (scatterIds.isEmpty) {
+      scatterIds.add(12);
+    }
+    return scatterIds;
+  }
+
+  /// Check if a symbol ID is a scatter symbol (dynamic detection)
+  static bool isScatterSymbol(int symbolId) => scatterSymbolIds.contains(symbolId);
+
   /// Get short label for symbol — MUST MATCH RUST ENGINE
   /// Rust: HP1=1, HP2=2, HP3=3, HP4=4, LP1=5..LP6=10, WILD=11, SCATTER=12, BONUS=13
   String get shortLabel {
@@ -243,6 +269,10 @@ class SlotPreviewWidget extends StatefulWidget {
   /// Parent should check [canHandleSpaceKey] before calling [handleSpaceKey].
   final void Function()? onSpaceKeyHandled;
 
+  /// 🔴 CRITICAL: Disable win presentation when used inside PremiumSlotPreview
+  /// PremiumSlotPreview has its own _WinPresenter overlay — this prevents DOUBLE PLAQUE
+  final bool showWinPresentation;
+
   const SlotPreviewWidget({
     super.key,
     required this.provider,
@@ -250,6 +280,7 @@ class SlotPreviewWidget extends StatefulWidget {
     this.reels = 5,
     this.rows = 3,
     this.onSpaceKeyHandled,
+    this.showWinPresentation = true, // Default: show (for standalone usage)
   });
 
   @override
@@ -338,7 +369,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   final Map<int, int> _anticipationTensionLevel = {}; // Per-reel tension level (1-4)
   final Map<int, String> _anticipationReason = {}; // Per-reel reason (scatter, bonus, wild, jackpot)
   static const int _anticipationDurationMs = 3000; // 3 seconds per reel
-  static const int _scatterSymbolId = 12; // SCATTER symbol ID (matches StandardSymbolSet ID 12)
+  // NOTE: Scatter symbol ID is now DYNAMIC — use SlotSymbol.isScatterSymbol(id) instead
+  // This supports both default symbols (ID 12) and GDD-imported symbols (any ID)
   static const int _scattersNeededForAnticipation = 2; // 2 scatters needed to trigger
   Set<int> _scatterReels = {}; // Reels that have landed with scatter symbols
 
@@ -377,9 +409,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   int _cascadeStep = 0;
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // V2: LANDING IMPACT EFFECT — Industry standard "punch" on reel stop
+  // V2: LANDING IMPACT EFFECT — Scale pop only (flash disabled per user request)
   // ═══════════════════════════════════════════════════════════════════════════
-  final Map<int, double> _landingFlashProgress = {}; // Per-reel flash (0.0 - 1.0)
   final Map<int, double> _landingPopScale = {}; // Per-reel scale pop (1.0 - 1.05 - 1.0)
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -839,28 +870,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // V2: LANDING IMPACT — Industry standard visual "punch" on reel landing
-  // Flash overlay (50ms) + Scale pop (1.05x over 100ms)
+  // V2: LANDING IMPACT — Scale pop only (flash disabled per user request)
   // ═══════════════════════════════════════════════════════════════════════════
   void _triggerLandingImpact(int reelIndex) {
-    // Start flash at full intensity
+    // Start at peak scale (no flash)
     setState(() {
-      _landingFlashProgress[reelIndex] = 1.0;
-      _landingPopScale[reelIndex] = 1.08; // Start at peak scale
-    });
-
-    // Animate flash decay (50ms)
-    Future.delayed(const Duration(milliseconds: 20), () {
-      if (!mounted) return;
-      setState(() => _landingFlashProgress[reelIndex] = 0.6);
-    });
-    Future.delayed(const Duration(milliseconds: 40), () {
-      if (!mounted) return;
-      setState(() => _landingFlashProgress[reelIndex] = 0.3);
-    });
-    Future.delayed(const Duration(milliseconds: 60), () {
-      if (!mounted) return;
-      setState(() => _landingFlashProgress[reelIndex] = 0.0);
+      _landingPopScale[reelIndex] = 1.08;
     });
 
     // Animate scale pop decay (100ms)
@@ -876,11 +891,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       if (!mounted) return;
       setState(() => _landingPopScale[reelIndex] = 1.0);
     });
-
-    // Screen shake on LAST REEL for potential big wins
-    if (reelIndex == widget.reels - 1) {
-      _triggerScreenShake();
-    }
   }
 
   /// Brief screen shake when last reel lands (anticipation effect)
@@ -1040,11 +1050,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   /// Check if the stopped reel has scatter symbols and trigger anticipation if 2+ found
   /// P7.2.1: Now activates SEQUENTIAL anticipation mode where reels stop one-by-one
+  /// DYNAMIC SCATTER DETECTION: Works with default symbols (ID 12) AND GDD-imported symbols
   void _checkScatterAndTriggerAnticipation(int reelIndex) {
-    // Check if this reel has any scatter symbols
+    // Check if this reel has any scatter symbols (DYNAMIC detection)
     if (reelIndex < _targetGrid.length) {
       final reelSymbols = _targetGrid[reelIndex];
-      final hasScatter = reelSymbols.any((symbolId) => symbolId == _scatterSymbolId);
+      // Use dynamic scatter detection — works with any symbol configuration
+      final hasScatter = reelSymbols.any((symbolId) => SlotSymbol.isScatterSymbol(symbolId));
 
       if (hasScatter) {
         _scatterReels.add(reelIndex);
@@ -1427,12 +1439,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
 
       // Check for near miss events
-      final nearMiss = stages.any((s) =>
-          s.stageType.toLowerCase().contains('near') &&
-          s.stageType.toLowerCase().contains('miss'));
-      if (nearMiss && !_isNearMiss) {
-        _triggerNearMiss(result);
-      }
+      // DISABLED: NearMiss visual effect temporarily disabled to fix red background bug
+      // TODO: Re-enable after fixing false positive detection
+      // final nearMiss = stages.any((s) =>
+      //     s.stageType.toLowerCase().contains('near') &&
+      //     s.stageType.toLowerCase().contains('miss'));
+      // if (nearMiss && !_isNearMiss) {
+      //   _triggerNearMiss(result);
+      // }
 
       // Check for cascade events
       final cascadeStart = stages.any((s) =>
@@ -1572,9 +1586,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _stopWinLinePresentation();
 
     setState(() {
-      for (int r = 0; r < widget.reels && r < result.grid.length; r++) {
-        for (int row = 0; row < widget.rows && row < result.grid[r].length; row++) {
-          _displayGrid[r][row] = result.grid[r][row];
+      // CRITICAL FIX: Use _targetGrid (set at spin start) NOT result.grid
+      // This ensures symbols don't change after last reel stops
+      // _targetGrid was already set from result.grid in _startSpin()
+      for (int r = 0; r < widget.reels && r < _targetGrid.length; r++) {
+        for (int row = 0; row < widget.rows && row < _targetGrid[r].length; row++) {
+          _displayGrid[r][row] = _targetGrid[r][row];
         }
       }
 
@@ -1645,10 +1662,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
         debugPrint('[SlotPreview] 🎯 V14: Winning symbols: ${_winningSymbolNames.join(', ')}');
 
-        // Determine win tier and show overlay
-        // Uses configurable WinTierConfig from provider (default: standard slot thresholds)
+        // ═══════════════════════════════════════════════════════════════════════
+        // ULTIMATIVNO REŠENJE: P5 Win Tier System
+        // Koristi SlotLabProjectProvider.getWinTierForAmount() za SVE winove
+        // NIKADA ne vraća prazan string — svaki win ima svoj tier label
+        // ═══════════════════════════════════════════════════════════════════════
         _targetWinAmount = result.totalWin.toDouble();
-        _winTier = widget.provider.getVisualTierForWin(result.totalWin.toDouble());
+        _winTier = _getP5WinTierStringId(_targetWinAmount);
 
         // ═══════════════════════════════════════════════════════════════════════
         // ANALYTICS: Track win tier triggered
@@ -2167,53 +2187,121 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // Falls back to industry-standard defaults when projectProvider is null
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// ULTIMATIVNO REŠENJE: Get tier string ID from P5 system
+  /// Returns: 'WIN_LOW', 'WIN_1', 'WIN_2', ..., 'BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA'
+  /// NIKADA ne vraća prazan string — svaki win ima svoj tier ID
+  String _getP5WinTierStringId(double totalWin) {
+    final projectProvider = widget.projectProvider;
+    final bet = widget.provider.betAmount;
+
+    if (projectProvider == null || bet <= 0 || totalWin <= 0) {
+      // Fallback to legacy M4 system
+      return widget.provider.getVisualTierForWin(totalWin);
+    }
+
+    // P5 System: Get tier result from project provider
+    final tierResult = projectProvider.getWinTierForAmount(totalWin, bet);
+    if (tierResult == null) return '';
+
+    // Big Win — return big win tier ID for progression system
+    if (tierResult.isBigWin) {
+      return switch (tierResult.bigWinMaxTier) {
+        1 => 'BIG',
+        2 => 'SUPER',
+        3 => 'MEGA',
+        4 => 'EPIC',
+        5 => 'ULTRA',
+        _ => 'BIG',
+      };
+    }
+
+    // Regular Win — return stage name as tier ID (WIN_LOW, WIN_1, WIN_2, etc.)
+    if (tierResult.regularTier != null) {
+      return tierResult.regularTier!.stageName; // 'WIN_LOW', 'WIN_1', 'WIN_2', etc.
+    }
+
+    return '';
+  }
+
   /// Get tier label from P5 configuration
-  /// Tier ID: 'BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA', or '' for small wins
-  /// Returns fully configurable label from SlotWinConfiguration
+  /// Tier ID: 'WIN_LOW', 'WIN_1', 'WIN_2', ..., 'BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA'
+  /// Returns fully configurable displayLabel from SlotWinConfiguration
+  ///
+  /// ULTIMATIVNO REŠENJE: Uses P5 displayLabel for ALL tiers
+  /// - Regular wins: displayLabel from WinTierDefinition (e.g., 'WIN 1', 'WIN 2')
+  /// - Big wins: displayLabel from BigWinTierDefinition (e.g., 'BIG WIN TIER 1')
+  /// - NO HARDCODED labels per CLAUDE.md
   String _getP5TierLabel(String tierStringId) {
     final projectProvider = widget.projectProvider;
 
-    // Map string tier ID to numeric P5 tier ID
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REGULAR WIN TIERS: WIN_LOW, WIN_EQUAL, WIN_1, WIN_2, WIN_3, WIN_4, WIN_5, WIN_6
+    // Get displayLabel directly from P5 RegularWinTierConfig
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (tierStringId.startsWith('WIN_') && projectProvider != null) {
+      final config = projectProvider.winConfiguration.regularWins;
+
+      // Find matching tier by stageName
+      for (final tier in config.tiers) {
+        if (tier.stageName == tierStringId) {
+          final label = tier.displayLabel;
+          if (label.isNotEmpty) return label;
+          // Fallback to tier number if no displayLabel
+          return switch (tier.tierId) {
+            -1 => 'WIN LOW',
+            0 => 'WIN =',
+            _ => 'WIN ${tier.tierId}',
+          };
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BIG WIN TIERS: BIG, SUPER, MEGA, EPIC, ULTRA → BIG WIN TIER 1..5
+    // Get displayLabel from P5 BigWinConfig
+    // ═══════════════════════════════════════════════════════════════════════════
     final p5TierId = switch (tierStringId) {
       'BIG' => 1,
       'SUPER' => 2,
       'MEGA' => 3,
       'EPIC' => 4,
       'ULTRA' => 5,
-      _ => 0, // Small win or unknown
+      _ => 0,
     };
 
-    // Small win — return "WIN!"
-    if (p5TierId == 0) {
-      return 'WIN!';
-    }
+    if (p5TierId > 0 && projectProvider != null) {
+      final bigTiers = projectProvider.winConfiguration.bigWins.tiers;
 
-    // P5 system: get label from configuration
-    if (projectProvider != null) {
-      final config = projectProvider.winConfiguration;
-      final bigTiers = config.bigWins.tiers;
-
-      // Find matching tier
       for (final tier in bigTiers) {
         if (tier.tierId == p5TierId) {
-          // Use displayLabel if set, otherwise fall back to default
           final label = tier.displayLabel;
-          if (label.isNotEmpty) {
-            return label;
-          }
+          if (label.isNotEmpty) return label;
           break;
         }
       }
+
+      // Fallback — neutral tier identifiers per CLAUDE.md
+      return 'BIG WIN TIER $p5TierId';
     }
 
-    // Neutral fallback — user can customize via P5 config
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FALLBACK for legacy path (no P5 provider)
+    // ═══════════════════════════════════════════════════════════════════════════
     return switch (tierStringId) {
-      'ULTRA' => 'Tier 5',
-      'EPIC' => 'Tier 4',
-      'MEGA' => 'Tier 3',
-      'SUPER' => 'Tier 2',
-      'BIG' => 'Tier 1',
-      _ => 'WIN!',
+      'WIN_LOW' => 'WIN LOW',
+      'WIN_EQUAL' => 'WIN =',
+      'WIN_1' => 'WIN 1',
+      'WIN_2' => 'WIN 2',
+      'WIN_3' => 'WIN 3',
+      'WIN_4' => 'WIN 4',
+      'WIN_5' => 'WIN 5',
+      'WIN_6' => 'WIN 6',
+      'ULTRA' => 'BIG WIN TIER 5',
+      'EPIC' => 'BIG WIN TIER 4',
+      'MEGA' => 'BIG WIN TIER 3',
+      'SUPER' => 'BIG WIN TIER 2',
+      'BIG' => 'BIG WIN TIER 1',
+      _ => 'WIN',
     };
   }
 
@@ -3074,14 +3162,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// P0.3: Handle anticipation start from provider (visual only, no audio)
-  /// tensionLevel: 1-4, higher = more intense (calculated from reel position)
+  /// tensionLevel: 1-4, higher = more intense (based on NUMBER of reels in anticipation)
   void _onProviderAnticipationStart(int reelIndex, String reason, {int? tensionLevel}) {
     if (_anticipationReels.contains(reelIndex)) return; // Already anticipating
 
-    // Calculate tension level based on reel position if not provided
-    // Reel 1 (index 1) = L1, Reel 2 = L2, etc. (max L4)
-    // First reel (index 0) never has anticipation
-    final level = tensionLevel ?? (reelIndex).clamp(1, 4);
+    // Calculate tension level based on NUMBER OF REELS already in anticipation
+    // First anticipation reel = L1, second = L2, third = L3, fourth = L4
+    // NOT based on reel index! (Reel 4 should not automatically be L4/red)
+    final level = tensionLevel ?? (_anticipationReels.length + 1).clamp(1, 4);
 
     debugPrint('[SlotPreview] P0.3: PROVIDER ANTICIPATION START: reel=$reelIndex, reason=$reason, tension=L$level');
 
@@ -3167,6 +3255,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _triggerNearMiss(SlotLabSpinResult? result) {
     // Detect which reel(s) caused the near-miss
     final nearMissReels = _detectNearMissReels(result);
+
+    // If no actual near-miss detected, don't show visual effect
+    if (nearMissReels.isEmpty) {
+      debugPrint('[SlotPreview] 🎯 No actual near-miss detected, skipping visual effect');
+      return;
+    }
+
     final nearMissType = _detectNearMissType(result);
 
     // Build positions set for visual effect
@@ -3178,9 +3273,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     setState(() {
       _isNearMiss = true;
-      _nearMissPositions = positions.isNotEmpty
-          ? positions
-          : {'${widget.reels - 1},1'}; // Fallback to last reel
+      _nearMissPositions = positions;
     });
 
     // P3.3: Trigger per-reel near-miss audio stages
@@ -3225,7 +3318,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// Returns list of reel indices where the "miss" occurred
   Set<int> _detectNearMissReels(SlotLabSpinResult? result) {
     if (result == null || result.grid.isEmpty) {
-      return {widget.reels - 1}; // Default to last reel
+      return {}; // No near-miss if no result data — don't default to last reel!
     }
 
     final nearMissReels = <int>{};
@@ -3270,11 +3363,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
     }
 
-    // If no specific near-miss detected, default to last reel
-    if (nearMissReels.isEmpty) {
-      nearMissReels.add(widget.reels - 1);
-    }
-
+    // If no specific near-miss detected, return empty set
+    // DO NOT default to last reel - that causes false positive red background
     return nearMissReels;
   }
 
@@ -3672,7 +3762,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               // The overlay itself checks _winAmountOpacity.value to hide when faded out
               // BUG FIX: Previously only showed for _winTier.isNotEmpty (big wins)
               // Now shows when: tier exists OR win amount is being displayed
-              if (_winTier.isNotEmpty || _targetWinAmount > 0)
+              // 🔴 CRITICAL: Only show if showWinPresentation=true (prevents double plaque in PremiumSlotPreview)
+              if (widget.showWinPresentation && (_winTier.isNotEmpty || _targetWinAmount > 0))
                 Positioned.fill(
                   child: _buildWinOverlay(constraints),
                 ),
@@ -3817,47 +3908,55 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     );
   }
 
-  /// Win display — Tier plaketa ("BIG WIN!", "MEGA WIN!" itd.) SA coin counterom
+  /// Win display — Tier plaketa SA coin counterom
   /// NE prikazuje info o simbolima/win linijama (npr. "3x Grapes")
   /// Uses _displayTier which updates during tier progression
+  ///
+  /// ULTIMATIVNO: Podržava P5 tier ID-ove (WIN_1, WIN_2, BIG, SUPER, itd.)
   Widget _buildWinDisplay() {
     // Get current tier for display (updates during progression)
     final tier = _displayTier;
 
-    // Boje bazirane na tier-u (industry standard progression)
-    // BIG je prvi major tier, SUPER je drugi (umesto NICE)
+    // Helper: Check if tier is a big win (BIG, SUPER, MEGA, EPIC, ULTRA)
+    final isBigWinTier = ['BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA'].contains(tier);
+
+    // Boje bazirane na tier-u
+    // Big wins: progression od zelene do crvene/pink
+    // Regular wins (WIN_1, WIN_2, itd.): sve su zelene (industry standard)
     final tierColors = switch (tier) {
       'ULTRA' => [const Color(0xFFFF4080), const Color(0xFFFF66FF), const Color(0xFFFFD700)],
       'EPIC' => [const Color(0xFFE040FB), const Color(0xFFFF66FF), const Color(0xFF40C8FF)],
       'MEGA' => [const Color(0xFFFFD700), const Color(0xFFFFE55C), const Color(0xFFFF9040)],
       'SUPER' => [const Color(0xFF40C8FF), const Color(0xFF81D4FA), const Color(0xFF4FC3F7)],
       'BIG' => [const Color(0xFF40FF90), const Color(0xFF88FF88), const Color(0xFFFFEB3B)],
+      // Regular wins — sve zelene
       _ => [const Color(0xFF40FF90), const Color(0xFF4CAF50)],
     };
 
     // Tier label tekst — P5 CONFIGURABLE SYSTEM
     // Uses SlotLabProjectProvider.winConfiguration for fully customizable labels
-    // Falls back to legacy hardcoded labels only when projectProvider is null
     final tierLabel = _getP5TierLabel(tier);
 
-    // Font size baziran na tier-u — ENHANCED za bolju vidljivost
+    // Font size baziran na tier-u
+    // Big wins: veći fontovi za dramatičnost
+    // Regular wins: manji, ali čitljivi
     final tierFontSize = switch (tier) {
       'ULTRA' => 48.0,
       'EPIC' => 44.0,
       'MEGA' => 40.0,
       'SUPER' => 36.0,
       'BIG' => 32.0,
-      _ => 28.0,  // Small wins and fallback
+      _ => 28.0,  // Regular wins (WIN_1, WIN_2, itd.)
     };
 
-    // Counter font size — POVEĆAN za bolju vidljivost
+    // Counter font size
     final counterFontSize = switch (tier) {
       'ULTRA' => 72.0,
       'EPIC' => 64.0,
       'MEGA' => 56.0,
       'SUPER' => 52.0,
       'BIG' => 48.0,
-      _ => 40.0,  // Small wins and fallback
+      _ => 40.0,  // Regular wins
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -3879,7 +3978,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       'MEGA' => 50.0,
       'SUPER' => 45.0,
       'BIG' => 40.0,
-      _ => 30.0,
+      _ => 30.0,  // Regular wins (WIN_1, WIN_2, itd.)
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -4246,8 +4345,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     required bool isPastTier,
     required Color tierColor,
   }) {
-    // Get short label for badge display (e.g., "BIG", "MEGA")
-    final shortLabel = tierStringId;
+    // Get short label for badge display — NO HARDCODED "BIG", "MEGA" per CLAUDE.md
+    // Use simple tier numbers: T1, T2, T3, T4, T5
+    final shortLabel = switch (tierStringId) {
+      'BIG' => 'T1',
+      'SUPER' => 'T2',
+      'MEGA' => 'T3',
+      'EPIC' => 'T4',
+      'ULTRA' => 'T5',
+      _ => tierStringId,
+    };
 
     // Current tier: bright with glow
     // Past tier: dimmed but visible
@@ -4811,10 +4918,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // V2: Landing Impact — Get landing scale for this reel
+        // V2: Landing Impact — Get landing scale for this reel (flash disabled)
         // ═══════════════════════════════════════════════════════════════════════
         final landingScale = _landingPopScale[reelIndex] ?? 1.0;
-        final flashIntensity = _landingFlashProgress[reelIndex] ?? 0.0;
 
         // ═══════════════════════════════════════════════════════════════════════
         // V6: Enhanced Symbol Highlight — Staggered popup scale + micro-rotation
@@ -4866,16 +4972,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                             reelIndex, rowIndex, symbolSize, isWinningPosition,
                             isNearMiss: isNearMissPosition && _isNearMiss,
                           ),
-                    // V2: Landing Flash Overlay — white flash on reel stop
-                    if (flashIntensity > 0)
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(4),
-                            color: Colors.white.withOpacity(flashIntensity * 0.7),
-                          ),
-                        ),
-                      ),
                     // ═════════════════════════════════════════════════════════
                     // V14: Symbol Name Label — shows which symbol is winning
                     // Appears in bottom-right corner during win highlight
@@ -4984,8 +5080,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
       case ReelPhase.idle:
       case ReelPhase.stopped:
-        // Static display
-        symbolId = _displayGrid[reelIndex][rowIndex];
+        // Static display — ALWAYS use _targetGrid during/after spin
+        // This ensures symbols don't change when bounce animation is skipped (bounceMs=0)
+        // _targetGrid is set at spin start and remains constant throughout
+        symbolId = _isSpinning || _spinFinalized
+            ? _targetGrid[reelIndex][rowIndex]
+            : _displayGrid[reelIndex][rowIndex];
         blurIntensity = 0;
         verticalOffset = 0;
     }

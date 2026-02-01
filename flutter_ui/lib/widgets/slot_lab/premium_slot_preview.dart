@@ -12,7 +12,6 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -24,10 +23,10 @@ import '../../models/win_tier_config.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../services/event_registry.dart';
-import '../../services/gdd_import_service.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'forced_outcome_panel.dart';
+import 'project_dashboard_dialog.dart';
 import 'slot_preview_widget.dart';
 
 // =============================================================================
@@ -230,13 +229,95 @@ extension SlotThemePresetExtension on SlotThemePreset {
   }
 }
 
+// =============================================================================
+// SPIN BUTTON PHASE SYSTEM — Industry Standard STOP/SKIP
+// =============================================================================
+
+/// Spin button phase states for industry-standard button behavior.
+///
+/// **Industry Standard (NetEnt, Pragmatic Play, IGT, Aristocrat):**
+/// - SPIN (blue) → Player can start a spin
+/// - STOP (red) → Player can stop spinning reels immediately
+/// - SKIP (gold) → Player can skip win presentation (with protection)
+///
+/// Big Win protection:
+/// - Regular wins: No protection (immediate skip)
+/// - All Big Win tiers: 2.5 seconds protection, then SKIP → BIG_WIN_END
+enum SpinButtonPhase {
+  /// Ready to spin - Blue button with "SPIN" label
+  spin,
+
+  /// Reels are spinning - Red button with "STOP" label
+  stop,
+
+  /// Win presentation active - Gold button with "SKIP" label
+  /// May show countdown timer if Big Win protection is active
+  skip,
+
+  /// Skip is available but still within protection countdown
+  /// Shows "SKIP" with remaining seconds countdown
+  skipProtected,
+}
+
+/// Big Win protection configuration.
+///
+/// **Simple rules:**
+/// - Regular wins (< threshold): No protection, can skip immediately
+/// - All Big Win tiers: 2.5 seconds protection before SKIP available
+/// - Each tier presentation: 4 seconds
+/// - BIG_WIN_END: 4 seconds
+class BigWinProtection {
+  /// No protection for regular wins
+  static const double regularWin = 0.0;
+
+  /// All Big Win tiers have same protection: 2.5 seconds
+  static const double bigWinProtection = 2.5;
+
+  /// Each tier lasts 4 seconds
+  static const double tierDuration = 4.0;
+
+  /// BIG_WIN_END lasts 4 seconds
+  static const double endDuration = 4.0;
+
+  /// Get protection duration for a win tier
+  static double forTier(String tier) {
+    final t = tier.toUpperCase();
+    // Any Big Win tier gets 2.5 seconds protection
+    if (t.startsWith('BIG_WIN') || t == 'BIG') {
+      return bigWinProtection;
+    }
+    // Regular wins - no protection
+    return regularWin;
+  }
+}
+
+/// Button gradient colors for each phase
+class SpinButtonColors {
+  /// SPIN button gradient (blue)
+  static const spinGradient = [Color(0xFF4A9EFF), Color(0xFF2060CC)];
+
+  /// STOP button gradient (red)
+  static const stopGradient = [Color(0xFFFF4040), Color(0xFFCC2040)];
+
+  /// SKIP button gradient (gold) - Industry standard for skip/collect
+  static const skipGradient = [Color(0xFFFFD700), Color(0xFFE6B800)];
+
+  /// SKIP protected gradient (gold with darker tint for countdown)
+  static const skipProtectedGradient = [Color(0xFFD4AF37), Color(0xFFB8860B)];
+
+  /// Disabled button colors
+  static const disabledGradient = [Color(0xFF242432), Color(0xFF1e1e2a)];
+}
+
 /// Complete theme data for slot UI
 class SlotThemeData {
   final Color bgDeep;
   final Color bgDark;
   final Color bgMid;
   final Color bgSurface;
+  final Color bgPanel;
   final Color gold;
+  final Color goldLight;
   final Color accent;
   final Color winSmall;
   final Color winBig;
@@ -245,15 +326,19 @@ class SlotThemeData {
   final Color winUltra;
   final List<Color> jackpotColors;
   final Color border;
+  final Color borderLight;
   final Color textPrimary;
   final Color textSecondary;
+  final Color textMuted;
 
   const SlotThemeData({
     required this.bgDeep,
     required this.bgDark,
     required this.bgMid,
     required this.bgSurface,
+    this.bgPanel = const Color(0xFF1e1e2a),
     required this.gold,
+    this.goldLight = const Color(0xFFFFE55C),
     required this.accent,
     required this.winSmall,
     required this.winBig,
@@ -262,9 +347,22 @@ class SlotThemeData {
     required this.winUltra,
     required this.jackpotColors,
     required this.border,
+    this.borderLight = const Color(0xFF4a4a58),
     required this.textPrimary,
     required this.textSecondary,
+    this.textMuted = const Color(0xFF707080),
   });
+
+  // Helper getters for jackpot colors (backward compatible)
+  Color get jackpotGrand => jackpotColors.isNotEmpty ? jackpotColors[0] : const Color(0xFFFFD700);
+  Color get jackpotMajor => jackpotColors.length > 1 ? jackpotColors[1] : const Color(0xFFFF4080);
+  Color get jackpotMinor => jackpotColors.length > 2 ? jackpotColors[2] : const Color(0xFF8B5CF6);
+  Color get jackpotMini => jackpotColors.length > 3 ? jackpotColors[3] : const Color(0xFF4CAF50);
+  Color get jackpotMystery => const Color(0xFF40C8FF);
+
+  // Gradient getters for control buttons
+  List<Color> get maxBetGradient => [gold, const Color(0xFFFF9040)];
+  List<Color> get autoSpinGradient => [accent, accent.withOpacity(0.7)];
 
   // Casino (default) - Current dark casino theme
   static const casino = SlotThemeData(
@@ -382,6 +480,50 @@ class SlotThemeData {
 }
 
 // =============================================================================
+// SLOT THEME PROVIDER - InheritedWidget for dynamic theme access
+// =============================================================================
+
+/// InheritedWidget that provides theme data to all slot UI widgets.
+///
+/// Usage in child widgets:
+/// ```dart
+/// final theme = SlotThemeProvider.of(context);
+/// Container(color: theme.bgDark);
+/// ```
+class SlotThemeProvider extends InheritedWidget {
+  final SlotThemeData theme;
+
+  const SlotThemeProvider({
+    super.key,
+    required this.theme,
+    required super.child,
+  });
+
+  /// Get theme from context. Returns casino theme as fallback.
+  static SlotThemeData of(BuildContext context) {
+    final provider = context.dependOnInheritedWidgetOfExactType<SlotThemeProvider>();
+    return provider?.theme ?? SlotThemeData.casino;
+  }
+
+  /// Get theme without rebuilding on change
+  static SlotThemeData read(BuildContext context) {
+    final provider = context.getInheritedWidgetOfExactType<SlotThemeProvider>();
+    return provider?.theme ?? SlotThemeData.casino;
+  }
+
+  @override
+  bool updateShouldNotify(SlotThemeProvider oldWidget) {
+    return theme != oldWidget.theme;
+  }
+}
+
+/// Extension for easy theme access from BuildContext
+extension SlotThemeContext on BuildContext {
+  /// Get current slot theme (shorthand for SlotThemeProvider.of(this))
+  SlotThemeData get slotTheme => SlotThemeProvider.of(this);
+}
+
+// =============================================================================
 // A. HEADER ZONE
 // =============================================================================
 
@@ -441,6 +583,7 @@ class _HeaderZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = SlotThemeProvider.of(context);
     return Container(
       height: 48, // Reduced from 56
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -449,12 +592,12 @@ class _HeaderZone extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            _SlotTheme.bgDark,
-            _SlotTheme.bgDark.withOpacity(0.95),
+            theme.bgDark,
+            theme.bgDark.withOpacity(0.95),
           ],
         ),
-        border: const Border(
-          bottom: BorderSide(color: _SlotTheme.border, width: 1),
+        border: Border(
+          bottom: BorderSide(color: theme.border, width: 1),
         ),
       ),
       child: Row(
@@ -468,7 +611,7 @@ class _HeaderZone extends StatelessWidget {
           const SizedBox(width: 12),
 
           // Logo
-          _buildLogo(),
+          _buildLogo(theme),
           const SizedBox(width: 24),
 
           // Balance display (animated)
@@ -502,17 +645,6 @@ class _HeaderZone extends StatelessWidget {
             onTap: onRecordingToggle,
           ),
           const SizedBox(width: 12),
-
-          // P6: Debug toggle (debug mode only)
-          if (kDebugMode) ...[
-            _HeaderIconButton(
-              icon: showDebugToolbar ? Icons.bug_report : Icons.bug_report_outlined,
-              tooltip: 'Debug Toolbar (D)',
-              isActive: showDebugToolbar,
-              onTap: onDebugToggle,
-            ),
-            const SizedBox(width: 12),
-          ],
 
           // Audio controls
           _HeaderIconButton(
@@ -558,7 +690,7 @@ class _HeaderZone extends StatelessWidget {
     );
   }
 
-  Widget _buildLogo() {
+  Widget _buildLogo(SlotThemeData theme) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -566,13 +698,13 @@ class _HeaderZone extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [FluxForgeTheme.accentBlue, FluxForgeTheme.accentCyan],
+            gradient: LinearGradient(
+              colors: [theme.accent, theme.gold],
             ),
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
-                color: FluxForgeTheme.accentBlue.withOpacity(0.4),
+                color: theme.accent.withOpacity(0.4),
                 blurRadius: 8,
               ),
             ],
@@ -580,10 +712,10 @@ class _HeaderZone extends StatelessWidget {
           child: const Icon(Icons.casino, color: Colors.white, size: 20),
         ),
         const SizedBox(width: 10),
-        const Text(
+        Text(
           'FLUXFORGE',
           style: TextStyle(
-            color: _SlotTheme.textPrimary,
+            color: theme.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.bold,
             letterSpacing: 2,
@@ -618,11 +750,12 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     final color = widget.isDestructive
         ? FluxForgeTheme.accentRed
         : widget.isActive
             ? FluxForgeTheme.accentBlue
-            : _SlotTheme.textSecondary;
+            : theme.textSecondary;
 
     return Tooltip(
       message: widget.tooltip,
@@ -671,27 +804,28 @@ class _DeviceSimulationDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _SlotTheme.bgMid.withOpacity(0.5),
+        color: theme.bgMid.withOpacity(0.5),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _SlotTheme.border.withOpacity(0.5)),
+        border: Border.all(color: theme.border.withOpacity(0.5)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<DeviceSimulation>(
           value: value,
           isDense: true,
-          icon: const Icon(Icons.arrow_drop_down, color: _SlotTheme.textSecondary, size: 18),
-          dropdownColor: _SlotTheme.bgDark,
-          style: const TextStyle(color: _SlotTheme.textPrimary, fontSize: 12),
+          icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary, size: 18),
+          dropdownColor: theme.bgDark,
+          style: TextStyle(color: theme.textPrimary, fontSize: 12),
           items: DeviceSimulation.values.map((device) {
             return DropdownMenuItem(
               value: device,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(device.icon, size: 16, color: _SlotTheme.textSecondary),
+                  Icon(device.icon, size: 16, color: theme.textSecondary),
                   const SizedBox(width: 6),
                   Text(device.label),
                 ],
@@ -722,29 +856,30 @@ class _ThemeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _SlotTheme.bgMid.withOpacity(0.5),
+        color: theme.bgMid.withOpacity(0.5),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _SlotTheme.border.withOpacity(0.5)),
+        border: Border.all(color: theme.border.withOpacity(0.5)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<SlotThemePreset>(
           value: value,
           isDense: true,
-          icon: const Icon(Icons.arrow_drop_down, color: _SlotTheme.textSecondary, size: 18),
-          dropdownColor: _SlotTheme.bgDark,
-          style: const TextStyle(color: _SlotTheme.textPrimary, fontSize: 12),
-          items: SlotThemePreset.values.map((theme) {
+          icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary, size: 18),
+          dropdownColor: theme.bgDark,
+          style: TextStyle(color: theme.textPrimary, fontSize: 12),
+          items: SlotThemePreset.values.map((preset) {
             return DropdownMenuItem(
-              value: theme,
+              value: preset,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.palette, size: 16, color: theme.data.accent),
+                  Icon(Icons.palette, size: 16, color: preset.data.accent),
                   const SizedBox(width: 6),
-                  Text(theme.label),
+                  Text(preset.label),
                 ],
               ),
             );
@@ -781,6 +916,7 @@ class _RecordingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Tooltip(
       message: isRecording ? 'Stop Recording (R)' : 'Start Recording (R)',
       child: GestureDetector(
@@ -791,12 +927,12 @@ class _RecordingButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: isRecording
                 ? FluxForgeTheme.accentRed.withOpacity(0.2)
-                : _SlotTheme.bgMid.withOpacity(0.5),
+                : theme.bgMid.withOpacity(0.5),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: isRecording
                   ? FluxForgeTheme.accentRed.withOpacity(0.5)
-                  : _SlotTheme.border.withOpacity(0.5),
+                  : theme.border.withOpacity(0.5),
             ),
           ),
           child: Row(
@@ -823,7 +959,7 @@ class _RecordingButton extends StatelessWidget {
                 Icon(
                   Icons.fiber_manual_record,
                   size: 14,
-                  color: _SlotTheme.textSecondary,
+                  color: theme.textSecondary,
                 ),
               const SizedBox(width: 6),
               Text(
@@ -831,7 +967,7 @@ class _RecordingButton extends StatelessWidget {
                 style: TextStyle(
                   color: isRecording
                       ? FluxForgeTheme.accentRed
-                      : _SlotTheme.textSecondary,
+                      : theme.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -867,12 +1003,13 @@ class _DebugToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: _SlotTheme.bgDark.withOpacity(0.95),
-        border: const Border(
-          bottom: BorderSide(color: _SlotTheme.border, width: 1),
+        color: theme.bgDark.withOpacity(0.95),
+        border: Border(
+          bottom: BorderSide(color: theme.border, width: 1),
         ),
       ),
       child: Row(
@@ -919,9 +1056,9 @@ class _DebugToolbar extends StatelessWidget {
           // Stats
           _DebugStat(label: 'FPS', value: '$fps', color: fps >= 55 ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed),
           const SizedBox(width: 16),
-          _DebugStat(label: 'Voices', value: '$activeVoices/48', color: _SlotTheme.textSecondary),
+          _DebugStat(label: 'Voices', value: '$activeVoices/48', color: theme.textSecondary),
           const SizedBox(width: 16),
-          _DebugStat(label: 'Mem', value: '${memoryMb}MB', color: _SlotTheme.textSecondary),
+          _DebugStat(label: 'Mem', value: '${memoryMb}MB', color: theme.textSecondary),
           const SizedBox(width: 16),
 
           // Stage trace toggle
@@ -937,7 +1074,7 @@ class _DebugToolbar extends StatelessWidget {
                 border: Border.all(
                   color: showStageTrace
                       ? FluxForgeTheme.accentBlue.withOpacity(0.5)
-                      : _SlotTheme.border.withOpacity(0.3),
+                      : theme.border.withOpacity(0.3),
                 ),
               ),
               child: Row(
@@ -948,7 +1085,7 @@ class _DebugToolbar extends StatelessWidget {
                     size: 14,
                     color: showStageTrace
                         ? FluxForgeTheme.accentBlue
-                        : _SlotTheme.textSecondary,
+                        : theme.textSecondary,
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -956,7 +1093,7 @@ class _DebugToolbar extends StatelessWidget {
                     style: TextStyle(
                       color: showStageTrace
                           ? FluxForgeTheme.accentBlue
-                          : _SlotTheme.textSecondary,
+                          : theme.textSecondary,
                       fontSize: 11,
                     ),
                   ),
@@ -985,7 +1122,8 @@ class _DebugOutcomeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final btnColor = color ?? _SlotTheme.textSecondary;
+    final theme = context.slotTheme;
+    final btnColor = color ?? theme.textSecondary;
     return Padding(
       padding: const EdgeInsets.only(right: 4),
       child: GestureDetector(
@@ -1038,13 +1176,14 @@ class _DebugStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           '$label: ',
-          style: const TextStyle(
-            color: _SlotTheme.textSecondary,
+          style: TextStyle(
+            color: theme.textSecondary,
             fontSize: 11,
           ),
         ),
@@ -1127,6 +1266,7 @@ class _BalanceDisplayState extends State<_BalanceDisplay>
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     final isWin = widget.balance > _previousBalance;
     final glowColor =
         isWin ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed;
@@ -1139,12 +1279,12 @@ class _BalanceDisplayState extends State<_BalanceDisplay>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: _SlotTheme.bgPanel,
+            color: theme.bgPanel,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _glowController.isAnimating
                   ? glowColor.withOpacity(glowOpacity)
-                  : _SlotTheme.border,
+                  : theme.border,
               width: _glowController.isAnimating ? 2 : 1,
             ),
             boxShadow: _glowController.isAnimating
@@ -1162,14 +1302,14 @@ class _BalanceDisplayState extends State<_BalanceDisplay>
             children: [
               Icon(
                 Icons.account_balance_wallet,
-                color: _SlotTheme.gold,
+                color: theme.gold,
                 size: 18,
               ),
               const SizedBox(width: 8),
               Text(
                 '\$${_displayedBalance.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: _SlotTheme.textPrimary,
+                style: TextStyle(
+                  color: theme.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'monospace',
@@ -1190,7 +1330,8 @@ class _VipBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = _getVipColors(level);
+    final theme = context.slotTheme;
+    final colors = _getVipColors(level, theme);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1223,11 +1364,11 @@ class _VipBadge extends StatelessWidget {
     );
   }
 
-  List<Color> _getVipColors(int level) {
-    if (level >= 10) return [_SlotTheme.gold, _SlotTheme.goldLight];
-    if (level >= 7) return [_SlotTheme.jackpotMajor, const Color(0xFFFF6090)];
-    if (level >= 4) return [_SlotTheme.jackpotMinor, const Color(0xFFB080FF)];
-    return [_SlotTheme.jackpotMini, const Color(0xFF60D060)];
+  List<Color> _getVipColors(int level, SlotThemeData theme) {
+    if (level >= 10) return [theme.gold, theme.goldLight];
+    if (level >= 7) return [theme.jackpotMajor, const Color(0xFFFF6090)];
+    if (level >= 4) return [theme.jackpotMinor, const Color(0xFFB080FF)];
+    return [theme.jackpotMini, const Color(0xFF60D060)];
   }
 }
 
@@ -1254,6 +1395,7 @@ class _JackpotZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), // Reduced padding
       decoration: BoxDecoration(
@@ -1261,8 +1403,8 @@ class _JackpotZone extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            _SlotTheme.bgDark.withOpacity(0.95),
-            _SlotTheme.bgMid.withOpacity(0.85),
+            theme.bgDark.withOpacity(0.95),
+            theme.bgMid.withOpacity(0.85),
           ],
         ),
         border: const Border(
@@ -1275,28 +1417,28 @@ class _JackpotZone extends StatelessWidget {
           _JackpotTicker(
             label: 'MINI',
             amount: miniJackpot,
-            color: _SlotTheme.jackpotMini,
+            color: theme.jackpotMini,
             size: _JackpotSize.small,
           ),
           const SizedBox(width: 12),
           _JackpotTicker(
             label: 'MINOR',
             amount: minorJackpot,
-            color: _SlotTheme.jackpotMinor,
+            color: theme.jackpotMinor,
             size: _JackpotSize.medium,
           ),
           const SizedBox(width: 16),
           _JackpotTicker(
             label: 'MAJOR',
             amount: majorJackpot,
-            color: _SlotTheme.jackpotMajor,
+            color: theme.jackpotMajor,
             size: _JackpotSize.large,
           ),
           const SizedBox(width: 16),
           _JackpotTicker(
             label: 'GRAND',
             amount: grandJackpot,
-            color: _SlotTheme.jackpotGrand,
+            color: theme.jackpotGrand,
             size: _JackpotSize.grand,
           ),
           if (mysteryJackpot != null) ...[
@@ -1304,7 +1446,7 @@ class _JackpotZone extends StatelessWidget {
             _JackpotTicker(
               label: 'MYSTERY',
               amount: mysteryJackpot!,
-              color: _SlotTheme.jackpotMystery,
+              color: theme.jackpotMystery,
               size: _JackpotSize.medium,
               isMystery: true,
             ),
@@ -1385,6 +1527,7 @@ class _JackpotTickerState extends State<_JackpotTicker>
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     final dimensions = _getDimensions();
 
     return AnimatedBuilder(
@@ -1447,7 +1590,7 @@ class _JackpotTickerState extends State<_JackpotTicker>
                   : Text(
                       '\$${_formatAmount(_displayedAmount)}',
                       style: TextStyle(
-                        color: _SlotTheme.textPrimary,
+                        color: theme.textPrimary,
                         fontSize: dimensions.amountSize,
                         fontWeight: FontWeight.bold,
                         fontFamily: 'monospace',
@@ -1550,6 +1693,7 @@ class _ProgressiveMeter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return SizedBox(
       width: 180,
       child: Column(
@@ -1558,18 +1702,18 @@ class _ProgressiveMeter extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'CONTRIBUTION',
                 style: TextStyle(
-                  color: _SlotTheme.textMuted,
+                  color: theme.textMuted,
                   fontSize: 8,
                   letterSpacing: 0.5,
                 ),
               ),
               Text(
                 '\$${(contribution * 100).toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: _SlotTheme.gold,
+                style: TextStyle(
+                  color: theme.gold,
                   fontSize: 8,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1580,7 +1724,7 @@ class _ProgressiveMeter extends StatelessWidget {
           Container(
             height: 4,
             decoration: BoxDecoration(
-              color: _SlotTheme.bgSurface,
+              color: theme.bgSurface,
               borderRadius: BorderRadius.circular(2),
             ),
             child: FractionallySizedBox(
@@ -1588,8 +1732,8 @@ class _ProgressiveMeter extends StatelessWidget {
               widthFactor: contribution.clamp(0.0, 1.0),
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [_SlotTheme.jackpotMini, _SlotTheme.gold],
+                  gradient: LinearGradient(
+                    colors: [theme.jackpotMini, theme.gold],
                   ),
                   borderRadius: BorderRadius.circular(2),
                 ),
@@ -1637,7 +1781,7 @@ class _MainGameZone extends StatelessWidget {
       alignment: Alignment.center,
       children: [
         // Background theme layer
-        _buildBackgroundLayer(),
+        _buildBackgroundLayer(context),
 
         // Reel frame with effects - fills entire space
         Positioned.fill(
@@ -1671,15 +1815,16 @@ class _MainGameZone extends StatelessWidget {
     );
   }
 
-  Widget _buildBackgroundLayer() {
+  Widget _buildBackgroundLayer(BuildContext context) {
+    final theme = context.slotTheme;
     return Container(
       decoration: BoxDecoration(
         gradient: RadialGradient(
           center: Alignment.center,
           radius: 1.5,
           colors: [
-            _SlotTheme.bgMid,
-            _SlotTheme.bgDeep,
+            theme.bgMid,
+            theme.bgDeep,
           ],
         ),
       ),
@@ -1687,7 +1832,8 @@ class _MainGameZone extends StatelessWidget {
   }
 
   Widget _buildReelFrame(BuildContext context) {
-    final glowColor = _getWinColor(winTier);
+    final theme = context.slotTheme;
+    final glowColor = _getWinColor(winTier, theme);
     final isWinning = winTier != null && winTier!.isNotEmpty;
 
     // Fill entire available space - no constraints, no aspect ratio limits
@@ -1700,13 +1846,13 @@ class _MainGameZone extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isWinning ? glowColor : _SlotTheme.gold.withOpacity(0.4),
+                color: isWinning ? glowColor : theme.gold.withOpacity(0.4),
                 width: isWinning ? 5 : 3,
               ),
               boxShadow: [
                 // Inner glow
                 BoxShadow(
-                  color: _SlotTheme.gold.withOpacity(0.15),
+                  color: theme.gold.withOpacity(0.15),
                   blurRadius: 30,
                   spreadRadius: -5,
                 ),
@@ -1737,6 +1883,7 @@ class _MainGameZone extends StatelessWidget {
                     projectProvider: projectProvider ?? context.read<SlotLabProjectProvider>(),
                     reels: reels,
                     rows: rows,
+                    showWinPresentation: true, // ✅ ENABLED — SlotPreviewWidget handles ALL win presentation
                   ),
                   // Glossy overlay
                   Positioned.fill(
@@ -1798,15 +1945,15 @@ class _MainGameZone extends StatelessWidget {
     return const _CascadeOverlay();
   }
 
-  Color _getWinColor(String? tier) {
+  Color _getWinColor(String? tier, SlotThemeData theme) {
     return switch (tier) {
-      'BIG_WIN_TIER_5' => _SlotTheme.winUltra,
-      'BIG_WIN_TIER_4' => _SlotTheme.winEpic,
-      'BIG_WIN_TIER_3' => _SlotTheme.winMega,
-      'BIG_WIN_TIER_2' => _SlotTheme.winBig,
-      'BIG_WIN_TIER_1' => _SlotTheme.winBig,
-      'SMALL' => _SlotTheme.winSmall,
-      _ => FluxForgeTheme.accentBlue,
+      'BIG_WIN_TIER_5' => theme.winUltra,
+      'BIG_WIN_TIER_4' => theme.winEpic,
+      'BIG_WIN_TIER_3' => theme.winMega,
+      'BIG_WIN_TIER_2' => theme.winBig,
+      'BIG_WIN_TIER_1' => theme.winBig,
+      'SMALL' => theme.winSmall,
+      _ => theme.accent,
     };
   }
 }
@@ -1824,12 +1971,14 @@ class _PaylineVisualizer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return CustomPaint(
       size: Size.infinite,
       painter: _PaylinePainter(
         payline: payline,
         reels: reels,
         rows: rows,
+        goldColor: theme.gold,
       ),
     );
   }
@@ -1839,11 +1988,13 @@ class _PaylinePainter extends CustomPainter {
   final List<int> payline;
   final int reels;
   final int rows;
+  final Color goldColor;
 
   _PaylinePainter({
     required this.payline,
     required this.reels,
     required this.rows,
+    required this.goldColor,
   });
 
   @override
@@ -1851,13 +2002,13 @@ class _PaylinePainter extends CustomPainter {
     if (payline.isEmpty) return;
 
     final paint = Paint()
-      ..color = _SlotTheme.gold
+      ..color = goldColor
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final glowPaint = Paint()
-      ..color = _SlotTheme.gold.withOpacity(0.3)
+      ..color = goldColor.withOpacity(0.3)
       ..strokeWidth = 12
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -1918,7 +2069,8 @@ class _WinHighlightOverlayState extends State<_WinHighlightOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final color = _getColor();
+    final theme = context.slotTheme;
+    final color = _getColor(theme);
 
     return AnimatedBuilder(
       animation: _controller,
@@ -1936,14 +2088,14 @@ class _WinHighlightOverlayState extends State<_WinHighlightOverlay>
     );
   }
 
-  Color _getColor() {
+  Color _getColor(SlotThemeData theme) {
     return switch (widget.tier) {
-      'BIG_WIN_TIER_5' => _SlotTheme.winUltra,
-      'BIG_WIN_TIER_4' => _SlotTheme.winEpic,
-      'BIG_WIN_TIER_3' => _SlotTheme.winMega,
-      'BIG_WIN_TIER_2' => _SlotTheme.winBig,
-      'BIG_WIN_TIER_1' => _SlotTheme.winBig,
-      _ => _SlotTheme.winSmall,
+      'BIG_WIN_TIER_5' => theme.winUltra,
+      'BIG_WIN_TIER_4' => theme.winEpic,
+      'BIG_WIN_TIER_3' => theme.winMega,
+      'BIG_WIN_TIER_2' => theme.winBig,
+      'BIG_WIN_TIER_1' => theme.winBig,
+      _ => theme.winSmall,
     };
   }
 }
@@ -2194,6 +2346,7 @@ class _WildExpansionOverlayState extends State<_WildExpansionOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return AnimatedBuilder(
       animation: Listenable.merge([_expandController, _glowController]),
       builder: (context, _) {
@@ -2208,8 +2361,8 @@ class _WildExpansionOverlayState extends State<_WildExpansionOverlay>
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   colors: [
-                    _SlotTheme.gold.withOpacity(glowOpacity),
-                    _SlotTheme.gold.withOpacity(glowOpacity * 0.3),
+                    theme.gold.withOpacity(glowOpacity),
+                    theme.gold.withOpacity(glowOpacity * 0.3),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.4, 1.0],
@@ -2220,7 +2373,7 @@ class _WildExpansionOverlayState extends State<_WildExpansionOverlay>
             // Sparkles
             CustomPaint(
               size: Size.infinite,
-              painter: _SparklePainter(sparkles: _sparkles),
+              painter: _SparklePainter(sparkles: _sparkles, goldColor: theme.gold),
             ),
 
             // Main wild icon
@@ -2239,7 +2392,7 @@ class _WildExpansionOverlayState extends State<_WildExpansionOverlay>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: _SlotTheme.gold.withOpacity(0.6),
+                      color: theme.gold.withOpacity(0.6),
                       blurRadius: 30,
                       spreadRadius: 10,
                     ),
@@ -2281,8 +2434,9 @@ class _Sparkle {
 
 class _SparklePainter extends CustomPainter {
   final List<_Sparkle> sparkles;
+  final Color goldColor;
 
-  _SparklePainter({required this.sparkles});
+  _SparklePainter({required this.sparkles, required this.goldColor});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2293,7 +2447,7 @@ class _SparklePainter extends CustomPainter {
       final opacity = s.life;
 
       final paint = Paint()
-        ..color = _SlotTheme.gold.withOpacity(opacity * 0.8);
+        ..color = goldColor.withOpacity(opacity * 0.8);
       canvas.drawCircle(Offset(x, y), s.size * s.life, paint);
 
       // Star shape
@@ -2385,6 +2539,7 @@ class _ScatterCollectOverlayState extends State<_ScatterCollectOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return AnimatedBuilder(
       animation: _glowController,
       builder: (context, _) {
@@ -2396,7 +2551,7 @@ class _ScatterCollectOverlayState extends State<_ScatterCollectOverlay>
                 gradient: RadialGradient(
                   center: const Alignment(0, -0.8),
                   colors: [
-                    _SlotTheme.jackpotMinor.withOpacity(0.3 + _glowController.value * 0.2),
+                    theme.jackpotMinor.withOpacity(0.3 + _glowController.value * 0.2),
                     Colors.transparent,
                   ],
                 ),
@@ -2406,7 +2561,7 @@ class _ScatterCollectOverlayState extends State<_ScatterCollectOverlay>
             // Scatter symbols
             CustomPaint(
               size: Size.infinite,
-              painter: _ScatterPainter(scatters: _scatters),
+              painter: _ScatterPainter(scatters: _scatters, scatterColor: theme.jackpotMinor),
             ),
 
             // Collection target at top
@@ -2418,15 +2573,15 @@ class _ScatterCollectOverlayState extends State<_ScatterCollectOverlay>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: _SlotTheme.jackpotMinor.withOpacity(0.3),
+                    color: theme.jackpotMinor.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: _SlotTheme.jackpotMinor.withOpacity(0.5 + _glowController.value * 0.5),
+                      color: theme.jackpotMinor.withOpacity(0.5 + _glowController.value * 0.5),
                       width: 2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: _SlotTheme.jackpotMinor.withOpacity(0.3),
+                        color: theme.jackpotMinor.withOpacity(0.3),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
@@ -2435,11 +2590,11 @@ class _ScatterCollectOverlayState extends State<_ScatterCollectOverlay>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         '◆',
                         style: TextStyle(
                           fontSize: 24,
-                          color: _SlotTheme.jackpotMinor,
+                          color: theme.jackpotMinor,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -2448,7 +2603,7 @@ class _ScatterCollectOverlayState extends State<_ScatterCollectOverlay>
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: _SlotTheme.jackpotMinor,
+                          color: theme.jackpotMinor,
                           letterSpacing: 2,
                         ),
                       ),
@@ -2482,8 +2637,9 @@ class _ScatterSymbol {
 
 class _ScatterPainter extends CustomPainter {
   final List<_ScatterSymbol> scatters;
+  final Color scatterColor;
 
-  _ScatterPainter({required this.scatters});
+  _ScatterPainter({required this.scatters, required this.scatterColor});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2501,7 +2657,7 @@ class _ScatterPainter extends CustomPainter {
         final trailOpacity = (1.0 - i * 0.2) * 0.3;
 
         final trailPaint = Paint()
-          ..color = _SlotTheme.jackpotMinor.withOpacity(trailOpacity);
+          ..color = scatterColor.withOpacity(trailOpacity);
         canvas.drawCircle(
           Offset(trailX * size.width, trailY * size.height),
           symbolSize * 0.3,
@@ -2511,7 +2667,7 @@ class _ScatterPainter extends CustomPainter {
 
       // Glow
       final glowPaint = Paint()
-        ..color = _SlotTheme.jackpotMinor.withOpacity(s.opacity * 0.5)
+        ..color = scatterColor.withOpacity(s.opacity * 0.5)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
       canvas.drawCircle(Offset(x, y), symbolSize * 0.8, glowPaint);
 
@@ -2567,6 +2723,7 @@ class _GambleOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     final isRevealed = cardRevealed != null;
     final isRed = cardRevealed != null && cardRevealed! < 2;
 
@@ -2581,18 +2738,18 @@ class _GambleOverlay extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                _SlotTheme.bgSurface.withOpacity(0.95),
-                _SlotTheme.bgMid.withOpacity(0.95),
+                theme.bgSurface.withOpacity(0.95),
+                theme.bgMid.withOpacity(0.95),
               ],
             ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: _SlotTheme.gold.withOpacity(0.5),
+              color: theme.gold.withOpacity(0.5),
               width: 2,
             ),
             boxShadow: [
               BoxShadow(
-                color: _SlotTheme.gold.withOpacity(0.3),
+                color: theme.gold.withOpacity(0.3),
                 blurRadius: 30,
                 spreadRadius: 5,
               ),
@@ -2603,8 +2760,8 @@ class _GambleOverlay extends StatelessWidget {
             children: [
               // Title
               ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [_SlotTheme.gold, _SlotTheme.jackpotMajor],
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: [theme.gold, theme.jackpotMajor],
                 ).createShader(bounds),
                 child: const Text(
                   'GAMBLE',
@@ -2630,9 +2787,9 @@ class _GambleOverlay extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 decoration: BoxDecoration(
-                  color: _SlotTheme.bgDeep,
+                  color: theme.bgDeep,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _SlotTheme.gold.withOpacity(0.3)),
+                  border: Border.all(color: theme.gold.withOpacity(0.3)),
                 ),
                 child: Column(
                   children: [
@@ -2647,10 +2804,10 @@ class _GambleOverlay extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '\$${stakeAmount.toStringAsFixed(2)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: _SlotTheme.gold,
+                        color: theme.gold,
                       ),
                     ),
                     if (!isRevealed) ...[
@@ -2670,7 +2827,7 @@ class _GambleOverlay extends StatelessWidget {
 
               // Card display (when revealed)
               if (isRevealed) ...[
-                _buildRevealedCard(isRed, won ?? false),
+                _buildRevealedCard(context, isRed, won ?? false),
                 const SizedBox(height: 24),
               ],
 
@@ -2783,11 +2940,12 @@ class _GambleOverlay extends StatelessWidget {
     );
   }
 
-  Widget _buildRevealedCard(bool isRed, bool won) {
+  Widget _buildRevealedCard(BuildContext context, bool isRed, bool won) {
+    final theme = context.slotTheme;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 600),
-      builder: (context, value, child) {
+      builder: (_, value, child) {
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
@@ -2837,16 +2995,16 @@ class _GambleOverlay extends StatelessWidget {
                   height: 160,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [_SlotTheme.bgMid, _SlotTheme.bgDeep],
+                      colors: [theme.bgMid, theme.bgDeep],
                     ),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _SlotTheme.gold, width: 2),
+                    border: Border.all(color: theme.gold, width: 2),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Text(
                       '?',
                       style: TextStyle(
-                        color: _SlotTheme.gold,
+                        color: theme.gold,
                         fontSize: 48,
                         fontWeight: FontWeight.bold,
                       ),
@@ -2860,545 +3018,10 @@ class _GambleOverlay extends StatelessWidget {
 }
 
 // =============================================================================
-// D. WIN PRESENTER
+// D. WIN PRESENTER — REMOVED (Dead code)
 // =============================================================================
-
-class _WinPresenter extends StatefulWidget {
-  final double winAmount;
-  final String winTier;
-  final double multiplier;
-  final bool showCollect;
-  final bool showGamble;
-  final VoidCallback? onCollect;
-  final VoidCallback? onGamble;
-  final bool isBigWin; // true = tier escalation, false = simple TOTAL WIN
-
-  const _WinPresenter({
-    required this.winAmount,
-    required this.winTier,
-    this.multiplier = 1.0,
-    this.showCollect = false,
-    this.showGamble = false,
-    this.onCollect,
-    this.onGamble,
-    this.isBigWin = true, // default to legacy behavior
-  });
-
-  @override
-  State<_WinPresenter> createState() => _WinPresenterState();
-}
-
-class _WinPresenterState extends State<_WinPresenter>
-    with TickerProviderStateMixin {
-  late AnimationController _rollupController;
-  late AnimationController _pulseController;
-  late AnimationController _particleController;
-  double _displayedAmount = 0;
-  final List<_CoinParticle> _particles = [];
-  final _random = math.Random();
-
-  @override
-  void initState() {
-    super.initState();
-    _rollupController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    )..repeat(reverse: true);
-    _particleController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat();
-
-    _initParticles();
-    _startRollup();
-  }
-
-  void _initParticles() {
-    for (int i = 0; i < 30; i++) {
-      _particles.add(_CoinParticle(
-        x: _random.nextDouble(),
-        y: _random.nextDouble(),
-        vx: (_random.nextDouble() - 0.5) * 0.02,
-        vy: -_random.nextDouble() * 0.03 - 0.01,
-        size: _random.nextDouble() * 8 + 4,
-        rotation: _random.nextDouble() * math.pi * 2,
-        rotationSpeed: (_random.nextDouble() - 0.5) * 0.2,
-      ));
-    }
-  }
-
-  void _startRollup() {
-    _rollupController.forward();
-    _rollupController.addListener(() {
-      setState(() {
-        _displayedAmount = widget.winAmount * _rollupController.value;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _rollupController.dispose();
-    _pulseController.dispose();
-    _particleController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _getWinColor();
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Coin burst particles
-        AnimatedBuilder(
-          animation: _particleController,
-          builder: (context, _) {
-            _updateParticles();
-            return CustomPaint(
-              size: const Size(400, 300),
-              painter: _CoinParticlePainter(particles: _particles),
-            );
-          },
-        ),
-
-        // Win celebration frame
-        AnimatedBuilder(
-          animation: _pulseController,
-          builder: (context, _) {
-            final scale = 0.95 + _pulseController.value * 0.1;
-
-            return Transform.scale(
-              scale: scale,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      color,
-                      color.withOpacity(0.8),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.6),
-                      blurRadius: 40,
-                      spreadRadius: 10,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Win tier badge — different for Big Win vs Regular Win
-                    if (widget.isBigWin) ...[
-                      // BIG WIN: Show simple tier label (BIG WIN 1, BIG WIN 2, etc.)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(_getBigWinIcon(), color: Colors.white, size: 28),
-                          const SizedBox(width: 12),
-                          Text(
-                            _getBigWinLabel(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 4,
-                              shadows: [
-                                Shadow(
-                                    color: Colors.black45,
-                                    blurRadius: 4,
-                                    offset: Offset(2, 2)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(_getBigWinIcon(), color: Colors.white, size: 28),
-                        ],
-                      ),
-                    ] else ...[
-                      // REGULAR WIN: Show tier-specific plaque (WIN_1 through WIN_5)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(_getRegularWinIcon(), color: Colors.white, size: 24),
-                          const SizedBox(width: 8),
-                          Text(
-                            _getRegularWinLabel(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 3,
-                              shadows: [
-                                Shadow(
-                                    color: Colors.black45,
-                                    blurRadius: 4,
-                                    offset: Offset(2, 2)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(_getRegularWinIcon(), color: Colors.white, size: 24),
-                        ],
-                      ),
-                    ],
-
-                    const SizedBox(height: 16),
-
-                    // Win amount (RTL rollup — industry standard right-to-left counting)
-                    _RtlRollupCounter(
-                      targetAmount: widget.winAmount,
-                      progress: _rollupController.value,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 56,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'monospace',
-                        shadows: [
-                          Shadow(
-                              color: Colors.black45,
-                              blurRadius: 8,
-                              offset: Offset(3, 3)),
-                        ],
-                      ),
-                    ),
-
-                    // Multiplier display
-                    if (widget.multiplier > 1.0) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${widget.multiplier.toStringAsFixed(0)}x MULTIPLIER',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    // Collect / Gamble buttons
-                    if (widget.showCollect || widget.showGamble) ...[
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.showCollect)
-                            _WinButton(
-                              label: 'COLLECT',
-                              color: FluxForgeTheme.accentGreen,
-                              onTap: widget.onCollect,
-                            ),
-                          if (widget.showCollect && widget.showGamble)
-                            const SizedBox(width: 16),
-                          if (widget.showGamble)
-                            _WinButton(
-                              label: 'GAMBLE',
-                              color: FluxForgeTheme.accentOrange,
-                              onTap: widget.onGamble,
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  void _updateParticles() {
-    for (final p in _particles) {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.001; // Gravity
-      p.rotation += p.rotationSpeed;
-
-      // Reset if off screen
-      if (p.y > 1.2) {
-        p.x = _random.nextDouble();
-        p.y = -0.1;
-        p.vy = -_random.nextDouble() * 0.03 - 0.01;
-      }
-    }
-  }
-
-  Color _getWinColor() {
-    // For regular wins (isBigWin=false), use tier-specific colors
-    if (!widget.isBigWin) {
-      return switch (widget.winTier) {
-        'WIN_5' => const Color(0xFFFF6B6B), // Red-coral for highest regular tier
-        'WIN_4' => const Color(0xFFFF9040), // Orange
-        'WIN_3' => const Color(0xFFFFD700), // Gold
-        'WIN_2' => const Color(0xFF4CAF50), // Green
-        'WIN_1' => const Color(0xFF2196F3), // Blue
-        _ => const Color(0xFF2196F3), // Default blue
-      };
-    }
-    // For big wins, use tier-specific colors
-    return switch (widget.winTier) {
-      'BIG_WIN_TIER_5' => _SlotTheme.winUltra,
-      'BIG_WIN_TIER_4' => _SlotTheme.winEpic,
-      'BIG_WIN_TIER_3' => _SlotTheme.winMega,
-      'BIG_WIN_TIER_2' => _SlotTheme.winBig,
-      'BIG_WIN_TIER_1' => const Color(0xFF4CAF50), // Green
-      _ => _SlotTheme.winSmall,
-    };
-  }
-
-  /// Returns the label for regular win tiers (WIN_1 through WIN_5)
-  /// NO HARDCODED LABELS — just simple tier identifiers
-  String _getRegularWinLabel() {
-    return switch (widget.winTier) {
-      'WIN_5' => 'WIN 5',      // >13x bet
-      'WIN_4' => 'WIN 4',      // >8x, ≤13x bet
-      'WIN_3' => 'WIN 3',      // >4x, ≤8x bet
-      'WIN_2' => 'WIN 2',      // >2x, ≤4x bet
-      'WIN_1' => 'WIN 1',      // >1x, ≤2x bet
-      'WIN_EQUAL' => 'WIN =',  // =1x bet (push)
-      'WIN_LOW' => 'WIN LOW',  // <1x bet
-      _ => 'WIN',
-    };
-  }
-
-  /// Returns the icon for regular win tiers
-  IconData _getRegularWinIcon() {
-    return switch (widget.winTier) {
-      'WIN_5' => Icons.local_fire_department, // Fire for highest
-      'WIN_4' => Icons.star,                   // Star
-      'WIN_3' => Icons.emoji_events,           // Trophy
-      'WIN_2' => Icons.thumb_up,               // Thumbs up
-      'WIN_1' => Icons.check_circle,           // Check
-      'WIN_EQUAL' => Icons.balance,            // Balance for push
-      'WIN_LOW' => Icons.arrow_circle_up,      // Small arrow
-      _ => Icons.stars,
-    };
-  }
-
-  IconData _getWinIcon() {
-    return switch (widget.winTier) {
-      'BIG_WIN_TIER_5' => Icons.auto_awesome,
-      'BIG_WIN_TIER_4' => Icons.bolt,
-      'BIG_WIN_TIER_3' => Icons.stars,
-      'BIG_WIN_TIER_2' => Icons.celebration,
-      'BIG_WIN_TIER_1' => Icons.star,
-      _ => Icons.check_circle,
-    };
-  }
-
-  /// Returns simple tier label for big wins (BIG WIN TIER 1, TIER 2, etc.)
-  /// NO HARDCODED LABELS - just tier identifiers
-  String _getBigWinLabel() {
-    return switch (widget.winTier) {
-      'BIG_WIN_TIER_1' => 'BIG WIN TIER 1',  // 20x-25x
-      'BIG_WIN_TIER_2' => 'BIG WIN TIER 2',  // 25x-30x
-      'BIG_WIN_TIER_3' => 'BIG WIN TIER 3',  // 30x-60x
-      'BIG_WIN_TIER_4' => 'BIG WIN TIER 4',  // 60x-100x
-      'BIG_WIN_TIER_5' => 'BIG WIN TIER 5',  // 100x+
-      _ => 'BIG WIN',
-    };
-  }
-
-  /// Returns icon for big win tiers
-  IconData _getBigWinIcon() {
-    return switch (widget.winTier) {
-      'BIG_WIN_TIER_5' => Icons.auto_awesome,
-      'BIG_WIN_TIER_4' => Icons.bolt,
-      'BIG_WIN_TIER_3' => Icons.stars,
-      'BIG_WIN_TIER_2' => Icons.celebration,
-      'BIG_WIN_TIER_1' => Icons.star,
-      _ => Icons.star,
-    };
-  }
-}
-
-class _WinButton extends StatefulWidget {
-  final String label;
-  final Color color;
-  final VoidCallback? onTap;
-
-  const _WinButton({
-    required this.label,
-    required this.color,
-    this.onTap,
-  });
-
-  @override
-  State<_WinButton> createState() => _WinButtonState();
-}
-
-class _WinButtonState extends State<_WinButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? widget.color
-                : widget.color.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: widget.color, width: 2),
-          ),
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              color: _isHovered ? Colors.white : widget.color,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// RTL ROLLUP COUNTER — Industry-standard right-to-left digit counting
-// Each digit position "rolls" independently from rightmost (cents) to leftmost
-// Like a mechanical odometer or classic slot machine win counter
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// ═══════════════════════════════════════════════════════════════════════════
-/// RTL ROLLUP COUNTER — Industry-standard right-to-left digit reveal
-/// ═══════════════════════════════════════════════════════════════════════════
-/// Pattern used by IGT, Aristocrat, Novomatic, NetEnt, Pragmatic Play:
-/// - All digits start spinning (random values)
-/// - Rightmost digit LANDS FIRST (stops on final value)
-/// - Each digit to the left lands progressively
-/// - Leftmost digit lands LAST
-/// Example for "1,234.56" with progress 0.5:
-/// - "?" spinning | "?" spinning | "?" spinning | "4" landed | "5" landed | "6" landed
-/// ═══════════════════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════════════════
-// INDUSTRY-STANDARD ROLLUP COUNTER
-// ═══════════════════════════════════════════════════════════════════════════
-// Pattern used by IGT, Aristocrat, Novomatic, NetEnt, Pragmatic Play:
-// - Value counts UP from 0 to target
-// - Digits appear naturally as value grows: $0.00 → $1.25 → $12.50 → $125.00
-// - Proper comma formatting maintained throughout
-// ═══════════════════════════════════════════════════════════════════════════
-
-class _RtlRollupCounter extends StatelessWidget {
-  final double targetAmount;
-  final double progress; // 0.0 to 1.0
-  final TextStyle? style;
-
-  const _RtlRollupCounter({
-    required this.targetAmount,
-    required this.progress,
-    this.style,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Current value = target * progress (counts up from 0 to target)
-    final currentValue = targetAmount * progress.clamp(0.0, 1.0);
-
-    // Format with proper comma separators
-    final formatter = NumberFormat('#,##0.00', 'en_US');
-    final displayStr = formatter.format(currentValue);
-
-    return Text(
-      '\$$displayStr',
-      style: style,
-    );
-  }
-}
-
-class _CoinParticle {
-  double x, y, vx, vy, size, rotation, rotationSpeed;
-
-  _CoinParticle({
-    required this.x,
-    required this.y,
-    required this.vx,
-    required this.vy,
-    required this.size,
-    required this.rotation,
-    required this.rotationSpeed,
-  });
-}
-
-class _CoinParticlePainter extends CustomPainter {
-  final List<_CoinParticle> particles;
-
-  _CoinParticlePainter({required this.particles});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final p in particles) {
-      final paint = Paint()
-        ..color = _SlotTheme.gold
-        ..style = PaintingStyle.fill;
-
-      canvas.save();
-      canvas.translate(p.x * size.width, p.y * size.height);
-      canvas.rotate(p.rotation);
-
-      // Draw coin as ellipse (simulates 3D rotation)
-      final scaleX = (math.cos(p.rotation) * 0.5 + 0.5).clamp(0.3, 1.0);
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset.zero,
-          width: p.size * scaleX,
-          height: p.size,
-        ),
-        paint,
-      );
-
-      // Highlight
-      final highlightPaint = Paint()
-        ..color = Colors.white.withOpacity(0.5)
-        ..style = PaintingStyle.fill;
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(-p.size * 0.15, -p.size * 0.15),
-          width: p.size * 0.3 * scaleX,
-          height: p.size * 0.3,
-        ),
-        highlightPaint,
-      );
-
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _CoinParticlePainter oldDelegate) => true;
-}
+// SlotPreviewWidget (child widget) already has complete, working win presentation
+// No need for duplicate overlay that never executed properly
 
 // =============================================================================
 // E. FEATURE INDICATORS
@@ -3425,6 +3048,7 @@ class _FeatureIndicators extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     // Only show if there's something to display
     final hasContent = freeSpins > 0 ||
         bonusMeter > 0 ||
@@ -3446,7 +3070,7 @@ class _FeatureIndicators extends StatelessWidget {
               icon: Icons.star,
               label: 'FREE SPINS',
               value: '$freeSpinsRemaining / $freeSpins',
-              color: _SlotTheme.jackpotMinor,
+              color: theme.jackpotMinor,
             ),
             const SizedBox(width: 16),
           ],
@@ -3456,7 +3080,7 @@ class _FeatureIndicators extends StatelessWidget {
             _FeatureMeter(
               label: 'BONUS',
               value: bonusMeter,
-              color: _SlotTheme.jackpotMajor,
+              color: theme.jackpotMajor,
             ),
             const SizedBox(width: 16),
           ],
@@ -3477,7 +3101,7 @@ class _FeatureIndicators extends StatelessWidget {
               icon: Icons.close,
               label: 'MULTIPLIER',
               value: '${multiplier}x',
-              color: _SlotTheme.gold,
+              color: theme.gold,
             ),
             const SizedBox(width: 16),
           ],
@@ -3499,7 +3123,7 @@ class _FeatureIndicators extends StatelessWidget {
               icon: Icons.auto_awesome,
               label: 'SPECIAL',
               value: '$specialSymbolCount',
-              color: _SlotTheme.gold,
+              color: theme.gold,
             ),
         ],
       ),
@@ -3582,11 +3206,12 @@ class _FeatureMeter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Container(
       width: 100,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: _SlotTheme.bgPanel,
+        color: theme.bgPanel,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withOpacity(0.5)),
       ),
@@ -3606,7 +3231,7 @@ class _FeatureMeter extends StatelessWidget {
           Container(
             height: 6,
             decoration: BoxDecoration(
-              color: _SlotTheme.bgSurface,
+              color: theme.bgSurface,
               borderRadius: BorderRadius.circular(3),
             ),
             child: FractionallySizedBox(
@@ -3623,8 +3248,8 @@ class _FeatureMeter extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             '${(value * 100).toInt()}%',
-            style: const TextStyle(
-              color: _SlotTheme.textSecondary,
+            style: TextStyle(
+              color: theme.textSecondary,
               fontSize: 10,
             ),
           ),
@@ -3663,11 +3288,17 @@ class _ControlBar extends StatelessWidget {
   final bool isTurbo;
   final bool canSpin;
 
+  // SKIP button controls (industry-standard win presentation skip)
+  final bool isInWinPresentation;
+  final String currentWinTier;
+  final double bigWinProtectionRemaining;
+
   // Callbacks
   final ValueChanged<double> onBetChanged;
   final VoidCallback onMaxBet;
   final VoidCallback onSpin;
   final VoidCallback onStop;
+  final VoidCallback? onSkip;
   final VoidCallback onAutoSpinToggle;
   final VoidCallback onTurboToggle;
   final VoidCallback? onAfterInteraction;
@@ -3686,10 +3317,14 @@ class _ControlBar extends StatelessWidget {
     required this.autoSpinCount,
     required this.isTurbo,
     required this.canSpin,
+    required this.isInWinPresentation,
+    required this.currentWinTier,
+    required this.bigWinProtectionRemaining,
     required this.onBetChanged,
     required this.onMaxBet,
     required this.onSpin,
     required this.onStop,
+    this.onSkip,
     required this.onAutoSpinToggle,
     required this.onTurboToggle,
     this.onAfterInteraction,
@@ -3697,6 +3332,7 @@ class _ControlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -3704,12 +3340,12 @@ class _ControlBar extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            _SlotTheme.bgMid.withOpacity(0.95),
-            _SlotTheme.bgDark,
+            theme.bgMid.withOpacity(0.95),
+            theme.bgDark,
           ],
         ),
-        border: const Border(
-          top: BorderSide(color: Color(0xFF3a3a48), width: 1),
+        border: Border(
+          top: BorderSide(color: theme.border, width: 1),
         ),
       ),
       child: Column(
@@ -3765,7 +3401,7 @@ class _ControlBar extends StatelessWidget {
               // Max bet button
               _ControlButton(
                 label: 'MAX\nBET',
-                gradient: _SlotTheme.maxBetGradient,
+                gradient: theme.maxBetGradient,
                 onTap: isSpinning ? null : () {
                   onMaxBet();
                   onAfterInteraction?.call();
@@ -3778,7 +3414,7 @@ class _ControlBar extends StatelessWidget {
               // Auto spin button
               _ControlButton(
                 label: isAutoSpin ? 'STOP\n$autoSpinCount' : 'AUTO\nSPIN',
-                gradient: isAutoSpin ? _SlotTheme.autoSpinGradient : null,
+                gradient: isAutoSpin ? theme.autoSpinGradient : null,
                 onTap: () {
                   onAutoSpinToggle();
                   onAfterInteraction?.call();
@@ -3804,13 +3440,17 @@ class _ControlBar extends StatelessWidget {
               ),
               const SizedBox(width: 20),
 
-              // Main spin/stop button
+              // Main spin/stop/skip button (industry-standard 3-phase)
               _SpinButton(
                 isSpinning: isSpinning,
                 showStopButton: showStopButton,
                 canSpin: canSpin,
+                isInWinPresentation: isInWinPresentation,
+                currentWinTier: currentWinTier,
+                bigWinProtectionRemaining: bigWinProtectionRemaining,
                 onSpin: onSpin,
                 onStop: onStop,
+                onSkip: onSkip,
               ),
             ],
           ),
@@ -3879,6 +3519,7 @@ class _QuickBetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return GestureDetector(
       onTap: isDisabled ? null : onTap,
       child: AnimatedContainer(
@@ -3886,22 +3527,22 @@ class _QuickBetChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           gradient: isSelected
-              ? LinearGradient(colors: [_SlotTheme.gold, _SlotTheme.gold.withOpacity(0.7)])
+              ? LinearGradient(colors: [theme.gold, theme.gold.withOpacity(0.7)])
               : null,
-          color: isSelected ? null : _SlotTheme.bgPanel,
+          color: isSelected ? null : theme.bgPanel,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? _SlotTheme.gold : _SlotTheme.border,
+            color: isSelected ? theme.gold : theme.border,
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: _SlotTheme.gold.withOpacity(0.4), blurRadius: 6)]
+              ? [BoxShadow(color: theme.gold.withOpacity(0.4), blurRadius: 6)]
               : null,
         ),
         child: Text(
           _formatAmount(amount),
           style: TextStyle(
-            color: isSelected ? _SlotTheme.bgDark : _SlotTheme.textSecondary,
+            color: isSelected ? theme.bgDark : theme.textSecondary,
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
@@ -3940,15 +3581,16 @@ class _ModernBetControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     final canDecrease = !isDisabled && totalBet > minBet;
     final canIncrease = !isDisabled && totalBet < maxBet;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
-        color: _SlotTheme.bgSurface,
+        color: theme.bgSurface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _SlotTheme.gold.withOpacity(0.5), width: 1.5),
+        border: Border.all(color: theme.gold.withOpacity(0.5), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3964,10 +3606,10 @@ class _ModernBetControl extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'TOTAL BET',
                 style: TextStyle(
-                  color: _SlotTheme.gold,
+                  color: theme.gold,
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1,
@@ -3976,8 +3618,8 @@ class _ModernBetControl extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 '\$${totalBet.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: _SlotTheme.textPrimary,
+                style: TextStyle(
+                  color: theme.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'monospace',
@@ -4007,6 +3649,7 @@ class _BetArrowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     final isEnabled = onTap != null;
     return GestureDetector(
       onTap: onTap,
@@ -4014,16 +3657,16 @@ class _BetArrowButton extends StatelessWidget {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: isEnabled ? _SlotTheme.gold.withOpacity(0.2) : _SlotTheme.bgPanel,
+          color: isEnabled ? theme.gold.withOpacity(0.2) : theme.bgPanel,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isEnabled ? _SlotTheme.gold : _SlotTheme.border,
+            color: isEnabled ? theme.gold : theme.border,
           ),
         ),
         child: Icon(
           icon,
           size: 18,
-          color: isEnabled ? _SlotTheme.gold : _SlotTheme.textSecondary.withOpacity(0.5),
+          color: isEnabled ? theme.gold : theme.textSecondary.withOpacity(0.5),
         ),
       ),
     );
@@ -4039,20 +3682,21 @@ class _InfoBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: _SlotTheme.bgPanel,
+        color: theme.bgPanel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _SlotTheme.border),
+        border: Border.all(color: theme.border),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: _SlotTheme.textSecondary,
+            style: TextStyle(
+              color: theme.textSecondary,
               fontSize: 9,
               fontWeight: FontWeight.bold,
               letterSpacing: 1,
@@ -4061,8 +3705,8 @@ class _InfoBadge extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
-              color: _SlotTheme.textPrimary,
+            style: TextStyle(
+              color: theme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
@@ -4113,69 +3757,83 @@ class _ControlButtonState extends State<_ControlButton> {
       cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            gradient: hasGradient
-                ? LinearGradient(colors: widget.gradient!)
-                : null,
-            color: hasGradient
-                ? null
-                : (_isHovered
-                    ? _SlotTheme.bgSurface
-                    : _SlotTheme.bgPanel),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: hasGradient
-                  ? widget.gradient![0].withOpacity(_isHovered ? 1.0 : 0.6)
-                  : _SlotTheme.border,
-              width: _isHovered ? 2 : 1,
-            ),
-            boxShadow: hasGradient && _isHovered
-                ? [
-                    BoxShadow(
-                      color: widget.gradient![0].withOpacity(0.4),
-                      blurRadius: 12,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (widget.icon != null) ...[
-                Icon(
-                  widget.icon,
-                  color: hasGradient || widget.isActive
-                      ? Colors.white
-                      : _SlotTheme.textSecondary,
-                  size: 18,
+        child: Builder(
+          builder: (context) {
+            final theme = context.slotTheme;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: widget.width,
+              height: widget.height,
+              decoration: BoxDecoration(
+                gradient: hasGradient
+                    ? LinearGradient(colors: widget.gradient!)
+                    : null,
+                color: hasGradient
+                    ? null
+                    : (_isHovered
+                        ? theme.bgSurface
+                        : theme.bgPanel),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: hasGradient
+                      ? widget.gradient![0].withOpacity(_isHovered ? 1.0 : 0.6)
+                      : theme.border,
+                  width: _isHovered ? 2 : 1,
                 ),
-                const SizedBox(height: 2),
-              ],
-              Text(
-                widget.label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: hasGradient || widget.isActive
-                      ? Colors.white
-                      : _SlotTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  height: 1.1,
-                ),
+                boxShadow: hasGradient && _isHovered
+                    ? [
+                        BoxShadow(
+                          color: widget.gradient![0].withOpacity(0.4),
+                          blurRadius: 12,
+                        ),
+                      ]
+                    : null,
               ),
-            ],
-          ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (widget.icon != null) ...[
+                    Icon(
+                      widget.icon,
+                      color: hasGradient || widget.isActive
+                          ? Colors.white
+                          : theme.textSecondary,
+                      size: 18,
+                    ),
+                    const SizedBox(height: 2),
+                  ],
+                  Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: hasGradient || widget.isActive
+                          ? Colors.white
+                          : theme.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
   }
 }
 
+/// Industry-Standard Spin Button with SPIN/STOP/SKIP phases.
+///
+/// **Button Phases (NetEnt, Pragmatic Play, IGT, Aristocrat standard):**
+/// - **SPIN** (blue): Ready to start spin
+/// - **STOP** (red): Reels spinning, can stop immediately
+/// - **SKIP** (gold): Win presentation, can skip to collect
+///
+/// Big Win tiers have mandatory celebration times (protection) before SKIP activates.
+/// Countdown timer shows remaining seconds during protection period.
 class _SpinButton extends StatefulWidget {
   final bool isSpinning;
   final bool showStopButton; // True ONLY while reels are visually spinning
@@ -4183,12 +3841,32 @@ class _SpinButton extends StatefulWidget {
   final VoidCallback onSpin;
   final VoidCallback onStop;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NEW: Win Presentation / SKIP Phase Support
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// True when win presentation is active (rollup, plaque, win lines)
+  final bool isInWinPresentation;
+
+  /// Current win tier for Big Win protection timing (e.g., 'BIG_WIN', 'MEGA_WIN')
+  final String currentWinTier;
+
+  /// Callback when SKIP is pressed (skips win presentation)
+  final VoidCallback? onSkip;
+
+  /// Remaining seconds of Big Win protection countdown (0 = no protection)
+  final double bigWinProtectionRemaining;
+
   const _SpinButton({
     required this.isSpinning,
     required this.showStopButton,
     required this.canSpin,
     required this.onSpin,
     required this.onStop,
+    this.isInWinPresentation = false,
+    this.currentWinTier = '',
+    this.onSkip,
+    this.bigWinProtectionRemaining = 0.0,
   });
 
   @override
@@ -4215,12 +3893,50 @@ class _SpinButtonState extends State<_SpinButton>
     super.dispose();
   }
 
+  /// Determine current button phase based on state
+  SpinButtonPhase get _currentPhase {
+    if (widget.showStopButton) {
+      return SpinButtonPhase.stop;
+    }
+    if (widget.isInWinPresentation) {
+      if (widget.bigWinProtectionRemaining > 0) {
+        return SpinButtonPhase.skipProtected;
+      }
+      return SpinButtonPhase.skip;
+    }
+    return SpinButtonPhase.spin;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Button is enabled when can spin OR when STOP button should be shown
-    final isEnabled = widget.canSpin || widget.showStopButton;
-    // Show STOP button ONLY during actual reel spinning (not during win presentation)
-    final showStop = widget.showStopButton;
+    final phase = _currentPhase;
+
+    // Determine button enabled state
+    final isEnabled = switch (phase) {
+      SpinButtonPhase.spin => widget.canSpin,
+      SpinButtonPhase.stop => true, // Always can stop reels
+      SpinButtonPhase.skip => true, // Can skip when no protection
+      SpinButtonPhase.skipProtected => false, // Cannot skip during protection
+    };
+
+    // Get gradient colors for current phase
+    final gradientColors = switch (phase) {
+      SpinButtonPhase.spin => isEnabled
+          ? SpinButtonColors.spinGradient
+          : SpinButtonColors.disabledGradient,
+      SpinButtonPhase.stop => SpinButtonColors.stopGradient,
+      SpinButtonPhase.skip => SpinButtonColors.skipGradient,
+      SpinButtonPhase.skipProtected => SpinButtonColors.skipProtectedGradient,
+    };
+
+    // Get border/glow color
+    final theme = context.slotTheme;
+    final accentColor = switch (phase) {
+      SpinButtonPhase.spin => FluxForgeTheme.accentBlue,
+      SpinButtonPhase.stop => FluxForgeTheme.accentRed,
+      SpinButtonPhase.skip => theme.gold,
+      SpinButtonPhase.skipProtected => theme.gold.withOpacity(0.6),
+    };
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -4228,18 +3944,32 @@ class _SpinButtonState extends State<_SpinButton>
       cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: () {
-          if (showStop) {
-            widget.onStop();
-          } else if (widget.canSpin) {
-            widget.onSpin();
+          // 🔴 DEBUG: Log button tap with all conditions
+          debugPrint('[_SpinButton] TAP! phase=$phase, canSpin=${widget.canSpin}, isEnabled=$isEnabled');
+          switch (phase) {
+            case SpinButtonPhase.spin:
+              if (widget.canSpin) {
+                debugPrint('[_SpinButton] ✅ Calling onSpin()...');
+                widget.onSpin();
+              } else {
+                debugPrint('[_SpinButton] ❌ BLOCKED: canSpin=false!');
+              }
+            case SpinButtonPhase.stop:
+              widget.onStop();
+            case SpinButtonPhase.skip:
+              widget.onSkip?.call();
+            case SpinButtonPhase.skipProtected:
+              // Ignore tap during protection (visual feedback only)
+              break;
           }
         },
         child: AnimatedBuilder(
           animation: _pulseController,
           builder: (context, _) {
-            final pulse = showStop
-                ? 1.0
-                : (0.95 + _pulseController.value * 0.1);
+            // Pulse animation for SPIN phase only
+            final pulse = phase == SpinButtonPhase.spin && isEnabled
+                ? (0.95 + _pulseController.value * 0.1)
+                : 1.0;
 
             return Transform.scale(
               scale: pulse,
@@ -4251,69 +3981,23 @@ class _SpinButtonState extends State<_SpinButton>
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: showStop
-                        ? [FluxForgeTheme.accentRed, const Color(0xFFCC2040)]
-                        : (isEnabled
-                            ? _SlotTheme.spinGradient
-                            : [_SlotTheme.bgSurface, _SlotTheme.bgPanel]),
+                    colors: gradientColors,
                   ),
                   border: Border.all(
-                    color: showStop
-                        ? FluxForgeTheme.accentRed
-                        : (isEnabled
-                            ? FluxForgeTheme.accentBlue
-                            : _SlotTheme.border),
-                    width: _isHovered ? 4 : 3,
+                    color: isEnabled ? accentColor : theme.border,
+                    width: _isHovered && isEnabled ? 4 : 3,
                   ),
                   boxShadow: [
                     if (isEnabled)
                       BoxShadow(
-                        color: (showStop
-                                ? FluxForgeTheme.accentRed
-                                : FluxForgeTheme.accentBlue)
-                            .withOpacity(_isHovered ? 0.6 : 0.4),
+                        color: accentColor.withOpacity(_isHovered ? 0.6 : 0.4),
                         blurRadius: _isHovered ? 24 : 16,
                         spreadRadius: _isHovered ? 4 : 2,
                       ),
                   ],
                 ),
                 child: Center(
-                  child: showStop
-                      ? const Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.stop, color: Colors.white, size: 32),
-                            SizedBox(height: 4),
-                            Text(
-                              'STOP',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 2,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.play_arrow,
-                              color: isEnabled ? Colors.white : _SlotTheme.textMuted,
-                              size: 36,
-                            ),
-                            Text(
-                              'SPIN',
-                              style: TextStyle(
-                                color: isEnabled ? Colors.white : _SlotTheme.textMuted,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 3,
-                              ),
-                            ),
-                          ],
-                        ),
+                  child: _buildButtonContent(phase, isEnabled, theme),
                 ),
               ),
             );
@@ -4322,962 +4006,134 @@ class _SpinButtonState extends State<_SpinButton>
       ),
     );
   }
-}
 
-// =============================================================================
-// G. INFO PANELS
-// =============================================================================
-
-class _InfoPanels extends StatelessWidget {
-  final bool showPaytable;
-  final bool showRules;
-  final bool showHistory;
-  final bool showStats;
-  final List<_RecentWin> recentWins;
-  final int totalSpins;
-  final double rtp;
-  final _GameRulesConfig gameConfig;
-  final VoidCallback onPaytableToggle;
-  final VoidCallback onRulesToggle;
-  final VoidCallback onHistoryToggle;
-  final VoidCallback onStatsToggle;
-  /// GDD symbols from imported Game Design Document (if any)
-  final List<GddSymbol> gddSymbols;
-
-  const _InfoPanels({
-    this.showPaytable = false,
-    this.showRules = false,
-    this.showHistory = false,
-    this.showStats = false,
-    this.recentWins = const [],
-    this.totalSpins = 0,
-    this.rtp = 0.0,
-    this.gameConfig = const _GameRulesConfig(),
-    required this.onPaytableToggle,
-    required this.onRulesToggle,
-    required this.onHistoryToggle,
-    required this.onStatsToggle,
-    this.gddSymbols = const [],
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: 16,
-      top: 160,
-      bottom: 100,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Paytable button
-          _InfoButton(
-            icon: Icons.table_chart,
-            label: 'PAY',
-            isActive: showPaytable,
-            onTap: onPaytableToggle,
-          ),
-          const SizedBox(height: 8),
-
-          // Rules button
-          _InfoButton(
-            icon: Icons.info_outline,
-            label: 'INFO',
-            isActive: showRules,
-            onTap: onRulesToggle,
-          ),
-          const SizedBox(height: 8),
-
-          // History button
-          _InfoButton(
-            icon: Icons.history,
-            label: 'HIST',
-            isActive: showHistory,
-            onTap: onHistoryToggle,
-          ),
-          const SizedBox(height: 8),
-
-          // Stats button
-          _InfoButton(
-            icon: Icons.analytics,
-            label: 'STAT',
-            isActive: showStats,
-            onTap: onStatsToggle,
-          ),
-
-          // Expanded panels
-          if (showHistory) ...[
-            const SizedBox(height: 16),
-            _RecentWinsPanel(wins: recentWins),
-          ],
-
-          if (showStats) ...[
-            const SizedBox(height: 16),
-            _SessionStatsPanel(
-              totalSpins: totalSpins,
-              rtp: rtp,
-            ),
-          ],
-
-          if (showPaytable) ...[
-            const SizedBox(height: 16),
-            _PaytablePanel(gddSymbols: gddSymbols),
-          ],
-
-          if (showRules) ...[
-            const SizedBox(height: 16),
-            _RulesPanel(config: gameConfig),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Paytable panel showing symbol pay values
-/// Uses GDD symbols when available, falls back to defaults
-class _PaytablePanel extends StatelessWidget {
-  /// GDD symbols from imported Game Design Document
-  final List<GddSymbol> gddSymbols;
-
-  const _PaytablePanel({this.gddSymbols = const []});
-
-  // Default symbol data — fallback when no GDD imported
-  static const List<_SymbolPayData> _defaultSymbols = [
-    // High paying (HP1-HP4)
-    _SymbolPayData('HP1 (Seven)', '7', [20.0, 100.0, 500.0], isHighPay: true),
-    _SymbolPayData('HP2 (Bar)', '▬', [15.0, 75.0, 300.0], isHighPay: true),
-    _SymbolPayData('HP3 (Bell)', '🔔', [10.0, 50.0, 200.0], isHighPay: true),
-    _SymbolPayData('HP4 (Cherry)', '🍒', [8.0, 40.0, 150.0], isHighPay: true),
-    // Low paying (LP1-LP6)
-    _SymbolPayData('LP1 (Lemon)', '🍋', [5.0, 25.0, 100.0]),
-    _SymbolPayData('LP2 (Orange)', '🍊', [4.0, 20.0, 80.0]),
-    _SymbolPayData('LP3 (Grape)', '🍇', [3.0, 15.0, 60.0]),
-    _SymbolPayData('LP4 (Apple)', '🍏', [2.0, 10.0, 40.0]),
-    _SymbolPayData('LP5 (Strawberry)', '🍓', [1.0, 5.0, 20.0]),
-    _SymbolPayData('LP6 (Blueberry)', '🫐', [1.0, 5.0, 20.0]),
-  ];
-
-  static const List<_SpecialSymbolData> _defaultSpecials = [
-    _SpecialSymbolData(
-      'WILD',
-      '★',
-      _SlotTheme.gold,
-      'Substitutes for all symbols except Scatter',
-      [50.0, 200.0, 1000.0],
-    ),
-    _SpecialSymbolData(
-      'SCATTER',
-      '◆',
-      _SlotTheme.jackpotMinor,
-      '3+ anywhere triggers Free Spins',
-      [2.0, 5.0, 20.0],
-    ),
-    _SpecialSymbolData(
-      'BONUS',
-      '♦',
-      _SlotTheme.jackpotMajor,
-      '3+ on reels 2-4 triggers Bonus Game',
-      null,
-    ),
-  ];
-
-  /// Convert GDD symbol to display data
-  _SymbolPayData _gddToPayData(GddSymbol gdd) {
-    // Convert payouts map to array [3x, 4x, 5x]
-    final pays = <double>[];
-    for (var i = 3; i <= 5; i++) {
-      pays.add(gdd.payouts[i] ?? 0.0);
-    }
-
-    // Get emoji based on tier/name
-    final icon = _getSymbolEmoji(gdd);
-
-    // High pay = premium, high tier
-    final isHighPay = gdd.tier == SymbolTier.premium ||
-        gdd.tier == SymbolTier.high;
-
-    return _SymbolPayData(gdd.name, icon, pays, isHighPay: isHighPay);
-  }
-
-  /// Get emoji for symbol based on name/tier
-  String _getSymbolEmoji(GddSymbol gdd) {
-    final name = gdd.name.toLowerCase();
-    // Theme-based emoji mapping
-    if (name.contains('zeus') || name.contains('thunder')) return '⚡';
-    if (name.contains('poseidon') || name.contains('trident')) return '🔱';
-    if (name.contains('hades') || name.contains('death')) return '💀';
-    if (name.contains('athena') || name.contains('wisdom')) return '🦉';
-    if (name.contains('dragon')) return '🐉';
-    if (name.contains('phoenix') || name.contains('fire')) return '🔥';
-    if (name.contains('tiger')) return '🐅';
-    if (name.contains('lion')) return '🦁';
-    if (name.contains('eagle') || name.contains('bird')) return '🦅';
-    if (name.contains('wolf')) return '🐺';
-    if (name.contains('crown') || name.contains('king')) return '👑';
-    if (name.contains('diamond')) return '💎';
-    if (name.contains('gem') || name.contains('jewel')) return '💍';
-    if (name.contains('gold') || name.contains('coin')) return '🪙';
-    if (name.contains('treasure') || name.contains('chest')) return '📦';
-    if (name.contains('sword')) return '⚔️';
-    if (name.contains('shield')) return '🛡️';
-    if (name.contains('helmet')) return '⛑️';
-    if (name.contains('star')) return '⭐';
-    if (name.contains('moon')) return '🌙';
-    if (name.contains('sun')) return '☀️';
-    if (name.contains('heart')) return '❤️';
-    if (name.contains('ace') || name.contains('a')) return '🂡';
-    if (name.contains('king') || name.contains('k')) return '🂮';
-    if (name.contains('queen') || name.contains('q')) return '🂭';
-    if (name.contains('jack') || name.contains('j')) return '🂫';
-    if (name.contains('10') || name.contains('ten')) return '🔟';
-    if (name.contains('9') || name.contains('nine')) return '9️⃣';
-    // Tier-based fallback
-    switch (gdd.tier) {
-      case SymbolTier.premium: return '👑';
-      case SymbolTier.high: return '💎';
-      case SymbolTier.mid: return '🎲';
-      case SymbolTier.low: return '🃏';
-      case SymbolTier.wild: return '★';
-      case SymbolTier.scatter: return '◆';
-      case SymbolTier.bonus: return '♦';
-      case SymbolTier.special: return '✦';
-    }
-  }
-
-  /// Convert GDD special symbol to display data
-  _SpecialSymbolData? _gddToSpecialData(GddSymbol gdd) {
-    final pays = <double>[];
-    for (var i = 3; i <= 5; i++) {
-      pays.add(gdd.payouts[i] ?? 0.0);
-    }
-
-    final icon = _getSymbolEmoji(gdd);
-    Color color;
-    String description;
-
-    if (gdd.isWild || gdd.tier == SymbolTier.wild) {
-      color = _SlotTheme.gold;
-      description = 'Substitutes for all symbols except Scatter';
-    } else if (gdd.isScatter || gdd.tier == SymbolTier.scatter) {
-      color = _SlotTheme.jackpotMinor;
-      description = '3+ anywhere triggers Free Spins';
-    } else if (gdd.isBonus || gdd.tier == SymbolTier.bonus) {
-      color = _SlotTheme.jackpotMajor;
-      description = '3+ triggers Bonus Game';
-    } else {
-      return null; // Not a special symbol
-    }
-
-    return _SpecialSymbolData(
-      gdd.name,
-      icon,
-      color,
-      description,
-      pays.any((p) => p > 0) ? pays : null,
-    );
-  }
-
-  /// Get symbol list (GDD or defaults)
-  List<_SymbolPayData> get _symbols {
-    if (gddSymbols.isEmpty) return _defaultSymbols;
-
-    // Filter out special symbols, convert the rest
-    return gddSymbols
-        .where((s) => !s.isWild && !s.isScatter && !s.isBonus &&
-            s.tier != SymbolTier.wild &&
-            s.tier != SymbolTier.scatter &&
-            s.tier != SymbolTier.bonus)
-        .map(_gddToPayData)
-        .toList();
-  }
-
-  /// Get special symbols (GDD or defaults)
-  List<_SpecialSymbolData> get _specials {
-    if (gddSymbols.isEmpty) return _defaultSpecials;
-
-    final specials = <_SpecialSymbolData>[];
-    for (final gdd in gddSymbols) {
-      final special = _gddToSpecialData(gdd);
-      if (special != null) specials.add(special);
-    }
-    return specials.isEmpty ? _defaultSpecials : specials;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      constraints: const BoxConstraints(maxHeight: 400),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _SlotTheme.bgPanel.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _SlotTheme.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-          ),
-        ],
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  /// Build button content based on current phase
+  Widget _buildButtonContent(SpinButtonPhase phase, bool isEnabled, SlotThemeData theme) {
+    switch (phase) {
+      case SpinButtonPhase.stop:
+        return const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Title
-            Row(
-              children: [
-                const Icon(Icons.table_chart, color: _SlotTheme.gold, size: 18),
-                const SizedBox(width: 8),
-                ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [_SlotTheme.gold, Colors.amber],
-                  ).createShader(bounds),
-                  child: const Text(
-                    'PAYTABLE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Column headers
-            Row(
-              children: [
-                const SizedBox(width: 70),
-                Expanded(
-                  child: Text(
-                    '×3',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    '×4',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    '×5',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // Regular symbols
-            ..._symbols.map((s) => _buildSymbolRow(s)),
-
-            const Divider(color: _SlotTheme.border, height: 24),
-
-            // Special symbols
-            const Text(
-              'SPECIAL SYMBOLS',
+            Icon(Icons.stop, color: Colors.white, size: 32),
+            SizedBox(height: 4),
+            Text(
+              'STOP',
               style: TextStyle(
-                color: _SlotTheme.gold,
-                fontSize: 10,
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        );
+
+      case SpinButtonPhase.skip:
+        // Gold SKIP button - ready to skip
+        return const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.skip_next, color: Color(0xFF1a1a24), size: 32),
+            SizedBox(height: 4),
+            Text(
+              'SKIP',
+              style: TextStyle(
+                color: Color(0xFF1a1a24), // Dark text on gold
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        );
+
+      case SpinButtonPhase.skipProtected:
+        // Gold SKIP button with countdown timer
+        final remainingSeconds = widget.bigWinProtectionRemaining.ceil();
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Countdown circle
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: CircularProgressIndicator(
+                    value: 1.0 - (widget.bigWinProtectionRemaining /
+                        BigWinProtection.forTier(widget.currentWinTier)),
+                    strokeWidth: 3,
+                    color: const Color(0xFF1a1a24),
+                    backgroundColor: const Color(0xFF1a1a24).withOpacity(0.3),
+                  ),
+                ),
+                Text(
+                  '$remainingSeconds',
+                  style: const TextStyle(
+                    color: Color(0xFF1a1a24),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'SKIP',
+              style: TextStyle(
+                color: Color(0xFF1a1a24),
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1,
               ),
             ),
-            const SizedBox(height: 8),
-            ..._specials.map((s) => _buildSpecialRow(s)),
           ],
-        ),
-      ),
-    );
-  }
+        );
 
-  Widget _buildSymbolRow(_SymbolPayData symbol) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          // Symbol icon & name
-          SizedBox(
-            width: 70,
-            child: Row(
-              children: [
-                Text(
-                  symbol.icon,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: symbol.isHighPay ? _SlotTheme.gold : Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    symbol.name,
-                    style: TextStyle(
-                      color: symbol.isHighPay ? _SlotTheme.gold : _SlotTheme.textSecondary,
-                      fontSize: 10,
-                      fontWeight: symbol.isHighPay ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Pay values
-          ...symbol.pays.map((pay) => Expanded(
-                child: Text(
-                  pay.toStringAsFixed(0),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: symbol.isHighPay ? Colors.amber[300] : Colors.white70,
-                    fontSize: 11,
-                    fontWeight: symbol.isHighPay ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSpecialRow(_SpecialSymbolData symbol) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: symbol.color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: symbol.color.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                symbol.icon,
-                style: TextStyle(fontSize: 20, color: symbol.color),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                symbol.name,
-                style: TextStyle(
-                  color: symbol.color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            symbol.description,
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 10,
-            ),
-          ),
-          if (symbol.pays != null) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text('Pays: ', style: TextStyle(color: Colors.grey[500], fontSize: 10)),
-                Text(
-                  '×3: ${symbol.pays![0].toStringAsFixed(0)}  ×4: ${symbol.pays![1].toStringAsFixed(0)}  ×5: ${symbol.pays![2].toStringAsFixed(0)}',
-                  style: TextStyle(color: symbol.color, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _SymbolPayData {
-  final String name;
-  final String icon;
-  final List<double> pays;
-  final bool isHighPay;
-
-  const _SymbolPayData(this.name, this.icon, this.pays, {this.isHighPay = false});
-}
-
-class _SpecialSymbolData {
-  final String name;
-  final String icon;
-  final Color color;
-  final String description;
-  final List<double>? pays;
-
-  const _SpecialSymbolData(this.name, this.icon, this.color, this.description, this.pays);
-}
-
-/// Rules panel showing game rules
-/// Game rules configuration data
-class _GameRulesConfig {
-  final String name;
-  final int reels;
-  final int rows;
-  final int paylines;
-  final double targetRtp;
-  final String volatility;
-  final bool freeSpinsEnabled;
-  final int freeSpinsMin;
-  final int freeSpinsMax;
-  final double freeSpinsMultiplier;
-  final bool cascadesEnabled;
-  final int maxCascadeSteps;
-  final bool holdSpinEnabled;
-  final bool gambleEnabled;
-  final bool jackpotEnabled;
-
-  const _GameRulesConfig({
-    this.name = 'Synthetic Slot',
-    this.reels = 5,
-    this.rows = 3,
-    this.paylines = 20,
-    this.targetRtp = 96.5,
-    this.volatility = 'Medium',
-    this.freeSpinsEnabled = true,
-    this.freeSpinsMin = 8,
-    this.freeSpinsMax = 15,
-    this.freeSpinsMultiplier = 2.0,
-    this.cascadesEnabled = true,
-    this.maxCascadeSteps = 8,
-    this.holdSpinEnabled = false,
-    this.gambleEnabled = true,
-    this.jackpotEnabled = true,
-  });
-
-  /// Parse from engine config JSON
-  factory _GameRulesConfig.fromJson(Map<String, dynamic> json) {
-    final grid = json['grid'] as Map<String, dynamic>? ?? {};
-    final features = json['features'] as Map<String, dynamic>? ?? {};
-    final volatility = json['volatility'] as Map<String, dynamic>? ?? {};
-    final freeSpinsRange = features['free_spins_range'] as List? ?? [8, 15];
-
-    return _GameRulesConfig(
-      name: json['name'] as String? ?? 'Synthetic Slot',
-      reels: grid['reels'] as int? ?? 5,
-      rows: grid['rows'] as int? ?? 3,
-      paylines: 20, // Standard for 5x3
-      targetRtp: (json['target_rtp'] as num?)?.toDouble() ?? 96.5,
-      volatility: _volatilityLabel(volatility),
-      freeSpinsEnabled: features['free_spins_enabled'] as bool? ?? true,
-      freeSpinsMin: (freeSpinsRange.isNotEmpty ? freeSpinsRange[0] : 8) as int,
-      freeSpinsMax: (freeSpinsRange.length > 1 ? freeSpinsRange[1] : 15) as int,
-      freeSpinsMultiplier:
-          (features['free_spins_multiplier'] as num?)?.toDouble() ?? 2.0,
-      cascadesEnabled: features['cascades_enabled'] as bool? ?? true,
-      maxCascadeSteps: features['max_cascade_steps'] as int? ?? 8,
-      holdSpinEnabled: features['hold_spin_enabled'] as bool? ?? false,
-      gambleEnabled: features['gamble_enabled'] as bool? ?? true,
-      jackpotEnabled: features['jackpot_enabled'] as bool? ?? true,
-    );
-  }
-
-  static String _volatilityLabel(Map<String, dynamic> vol) {
-    final hitRate = (vol['hit_rate'] as num?)?.toDouble() ?? 0.3;
-    if (hitRate >= 0.35) return 'Low';
-    if (hitRate >= 0.25) return 'Medium';
-    if (hitRate >= 0.15) return 'Medium-High';
-    return 'High';
-  }
-}
-
-class _RulesPanel extends StatelessWidget {
-  final _GameRulesConfig config;
-
-  const _RulesPanel({this.config = const _GameRulesConfig()});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      constraints: const BoxConstraints(maxHeight: 400),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _SlotTheme.bgPanel.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _SlotTheme.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-          ),
-        ],
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      case SpinButtonPhase.spin:
+        return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Title with game name
-            Row(
-              children: [
-                const Icon(Icons.info_outline, color: FluxForgeTheme.accentCyan, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    config.name.toUpperCase(),
-                    style: const TextStyle(
-                      color: FluxForgeTheme.accentCyan,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            Icon(
+              Icons.play_arrow,
+              color: isEnabled ? Colors.white : theme.textMuted,
+              size: 36,
             ),
-            const SizedBox(height: 12),
-
-            // Grid info
-            _buildRule('Grid', '${config.reels}×${config.rows} (${config.reels * config.rows} positions)'),
-            _buildRule('Paylines', '${config.paylines} fixed paylines, wins pay left to right'),
-
-            // Wild/Scatter (always present)
-            _buildRule('Wild', 'Substitutes for all symbols except Scatter'),
-            _buildRule('Scatter', '3+ triggers Free Spins'),
-
-            // Free Spins (if enabled)
-            if (config.freeSpinsEnabled)
-              _buildRule(
-                'Free Spins',
-                '${config.freeSpinsMin}-${config.freeSpinsMax} spins with ${config.freeSpinsMultiplier}x multiplier',
+            Text(
+              'SPIN',
+              style: TextStyle(
+                color: isEnabled ? Colors.white : theme.textMuted,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 3,
               ),
-
-            // Cascades (if enabled)
-            if (config.cascadesEnabled)
-              _buildRule(
-                'Cascades',
-                'Winning symbols removed, new symbols fall (max ${config.maxCascadeSteps} steps)',
-              ),
-
-            // Hold & Spin (if enabled)
-            if (config.holdSpinEnabled)
-              _buildRule('Hold & Spin', 'Lock symbols for respins'),
-
-            // Gamble (if enabled)
-            if (config.gambleEnabled)
-              _buildRule('Gamble', 'Double or nothing on any win'),
-
-            // Jackpots (if enabled)
-            if (config.jackpotEnabled)
-              _buildRule('Jackpots', '4-tier progressive: Mini, Minor, Major, Grand'),
-
-            const Divider(color: _SlotTheme.border, height: 16),
-
-            // RTP and Volatility
-            _buildRule('RTP', 'Theoretical return: ${config.targetRtp.toStringAsFixed(1)}%'),
-            _buildRule('Volatility', config.volatility),
+            ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRule(String title, String description) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            description,
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
+        );
+    }
   }
 }
 
-class _InfoButton extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _InfoButton({
-    required this.icon,
-    required this.label,
-    this.isActive = false,
-    required this.onTap,
-  });
-
-  @override
-  State<_InfoButton> createState() => _InfoButtonState();
-}
-
-class _InfoButtonState extends State<_InfoButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: 50,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: widget.isActive
-                ? FluxForgeTheme.accentBlue.withOpacity(0.2)
-                : (_isHovered
-                    ? _SlotTheme.bgSurface
-                    : _SlotTheme.bgPanel.withOpacity(0.8)),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: widget.isActive
-                  ? FluxForgeTheme.accentBlue
-                  : (_isHovered ? _SlotTheme.borderLight : _SlotTheme.border),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                widget.icon,
-                color: widget.isActive
-                    ? FluxForgeTheme.accentBlue
-                    : _SlotTheme.textSecondary,
-                size: 20,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: widget.isActive
-                      ? FluxForgeTheme.accentBlue
-                      : _SlotTheme.textMuted,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RecentWin {
-  final double amount;
-  final String tier;
-  final DateTime time;
-
-  _RecentWin({required this.amount, required this.tier, required this.time});
-}
-
-class _RecentWinsPanel extends StatelessWidget {
-  final List<_RecentWin> wins;
-
-  const _RecentWinsPanel({required this.wins});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 140,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: _SlotTheme.bgPanel.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _SlotTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'RECENT WINS',
-            style: TextStyle(
-              color: _SlotTheme.textMuted,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
-            ),
-          ),
-          const Divider(color: _SlotTheme.border, height: 12),
-          if (wins.isEmpty)
-            const Text(
-              'No wins yet',
-              style: TextStyle(color: _SlotTheme.textMuted, fontSize: 11),
-            )
-          else
-            ...wins.take(5).map((win) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '\$${win.amount.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          color: _getWinColor(win.tier),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        win.tier,
-                        style: TextStyle(
-                          color: _getWinColor(win.tier).withOpacity(0.7),
-                          fontSize: 9,
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-        ],
-      ),
-    );
-  }
-
-  Color _getWinColor(String tier) {
-    return switch (tier) {
-      'BIG_WIN_TIER_5' => _SlotTheme.winUltra,
-      'BIG_WIN_TIER_4' => _SlotTheme.winEpic,
-      'BIG_WIN_TIER_3' => _SlotTheme.winMega,
-      'BIG_WIN_TIER_2' => _SlotTheme.winBig,
-      'BIG_WIN_TIER_1' => _SlotTheme.winBig,
-      _ => _SlotTheme.winSmall,
-    };
-  }
-}
-
-class _SessionStatsPanel extends StatelessWidget {
-  final int totalSpins;
-  final double rtp;
-
-  const _SessionStatsPanel({
-    required this.totalSpins,
-    required this.rtp,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 140,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: _SlotTheme.bgPanel.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _SlotTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'SESSION STATS',
-            style: TextStyle(
-              color: _SlotTheme.textMuted,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
-            ),
-          ),
-          const Divider(color: _SlotTheme.border, height: 12),
-          _buildStatRow('Spins', '$totalSpins'),
-          _buildStatRow(
-            'RTP',
-            '${rtp.toStringAsFixed(1)}%',
-            color: rtp >= 96
-                ? FluxForgeTheme.accentGreen
-                : (rtp >= 90 ? _SlotTheme.textPrimary : FluxForgeTheme.accentOrange),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatRow(String label, String value, {Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: _SlotTheme.textMuted,
-              fontSize: 11,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              color: color ?? _SlotTheme.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// =============================================================================
+// G. INFO PANELS — REMOVED
+// =============================================================================
+// NOTE: All info panels (Paytable, Rules, History, Stats) have been consolidated
+// into ProjectDashboardDialog for a unified experience. Access via Menu → Dashboard.
+// See: project_dashboard_dialog.dart
 
 // =============================================================================
 // G2. MENU PANEL
 // =============================================================================
 
 class _MenuPanel extends StatelessWidget {
-  final VoidCallback onPaytable;
-  final VoidCallback onRules;
-  final VoidCallback onHistory;
-  final VoidCallback onStats;
+  final VoidCallback onDashboard;
   final VoidCallback onSettings;
   final VoidCallback onHelp;
   final VoidCallback onClose;
 
   const _MenuPanel({
-    required this.onPaytable,
-    required this.onRules,
-    required this.onHistory,
-    required this.onStats,
+    required this.onDashboard,
     required this.onSettings,
     required this.onHelp,
     required this.onClose,
@@ -5285,13 +4141,14 @@ class _MenuPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Container(
       width: 200,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _SlotTheme.bgPanel,
+        color: theme.bgPanel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _SlotTheme.border),
+        border: Border.all(color: theme.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.5),
@@ -5308,14 +4165,14 @@ class _MenuPanel extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.menu, color: _SlotTheme.textSecondary, size: 18),
-                  SizedBox(width: 8),
+                  Icon(Icons.menu, color: theme.textSecondary, size: 18),
+                  const SizedBox(width: 8),
                   Text(
                     'MENU',
                     style: TextStyle(
-                      color: _SlotTheme.textPrimary,
+                      color: theme.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
@@ -5324,21 +4181,24 @@ class _MenuPanel extends StatelessWidget {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: _SlotTheme.textSecondary, size: 18),
+                icon: Icon(Icons.close, color: theme.textSecondary, size: 18),
                 onPressed: onClose,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
             ],
           ),
-          const Divider(color: _SlotTheme.border, height: 16),
+          Divider(color: theme.border, height: 16),
 
-          // Menu items
-          _MenuItem(icon: Icons.table_chart, label: 'Paytable', onTap: onPaytable),
-          _MenuItem(icon: Icons.info_outline, label: 'Rules', onTap: onRules),
-          _MenuItem(icon: Icons.history, label: 'History', onTap: onHistory),
-          _MenuItem(icon: Icons.analytics, label: 'Statistics', onTap: onStats),
-          const Divider(color: _SlotTheme.border, height: 12),
+          // Dashboard — Paytable, Rules, History, Stats consolidated
+          _MenuItem(
+            icon: Icons.dashboard,
+            label: 'Dashboard',
+            onTap: onDashboard,
+            highlight: true,
+            subtitle: 'Paytable • Rules • Stats',
+          ),
+          Divider(color: theme.border, height: 12),
           _MenuItem(icon: Icons.settings, label: 'Settings', onTap: onSettings),
           _MenuItem(icon: Icons.help_outline, label: 'Help', onTap: onHelp),
         ],
@@ -5351,11 +4211,15 @@ class _MenuItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool highlight;
+  final String? subtitle;
 
   const _MenuItem({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.highlight = false,
+    this.subtitle,
   });
 
   @override
@@ -5367,6 +4231,10 @@ class _MenuItemState extends State<_MenuItem> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
+    final highlightColor = widget.highlight ? theme.gold : FluxForgeTheme.accentBlue;
+    final baseColor = widget.highlight ? highlightColor.withOpacity(0.1) : Colors.transparent;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -5377,22 +4245,45 @@ class _MenuItemState extends State<_MenuItem> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
           decoration: BoxDecoration(
-            color: _isHovered ? FluxForgeTheme.accentBlue.withOpacity(0.15) : Colors.transparent,
+            color: _isHovered ? highlightColor.withOpacity(0.2) : baseColor,
             borderRadius: BorderRadius.circular(8),
+            border: widget.highlight ? Border.all(
+              color: highlightColor.withOpacity(0.3),
+              width: 1,
+            ) : null,
           ),
           child: Row(
             children: [
               Icon(
                 widget.icon,
-                color: _isHovered ? FluxForgeTheme.accentBlue : _SlotTheme.textSecondary,
+                color: _isHovered || widget.highlight ? highlightColor : theme.textSecondary,
                 size: 18,
               ),
               const SizedBox(width: 12),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: _isHovered ? FluxForgeTheme.accentBlue : _SlotTheme.textPrimary,
-                  fontSize: 13,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: _isHovered || widget.highlight ? highlightColor : theme.textPrimary,
+                        fontSize: 13,
+                        fontWeight: widget.highlight ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    if (widget.subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.subtitle!,
+                        style: TextStyle(
+                          color: theme.textMuted,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -5482,13 +4373,14 @@ class _AudioVisualPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Container(
       width: 280,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _SlotTheme.bgPanel,
+        color: theme.bgPanel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _SlotTheme.border),
+        border: Border.all(color: theme.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.5),
@@ -5505,14 +4397,14 @@ class _AudioVisualPanel extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.settings, color: _SlotTheme.textSecondary, size: 18),
-                  SizedBox(width: 8),
+                  Icon(Icons.settings, color: theme.textSecondary, size: 18),
+                  const SizedBox(width: 8),
                   Text(
                     'SETTINGS',
                     style: TextStyle(
-                      color: _SlotTheme.textPrimary,
+                      color: theme.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
@@ -5521,20 +4413,20 @@ class _AudioVisualPanel extends StatelessWidget {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: _SlotTheme.textSecondary, size: 18),
+                icon: Icon(Icons.close, color: theme.textSecondary, size: 18),
                 onPressed: onClose,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
             ],
           ),
-          const Divider(color: _SlotTheme.border, height: 20),
+          Divider(color: theme.border, height: 20),
 
           // Volume slider
-          const Text(
+          Text(
             'MASTER VOLUME',
             style: TextStyle(
-              color: _SlotTheme.textMuted,
+              color: theme.textMuted,
               fontSize: 10,
               letterSpacing: 1,
             ),
@@ -5544,7 +4436,7 @@ class _AudioVisualPanel extends StatelessWidget {
             children: [
               Icon(
                 volume == 0 ? Icons.volume_off : Icons.volume_up,
-                color: _SlotTheme.textSecondary,
+                color: theme.textSecondary,
                 size: 18,
               ),
               Expanded(
@@ -5552,13 +4444,13 @@ class _AudioVisualPanel extends StatelessWidget {
                   value: volume,
                   onChanged: onVolumeChanged,
                   activeColor: FluxForgeTheme.accentBlue,
-                  inactiveColor: _SlotTheme.bgSurface,
+                  inactiveColor: theme.bgSurface,
                 ),
               ),
               Text(
                 '${(volume * 100).toInt()}%',
-                style: const TextStyle(
-                  color: _SlotTheme.textSecondary,
+                style: TextStyle(
+                  color: theme.textSecondary,
                   fontSize: 12,
                 ),
               ),
@@ -5591,10 +4483,10 @@ class _AudioVisualPanel extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Quality selector
-          const Text(
+          Text(
             'GRAPHICS QUALITY',
             style: TextStyle(
-              color: _SlotTheme.textMuted,
+              color: theme.textMuted,
               fontSize: 10,
               letterSpacing: 1,
             ),
@@ -5631,13 +4523,13 @@ class _AudioVisualPanel extends StatelessWidget {
             onToggle: onAnimationsToggle,
           ),
 
-          const Divider(color: _SlotTheme.border, height: 24),
+          Divider(color: theme.border, height: 24),
 
           // P6: Device Section
-          const Text(
+          Text(
             '📱 DEVICE',
             style: TextStyle(
-              color: _SlotTheme.textMuted,
+              color: theme.textMuted,
               fontSize: 10,
               letterSpacing: 1,
             ),
@@ -5655,24 +4547,24 @@ class _AudioVisualPanel extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? FluxForgeTheme.accentBlue.withOpacity(0.2)
-                        : _SlotTheme.bgSurface,
+                        : theme.bgSurface,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: isSelected
                           ? FluxForgeTheme.accentBlue.withOpacity(0.5)
-                          : _SlotTheme.border.withOpacity(0.3),
+                          : theme.border.withOpacity(0.3),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(device.icon, size: 14,
-                        color: isSelected ? FluxForgeTheme.accentBlue : _SlotTheme.textSecondary),
+                        color: isSelected ? FluxForgeTheme.accentBlue : theme.textSecondary),
                       const SizedBox(width: 4),
                       Text(
                         device.label,
                         style: TextStyle(
-                          color: isSelected ? FluxForgeTheme.accentBlue : _SlotTheme.textSecondary,
+                          color: isSelected ? FluxForgeTheme.accentBlue : theme.textSecondary,
                           fontSize: 11,
                         ),
                       ),
@@ -5683,13 +4575,13 @@ class _AudioVisualPanel extends StatelessWidget {
             }).toList(),
           ),
 
-          const Divider(color: _SlotTheme.border, height: 24),
+          Divider(color: theme.border, height: 24),
 
           // P6: Theme Section
-          const Text(
+          Text(
             '🎨 THEME',
             style: TextStyle(
-              color: _SlotTheme.textMuted,
+              color: theme.textMuted,
               fontSize: 10,
               letterSpacing: 1,
             ),
@@ -5709,27 +4601,27 @@ class _AudioVisualPanel extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _SlotTheme.bgMid.withOpacity(0.5),
+                    color: theme.bgMid.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: _SlotTheme.border.withOpacity(0.5)),
+                    border: Border.all(color: theme.border.withOpacity(0.5)),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<SlotThemePreset?>(
                       value: comparisonTheme,
                       isDense: true,
-                      hint: const Text('Compare', style: TextStyle(color: _SlotTheme.textMuted, fontSize: 12)),
-                      icon: const Icon(Icons.arrow_drop_down, color: _SlotTheme.textSecondary, size: 18),
-                      dropdownColor: _SlotTheme.bgDark,
-                      style: const TextStyle(color: _SlotTheme.textPrimary, fontSize: 12),
+                      hint: Text('Compare', style: TextStyle(color: theme.textMuted, fontSize: 12)),
+                      icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary, size: 18),
+                      dropdownColor: theme.bgDark,
+                      style: TextStyle(color: theme.textPrimary, fontSize: 12),
                       items: [
                         const DropdownMenuItem<SlotThemePreset?>(
                           value: null,
                           child: Text('None'),
                         ),
-                        ...SlotThemePreset.values.map((theme) {
+                        ...SlotThemePreset.values.map((preset) {
                           return DropdownMenuItem(
-                            value: theme,
-                            child: Text(theme.label),
+                            value: preset,
+                            child: Text(preset.label),
                           );
                         }),
                       ],
@@ -5741,13 +4633,13 @@ class _AudioVisualPanel extends StatelessWidget {
             ],
           ),
 
-          const Divider(color: _SlotTheme.border, height: 24),
+          Divider(color: theme.border, height: 24),
 
           // P6: Recording Section
-          const Text(
+          Text(
             '🎬 RECORDING',
             style: TextStyle(
-              color: _SlotTheme.textMuted,
+              color: theme.textMuted,
               fontSize: 10,
               letterSpacing: 1,
             ),
@@ -5760,12 +4652,12 @@ class _AudioVisualPanel extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isRecording
                     ? FluxForgeTheme.accentRed.withOpacity(0.2)
-                    : _SlotTheme.bgSurface,
+                    : theme.bgSurface,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color: isRecording
                       ? FluxForgeTheme.accentRed.withOpacity(0.5)
-                      : _SlotTheme.border.withOpacity(0.3),
+                      : theme.border.withOpacity(0.3),
                 ),
               ),
               child: Row(
@@ -5774,13 +4666,13 @@ class _AudioVisualPanel extends StatelessWidget {
                   Icon(
                     isRecording ? Icons.stop : Icons.fiber_manual_record,
                     size: 16,
-                    color: isRecording ? FluxForgeTheme.accentRed : _SlotTheme.textSecondary,
+                    color: isRecording ? FluxForgeTheme.accentRed : theme.textSecondary,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     isRecording ? 'Stop Recording' : 'Start Recording',
                     style: TextStyle(
-                      color: isRecording ? FluxForgeTheme.accentRed : _SlotTheme.textSecondary,
+                      color: isRecording ? FluxForgeTheme.accentRed : theme.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -5799,11 +4691,11 @@ class _AudioVisualPanel extends StatelessWidget {
 
           // P6: Debug Section (debug mode only)
           if (kDebugMode) ...[
-            const Divider(color: _SlotTheme.border, height: 24),
-            const Text(
+            Divider(color: theme.border, height: 24),
+            Text(
               '🔧 DEBUG',
               style: TextStyle(
-                color: _SlotTheme.textMuted,
+                color: theme.textMuted,
                 fontSize: 10,
                 letterSpacing: 1,
               ),
@@ -5881,6 +4773,7 @@ class _SettingToggleState extends State<_SettingToggle> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -5893,12 +4786,12 @@ class _SettingToggleState extends State<_SettingToggle> {
           decoration: BoxDecoration(
             color: widget.isOn
                 ? FluxForgeTheme.accentBlue.withOpacity(0.2)
-                : (_isHovered ? _SlotTheme.bgSurface : _SlotTheme.bgDark),
+                : (_isHovered ? theme.bgSurface : theme.bgDark),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: widget.isOn
                   ? FluxForgeTheme.accentBlue
-                  : _SlotTheme.border,
+                  : theme.border,
             ),
           ),
           child: Row(
@@ -5908,7 +4801,7 @@ class _SettingToggleState extends State<_SettingToggle> {
                 widget.icon,
                 color: widget.isOn
                     ? FluxForgeTheme.accentBlue
-                    : _SlotTheme.textMuted,
+                    : theme.textMuted,
                 size: 16,
               ),
               const SizedBox(width: 8),
@@ -5916,8 +4809,8 @@ class _SettingToggleState extends State<_SettingToggle> {
                 widget.label,
                 style: TextStyle(
                   color: widget.isOn
-                      ? _SlotTheme.textPrimary
-                      : _SlotTheme.textSecondary,
+                      ? theme.textPrimary
+                      : theme.textSecondary,
                   fontSize: 12,
                 ),
               ),
@@ -5928,7 +4821,7 @@ class _SettingToggleState extends State<_SettingToggle> {
                 decoration: BoxDecoration(
                   color: widget.isOn
                       ? FluxForgeTheme.accentBlue
-                      : _SlotTheme.bgSurface,
+                      : theme.bgSurface,
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: AnimatedAlign(
@@ -5975,6 +4868,7 @@ class _QualityButtonState extends State<_QualityButton> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.slotTheme;
     return Expanded(
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
@@ -5988,12 +4882,12 @@ class _QualityButtonState extends State<_QualityButton> {
             decoration: BoxDecoration(
               color: widget.isSelected
                   ? FluxForgeTheme.accentBlue
-                  : (_isHovered ? _SlotTheme.bgSurface : _SlotTheme.bgDark),
+                  : (_isHovered ? theme.bgSurface : theme.bgDark),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 color: widget.isSelected
                     ? FluxForgeTheme.accentBlue
-                    : _SlotTheme.border,
+                    : theme.border,
               ),
             ),
             child: Center(
@@ -6002,7 +4896,7 @@ class _QualityButtonState extends State<_QualityButton> {
                 style: TextStyle(
                   color: widget.isSelected
                       ? Colors.white
-                      : _SlotTheme.textSecondary,
+                      : theme.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
@@ -6065,7 +4959,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   int _totalSpins = 0;
   int _wins = 0;
   int _losses = 0;
-  final List<_RecentWin> _recentWins = [];
+  // NOTE: Recent wins are now tracked in SlotLabProjectProvider.sessionStats
+  // Access via Dashboard → Stats tab
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SPACE KEY DEBOUNCE — Prevents double-trigger within 200ms
@@ -6123,8 +5018,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Legacy getter for compatibility (returns _totalBet directly)
   double get _totalBetAmount => _totalBet;
 
-  // Game rules config (loaded from engine)
-  _GameRulesConfig _gameConfig = const _GameRulesConfig();
+  // NOTE: Game rules config moved to Dashboard → Rules tab
+  // Access via SlotLabProjectProvider.importedGdd
 
   // Feature state
   int _freeSpins = 0;
@@ -6188,16 +5083,30 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   // UI state
   bool _showSettingsPanel = false;
   bool _showMenuPanel = false;
-  bool _showPaytable = false;
-  bool _showRules = false;
-  bool _showHistory = false;
-  bool _showStats = false;
+  // NOTE: Paytable, Rules, History, Stats moved to ProjectDashboardDialog
   bool _showWinPresenter = false;
   bool _showGambleScreen = false;
   String _currentWinTier = '';
   double _currentWinAmount = 0.0;
   double _pendingWinAmount = 0.0; // Win waiting to be collected or gambled
   int? _gambleCardRevealed; // 0-3 for cards, null if not revealed
+
+  // 🔴 DEBUG: On-screen messages (visible without console access)
+  String _debugMessage = 'Waiting for spin...';
+  int _processResultCallCount = 0;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BIG WIN PROTECTION — Industry Standard Skip Delay
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Timer for Big Win protection countdown
+  Timer? _bigWinProtectionTimer;
+
+  /// Remaining seconds of Big Win protection (0 = can skip immediately)
+  double _bigWinProtectionRemaining = 0.0;
+
+  /// Timestamp when win presentation started (for protection tracking)
+  int _winPresentationStartMs = 0;
   bool? _gambleWon; // Result of gamble
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -6221,7 +5130,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     _reelsStopped = List.filled(widget.reels, true); // Start as stopped
     _initAnimations();
     _loadSettings(); // Load persisted settings
-    _loadGameConfig(); // Load game rules from engine
+    // NOTE: Game config now loaded via Dashboard → Rules tab
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
@@ -6283,28 +5192,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     await prefs.setInt(_prefKeyTheme, _themeA.index);
   }
 
-  /// Load game rules configuration from engine
-  void _loadGameConfig() {
-    try {
-      final configJson = NativeFFI.instance.slotLabExportConfig();
-      if (configJson != null && configJson.isNotEmpty) {
-        final json = Map<String, dynamic>.from(
-          (configJson.startsWith('{'))
-              ? (Map<String, dynamic>.from(
-                  const JsonDecoder().convert(configJson) as Map))
-              : {},
-        );
-        if (json.isNotEmpty && mounted) {
-          setState(() {
-            _gameConfig = _GameRulesConfig.fromJson(json);
-          });
-        }
-      }
-    } catch (e) {
-      // Fallback to defaults if config loading fails
-      debugPrint('[PSP] Failed to load game config: $e');
-    }
-  }
+  // NOTE: Game config loading moved to ProjectDashboardDialog._buildRulesTab()
+  // Uses SlotLabProjectProvider.importedGdd for GDD-based rules
 
   void _initAnimations() {
     _jackpotTickController = AnimationController(
@@ -6355,15 +5244,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _currentWinTier = tier;
       _showWinPresenter = true;
 
-      _recentWins.insert(
-        0,
-        _RecentWin(
-          amount: jackpotAmount,
-          tier: 'JACKPOT $tier',
-          time: DateTime.now(),
-        ),
-      );
-      if (_recentWins.length > 10) _recentWins.removeLast();
+      // Track win in provider (for Dashboard Stats tab)
+      _projectProvider?.recordWin(jackpotAmount, 'JACKPOT $tier');
     });
   }
 
@@ -6381,7 +5263,94 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     _recordingTimer?.cancel();
     _debugStatsTimer?.cancel();
 
+    // Big Win protection timer cleanup
+    _bigWinProtectionTimer?.cancel();
+
     super.dispose();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BIG WIN PROTECTION HANDLERS — Industry Standard Skip Delay
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Start Big Win protection countdown based on win tier.
+  /// Called when win presentation starts for Big Wins (20x+).
+  void _startBigWinProtection(String tier) {
+    final protectionDuration = BigWinProtection.forTier(tier);
+    if (protectionDuration <= 0) {
+      // No protection for regular wins
+      _bigWinProtectionRemaining = 0.0;
+      return;
+    }
+
+    _winPresentationStartMs = DateTime.now().millisecondsSinceEpoch;
+    _bigWinProtectionRemaining = protectionDuration;
+
+    // Start countdown timer (updates every 100ms for smooth countdown)
+    _bigWinProtectionTimer?.cancel();
+    _bigWinProtectionTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+
+        final elapsed = (DateTime.now().millisecondsSinceEpoch - _winPresentationStartMs) / 1000.0;
+        final remaining = protectionDuration - elapsed;
+
+        if (remaining <= 0) {
+          timer.cancel();
+          setState(() => _bigWinProtectionRemaining = 0.0);
+        } else {
+          setState(() => _bigWinProtectionRemaining = remaining);
+        }
+      },
+    );
+  }
+
+  /// Stop Big Win protection countdown (called on collect or skip).
+  void _stopBigWinProtection() {
+    _bigWinProtectionTimer?.cancel();
+    _bigWinProtectionTimer = null;
+    _bigWinProtectionRemaining = 0.0;
+  }
+
+  /// Handle SKIP button press during win presentation.
+  /// For Big Wins: triggers BIG_WIN_END (4 seconds) then collects.
+  /// For regular wins: collects immediately.
+  void _handleSkipWinPresentation() {
+    // Don't allow skip if protection is still active
+    if (_bigWinProtectionRemaining > 0) {
+      return;
+    }
+
+    // Stop current win audio
+    final eventRegistry = EventRegistry.instance;
+    eventRegistry.stopEvent('BIG_WIN_LOOP');
+    eventRegistry.stopEvent('ROLLUP');
+
+    // Check if this is a Big Win tier
+    final isBigWin = _currentWinTier.toUpperCase().startsWith('BIG_WIN') ||
+        _currentWinTier.toUpperCase() == 'BIG';
+
+    if (isBigWin) {
+      // Trigger BIG_WIN_END stage (4 seconds)
+      eventRegistry.triggerStage('BIG_WIN_END');
+
+      // Wait 4 seconds then collect
+      Future.delayed(
+        Duration(milliseconds: (BigWinProtection.endDuration * 1000).toInt()),
+        () {
+          if (mounted) {
+            _collectWin();
+          }
+        },
+      );
+    } else {
+      // Regular win - collect immediately
+      _collectWin();
+    }
   }
 
   // === HANDLERS ===
@@ -6775,6 +5744,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // ═══════════════════════════════════════════════════════════════════════════
     // DEBUG LOGGING — Trace spin flow
     // ═══════════════════════════════════════════════════════════════════════════
+    setState(() {
+      _debugMessage = '_handleSpin CALLED!';
+    });
     debugPrint('[PremiumSlotPreview] 🎰 _handleSpin called');
     debugPrint('[PremiumSlotPreview]   initialized=${provider.initialized}');
     debugPrint('[PremiumSlotPreview]   isPlayingStages=${provider.isPlayingStages}');
@@ -6783,14 +5755,23 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
     if (!provider.initialized) {
       debugPrint('[PremiumSlotPreview] ❌ BLOCKED: Provider not initialized!');
+      setState(() {
+        _debugMessage = 'BLOCKED: Provider not initialized!';
+      });
       return;
     }
     if (provider.isPlayingStages) {
       debugPrint('[PremiumSlotPreview] ❌ BLOCKED: Already playing stages');
+      setState(() {
+        _debugMessage = 'BLOCKED: Already playing stages';
+      });
       return;
     }
     if (_balance < _totalBetAmount) {
       debugPrint('[PremiumSlotPreview] ❌ BLOCKED: Insufficient balance');
+      setState(() {
+        _debugMessage = 'BLOCKED: Insufficient balance (${_balance.toStringAsFixed(2)} < ${_totalBetAmount.toStringAsFixed(2)})';
+      });
       return;
     }
 
@@ -6835,16 +5816,26 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     _scheduleVisualSyncCallbacks(null);
 
     debugPrint('[PremiumSlotPreview] ✅ Calling provider.spin()...');
+    setState(() {
+      _debugMessage = 'Spin started, waiting for result...';
+    });
+
     provider.spin().then((result) {
       if (result != null && mounted) {
         debugPrint('[PremiumSlotPreview] ✅ spin() returned result: ${result.spinId}');
         debugPrint('[PremiumSlotPreview]   stages count: ${provider.lastStages.length}');
         debugPrint('[PremiumSlotPreview]   isPlayingStages: ${provider.isPlayingStages}');
+        setState(() {
+          _debugMessage = 'Got result! spinId=${result.spinId}, calling _processResult...';
+        });
         // Store result for win stage triggering (used by _onAllReelsStopped)
         _pendingResultForWinStage = result;
         _processResult(result);
       } else {
         debugPrint('[PremiumSlotPreview] ❌ spin() returned NULL! Provider may not be initialized.');
+        setState(() {
+          _debugMessage = 'ERROR: spin() returned NULL!';
+        });
       }
     });
   }
@@ -6878,11 +5869,22 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // ═══════════════════════════════════════════════════════════════════════
     _scheduleVisualSyncCallbacks(null);
 
+    setState(() {
+      _debugMessage = 'Forced spin started, waiting for result...';
+    });
+
     provider.spinForced(outcome).then((result) {
       if (result != null && mounted) {
+        setState(() {
+          _debugMessage = 'Got forced result! Calling _processResult...';
+        });
         // Store result for win stage triggering (used by _onAllReelsStopped)
         _pendingResultForWinStage = result;
         _processResult(result);
+      } else {
+        setState(() {
+          _debugMessage = 'ERROR: spinForced() returned NULL!';
+        });
       }
     });
   }
@@ -6980,6 +5982,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Called when ALL reels have visually stopped
   /// NOTE: WIN stages are now handled by engine via SlotLabProvider._playStages()
   void _onAllReelsStopped() {
+    // CRITICAL: Notify provider that reels stopped visually
+    // This hides STOP button and enables SKIP button during win presentation
+    final provider = context.read<SlotLabProvider>();
+    provider.onAllReelsVisualStop();
+
     // ═══════════════════════════════════════════════════════════════════════
     // REVEAL — DISABLED: Engine stages handle timing via SlotLabProvider._playStages()
     // Visual-sync timing is NOT synchronized with engine timestamps, causing
@@ -7034,6 +6041,13 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   // ═══════════════════════════════════════════════════════════════════════════
 
   void _processResult(SlotLabSpinResult result) {
+    // DEBUG: ENTRY LOG — check if method is even being called
+    _processResultCallCount++;
+    setState(() {
+      _debugMessage = 'CALLED #$_processResultCallCount | isWin=${result.isWin} | ratio=${result.winRatio.toStringAsFixed(2)}';
+    });
+    debugPrint('[_processResult] 🚨 CALLED! isWin=${result.isWin}, winRatio=${result.winRatio}, bigWinTier=${result.bigWinTier}');
+
     // CRITICAL: Use winRatio (multiplier) from engine, not totalWin (absolute amount)
     // Engine calculates: total_win = engine_bet * target_multiplier
     // But engine_bet may differ from UI bet (_totalBetAmount), so:
@@ -7051,8 +6065,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       if (result.isWin) {
         _wins++;
         // Use engine's win tier classification when available, fallback to winRatio-based tier
-        _currentWinTier = _winTierFromEngine(result.bigWinTier) ?? _getWinTierFromRatio(result.winRatio);
+        final engineTier = _winTierFromEngine(result.bigWinTier);
+        final ratioTier = _getWinTierFromRatio(result.winRatio);
+        _currentWinTier = engineTier ?? ratioTier;
         _currentWinAmount = winAmount;
+
+        // 🔴 DEBUG: On-screen message for WIN path
+        _debugMessage = 'WIN! engineTier=$engineTier | ratioTier=$ratioTier | FINAL=$_currentWinTier';
+
+        // DEBUG: Log win tier for plaque display
+        debugPrint('[WinPresenter] 🏆 Win detected: winRatio=${result.winRatio.toStringAsFixed(2)}x, bigWinTier=${result.bigWinTier}, engineTier=$engineTier, ratioTier=$ratioTier, FINAL _currentWinTier=$_currentWinTier, isBigWin=${_isBigWinTier(_currentWinTier)}');
 
         // Jackpot chance based on win RATIO from ENGINE (not absolute amount)
         // Uses probability bands tied to multiplier - engine determines the win,
@@ -7098,19 +6120,19 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         // Regular Win (< 20x): Shows simple TOTAL WIN panel
         _showWinPresenter = true;
 
-        // Track recent wins for history
-        _recentWins.insert(
-          0,
-          _RecentWin(
-            amount: winAmount,
-            tier: _currentWinTier.isNotEmpty ? _currentWinTier : 'WIN',
-            time: DateTime.now(),
-          ),
+        // Start Big Win protection countdown for big wins
+        // Regular wins have 0s protection (immediate skip available)
+        _startBigWinProtection(_currentWinTier);
+
+        // Track win in provider (for Dashboard Stats tab)
+        _projectProvider?.recordWin(
+          winAmount,
+          _currentWinTier.isNotEmpty ? _currentWinTier : 'WIN',
         );
-        if (_recentWins.length > 10) {
-          _recentWins.removeLast();
-        }
       } else {
+        // 🔴 DEBUG: On-screen message for NO WIN path
+        _debugMessage = 'NO WIN — isWin=false, ratio=${result.winRatio}';
+        debugPrint('[_processResult] ❌ NO WIN — setting _currentWinTier to empty string');
         _losses++;
         _currentWinTier = '';
         _pendingWinAmount = 0.0; // No win to collect
@@ -7314,7 +6336,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   /// Convert engine win tier to UI tier string
-  /// Returns empty string for small wins (no plaque)
+  /// Returns null for regular wins (so fallback to ratio-based tier can be used)
+  /// Only returns tier string for BIG WINS (20x+)
   String? _winTierFromEngine(SlotLabWinTier? tier) {
     if (tier == null) return null;
     switch (tier) {
@@ -7327,8 +6350,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       case SlotLabWinTier.bigWin:
         return 'BIG_WIN_TIER_1';
       case SlotLabWinTier.win:
-        // Small win - no plaque
-        return '';
+        // Regular win - return null so _getWinTierFromRatio() can determine exact tier
+        return null;
       case SlotLabWinTier.none:
         return null;
     }
@@ -7336,6 +6359,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   /// Collect pending win - add to balance and close presenter
   void _collectWin() {
+    // Stop Big Win protection timer
+    _stopBigWinProtection();
+
     setState(() {
       _balance += _pendingWinAmount;
       _pendingWinAmount = 0.0;
@@ -7485,7 +6511,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.keyS:
-        setState(() => _showStats = !_showStats);
+        // S = Open Dashboard (Stats tab) — stats panel moved to Dashboard
+        ProjectDashboardDialog.show(context, initialTab: 5); // Stats tab index
         return KeyEventResult.handled;
 
       case LogicalKeyboardKey.keyT:
@@ -7557,12 +6584,17 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Get GDD symbols from project provider (if imported)
     final gddSymbols = projectProvider.gddSymbols;
 
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: _handleKeyEvent,
-      child: Scaffold(
-        backgroundColor: _SlotTheme.bgDeep,
+    // Get current theme data
+    final theme = _currentThemeData;
+
+    return SlotThemeProvider(
+      theme: theme,
+      child: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: _handleKeyEvent,
+        child: Scaffold(
+          backgroundColor: theme.bgDeep,
         body: Stack(
           children: [
             // Main layout
@@ -7602,16 +6634,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   onDebugToggle: _toggleDebugToolbar,
                 ),
 
-                // P6: Debug Toolbar (below header when active)
-                if (_showDebugToolbar)
-                  _DebugToolbar(
-                    fps: _currentFps,
-                    activeVoices: _activeVoices,
-                    memoryMb: _memoryUsageMb,
-                    showStageTrace: _showStageTrace,
-                    onStageTraceToggle: () => setState(() => _showStageTrace = !_showStageTrace),
-                    onForceOutcome: _forceOutcome,
-                  ),
+                // P6: Debug Toolbar — REMOVED (disabled per user request)
+                // Debug tools available via Dashboard (Ctrl+D) instead
 
                 // B. Jackpot Zone — REMOVED for default slot machine
                 // Jackpot plaques (Mini, Minor, Major, Grand) are added via specific templates
@@ -7630,7 +6654,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   ),
                 ),
 
-                // F. Control Bar — Modern Total Bet System
+                // F. Control Bar — Modern Total Bet System with SPIN/STOP/SKIP
                 _ControlBar(
                   // Modern bet system
                   totalBet: _totalBet,
@@ -7648,11 +6672,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   autoSpinCount: _autoSpinRemaining,
                   isTurbo: _isTurbo,
                   canSpin: canSpin,
+                  // SKIP button controls (industry-standard win presentation skip)
+                  isInWinPresentation: _showWinPresenter,
+                  currentWinTier: _currentWinTier,
+                  bigWinProtectionRemaining: _bigWinProtectionRemaining,
                   // Callbacks
                   onBetChanged: (v) => setState(() => _totalBet = v),
                   onMaxBet: _handleMaxBet,
                   onSpin: () => _handleSpin(provider),
                   onStop: _handleStop,
+                  onSkip: _handleSkipWinPresentation,
                   onAutoSpinToggle: _handleAutoSpinToggle,
                   onTurboToggle: _toggleTurbo,
                   onAfterInteraction: () => _focusNode.requestFocus(),
@@ -7660,53 +6689,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
               ],
             ),
 
-            // G. Info Panels (left side)
-            _InfoPanels(
-              showPaytable: _showPaytable,
-              showRules: _showRules,
-              showHistory: _showHistory,
-              showStats: _showStats,
-              recentWins: _recentWins,
-              totalSpins: _totalSpins,
-              rtp: sessionRtp,
-              gameConfig: _gameConfig,
-              gddSymbols: gddSymbols,
-              onPaytableToggle: () => setState(() {
-                _showPaytable = !_showPaytable;
-                _showRules = false;
-              }),
-              onRulesToggle: () => setState(() {
-                _showRules = !_showRules;
-                _showPaytable = false;
-              }),
-              onHistoryToggle: () => setState(() => _showHistory = !_showHistory),
-              onStatsToggle: () => setState(() => _showStats = !_showStats),
-            ),
+            // G. Info Panels — REMOVED (moved to Dashboard)
+            // Use Dashboard (Ctrl+D) for Paytable, Rules, History, and Stats
 
-            // D. Win Presenter (overlay)
-            // Big Win (20x+): Shows tier escalation panel (BIG WIN!, MEGA WIN!, etc.)
-            // Regular Win (< 20x): Shows simple TOTAL WIN panel
-            if (_showWinPresenter)
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: _collectWin,
-                  child: Container(
-                    color: Colors.black.withOpacity(0.7),
-                    child: _WinPresenter(
-                      winAmount: _pendingWinAmount,
-                      winTier: _currentWinTier,
-                      multiplier: _multiplier.toDouble(),
-                      showCollect: true,
-                      showGamble: false, // Gamble disabled for basic mockup
-                      onCollect: _collectWin,
-                      onGamble: _startGamble,
-                      // Big Win = 20x+ (BIG, MEGA, SUPER, EPIC, ULTRA)
-                      // Regular Win = < 20x (WIN_1 through WIN_5, WIN_EQUAL, WIN_LOW)
-                      isBigWin: _isBigWinTier(_currentWinTier),
-                    ),
-                  ),
-                ),
-              ),
+            // D. Win Presenter — REMOVED
+            // SlotPreviewWidget (child) already has complete win presentation system
+            // that WORKS correctly with tier labels. No need for duplicate overlay.
 
             // Gamble Screen (overlay) — disabled for basic mockup
             // To re-enable: uncomment the block below
@@ -7728,59 +6716,46 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                 top: 70,
                 left: 16,
                 child: _MenuPanel(
-                  onPaytable: () => setState(() {
-                    _showPaytable = true;
-                    _showRules = false;
-                    _showMenuPanel = false;
-                  }),
-                  onRules: () => setState(() {
-                    _showRules = true;
-                    _showPaytable = false;
-                    _showMenuPanel = false;
-                  }),
-                  onHistory: () => setState(() {
-                    _showHistory = !_showHistory;
-                    _showMenuPanel = false;
-                  }),
-                  onStats: () => setState(() {
-                    _showStats = !_showStats;
-                    _showMenuPanel = false;
-                  }),
+                  onDashboard: () {
+                    setState(() => _showMenuPanel = false);
+                    ProjectDashboardDialog.show(context);
+                  },
                   onSettings: () => setState(() {
                     _showSettingsPanel = true;
                     _showMenuPanel = false;
                   }),
                   onHelp: () {
                     setState(() => _showMenuPanel = false);
+                    final dialogTheme = context.slotTheme;
                     // Show a simple help dialog
                     showDialog(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        backgroundColor: _SlotTheme.bgPanel,
-                        title: const Text(
+                        backgroundColor: dialogTheme.bgPanel,
+                        title: Text(
                           'Premium Slot Preview',
-                          style: TextStyle(color: _SlotTheme.textPrimary),
+                          style: TextStyle(color: dialogTheme.textPrimary),
                         ),
-                        content: const Column(
+                        content: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Audio Testing Sandbox',
                               style: TextStyle(
                                 color: FluxForgeTheme.accentCyan,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            SizedBox(height: 12),
+                            const SizedBox(height: 12),
                             Text(
                               'Keyboard Shortcuts:',
                               style: TextStyle(
-                                color: _SlotTheme.textSecondary,
+                                color: dialogTheme.textSecondary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            SizedBox(height: 8),
+                            const SizedBox(height: 8),
                             Text(
                               '• SPACE - Spin\n'
                               '• M - Toggle Music\n'
@@ -7789,7 +6764,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                               '• A - Toggle Auto-Spin\n'
                               '• ESC - Exit\n'
                               '• 1-7 - Forced Outcomes (Debug)',
-                              style: TextStyle(color: _SlotTheme.textSecondary),
+                              style: TextStyle(color: dialogTheme.textSecondary),
                             ),
                           ],
                         ),
@@ -7849,9 +6824,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   ),
                 ),
               ),
+
           ],
         ),
       ),
+      ), // End of SlotThemeProvider
     );
   }
 }
