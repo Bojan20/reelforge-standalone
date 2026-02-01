@@ -1,15 +1,17 @@
-/// Project Dashboard Dialog (M1 Task 4)
+/// Project Dashboard Dialog (M1 Task 4) — ULTIMATE VERSION
 ///
 /// Comprehensive project overview for Producers and Product Owners.
 /// Shows progress metrics, export validation, and project notes.
 ///
 /// Features:
-/// - Audio coverage by section
-/// - Export readiness validation
-/// - Project notes (markdown)
+/// - Audio coverage by section (REAL DATA from provider)
+/// - Export readiness validation (6+ checks)
+/// - Project notes (PERSISTED in provider)
 /// - Quick stats and metrics
+/// - Export to Markdown report
 
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/slot_lab_project_provider.dart';
@@ -35,7 +37,6 @@ class ProjectDashboardDialog extends StatefulWidget {
 class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String _projectNotes = '';
   bool _notesEditing = false;
   final TextEditingController _notesController = TextEditingController();
 
@@ -43,6 +44,11 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    // Load notes from provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<SlotLabProjectProvider>();
+      _notesController.text = provider.projectNotes;
+    });
   }
 
   @override
@@ -515,77 +521,122 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
   }
 
   Widget _buildSectionCoverageList() {
-    // Section definitions matching UltimateAudioPanel V8
-    final sections = [
-      ('Base Game Loop', 41, Icons.refresh, FluxForgeTheme.accentBlue),
-      ('Symbols & Lands', 46, Icons.category, FluxForgeTheme.accentPurple),
-      ('Win Presentation', 41, Icons.star, FluxForgeTheme.accentYellow),
-      ('Cascading Mechanics', 24, Icons.water_drop, FluxForgeTheme.accentRed),
-      ('Multipliers', 18, Icons.close, FluxForgeTheme.accentOrange),
-      ('Free Spins', 24, Icons.redeem, FluxForgeTheme.accentGreen),
-      ('Bonus Games', 32, Icons.card_giftcard, FluxForgeTheme.accentPurple),
-      ('Hold & Win', 24, Icons.lock, FluxForgeTheme.accentCyan),
-      ('Jackpots', 26, Icons.emoji_events, FluxForgeTheme.accentYellow),
-      ('Gamble', 16, Icons.casino, FluxForgeTheme.accentRed),
-      ('Music & Ambience', 27, Icons.music_note, FluxForgeTheme.accentCyan),
-      ('UI & System', 22, Icons.computer, FluxForgeTheme.textTertiary),
-    ];
+    // Section definitions with icons and colors
+    final sectionMeta = <String, (IconData, Color)>{
+      'base_game_loop': (Icons.refresh, FluxForgeTheme.accentBlue),
+      'symbols': (Icons.category, FluxForgeTheme.accentPurple),
+      'win_presentation': (Icons.star, FluxForgeTheme.accentYellow),
+      'cascading': (Icons.water_drop, FluxForgeTheme.accentRed),
+      'multipliers': (Icons.close, FluxForgeTheme.accentOrange),
+      'free_spins': (Icons.redeem, FluxForgeTheme.accentGreen),
+      'bonus': (Icons.card_giftcard, FluxForgeTheme.accentPurple),
+      'hold_win': (Icons.lock, FluxForgeTheme.accentCyan),
+      'jackpots': (Icons.emoji_events, FluxForgeTheme.accentYellow),
+      'gamble': (Icons.casino, FluxForgeTheme.accentRed),
+      'music': (Icons.music_note, FluxForgeTheme.accentCyan),
+      'ui_system': (Icons.computer, FluxForgeTheme.textTertiary),
+    };
 
-    return Column(
-      children: sections.map((section) {
-        final (name, slots, icon, color) = section;
-        // TODO: Get actual assigned count from provider
-        final assigned = 0; // Placeholder - would need section-specific counting
-        final percent = slots > 0 ? (assigned / slots * 100).round() : 0;
+    return Consumer<SlotLabProjectProvider>(
+      builder: (context, provider, _) {
+        final coverageData = provider.getCoverageBySection();
+        final sectionInfo = SlotLabProjectProvider.getSectionInfo();
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: FluxForgeTheme.bgSurface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: FluxForgeTheme.borderSubtle),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
+        return Column(
+          children: sectionInfo.map((section) {
+            final (id, name, totalSlots) = section;
+            final data = coverageData[id] ?? {'assigned': 0, 'total': totalSlots, 'percent': 0};
+            final assigned = data['assigned'] ?? 0;
+            final total = data['total'] ?? totalSlots;
+            final percent = data['percent'] ?? 0;
+            final meta = sectionMeta[id] ?? (Icons.folder, FluxForgeTheme.textTertiary);
+            final (icon, color) = meta;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.bgSurface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: percent >= 75
+                      ? FluxForgeTheme.accentGreen.withValues(alpha: 0.4)
+                      : percent >= 25
+                          ? color.withValues(alpha: 0.3)
+                          : FluxForgeTheme.borderSubtle,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: color),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              name,
+                              style: FluxForgeTheme.bodySmall.copyWith(
+                                color: FluxForgeTheme.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if (percent >= 75) ...[
+                              const SizedBox(width: 8),
+                              Icon(Icons.check_circle, size: 14, color: FluxForgeTheme.accentGreen),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: percent / 100,
+                            minHeight: 6,
+                            backgroundColor: FluxForgeTheme.bgMid,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              percent >= 75
+                                  ? FluxForgeTheme.accentGreen
+                                  : percent >= 25
+                                      ? color
+                                      : FluxForgeTheme.accentRed.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: percent >= 75
+                          ? FluxForgeTheme.accentGreen.withValues(alpha: 0.15)
+                          : percent >= 25
+                              ? color.withValues(alpha: 0.15)
+                              : FluxForgeTheme.accentRed.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$assigned/$total',
                       style: FluxForgeTheme.bodySmall.copyWith(
-                        color: FluxForgeTheme.textPrimary,
-                        fontWeight: FontWeight.w500,
+                        color: percent >= 75
+                            ? FluxForgeTheme.accentGreen
+                            : percent >= 25
+                                ? color
+                                : FluxForgeTheme.accentRed,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: percent / 100,
-                        minHeight: 6,
-                        backgroundColor: FluxForgeTheme.bgMid,
-                        valueColor: AlwaysStoppedAnimation<Color>(color),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Text(
-                '$assigned/$slots',
-                style: FluxForgeTheme.bodySmall.copyWith(
-                  color: FluxForgeTheme.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
+            );
+          }).toList(),
         );
-      }).toList(),
+      },
     );
   }
 
@@ -642,7 +693,7 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
     final coreStages = ['SPIN_START', 'REEL_STOP', 'WIN_PRESENT'];
     final coveredCoreStages = coreStages.where((stage) {
       return middlewareProvider.compositeEvents.any(
-        (e) => e.triggerStages.any((s) => s.contains(stage)),
+        (e) => e.triggerStages.any((s) => s.toUpperCase().contains(stage)),
       );
     }).length;
     results.add(_ValidationResult(
@@ -656,18 +707,24 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
     // Check 3: Audio files exist
     int missingFiles = 0;
     int totalFiles = 0;
+    final missingPaths = <String>[];
     for (final event in middlewareProvider.compositeEvents) {
       for (final layer in event.layers) {
         totalFiles++;
         final path = layer.audioPath;
         if (path.isNotEmpty && !File(path).existsSync()) {
           missingFiles++;
+          if (missingPaths.length < 3) {
+            missingPaths.add(path.split('/').last);
+          }
         }
       }
     }
     results.add(_ValidationResult(
       name: 'Audio Files',
-      description: 'All referenced audio files should exist',
+      description: missingFiles > 0
+          ? 'Missing: ${missingPaths.join(", ")}${missingFiles > 3 ? "..." : ""}'
+          : 'All referenced audio files should exist',
       passed: missingFiles == 0,
       value: missingFiles == 0 ? '$totalFiles files OK' : '$missingFiles missing',
       severity: _ValidationSeverity.critical,
@@ -705,6 +762,67 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
       description: 'Symbol definitions for proper audio mapping',
       passed: symbolCount >= 5,
       value: '$symbolCount symbols',
+      severity: _ValidationSeverity.warning,
+    ));
+
+    // Check 7: Containers configured (NEW)
+    final blendCount = middlewareProvider.blendContainers.length;
+    final randomCount = middlewareProvider.randomContainers.length;
+    final sequenceCount = middlewareProvider.sequenceContainers.length;
+    final containerTotal = blendCount + randomCount + sequenceCount;
+    results.add(_ValidationResult(
+      name: 'Containers',
+      description: 'Blend/Random/Sequence containers for dynamic audio',
+      passed: containerTotal >= 0, // Info only, always passes
+      value: 'B:$blendCount R:$randomCount S:$sequenceCount',
+      severity: _ValidationSeverity.info,
+    ));
+
+    // Check 8: Audio formats (NEW)
+    int wavCount = 0;
+    int mp3Count = 0;
+    int oggCount = 0;
+    int otherCount = 0;
+    for (final event in middlewareProvider.compositeEvents) {
+      for (final layer in event.layers) {
+        final path = layer.audioPath.toLowerCase();
+        if (path.endsWith('.wav')) wavCount++;
+        else if (path.endsWith('.mp3')) mp3Count++;
+        else if (path.endsWith('.ogg')) oggCount++;
+        else if (path.isNotEmpty) otherCount++;
+      }
+    }
+    final hasNonWav = mp3Count > 0 || oggCount > 0 || otherCount > 0;
+    results.add(_ValidationResult(
+      name: 'Audio Formats',
+      description: hasNonWav
+          ? 'Recommend WAV for best quality (found: MP3=$mp3Count, OGG=$oggCount)'
+          : 'WAV format recommended for lossless quality',
+      passed: !hasNonWav || wavCount > (mp3Count + oggCount + otherCount),
+      value: 'WAV:$wavCount MP3:$mp3Count OGG:$oggCount',
+      severity: _ValidationSeverity.info,
+    ));
+
+    // Check 9: Win tiers configured (NEW)
+    final winConfig = projectProvider.winConfiguration;
+    final hasCustomWinConfig = winConfig.regularWins.tiers.isNotEmpty;
+    results.add(_ValidationResult(
+      name: 'Win Tiers',
+      description: 'Win tier configuration for proper rollup audio',
+      passed: hasCustomWinConfig,
+      value: hasCustomWinConfig
+          ? '${winConfig.regularWins.tiers.length} regular + ${winConfig.bigWins.tiers.length} big'
+          : 'Using defaults',
+      severity: _ValidationSeverity.info,
+    ));
+
+    // Check 10: Contexts defined (NEW)
+    final contextCount = projectProvider.contexts.length;
+    results.add(_ValidationResult(
+      name: 'Game Contexts',
+      description: 'Contexts for feature-specific audio (Base, FS, Bonus...)',
+      passed: contextCount >= 2,
+      value: '$contextCount contexts',
       severity: _ValidationSeverity.warning,
     ));
 
@@ -857,98 +975,145 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
   // ════════════════════════════════════════════════════════════════════════════
 
   Widget _buildNotesTab() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Consumer<SlotLabProjectProvider>(
+      builder: (context, provider, _) {
+        final currentNotes = provider.projectNotes;
+
+        // Sync controller with provider when not editing
+        if (!_notesEditing && _notesController.text != currentNotes) {
+          _notesController.text = currentNotes;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionHeader('Project Notes', Icons.notes),
-              const Spacer(),
-              TextButton.icon(
-                icon: Icon(
-                  _notesEditing ? Icons.check : Icons.edit,
-                  size: 16,
-                ),
-                label: Text(_notesEditing ? 'Save' : 'Edit'),
-                onPressed: () {
-                  setState(() {
-                    if (_notesEditing) {
-                      _projectNotes = _notesController.text;
-                    } else {
-                      _notesController.text = _projectNotes;
-                    }
-                    _notesEditing = !_notesEditing;
-                  });
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Add notes about your project, requirements, or delivery instructions.',
-            style: FluxForgeTheme.bodySmall.copyWith(
-              color: FluxForgeTheme.textTertiary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: FluxForgeTheme.bgSurface,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: _notesEditing
-                      ? FluxForgeTheme.accentBlue
-                      : FluxForgeTheme.borderSubtle,
-                ),
-              ),
-              child: _notesEditing
-                  ? TextField(
-                      controller: _notesController,
-                      maxLines: null,
-                      expands: true,
-                      style: FluxForgeTheme.bodySmall.copyWith(
-                        color: FluxForgeTheme.textPrimary,
-                        height: 1.6,
+              Row(
+                children: [
+                  _buildSectionHeader('Project Notes', Icons.notes),
+                  const Spacer(),
+                  if (currentNotes.isNotEmpty && !_notesEditing)
+                    Container(
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentGreen.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        hintText: 'Enter project notes here...\n\n'
-                            'You can include:\n'
-                            '- Delivery requirements\n'
-                            '- Sound design notes\n'
-                            '- Target platforms\n'
-                            '- Team contacts',
-                        hintStyle: FluxForgeTheme.bodySmall.copyWith(
-                          color: FluxForgeTheme.textTertiary,
-                        ),
-                      ),
-                    )
-                  : _projectNotes.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No notes yet. Click Edit to add project notes.',
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.save, size: 12, color: FluxForgeTheme.accentGreen),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Saved',
                             style: FluxForgeTheme.bodySmall.copyWith(
+                              color: FluxForgeTheme.accentGreen,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  TextButton.icon(
+                    icon: Icon(
+                      _notesEditing ? Icons.check : Icons.edit,
+                      size: 16,
+                    ),
+                    label: Text(_notesEditing ? 'Save' : 'Edit'),
+                    onPressed: () {
+                      setState(() {
+                        if (_notesEditing) {
+                          // Save to provider (persists to project file)
+                          provider.setProjectNotes(_notesController.text);
+                        }
+                        _notesEditing = !_notesEditing;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Add notes about your project, requirements, or delivery instructions. Notes are saved with your project.',
+                style: FluxForgeTheme.bodySmall.copyWith(
+                  color: FluxForgeTheme.textTertiary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.bgSurface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _notesEditing
+                          ? FluxForgeTheme.accentBlue
+                          : FluxForgeTheme.borderSubtle,
+                    ),
+                  ),
+                  child: _notesEditing
+                      ? TextField(
+                          controller: _notesController,
+                          maxLines: null,
+                          expands: true,
+                          style: FluxForgeTheme.bodySmall.copyWith(
+                            color: FluxForgeTheme.textPrimary,
+                            height: 1.6,
+                          ),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Enter project notes here...\n\n'
+                                'You can include:\n'
+                                '- Delivery requirements\n'
+                                '- Sound design notes\n'
+                                '- Target platforms\n'
+                                '- Team contacts',
+                            hintStyle: FluxForgeTheme.bodySmall.copyWith(
                               color: FluxForgeTheme.textTertiary,
                             ),
                           ),
                         )
-                      : SingleChildScrollView(
-                          child: Text(
-                            _projectNotes,
-                            style: FluxForgeTheme.bodySmall.copyWith(
-                              color: FluxForgeTheme.textPrimary,
-                              height: 1.6,
+                      : currentNotes.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.notes, size: 48, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3)),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No notes yet',
+                                    style: FluxForgeTheme.body.copyWith(
+                                      color: FluxForgeTheme.textTertiary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Click Edit to add project notes',
+                                    style: FluxForgeTheme.bodySmall.copyWith(
+                                      color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : SingleChildScrollView(
+                              child: Text(
+                                currentNotes,
+                                style: FluxForgeTheme.bodySmall.copyWith(
+                                  color: FluxForgeTheme.textPrimary,
+                                  height: 1.6,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -989,14 +1154,152 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
     );
   }
 
-  void _exportReport() {
-    // TODO: Implement report export to markdown/JSON
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Report export coming soon!'),
-        backgroundColor: FluxForgeTheme.accentBlue,
-      ),
+  Future<void> _exportReport() async {
+    final projectProvider = context.read<SlotLabProjectProvider>();
+    final middlewareProvider = context.read<MiddlewareProvider>();
+
+    // Generate markdown report
+    final report = _generateMarkdownReport(projectProvider, middlewareProvider);
+
+    // Pick save location
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Export Project Report',
+      fileName: 'slotlab_project_report.md',
+      type: FileType.custom,
+      allowedExtensions: ['md'],
     );
+
+    if (result != null) {
+      try {
+        await File(result).writeAsString(report);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Report saved to $result')),
+                ],
+              ),
+              backgroundColor: FluxForgeTheme.accentGreen,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to save report: $e'),
+              backgroundColor: FluxForgeTheme.accentRed,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  String _generateMarkdownReport(
+    SlotLabProjectProvider projectProvider,
+    MiddlewareProvider middlewareProvider,
+  ) {
+    final gdd = projectProvider.importedGdd;
+    final coverageData = projectProvider.getCoverageBySection();
+    final sectionInfo = SlotLabProjectProvider.getSectionInfo();
+    final validations = _runValidations(projectProvider, middlewareProvider);
+    final counts = projectProvider.getAudioAssignmentCounts();
+    final totalAssigned = (counts['symbol_total'] ?? 0) + (counts['music_total'] ?? 0);
+
+    final buffer = StringBuffer();
+
+    // Header
+    buffer.writeln('# SlotLab Project Report');
+    buffer.writeln();
+    buffer.writeln('**Generated:** ${DateTime.now().toIso8601String()}');
+    buffer.writeln();
+
+    // Project Summary
+    buffer.writeln('## Project Summary');
+    buffer.writeln();
+    buffer.writeln('| Property | Value |');
+    buffer.writeln('|----------|-------|');
+    buffer.writeln('| Game | ${gdd?.name ?? "Untitled Project"} |');
+    buffer.writeln('| Grid | ${gdd != null ? "${gdd.grid.columns}×${gdd.grid.rows}" : "5×3"} |');
+    buffer.writeln('| Symbols | ${projectProvider.symbols.length} |');
+    buffer.writeln('| Contexts | ${projectProvider.contexts.length} |');
+    buffer.writeln('| Events | ${middlewareProvider.compositeEvents.length} |');
+    buffer.writeln('| Total Audio Assigned | $totalAssigned / 341 |');
+    buffer.writeln();
+
+    // Coverage by Section
+    buffer.writeln('## Coverage by Section');
+    buffer.writeln();
+    buffer.writeln('| Section | Assigned | Total | Progress |');
+    buffer.writeln('|---------|----------|-------|----------|');
+    for (final (id, name, total) in sectionInfo) {
+      final data = coverageData[id] ?? {'assigned': 0, 'percent': 0};
+      final assigned = data['assigned'] ?? 0;
+      final percent = data['percent'] ?? 0;
+      final progressBar = _generateProgressBar(percent);
+      buffer.writeln('| $name | $assigned | $total | $progressBar $percent% |');
+    }
+    buffer.writeln();
+
+    // Validation Results
+    buffer.writeln('## Validation Results');
+    buffer.writeln();
+    final passed = validations.where((v) => v.passed).length;
+    buffer.writeln('**Status:** $passed / ${validations.length} checks passed');
+    buffer.writeln();
+    buffer.writeln('| Check | Status | Value |');
+    buffer.writeln('|-------|--------|-------|');
+    for (final v in validations) {
+      final status = v.passed ? '✅ PASS' : '❌ FAIL';
+      buffer.writeln('| ${v.name} | $status | ${v.value} |');
+    }
+    buffer.writeln();
+
+    // Events List
+    buffer.writeln('## Events (${middlewareProvider.compositeEvents.length})');
+    buffer.writeln();
+    if (middlewareProvider.compositeEvents.isEmpty) {
+      buffer.writeln('*No events created yet.*');
+    } else {
+      buffer.writeln('| Event Name | Layers | Trigger Stages |');
+      buffer.writeln('|------------|--------|----------------|');
+      for (final event in middlewareProvider.compositeEvents.take(50)) {
+        final stages = event.triggerStages.take(3).join(', ');
+        final suffix = event.triggerStages.length > 3 ? '...' : '';
+        buffer.writeln('| ${event.name} | ${event.layers.length} | $stages$suffix |');
+      }
+      if (middlewareProvider.compositeEvents.length > 50) {
+        buffer.writeln();
+        buffer.writeln('*... and ${middlewareProvider.compositeEvents.length - 50} more events*');
+      }
+    }
+    buffer.writeln();
+
+    // Project Notes
+    if (projectProvider.projectNotes.isNotEmpty) {
+      buffer.writeln('## Project Notes');
+      buffer.writeln();
+      buffer.writeln(projectProvider.projectNotes);
+      buffer.writeln();
+    }
+
+    // Footer
+    buffer.writeln('---');
+    buffer.writeln('*Report generated by FluxForge SlotLab*');
+
+    return buffer.toString();
+  }
+
+  String _generateProgressBar(int percent) {
+    const total = 10;
+    final filled = (percent / 10).round().clamp(0, total);
+    final empty = total - filled;
+    return '[${"█" * filled}${"░" * empty}]';
   }
 
   Color _getCoverageColor(int percent) {

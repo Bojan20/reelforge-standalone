@@ -1457,6 +1457,87 @@ class SlotLabProjectProvider extends ChangeNotifier {
   }
 
   // ==========================================================================
+  // PROJECT NOTES (Dashboard P1)
+  // ==========================================================================
+
+  String _projectNotes = '';
+
+  /// Project notes for Dashboard
+  String get projectNotes => _projectNotes;
+
+  /// Set project notes
+  void setProjectNotes(String notes) {
+    if (_projectNotes != notes) {
+      _projectNotes = notes;
+      _markDirty();
+    }
+  }
+
+  // ==========================================================================
+  // COVERAGE BY SECTION (Dashboard P0)
+  // ==========================================================================
+
+  /// Section definitions matching UltimateAudioPanel V8.1
+  static const List<(String id, String name, int slotCount, List<String> stagePrefixes)> _sectionDefinitions = [
+    ('base_game_loop', 'Base Game Loop', 44, ['ATTRACT', 'IDLE', 'GAME_', 'SPIN_', 'REEL_', 'ANTICIPATION', 'NEAR_MISS', 'NO_WIN', 'QUICK_STOP', 'SLAM_STOP', 'AUTOPLAY', 'UI_TURBO', 'UI_STOP', 'TURBO_SPIN']),
+    ('symbols', 'Symbols & Lands', 46, ['SYMBOL_', 'WILD_', 'SCATTER_', 'BONUS_SYMBOL', 'MYSTERY_', 'COLLECT_', 'TRANSFORM_']),
+    ('win_presentation', 'Win Presentation', 41, ['WIN_', 'ROLLUP_', 'BIG_WIN', 'CELEBRATION', 'COIN_']),
+    ('cascading', 'Cascading Mechanics', 24, ['CASCADE_', 'TUMBLE_', 'AVALANCHE_', 'CLUSTER_']),
+    ('multipliers', 'Multipliers', 18, ['MULT_', 'MULTIPLIER_']),
+    ('free_spins', 'Free Spins', 24, ['FS_', 'FREESPIN_', 'FREE_SPIN']),
+    ('bonus', 'Bonus Games', 32, ['BONUS_', 'PICK_', 'WHEEL_', 'TRAIL_']),
+    ('hold_win', 'Hold & Win', 23, ['HOLD_', 'RESPIN_', 'LOCK_', 'COIN_LAND', 'RESPINS_']),
+    ('jackpots', 'Jackpots', 26, ['JACKPOT_', 'JP_', 'GRAND_', 'MAJOR_', 'MINOR_', 'MINI_']),
+    ('gamble', 'Gamble', 16, ['GAMBLE_', 'DOUBLE_', 'RISK_']),
+    ('music', 'Music & Ambience', 25, ['MUSIC_', 'AMBIENT_', 'BGM_', 'TENSION_MUSIC', 'STINGER_']),
+    ('ui_system', 'UI & System', 18, ['UI_', 'MENU_', 'BUTTON_', 'NOTIFICATION_', 'ERROR_', 'SYSTEM_']),
+  ];
+
+  /// Get coverage breakdown by section
+  /// Returns map: sectionId → { 'assigned': X, 'total': Y, 'percent': Z }
+  Map<String, Map<String, int>> getCoverageBySection() {
+    final result = <String, Map<String, int>>{};
+
+    for (final (id, _, slotCount, prefixes) in _sectionDefinitions) {
+      // Count assigned stages matching this section's prefixes
+      int assigned = 0;
+      for (final entry in _audioAssignments.entries) {
+        final stage = entry.key.toUpperCase();
+        for (final prefix in prefixes) {
+          if (stage.startsWith(prefix)) {
+            assigned++;
+            break;
+          }
+        }
+      }
+
+      // Also count symbol audio if section is 'symbols'
+      if (id == 'symbols') {
+        assigned += _symbolAudio.length;
+      }
+
+      // Also count music layers if section is 'music'
+      if (id == 'music') {
+        assigned += _musicLayers.length;
+      }
+
+      final percent = slotCount > 0 ? (assigned / slotCount * 100).round() : 0;
+      result[id] = {
+        'assigned': assigned,
+        'total': slotCount,
+        'percent': percent.clamp(0, 100),
+      };
+    }
+
+    return result;
+  }
+
+  /// Get section info for Dashboard
+  static List<(String id, String name, int slotCount)> getSectionInfo() {
+    return _sectionDefinitions.map((s) => (s.$1, s.$2, s.$3)).toList();
+  }
+
+  // ==========================================================================
   // HELPERS
   // ==========================================================================
 
