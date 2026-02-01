@@ -48,6 +48,7 @@ import '../common/documentation_viewer.dart';
 import '../../providers/git_provider.dart';
 import '../slot_lab/timeline/ultimate_timeline_widget.dart';
 import '../../controllers/slot_lab/timeline_controller.dart' as timeline_ctrl;
+import '../../models/timeline/stage_marker.dart' show StageMarker;
 
 class SlotLabLowerZoneWidget extends StatefulWidget {
   final SlotLabLowerZoneController controller;
@@ -73,6 +74,9 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
   /// P0.3: Callback when Stop button is pressed
   final VoidCallback? onStop;
 
+  /// P14: Callback to build Ultimate Timeline content
+  final Widget Function()? onBuildTimelineContent;
+
   const SlotLabLowerZoneWidget({
     super.key,
     required this.controller,
@@ -83,6 +87,7 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
     this.onPause,
     this.onResume,
     this.onStop,
+    this.onBuildTimelineContent,
   });
 
   @override
@@ -743,8 +748,31 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   Widget _buildTimelinePanel() {
-    // P14: Use ULTIMATE TIMELINE (professional DAW-style)
-    return widget.onBuildTimelineContent?.call() ?? _buildCompactEventTimeline();
+    // P14: ULTIMATE TIMELINE — Direct instantiation
+    final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final controller = timeline_ctrl.TimelineController();
+
+        // Sync stage markers
+        if (provider != null) {
+          final stages = provider.lastStages;
+          for (final stage in stages.take(50)) {
+            final marker = StageMarker.fromStageId(
+              stage.stageType,
+              stage.timestampMs / 1000.0,
+            );
+            controller.addMarker(marker);
+          }
+        }
+
+        return UltimateTimeline(
+          height: constraints.maxHeight.isFinite ? constraints.maxHeight : 400,
+          controller: controller,
+        );
+      },
+    );
   }
   Widget _buildSymbolsPanel() => _buildCompactSymbolsPanel();
   Widget _buildProfilerPanel() {

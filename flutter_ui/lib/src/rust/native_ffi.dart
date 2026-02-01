@@ -1076,6 +1076,22 @@ typedef EngineGetClipSampleRateDart = int Function(int clipId);
 typedef EngineGetClipTotalFramesNative = Uint64 Function(Uint64 clipId);
 typedef EngineGetClipTotalFramesDart = int Function(int clipId);
 
+// P10.0.2: Graph-Level PDC
+typedef EngineRecalculateGraphPdcNative = Int32 Function();
+typedef EngineRecalculateGraphPdcDart = int Function();
+
+typedef EngineGetGraphPdcStatusJsonNative = Pointer<Utf8> Function();
+typedef EngineGetGraphPdcStatusJsonDart = Pointer<Utf8> Function();
+
+typedef EngineGetTrackGraphPdcCompensationNative = Uint64 Function(Uint64 trackId);
+typedef EngineGetTrackGraphPdcCompensationDart = int Function(int trackId);
+
+typedef EngineIsGraphPdcEnabledNative = Int32 Function();
+typedef EngineIsGraphPdcEnabledDart = int Function();
+
+typedef EngineSetGraphPdcEnabledNative = Void Function(Int32 enabled);
+typedef EngineSetGraphPdcEnabledDart = void Function(int enabled);
+
 // Pitch Detection
 typedef PitchDetectNative = Double Function(Pointer<Double> samples, Uint32 length, Double sampleRate);
 typedef PitchDetectDart = double Function(Pointer<Double> samples, int length, double sampleRate);
@@ -2405,6 +2421,13 @@ class NativeFFI {
   late final EngineGetClipSampleRateDart _getClipSampleRate;
   late final EngineGetClipTotalFramesDart _getClipTotalFrames;
 
+  // P10.0.2: Graph-Level PDC
+  late final EngineRecalculateGraphPdcDart _engineRecalculateGraphPdc;
+  late final EngineGetGraphPdcStatusJsonDart _engineGetGraphPdcStatusJson;
+  late final EngineGetTrackGraphPdcCompensationDart _engineGetTrackGraphPdcCompensation;
+  late final EngineIsGraphPdcEnabledDart _engineIsGraphPdcEnabled;
+  late final EngineSetGraphPdcEnabledDart _engineSetGraphPdcEnabled;
+
   // Pitch Detection
   late final PitchDetectDart _pitchDetect;
   late final PitchDetectMidiDart _pitchDetectMidi;
@@ -3059,6 +3082,13 @@ class NativeFFI {
     _detectClipTransients = _lib.lookupFunction<EngineDetectClipTransientsNative, EngineDetectClipTransientsDart>('engine_detect_clip_transients');
     _getClipSampleRate = _lib.lookupFunction<EngineGetClipSampleRateNative, EngineGetClipSampleRateDart>('engine_get_clip_sample_rate');
     _getClipTotalFrames = _lib.lookupFunction<EngineGetClipTotalFramesNative, EngineGetClipTotalFramesDart>('engine_get_clip_total_frames');
+
+    // P10.0.2: Graph-Level PDC
+    _engineRecalculateGraphPdc = _lib.lookupFunction<EngineRecalculateGraphPdcNative, EngineRecalculateGraphPdcDart>('engine_recalculate_graph_pdc');
+    _engineGetGraphPdcStatusJson = _lib.lookupFunction<EngineGetGraphPdcStatusJsonNative, EngineGetGraphPdcStatusJsonDart>('engine_get_graph_pdc_status_json');
+    _engineGetTrackGraphPdcCompensation = _lib.lookupFunction<EngineGetTrackGraphPdcCompensationNative, EngineGetTrackGraphPdcCompensationDart>('engine_get_track_graph_pdc_compensation');
+    _engineIsGraphPdcEnabled = _lib.lookupFunction<EngineIsGraphPdcEnabledNative, EngineIsGraphPdcEnabledDart>('engine_is_graph_pdc_enabled');
+    _engineSetGraphPdcEnabled = _lib.lookupFunction<EngineSetGraphPdcEnabledNative, EngineSetGraphPdcEnabledDart>('engine_set_graph_pdc_enabled');
 
     // Pitch Detection
     _pitchDetect = _lib.lookupFunction<PitchDetectNative, PitchDetectDart>('pitch_detect');

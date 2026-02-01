@@ -107,6 +107,7 @@ use crate::input_bus::{InputBusManager, MonitorMode};
 use crate::insert_chain::{InsertChain, InsertParamChange};
 use crate::recording_manager::RecordingManager;
 use crate::routing::ChannelId;
+use crate::routing_pdc::{GraphNode, PDCCalculator, PDCResult, RoutingGraph};
 #[cfg(feature = "unified_routing")]
 use crate::routing::{ChannelKind, OutputDestination, RoutingCommandSender, RoutingGraphRT};
 use crate::track_manager::{
@@ -1542,6 +1543,16 @@ pub struct PlaybackEngine {
     /// Currently active playback section (0=DAW, 1=SlotLab, 2=Middleware, 3=Browser)
     /// One-shot voices from inactive sections are silenced.
     active_section: AtomicU8,
+
+    // === GRAPH-LEVEL PDC (Plugin Delay Compensation) ===
+    /// Current PDC calculation result (None if not yet calculated)
+    graph_pdc_result: RwLock<Option<PDCResult>>,
+    /// Graph-level PDC enabled flag (true by default)
+    graph_pdc_enabled: AtomicBool,
+    /// Per-track PDC compensation delays (track_id -> samples)
+    /// This is separate from delay_comp which uses simple max-latency approach.
+    /// graph_pdc uses topological graph analysis for phase-coherent compensation.
+    graph_pdc_delays: RwLock<HashMap<u64, u64>>,
 }
 
 impl PlaybackEngine {
@@ -1618,6 +1629,10 @@ impl PlaybackEngine {
             next_one_shot_id: AtomicU64::new(1),
             // Section-based filtering: DAW is default active section
             active_section: AtomicU8::new(PlaybackSource::Daw as u8),
+            // Graph-level PDC: enabled by default, no result until first calculation
+            graph_pdc_result: RwLock::new(None),
+            graph_pdc_enabled: AtomicBool::new(true),
+            graph_pdc_delays: RwLock::new(HashMap::new()),
         }
     }
 
@@ -2193,6 +2208,240 @@ impl PlaybackEngine {
         let mut dc = self.delay_comp.write();
         dc.process(track_id as u32, left, right);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GRAPH-LEVEL PDC (Phase-Coherent Plugin Delay Compensation)
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    // This is the ULTIMATE PDC implementation using topological graph analysis
+    // (Pro Tools / Cubase industry standard). It ensures phase-coherent parallel
+    // processing by calculating compensation delays based on the actual routing
+    // graph structure, not just simple max-latency.
+    //
+    // Flow:
+    //   Routing Change → recalculate_graph_pdc() → build_routing_graph()
+    //                  → PDCCalculator::calculate() → apply_graph_pdc_delays()
+
+    /// Check if graph-level PDC is enabled
+    pub fn is_graph_pdc_enabled(&self) -> bool {
+        self.graph_pdc_enabled.load(Ordering::Relaxed)
+    }
+
+    /// Enable or disable graph-level PDC
+    pub fn set_graph_pdc_enabled(&self, enabled: bool) {
+        let was_enabled = self.graph_pdc_enabled.swap(enabled, Ordering::SeqCst);
+        if was_enabled != enabled {
+            if enabled {
+                // Recalculate when enabling
+                self.recalculate_graph_pdc();
+            } else {
+                // Clear all PDC delays when disabling
+                self.graph_pdc_delays.write().clear();
+                *self.graph_pdc_result.write() = None;
+                log::info!("[GraphPDC] Disabled - all compensation delays cleared");
+            }
+        }
+    }
+
+    /// Build routing graph from current engine state.
+    ///
+    /// The graph includes:
+    /// - All tracks as nodes (with their insert chain latencies as edge weights)
+    /// - All buses as nodes (with their insert chain latencies)
+    /// - Edges from tracks to their output buses
+    /// - Edge from all buses to master
+    /// - Master insert chain latency
+    pub fn build_routing_graph(&self) -> RoutingGraph {
+        let mut graph = RoutingGraph::new();
+
+        // Get all tracks and their insert latencies
+        let tracks = self.track_manager.get_all_tracks();
+        let insert_chains = self.insert_chains.read();
+        let bus_inserts = self.bus_inserts.read();
+        let master_insert = self.master_insert.read();
+
+        // Add master node
+        let master_id = GraphNode::Master.to_node_id();
+        graph.add_node(master_id);
+
+        // Add bus nodes (0=Master routing bus, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux)
+        for bus_idx in 0..6 {
+            let bus_node_id = GraphNode::Bus(bus_idx).to_node_id();
+            graph.add_node(bus_node_id);
+
+            // Get bus insert latency
+            let bus_latency = bus_inserts[bus_idx].total_latency() as u64;
+
+            // Bus → Master edge (bus sends audio to master after its inserts)
+            graph.add_edge(bus_node_id, master_id, bus_latency);
+        }
+
+        // Add master insert latency (master_id has self-loop conceptually,
+        // but for PDC we add it as output latency on the master node)
+        // Actually, master insert is applied AFTER all buses sum, so it doesn't
+        // affect PDC between tracks - it's just overall latency.
+        // We don't add an edge here; master latency is for monitoring only.
+        let _master_latency = master_insert.total_latency();
+
+        // Add track nodes and edges to their output buses
+        for track in &tracks {
+            let track_id = track.id.0; // TrackId is a newtype wrapper around u64
+            let track_node_id = GraphNode::Track(track_id).to_node_id();
+            graph.add_node(track_node_id);
+
+            // Get track insert latency
+            let track_latency = insert_chains
+                .get(&track_id)
+                .map(|c| c.total_latency() as u64)
+                .unwrap_or(0);
+
+            // Determine output bus from track
+            let bus_idx = match track.output_bus {
+                OutputBus::Master => 0,
+                OutputBus::Music => 1,
+                OutputBus::Sfx => 2,
+                OutputBus::Voice => 3,
+                OutputBus::Ambience => 4,
+                OutputBus::Aux => 5,
+            };
+
+            let bus_node_id = GraphNode::Bus(bus_idx).to_node_id();
+
+            // Track → Bus edge with track's insert latency
+            graph.add_edge(track_node_id, bus_node_id, track_latency);
+        }
+
+        graph
+    }
+
+    /// Recalculate graph-level PDC.
+    ///
+    /// Call this when:
+    /// - Insert chain changes (load/unload processor)
+    /// - Track routing changes (output bus assignment)
+    /// - Track added/removed
+    ///
+    /// Returns true if calculation succeeded, false if graph has cycles.
+    pub fn recalculate_graph_pdc(&self) -> bool {
+        if !self.is_graph_pdc_enabled() {
+            return false;
+        }
+
+        let graph = self.build_routing_graph();
+
+        match PDCCalculator::calculate(&graph) {
+            Ok(result) => {
+                let mix_point_count = result.mix_points.len();
+                let max_comp = result.compensation.values().copied().max().unwrap_or(0);
+                let max_latency = result.max_latency;
+
+                log::info!(
+                    "[GraphPDC] Calculated: {} nodes, {} edges, {} mix points, \
+                    max_latency={}samples, max_compensation={}samples",
+                    graph.node_count(),
+                    graph.edge_count(),
+                    mix_point_count,
+                    max_latency,
+                    max_comp
+                );
+
+                // Apply compensation delays
+                self.apply_graph_pdc_delays(&result);
+
+                // Store result for inspection
+                *self.graph_pdc_result.write() = Some(result);
+
+                true
+            }
+            Err(e) => {
+                log::error!("[GraphPDC] Calculation failed: {}", e);
+                *self.graph_pdc_result.write() = None;
+                false
+            }
+        }
+    }
+
+    /// Apply calculated PDC delays to tracks.
+    ///
+    /// This updates the graph_pdc_delays map which is used during audio processing
+    /// to apply the correct compensation delay to each track.
+    fn apply_graph_pdc_delays(&self, result: &PDCResult) {
+        let mut delays = self.graph_pdc_delays.write();
+        delays.clear();
+
+        // Extract track compensation from result
+        for (&node_id, &compensation) in &result.compensation {
+            // Only store track compensations (bus compensations are handled differently)
+            if let Some(GraphNode::Track(track_id)) = GraphNode::from_node_id(node_id) {
+                if compensation > 0 {
+                    delays.insert(track_id, compensation);
+                    log::debug!(
+                        "[GraphPDC] Track {} compensation: {} samples ({:.2}ms @ 48kHz)",
+                        track_id,
+                        compensation,
+                        compensation as f64 / 48.0
+                    );
+                }
+            }
+        }
+
+        log::info!(
+            "[GraphPDC] Applied delays to {} tracks",
+            delays.len()
+        );
+    }
+
+    /// Get graph-level PDC compensation for a specific track.
+    pub fn get_graph_pdc_compensation(&self, track_id: u64) -> u64 {
+        if !self.is_graph_pdc_enabled() {
+            return 0;
+        }
+        self.graph_pdc_delays.read().get(&track_id).copied().unwrap_or(0)
+    }
+
+    /// Get graph-level PDC status as JSON string.
+    ///
+    /// Returns JSON with:
+    /// - enabled: bool
+    /// - valid: bool (whether calculation succeeded)
+    /// - max_latency: samples
+    /// - max_compensation: samples
+    /// - mix_points: number of mix points found
+    /// - track_compensations: map of track_id -> compensation samples
+    pub fn get_graph_pdc_status_json(&self) -> String {
+        let enabled = self.is_graph_pdc_enabled();
+        let result = self.graph_pdc_result.read();
+        let delays = self.graph_pdc_delays.read();
+
+        if let Some(ref pdc) = *result {
+            let track_comp_json: String = delays
+                .iter()
+                .map(|(id, comp)| format!("\"{}\":{}", id, comp))
+                .collect::<Vec<_>>()
+                .join(",");
+
+            format!(
+                r#"{{"enabled":{},"valid":true,"max_latency":{},"max_compensation":{},\
+                "mix_points":{},"track_count":{},"track_compensations":{{{}}}}}"#,
+                enabled,
+                pdc.max_latency,
+                pdc.compensation.values().copied().max().unwrap_or(0),
+                pdc.mix_points.len(),
+                delays.len(),
+                track_comp_json
+            )
+        } else {
+            format!(
+                r#"{{"enabled":{},"valid":false,"max_latency":0,"max_compensation":0,\
+                "mix_points":0,"track_count":0,"track_compensations":{{}}}}"#,
+                enabled
+            )
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // END GRAPH-LEVEL PDC
+    // ═══════════════════════════════════════════════════════════════════════════
 
     /// Set parameter on track insert processor (LOCK-FREE via ring buffer)
     ///

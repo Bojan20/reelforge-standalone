@@ -12600,6 +12600,52 @@ pub extern "C" fn pdc_get_master_latency() -> u32 {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// GRAPH-LEVEL PDC FFI (Phase-Coherent Plugin Delay Compensation)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Recalculate graph-level PDC.
+/// Call this when routing or insert chains change.
+/// Returns 1 on success, 0 if graph has cycles or PDC disabled.
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_recalculate_graph_pdc() -> i32 {
+    if PLAYBACK_ENGINE.recalculate_graph_pdc() { 1 } else { 0 }
+}
+
+/// Get graph-level PDC status as JSON string.
+/// Returns JSON with enabled, valid, max_latency, max_compensation, mix_points, track_compensations.
+/// Caller must free the returned string with free_rust_string().
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_graph_pdc_status_json() -> *mut c_char {
+    let json = PLAYBACK_ENGINE.get_graph_pdc_status_json();
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get graph-level PDC compensation for a specific track in samples.
+/// Returns 0 if track has no compensation or PDC is disabled.
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_track_graph_pdc_compensation(track_id: u64) -> u64 {
+    PLAYBACK_ENGINE.get_graph_pdc_compensation(track_id)
+}
+
+/// Check if graph-level PDC is enabled.
+/// Returns 1 if enabled, 0 if disabled.
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_is_graph_pdc_enabled() -> i32 {
+    if PLAYBACK_ENGINE.is_graph_pdc_enabled() { 1 } else { 0 }
+}
+
+/// Enable or disable graph-level PDC.
+/// When disabled, all compensation delays are cleared.
+/// When enabled, PDC is recalculated automatically.
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_graph_pdc_enabled(enabled: i32) {
+    PLAYBACK_ENGINE.set_graph_pdc_enabled(enabled != 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // RENDER IN PLACE FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
