@@ -46,6 +46,7 @@ import '../providers/subsystems/event_profiler_provider.dart';
 import '../providers/slot_lab_project_provider.dart';
 import '../providers/git_provider.dart';
 import '../providers/ale_provider.dart';
+import '../providers/feature_builder_provider.dart';
 import 'audio_pool.dart';
 import 'audio_playback_service.dart';
 import 'unified_playback_controller.dart';
@@ -203,6 +204,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<GitProvider>(
       () => GitProvider.instance,
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.7: Feature Builder Provider (P13 Feature Builder Panel)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<FeatureBuilderProvider>(
+      () => FeatureBuilderProvider.instance,
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

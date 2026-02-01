@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart';
 
 import '../models/feature_builder/block_category.dart';
 import '../models/feature_builder/block_dependency.dart';
-import '../models/feature_builder/block_options.dart';
 import '../models/feature_builder/feature_block.dart';
 import '../models/feature_builder/feature_preset.dart';
 import '../models/feature_block_models.dart';
