@@ -1393,6 +1393,8 @@ class StageConfigurationService extends ChangeNotifier {
     'AMBIENT_LOOP', 'ATTRACT_MODE', 'IDLE_LOOP',
     'ANTICIPATION_LOOP', 'FEATURE_MUSIC',
     'BIG_WIN_LOOP',
+    // P0 FIX: Game start stages should also loop (background music)
+    'GAME_START', 'BASE_GAME_START', 'GAME_MUSIC',
   };
 
   // ═══════════════════════════════════════════════════════════════════════════

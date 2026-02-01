@@ -905,13 +905,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   /// Triggers REEL_STOP audio for a specific reel with correct timestamp
   ///
-  /// AUDIO-VISUAL SYNC: Uses addPostFrameCallback to ensure audio triggers
-  /// AFTER the visual frame renders. This guarantees perfect sync because:
-  /// 1. Animation callback fires → widget state updates → build() scheduled
-  /// 2. Frame renders (visual reel lands)
-  /// 3. PostFrameCallback executes → audio triggers
-  /// Result: Audio plays exactly when user SEES reel land, not before.
+  /// AUDIO-VISUAL SYNC (FIX 2026-02-01):
+  /// Audio triggers IMMEDIATELY when animation callback fires (reel enters stopped phase).
+  /// The animation callback already fires at the exact moment of visual landing.
+  ///
+  /// PREVIOUS BUG: Used addPostFrameCallback which added ~17ms delay (one frame)
+  /// because the callback was waiting for the NEXT frame, not current.
+  /// This caused audio to play AFTER the visual landing was already on screen.
   void _triggerReelStopAudio(int reelIndex) {
+    if (!mounted) return;
+
     // Stop anticipation for this reel if active
     _stopReelAnticipation(reelIndex);
 
@@ -933,33 +936,21 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // AUDIO-VISUAL SYNC FIX: Defer audio trigger to AFTER frame renders
-    // This ensures audio plays exactly when user SEES the reel land visually
+    // AUDIO-VISUAL SYNC FIX (2026-02-01): Trigger audio IMMEDIATELY
+    // Animation callback fires exactly when reel enters stopped/bouncing phase,
+    // which is the exact moment the visual shows the reel at its final position.
+    // No delay needed — the timing is already perfect from the animation system.
     // ═══════════════════════════════════════════════════════════════════════════
-    final capturedTimestampMs = timestampMs;
-    final capturedReelIndex = reelIndex;
 
-    // Capture target grid for symbol land detection inside callback
-    final capturedTargetGrid = reelIndex < _targetGrid.length
-        ? List<int>.from(_targetGrid[reelIndex])
-        : <int>[];
+    // 1. REEL_STOP AUDIO — Primary reel landing sound
+    debugPrint('[SlotPreview] 🎰 REEL $reelIndex STOPPED → triggering REEL_STOP_$reelIndex (rust_ts: ${timestampMs.toStringAsFixed(0)}ms) [IMMEDIATE]');
+    eventRegistry.triggerStage('REEL_STOP_$reelIndex', context: {'timestamp_ms': timestampMs});
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      // ═══════════════════════════════════════════════════════════════════════════
-      // 1. REEL_STOP AUDIO — Primary reel landing sound
-      // ═══════════════════════════════════════════════════════════════════════════
-      debugPrint('[SlotPreview] 🎰 REEL $capturedReelIndex STOPPED → triggering REEL_STOP_$capturedReelIndex (rust_ts: ${capturedTimestampMs.toStringAsFixed(0)}ms) [POST-FRAME]');
-      eventRegistry.triggerStage('REEL_STOP_$capturedReelIndex', context: {'timestamp_ms': capturedTimestampMs});
-
-      // ═══════════════════════════════════════════════════════════════════════════
-      // 2. SPECIAL SYMBOL LAND EVENTS — Trigger when WILD, SCATTER, BONUS land on reel
-      // This connects the left panel symbol audio assignments to actual gameplay
-      // Symbol IDs: WILD=11, SCATTER=12, BONUS=13 (matches StandardSymbolSet)
-      // ═══════════════════════════════════════════════════════════════════════════
-      for (int rowIndex = 0; rowIndex < capturedTargetGrid.length; rowIndex++) {
-        final symbolId = capturedTargetGrid[rowIndex];
+    // 2. SPECIAL SYMBOL LAND EVENTS — Trigger when WILD, SCATTER, BONUS land on reel
+    // Symbol IDs: WILD=11, SCATTER=12, BONUS=13 (matches StandardSymbolSet)
+    if (reelIndex < _targetGrid.length) {
+      for (int rowIndex = 0; rowIndex < _targetGrid[reelIndex].length; rowIndex++) {
+        final symbolId = _targetGrid[reelIndex][rowIndex];
         String? symbolLandStage;
 
         switch (symbolId) {
@@ -975,16 +966,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
 
         if (symbolLandStage != null) {
-          debugPrint('[SlotPreview] ✨ SPECIAL SYMBOL LAND: $symbolLandStage at reel $capturedReelIndex, row $rowIndex [POST-FRAME]');
+          debugPrint('[SlotPreview] ✨ SPECIAL SYMBOL LAND: $symbolLandStage at reel $reelIndex, row $rowIndex [IMMEDIATE]');
           eventRegistry.triggerStage(symbolLandStage, context: {
-            'reel_index': capturedReelIndex,
+            'reel_index': reelIndex,
             'row_index': rowIndex,
             'symbol_id': symbolId,
-            'timestamp_ms': capturedTimestampMs,
+            'timestamp_ms': timestampMs,
           });
         }
       }
-    });
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // P0.2: PRE-TRIGGER WIN_SYMBOL_HIGHLIGHT ON LAST REEL

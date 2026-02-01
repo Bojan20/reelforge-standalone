@@ -2624,6 +2624,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               if (expandedStages.isNotEmpty && mounted) {
                                 // Register all expanded events to EventRegistry
                                 for (final stage in expandedStages) {
+                                  final shouldLoop = StageConfigurationService.instance.isLooping(stage);
+                                  final busId = _getBusForStage(stage);
+
                                   eventRegistry.registerEvent(AudioEvent(
                                     id: 'audio_$stage',
                                     name: stage.replaceAll('_', ' '),
@@ -2636,9 +2639,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                         volume: 1.0,
                                         pan: _getPanForStage(stage),
                                         delay: 0.0,
-                                        busId: _getBusForStage(stage),
+                                        busId: busId,
                                       ),
                                     ],
+                                    loop: shouldLoop,
+                                    targetBusId: busId,
                                   ));
                                 }
                                 ScaffoldMessenger.of(this.context).showSnackBar(
