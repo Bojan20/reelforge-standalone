@@ -720,19 +720,18 @@ class StageConfigurationService extends ChangeNotifier {
     // ─────────────────────────────────────────────────────────────────────────
     // WIN PRESENTATION AUDIO — Unified win sound tiers based on win/bet ratio
     // This is THE win presentation audio system. Duration in parentheses:
-    // WIN_PRESENT_1: ≤ 1x bet    (0.5s) — tiny win
-    // WIN_PRESENT_2: > 1x, ≤ 2x  (1.0s)
-    // WIN_PRESENT_3: > 2x, ≤ 4x  (1.5s)
-    // WIN_PRESENT_4: > 4x, ≤ 8x  (2.0s)
-    // WIN_PRESENT_5: > 8x, ≤ 13x (3.0s)
-    // WIN_PRESENT_6: > 13x       (4.0s) — mega/epic/ultra territory
+    // WIN_PRESENT_1: >1x, ≤2x bet  (0.5s) — small win
+    // WIN_PRESENT_2: >2x, ≤4x      (1.0s)
+    // WIN_PRESENT_3: >4x, ≤8x      (1.5s)
+    // WIN_PRESENT_4: >8x, ≤13x     (2.0s)
+    // WIN_PRESENT_5: >13x          (3.0s) — default for regular wins, ducks music
+    // WIN_6 REMOVED — WIN_5 is now the highest regular tier before BIG_WIN
     // ─────────────────────────────────────────────────────────────────────────
     _register('WIN_PRESENT_1', StageCategory.win, 40, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_PRESENT_2', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_PRESENT_3', StageCategory.win, 50, SpatialBus.sfx, 'WIN_SMALL');
     _register('WIN_PRESENT_4', StageCategory.win, 55, SpatialBus.sfx, 'WIN_BIG');
     _register('WIN_PRESENT_5', StageCategory.win, 65, SpatialBus.sfx, 'WIN_SUPER', ducksMusic: true);
-    _register('WIN_PRESENT_6', StageCategory.win, 85, SpatialBus.sfx, 'WIN_EPIC', ducksMusic: true);
 
     // ─────────────────────────────────────────────────────────────────────────
     // BIG WIN (≥20x bet) — Celebration loop and coin sfx

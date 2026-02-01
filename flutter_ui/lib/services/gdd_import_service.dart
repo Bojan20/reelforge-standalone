@@ -561,7 +561,7 @@ SlotWinConfiguration convertGddWinTiersToP5(GddMathModel math) {
       ));
     }
     tierId++;
-    if (tierId > 6) break; // Max 6 regular tiers (WIN_1 to WIN_6)
+    if (tierId > 5) break; // Max 5 regular tiers (WIN_1 to WIN_5)
   }
 
   // Build big win tiers (P5 format)

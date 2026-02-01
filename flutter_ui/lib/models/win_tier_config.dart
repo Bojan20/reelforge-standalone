@@ -9,7 +9,7 @@
 /// **Regular Wins (< 20x bet):**
 /// - WIN_LOW: < 1x bet (sub-bet win)
 /// - WIN_EQUAL: = 1x bet (push)
-/// - WIN_1 through WIN_6: 1x to 20x bet
+/// - WIN_1 through WIN_5: 1x to 13x+ bet (WIN_5 is default for >13x)
 ///
 /// **Big Wins (20x+ bet):**
 /// - Single BIG_WIN with 5 internal tiers
@@ -38,7 +38,7 @@ enum WinTierConfigSource {
 
 /// Definition of a single regular win tier (P5 system)
 class WinTierDefinition {
-  /// Tier ID (-1=LOW, 0=EQUAL, 1-6=regular tiers)
+  /// Tier ID (-1=LOW, 0=EQUAL, 1-5=regular tiers)
   final int tierId;
 
   /// Stage name generated from ID: "WIN_LOW", "WIN_EQUAL", "WIN_1", etc.
@@ -305,7 +305,7 @@ class RegularWinTierConfig {
           rollupTickRate: 20,
           particleBurstCount: 0,
         ),
-        // WIN_1: 1x < w ≤ 2x
+        // WIN_1: >1x, ≤2x bet
         const WinTierDefinition(
           tierId: 1,
           displayLabel: 'WIN',
@@ -315,56 +315,47 @@ class RegularWinTierConfig {
           rollupTickRate: 18,
           particleBurstCount: 5,
         ),
-        // WIN_2: 2x < w ≤ 3x
+        // WIN_2: >2x, ≤4x bet
         const WinTierDefinition(
           tierId: 2,
           displayLabel: 'WIN',
           fromMultiplier: 2,
-          toMultiplier: 3,
+          toMultiplier: 4,
           rollupDurationMs: 1000,
           rollupTickRate: 16,
           particleBurstCount: 8,
         ),
-        // WIN_3: 3x < w ≤ 5x
+        // WIN_3: >4x, ≤8x bet
         const WinTierDefinition(
           tierId: 3,
           displayLabel: 'NICE',
-          fromMultiplier: 3,
-          toMultiplier: 5,
+          fromMultiplier: 4,
+          toMultiplier: 8,
           rollupDurationMs: 1200,
           rollupTickRate: 15,
           particleBurstCount: 12,
         ),
-        // WIN_4: 5x < w ≤ 8x
+        // WIN_4: >8x, ≤13x bet
         const WinTierDefinition(
           tierId: 4,
           displayLabel: 'NICE WIN',
-          fromMultiplier: 5,
-          toMultiplier: 8,
+          fromMultiplier: 8,
+          toMultiplier: 13,
           rollupDurationMs: 1500,
           rollupTickRate: 14,
           particleBurstCount: 18,
         ),
-        // WIN_5: 8x < w ≤ 12x
+        // WIN_5: >13x bet (default for regular wins before BIG_WIN)
         const WinTierDefinition(
           tierId: 5,
           displayLabel: 'GREAT WIN',
-          fromMultiplier: 8,
-          toMultiplier: 12,
+          fromMultiplier: 13,
+          toMultiplier: 20, // up to BIG_WIN threshold
           rollupDurationMs: 2000,
           rollupTickRate: 12,
           particleBurstCount: 25,
         ),
-        // WIN_6: 12x < w ≤ 20x
-        const WinTierDefinition(
-          tierId: 6,
-          displayLabel: 'SUPER WIN',
-          fromMultiplier: 12,
-          toMultiplier: 20,
-          rollupDurationMs: 2500,
-          rollupTickRate: 10,
-          particleBurstCount: 35,
-        ),
+        // WIN_6 REMOVED - WIN_5 is now default for >13x
       ],
     );
   }

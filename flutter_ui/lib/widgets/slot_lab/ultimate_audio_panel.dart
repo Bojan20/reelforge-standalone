@@ -1949,12 +1949,12 @@ class _WinPresentationSection extends _SectionConfig {
       tierSlots.addAll(const [
         _SlotConfig(stage: 'WIN_PRESENT_LOW', label: 'Low Win (< bet)'),
         _SlotConfig(stage: 'WIN_PRESENT_EQUAL', label: 'Equal Win (= bet)'),
-        _SlotConfig(stage: 'WIN_PRESENT_1', label: 'Win Tier 1'),
-        _SlotConfig(stage: 'WIN_PRESENT_2', label: 'Win Tier 2'),
-        _SlotConfig(stage: 'WIN_PRESENT_3', label: 'Win Tier 3'),
-        _SlotConfig(stage: 'WIN_PRESENT_4', label: 'Win Tier 4'),
-        _SlotConfig(stage: 'WIN_PRESENT_5', label: 'Win Tier 5'),
-        _SlotConfig(stage: 'WIN_PRESENT_6', label: 'Win Tier 6'),
+        _SlotConfig(stage: 'WIN_PRESENT_1', label: 'Win Tier 1 (>1x, ≤2x)'),
+        _SlotConfig(stage: 'WIN_PRESENT_2', label: 'Win Tier 2 (>2x, ≤4x)'),
+        _SlotConfig(stage: 'WIN_PRESENT_3', label: 'Win Tier 3 (>4x, ≤8x)'),
+        _SlotConfig(stage: 'WIN_PRESENT_4', label: 'Win Tier 4 (>8x, ≤13x)'),
+        _SlotConfig(stage: 'WIN_PRESENT_5', label: 'Win Tier 5 (>13x)'),
+        // WIN_6 REMOVED — WIN_5 is now default for >13x regular wins
         _SlotConfig(stage: 'BIG_WIN_TRIGGER', label: 'Big Win Trigger (≥20x)'),
         _SlotConfig(stage: 'BIG_WIN_TIER_1', label: 'Big Win Tier 1 (20x-50x)'),
         _SlotConfig(stage: 'BIG_WIN_TIER_2', label: 'Big Win Tier 2 (50x-100x)'),
@@ -2070,14 +2070,13 @@ class _WinPresentationSection extends _SectionConfig {
         ));
       }
     } else {
-      // Fallback default voice overs
+      // Fallback default voice overs (WIN_6 removed)
       slots.addAll(const [
         _SlotConfig(stage: 'VO_WIN_1', label: 'VO Win Tier 1'),
         _SlotConfig(stage: 'VO_WIN_2', label: 'VO Win Tier 2'),
         _SlotConfig(stage: 'VO_WIN_3', label: 'VO Win Tier 3'),
         _SlotConfig(stage: 'VO_WIN_4', label: 'VO Win Tier 4'),
         _SlotConfig(stage: 'VO_WIN_5', label: 'VO Win Tier 5'),
-        _SlotConfig(stage: 'VO_WIN_6', label: 'VO Win Tier 6'),
         _SlotConfig(stage: 'VO_BIG_WIN', label: 'VO Big Win'),
       ]);
     }

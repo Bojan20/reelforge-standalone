@@ -60,7 +60,9 @@ class ForcedOutcomeConfig {
     ),
 
     // ═══════════════════════════════════════════════════════════════════
-    // REGULAR WINS (P5: WIN_LOW, WIN_EQUAL, WIN_1 through WIN_6)
+    // REGULAR WINS (P5: WIN_LOW, WIN_EQUAL, WIN_1 through WIN_5)
+    // WIN_1: >1x, ≤2x | WIN_2: >2x, ≤4x | WIN_3: >4x, ≤8x
+    // WIN_4: >8x, ≤13x | WIN_5: >13x (default for regular wins)
     // ═══════════════════════════════════════════════════════════════════
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.smallWin,
@@ -94,7 +96,7 @@ class ForcedOutcomeConfig {
       outcome: ForcedOutcome.smallWin,
       label: 'WIN 1',
       shortLabel: 'W1',
-      description: 'WIN_1: 1x-2x bet',
+      description: 'WIN_1: >1x, ≤2x bet',
       icon: Icons.looks_one,
       gradientColors: [Color(0xFF64B5F6), Color(0xFF42A5F5)],
       expectedStages: [
@@ -102,13 +104,13 @@ class ForcedOutcomeConfig {
         'WIN_PRESENT_1', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
       keyboardShortcut: '4',
-      expectedWinMultiplier: 1.5,
+      expectedWinMultiplier: 1.5,  // Mid-range: (1+2)/2 = 1.5x
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.smallWin,
       label: 'WIN 2',
       shortLabel: 'W2',
-      description: 'WIN_2: 2x-5x bet',
+      description: 'WIN_2: >2x, ≤4x bet',
       icon: Icons.looks_two,
       gradientColors: [Color(0xFF4FC3F7), Color(0xFF29B6F6)],
       expectedStages: [
@@ -116,13 +118,13 @@ class ForcedOutcomeConfig {
         'WIN_PRESENT_2', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
       keyboardShortcut: '5',
-      expectedWinMultiplier: 3.0,
+      expectedWinMultiplier: 3.0,  // Mid-range: (2+4)/2 = 3.0x
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.mediumWin,
       label: 'WIN 3',
       shortLabel: 'W3',
-      description: 'WIN_3: 5x-8x bet',
+      description: 'WIN_3: >4x, ≤8x bet',
       icon: Icons.looks_3,
       gradientColors: [Color(0xFF81C784), Color(0xFF66BB6A)],
       expectedStages: [
@@ -130,13 +132,13 @@ class ForcedOutcomeConfig {
         'WIN_PRESENT_3', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
       keyboardShortcut: '6',
-      expectedWinMultiplier: 6.0,
+      expectedWinMultiplier: 6.0,  // Mid-range: (4+8)/2 = 6.0x
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.mediumWin,
       label: 'WIN 4',
       shortLabel: 'W4',
-      description: 'WIN_4: 8x-12x bet',
+      description: 'WIN_4: >8x, ≤13x bet',
       icon: Icons.looks_4,
       gradientColors: [Color(0xFF4DB6AC), Color(0xFF26A69A)],
       expectedStages: [
@@ -144,13 +146,13 @@ class ForcedOutcomeConfig {
         'WIN_PRESENT_4', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
       keyboardShortcut: '7',
-      expectedWinMultiplier: 10.0,
+      expectedWinMultiplier: 10.5,  // Mid-range: (8+13)/2 = 10.5x
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.bigWin,
       label: 'WIN 5',
       shortLabel: 'W5',
-      description: 'WIN_5: 12x-16x bet',
+      description: 'WIN_5: >13x bet (default regular win)',
       icon: Icons.looks_5,
       gradientColors: [Color(0xFF4CAF50), Color(0xFF43A047)],
       expectedStages: [
@@ -158,21 +160,7 @@ class ForcedOutcomeConfig {
         'WIN_PRESENT_5', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
       keyboardShortcut: '8',
-      expectedWinMultiplier: 14.0,
-    ),
-    ForcedOutcomeConfig(
-      outcome: ForcedOutcome.bigWin,
-      label: 'WIN 6',
-      shortLabel: 'W6',
-      description: 'WIN_6: 16x-20x bet',
-      icon: Icons.looks_6,
-      gradientColors: [Color(0xFF66BB6A), Color(0xFF4CAF50)],
-      expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
-        'WIN_PRESENT_6', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
-      ],
-      keyboardShortcut: '9',
-      expectedWinMultiplier: 18.0,
+      expectedWinMultiplier: 15.0,  // Default: 15x (>13x threshold)
     ),
 
     // ═══════════════════════════════════════════════════════════════════
@@ -192,7 +180,7 @@ class ForcedOutcomeConfig {
         'BIG_WIN_ROLLUP_TICK',
         'BIG_WIN_END', 'SPIN_END',
       ],
-      keyboardShortcut: '0',
+      keyboardShortcut: '9',  // Was '0', now '9' since WIN_6 removed
       expectedWinMultiplier: 50.0,
     ),
 

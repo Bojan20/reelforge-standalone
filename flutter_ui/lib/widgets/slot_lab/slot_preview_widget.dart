@@ -2025,7 +2025,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // Falls back to legacy hardcoded logic when projectProvider is null.
   //
   // P5 Regular Tiers (< bigWinThreshold):
-  //   WIN_LOW, WIN_EQUAL, WIN_1, WIN_2, WIN_3, WIN_4, WIN_5, WIN_6
+  //   WIN_LOW, WIN_EQUAL, WIN_1, WIN_2, WIN_3, WIN_4, WIN_5
+  //   (WIN_6 REMOVED — WIN_5 is now default for >13x regular wins)
   //   All labels are FULLY CONFIGURABLE by user
   //
   // P5 Big Win Tiers (>= bigWinThreshold, default 20x):
@@ -2133,16 +2134,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     );
   }
 
-  /// Legacy regular tier rollup duration mapping
+  /// Legacy regular tier rollup duration mapping (WIN_6 removed)
+  /// WIN_1: >1x,≤2x | WIN_2: >2x,≤4x | WIN_3: >4x,≤8x | WIN_4: >8x,≤13x | WIN_5: >13x
   int _legacyRegularRollupDuration(int tierId) {
     return switch (tierId) {
       0 => 500,   // WIN_EQUAL
-      1 => 500,   // WIN_1 (tiny)
-      2 => 1000,  // WIN_2
-      3 => 1500,  // WIN_3
-      4 => 2000,  // WIN_4
-      5 => 2500,  // WIN_5
-      6 => 3000,  // WIN_6
+      1 => 500,   // WIN_1 (>1x, ≤2x)
+      2 => 1000,  // WIN_2 (>2x, ≤4x)
+      3 => 1500,  // WIN_3 (>4x, ≤8x)
+      4 => 2000,  // WIN_4 (>8x, ≤13x)
+      5 => 2500,  // WIN_5 (>13x — default for regular wins)
       _ => 500,   // fallback
     };
   }

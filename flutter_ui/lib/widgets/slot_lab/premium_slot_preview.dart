@@ -6676,7 +6676,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Force a specific outcome (debug)
   ///
   /// Force outcome mapping (P5 Win Tier System with EXACT target multipliers):
-  /// 1=Lose, 2=WIN_1, 3=WIN_2, 4=WIN_3, 5=WIN_4, 6=WIN_5, 7=WIN_6, 8=BIG WIN, 9=FS, 0=CASCADE
+  /// 1=Lose, 2=WIN_1, 3=WIN_2, 4=WIN_3, 5=WIN_4, 6=WIN_5, 7=FS, 8=Cascade, 9=BIG WIN, 0=Jackpot
+  /// (WIN_6 REMOVED — WIN_5 is now default for >13x regular wins)
   ///
   /// Each WIN button now produces a DISTINCT tier using spinForcedWithMultiplier:
   /// - Uses mid-range multiplier values to ensure correct tier evaluation

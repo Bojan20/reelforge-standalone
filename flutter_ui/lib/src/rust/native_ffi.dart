@@ -15546,15 +15546,15 @@ class SlotLabSpinResult {
     if (bigWinTier != null && bigWinTier != SlotLabWinTier.none) {
       return bigWinTier!.name;
     }
-    // P5 regular tiers based on winRatio
+    // P5 regular tiers based on winRatio (WIN_6 removed, WIN_5 is now default for >13x)
+    // WIN_1: >1x, ≤2x | WIN_2: >2x, ≤4x | WIN_3: >4x, ≤8x | WIN_4: >8x, ≤13x | WIN_5: >13x
     if (winRatio < 1.0) return 'WIN_LOW';
-    if (winRatio < 2.0) return 'WIN_1';
-    if (winRatio < 5.0) return 'WIN_2';
-    if (winRatio < 8.0) return 'WIN_3';
-    if (winRatio < 12.0) return 'WIN_4';
-    if (winRatio < 16.0) return 'WIN_5';
-    if (winRatio < 20.0) return 'WIN_6';
-    return 'BIG_WIN';
+    if (winRatio <= 2.0) return 'WIN_1';
+    if (winRatio <= 4.0) return 'WIN_2';
+    if (winRatio <= 8.0) return 'WIN_3';
+    if (winRatio <= 13.0) return 'WIN_4';
+    // WIN_5 is default for regular wins >13x (before BIG_WIN threshold)
+    return 'WIN_5';
   }
 
   factory SlotLabSpinResult.fromJson(Map<String, dynamic> json) {

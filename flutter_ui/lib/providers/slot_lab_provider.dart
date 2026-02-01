@@ -1104,13 +1104,12 @@ class SlotLabProvider extends ChangeNotifier {
   /// by overriding paytable-evaluated win with: total_win = bet * targetMultiplier
   ///
   /// Target multipliers for P5 tiers (using mid-range values):
-  /// - WIN_1: 1.5x (range: 1-2x)
-  /// - WIN_2: 3.5x (range: 2-5x)
-  /// - WIN_3: 6.5x (range: 5-8x)
-  /// - WIN_4: 10x  (range: 8-12x)
-  /// - WIN_5: 15x  (range: 12-20x)
-  /// - WIN_6: 19x  (range: 16-20x, just under big win threshold)
-  /// - BIG_WIN: 35x (range: 20-50x)
+  /// - WIN_1: 1.5x  (range: >1x, ≤2x)
+  /// - WIN_2: 3.0x  (range: >2x, ≤4x)
+  /// - WIN_3: 6.0x  (range: >4x, ≤8x)
+  /// - WIN_4: 10.5x (range: >8x, ≤13x)
+  /// - WIN_5: 15.0x (range: >13x — default for regular wins)
+  /// - BIG_WIN: 35x (range: 20x+)
   Future<SlotLabSpinResult?> spinForcedWithMultiplier(
     ForcedOutcome outcome,
     double targetMultiplier,
