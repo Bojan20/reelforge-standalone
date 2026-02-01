@@ -411,31 +411,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Update provider (persisted state)
     projectProvider.setAudioAssignment(stage, audioPath);
 
-    // Register event to EventRegistry for instant playback
-    final eventRegistry = EventRegistry.instance;
-    // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
-    final shouldLoop = StageConfigurationService.instance.isLooping(stage);
-    final busId = _getBusForStage(stage);
-
-    // INSTANT: Register to EventRegistry only (no Middleware sync needed for playback)
-    eventRegistry.registerEvent(AudioEvent(
-      id: 'audio_$stage',
-      name: stage.replaceAll('_', ' '),
-      stage: stage,
-      layers: [
-        AudioLayer(
-          id: 'layer_$stage',
-          name: '${stage.replaceAll('_', ' ')} Audio',
-          audioPath: audioPath,
-          volume: 1.0,
-          pan: _getPanForStage(stage),
-          delay: 0.0,
-          busId: busId,
-        ),
-      ],
-      loop: shouldLoop,
-      targetBusId: busId,
-    ));
+    // INSTANT: Re-sync ALL audio assignments to EventRegistry
+    // This ensures GAME_START and all other assignments are registered
+    _syncAudioAssignmentsToRegistry();
 
     debugPrint('[SlotLab] ⚡ INSTANT Quick Assign: $stage → ${audioPath.split('/').last}');
   }
