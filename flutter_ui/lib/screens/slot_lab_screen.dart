@@ -109,6 +109,7 @@ import '../providers/slot_lab_project_provider.dart';
 import '../models/slot_lab_models.dart';
 import '../widgets/template/template_gallery_panel.dart';
 import '../widgets/slot_lab/project_dashboard_dialog.dart';
+import '../widgets/slot_lab/feature_builder_panel.dart';
 import '../models/template_models.dart' show BuiltTemplate;
 
 // =============================================================================
@@ -3122,13 +3123,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           const SizedBox(width: 16),
 
           // ═══════════════════════════════════════════════════════════════════
-          // P3-15 + P3-16 + M1-4: Templates, Coverage, Dashboard
+          // P3-15 + P3-16 + M1-4 + P13: Templates, Coverage, Dashboard, Features
           // ═══════════════════════════════════════════════════════════════════
           _buildTemplatesButton(),
           const SizedBox(width: 8),
           _buildCoverageBadge(),
           const SizedBox(width: 8),
           _buildDashboardButton(),
+          const SizedBox(width: 8),
+          _buildFeatureBuilderButton(),
 
           const Spacer(),
 
@@ -3528,6 +3531,54 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   void _showProjectDashboard() {
     ProjectDashboardDialog.show(context);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P13: Feature Builder Button
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildFeatureBuilderButton() {
+    return Tooltip(
+      message: 'Feature Builder\nConfigure slot features and audio stages',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showFeatureBuilder,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF9370DB).withValues(alpha: 0.2),
+                  const Color(0xFF9370DB).withValues(alpha: 0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFF9370DB).withValues(alpha: 0.3)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.extension, color: Color(0xFF9370DB), size: 14),
+                SizedBox(width: 6),
+                Text(
+                  'Features',
+                  style: TextStyle(
+                    color: Color(0xFF9370DB),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFeatureBuilder() {
+    FeatureBuilderPanel.show(context);
   }
 
   Widget _buildCoverageRow(String label, int count, int max, {bool isTotal = false}) {
