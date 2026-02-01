@@ -411,6 +411,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     final eventRegistry = EventRegistry.instance;
     // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
     final shouldLoop = StageConfigurationService.instance.isLooping(stage);
+    final busId = _getBusForStage(stage);
 
     eventRegistry.registerEvent(AudioEvent(
       id: 'audio_$stage',
@@ -424,10 +425,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           volume: 1.0,
           pan: _getPanForStage(stage),
           delay: 0.0,
-          busId: _getBusForStage(stage),
+          busId: busId,
         ),
       ],
       loop: shouldLoop,
+      targetBusId: busId,
     ));
 
     // Create composite event for Middleware Event Folder
@@ -507,16 +509,26 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   int _getBusForStage(String stage) {
     // Bus IDs: master=0, music=1, sfx=2, voice=3, ambience=4, aux=5
     final s = stage.toUpperCase();
-    if (s.startsWith('MUSIC_') || s.startsWith('ATTRACT_')) return 1; // Music bus
-    if (s.startsWith('UI_') || s.startsWith('MENU_')) return 2; // SFX bus
-    if (s.startsWith('WIN_') || s.startsWith('JACKPOT_')) return 2; // SFX bus
-    if (s.startsWith('REEL_') || s.startsWith('SPIN_')) return 2; // SFX bus
-    if (s.startsWith('ROLLUP_') || s.startsWith('COIN_')) return 2; // SFX bus
-    if (s.startsWith('FREESPIN_') || s.startsWith('BONUS_')) return 2; // SFX bus
-    if (s.startsWith('CASCADE_') || s.startsWith('HOLD_')) return 2; // SFX bus
-    if (s.startsWith('SYMBOL_')) return 2; // SFX bus
-    if (s.startsWith('GAMBLE_')) return 2; // SFX bus
-    if (s.startsWith('ANTICIPATION_')) return 2; // SFX bus
+
+    // MUSIC BUS (1) — background music and ambience
+    if (s.startsWith('MUSIC_') ||
+        s.startsWith('ATTRACT_') ||
+        s.startsWith('AMBIENT_') ||
+        s.startsWith('IDLE_') ||
+        s == 'GAME_START' ||
+        s == 'BASE_GAME_START') return 1; // Music bus
+
+    // SFX BUS (2) — all other sounds
+    if (s.startsWith('UI_') || s.startsWith('MENU_')) return 2;
+    if (s.startsWith('WIN_') || s.startsWith('JACKPOT_')) return 2;
+    if (s.startsWith('REEL_') || s.startsWith('SPIN_')) return 2;
+    if (s.startsWith('ROLLUP_') || s.startsWith('COIN_')) return 2;
+    if (s.startsWith('FREESPIN_') || s.startsWith('BONUS_')) return 2;
+    if (s.startsWith('CASCADE_') || s.startsWith('HOLD_')) return 2;
+    if (s.startsWith('SYMBOL_')) return 2;
+    if (s.startsWith('GAMBLE_')) return 2;
+    if (s.startsWith('ANTICIPATION_')) return 2;
+
     // Default: SFX bus
     return 2;
   }
@@ -982,6 +994,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       // Register to EventRegistry for playback
       // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
       final shouldLoop = StageConfigurationService.instance.isLooping(stage);
+      final busId = _getBusForStage(stage);
 
       eventRegistry.registerEvent(AudioEvent(
         id: eventId,
@@ -995,10 +1008,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             volume: 1.0,
             pan: _getPanForStage(stage),
             delay: 0.0,
-            busId: _getBusForStage(stage),
+            busId: busId,
           ),
         ],
         loop: shouldLoop,
+        targetBusId: busId,
       ));
 
       // Add to MiddlewareProvider if not already present
@@ -9617,6 +9631,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
         // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
         final shouldLoop = StageConfigurationService.instance.isLooping(stage);
+        final busId = _getBusForStage(stage);
 
         final audioEvent = AudioEvent(
           id: 'audio_$stage',
@@ -9630,14 +9645,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               volume: 1.0,
               pan: _getPanForStage(stage),
               delay: 0.0,
-              busId: _getBusForStage(stage),
+              busId: busId,
             ),
           ],
           loop: shouldLoop,
+          targetBusId: busId,
         );
 
         eventRegistry.registerEvent(audioEvent);
-        debugPrint('[SlotLab] ✅ Synced audio assignment: $stage → ${audioPath.split('/').last} [loop=$shouldLoop]');
+        debugPrint('[SlotLab] ✅ Synced audio assignment: $stage → ${audioPath.split('/').last} [loop=$shouldLoop, bus=$busId]');
       }
 
       debugPrint('[SlotLab] ✅ Audio assignments sync complete');
