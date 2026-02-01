@@ -1156,9 +1156,10 @@ class StageConfigurationService extends ChangeNotifier {
 
     // ─────────────────────────────────────────────────────────────────────────
     // GAME START (triggers base music automatically on first spin)
+    // NOTE: These are looping music stages — they loop until explicitly stopped
     // ─────────────────────────────────────────────────────────────────────────
-    _register('GAME_START', StageCategory.music, 5, SpatialBus.music, 'DEFAULT');
-    _register('BASE_GAME_START', StageCategory.music, 5, SpatialBus.music, 'DEFAULT');
+    _register('GAME_START', StageCategory.music, 5, SpatialBus.music, 'DEFAULT', isLooping: true);
+    _register('BASE_GAME_START', StageCategory.music, 5, SpatialBus.music, 'DEFAULT', isLooping: true);
 
     // ─────────────────────────────────────────────────────────────────────────
     // MUSIC & AMBIENT

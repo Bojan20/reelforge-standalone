@@ -32,6 +32,7 @@ import 'package:provider/provider.dart'; // SL-INT-P1.1
 import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_lab_models.dart';
 import '../../models/win_tier_config.dart'; // P5 Win Tier System
+import '../../services/stage_generator.dart'; // P13.8.6 Feature Builder Stages
 import '../../providers/middleware_provider.dart'; // SL-INT-P1.1
 import '../../services/event_registry.dart'; // SL-INT-P1.1
 import '../../services/stage_group_service.dart';
@@ -97,6 +98,14 @@ class UltimateAudioPanel extends StatefulWidget {
   final SlotWinConfiguration? winConfiguration;
 
   // ==========================================================================
+  // P13.8.6: Feature Builder Generated Stages
+  // ==========================================================================
+
+  /// Generated stages from Feature Builder (Apply & Build)
+  /// These appear FIRST in the panel for immediate audio assignment.
+  final List<GeneratedStageEntry>? generatedStages;
+
+  // ==========================================================================
   // P3 RECOMMENDATIONS — Undo/Redo and Bulk Assign
   // ==========================================================================
 
@@ -138,6 +147,8 @@ class UltimateAudioPanel extends StatefulWidget {
     this.expandedSections,
     this.expandedGroups,
     this.winConfiguration,
+    // P13.8.6 Feature Builder
+    this.generatedStages,
     // P3 Recommendations
     this.onUndo,
     this.onRedo,
@@ -177,8 +188,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   void initState() {
     super.initState();
     // Initialize local state from external or defaults
-    // V8: 12 sections organized by Game Flow
+    // V8: 12 sections organized by Game Flow + P13.8.6 Feature Builder
     _localExpandedSections = Set.from(widget.expandedSections ?? {
+      'feature_builder',    // 0. Feature Builder (P13.8.6) — top priority
       'base_game_loop',     // 1. Primary — most used
       'symbols',            // 2. Primary
       'win_presentation',   // 3. Primary
@@ -340,6 +352,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // P13.8.6: Feature Builder Generated Stages (FIRST - highest priority)
+                  if (widget.generatedStages != null && widget.generatedStages!.isNotEmpty)
+                    _buildSection(_FeatureBuilderSection(widget: widget)),
                   // V8: 12 sections organized by Game Flow
                   // PRIMARY (80% workflow)
                   _buildSection(_BaseGameLoopSection(widget: widget)),     // 1. Base Game Loop
@@ -1566,6 +1581,105 @@ class _SlotConfig {
   final String label;
 
   const _SlotConfig({required this.stage, required this.label});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 0: FEATURE BUILDER STAGES [DYNAMIC - P13.8.6]
+// Generated stages from Feature Builder "Apply & Build" action.
+// Appears FIRST for immediate audio assignment after configuration.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _FeatureBuilderSection extends _SectionConfig {
+  final UltimateAudioPanel widget;
+  _FeatureBuilderSection({required this.widget});
+
+  @override String get id => 'feature_builder';
+  @override String get title => 'FEATURE BUILDER';
+  @override String get icon => '⚡';
+  @override Color get color => const Color(0xFF40FF90); // Green - fresh/new
+
+  @override
+  List<_GroupConfig> get groups {
+    final stages = widget.generatedStages;
+    if (stages == null || stages.isEmpty) return const [];
+
+    // Group stages by category for organized display
+    final Map<String, List<GeneratedStageEntry>> byCategory = {};
+    for (final entry in stages) {
+      final category = entry.category.isNotEmpty ? entry.category : 'uncategorized';
+      byCategory.putIfAbsent(category, () => []).add(entry);
+    }
+
+    // Sort categories by priority (feature categories first)
+    final sortedCategories = byCategory.keys.toList()
+      ..sort((a, b) {
+        final priorityOrder = [
+          'free_spins', 'bonus', 'cascade', 'hold_win', 'jackpot',
+          'multiplier', 'wild', 'scatter', 'base', 'ui', 'uncategorized'
+        ];
+        final aIdx = priorityOrder.indexOf(a.toLowerCase());
+        final bIdx = priorityOrder.indexOf(b.toLowerCase());
+        return (aIdx == -1 ? 999 : aIdx).compareTo(bIdx == -1 ? 999 : bIdx);
+      });
+
+    // Build groups from categories
+    return sortedCategories.map((category) {
+      final categoryStages = byCategory[category]!;
+
+      // Get icon based on category
+      final icon = _getCategoryIcon(category);
+
+      // Sort stages by priority (higher priority first)
+      categoryStages.sort((a, b) => b.stage.priority.compareTo(a.stage.priority));
+
+      return _GroupConfig(
+        id: 'feature_builder_$category',
+        title: _formatCategoryTitle(category),
+        icon: icon,
+        slots: categoryStages.map((entry) {
+          // Build label with markers for pooled/looping
+          String label = entry.stage.description.isNotEmpty
+              ? entry.stage.description
+              : entry.name;
+          if (entry.stage.pooled) label += ' ⚡';
+          if (entry.stage.looping) label += ' 🔄';
+
+          return _SlotConfig(
+            stage: entry.name,
+            label: label,
+          );
+        }).toList(),
+      );
+    }).toList();
+  }
+
+  /// Get icon for category
+  String _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'free_spins': return '🎁';
+      case 'bonus': return '🎯';
+      case 'cascade': return '💎';
+      case 'hold_win': return '🔒';
+      case 'jackpot': return '🏆';
+      case 'multiplier': return '✖️';
+      case 'wild': return '🃏';
+      case 'scatter': return '⭐';
+      case 'base': return '🎰';
+      case 'ui': return '🖥️';
+      default: return '📦';
+    }
+  }
+
+  /// Format category title for display
+  String _formatCategoryTitle(String category) {
+    // Convert snake_case to Title Case
+    return category
+        .split('_')
+        .map((word) => word.isNotEmpty
+            ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+            : '')
+        .join(' ');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -354,6 +354,10 @@ class EventSyncService extends ChangeNotifier {
         ? composite.triggerStages.first
         : composite.category.toUpperCase();
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL: Sync ALL audio properties from SlotCompositeEvent to AudioEvent
+    // Including overlap, crossfadeMs, targetBusId for proper music handling
+    // ═══════════════════════════════════════════════════════════════════════════
     final audioEvent = AudioEvent(
       id: composite.id,
       name: composite.name,
@@ -362,6 +366,9 @@ class EventSyncService extends ChangeNotifier {
       duration: composite.totalDurationSeconds,
       loop: composite.looping,
       priority: 0,
+      overlap: composite.overlap,           // CRITICAL: Music must have overlap=false
+      crossfadeMs: composite.crossfadeMs,   // CRITICAL: Music should crossfade
+      targetBusId: composite.targetBusId ?? 0, // CRITICAL: For bus-based overlap detection
     );
 
     _registry.registerEvent(audioEvent);

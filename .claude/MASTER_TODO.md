@@ -19,7 +19,9 @@
 - ✅ P9 Audio Panel Consolidation = 100% Complete (12/12 tasks)
 
 **ACTIVE — Feature Builder Panel:**
-- 🟣 **P13 Feature Builder** — 66 tasks, 27 days, ~12,400 LOC (NEW)
+- 🟣 **P13 Feature Builder** — 75 tasks, 27 days, ~12,400 LOC
+  - ✅ P13.8 Integration: Apply & Build flow complete (5/9 tasks)
+  - ✅ P13.9 Additional Blocks: 5/9 complete (Jackpot, Multiplier, BonusGame, Gambling, Transitions)
 
 **NEXT — Ultimate Analysis Gap Resolution:**
 - 🔴 **P10 DAW Gaps** — 5 P0 + 20 P1 + 21 P2 = 46 tasks
@@ -431,46 +433,53 @@ See individual spec files in `.claude/specs/` and `.claude/tasks/` for details.
 
 ### P13.8 — PHASE 9: INTEGRATION & TESTING (2 days, ~500 LOC)
 
-| ID | Task | Description | LOC Est. | File |
-|----|------|-------------|----------|------|
-| **P13.8.1** | SlotLabScreen integration | Feature Builder button in header | ~100 | `screens/slot_lab_screen.dart` |
-| **P13.8.2** | UltimateAudioPanel stage registration | Auto-register generated stages | ~100 | Integration updates |
-| **P13.8.3** | ForcedOutcomePanel dynamic controls | Show/hide based on enabled blocks | ~100 | `widgets/slot_lab/forced_outcome_panel.dart` |
-| **P13.8.4** | Unit tests (30+) | Block generation, validation, serialization | ~150 | `test/feature_builder/` |
-| **P13.8.5** | Integration tests (10) | Full apply flow, preset load | ~50 | `test/feature_builder/` |
+| ID | Task | Description | LOC Est. | File | Status |
+|----|------|-------------|----------|------|--------|
+| **P13.8.1** | SlotLabScreen integration | Feature Builder button in header + Apply & Build flow | ~150 | `screens/slot_lab_screen.dart` | ✅ DONE |
+| **P13.8.2** | FeatureBuilderProvider registration | Provider registration in main.dart | ~20 | `main.dart` | ✅ DONE |
+| **P13.8.3** | Apply & Build callback | onApplyAndBuild callback + FeatureBuilderResult | ~100 | `widgets/slot_lab/feature_builder_panel.dart` | ✅ DONE |
+| **P13.8.4** | SlotLabProvider grid update | updateGridSize() method for engine sync | ~50 | `providers/slot_lab_provider.dart` | ✅ DONE |
+| **P13.8.5** | Symbol generation | _generateDefaultSymbols() for new projects | ~80 | `screens/slot_lab_screen.dart` | ✅ DONE |
+| **P13.8.6** | UltimateAudioPanel stage registration | Auto-register generated stages | ~100 | Integration updates | ⏳ |
+| **P13.8.7** | ForcedOutcomePanel dynamic controls | Show/hide based on enabled blocks | ~100 | `widgets/slot_lab/forced_outcome_panel.dart` | ⏳ |
+| **P13.8.8** | Unit tests (30+) | Block generation, validation, serialization | ~150 | `test/feature_builder/` | ⏳ |
+| **P13.8.9** | Integration tests (10) | Full apply flow, preset load | ~50 | `test/feature_builder/` | ⏳ |
 
-**Phase 9 Total:** 5 tasks, ~500 LOC
+**Phase 9 Total:** 9 tasks, ~800 LOC (5 of 9 complete)
 
-### P13.9 — ADDITIONAL BLOCKS (3 days, ~1,500 LOC)
+### P13.9 — ADDITIONAL BLOCKS (4 days, ~2,650 LOC)
 
-| ID | Task | Description | LOC Est. | File |
-|----|------|-------------|----------|------|
-| **P13.9.1** | AnticipationBlock | Pattern (Tip A/B), trigger symbol, tension escalation | ~300 | `blocks/anticipation_block.dart` |
-| **P13.9.2** | JackpotBlock (standalone) | Trigger mode, 4 tiers, progressive, contribution | ~350 | `blocks/jackpot_block.dart` |
-| **P13.9.3** | WildFeaturesBlock | Expanding, Sticky, Walking, Multiplier, Stacked | ~350 | `blocks/wild_features_block.dart` |
-| **P13.9.4** | TransitionsBlock | 11 predefined transitions, animation styles, audio sync | ~350 | `blocks/transitions_block.dart` |
-| **P13.9.5** | Update dependency matrix | Add new blocks to dependency resolver | ~100 | `services/feature_builder/dependency_resolver.dart` |
-| **P13.9.6** | Additional built-in presets (4) | Anticipation-focused, Jackpot-focused, Wild-heavy, Full Feature | ~50 | `data/feature_builder/built_in_presets.dart` |
+| ID | Task | Description | LOC Est. | File | Status |
+|----|------|-------------|----------|------|--------|
+| **P13.9.1** | AnticipationBlock | Pattern (Tip A/B), trigger symbol, tension escalation | ~300 | `blocks/anticipation_block.dart` | ⏳ |
+| **P13.9.2** | JackpotBlock (standalone) | Progressive/Fixed, 4-5 tiers, trigger modes, contribution rates | ~800 | `blocks/jackpot_block.dart` | ✅ DONE |
+| **P13.9.3** | MultiplierBlock | Global/Win/Reel/Symbol multipliers, caps, progression | ~760 | `blocks/multiplier_block.dart` | ✅ DONE |
+| **P13.9.4** | BonusGameBlock | Pick, Wheel, Trail, Ladder bonus types with multi-level | ~1130 | `blocks/bonus_game_block.dart` | ✅ DONE |
+| **P13.9.5** | WildFeaturesBlock | Expanding, Sticky, Walking, Multiplier, Stacked | ~350 | `blocks/wild_features_block.dart` | ⏳ |
+| **P13.9.6** | TransitionsBlock | Context/Music/Anticipation/WinTier/UI/Jackpot/Multiplier/Bonus/Gambling transitions | ~1580 | `blocks/transitions_block.dart` | ✅ DONE |
+| **P13.9.7** | GamblingBlock | Card/Coin/Wheel/Ladder/Dice gamble types, streak limits, double-up | ~640 | `blocks/gambling_block.dart` | ✅ DONE |
+| **P13.9.8** | Update dependency matrix | Add new blocks to dependency resolver | ~100 | `services/feature_builder/dependency_resolver.dart` | ⏳ |
+| **P13.9.9** | Additional built-in presets (6) | Anticipation-focused, Jackpot-focused, Wild-heavy, Full Feature, Bonus-heavy, Multiplier-focused | ~100 | `data/feature_builder/built_in_presets.dart` | ⏳ |
 
-**Phase 9 Additional Total:** 6 tasks, ~1,500 LOC
+**Phase 9 Additional Total:** 9 tasks, ~5,760 LOC (5 of 9 complete)
 
 ---
 
 ### P13 SUMMARY
 
-| Phase | Days | Tasks | LOC | Description |
-|-------|------|-------|-----|-------------|
-| Phase 1: Foundation | 3 | 10 | 1,500 | Models, core blocks, registry |
-| Phase 2: Feature Blocks | 4 | 7 | 2,000 | 7 feature blocks |
-| Phase 3: Dependencies | 2 | 5 | 800 | Resolver, conflicts |
-| Phase 4: Generator | 3 | 6 | 1,500 | Config generation |
-| Phase 5: Rust FFI | 2 | 6 | 600 | Engine integration |
-| Phase 6: UI Panel | 4 | 10 | 2,500 | Dockable panel |
-| Phase 7: Validation | 2 | 6 | 700 | Rules, service, UI |
-| Phase 8: Presets | 2 | 5 | 800 | Service, built-ins |
-| Phase 9: Integration | 2 | 5 | 500 | Testing, polish |
-| Phase 9+: Additional | 3 | 6 | 1,500 | 4 new blocks |
-| **TOTAL** | **27** | **66** | **~12,400** | |
+| Phase | Days | Tasks | LOC | Description | Status |
+|-------|------|-------|-----|-------------|--------|
+| Phase 1: Foundation | 3 | 10 | 1,500 | Models, core blocks, registry | ✅ |
+| Phase 2: Feature Blocks | 4 | 7 | 2,000 | 7 feature blocks | ✅ |
+| Phase 3: Dependencies | 2 | 5 | 800 | Resolver, conflicts | ✅ |
+| Phase 4: Generator | 3 | 6 | 1,500 | Config generation | ✅ |
+| Phase 5: Rust FFI | 2 | 6 | 600 | Engine integration | ✅ |
+| Phase 6: UI Panel | 4 | 10 | 2,500 | Dockable panel | ✅ |
+| Phase 7: Validation | 2 | 6 | 700 | Rules, service, UI | ✅ |
+| Phase 8: Presets | 2 | 5 | 800 | Service, built-ins | ✅ |
+| Phase 9: Integration | 2 | 9 | 800 | Apply & Build, Testing | **5/9** |
+| Phase 9+: Additional | 4 | 9 | 5,760 | 5 new blocks | **5/9** |
+| **TOTAL** | **28** | **73** | **~17,460** | | **~75%** |
 
 ---
 
@@ -516,10 +525,13 @@ flutter_ui/lib/
 │   ├── collector_block.dart            # ~200 LOC
 │   ├── win_presentation_block.dart     # ~400 LOC
 │   ├── music_states_block.dart         # ~300 LOC
-│   ├── anticipation_block.dart         # ~300 LOC
-│   ├── jackpot_block.dart              # ~350 LOC
-│   ├── wild_features_block.dart        # ~350 LOC
-│   └── transitions_block.dart          # ~350 LOC
+│   ├── anticipation_block.dart         # ~300 LOC (⏳ pending)
+│   ├── jackpot_block.dart              # ~800 LOC ✅
+│   ├── multiplier_block.dart           # ~760 LOC ✅
+│   ├── bonus_game_block.dart           # ~1130 LOC ✅
+│   ├── gambling_block.dart             # ~640 LOC ✅
+│   ├── wild_features_block.dart        # ~350 LOC (⏳ pending)
+│   └── transitions_block.dart          # ~1580 LOC ✅
 │
 ├── data/feature_builder/
 │   ├── built_in_presets.dart           # ~350 LOC
@@ -556,24 +568,28 @@ test/feature_builder/                   # ~200 LOC
 
 ---
 
-### P13 BLOCKS CATALOG
+### P13 BLOCKS CATALOG (18 Total)
 
-| # | Block | Category | Key Options | Generated Stages |
-|---|-------|----------|-------------|------------------|
-| 1 | Game Core | core | Pay model, spin type, volatility | SPIN_START, SPIN_END |
-| 2 | Grid | core | Reels, rows, paylines/ways | REEL_STOP_0..N |
-| 3 | Symbol Set | core | Symbol counts, Wild, Scatter, Bonus | SYMBOL_LAND_* |
-| 4 | Free Spins | feature | Trigger type, spin count, retrigger | FS_TRIGGER, FS_INTRO, FS_SPIN_*, FS_OUTRO |
-| 5 | Respin | feature | Lock type, count | RESPIN_TRIGGER, RESPIN_LOCK, RESPIN_WIN |
-| 6 | Hold & Win | feature | Jackpot tiers, respin count | HNW_TRIGGER, HNW_SPIN, HNW_JACKPOT_* |
-| 7 | Cascades | feature | Max cascades, multiplier | CASCADE_START, CASCADE_STEP_N, CASCADE_END |
-| 8 | Collector | feature | Meter type, milestones | COLLECT_SYMBOL, COLLECT_MILESTONE |
-| 9 | Win Presentation | presentation | P5 tiers, rollup style | WIN_PRESENT_*, ROLLUP_*, BIG_WIN_* |
-| 10 | Music States | presentation | ALE contexts, transitions | CONTEXT_*, layer switches |
-| 11 | Anticipation | bonus | Pattern, tension levels | ANTICIPATION_ON, ANTICIPATION_TENSION_R*_L* |
-| 12 | Jackpot | bonus | Trigger mode, 4 tiers | JACKPOT_TRIGGER, JACKPOT_*_WIN |
-| 13 | Wild Features | bonus | Type, expand, sticky, walk | WILD_LAND, WILD_EXPAND_*, WILD_WALK |
-| 14 | Transitions | presentation | 11 types, animation style | FS_ENTER, HNW_ENTER, etc. |
+| # | Block | Category | Key Options | Generated Stages | Status |
+|---|-------|----------|-------------|------------------|--------|
+| 1 | Game Core | core | Pay model, spin type, volatility | SPIN_START, SPIN_END | ✅ |
+| 2 | Grid | core | Reels, rows, paylines/ways | REEL_STOP_0..N | ✅ |
+| 3 | Symbol Set | core | Symbol counts, Wild, Scatter, Bonus | SYMBOL_LAND_* | ✅ |
+| 4 | Free Spins | feature | Trigger type, spin count, retrigger | FS_TRIGGER, FS_INTRO, FS_SPIN_*, FS_OUTRO | ✅ |
+| 5 | Respin | feature | Lock type, count | RESPIN_TRIGGER, RESPIN_LOCK, RESPIN_WIN | ✅ |
+| 6 | Hold & Win | feature | Jackpot tiers, respin count | HNW_TRIGGER, HNW_SPIN, HNW_JACKPOT_* | ✅ |
+| 7 | Cascades | feature | Max cascades, multiplier | CASCADE_START, CASCADE_STEP_N, CASCADE_END | ✅ |
+| 8 | Collector | feature | Meter type, milestones | COLLECT_SYMBOL, COLLECT_MILESTONE | ✅ |
+| 9 | Win Presentation | presentation | P5 tiers, rollup style | WIN_PRESENT_*, ROLLUP_*, BIG_WIN_* | ✅ |
+| 10 | Music States | presentation | ALE contexts, transitions | CONTEXT_*, layer switches | ✅ |
+| 11 | Transitions | presentation | All context/music/win/UI/jackpot/multiplier/bonus/gamble | CONTEXT_*, MUSIC_*, UI_*, + 80+ new stages | ✅ |
+| 12 | Anticipation | bonus | Pattern, tension levels | ANTICIPATION_ON, ANTICIPATION_TENSION_R*_L* | ⏳ |
+| 13 | **Jackpot** | **bonus** | Progressive/Fixed, 5 tiers, trigger modes, contribution | JACKPOT_TRIGGER, JACKPOT_*_WIN, JACKPOT_CONTRIB, ~60 stages | ✅ |
+| 14 | **Multiplier** | **feature** | Global/Win/Reel/Symbol multipliers, caps, progression | MULT_INCREASE, MULT_APPLY, MULT_RESET, ~40 stages | ✅ |
+| 15 | **Bonus Game** | **bonus** | Pick/Wheel/Trail/Ladder/Match types, multi-level | BONUS_ENTER, BONUS_PICK_*, BONUS_WHEEL_*, ~80 stages | ✅ |
+| 16 | **Gambling** | **feature** | Card/Coin/Wheel/Ladder/Dice/Higher-Lower, streak limits | GAMBLE_ENTER, GAMBLE_*_REVEAL, GAMBLE_STREAK_*, ~50 stages | ✅ |
+| 17 | Wild Features | bonus | Expand, Sticky, Walking, Multiplier | WILD_LAND, WILD_EXPAND_*, WILD_WALK | ⏳ |
+| 18 | (Reserved) | — | Future expansion | — | — |
 
 ---
 
@@ -615,9 +631,12 @@ test/feature_builder/                   # ~200 LOC
 | Win Presentation | — | — | — | — |
 | Music States | — | — | All audio | — |
 | Anticipation | — | Scatter/Bonus | Reel timing | — |
-| Jackpot | — | — | Win Presentation | — |
+| **Jackpot** | — | Game Core | Win Presentation, Music States | — |
+| **Multiplier** | — | Game Core | Cascades, Free Spins, Symbol Set | — |
+| **Bonus Game** | Jackpot | Game Core | Free Spins, Multiplier | — |
+| **Gambling** | — | Game Core, Win Presentation | Win Presentation | — |
 | Wild Features | — | Wild symbol | Win evaluation | — |
-| Transitions | — | — | Visual flow | — |
+| **Transitions** | — | — | Music States, Win Pres, Jackpot, Multiplier, Bonus Game, Gambling | — |
 
 ---
 
@@ -641,4 +660,4 @@ test/feature_builder/                   # ~200 LOC
 
 ---
 
-*Last updated: 2026-02-01 — Feature Builder Panel Added (P13)*
+*Last updated: 2026-02-01 — P13.8 Apply & Build Integration Complete (5/9 tasks)*

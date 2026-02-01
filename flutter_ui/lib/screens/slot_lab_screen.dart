@@ -105,11 +105,13 @@ import '../widgets/ale/ale_panel.dart';
 import '../widgets/slot_lab/ultimate_audio_panel.dart';
 import '../widgets/slot_lab/events_panel_widget.dart';
 import '../services/waveform_thumbnail_cache.dart';
+import '../services/stage_configuration_service.dart';
 import '../providers/slot_lab_project_provider.dart';
 import '../models/slot_lab_models.dart';
 import '../widgets/template/template_gallery_panel.dart';
 import '../widgets/slot_lab/project_dashboard_dialog.dart';
 import '../widgets/slot_lab/feature_builder_panel.dart';
+import '../providers/feature_builder_provider.dart'; // P13.8.6
 import '../models/template_models.dart' show BuiltTemplate;
 
 // =============================================================================
@@ -2271,8 +2273,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                       children: [
                         // LEFT: Ultimate Audio Panel (V7 — replaces SymbolStripWidget)
                         if (actualShowLeft)
-                          Consumer<SlotLabProjectProvider>(
-                      builder: (context, projectProvider, _) {
+                          Consumer2<SlotLabProjectProvider, FeatureBuilderProvider>(
+                      builder: (context, projectProvider, featureBuilderProvider, _) {
+                        // P13.8.6: Get generated stages for instant display
+                        final stageResult = featureBuilderProvider.generateStages();
+                        final generatedStages = stageResult.isValid ? stageResult.stages : null;
+
                         return SizedBox(
                           width: 240,
                           child: UltimateAudioPanel(
@@ -2283,6 +2289,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                             expandedGroups: projectProvider.expandedGroups,
                             // P5: Dynamic win tier configuration
                             winConfiguration: projectProvider.winConfiguration,
+                            // P13.8.6: Feature Builder generated stages (instant display)
+                            generatedStages: generatedStages,
                             // P3-19: Quick Assign Mode
                             quickAssignMode: _quickAssignMode,
                             quickAssignSelectedSlot: _quickAssignSelectedSlot,
@@ -2310,6 +2318,25 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                               // Update provider (persisted state)
                               projectProvider.setAudioAssignment(stage, audioPath);
 
+                              // ═══════════════════════════════════════════════════════
+                              // DETERMINE LOOP & OVERLAP SETTINGS BASED ON STAGE TYPE
+                              // ═══════════════════════════════════════════════════════
+                              final stageConfig = StageConfigurationService.instance;
+                              final busId = _getBusForStage(stage);
+
+                              // Check if this stage should loop (music, ambient, attract, etc.)
+                              final shouldLoop = stageConfig.isLooping(stage);
+
+                              // Music bus (1) should NOT overlap - only one music at a time
+                              // Also prevent overlap for stages like GAME_START when on music bus
+                              final isMusicBus = busId == 1;
+                              final shouldOverlap = !isMusicBus && !shouldLoop;
+
+                              // Crossfade duration for music transitions (500ms for smooth transition)
+                              final crossfadeMs = isMusicBus ? 500 : 0;
+
+                              debugPrint('[SlotLab]   🎵 Stage config: loop=$shouldLoop, overlap=$shouldOverlap, bus=$busId, crossfade=${crossfadeMs}ms');
+
                               // Register event to EventRegistry for instant playback
                               eventRegistry.registerEvent(AudioEvent(
                                 id: 'audio_$stage',
@@ -2323,9 +2350,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                                     volume: 1.0,
                                     pan: _getPanForStage(stage),
                                     delay: 0.0,
-                                    busId: _getBusForStage(stage),
+                                    busId: busId,
                                   ),
                                 ],
+                                loop: shouldLoop,
+                                overlap: shouldOverlap,
+                                crossfadeMs: crossfadeMs,
+                                targetBusId: busId,
                               ));
 
                               // ═══════════════════════════════════════════════════════
@@ -2340,6 +2371,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                               final color = _getColorForCategory(category);
 
                               // Create SlotCompositeEvent
+                              // NOTE: overlap and crossfadeMs are CRITICAL for proper music behavior
                               final compositeEvent = SlotCompositeEvent(
                                 id: eventId,
                                 name: stage.replaceAll('_', ' ').split(' ').map((w) =>
@@ -2354,11 +2386,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                                     audioPath: audioPath,
                                     volume: 1.0,
                                     pan: _getPanForStage(stage),
-                                    busId: _getBusForStage(stage),
+                                    busId: busId,
                                   ),
                                 ],
                                 triggerStages: [stage],
-                                targetBusId: _getBusForStage(stage),
+                                targetBusId: busId,
+                                looping: shouldLoop,
+                                overlap: shouldOverlap,  // CRITICAL: prevent music overlap
+                                crossfadeMs: crossfadeMs,  // CRITICAL: smooth music transition
                                 createdAt: now,
                                 modifiedAt: now,
                               );
@@ -2518,7 +2553,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                           ),
                         );
                       },
-                    ), // End of if (actualShowLeft) Consumer
+                    ), // End of if (actualShowLeft) Consumer2 (P13.8.6)
 
                         // CENTER: Premium Slot Preview (with min width constraint)
                         Expanded(
@@ -3577,8 +3612,85 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
   }
 
-  void _showFeatureBuilder() {
-    FeatureBuilderPanel.show(context);
+  void _showFeatureBuilder() async {
+    final result = await FeatureBuilderPanel.show(context);
+
+    if (result != null && mounted) {
+      // Apply configuration to SlotLab
+      _applyFeatureBuilderResult(result);
+    }
+  }
+
+  void _applyFeatureBuilderResult(FeatureBuilderResult result) {
+    final projectProvider = context.read<SlotLabProjectProvider>();
+    final slotLabProvider = context.read<SlotLabProvider>();
+
+    // Update settings with grid configuration
+    // The slot machine is already displayed in the center panel via _buildMockSlot()
+    // We just update the grid dimensions - NO fullscreen mode needed
+    setState(() {
+      _slotLabSettings = _slotLabSettings.copyWith(
+        reels: result.reelCount,
+        rows: result.rowCount,
+      );
+    });
+
+    // Generate default symbols if needed
+    if (projectProvider.symbols.isEmpty) {
+      _generateDefaultSymbols(result.symbolCount, projectProvider);
+    }
+
+    // Initialize engine with new configuration
+    slotLabProvider.updateGridSize(result.reelCount, result.rowCount);
+
+    // Show success message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Slot machine built: ${result.reelCount}×${result.rowCount} grid with ${result.symbolCount} symbols',
+          ),
+          backgroundColor: const Color(0xFF40FF90),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _generateDefaultSymbols(int count, SlotLabProjectProvider provider) {
+    // Generate default symbols based on count
+    final defaultSymbols = <SymbolDefinition>[];
+
+    // Common slot symbol emojis
+    const symbolEmojis = ['🍒', '🍋', '🍊', '🍇', '⭐', '💎', '7️⃣', '🔔', '🍀', '👑', '🎰', '💰'];
+    const symbolNames = ['Cherry', 'Lemon', 'Orange', 'Grapes', 'Star', 'Diamond', 'Seven', 'Bell', 'Clover', 'Crown', 'Jackpot', 'Money'];
+
+    for (int i = 0; i < count && i < symbolEmojis.length; i++) {
+      final type = i < 2
+          ? SymbolType.lowPay
+          : i < 5
+              ? SymbolType.mediumPay
+              : i < 8
+                  ? SymbolType.highPay
+                  : i == count - 2
+                      ? SymbolType.scatter
+                      : i == count - 1
+                          ? SymbolType.wild
+                          : SymbolType.highPay;
+
+      defaultSymbols.add(SymbolDefinition(
+        id: 'sym_$i',
+        name: symbolNames[i],
+        emoji: symbolEmojis[i],
+        type: type,
+        contexts: const ['land', 'win'],
+      ));
+    }
+
+    // Add symbols to provider
+    for (final symbol in defaultSymbols) {
+      provider.addSymbol(symbol);
+    }
   }
 
   Widget _buildCoverageRow(String label, int count, int max, {bool isTotal = false}) {

@@ -10,6 +10,7 @@
 // - Missing file detection
 // - Audio preview playback
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -191,55 +192,150 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
   // Global key for external refresh access
   static final globalKey = GlobalKey<AudioPoolPanelState>();
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PERFORMANCE OPTIMIZATION: Cached filtered list + debounced updates
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Cached filtered and sorted list (computed only when needed)
+  List<AudioFileInfo>? _cachedFilteredFiles;
+
+  /// Cache invalidation key (hash of filter params)
+  int _filterCacheKey = 0;
+
+  /// Debounce timer for FFI refresh
+  Timer? _refreshDebounceTimer;
+
+  /// Debounce timer for search
+  Timer? _searchDebounceTimer;
+
+  /// Last known file count (for smart refresh)
+  int _lastFileCount = 0;
+
+  /// Is initial load complete?
+  bool _initialLoadComplete = false;
+
+  /// Background loading in progress
+  bool _isBackgroundRefreshing = false;
+
   @override
   void initState() {
     super.initState();
-    _loadFiles();
-    // Listen for refresh signals
-    audioPoolRefreshNotifier.addListener(_onRefreshSignal);
+    _loadFilesOptimized();
+    // Listen for refresh signals with debounce
+    audioPoolRefreshNotifier.addListener(_onRefreshSignalDebounced);
   }
 
   @override
   void dispose() {
-    audioPoolRefreshNotifier.removeListener(_onRefreshSignal);
+    _refreshDebounceTimer?.cancel();
+    _searchDebounceTimer?.cancel();
+    audioPoolRefreshNotifier.removeListener(_onRefreshSignalDebounced);
     super.dispose();
   }
 
-  void _onRefreshSignal() {
-    _loadFiles();
+  void _onRefreshSignalDebounced() {
+    // Debounce refresh signals — avoid excessive FFI calls
+    _refreshDebounceTimer?.cancel();
+    _refreshDebounceTimer = Timer(const Duration(milliseconds: 50), () {
+      if (mounted) _loadFilesOptimized();
+    });
   }
 
   /// Public method to refresh the audio pool list
   void refresh() {
     debugLog('AudioPoolPanel.refresh() called', source: 'AudioPool');
-    _loadFiles();
+    _loadFilesOptimized();
   }
 
-  void _loadFiles() {
-    // Use new audioPoolListAll() to get both pending and imported files
-    final json = _ffi.audioPoolListAll();
-    debugLog('AudioPool JSON: $json', source: 'AudioPool');
-    final list = jsonDecode(json) as List;
-    debugLog('AudioPool parsed ${list.length} entries', source: 'AudioPool');
+  /// OPTIMIZED: Load files with smart caching and background refresh
+  void _loadFilesOptimized() {
+    // Prevent concurrent loads
+    if (_isBackgroundRefreshing) return;
+    _isBackgroundRefreshing = true;
 
-    final newFiles = list.map((e) => AudioFileInfo.fromJson(e)).toList();
+    // Run FFI call in microtask to not block UI
+    Future.microtask(() {
+      if (!mounted) {
+        _isBackgroundRefreshing = false;
+        return;
+      }
 
-    // Check if any pending files are still loading - schedule refresh
-    final hasLoadingFiles = newFiles.any((f) => f.state.isLoading);
+      try {
+        // Get data from FFI
+        final json = _ffi.audioPoolListAll();
+        final list = jsonDecode(json) as List;
+        final newFiles = list.map((e) => AudioFileInfo.fromJson(e)).toList();
 
-    setState(() {
-      _files = newFiles;
+        // Check if any pending files are still loading
+        final hasLoadingFiles = newFiles.any((f) => f.state.isLoading);
+
+        // Smart update: only setState if data actually changed
+        final filesChanged = newFiles.length != _lastFileCount ||
+            !_filesListEqual(_files, newFiles);
+
+        if (filesChanged) {
+          _lastFileCount = newFiles.length;
+          _invalidateFilterCache();
+
+          if (mounted) {
+            setState(() {
+              _files = newFiles;
+              _initialLoadComplete = true;
+            });
+          }
+        }
+
+        _isBackgroundRefreshing = false;
+
+        // Schedule next refresh if files still loading (with longer interval)
+        if (hasLoadingFiles && mounted) {
+          _refreshDebounceTimer?.cancel();
+          _refreshDebounceTimer = Timer(const Duration(milliseconds: 250), () {
+            if (mounted) _loadFilesOptimized();
+          });
+        }
+      } catch (e) {
+        debugLog('AudioPool load error: $e', source: 'AudioPool');
+        _isBackgroundRefreshing = false;
+      }
     });
-
-    // Auto-refresh while files are loading metadata
-    if (hasLoadingFiles) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) _loadFiles();
-      });
-    }
   }
 
+  /// Fast equality check for file lists (by ID only)
+  bool _filesListEqual(List<AudioFileInfo> a, List<AudioFileInfo> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id || a[i].state != b[i].state) return false;
+    }
+    return true;
+  }
+
+  /// Invalidate filter cache (call when filter/sort/search changes)
+  void _invalidateFilterCache() {
+    _cachedFilteredFiles = null;
+    _filterCacheKey++;
+  }
+
+  /// Stored hash of last computed filter state
+  int _lastComputedCacheHash = 0;
+
+  /// OPTIMIZED: Cached filtered files getter
   List<AudioFileInfo> get _filteredFiles {
+    // Compute cache key from current filter state
+    final currentCacheKey = Object.hash(
+      _filter,
+      _sortMode,
+      _searchQuery,
+      _files.length,
+      _filterCacheKey,
+    );
+
+    // Return cached if valid (compare hash with stored hash, not with counter)
+    if (_cachedFilteredFiles != null && _lastComputedCacheHash == currentCacheKey) {
+      return _cachedFilteredFiles!;
+    }
+
+    // Compute filtered list
     var result = _files.where((f) {
       // Apply filter
       switch (_filter) {
@@ -287,7 +383,22 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
         break;
     }
 
+    // Cache result
+    _cachedFilteredFiles = result;
+    _lastComputedCacheHash = currentCacheKey;
+
     return result;
+  }
+
+  /// DEBOUNCED search handler — waits 150ms before filtering
+  void _onSearchChanged(String value) {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 150), () {
+      if (mounted && _searchQuery != value) {
+        _invalidateFilterCache();
+        setState(() => _searchQuery = value);
+      }
+    });
   }
 
   Future<void> _importFiles() async {
@@ -302,7 +413,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
     debugLog('Registered ${ids.length} files instantly', source: 'AudioPool');
 
     // Immediately refresh UI — files will show with "loading" state
-    _loadFiles();
+    _loadFilesOptimized();
   }
 
   /// Get all currently selected files
@@ -399,7 +510,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                   _ffi.audioPoolRemove(clipId);
                 }
                 _clearSelection();
-                _loadFiles();
+                _loadFilesOptimized();
                 Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentRed),
@@ -431,7 +542,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                   _ffi.audioPoolRemove(clipId);
                 }
                 _clearSelection();
-                _loadFiles();
+                _loadFilesOptimized();
                 Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentRed),
@@ -463,7 +574,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
               onPressed: () {
                 final clipId = int.tryParse(file.id) ?? 0;
                 _ffi.audioPoolRemove(clipId);
-                _loadFiles();
+                _loadFilesOptimized();
                 Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentRed),
@@ -475,7 +586,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
     } else {
       final clipId = int.tryParse(file.id) ?? 0;
       _ffi.audioPoolRemove(clipId);
-      _loadFiles();
+      _loadFilesOptimized();
     }
   }
 
@@ -498,7 +609,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
     const newPath = '/path/to/located/audio.wav'; // Placeholder until file picker integration
     final clipId = int.tryParse(file.id) ?? 0;
     _ffi.audioPoolLocate(clipId, newPath);
-    _loadFiles();
+    _loadFilesOptimized();
   }
 
   @override
@@ -629,12 +740,18 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
             ),
           ),
           const SizedBox(width: 8),
-          // Search
+          // Search — DEBOUNCED for performance
           Expanded(
             child: FluxForgeSearchField(
               hintText: 'Search files...',
-              onChanged: (v) => setState(() => _searchQuery = v),
-              onCleared: () => setState(() => _searchQuery = ''),
+              onChanged: _onSearchChanged,
+              onCleared: () {
+                _searchDebounceTimer?.cancel();
+                setState(() {
+                  _searchQuery = '';
+                  _invalidateFilterCache();
+                });
+              },
               style: FluxForgeSearchFieldStyle.compact,
             ),
           ),
@@ -644,7 +761,10 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
             tooltip: 'Sort',
             icon: const Icon(Icons.sort, size: 16, color: Colors.white54),
             color: FluxForgeTheme.bgMid,
-            onSelected: (mode) => setState(() => _sortMode = mode),
+            onSelected: (mode) {
+              _invalidateFilterCache();
+              setState(() => _sortMode = mode);
+            },
             itemBuilder: (ctx) => [
               _buildSortMenuItem(AudioPoolSortMode.nameAsc, 'Name (A-Z)'),
               _buildSortMenuItem(AudioPoolSortMode.nameDesc, 'Name (Z-A)'),
@@ -673,7 +793,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
           IconButton(
             icon: const Icon(Icons.refresh, size: 16),
             color: Colors.white54,
-            onPressed: _loadFiles,
+            onPressed: _loadFilesOptimized,
             tooltip: 'Refresh',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -715,7 +835,10 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
             child: FilterChip(
               selected: isSelected,
               label: Text('${filter.name.toUpperCase()} ($count)', style: const TextStyle(fontSize: 10)),
-              onSelected: (_) => setState(() => _filter = filter),
+              onSelected: (_) {
+                _invalidateFilterCache();
+                setState(() => _filter = filter);
+              },
               backgroundColor: FluxForgeTheme.bgDeep,
               selectedColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
               checkmarkColor: FluxForgeTheme.accentBlue,

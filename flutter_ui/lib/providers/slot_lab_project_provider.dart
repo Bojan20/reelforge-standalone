@@ -102,6 +102,16 @@ class SlotLabProjectProvider extends ChangeNotifier {
   bool _winConfigFromGdd = false;
 
   // ==========================================================================
+  // SESSION STATS (Dashboard Integration)
+  // ==========================================================================
+
+  /// Session statistics for Dashboard
+  SessionStats _sessionStats = const SessionStats();
+
+  /// Recent wins history (max 100)
+  List<SessionWin> _recentWins = [];
+
+  // ==========================================================================
   // UNDO SUPPORT FOR AUDIO ASSIGNMENTS (P3 Recommendation)
   // ==========================================================================
 
@@ -635,6 +645,61 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
   /// Get GDD math model (if GDD is imported)
   GddMathModel? get gddMath => _importedGdd?.math;
+
+  // Session stats getters (Dashboard Integration)
+  SessionStats get sessionStats => _sessionStats;
+  List<SessionWin> get recentWins => List.unmodifiable(_recentWins);
+
+  /// Record a spin result (updates session stats)
+  void recordSpinResult({required double betAmount, required double winAmount, String? tier}) {
+    _sessionStats = _sessionStats.copyWith(
+      totalSpins: _sessionStats.totalSpins + 1,
+      totalBet: _sessionStats.totalBet + betAmount,
+      totalWin: _sessionStats.totalWin + winAmount,
+    );
+
+    if (winAmount > 0) {
+      _recentWins.insert(0, SessionWin(
+        amount: winAmount,
+        tier: tier ?? 'WIN',
+        time: DateTime.now(),
+      ));
+      // Keep max 100 wins
+      if (_recentWins.length > 100) {
+        _recentWins = _recentWins.sublist(0, 100);
+      }
+    }
+
+    notifyListeners();
+  }
+
+  /// Record a standalone win (e.g., jackpot award, not from regular spin)
+  void recordWin(double amount, String tier) {
+    if (amount <= 0) return;
+
+    _sessionStats = _sessionStats.copyWith(
+      totalWin: _sessionStats.totalWin + amount,
+    );
+
+    _recentWins.insert(0, SessionWin(
+      amount: amount,
+      tier: tier,
+      time: DateTime.now(),
+    ));
+    // Keep max 100 wins
+    if (_recentWins.length > 100) {
+      _recentWins = _recentWins.sublist(0, 100);
+    }
+
+    notifyListeners();
+  }
+
+  /// Reset session stats
+  void resetSessionStats() {
+    _sessionStats = const SessionStats();
+    _recentWins = [];
+    notifyListeners();
+  }
 
   // ==========================================================================
   // SYMBOL PRESETS
@@ -1591,5 +1656,45 @@ class _AudioAssignmentUndoEntry {
     required this.newPath,
     required this.description,
     this.bulkEntries,
+  });
+}
+
+// =============================================================================
+// SESSION STATS MODELS (Dashboard Integration)
+// =============================================================================
+
+/// Session statistics for Dashboard Stats tab
+class SessionStats {
+  final int totalSpins;
+  final double totalBet;
+  final double totalWin;
+
+  const SessionStats({
+    this.totalSpins = 0,
+    this.totalBet = 0.0,
+    this.totalWin = 0.0,
+  });
+
+  double get rtp => totalBet > 0 ? (totalWin / totalBet) * 100 : 0.0;
+
+  SessionStats copyWith({int? totalSpins, double? totalBet, double? totalWin}) {
+    return SessionStats(
+      totalSpins: totalSpins ?? this.totalSpins,
+      totalBet: totalBet ?? this.totalBet,
+      totalWin: totalWin ?? this.totalWin,
+    );
+  }
+}
+
+/// Single win record for Dashboard history
+class SessionWin {
+  final double amount;
+  final String tier;
+  final DateTime time;
+
+  const SessionWin({
+    required this.amount,
+    required this.tier,
+    required this.time,
   });
 }

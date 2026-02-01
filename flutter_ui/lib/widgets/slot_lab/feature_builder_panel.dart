@@ -24,14 +24,22 @@ class FeatureBuilderPanel extends StatefulWidget {
   /// Callback when configuration changes
   final VoidCallback? onConfigChanged;
 
+  /// Callback when Apply & Build is pressed
+  /// Parameters: reelCount, rowCount, symbolCount
+  final void Function(int reels, int rows, int symbols)? onApplyAndBuild;
+
   const FeatureBuilderPanel({
     super.key,
     this.onClose,
     this.onConfigChanged,
+    this.onApplyAndBuild,
   });
 
   /// Show as a modal dialog
-  static Future<void> show(BuildContext context) async {
+  /// Returns the configuration if Apply was pressed, null if cancelled.
+  static Future<FeatureBuilderResult?> show(BuildContext context) async {
+    FeatureBuilderResult? result;
+
     await showDialog(
       context: context,
       barrierDismissible: true,
@@ -60,15 +68,38 @@ class FeatureBuilderPanel extends StatefulWidget {
             ),
             child: FeatureBuilderPanel(
               onClose: () => Navigator.of(context).pop(),
+              onApplyAndBuild: (reels, rows, symbols) {
+                result = FeatureBuilderResult(
+                  reelCount: reels,
+                  rowCount: rows,
+                  symbolCount: symbols,
+                );
+                Navigator.of(context).pop();
+              },
             ),
           ),
         ),
       ),
     );
+
+    return result;
   }
 
   @override
   State<FeatureBuilderPanel> createState() => _FeatureBuilderPanelState();
+}
+
+/// Result from Feature Builder panel
+class FeatureBuilderResult {
+  final int reelCount;
+  final int rowCount;
+  final int symbolCount;
+
+  const FeatureBuilderResult({
+    required this.reelCount,
+    required this.rowCount,
+    required this.symbolCount,
+  });
 }
 
 class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
@@ -835,6 +866,51 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                 );
               }
               widget.onConfigChanged?.call();
+            },
+          ),
+
+          const SizedBox(width: 12),
+
+          // Apply & Build button - builds slot machine and closes panel
+          ElevatedButton.icon(
+            icon: const Icon(Icons.build, size: 16),
+            label: const Text('Apply & Build'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF40FF90),
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            onPressed: () {
+              // First validate
+              final validationResult = provider.validate();
+              if (!validationResult.isValid) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Cannot build: ${validationResult.errors.first.message}',
+                    ),
+                    backgroundColor: const Color(0xFFFF4040),
+                  ),
+                );
+                return;
+              }
+
+              // Generate stages
+              final stageResult = provider.generateStages();
+              if (stageResult.isValid) {
+                provider.exportStagesToConfiguration();
+              }
+
+              // Get grid configuration
+              final gridBlock = provider.gridBlock;
+              final symbolBlock = provider.symbolSetBlock;
+
+              final reelCount = gridBlock?.getOptionValue<int>('reelCount') ?? 5;
+              final rowCount = gridBlock?.getOptionValue<int>('rowCount') ?? 3;
+              final symbolCount = symbolBlock?.getOptionValue<int>('symbolCount') ?? 10;
+
+              // Call the callback to apply configuration
+              widget.onApplyAndBuild?.call(reelCount, rowCount, symbolCount);
             },
           ),
         ],

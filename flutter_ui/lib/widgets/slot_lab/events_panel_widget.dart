@@ -112,6 +112,13 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   List<FileSystemEntity> _filteredAudioFiles = [];
   bool _isLoadingFiles = false;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0 PERFORMANCE: Cached pool assets list (avoid per-frame sort/filter)
+  // ═══════════════════════════════════════════════════════════════════════════
+  List<UnifiedAudioAsset>? _cachedPoolAssets;
+  int _poolAssetsCacheKey = 0;
+  String _lastPoolSearchQuery = '';
+
   // Effective selected event ID (prefers parent control)
   String? get _selectedEventId => widget.selectedEventId ?? _localSelectedEventId;
 
@@ -340,6 +347,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       _assetManagerDebounce?.cancel();
       _assetManagerDebounce = Timer(const Duration(milliseconds: 100), () {
         if (mounted) {
+          _invalidatePoolCache(); // Clear cached list on data change
           setState(() {});
         }
       });
@@ -1697,8 +1705,17 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     );
   }
 
-  Widget _buildPoolAssetsList() {
+  /// P0 PERFORMANCE: Get cached pool assets (sort/filter only when data changes)
+  List<UnifiedAudioAsset> get _filteredPoolAssets {
     final assets = AudioAssetManager.instance.assets;
+    final currentKey = Object.hash(assets.length, _searchQuery);
+
+    // Return cached if still valid
+    if (_cachedPoolAssets != null &&
+        _poolAssetsCacheKey == currentKey &&
+        _lastPoolSearchQuery == _searchQuery) {
+      return _cachedPoolAssets!;
+    }
 
     // Sort by name for consistent order
     final sortedAssets = List<UnifiedAudioAsset>.from(assets)
@@ -1709,6 +1726,24 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         ? sortedAssets
         : sortedAssets.where((a) => a.path.toLowerCase().contains(_searchQuery)).toList();
 
+    // Cache result
+    _cachedPoolAssets = filteredAssets;
+    _poolAssetsCacheKey = currentKey;
+    _lastPoolSearchQuery = _searchQuery;
+
+    return filteredAssets;
+  }
+
+  /// Invalidate pool assets cache (call when search changes)
+  void _invalidatePoolCache() {
+    _cachedPoolAssets = null;
+    _poolAssetsCacheKey = 0;
+  }
+
+  Widget _buildPoolAssetsList() {
+    // P0 PERFORMANCE: Use cached filtered list
+    final filteredAssets = _filteredPoolAssets;
+
     if (filteredAssets.isEmpty) {
       return _buildEmptyState(
         'No assets in pool',
@@ -1716,10 +1751,13 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       );
     }
 
-    // P0 PERFORMANCE: cacheExtent pre-builds items for smooth scrolling
+    // P0 PERFORMANCE: Fixed height + cacheExtent for smooth scrolling
     return ListView.builder(
       itemCount: filteredAssets.length,
+      itemExtent: 64, // Fixed height for O(1) layout
       cacheExtent: 500, // Pre-render 500px above/below viewport
+      addAutomaticKeepAlives: false, // Reduce memory
+      addRepaintBoundaries: true, // Isolate repaints
       itemBuilder: (ctx, i) => _buildPoolAssetItem(filteredAssets[i]),
     );
   }

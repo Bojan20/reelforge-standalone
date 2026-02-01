@@ -28,6 +28,12 @@ import '../blocks/collector_block.dart';
 // Presentation blocks (Phase 2)
 import '../blocks/win_presentation_block.dart';
 import '../blocks/music_states_block.dart';
+import '../blocks/transitions_block.dart';
+// Advanced feature blocks (Phase 3)
+import '../blocks/jackpot_block.dart';
+import '../blocks/multiplier_block.dart';
+import '../blocks/bonus_game_block.dart';
+import '../blocks/gambling_block.dart';
 
 /// Provider for Feature Builder state management.
 ///
@@ -122,6 +128,15 @@ class FeatureBuilderProvider extends ChangeNotifier {
     _registry.registerAll([
       WinPresentationBlock(),
       MusicStatesBlock(),
+      TransitionsBlock(),
+    ]);
+
+    // Register advanced feature blocks (Phase 3)
+    _registry.registerAll([
+      JackpotBlock(),
+      MultiplierBlock(),
+      BonusGameBlock(),
+      GamblingBlock(),
     ]);
 
     _registry.markInitialized();
@@ -697,6 +712,25 @@ class FeatureBuilderProvider extends ChangeNotifier {
   /// Get Music States block.
   MusicStatesBlock? get musicStatesBlock =>
       _registry.get('music_states') as MusicStatesBlock?;
+
+  /// Get Transitions block.
+  TransitionsBlock? get transitionsBlock =>
+      _registry.get('transitions') as TransitionsBlock?;
+
+  /// Get Jackpot block.
+  JackpotBlock? get jackpotBlock => _registry.get('jackpot') as JackpotBlock?;
+
+  /// Get Multiplier block.
+  MultiplierBlock? get multiplierBlock =>
+      _registry.get('multiplier') as MultiplierBlock?;
+
+  /// Get Bonus Game block.
+  BonusGameBlock? get bonusGameBlock =>
+      _registry.get('bonus_game') as BonusGameBlock?;
+
+  /// Get Gambling block.
+  GamblingBlock? get gamblingBlock =>
+      _registry.get('gambling') as GamblingBlock?;
 
   // ============================================================================
   // Dispose

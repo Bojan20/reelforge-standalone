@@ -37,7 +37,7 @@ class ReelTimingProfile {
     required this.firstReelStopMs,
     required this.reelStopIntervalMs,
     this.decelerationMs = 300,
-    this.bounceMs = 200,
+    this.bounceMs = 0,  // No bounce animation by default
     this.accelerationMs = 150,
   });
 
@@ -46,7 +46,7 @@ class ReelTimingProfile {
     firstReelStopMs: 800,
     reelStopIntervalMs: 300,
     decelerationMs: 250,
-    bounceMs: 150,
+    bounceMs: 0,  // No bounce animation
     accelerationMs: 100,
   );
 
@@ -55,7 +55,7 @@ class ReelTimingProfile {
     firstReelStopMs: 400,
     reelStopIntervalMs: 100,
     decelerationMs: 150,
-    bounceMs: 100,
+    bounceMs: 0,  // No bounce animation
     accelerationMs: 80,
   );
 
@@ -65,7 +65,7 @@ class ReelTimingProfile {
     firstReelStopMs: 1000,   // Matches timing.rs: reel_spin_duration_ms
     reelStopIntervalMs: 370, // Matches timing.rs: reel_stop_interval_ms
     decelerationMs: 280,
-    bounceMs: 180,
+    bounceMs: 0,  // No bounce animation
     accelerationMs: 120,
   );
 
@@ -605,8 +605,13 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
                           && previousPhase != ReelPhase.stopped
                           && previousPhase != ReelPhase.idle;
 
-      if (wasStillMoving && state.phase == ReelPhase.bouncing) {
-        debugPrint('[ReelAnimController] 🔔 REEL $i → BOUNCING at ${elapsed}ms (stopTime=${state.stopTime}ms, prev=$previousPhase)');
+      // FIX: Fire callback when reel lands (bouncing OR stopped if bounceMs=0)
+      // When bounceMs=0, reel skips bouncing phase and goes directly to stopped
+      final reelJustLanded = wasStillMoving &&
+          (state.phase == ReelPhase.bouncing || state.phase == ReelPhase.stopped);
+
+      if (reelJustLanded) {
+        debugPrint('[ReelAnimController] 🔔 REEL $i → ${state.phase} at ${elapsed}ms (stopTime=${state.stopTime}ms, prev=$previousPhase)');
         onReelStop?.call(i);  // Audio triggers at visual landing
       }
 

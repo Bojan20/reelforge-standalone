@@ -547,6 +547,43 @@ class SlotLabProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ─── Grid Configuration ─────────────────────────────────────────────────────
+
+  int _totalRows = 3; // Default rows
+
+  /// Current reel count
+  int get totalReels => _totalReels;
+
+  /// Current row count
+  int get totalRows => _totalRows;
+
+  /// Update grid dimensions (called from Feature Builder)
+  void updateGridSize(int reels, int rows) {
+    if (reels != _totalReels || rows != _totalRows) {
+      _totalReels = reels;
+      _totalRows = rows;
+      debugPrint('[SlotLabProvider] Grid updated: ${reels}×$rows');
+
+      // Re-initialize engine with new grid if already initialized
+      if (_initialized) {
+        _reinitializeEngine();
+      }
+
+      notifyListeners();
+    }
+  }
+
+  /// Reinitialize the Rust engine with current configuration
+  void _reinitializeEngine() {
+    try {
+      // The Rust engine is initialized via slotLabInit which doesn't take
+      // grid parameters directly. Grid is configured via spin parameters.
+      debugPrint('[SlotLabProvider] Engine will use new grid on next spin');
+    } catch (e) {
+      debugPrint('[SlotLabProvider] Engine reinitialization error: $e');
+    }
+  }
+
   /// Get the visual tier name for a win amount
   /// Returns: '', 'BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA', or jackpot tiers
   String getVisualTierForWin(double winAmount) {
@@ -1902,6 +1939,7 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     // MUSIC AUTO-TRIGGER: Start base music on first SPIN_START
+    // NOTE: _baseMusicStarted prevents re-triggering looping music on every spin
     if (stageType == 'SPIN_START' && !_baseMusicStarted) {
       if (eventRegistry.hasEventForStage('MUSIC_BASE')) {
         eventRegistry.triggerStage('MUSIC_BASE', context: context);
@@ -1909,6 +1947,9 @@ class SlotLabProvider extends ChangeNotifier {
       }
       if (eventRegistry.hasEventForStage('GAME_START')) {
         eventRegistry.triggerStage('GAME_START', context: context);
+        // CRITICAL: Set flag even if only GAME_START is used (not MUSIC_BASE)
+        // This prevents GAME_START from re-triggering on every spin
+        _baseMusicStarted = true;
       }
     }
 

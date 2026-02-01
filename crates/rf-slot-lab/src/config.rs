@@ -387,11 +387,12 @@ pub struct AnticipationConfig {
 impl Default for AnticipationConfig {
     fn default() -> Self {
         Self {
-            // Default: Scatter (ID 10) and Bonus (ID 11) trigger anticipation
-            // Wild (ID 9) does NOT trigger anticipation
-            trigger_symbol_ids: vec![10, 11],
+            // Default: Scatter (ID 12) and Bonus (ID 13) trigger anticipation
+            // Wild (ID 11) does NOT trigger anticipation
+            // MUST MATCH StandardSymbolSet: WILD=11, SCATTER=12, BONUS=13
+            trigger_symbol_ids: vec![12, 13],
             min_trigger_count: 2, // Universal industry rule
-            allowed_reels: None,  // All reels by default
+            allowed_reels: None,  // All reels by default (Tip A behavior)
             trigger_rules: TriggerRules::AtLeast(3),
             sequential_stop: true,
             tension_escalation: true,

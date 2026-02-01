@@ -57,6 +57,7 @@ import 'providers/slot_lab_provider.dart';
 import 'providers/slot_lab_project_provider.dart';
 import 'providers/ale_provider.dart';
 import 'providers/soundbank_provider.dart';
+import 'providers/feature_builder_provider.dart';
 import 'services/audio_asset_manager.dart';
 import 'services/event_registry.dart';
 import 'services/service_locator.dart';
@@ -254,6 +255,9 @@ class FluxForgeApp extends StatelessWidget {
 
         // Event Registry (Stage → Audio mapping)
         ChangeNotifierProvider.value(value: EventRegistry.instance),
+
+        // Feature Builder Provider (P13)
+        ChangeNotifierProvider(create: (_) => FeatureBuilderProvider()),
       ],
       child: MaterialApp(
         title: 'FluxForge Studio',
