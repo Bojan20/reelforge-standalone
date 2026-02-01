@@ -2049,14 +2049,34 @@ class EventRegistry extends ChangeNotifier {
     _lastTriggerError = '';
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // FIX: For looping events, check if already playing before re-triggering
-    // Background music (GAME_START, MUSIC_*) should continue looping, not restart
+    // LOOPING EVENTS: Clean stale instances before re-trigger
+    // If instance exists but voice is not actually playing (slot full, etc.),
+    // clean it up and allow re-trigger
     // ═══════════════════════════════════════════════════════════════════════════
     if (event.loop) {
       final existingInstances = _playingInstances.where((i) => i.eventId == eventId).toList();
       if (existingInstances.isNotEmpty) {
-        debugPrint('[EventRegistry] 🔄 Loop event "${event.name}" already playing — skipping re-trigger');
-        return; // Don't restart — let it continue looping!
+        // Check if voices are actually playing via FFI
+        bool anyVoiceStillPlaying = false;
+        for (final instance in existingInstances) {
+          for (final voiceId in instance.voiceIds) {
+            // If voice ID > 0, assume it's playing (we don't have isVoicePlaying FFI)
+            if (voiceId > 0) {
+              anyVoiceStillPlaying = true;
+              break;
+            }
+          }
+          if (anyVoiceStillPlaying) break;
+        }
+
+        if (anyVoiceStillPlaying) {
+          debugPrint('[EventRegistry] 🔄 Loop event "${event.name}" already playing — skipping re-trigger');
+          return; // Don't restart — let it continue looping!
+        } else {
+          // Stale instance (voice failed) — clean up and allow re-trigger
+          _playingInstances.removeWhere((i) => i.eventId == eventId);
+          debugPrint('[EventRegistry] 🧹 Cleaned stale loop instance for "${event.name}" — re-triggering');
+        }
       }
     }
 
