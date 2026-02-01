@@ -104,7 +104,7 @@ import '../widgets/ale/ale_panel.dart';
 // import '../widgets/slot_lab/symbol_strip_widget.dart'; // LEGACY - replaced by UltimateAudioPanel
 import '../widgets/slot_lab/ultimate_audio_panel.dart';
 import '../widgets/slot_lab/events_panel_widget.dart';
-import '../services/waveform_thumbnail_cache.dart';
+// P0 PERFORMANCE: WaveformThumbnail removed from audio browser — too slow for large lists
 import '../services/stage_configuration_service.dart';
 import '../providers/slot_lab_project_provider.dart';
 import '../models/slot_lab_models.dart';
@@ -896,6 +896,20 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   // Flag to prevent persist until restore is complete
   bool _lowerZoneRestoreComplete = false;
+  bool _didInitializeEngine = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Initialize SlotLab engine ONCE when dependencies are available
+    // This runs synchronously on first build — no delay!
+    if (!_didInitializeEngine) {
+      _didInitializeEngine = true;
+      _initializeSlotEngine();
+      debugPrint('[SlotLabScreen] ⚡ Engine initialized synchronously in didChangeDependencies');
+    }
+  }
 
   @override
   void initState() {
@@ -907,7 +921,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     _initializeTracks();
     _loadAudioPool();
-    _initializeSlotEngine();
     _restorePersistedState();
     _initWaveformCache();
 
@@ -1219,11 +1232,25 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         if (!provider.persistedLowerZoneExpanded) {
           _lowerZoneController.collapse();
         }
-        _lowerZoneController.setHeight(provider.persistedLowerZoneHeight);
+
+        // Check if height is default (250.0) - if so, set to half screen
+        final persistedHeight = provider.persistedLowerZoneHeight;
+        if (persistedHeight == 250.0) {
+          // No persisted height or default - set to half screen
+          final screenHeight = MediaQuery.of(context).size.height;
+          _lowerZoneController.setHeightToHalfScreen(screenHeight);
+          debugPrint('[SlotLab] ✅ Set height to half screen (no persisted height)');
+        } else {
+          _lowerZoneController.setHeight(persistedHeight);
+          debugPrint('[SlotLab] ✅ Restored height to $persistedHeight');
+        }
 
         debugPrint('[SlotLab] ✅ Restored superTab to $superTab (index=$tabIndex)');
       } else {
         debugPrint('[SlotLab] ⚠️ tabIndex $tabIndex out of range (max=${SlotLabSuperTab.values.length - 1}), skipping restore');
+        // Still set half screen height for default case
+        final screenHeight = MediaQuery.of(context).size.height;
+        _lowerZoneController.setHeightToHalfScreen(screenHeight);
       }
 
       // NOW add listener and set flag - after restore is complete
@@ -1730,45 +1757,45 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   void _initializeSlotEngine() {
     debugPrint('[SlotLabScreen] _initializeSlotEngine() called');
-    // Get or create SlotLabProvider
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      debugPrint('[SlotLabScreen] postFrameCallback executing...');
-      try {
-        _slotLabProviderNullable = Provider.of<SlotLabProvider>(context, listen: false);
-        debugPrint('[SlotLabScreen] Got SlotLabProvider: ${_slotLabProviderNullable != null}');
-        debugPrint('[SlotLabScreen] Provider already initialized: ${_slotLabProvider.initialized}');
+    if (!mounted) return;
 
-        // Migrate local cache to provider (in case anything was cached before init)
-        if (_localWaveformCache.isNotEmpty) {
-          _slotLabProvider.waveformCache.addAll(_localWaveformCache);
-          _localWaveformCache.clear();
-        }
-        if (_localClipIdCache.isNotEmpty) {
-          _slotLabProvider.clipIdCache.addAll(_localClipIdCache);
-          _localClipIdCache.clear();
-        }
+    try {
+      // Get SlotLabProvider synchronously (no postFrameCallback!)
+      _slotLabProviderNullable = Provider.of<SlotLabProvider>(context, listen: false);
+      debugPrint('[SlotLabScreen] Got SlotLabProvider: ${_slotLabProviderNullable != null}');
+      debugPrint('[SlotLabScreen] Provider already initialized: ${_slotLabProvider.initialized}');
 
-        // Initialize engine for audio testing mode
-        debugPrint('[SlotLabScreen] Calling provider.initialize(audioTestMode: true)...');
-        _engineInitialized = _slotLabProvider.initialize(audioTestMode: true);
-        debugPrint('[SlotLabScreen] initialize() returned: $_engineInitialized');
-        debugPrint('[SlotLabScreen] provider.initialized now: ${_slotLabProvider.initialized}');
+      // Migrate local cache to provider (in case anything was cached before init)
+      if (_localWaveformCache.isNotEmpty) {
+        _slotLabProvider.waveformCache.addAll(_localWaveformCache);
+        _localWaveformCache.clear();
+      }
+      if (_localClipIdCache.isNotEmpty) {
+        _slotLabProvider.clipIdCache.addAll(_localClipIdCache);
+        _localClipIdCache.clear();
+      }
 
-        if (_engineInitialized) {
-          // Connect to middleware for audio triggering
-          final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
-          _slotLabProvider.connectMiddleware(middleware);
+      // Initialize engine for audio testing mode
+      debugPrint('[SlotLabScreen] Calling provider.initialize(audioTestMode: true)...');
+      _engineInitialized = _slotLabProvider.initialize(audioTestMode: true);
+      debugPrint('[SlotLabScreen] initialize() returned: $_engineInitialized');
+      debugPrint('[SlotLabScreen] provider.initialized now: ${_slotLabProvider.initialized}');
 
-          // Setup grid change callback (P0 WF-03)
-          _slotLabProvider.onGridDimensionsChanged = (newReelCount) {
-            debugPrint('[SlotLab] 🔄 Regenerating reel stages for $newReelCount reels');
-            _regenerateReelStages(newReelCount);
-          };
+      if (_engineInitialized) {
+        // Connect to middleware for audio triggering
+        final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
+        _slotLabProvider.connectMiddleware(middleware);
 
-          // Connect to ALE for signal sync
-          try {
-            final ale = Provider.of<AleProvider>(context, listen: false);
-            _slotLabProvider.connectAle(ale);
+        // Setup grid change callback (P0 WF-03)
+        _slotLabProvider.onGridDimensionsChanged = (newReelCount) {
+          debugPrint('[SlotLab] 🔄 Regenerating reel stages for $newReelCount reels');
+          _regenerateReelStages(newReelCount);
+        };
+
+        // Connect to ALE for signal sync
+        try {
+          final ale = Provider.of<AleProvider>(context, listen: false);
+          _slotLabProvider.connectAle(ale);
           } catch (e) {
             debugPrint('[SlotLab] ALE not available: $e');
           }
@@ -1803,12 +1830,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         // Initialize reel symbols (fallback or empty for engine)
         _reelSymbols = List.from(_fallbackReelSymbols);
         setState(() {});
-      } catch (e) {
-        debugPrint('[SlotLab] Engine init error: $e');
-        _engineInitialized = false;
-        _reelSymbols = List.from(_fallbackReelSymbols);
-      }
-    });
+    } catch (e) {
+      debugPrint('[SlotLab] Engine init error: $e');
+      _engineInitialized = false;
+      _reelSymbols = List.from(_fallbackReelSymbols);
+    }
   }
 
   void _onSlotLabUpdate() {
@@ -1951,82 +1977,107 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Import audio files via native file picker (faster than file_picker plugin)
+  ///
+  /// **INSTANT IMPORT** — Files appear immediately, metadata loads in background
   Future<void> _importAudioFiles() async {
     try {
       final paths = await NativeFilePicker.pickAudioFiles();
 
-      if (paths.isNotEmpty) {
-        // Batch add - collect all entries first, then single setState
-        final newEntries = <Map<String, dynamic>>[];
-        for (final path in paths) {
-          if (_audioPool.any((a) => a['path'] == path)) continue; // Skip duplicates
-          final name = path.split('/').last;
-          newEntries.add(_createAudioPoolEntry(path, name));
-        }
-        if (newEntries.isNotEmpty) {
-          setState(() {
-            _audioPool.addAll(newEntries);
-          });
-          _persistState();
-          debugPrint('[SlotLab] Batch added ${newEntries.length} files');
-        }
+      if (paths.isEmpty) return;
+
+      // ⚡ INSTANT: Batch add - collect all entries first, then single setState
+      final newEntries = <Map<String, dynamic>>[];
+      for (final path in paths) {
+        if (_audioPool.any((a) => a['path'] == path)) continue; // Skip duplicates
+        final name = path.split('/').last;
+        newEntries.add(_createAudioPoolEntry(path, name));
       }
+
+      if (newEntries.isEmpty) return;
+
+      // ⚡ INSTANT: Add to pool immediately
+      setState(() {
+        _audioPool.addAll(newEntries);
+      });
+
+      // ⚡ INSTANT: Show feedback immediately
+      _showImportSnackBar(newEntries.length);
+
+      // 🔄 BACKGROUND: Persist state without blocking UI
+      Future.microtask(() => _persistState());
+
+      // 🔄 BACKGROUND: Load metadata for duration display
+      _loadMetadataInBackground(newEntries.map((e) => e['path'] as String).toList());
+
+      debugPrint('[SlotLab] ⚡ Instant added ${newEntries.length} files');
     } catch (e) {
       debugPrint('[SlotLab] File picker error: $e');
     }
   }
 
   /// Import entire folder of audio files (native picker - faster)
+  ///
+  /// **INSTANT IMPORT** — Files appear immediately, metadata loads in background
   Future<void> _importAudioFolder() async {
     try {
       final result = await NativeFilePicker.pickAudioFolder();
 
-      if (result != null) {
-        final dir = Directory(result);
-        final audioExtensions = ['.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif', '.m4a', '.wma'];
+      if (result == null) return;
 
-        // Collect all audio files (sync listSync is faster for local dirs)
-        final List<FileSystemEntity> entities;
-        try {
-          entities = dir.listSync(recursive: true);
-        } catch (e) {
-          debugPrint('[SlotLab] Error listing directory: $e');
-          return;
-        }
+      final dir = Directory(result);
+      final audioExtensions = ['.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif', '.m4a', '.wma'];
 
-        final audioFiles = <File>[];
-        for (final entity in entities) {
-          if (entity is File) {
-            final ext = entity.path.toLowerCase().split('.').last;
-            if (audioExtensions.contains('.$ext')) {
-              audioFiles.add(entity);
-            }
+      // Collect all audio files (sync listSync is faster for local dirs)
+      final List<FileSystemEntity> entities;
+      try {
+        entities = dir.listSync(recursive: true);
+      } catch (e) {
+        debugPrint('[SlotLab] Error listing directory: $e');
+        return;
+      }
+
+      final audioFiles = <File>[];
+      for (final entity in entities) {
+        if (entity is File) {
+          final ext = entity.path.toLowerCase().split('.').last;
+          if (audioExtensions.contains('.$ext')) {
+            audioFiles.add(entity);
           }
         }
-
-        // Sort alphabetically
-        audioFiles.sort((a, b) {
-          final nameA = a.path.split('/').last.toLowerCase();
-          final nameB = b.path.split('/').last.toLowerCase();
-          return nameA.compareTo(nameB);
-        });
-
-        // Batch add - single setState
-        final newEntries = <Map<String, dynamic>>[];
-        for (final file in audioFiles) {
-          if (_audioPool.any((a) => a['path'] == file.path)) continue;
-          final name = file.path.split('/').last;
-          newEntries.add(_createAudioPoolEntry(file.path, name));
-        }
-
-        if (newEntries.isNotEmpty) {
-          setState(() {
-            _audioPool.addAll(newEntries);
-          });
-          _persistState();
-        }
-        debugPrint('[SlotLab] Added ${newEntries.length} files from folder');
       }
+
+      // Sort alphabetically
+      audioFiles.sort((a, b) {
+        final nameA = a.path.split('/').last.toLowerCase();
+        final nameB = b.path.split('/').last.toLowerCase();
+        return nameA.compareTo(nameB);
+      });
+
+      // ⚡ INSTANT: Batch add - collect entries
+      final newEntries = <Map<String, dynamic>>[];
+      for (final file in audioFiles) {
+        if (_audioPool.any((a) => a['path'] == file.path)) continue;
+        final name = file.path.split('/').last;
+        newEntries.add(_createAudioPoolEntry(file.path, name));
+      }
+
+      if (newEntries.isEmpty) return;
+
+      // ⚡ INSTANT: Add to pool immediately
+      setState(() {
+        _audioPool.addAll(newEntries);
+      });
+
+      // ⚡ INSTANT: Show feedback immediately
+      _showImportSnackBar(newEntries.length);
+
+      // 🔄 BACKGROUND: Persist state without blocking UI
+      Future.microtask(() => _persistState());
+
+      // 🔄 BACKGROUND: Load metadata for duration display
+      _loadMetadataInBackground(newEntries.map((e) => e['path'] as String).toList());
+
+      debugPrint('[SlotLab] ⚡ Instant added ${newEntries.length} files from folder');
     } catch (e) {
       debugPrint('[SlotLab] Folder picker error: $e');
     }
@@ -2056,6 +2107,90 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     };
   }
 
+  /// Show snackbar for import feedback
+  void _showImportSnackBar(int count) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Added $count file${count > 1 ? 's' : ''} to Pool'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: const Color(0xFF40FF90),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  /// Load metadata in background (duration, sampleRate, channels)
+  ///
+  /// Called after instant add — updates pool entries with real metadata
+  /// P0 PERFORMANCE: Batched setState to avoid 100+ individual rebuilds
+  void _loadMetadataInBackground(List<String> paths) {
+    // P0 FIX: Load ALL metadata first, then do ONE setState
+    Future(() async {
+      final updates = <String, double>{};
+
+      for (final path in paths) {
+        try {
+          final ffi = NativeFFI.instance;
+          final duration = ffi.getAudioFileDuration(path);
+          if (duration > 0) {
+            updates[path] = duration;
+          }
+        } catch (_) {
+          // Skip on error
+        }
+      }
+
+      // P0 FIX: ONE setState for ALL updates (was doing 1 per file!)
+      if (mounted && updates.isNotEmpty) {
+        setState(() {
+          for (final entry in updates.entries) {
+            final index = _audioPool.indexWhere((a) => a['path'] == entry.key);
+            if (index >= 0) {
+              _audioPool[index] = {
+                ..._audioPool[index],
+                'duration': entry.value,
+              };
+            }
+          }
+        });
+      }
+
+      debugPrint('[SlotLab] ✅ Background metadata: ${updates.length}/${paths.length} files');
+    });
+  }
+
+  /// Load metadata for a single pool file (legacy - use batched version for multiple)
+  Future<void> _loadMetadataForPoolFile(String filePath) async {
+    final index = _audioPool.indexWhere((a) => a['path'] == filePath);
+    if (index < 0) return;
+
+    // Get duration from FFI (fast, ~5ms per file)
+    double duration = 2.0;
+    try {
+      final ffi = NativeFFI.instance;
+      final fileDuration = ffi.getAudioFileDuration(filePath);
+      if (fileDuration > 0) {
+        duration = fileDuration;
+      }
+    } catch (e) {
+      // Use default duration on error
+    }
+
+    // Update pool entry with actual duration
+    if (!mounted) return;
+    final entry = _audioPool[index];
+    if (entry['duration'] != duration) {
+      setState(() {
+        _audioPool[index] = {
+          ...entry,
+          'duration': duration,
+        };
+      });
+    }
+  }
+
   /// Add audio file to pool with metadata (legacy - use batch methods for multiple files)
   Future<void> _addAudioToPool(String path, String name) async {
     // Check if already in pool
@@ -2068,6 +2203,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     setState(() {
       _audioPool.add(entry);
     });
+
+    // Load metadata in background
+    _loadMetadataForPoolFile(path);
 
     debugPrint('[SlotLab] Added to pool: $name - ${entry['folder']}');
   }
@@ -9781,14 +9919,18 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             }).toList(),
           ),
         ),
-        // Audio list
+        // Audio list — P0 PERFORMANCE: Fixed height + no per-frame setState
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             itemCount: searchFiltered.length,
+            itemExtent: 40, // P0 FIX: Fixed height for O(1) layout
+            cacheExtent: 1000, // Pre-render 1000px for smooth scroll
+            addAutomaticKeepAlives: false,
+            addRepaintBoundaries: true,
             itemBuilder: (context, index) {
               final audio = searchFiltered[index];
-              return _buildAudioBrowserItem(audio);
+              return _buildAudioBrowserItemFast(audio);
             },
           ),
         ),
@@ -9796,9 +9938,20 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildAudioBrowserItem(Map<String, dynamic> audio) {
+  /// ═══════════════════════════════════════════════════════════════════════════
+  /// P0 PERFORMANCE: ULTRA-FAST AUDIO BROWSER ITEM
+  /// - NO onDragUpdate setState (was causing per-frame rebuilds!)
+  /// - NO WaveformThumbnail (too slow for large lists)
+  /// - Fixed height for O(1) layout
+  /// ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildAudioBrowserItemFast(Map<String, dynamic> audio) {
+    final path = audio['path'] as String;
+    final name = audio['name'] as String;
+    final duration = audio['duration'] as double? ?? 0.0;
+    final isPlaying = _previewingAudioPath == path && _isPreviewPlaying;
+
     return Draggable<String>(
-      data: audio['path'] as String,
+      data: path,
       feedback: Material(
         color: Colors.transparent,
         child: Container(
@@ -9813,114 +9966,101 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               ),
             ],
           ),
-          child: Text(
-            audio['name'] as String,
-            style: const TextStyle(color: Colors.white, fontSize: 11),
-          ),
+          child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 11)),
         ),
       ),
       onDragStarted: () {
-        setState(() {
-          _draggingAudioPaths = [audio['path'] as String];
-        });
+        // P0 FIX: Only setState once at drag start
+        setState(() => _draggingAudioPaths = [path]);
       },
       onDragEnd: (details) {
+        // P0 FIX: Only setState once at drag end
         setState(() {
           _draggingAudioPaths = null;
           _dragPosition = null;
         });
       },
-      onDragUpdate: (details) {
-        setState(() {
-          _dragPosition = details.globalPosition;
-        });
-      },
+      // P0 FIX: REMOVED onDragUpdate — was causing 60fps setState rebuilds!
       child: Container(
-        margin: const EdgeInsets.only(bottom: 4),
-        padding: const EdgeInsets.all(8),
+        height: 36, // Fixed height
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        margin: const EdgeInsets.only(bottom: 2),
         decoration: BoxDecoration(
-          color: _previewingAudioPath == audio['path']
-              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+          color: isPlaying
+              ? FluxForgeTheme.accentGreen.withOpacity(0.1)
               : Colors.white.withOpacity(0.03),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _previewingAudioPath == audio['path']
-                ? FluxForgeTheme.accentBlue
-                : Colors.transparent,
+            color: isPlaying ? FluxForgeTheme.accentGreen : Colors.transparent,
           ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            Row(
-              children: [
-                // Preview button
-                InkWell(
-                  onTap: () {
-                    final path = audio['path'] as String;
-                    if (_previewingAudioPath == path && _isPreviewPlaying) {
-                      // Stop preview
-                      _stopAudioPreview();
-                    } else {
-                      // Start preview
-                      _startAudioPreview(path);
-                    }
-                  },
-                  child: Icon(
-                    _previewingAudioPath == audio['path'] && _isPreviewPlaying
-                        ? Icons.stop
-                        : Icons.play_arrow,
-                    size: 16,
-                    color: FluxForgeTheme.accentBlue,
-                  ),
+            // Play/Stop button
+            InkWell(
+              onTap: () {
+                if (isPlaying) {
+                  _stopAudioPreview();
+                } else {
+                  _startAudioPreview(path);
+                }
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: isPlaying
+                      ? FluxForgeTheme.accentGreen.withOpacity(0.2)
+                      : Colors.white.withOpacity(0.08),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(width: 8),
-                // Audio info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        audio['name'] as String,
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        '${(audio['duration'] as double).toStringAsFixed(1)}s',
-                        style: const TextStyle(color: Colors.white38, fontSize: 9),
-                      ),
-                    ],
-                  ),
-                ),
-                // Drag handle
-                const Icon(Icons.drag_indicator, size: 14, color: Colors.white24),
-              ],
-            ),
-            // Waveform preview when selected/playing
-            if (_previewingAudioPath == audio['path'])
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Container(
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: WaveformThumbnail(
-                    filePath: audio['path'] as String,
-                    width: double.infinity,
-                    height: 24,
-                    color: _isPreviewPlaying
-                        ? FluxForgeTheme.accentGreen.withOpacity(0.7)
-                        : FluxForgeTheme.accentBlue.withOpacity(0.5),
-                    backgroundColor: Colors.transparent,
-                  ),
+                child: Icon(
+                  isPlaying ? Icons.stop : Icons.play_arrow,
+                  size: 14,
+                  color: isPlaying ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentBlue,
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+            // Name
+            Expanded(
+              child: Text(
+                name,
+                style: TextStyle(
+                  color: isPlaying ? Colors.white : Colors.white70,
+                  fontSize: 10,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+            // Duration badge
+            if (duration > 0)
+              Container(
+                margin: const EdgeInsets.only(left: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(
+                  '${duration.toStringAsFixed(1)}s',
+                  style: const TextStyle(fontSize: 8, color: Colors.white38, fontFamily: 'monospace'),
+                ),
+              ),
+            const SizedBox(width: 4),
+            // Drag handle
+            const Icon(Icons.drag_indicator, size: 12, color: Colors.white24),
           ],
         ),
       ),
     );
+  }
+
+  // Legacy method kept for compatibility (will be removed in future)
+  Widget _buildAudioBrowserItem(Map<String, dynamic> audio) {
+    return _buildAudioBrowserItemFast(audio);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
