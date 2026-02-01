@@ -23,6 +23,33 @@
 
 ---
 
+## 🎰 SLOTLAB — ZABRANA HARDKODIRANJA 🎰
+
+**NIŠTA VEZANO ZA SLOTLAB NE SME BITI HARDKODIRANO!**
+
+Dok korisnik ne kaže drugačije:
+- ❌ NE hardkodirati win tier labele ("BIG WIN!", "MEGA WIN!", "GREAT WIN!", itd.)
+- ❌ NE hardkodirati boje, ikone, ili stilove za win tierove
+- ❌ NE hardkodirati rollup trajanja, thresholds, ili multiplier ranges
+- ✅ Koristi jednostavne tier identifikatore: "WIN 1", "WIN 2", "WIN 3", "WIN 4", "WIN 5"
+- ✅ Sve konfiguracije treba da budu data-driven (iz P5 WinTierConfig sistema)
+
+**Primer:**
+```dart
+// ❌ LOŠE — hardkodirano
+'GREAT WIN!'  // Zašto "great"? Ko je to odlučio?
+'NICE WIN!'   // Subjektivno
+
+// ✅ DOBRO — jednostavno i jasno
+'WIN 1'       // Tier 1 (>1x, ≤2x)
+'WIN 2'       // Tier 2 (>2x, ≤4x)
+'WIN 3'       // Tier 3 (>4x, ≤8x)
+'WIN 4'       // Tier 4 (>8x, ≤13x)
+'WIN 5'       // Tier 5 (>13x)
+```
+
+---
+
 ## ⚠️ STOP — OBAVEZNO PRE SVAKE AKCIJE ⚠️
 
 **NIKADA ne menjaj kod dok ne uradiš OVO:**

@@ -534,6 +534,626 @@ multiplier    → Subtle intensity increase
 featureActive → Context switch trigger
 ```
 
+#### 3.3.3 TRANSITIONS Block (NEW)
+
+**Purpose:** Definiše vizuelne i audio tranzicije između game state-ova.
+
+**Filozofija:** Svaka tranzicija ima 3 komponente:
+1. **Visual** — animacija, efekti, overlay
+2. **Audio** — stinger, crossfade, SFX
+3. **Timing** — trajanje, easing, sync points
+
+---
+
+##### A) Transition Types (Predefinisani)
+
+| Transition | From → To | Default Duration | Visual | Audio Stage |
+|------------|-----------|------------------|--------|-------------|
+| **FS_ENTER** | Base → Free Spins | 1500ms | Zoom + Overlay | FS_INTRO |
+| **FS_EXIT** | Free Spins → Base | 1200ms | Fade + Counter | FS_OUTRO |
+| **HNW_ENTER** | Base → Hold & Win | 2000ms | Lock Reels + Flash | HNW_INTRO |
+| **HNW_EXIT** | Hold & Win → Base | 1500ms | Unlock + Total | HNW_OUTRO |
+| **BONUS_ENTER** | Base → Bonus | 1800ms | Scene Change | BONUS_INTRO |
+| **BONUS_EXIT** | Bonus → Base | 1200ms | Return Wipe | BONUS_OUTRO |
+| **BIG_WIN_ENTER** | Any → Big Win | 800ms | Flash + Zoom | BIG_WIN_INTRO |
+| **BIG_WIN_EXIT** | Big Win → Any | 600ms | Fade | BIG_WIN_END |
+| **CASCADE_STEP** | Win → Cascade | 300ms | Explode + Fall | CASCADE_START |
+| **JACKPOT_ENTER** | Any → Jackpot | 2500ms | Full Takeover | JACKPOT_TRIGGER |
+| **JACKPOT_EXIT** | Jackpot → Base | 2000ms | Celebration End | JACKPOT_END |
+
+---
+
+##### B) Transition Options (Per-Transition Konfigurisanje)
+
+**GLOBAL OPTIONS:**
+
+| Option | Values | Default | Impact |
+|--------|--------|---------|--------|
+| **Style Preset** | Minimal, Standard, Dramatic, Cinematic | Standard | Overall feel |
+| **Speed Scale** | 0.5x - 2.0x | 1.0x | All transitions scaled |
+| **Skip on Turbo** | Yes, No | Yes | Skip in turbo mode |
+| **Sync to Music** | None, Beat, Bar | Beat | Music sync |
+
+**PER-TRANSITION OPTIONS (example: FS_ENTER):**
+
+| Option | Values | Default | Impact |
+|--------|--------|---------|--------|
+| **Duration** | 500ms - 5000ms | 1500ms | Total time |
+| **Easing** | Linear, EaseIn, EaseOut, EaseInOut, Elastic, Bounce | EaseOut | Animation curve |
+| **Visual Type** | Fade, Zoom, Slide, Wipe, Shatter, Portal | Zoom | Transition style |
+| **Background** | Dim, Blur, Dark, None | Dim | Base game obscure |
+| **Overlay** | None, FS_Logo, Scatter_Collect, Custom | FS_Logo | Center graphic |
+| **Overlay Animation** | Scale, Rotate, Pulse, None | Scale | Logo animation |
+| **Particles** | None, Sparks, Stars, Coins, Scatter_Trails | Scatter_Trails | Particle effect |
+| **Screen Flash** | None, White, Gold, Feature_Color | Gold | Initial flash |
+| **Counter Animation** | Pop, Slide, Typewriter, None | Pop | Spin counter appear |
+
+---
+
+##### C) Visual Type Library
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      TRANSITION VISUAL TYPES                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  FADE            ZOOM              SLIDE             WIPE               │
+│  ┌────────┐     ┌────────┐        ┌────────┐        ┌────────┐         │
+│  │ ░░░░░░ │     │  ┌──┐  │        │→→→→→→→→│        │▓▓▓░░░░░│         │
+│  │ ░░░░░░ │     │  │  │  │        │→→→→→→→→│        │▓▓▓▓▓░░░│         │
+│  │ ░░░░░░ │     │ ─┼──┼─ │        │→→→→→→→→│        │▓▓▓▓▓▓▓░│         │
+│  └────────┘     └────────┘        └────────┘        └────────┘         │
+│  Crossfade      Zoom In/Out       Left/Right/Up     Horizontal/Radial  │
+│                                                                          │
+│  SHATTER        PORTAL            FLIP              MORPH              │
+│  ┌────────┐     ┌────────┐        ┌────────┐        ┌────────┐         │
+│  │ ╱╲╱╲╱╲ │     │  (○)   │        │ ╱│╲    │        │ ◇→□→○  │         │
+│  │ ╲╱╲╱╲╱ │     │ (   )  │        │ ─┼─    │        │ ▽→△→◁  │         │
+│  │ ╱╲╱╲╱╲ │     │  (○)   │        │ ╲│╱    │        │ ◈→◆→●  │         │
+│  └────────┘     └────────┘        └────────┘        └────────┘         │
+│  Break apart    Circular expand   3D card flip      Shape transform   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+##### D) Audio Sync Points
+
+Svaka tranzicija ima definisane sync points gde se trigeruju audio stage-ovi:
+
+```
+FS_ENTER Timeline (1500ms):
+═══════════════════════════════════════════════════════════════
+
+0ms        300ms       600ms       900ms       1200ms     1500ms
+│           │           │           │           │           │
+▼           ▼           ▼           ▼           ▼           ▼
+┌───────────┬───────────┬───────────┬───────────┬───────────┐
+│  SCREEN   │  SCATTER  │   LOGO    │  COUNTER  │   SPIN    │
+│  FLASH    │  COLLECT  │  APPEAR   │   SHOW    │  READY    │
+└───────────┴───────────┴───────────┴───────────┴───────────┘
+     ▲           ▲           ▲           ▲           ▲
+     │           │           │           │           │
+FS_TRIGGER  FS_SCATTER  FS_INTRO   FS_COUNT   FS_MUSIC
+            _LAND       _LOGO      _SHOW      _START
+
+Audio Stages:
+├── FS_TRIGGER (0ms) — Impact/hit sound
+├── FS_SCATTER_COLLECT (300ms) — Scatter collection whoosh
+├── FS_INTRO_LOGO (600ms) — Fanfare/stinger
+├── FS_COUNT_SHOW (900ms) — Counter pop sound
+└── FS_MUSIC_START (1200ms) — FS music loop begins
+```
+
+---
+
+##### E) Transition Presets (Stil Preseti)
+
+| Preset | Description | Speed | Effects | Target |
+|--------|-------------|-------|---------|--------|
+| **Minimal** | Clean, fast | 0.7x | Few particles | Mobile, Turbo |
+| **Standard** | Balanced | 1.0x | Moderate | Default |
+| **Dramatic** | Impactful | 1.2x | Heavy effects | Big moments |
+| **Cinematic** | Premium feel | 1.5x | Full production | VIP/High-roller |
+| **Retro** | Classic slots | 0.8x | Simple fades | Nostalgia |
+| **Neon** | Synthwave | 1.0x | Glow, trails | Modern theme |
+
+---
+
+##### F) Industry Reference Transitions
+
+| Company | Signature Style | Key Elements |
+|---------|-----------------|--------------|
+| **NetEnt** | Clean zoom + particle burst | Scatter fly-in, logo pulse |
+| **Pragmatic Play** | Quick wipe + multiplier focus | Speed, impact sounds |
+| **Big Time Gaming** | Full screen takeover | Dramatic zoom, bass drop |
+| **Play'n GO** | Smooth portal effect | Circular reveal, sweep |
+| **Aristocrat** | Lock animation + lightning | Symbol locks, electric FX |
+| **IGT** | Classic fade with fanfare | Traditional, orchestral |
+
+---
+
+##### F.1) INDUSTRY-STANDARD TECHNICAL SPECIFICATIONS (Research-Based)
+
+**Animation Technology Standard:**
+- **Spine 2D** je de facto industry standard za slot animacije
+- Skeletal animation omogućava:
+  - Runtime blending između stanja
+  - Procedural motion (ne ručna interpolacija)
+  - Mesh deformation za symbol reveals
+  - IK (Inverse Kinematics) za kompleksne pokrete
+
+**Why Spine over Frame-by-Frame:**
+| Aspect | Frame-by-Frame | Spine Skeletal |
+|--------|----------------|----------------|
+| File Size | Large (100+ frames) | Small (bones + atlas) |
+| Blending | Hard cuts only | Smooth runtime blend |
+| Variations | Need separate sequences | One rig, many anims |
+| Memory | High (all frames loaded) | Low (procedural) |
+| Customization | None at runtime | Colors, speed, IK |
+
+---
+
+##### F.2) FREE SPINS TRANSITION — Industry Breakdown
+
+**NetEnt Style (Starburst, Gonzo's Quest):**
+```
+PHASE 1: TRIGGER (0-400ms)
+├── Scatter symbols PULSE (scale 1.0 → 1.3 → 1.0)
+├── Screen FLASH (white, 50ms, 80% opacity)
+├── Scatter FLY-IN to center (easeOutBack curve)
+└── Audio: FS_TRIGGER (impact hit)
+
+PHASE 2: LOGO REVEAL (400-1000ms)
+├── Background DIM (0% → 50% black overlay)
+├── Logo SCALE-IN (0 → 100%, overshoot)
+├── Particle burst (sparks, 30-50 particles)
+└── Audio: FS_INTRO_FANFARE (orchestral stinger)
+
+PHASE 3: COUNTER SETUP (1000-1500ms)
+├── Spin counter SLIDE-IN from top
+├── Reels ZOOM OUT slightly (95% scale)
+├── Feature frame FADE-IN around grid
+└── Audio: FS_COUNTER_SHOW (pop), FS_MUSIC_START (loop begins)
+```
+
+**Pragmatic Play Style (Gates of Olympus, Sweet Bonanza):**
+```
+PHASE 1: TRIGGER (0-200ms)
+├── Scatter EXPLOSION effect (shatter + sparks)
+├── Screen SHAKE (subtle, 3-5px amplitude)
+├── Quick WIPE transition start
+└── Audio: FS_TRIGGER (bass impact)
+
+PHASE 2: TAKEOVER (200-600ms)
+├── Wipe reveals FS background
+├── Multiplier meter APPEARS (if applicable)
+├── Grid RESETS to FS layout
+└── Audio: FS_WHOOSH (wipe sound)
+
+PHASE 3: READY (600-1000ms)
+├── "FREE SPINS" text POP
+├── Counter APPEAR
+├── SPIN button GLOW activation
+└── Audio: FS_READY (confirmation ping)
+```
+
+---
+
+##### F.3) HOLD & WIN TRANSITION — Lightning Link Analysis
+
+**Aristocrat Lightning Link Pattern:**
+```
+PHASE 1: TRIGGER (0-500ms)
+├── Triggering coins PULSE (golden glow)
+├── Screen DARKENS (70% dim)
+├── "HOLD & SPIN" text FLASH
+├── Lightning strike VFX (procedural)
+└── Audio: HNW_TRIGGER (electric zap + reverb hit)
+
+PHASE 2: REEL LOCK (500-1200ms)
+├── Non-coin positions GRAY OUT
+├── Lock ICON appears per position
+├── Reel frames get ELECTRIC border
+├── Coins get spotlight glow
+└── Audio: HNW_LOCK_SEQUENCE (sequential locks)
+
+PHASE 3: RESPINS COUNTER (1200-1800ms)
+├── "3 RESPINS" counter DROPS IN
+├── Meter bar APPEARS (coin collection)
+├── Background particles (subtle sparks)
+└── Audio: HNW_READY (tension build)
+
+RESPIN RESET MECHANIC:
+├── New coin lands → Counter RESETS to 3
+├── Visual: Counter PULSES + number change
+├── Audio: HNW_RESPIN_RESET (rewarding ping)
+```
+
+---
+
+##### F.4) CASCADE/TUMBLE TRANSITION — BTG Megaways
+
+**Big Time Gaming Pattern:**
+```
+PHASE 1: WIN EVALUATION (0-200ms)
+├── Winning symbols HIGHLIGHT (glow pulse)
+├── Win amount PREVIEW (if applicable)
+└── Audio: CASCADE_WIN_EVAL
+
+PHASE 2: SYMBOL DESTRUCTION (200-600ms)
+├── Symbols SHATTER (spine mesh deform)
+├── Explosion particles per symbol
+├── Multiplier INCREMENT (if applicable)
+├── Pitch/volume escalation per cascade step:
+│   Step 1: pitch 1.00x, vol 90%
+│   Step 2: pitch 1.05x, vol 94%
+│   Step 3: pitch 1.10x, vol 98%
+│   Step 4: pitch 1.15x, vol 102%
+│   Step 5+: pitch 1.20x+, vol 106%+
+└── Audio: CASCADE_EXPLODE (per symbol, pitched)
+
+PHASE 3: GRAVITY FALL (600-1000ms)
+├── Remaining symbols DROP (easeOutBounce)
+├── New symbols FALL from above
+├── Slight screen shake on impact
+├── Trail effects on falling symbols
+└── Audio: CASCADE_FALL + CASCADE_LAND
+
+PHASE 4: SETTLE (1000-1300ms)
+├── All symbols in final position
+├── Multiplier display UPDATE
+├── Ready for next evaluation
+└── Audio: CASCADE_SETTLE (subtle)
+```
+
+---
+
+##### F.5) BIG WIN CELEBRATION — Universal Pattern
+
+**Industry Standard (NetEnt, Pragmatic, BTG, IGT):**
+```
+WIN TIER DETECTION:
+├── SMALL WIN:  < 5x bet    → Basic animation, no special transition
+├── BIG WIN:    5x-15x      → Phase 1 only
+├── SUPER WIN:  15x-30x     → Phase 1-2
+├── MEGA WIN:   30x-60x     → Phase 1-3
+├── EPIC WIN:   60x-100x    → Full celebration + extended rollup
+├── ULTRA WIN:  100x+       → Premium production value
+
+PHASE 1: IMPACT (0-400ms)
+├── Screen FLASH (white/gold, 150ms)
+├── Reels ZOOM OUT (80% scale)
+├── Text "{TIER} WIN!" SLAM IN (scale overshoot)
+├── Particles: coin burst (count = win_tier * 20)
+└── Audio: BIGWIN_IMPACT (tier-specific stinger)
+
+PHASE 2: ROLLUP (400ms - variable based on win)
+├── Counter ROLLUP animation
+├── Tick rate based on tier:
+│   BIG: 15 ticks/sec, 1500ms duration
+│   SUPER: 12 ticks/sec, 2500ms (ducks other audio)
+│   MEGA: 10 ticks/sec, 4000ms
+│   EPIC: 8 ticks/sec, 7000ms
+│   ULTRA: 6 ticks/sec, 12000ms
+├── Coin particles continuous
+├── Screen glow pulse (400ms cycle)
+└── Audio: ROLLUP_TICK (pitched up per tier)
+
+PHASE 3: CELEBRATION (post-rollup)
+├── Final amount PULSE (scale 1.0→1.2→1.0)
+├── Confetti/coin shower peak
+├── Screen SHAKE (subtle)
+└── Audio: BIGWIN_CELEBRATE (fanfare resolution)
+
+PHASE 4: EXIT (1500ms)
+├── Celebration FADES
+├── Reels ZOOM back (100% scale)
+├── Return to normal play
+└── Audio: Music crossfade back
+```
+
+---
+
+##### F.6) ANTICIPATION SYSTEM — Per-Reel Tension
+
+**Industry Pattern (Scatter-Triggered):**
+```
+TRIGGER CONDITIONS:
+├── 2+ scatters visible → Anticipation ON for remaining reels
+├── NEVER triggers on Reel 0 (first reel)
+├── Each subsequent reel has HIGHER tension
+
+TENSION LEVELS:
+├── L1 (Reel 1): Subtle glow, volume 0.6x, pitch +1 semitone
+├── L2 (Reel 2): Medium glow, volume 0.7x, pitch +2 semitones
+├── L3 (Reel 3): Strong glow, volume 0.8x, pitch +3 semitones
+├── L4 (Reel 4+): Max intensity, volume 0.9x, pitch +4 semitones
+
+VISUAL ELEMENTS PER LEVEL:
+├── Reel border glow (L1=gold, L2=orange, L3=red-orange, L4=red)
+├── Symbol pulse rate increases
+├── Background particles intensify
+├── Screen vignette deepens
+
+AUDIO STAGES:
+├── ANTICIPATION_TENSION_R1_L1 → First anticipating reel
+├── ANTICIPATION_TENSION_R2_L2 → Second, higher tension
+├── ANTICIPATION_TENSION_R3_L3 → Third, building
+├── ANTICIPATION_TENSION_R4_L4 → Max tension
+
+RESOLUTION:
+├── Scatter lands → SCATTER_LAND + transition to FS_TRIGGER
+├── No scatter → ANTICIPATION_RELEASE (deflate sound)
+```
+
+---
+
+##### F.7) ANIMATION EASING REFERENCE
+
+**Industry-Standard Curves:**
+
+| Curve | Use Case | CSS Equivalent |
+|-------|----------|----------------|
+| **easeOutBack** | Logo/text slam-in | cubic-bezier(0.34, 1.56, 0.64, 1) |
+| **easeOutBounce** | Symbol land, cascade fall | Custom bounce formula |
+| **easeInOutQuad** | Smooth transitions | cubic-bezier(0.45, 0, 0.55, 1) |
+| **easeOutElastic** | Win counter pop | Spring-based elastic |
+| **linear** | Rollup counter | No easing |
+| **easeInExpo** | Quick exits | cubic-bezier(0.95, 0.05, 0.8, 0.04) |
+
+**Spine Blend Modes:**
+```
+MIX:      Standard alpha blend (default)
+ADD:      Additive (glow effects, particles)
+MULTIPLY: Darkening (shadows, vignettes)
+SCREEN:   Lightening (flashes, highlights)
+```
+
+---
+
+##### F.8) TRANSITION TIMING MATRIX (Estimated Industry Ranges)
+
+| Transition | Min | Optimal | Max | Skip After |
+|------------|-----|---------|-----|------------|
+| FS_ENTER | 800ms | 1500ms | 2500ms | 600ms |
+| FS_EXIT | 600ms | 1200ms | 2000ms | 400ms |
+| HNW_ENTER | 1200ms | 2000ms | 3000ms | 800ms |
+| HNW_EXIT | 1000ms | 1500ms | 2500ms | 600ms |
+| BONUS_ENTER | 1000ms | 1800ms | 3000ms | 700ms |
+| BONUS_EXIT | 600ms | 1200ms | 2000ms | 400ms |
+| BIG_WIN_ENTER | 400ms | 800ms | 1500ms | N/A |
+| BIG_WIN_EXIT | 300ms | 600ms | 1000ms | N/A |
+| CASCADE_STEP | 200ms | 350ms | 500ms | N/A |
+| JACKPOT_ENTER | 1500ms | 2500ms | 4000ms | N/A |
+| JACKPOT_EXIT | 1200ms | 2000ms | 3000ms | 1000ms |
+
+**Note:** Actual timings are proprietary — these are industry estimates based on gameplay analysis.
+
+---
+
+##### F.9) SPINE INTEGRATION ARCHITECTURE
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    SPINE ANIMATION PIPELINE                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  SPINE EDITOR                  FLUTTER RUNTIME                           │
+│  ┌──────────────┐              ┌──────────────────────────────────────┐ │
+│  │ .spine file  │ ──export──►  │ spine-flutter (official package)     │ │
+│  │ + animations │              │ ├── SkeletonAnimation widget          │ │
+│  │ + skins      │              │ ├── AnimationState for blending       │ │
+│  │ + events     │              │ └── Event callbacks for audio sync    │ │
+│  └──────────────┘              └──────────────────────────────────────┘ │
+│        │                                     │                           │
+│        ▼                                     ▼                           │
+│  ┌──────────────┐              ┌──────────────────────────────────────┐ │
+│  │ .atlas file  │              │ TransitionController                  │ │
+│  │ (textures)   │              │ ├── playTransition(type, config)      │ │
+│  │              │              │ ├── onSpineEvent → triggerAudioStage  │ │
+│  └──────────────┘              │ └── blendTransitions(from, to, alpha) │ │
+│        │                       └──────────────────────────────────────┘ │
+│        ▼                                     │                           │
+│  ┌──────────────┐                            ▼                           │
+│  │ .skel.bytes  │              ┌──────────────────────────────────────┐ │
+│  │ (binary)     │              │ Audio Stage Triggers                  │ │
+│  └──────────────┘              │ ├── Spine Event → EventRegistry       │ │
+│                                │ ├── Frame-accurate sync               │ │
+│                                │ └── Volume/pan from event data        │ │
+│                                └──────────────────────────────────────┘ │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Spine Event Integration:**
+```dart
+// Spine animation events map to audio stages
+skeletonAnimation.state.setListener((type, event, trackIndex) {
+  if (type == SpineEventType.event) {
+    // Event name from Spine = audio stage name
+    eventRegistry.triggerStage(event.data.name);
+  }
+});
+```
+
+---
+
+##### G) Generated Configuration
+
+```dart
+class TransitionsBlockConfig {
+  // Global settings
+  final TransitionStylePreset stylePreset;
+  final double speedScale;
+  final bool skipOnTurbo;
+  final TransitionMusicSync musicSync;
+
+  // Per-transition configs
+  final Map<TransitionType, TransitionConfig> transitions;
+
+  // Custom transitions (plugin-ready)
+  final List<CustomTransitionConfig> customTransitions;
+}
+
+class TransitionConfig {
+  final String id;                    // 'fs_enter', 'hnw_exit'
+  final Duration duration;
+  final Curve easing;
+  final VisualType visualType;
+  final BackgroundEffect background;
+  final OverlayConfig? overlay;
+  final ParticleConfig? particles;
+  final ScreenFlashConfig? flash;
+
+  // Audio sync points
+  final List<AudioSyncPoint> audioSyncPoints;
+
+  // Skip conditions
+  final bool skippable;
+  final Duration skipAfter;           // User can skip after this
+}
+
+class AudioSyncPoint {
+  final Duration offset;              // When to trigger
+  final String stageName;             // Stage to trigger
+  final double volume;                // Volume modifier
+  final double pan;                   // Stereo position
+}
+```
+
+---
+
+##### H) Generated Stages (15 Transition Stages)
+
+```
+TRANSITION_START        → Any transition begins
+TRANSITION_END          → Any transition completes
+
+// Free Spins Transitions
+FS_TRANS_FLASH          → Initial screen flash
+FS_TRANS_SCATTER        → Scatter collection moment
+FS_TRANS_LOGO           → Logo/title appears
+FS_TRANS_COUNT          → Counter animation
+FS_TRANS_EXIT_BEGIN     → FS ending begins
+FS_TRANS_TOTAL_SHOW     → Total win display
+
+// Hold & Win Transitions
+HNW_TRANS_LOCK          → Reels locking animation
+HNW_TRANS_COIN_FLY      → Coins fly to positions
+HNW_TRANS_UNLOCK        → Reels unlocking
+HNW_TRANS_TOTAL         → Total coin value
+
+// Bonus Transitions
+BONUS_TRANS_PORTAL      → Scene transition effect
+BONUS_TRANS_RETURN      → Return portal
+
+// Big Win Transitions
+BIGWIN_TRANS_FLASH      → Big win impact
+BIGWIN_TRANS_COINS      → Coin shower begins
+```
+
+---
+
+##### I) UI Panel Section
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ▼ TRANSITIONS                                            [⚙]  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Style Preset:  [Standard ▼]        Speed: [1.0x ▼]             │
+│  ☑ Skip on Turbo    ☐ Sync to Music Beat                        │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ TRANSITION          DURATION    VISUAL       PREVIEW        ││
+│  ├─────────────────────────────────────────────────────────────┤│
+│  │ ▸ FS Enter          1500ms      Zoom         [▶ Preview]   ││
+│  │ ▸ FS Exit           1200ms      Fade         [▶ Preview]   ││
+│  │ ▸ H&W Enter         2000ms      Lock+Flash   [▶ Preview]   ││
+│  │ ▸ H&W Exit          1500ms      Unlock       [▶ Preview]   ││
+│  │ ▸ Big Win Enter     800ms       Flash+Zoom   [▶ Preview]   ││
+│  │ ▸ Cascade Step      300ms       Explode      [▶ Preview]   ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  [+ Add Custom Transition]                                       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+
+Expanded FS Enter:
+┌─────────────────────────────────────────────────────────────────┐
+│  FS ENTER TRANSITION                              [Reset] [×]   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Duration:     [1500] ms    ├──────────●──────────┤ 500-5000   │
+│  Easing:       [EaseOut ▼]                                      │
+│                                                                  │
+│  ── VISUAL ──────────────────────────────────────────────────   │
+│  Type:         [Zoom ▼]     Direction: [In ▼]                  │
+│  Background:   [Dim ▼]      Opacity: [70%]                      │
+│                                                                  │
+│  ── OVERLAY ─────────────────────────────────────────────────   │
+│  Overlay:      [FS Logo ▼]  Animation: [Scale ▼]               │
+│  ☑ Show Spin Counter        Position: [Center ▼]               │
+│                                                                  │
+│  ── EFFECTS ─────────────────────────────────────────────────   │
+│  Particles:    [Scatter Trails ▼]     Density: [Medium ▼]      │
+│  Screen Flash: [Gold ▼]               Intensity: [80%]          │
+│                                                                  │
+│  ── AUDIO SYNC ──────────────────────────────────────────────   │
+│  │ 0ms    │ 300ms  │ 600ms  │ 900ms  │ 1200ms │ 1500ms │       │
+│  │ FLASH  │SCATTER │  LOGO  │ COUNT  │ MUSIC  │  END   │       │
+│  │   ▼    │   ▼    │   ▼    │   ▼    │   ▼    │   ▼    │       │
+│  └────────┴────────┴────────┴────────┴────────┴────────┘       │
+│  [Edit Sync Points...]                                          │
+│                                                                  │
+│  [▶ Preview Transition]     [Apply to All Similar]              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+##### J) Dependencies
+
+| Dependency | Type | Description |
+|------------|------|-------------|
+| Free Spins | ENABLES | FS_ENTER, FS_EXIT transitions |
+| Hold & Win | ENABLES | HNW_ENTER, HNW_EXIT transitions |
+| Bonus Game | ENABLES | BONUS_ENTER, BONUS_EXIT transitions |
+| Cascades | ENABLES | CASCADE_STEP transition |
+| Win Presentation | MODIFIES | BIG_WIN transitions timing |
+| Music States | REQUIRES | For music sync option |
+
+---
+
+##### K) Rust Integration
+
+```rust
+pub struct TransitionConfig {
+    pub id: String,
+    pub duration_ms: u32,
+    pub easing: EasingType,
+    pub visual_type: VisualType,
+    pub audio_sync_points: Vec<AudioSyncPoint>,
+    pub skippable: bool,
+    pub skip_after_ms: Option<u32>,
+}
+
+pub struct AudioSyncPoint {
+    pub offset_ms: u32,
+    pub stage: String,
+    pub volume: f32,
+    pub pan: f32,
+}
+
+// FFI function
+pub fn apply_transitions_config(json: &str) -> Result<(), EngineError>;
+pub fn trigger_transition(transition_id: &str) -> Result<TransitionHandle, EngineError>;
+pub fn skip_transition(handle: TransitionHandle) -> Result<(), EngineError>;
+```
+
 ---
 
 ## 4. DEPENDENCY SYSTEM
@@ -1153,6 +1773,388 @@ Svaka tranzicija ima timing kontrole u Feature Builder:
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 5.5 INDUSTRY-STANDARD GAME FLOW (NEW)
+
+Bazirano na analizi vodećih slot developera: **Big Time Gaming**, **NetEnt**, **Pragmatic Play**, **Play'n GO**, **Aristocrat** (Lightning Link), **IGT**.
+
+### 5.5.1 Universal Game Flow Pattern
+
+**Svi moderni slotovi prate isti fundamentalni pattern:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        UNIVERSAL SLOT GAME FLOW                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌──────────────────────────────────────────────────────────────────────┐  │
+│   │                         BASE GAME STATE                               │  │
+│   │                                                                       │  │
+│   │  IDLE → SPIN_START → REEL_SPINNING → REEL_STOPS → WIN_EVALUATION    │  │
+│   │    ↑                                                            │     │  │
+│   │    └────────────────────────────────────────────────────────────┘     │  │
+│   │                              │                                        │  │
+│   │                              │ (trigger condition met)                │  │
+│   │                              ▼                                        │  │
+│   │  ┌─────────────────────────────────────────────────────────────────┐ │  │
+│   │  │                    FEATURE TRIGGER ZONE                          │ │  │
+│   │  │                                                                  │ │  │
+│   │  │   • Scatter count reached (FS)                                   │ │  │
+│   │  │   • Bonus symbol lands (Bonus Game)                              │ │  │
+│   │  │   • Cascade chain completes (Cascade Feature)                    │ │  │
+│   │  │   • Meter fills (Progressive Feature)                            │ │  │
+│   │  │   • Random trigger (Mystery Feature)                             │ │  │
+│   │  │                                                                  │ │  │
+│   │  └─────────────────────────────────────────────────────────────────┘ │  │
+│   └───────────────────────────────────────────────────────────────────────┘  │
+│                                        │                                      │
+│                                        ▼                                      │
+│   ┌───────────────────────────────────────────────────────────────────────┐  │
+│   │                      FEATURE STATE MACHINE                            │  │
+│   │                                                                       │  │
+│   │   INTRO → FEATURE_SPIN → [ESCALATION] → WIN_PRESENTATION → OUTRO    │  │
+│   │     │                         │                                │      │  │
+│   │     │                         └──────► RETRIGGER ──────────────┤      │  │
+│   │     │                                      │                   │      │  │
+│   │     │                                      ▼                   │      │  │
+│   │     │                              (more spins added)          │      │  │
+│   │     │                                      │                   │      │  │
+│   │     └──────────────────────────────────────┴───────────────────┘      │  │
+│   │                                                                       │  │
+│   │                              ▼                                        │  │
+│   │                       RETURN TO BASE                                  │  │
+│   │                                                                       │  │
+│   └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.5.2 Feature-Specific Flow Patterns
+
+#### **A) MEGAWAYS / CASCADING REELS** (Big Time Gaming)
+
+```
+SPIN → WIN_EVALUATION
+           │
+           ├── NO WIN → END_SPIN
+           │
+           └── WIN DETECTED
+                   │
+                   ▼
+           ┌─────────────────────────────────┐
+           │      CASCADE SEQUENCE           │
+           │                                 │
+           │  1. WIN_HIGHLIGHT              │
+           │  2. SYMBOLS_EXPLODE            │ ← Winning symbols removed
+           │  3. MULTIPLIER_INCREMENT (+1x) │ ← Per-cascade escalation
+           │  4. SYMBOLS_FALL               │ ← New symbols drop
+           │  5. NEW_WIN_EVALUATION         │
+           │         │                       │
+           │         ├── WIN → LOOP BACK TO 1│
+           │         │                       │
+           │         └── NO WIN → CASCADE_END│
+           │                                 │
+           └─────────────────────────────────┘
+                           │
+                           ▼
+                   TOTAL_WIN_PRESENTATION
+                   (Sum of all cascade wins × final multiplier)
+```
+
+**Key Audio Stages:**
+```
+CASCADE_START           → Initiates cascade sequence
+CASCADE_STEP_N          → Per-step escalation (pitch/volume increase)
+CASCADE_SYMBOL_POP      → Symbol explosion SFX
+CASCADE_FALL            → Symbols falling
+CASCADE_MULTIPLIER_UP   → Multiplier increment fanfare
+CASCADE_END             → Sequence complete
+```
+
+**Play'n GO Philosophy:** "Creation, Escalation, Resolution"
+- **Creation:** Initial win triggers cascade
+- **Escalation:** Each cascade step increases tension (multiplier, pitch, volume)
+- **Resolution:** Final big win celebration
+
+---
+
+#### **B) HOLD & WIN / LIGHTNING LINK** (Aristocrat / Pragmatic Play)
+
+```
+BASE_GAME → BONUS_SYMBOL_TRIGGER (6+ coins)
+                    │
+                    ▼
+            ┌─────────────────────────────────────┐
+            │         HOLD & WIN STATE            │
+            │                                     │
+            │   Initial: 3 respins remaining      │
+            │                                     │
+            │   ┌─────────────────────────────┐   │
+            │   │  LOCKED_SYMBOLS (coins)     │   │
+            │   │  ┌───┬───┬───┬───┬───┐     │   │
+            │   │  │💰│   │💰│   │💰│     │   │
+            │   │  ├───┼───┼───┼───┼───┤     │   │
+            │   │  │   │💰│   │💰│   │     │   │
+            │   │  ├───┼───┼───┼───┼───┤     │   │
+            │   │  │💰│   │   │   │💰│     │   │
+            │   │  └───┴───┴───┴───┴───┘     │   │
+            │   │                             │   │
+            │   │  Respins: [3]               │   │
+            │   │                             │   │
+            │   └─────────────────────────────┘   │
+            │                                     │
+            │   RESPIN_SPIN                       │
+            │       │                             │
+            │       ├── NEW COIN LANDS            │
+            │       │       │                     │
+            │       │       ├→ COIN_LOCK_SOUND    │
+            │       │       └→ RESPINS_RESET (3)  │ ← KEY MECHANIC!
+            │       │                             │
+            │       └── NO NEW COIN               │
+            │               │                     │
+            │               └→ RESPINS_DECREMENT  │
+            │                                     │
+            │   IF respins == 0 OR grid_full:     │
+            │       → HOLD_WIN_END                │
+            │       → JACKPOT_CHECK               │
+            │       → TOTAL_AWARD                 │
+            │                                     │
+            └─────────────────────────────────────┘
+```
+
+**Key Mechanics:**
+- **Respin Counter Reset:** Every new coin resets counter to 3 (critical for tension)
+- **4 Jackpot Tiers:** Mini, Minor, Major, Grand (position-dependent)
+- **Grid Fill Bonus:** All 15 positions = Grand Jackpot guaranteed
+
+**Key Audio Stages:**
+```
+HOLD_WIN_TRIGGER        → 6+ coins, entering feature
+HOLD_WIN_SPIN           → Each respin
+COIN_LAND               → New coin appears
+COIN_LOCK               → Coin locks in place
+RESPINS_RESET           → Counter resets to 3 (tension release + rebuild)
+RESPINS_TICK            → Counter decrement
+HOLD_WIN_JACKPOT_MINI   → Mini jackpot awarded
+HOLD_WIN_JACKPOT_GRAND  → Grand jackpot (grid full)
+HOLD_WIN_TOTAL          → Final sum presentation
+HOLD_WIN_EXIT           → Return to base
+```
+
+---
+
+#### **C) FREE SPINS FEATURE** (Universal)
+
+```
+SCATTER_LAND_1 → SCATTER_LAND_2 → SCATTER_LAND_3
+        │              │              │
+        └──────────────┴──────────────┘
+                       │
+                       ▼
+              ANTICIPATION_BUILD
+              (ako scatter na reel 1-2, čeka se reel 3+)
+                       │
+                       ▼
+              FS_TRIGGER (3+ scatters confirmed)
+                       │
+                       ▼
+         ┌─────────────────────────────────┐
+         │      FREE SPINS STATE           │
+         │                                 │
+         │   FS_INTRO (transition)         │
+         │           │                     │
+         │           ▼                     │
+         │   FS_COUNTER_SHOW (10 spins)    │
+         │           │                     │
+         │           ▼                     │
+         │   ┌───────────────────────────┐ │
+         │   │    FS_SPIN_LOOP           │ │
+         │   │                           │ │
+         │   │  SPIN → STOP → EVAL       │ │
+         │   │     │                     │ │
+         │   │     │ (if 3+ scatters)    │ │
+         │   │     └──► FS_RETRIGGER ────┼─┼──► +N spins
+         │   │                           │ │
+         │   │  counter--                │ │
+         │   │  if counter > 0: LOOP     │ │
+         │   │                           │ │
+         │   └───────────────────────────┘ │
+         │                                 │
+         │   FS_TOTAL_WIN                  │
+         │   FS_OUTRO (transition)         │
+         │                                 │
+         └─────────────────────────────────┘
+                       │
+                       ▼
+               RETURN TO BASE
+```
+
+**Key Audio Stages:**
+```
+SCATTER_LAND_1/2/3      → Per-scatter anticipation (escalating)
+ANTICIPATION_TENSION    → Waiting for next scatter (per-reel tension)
+FS_TRIGGER              → Confirmed trigger fanfare
+FS_INTRO                → Transition music/animation
+FS_MUSIC_LOOP           → Background music during FS (different from base)
+FS_SPIN_START/END       → Per-spin audio
+FS_RETRIGGER            → Additional spins awarded
+FS_COUNTER_UPDATE       → Counter decrement
+FS_TOTAL_WIN            → Final win celebration
+FS_OUTRO                → Transition back
+```
+
+**Retrigger Math:**
+| Initial Scatters | Spins Awarded |
+|------------------|---------------|
+| 3 | 10 |
+| 4 | 15 |
+| 5 | 20 |
+| Retrigger 3+ | +5 to +10 |
+
+---
+
+#### **D) BONUS GAME** (Pick / Wheel / Multi-Level)
+
+```
+BONUS_TRIGGER
+      │
+      ▼
+BONUS_INTRO
+      │
+      ▼
+┌───────────────────────────────────────────────────┐
+│              BONUS GAME TYPE                       │
+├───────────────────────────────────────────────────┤
+│                                                    │
+│  PICK GAME:           WHEEL:           MULTI-LEVEL:│
+│  ┌────────────┐      ┌────────┐      ┌──────────┐ │
+│  │ ? ? ? ? ?  │      │   🎡   │      │ Level 1  │ │
+│  │ ? ? ? ? ?  │      │        │      │ Level 2  │ │
+│  │ ? ? ? ? ?  │      │ SPIN!  │      │ Level 3  │ │
+│  └────────────┘      └────────┘      │ BOSS!    │ │
+│                                      └──────────┘ │
+│  PICK_REVEAL         WHEEL_SPIN      LEVEL_UP    │
+│  PICK_PRIZE          WHEEL_STOP      BOSS_FIGHT  │
+│  PICK_COLLECT        WHEEL_AWARD     LEVEL_WIN   │
+│  PICK_GAMEOVER                                    │
+│                                                    │
+└───────────────────────────────────────────────────┘
+      │
+      ▼
+BONUS_TOTAL_WIN
+      │
+      ▼
+BONUS_OUTRO → RETURN TO BASE
+```
+
+---
+
+### 5.5.3 Anticipation System (Per-Reel Tension)
+
+**Industry Standard:** Anticipation se aktivira kada prethodni reelovi imaju scatter/bonus, a čeka se rezultat sledećih.
+
+```
+Reel 0    Reel 1    Reel 2    Reel 3    Reel 4
+  │         │         │         │         │
+  ▼         ▼         ▼         ▼         ▼
+[SCAT]   [SCAT]   [STOP]   [ANTIC]   [ANTIC]
+  │         │         │         │         │
+  └─────────┴─────────┴─────────┴─────────┘
+                      │
+         2 scatters = ANTICIPATION for reels 3, 4
+```
+
+**Tension Level Escalation:**
+| Condition | Tension Level | Audio |
+|-----------|---------------|-------|
+| 2 scatters, waiting for 3rd | L1 (Low) | Subtle tension rise |
+| 3 scatters locked, waiting for 4th | L2 (Medium) | Building excitement |
+| 4 scatters locked, waiting for 5th | L3 (High) | Maximum anticipation |
+
+**Generated Stages:**
+```
+ANTICIPATION_TENSION_R3_L1    → Reel 3 anticipation, level 1
+ANTICIPATION_TENSION_R3_L2    → Reel 3 anticipation, level 2 (if 3 scatters)
+ANTICIPATION_TENSION_R4_L1    → Reel 4 anticipation, level 1
+ANTICIPATION_TENSION_R4_L2    → Reel 4 anticipation, level 2
+ANTICIPATION_TENSION_R4_L3    → Reel 4 anticipation, level 3 (if 4 scatters)
+```
+
+---
+
+### 5.5.4 State Machine Model za Feature Builder
+
+```dart
+enum GamePhase {
+  idle,
+  spinning,
+  evaluating,
+  presenting,
+  featureIntro,
+  featureActive,
+  featureOutro,
+}
+
+class GameFlowStateMachine {
+  GamePhase currentPhase = GamePhase.idle;
+  GamePhase? subPhase;  // Za nested states (cascade step, fs spin, etc.)
+
+  // Context tracking
+  bool inFreeSpins = false;
+  bool inHoldWin = false;
+  bool inBonusGame = false;
+  int cascadeLevel = 0;
+  int respinsRemaining = 0;
+  int freeSpinsRemaining = 0;
+
+  // Transition triggers
+  void onSpinStart() => _transition(GamePhase.spinning);
+  void onReelsStop() => _transition(GamePhase.evaluating);
+  void onWinDetected() => _transition(GamePhase.presenting);
+  void onFeatureTrigger(FeatureType type) {
+    _transition(GamePhase.featureIntro);
+    _activateFeature(type);
+  }
+  void onFeatureComplete() {
+    _transition(GamePhase.featureOutro);
+    _scheduleReturnToBase();
+  }
+
+  // Stage emission
+  List<String> getStagesForTransition(GamePhase from, GamePhase to);
+}
+```
+
+---
+
+### 5.5.5 Feature Builder Auto-Generation
+
+Kada korisnik čekira feature u Feature Builder, sistem automatski generiše:
+
+| Feature Enabled | Generated Flow Elements |
+|-----------------|-------------------------|
+| **Free Spins** | FS state machine, retrigger logic, counter UI, FS music context |
+| **Cascading** | Cascade loop, multiplier escalation, symbol removal, gravity physics |
+| **Hold & Win** | Respin counter, coin lock logic, respins reset on new coin, jackpot tiers |
+| **Bonus Game** | Pick/Wheel/Trail state machine, prize reveal sequence |
+| **Anticipation** | Per-reel tension detection, scatter counting, tension level stages |
+| **Multipliers** | Multiplier display, progressive increment, win multiplication |
+
+---
+
+### 5.5.6 Missing Elements Identified (Gaps from Industry Analysis)
+
+| Element | Status Before | Added Now |
+|---------|---------------|-----------|
+| **Respin Counter Reset** | Not explicit | ✅ Hold & Win flow includes reset-on-new-coin |
+| **Cascade Multiplier Escalation** | Mentioned | ✅ Detailed per-step escalation |
+| **Anticipation Per-Reel Tension Levels** | Basic | ✅ L1-L4 tension system |
+| **Retrigger Math** | Basic | ✅ Table with scatter→spin mapping |
+| **Feature Context Music Switch** | Implied | ✅ Explicit FS_MUSIC_LOOP stage |
+| **Multi-Level Bonus** | Not covered | ✅ Added to Bonus Game section |
+| **Play'n GO "Creation-Escalation-Resolution"** | Not mentioned | ✅ Documented as design philosophy |
 
 ---
 

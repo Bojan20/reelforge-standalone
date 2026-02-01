@@ -26,6 +26,24 @@ Tokom analize codebase-a i pisanja ultimate specifikacije, identifikovao sam sle
 | **Implementation phases** | Nije pomenuto | 9 faza, 24 dana, ~10,900 LOC |
 | **Visual Transitions** | "tranzicije" generički | Kompletna sekcija 5.2.5 + 5.4 sa TransitionDefinition, AnimationStep, Element Mapping |
 | **Mockup Integration** | Nije eksplicitno | Sekcija 5.4 detaljno opisuje workflow Ručni Mockup → Feature Builder → Sinhronizovane tranzicije |
+| **Industry Game Flow** | Implicitno | Nova sekcija 5.5 — kompletni flow patterns od Big Time Gaming, NetEnt, Pragmatic Play, Aristocrat, IGT |
+| **Cascade Multiplier Escalation** | Pomenuto | Sekcija 5.5.2.A — detaljan per-step multiplier sistem sa pitch/volume eskalacijom |
+| **Hold & Win Respin Reset** | Nije pomenuto | Sekcija 5.5.2.B — ključna mehanika: novi coin = reset respins na 3 |
+| **Anticipation Tension Levels** | Osnovni | Sekcija 5.5.3 — L1-L4 tension sistem po reelu sa stage formatom `ANTICIPATION_TENSION_R{X}_L{Y}` |
+| **Creation-Escalation-Resolution** | Nije pomenuto | Sekcija 5.5.2.A — Play'n GO dizajn filozofija dokumentovana |
+| **Retrigger Math Table** | Samo pomenuto | Sekcija 5.5.2.C — eksplicitna tabela scatter→spin mapiranja |
+| **Feature Music Context Switch** | Implicitno | Sekcija 5.5.2.C — FS_MUSIC_LOOP kao eksplicitan stage |
+| **Multi-Level Bonus** | Nije pokriveno | Sekcija 5.5.2.D — Trail/Level bonus pattern dokumentovan |
+| **TRANSITIONS Block** | Implicitno u vizualima | **NOVA SEKCIJA 3.3.3** — Kompletan konfiguracioni blok sa 11 predefinisanih tranzicija, per-transition opcijama, visual type library, audio sync points, industry reference stilovi |
+| **Industry Transition Research** | Surface-level | **SEKCIJE F.1-F.9** — Spine 2D kao industry standard, detaljni phase breakdown za FS/HNW/Cascade/BigWin tranzicije, timing matrix, easing reference, Spine integration architecture |
+| **Free Spins Transition Phases** | Jedan stage | Sekcija F.2 — 3-fazni breakdown (Trigger→Logo Reveal→Counter Setup) sa NetEnt i Pragmatic stilovima |
+| **Hold & Win Lightning Pattern** | Generički | Sekcija F.3 — Aristocrat Lightning Link pattern sa Reel Lock, Electric VFX, Respin Reset mehanikom |
+| **Cascade/Tumble Transition** | Samo CASCADE_STEP | Sekcija F.4 — 4-fazni BTG Megaways pattern (Eval→Destruction→Gravity Fall→Settle) sa pitch/volume escalation per step |
+| **Big Win Celebration System** | Win tiers | Sekcija F.5 — Universal pattern sa 4 faza (Impact→Rollup→Celebration→Exit), tier-specific rollup timing |
+| **Anticipation Technical Spec** | L1-L4 mentioned | Sekcija F.6 — Per-reel tension levels sa visual elements, audio stages, resolution branches |
+| **Animation Easing Reference** | Implicitno | Sekcija F.7 — 6 industry-standard curves sa CSS equivalents + Spine blend modes |
+| **Transition Timing Matrix** | Hardcoded | Sekcija F.8 — Min/Optimal/Max/SkipAfter timing za 11 tranzicija (estimated industry ranges) |
+| **Spine Integration Architecture** | Nije pokriveno | Sekcija F.9 — Full pipeline diagram: Spine Editor → Flutter Runtime → Audio Stage Triggers |
 
 ### 1.2 Arhitekturne odluke koje sam doneo
 
