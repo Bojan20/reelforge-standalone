@@ -2322,6 +2322,53 @@ impl PlaybackEngine {
             .unwrap_or(false)
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // P10.0.1: PER-PROCESSOR METERING ACCESS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Get metering data for track insert slot
+    pub fn get_track_insert_metering(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+    ) -> Option<crate::insert_chain::ProcessorMetering> {
+        self.insert_chains
+            .read()
+            .get(&track_id)?
+            .slot(slot_index)?
+            .get_metering()
+            .into()
+    }
+
+    /// Get metering data for master insert slot
+    pub fn get_master_insert_metering(
+        &self,
+        slot_index: usize,
+    ) -> Option<crate::insert_chain::ProcessorMetering> {
+        self.master_insert
+            .read()
+            .slot(slot_index)?
+            .get_metering()
+            .into()
+    }
+
+    /// Get metering data for bus insert slot
+    pub fn get_bus_insert_metering(
+        &self,
+        bus_id: usize,
+        slot_index: usize,
+    ) -> Option<crate::insert_chain::ProcessorMetering> {
+        if bus_id >= 6 {
+            return None;
+        }
+
+        self.bus_inserts
+            .read()[bus_id]
+            .slot(slot_index)?
+            .get_metering()
+            .into()
+    }
+
     /// Set position for track insert slot
     pub fn set_track_insert_position(&self, track_id: u64, slot_index: usize, pre_fader: bool) {
         use crate::insert_chain::InsertPosition;

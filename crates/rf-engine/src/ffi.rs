@@ -5885,6 +5885,66 @@ pub extern "C" fn insert_is_loaded(track_id: u32, slot_index: u32) -> i32 {
     })
 }
 
+// =============================================================================
+// P10.0.1: PER-PROCESSOR METERING FFI
+// =============================================================================
+
+/// Get per-processor metering data as JSON
+/// track_id=0 means master bus, others are audio track IDs
+///
+/// Returns JSON:
+/// ```json
+/// {
+///   "input_peak_l": 0.5,
+///   "input_peak_r": 0.5,
+///   "input_rms_l": 0.3,
+///   "input_rms_r": 0.3,
+///   "output_peak_l": 0.4,
+///   "output_peak_r": 0.4,
+///   "output_rms_l": 0.25,
+///   "output_rms_r": 0.25,
+///   "gain_reduction_db": -3.5,
+///   "load_percent": 12.5
+/// }
+/// ```
+///
+/// CALLER MUST FREE using free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_get_metering_json(track_id: u32, slot_index: u32) -> *mut c_char {
+    ffi_panic_guard!(std::ptr::null_mut(), {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return std::ptr::null_mut(),
+        };
+
+        let metering = if track_id == 0 {
+            PLAYBACK_ENGINE.get_master_insert_metering(slot_index)
+        } else {
+            PLAYBACK_ENGINE.get_track_insert_metering(track_id as u64, slot_index)
+        };
+
+        if let Some(m) = metering {
+            let json = serde_json::json!({
+                "input_peak_l": m.input_peak_l,
+                "input_peak_r": m.input_peak_r,
+                "input_rms_l": m.input_rms_l,
+                "input_rms_r": m.input_rms_r,
+                "output_peak_l": m.output_peak_l,
+                "output_peak_r": m.output_peak_r,
+                "output_rms_l": m.output_rms_l,
+                "output_rms_r": m.output_rms_r,
+                "gain_reduction_db": m.gain_reduction_db,
+                "load_percent": m.load_percent,
+            });
+
+            let json_str = serde_json::to_string(&json).unwrap_or_default();
+            CString::new(json_str).unwrap().into_raw()
+        } else {
+            std::ptr::null_mut()
+        }
+    })
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // BUS INSERT CHAIN FFI
 // ═══════════════════════════════════════════════════════════════════════════

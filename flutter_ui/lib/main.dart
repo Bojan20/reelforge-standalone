@@ -74,9 +74,28 @@ import 'services/asset_cloud_service.dart';
 import 'services/marketplace_service.dart';
 import 'services/crdt_sync_service.dart';
 import 'src/rust/native_ffi.dart';
+import 'utils/path_validator.dart';
+import 'dart:io';
+import 'package:path/path.dart' as p;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P12.0.4: INITIALIZE PATH VALIDATOR SANDBOX — CRITICAL SECURITY
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MUST be called before any file operations to prevent path traversal attacks
+  final projectRoot = Directory.current.path;
+  final homeDir = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
+  final additionalRoots = <String>[
+    if (homeDir.isNotEmpty) p.join(homeDir, 'Documents', 'FluxForge Projects'),
+    if (homeDir.isNotEmpty) p.join(homeDir, 'Music', 'FluxForge Audio'),
+  ];
+
+  PathValidator.initializeSandbox(
+    projectRoot: projectRoot,
+    additionalRoots: additionalRoots,
+  );
 
   // Initialize dependency injection (GetIt)
   await ServiceLocator.init();

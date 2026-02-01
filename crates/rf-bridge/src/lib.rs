@@ -48,6 +48,8 @@ pub mod midi_bridge;
 mod midi_ffi;
 pub mod middleware_ffi;
 mod playback;
+pub mod ffi_bounds; // ✅ P12.0.5: FFI bounds checking
+pub mod ffi_error; // ✅ P12.0.2: FFI error result type
 pub mod slot_lab_ffi;
 pub mod ale_ffi;
 pub mod auto_spatial_ffi;

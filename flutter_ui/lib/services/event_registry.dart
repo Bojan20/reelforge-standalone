@@ -33,6 +33,7 @@ import 'stage_coverage_service.dart';
 import 'unified_playback_controller.dart';
 import 'hook_dispatcher.dart';
 import '../models/hook_models.dart';
+import '../utils/path_validator.dart';
 
 // =============================================================================
 // P0 WF-06: CUSTOM EVENT HANDLER TYPEDEF (2026-01-30)
@@ -1135,35 +1136,33 @@ class EventRegistry extends ChangeNotifier {
 
   /// Validate audio path for security
   /// Returns true if path is safe, false otherwise
+  /// P12.0.4: ULTIMATE PATH VALIDATION — Multi-layer security
+  ///
+  /// Replaces simple pattern matching with military-grade validation:
+  /// 1. Canonicalization (resolves all symlinks, .., .)
+  /// 2. Sandbox containment check
+  /// 3. Extension whitelist
+  /// 4. Character blacklist (control chars, null bytes)
+  /// 5. Length limits
+  ///
+  /// Zero tolerance for path traversal attacks.
   bool _validateAudioPath(String path) {
-    if (path.isEmpty) return false;
-
-    // Check for path traversal attempts
-    if (path.contains('..')) {
-      debugPrint('[EventRegistry] ⛔ SECURITY: Path traversal attempt blocked: $path');
+    if (path.isEmpty) {
+      debugPrint('[EventRegistry] ⛔ SECURITY: Empty path');
       return false;
     }
 
-    // Check for null bytes (injection attempt)
-    if (path.contains('\x00')) {
-      debugPrint('[EventRegistry] ⛔ SECURITY: Null byte in path blocked: $path');
+    // ULTIMATE VALIDATION via PathValidator
+    final result = PathValidator.validate(path);
+
+    if (!result.isValid) {
+      debugPrint('[EventRegistry] ⛔ SECURITY BLOCKED: ${result.error}');
+      debugPrint('[EventRegistry] ⛔ Original path: $path');
       return false;
     }
 
-    // Check file extension
-    final lowerPath = path.toLowerCase();
-    final hasValidExtension = _allowedAudioExtensions.any((ext) => lowerPath.endsWith(ext));
-    if (!hasValidExtension) {
-      debugPrint('[EventRegistry] ⚠️ Invalid audio extension: $path');
-      return false;
-    }
-
-    // Check for suspicious patterns
-    if (path.contains('\n') || path.contains('\r') || path.contains('|') || path.contains(';')) {
-      debugPrint('[EventRegistry] ⛔ SECURITY: Suspicious characters in path blocked: $path');
-      return false;
-    }
-
+    // Path is valid and canonicalized
+    debugPrint('[EventRegistry] ✅ Path validated: ${result.sanitizedPath}');
     return true;
   }
 

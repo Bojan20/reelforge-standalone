@@ -6,10 +6,88 @@
 //! - Bypass per slot
 //! - Latency compensation
 //! - Lock-free parameter updates via ring buffer
+//! - P10.0.1: Per-processor metering (input/output levels)
 
 use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+// =============================================================================
+// P10.0.1: PER-PROCESSOR METERING
+// =============================================================================
+
+/// Metering data for a single processor (input → output levels)
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ProcessorMetering {
+    /// Input peak level (left channel)
+    pub input_peak_l: f64,
+    /// Input peak level (right channel)
+    pub input_peak_r: f64,
+    /// Input RMS level (left channel)
+    pub input_rms_l: f64,
+    /// Input RMS level (right channel)
+    pub input_rms_r: f64,
+
+    /// Output peak level (left channel)
+    pub output_peak_l: f64,
+    /// Output peak level (right channel)
+    pub output_peak_r: f64,
+    /// Output RMS level (left channel)
+    pub output_rms_l: f64,
+    /// Output RMS level (right channel)
+    pub output_rms_r: f64,
+
+    /// Gain reduction (for dynamics processors, dB)
+    pub gain_reduction_db: f64,
+
+    /// Processing load (percentage, 0-100)
+    pub load_percent: f64,
+}
+
+impl ProcessorMetering {
+    /// Create new metering instance (all zeros)
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Reset all meters to zero
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+
+    /// Update from stereo buffers (calculate peak + RMS)
+    pub fn update_from_buffers(&mut self, left: &[Sample], right: &[Sample]) {
+        // Calculate input levels
+        self.input_peak_l = left.iter().map(|s| s.abs()).fold(0.0, f64::max);
+        self.input_peak_r = right.iter().map(|s| s.abs()).fold(0.0, f64::max);
+
+        self.input_rms_l = (left.iter().map(|s| s * s).sum::<f64>() / left.len() as f64).sqrt();
+        self.input_rms_r = (right.iter().map(|s| s * s).sum::<f64>() / right.len() as f64).sqrt();
+
+        // Output levels will be updated after processing
+    }
+
+    /// Update output levels after processing
+    pub fn update_output_levels(&mut self, left: &[Sample], right: &[Sample]) {
+        self.output_peak_l = left.iter().map(|s| s.abs()).fold(0.0, f64::max);
+        self.output_peak_r = right.iter().map(|s| s.abs()).fold(0.0, f64::max);
+
+        self.output_rms_l = (left.iter().map(|s| s * s).sum::<f64>() / left.len() as f64).sqrt();
+        self.output_rms_r = (right.iter().map(|s| s * s).sum::<f64>() / right.len() as f64).sqrt();
+    }
+
+    /// Calculate gain reduction in dB (input vs output)
+    pub fn calculate_gain_reduction(&mut self) {
+        let input_peak = self.input_peak_l.max(self.input_peak_r);
+        let output_peak = self.output_peak_l.max(self.output_peak_r);
+
+        if input_peak > 1e-10 && output_peak > 1e-10 {
+            self.gain_reduction_db = 20.0 * (output_peak / input_peak).log10();
+        } else {
+            self.gain_reduction_db = 0.0;
+        }
+    }
+}
 
 // ============ Bypass Fade Configuration ============
 
@@ -95,6 +173,9 @@ pub struct InsertSlot {
     // ═══ Sidechain (P0.5) ═══
     /// Sidechain source track ID (-1 = internal/disabled)
     sidechain_source: i64,
+    // ═══ P10.0.1: Per-Processor Metering ═══
+    /// Real-time metering data (input/output levels, GR, load)
+    metering: ProcessorMetering,
 }
 
 impl InsertSlot {
@@ -126,6 +207,8 @@ impl InsertSlot {
             bypass_gain: 1.0,
             bypass_coeff: Self::calculate_bypass_coeff(DEFAULT_SAMPLE_RATE),
             sample_rate: DEFAULT_SAMPLE_RATE,
+            // P10.0.1: Metering
+            metering: ProcessorMetering::new(),
         }
     }
 
@@ -205,6 +288,7 @@ impl InsertSlot {
 
         // Fast path: fully bypassed and not fading - skip entirely
         if self.bypass_gain < 1e-6 && target_bypass_gain < 1e-6 {
+            self.metering.reset(); // P10.0.1: Clear metering when bypassed
             return;
         }
 
@@ -213,6 +297,9 @@ impl InsertSlot {
         let len = left.len().min(right.len()).min(MAX_BLEND_BUFFER_SIZE);
 
         if let Some(ref mut processor) = self.processor {
+            // P10.0.1: Update input metering BEFORE processing
+            self.metering.update_from_buffers(&left[..len], &right[..len]);
+
             // Store dry signal in pre-allocated buffers (always needed for fade)
             self.dry_buffer_l[..len].copy_from_slice(&left[..len]);
             self.dry_buffer_r[..len].copy_from_slice(&right[..len]);
@@ -239,7 +326,25 @@ impl InsertSlot {
             if (self.bypass_gain - target_bypass_gain).abs() < 1e-6 {
                 self.bypass_gain = target_bypass_gain;
             }
+
+            // P10.0.1: Update output metering AFTER processing + mixing
+            self.metering.update_output_levels(&left[..len], &right[..len]);
+            self.metering.calculate_gain_reduction();
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // P10.0.1: METERING ACCESS METHODS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Get current metering data (safe to call from any thread)
+    pub fn get_metering(&self) -> ProcessorMetering {
+        self.metering
+    }
+
+    /// Reset metering to zero
+    pub fn reset_metering(&mut self) {
+        self.metering.reset();
     }
 
     /// Reset processor state

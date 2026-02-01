@@ -30,6 +30,9 @@ use rf_slot_lab::{
 };
 use rf_stage::StageEvent;
 
+// P12.0.5: Ultimate FFI bounds checking
+use crate::ffi_bounds::{self, BoundsCheckResult};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2045,8 +2048,27 @@ pub extern "C" fn slot_lab_gamble_force_trigger(initial_stake: f64) -> i32 {
 /// Make a gamble choice
 /// choice_index: 0=first option, 1=second option, etc.
 /// Returns JSON: {"won": true, "new_stake": 200.0, "game_over": false}
+///
+/// P12.0.5: BOUNDS CHECKED — validates choice_index before engine call
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_gamble_make_choice(choice_index: i32) -> *mut c_char {
+    // P12.0.5: Validate choice index (gamble has 2-10 choices, use 100 as safe upper bound)
+    const MAX_CHOICES: usize = 100;
+
+    if choice_index < 0 {
+        log::error!("slot_lab_gamble_make_choice: Negative index {}", choice_index);
+        return std::ptr::null_mut();
+    }
+
+    if (choice_index as usize) >= MAX_CHOICES {
+        log::error!(
+            "slot_lab_gamble_make_choice: Index {} exceeds max {}",
+            choice_index,
+            MAX_CHOICES
+        );
+        return std::ptr::null_mut();
+    }
+
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
         Some(engine) => {
@@ -2110,8 +2132,19 @@ pub extern "C" fn slot_lab_jackpot_is_active() -> i32 {
 /// Get jackpot value for a specific tier
 /// tier: 0=Mini, 1=Minor, 2=Major, 3=Grand
 /// Returns current progressive value for that tier
+///
+/// P12.0.5: BOUNDS CHECKED — validates tier index before array access
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_jackpot_get_tier_value(tier: i32) -> f64 {
+    // P12.0.5: Validate tier index (0-3 for 4 tiers)
+    const MAX_TIERS: usize = 4;
+    let bounds_check = ffi_bounds::check_index(tier as i64, MAX_TIERS);
+
+    if !bounds_check.is_valid() {
+        log::error!("slot_lab_jackpot_get_tier_value: {}", bounds_check);
+        return 0.0; // Safe fallback
+    }
+
     let guard = ENGINE_V2.read();
     match &*guard {
         Some(engine) => engine.jackpot_get_tier_value(tier as usize),
