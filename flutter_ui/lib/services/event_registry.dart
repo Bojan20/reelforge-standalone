@@ -2507,6 +2507,7 @@ class EventRegistry extends ChangeNotifier {
         _pooledTriggers++;
       } else if (loop) {
         // P0.2: Seamless looping for REEL_SPIN and similar events
+        debugPrint('[EventRegistry] 🔄 LOOP MODE: Calling playLoopingToBus(path: ${layer.audioPath.split('/').last}, busId: ${layer.busId})');
         voiceId = AudioPlaybackService.instance.playLoopingToBus(
           layer.audioPath,
           volume: volume.clamp(0.0, 1.0),
@@ -2514,6 +2515,7 @@ class EventRegistry extends ChangeNotifier {
           busId: layer.busId,
           source: source,
         );
+        debugPrint('[EventRegistry] 🔄 LOOP playLoopingToBus returned voiceId: $voiceId');
       } else {
         // Standard bus routing through PlaybackEngine
         // ═══════════════════════════════════════════════════════════════════════

@@ -1131,10 +1131,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       debugPrint('[SlotLab] Current superTab BEFORE restore: ${_lowerZoneController.superTab}');
 
       if (tabIndex >= 0 && tabIndex < SlotLabSuperTab.values.length) {
-        // Restore super-tab via controller
+        // Restore super-tab via controller WITHOUT changing expand state
         final superTab = SlotLabSuperTab.values[tabIndex];
-        _lowerZoneController.setSuperTab(superTab);
-        if (!provider.persistedLowerZoneExpanded) {
+        _lowerZoneController.restoreSuperTab(superTab);
+        // Explicitly set expand state from persisted value
+        if (provider.persistedLowerZoneExpanded) {
+          _lowerZoneController.expand();
+        } else {
           _lowerZoneController.collapse();
         }
 

@@ -69,6 +69,11 @@ class SlotLabLowerZoneController extends ChangeNotifier {
     }
   }
 
+  /// Restore super-tab WITHOUT changing expand state (for persistence restore)
+  void restoreSuperTab(SlotLabSuperTab tab) {
+    _updateAndSave(_state.copyWith(superTab: tab));
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // SUB-TAB ACTIONS
   // ═══════════════════════════════════════════════════════════════════════════

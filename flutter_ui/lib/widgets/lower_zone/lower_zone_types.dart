@@ -458,7 +458,7 @@ class DawLowerZoneState {
       mixSubTab: DawMixSubTab.values[json['mixSubTab'] as int? ?? 0],
       processSubTab: DawProcessSubTab.values[json['processSubTab'] as int? ?? 0],
       deliverSubTab: DawDeliverSubTab.values[json['deliverSubTab'] as int? ?? 0],
-      isExpanded: json['isExpanded'] as bool? ?? true,
+      isExpanded: json['isExpanded'] as bool? ?? false,
       height: (json['height'] as num?)?.toDouble() ?? kLowerZoneDefaultHeight,
       // Split view
       splitEnabled: json['splitEnabled'] as bool? ?? false,
@@ -622,7 +622,7 @@ class MiddlewareLowerZoneState {
       routingSubTab: MiddlewareRoutingSubTab.values[json['routingSubTab'] as int? ?? 0],
       rtpcSubTab: MiddlewareRtpcSubTab.values[json['rtpcSubTab'] as int? ?? 0],
       deliverSubTab: MiddlewareDeliverSubTab.values[json['deliverSubTab'] as int? ?? 0],
-      isExpanded: json['isExpanded'] as bool? ?? true,
+      isExpanded: json['isExpanded'] as bool? ?? false,
       height: (json['height'] as num?)?.toDouble() ?? kLowerZoneDefaultHeight,
     );
   }
@@ -775,7 +775,7 @@ class SlotLabLowerZoneState {
       mixSubTab: SlotLabMixSubTab.values[json['mixSubTab'] as int? ?? 0],
       dspSubTab: SlotLabDspSubTab.values[json['dspSubTab'] as int? ?? 0],
       bakeSubTab: SlotLabBakeSubTab.values[json['bakeSubTab'] as int? ?? 0],
-      isExpanded: json['isExpanded'] as bool? ?? true,
+      isExpanded: json['isExpanded'] as bool? ?? false,
       height: (json['height'] as num?)?.toDouble() ?? kLowerZoneDefaultHeight,
     );
   }
