@@ -15,7 +15,9 @@ import 'package:flutter/material.dart';
 import '../src/rust/native_ffi.dart';
 import '../src/rust/engine_api.dart';
 import '../models/layout_models.dart' show InsertSlot;
+import '../models/mixer_undo_actions.dart';
 import 'dsp_chain_provider.dart';
+import 'undo_manager.dart';
 import '../utils/input_validator.dart'; // ✅ Input validation
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1306,6 +1308,266 @@ class MixerProvider extends ChangeNotifier {
 
     // Set color
     NativeFFI.instance.groupSetColor(engineId, group.color.value);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UNDO MANAGER INTEGRATION (P10.0.4)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Undo manager singleton for mixer operations
+  UiUndoManager get _undoManager => UiUndoManager.instance;
+
+  /// Set channel volume WITH undo recording
+  /// Use this for user-initiated volume changes (fader drag)
+  void setChannelVolumeWithUndo(String id, double volume, {bool propagateGroup = true}) {
+    final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
+    if (channel == null) return;
+
+    final oldVolume = channel.volume;
+    if ((oldVolume - volume).abs() < 0.001) return; // Skip trivial changes
+
+    _undoManager.record(VolumeChangeAction(
+      channelId: id,
+      channelName: channel.name,
+      oldVolume: oldVolume,
+      newVolume: volume,
+      applyVolume: (cId, vol) => setChannelVolume(cId, vol, propagateGroup: false),
+    ));
+
+    setChannelVolume(id, volume, propagateGroup: propagateGroup);
+  }
+
+  /// Set channel pan WITH undo recording
+  void setChannelPanWithUndo(String id, double pan, {bool propagateGroup = true}) {
+    final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
+    if (channel == null) return;
+
+    final oldPan = channel.pan;
+    if ((oldPan - pan).abs() < 0.001) return;
+
+    _undoManager.record(PanChangeAction(
+      channelId: id,
+      channelName: channel.name,
+      oldPan: oldPan,
+      newPan: pan,
+      applyPan: (cId, p) => setChannelPan(cId, p, propagateGroup: false),
+    ));
+
+    setChannelPan(id, pan, propagateGroup: propagateGroup);
+  }
+
+  /// Set channel pan right (stereo) WITH undo recording
+  void setChannelPanRightWithUndo(String id, double panRight) {
+    final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
+    if (channel == null) return;
+
+    final oldPanRight = channel.panRight;
+    if ((oldPanRight - panRight).abs() < 0.001) return;
+
+    _undoManager.record(PanChangeAction(
+      channelId: id,
+      channelName: channel.name,
+      oldPan: oldPanRight,
+      newPan: panRight,
+      applyPan: setChannelPanRight,
+      isRightChannel: true,
+    ));
+
+    setChannelPanRight(id, panRight);
+  }
+
+  /// Toggle channel mute WITH undo recording
+  void toggleChannelMuteWithUndo(String id) {
+    final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
+    if (channel == null) return;
+
+    _undoManager.record(MuteToggleAction(
+      channelId: id,
+      channelName: channel.name,
+      wasMuted: channel.muted,
+      applyMute: (cId, muted) {
+        if (_channels.containsKey(cId)) {
+          _channels[cId] = _channels[cId]!.copyWith(muted: muted);
+          if (_channels[cId]!.trackIndex != null) {
+            NativeFFI.instance.setTrackMute(_channels[cId]!.trackIndex!, muted);
+          }
+        } else if (_buses.containsKey(cId)) {
+          _buses[cId] = _buses[cId]!.copyWith(muted: muted);
+          NativeFFI.instance.mixerSetBusMute(_getBusEngineId(cId), muted);
+        } else if (_auxes.containsKey(cId)) {
+          _auxes[cId] = _auxes[cId]!.copyWith(muted: muted);
+        }
+        notifyListeners();
+      },
+    ));
+
+    toggleChannelMute(id);
+  }
+
+  /// Toggle channel solo WITH undo recording
+  void toggleChannelSoloWithUndo(String id) {
+    final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
+    if (channel == null) return;
+
+    _undoManager.record(SoloToggleAction(
+      channelId: id,
+      channelName: channel.name,
+      wasSoloed: channel.soloed,
+      applySolo: (cId, soloed) {
+        if (soloed) {
+          _soloedChannels.add(cId);
+        } else {
+          _soloedChannels.remove(cId);
+        }
+        if (_channels.containsKey(cId)) {
+          _channels[cId] = _channels[cId]!.copyWith(soloed: soloed);
+          if (_channels[cId]!.trackIndex != null) {
+            NativeFFI.instance.setTrackSolo(_channels[cId]!.trackIndex!, soloed);
+          }
+        } else if (_buses.containsKey(cId)) {
+          _buses[cId] = _buses[cId]!.copyWith(soloed: soloed);
+          NativeFFI.instance.mixerSetBusSolo(_getBusEngineId(cId), soloed);
+        } else if (_auxes.containsKey(cId)) {
+          _auxes[cId] = _auxes[cId]!.copyWith(soloed: soloed);
+        }
+        notifyListeners();
+      },
+    ));
+
+    toggleChannelSolo(id);
+  }
+
+  /// Set aux send level WITH undo recording
+  void setAuxSendLevelWithUndo(String channelId, String auxId, double level) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    final existingSend = channel.sends.where((s) => s.auxId == auxId).firstOrNull;
+    final oldLevel = existingSend?.level ?? 0.0;
+    if ((oldLevel - level).abs() < 0.001) return;
+
+    // Find send index for description
+    final sendIndex = channel.sends.indexWhere((s) => s.auxId == auxId);
+
+    _undoManager.record(SendLevelChangeAction(
+      channelId: channelId,
+      channelName: channel.name,
+      sendId: auxId,
+      sendIndex: sendIndex >= 0 ? sendIndex : channel.sends.length,
+      oldLevel: oldLevel,
+      newLevel: level,
+      applyLevel: setAuxSendLevel,
+    ));
+
+    setAuxSendLevel(channelId, auxId, level);
+  }
+
+  /// Set channel output routing WITH undo recording
+  void setChannelOutputWithUndo(String channelId, String busId) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    final oldBusId = channel.outputBus;
+    if (oldBusId == busId) return;
+
+    // Get bus names for description
+    final oldBusName = _buses[oldBusId]?.name ?? oldBusId;
+    final newBusName = _buses[busId]?.name ?? busId;
+
+    _undoManager.record(RouteChangeAction(
+      channelId: channelId,
+      channelName: channel.name,
+      oldBusId: oldBusId,
+      newBusId: busId,
+      oldBusName: oldBusName,
+      newBusName: newBusName,
+      applyRoute: (cId, bId) => setChannelOutput(cId, bId ?? 'master'),
+    ));
+
+    setChannelOutput(channelId, busId);
+  }
+
+  /// Load insert WITH undo recording
+  void loadInsertWithUndo(String channelId, int slotIndex, String pluginId, String pluginName, String pluginType) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    _undoManager.record(InsertLoadAction(
+      channelId: channelId,
+      channelName: channel.name,
+      slotIndex: slotIndex,
+      processorName: pluginName,
+      processorId: pluginId,
+      processorType: pluginType,
+      applyLoad: loadInsert,
+      applyUnload: removeInsert,
+    ));
+
+    loadInsert(channelId, slotIndex, pluginId, pluginName, pluginType);
+  }
+
+  /// Remove insert WITH undo recording
+  void removeInsertWithUndo(String channelId, int slotIndex) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+    if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
+
+    final insert = channel.inserts[slotIndex];
+    if (insert.isEmpty) return; // Nothing to remove
+
+    _undoManager.record(InsertUnloadAction(
+      channelId: channelId,
+      channelName: channel.name,
+      slotIndex: slotIndex,
+      processorName: insert.name,
+      processorId: insert.id,
+      processorType: insert.type,
+      applyUnload: removeInsert,
+      applyLoad: loadInsert,
+    ));
+
+    removeInsert(channelId, slotIndex);
+  }
+
+  /// Update insert bypass WITH undo recording
+  void updateInsertBypassWithUndo(String channelId, int slotIndex, bool bypassed) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+    if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
+
+    final insert = channel.inserts[slotIndex];
+    if (insert.isEmpty) return;
+    if (insert.bypassed == bypassed) return;
+
+    _undoManager.record(InsertBypassAction(
+      channelId: channelId,
+      channelName: channel.name,
+      slotIndex: slotIndex,
+      processorName: insert.name,
+      wasBypassed: insert.bypassed,
+      applyBypass: updateInsertBypass,
+    ));
+
+    updateInsertBypass(channelId, slotIndex, bypassed);
+  }
+
+  /// Set input gain WITH undo recording
+  void setInputGainWithUndo(String channelId, double gain) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    final oldGain = channel.inputGain;
+    if ((oldGain - gain).abs() < 0.01) return;
+
+    _undoManager.record(InputGainChangeAction(
+      channelId: channelId,
+      channelName: channel.name,
+      oldGain: oldGain,
+      newGain: gain,
+      applyGain: setInputGain,
+    ));
+
+    setInputGain(channelId, gain);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

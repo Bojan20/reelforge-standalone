@@ -16,7 +16,9 @@ import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 
 import '../src/rust/engine_api.dart';
+import '../src/rust/native_ffi.dart';
 import '../services/shared_meter_reader.dart';
+import '../widgets/metering/lufs_history_widget.dart';
 
 // ============ Types ============
 
@@ -131,11 +133,20 @@ class MeterProvider extends ChangeNotifier {
   static const _sharedMemoryIntervalMs = 16;
   static const _streamIntervalMs = 50;
 
+  // LUFS History Ring Buffer (60s @ 50ms = 1200 samples)
+  static const _lufsHistorySize = 1200;
+  static const _lufsHistoryIntervalMs = 50;
+  final List<LufsSnapshot> _lufsHistory = [];
+  Timer? _lufsHistoryTimer;
+  double _lufsHistoryStartTime = 0;
+  bool _lufsHistoryRecording = false;
+
   MeterState _masterState = MeterState.zero;
 
   MeterProvider() {
     _initializeSharedMemory();
     _subscribeToTransport();
+    _startLufsHistoryRecording();
   }
 
   /// Initialize shared memory metering (preferred)
@@ -468,11 +479,190 @@ class MeterProvider extends ChangeNotifier {
     _transportSubscription?.cancel();
     _decayTimer?.cancel();
     _sharedMeterTimer?.cancel();
+    _lufsHistoryTimer?.cancel();
     super.dispose();
   }
 
   /// Get whether shared memory metering is active
   bool get useSharedMemory => _useSharedMemory;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LUFS HISTORY — Pro Tools-Level Loudness Analysis
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get LUFS history for visualization
+  List<LufsSnapshot> get lufsHistory => List.unmodifiable(_lufsHistory);
+
+  /// Check if LUFS history recording is active
+  bool get isLufsHistoryRecording => _lufsHistoryRecording;
+
+  /// Start recording LUFS history
+  void _startLufsHistoryRecording() {
+    if (_lufsHistoryRecording) return;
+    _lufsHistoryRecording = true;
+    _lufsHistoryStartTime = DateTime.now().millisecondsSinceEpoch / 1000.0;
+
+    _lufsHistoryTimer?.cancel();
+    _lufsHistoryTimer = Timer.periodic(
+      const Duration(milliseconds: _lufsHistoryIntervalMs),
+      (_) => _recordLufsSnapshot(),
+    );
+    debugPrint('[MeterProvider] LUFS history recording started');
+  }
+
+  /// Stop recording LUFS history
+  void stopLufsHistoryRecording() {
+    _lufsHistoryRecording = false;
+    _lufsHistoryTimer?.cancel();
+    _lufsHistoryTimer = null;
+    debugPrint('[MeterProvider] LUFS history recording stopped');
+  }
+
+  /// Resume recording LUFS history
+  void resumeLufsHistoryRecording() {
+    _startLufsHistoryRecording();
+  }
+
+  /// Clear LUFS history and reset
+  void clearLufsHistory() {
+    _lufsHistory.clear();
+    _lufsHistoryStartTime = DateTime.now().millisecondsSinceEpoch / 1000.0;
+    notifyListeners();
+    debugPrint('[MeterProvider] LUFS history cleared');
+  }
+
+  /// Record a single LUFS snapshot
+  void _recordLufsSnapshot() {
+    if (!_lufsHistoryRecording) return;
+
+    final now = DateTime.now().millisecondsSinceEpoch / 1000.0;
+    final timestamp = now - _lufsHistoryStartTime;
+
+    // Get LUFS values from engine
+    double integrated = -60.0;
+    double shortTerm = -60.0;
+    double momentary = -60.0;
+
+    try {
+      final (lufsM, lufsS, lufsI) = NativeFFI.instance.getLufsMeters();
+      integrated = lufsI;
+      shortTerm = lufsS;
+      momentary = lufsM;
+    } catch (e) {
+      // Use master state fallback if FFI fails
+      integrated = _masterState.lufsShort;
+      shortTerm = _masterState.lufsShort;
+      momentary = _masterState.lufsShort;
+    }
+
+    final snapshot = LufsSnapshot(
+      timestamp: timestamp,
+      integrated: integrated,
+      shortTerm: shortTerm,
+      momentary: momentary,
+    );
+
+    // Ring buffer: remove oldest if at capacity
+    if (_lufsHistory.length >= _lufsHistorySize) {
+      _lufsHistory.removeAt(0);
+    }
+    _lufsHistory.add(snapshot);
+  }
+
+  /// Manually add a LUFS snapshot (for external sources)
+  void addLufsSnapshot(double integrated, double shortTerm, double momentary) {
+    final now = DateTime.now().millisecondsSinceEpoch / 1000.0;
+    final timestamp = now - _lufsHistoryStartTime;
+
+    final snapshot = LufsSnapshot(
+      timestamp: timestamp,
+      integrated: integrated,
+      shortTerm: shortTerm,
+      momentary: momentary,
+    );
+
+    if (_lufsHistory.length >= _lufsHistorySize) {
+      _lufsHistory.removeAt(0);
+    }
+    _lufsHistory.add(snapshot);
+  }
+
+  /// Export LUFS history to CSV format
+  String exportLufsHistoryToCsv() {
+    final buffer = StringBuffer();
+    buffer.writeln('timestamp_s,integrated_lufs,short_term_lufs,momentary_lufs');
+    for (final snap in _lufsHistory) {
+      buffer.writeln(snap.toCsvRow());
+    }
+    return buffer.toString();
+  }
+
+  /// Get LUFS history statistics
+  Map<String, double> getLufsHistoryStats() {
+    if (_lufsHistory.isEmpty) {
+      return {
+        'integrated_avg': -60.0,
+        'integrated_min': -60.0,
+        'integrated_max': -60.0,
+        'short_term_avg': -60.0,
+        'short_term_min': -60.0,
+        'short_term_max': -60.0,
+        'momentary_avg': -60.0,
+        'momentary_min': -60.0,
+        'momentary_max': -60.0,
+        'duration_s': 0.0,
+      };
+    }
+
+    // Filter out silent values
+    final validSnaps = _lufsHistory.where((s) => !s.isSilent).toList();
+    if (validSnaps.isEmpty) {
+      return {
+        'integrated_avg': -60.0,
+        'integrated_min': -60.0,
+        'integrated_max': -60.0,
+        'short_term_avg': -60.0,
+        'short_term_min': -60.0,
+        'short_term_max': -60.0,
+        'momentary_avg': -60.0,
+        'momentary_min': -60.0,
+        'momentary_max': -60.0,
+        'duration_s': _lufsHistory.last.timestamp,
+      };
+    }
+
+    double intSum = 0, intMin = 0, intMax = -100;
+    double stSum = 0, stMin = 0, stMax = -100;
+    double momSum = 0, momMin = 0, momMax = -100;
+
+    for (final s in validSnaps) {
+      intSum += s.integrated;
+      if (s.integrated < intMin) intMin = s.integrated;
+      if (s.integrated > intMax) intMax = s.integrated;
+
+      stSum += s.shortTerm;
+      if (s.shortTerm < stMin) stMin = s.shortTerm;
+      if (s.shortTerm > stMax) stMax = s.shortTerm;
+
+      momSum += s.momentary;
+      if (s.momentary < momMin) momMin = s.momentary;
+      if (s.momentary > momMax) momMax = s.momentary;
+    }
+
+    final count = validSnaps.length;
+    return {
+      'integrated_avg': intSum / count,
+      'integrated_min': intMin,
+      'integrated_max': intMax,
+      'short_term_avg': stSum / count,
+      'short_term_min': stMin,
+      'short_term_max': stMax,
+      'momentary_avg': momSum / count,
+      'momentary_min': momMin,
+      'momentary_max': momMax,
+      'duration_s': _lufsHistory.last.timestamp,
+    };
+  }
 }
 
 /// OPTIMIZED: Combined peak hold data to reduce map lookups

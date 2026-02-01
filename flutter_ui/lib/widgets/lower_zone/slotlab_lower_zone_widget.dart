@@ -49,6 +49,7 @@ import '../../providers/git_provider.dart';
 import '../slot_lab/timeline/ultimate_timeline_widget.dart';
 import '../../controllers/slot_lab/timeline_controller.dart' as timeline_ctrl;
 import '../../models/timeline/stage_marker.dart' show StageMarker;
+import '../../models/timeline/audio_region.dart' show AudioRegion;
 
 class SlotLabLowerZoneWidget extends StatefulWidget {
   final SlotLabLowerZoneController controller;
@@ -77,6 +78,9 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
   /// P14: Callback to build Ultimate Timeline content
   final Widget Function()? onBuildTimelineContent;
 
+  /// P14: Timeline controller from parent (maintains state)
+  final dynamic timelineController;
+
   const SlotLabLowerZoneWidget({
     super.key,
     required this.controller,
@@ -88,6 +92,7 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
     this.onResume,
     this.onStop,
     this.onBuildTimelineContent,
+    this.timelineController,
   });
 
   @override
@@ -748,31 +753,79 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   Widget _buildTimelinePanel() {
-    // P14: ULTIMATE TIMELINE — Direct instantiation
-    final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
+    // P14: ULTIMATE TIMELINE — Fully integrated with events + layers
+    final controller = widget.timelineController as timeline_ctrl.TimelineController?;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final controller = timeline_ctrl.TimelineController();
+    if (controller == null) {
+      return _buildCompactEventTimeline();
+    }
 
-        // Sync stage markers
-        if (provider != null) {
-          final stages = provider.lastStages;
-          for (final stage in stages.take(50)) {
-            final marker = StageMarker.fromStageId(
-              stage.stageType,
-              stage.timestampMs / 1000.0,
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middlewareProvider, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // Sync composite events → timeline tracks
+            _syncEventsToTimeline(controller, middlewareProvider);
+
+            // Sync stage markers
+            _syncMarkersToTimeline(controller);
+
+            return UltimateTimeline(
+              height: constraints.maxHeight.isFinite ? constraints.maxHeight : 400,
+              controller: controller,
             );
-            controller.addMarker(marker);
-          }
-        }
-
-        return UltimateTimeline(
-          height: constraints.maxHeight.isFinite ? constraints.maxHeight : 400,
-          controller: controller,
+          },
         );
       },
     );
+  }
+
+  void _syncEventsToTimeline(timeline_ctrl.TimelineController controller, MiddlewareProvider provider) {
+    final events = provider.compositeEvents;
+
+    // Rebuild tracks from events
+    final currentTracks = controller.state.tracks;
+    if (currentTracks.length != events.length) {
+      // Clear all tracks
+      for (final track in currentTracks.toList()) {
+        controller.removeTrack(track.id);
+      }
+
+      // Create track per event
+      for (final event in events) {
+        controller.addTrack(name: event.name);
+        final track = controller.state.tracks.last;
+
+        // Add region per layer
+        for (final layer in event.layers) {
+          final region = AudioRegion(
+            id: 'region_${layer.id}',
+            trackId: track.id,
+            audioPath: layer.audioPath,
+            startTime: layer.offsetMs / 1000.0,
+            duration: layer.durationSeconds ?? 2.0,
+            volume: layer.volume,
+            pan: layer.pan,
+            isMuted: layer.muted,
+          );
+
+          controller.addRegion(track.id, region);
+
+          // Load waveform async
+          NativeFFI.instance.generateWaveformFromFile(layer.audioPath, 'timeline_${layer.id}');
+        }
+      }
+    }
+  }
+
+  void _syncMarkersToTimeline(timeline_ctrl.TimelineController controller) {
+    final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
+    if (provider == null) return;
+
+    for (final stage in provider.lastStages.take(10)) {
+      final marker = StageMarker.fromStageId(stage.stageType, stage.timestampMs / 1000.0);
+      controller.addMarker(marker);
+    }
   }
   Widget _buildSymbolsPanel() => _buildCompactSymbolsPanel();
   Widget _buildProfilerPanel() {
