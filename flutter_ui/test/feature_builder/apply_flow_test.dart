@@ -148,8 +148,8 @@ void main() {
       final validBuses = ['sfx', 'music', 'ui', 'reels', 'vo', 'ambience'];
 
       for (final stage in result.stages) {
-        expect(validBuses.contains(stage.bus), isTrue,
-            reason: 'Stage ${stage.name} has invalid bus: ${stage.bus}');
+        expect(validBuses.contains(stage.stage.bus), isTrue,
+            reason: 'Stage ${stage.stage.name} has invalid bus: ${stage.stage.bus}');
       }
     });
 
@@ -161,8 +161,8 @@ void main() {
       final result = provider.generateStages();
 
       for (final stage in result.stages) {
-        expect(stage.priority, inInclusiveRange(0, 100),
-            reason: 'Stage ${stage.name} has invalid priority: ${stage.priority}');
+        expect(stage.stage.priority, inInclusiveRange(0, 100),
+            reason: 'Stage ${stage.stage.name} has invalid priority: ${stage.stage.priority}');
       }
     });
   });

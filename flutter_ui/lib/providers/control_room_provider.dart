@@ -7,7 +7,11 @@
 /// - Solo system (Off, SIP, AFL, PFL)
 /// - Cue mixes (4 independent headphone mixes)
 /// - Talkback system
+/// - Bass management (crossover, subwoofer, phase)
+/// - Reference level calibration
+/// - Pink noise generator
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../src/rust/engine_api.dart' as api;
 
@@ -89,6 +93,21 @@ class ControlRoomProvider extends ChangeNotifier {
   double _monitorPeakL = 0.0;
   double _monitorPeakR = 0.0;
 
+  // Bass Management (P10.1.3)
+  double _bassXoverFreqHz = 80.0; // 40-120 Hz crossover
+  bool _subwooferEnabled = false;
+  bool _subwooferPhaseInverted = false; // 0° or 180°
+
+  // Reference Level (P10.1.3)
+  double _referenceLevelDb = 0.0; // -20 to +20 dB calibration offset
+  bool _pinkNoiseEnabled = false;
+  double _pinkNoiseLevelDb = -20.0; // Pink noise output level
+  Timer? _pinkNoiseTimer;
+
+  // Output Routing (P10.1.3)
+  String _outputDevice = 'System Default';
+  List<String> _availableOutputDevices = ['System Default'];
+
   // Getters
   MonitorSource get monitorSource => _monitorSource;
   double get monitorLevelDb => _monitorLevelDb;
@@ -113,6 +132,20 @@ class ControlRoomProvider extends ChangeNotifier {
 
   double get monitorPeakL => _monitorPeakL;
   double get monitorPeakR => _monitorPeakR;
+
+  // Bass Management getters
+  double get bassXoverFreqHz => _bassXoverFreqHz;
+  bool get subwooferEnabled => _subwooferEnabled;
+  bool get subwooferPhaseInverted => _subwooferPhaseInverted;
+
+  // Reference Level getters
+  double get referenceLevelDb => _referenceLevelDb;
+  bool get pinkNoiseEnabled => _pinkNoiseEnabled;
+  double get pinkNoiseLevelDb => _pinkNoiseLevelDb;
+
+  // Output Routing getters
+  String get outputDevice => _outputDevice;
+  List<String> get availableOutputDevices => List.unmodifiable(_availableOutputDevices);
 
   /// Initialize control room (called by PlaybackEngine)
   /// control_room_ptr: Pointer to ControlRoom (from Rust)
@@ -363,6 +396,108 @@ class ControlRoomProvider extends ChangeNotifier {
     final mask = 1 << cueIndex;
     final newDestinations = _talkbackDestinations ^ mask;
     return setTalkbackDestinations(newDestinations);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BASS MANAGEMENT (P10.1.3)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set bass crossover frequency (40-120 Hz)
+  void setBassXoverFreqHz(double freqHz) {
+    _bassXoverFreqHz = freqHz.clamp(40.0, 120.0);
+    // TODO: FFI call when Rust bass management is implemented
+    // api.controlRoomSetBassXover(_bassXoverFreqHz);
+    notifyListeners();
+  }
+
+  /// Enable/disable subwoofer output
+  void setSubwooferEnabled(bool enabled) {
+    _subwooferEnabled = enabled;
+    // TODO: FFI call when Rust bass management is implemented
+    // api.controlRoomSetSubwoofer(enabled ? 1 : 0);
+    notifyListeners();
+  }
+
+  /// Toggle subwoofer phase (0° / 180°)
+  void setSubwooferPhaseInverted(bool inverted) {
+    _subwooferPhaseInverted = inverted;
+    // TODO: FFI call when Rust bass management is implemented
+    // api.controlRoomSetSubwooferPhase(inverted ? 1 : 0);
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REFERENCE LEVEL & CALIBRATION (P10.1.3)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set reference level calibration offset (-20 to +20 dB)
+  void setReferenceLevelDb(double levelDb) {
+    _referenceLevelDb = levelDb.clamp(-20.0, 20.0);
+    // TODO: FFI call when Rust reference level is implemented
+    // api.controlRoomSetReferenceLevel(_referenceLevelDb);
+    notifyListeners();
+  }
+
+  /// Enable/disable pink noise generator for speaker calibration
+  void setPinkNoiseEnabled(bool enabled) {
+    _pinkNoiseEnabled = enabled;
+    if (enabled) {
+      _startPinkNoise();
+    } else {
+      _stopPinkNoise();
+    }
+    notifyListeners();
+  }
+
+  /// Set pink noise output level
+  void setPinkNoiseLevelDb(double levelDb) {
+    _pinkNoiseLevelDb = levelDb.clamp(-60.0, 0.0);
+    // TODO: FFI call to update pink noise level
+    // api.controlRoomSetPinkNoiseLevel(_pinkNoiseLevelDb);
+    notifyListeners();
+  }
+
+  void _startPinkNoise() {
+    // TODO: FFI call to start pink noise generator in Rust
+    // For now, just set state - Rust engine will handle actual audio
+    // api.controlRoomStartPinkNoise(_pinkNoiseLevelDb);
+    debugPrint('[ControlRoom] Pink noise started at ${_pinkNoiseLevelDb} dB');
+  }
+
+  void _stopPinkNoise() {
+    // TODO: FFI call to stop pink noise generator in Rust
+    // api.controlRoomStopPinkNoise();
+    _pinkNoiseTimer?.cancel();
+    _pinkNoiseTimer = null;
+    debugPrint('[ControlRoom] Pink noise stopped');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OUTPUT ROUTING (P10.1.3)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set output audio device
+  void setOutputDevice(String device) {
+    if (_availableOutputDevices.contains(device)) {
+      _outputDevice = device;
+      // TODO: FFI call to set output device
+      // api.controlRoomSetOutputDevice(device);
+      notifyListeners();
+    }
+  }
+
+  /// Refresh available output devices
+  Future<void> refreshOutputDevices() async {
+    // TODO: FFI call to get available devices from Rust
+    // final devices = api.controlRoomGetOutputDevices();
+    // _availableOutputDevices = devices.split(',');
+    _availableOutputDevices = [
+      'System Default',
+      'Built-in Output',
+      'External Headphones',
+      'USB Audio Interface',
+    ];
+    notifyListeners();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

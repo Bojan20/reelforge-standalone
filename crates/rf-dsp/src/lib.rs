@@ -90,6 +90,7 @@ pub mod eq_stereo; // Bass mono, M/S, per-band stereo
 pub mod elastic;
 pub mod elastic_pro; // Ultimate time-stretching (STN + Phase Vocoder + Formant)
 pub mod pitch;
+pub mod time_stretch; // P12.1.4: Simple phase vocoder for animation timing
 pub mod timestretch;
 pub mod transient;
 pub mod wavelet; // Multi-resolution analysis (DWT, CWT, CQT) // ULTIMATIVNI Time Stretch Engine (NSGT + RTPGHI + STN + Formant)

@@ -77,6 +77,24 @@ import 'src/rust/native_ffi.dart';
 import 'utils/path_validator.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'services/feature_builder/feature_block_registry.dart';
+import 'blocks/game_core_block.dart';
+import 'blocks/grid_block.dart';
+import 'blocks/symbol_set_block.dart';
+import 'blocks/free_spins_block.dart';
+import 'blocks/respin_block.dart';
+import 'blocks/hold_and_win_block.dart';
+import 'blocks/cascades_block.dart';
+import 'blocks/collector_block.dart';
+import 'blocks/win_presentation_block.dart';
+import 'blocks/music_states_block.dart';
+import 'blocks/anticipation_block.dart';
+import 'blocks/jackpot_block.dart';
+import 'blocks/multiplier_block.dart';
+import 'blocks/bonus_game_block.dart';
+import 'blocks/wild_features_block.dart';
+import 'blocks/transitions_block.dart';
+import 'blocks/gambling_block.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -135,6 +153,27 @@ void main() async {
 
   // Initialize CRDT Sync Service (P3-13)
   await CrdtSyncService.instance.init();
+
+  // P13.9.8: Initialize Feature Block Registry with all 17 blocks
+  FeatureBlockRegistry.instance.initialize([
+    () => GameCoreBlock(),
+    () => GridBlock(),
+    () => SymbolSetBlock(),
+    () => FreeSpinsBlock(),
+    () => RespinBlock(),
+    () => HoldAndWinBlock(),
+    () => CascadesBlock(),
+    () => CollectorBlock(),
+    () => WinPresentationBlock(),
+    () => MusicStatesBlock(),
+    () => AnticipationBlock(),
+    () => JackpotBlock(),
+    () => MultiplierBlock(),
+    () => BonusGameBlock(),
+    () => WildFeaturesBlock(),
+    () => TransitionsBlock(),
+    () => GamblingBlock(),
+  ]);
 
   runApp(const FluxForgeApp());
 }
