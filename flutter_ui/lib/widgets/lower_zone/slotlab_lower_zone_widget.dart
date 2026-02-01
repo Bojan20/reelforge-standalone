@@ -22,7 +22,7 @@ import 'slotlab_lower_zone_controller.dart';
 import 'lower_zone_types.dart';
 import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
-import '../../providers/slot_lab_provider.dart';
+import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../providers/middleware_provider.dart';
 import '../../providers/dsp_chain_provider.dart';

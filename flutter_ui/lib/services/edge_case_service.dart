@@ -13,7 +13,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/edge_case_models.dart';
-import '../providers/slot_lab_provider.dart';
+import '../providers/slot_lab/slot_lab_coordinator.dart';
 import '../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════

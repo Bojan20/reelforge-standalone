@@ -21612,3 +21612,263 @@ extension ProjectFFI on NativeFFI {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P12.1.4 — TIME STRETCH FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Time-stretch result with stretched audio data
+class TimeStretchResult {
+  /// Stretched audio samples (mono)
+  final Float64List samples;
+
+  /// Output duration in milliseconds
+  double get durationMs => samples.length / sampleRate * 1000;
+
+  /// Sample rate used
+  final double sampleRate;
+
+  const TimeStretchResult({
+    required this.samples,
+    required this.sampleRate,
+  });
+}
+
+/// Simple time-stretch FFI for matching audio duration to animation timing
+///
+/// Usage example:
+/// ```dart
+/// final ffi = NativeFFI.instance;
+///
+/// // Create processor
+/// final handle = ffi.timeStretchCreate(44100.0);
+///
+/// // Match audio to animation timing
+/// final result = ffi.timeStretchMatchDuration(
+///   handle,
+///   audioSamples,
+///   targetDurationMs: 2500,
+/// );
+///
+/// // Use result.samples...
+///
+/// // Cleanup
+/// ffi.timeStretchDestroy(handle);
+/// ```
+extension TimeStretchFFI on NativeFFI {
+  // ═══════════════════════════════════════════════════════════════════════
+  // FFI Function Typedefs
+  // ═══════════════════════════════════════════════════════════════════════
+
+  static final _timeStretchCreate = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('time_stretch_create');
+
+  static final _timeStretchCreateWithFftSize = _loadNativeLibrary().lookupFunction<
+      Int32 Function(IntPtr, Double),
+      int Function(int, double)>('time_stretch_create_with_fft_size');
+
+  static final _timeStretchProcess = _loadNativeLibrary().lookupFunction<
+      Pointer<Double> Function(Int32, Pointer<Double>, IntPtr, Double, Pointer<IntPtr>),
+      Pointer<Double> Function(int, Pointer<Double>, int, double, Pointer<IntPtr>)>('time_stretch_process');
+
+  static final _timeStretchMatchDuration = _loadNativeLibrary().lookupFunction<
+      Pointer<Double> Function(Int32, Pointer<Double>, IntPtr, Double, Pointer<IntPtr>),
+      Pointer<Double> Function(int, Pointer<Double>, int, double, Pointer<IntPtr>)>('time_stretch_match_duration');
+
+  static final _timeStretchFree = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Double>, IntPtr),
+      void Function(Pointer<Double>, int)>('time_stretch_free');
+
+  static final _timeStretchReset = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('time_stretch_reset');
+
+  static final _timeStretchDestroy = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('time_stretch_destroy');
+
+  static final _timeStretchCalculateFactor = _loadNativeLibrary().lookupFunction<
+      Double Function(IntPtr, Double, Double),
+      double Function(int, double, double)>('time_stretch_calculate_factor');
+
+  static final _timeStretchAudioDurationMs = _loadNativeLibrary().lookupFunction<
+      Double Function(IntPtr, Double),
+      double Function(int, double)>('time_stretch_audio_duration_ms');
+
+  static final _timeStretchProcessorCount = _loadNativeLibrary().lookupFunction<
+      Int32 Function(),
+      int Function()>('time_stretch_processor_count');
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Public API
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Create a time-stretch processor
+  ///
+  /// Returns handle (> 0) on success, 0 on error.
+  int timeStretchCreate(double sampleRate) {
+    return _timeStretchCreate(sampleRate);
+  }
+
+  /// Create a time-stretch processor with custom FFT size
+  ///
+  /// [fftSize] must be power of 2 between 256 and 8192.
+  /// Returns handle (> 0) on success, 0 on error.
+  int timeStretchCreateWithFftSize(int fftSize, double sampleRate) {
+    return _timeStretchCreateWithFftSize(fftSize, sampleRate);
+  }
+
+  /// Process audio with time stretching
+  ///
+  /// [factor] is the stretch factor:
+  /// - < 1.0 = speed up (shorter duration)
+  /// - > 1.0 = slow down (longer duration)
+  /// - = 1.0 = no change
+  ///
+  /// Returns stretched audio samples, or null on error.
+  Float64List? timeStretchProcess(int handle, Float64List input, double factor) {
+    if (handle <= 0 || input.isEmpty) return null;
+
+    // Allocate native input buffer
+    final inputPtr = malloc.allocate<Double>(sizeOf<Double>() * input.length);
+    for (int i = 0; i < input.length; i++) {
+      inputPtr[i] = input[i];
+    }
+
+    // Allocate output length pointer
+    final outLenPtr = malloc.allocate<IntPtr>(sizeOf<IntPtr>());
+
+    // Process
+    final outputPtr = _timeStretchProcess(
+      handle,
+      inputPtr,
+      input.length,
+      factor,
+      outLenPtr,
+    );
+
+    // Free input buffer
+    malloc.free(inputPtr);
+
+    if (outputPtr == nullptr) {
+      malloc.free(outLenPtr);
+      return null;
+    }
+
+    // Read output length
+    final outLen = outLenPtr.value;
+    malloc.free(outLenPtr);
+
+    if (outLen <= 0) {
+      return null;
+    }
+
+    // Copy output to Dart list
+    final result = Float64List(outLen);
+    for (int i = 0; i < outLen; i++) {
+      result[i] = outputPtr[i];
+    }
+
+    // Free native output buffer
+    _timeStretchFree(outputPtr, outLen);
+
+    return result;
+  }
+
+  /// Match audio duration to target duration
+  ///
+  /// This is the main API for SlotLab use case:
+  /// - Rollup animation: 2500ms
+  /// - Audio file: 2000ms
+  /// - Result: Audio stretched to match 2500ms
+  ///
+  /// Returns stretched audio samples, or null on error.
+  Float64List? timeStretchMatchDuration(
+    int handle,
+    Float64List input,
+    double targetDurationMs,
+  ) {
+    if (handle <= 0 || input.isEmpty || targetDurationMs <= 0) return null;
+
+    // Allocate native input buffer
+    final inputPtr = malloc.allocate<Double>(sizeOf<Double>() * input.length);
+    for (int i = 0; i < input.length; i++) {
+      inputPtr[i] = input[i];
+    }
+
+    // Allocate output length pointer
+    final outLenPtr = malloc.allocate<IntPtr>(sizeOf<IntPtr>());
+
+    // Process
+    final outputPtr = _timeStretchMatchDuration(
+      handle,
+      inputPtr,
+      input.length,
+      targetDurationMs,
+      outLenPtr,
+    );
+
+    // Free input buffer
+    malloc.free(inputPtr);
+
+    if (outputPtr == nullptr) {
+      malloc.free(outLenPtr);
+      return null;
+    }
+
+    // Read output length
+    final outLen = outLenPtr.value;
+    malloc.free(outLenPtr);
+
+    if (outLen <= 0) {
+      return null;
+    }
+
+    // Copy output to Dart list
+    final result = Float64List(outLen);
+    for (int i = 0; i < outLen; i++) {
+      result[i] = outputPtr[i];
+    }
+
+    // Free native output buffer
+    _timeStretchFree(outputPtr, outLen);
+
+    return result;
+  }
+
+  /// Reset processor state
+  bool timeStretchReset(int handle) {
+    return _timeStretchReset(handle) == 1;
+  }
+
+  /// Destroy processor
+  bool timeStretchDestroy(int handle) {
+    return _timeStretchDestroy(handle) == 1;
+  }
+
+  /// Calculate stretch factor to match target duration
+  ///
+  /// [audioSamples] - Number of samples in input audio
+  /// [sampleRate] - Audio sample rate
+  /// [targetDurationMs] - Target duration in milliseconds
+  ///
+  /// Returns stretch factor (> 1.0 = slow down, < 1.0 = speed up)
+  double timeStretchCalculateFactor(
+    int audioSamples,
+    double sampleRate,
+    double targetDurationMs,
+  ) {
+    return _timeStretchCalculateFactor(audioSamples, sampleRate, targetDurationMs);
+  }
+
+  /// Get audio duration in milliseconds
+  double timeStretchAudioDurationMs(int samples, double sampleRate) {
+    return _timeStretchAudioDurationMs(samples, sampleRate);
+  }
+
+  /// Get processor count (for debugging)
+  int timeStretchProcessorCount() {
+    return _timeStretchProcessorCount();
+  }
+}
+

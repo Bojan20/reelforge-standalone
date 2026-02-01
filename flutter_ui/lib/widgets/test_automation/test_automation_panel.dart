@@ -15,7 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/test_automation_models.dart';
-import '../../providers/slot_lab_provider.dart';
+import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../services/event_registry.dart';
 import '../../services/test_automation_service.dart';
 import '../../theme/fluxforge_theme.dart';

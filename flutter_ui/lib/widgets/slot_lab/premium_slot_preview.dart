@@ -20,7 +20,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/win_tier_config.dart';
-import '../../providers/slot_lab_provider.dart';
+import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../services/event_registry.dart';
 import '../../src/rust/native_ffi.dart';

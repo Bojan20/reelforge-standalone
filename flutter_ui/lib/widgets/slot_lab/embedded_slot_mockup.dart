@@ -11,7 +11,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-import '../../providers/slot_lab_provider.dart';
+import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../src/rust/native_ffi.dart';
 
 // =============================================================================

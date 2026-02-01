@@ -15,7 +15,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/slot_lab_project_provider.dart';
-import '../../providers/slot_lab_provider.dart';
+import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/gdd_import_service.dart';
 import '../../theme/fluxforge_theme.dart';

@@ -17,7 +17,7 @@ import 'package:path/path.dart' as p;
 import '../models/slot_lab_models.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/slot_lab_project_provider.dart';
-import '../providers/slot_lab_provider.dart';
+import '../providers/slot_lab/slot_lab_coordinator.dart';
 import 'event_registry.dart';
 import 'stage_configuration_service.dart';
 

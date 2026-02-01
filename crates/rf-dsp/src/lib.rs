@@ -162,6 +162,11 @@ pub use elastic_pro::{
     TransientProcessor,
 };
 
+// Re-export Simple Time Stretch (P12.1.4: Animation timing)
+pub use time_stretch::{
+    audio_duration_ms, calculate_stretch_factor, SimplePhaseVocoder,
+};
+
 // Re-export LUFS and True Peak metering (ITU-R BS.1770-4 / EBU R128)
 pub use metering::{
     BalanceMeter, BroadcastMeter, CorrelationMeter as StereoCorrelationMeter, DynamicRangeMeter,

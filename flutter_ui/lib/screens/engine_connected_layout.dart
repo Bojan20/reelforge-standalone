@@ -67,7 +67,7 @@ import '../providers/meter_provider.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/mixer_provider.dart';
 import '../providers/recording_provider.dart';
-import '../providers/slot_lab_provider.dart';
+import '../providers/slot_lab/slot_lab_coordinator.dart';
 import '../providers/stage_provider.dart';
 import '../services/audio_asset_manager.dart';
 import '../models/stage_models.dart' as stage;

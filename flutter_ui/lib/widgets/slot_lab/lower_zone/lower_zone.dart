@@ -23,7 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../controllers/slot_lab/lower_zone_controller.dart';
 import '../../../theme/fluxforge_theme.dart';
-import '../../../providers/slot_lab_provider.dart';
+import '../../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../stage_trace_widget.dart';
 import 'lower_zone_types.dart';
 import 'lower_zone_context_bar.dart';

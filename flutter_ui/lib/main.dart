@@ -53,7 +53,7 @@ import 'providers/control_room_provider.dart';
 import 'providers/middleware_provider.dart';
 import 'providers/stage_provider.dart';
 import 'providers/stage_ingest_provider.dart';
-import 'providers/slot_lab_provider.dart';
+import 'providers/slot_lab/slot_lab_coordinator.dart';
 import 'providers/slot_lab_project_provider.dart';
 import 'providers/ale_provider.dart';
 import 'providers/soundbank_provider.dart';

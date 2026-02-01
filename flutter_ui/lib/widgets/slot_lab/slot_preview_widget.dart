@@ -18,7 +18,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
 import '../../models/win_tier_config.dart';
 import '../../providers/slot_lab_project_provider.dart';
-import '../../providers/slot_lab_provider.dart';
+import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../services/event_registry.dart';
 import '../../services/win_analytics_service.dart';
 import '../../src/rust/native_ffi.dart';

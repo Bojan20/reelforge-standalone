@@ -13,7 +13,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../providers/slot_lab_provider.dart';
+import '../providers/slot_lab/slot_lab_coordinator.dart';
 import '../src/rust/native_ffi.dart' show ForcedOutcome;
 
 // ═══════════════════════════════════════════════════════════════════════════

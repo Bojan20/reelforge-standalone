@@ -215,6 +215,13 @@ class ServiceLocator {
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.8: Stem Routing Provider (P10.1.2 Stem Export)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<StemRoutingProvider>(
+      () => StemRoutingProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 6: UX Services (search, recent/favorites, analytics)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<UnifiedSearchService>(

@@ -16,7 +16,7 @@ import 'dart:typed_data';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // P0.5: Keyboard focus
-import '../../providers/slot_lab_provider.dart';
+import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../providers/subsystems/event_profiler_provider.dart'; // P0.7
 import '../../services/audio_playback_service.dart'; // P1.4: A/B compare
 import '../../services/event_registry.dart';

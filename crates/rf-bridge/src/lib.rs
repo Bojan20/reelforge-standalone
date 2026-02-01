@@ -63,6 +63,7 @@ pub mod memory_ffi;
 pub mod plugin_state_ffi;
 pub mod project_ffi;
 mod project;
+pub mod time_stretch_ffi; // P12.1.4: Simple time-stretch for animation timing
 pub mod timestretch;
 mod transport;
 mod viz;
@@ -72,6 +73,7 @@ pub use api::*;
 pub use command_queue::*;
 pub use dsp_commands::*;
 pub use playback::{PlaybackClip, PlaybackEngine, PlaybackMeters, PlaybackState};
+pub use time_stretch_ffi::*;
 pub use timestretch::*;
 pub use viz::*;
 

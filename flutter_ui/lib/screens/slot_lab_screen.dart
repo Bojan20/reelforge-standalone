@@ -56,7 +56,7 @@ import '../services/native_file_picker.dart';
 import '../services/audio_playback_service.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/stage_provider.dart';
-import '../providers/slot_lab_provider.dart';
+import '../providers/slot_lab/slot_lab_coordinator.dart';
 import '../providers/ale_provider.dart';
 import '../services/stage_audio_mapper.dart';
 import '../models/stage_models.dart';
