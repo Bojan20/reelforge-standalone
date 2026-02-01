@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-01-31
+**Updated:** 2026-02-01
 **Status:** ✅ **PRODUCTION READY** — P0-P9 Complete, Ultimate Analysis Complete
 
 ---
@@ -17,6 +17,9 @@
 - ✅ P7 Anticipation System V2 = 100% Complete (11/11 tasks)
 - ✅ P8 Ultimate Audio Panel Analysis = 100% Complete (12/12 sections)
 - ✅ P9 Audio Panel Consolidation = 100% Complete (12/12 tasks)
+
+**ACTIVE — Feature Builder Panel:**
+- 🟣 **P13 Feature Builder** — 66 tasks, 27 days, ~12,400 LOC (NEW)
 
 **NEXT — Ultimate Analysis Gap Resolution:**
 - 🔴 **P10 DAW Gaps** — 5 P0 + 20 P1 + 21 P2 = 46 tasks
@@ -293,6 +296,8 @@ See individual spec files in `.claude/specs/` and `.claude/tasks/` for details.
 
 | Document | Content |
 |----------|---------|
+| `specs/FEATURE_BUILDER_ULTIMATE_SPEC.md` | **P13 Feature Builder Panel** — ~3,100 LOC specification |
+| `specs/FEATURE_BUILDER_GAPS_AND_ADDITIONS.md` | P13 Gap Analysis — additional blocks, validation rules |
 | `analysis/DAW_ULTIMATE_ANALYSIS_2026_01_31.md` | DAW 9-role analysis (Score: 84%) |
 | `reviews/MIDDLEWARE_ULTIMATE_ANALYSIS_2026_01_31.md` | Middleware 7-role analysis (Score: 92%) |
 | `reviews/SLOTLAB_ULTIMATE_ANALYSIS_2026_01_31.md` | SlotLab 9-role analysis (Score: 87%) |
@@ -305,4 +310,335 @@ See individual spec files in `.claude/specs/` and `.claude/tasks/` for details.
 
 ---
 
-*Last updated: 2026-01-31 — Ultimate Analysis Complete*
+---
+
+## 🟣 P13 — FEATURE BUILDER PANEL (Score: NEW)
+
+**Specification:** `.claude/specs/FEATURE_BUILDER_ULTIMATE_SPEC.md` (~3,100 LOC)
+**Gap Analysis:** `.claude/specs/FEATURE_BUILDER_GAPS_AND_ADDITIONS.md` (~595 LOC)
+**Total Estimate:** 27 days, ~12,400 LOC (9 phases + 3 additional blocks)
+
+### P13.0 — PHASE 1: FOUNDATION (3 days, ~1,500 LOC)
+
+| ID | Task | Description | LOC Est. | File |
+|----|------|-------------|----------|------|
+| **P13.0.1** | FeatureBlock base model | Abstract class with id, name, category, dependencies, optionDefinitions | ~200 | `models/feature_builder/feature_block.dart` |
+| **P13.0.2** | BlockCategory enum | core, feature, presentation, bonus categories | ~50 | `models/feature_builder/block_category.dart` |
+| **P13.0.3** | BlockDependency model | enables, requires, modifies, conflicts relationships | ~150 | `models/feature_builder/block_dependency.dart` |
+| **P13.0.4** | BlockOption model | Option types: toggle, dropdown, range, multi-select | ~200 | `models/feature_builder/block_options.dart` |
+| **P13.0.5** | FeaturePreset model | JSON serializable preset with schemaVersion | ~150 | `models/feature_builder/feature_preset.dart` |
+| **P13.0.6** | FeatureBlockRegistry | Block registration + retrieval by category | ~200 | `services/feature_builder/feature_block_registry.dart` |
+| **P13.0.7** | GameCoreBlock | Pay model, spin type, volatility options | ~150 | `blocks/game_core_block.dart` |
+| **P13.0.8** | GridBlock | Reels, rows, paylines/ways configuration | ~150 | `blocks/grid_block.dart` |
+| **P13.0.9** | SymbolSetBlock | Low/mid/high counts, Wild, Scatter, Bonus | ~200 | `blocks/symbol_set_block.dart` |
+| **P13.0.10** | Basic FeatureBuilderProvider | enableBlock(), disableBlock(), setBlockOption() | ~50 | `providers/feature_builder_provider.dart` |
+
+**Phase 1 Total:** 10 tasks, ~1,500 LOC
+
+### P13.1 — PHASE 2: FEATURE BLOCKS (4 days, ~2,000 LOC)
+
+| ID | Task | Description | LOC Est. | File |
+|----|------|-------------|----------|------|
+| **P13.1.1** | FreeSpinsBlock | Trigger type, spin count, retrigger, multiplier | ~300 | `blocks/free_spins_block.dart` |
+| **P13.1.2** | RespinBlock | Lock type, count, upgrade symbols | ~200 | `blocks/respin_block.dart` |
+| **P13.1.3** | HoldAndWinBlock | 4 jackpot tiers, respin count, coin values | ~350 | `blocks/hold_and_win_block.dart` |
+| **P13.1.4** | CascadesBlock | Max cascades, multiplier progression, tumble style | ~250 | `blocks/cascades_block.dart` |
+| **P13.1.5** | CollectorBlock | Meter type, milestones, rewards | ~200 | `blocks/collector_block.dart` |
+| **P13.1.6** | WinPresentationBlock | P5 integration, rollup settings, celebration levels | ~400 | `blocks/win_presentation_block.dart` |
+| **P13.1.7** | MusicStatesBlock | ALE integration, context transitions, layer volumes | ~300 | `blocks/music_states_block.dart` |
+
+**Phase 2 Total:** 7 tasks, ~2,000 LOC
+
+### P13.2 — PHASE 3: DEPENDENCY SYSTEM (2 days, ~800 LOC)
+
+| ID | Task | Description | LOC Est. | File |
+|----|------|-------------|----------|------|
+| **P13.2.1** | DependencyResolver | Graph-based dependency resolution | ~350 | `services/feature_builder/dependency_resolver.dart` |
+| **P13.2.2** | Conflict detection | Detect and report block conflicts | ~150 | `services/feature_builder/dependency_resolver.dart` |
+| **P13.2.3** | Auto-resolution | Suggest and apply dependency fixes | ~150 | `services/feature_builder/dependency_resolver.dart` |
+| **P13.2.4** | Dependency graph data | Nodes and edges for visualization | ~100 | `models/feature_builder/block_dependency.dart` |
+| **P13.2.5** | Warning generation | Modification warnings (e.g., "modifies Win Presentation") | ~50 | `services/feature_builder/dependency_resolver.dart` |
+
+**Phase 3 Total:** 5 tasks, ~800 LOC
+
+### P13.3 — PHASE 4: CONFIGURATION GENERATOR (3 days, ~1,500 LOC)
+
+| ID | Task | Description | LOC Est. | File |
+|----|------|-------------|----------|------|
+| **P13.3.1** | GeneratedConfiguration model | Complete output structure | ~200 | `models/feature_builder/generated_config.dart` |
+| **P13.3.2** | Mockup layout generator | Grid, symbols, reel strips based on config | ~250 | `services/feature_builder/configuration_generator.dart` |
+| **P13.3.3** | State machine generator | Game flow states and transitions | ~250 | `services/feature_builder/configuration_generator.dart` |
+| **P13.3.4** | Outcome controls generator | Dynamic forced outcome buttons | ~200 | `services/feature_builder/configuration_generator.dart` |
+| **P13.3.5** | Stage definitions generator | All stages from enabled blocks | ~300 | `services/feature_builder/configuration_generator.dart` |
+| **P13.3.6** | SlotLabProjectProvider integration | Apply generated config to project | ~300 | Various integration updates |
+
+**Phase 4 Total:** 6 tasks, ~1,500 LOC
+
+### P13.4 — PHASE 5: RUST FFI INTEGRATION (2 days, ~600 LOC)
+
+| ID | Task | Description | LOC Est. | File |
+|----|------|-------------|----------|------|
+| **P13.4.1** | FeatureBuilderConfig Rust struct | Rust model for feature configuration | ~150 | `crates/rf-slot-lab/src/feature_builder_config.rs` |
+| **P13.4.2** | slot_lab_apply_feature_config FFI | Apply config to Rust engine | ~100 | `crates/rf-bridge/src/feature_builder_ffi.rs` |
+| **P13.4.3** | slot_lab_get_current_config FFI | Retrieve current config | ~50 | `crates/rf-bridge/src/feature_builder_ffi.rs` |
+| **P13.4.4** | Dart FFI bindings | Native FFI extension methods | ~100 | `flutter_ui/lib/src/rust/native_ffi.dart` |
+| **P13.4.5** | RustConfigBridge service | High-level Dart wrapper | ~150 | `services/feature_builder/rust_config_bridge.dart` |
+| **P13.4.6** | JSON schema sync | Ensure Dart/Rust schema compatibility | ~50 | Schema validation |
+
+**Phase 5 Total:** 6 tasks, ~600 LOC
+
+### P13.5 — PHASE 6: UI PANEL (4 days, ~2,500 LOC)
+
+| ID | Task | Description | LOC Est. | File |
+|----|------|-------------|----------|------|
+| **P13.5.1** | FeatureBuilderPanel main | Dockable panel (380px width) | ~400 | `widgets/feature_builder/feature_builder_panel.dart` |
+| **P13.5.2** | Dock controls | Position toggle (left/right), resize, float | ~200 | `widgets/feature_builder/feature_builder_panel.dart` |
+| **P13.5.3** | BlockListWidget | Checkboxes with categories, dependency badges | ~400 | `widgets/feature_builder/block_list_widget.dart` |
+| **P13.5.4** | BlockSettingsSheet | Slide-out panel with block options | ~500 | `widgets/feature_builder/block_settings_sheet.dart` |
+| **P13.5.5** | DependencyBadge | Visual indicators for requires/enables/conflicts | ~150 | `widgets/feature_builder/dependency_badge.dart` |
+| **P13.5.6** | PresetDropdown | Built-in + user presets selector | ~300 | `widgets/feature_builder/preset_dropdown.dart` |
+| **P13.5.7** | ApplyConfirmationDialog | Changes summary, audio preservation note | ~250 | `widgets/feature_builder/apply_confirmation_dialog.dart` |
+| **P13.5.8** | Panel header | Title, preset selector, apply button | ~100 | `widgets/feature_builder/feature_builder_panel.dart` |
+| **P13.5.9** | Panel footer | Validation summary, expand/collapse | ~100 | `widgets/feature_builder/feature_builder_panel.dart` |
+| **P13.5.10** | Keyboard shortcuts | Ctrl+Shift+F toggle, 1-9 block quick-enable | ~100 | `widgets/feature_builder/feature_builder_panel.dart` |
+
+**Phase 6 Total:** 10 tasks, ~2,500 LOC
+
+### P13.6 — PHASE 7: VALIDATION SYSTEM (2 days, ~700 LOC)
+
+| ID | Task | Description | LOC Est. | File |
+|----|------|-------------|----------|------|
+| **P13.6.1** | ValidationRule base | Abstract with severity (error/warning/info) | ~100 | `models/feature_builder/validation_rule.dart` |
+| **P13.6.2** | Error rules (5) | Scatter required, Bonus symbol required, etc. | ~150 | `data/feature_builder/validation_rules.dart` |
+| **P13.6.3** | Warning rules (5) | Cascades+FS, multiple jackpots, etc. | ~100 | `data/feature_builder/validation_rules.dart` |
+| **P13.6.4** | Info rules (3) | New stages count, market notes | ~50 | `data/feature_builder/validation_rules.dart` |
+| **P13.6.5** | ValidationService | Run all rules, collect results | ~150 | `services/feature_builder/validation_service.dart` |
+| **P13.6.6** | ValidationPanel UI | Error/warning/info display with fix buttons | ~150 | `widgets/feature_builder/validation_panel.dart` |
+
+**Phase 7 Total:** 6 tasks, ~700 LOC
+
+### P13.7 — PHASE 8: PRESET SYSTEM (2 days, ~800 LOC)
+
+| ID | Task | Description | LOC Est. | File |
+|----|------|-------------|----------|------|
+| **P13.7.1** | PresetService | CRUD operations for presets | ~250 | `services/feature_builder/preset_service.dart` |
+| **P13.7.2** | Preset file I/O | Save/load JSON with versioning | ~100 | `services/feature_builder/preset_service.dart` |
+| **P13.7.3** | Built-in presets (12) | Classic 3x3, 5x3, Ways 243, Megaways, H&W, etc. | ~300 | `data/feature_builder/built_in_presets.dart` |
+| **P13.7.4** | Import/export | File picker integration | ~100 | `services/feature_builder/preset_service.dart` |
+| **P13.7.5** | Preset gallery UI | Grid view with thumbnails | ~50 | `widgets/feature_builder/preset_gallery.dart` |
+
+**Phase 8 Total:** 5 tasks, ~800 LOC
+
+### P13.8 — PHASE 9: INTEGRATION & TESTING (2 days, ~500 LOC)
+
+| ID | Task | Description | LOC Est. | File |
+|----|------|-------------|----------|------|
+| **P13.8.1** | SlotLabScreen integration | Feature Builder button in header | ~100 | `screens/slot_lab_screen.dart` |
+| **P13.8.2** | UltimateAudioPanel stage registration | Auto-register generated stages | ~100 | Integration updates |
+| **P13.8.3** | ForcedOutcomePanel dynamic controls | Show/hide based on enabled blocks | ~100 | `widgets/slot_lab/forced_outcome_panel.dart` |
+| **P13.8.4** | Unit tests (30+) | Block generation, validation, serialization | ~150 | `test/feature_builder/` |
+| **P13.8.5** | Integration tests (10) | Full apply flow, preset load | ~50 | `test/feature_builder/` |
+
+**Phase 9 Total:** 5 tasks, ~500 LOC
+
+### P13.9 — ADDITIONAL BLOCKS (3 days, ~1,500 LOC)
+
+| ID | Task | Description | LOC Est. | File |
+|----|------|-------------|----------|------|
+| **P13.9.1** | AnticipationBlock | Pattern (Tip A/B), trigger symbol, tension escalation | ~300 | `blocks/anticipation_block.dart` |
+| **P13.9.2** | JackpotBlock (standalone) | Trigger mode, 4 tiers, progressive, contribution | ~350 | `blocks/jackpot_block.dart` |
+| **P13.9.3** | WildFeaturesBlock | Expanding, Sticky, Walking, Multiplier, Stacked | ~350 | `blocks/wild_features_block.dart` |
+| **P13.9.4** | TransitionsBlock | 11 predefined transitions, animation styles, audio sync | ~350 | `blocks/transitions_block.dart` |
+| **P13.9.5** | Update dependency matrix | Add new blocks to dependency resolver | ~100 | `services/feature_builder/dependency_resolver.dart` |
+| **P13.9.6** | Additional built-in presets (4) | Anticipation-focused, Jackpot-focused, Wild-heavy, Full Feature | ~50 | `data/feature_builder/built_in_presets.dart` |
+
+**Phase 9 Additional Total:** 6 tasks, ~1,500 LOC
+
+---
+
+### P13 SUMMARY
+
+| Phase | Days | Tasks | LOC | Description |
+|-------|------|-------|-----|-------------|
+| Phase 1: Foundation | 3 | 10 | 1,500 | Models, core blocks, registry |
+| Phase 2: Feature Blocks | 4 | 7 | 2,000 | 7 feature blocks |
+| Phase 3: Dependencies | 2 | 5 | 800 | Resolver, conflicts |
+| Phase 4: Generator | 3 | 6 | 1,500 | Config generation |
+| Phase 5: Rust FFI | 2 | 6 | 600 | Engine integration |
+| Phase 6: UI Panel | 4 | 10 | 2,500 | Dockable panel |
+| Phase 7: Validation | 2 | 6 | 700 | Rules, service, UI |
+| Phase 8: Presets | 2 | 5 | 800 | Service, built-ins |
+| Phase 9: Integration | 2 | 5 | 500 | Testing, polish |
+| Phase 9+: Additional | 3 | 6 | 1,500 | 4 new blocks |
+| **TOTAL** | **27** | **66** | **~12,400** | |
+
+---
+
+### P13 FILE STRUCTURE
+
+```
+flutter_ui/lib/
+├── models/feature_builder/
+│   ├── feature_block.dart              # ~200 LOC
+│   ├── block_category.dart             # ~50 LOC
+│   ├── block_dependency.dart           # ~300 LOC
+│   ├── block_options.dart              # ~200 LOC
+│   ├── feature_preset.dart             # ~150 LOC
+│   ├── generated_config.dart           # ~200 LOC
+│   └── validation_rule.dart            # ~100 LOC
+│
+├── services/feature_builder/
+│   ├── feature_block_registry.dart     # ~200 LOC
+│   ├── dependency_resolver.dart        # ~500 LOC
+│   ├── configuration_generator.dart    # ~800 LOC
+│   ├── preset_service.dart             # ~400 LOC
+│   ├── validation_service.dart         # ~150 LOC
+│   └── rust_config_bridge.dart         # ~150 LOC
+│
+├── widgets/feature_builder/
+│   ├── feature_builder_panel.dart      # ~600 LOC
+│   ├── block_list_widget.dart          # ~400 LOC
+│   ├── block_settings_sheet.dart       # ~500 LOC
+│   ├── dependency_badge.dart           # ~150 LOC
+│   ├── preset_dropdown.dart            # ~300 LOC
+│   ├── validation_panel.dart           # ~150 LOC
+│   ├── apply_confirmation_dialog.dart  # ~250 LOC
+│   └── preset_gallery.dart             # ~100 LOC
+│
+├── blocks/
+│   ├── game_core_block.dart            # ~150 LOC
+│   ├── grid_block.dart                 # ~150 LOC
+│   ├── symbol_set_block.dart           # ~200 LOC
+│   ├── free_spins_block.dart           # ~300 LOC
+│   ├── respin_block.dart               # ~200 LOC
+│   ├── hold_and_win_block.dart         # ~350 LOC
+│   ├── cascades_block.dart             # ~250 LOC
+│   ├── collector_block.dart            # ~200 LOC
+│   ├── win_presentation_block.dart     # ~400 LOC
+│   ├── music_states_block.dart         # ~300 LOC
+│   ├── anticipation_block.dart         # ~300 LOC
+│   ├── jackpot_block.dart              # ~350 LOC
+│   ├── wild_features_block.dart        # ~350 LOC
+│   └── transitions_block.dart          # ~350 LOC
+│
+├── data/feature_builder/
+│   ├── built_in_presets.dart           # ~350 LOC
+│   └── validation_rules.dart           # ~300 LOC
+│
+└── providers/
+    └── feature_builder_provider.dart   # ~400 LOC
+
+crates/
+├── rf-slot-lab/src/
+│   └── feature_builder_config.rs       # ~300 LOC
+│
+└── rf-bridge/src/
+    └── feature_builder_ffi.rs          # ~150 LOC
+
+test/feature_builder/                   # ~200 LOC
+```
+
+---
+
+### P13 KEYBOARD SHORTCUTS
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Shift+F` | Toggle Feature Builder panel |
+| `Escape` | Close settings sheet / panel |
+| `Tab` | Navigate between blocks |
+| `Space` | Toggle selected block |
+| `Enter` | Open block settings |
+| `Ctrl+Enter` | Apply configuration |
+| `Ctrl+R` | Reset to defaults |
+| `Ctrl+S` | Save current as preset |
+| `1-9, 0` | Quick-enable blocks (FS, Respin, H&W, Cascades, Collector, Anticipation, Gamble, Jackpot, Bonus, Multiplier) |
+
+---
+
+### P13 BLOCKS CATALOG
+
+| # | Block | Category | Key Options | Generated Stages |
+|---|-------|----------|-------------|------------------|
+| 1 | Game Core | core | Pay model, spin type, volatility | SPIN_START, SPIN_END |
+| 2 | Grid | core | Reels, rows, paylines/ways | REEL_STOP_0..N |
+| 3 | Symbol Set | core | Symbol counts, Wild, Scatter, Bonus | SYMBOL_LAND_* |
+| 4 | Free Spins | feature | Trigger type, spin count, retrigger | FS_TRIGGER, FS_INTRO, FS_SPIN_*, FS_OUTRO |
+| 5 | Respin | feature | Lock type, count | RESPIN_TRIGGER, RESPIN_LOCK, RESPIN_WIN |
+| 6 | Hold & Win | feature | Jackpot tiers, respin count | HNW_TRIGGER, HNW_SPIN, HNW_JACKPOT_* |
+| 7 | Cascades | feature | Max cascades, multiplier | CASCADE_START, CASCADE_STEP_N, CASCADE_END |
+| 8 | Collector | feature | Meter type, milestones | COLLECT_SYMBOL, COLLECT_MILESTONE |
+| 9 | Win Presentation | presentation | P5 tiers, rollup style | WIN_PRESENT_*, ROLLUP_*, BIG_WIN_* |
+| 10 | Music States | presentation | ALE contexts, transitions | CONTEXT_*, layer switches |
+| 11 | Anticipation | bonus | Pattern, tension levels | ANTICIPATION_ON, ANTICIPATION_TENSION_R*_L* |
+| 12 | Jackpot | bonus | Trigger mode, 4 tiers | JACKPOT_TRIGGER, JACKPOT_*_WIN |
+| 13 | Wild Features | bonus | Type, expand, sticky, walk | WILD_LAND, WILD_EXPAND_*, WILD_WALK |
+| 14 | Transitions | presentation | 11 types, animation style | FS_ENTER, HNW_ENTER, etc. |
+
+---
+
+### P13 BUILT-IN PRESETS (16)
+
+| # | Preset Name | Category | Blocks | Description |
+|---|-------------|----------|--------|-------------|
+| 1 | Classic 3x3 Fruit | classic | Core + WinPres | Minimal 3-reel fruit |
+| 2 | Classic 5x3 Lines | classic | Core + FS + WinPres | Traditional 5x3 with FS |
+| 3 | Ways 243 | video | Core + FS + Cascades + WinPres | 243 ways with cascades |
+| 4 | Ways 1024 | video | Core + FS + WinPres + Music | 1024 ways modern |
+| 5 | Megaways | megaways | Core (dynamic) + FS + Cascades + WinPres | 117649 ways |
+| 6 | Cluster Pays | cluster | Core (cluster) + Cascades + Collector + WinPres | Cluster mechanics |
+| 7 | Hold & Win Basic | holdwin | Core + HNW + WinPres | Simple hold & win |
+| 8 | Hold & Win + FS | holdwin | Core + FS + HNW + WinPres | Combined features |
+| 9 | Cascades + Multiplier | video | Core + Cascades + WinPres + Music | Cascade focus |
+| 10 | Collector + FS | video | Core + FS + Collector + WinPres | Meter-based FS trigger |
+| 11 | Full Feature | video | ALL BLOCKS | Everything enabled |
+| 12 | Audio Test Mode | test | Core + WinPres | High frequency events |
+| 13 | Anticipation Focus | video | Core + FS + Anticipation + WinPres | Tension-heavy |
+| 14 | Jackpot Focus | jackpot | Core + Jackpot + WinPres + Music | Progressive jackpots |
+| 15 | Wild Heavy | video | Core + FS + WildFeatures + WinPres | Wild-centric mechanics |
+| 16 | Transition Demo | test | Core + Transitions + WinPres | Animation testing |
+
+---
+
+### P13 DEPENDENCY MATRIX
+
+| Block | Enables | Requires | Modifies | Conflicts |
+|-------|---------|----------|----------|-----------|
+| Game Core | All | — | — | — |
+| Grid | — | Game Core | — | — |
+| Symbol Set | — | Game Core | — | — |
+| Free Spins | Respin (in FS) | Scatter symbol | Win Presentation | — |
+| Respin | — | — | Spin flow | Hold & Win |
+| Hold & Win | Collector, Jackpot | Coin symbol | Disables spin | Respin |
+| Cascades | Multiplier | — | Win Presentation | — |
+| Collector | — | Special symbol | — | — |
+| Win Presentation | — | — | — | — |
+| Music States | — | — | All audio | — |
+| Anticipation | — | Scatter/Bonus | Reel timing | — |
+| Jackpot | — | — | Win Presentation | — |
+| Wild Features | — | Wild symbol | Win evaluation | — |
+| Transitions | — | — | Visual flow | — |
+
+---
+
+### P13 VALIDATION RULES
+
+**Error Rules (block Apply):**
+| ID | Rule | Message |
+|----|------|---------|
+| E001 | Scatter required for FS scatter trigger | "Enable Scatter in Symbol Set" |
+| E002 | Bonus symbol required for Bonus game | "Enable Bonus symbol in Symbol Set" |
+| E003 | Coin symbol required for Hold & Win | "Enable special symbol (Coin) in Symbol Set" |
+| E004 | Wild required for Wild Features | "Enable Wild in Symbol Set" |
+| E005 | Grid too small for feature | "Increase grid size for Hold & Win (min 5x3)" |
+
+**Warning Rules:**
+| ID | Rule | Message |
+|----|------|---------|
+| W001 | Cascades + FS = long sequences | "Consider limiting cascades during FS" |
+| W002 | Multiple jackpot sources | "Both H&W and standalone Jackpot enabled" |
+| W003 | Too many features | "5+ features may confuse players" |
+
+---
+
+*Last updated: 2026-02-01 — Feature Builder Panel Added (P13)*
