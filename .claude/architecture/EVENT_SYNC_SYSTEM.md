@@ -2360,6 +2360,61 @@ This means the Middleware Lower Zone parameter strip (offset slider, pan, volume
 
 ---
 
+## Auto Fade-Out System for _END Stages (2026-02-01)
+
+**Filozofija:** Svaki stage koji se završava sa `_END` automatski fade-out-uje sve aktivne zvukove iz istoimenog stage prefiksa.
+
+### Implementation
+
+**Lokacija:** `event_registry.dart:1898-1925` (trigger detection), `662-697` (fade-out logic)
+
+**Logika:**
+```dart
+if (normalizedStage.endsWith('_END') && normalizedStage != 'SPIN_END') {
+  final basePrefix = normalizedStage.substring(0, normalizedStage.length - 4);
+  _autoFadeOutMatchingStages(basePrefix, fadeMs: 100);
+}
+```
+
+### Covered _END Stages (40 of 41)
+
+| _END Stage | Fade-Out Targets | Example |
+|------------|------------------|---------|
+| `BIG_WIN_END` | `BIG_WIN_*` | BIG_WIN_LOOP, BIG_WIN_COINS, BIG_WIN_IMPACT |
+| `FREESPIN_END` | `FREESPIN_*` | FREESPIN_MUSIC, FREESPIN_LOOP |
+| `FS_END` | `FS_*` | FS_MUSIC, FS_LOOP |
+| `CASCADE_END` | `CASCADE_*` | CASCADE_STEP, CASCADE_LOOP |
+| `BONUS_END` | `BONUS_*` | BONUS_MUSIC, BONUS_LOOP |
+| `JACKPOT_END` | `JACKPOT_*` | JACKPOT_BUILDUP, JACKPOT_CELEBRATION |
+| `GAMBLE_END` | `GAMBLE_*` | GAMBLE_MUSIC, GAMBLE_SUSPENSE |
+| `HOLD_END` | `HOLD_*` | HOLD_MUSIC, HOLD_RESPIN |
+| `ROLLUP_END` | `ROLLUP_*` | ROLLUP_TICK |
+| ... | ... | 31 additional _END stages |
+
+**EXCEPTION:** `SPIN_END` does NOT auto fade-out (manual event design by user)
+
+### Fade-Out Logic
+
+```dart
+void _autoFadeOutMatchingStages(String stagePrefix, {int fadeMs = 100}) {
+  for (final instance in _playingInstances) {
+    final event = _events[instance.eventId];
+    final eventStage = event.stage.toUpperCase();
+
+    // Match prefix AND exclude _END suffix (prevent self fade-out)
+    if (eventStage.startsWith(stagePrefix) && !eventStage.endsWith('_END')) {
+      for (final voiceId in instance.voiceIds) {
+        AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: fadeMs);
+      }
+    }
+  }
+}
+```
+
+**Duration:** 100ms (smooth transition, industry standard)
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management

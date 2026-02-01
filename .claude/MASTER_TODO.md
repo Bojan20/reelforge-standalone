@@ -23,6 +23,9 @@
 - ✅ **Audio:** Seamless music looping (GAME_START fix by Opus)
 - ✅ **UX:** Middleware 14 inline parameters + persistent state
 - ✅ **Feature Builder:** 85% → 95% ready (P1-P3 gaps resolved)
+- ✅ **SlotLab Audio-Visual Sync:** Reel stop sounds perfectly synced (t=0.98 pre-trigger)
+- ✅ **Anticipation Control:** Near miss anticipation disabled by default (config flag)
+- ✅ **Auto Fade-Out:** 40 _END stages automatically fade-out matching audio (100ms)
 
 **P13 Feature Builder — ENHANCED:**
 - ✅ P13.8 Integration: Apply & Build complete
