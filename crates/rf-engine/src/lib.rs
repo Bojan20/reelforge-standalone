@@ -31,6 +31,7 @@ pub mod groups;
 mod insert_chain;
 mod parallel_graph;
 mod pdc;
+pub mod routing_pdc; // P10.0.2: Graph-level PDC
 mod send_return;
 mod sidechain;
 

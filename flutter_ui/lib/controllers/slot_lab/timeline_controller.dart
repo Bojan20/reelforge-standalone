@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../models/timeline/timeline_state.dart';
 import '../../models/timeline/audio_region.dart';
 import '../../models/timeline/stage_marker.dart';
+import '../../models/timeline_models.dart' show parseWaveformFromJson;
 
 class TimelineController extends ChangeNotifier {
   TimelineState _state = const TimelineState();
@@ -310,11 +311,26 @@ class TimelineController extends ChangeNotifier {
     }
   }
 
-  /// Parse waveform JSON from Rust FFI
+  /// Parse waveform JSON from Rust FFI (uses existing parseWaveformFromJson helper)
   List<double>? _parseWaveformJson(String json) {
-    // TODO: Implement JSON parsing (same as DAW waveform system)
-    // For now, return null (will show filename placeholder)
-    return null;
+    final (leftChannel, rightChannel) = parseWaveformFromJson(json, maxSamples: 2048);
+
+    if (leftChannel == null) return null;
+
+    // Convert Float32List to List<double>
+    final waveformData = <double>[];
+
+    // Mix stereo to mono if needed, or just use left
+    if (rightChannel != null && rightChannel.length == leftChannel.length) {
+      for (int i = 0; i < leftChannel.length; i++) {
+        final mono = (leftChannel[i] + rightChannel[i]) / 2.0;
+        waveformData.add(mono);
+      }
+    } else {
+      waveformData.addAll(leftChannel);
+    }
+
+    return waveformData;
   }
 
   /// Load waveforms for all regions in a track

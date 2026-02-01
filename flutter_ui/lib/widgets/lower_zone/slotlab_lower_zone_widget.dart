@@ -46,6 +46,8 @@ import '../common/git_panel.dart';
 import '../common/analytics_dashboard.dart';
 import '../common/documentation_viewer.dart';
 import '../../providers/git_provider.dart';
+import '../slot_lab/timeline/ultimate_timeline_widget.dart';
+import '../../controllers/slot_lab/timeline_controller.dart' as timeline_ctrl;
 
 class SlotLabLowerZoneWidget extends StatefulWidget {
   final SlotLabLowerZoneController controller;
@@ -740,7 +742,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  Widget _buildTimelinePanel() => _buildCompactEventTimeline();
+  Widget _buildTimelinePanel() {
+    // P14: Use ULTIMATE TIMELINE (professional DAW-style)
+    return widget.onBuildTimelineContent?.call() ?? _buildCompactEventTimeline();
+  }
   Widget _buildSymbolsPanel() => _buildCompactSymbolsPanel();
   Widget _buildProfilerPanel() {
     return LayoutBuilder(

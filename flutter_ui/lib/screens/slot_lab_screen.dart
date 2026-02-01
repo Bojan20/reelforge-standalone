@@ -82,6 +82,8 @@ import '../services/slotlab_track_bridge.dart';
 import '../services/waveform_cache_service.dart';
 import '../controllers/slot_lab/timeline_drag_controller.dart';
 import '../controllers/slot_lab/timeline_controller.dart' as ultimate;
+import '../models/timeline/stage_marker.dart' as timeline_models;
+import '../models/timeline/audio_region.dart' as timeline_models show AudioRegion;
 import '../widgets/slot_lab/timeline_toolbar.dart';
 import '../widgets/slot_lab/timeline_grid_overlay.dart';
 import '../widgets/slot_lab/draggable_layer_widget.dart';
@@ -942,11 +944,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     debugPrint('[SlotLab] ✅ Fast sync complete');
   }
 
-  /// Global keyboard handler — handles Space regardless of focus
+  /// Global keyboard handler — handles Space + Timeline shortcuts
   /// This fixes the bug where Space stops working after clicking on other elements
   bool _globalKeyHandler(KeyEvent event) {
     // Only handle KeyDown, not KeyUp or KeyRepeat
     if (event is! KeyDownEvent) return false;
+
+    // P14: Ultimate Timeline keyboard shortcuts
+    if (_ultimateTimelineController != null) {
+      if (_handleUltimateTimelineShortcut(event)) {
+        return true; // Handled
+      }
+    }
 
     // Only handle Space key
     if (event.logicalKey != LogicalKeyboardKey.space) return false;
@@ -1019,6 +1028,66 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (mounted) {
       setState(() {});
     }
+  }
+
+  /// P14: Handle Ultimate Timeline keyboard shortcuts
+  bool _handleUltimateTimelineShortcut(KeyEvent event) {
+    final controller = _ultimateTimelineController;
+    if (controller == null) return false;
+
+    final isCtrl = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+    // Zoom shortcuts
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.equal) {
+      controller.zoomIn();
+      return true;
+    }
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.minus) {
+      controller.zoomOut();
+      return true;
+    }
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.digit0) {
+      controller.zoomToFit();
+      return true;
+    }
+
+    // Grid shortcuts
+    if (event.logicalKey == LogicalKeyboardKey.keyG && !isCtrl && !isShift) {
+      controller.toggleSnap();
+      return true;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.keyG && isShift) {
+      controller.cycleGridMode();
+      return true;
+    }
+
+    // Playback shortcuts (only if not conflicting with slot spin)
+    if (event.logicalKey == LogicalKeyboardKey.keyL) {
+      controller.toggleLoop();
+      return true;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit0 && !isCtrl) {
+      controller.stop();
+      return true;
+    }
+
+    // Marker shortcuts
+    if (event.logicalKey == LogicalKeyboardKey.semicolon && !isShift) {
+      // Add marker at playhead
+      controller.addMarkerAtPlayhead('CUSTOM_MARKER', 'Marker');
+      return true;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.quote && !isShift) {
+      controller.jumpToNextMarker();
+      return true;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.quote && isShift) {
+      controller.jumpToPreviousMarker();
+      return true;
+    }
+
+    return false; // Not handled
   }
 
   /// Callback when MiddlewareProvider changes (bidirectional sync)
@@ -6445,12 +6514,138 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         // Sync stage markers from SlotLabProvider
         _syncStageMarkersToUltimateTimeline(slotLabProvider);
 
-        return UltimateTimeline(
-          height: constraints.maxHeight,
-          controller: _ultimateTimelineController,
+        // Migrate existing tracks/regions to Ultimate Timeline (one-time)
+        _migrateTracksToUltimateTimeline();
+
+        // Wrap in DragTarget for audio browser drops
+        return DragTarget<Object>(
+          onAcceptWithDetails: (details) {
+            if (details.data is String) {
+              _handleAudioDropToUltimateTimeline(details.data as String, details.offset);
+            } else if (details.data is List<String>) {
+              // Multi-file drop
+              for (final path in details.data as List<String>) {
+                _handleAudioDropToUltimateTimeline(path, details.offset);
+              }
+            }
+          },
+          onWillAcceptWithDetails: (details) => details.data is String || details.data is List<String>,
+          builder: (context, candidateData, rejectedData) {
+            return UltimateTimeline(
+              height: constraints.maxHeight,
+              controller: _ultimateTimelineController,
+            );
+          },
         );
       },
     );
+  }
+
+  /// Migrate existing _tracks to Ultimate Timeline format (one-time)
+  void _migrateTracksToUltimateTimeline() {
+    if (_ultimateTimelineController == null) return;
+    if (_ultimateTimelineController!.state.tracks.isNotEmpty) return; // Already migrated
+
+    // Convert each _SlotAudioTrack to TimelineTrack
+    for (int i = 0; i < _tracks.length; i++) {
+      final oldTrack = _tracks[i];
+
+      // Create track in Ultimate Timeline
+      _ultimateTimelineController!.addTrack(name: oldTrack.name);
+
+      final newTrack = _ultimateTimelineController!.state.tracks.last;
+
+      // Migrate regions
+      for (final oldRegion in oldTrack.regions) {
+        // Convert _AudioRegion to timeline's AudioRegion
+        final newRegion = timeline_models.AudioRegion(
+          id: oldRegion.id,
+          trackId: newTrack.id,
+          audioPath: oldRegion.audioPath ?? '',
+          startTime: oldRegion.start,
+          duration: oldRegion.end - oldRegion.start,
+          volume: 1.0, // Default
+          pan: 0.0,    // Default
+        );
+
+        _ultimateTimelineController!.addRegion(newTrack.id, newRegion);
+
+        // Load waveform asynchronously
+        if (oldRegion.audioPath != null) {
+          _ultimateTimelineController!.loadWaveformForRegion(
+            newTrack.id,
+            newRegion.id,
+            generateWaveformFn: (path, key) async {
+              final json = _ffi.generateWaveformFromFile(path, key);
+              return json ?? ''; // Return empty string if null
+            },
+          );
+        }
+      }
+    }
+
+    debugPrint('[SlotLab] ✅ Migrated ${_tracks.length} tracks to Ultimate Timeline');
+  }
+
+  /// Handle audio drop to Ultimate Timeline
+  void _handleAudioDropToUltimateTimeline(String audioPath, Offset globalPosition) {
+    if (_ultimateTimelineController == null) return;
+
+    // Get or create first track
+    var track = _ultimateTimelineController!.state.tracks.firstOrNull;
+    if (track == null) {
+      _ultimateTimelineController!.addTrack(name: 'Audio Track 1');
+      track = _ultimateTimelineController!.state.tracks.first;
+    }
+
+    // Calculate drop position in seconds (account for ruler + track header)
+    final state = _ultimateTimelineController!.state;
+    final canvasWidth = 1000.0 * state.zoom;
+    final dropX = globalPosition.dx - 120; // Track header width
+    final dropTime = (dropX / canvasWidth) * state.totalDuration;
+
+    // Create region
+    final region = timeline_models.AudioRegion(
+      id: 'region_${DateTime.now().millisecondsSinceEpoch}',
+      trackId: track.id,
+      audioPath: audioPath,
+      startTime: dropTime.clamp(0.0, state.totalDuration),
+      duration: 2.0, // Placeholder (will be updated from FFI)
+      volume: 1.0,
+      pan: 0.0,
+    );
+
+    _ultimateTimelineController!.addRegion(track.id, region);
+
+    // Load waveform + get real duration
+    _loadWaveformAndDuration(track.id, region);
+
+    debugPrint('[SlotLab] 🎵 Audio dropped to Ultimate Timeline: ${audioPath.split('/').last} at ${dropTime.toStringAsFixed(2)}s');
+  }
+
+  /// Load waveform and update region duration
+  Future<void> _loadWaveformAndDuration(String trackId, timeline_models.AudioRegion region) async {
+    try {
+      // Get real audio duration from FFI
+      final durationSeconds = _ffi.offlineGetAudioDuration(region.audioPath);
+      final realDuration = durationSeconds > 0 ? durationSeconds : 2.0;
+
+      // Update region with real duration
+      final updatedRegion = region.copyWith(duration: realDuration);
+      _ultimateTimelineController!.updateRegion(trackId, region.id, updatedRegion);
+
+      // Load waveform
+      await _ultimateTimelineController!.loadWaveformForRegion(
+        trackId,
+        region.id,
+        generateWaveformFn: (path, key) async {
+          final json = _ffi.generateWaveformFromFile(path, key);
+          return json ?? '';
+        },
+      );
+    } catch (e) {
+      debugPrint('[SlotLab] Waveform load failed: $e');
+    }
   }
 
   /// Sync stage markers from SlotLabProvider to Ultimate Timeline
@@ -6471,15 +6666,61 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Add markers from stage events
     for (final stage in stages) {
-      final timeSeconds = stage.timestamp / 1000.0; // Convert ms to seconds
+      final timeSeconds = stage.timestampMs / 1000.0; // Convert ms to seconds
 
-      // Use TimelineState's StageMarker model (imported as ultimate.StageMarker would conflict)
-      final marker = ultimate.StageMarker.fromStageId(
+      // Use timeline_models.StageMarker (to avoid conflict with old _StageMarker)
+      final marker = timeline_models.StageMarker.fromStageId(
         stage.stageType,
         timeSeconds,
       );
 
       _ultimateTimelineController!.addMarker(marker);
+    }
+
+    // P5: Add Win Tier boundaries if configured
+    _syncWinTierBoundariesToTimeline();
+  }
+
+  /// P5: Sync Win Tier boundaries to timeline as visual markers
+  void _syncWinTierBoundariesToTimeline() {
+    if (_ultimateTimelineController == null) return;
+
+    final projectProvider = context.read<SlotLabProjectProvider>();
+    final winConfig = projectProvider.winConfiguration;
+
+    // Add regular win tier boundaries
+    for (final tier in winConfig.regularWins.tiers) {
+      final marker = timeline_models.StageMarker(
+        id: 'win_tier_${tier.tierId}',
+        stageId: tier.stageName,
+        timeSeconds: 0.0, // Tier boundaries are vertical lines at time=0 (visual reference)
+        type: timeline_models.StageMarkerType.win,
+        label: tier.displayLabel,
+        color: const Color(0xFFFFD700).withOpacity(0.5),
+      );
+
+      // Only add if not already present
+      final exists = _ultimateTimelineController!.state.markers.any((m) => m.id == marker.id);
+      if (!exists) {
+        _ultimateTimelineController!.addMarker(marker);
+      }
+    }
+
+    // Add big win tier boundaries
+    for (final tier in winConfig.bigWins.tiers) {
+      final marker = timeline_models.StageMarker(
+        id: 'big_win_tier_${tier.tierId}',
+        stageId: tier.stageName,
+        timeSeconds: 0.0,
+        type: timeline_models.StageMarkerType.win,
+        label: tier.displayLabel,
+        color: const Color(0xFFFF9040).withOpacity(0.7),
+      );
+
+      final exists = _ultimateTimelineController!.state.markers.any((m) => m.id == marker.id);
+      if (!exists) {
+        _ultimateTimelineController!.addMarker(marker);
+      }
     }
   }
 

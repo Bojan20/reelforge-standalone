@@ -906,6 +906,11 @@ pub struct OneShotVoice {
     trim_end_sample: u64,
     /// Fade out duration in samples (applied at end or when stopping)
     fade_out_samples_at_end: u64,
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P12.0.1: REAL-TIME PITCH SHIFTING
+    // ═══════════════════════════════════════════════════════════════════════════
+    /// Pitch shift in semitones (-24 to +24, 0 = no shift)
+    pitch_semitones: f32,
 }
 
 impl OneShotVoice {
@@ -939,6 +944,8 @@ impl OneShotVoice {
             trim_start_sample: 0,
             trim_end_sample: 0,
             fade_out_samples_at_end: 0,
+            // P12.0.1: Pitch shift
+            pitch_semitones: 0.0,
         }
     }
 
@@ -954,6 +961,7 @@ impl OneShotVoice {
         self.fade_samples_remaining = 0;
         self.fade_increment = 0.0;
         self.fade_gain = 1.0;
+        self.pitch_semitones = 0.0; // P12.0.1: Reset pitch on activate
         self.looping = false;
         // Reset extended parameters
         self.fade_in_samples_total = 0;
