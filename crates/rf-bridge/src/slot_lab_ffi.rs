@@ -623,6 +623,99 @@ pub extern "C" fn slot_lab_spin_forced_p5(outcome: i32) -> u64 {
     spin_id
 }
 
+/// Execute a forced spin with EXACT target win multiplier for precise tier testing
+///
+/// Parameters:
+/// - outcome: ForcedOutcome enum value (0-13)
+/// - target_multiplier: Exact win multiplier (e.g., 1.5 for WIN_1, 3.5 for WIN_2, etc.)
+///
+/// The engine will override paytable evaluation with: total_win = bet * target_multiplier
+/// This ensures each tier button (W1, W2, W3, etc.) produces a DISTINCT win tier.
+///
+/// Returns spin ID (> 0) on success, 0 if invalid
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_spin_forced_with_multiplier(outcome: i32, target_multiplier: f64) -> u64 {
+    // Validate outcome range first
+    if !(FORCED_OUTCOME_MIN..=FORCED_OUTCOME_MAX).contains(&outcome) {
+        log::warn!(
+            "slot_lab_spin_forced_with_multiplier: Invalid outcome value {} (valid range: {}-{})",
+            outcome,
+            FORCED_OUTCOME_MIN,
+            FORCED_OUTCOME_MAX
+        );
+        return 0;
+    }
+
+    let mut guard = SLOT_ENGINE.write();
+    let Some(ref mut engine) = *guard else {
+        log::warn!("slot_lab_spin_forced_with_multiplier: Engine not initialized");
+        return 0;
+    };
+
+    let forced = match outcome {
+        0 => ForcedOutcome::Lose,
+        1 => ForcedOutcome::SmallWin,
+        2 => ForcedOutcome::MediumWin,
+        3 => ForcedOutcome::BigWin,
+        4 => ForcedOutcome::MegaWin,
+        5 => ForcedOutcome::EpicWin,
+        6 => ForcedOutcome::UltraWin,
+        7 => ForcedOutcome::FreeSpins,
+        8 => ForcedOutcome::JackpotMini,
+        9 => ForcedOutcome::JackpotMinor,
+        10 => ForcedOutcome::JackpotMajor,
+        11 => ForcedOutcome::JackpotGrand,
+        12 => ForcedOutcome::NearMiss,
+        13 => ForcedOutcome::Cascade,
+        _ => {
+            log::error!("slot_lab_spin_forced_with_multiplier: Unexpected outcome: {}", outcome);
+            return 0;
+        }
+    };
+
+    // Execute spin with EXACT target multiplier
+    let (mut result, stages) = engine.spin_forced_with_multiplier_and_stages(forced, target_multiplier);
+
+    // Reevaluate with P5 Win Tier config to get correct tier name
+    let win_config = WIN_TIER_CONFIG.read();
+    let p5_result = win_config.evaluate(result.total_win, result.bet);
+
+    // Update SpinResult with P5 tier info
+    result.win_tier_name = if p5_result.primary_stage.is_empty() || p5_result.primary_stage == "NO_WIN" {
+        None
+    } else {
+        Some(p5_result.primary_stage.clone())
+    };
+
+    // Map P5 result to legacy BigWinTier for backwards compatibility
+    if p5_result.is_big_win {
+        result.big_win_tier = match p5_result.big_win_max_tier {
+            Some(5) => Some(rf_stage::BigWinTier::UltraWin),
+            Some(4) => Some(rf_stage::BigWinTier::EpicWin),
+            Some(3) => Some(rf_stage::BigWinTier::MegaWin),
+            Some(2) => Some(rf_stage::BigWinTier::BigWin),
+            Some(1) => Some(rf_stage::BigWinTier::BigWin),
+            _ => Some(rf_stage::BigWinTier::BigWin),
+        };
+    } else if result.total_win > 0.0 {
+        result.big_win_tier = Some(rf_stage::BigWinTier::Win);
+    }
+
+    drop(win_config);
+
+    let spin_id = SPIN_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
+    *LAST_SPIN_RESULT.write() = Some(result);
+    *LAST_STAGES.write() = stages;
+
+    log::debug!(
+        "slot_lab_spin_forced_with_multiplier: outcome={:?}, multiplier={:.2}x, spin_id={}",
+        forced,
+        target_multiplier,
+        spin_id
+    );
+    spin_id
+}
+
 /// Get P5 Win Tier result for last spin as JSON
 ///
 /// Returns JSON with full P5 tier evaluation:

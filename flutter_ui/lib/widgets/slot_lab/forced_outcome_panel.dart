@@ -42,8 +42,12 @@ class ForcedOutcomeConfig {
     this.expectedWinMultiplier,
   });
 
-  /// All available forced outcomes
+  /// All available forced outcomes - P5 Dynamic Win Tier System
+  /// Each WIN tier is separate (WIN_1, WIN_2, WIN_3, WIN_4, WIN_5, WIN_6)
   static const List<ForcedOutcomeConfig> outcomes = [
+    // ═══════════════════════════════════════════════════════════════════
+    // LOSE
+    // ═══════════════════════════════════════════════════════════════════
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.lose,
       label: 'LOSE',
@@ -51,94 +55,150 @@ class ForcedOutcomeConfig {
       description: 'No winning combinations',
       icon: Icons.close,
       gradientColors: [Color(0xFF4A4A5A), Color(0xFF2A2A3A)],
-      expectedStages: ['spin_start', 'reel_stop', 'evaluate_wins', 'spin_end'],
+      expectedStages: ['SPIN_START', 'REEL_STOP', 'EVALUATE_WINS', 'SPIN_END'],
       keyboardShortcut: '1',
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════
+    // REGULAR WINS (P5: WIN_LOW, WIN_EQUAL, WIN_1 through WIN_6)
+    // ═══════════════════════════════════════════════════════════════════
+    ForcedOutcomeConfig(
+      outcome: ForcedOutcome.smallWin,
+      label: 'WIN LOW',
+      shortLabel: 'LOW',
+      description: 'WIN_LOW: < 1x bet (sub-bet win)',
+      icon: Icons.arrow_downward,
+      gradientColors: [Color(0xFF78909C), Color(0xFF546E7A)],
+      expectedStages: [
+        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'WIN_PRESENT_LOW', 'SPIN_END',  // No rollup for sub-bet
+      ],
+      keyboardShortcut: '2',
+      expectedWinMultiplier: 0.5,  // 0.5x bet
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.smallWin,
-      label: 'SMALL WIN',
-      shortLabel: 'SMALL',
-      description: 'Win < 5x bet',
-      icon: Icons.attach_money,
-      gradientColors: [Color(0xFF40C8FF), Color(0xFF4A9EFF)],
+      label: 'WIN =',
+      shortLabel: 'EQ',
+      description: 'WIN_EQUAL: = 1x bet (push/break-even)',
+      icon: Icons.drag_handle,
+      gradientColors: [Color(0xFF90A4AE), Color(0xFF78909C)],
       expectedStages: [
-        'spin_start',
-        'reel_stop',
-        'evaluate_wins',
-        'win_present',
-        'rollup_start',
-        'rollup_end',
-        'spin_end',
+        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'WIN_PRESENT_EQUAL', 'SPIN_END',  // No rollup for push
       ],
-      keyboardShortcut: '2',
-      expectedWinMultiplier: 2.5,
+      keyboardShortcut: '3',
+      expectedWinMultiplier: 1.0,  // Exactly 1x bet
+    ),
+    ForcedOutcomeConfig(
+      outcome: ForcedOutcome.smallWin,
+      label: 'WIN 1',
+      shortLabel: 'W1',
+      description: 'WIN_1: 1x-2x bet',
+      icon: Icons.looks_one,
+      gradientColors: [Color(0xFF64B5F6), Color(0xFF42A5F5)],
+      expectedStages: [
+        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'WIN_PRESENT_1', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
+      ],
+      keyboardShortcut: '4',
+      expectedWinMultiplier: 1.5,
+    ),
+    ForcedOutcomeConfig(
+      outcome: ForcedOutcome.smallWin,
+      label: 'WIN 2',
+      shortLabel: 'W2',
+      description: 'WIN_2: 2x-5x bet',
+      icon: Icons.looks_two,
+      gradientColors: [Color(0xFF4FC3F7), Color(0xFF29B6F6)],
+      expectedStages: [
+        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'WIN_PRESENT_2', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
+      ],
+      keyboardShortcut: '5',
+      expectedWinMultiplier: 3.0,
+    ),
+    ForcedOutcomeConfig(
+      outcome: ForcedOutcome.mediumWin,
+      label: 'WIN 3',
+      shortLabel: 'W3',
+      description: 'WIN_3: 5x-8x bet',
+      icon: Icons.looks_3,
+      gradientColors: [Color(0xFF81C784), Color(0xFF66BB6A)],
+      expectedStages: [
+        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'WIN_PRESENT_3', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
+      ],
+      keyboardShortcut: '6',
+      expectedWinMultiplier: 6.0,
+    ),
+    ForcedOutcomeConfig(
+      outcome: ForcedOutcome.mediumWin,
+      label: 'WIN 4',
+      shortLabel: 'W4',
+      description: 'WIN_4: 8x-12x bet',
+      icon: Icons.looks_4,
+      gradientColors: [Color(0xFF4DB6AC), Color(0xFF26A69A)],
+      expectedStages: [
+        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'WIN_PRESENT_4', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
+      ],
+      keyboardShortcut: '7',
+      expectedWinMultiplier: 10.0,
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.bigWin,
-      label: 'BIG WIN',
-      shortLabel: 'BIG',
-      description: 'Win 10-25x bet',
-      icon: Icons.stars,
-      gradientColors: [Color(0xFF40FF90), Color(0xFF00E676)],
+      label: 'WIN 5',
+      shortLabel: 'W5',
+      description: 'WIN_5: 12x-16x bet',
+      icon: Icons.looks_5,
+      gradientColors: [Color(0xFF4CAF50), Color(0xFF43A047)],
       expectedStages: [
-        'spin_start',
-        'reel_stop',
-        'anticipation_on',
-        'anticipation_off',
-        'evaluate_wins',
-        'win_present',
-        'bigwin_tier',
-        'rollup_start',
-        'rollup_end',
-        'spin_end',
+        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'WIN_PRESENT_5', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
-      keyboardShortcut: '3',
-      expectedWinMultiplier: 15.0,
+      keyboardShortcut: '8',
+      expectedWinMultiplier: 14.0,
     ),
     ForcedOutcomeConfig(
-      outcome: ForcedOutcome.megaWin,
-      label: 'MEGA WIN',
-      shortLabel: 'MEGA',
-      description: 'Win 25-50x bet',
+      outcome: ForcedOutcome.bigWin,
+      label: 'WIN 6',
+      shortLabel: 'W6',
+      description: 'WIN_6: 16x-20x bet',
+      icon: Icons.looks_6,
+      gradientColors: [Color(0xFF66BB6A), Color(0xFF4CAF50)],
+      expectedStages: [
+        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'WIN_PRESENT_6', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
+      ],
+      keyboardShortcut: '9',
+      expectedWinMultiplier: 18.0,
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BIG WIN (P5: 20x+ with tier escalation 1→2→3→4→5)
+    // ═══════════════════════════════════════════════════════════════════
+    ForcedOutcomeConfig(
+      outcome: ForcedOutcome.megaWin, // Maps to BIG_WIN in P5
+      label: 'BIG WIN',
+      shortLabel: 'BIG',
+      description: 'Big Win: 20x+ bet with tier escalation (TIER_1→5)',
       icon: Icons.auto_awesome,
       gradientColors: [Color(0xFFFFD700), Color(0xFFFFA500)],
       expectedStages: [
-        'spin_start',
-        'reel_stop',
-        'anticipation_on',
-        'anticipation_off',
-        'evaluate_wins',
-        'win_present',
-        'bigwin_tier',
-        'rollup_start',
-        'rollup_end',
-        'spin_end',
+        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'BIG_WIN_INTRO',
+        'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3',
+        'BIG_WIN_ROLLUP_TICK',
+        'BIG_WIN_END', 'SPIN_END',
       ],
-      keyboardShortcut: '4',
-      expectedWinMultiplier: 35.0,
+      keyboardShortcut: '0',
+      expectedWinMultiplier: 50.0,
     ),
-    ForcedOutcomeConfig(
-      outcome: ForcedOutcome.epicWin,
-      label: 'EPIC WIN',
-      shortLabel: 'EPIC',
-      description: 'Win > 50x bet',
-      icon: Icons.diamond,
-      gradientColors: [Color(0xFFFF4080), Color(0xFFE91E63)],
-      expectedStages: [
-        'spin_start',
-        'reel_stop',
-        'anticipation_on',
-        'anticipation_off',
-        'evaluate_wins',
-        'win_present',
-        'bigwin_tier',
-        'rollup_start',
-        'rollup_end',
-        'spin_end',
-      ],
-      keyboardShortcut: '5',
-      expectedWinMultiplier: 75.0,
-    ),
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FEATURES (NO keyboard shortcuts - use panel)
+    // ═══════════════════════════════════════════════════════════════════
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.freeSpins,
       label: 'FREE SPINS',
@@ -147,52 +207,10 @@ class ForcedOutcomeConfig {
       icon: Icons.loop,
       gradientColors: [Color(0xFFE040FB), Color(0xFF7C4DFF)],
       expectedStages: [
-        'spin_start',
-        'reel_stop',
-        'anticipation_on',
-        'anticipation_off',
-        'feature_enter',
-        'feature_step',
-        'feature_exit',
-        'spin_end',
+        'SPIN_START', 'REEL_STOP', 'ANTICIPATION_ON', 'ANTICIPATION_OFF',
+        'FEATURE_ENTER', 'FEATURE_STEP', 'FEATURE_EXIT', 'SPIN_END',
       ],
-      keyboardShortcut: '6',
-    ),
-    ForcedOutcomeConfig(
-      outcome: ForcedOutcome.jackpotGrand,
-      label: 'JACKPOT',
-      shortLabel: 'JP',
-      description: 'Progressive jackpot hit',
-      icon: Icons.emoji_events,
-      gradientColors: [Color(0xFFFFD700), Color(0xFFFF6B00)],
-      expectedStages: [
-        'spin_start',
-        'reel_stop',
-        'jackpot_trigger',
-        'jackpot_present',
-        'rollup_start',
-        'rollup_end',
-        'spin_end',
-      ],
-      keyboardShortcut: '7',
-      expectedWinMultiplier: 500.0,
-    ),
-    ForcedOutcomeConfig(
-      outcome: ForcedOutcome.nearMiss,
-      label: 'NEAR MISS',
-      shortLabel: 'NEAR',
-      description: 'Almost won combination',
-      icon: Icons.track_changes,
-      gradientColors: [Color(0xFFFF9040), Color(0xFFFF6B00)],
-      expectedStages: [
-        'spin_start',
-        'reel_stop',
-        'anticipation_on',
-        'anticipation_off',
-        'evaluate_wins',
-        'spin_end',
-      ],
-      keyboardShortcut: '8',
+      // No keyboard shortcut - use panel
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.cascade,
@@ -202,39 +220,88 @@ class ForcedOutcomeConfig {
       icon: Icons.waterfall_chart,
       gradientColors: [Color(0xFF00BCD4), Color(0xFF00ACC1)],
       expectedStages: [
-        'spin_start',
-        'reel_stop',
-        'cascade_start',
-        'cascade_step',
-        'cascade_step',
-        'cascade_end',
-        'spin_end',
+        'SPIN_START', 'REEL_STOP',
+        'CASCADE_START', 'CASCADE_STEP', 'CASCADE_STEP', 'CASCADE_END',
+        'SPIN_END',
       ],
-      keyboardShortcut: '9',
+      // No keyboard shortcut - use panel
     ),
-    // Note: ForcedOutcome.bonus does not exist in native_ffi,
-    // use ultraWin as placeholder for bonus-like high win
+
+    // ═══════════════════════════════════════════════════════════════════
+    // JACKPOTS (4 tiers) - NO keyboard shortcuts, use panel
+    // ═══════════════════════════════════════════════════════════════════
     ForcedOutcomeConfig(
-      outcome: ForcedOutcome.ultraWin,
-      label: 'ULTRA WIN',
-      shortLabel: 'ULTRA',
-      description: 'Ultra high multiplier win',
-      icon: Icons.whatshot,
-      gradientColors: [Color(0xFF8BC34A), Color(0xFF4CAF50)],
+      outcome: ForcedOutcome.jackpotMini,
+      label: 'JP MINI',
+      shortLabel: 'MINI',
+      description: 'Mini jackpot hit',
+      icon: Icons.workspace_premium,
+      gradientColors: [Color(0xFF9CA3AF), Color(0xFF6B7280)],
       expectedStages: [
-        'spin_start',
-        'reel_stop',
-        'anticipation_on',
-        'anticipation_off',
-        'evaluate_wins',
-        'win_present',
-        'bigwin_tier',
-        'rollup_start',
-        'rollup_end',
-        'spin_end',
+        'SPIN_START', 'REEL_STOP',
+        'JACKPOT_TRIGGER', 'JACKPOT_PRESENT_MINI', 'JACKPOT_AWARD',
+        'SPIN_END',
       ],
-      keyboardShortcut: '0',
+      expectedWinMultiplier: 50.0,
+    ),
+    ForcedOutcomeConfig(
+      outcome: ForcedOutcome.jackpotMinor,
+      label: 'JP MINOR',
+      shortLabel: 'MINOR',
+      description: 'Minor jackpot hit',
+      icon: Icons.workspace_premium,
+      gradientColors: [Color(0xFF60A5FA), Color(0xFF3B82F6)],
+      expectedStages: [
+        'SPIN_START', 'REEL_STOP',
+        'JACKPOT_TRIGGER', 'JACKPOT_PRESENT_MINOR', 'JACKPOT_AWARD',
+        'SPIN_END',
+      ],
       expectedWinMultiplier: 100.0,
+    ),
+    ForcedOutcomeConfig(
+      outcome: ForcedOutcome.jackpotMajor,
+      label: 'JP MAJOR',
+      shortLabel: 'MAJOR',
+      description: 'Major jackpot hit',
+      icon: Icons.emoji_events,
+      gradientColors: [Color(0xFFA78BFA), Color(0xFF8B5CF6)],
+      expectedStages: [
+        'SPIN_START', 'REEL_STOP',
+        'JACKPOT_TRIGGER', 'JACKPOT_PRESENT_MAJOR', 'JACKPOT_AWARD',
+        'SPIN_END',
+      ],
+      expectedWinMultiplier: 500.0,
+    ),
+    ForcedOutcomeConfig(
+      outcome: ForcedOutcome.jackpotGrand,
+      label: 'JP GRAND',
+      shortLabel: 'GRAND',
+      description: 'Grand jackpot hit (progressive)',
+      icon: Icons.emoji_events,
+      gradientColors: [Color(0xFFFFD700), Color(0xFFFF6B00)],
+      expectedStages: [
+        'SPIN_START', 'REEL_STOP',
+        'JACKPOT_TRIGGER', 'JACKPOT_PRESENT_GRAND', 'JACKPOT_AWARD',
+        'SPIN_END',
+      ],
+      expectedWinMultiplier: 1000.0,
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SPECIAL - NO keyboard shortcuts, use panel
+    // ═══════════════════════════════════════════════════════════════════
+    ForcedOutcomeConfig(
+      outcome: ForcedOutcome.nearMiss,
+      label: 'NEAR MISS',
+      shortLabel: 'NEAR',
+      description: 'Almost won - anticipation trigger',
+      icon: Icons.track_changes,
+      gradientColors: [Color(0xFFFF9040), Color(0xFFFF6B00)],
+      expectedStages: [
+        'SPIN_START', 'REEL_STOP',
+        'ANTICIPATION_ON', 'ANTICIPATION_TENSION_R3_L2', 'ANTICIPATION_OFF',
+        'EVALUATE_WINS', 'SPIN_END',
+      ],
     ),
   ];
 
@@ -334,7 +401,15 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
     final startTime = DateTime.now();
 
     // Trigger the spin with forced outcome
-    await widget.provider.spinForced(config.outcome);
+    // P5: Use expectedWinMultiplier for precise tier targeting
+    if (config.expectedWinMultiplier != null && config.expectedWinMultiplier! > 0) {
+      await widget.provider.spinForcedWithMultiplier(
+        config.outcome,
+        config.expectedWinMultiplier!,
+      );
+    } else {
+      await widget.provider.spinForced(config.outcome);
+    }
 
     final duration = DateTime.now().difference(startTime);
 

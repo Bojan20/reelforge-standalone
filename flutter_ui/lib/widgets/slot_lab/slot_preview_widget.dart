@@ -422,10 +422,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   double _targetWinAmount = 0;
   String _winTier = ''; // BIG, SUPER, MEGA, EPIC, ULTRA (no plaque for small wins)
 
-  // V9: RTL (right-to-left) digit reveal animation state
-  // When true, display uses _formatRtlRollupDisplay() for slot machine counter effect
+  // Industry-standard rollup animation state
+  // When true, display uses _formatRtlRollupDisplay() for counting-up effect
   bool _useRtlRollup = false;
-  double _rtlRollupProgress = 0.0; // 0.0 = all digits spinning, 1.0 = all landed
+  double _rtlRollupProgress = 0.0; // 0.0 = start (0), 1.0 = target reached
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TIER PROGRESSION SYSTEM — Progressive reveal from BIG to final tier
@@ -1400,18 +1400,29 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _onAllReelsStoppedVisual();
     }
 
-    // Check for anticipation events
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANTICIPATION HANDLING — Via provider callbacks ONLY (P0.3 fix)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Anticipation is now ONLY triggered via provider.onAnticipationStart callback
+    // which is connected in initState. The provider parses ANTICIPATION_ON stages
+    // from the Rust engine and calls the callback with reel index and tension level.
+    //
+    // REMOVED: Direct _startAnticipation() call from stage matching
+    // REASON: Was triggering anticipation on EVERY spin because loose string
+    // matching would match stages like "REEL_STOP_0" (contains no "anticipation"
+    // but the fallback _startAnticipation always targeted reels 3,4).
+    //
+    // Now anticipation ONLY triggers when Rust engine sends ANTICIPATION_ON
+    // (i.e., when 2+ scatters are detected on allowed reels).
+    // ═══════════════════════════════════════════════════════════════════════════
     if (isPlaying && stages.isNotEmpty) {
-      final anticipationOn = stages.any((s) =>
-          s.stageType.toLowerCase().contains('anticipation') &&
-          s.stageType.toLowerCase().contains('on'));
-      final anticipationOff = stages.any((s) =>
-          s.stageType.toLowerCase().contains('anticipation') &&
-          s.stageType.toLowerCase().contains('off'));
-
-      if (anticipationOn && !_isAnticipation) {
-        _startAnticipation(result);
-      } else if (anticipationOff && _isAnticipation) {
+      // Safety net: Stop anticipation if ANTICIPATION_OFF stage arrives
+      // (in case provider callback doesn't fire)
+      final anticipationOff = stages.any((s) {
+        final stage = s.stageType.toUpperCase();
+        return stage == 'ANTICIPATION_OFF' || stage.startsWith('ANTICIPATION_OFF_');
+      });
+      if (anticipationOff && _isAnticipation) {
         _stopAnticipation();
       }
 
@@ -2698,72 +2709,23 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // progress 1.0 → "1,234.56" (all landed)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Format rollup display with RTL (right-to-left) digit reveal animation.
-  /// Rightmost digits land first, leftmost digits land last.
-  /// Creates the classic slot machine counter rolling effect.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INDUSTRY-STANDARD ROLLUP DISPLAY
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Pattern used by IGT, Aristocrat, Novomatic, NetEnt, Pragmatic Play:
+  // - Value counts UP from 0 to target
+  // - Digits appear naturally as value grows: $0.00 → $1.25 → $12.50 → $125.00
+  // - Proper comma formatting maintained throughout
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Format rollup display — industry-standard counting up animation.
+  /// Value grows from 0 to target, digits appear naturally as magnitude increases.
   String _formatRtlRollupDisplay(double targetAmount, double progress) {
-    // Get the final formatted string (e.g., "1,234.56")
-    final targetStr = _currencyFormatter.format(targetAmount);
+    // Current value = target * progress (counts up from 0 to target)
+    final currentValue = targetAmount * progress.clamp(0.0, 1.0);
 
-    // Handle edge cases
-    if (progress >= 1.0) return targetStr;
-    if (progress <= 0.0) {
-      // All spinning — replace all digits with random
-      return _allDigitsSpinning(targetStr);
-    }
-
-    // Extract only the numeric digits (remove commas and decimal point for counting)
-    final digitsOnly = targetStr.replaceAll(RegExp(r'[,.]'), '');
-    final numDigits = digitsOnly.length;
-
-    if (numDigits == 0) return targetStr;
-
-    // Calculate how many digits from the RIGHT have "landed" (reached final value)
-    // progress 0.0 = 0 digits landed, progress 1.0 = all digits landed
-    // Using floor() so digits land progressively, not prematurely
-    final landedCount = (progress * numDigits).floor().clamp(0, numDigits);
-
-    // Build result by iterating through the formatted string
-    final result = StringBuffer();
-    int digitIndex = 0; // Track position in digitsOnly (0 = leftmost digit)
-
-    for (int i = 0; i < targetStr.length; i++) {
-      final char = targetStr[i];
-
-      if (char == ',' || char == '.') {
-        // Preserve separators and decimal point
-        result.write(char);
-      } else {
-        // This is a digit - check if it has "landed"
-        // posFromRight: 0 = rightmost, numDigits-1 = leftmost
-        final posFromRight = numDigits - 1 - digitIndex;
-
-        if (posFromRight < landedCount) {
-          // This digit has LANDED — show final value
-          result.write(char);
-        } else {
-          // This digit is still SPINNING — show random digit
-          result.write(_random.nextInt(10).toString());
-        }
-        digitIndex++;
-      }
-    }
-
-    return result.toString();
-  }
-
-  /// Generate all-spinning display (progress = 0) — all digits are random
-  String _allDigitsSpinning(String targetStr) {
-    final result = StringBuffer();
-    for (int i = 0; i < targetStr.length; i++) {
-      final char = targetStr[i];
-      if (char == ',' || char == '.') {
-        result.write(char);
-      } else {
-        result.write(_random.nextInt(10).toString());
-      }
-    }
-    return result.toString();
+    // Format with proper comma separators
+    return _currencyFormatter.format(currentValue);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3595,11 +3557,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                         final vignetteColor = _tensionColors[maxTension] ?? const Color(0xFFFFD700);
                         // Intensity based on tension (L1=0.3, L2=0.4, L3=0.5, L4=0.6)
                         final baseIntensity = 0.2 + (maxTension * 0.1);
-                        final pulseValue = _anticipationPulse.value;
+                        final pulseValue = _anticipationPulse.value.clamp(0.0, 1.0);
 
                         return CustomPaint(
                           painter: _AnticipationVignettePainter(
-                            intensity: baseIntensity + pulseValue * 0.1,
+                            intensity: (baseIntensity + pulseValue * 0.1).clamp(0.0, 1.0),
                             color: vignetteColor,
                             pulseValue: pulseValue,
                           ),
@@ -3622,7 +3584,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                         return CustomPaint(
                           painter: _AnticipationTrailPainter(
                             particles: _anticipationParticles,
-                            pulseValue: _anticipationPulse.value,
+                            pulseValue: _anticipationPulse.value.clamp(0.0, 1.0),
                           ),
                         );
                       },
@@ -3644,7 +3606,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                         return CustomPaint(
                           painter: _BigWinBackgroundPainter(
                             tier: _winTier,
-                            pulseValue: _winPulseAnimation.value,
+                            pulseValue: _winPulseAnimation.value.clamp(0.0, 1.0),
                             tierColor: _getWinGlowColor(),
                           ),
                         );
@@ -3662,7 +3624,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       positions: _currentPresentingLine!.positions,
                       reelCount: widget.reels,
                       rowCount: widget.rows,
-                      pulseValue: _winPulseAnimation.value,
+                      pulseValue: _winPulseAnimation.value.clamp(0.0, 1.0),
                       lineColor: _getWinGlowColor(),
                       drawProgress: _lineDrawProgress, // P1.2: 0→1 during animation
                     ),
@@ -3693,8 +3655,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                               center: Alignment.center,
                               radius: 0.8,
                               colors: [
-                                _getWinGlowColor().withOpacity(_screenFlashOpacity.value * 0.7),
-                                Colors.white.withOpacity(_screenFlashOpacity.value * 0.3),
+                                _getWinGlowColor().withOpacity((_screenFlashOpacity.value * 0.7).clamp(0.0, 1.0)),
+                                Colors.white.withOpacity((_screenFlashOpacity.value * 0.3).clamp(0.0, 1.0)),
                               ],
                             ),
                           ),
@@ -3769,7 +3731,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       'BIG' => FluxForgeTheme.accentGreen,
       _ => FluxForgeTheme.accentGreen,
     };
-    return baseColor.withOpacity(_winPulseAnimation.value);
+    return baseColor.withOpacity(_winPulseAnimation.value.clamp(0.0, 1.0));
   }
 
   Color _getWinGlowColor() {
@@ -3831,8 +3793,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   CustomPaint(
                     size: Size(constraints.maxWidth * 0.8, constraints.maxHeight * 0.6),
                     painter: _PlaqueBurstPainter(
-                      progress: _winAmountScale.value,
-                      pulseValue: _winPulseAnimation.value,
+                      progress: _winAmountScale.value.clamp(0.0, 1.0),
+                      pulseValue: _winPulseAnimation.value.clamp(0.0, 1.0),
                       tierColor: _getWinGlowColor(),
                       rayCount: tier == 'ULTRA' || tier == 'EPIC' ? 16 : 12,
                     ),
@@ -3903,9 +3865,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════════
 
     // V8: Animated glow intensity based on plaque pulse
-    final glowIntensity = _plaqueGlowPulse.value;
-    final borderOpacity = 0.6 + (glowIntensity * 0.4); // 0.6 to 1.0
-    final shadowIntensity = 0.3 + (glowIntensity * 0.4); // 0.3 to 0.7
+    // CRITICAL: Clamp to 0.0-1.0 to prevent assertion errors in withOpacity()
+    final glowIntensity = _plaqueGlowPulse.value.clamp(0.0, 1.0);
+    final borderOpacity = (0.6 + (glowIntensity * 0.4)).clamp(0.0, 1.0); // 0.6 to 1.0
+    final shadowIntensity = (0.3 + (glowIntensity * 0.4)).clamp(0.0, 1.0); // 0.3 to 0.7
 
     // V8: Tier-based glow radius (bigger tiers = bigger glow)
     final baseGlowRadius = switch (tier) {
@@ -4558,7 +4521,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     return AnimatedBuilder(
       animation: _anticipationPulse,
       builder: (context, child) {
-        final pulseValue = _anticipationPulse.value;
+        final pulseValue = _anticipationPulse.value.clamp(0.0, 1.0);
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -4566,12 +4529,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             color: Colors.black.withOpacity(0.85),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: badgeColor.withOpacity(0.8 + pulseValue * 0.2),
+              color: badgeColor.withOpacity((0.8 + pulseValue * 0.2).clamp(0.0, 1.0)),
               width: 2 + pulseValue,
             ),
             boxShadow: [
               BoxShadow(
-                color: badgeColor.withOpacity(0.4 + pulseValue * 0.3),
+                color: badgeColor.withOpacity((0.4 + pulseValue * 0.3).clamp(0.0, 1.0)),
                 blurRadius: 15 + pulseValue * 10,
                 spreadRadius: 2 + pulseValue * 3,
               ),
@@ -4622,7 +4585,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// Build anticipation overlay for a specific reel
   /// Uses tension level for color progression: L1=Gold → L2=Orange → L3=Red-Orange → L4=Red
   Widget _buildAnticipationOverlay(int reelIndex, double progress, double width, double tableHeight) {
-    final pulseValue = _anticipationPulse.value;
+    final pulseValue = _anticipationPulse.value.clamp(0.0, 1.0);
     final tensionLevel = _anticipationTensionLevel[reelIndex] ?? 1;
     final color = _tensionColors[tensionLevel] ?? const Color(0xFFFFD700);
 
@@ -4632,6 +4595,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     return AnimatedBuilder(
       animation: _anticipationPulse,
       builder: (context, child) {
+        // Re-clamp inside builder to ensure animation updates are also clamped
+        final safePulse = _anticipationPulse.value.clamp(0.0, 1.0);
         // Glowing border animation around the reel - intensity scales with tension
         return Container(
           width: width + 8, // Slightly wider than reel for border visibility
@@ -4641,21 +4606,21 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // Pulsing outer glow - intensity scales with tension level
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(pulseValue * 0.8 * intensityMultiplier),
-                blurRadius: (20 + (pulseValue * 15)) * intensityMultiplier,
-                spreadRadius: (2 + (pulseValue * 4)) * intensityMultiplier,
+                color: color.withOpacity((safePulse * 0.8 * intensityMultiplier).clamp(0.0, 1.0)),
+                blurRadius: (20 + (safePulse * 15)) * intensityMultiplier,
+                spreadRadius: (2 + (safePulse * 4)) * intensityMultiplier,
               ),
               BoxShadow(
-                color: color.withOpacity(pulseValue * 0.5 * intensityMultiplier),
-                blurRadius: (40 + (pulseValue * 20)) * intensityMultiplier,
-                spreadRadius: (4 + (pulseValue * 6)) * intensityMultiplier,
+                color: color.withOpacity((safePulse * 0.5 * intensityMultiplier).clamp(0.0, 1.0)),
+                blurRadius: (40 + (safePulse * 20)) * intensityMultiplier,
+                spreadRadius: (4 + (safePulse * 6)) * intensityMultiplier,
               ),
               // Extra outer glow for high tension levels (L3, L4)
               if (tensionLevel >= 3)
                 BoxShadow(
-                  color: color.withOpacity(pulseValue * 0.3),
-                  blurRadius: 60 + (pulseValue * 30),
-                  spreadRadius: 8 + (pulseValue * 8),
+                  color: color.withOpacity((safePulse * 0.3).clamp(0.0, 1.0)),
+                  blurRadius: 60 + (safePulse * 30),
+                  spreadRadius: 8 + (safePulse * 8),
                 ),
             ],
             // Animated gradient border
@@ -4663,14 +4628,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                color.withOpacity(pulseValue * 0.15 * intensityMultiplier),
+                color.withOpacity((safePulse * 0.15 * intensityMultiplier).clamp(0.0, 1.0)),
                 Colors.transparent,
-                color.withOpacity(pulseValue * 0.15 * intensityMultiplier),
+                color.withOpacity((safePulse * 0.15 * intensityMultiplier).clamp(0.0, 1.0)),
               ],
             ),
             border: Border.all(
-              color: color.withOpacity(0.7 + pulseValue * 0.3),
-              width: (3 + pulseValue * 2) * intensityMultiplier,
+              color: color.withOpacity((0.7 + safePulse * 0.3).clamp(0.0, 1.0)),
+              width: (3 + safePulse * 2) * intensityMultiplier,
             ),
           ),
           // P1.1: Progress arc indicator + tension level badge
@@ -4689,7 +4654,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       value: progress,
                       backgroundColor: Colors.black.withOpacity(0.3),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        color.withOpacity(0.9 + pulseValue * 0.1),
+                        color.withOpacity((0.9 + safePulse * 0.1).clamp(0.0, 1.0)),
                       ),
                     ),
                   ),
@@ -4783,7 +4748,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         } else if (isWinningPosition && !isReelSpinning) {
           final bounceValue = _symbolBounceAnimation.value;
           bounceOffset = math.sin(bounceValue * math.pi) * -8;
-          glowIntensity = _winPulseAnimation.value;
+          // CRITICAL: Clamp to prevent withOpacity assertion error (line 342 in dart:ui)
+          glowIntensity = _winPulseAnimation.value.clamp(0.0, 1.0);
         }
 
         if (isNearMissPosition && _isNearMiss) {
@@ -4800,13 +4766,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         double borderWidth;
 
         if (isWinningPosition) {
-          borderColor = _getWinGlowColor().withOpacity(_winPulseAnimation.value);
+          borderColor = _getWinGlowColor().withOpacity(_winPulseAnimation.value.clamp(0.0, 1.0));
           borderWidth = 2.5;
         } else if (isNearMissPosition && _isNearMiss) {
           borderColor = const Color(0xFFFF4060).withOpacity(0.8);
           borderWidth = 2.5;
         } else if (isAnticipationReel && _isAnticipation && isReelSpinning) {
-          borderColor = const Color(0xFFFFD700).withOpacity(_anticipationPulse.value);
+          borderColor = const Color(0xFFFFD700).withOpacity(_anticipationPulse.value.clamp(0.0, 1.0));
           borderWidth = 2.0;
         } else {
           // REMOVED: isWinningReel animation on ALL cells of winning reel
@@ -4819,7 +4785,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (isWinningPosition && glowIntensity > 0) {
           shadows = [
             BoxShadow(
-              color: _getWinGlowColor().withOpacity(glowIntensity * 0.6),
+              color: _getWinGlowColor().withOpacity((glowIntensity * 0.6).clamp(0.0, 1.0)),
               blurRadius: 12,
               spreadRadius: 2,
             ),
@@ -4835,7 +4801,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         } else if (isAnticipationReel && _isAnticipation && isReelSpinning) {
           shadows = [
             BoxShadow(
-              color: const Color(0xFFFFD700).withOpacity(_anticipationPulse.value * 0.4),
+              color: const Color(0xFFFFD700).withOpacity((_anticipationPulse.value * 0.4).clamp(0.0, 1.0)),
               blurRadius: 15,
               spreadRadius: 2,
             ),
@@ -5077,7 +5043,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       colors: [
-                        const Color(0xFFFFD700).withOpacity(_anticipationPulse.value * 0.4),
+                        const Color(0xFFFFD700).withOpacity((_anticipationPulse.value * 0.4).clamp(0.0, 1.0)),
                         Colors.transparent,
                       ],
                     ),
@@ -5160,7 +5126,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             decoration: BoxDecoration(
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFFFFD700).withOpacity(_anticipationPulse.value * 0.3),
+                  const Color(0xFFFFD700).withOpacity((_anticipationPulse.value * 0.3).clamp(0.0, 1.0)),
                   Colors.transparent,
                 ],
               ),
@@ -6040,6 +6006,9 @@ class _BigWinBackgroundPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Clamp pulseValue to valid range (animation can overshoot)
+    final safePulse = pulseValue.clamp(0.0, 1.0);
+
     // ═══════════════════════════════════════════════════════════════════════
     // VIGNETTE — Dark gradient at edges (more intense for higher tiers)
     // ═══════════════════════════════════════════════════════════════════════
@@ -6052,7 +6021,7 @@ class _BigWinBackgroundPainter extends CustomPainter {
       _ => 0.15,
     };
 
-    final vignetteOpacity = vignetteIntensity * (0.7 + pulseValue * 0.3);
+    final vignetteOpacity = (vignetteIntensity * (0.7 + safePulse * 0.3)).clamp(0.0, 1.0);
 
     final vignettePaint = Paint()
       ..shader = RadialGradient(
@@ -6061,8 +6030,8 @@ class _BigWinBackgroundPainter extends CustomPainter {
         colors: [
           Colors.transparent,
           Colors.transparent,
-          Colors.black.withOpacity(vignetteOpacity * 0.3),
-          Colors.black.withOpacity(vignetteOpacity),
+          Colors.black.withOpacity((vignetteOpacity * 0.3).clamp(0.0, 1.0)),
+          Colors.black.withOpacity(vignetteOpacity.clamp(0.0, 1.0)),
         ],
         stops: const [0.0, 0.5, 0.75, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -6081,15 +6050,15 @@ class _BigWinBackgroundPainter extends CustomPainter {
       _ => 0.05,
     };
 
-    final colorWashOpacity = colorWashIntensity * (0.6 + pulseValue * 0.4);
+    final colorWashOpacity = (colorWashIntensity * (0.6 + safePulse * 0.4)).clamp(0.0, 1.0);
 
     final colorWashPaint = Paint()
       ..shader = RadialGradient(
         center: Alignment.center,
-        radius: 0.8 + pulseValue * 0.2,
+        radius: 0.8 + safePulse * 0.2,
         colors: [
           tierColor.withOpacity(colorWashOpacity),
-          tierColor.withOpacity(colorWashOpacity * 0.5),
+          tierColor.withOpacity((colorWashOpacity * 0.5).clamp(0.0, 1.0)),
           Colors.transparent,
         ],
         stops: const [0.0, 0.4, 1.0],
@@ -6115,9 +6084,10 @@ class _BigWinBackgroundPainter extends CustomPainter {
         _ => 4,
       };
 
+      final rayOpacityFinal = (rayOpacity * (0.5 + safePulse * 0.5)).clamp(0.0, 1.0);
       final rayPaint = Paint()
-        ..color = tierColor.withOpacity(rayOpacity * (0.5 + pulseValue * 0.5))
-        ..strokeWidth = 2 + pulseValue * 2
+        ..color = tierColor.withOpacity(rayOpacityFinal)
+        ..strokeWidth = 2 + safePulse * 2
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
@@ -6127,7 +6097,7 @@ class _BigWinBackgroundPainter extends CustomPainter {
       final maxRadius = math.max(size.width, size.height) * 0.8;
 
       for (int i = 0; i < rayCount; i++) {
-        final angle = (i / rayCount) * 2 * math.pi + (pulseValue * math.pi * 0.1);
+        final angle = (i / rayCount) * 2 * math.pi + (safePulse * math.pi * 0.1);
         final endX = centerX + math.cos(angle) * maxRadius;
         final endY = centerY + math.sin(angle) * maxRadius;
 

@@ -633,6 +633,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
 
     return ListView.builder(
       controller: _scrollController,
+      cacheExtent: 500, // Pre-render items for smooth scrolling
       padding: const EdgeInsets.symmetric(vertical: 4),
       itemCount: entries.length,
       itemBuilder: (context, index) {

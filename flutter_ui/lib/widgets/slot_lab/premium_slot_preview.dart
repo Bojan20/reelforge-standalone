@@ -27,6 +27,7 @@ import '../../services/event_registry.dart';
 import '../../services/gdd_import_service.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
+import 'forced_outcome_panel.dart';
 import 'slot_preview_widget.dart';
 
 // =============================================================================
@@ -901,13 +902,17 @@ class _DebugToolbar extends StatelessWidget {
           ),
           const SizedBox(width: 16),
 
-          // Forced outcome buttons
-          _DebugOutcomeButton(label: 'Lose', index: 1, onTap: onForceOutcome),
-          _DebugOutcomeButton(label: 'Small', index: 2, onTap: onForceOutcome),
-          _DebugOutcomeButton(label: 'Big', index: 3, onTap: onForceOutcome),
-          _DebugOutcomeButton(label: 'Mega', index: 4, onTap: onForceOutcome),
-          _DebugOutcomeButton(label: 'FS', index: 5, onTap: onForceOutcome),
-          _DebugOutcomeButton(label: 'JP', index: 6, onTap: onForceOutcome),
+          // Forced outcome buttons (P5 Win Tier System)
+          // Uses ForcedOutcomeConfig keyboard shortcuts: 1=Lose, 2=LOW, 3=EQ, 4-9=W1-W6, 0=BIG
+          ...ForcedOutcomeConfig.outcomes
+              .where((c) => c.keyboardShortcut != null)
+              .map((c) => _DebugOutcomeButton(
+                    label: c.shortLabel,
+                    index: int.tryParse(c.keyboardShortcut!) ?? 0,
+                    onTap: onForceOutcome,
+                    color: c.gradientColors[0],
+                  ))
+              ,
 
           const Spacer(),
 
@@ -969,15 +974,18 @@ class _DebugOutcomeButton extends StatelessWidget {
   final String label;
   final int index;
   final ValueChanged<int> onTap;
+  final Color? color;
 
   const _DebugOutcomeButton({
     required this.label,
     required this.index,
     required this.onTap,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
+    final btnColor = color ?? _SlotTheme.textSecondary;
     return Padding(
       padding: const EdgeInsets.only(right: 4),
       child: GestureDetector(
@@ -985,17 +993,31 @@ class _DebugOutcomeButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: _SlotTheme.bgMid.withOpacity(0.5),
+            color: btnColor.withOpacity(0.15),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: _SlotTheme.border.withOpacity(0.3)),
+            border: Border.all(color: btnColor.withOpacity(0.4)),
           ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: _SlotTheme.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$index',
+                style: TextStyle(
+                  color: btnColor.withOpacity(0.6),
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  color: btnColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1368,7 +1390,7 @@ class _JackpotTickerState extends State<_JackpotTicker>
     return AnimatedBuilder(
       animation: _pulseController,
       builder: (context, child) {
-        final pulse = 0.8 + (_pulseController.value * 0.2);
+        final pulse = (0.8 + (_pulseController.value.clamp(0.0, 1.0) * 0.2)).clamp(0.0, 1.0);
 
         return Container(
           width: dimensions.width,
@@ -1387,12 +1409,12 @@ class _JackpotTickerState extends State<_JackpotTicker>
             ),
             borderRadius: BorderRadius.circular(dimensions.borderRadius),
             border: Border.all(
-              color: widget.color.withOpacity(pulse * 0.6),
+              color: widget.color.withOpacity((pulse * 0.6).clamp(0.0, 1.0)),
               width: widget.size == _JackpotSize.grand ? 2 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: widget.color.withOpacity(pulse * 0.3),
+                color: widget.color.withOpacity((pulse * 0.3).clamp(0.0, 1.0)),
                 blurRadius: dimensions.glowRadius,
                 spreadRadius: 1,
               ),
@@ -2847,6 +2869,7 @@ class _WinPresenter extends StatefulWidget {
   final bool showGamble;
   final VoidCallback? onCollect;
   final VoidCallback? onGamble;
+  final bool isBigWin; // true = tier escalation, false = simple TOTAL WIN
 
   const _WinPresenter({
     required this.winAmount,
@@ -2856,6 +2879,7 @@ class _WinPresenter extends StatefulWidget {
     this.showGamble = false,
     this.onCollect,
     this.onGamble,
+    this.isBigWin = true, // default to legacy behavior
   });
 
   @override
@@ -2973,31 +2997,60 @@ class _WinPresenterState extends State<_WinPresenter>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Win tier badge
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(_getWinIcon(), color: Colors.white, size: 28),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${widget.winTier} WIN!',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 4,
-                            shadows: [
-                              Shadow(
-                                  color: Colors.black45,
-                                  blurRadius: 4,
-                                  offset: Offset(2, 2)),
-                            ],
+                    // Win tier badge — different for Big Win vs Regular Win
+                    if (widget.isBigWin) ...[
+                      // BIG WIN: Show tier label (BIG WIN!, MEGA WIN!, etc.)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(_getWinIcon(), color: Colors.white, size: 28),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${widget.winTier} WIN!',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 4,
+                              shadows: [
+                                Shadow(
+                                    color: Colors.black45,
+                                    blurRadius: 4,
+                                    offset: Offset(2, 2)),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Icon(_getWinIcon(), color: Colors.white, size: 28),
-                      ],
-                    ),
+                          const SizedBox(width: 12),
+                          Icon(_getWinIcon(), color: Colors.white, size: 28),
+                        ],
+                      ),
+                    ] else ...[
+                      // REGULAR WIN: Show simple "TOTAL WIN" header
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.stars, color: Colors.white, size: 24),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'TOTAL WIN',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 3,
+                              shadows: [
+                                Shadow(
+                                    color: Colors.black45,
+                                    blurRadius: 4,
+                                    offset: Offset(2, 2)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.stars, color: Colors.white, size: 24),
+                        ],
+                      ),
+                    ],
 
                     const SizedBox(height: 16),
 
@@ -3091,6 +3144,11 @@ class _WinPresenterState extends State<_WinPresenter>
   }
 
   Color _getWinColor() {
+    // For regular wins (isBigWin=false), use a simple blue color
+    if (!widget.isBigWin) {
+      return const Color(0xFF2196F3); // Blue for regular TOTAL WIN
+    }
+    // For big wins, use tier-specific colors
     return switch (widget.winTier) {
       'ULTRA' => _SlotTheme.winUltra,
       'EPIC' => _SlotTheme.winEpic,
@@ -3181,7 +3239,16 @@ class _WinButtonState extends State<_WinButton> {
 /// Example for "1,234.56" with progress 0.5:
 /// - "?" spinning | "?" spinning | "?" spinning | "4" landed | "5" landed | "6" landed
 /// ═══════════════════════════════════════════════════════════════════════════
-class _RtlRollupCounter extends StatefulWidget {
+// ═══════════════════════════════════════════════════════════════════════════
+// INDUSTRY-STANDARD ROLLUP COUNTER
+// ═══════════════════════════════════════════════════════════════════════════
+// Pattern used by IGT, Aristocrat, Novomatic, NetEnt, Pragmatic Play:
+// - Value counts UP from 0 to target
+// - Digits appear naturally as value grows: $0.00 → $1.25 → $12.50 → $125.00
+// - Proper comma formatting maintained throughout
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _RtlRollupCounter extends StatelessWidget {
   final double targetAmount;
   final double progress; // 0.0 to 1.0
   final TextStyle? style;
@@ -3193,96 +3260,18 @@ class _RtlRollupCounter extends StatefulWidget {
   });
 
   @override
-  State<_RtlRollupCounter> createState() => _RtlRollupCounterState();
-}
-
-class _RtlRollupCounterState extends State<_RtlRollupCounter> {
-  final _random = math.Random();
-
-  // Cache random digits to prevent flickering on rebuild
-  List<int> _spinningDigits = [];
-  int _lastDigitCount = 0;
-
-  @override
   Widget build(BuildContext context) {
-    final displayStr = _computeRtlDisplay(widget.targetAmount, widget.progress);
+    // Current value = target * progress (counts up from 0 to target)
+    final currentValue = targetAmount * progress.clamp(0.0, 1.0);
+
+    // Format with proper comma separators
+    final formatter = NumberFormat('#,##0.00', 'en_US');
+    final displayStr = formatter.format(currentValue);
+
     return Text(
       '\$$displayStr',
-      style: widget.style,
+      style: style,
     );
-  }
-
-  /// Compute RTL rollup display — rightmost digit lands first, leftmost last
-  String _computeRtlDisplay(double targetAmount, double progress) {
-    // Format target with thousand separators: 1234.56 → "1,234.56"
-    final formatter = NumberFormat('#,##0.00', 'en_US');
-    final targetStr = formatter.format(targetAmount);
-
-    if (progress >= 1.0) return targetStr;
-    if (progress <= 0.0) {
-      // All spinning — show random digits but keep separators
-      return _allSpinning(targetStr);
-    }
-
-    // Extract only numeric digits for counting (ignore , and .)
-    final digitsOnly = targetStr.replaceAll(RegExp(r'[,.]'), '');
-    final numDigits = digitsOnly.length;
-
-    if (numDigits == 0) return targetStr;
-
-    // Regenerate spinning digits if digit count changed
-    if (_lastDigitCount != numDigits) {
-      _spinningDigits = List.generate(numDigits, (_) => _random.nextInt(10));
-      _lastDigitCount = numDigits;
-    }
-
-    // Calculate how many digits from the RIGHT have landed
-    // progress 0.0 = 0 landed, progress 1.0 = all landed
-    final landedCount = (progress * numDigits).ceil().clamp(0, numDigits);
-
-    // Build result character by character
-    final result = StringBuffer();
-    int digitIndex = 0; // Position in digitsOnly (0 = leftmost digit)
-
-    for (int i = 0; i < targetStr.length; i++) {
-      final char = targetStr[i];
-
-      if (char == ',' || char == '.') {
-        // Preserve separators
-        result.write(char);
-      } else {
-        // This is a digit — check if it has landed
-        // posFromRight: rightmost digit = 0, leftmost = numDigits-1
-        final posFromRight = numDigits - 1 - digitIndex;
-
-        if (posFromRight < landedCount) {
-          // This digit has LANDED — show final value
-          result.write(char);
-        } else {
-          // This digit is still SPINNING — show cached random
-          // Update random on each frame for spinning effect
-          _spinningDigits[digitIndex] = _random.nextInt(10);
-          result.write(_spinningDigits[digitIndex]);
-        }
-        digitIndex++;
-      }
-    }
-
-    return result.toString();
-  }
-
-  /// Generate all-spinning display (progress = 0)
-  String _allSpinning(String targetStr) {
-    final result = StringBuffer();
-    for (int i = 0; i < targetStr.length; i++) {
-      final char = targetStr[i];
-      if (char == ',' || char == '.') {
-        result.write(char);
-      } else {
-        result.write(_random.nextInt(10));
-      }
-    }
-    return result.toString();
   }
 }
 
@@ -6685,29 +6674,35 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   /// Force a specific outcome (debug)
+  ///
+  /// Force outcome mapping (P5 Win Tier System with EXACT target multipliers):
+  /// 1=Lose, 2=WIN_1, 3=WIN_2, 4=WIN_3, 5=WIN_4, 6=WIN_5, 7=WIN_6, 8=BIG WIN, 9=FS, 0=CASCADE
+  ///
+  /// Each WIN button now produces a DISTINCT tier using spinForcedWithMultiplier:
+  /// - Uses mid-range multiplier values to ensure correct tier evaluation
   void _forceOutcome(int outcomeIndex) {
     final provider = context.read<SlotLabProvider>();
-    switch (outcomeIndex) {
-      case 1:
-        provider.spinForced(ForcedOutcome.lose);
-      case 2:
-        provider.spinForced(ForcedOutcome.smallWin);
-      case 3:
-        provider.spinForced(ForcedOutcome.bigWin);
-      case 4:
-        provider.spinForced(ForcedOutcome.megaWin);
-      case 5:
-        provider.spinForced(ForcedOutcome.freeSpins);
-      case 6:
-        provider.spinForced(ForcedOutcome.jackpotGrand);
-      case 7:
-        provider.spinForced(ForcedOutcome.nearMiss);
-      case 8:
-        provider.spinForced(ForcedOutcome.cascade);
-      case 9:
-        provider.spinForced(ForcedOutcome.epicWin);
-      case 0:
-        provider.spinForced(ForcedOutcome.ultraWin);
+
+    // P5: Use ForcedOutcomeConfig as single source of truth
+    // Find config by keyboard shortcut
+    final key = outcomeIndex.toString();
+    final config = ForcedOutcomeConfig.outcomes.cast<ForcedOutcomeConfig?>().firstWhere(
+      (c) => c?.keyboardShortcut == key,
+      orElse: () => null,
+    );
+
+    if (config == null) {
+      debugPrint('[PremiumSlotPreview] No config for key $key');
+      return;
+    }
+
+    debugPrint('[PremiumSlotPreview] Force outcome: ${config.label} (${config.expectedWinMultiplier}x)');
+
+    // Use expectedWinMultiplier if available
+    if (config.expectedWinMultiplier != null && config.expectedWinMultiplier! > 0) {
+      provider.spinForcedWithMultiplier(config.outcome, config.expectedWinMultiplier!);
+    } else {
+      provider.spinForced(config.outcome);
     }
   }
 
@@ -6942,7 +6937,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   /// Trigger appropriate WIN stage based on win tier
   void _triggerWinStage(SlotLabSpinResult result) {
-    final tier = _winTierFromEngine(result.bigWinTier) ?? _getWinTier(result.totalWin);
+    // Use winRatio for tier determination (not totalWin which depends on engine bet)
+    final tier = _winTierFromEngine(result.bigWinTier) ?? _getWinTierFromRatio(result.winRatio);
 
     switch (tier) {
       case 'ULTRA':
@@ -6970,7 +6966,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   // ═══════════════════════════════════════════════════════════════════════════
 
   void _processResult(SlotLabSpinResult result) {
-    final winAmount = result.totalWin * _totalBetAmount;
+    // CRITICAL: Use winRatio (multiplier) from engine, not totalWin (absolute amount)
+    // Engine calculates: total_win = engine_bet * target_multiplier
+    // But engine_bet may differ from UI bet (_totalBetAmount), so:
+    // Correct win = winRatio * _totalBetAmount
+    final winAmount = result.winRatio * _totalBetAmount;
 
     // Reset progressive contribution after spin
     _progressiveContribution = 0.0;
@@ -6982,16 +6982,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
       if (result.isWin) {
         _wins++;
-        // Use engine's win tier classification when available, fallback to manual
-        _currentWinTier = _winTierFromEngine(result.bigWinTier) ?? _getWinTier(result.totalWin);
+        // Use engine's win tier classification when available, fallback to winRatio-based tier
+        _currentWinTier = _winTierFromEngine(result.bigWinTier) ?? _getWinTierFromRatio(result.winRatio);
         _currentWinAmount = winAmount;
 
-        // Jackpot chance based on win tier from ENGINE RNG (not local random)
-        // Uses probability bands tied to win size - engine determines the win,
-        // we just apply jackpot chance based on that result
-        final jackpotRoll = (result.totalWin * 1000).toInt() % 100; // Deterministic from engine result
-        if (result.totalWin >= 100) {
-          // ULTRA win - chance for GRAND jackpot
+        // Jackpot chance based on win RATIO from ENGINE (not absolute amount)
+        // Uses probability bands tied to multiplier - engine determines the win,
+        // we just apply jackpot chance based on that ratio
+        final jackpotRoll = (result.winRatio * 1000).toInt() % 100; // Deterministic from engine result
+        if (result.winRatio >= 100) {
+          // ULTRA win (100x+) - chance for GRAND jackpot
           if (jackpotRoll < 1) {
             _awardJackpot('GRAND');
             return;
@@ -6999,8 +6999,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
             _awardJackpot('MAJOR');
             return;
           }
-        } else if (result.totalWin >= 50) {
-          // EPIC win - chance for MAJOR/MINOR
+        } else if (result.winRatio >= 50) {
+          // EPIC win (50x-100x) - chance for MAJOR/MINOR
           if (jackpotRoll < 2) {
             _awardJackpot('MAJOR');
             return;
@@ -7008,8 +7008,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
             _awardJackpot('MINOR');
             return;
           }
-        } else if (result.totalWin >= 25) {
-          // MEGA win - chance for MINOR/MINI
+        } else if (result.winRatio >= 25) {
+          // MEGA win (25x-50x) - chance for MINOR/MINI
           if (jackpotRoll < 5) {
             _awardJackpot('MINOR');
             return;
@@ -7017,33 +7017,30 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
             _awardJackpot('MINI');
             return;
           }
-        } else if (result.totalWin >= 10) {
-          // BIG win - small chance for MINI
+        } else if (result.winRatio >= 10) {
+          // BIG win (10x-25x) - small chance for MINI
           if (jackpotRoll < 10) {
             _awardJackpot('MINI');
             return;
           }
         }
 
-        // Only show plaque for BIG+ wins (5x or higher = tier is not empty)
-        if (_currentWinTier.isNotEmpty) {
-          // Big win - show presenter for Collect/Gamble
-          _showWinPresenter = true;
-          _recentWins.insert(
-            0,
-            _RecentWin(
-              amount: winAmount,
-              tier: _currentWinTier,
-              time: DateTime.now(),
-            ),
-          );
-          if (_recentWins.length > 10) {
-            _recentWins.removeLast();
-          }
-        } else {
-          // Small win (below 5x) - auto-collect immediately, no plaque
-          _balance += _pendingWinAmount;
-          _pendingWinAmount = 0.0;
+        // Show win presenter for ALL wins (Big and Regular)
+        // Big Win (20x+): Shows tier escalation (BIG WIN!, MEGA WIN!, etc.)
+        // Regular Win (< 20x): Shows simple TOTAL WIN panel
+        _showWinPresenter = true;
+
+        // Track recent wins for history
+        _recentWins.insert(
+          0,
+          _RecentWin(
+            amount: winAmount,
+            tier: _currentWinTier.isNotEmpty ? _currentWinTier : 'WIN',
+            time: DateTime.now(),
+          ),
+        );
+        if (_recentWins.length > 10) {
+          _recentWins.removeLast();
         }
       } else {
         _losses++;
@@ -7174,8 +7171,25 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     };
   }
 
-  /// P5: Get win tier string for UI display
+  /// P5: Get win tier string from winRatio (multiplier) directly
+  /// This is the CORRECT method - uses ratio without bet calculation errors
+  /// Returns 'BIG', 'MEGA', etc. for legacy compatibility, or '' for small wins
+  String _getWinTierFromRatio(double winRatio) {
+    // P5 big win threshold is typically 20x
+    // Use ratio directly - no bet calculation needed!
+    if (winRatio < 20.0) return ''; // Small win, no plaque
+
+    // Map ratio to tier
+    if (winRatio >= 100.0) return 'ULTRA';
+    if (winRatio >= 60.0) return 'EPIC';
+    if (winRatio >= 30.0) return 'SUPER';
+    if (winRatio >= 25.0) return 'MEGA';
+    return 'BIG'; // 20x-25x
+  }
+
+  /// LEGACY: Get win tier string for UI display (DEPRECATED - use _getWinTierFromRatio)
   /// Returns 'BIG', 'MEGA', etc. for legacy compatibility
+  @Deprecated('Use _getWinTierFromRatio(result.winRatio) instead')
   String _getWinTier(double win) {
     // win parameter is actually totalWin in this context
     // We need bet amount to calculate ratio properly
@@ -7508,14 +7522,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                     onForceOutcome: _forceOutcome,
                   ),
 
-                // B. Jackpot Zone
-                _JackpotZone(
-                  miniJackpot: _miniJackpot,
-                  minorJackpot: _minorJackpot,
-                  majorJackpot: _majorJackpot,
-                  grandJackpot: _grandJackpot,
-                  progressiveContribution: _progressiveContribution,
-                ),
+                // B. Jackpot Zone — REMOVED for default slot machine
+                // Jackpot plaques (Mini, Minor, Major, Grand) are added via specific templates
+                // when user needs jackpot functionality
 
                 // C. Main Game Zone (with P6 device frame wrapper)
                 Expanded(
@@ -7584,6 +7593,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
             ),
 
             // D. Win Presenter (overlay)
+            // Big Win (20x+): Shows tier escalation panel (BIG WIN!, MEGA WIN!, etc.)
+            // Regular Win (< 20x): Shows simple TOTAL WIN panel
             if (_showWinPresenter)
               Positioned.fill(
                 child: GestureDetector(
@@ -7598,6 +7609,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                       showGamble: false, // Gamble disabled for basic mockup
                       onCollect: _collectWin,
                       onGamble: _startGamble,
+                      isBigWin: _currentWinTier.isNotEmpty, // Big Win has tier, Regular Win doesn't
                     ),
                   ),
                 ),

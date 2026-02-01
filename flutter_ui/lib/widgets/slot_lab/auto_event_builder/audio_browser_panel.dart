@@ -579,6 +579,7 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
     }
 
     return ListView(
+      cacheExtent: 500, // Pre-render items for smooth scrolling
       padding: const EdgeInsets.symmetric(vertical: 4),
       children: [
         // Recent assets section (C.8)
@@ -1423,7 +1424,7 @@ class _MiniWaveformThumbnailState extends State<MiniWaveformThumbnail> {
   void _loadWaveform() {
     final cache = WaveformThumbnailCache.instance;
 
-    // Check cache first (sync)
+    // Check cache first (INSTANT - no blocking)
     final cached = cache.get(widget.audioPath);
     if (cached != null) {
       setState(() {
@@ -1434,18 +1435,14 @@ class _MiniWaveformThumbnailState extends State<MiniWaveformThumbnail> {
       return;
     }
 
-    // Generate in background
+    // Show loading state IMMEDIATELY
     setState(() {
       _isLoading = true;
       _hasError = false;
     });
 
-    // Use Future.microtask to not block UI
-    Future.microtask(() {
-      if (!mounted) return;
-
-      final data = cache.generate(widget.audioPath);
-
+    // Generate ASYNCHRONOUSLY (non-blocking)
+    cache.generateAsync(widget.audioPath, (data) {
       if (mounted) {
         setState(() {
           _data = data;

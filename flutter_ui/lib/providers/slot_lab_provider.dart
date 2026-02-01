@@ -1095,6 +1095,86 @@ class SlotLabProvider extends ChangeNotifier {
     }
   }
 
+  /// Execute a forced spin with EXACT target win multiplier for precise tier testing
+  ///
+  /// [outcome] - ForcedOutcome type (SmallWin, MediumWin, BigWin etc.)
+  /// [targetMultiplier] - Exact win multiplier (e.g., 1.5 for WIN_1, 3.5 for WIN_2)
+  ///
+  /// This ensures each tier button (W1, W2, W3...) produces a DISTINCT win tier
+  /// by overriding paytable-evaluated win with: total_win = bet * targetMultiplier
+  ///
+  /// Target multipliers for P5 tiers (using mid-range values):
+  /// - WIN_1: 1.5x (range: 1-2x)
+  /// - WIN_2: 3.5x (range: 2-5x)
+  /// - WIN_3: 6.5x (range: 5-8x)
+  /// - WIN_4: 10x  (range: 8-12x)
+  /// - WIN_5: 15x  (range: 12-20x)
+  /// - WIN_6: 19x  (range: 16-20x, just under big win threshold)
+  /// - BIG_WIN: 35x (range: 20-50x)
+  Future<SlotLabSpinResult?> spinForcedWithMultiplier(
+    ForcedOutcome outcome,
+    double targetMultiplier,
+  ) async {
+    if (!_initialized || _isSpinning) return null;
+
+    _isSpinning = true;
+    notifyListeners();
+
+    try {
+      debugPrint('[SlotLabProvider] spinForcedWithMultiplier: ${outcome.name} @ ${targetMultiplier}x');
+
+      final int spinId = _ffi.slotLabSpinForcedWithMultiplier(outcome, targetMultiplier);
+
+      if (spinId == 0) {
+        debugPrint('[SlotLabProvider] spinForcedWithMultiplier FAILED: spinId=0');
+        _isSpinning = false;
+        notifyListeners();
+        return null;
+      }
+
+      _spinCount++;
+
+      // Get results - always from V1 engine since we're using the new FFI function
+      _lastResult = _ffi.slotLabGetSpinResult();
+      _lastStages = _ffi.slotLabGetStages();
+
+      // P3.1: Populate pooled stages for timeline display
+      _populatePooledStages();
+
+      // P0.18: Cache stages with spinId to prevent re-parsing
+      _cachedStagesSpinId = _lastResult?.spinId;
+
+      _updateFreeSpinsState();
+      _updateStats();
+
+      // P0.10: Validate stage sequence
+      validateStageSequence();
+
+      final win = _lastResult?.totalWin ?? 0;
+      final isWin = _lastResult?.isWin ?? false;
+      final tierName = _lastResult?.winTierName ?? 'unknown';
+      debugPrint('[Spin #$_spinCount ${outcome.name}@${targetMultiplier}x] '
+          '${isWin ? "WIN \$${win.toStringAsFixed(2)} (${tierName})" : "no win"} | ${_lastStages.length} stages');
+
+      // Auto-trigger audio if enabled
+      if (_autoTriggerAudio && _lastStages.isNotEmpty) {
+        _playStagesSequentially();
+      }
+
+      // Sync ALE signals
+      _syncAleSignals();
+
+      _isSpinning = false;
+      notifyListeners();
+      return _lastResult;
+    } catch (e) {
+      debugPrint('[SlotLabProvider] spinForcedWithMultiplier error: $e');
+      _isSpinning = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ALE SIGNAL SYNC
   // ═══════════════════════════════════════════════════════════════════════════

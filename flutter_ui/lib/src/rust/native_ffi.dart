@@ -15540,6 +15540,23 @@ class SlotLabSpinResult {
 
   bool get isWin => totalWin > 0;
 
+  /// Human-readable win tier name based on win ratio
+  String get winTierName {
+    if (!isWin) return 'no_win';
+    if (bigWinTier != null && bigWinTier != SlotLabWinTier.none) {
+      return bigWinTier!.name;
+    }
+    // P5 regular tiers based on winRatio
+    if (winRatio < 1.0) return 'WIN_LOW';
+    if (winRatio < 2.0) return 'WIN_1';
+    if (winRatio < 5.0) return 'WIN_2';
+    if (winRatio < 8.0) return 'WIN_3';
+    if (winRatio < 12.0) return 'WIN_4';
+    if (winRatio < 16.0) return 'WIN_5';
+    if (winRatio < 20.0) return 'WIN_6';
+    return 'BIG_WIN';
+  }
+
   factory SlotLabSpinResult.fromJson(Map<String, dynamic> json) {
     final gridRaw = json['grid'] as List? ?? [];
     final grid = gridRaw.map<List<int>>((col) {
@@ -15840,6 +15857,36 @@ extension SlotLabFFI on NativeFFI {
       return fn(outcome.value);
     } catch (e) {
       print('[SlotLab] slotLabSpinForcedP5 error: $e');
+      return 0;
+    }
+  }
+
+  /// Execute a forced spin with EXACT target win multiplier for precise tier testing
+  ///
+  /// [outcome] - ForcedOutcome enum value
+  /// [targetMultiplier] - Exact win multiplier (e.g., 1.5 for WIN_1, 3.5 for WIN_2, etc.)
+  ///
+  /// The engine will set: total_win = bet * targetMultiplier
+  /// This ensures each tier button (W1, W2, W3, etc.) produces a DISTINCT win tier.
+  ///
+  /// Target multipliers for P5 tiers:
+  /// - WIN_1: 1.5x (range: 1-2x)
+  /// - WIN_2: 3.5x (range: 2-5x)
+  /// - WIN_3: 6.5x (range: 5-8x)
+  /// - WIN_4: 10x  (range: 8-12x)
+  /// - WIN_5: 15x  (range: 12-20x)
+  /// - WIN_6: 19x  (range: 16-20x)
+  /// - BIG_WIN_1: 35x (range: 20-50x)
+  int slotLabSpinForcedWithMultiplier(ForcedOutcome outcome, double targetMultiplier) {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint64 Function(Int32, Double),
+          int Function(int, double)>(
+        'slot_lab_spin_forced_with_multiplier',
+      );
+      return fn(outcome.value, targetMultiplier);
+    } catch (e) {
+      print('[SlotLab] slotLabSpinForcedWithMultiplier error: $e');
       return 0;
     }
   }

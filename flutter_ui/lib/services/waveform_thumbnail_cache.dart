@@ -87,45 +87,74 @@ class WaveformThumbnailCache {
   /// Check if generation is pending
   bool isPending(String filePath) => _pending.contains(filePath);
 
-  /// Generate thumbnail (sync, uses Rust FFI)
-  /// Returns null if file cannot be processed
+  /// Generate thumbnail SYNCHRONOUSLY (for cache hits only)
+  /// Returns null if not cached - use generateAsync for new files
   WaveformThumbnailData? generate(String filePath) {
+    // ONLY return cached data - never block for FFI
+    return _cache[filePath];
+  }
+
+  /// Generate thumbnail ASYNCHRONOUSLY (non-blocking)
+  /// Returns immediately, calls callback when ready
+  void generateAsync(String filePath, void Function(WaveformThumbnailData?) onComplete) {
     // Already cached?
     if (_cache.containsKey(filePath)) {
-      return get(filePath);
+      onComplete(get(filePath));
+      return;
+    }
+
+    // Already pending?
+    if (_pending.contains(filePath)) {
+      // Wait for existing generation
+      _pendingCallbacks.putIfAbsent(filePath, () => []).add(onComplete);
+      return;
     }
 
     // Mark as pending
     _pending.add(filePath);
+    _pendingCallbacks[filePath] = [onComplete];
 
-    try {
-      // Use existing FFI to get waveform data
-      final cacheKey = 'thumb_${filePath.hashCode}';
-      final json = NativeFFI.instance.generateWaveformFromFile(filePath, cacheKey);
+    // Run FFI in microtask to not block UI
+    Future.microtask(() {
+      try {
+        // Use existing FFI to get waveform data
+        final cacheKey = 'thumb_${filePath.hashCode}';
+        final json = NativeFFI.instance.generateWaveformFromFile(filePath, cacheKey);
 
-      if (json == null) {
-        _pending.remove(filePath);
-        return null;
-      }
+        WaveformThumbnailData? thumbnail;
+        if (json != null) {
+          // Parse JSON and downsample to 80 points
+          thumbnail = _parseAndDownsample(json);
 
-      // Parse JSON and downsample to 80 points
-      final thumbnail = _parseAndDownsample(json);
-
-      if (thumbnail != null) {
-        // Evict oldest if at capacity
-        while (_cache.length >= _maxCacheSize) {
-          _cache.remove(_cache.keys.first);
+          if (thumbnail != null) {
+            // Evict oldest if at capacity
+            while (_cache.length >= _maxCacheSize) {
+              _cache.remove(_cache.keys.first);
+            }
+            _cache[filePath] = thumbnail;
+          }
         }
-        _cache[filePath] = thumbnail;
-      }
 
-      _pending.remove(filePath);
-      return thumbnail;
-    } catch (e) {
-      _pending.remove(filePath);
-      return null;
-    }
+        // Notify all waiting callbacks
+        final callbacks = _pendingCallbacks.remove(filePath) ?? [];
+        _pending.remove(filePath);
+
+        for (final cb in callbacks) {
+          cb(thumbnail);
+        }
+      } catch (e) {
+        final callbacks = _pendingCallbacks.remove(filePath) ?? [];
+        _pending.remove(filePath);
+
+        for (final cb in callbacks) {
+          cb(null);
+        }
+      }
+    });
   }
+
+  /// Callbacks waiting for pending generations
+  final Map<String, List<void Function(WaveformThumbnailData?)>> _pendingCallbacks = {};
 
   /// Parse waveform JSON and downsample to 80 points
   WaveformThumbnailData? _parseAndDownsample(String json) {
@@ -260,7 +289,7 @@ class _WaveformThumbnailState extends State<WaveformThumbnail> {
   void _loadThumbnail() {
     final cache = WaveformThumbnailCache.instance;
 
-    // Check cache first
+    // Check cache first (INSTANT - no blocking)
     final cached = cache.get(widget.filePath);
     if (cached != null) {
       setState(() {
@@ -271,18 +300,14 @@ class _WaveformThumbnailState extends State<WaveformThumbnail> {
       return;
     }
 
-    // Generate in background
+    // Show loading state IMMEDIATELY
     setState(() {
       _loading = true;
       _error = false;
     });
 
-    // Use Future.microtask to not block UI
-    Future.microtask(() {
-      if (!mounted) return;
-
-      final data = cache.generate(widget.filePath);
-
+    // Generate ASYNCHRONOUSLY (non-blocking)
+    cache.generateAsync(widget.filePath, (data) {
       if (mounted) {
         setState(() {
           _data = data;

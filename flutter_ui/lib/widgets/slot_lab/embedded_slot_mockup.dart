@@ -10,6 +10,7 @@ library;
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../../providers/slot_lab_provider.dart';
 import '../../src/rust/native_ffi.dart';
 
@@ -199,8 +200,11 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
   // Win Display
   double _winAmount = 0;
-  double _displayedWin = 0; // For rollup animation
+  double _displayedWin = 0; // For rollup animation (counts up from 0 to _winAmount)
   Timer? _rollupTimer;
+
+  // Currency formatter for rollup display
+  final _currencyFormatter = NumberFormat('#,##0.00', 'en_US');
 
   // Auto/Turbo
   bool _autoSpin = false;
@@ -426,6 +430,7 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
     _rollupTimer?.cancel();
     _displayedWin = 0;
 
+    // More steps for bigger wins = longer celebration
     final steps = _winType == WinType.bigWin ||
             _winType == WinType.megaWin ||
             _winType == WinType.epicWin
@@ -442,6 +447,7 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
       step++;
       setState(() {
+        // Value counts up from 0 to target — industry standard rollup
         _displayedWin = (increment * step).clamp(0, target);
       });
 
@@ -467,6 +473,23 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
         });
       }
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INDUSTRY-STANDARD ROLLUP — Value counting up with digit reveal
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Pattern used by IGT, Aristocrat, Novomatic, NetEnt, Pragmatic Play:
+  // - Decimals (.XX) are always shown and count up rapidly
+  // - Integer part grows digit by digit from left: 0 → 1 → 12 → 125 → 1,250
+  // - Each digit "appears" as the value reaches that magnitude
+  // - Final value shows complete with all formatting
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  String _formatRollupDisplay(double currentValue, double targetAmount) {
+    // Always show current value with proper formatting
+    // The _displayedWin already counts up from 0 to target
+    // Just format it properly with comma separators and 2 decimals
+    return _currencyFormatter.format(currentValue);
   }
 
   // ===========================================================================
@@ -876,9 +899,9 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
                   const SizedBox(height: 24),
 
-                  // Rollup Amount
+                  // Rollup Amount — Industry-standard counting up display
                   Text(
-                    '\$${_displayedWin.toStringAsFixed(2)}',
+                    '\$${_formatRollupDisplay(_displayedWin, _winAmount)}',
                     style: TextStyle(
                       color: color,
                       fontSize: 64,

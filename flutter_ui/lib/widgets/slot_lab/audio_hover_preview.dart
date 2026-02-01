@@ -175,25 +175,23 @@ class WaveformPreloadQueue {
       return;
     }
 
-    final startTime = DateTime.now().millisecondsSinceEpoch;
     int processed = 0;
 
     while (_queue.isNotEmpty && processed < _maxBatchSize) {
-      // Check frame budget
-      final elapsed = DateTime.now().millisecondsSinceEpoch - startTime;
-      if (elapsed > _frameBudgetMs) break;
-
       final request = _queue.first;
       _queue.remove(request);
       _pendingPaths.remove(request.filePath);
 
-      // Generate waveform (sync but fast — thumbnail is only 80px)
+      // Generate waveform ASYNCHRONOUSLY (non-blocking)
       final cache = WaveformThumbnailCache.instance;
       if (!cache.has(request.filePath)) {
-        cache.generate(request.filePath);
+        cache.generateAsync(request.filePath, (_) {
+          request.onComplete?.call();
+        });
+      } else {
+        request.onComplete?.call();
       }
 
-      request.onComplete?.call();
       processed++;
     }
 
@@ -1593,6 +1591,7 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
       },
       child: ListView.builder(
         controller: _scrollController,
+        cacheExtent: 500, // Pre-render items for smooth scrolling
         padding: const EdgeInsets.all(8),
         itemCount: files.length,
         itemBuilder: (context, index) {

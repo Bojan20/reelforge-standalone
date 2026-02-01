@@ -3113,6 +3113,7 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
                       ),
                     )
                   : ListView.builder(
+                      cacheExtent: 300, // Pre-render for smooth scroll
                       itemCount: _variants.length,
                       itemBuilder: (context, index) => _buildVariantItem(index),
                     ),

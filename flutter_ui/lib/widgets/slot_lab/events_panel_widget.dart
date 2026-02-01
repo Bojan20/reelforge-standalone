@@ -1716,8 +1716,10 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       );
     }
 
+    // P0 PERFORMANCE: cacheExtent pre-builds items for smooth scrolling
     return ListView.builder(
       itemCount: filteredAssets.length,
+      cacheExtent: 500, // Pre-render 500px above/below viewport
       itemBuilder: (ctx, i) => _buildPoolAssetItem(filteredAssets[i]),
     );
   }
@@ -1794,8 +1796,10 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
 
     // P0 PERFORMANCE: itemCount matches filtered list exactly
     // This prevents ListView from calling itemBuilder for hidden items
+    // cacheExtent pre-builds items for smooth scrolling
     return ListView.builder(
       itemCount: files.length,
+      cacheExtent: 500, // Pre-render 500px above/below viewport
       itemBuilder: (ctx, i) {
         final entity = files[i];
         if (entity is Directory) {
@@ -1899,7 +1903,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
 
 /// Wrapper that uses AudioBrowserItem for hover preview but returns String
 /// path in drag data (for compatibility with existing drag targets)
-class _AudioBrowserItemWrapper extends StatelessWidget {
+class _AudioBrowserItemWrapper extends StatefulWidget {
   final AudioFileInfo audioInfo;
   final VoidCallback? onDragStarted;
   /// P3-19: Callback when item is clicked (for Quick Assign Mode)
@@ -1911,10 +1915,17 @@ class _AudioBrowserItemWrapper extends StatelessWidget {
     this.onTap,
   });
 
-  /// P0 PERFORMANCE: Build feedback widget with RepaintBoundary to isolate from
-  /// main widget tree during drag operations
+  @override
+  State<_AudioBrowserItemWrapper> createState() => _AudioBrowserItemWrapperState();
+}
+
+class _AudioBrowserItemWrapperState extends State<_AudioBrowserItemWrapper> {
+  /// P0 PERFORMANCE: Cache feedback widget - build once, reuse on every drag
+  Widget? _cachedFeedback;
+
+  /// P0 PERFORMANCE: Build feedback widget ONCE and cache it
   Widget _buildFeedback() {
-    return RepaintBoundary(
+    _cachedFeedback ??= RepaintBoundary(
       child: Material(
         color: Colors.transparent,
         child: Container(
@@ -1938,7 +1949,7 @@ class _AudioBrowserItemWrapper extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  audioInfo.name,
+                  widget.audioInfo.name,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -1953,22 +1964,23 @@ class _AudioBrowserItemWrapper extends StatelessWidget {
         ),
       ),
     );
+    return _cachedFeedback!;
   }
 
   @override
   Widget build(BuildContext context) {
     // Use custom Draggable that returns String instead of AudioFileInfo
     return Draggable<String>(
-      data: audioInfo.path,
-      onDragStarted: onDragStarted,
-      // P0 PERFORMANCE: RepaintBoundary isolates feedback from main tree
+      data: widget.audioInfo.path,
+      onDragStarted: widget.onDragStarted,
+      // P0 PERFORMANCE: Use cached feedback widget
       feedback: _buildFeedback(),
       childWhenDragging: Opacity(
         opacity: 0.5,
         child: _buildAudioBrowserItemContent(),
       ),
       child: GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: _buildAudioBrowserItemContent(),
       ),
     );
@@ -1976,7 +1988,7 @@ class _AudioBrowserItemWrapper extends StatelessWidget {
 
   /// Builds AudioBrowserItem-like content with hover preview
   Widget _buildAudioBrowserItemContent() {
-    return _HoverPreviewItem(audioInfo: audioInfo);
+    return _HoverPreviewItem(audioInfo: widget.audioInfo);
   }
 }
 

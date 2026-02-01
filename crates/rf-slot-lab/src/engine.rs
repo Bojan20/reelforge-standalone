@@ -202,15 +202,23 @@ impl SyntheticSlotEngine {
 
     /// Execute a random spin
     pub fn spin(&mut self) -> SpinResult {
-        self.spin_internal(None)
+        self.spin_internal(None, None)
     }
 
     /// Execute a spin with forced outcome
     pub fn spin_forced(&mut self, outcome: ForcedOutcome) -> SpinResult {
-        self.spin_internal(Some(outcome))
+        self.spin_internal(Some(outcome), None)
     }
 
-    fn spin_internal(&mut self, forced: Option<ForcedOutcome>) -> SpinResult {
+    /// Execute a spin with forced outcome AND specific target win multiplier
+    ///
+    /// This ensures the exact win tier by overriding the paytable-evaluated win amount
+    /// with `bet * target_multiplier`. Use for precise tier testing (WIN_1, WIN_2, etc.)
+    pub fn spin_forced_with_multiplier(&mut self, outcome: ForcedOutcome, target_multiplier: f64) -> SpinResult {
+        self.spin_internal(Some(outcome), Some(target_multiplier))
+    }
+
+    fn spin_internal(&mut self, forced: Option<ForcedOutcome>, target_multiplier: Option<f64>) -> SpinResult {
         self.spin_count += 1;
         self.timestamp_gen.reset();
 
@@ -242,6 +250,17 @@ impl SyntheticSlotEngine {
         result.free_spin_index = free_spin_index;
         result.multiplier = multiplier;
         result.total_win *= multiplier;
+
+        // CRITICAL: Override win amount with target multiplier if specified
+        // This ensures precise tier targeting (WIN_1, WIN_2, etc.)
+        if let Some(target_mult) = target_multiplier {
+            if target_mult > 0.0 {
+                result.total_win = bet * target_mult;
+                result.win_ratio = target_mult;
+                // Recalculate big win tier with new amount
+                result = result.with_big_win_tier(&self.config.volatility.win_tier_thresholds);
+            }
+        }
 
         // Check for special outcomes based on forced or random
         if let Some(outcome) = forced {
@@ -719,6 +738,19 @@ impl SyntheticSlotEngine {
     /// Execute forced spin and immediately generate stages
     pub fn spin_forced_with_stages(&mut self, outcome: ForcedOutcome) -> (SpinResult, Vec<StageEvent>) {
         let result = self.spin_forced(outcome);
+        let stages = self.generate_stages(&result);
+        (result, stages)
+    }
+
+    /// Execute forced spin with target multiplier and immediately generate stages
+    ///
+    /// Use for precise tier testing: ensures win amount = bet * target_multiplier
+    pub fn spin_forced_with_multiplier_and_stages(
+        &mut self,
+        outcome: ForcedOutcome,
+        target_multiplier: f64,
+    ) -> (SpinResult, Vec<StageEvent>) {
+        let result = self.spin_forced_with_multiplier(outcome, target_multiplier);
         let stages = self.generate_stages(&result);
         (result, stages)
     }
