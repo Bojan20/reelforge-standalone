@@ -169,8 +169,8 @@ class ForcedOutcomeConfig {
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.megaWin, // Maps to BIG_WIN in P5
       label: 'BIG WIN',
-      shortLabel: 'BIG',
-      description: 'Big Win: 20x+ bet with tier escalation (TIER_1→5)',
+      shortLabel: 'BIG WIN TIER 1',
+      description: 'Big Win: 20x+ bet with tier escalation (BIG_WIN_TIER_1→5)',
       icon: Icons.auto_awesome,
       gradientColors: [Color(0xFFFFD700), Color(0xFFFFA500)],
       expectedStages: [
@@ -1027,9 +1027,9 @@ class _QuickOutcomeBarState extends State<QuickOutcomeBar> {
   static const _outcomes = [
     (ForcedOutcome.lose, 'LOSE'),
     (ForcedOutcome.smallWin, 'SMALL'),
-    (ForcedOutcome.bigWin, 'BIG'),
-    (ForcedOutcome.megaWin, 'MEGA'),
-    (ForcedOutcome.epicWin, 'EPIC'),
+    (ForcedOutcome.bigWin, 'BIG WIN TIER 1'),
+    (ForcedOutcome.megaWin, 'BIG WIN TIER 2'),
+    (ForcedOutcome.epicWin, 'BIG WIN TIER 3'),
     (ForcedOutcome.freeSpins, 'FREE'),
     (ForcedOutcome.jackpotGrand, 'JP'),
     (ForcedOutcome.nearMiss, 'NEAR'),

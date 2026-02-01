@@ -543,8 +543,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     _middlewareLowerZoneController = MiddlewareLowerZoneController();
 
     // Load Lower Zone states from persistent storage
-    _dawLowerZoneController.loadFromStorage();
-    _middlewareLowerZoneController.loadFromStorage();
+    // If no persisted state, set height to half screen in addPostFrameCallback
+    _dawLowerZoneController.loadFromStorage().then((hadPersistedState) {
+      if (!hadPersistedState && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final screenHeight = MediaQuery.of(context).size.height;
+            _dawLowerZoneController.setHeightToHalfScreen(screenHeight);
+          }
+        });
+      }
+    });
+    _middlewareLowerZoneController.loadFromStorage().then((hadPersistedState) {
+      if (!hadPersistedState && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final screenHeight = MediaQuery.of(context).size.height;
+            _middlewareLowerZoneController.setHeightToHalfScreen(screenHeight);
+          }
+        });
+      }
+    });
 
     // Initialize empty timeline (no demo data)
     _initEmptyTimeline();

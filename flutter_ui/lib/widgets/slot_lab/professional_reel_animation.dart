@@ -46,7 +46,7 @@ class ReelTimingProfile {
     firstReelStopMs: 800,
     reelStopIntervalMs: 300,
     decelerationMs: 250,
-    bounceMs: 0,  // No bounce animation
+    bounceMs: 0,  // No bounce animation (disabled per user request)
     accelerationMs: 100,
   );
 
@@ -55,7 +55,7 @@ class ReelTimingProfile {
     firstReelStopMs: 400,
     reelStopIntervalMs: 100,
     decelerationMs: 150,
-    bounceMs: 0,  // No bounce animation
+    bounceMs: 0,  // No bounce animation (disabled per user request)
     accelerationMs: 80,
   );
 
@@ -65,7 +65,7 @@ class ReelTimingProfile {
     firstReelStopMs: 1000,   // Matches timing.rs: reel_spin_duration_ms
     reelStopIntervalMs: 370, // Matches timing.rs: reel_stop_interval_ms
     decelerationMs: 280,
-    bounceMs: 0,  // No bounce animation
+    bounceMs: 0,  // No bounce animation (disabled per user request)
     accelerationMs: 120,
   );
 
@@ -130,6 +130,12 @@ class ReelAnimationState {
   // P0.3: SPEED MULTIPLIER — For anticipation slowdown visual effect
   // ═══════════════════════════════════════════════════════════════════════════
   double speedMultiplier = 1.0;   // 1.0 = normal, 0.3 = slow (30%), 2.0 = fast
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO SYNC: Prevent duplicate callback firing per spin
+  // Reset in startSpin(), set true when callback fires
+  // ═══════════════════════════════════════════════════════════════════════════
+  bool _audioCallbackFired = false;
 
   ReelAnimationState(this.reelIndex, this.profile);
 
@@ -227,7 +233,8 @@ class ReelAnimationState {
     if (effectiveElapsedMs < accelEnd && phase == ReelPhase.accelerating) {
       // PHASE: Acceleration (0 → max velocity)
       phase = ReelPhase.accelerating;
-      phaseProgress = effectiveElapsedMs / accelEnd;
+      // FIX: Clamp phaseProgress to 0.0-1.0 to prevent withOpacity assertion errors
+      phaseProgress = (effectiveElapsedMs / accelEnd.clamp(1.0, double.infinity)).clamp(0.0, 1.0);
       final t = phaseProgress;
       velocity = _easeOutQuad(t) * 1.0; // Max velocity = 1.0
       scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
@@ -238,14 +245,16 @@ class ReelAnimationState {
       velocity = 1.0;
       scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
       final spinDuration = decelStart - accelEnd;
-      phaseProgress = (effectiveElapsedMs - accelEnd) / spinDuration.clamp(1, double.infinity);
+      // FIX: Clamp phaseProgress to 0.0-1.0 to prevent withOpacity assertion errors
+      phaseProgress = ((effectiveElapsedMs - accelEnd) / spinDuration.clamp(1, double.infinity)).clamp(0.0, 1.0);
       spinCycles = scrollOffset / 10.0; // Track spin cycles for visual effect
     } else if (elapsedMs < bounceStart) {
       // PHASE: Deceleration (max → 0 velocity)
       // NOTE: Removed "|| phase == ReelPhase.decelerating" which caused infinite loop!
       phase = ReelPhase.decelerating;
-      phaseProgress = (elapsedMs - decelStart) / (bounceStart - decelStart).clamp(1, double.infinity);
-      final t = phaseProgress.clamp(0.0, 1.0);
+      // FIX: Clamp phaseProgress to 0.0-1.0 to prevent withOpacity assertion errors
+      phaseProgress = ((elapsedMs - decelStart) / (bounceStart - decelStart).clamp(1, double.infinity)).clamp(0.0, 1.0);
+      final t = phaseProgress;
       velocity = (1.0 - _easeInQuad(t)) * 1.0;
       scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
 
@@ -259,7 +268,10 @@ class ReelAnimationState {
       phase = ReelPhase.bouncing;
       velocity = 0;
 
-      phaseProgress = (elapsedMs - bounceStart) / (bounceEnd - bounceStart);
+      // FIX: Prevent division by zero when bounceMs = 0 (bounceEnd == bounceStart)
+      // This caused NaN/Infinity values → assertion errors in withOpacity() calls
+      final bounceDuration = (bounceEnd - bounceStart).clamp(1.0, double.infinity);
+      phaseProgress = ((elapsedMs - bounceStart) / bounceDuration).clamp(0.0, 1.0);
       bounceProgress = phaseProgress;
 
       // Elastic overshoot curve
@@ -291,6 +303,8 @@ class ReelAnimationState {
     // Clear anticipation from previous spin
     stopTimeExtensionMs = 0;
     isInAnticipation = false;
+    // Reset audio callback flag for new spin
+    _audioCallbackFired = false;
   }
 
   /// Reset to idle
@@ -302,6 +316,8 @@ class ReelAnimationState {
     // Clear anticipation
     stopTimeExtensionMs = 0;
     isInAnticipation = false;
+    // Reset audio callback flag
+    _audioCallbackFired = false;
   }
 
   /// Get blur intensity based on current velocity
@@ -596,22 +612,27 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
       state.update(elapsed, _targetGrid.length > i ? _targetGrid[i] : []);
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // AUDIO SYNC FIX (2026-01-24): Fire onReelStop when entering BOUNCING phase
-      // This is the visual "landing" moment — when the reel hits its target position.
-      // Previously fired when entering STOPPED (180ms after landing), causing audio lag.
-      // The bounce is a visual overshoot effect AFTER landing; audio should play AT landing.
+      // AUDIO SYNC FIX (2026-02-01): Fire onReelStop at EXACT VISUAL LANDING moment
+      //
+      // The visual "landing" is when reel enters BOUNCING phase — at that moment
+      // scrollOffset snaps to targetSymbolOffset (the final position). The bounce
+      // is purely visual overshoot AFTER landing.
+      //
+      // During deceleration, reel is still approaching target (lerp at t>0.7).
+      // Audio must NOT play during deceleration — it's too early!
       // ═══════════════════════════════════════════════════════════════════════════
       final wasStillMoving = previousPhase != ReelPhase.bouncing
                           && previousPhase != ReelPhase.stopped
                           && previousPhase != ReelPhase.idle;
 
-      // FIX: Fire callback when reel lands (bouncing OR stopped if bounceMs=0)
-      // When bounceMs=0, reel skips bouncing phase and goes directly to stopped
+      // Fire ONLY when entering bouncing or stopped (bounceMs=0 edge case)
       final reelJustLanded = wasStillMoving &&
-          (state.phase == ReelPhase.bouncing || state.phase == ReelPhase.stopped);
+          (state.phase == ReelPhase.bouncing || state.phase == ReelPhase.stopped) &&
+          !state._audioCallbackFired;
 
       if (reelJustLanded) {
-        debugPrint('[ReelAnimController] 🔔 REEL $i → ${state.phase} at ${elapsed}ms (stopTime=${state.stopTime}ms, prev=$previousPhase)');
+        state._audioCallbackFired = true;  // Prevent duplicate fires
+        debugPrint('[ReelAnimController] 🔔 REEL $i LANDED at ${elapsed}ms (phase=${state.phase}, progress=${state.phaseProgress.toStringAsFixed(2)}, stopTime=${state.stopTime}ms)');
         onReelStop?.call(i);  // Audio triggers at visual landing
       }
 
@@ -657,9 +678,10 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
       state.phase = ReelPhase.stopped;
       state.velocity = 0;
 
-      // Fire callback for reels that were still spinning
-      if (wasStillMoving) {
+      // Fire callback for reels that were still spinning AND haven't fired yet
+      if (wasStillMoving && !state._audioCallbackFired) {
         stillMovingCount++;
+        state._audioCallbackFired = true;
         onReelStop?.call(i);
       }
     }
@@ -743,7 +765,7 @@ class ProfessionalReelWidget extends StatelessWidget {
     final bounceOffset = state.getBouncePixelOffset(cellHeight);
 
     if (state.phase == ReelPhase.stopped || state.phase == ReelPhase.idle) {
-      // Show final symbols
+      // Show final symbols (no bounce)
       return Column(
         children: List.generate(rowCount, (row) {
           final symbolId = targetSymbols.length > row ? targetSymbols[row] : 0;
@@ -756,7 +778,25 @@ class ProfessionalReelWidget extends StatelessWidget {
       );
     }
 
-    // Spinning - show scrolling symbols with optional bounce
+    if (state.phase == ReelPhase.bouncing) {
+      // BOUNCING PHASE: Show final symbols WITH bounce offset (elastic overshoot)
+      // This creates the industry-standard "bump" effect when reel lands
+      return Transform.translate(
+        offset: Offset(0, bounceOffset),
+        child: Column(
+          children: List.generate(rowCount, (row) {
+            final symbolId = targetSymbols.length > row ? targetSymbols[row] : 0;
+            final isWinning = winningRows.contains(row);
+            return SizedBox(
+              height: cellHeight,
+              child: symbolBuilder(symbolId, isWinning),
+            );
+          }),
+        ),
+      );
+    }
+
+    // Spinning/Decelerating - show scrolling symbols
     return Transform.translate(
       offset: Offset(0, bounceOffset),
       child: Column(

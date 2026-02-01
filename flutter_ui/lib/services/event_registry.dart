@@ -2049,21 +2049,14 @@ class EventRegistry extends ChangeNotifier {
     _lastTriggerError = '';
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // FIX: For looping events, stop existing instances before starting new one
-    // This prevents voice accumulation (e.g., REEL_SPIN hitting limit after 8 spins)
+    // FIX: For looping events, check if already playing before re-triggering
+    // Background music (GAME_START, MUSIC_*) should continue looping, not restart
     // ═══════════════════════════════════════════════════════════════════════════
     if (event.loop) {
       final existingInstances = _playingInstances.where((i) => i.eventId == eventId).toList();
       if (existingInstances.isNotEmpty) {
-        debugPrint('[EventRegistry] 🔄 Stopping ${existingInstances.length} existing loop instance(s) of "${event.name}"');
-        for (final instance in existingInstances) {
-          for (final voiceId in instance.voiceIds) {
-            try {
-              NativeFFI.instance.playbackStopOneShot(voiceId);
-            } catch (_) {}
-          }
-        }
-        _playingInstances.removeWhere((i) => i.eventId == eventId);
+        debugPrint('[EventRegistry] 🔄 Loop event "${event.name}" already playing — skipping re-trigger');
+        return; // Don't restart — let it continue looping!
       }
     }
 

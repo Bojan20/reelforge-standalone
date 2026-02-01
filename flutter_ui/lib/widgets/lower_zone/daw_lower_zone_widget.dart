@@ -181,6 +181,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     return AnimatedContainer(
       duration: kLowerZoneAnimationDuration,
       height: widget.controller.totalHeight,
+      clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(
         color: LowerZoneColors.bgDeep,
         border: Border(
@@ -188,6 +189,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Resize handle
           _buildResizeHandle(),

@@ -113,20 +113,20 @@ class LowerZoneContextBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Dynamic height: 32px (super-tabs only) when collapsed, 60px when expanded (+ sub-tabs 28px)
+    // P0 FIX: Removed border from context bar - parent widgets should handle their own borders
+    // This prevents 1px overflow when parent allocates exact height for context bar
     final height = isExpanded ? kContextBarHeight : kContextBarCollapsedHeight;
 
     return Container(
       height: height,
+      clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(
         color: LowerZoneColors.bgDeepest,
-        border: Border(
-          bottom: BorderSide(color: LowerZoneColors.borderSubtle),
-        ),
       ),
-      clipBehavior: Clip.hardEdge,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Super-tabs row (32px)
+          // Super-tabs row (32px when collapsed)
           _buildSuperTabs(),
           // Sub-tabs row (28px) — only when expanded
           if (isExpanded) Expanded(child: _buildSubTabs()),
@@ -137,6 +137,7 @@ class LowerZoneContextBar extends StatelessWidget {
 
   Widget _buildSuperTabs() {
     // P2-13: Overflow defensive — SingleChildScrollView horizontal scroll
+    // P0 FIX: Height 32px (no border in context bar anymore - parent handles borders)
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),

@@ -20,7 +20,7 @@ import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/event_registry.dart';
 import '../../services/favorites_service.dart'; // SL-RP-P1.5
-import '../../services/waveform_thumbnail_cache.dart'; // SL-RP-P1.6
+// P0 PERFORMANCE: WaveformThumbnail removed — too slow for large lists
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
 import '../common/fluxforge_search_field.dart';
@@ -1754,8 +1754,8 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     // P0 PERFORMANCE: Fixed height + cacheExtent for smooth scrolling
     return ListView.builder(
       itemCount: filteredAssets.length,
-      itemExtent: 64, // Fixed height for O(1) layout
-      cacheExtent: 500, // Pre-render 500px above/below viewport
+      itemExtent: 36, // P0 FIX: Compact height (was 64, now 36)
+      cacheExtent: 1000, // Pre-render 1000px above/below viewport
       addAutomaticKeepAlives: false, // Reduce memory
       addRepaintBoundaries: true, // Isolate repaints
       itemBuilder: (ctx, i) => _buildPoolAssetItem(filteredAssets[i]),
@@ -2034,262 +2034,138 @@ class _AudioBrowserItemWrapperState extends State<_AudioBrowserItemWrapper> {
 /// All _HoverPreviewItem instances listen to this to sync their play/stop state
 final _currentlyPlayingPath = ValueNotifier<String?>(null);
 
-/// Item with hover preview functionality
-class _HoverPreviewItem extends StatefulWidget {
+/// ═══════════════════════════════════════════════════════════════════════════
+/// ULTRA-LIGHTWEIGHT AUDIO ITEM — NO WAVEFORM, NO PREVIEW ON HOVER
+/// Optimized for instant scroll and drag performance
+/// ═══════════════════════════════════════════════════════════════════════════
+class _HoverPreviewItem extends StatelessWidget {
   final AudioFileInfo audioInfo;
 
   const _HoverPreviewItem({required this.audioInfo});
 
   @override
-  State<_HoverPreviewItem> createState() => _HoverPreviewItemState();
+  Widget build(BuildContext context) {
+    // P0 ULTRA-LIGHTWEIGHT: StatelessWidget with minimal UI
+    // NO waveform, NO hover effects, NO animations — just text and icons
+    return ValueListenableBuilder<String?>(
+      valueListenable: _currentlyPlayingPath,
+      builder: (context, playingPath, _) {
+        final isPlaying = playingPath == audioInfo.path;
+
+        return Container(
+          height: 36, // Compact height
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: isPlaying
+                ? FluxForgeTheme.accentGreen.withOpacity(0.1)
+                : Colors.transparent,
+            border: Border(
+              bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+              left: BorderSide(
+                color: isPlaying ? FluxForgeTheme.accentGreen : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              // Icon
+              Icon(
+                Icons.audiotrack,
+                size: 14,
+                color: isPlaying ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentBlue,
+              ),
+              const SizedBox(width: 6),
+              // Name + format
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      audioInfo.name,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isPlaying ? Colors.white : Colors.white70,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                    Text(
+                      audioInfo.format,
+                      style: const TextStyle(fontSize: 8, color: Colors.white38),
+                    ),
+                  ],
+                ),
+              ),
+              // Duration badge
+              if (audioInfo.duration.inMilliseconds > 0)
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Text(
+                    audioInfo.durationFormatted,
+                    style: const TextStyle(fontSize: 8, color: Colors.white38, fontFamily: 'monospace'),
+                  ),
+                ),
+              // Play/Stop button
+              _PlayStopButton(audioPath: audioInfo.path, isPlaying: isPlaying),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
-class _HoverPreviewItemState extends State<_HoverPreviewItem> {
-  int _currentVoiceId = -1;
+/// Isolated Play/Stop button to minimize rebuilds
+class _PlayStopButton extends StatelessWidget {
+  final String audioPath;
+  final bool isPlaying;
 
-  /// Check if THIS item is currently playing (compare path with global notifier)
-  bool get _isPlaying => _currentlyPlayingPath.value == widget.audioInfo.path;
-
-  @override
-  void initState() {
-    super.initState();
-    // Listen to global playback state changes
-    _currentlyPlayingPath.addListener(_onPlaybackStateChanged);
-  }
-
-  @override
-  void dispose() {
-    _currentlyPlayingPath.removeListener(_onPlaybackStateChanged);
-    // Only stop if THIS item was playing
-    if (_isPlaying) {
-      _stopPlayback();
-    }
-    super.dispose();
-  }
-
-  void _onPlaybackStateChanged() {
-    // Rebuild when global playback state changes
-    if (mounted) setState(() {});
-  }
+  const _PlayStopButton({required this.audioPath, required this.isPlaying});
 
   void _startPlayback() {
-    if (_isPlaying) return;
-
-    // Stop any other browser preview before starting new one (prevents overlap)
     AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
-
-    _currentVoiceId = AudioPlaybackService.instance.previewFile(
-      widget.audioInfo.path,
+    final voiceId = AudioPlaybackService.instance.previewFile(
+      audioPath,
       source: PlaybackSource.browser,
     );
-
-    if (_currentVoiceId >= 0) {
-      // Update global state — this notifies ALL items
-      _currentlyPlayingPath.value = widget.audioInfo.path;
+    if (voiceId >= 0) {
+      _currentlyPlayingPath.value = audioPath;
     }
   }
 
   void _stopPlayback() {
-    if (_currentVoiceId >= 0) {
-      AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
-      _currentVoiceId = -1;
-    }
-    // Clear global state — this notifies ALL items
+    AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
     _currentlyPlayingPath.value = null;
   }
 
   @override
   Widget build(BuildContext context) {
-    // P0 PERFORMANCE FIX: Use RepaintBoundary to isolate state changes
-    // and fixed height to prevent ListView re-layout
-    return RepaintBoundary(
+    return InkWell(
+      onTap: isPlaying ? _stopPlayback : _startPlayback,
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        // P0 FIX: Fixed height prevents ListView re-layout
-        // Waveform is always rendered but with opacity change
-        height: 64,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        width: 24,
+        height: 24,
         decoration: BoxDecoration(
-          color: _isPlaying
-              ? FluxForgeTheme.accentGreen.withOpacity(0.05)
-              : Colors.transparent,
-          border: Border(
-            bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
-            left: BorderSide(
-              color: _isPlaying
-                  ? FluxForgeTheme.accentGreen
-                  : Colors.transparent,
-              width: 2,
-            ),
-          ),
+          color: isPlaying
+              ? FluxForgeTheme.accentGreen.withOpacity(0.2)
+              : Colors.white.withOpacity(0.08),
+          shape: BoxShape.circle,
         ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Top row: icon, name, format, duration, play button
-              Row(
-                children: [
-                  Icon(
-                    Icons.audiotrack,
-                    size: 14,
-                    color: _isPlaying
-                        ? FluxForgeTheme.accentGreen
-                        : FluxForgeTheme.accentBlue,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.audioInfo.name,
-                          style: const TextStyle(fontSize: 11, color: Colors.white70),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Row(
-                          children: [
-                            Text(
-                              widget.audioInfo.format,
-                              style: const TextStyle(fontSize: 8, color: Colors.white38),
-                            ),
-                            if (widget.audioInfo.tags.isNotEmpty) ...[
-                              const Text(' · ', style: TextStyle(fontSize: 8, color: Colors.white24)),
-                              Text(
-                                widget.audioInfo.tags.first,
-                                style: const TextStyle(fontSize: 8, color: Colors.white38),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                // Duration
-                if (widget.audioInfo.duration.inMilliseconds > 0)
-                  Container(
-                    margin: const EdgeInsets.only(right: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: Text(
-                      widget.audioInfo.durationFormatted,
-                      style: const TextStyle(fontSize: 8, color: Colors.white38, fontFamily: 'monospace'),
-                    ),
-                  ),
-                // Favorite star button (SL-RP-P1.5)
-                ListenableBuilder(
-                  listenable: FavoritesService.instance,
-                  builder: (context, _) {
-                    final isFavorite = FavoritesService.instance.isFavorite(widget.audioInfo.path);
-                    return InkWell(
-                      onTap: () => FavoritesService.instance.toggleFavorite(widget.audioInfo.path),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        width: 20,
-                        height: 20,
-                        alignment: Alignment.center,
-                        child: Icon(
-                          isFavorite ? Icons.star : Icons.star_border,
-                          size: 14,
-                          color: isFavorite
-                              ? Colors.amber
-                              : Colors.white38,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 4),
-                // Play/Stop button — always visible
-                InkWell(
-                  onTap: _isPlaying ? _stopPlayback : _startPlayback,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: _isPlaying
-                          ? FluxForgeTheme.accentGreen.withOpacity(0.2)
-                          : Colors.white.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _isPlaying ? Icons.stop : Icons.play_arrow,
-                      size: 12,
-                      color: _isPlaying
-                          ? FluxForgeTheme.accentGreen
-                          : Colors.white54,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            // Preview waveform - only visible while playing (not on hover)
-            // P0 PERFORMANCE FIX: Always render waveform to prevent costly rebuild
-            Expanded(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 150),
-                opacity: _isPlaying ? 1.0 : 0.0,
-                child: Container(
-                  margin: const EdgeInsets.only(top: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D0D10),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Stack(
-                    children: [
-                      // Real waveform visualization (SL-RP-P1.6)
-                      SizedBox(
-                        height: 20,
-                        child: WaveformThumbnail(
-                          filePath: widget.audioInfo.path,
-                          width: double.infinity,
-                          height: 20,
-                          color: _isPlaying
-                              ? FluxForgeTheme.accentGreen.withOpacity(0.6)
-                              : Colors.white.withOpacity(0.4),
-                          backgroundColor: Colors.transparent,
-                        ),
-                      ),
-                      // Playing indicator
-                      if (_isPlaying)
-                        Positioned(
-                          left: 4,
-                          top: 2,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: FluxForgeTheme.accentGreen,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Text(
-                                'PLAYING',
-                                style: TextStyle(
-                                  fontSize: 7,
-                                  fontWeight: FontWeight.bold,
-                                  color: FluxForgeTheme.accentGreen,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+        child: Icon(
+          isPlaying ? Icons.stop : Icons.play_arrow,
+          size: 14,
+          color: isPlaying ? FluxForgeTheme.accentGreen : Colors.white54,
         ),
       ),
-    );  // Close RepaintBoundary
+    );
   }
 }
 

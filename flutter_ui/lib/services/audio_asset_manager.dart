@@ -462,6 +462,7 @@ class AudioAssetManager extends ChangeNotifier {
   }
 
   /// Start background metadata loader (parallel FFI calls)
+  /// P0 PERFORMANCE: Batched notifyListeners to avoid 100+ individual UI rebuilds
   void _startBackgroundMetadataLoader() {
     if (_isBackgroundLoading || _pendingMetadataQueue.isEmpty || _ffi == null) {
       return;
@@ -469,23 +470,27 @@ class AudioAssetManager extends ChangeNotifier {
 
     _isBackgroundLoading = true;
 
-    // Process in batches of 5 for optimal parallelism
+    // P0 FIX: Process in batches and notify ONCE per batch (not per file)
     Future.microtask(() async {
       while (_pendingMetadataQueue.isNotEmpty) {
-        // Take up to 5 paths for parallel processing
-        final batch = _pendingMetadataQueue.take(5).toList();
+        // Take up to 10 paths for parallel processing (increased from 5)
+        final batch = _pendingMetadataQueue.take(10).toList();
         _pendingMetadataQueue.removeRange(0, batch.length);
 
-        // Process batch in PARALLEL
-        await Future.wait(batch.map((path) => _loadMetadataForPath(path)));
+        // Process batch in PARALLEL (no notifyListeners per file)
+        await Future.wait(batch.map((path) => _loadMetadataForPathSilent(path)));
+
+        // P0 FIX: ONE notifyListeners for entire batch (was doing 1 per file!)
+        notifyListeners();
       }
 
       _isBackgroundLoading = false;
+      debugPrint('[AudioAssetManager] ✅ Background metadata loading complete');
     });
   }
 
-  /// Load metadata for single path (called in parallel from background loader)
-  Future<void> _loadMetadataForPath(String path) async {
+  /// Load metadata for single path WITHOUT notifyListeners (for batched loading)
+  Future<void> _loadMetadataForPathSilent(String path) async {
     final asset = _assets[path];
     if (asset == null || !asset.isPendingMetadata) return;
 
@@ -527,14 +532,18 @@ class AudioAssetManager extends ChangeNotifier {
 
       _assets[path] = updatedAsset;
 
-      // Notify callback if set
+      // Notify callback if set (silent — no notifyListeners here)
       onAssetMetadataLoaded?.call(path);
-
-      // Notify listeners for UI update
-      notifyListeners();
     } catch (e) {
       debugPrint('[AudioAssetManager] Metadata load failed for $path: $e');
     }
+  }
+
+  /// Load metadata for single path (called in parallel from background loader)
+  /// Legacy method - use _loadMetadataForPathSilent for batched operations
+  Future<void> _loadMetadataForPath(String path) async {
+    await _loadMetadataForPathSilent(path);
+    notifyListeners();
   }
 
   /// Legacy async import — uses instant import internally

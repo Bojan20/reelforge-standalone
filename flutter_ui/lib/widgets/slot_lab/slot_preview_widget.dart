@@ -465,7 +465,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   String _currentDisplayTier = ''; // Currently shown tier label on plaque
   Timer? _tierProgressionTimer;
   int _tierProgressionIndex = 0;
-  List<String> _tierProgressionList = []; // Tiers to progress through (e.g., ['BIG', 'SUPER', 'MEGA'])
+  List<String> _tierProgressionList = []; // Tiers to progress through (e.g., ['BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3'])
   bool _isInTierProgression = false;
 
   // Tier progression timing constants
@@ -473,8 +473,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   static const int _tierDisplayDurationMs = 4000;  // Each tier shows for 4s
   static const int _bigWinEndDurationMs = 4000;    // BIG_WIN_END duration
 
-  // All possible tiers in order
-  static const List<String> _allTiersInOrder = ['BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA'];
+  // All possible tiers in order — generic names per CLAUDE.md (no hardcoded labels)
+  static const List<String> _allTiersInOrder = ['BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_4', 'BIG_WIN_TIER_5'];
 
   // ═══════════════════════════════════════════════════════════════════════════
   // WIN LINE PRESENTATION — Cycles through each winning line
@@ -506,21 +506,21 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // Empty string ('') uses default for small wins (< 5x)
   // User request: "rollup mora da bude dosta brzi"
   static const Map<String, int> _rollupDurationByTier = {
-    'BIG': 800,      // First major tier (5x-15x) — was 2500ms
-    'SUPER': 1200,   // Second tier (15x-30x) — was 4000ms
-    'MEGA': 2000,    // Third tier (30x-60x) — was 7000ms
-    'EPIC': 3500,    // Fourth tier (60x-100x) — was 12000ms
-    'ULTRA': 6000,   // Maximum (100x+) — was 20000ms
+    'BIG_WIN_TIER_1': 800,      // First major tier (5x-15x) — was 2500ms
+    'BIG_WIN_TIER_2': 1200,     // Second tier (15x-30x) — was 4000ms
+    'BIG_WIN_TIER_3': 2000,     // Third tier (30x-60x) — was 7000ms
+    'BIG_WIN_TIER_4': 3500,     // Fourth tier (60x-100x) — was 12000ms
+    'BIG_WIN_TIER_5': 6000,     // Maximum (100x+) — was 20000ms
   };
   static const int _defaultRollupDuration = 800;  // Small wins — SAME as BIG WIN
 
   // Tier-specific rollup tick rate (ticks per second) — V9: Faster ticks
   static const Map<String, int> _rollupTickRateByTier = {
-    'BIG': 20,     // First major tier — was 12
-    'SUPER': 18,   // Second tier — was 10
-    'MEGA': 15,    // Third tier — was 8
-    'EPIC': 12,    // Fourth tier — was 6
-    'ULTRA': 8,    // Maximum — was 4
+    'BIG_WIN_TIER_1': 20,     // First major tier — was 12
+    'BIG_WIN_TIER_2': 18,     // Second tier — was 10
+    'BIG_WIN_TIER_3': 15,     // Third tier — was 8
+    'BIG_WIN_TIER_4': 12,     // Fourth tier — was 6
+    'BIG_WIN_TIER_5': 8,      // Maximum — was 4
   };
   static const int _defaultRollupTickRate = 20;  // Small wins — SAME as BIG WIN
 
@@ -845,10 +845,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // V2: LANDING IMPACT EFFECT — Flash + Scale Pop on reel stop
-    // Industry standard "punch" visual when reel lands
+    // V2: LANDING IMPACT EFFECT — DISABLED per user request
+    // To re-enable: uncomment _triggerLandingImpact(reelIndex);
     // ═══════════════════════════════════════════════════════════════════════════
-    _triggerLandingImpact(reelIndex);
+    // _triggerLandingImpact(reelIndex);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // IGT-STYLE SEQUENTIAL BUFFER
@@ -904,6 +904,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   /// Triggers REEL_STOP audio for a specific reel with correct timestamp
+  ///
+  /// AUDIO-VISUAL SYNC: Uses addPostFrameCallback to ensure audio triggers
+  /// AFTER the visual frame renders. This guarantees perfect sync because:
+  /// 1. Animation callback fires → widget state updates → build() scheduled
+  /// 2. Frame renders (visual reel lands)
+  /// 3. PostFrameCallback executes → audio triggers
+  /// Result: Audio plays exactly when user SEES reel land, not before.
   void _triggerReelStopAudio(int reelIndex) {
     // Stop anticipation for this reel if active
     _stopReelAnticipation(reelIndex);
@@ -925,18 +932,34 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       timestampMs = (DateTime.now().millisecondsSinceEpoch - _spinStartTimeMs).toDouble();
     }
 
-    debugPrint('[SlotPreview] 🎰 REEL $reelIndex STOPPED → triggering REEL_STOP_$reelIndex (rust_ts: ${timestampMs.toStringAsFixed(0)}ms)');
-    eventRegistry.triggerStage('REEL_STOP_$reelIndex', context: {'timestamp_ms': timestampMs});
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUDIO-VISUAL SYNC FIX: Defer audio trigger to AFTER frame renders
+    // This ensures audio plays exactly when user SEES the reel land visually
+    // ═══════════════════════════════════════════════════════════════════════════
+    final capturedTimestampMs = timestampMs;
+    final capturedReelIndex = reelIndex;
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SPECIAL SYMBOL LAND EVENTS — Trigger when WILD, SCATTER, BONUS land on reel
-    // This connects the left panel symbol audio assignments to actual gameplay
-    // Symbol IDs: WILD=11, SCATTER=12, BONUS=13 (matches StandardSymbolSet)
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (reelIndex < _targetGrid.length) {
-      final reelSymbols = _targetGrid[reelIndex];
-      for (int rowIndex = 0; rowIndex < reelSymbols.length; rowIndex++) {
-        final symbolId = reelSymbols[rowIndex];
+    // Capture target grid for symbol land detection inside callback
+    final capturedTargetGrid = reelIndex < _targetGrid.length
+        ? List<int>.from(_targetGrid[reelIndex])
+        : <int>[];
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // 1. REEL_STOP AUDIO — Primary reel landing sound
+      // ═══════════════════════════════════════════════════════════════════════════
+      debugPrint('[SlotPreview] 🎰 REEL $capturedReelIndex STOPPED → triggering REEL_STOP_$capturedReelIndex (rust_ts: ${capturedTimestampMs.toStringAsFixed(0)}ms) [POST-FRAME]');
+      eventRegistry.triggerStage('REEL_STOP_$capturedReelIndex', context: {'timestamp_ms': capturedTimestampMs});
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // 2. SPECIAL SYMBOL LAND EVENTS — Trigger when WILD, SCATTER, BONUS land on reel
+      // This connects the left panel symbol audio assignments to actual gameplay
+      // Symbol IDs: WILD=11, SCATTER=12, BONUS=13 (matches StandardSymbolSet)
+      // ═══════════════════════════════════════════════════════════════════════════
+      for (int rowIndex = 0; rowIndex < capturedTargetGrid.length; rowIndex++) {
+        final symbolId = capturedTargetGrid[rowIndex];
         String? symbolLandStage;
 
         switch (symbolId) {
@@ -952,16 +975,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
 
         if (symbolLandStage != null) {
-          debugPrint('[SlotPreview] ✨ SPECIAL SYMBOL LAND: $symbolLandStage at reel $reelIndex, row $rowIndex');
+          debugPrint('[SlotPreview] ✨ SPECIAL SYMBOL LAND: $symbolLandStage at reel $capturedReelIndex, row $rowIndex [POST-FRAME]');
           eventRegistry.triggerStage(symbolLandStage, context: {
-            'reel_index': reelIndex,
+            'reel_index': capturedReelIndex,
             'row_index': rowIndex,
             'symbol_id': symbolId,
-            'timestamp_ms': timestampMs,
+            'timestamp_ms': capturedTimestampMs,
           });
         }
       }
-    }
+    });
 
     // ═══════════════════════════════════════════════════════════════════════════
     // P0.2: PRE-TRIGGER WIN_SYMBOL_HIGHLIGHT ON LAST REEL
@@ -2183,12 +2206,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   // ═══════════════════════════════════════════════════════════════════════════
   // P5 TIER LABEL SYSTEM — Fully Configurable Labels from SlotLabProjectProvider
-  // Maps tier ID strings ('BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA') to user-defined labels
-  // Falls back to industry-standard defaults when projectProvider is null
+  // Maps tier ID strings ('BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_4', 'BIG_WIN_TIER_5') to user-defined labels
+  // Falls back to generic defaults when projectProvider is null — NO HARDCODED LABELS
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// ULTIMATIVNO REŠENJE: Get tier string ID from P5 system
-  /// Returns: 'WIN_LOW', 'WIN_1', 'WIN_2', ..., 'BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA'
+  /// Returns: 'WIN_LOW', 'WIN_1', 'WIN_2', ..., 'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_4', 'BIG_WIN_TIER_5'
   /// NIKADA ne vraća prazan string — svaki win ima svoj tier ID
   String _getP5WinTierStringId(double totalWin) {
     final projectProvider = widget.projectProvider;
@@ -2206,12 +2229,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Big Win — return big win tier ID for progression system
     if (tierResult.isBigWin) {
       return switch (tierResult.bigWinMaxTier) {
-        1 => 'BIG',
-        2 => 'SUPER',
-        3 => 'MEGA',
-        4 => 'EPIC',
-        5 => 'ULTRA',
-        _ => 'BIG',
+        1 => 'BIG_WIN_TIER_1',
+        2 => 'BIG_WIN_TIER_2',
+        3 => 'BIG_WIN_TIER_3',
+        4 => 'BIG_WIN_TIER_4',
+        5 => 'BIG_WIN_TIER_5',
+        _ => 'BIG_WIN_TIER_1',
       };
     }
 
@@ -2224,7 +2247,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   /// Get tier label from P5 configuration
-  /// Tier ID: 'WIN_LOW', 'WIN_1', 'WIN_2', ..., 'BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA'
+  /// Tier ID: 'WIN_LOW', 'WIN_1', 'WIN_2', ..., 'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_4', 'BIG_WIN_TIER_5'
   /// Returns fully configurable displayLabel from SlotWinConfiguration
   ///
   /// ULTIMATIVNO REŠENJE: Uses P5 displayLabel for ALL tiers
@@ -2257,15 +2280,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // BIG WIN TIERS: BIG, SUPER, MEGA, EPIC, ULTRA → BIG WIN TIER 1..5
-    // Get displayLabel from P5 BigWinConfig
+    // BIG WIN TIERS: TIER_1..TIER_5 → BIG WIN TIER 1..5
+    // Get displayLabel from P5 BigWinConfig — NO HARDCODED labels
     // ═══════════════════════════════════════════════════════════════════════════
     final p5TierId = switch (tierStringId) {
-      'BIG' => 1,
-      'SUPER' => 2,
-      'MEGA' => 3,
-      'EPIC' => 4,
-      'ULTRA' => 5,
+      'BIG_WIN_TIER_1' => 1,
+      'BIG_WIN_TIER_2' => 2,
+      'BIG_WIN_TIER_3' => 3,
+      'BIG_WIN_TIER_4' => 4,
+      'BIG_WIN_TIER_5' => 5,
       _ => 0,
     };
 
@@ -2296,24 +2319,25 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       'WIN_4' => 'WIN 4',
       'WIN_5' => 'WIN 5',
       'WIN_6' => 'WIN 6',
-      'ULTRA' => 'BIG WIN TIER 5',
-      'EPIC' => 'BIG WIN TIER 4',
-      'MEGA' => 'BIG WIN TIER 3',
-      'SUPER' => 'BIG WIN TIER 2',
-      'BIG' => 'BIG WIN TIER 1',
+      'BIG_WIN_TIER_5' => 'BIG WIN TIER 5',
+      'BIG_WIN_TIER_4' => 'BIG WIN TIER 4',
+      'BIG_WIN_TIER_3' => 'BIG WIN TIER 3',
+      'BIG_WIN_TIER_2' => 'BIG WIN TIER 2',
+      'BIG_WIN_TIER_1' => 'BIG WIN TIER 1',
+      'TOTAL' => 'TOTAL WIN',  // BIG_WIN_END outro phase
       _ => 'WIN',
     };
   }
 
   /// Get all tier labels as a map for tier progression display
-  /// Used to show tier escalation: BIG → SUPER → MEGA → EPIC → ULTRA
+  /// Used to show tier escalation: TIER_1 → TIER_2 → TIER_3 → TIER_4 → TIER_5
   Map<String, String> get _p5TierLabels {
     return {
-      'BIG': _getP5TierLabel('BIG'),
-      'SUPER': _getP5TierLabel('SUPER'),
-      'MEGA': _getP5TierLabel('MEGA'),
-      'EPIC': _getP5TierLabel('EPIC'),
-      'ULTRA': _getP5TierLabel('ULTRA'),
+      'BIG_WIN_TIER_1': _getP5TierLabel('BIG_WIN_TIER_1'),
+      'BIG_WIN_TIER_2': _getP5TierLabel('BIG_WIN_TIER_2'),
+      'BIG_WIN_TIER_3': _getP5TierLabel('BIG_WIN_TIER_3'),
+      'BIG_WIN_TIER_4': _getP5TierLabel('BIG_WIN_TIER_4'),
+      'BIG_WIN_TIER_5': _getP5TierLabel('BIG_WIN_TIER_5'),
     };
   }
 
@@ -2357,21 +2381,21 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     return tierResult?.bigWinMaxTier;
   }
 
-  /// Legacy compatibility: Get win tier string ('BIG', 'MEGA', etc.)
-  /// Used for existing visual tier logic - maps P5 to legacy format
+  /// Legacy compatibility: Get win tier string ('BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', etc.)
+  /// Used for existing visual tier logic - maps P5 to generic format
   @Deprecated('Use _getWinTierDisplayLabel() for P5 system')
   String _getWinTier(double totalWin) {
     final tierResult = _getP5WinTierResult(totalWin);
     if (tierResult == null || !tierResult.isBigWin) return '';
 
-    // Map P5 big win tier ID to legacy string
+    // Map P5 big win tier ID to generic string — NO HARDCODED labels
     return switch (tierResult.bigWinMaxTier) {
-      1 => 'BIG',
-      2 => 'MEGA',
-      3 => 'SUPER',
-      4 => 'EPIC',
-      5 => 'ULTRA',
-      _ => 'BIG',
+      1 => 'BIG_WIN_TIER_1',
+      2 => 'BIG_WIN_TIER_2',
+      3 => 'BIG_WIN_TIER_3',
+      4 => 'BIG_WIN_TIER_4',
+      5 => 'BIG_WIN_TIER_5',
+      _ => 'BIG_WIN_TIER_1',
     };
   }
 
@@ -2826,7 +2850,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// Build list of tiers to progress through, from BIG up to finalTier
   List<String> _buildTierProgressionList(String finalTier) {
     final finalIndex = _allTiersInOrder.indexOf(finalTier);
-    if (finalIndex < 0) return ['BIG']; // Fallback to just BIG
+    if (finalIndex < 0) return ['BIG_WIN_TIER_1']; // Fallback to just TIER_1
     return _allTiersInOrder.sublist(0, finalIndex + 1);
   }
 
@@ -2948,10 +2972,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     if (!mounted) return;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STEP 3: BIG_WIN_END (4s) — Exit celebration
+    // STEP 3: BIG_WIN_END (4s) — Exit celebration / Outro
+    // FIX: Change display tier to 'TOTAL' to visually separate from last tier
+    // This ensures BIG_WIN_END phase is clearly distinguishable from tier display
     // ═══════════════════════════════════════════════════════════════════════════
     eventRegistry.triggerStage('BIG_WIN_END');
-    debugPrint('[SlotPreview] 🏆 BIG_WIN_END — final tier: $_currentDisplayTier');
+    final lastTier = _currentDisplayTier;
+    debugPrint('[SlotPreview] 🏆 BIG_WIN_END — final tier: $lastTier → TOTAL');
+
+    // FIX: Visual separation — show "TOTAL WIN" during BIG_WIN_END phase
+    setState(() {
+      _currentDisplayTier = 'TOTAL';
+    });
 
     _tierProgressionTimer?.cancel();
     _tierProgressionTimer = Timer(const Duration(milliseconds: _bigWinEndDurationMs), () {
@@ -3496,10 +3528,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   void _spawnWinParticles(String tier) {
     final particleCount = switch (tier) {
-      'ULTRA' => 60,
-      'EPIC' => 45,
-      'MEGA' => 30,
-      'BIG' => 20,
+      'BIG_WIN_TIER_5' => 60,
+      'BIG_WIN_TIER_4' => 45,
+      'BIG_WIN_TIER_3' => 30,
+      'BIG_WIN_TIER_1' || 'BIG_WIN_TIER_2' => 20,
       _ => 10,
     };
 
@@ -3527,11 +3559,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // ═══════════════════════════════════════════════════════════════════════════
   void _spawnPlaqueCelebrationParticles(String tier) {
     final particleCount = switch (tier) {
-      'ULTRA' => 80,
-      'EPIC' => 60,
-      'MEGA' => 45,
-      'SUPER' => 30,
-      'BIG' => 20,
+      'BIG_WIN_TIER_5' => 80,
+      'BIG_WIN_TIER_4' => 60,
+      'BIG_WIN_TIER_3' => 45,
+      'BIG_WIN_TIER_2' => 30,
+      'BIG_WIN_TIER_1' => 20,
       _ => 10,
     };
 
@@ -3558,10 +3590,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   Color _getParticleColor(String tier) {
     final colors = switch (tier) {
-      'ULTRA' => [const Color(0xFFFF4080), const Color(0xFFFF66FF), const Color(0xFFFFD700)],
-      'EPIC' => [const Color(0xFFE040FB), const Color(0xFFFF66FF), const Color(0xFF40C8FF)],
-      'MEGA' => [const Color(0xFFFFD700), const Color(0xFFFFE55C), const Color(0xFFFF9040)],
-      'BIG' => [const Color(0xFF40FF90), const Color(0xFF4CAF50), const Color(0xFFFFEB3B)],
+      'BIG_WIN_TIER_5' => [const Color(0xFFFF4080), const Color(0xFFFF66FF), const Color(0xFFFFD700)],
+      'BIG_WIN_TIER_4' => [const Color(0xFFE040FB), const Color(0xFFFF66FF), const Color(0xFF40C8FF)],
+      'BIG_WIN_TIER_3' => [const Color(0xFFFFD700), const Color(0xFFFFE55C), const Color(0xFFFF9040)],
+      'BIG_WIN_TIER_2' => [const Color(0xFF40C8FF), const Color(0xFF81D4FA), const Color(0xFF4FC3F7)],
+      'BIG_WIN_TIER_1' => [const Color(0xFF40FF90), const Color(0xFF4CAF50), const Color(0xFFFFEB3B)],
       _ => [const Color(0xFFFFD700)],
     };
     return colors[_random.nextInt(colors.length)];
@@ -3818,10 +3851,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   Color _getWinBorderColor() {
     final baseColor = switch (_displayTier) {
-      'ULTRA' => const Color(0xFFFF4080),
-      'EPIC' => const Color(0xFFE040FB),
-      'MEGA' => const Color(0xFFFFD700),
-      'BIG' => FluxForgeTheme.accentGreen,
+      'BIG_WIN_TIER_5' => const Color(0xFFFF4080),
+      'BIG_WIN_TIER_4' => const Color(0xFFE040FB),
+      'BIG_WIN_TIER_3' => const Color(0xFFFFD700),
+      'BIG_WIN_TIER_2' => const Color(0xFF40C8FF),
+      'BIG_WIN_TIER_1' => FluxForgeTheme.accentGreen,
+      'TOTAL' => const Color(0xFFFFD700),  // Gold for TOTAL WIN (outro)
       _ => FluxForgeTheme.accentGreen,
     };
     return baseColor.withOpacity(_winPulseAnimation.value.clamp(0.0, 1.0));
@@ -3829,10 +3864,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   Color _getWinGlowColor() {
     return switch (_displayTier) {
-      'ULTRA' => const Color(0xFFFF4080),
-      'EPIC' => const Color(0xFFE040FB),
-      'MEGA' => const Color(0xFFFFD700),
-      'BIG' => FluxForgeTheme.accentGreen,
+      'BIG_WIN_TIER_5' => const Color(0xFFFF4080),
+      'BIG_WIN_TIER_4' => const Color(0xFFE040FB),
+      'BIG_WIN_TIER_3' => const Color(0xFFFFD700),
+      'BIG_WIN_TIER_2' => const Color(0xFF40C8FF),
+      'BIG_WIN_TIER_1' => FluxForgeTheme.accentGreen,
+      'TOTAL' => const Color(0xFFFFD700),  // Gold for TOTAL WIN (outro)
       _ => FluxForgeTheme.accentGreen,
     };
   }
@@ -3863,11 +3900,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
         // V8: Scale with tier-based overshoot (bigger tiers = bigger overshoot)
         final scaleMultiplier = switch (tier) {
-          'ULTRA' => 1.25,
-          'EPIC' => 1.2,
-          'MEGA' => 1.15,
-          'SUPER' => 1.12,
-          'BIG' => 1.1,
+          'BIG_WIN_TIER_5' => 1.25,
+          'BIG_WIN_TIER_4' => 1.2,
+          'BIG_WIN_TIER_3' => 1.15,
+          'BIG_WIN_TIER_2' => 1.12,
+          'BIG_WIN_TIER_1' => 1.1,
+          'TOTAL' => 1.05,  // Slightly smaller for outro/total
           _ => 1.0,
         };
         final scale = _winAmountScale.value * scaleMultiplier;
@@ -3889,7 +3927,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       progress: _winAmountScale.value.clamp(0.0, 1.0),
                       pulseValue: _winPulseAnimation.value.clamp(0.0, 1.0),
                       tierColor: _getWinGlowColor(),
-                      rayCount: tier == 'ULTRA' || tier == 'EPIC' ? 16 : 12,
+                      rayCount: tier == 'BIG_WIN_TIER_5' || tier == 'BIG_WIN_TIER_4' ? 16 : 12,
                     ),
                   ),
                 // Main plaque with slide + scale + pulse
@@ -3912,23 +3950,24 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// NE prikazuje info o simbolima/win linijama (npr. "3x Grapes")
   /// Uses _displayTier which updates during tier progression
   ///
-  /// ULTIMATIVNO: Podržava P5 tier ID-ove (WIN_1, WIN_2, BIG, SUPER, itd.)
+  /// ULTIMATIVNO: Podržava P5 tier ID-ove (WIN_1, WIN_2, TIER_1, TIER_2, itd.)
   Widget _buildWinDisplay() {
     // Get current tier for display (updates during progression)
     final tier = _displayTier;
 
-    // Helper: Check if tier is a big win (BIG, SUPER, MEGA, EPIC, ULTRA)
-    final isBigWinTier = ['BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA'].contains(tier);
+    // Helper: Check if tier is a big win (TIER_1..TIER_5) or outro
+    final isBigWinTier = ['BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_4', 'BIG_WIN_TIER_5', 'TOTAL'].contains(tier);
 
     // Boje bazirane na tier-u
     // Big wins: progression od zelene do crvene/pink
     // Regular wins (WIN_1, WIN_2, itd.): sve su zelene (industry standard)
     final tierColors = switch (tier) {
-      'ULTRA' => [const Color(0xFFFF4080), const Color(0xFFFF66FF), const Color(0xFFFFD700)],
-      'EPIC' => [const Color(0xFFE040FB), const Color(0xFFFF66FF), const Color(0xFF40C8FF)],
-      'MEGA' => [const Color(0xFFFFD700), const Color(0xFFFFE55C), const Color(0xFFFF9040)],
-      'SUPER' => [const Color(0xFF40C8FF), const Color(0xFF81D4FA), const Color(0xFF4FC3F7)],
-      'BIG' => [const Color(0xFF40FF90), const Color(0xFF88FF88), const Color(0xFFFFEB3B)],
+      'BIG_WIN_TIER_5' => [const Color(0xFFFF4080), const Color(0xFFFF66FF), const Color(0xFFFFD700)],
+      'BIG_WIN_TIER_4' => [const Color(0xFFE040FB), const Color(0xFFFF66FF), const Color(0xFF40C8FF)],
+      'BIG_WIN_TIER_3' => [const Color(0xFFFFD700), const Color(0xFFFFE55C), const Color(0xFFFF9040)],
+      'BIG_WIN_TIER_2' => [const Color(0xFF40C8FF), const Color(0xFF81D4FA), const Color(0xFF4FC3F7)],
+      'BIG_WIN_TIER_1' => [const Color(0xFF40FF90), const Color(0xFF88FF88), const Color(0xFFFFEB3B)],
+      'TOTAL' => [const Color(0xFFFFD700), const Color(0xFFFFE55C), const Color(0xFFFFFFFF)],  // Gold outro
       // Regular wins — sve zelene
       _ => [const Color(0xFF40FF90), const Color(0xFF4CAF50)],
     };
@@ -3941,21 +3980,23 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Big wins: veći fontovi za dramatičnost
     // Regular wins: manji, ali čitljivi
     final tierFontSize = switch (tier) {
-      'ULTRA' => 48.0,
-      'EPIC' => 44.0,
-      'MEGA' => 40.0,
-      'SUPER' => 36.0,
-      'BIG' => 32.0,
+      'BIG_WIN_TIER_5' => 48.0,
+      'BIG_WIN_TIER_4' => 44.0,
+      'BIG_WIN_TIER_3' => 40.0,
+      'BIG_WIN_TIER_2' => 36.0,
+      'BIG_WIN_TIER_1' => 32.0,
+      'TOTAL' => 36.0,  // TOTAL WIN (outro) — medium size
       _ => 28.0,  // Regular wins (WIN_1, WIN_2, itd.)
     };
 
     // Counter font size
     final counterFontSize = switch (tier) {
-      'ULTRA' => 72.0,
-      'EPIC' => 64.0,
-      'MEGA' => 56.0,
-      'SUPER' => 52.0,
-      'BIG' => 48.0,
+      'BIG_WIN_TIER_5' => 72.0,
+      'BIG_WIN_TIER_4' => 64.0,
+      'BIG_WIN_TIER_3' => 56.0,
+      'BIG_WIN_TIER_2' => 52.0,
+      'BIG_WIN_TIER_1' => 48.0,
+      'TOTAL' => 56.0,  // TOTAL WIN (outro) — emphasize final amount
       _ => 40.0,  // Regular wins
     };
 
@@ -3973,11 +4014,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // V8: Tier-based glow radius (bigger tiers = bigger glow)
     final baseGlowRadius = switch (tier) {
-      'ULTRA' => 60.0,
-      'EPIC' => 55.0,
-      'MEGA' => 50.0,
-      'SUPER' => 45.0,
-      'BIG' => 40.0,
+      'BIG_WIN_TIER_5' => 60.0,
+      'BIG_WIN_TIER_4' => 55.0,
+      'BIG_WIN_TIER_3' => 50.0,
+      'BIG_WIN_TIER_2' => 45.0,
+      'BIG_WIN_TIER_1' => 40.0,
+      'TOTAL' => 35.0,  // TOTAL WIN (outro) — subtle glow for conclusion
       _ => 30.0,  // Regular wins (WIN_1, WIN_2, itd.)
     };
 
@@ -4084,17 +4126,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               const SizedBox(height: 8),
 
               // ═══════════════════════════════════════════════════════════════
-              // TIER ESCALATION INDICATOR — Shows tier progression path
-              // Only visible during tier progression (multiple tiers)
-              // Example: BIG → SUPER → [MEGA] (current tier highlighted)
-              // ═══════════════════════════════════════════════════════════════
-              if (_tierProgressionList.length > 1) ...[
-                _buildTierEscalationIndicator(tier, tierColors.first),
-                const SizedBox(height: 6),
-              ],
-
-              // ═══════════════════════════════════════════════════════════════
               // TIER LABEL — Premium metallic text with enhanced styling
+              // NOTE: Tier escalation indicator (T1 → T2 → T3) removed per user request
+              //       Only the current tier label is shown on the plaque
               // ═══════════════════════════════════════════════════════════════
               Stack(
                 children: [
@@ -4298,112 +4332,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           ),
         ),
       ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // TIER ESCALATION INDICATOR — Shows progression through win tiers
-  // Displays: BIG → SUPER → [MEGA] with current tier highlighted
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// Build tier escalation indicator showing tier progression path
-  /// Current tier is highlighted with glow, previous tiers are dimmed
-  Widget _buildTierEscalationIndicator(String currentTier, Color tierColor) {
-    final currentIndex = _tierProgressionList.indexOf(currentTier);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (int i = 0; i < _tierProgressionList.length; i++) ...[
-          if (i > 0) ...[
-            // Arrow separator between tiers
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Icon(
-                Icons.arrow_forward_ios,
-                size: 10,
-                color: Colors.white.withOpacity(i <= currentIndex ? 0.8 : 0.3),
-              ),
-            ),
-          ],
-          // Tier badge
-          _buildTierBadge(
-            tierStringId: _tierProgressionList[i],
-            isCurrentTier: i == currentIndex,
-            isPastTier: i < currentIndex,
-            tierColor: tierColor,
-          ),
-        ],
-      ],
-    );
-  }
-
-  /// Build individual tier badge for escalation indicator
-  Widget _buildTierBadge({
-    required String tierStringId,
-    required bool isCurrentTier,
-    required bool isPastTier,
-    required Color tierColor,
-  }) {
-    // Get short label for badge display — NO HARDCODED "BIG", "MEGA" per CLAUDE.md
-    // Use simple tier numbers: T1, T2, T3, T4, T5
-    final shortLabel = switch (tierStringId) {
-      'BIG' => 'T1',
-      'SUPER' => 'T2',
-      'MEGA' => 'T3',
-      'EPIC' => 'T4',
-      'ULTRA' => 'T5',
-      _ => tierStringId,
-    };
-
-    // Current tier: bright with glow
-    // Past tier: dimmed but visible
-    // Future tier: very dimmed
-    final opacity = isCurrentTier ? 1.0 : (isPastTier ? 0.6 : 0.3);
-    final scale = isCurrentTier ? 1.15 : 1.0;
-    final fontSize = isCurrentTier ? 11.0 : 9.0;
-
-    return Transform.scale(
-      scale: scale,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: isCurrentTier
-              ? tierColor.withOpacity(0.3)
-              : Colors.black.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: tierColor.withOpacity(isCurrentTier ? 0.8 : 0.3),
-            width: isCurrentTier ? 1.5 : 0.5,
-          ),
-          boxShadow: isCurrentTier
-              ? [
-                  BoxShadow(
-                    color: tierColor.withOpacity(0.5),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          shortLabel,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: isCurrentTier ? FontWeight.w900 : FontWeight.w600,
-            color: Colors.white.withOpacity(opacity),
-            letterSpacing: 1,
-            shadows: isCurrentTier
-                ? [
-                    Shadow(
-                      color: tierColor,
-                      blurRadius: 4,
-                    ),
-                  ]
-                : null,
-          ),
-        ),
-      ),
     );
   }
 
@@ -4868,7 +4796,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
         if (isCascadePopPosition && _isCascading) {
           cascadeScale = _cascadePopAnimation.value;
-          cascadeOpacity = _cascadePopAnimation.value;
+          // CRITICAL FIX: Curves.easeInBack can produce negative values!
+          // This caused assertion error at dart:ui line 342 (withOpacity requires 0.0-1.0)
+          cascadeOpacity = _cascadePopAnimation.value.clamp(0.0, 1.0);
         }
 
         Color borderColor;
@@ -4935,7 +4865,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             child: Transform.scale(
               scale: cascadeScale * landingScale * symbolPopScale, // V2 + V6: Combined scales
             child: Opacity(
-              opacity: cascadeOpacity,
+              // CRITICAL: Ensure opacity is always valid (0.0-1.0) - double guard
+              opacity: cascadeOpacity.clamp(0.0, 1.0),
               child: Container(
                 width: cellWidth,
                 height: cellHeight,
@@ -5159,7 +5090,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       colors: [
-                        FluxForgeTheme.accentBlue.withOpacity(reelState.phaseProgress * 0.3),
+                        // FIX: Clamp to prevent withOpacity assertion error
+                        FluxForgeTheme.accentBlue.withOpacity((reelState.phaseProgress * 0.3).clamp(0.0, 1.0)),
                         Colors.transparent,
                       ],
                     ),
@@ -6115,11 +6047,11 @@ class _BigWinBackgroundPainter extends CustomPainter {
     // VIGNETTE — Dark gradient at edges (more intense for higher tiers)
     // ═══════════════════════════════════════════════════════════════════════
     final vignetteIntensity = switch (tier) {
-      'ULTRA' => 0.6,
-      'EPIC' => 0.5,
-      'MEGA' => 0.4,
-      'SUPER' => 0.3,
-      'BIG' => 0.2,
+      'BIG_WIN_TIER_5' => 0.6,
+      'BIG_WIN_TIER_4' => 0.5,
+      'BIG_WIN_TIER_3' => 0.4,
+      'BIG_WIN_TIER_2' => 0.3,
+      'BIG_WIN_TIER_1' => 0.2,
       _ => 0.15,
     };
 
@@ -6144,11 +6076,11 @@ class _BigWinBackgroundPainter extends CustomPainter {
     // COLOR WASH — Tier-colored glow pulsing from center
     // ═══════════════════════════════════════════════════════════════════════
     final colorWashIntensity = switch (tier) {
-      'ULTRA' => 0.25,
-      'EPIC' => 0.20,
-      'MEGA' => 0.18,
-      'SUPER' => 0.12,
-      'BIG' => 0.08,
+      'BIG_WIN_TIER_5' => 0.25,
+      'BIG_WIN_TIER_4' => 0.20,
+      'BIG_WIN_TIER_3' => 0.18,
+      'BIG_WIN_TIER_2' => 0.12,
+      'BIG_WIN_TIER_1' => 0.08,
       _ => 0.05,
     };
 
@@ -6169,20 +6101,20 @@ class _BigWinBackgroundPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), colorWashPaint);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // LIGHT RAYS — Subtle rays from center (MEGA and above)
+    // LIGHT RAYS — Subtle rays from center (TIER_3 and above)
     // ═══════════════════════════════════════════════════════════════════════
-    if (tier == 'ULTRA' || tier == 'EPIC' || tier == 'MEGA') {
+    if (tier == 'BIG_WIN_TIER_5' || tier == 'BIG_WIN_TIER_4' || tier == 'BIG_WIN_TIER_3') {
       final rayOpacity = switch (tier) {
-        'ULTRA' => 0.15,
-        'EPIC' => 0.10,
-        'MEGA' => 0.08,
+        'BIG_WIN_TIER_5' => 0.15,
+        'BIG_WIN_TIER_4' => 0.10,
+        'BIG_WIN_TIER_3' => 0.08,
         _ => 0.05,
       };
 
       final rayCount = switch (tier) {
-        'ULTRA' => 12,
-        'EPIC' => 8,
-        'MEGA' => 6,
+        'BIG_WIN_TIER_5' => 12,
+        'BIG_WIN_TIER_4' => 8,
+        'BIG_WIN_TIER_3' => 6,
         _ => 4,
       };
 

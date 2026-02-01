@@ -956,43 +956,26 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
         _middleware.addListener(_onMiddlewareChanged);
         _focusNode.requestFocus();
-
-        // CRITICAL FIX: Sync existing events from MiddlewareProvider to EventRegistry
-        // This ensures audio works immediately when SlotLab is opened, even if no
-        // persisted state exists. Without this, EventRegistry stays empty until
-        // _onMiddlewareChanged is triggered by a provider update.
-        if (_compositeEvents.isNotEmpty) {
-          _syncAllEventsToRegistry();
-          debugPrint('[SlotLab] Initial sync: ${_compositeEvents.length} events → EventRegistry');
-        }
-
-        // V7: Sync persisted audio assignments from SlotLabProjectProvider to EventRegistry
-        // This restores audio when returning from another section
-        _syncPersistedAudioAssignments();
       }
     });
   }
 
-  /// Sync persisted audio assignments to EventRegistry and MiddlewareProvider
-  /// Called on mount to restore audio when returning from another section
+  /// OPTIMIZED: Fast sync of audio assignments to EventRegistry only
+  /// MiddlewareProvider sync happens separately in _syncAllEventsToRegistry()
   void _syncPersistedAudioAssignments() {
     final projectProvider = context.read<SlotLabProjectProvider>();
-    final middleware = context.read<MiddlewareProvider>();
     final assignments = projectProvider.audioAssignments;
 
     if (assignments.isEmpty) return;
 
-    debugPrint('[SlotLab] 🔄 Restoring ${assignments.length} audio assignments to EventRegistry + Middleware');
-
-    final now = DateTime.now();
+    debugPrint('[SlotLab] ⚡ Fast sync: ${assignments.length} audio assignments → EventRegistry');
 
     for (final entry in assignments.entries) {
       final stage = entry.key;
       final audioPath = entry.value;
       final eventId = 'audio_$stage';
 
-      // Register to EventRegistry for playback
-      // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
+      // CRITICAL: Check if stage should loop + get proper bus
       final shouldLoop = StageConfigurationService.instance.isLooping(stage);
       final busId = _getBusForStage(stage);
 
@@ -1014,41 +997,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         loop: shouldLoop,
         targetBusId: busId,
       ));
-
-      // Add to MiddlewareProvider if not already present
-      final existingEvent = middleware.compositeEvents.any((e) => e.id == eventId);
-      if (!existingEvent) {
-        final category = _getCategoryForStage(stage);
-        final color = _getColorForCategory(category);
-
-        final compositeEvent = SlotCompositeEvent(
-          id: eventId,
-          name: stage.replaceAll('_', ' ').split(' ').map((w) =>
-            w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
-          ).join(' '),
-          category: category,
-          color: color,
-          layers: [
-            SlotEventLayer(
-              id: 'layer_$stage',
-              name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
-              audioPath: audioPath,
-              volume: 1.0,
-              pan: _getPanForStage(stage),
-              busId: _getBusForStage(stage),
-            ),
-          ],
-          triggerStages: [stage],
-          targetBusId: _getBusForStage(stage),
-          createdAt: now,
-          modifiedAt: now,
-        );
-
-        middleware.addCompositeEvent(compositeEvent, select: false);
-      }
     }
 
-    debugPrint('[SlotLab] ✅ Restored ${assignments.length} audio assignments');
+    debugPrint('[SlotLab] ✅ Fast sync complete');
   }
 
   /// Global keyboard handler — handles Space regardless of focus
@@ -1833,25 +1784,30 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           debugPrint('[SlotLab] Engine init failed, using fallback');
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // CRITICAL FIX 2026-01-25: Re-register symbol audio on screen mount
-        // Symbol audio is stored in SlotLabProjectProvider (persisted) but
-        // NOT in EventRegistry (which is cleared on remount). Must sync here.
-        // This runs regardless of engine init success - audio playback works independently.
-        // ═══════════════════════════════════════════════════════════════════════
-        _syncSymbolAudioToRegistry();
+      // ═══════════════════════════════════════════════════════════════════════
+      // CRITICAL: ALL EVENT SYNC HAPPENS HERE (synchronous, no delay!)
+      // ═══════════════════════════════════════════════════════════════════════
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // CRITICAL FIX 2026-01-31: Re-register UltimateAudioPanel audio on mount
-        // Audio assignments from UltimateAudioPanel (REEL_STOP_0, SPIN_START, etc.)
-        // are stored in SlotLabProjectProvider.audioAssignments but NOT persisted
-        // in EventRegistry. Must sync here to restore audio playback after navigation.
-        // ═══════════════════════════════════════════════════════════════════════
-        _syncAudioAssignmentsToRegistry();
+      // Sync existing events from MiddlewareProvider to EventRegistry
+      final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
+      final compositeEvents = middleware.compositeEvents;
+      if (compositeEvents.isNotEmpty) {
+        _syncAllEventsToRegistry();
+        debugPrint('[SlotLab] ⚡ Initial sync: ${compositeEvents.length} events → EventRegistry');
+      }
 
-        // Initialize reel symbols (fallback or empty for engine)
-        _reelSymbols = List.from(_fallbackReelSymbols);
-        setState(() {});
+      // Sync persisted audio assignments from SlotLabProjectProvider
+      _syncPersistedAudioAssignments();
+
+      // Re-register symbol audio on screen mount
+      _syncSymbolAudioToRegistry();
+
+      // Re-register UltimateAudioPanel audio on mount
+      _syncAudioAssignmentsToRegistry();
+
+      // Initialize reel symbols (fallback or empty for engine)
+      _reelSymbols = List.from(_fallbackReelSymbols);
+      setState(() {});
     } catch (e) {
       debugPrint('[SlotLab] Engine init error: $e');
       _engineInitialized = false;

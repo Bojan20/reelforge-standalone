@@ -139,8 +139,15 @@ class EmbeddedSlotMockup extends StatefulWidget {
   /// Called when each reel visually stops (reelIndex: 0-4)
   final void Function(int reelIndex)? onReelStop;
 
-  /// Called when anticipation state begins (last reel)
-  final VoidCallback? onAnticipation;
+  /// Called when anticipation starts on a specific reel (reelIndex: 2-4 typically)
+  /// All reels after this index spin together with anticipation reel
+  final void Function(int reelIndex)? onAnticipationStart;
+
+  /// Called when anticipation moves to next reel (previous reel stopped)
+  final void Function(int reelIndex)? onAnticipationMove;
+
+  /// Called when anticipation ends (last reel stopped)
+  final VoidCallback? onAnticipationEnd;
 
   /// Called when all reels have stopped and result is revealing
   final VoidCallback? onReveal;
@@ -160,7 +167,9 @@ class EmbeddedSlotMockup extends StatefulWidget {
     this.onForcedSpin,
     this.onSpinStart,
     this.onReelStop,
-    this.onAnticipation,
+    this.onAnticipationStart,
+    this.onAnticipationMove,
+    this.onAnticipationEnd,
     this.onReveal,
     this.onWinStart,
     this.onWinEnd,
@@ -202,6 +211,12 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
   double _winAmount = 0;
   double _displayedWin = 0; // For rollup animation (counts up from 0 to _winAmount)
   Timer? _rollupTimer;
+
+  // Anticipation tracking
+  // -1 = no anticipation, otherwise = reel index where anticipation is active
+  int _anticipationReelIndex = -1;
+  // Reels after anticipation reel spin together with it
+  List<Timer?> _reelStopTimers = [];
 
   // Currency formatter for rollup display
   final _currencyFormatter = NumberFormat('#,##0.00', 'en_US');
@@ -253,6 +268,9 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
   void dispose() {
     _jackpotTimer?.cancel();
     _rollupTimer?.cancel();
+    for (final timer in _reelStopTimers) {
+      timer?.cancel();
+    }
     _reelController.dispose();
     _winController.dispose();
     super.dispose();
@@ -317,28 +335,87 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
   void _scheduleReelStops() {
     final baseDelay = _turbo ? 100 : 250;
+    final anticipationDelay = _turbo ? 400 : 800; // Extra delay for anticipation reels
+
+    // Cancel any existing timers
+    for (final timer in _reelStopTimers) {
+      timer?.cancel();
+    }
+    _reelStopTimers = List.filled(widget.reels, null);
+
+    // Reset anticipation state
+    _anticipationReelIndex = -1;
+
+    // Determine if we should trigger anticipation (2+ scatters scenario)
+    // For now, randomly trigger 25% of the time, starting at reel 2 (index 2)
+    final shouldAnticipate = _rng.nextDouble() < 0.25;
+    final anticipationStartReel = shouldAnticipate ? 2 : -1; // Start anticipation at reel 3 (index 2)
+
+    int cumulativeDelay = 0;
 
     for (int i = 0; i < widget.reels; i++) {
-      Future.delayed(Duration(milliseconds: baseDelay * (i + 1)), () {
+      // Calculate delay for this reel
+      int delayForReel;
+
+      if (anticipationStartReel >= 0 && i >= anticipationStartReel) {
+        // This reel is part of anticipation sequence
+        if (i == anticipationStartReel) {
+          // First anticipation reel - normal delay to reach it
+          delayForReel = baseDelay;
+        } else {
+          // Subsequent anticipation reels - longer delay (they spin together, stop one by one)
+          delayForReel = anticipationDelay;
+        }
+      } else {
+        // Normal reel - standard staggered delay
+        delayForReel = baseDelay;
+      }
+
+      cumulativeDelay += delayForReel;
+      final stopTime = cumulativeDelay;
+
+      _reelStopTimers[i] = Timer(Duration(milliseconds: stopTime), () {
         if (!mounted) return;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ANTICIPATION FLOW:
+        // 1. When anticipation reel stops, move anticipation to next reel
+        // 2. All reels after current anticipation reel spin together
+        // 3. When last reel stops, end anticipation
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Check if this is the first anticipation reel stopping
+        if (anticipationStartReel >= 0 && i == anticipationStartReel && _anticipationReelIndex == -1) {
+          // Start anticipation on this reel
+          setState(() {
+            _anticipationReelIndex = i;
+            _gameState = GameState.anticipation;
+          });
+          widget.onAnticipationStart?.call(i);
+        }
+
+        // Stop this reel
         setState(() {
           _reelStopped[i] = true;
         });
 
-        // ═══════════════════════════════════════════════════════════════════
-        // VISUAL-SYNC: Trigger REEL_STOP_i stage IMMEDIATELY when reel visual stops
-        // This ensures audio is perfectly synchronized with visual animation
-        // ═══════════════════════════════════════════════════════════════════
+        // VISUAL-SYNC: Trigger REEL_STOP_i stage
         widget.onReelStop?.call(i);
 
-        // Check for anticipation on second-to-last reel
-        if (i == widget.reels - 2) {
-          // Could trigger anticipation based on symbols
-          // For now, randomly trigger 20% of the time
-          if (_rng.nextDouble() < 0.2) {
-            setState(() => _gameState = GameState.anticipation);
-            // VISUAL-SYNC: Trigger ANTICIPATION stage
-            widget.onAnticipation?.call();
+        // Handle anticipation movement
+        if (_anticipationReelIndex >= 0 && i == _anticipationReelIndex) {
+          if (i < widget.reels - 1) {
+            // Move anticipation to next reel
+            setState(() {
+              _anticipationReelIndex = i + 1;
+            });
+            widget.onAnticipationMove?.call(i + 1);
+          } else {
+            // Last reel stopped - end anticipation
+            setState(() {
+              _anticipationReelIndex = -1;
+            });
+            widget.onAnticipationEnd?.call();
           }
         }
       });
@@ -781,6 +858,29 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
     final isSpinning = _gameState == GameState.spinning ||
         _gameState == GameState.anticipation;
 
+    // Check if this reel is in anticipation mode
+    // Anticipation reel has special glow, reels after it spin together
+    final isAnticipationReel = _anticipationReelIndex == reelIdx;
+    final isSpinningWithAnticipation =
+        _anticipationReelIndex >= 0 && reelIdx > _anticipationReelIndex && !isStopped;
+
+    // Border color based on state
+    Color borderColor;
+    double borderWidth = 1;
+    if (isAnticipationReel && !isStopped) {
+      // Active anticipation reel - red/orange glow
+      borderColor = _T.jpMajor;
+      borderWidth = 3;
+    } else if (isSpinningWithAnticipation) {
+      // Reels spinning together with anticipation - subtle anticipation color
+      borderColor = _T.jpMajor.withOpacity(0.5);
+      borderWidth = 2;
+    } else if (!isStopped && isSpinning) {
+      borderColor = _T.spin.withOpacity(0.3);
+    } else {
+      borderColor = _T.border;
+    }
+
     return AnimatedBuilder(
       animation: _reelController,
       builder: (context, _) {
@@ -789,9 +889,11 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
           decoration: BoxDecoration(
             color: _T.bg1,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: !isStopped && isSpinning ? _T.spin.withOpacity(0.3) : _T.border,
-            ),
+            border: Border.all(color: borderColor, width: borderWidth),
+            // Add glow for anticipation reel
+            boxShadow: isAnticipationReel && !isStopped
+                ? [BoxShadow(color: _T.jpMajor.withOpacity(0.6), blurRadius: 20, spreadRadius: 2)]
+                : null,
           ),
           padding: const EdgeInsets.all(4),
           child: Column(
@@ -1035,12 +1137,12 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
           const Spacer(),
 
-          // Quick outcome buttons
-          _buildOutcomeBtn('BIG', _T.winBig, ForcedOutcome.bigWin),
+          // Quick outcome buttons — generic tier names per CLAUDE.md
+          _buildOutcomeBtn('BIG WIN TIER 1', _T.winBig, ForcedOutcome.bigWin),
           const SizedBox(width: 10),
-          _buildOutcomeBtn('MEGA', _T.winMega, ForcedOutcome.megaWin),
+          _buildOutcomeBtn('BIG WIN TIER 2', _T.winMega, ForcedOutcome.megaWin),
           const SizedBox(width: 10),
-          _buildOutcomeBtn('EPIC', _T.winEpic, ForcedOutcome.epicWin),
+          _buildOutcomeBtn('BIG WIN TIER 3', _T.winEpic, ForcedOutcome.epicWin),
           const SizedBox(width: 10),
           _buildOutcomeBtn('JP', _T.jpGrand, ForcedOutcome.jackpotGrand),
         ],

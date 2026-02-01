@@ -90,14 +90,14 @@ class WinSessionStats {
   double biggestWin = 0.0;
   String biggestWinTier = '';
 
-  /// Tier counts
+  /// Tier counts — generic names per CLAUDE.md
   final Map<String, int> tierCounts = {
     'SMALL': 0,
-    'BIG': 0,
-    'SUPER': 0,
-    'MEGA': 0,
-    'EPIC': 0,
-    'ULTRA': 0,
+    'BIG_WIN_TIER_1': 0,
+    'BIG_WIN_TIER_2': 0,
+    'BIG_WIN_TIER_3': 0,
+    'BIG_WIN_TIER_4': 0,
+    'BIG_WIN_TIER_5': 0,
   };
 
   /// Average rollup duration per tier (in ms)
@@ -141,10 +141,10 @@ class WinSessionStats {
 /// Usage:
 /// ```dart
 /// WinAnalyticsService.instance.startSession();
-/// WinAnalyticsService.instance.trackWinTier('BIG', winAmount: 500.0, betAmount: 10.0);
-/// WinAnalyticsService.instance.trackRollupStarted('BIG', targetAmount: 500.0);
-/// WinAnalyticsService.instance.trackRollupCompleted('BIG', durationMs: 2500);
-/// WinAnalyticsService.instance.trackSkipRequested('BIG', progressPercent: 0.3);
+/// WinAnalyticsService.instance.trackWinTier('BIG_WIN_TIER_1', winAmount: 500.0, betAmount: 10.0);
+/// WinAnalyticsService.instance.trackRollupStarted('BIG_WIN_TIER_1', targetAmount: 500.0);
+/// WinAnalyticsService.instance.trackRollupCompleted('BIG_WIN_TIER_1', durationMs: 2500);
+/// WinAnalyticsService.instance.trackSkipRequested('BIG_WIN_TIER_1', progressPercent: 0.3);
 /// final stats = WinAnalyticsService.instance.getSessionStats();
 /// ```
 class WinAnalyticsService {

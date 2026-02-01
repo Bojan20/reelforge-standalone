@@ -282,8 +282,10 @@ class BigWinProtection {
   /// Get protection duration for a win tier
   static double forTier(String tier) {
     final t = tier.toUpperCase();
-    // Any Big Win tier gets 2.5 seconds protection
-    if (t.startsWith('BIG_WIN') || t == 'BIG') {
+    // All Big Win tiers get 2.5 seconds protection
+    // Industry standard tiers: BIG, SUPER, MEGA, EPIC, ULTRA
+    const bigWinTiers = {'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_4', 'BIG_WIN_TIER_5'};
+    if (bigWinTiers.contains(t) || t.startsWith('BIG_WIN')) {
       return bigWinProtection;
     }
     // Regular wins - no protection
@@ -5331,8 +5333,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     eventRegistry.stopEvent('ROLLUP');
 
     // Check if this is a Big Win tier
-    final isBigWin = _currentWinTier.toUpperCase().startsWith('BIG_WIN') ||
-        _currentWinTier.toUpperCase() == 'BIG';
+    final isBigWin = _currentWinTier.toUpperCase().startsWith('BIG_WIN');
 
     if (isBigWin) {
       // Trigger BIG_WIN_END stage (4 seconds)
@@ -5938,10 +5939,14 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         });
 
         // ═══════════════════════════════════════════════════════════════════
-        // REEL_STOP_i — DISABLED: Engine stages handle this via SlotLabProvider._playStages()
-        // Keeping visual-sync here caused DUPLICATE TRIGGERS (audio played twice)
+        // REEL_STOP_i — DISABLED: SlotPreviewWidget (child) handles this!
+        // SlotPreviewWidget uses animation callback (_onReelStopVisual) which triggers
+        // REEL_STOP_$reelIndex at the EXACT moment the animation reaches bouncing phase.
+        // Triggering here (Timer-based) DUPLICATES the audio — DO NOT ENABLE!
+        // See: slot_preview_widget.dart:929 — eventRegistry.triggerStage('REEL_STOP_$reelIndex')
         // ═══════════════════════════════════════════════════════════════════
-        // eventRegistry.triggerStage('REEL_STOP_$i'); // REMOVED - causes double trigger
+        // final eventRegistry = EventRegistry.instance;
+        // eventRegistry.triggerStage('REEL_STOP_$i');  // CAUSES DUPLICATE AUDIO!
 
         // ANTICIPATION — DISABLED (engine handles via SlotLabProvider._playStages())
         // Kept for visual state tracking only, method is now a no-op
@@ -6673,7 +6678,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   isTurbo: _isTurbo,
                   canSpin: canSpin,
                   // SKIP button controls (industry-standard win presentation skip)
-                  isInWinPresentation: _showWinPresenter,
+                  // FIX: Use provider.isWinPresentationActive instead of local _showWinPresenter
+                  // This ensures Skip button appears when SlotPreviewWidget is in win presentation
+                  isInWinPresentation: provider.isWinPresentationActive,
                   currentWinTier: _currentWinTier,
                   bigWinProtectionRemaining: _bigWinProtectionRemaining,
                   // Callbacks

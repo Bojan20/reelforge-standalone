@@ -585,26 +585,26 @@ class SlotLabProvider extends ChangeNotifier {
   }
 
   /// Get the visual tier name for a win amount
-  /// Returns: '', 'BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA', or jackpot tiers
+  /// Returns: '', 'BIG_WIN_TIER_1' through 'BIG_WIN_TIER_5', or jackpot tiers
   String getVisualTierForWin(double winAmount) {
     if (_betAmount <= 0) return '';
     final tier = _winTierConfig.getTierForWin(winAmount, _betAmount);
     if (tier == null) return '';
 
-    // Map WinTier enum to visual tier name
+    // Map WinTier enum to visual tier name — generic names per CLAUDE.md
     switch (tier.tier) {
       case WinTier.noWin:
       case WinTier.smallWin:
       case WinTier.mediumWin:
         return ''; // No plaque for small/medium wins
       case WinTier.bigWin:
-        return 'BIG';
+        return 'BIG_WIN_TIER_1';
       case WinTier.megaWin:
-        return 'MEGA';
+        return 'BIG_WIN_TIER_2';
       case WinTier.epicWin:
-        return 'EPIC';
+        return 'BIG_WIN_TIER_3';
       case WinTier.ultraWin:
-        return 'ULTRA';
+        return 'BIG_WIN_TIER_4';
       case WinTier.jackpotMini:
         return 'JACKPOT MINI';
       case WinTier.jackpotMinor:

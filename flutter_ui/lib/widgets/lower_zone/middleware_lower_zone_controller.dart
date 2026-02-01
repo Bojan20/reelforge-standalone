@@ -31,11 +31,11 @@ class MiddlewareLowerZoneController extends ChangeNotifier {
   List<String> get subTabLabels => _state.subTabLabels;
 
   /// Total height including all fixed-height elements
-  /// When expanded: resize handle + context bar + slot context bar + content + action strip
-  /// When collapsed: resize handle + collapsed context bar (super-tabs only)
+  /// When expanded: resize handle + context bar + slot context bar + content + action strip + 1px top border
+  /// When collapsed: resize handle + collapsed context bar + 1px top border
   double get totalHeight => _state.isExpanded
-      ? _state.height + kContextBarHeight + kSlotContextBarHeight + kActionStripHeight + kResizeHandleHeight
-      : kResizeHandleHeight + kContextBarCollapsedHeight;
+      ? _state.height + kContextBarHeight + kSlotContextBarHeight + kActionStripHeight + kResizeHandleHeight + 1
+      : kResizeHandleHeight + kContextBarCollapsedHeight + 1;
 
   Color get accentColor => LowerZoneColors.middlewareAccent;
 
@@ -221,9 +221,22 @@ class MiddlewareLowerZoneController extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Load state from persistent storage
-  Future<void> loadFromStorage() async {
+  /// Returns true if state was loaded from storage, false if using defaults
+  Future<bool> loadFromStorage() async {
     _state = await LowerZonePersistenceService.instance.loadMiddlewareState();
     notifyListeners();
+    // If height is still default, it means no persisted state was found
+    return _state.height != kLowerZoneDefaultHeight;
+  }
+
+  /// Set height to half of the available screen height
+  /// Call this after loadFromStorage() returns false (no persisted state)
+  void setHeightToHalfScreen(double availableHeight) {
+    // Calculate half screen minus fixed elements
+    final halfScreen = (availableHeight * 0.5).clamp(kLowerZoneMinHeight, kLowerZoneMaxHeight);
+    if (_state.height != halfScreen) {
+      _updateAndSave(_state.copyWith(height: halfScreen));
+    }
   }
 
   /// Save current state to persistent storage

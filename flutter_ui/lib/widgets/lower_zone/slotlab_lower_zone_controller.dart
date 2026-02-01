@@ -31,10 +31,8 @@ class SlotLabLowerZoneController extends ChangeNotifier {
   List<String> get subTabLabels => _state.subTabLabels;
 
   /// Total height including all fixed-height elements
-  /// When expanded: content + context bar (60px) + action strip + resize handle + spin control bar + 1px border
-  /// When collapsed: just resize handle + super-tabs row (32px, no sub-tabs) + 1px border
-  /// NOTE: The +1.0 accounts for the top border (BorderSide width: 1) to prevent 1px overflow
-  // Border is now rendered via Positioned in Stack, doesn't affect layout height
+  /// When expanded: content + context bar (60px) + action strip + resize handle + spin control bar
+  /// When collapsed: resize handle + context bar (32px, includes 1px bottom border)
   double get totalHeight => _state.isExpanded
       ? _state.height + kContextBarHeight + kActionStripHeight + kResizeHandleHeight + kSpinControlBarHeight
       : kResizeHandleHeight + kContextBarCollapsedHeight;
@@ -223,9 +221,22 @@ class SlotLabLowerZoneController extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Load state from persistent storage
-  Future<void> loadFromStorage() async {
+  /// Returns true if state was loaded from storage, false if using defaults
+  Future<bool> loadFromStorage() async {
     _state = await LowerZonePersistenceService.instance.loadSlotLabState();
     notifyListeners();
+    // If height is still default, it means no persisted state was found
+    return _state.height != kLowerZoneDefaultHeight;
+  }
+
+  /// Set height to half of the available screen height
+  /// Call this after loadFromStorage() returns false (no persisted state)
+  void setHeightToHalfScreen(double availableHeight) {
+    // Calculate half screen minus fixed elements
+    final halfScreen = (availableHeight * 0.5).clamp(kLowerZoneMinHeight, kLowerZoneMaxHeight);
+    if (_state.height != halfScreen) {
+      _updateAndSave(_state.copyWith(height: halfScreen));
+    }
   }
 
   /// Save current state to persistent storage
