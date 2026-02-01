@@ -294,7 +294,7 @@ class DawLowerZoneState {
     this.mixSubTab = DawMixSubTab.mixer,
     this.processSubTab = DawProcessSubTab.eq,
     this.deliverSubTab = DawDeliverSubTab.export,
-    this.isExpanded = true,
+    this.isExpanded = false,
     this.height = kLowerZoneDefaultHeight,
     // Split view defaults
     this.splitEnabled = false,
@@ -544,7 +544,7 @@ class MiddlewareLowerZoneState {
     this.routingSubTab = MiddlewareRoutingSubTab.buses,
     this.rtpcSubTab = MiddlewareRtpcSubTab.curves,
     this.deliverSubTab = MiddlewareDeliverSubTab.bake,
-    this.isExpanded = true,
+    this.isExpanded = false,
     this.height = kLowerZoneDefaultHeight,
   });
 
@@ -697,7 +697,7 @@ class SlotLabLowerZoneState {
     this.mixSubTab = SlotLabMixSubTab.buses,
     this.dspSubTab = SlotLabDspSubTab.chain,
     this.bakeSubTab = SlotLabBakeSubTab.export,
-    this.isExpanded = true,
+    this.isExpanded = false,
     this.height = kLowerZoneDefaultHeight,
   });
 

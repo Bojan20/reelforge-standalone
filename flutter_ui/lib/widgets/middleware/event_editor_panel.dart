@@ -151,6 +151,15 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     }
   }
 
+  void _updateEventLoop(MiddlewareEvent event, bool loop) {
+    final updatedEvent = event.copyWith(loop: loop);
+    setState(() {
+      _events[event.id] = updatedEvent;
+    });
+    _syncEventToProvider(updatedEvent);
+    debugPrint('[EventEditor] Updated loop: ${event.name} → $loop');
+  }
+
   /// Sync all events to provider
   void _syncAllEventsToProvider() {
     final provider = context.read<MiddlewareProvider>();
@@ -1176,6 +1185,8 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       children: [
         // Event header
         _buildEventHeader(event),
+        // Event-level parameters
+        _buildEventLevelParameters(event),
         // Action timeline
         if (_showTimeline) _buildActionTimeline(event),
         // Action list (always visible)
@@ -1265,6 +1276,29 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEventLevelParameters(MiddlewareEvent event) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
+        border: Border(
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
+        ),
+      ),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 8,
+        children: [
+          _buildInlineCheckbox(
+            'Loop Event',
+            event.loop,
+            (val) => _updateEventLoop(event, val),
+          ),
+        ],
       ),
     );
   }
@@ -1814,11 +1848,12 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                           color: FluxForgeTheme.textTertiary,
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      // INLINE CONTROLS — All parameters editable directly
+                      _buildInlineParameters(event, action),
                     ],
                   ),
                 ),
-                // Parameters quick view
-                _buildParameterChips(action),
                 const SizedBox(width: 12),
                 // Action buttons
                 _buildQuickAction(
@@ -1886,67 +1921,315 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     );
   }
 
-  Widget _buildParameterChips(MiddlewareAction action) {
-    final chips = <Widget>[];
-
-    if (action.delay > 0) {
-      chips.add(_buildParamChip(
-        Icons.timer,
-        '+${(action.delay * 1000).toInt()}ms',
-        Colors.blue,
-      ));
-    }
-
-    if (action.fadeTime > 0) {
-      chips.add(_buildParamChip(
-        Icons.gradient,
-        '${(action.fadeTime * 1000).toInt()}ms',
-        Colors.purple,
-      ));
-    }
-
-    if (action.loop) {
-      chips.add(_buildParamChip(
-        Icons.loop,
-        'Loop',
-        Colors.green,
-      ));
-    }
-
-    if (action.gain != 1.0) {
-      chips.add(_buildParamChip(
-        Icons.volume_up,
-        '${(action.gain * 100).toInt()}%',
-        Colors.orange,
-      ));
-    }
-
-    return Row(children: chips);
+  Widget _buildInlineParameters(MiddlewareEvent event, MiddlewareAction action) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Row 1: Asset, Bus, Type
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            _buildInlineDropdown(
+              'Asset',
+              action.assetId.isEmpty ? 'None' : action.assetId,
+              ['None', ...kAllAssetIds],
+              (val) => _updateAction(event, action, assetId: val == 'None' ? '' : val),
+              width: 150,
+            ),
+            _buildInlineDropdown(
+              'Bus',
+              action.bus,
+              kAllBuses,
+              (val) => _updateAction(event, action, bus: val),
+              width: 120,
+            ),
+            _buildInlineDropdown(
+              'Type',
+              action.type.displayName,
+              ActionType.values.map((e) => e.displayName).toList(),
+              (val) {
+                final type = ActionType.values.firstWhere((e) => e.displayName == val);
+                _updateAction(event, action, type: type);
+              },
+              width: 120,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Row 2: Volume, Pan, Delay
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            _buildInlineSlider(
+              'Volume',
+              action.gain,
+              0.0,
+              2.0,
+              (val) => _updateActionDebounced(event, action, gain: val),
+              width: 180,
+              label: '${(action.gain * 100).toInt()}%',
+            ),
+            _buildInlineSlider(
+              'Pan',
+              action.pan,
+              -1.0,
+              1.0,
+              (val) => _updateActionDebounced(event, action, pan: val),
+              width: 180,
+              label: action.pan == 0 ? 'C' : action.pan < 0 ? 'L${(action.pan.abs() * 100).toInt()}' : 'R${(action.pan * 100).toInt()}',
+            ),
+            _buildInlineSlider(
+              'Delay',
+              action.delay,
+              0.0,
+              2.0,
+              (val) => _updateActionDebounced(event, action, delay: val),
+              width: 180,
+              label: '${(action.delay * 1000).toInt()}ms',
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Row 3: Fade In, Fade Out, Fade Curve
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            _buildInlineSlider(
+              'Fade In',
+              action.fadeInMs,
+              0.0,
+              2000.0,
+              (val) => _updateActionDebounced(event, action, fadeInMs: val),
+              width: 180,
+              label: '${action.fadeInMs.toInt()}ms',
+            ),
+            _buildInlineSlider(
+              'Fade Out',
+              action.fadeOutMs,
+              0.0,
+              2000.0,
+              (val) => _updateActionDebounced(event, action, fadeOutMs: val),
+              width: 180,
+              label: '${action.fadeOutMs.toInt()}ms',
+            ),
+            _buildInlineDropdown(
+              'Fade Curve',
+              action.fadeCurve.displayName,
+              FadeCurve.values.map((e) => e.displayName).toList(),
+              (val) {
+                final curve = FadeCurve.values.firstWhere((e) => e.displayName == val);
+                _updateAction(event, action, fadeCurve: curve);
+              },
+              width: 140,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Row 4: Trim, Priority, Loop
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            _buildInlineSlider(
+              'Trim Start',
+              action.trimStartMs,
+              0.0,
+              10000.0,
+              (val) => _updateActionDebounced(event, action, trimStartMs: val),
+              width: 180,
+              label: '${action.trimStartMs.toInt()}ms',
+            ),
+            _buildInlineSlider(
+              'Trim End',
+              action.trimEndMs,
+              0.0,
+              10000.0,
+              (val) => _updateActionDebounced(event, action, trimEndMs: val),
+              width: 180,
+              label: '${action.trimEndMs.toInt()}ms',
+            ),
+            _buildInlineDropdown(
+              'Priority',
+              action.priority.displayName,
+              ActionPriority.values.map((e) => e.displayName).toList(),
+              (val) {
+                final prio = ActionPriority.values.firstWhere((e) => e.displayName == val);
+                _updateAction(event, action, priority: prio);
+              },
+              width: 140,
+            ),
+            _buildInlineCheckbox(
+              'Loop',
+              action.loop,
+              (val) => _updateAction(event, action, loop: val),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
-  Widget _buildParamChip(IconData icon, String label, Color color) {
-    return Container(
-      margin: const EdgeInsets.only(right: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
+  Widget _buildInlineSlider(
+    String labelText,
+    double value,
+    double min,
+    double max,
+    ValueChanged<double> onChanged, {
+    required double width,
+    required String label,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 10, color: color),
-          const SizedBox(width: 3),
           Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
+            labelText,
+            style: FluxForgeTheme.bodySmall.copyWith(
+              color: FluxForgeTheme.textSecondary,
+              fontSize: 10,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: 2,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                  ),
+                  child: Slider(
+                    value: value.clamp(min, max),
+                    min: min,
+                    max: max,
+                    onChanged: onChanged,
+                    activeColor: FluxForgeTheme.accentBlue,
+                    inactiveColor: FluxForgeTheme.borderSubtle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 50,
+                child: Text(
+                  label,
+                  style: FluxForgeTheme.bodySmall.copyWith(
+                    color: FluxForgeTheme.textPrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineDropdown(
+    String labelText,
+    String value,
+    List<String> options,
+    ValueChanged<String> onChanged, {
+    required double width,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            labelText,
+            style: FluxForgeTheme.bodySmall.copyWith(
+              color: FluxForgeTheme.textSecondary,
+              fontSize: 10,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Container(
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgDeep,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: FluxForgeTheme.borderSubtle),
+            ),
+            child: DropdownButton<String>(
+              value: value,
+              items: options.map((opt) {
+                return DropdownMenuItem(
+                  value: opt,
+                  child: Text(
+                    opt,
+                    style: FluxForgeTheme.bodySmall.copyWith(fontSize: 11),
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) onChanged(val);
+              },
+              underline: const SizedBox(),
+              isExpanded: true,
+              dropdownColor: FluxForgeTheme.bgMid,
+              style: FluxForgeTheme.bodySmall.copyWith(
+                color: FluxForgeTheme.textPrimary,
+                fontSize: 11,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInlineCheckbox(
+    String label,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: value
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: value
+                ? FluxForgeTheme.accentBlue
+                : FluxForgeTheme.borderSubtle,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              value ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 16,
+              color: value ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: FluxForgeTheme.bodySmall.copyWith(
+                color: value ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1999,8 +2282,50 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                 const SizedBox(width: 12),
                 // Quick add buttons for common actions
                 ..._buildQuickAddButtons(event),
+                const Spacer(),
+                // Loop checkbox
+                _buildLoopToggleButton(event),
               ],
             ),
+    );
+  }
+
+  Widget _buildLoopToggleButton(MiddlewareEvent event) {
+    return InkWell(
+      onTap: () => _updateEventLoop(event, !event.loop),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: event.loop
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+              : FluxForgeTheme.bgDeep,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: event.loop
+                ? FluxForgeTheme.accentBlue
+                : FluxForgeTheme.borderSubtle,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.loop,
+              size: 16,
+              color: event.loop ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Loop',
+              style: FluxForgeTheme.bodySmall.copyWith(
+                color: event.loop ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
+                fontWeight: event.loop ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2377,6 +2702,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
           _buildInspectorField('Buses Used', _getUniqueBuses(event).join(', ')),
         ]),
         const SizedBox(height: 16),
+        _buildInspectorSection('Playback', [
+          _buildLoopCheckbox(event),
+        ]),
+        const SizedBox(height: 16),
         _buildInspectorSection('Bus Routing', [
           _buildBusRoutingDiagram(event),
         ]),
@@ -2662,6 +2991,47 @@ class _EventEditorPanelState extends State<EventEditorPanel>
               style: FluxForgeTheme.body.copyWith(
                 color: FluxForgeTheme.textPrimary,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoopCheckbox(MiddlewareEvent event) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              'Loop',
+              style: FluxForgeTheme.bodySmall.copyWith(
+                color: FluxForgeTheme.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                Checkbox(
+                  value: event.loop,
+                  onChanged: (value) {
+                    if (value != null) {
+                      _updateEventLoop(event, value);
+                    }
+                  },
+                  activeColor: FluxForgeTheme.accentBlue,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  event.loop ? 'Enabled (seamless loop)' : 'Disabled (play once)',
+                  style: FluxForgeTheme.bodySmall.copyWith(
+                    color: event.loop ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

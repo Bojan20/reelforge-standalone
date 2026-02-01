@@ -6396,6 +6396,64 @@ idle → accelerating → spinning → decelerating → bouncing → stopped
 
 **Dokumentacija:** `.claude/analysis/REEL_PHASE_TRANSITION_FIX_2026_01_31.md`
 
+#### 9. Animation Controller Race Condition (2026-02-01)
+
+**Simptom:**
+- Svi rilovi su vizuelno zaustavljeni
+- Ali animacije (anticipation glow, itd.) se nastavljaju
+- Spin završava tek nakon ~2000ms umesto ~1250ms
+- Četvrti ril "treperi" ili ima ghost animaciju
+
+**Uzrok:**
+Dva NEZAVISNA mehanizma kontrolisala su spin:
+1. `_reelController` (AnimationController) — trajao je 2000ms
+2. `_scheduleReelStops()` (Timer-based) — zadnji reel stajao nakon ~1250ms
+
+Kod je čekao da `_reelController` završi pre promene `_gameState`, ali rilovi su vizuelno stali 750ms ranije. U tom gap-u animacije su nastavljale.
+
+**Fix (2026-02-01):**
+
+1. **Immediate State Transition** — Kada svi rilovi stanu, odmah prelazi u `revealing`:
+```dart
+if (_reelStopped.every((stopped) => stopped)) {
+  setState(() {
+    _anticipationReelIndex = -1;
+    if (_gameState == GameState.spinning || _gameState == GameState.anticipation) {
+      _gameState = GameState.revealing;  // ODMAH, ne čekaj controller
+    }
+  });
+  if (_reelController.isAnimating) {
+    _reelController.stop();  // Zaustavi controller early
+  }
+}
+```
+
+2. **Guard Flag** — Sprečava dvostruko izvršavanje `_revealResult()`:
+```dart
+bool _revealProcessed = false;  // Instance variable
+
+void _revealResult(...) {
+  if (_revealProcessed) return;  // Guard
+  _revealProcessed = true;
+  // ...
+}
+
+// Reset u obe spin metode
+void _startSpin() {
+  _revealProcessed = false;
+  // ...
+}
+```
+
+**Verifikacija:**
+1. Spin → svi rilovi staju → animacije odmah prestaju
+2. Nema ghost glow-a na zaustavlјenim rilovima
+3. Spin završava čim poslednji ril stane
+
+**Ključni fajl:** `flutter_ui/lib/widgets/slot_lab/embedded_slot_mockup.dart`
+
+**Dokumentacija:** `.claude/analysis/EMBEDDED_SLOT_ANIMATION_RACE_FIX_2026_02_01.md`
+
 ---
 
 ## 🎰 SLOTLAB STAGE FLOW (2026-01-24) ✅

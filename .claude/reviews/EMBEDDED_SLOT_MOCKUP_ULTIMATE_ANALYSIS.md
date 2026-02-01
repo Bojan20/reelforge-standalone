@@ -1,8 +1,18 @@
 # EmbeddedSlotMockup — Ultimativna Analiza
 
-**Datum:** 2026-01-24
-**Verzija:** V3 (Visual-Sync Callbacks)
-**Fajl:** `flutter_ui/lib/widgets/slot_lab/embedded_slot_mockup.dart` (~1164 LOC)
+**Datum:** 2026-01-24 (Updated: 2026-02-01)
+**Verzija:** V4 (Animation Race Fix)
+**Fajl:** `flutter_ui/lib/widgets/slot_lab/embedded_slot_mockup.dart` (~1294 LOC)
+
+---
+
+## KRITIČNI FIX (2026-02-01)
+
+**Problem:** Četvrti ril (ili bilo koji ril) nastavio animaciju nakon što su svi rilovi vizuelno stali.
+
+**Root Cause:** Dva nezavisna mehanizma (`_reelController` i `_scheduleReelStops()`) sa 750ms gap-om.
+
+**Rešenje:** Immediate state transition + guard flag. Vidi: [EMBEDDED_SLOT_ANIMATION_RACE_FIX_2026_02_01.md](../analysis/EMBEDDED_SLOT_ANIMATION_RACE_FIX_2026_02_01.md)
 
 ---
 

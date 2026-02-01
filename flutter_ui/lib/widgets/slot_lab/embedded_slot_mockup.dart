@@ -217,6 +217,8 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
   int _anticipationReelIndex = -1;
   // Reels after anticipation reel spin together with it
   List<Timer?> _reelStopTimers = [];
+  // Flag to prevent double reveal processing when reels stop before controller finishes
+  bool _revealProcessed = false;
 
   // Currency formatter for rollup display
   final _currencyFormatter = NumberFormat('#,##0.00', 'en_US');
@@ -284,6 +286,9 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
     if (_gameState != GameState.idle) return;
     if (_balance < _totalBet) return;
 
+    // Reset reveal flag for new spin
+    _revealProcessed = false;
+
     setState(() {
       _gameState = GameState.spinning;
       _winType = WinType.noWin;
@@ -311,6 +316,9 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
   void _startForcedSpin(ForcedOutcome outcome) {
     if (_gameState != GameState.idle) return;
+
+    // Reset reveal flag for new spin
+    _revealProcessed = false;
 
     setState(() {
       _gameState = GameState.spinning;
@@ -343,13 +351,28 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
     }
     _reelStopTimers = List.filled(widget.reels, null);
 
-    // Reset anticipation state
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ULTIMATE ANTICIPATION SYSTEM — Industry Standard Pattern
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    // CORRECT FLOW (IGT/Aristocrat/NetEnt standard):
+    // 1. Reels 0, 1 stop normally (no anticipation)
+    // 2. BEFORE reel 2 stops, if 2+ scatters landed → ENTER anticipation mode
+    // 3. Anticipation glow shows on reel that is CURRENTLY SPINNING (not stopped)
+    // 4. Each subsequent reel has LONGER delay (tension building)
+    // 5. When anticipation reel STOPS → move glow to NEXT spinning reel
+    // 6. When LAST reel stops → EXIT anticipation mode
+    //
+    // KEY INSIGHT: Anticipation glow is on the SPINNING reel, not the stopped one
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Reset anticipation state at spin start
     _anticipationReelIndex = -1;
 
     // Determine if we should trigger anticipation (2+ scatters scenario)
     // For now, randomly trigger 25% of the time, starting at reel 2 (index 2)
     final shouldAnticipate = _rng.nextDouble() < 0.25;
-    final anticipationStartReel = shouldAnticipate ? 2 : -1; // Start anticipation at reel 3 (index 2)
+    final anticipationStartReel = shouldAnticipate ? 2 : -1;
 
     int cumulativeDelay = 0;
 
@@ -358,14 +381,8 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
       int delayForReel;
 
       if (anticipationStartReel >= 0 && i >= anticipationStartReel) {
-        // This reel is part of anticipation sequence
-        if (i == anticipationStartReel) {
-          // First anticipation reel - normal delay to reach it
-          delayForReel = baseDelay;
-        } else {
-          // Subsequent anticipation reels - longer delay (they spin together, stop one by one)
-          delayForReel = anticipationDelay;
-        }
+        // This reel is part of anticipation sequence - use longer delay
+        delayForReel = anticipationDelay;
       } else {
         // Normal reel - standard staggered delay
         delayForReel = baseDelay;
@@ -374,24 +391,37 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
       cumulativeDelay += delayForReel;
       final stopTime = cumulativeDelay;
 
-      _reelStopTimers[i] = Timer(Duration(milliseconds: stopTime), () {
-        if (!mounted) return;
+      // ═══════════════════════════════════════════════════════════════════
+      // SCHEDULE ANTICIPATION START (before first anticipation reel stops)
+      // ═══════════════════════════════════════════════════════════════════
+      if (anticipationStartReel >= 0 && i == anticipationStartReel) {
+        // Schedule anticipation to START when the PREVIOUS reel stops
+        // (i.e., anticipation begins while this reel is still spinning)
+        final anticipationStartTime = cumulativeDelay - delayForReel;
+        Timer(Duration(milliseconds: anticipationStartTime), () {
+          if (!mounted) return;
+          if (_gameState != GameState.spinning && _gameState != GameState.anticipation) return;
 
-        // ═══════════════════════════════════════════════════════════════════
-        // ANTICIPATION FLOW:
-        // 1. When anticipation reel stops, move anticipation to next reel
-        // 2. All reels after current anticipation reel spin together
-        // 3. When last reel stops, end anticipation
-        // ═══════════════════════════════════════════════════════════════════
-
-        // Check if this is the first anticipation reel stopping
-        if (anticipationStartReel >= 0 && i == anticipationStartReel && _anticipationReelIndex == -1) {
-          // Start anticipation on this reel
           setState(() {
-            _anticipationReelIndex = i;
+            _anticipationReelIndex = i;  // Glow on CURRENTLY SPINNING reel
             _gameState = GameState.anticipation;
           });
           widget.onAnticipationStart?.call(i);
+        });
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // SCHEDULE REEL STOP
+      // ═══════════════════════════════════════════════════════════════════
+      _reelStopTimers[i] = Timer(Duration(milliseconds: stopTime), () {
+        if (!mounted) return;
+
+        // CRITICAL: Check if we're still in a valid spin state
+        // Prevents "ghost" stops after spin was interrupted
+        if (_gameState != GameState.spinning &&
+            _gameState != GameState.anticipation &&
+            _gameState != GameState.revealing) {
+          return;
         }
 
         // Stop this reel
@@ -402,20 +432,48 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
         // VISUAL-SYNC: Trigger REEL_STOP_i stage
         widget.onReelStop?.call(i);
 
-        // Handle anticipation movement
-        if (_anticipationReelIndex >= 0 && i == _anticipationReelIndex) {
-          if (i < widget.reels - 1) {
-            // Move anticipation to next reel
-            setState(() {
-              _anticipationReelIndex = i + 1;
-            });
-            widget.onAnticipationMove?.call(i + 1);
-          } else {
-            // Last reel stopped - end anticipation
-            setState(() {
-              _anticipationReelIndex = -1;
-            });
-            widget.onAnticipationEnd?.call();
+        // Handle anticipation state AFTER reel stops
+        if (_anticipationReelIndex >= 0) {
+          if (i == _anticipationReelIndex) {
+            // The anticipation reel just stopped
+            if (i < widget.reels - 1) {
+              // Move anticipation glow to NEXT reel (which is still spinning)
+              setState(() {
+                _anticipationReelIndex = i + 1;
+              });
+              widget.onAnticipationMove?.call(i + 1);
+            } else {
+              // LAST reel stopped — END anticipation completely
+              setState(() {
+                _anticipationReelIndex = -1;
+                // Don't change gameState here — let _revealResult handle it
+              });
+              widget.onAnticipationEnd?.call();
+            }
+          }
+        }
+
+        // Check if ALL reels have stopped
+        if (_reelStopped.every((stopped) => stopped)) {
+          // ═══════════════════════════════════════════════════════════════════
+          // CRITICAL FIX: Immediately transition to revealing state
+          // This prevents ANY lingering animations after all reels stop
+          // The _reelController may still be running, but gameState change
+          // ensures all visual effects stop immediately
+          // ═══════════════════════════════════════════════════════════════════
+          setState(() {
+            _anticipationReelIndex = -1;
+            // CRITICAL: Change state to revealing IMMEDIATELY when all reels stop
+            // Don't wait for _reelController to finish!
+            if (_gameState == GameState.spinning || _gameState == GameState.anticipation) {
+              _gameState = GameState.revealing;
+            }
+          });
+          widget.onAnticipationEnd?.call();
+
+          // Stop the reel animation controller early since all reels are visually stopped
+          if (_reelController.isAnimating) {
+            _reelController.stop();
           }
         }
       });
@@ -423,11 +481,23 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
   }
 
   void _revealResult({ForcedOutcome? forcedOutcome}) {
+    // Guard: Don't process reveal twice
+    // This can happen when:
+    // 1. All reels stop (timer sets gameState to revealing + stops controller)
+    // 2. Controller.then() callback fires (would try to reveal again)
+    if (_revealProcessed) return;
+    if (_gameState == GameState.celebrating || _gameState == GameState.idle) return;
+
+    _revealProcessed = true;
+
     // Generate final symbols
     setState(() {
       _symbols = List.generate(
           widget.reels, (_) => List.generate(widget.rows, (_) => _rng.nextInt(10)));
       _gameState = GameState.revealing;
+      // CRITICAL: Reset anticipation state when revealing
+      // This ensures no lingering anticipation effects after all reels stop
+      _anticipationReelIndex = -1;
     });
 
     // VISUAL-SYNC: Trigger reveal stage when all reels stopped
@@ -855,19 +925,34 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
   Widget _buildReel(int reelIdx, double cellSize) {
     final isStopped = _reelStopped[reelIdx];
-    final isSpinning = _gameState == GameState.spinning ||
-        _gameState == GameState.anticipation;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL FIX: Only consider spinning if gameState is ACTUALLY spinning/anticipation
+    // This prevents ANY animation effects after gameState changes to revealing/celebrating/idle
+    // ═══════════════════════════════════════════════════════════════════════════
+    final isActivelySpinning = (_gameState == GameState.spinning ||
+                                _gameState == GameState.anticipation) &&
+                               !isStopped;
+
+    // CRITICAL: Only show anticipation effects if we're still in anticipation state
+    // AND this reel has not stopped yet
+    final isInAnticipationPhase = _gameState == GameState.anticipation;
 
     // Check if this reel is in anticipation mode
     // Anticipation reel has special glow, reels after it spin together
-    final isAnticipationReel = _anticipationReelIndex == reelIdx;
+    final isAnticipationReel = _anticipationReelIndex == reelIdx &&
+                               isInAnticipationPhase &&
+                               !isStopped;  // CRITICAL: Must not be stopped
     final isSpinningWithAnticipation =
-        _anticipationReelIndex >= 0 && reelIdx > _anticipationReelIndex && !isStopped;
+        _anticipationReelIndex >= 0 &&
+        reelIdx > _anticipationReelIndex &&
+        !isStopped &&
+        isInAnticipationPhase;
 
-    // Border color based on state
+    // Border color based on state - ONLY if actively spinning
     Color borderColor;
     double borderWidth = 1;
-    if (isAnticipationReel && !isStopped) {
+    if (isAnticipationReel) {
       // Active anticipation reel - red/orange glow
       borderColor = _T.jpMajor;
       borderWidth = 3;
@@ -875,23 +960,45 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
       // Reels spinning together with anticipation - subtle anticipation color
       borderColor = _T.jpMajor.withOpacity(0.5);
       borderWidth = 2;
-    } else if (!isStopped && isSpinning) {
+    } else if (isActivelySpinning) {
       borderColor = _T.spin.withOpacity(0.3);
     } else {
       borderColor = _T.border;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL FIX: Don't use AnimatedBuilder when not actively spinning
+    // AnimatedBuilder causes continuous rebuilds even after stop() is called
+    // This was the ROOT CAUSE of the fourth reel animation issue!
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (!isActivelySpinning) {
+      // Static reel - no animation needed, render directly
+      return _buildStaticReel(reelIdx, cellSize, borderColor, borderWidth);
+    }
+
+    // Only use AnimatedBuilder for actively spinning reels
     return AnimatedBuilder(
       animation: _reelController,
       builder: (context, _) {
+        // Double-check state hasn't changed during rebuild
+        // This guards against race conditions
+        final stillSpinning = (_gameState == GameState.spinning ||
+                               _gameState == GameState.anticipation) &&
+                              !_reelStopped[reelIdx];
+
+        if (!stillSpinning) {
+          // State changed during animation - render static immediately
+          return _buildStaticReel(reelIdx, cellSize, _T.border, 1);
+        }
+
         return Container(
           width: cellSize + 8,
           decoration: BoxDecoration(
             color: _T.bg1,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: borderColor, width: borderWidth),
-            // Add glow for anticipation reel
-            boxShadow: isAnticipationReel && !isStopped
+            // Add glow for anticipation reel - only during active anticipation
+            boxShadow: isAnticipationReel
                 ? [BoxShadow(color: _T.jpMajor.withOpacity(0.6), blurRadius: 20, spreadRadius: 2)]
                 : null,
           ),
@@ -899,13 +1006,8 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: List.generate(widget.rows, (rowIdx) {
-              final symbolId = _symbols[reelIdx][rowIdx];
-
               // During spin, show random symbols
-              final displayId = !isStopped && isSpinning
-                  ? (_rng.nextInt(10) + (_reelController.value * 100).toInt()) % 10
-                  : symbolId;
-
+              final displayId = (_rng.nextInt(10) + (_reelController.value * 100).toInt()) % 10;
               final symbol = _Sym.get(displayId);
 
               return AnimatedContainer(
@@ -932,7 +1034,7 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
                 child: Center(
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 100),
-                    opacity: !isStopped && isSpinning ? 0.5 : 1.0,
+                    opacity: 0.5,  // Spinning - always dimmed
                     child: Text(
                       symbol.icon,
                       style: TextStyle(
@@ -949,6 +1051,61 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
           ),
         );
       },
+    );
+  }
+
+  /// Static reel rendering - no AnimatedBuilder, no continuous rebuilds
+  /// Used when reel has stopped or gameState is not spinning/anticipation
+  Widget _buildStaticReel(int reelIdx, double cellSize, Color borderColor, double borderWidth) {
+    return Container(
+      width: cellSize + 8,
+      decoration: BoxDecoration(
+        color: _T.bg1,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor, width: borderWidth),
+        // No boxShadow for static reels - anticipation only during spin
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: List.generate(widget.rows, (rowIdx) {
+          final symbolId = _symbols[reelIdx][rowIdx];
+          final symbol = _Sym.get(symbolId);
+
+          return Container(
+            width: cellSize,
+            height: cellSize,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: _T.cellGradient,
+              ),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: symbol.isSpecial
+                    ? symbol.c1.withOpacity(0.6)
+                    : _T.border.withOpacity(0.5),
+                width: symbol.isSpecial ? 2 : 1,
+              ),
+              boxShadow: symbol.isSpecial
+                  ? [BoxShadow(color: symbol.c1.withOpacity(0.4), blurRadius: 12)]
+                  : null,
+            ),
+            child: Center(
+              child: Text(
+                symbol.icon,
+                style: TextStyle(
+                  fontSize: cellSize * 0.6,
+                  shadows: [
+                    Shadow(color: symbol.c1.withOpacity(0.8), blurRadius: 8),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
     );
   }
 

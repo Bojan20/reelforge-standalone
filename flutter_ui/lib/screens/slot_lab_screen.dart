@@ -306,7 +306,11 @@ class SlotLabScreen extends StatefulWidget {
   State<SlotLabScreen> createState() => _SlotLabScreenState();
 }
 
-class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateMixin {
+class _SlotLabScreenState extends State<SlotLabScreen>
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+
+  @override
+  bool get wantKeepAlive => true;
   // ═══════════════════════════════════════════════════════════════════════════
   // STATE
   // ═══════════════════════════════════════════════════════════════════════════
@@ -413,6 +417,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     final shouldLoop = StageConfigurationService.instance.isLooping(stage);
     final busId = _getBusForStage(stage);
 
+    // INSTANT: Register to EventRegistry only (no Middleware sync needed for playback)
     eventRegistry.registerEvent(AudioEvent(
       id: 'audio_$stage',
       name: stage.replaceAll('_', ' '),
@@ -432,65 +437,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       targetBusId: busId,
     ));
 
-    // Create composite event for Middleware Event Folder
-    final middleware = context.read<MiddlewareProvider>();
-    final now = DateTime.now();
-    final eventId = 'audio_$stage';
-    final category = _getCategoryForStage(stage);
-    final color = _getColorForCategory(category);
-
-    final compositeEvent = SlotCompositeEvent(
-      id: eventId,
-      name: stage.replaceAll('_', ' ').split(' ').map((w) =>
-        w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
-      ).join(' '),
-      category: category,
-      color: color,
-      layers: [
-        SlotEventLayer(
-          id: 'layer_$stage',
-          name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
-          audioPath: audioPath,
-          volume: 1.0,
-          pan: _getPanForStage(stage),
-          busId: _getBusForStage(stage),
-        ),
-      ],
-      triggerStages: [stage],
-      targetBusId: _getBusForStage(stage),
-      createdAt: now,
-      modifiedAt: now,
-    );
-
-    middleware.addCompositeEvent(compositeEvent, select: false);
-
-    debugPrint('[SlotLab]   ✅ Event registered for stage: $stage');
-    debugPrint('[SlotLab]   ✅ CompositeEvent added to Middleware: $eventId');
-
-    // Show SnackBar confirmation
-    if (mounted) {
-      final fileName = audioPath.split('/').last;
-      ScaffoldMessenger.of(this.context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.flash_on, color: Color(0xFF40FF90), size: 16),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Quick Assigned "$fileName" → ${stage.replaceAll("_", " ")}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: FluxForgeTheme.bgMid,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(milliseconds: 1500),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-        ),
-      );
-    }
+    debugPrint('[SlotLab] ⚡ INSTANT Quick Assign: $stage → ${audioPath.split('/').last}');
   }
 
   /// Get stereo pan position for a stage (per-reel panning for REEL_STOP_*)
@@ -827,6 +774,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // Audio preview state
   String? _previewingAudioPath;
   bool _isPreviewPlaying = false;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BACKGROUND AUDIO PRELOAD STATE (for instant UI loading)
+  // ═══════════════════════════════════════════════════════════════════════════
+  bool _isPreloadingAudio = false;
+  int _preloadedCount = 0;
+  int _preloadTotalCount = 0;
 
   // Track expansion state
   bool _allTracksExpanded = false;  // Default: collapsed
@@ -1808,11 +1762,68 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       // Initialize reel symbols (fallback or empty for engine)
       _reelSymbols = List.from(_fallbackReelSymbols);
       setState(() {});
+
+      // Start background audio preload (does NOT block UI!)
+      _startBackgroundAudioPreload();
     } catch (e) {
       debugPrint('[SlotLab] Engine init error: $e');
       _engineInitialized = false;
       _reelSymbols = List.from(_fallbackReelSymbols);
     }
+  }
+
+  /// Start background audio preloading without blocking UI
+  /// This runs AFTER the UI is rendered, providing instant section switching
+  void _startBackgroundAudioPreload() {
+    if (_compositeEvents.isEmpty) {
+      debugPrint('[SlotLab] ⚡ No events to preload — UI ready immediately');
+      return;
+    }
+
+    final pathCount = eventRegistry.preloadedPathCount;
+    if (pathCount == 0) {
+      debugPrint('[SlotLab] ⚡ No audio paths to preload — UI ready immediately');
+      return;
+    }
+
+    // Set loading state (UI shows small indicator)
+    setState(() {
+      _isPreloadingAudio = true;
+      _preloadedCount = 0;
+      _preloadTotalCount = pathCount;
+    });
+
+    debugPrint('[SlotLab] 🔄 Starting background audio preload: $pathCount files...');
+
+    // Run preload in async isolate-friendly way (microtask queue)
+    // This allows UI to render first, then preload runs
+    Future.microtask(() async {
+      if (!mounted) return;
+
+      try {
+        // Execute preload (this still runs on main isolate but AFTER UI render)
+        final result = eventRegistry.preloadAllAudioFiles();
+
+        if (!mounted) return;
+
+        final loaded = result['loaded'] as int? ?? 0;
+        final total = result['total'] as int? ?? 0;
+        final duration = result['duration_ms'] as int? ?? 0;
+
+        setState(() {
+          _isPreloadingAudio = false;
+          _preloadedCount = loaded;
+          _preloadTotalCount = total;
+        });
+
+        debugPrint('[SlotLab] ✅ Background preload complete: $loaded/$total files in ${duration}ms');
+      } catch (e) {
+        debugPrint('[SlotLab] ❌ Background preload error: $e');
+        if (mounted) {
+          setState(() => _isPreloadingAudio = false);
+        }
+      }
+    });
   }
 
   void _onSlotLabUpdate() {
@@ -2287,6 +2298,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+
     // Show loading while provider initializes
     if (!_hasSlotLabProvider) {
       return Scaffold(
@@ -2420,6 +2433,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                                   }
                                 });
                                 debugPrint('[SlotLab] ⚡ Quick Assign Mode: ${_quickAssignMode ? "ON" : "OFF"}');
+                              } else if (stage == '__UNSELECT__') {
+                                // Unselect (toggle off)
+                                setState(() => _quickAssignSelectedSlot = null);
+                                debugPrint('[SlotLab] ⚡ Quick Assign: Unselected slot');
                               } else {
                                 // Select slot
                                 setState(() => _quickAssignSelectedSlot = stage);
@@ -3296,6 +3313,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                 _buildStatusChip('BET', '\$${_bet.toStringAsFixed(2)}', const Color(0xFF4A9EFF)),
                 const SizedBox(width: 6),
                 _buildStatusChip('WIN', '\$${_lastWin.toStringAsFixed(0)}', const Color(0xFFFFD700)),
+                // Background audio preload indicator (shows only during preload)
+                if (_isPreloadingAudio) ...[
+                  const SizedBox(width: 8),
+                  _buildAudioPreloadIndicator(),
+                ],
               ],
             ),
           ),
@@ -4720,6 +4742,40 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               color: color,
               fontSize: 11,
               fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Compact audio preload indicator (shows during background loading)
+  Widget _buildAudioPreloadIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4A9EFF).withOpacity(0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF4A9EFF).withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A9EFF)),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Caching $_preloadTotalCount...',
+            style: TextStyle(
+              color: const Color(0xFF4A9EFF).withOpacity(0.9),
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -9495,20 +9551,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Sinhronizuj sve evente sa registry-jem i Middleware
+  /// NOTE: Audio preloading moved to async background process for instant UI!
   void _syncAllEventsToRegistry() {
     for (final event in _compositeEvents) {
       _syncEventToRegistry(event);
       // NOTE: _syncEventToMiddleware removed - MiddlewareProvider is the source of truth
     }
 
-    // Preload all registered audio files in parallel via FFI
-    // This decodes and caches audio data for instant first-play
-    if (_compositeEvents.isNotEmpty) {
-      final result = eventRegistry.preloadAllAudioFiles();
-      if (!result.containsKey('error')) {
-        debugPrint('[SlotLab] Audio preload: ${result['loaded']}/${result['total']} files in ${result['duration_ms']}ms');
-      }
-    }
+    // Audio preload moved to _startBackgroundAudioPreload() for instant UI
+    // Old synchronous preload was blocking UI for 1-3 seconds
   }
 
   /// ═══════════════════════════════════════════════════════════════════════════

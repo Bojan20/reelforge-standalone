@@ -357,6 +357,7 @@ class MiddlewareEvent {
   final String stage; // P1.3: Stage binding for slot events
   final List<MiddlewareAction> actions;
   final bool expanded;
+  final bool loop; // Event-level loop flag
 
   const MiddlewareEvent({
     required this.id,
@@ -365,6 +366,7 @@ class MiddlewareEvent {
     this.stage = '', // Empty = no stage binding
     this.actions = const [],
     this.expanded = true,
+    this.loop = false,
   });
 
   MiddlewareEvent copyWith({
@@ -374,6 +376,7 @@ class MiddlewareEvent {
     String? stage,
     List<MiddlewareAction>? actions,
     bool? expanded,
+    bool? loop,
   }) {
     return MiddlewareEvent(
       id: id ?? this.id,
@@ -382,6 +385,7 @@ class MiddlewareEvent {
       stage: stage ?? this.stage,
       actions: actions ?? this.actions,
       expanded: expanded ?? this.expanded,
+      loop: loop ?? this.loop,
     );
   }
 
@@ -391,6 +395,7 @@ class MiddlewareEvent {
     'category': category,
     'stage': stage,
     'actions': actions.map((a) => a.toJson()).toList(),
+    'loop': loop,
   };
 
   factory MiddlewareEvent.fromJson(Map<String, dynamic> json) {
@@ -402,6 +407,7 @@ class MiddlewareEvent {
       actions: (json['actions'] as List<dynamic>?)
           ?.map((a) => MiddlewareAction.fromJson(a as Map<String, dynamic>))
           .toList() ?? [],
+      loop: json['loop'] as bool? ?? false,
     );
   }
 }

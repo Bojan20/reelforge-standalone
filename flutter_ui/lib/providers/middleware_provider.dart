@@ -2055,15 +2055,28 @@ class MiddlewareProvider extends ChangeNotifier {
         PlaybackSection.browser => PlaybackSource.browser,
       };
 
-      final voiceId = playbackService.playFileToBus(
-        layer.audioPath,
-        volume: layer.volume * event.masterVolume,
-        pan: layer.pan,
-        busId: layer.busId ?? 0,
-        source: playbackSource,
-        eventId: compositeEventId,
-        layerId: layer.id,
-      );
+      // CRITICAL: Check if event should loop
+      final shouldLoop = event.looping;
+
+      final voiceId = shouldLoop
+          ? playbackService.playLoopingToBus(
+              layer.audioPath,
+              volume: layer.volume * event.masterVolume,
+              pan: layer.pan,
+              busId: layer.busId ?? 0,
+              source: playbackSource,
+              eventId: compositeEventId,
+              layerId: layer.id,
+            )
+          : playbackService.playFileToBus(
+              layer.audioPath,
+              volume: layer.volume * event.masterVolume,
+              pan: layer.pan,
+              busId: layer.busId ?? 0,
+              source: playbackSource,
+              eventId: compositeEventId,
+              layerId: layer.id,
+            );
 
       if (voiceId >= 0) {
         voicesStarted++;

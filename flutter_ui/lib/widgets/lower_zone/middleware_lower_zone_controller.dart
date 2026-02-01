@@ -16,8 +16,20 @@ import 'lower_zone_types.dart';
 class MiddlewareLowerZoneController extends ChangeNotifier {
   MiddlewareLowerZoneState _state;
 
-  MiddlewareLowerZoneController({MiddlewareLowerZoneState? initialState})
+  // Singleton pattern to preserve state across screen rebuilds
+  static MiddlewareLowerZoneController? _instance;
+  static MiddlewareLowerZoneController get instance {
+    _instance ??= MiddlewareLowerZoneController._();
+    return _instance!;
+  }
+
+  MiddlewareLowerZoneController._({MiddlewareLowerZoneState? initialState})
       : _state = initialState ?? MiddlewareLowerZoneState();
+
+  // Keep legacy constructor for backward compatibility (delegates to singleton)
+  factory MiddlewareLowerZoneController({MiddlewareLowerZoneState? initialState}) {
+    return instance;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS

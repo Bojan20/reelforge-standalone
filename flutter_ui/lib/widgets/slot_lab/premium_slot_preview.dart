@@ -5245,10 +5245,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _currentWinAmount = jackpotAmount;
       _currentWinTier = tier;
       _showWinPresenter = true;
-
-      // Track win in provider (for Dashboard Stats tab)
-      _projectProvider?.recordWin(jackpotAmount, 'JACKPOT $tier');
     });
+    context.read<SlotLabProvider>().setWinPresentationActive(true); // Sync with provider for SKIP detection
+
+    // Track win in provider (for Dashboard Stats tab)
+    _projectProvider?.recordWin(jackpotAmount, 'JACKPOT $tier');
   }
 
   @override
@@ -5319,13 +5320,19 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   /// Handle SKIP button press during win presentation.
-  /// For Big Wins: triggers BIG_WIN_END (4 seconds) then collects.
-  /// For regular wins: collects immediately.
+  /// Industry standard (IGT, NetEnt, Pragmatic Play):
+  /// - SKIP does NOT start a new spin
+  /// - SKIP jumps to END event of current phase
+  /// - For Big Wins: triggers BIG_WIN_END, waits, then collects
+  /// - For regular wins: triggers ROLLUP_END, then collects immediately
   void _handleSkipWinPresentation() {
     // Don't allow skip if protection is still active
     if (_bigWinProtectionRemaining > 0) {
+      debugPrint('[PremiumSlotPreview] 🚫 SKIP blocked: Big Win protection active (${_bigWinProtectionRemaining}s remaining)');
       return;
     }
+
+    debugPrint('[PremiumSlotPreview] 🎬 SKIP: Skipping win presentation, tier=$_currentWinTier');
 
     // Stop current win audio
     final eventRegistry = EventRegistry.instance;
@@ -5336,21 +5343,31 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     final isBigWin = _currentWinTier.toUpperCase().startsWith('BIG_WIN');
 
     if (isBigWin) {
-      // Trigger BIG_WIN_END stage (4 seconds)
+      // Trigger BIG_WIN_END stage (4 seconds of ending fanfare)
+      debugPrint('[PremiumSlotPreview] 🎬 SKIP: Triggering BIG_WIN_END');
       eventRegistry.triggerStage('BIG_WIN_END');
 
-      // Wait 4 seconds then collect
+      // Wait for END event duration then collect
       Future.delayed(
         Duration(milliseconds: (BigWinProtection.endDuration * 1000).toInt()),
         () {
           if (mounted) {
+            debugPrint('[PremiumSlotPreview] 🎬 SKIP: BIG_WIN_END complete, collecting');
             _collectWin();
           }
         },
       );
     } else {
-      // Regular win - collect immediately
-      _collectWin();
+      // Regular win - trigger ROLLUP_END then collect
+      debugPrint('[PremiumSlotPreview] 🎬 SKIP: Triggering ROLLUP_END for regular win');
+      eventRegistry.triggerStage('ROLLUP_END');
+
+      // Short delay for END sound to play, then collect
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _collectWin();
+        }
+      });
     }
   }
 
@@ -5809,6 +5826,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _grandJackpot += _totalBetAmount * 0.001;
       _showWinPresenter = false;
     });
+    provider.setWinPresentationActive(false); // Sync with provider
 
     // ═══════════════════════════════════════════════════════════════════════
     // VISUAL-SYNC: Schedule reel stop callbacks IMMEDIATELY on spin start
@@ -5864,6 +5882,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _totalSpins++;
       _showWinPresenter = false;
     });
+    provider.setWinPresentationActive(false); // Sync with provider
 
     // ═══════════════════════════════════════════════════════════════════════
     // VISUAL-SYNC: Schedule reel stop callbacks IMMEDIATELY on spin start
@@ -6124,6 +6143,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         // Big Win (20x+): Shows tier escalation (BIG WIN!, MEGA WIN!, etc.)
         // Regular Win (< 20x): Shows simple TOTAL WIN panel
         _showWinPresenter = true;
+        context.read<SlotLabProvider>().setWinPresentationActive(true); // Sync with provider for SKIP detection
 
         // Start Big Win protection countdown for big wins
         // Regular wins have 0s protection (immediate skip available)
@@ -6373,6 +6393,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _showWinPresenter = false;
       _showGambleScreen = false;
     });
+    context.read<SlotLabProvider>().setWinPresentationActive(false); // Sync with provider
   }
 
   /// Start gamble game - show gamble screen
@@ -6383,6 +6404,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _gambleCardRevealed = null;
       _gambleWon = null;
     });
+    context.read<SlotLabProvider>().setWinPresentationActive(false); // Sync with provider (gamble is separate flow)
   }
 
   /// Make gamble choice (0=Red, 1=Black)
@@ -6464,6 +6486,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
           setState(() => _showSettingsPanel = false);
         } else if (_showWinPresenter) {
           setState(() => _showWinPresenter = false);
+          context.read<SlotLabProvider>().setWinPresentationActive(false); // Sync with provider
         } else {
           widget.onExit();
         }
@@ -6491,22 +6514,30 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         _lastSpaceKeyTime = now;
 
         // ═══════════════════════════════════════════════════════════════════════
-        // SPACE KEY LOGIC (FIXED):
+        // SPACE KEY LOGIC (INDUSTRY STANDARD):
         // - isReelsSpinning = true ONLY while reels are visually spinning
         // - isPlayingStages = true during BOTH spin AND win presentation
+        // - isWinPresentationActive = true ONLY during win presentation
         //
-        // Correct behavior:
+        // Correct behavior (IGT, NetEnt, Pragmatic Play standard):
         // - During reel spin → STOP (stop reels immediately)
-        // - During win presentation → SPIN (skip presentation, start new spin)
+        // - During win presentation → SKIP (skip to END event, NO new spin)
         // - Idle → SPIN (start new spin)
+        //
+        // IMPORTANT: SKIP does NOT start a new spin! Only SPIN button starts spins.
+        // SKIP jumps to END event of current phase (BIG_WIN_END, ROLLUP_END, etc.)
         // ═══════════════════════════════════════════════════════════════════════
-        debugPrint('[PremiumSlotPreview] 🎰 SPACE pressed — isReelsSpinning=${provider.isReelsSpinning}, isPlayingStages=${provider.isPlayingStages}');
+        debugPrint('[PremiumSlotPreview] 🎰 SPACE pressed — isReelsSpinning=${provider.isReelsSpinning}, isPlayingStages=${provider.isPlayingStages}, isWinPresentationActive=${provider.isWinPresentationActive}');
 
-        // STOP only when reels are actually spinning (not during win presentation)
         if (provider.isReelsSpinning) {
+          // During reel spin → STOP (stop reels immediately)
           _handleStop();
+        } else if (provider.isWinPresentationActive) {
+          // During win presentation → SKIP to END event (NO new spin!)
+          debugPrint('[PremiumSlotPreview] 🎬 SKIP: Win presentation active — skipping to END event');
+          _handleSkipWinPresentation();
         } else {
-          // Either idle OR win presentation — start new spin (handleSpin manages skip)
+          // Idle → SPIN (start new spin)
           _handleSpin(provider);
         }
         return KeyEventResult.handled;

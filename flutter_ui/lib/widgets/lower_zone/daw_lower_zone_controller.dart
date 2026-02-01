@@ -43,8 +43,20 @@ class DawLowerZoneController extends ChangeNotifier {
   /// P1.5: Recent tabs list (max 5, most recent first)
   final List<RecentTabEntry> _recentTabs = [];
 
-  DawLowerZoneController({DawLowerZoneState? initialState})
+  // Singleton pattern to preserve state across screen rebuilds
+  static DawLowerZoneController? _instance;
+  static DawLowerZoneController get instance {
+    _instance ??= DawLowerZoneController._();
+    return _instance!;
+  }
+
+  DawLowerZoneController._({DawLowerZoneState? initialState})
       : _state = initialState ?? DawLowerZoneState();
+
+  // Keep legacy constructor for backward compatibility (delegates to singleton)
+  factory DawLowerZoneController({DawLowerZoneState? initialState}) {
+    return instance;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS

@@ -797,9 +797,16 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
       child: GestureDetector(
-        // M2-8: Quick Assign Mode - click to select slot
+        // M2-8: Quick Assign Mode - click to select/unselect slot
         onTap: widget.quickAssignMode
-            ? () => widget.onQuickAssignSlotSelected?.call(slot.stage)
+            ? () {
+                // Toggle: if already selected, unselect
+                if (widget.quickAssignSelectedSlot == slot.stage) {
+                  widget.onQuickAssignSlotSelected?.call('__UNSELECT__');
+                } else {
+                  widget.onQuickAssignSlotSelected?.call(slot.stage);
+                }
+              }
             : null,
         onLongPress: hasAudio ? () => _showVariantEditor(context, slot.stage, accentColor) : null,
         child: DragTarget<Object>(

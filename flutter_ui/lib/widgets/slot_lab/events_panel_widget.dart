@@ -769,7 +769,12 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     return GestureDetector(
       onTap: () {
         if (isEditing) return; // Don't interfere with editing
-        _setSelectedEventId(event.id);
+        // Toggle selection: if already selected, unselect
+        if (_selectedEventId == event.id) {
+          _setSelectedEventId(null); // Unselect
+        } else {
+          _setSelectedEventId(event.id); // Select
+        }
         setState(() {
           _showBrowser = false; // Switch to event editor
         });

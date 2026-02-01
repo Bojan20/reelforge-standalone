@@ -16,8 +16,20 @@ import 'lower_zone_types.dart';
 class SlotLabLowerZoneController extends ChangeNotifier {
   SlotLabLowerZoneState _state;
 
-  SlotLabLowerZoneController({SlotLabLowerZoneState? initialState})
+  // Singleton pattern to preserve state across screen rebuilds
+  static SlotLabLowerZoneController? _instance;
+  static SlotLabLowerZoneController get instance {
+    _instance ??= SlotLabLowerZoneController._();
+    return _instance!;
+  }
+
+  SlotLabLowerZoneController._({SlotLabLowerZoneState? initialState})
       : _state = initialState ?? SlotLabLowerZoneState();
+
+  // Keep legacy constructor for backward compatibility (delegates to singleton)
+  factory SlotLabLowerZoneController({SlotLabLowerZoneState? initialState}) {
+    return instance;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
