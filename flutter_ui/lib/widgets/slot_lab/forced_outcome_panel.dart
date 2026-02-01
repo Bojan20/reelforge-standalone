@@ -6,10 +6,14 @@
 /// - Outcome preview with expected stages
 /// - Keyboard shortcuts for rapid testing
 /// - History of triggered outcomes
+///
+/// P13.8.7: Dynamic controls based on Feature Builder enabled blocks.
+/// Buttons only appear when the corresponding feature block is enabled.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../providers/feature_builder_provider.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -30,6 +34,10 @@ class ForcedOutcomeConfig {
   final String? keyboardShortcut;
   final double? expectedWinMultiplier;
 
+  /// P13.8.7: Feature Builder block ID that enables this outcome.
+  /// If null, outcome is always visible. If set, only shown when block is enabled.
+  final String? featureBlockId;
+
   const ForcedOutcomeConfig({
     required this.outcome,
     required this.label,
@@ -40,6 +48,7 @@ class ForcedOutcomeConfig {
     required this.expectedStages,
     this.keyboardShortcut,
     this.expectedWinMultiplier,
+    this.featureBlockId,
   });
 
   /// All available forced outcomes - P5 Dynamic Win Tier System
@@ -186,6 +195,7 @@ class ForcedOutcomeConfig {
 
     // ═══════════════════════════════════════════════════════════════════
     // FEATURES (NO keyboard shortcuts - use panel)
+    // P13.8.7: Show only when corresponding block is enabled
     // ═══════════════════════════════════════════════════════════════════
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.freeSpins,
@@ -198,7 +208,7 @@ class ForcedOutcomeConfig {
         'SPIN_START', 'REEL_STOP', 'ANTICIPATION_ON', 'ANTICIPATION_OFF',
         'FEATURE_ENTER', 'FEATURE_STEP', 'FEATURE_EXIT', 'SPIN_END',
       ],
-      // No keyboard shortcut - use panel
+      featureBlockId: 'free_spins',  // P13.8.7
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.cascade,
@@ -212,11 +222,12 @@ class ForcedOutcomeConfig {
         'CASCADE_START', 'CASCADE_STEP', 'CASCADE_STEP', 'CASCADE_END',
         'SPIN_END',
       ],
-      // No keyboard shortcut - use panel
+      featureBlockId: 'cascades',  // P13.8.7
     ),
 
     // ═══════════════════════════════════════════════════════════════════
     // JACKPOTS (4 tiers) - NO keyboard shortcuts, use panel
+    // P13.8.7: Show only when jackpot block is enabled
     // ═══════════════════════════════════════════════════════════════════
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.jackpotMini,
@@ -231,6 +242,7 @@ class ForcedOutcomeConfig {
         'SPIN_END',
       ],
       expectedWinMultiplier: 50.0,
+      featureBlockId: 'jackpot',  // P13.8.7
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.jackpotMinor,
@@ -245,6 +257,7 @@ class ForcedOutcomeConfig {
         'SPIN_END',
       ],
       expectedWinMultiplier: 100.0,
+      featureBlockId: 'jackpot',  // P13.8.7
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.jackpotMajor,
@@ -259,6 +272,7 @@ class ForcedOutcomeConfig {
         'SPIN_END',
       ],
       expectedWinMultiplier: 500.0,
+      featureBlockId: 'jackpot',  // P13.8.7
     ),
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.jackpotGrand,
@@ -273,6 +287,7 @@ class ForcedOutcomeConfig {
         'SPIN_END',
       ],
       expectedWinMultiplier: 1000.0,
+      featureBlockId: 'jackpot',  // P13.8.7
     ),
 
     // ═══════════════════════════════════════════════════════════════════
@@ -298,6 +313,21 @@ class ForcedOutcomeConfig {
       (c) => c.outcome == outcome,
       orElse: () => outcomes.first,
     );
+  }
+
+  /// P13.8.7: Get filtered outcomes based on enabled block IDs.
+  /// Returns only outcomes whose featureBlockId is null or in enabledBlockIds.
+  static List<ForcedOutcomeConfig> getVisibleOutcomes(Set<String> enabledBlockIds) {
+    return outcomes.where((config) {
+      if (config.featureBlockId == null) return true;
+      return enabledBlockIds.contains(config.featureBlockId);
+    }).toList();
+  }
+
+  /// P13.8.7: Check if a specific outcome is visible given enabled block IDs.
+  static bool isOutcomeVisible(ForcedOutcomeConfig config, Set<String> enabledBlockIds) {
+    if (config.featureBlockId == null) return true;
+    return enabledBlockIds.contains(config.featureBlockId);
   }
 }
 
@@ -327,6 +357,7 @@ class OutcomeHistoryEntry {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FORCED OUTCOME PANEL
+// P13.8.7: Dynamic controls based on Feature Builder enabled blocks
 // ═══════════════════════════════════════════════════════════════════════════
 
 class ForcedOutcomePanel extends StatefulWidget {
@@ -335,12 +366,18 @@ class ForcedOutcomePanel extends StatefulWidget {
   final bool showHistory;
   final bool compact;
 
+  /// P13.8.7: Optional FeatureBuilderProvider for dynamic button visibility.
+  /// When provided, buttons are shown/hidden based on enabled feature blocks.
+  /// When null, all buttons are shown (backwards compatibility).
+  final FeatureBuilderProvider? featureBuilderProvider;
+
   const ForcedOutcomePanel({
     super.key,
     required this.provider,
     this.height = 200,
     this.showHistory = true,
     this.compact = false,
+    this.featureBuilderProvider,
   });
 
   @override
@@ -374,6 +411,27 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
     _pulseController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  // P13.8.7: Check if an outcome should be visible based on Feature Builder state
+  bool _isOutcomeVisible(ForcedOutcomeConfig config) {
+    // If no feature block is required, always visible
+    if (config.featureBlockId == null) return true;
+
+    // If no FeatureBuilderProvider, show all outcomes (backwards compatible)
+    final fbProvider = widget.featureBuilderProvider;
+    if (fbProvider == null) return true;
+
+    // Check if the required feature block is enabled
+    final block = fbProvider.getBlock(config.featureBlockId!);
+    return block?.isEnabled ?? false;
+  }
+
+  // P13.8.7: Get filtered list of visible outcomes
+  List<ForcedOutcomeConfig> get _visibleOutcomes {
+    return ForcedOutcomeConfig.outcomes
+        .where(_isOutcomeVisible)
+        .toList();
   }
 
   void _triggerOutcome(ForcedOutcomeConfig config) async {
@@ -427,13 +485,14 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
     if (event is! KeyDownEvent) return;
 
     // Check for number keys 1-0
+    // P13.8.7: Only trigger if outcome is visible (block enabled)
     final char = event.character;
     if (char != null) {
       final config = ForcedOutcomeConfig.outcomes.firstWhere(
         (c) => c.keyboardShortcut == char,
         orElse: () => ForcedOutcomeConfig.outcomes.first,
       );
-      if (config.keyboardShortcut == char) {
+      if (config.keyboardShortcut == char && _isOutcomeVisible(config)) {
         _triggerOutcome(config);
       }
     }
@@ -513,6 +572,7 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
           const SizedBox(height: 8),
 
           // Quick buttons grid (fills available space)
+          // P13.8.7: Only show visible outcomes based on Feature Builder
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -520,6 +580,7 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                 const buttonWidth = 70.0;
                 const spacing = 6.0;
                 final buttonsPerRow = ((constraints.maxWidth + spacing) / (buttonWidth + spacing)).floor().clamp(1, 10);
+                final visibleOutcomes = _visibleOutcomes;
 
                 return GridView.builder(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -528,9 +589,9 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                     crossAxisSpacing: spacing,
                     mainAxisSpacing: spacing,
                   ),
-                  itemCount: ForcedOutcomeConfig.outcomes.length,
+                  itemCount: visibleOutcomes.length,
                   itemBuilder: (context, index) {
-                    final config = ForcedOutcomeConfig.outcomes[index];
+                    final config = visibleOutcomes[index];
                     return _buildCompactButton(config);
                   },
                 );
@@ -678,6 +739,9 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
   }
 
   Widget _buildOutcomeGrid() {
+    // P13.8.7: Only show visible outcomes based on Feature Builder
+    final visibleOutcomes = _visibleOutcomes;
+
     return Padding(
       padding: const EdgeInsets.all(8),
       child: LayoutBuilder(
@@ -695,9 +759,9 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
               crossAxisSpacing: 8,
               childAspectRatio: itemWidth / itemHeight,
             ),
-            itemCount: ForcedOutcomeConfig.outcomes.length,
+            itemCount: visibleOutcomes.length,
             itemBuilder: (context, index) {
-              return _buildOutcomeCard(ForcedOutcomeConfig.outcomes[index]);
+              return _buildOutcomeCard(visibleOutcomes[index]);
             },
           );
         },

@@ -713,3 +713,258 @@ typedef DependencyResolutionResult = ResolverResult;
 
 /// Type alias for dependency graph data
 typedef DependencyGraphData = ResolverGraphData;
+
+// ============================================================================
+// Block Dependency Matrix
+// ============================================================================
+// Centralized documentation of expected block dependencies.
+// This serves as a reference for validating block implementations.
+// ============================================================================
+
+/// Centralized dependency matrix for all feature blocks.
+///
+/// This class documents the expected dependencies for each block type.
+/// Use [validateBlockDependencies] to verify a block's dependencies match
+/// the expected configuration.
+class BlockDependencyMatrix {
+  BlockDependencyMatrix._();
+
+  /// The dependency matrix: blockId -> dependency spec
+  static const Map<String, BlockDependencySpec> matrix = {
+    // ========== Core Blocks ==========
+    'game_core': BlockDependencySpec(
+      requires: [],
+      modifies: [],
+      enables: ['grid', 'symbol_set'],
+      conflicts: [],
+    ),
+    'grid': BlockDependencySpec(
+      requires: ['game_core'],
+      modifies: [],
+      enables: [],
+      conflicts: [],
+    ),
+    'symbol_set': BlockDependencySpec(
+      requires: ['game_core'],
+      modifies: [],
+      enables: ['anticipation', 'wild_features'],
+      conflicts: [],
+    ),
+
+    // ========== Feature Blocks ==========
+    'free_spins': BlockDependencySpec(
+      requires: ['game_core', 'symbol_set'],
+      modifies: ['win_presentation', 'music_states'],
+      enables: [],
+      conflicts: [],
+    ),
+    'cascades': BlockDependencySpec(
+      requires: ['game_core', 'grid', 'symbol_set'],
+      modifies: ['win_presentation'],
+      enables: ['free_spins'],
+      conflicts: [],
+    ),
+    'hold_and_win': BlockDependencySpec(
+      requires: ['game_core', 'grid', 'symbol_set'],
+      modifies: ['win_presentation', 'music_states'],
+      enables: ['jackpot'],
+      conflicts: ['respin'],
+    ),
+    'bonus_game': BlockDependencySpec(
+      requires: ['game_core', 'symbol_set'],
+      modifies: ['music_states'],
+      enables: ['multiplier'],
+      conflicts: [],
+    ),
+    'jackpot': BlockDependencySpec(
+      requires: ['game_core'],
+      modifies: ['win_presentation', 'music_states'],
+      enables: [],
+      conflicts: [],
+    ),
+    'multiplier': BlockDependencySpec(
+      requires: ['game_core'],
+      modifies: ['win_presentation'],
+      enables: [],
+      conflicts: [],
+    ),
+
+    // ========== P13.9.8: Anticipation Block ==========
+    'anticipation': BlockDependencySpec(
+      requires: ['symbol_set'], // Needs scatter/bonus/wild symbol
+      modifies: ['grid', 'music_states'],
+      enables: [],
+      conflicts: [],
+    ),
+
+    // ========== P13.9.8: Wild Features Block ==========
+    'wild_features': BlockDependencySpec(
+      requires: ['symbol_set'], // Needs wild symbol enabled
+      modifies: ['win_presentation'],
+      enables: ['multiplier'], // If multiplier_range is not empty
+      conflicts: [],
+    ),
+
+    // ========== Presentation Blocks ==========
+    'win_presentation': BlockDependencySpec(
+      requires: ['game_core'],
+      modifies: [],
+      enables: [],
+      conflicts: [],
+    ),
+    'music_states': BlockDependencySpec(
+      requires: ['game_core'],
+      modifies: [],
+      enables: [],
+      conflicts: [],
+    ),
+    'transitions': BlockDependencySpec(
+      requires: ['game_core'],
+      modifies: [],
+      enables: [],
+      conflicts: [],
+    ),
+
+    // ========== Other Feature Blocks ==========
+    'respin': BlockDependencySpec(
+      requires: ['game_core', 'grid'],
+      modifies: [],
+      enables: [],
+      conflicts: ['hold_and_win'],
+    ),
+    'gambling': BlockDependencySpec(
+      requires: ['game_core'],
+      modifies: ['win_presentation'],
+      enables: [],
+      conflicts: [],
+    ),
+    'collector': BlockDependencySpec(
+      requires: ['game_core', 'symbol_set'],
+      modifies: ['win_presentation'],
+      enables: [],
+      conflicts: [],
+    ),
+  };
+
+  /// Validate a block's dependencies against the matrix.
+  ///
+  /// Returns a list of validation messages. Empty list means valid.
+  static List<String> validateBlockDependencies(FeatureBlockBase block) {
+    final spec = matrix[block.id];
+    if (spec == null) {
+      return ['Block "${block.id}" not found in dependency matrix'];
+    }
+
+    final messages = <String>[];
+    final actualRequires = <String>{};
+    final actualModifies = <String>{};
+    final actualEnables = <String>{};
+    final actualConflicts = <String>{};
+
+    for (final dep in block.dependencies) {
+      switch (dep.type) {
+        case DependencyType.requires:
+          actualRequires.add(dep.targetBlockId);
+          break;
+        case DependencyType.modifies:
+          actualModifies.add(dep.targetBlockId);
+          break;
+        case DependencyType.enables:
+          actualEnables.add(dep.targetBlockId);
+          break;
+        case DependencyType.conflicts:
+          actualConflicts.add(dep.targetBlockId);
+          break;
+      }
+    }
+
+    // Check for missing required dependencies
+    for (final required in spec.requires) {
+      if (!actualRequires.contains(required)) {
+        messages.add('Missing required dependency: $required');
+      }
+    }
+
+    // Check for conflicts that should be declared
+    for (final conflict in spec.conflicts) {
+      if (!actualConflicts.contains(conflict)) {
+        messages.add('Expected conflict with: $conflict');
+      }
+    }
+
+    return messages;
+  }
+
+  /// Get all blocks that depend on a given block (from the matrix).
+  static List<String> getBlocksThatRequire(String blockId) {
+    final result = <String>[];
+    for (final entry in matrix.entries) {
+      if (entry.value.requires.contains(blockId)) {
+        result.add(entry.key);
+      }
+    }
+    return result;
+  }
+
+  /// Get all blocks that a given block enables.
+  static List<String> getEnabledBlocks(String blockId) {
+    final spec = matrix[blockId];
+    return spec?.enables ?? [];
+  }
+
+  /// Check if enabling blockA would require enabling blockB.
+  static bool wouldRequireEnabling(String blockA, String blockB) {
+    final spec = matrix[blockA];
+    if (spec == null) return false;
+    return spec.requires.contains(blockB);
+  }
+
+  /// Check if two blocks conflict.
+  static bool blocksConflict(String blockA, String blockB) {
+    final specA = matrix[blockA];
+    final specB = matrix[blockB];
+    if (specA == null || specB == null) return false;
+    return specA.conflicts.contains(blockB) || specB.conflicts.contains(blockA);
+  }
+
+  /// Get the complete dependency chain for a block (recursive).
+  static Set<String> getDependencyChain(String blockId) {
+    final chain = <String>{};
+    _addDependencies(blockId, chain);
+    return chain;
+  }
+
+  static void _addDependencies(String blockId, Set<String> chain) {
+    final spec = matrix[blockId];
+    if (spec == null) return;
+
+    for (final required in spec.requires) {
+      if (!chain.contains(required)) {
+        chain.add(required);
+        _addDependencies(required, chain);
+      }
+    }
+  }
+}
+
+/// Specification for a block's expected dependencies.
+class BlockDependencySpec {
+  /// Blocks that this block requires to function.
+  final List<String> requires;
+
+  /// Blocks that this block modifies.
+  final List<String> modifies;
+
+  /// Blocks that this block enables/unlocks.
+  final List<String> enables;
+
+  /// Blocks that cannot be used with this block.
+  final List<String> conflicts;
+
+  const BlockDependencySpec({
+    this.requires = const [],
+    this.modifies = const [],
+    this.enables = const [],
+    this.conflicts = const [],
+  });
+}
