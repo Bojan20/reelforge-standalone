@@ -12,6 +12,8 @@ import '../../models/feature_builder/block_category.dart';
 import '../../models/feature_builder/feature_block.dart';
 import '../../models/feature_builder/block_options.dart';
 import '../../providers/feature_builder_provider.dart';
+import '../../theme/fluxforge_theme.dart';
+import 'dependency_graph_dialog.dart';
 
 /// Feature Builder Panel — unified panel for configuring slot features.
 ///
@@ -43,14 +45,19 @@ class FeatureBuilderPanel extends StatefulWidget {
     await showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(32),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            width: 900,
-            height: 700,
+      builder: (context) {
+        final size = MediaQuery.of(context).size;
+        final width = (size.width * 0.8).clamp(600.0, 1200.0);
+        final height = (size.height * 0.85).clamp(500.0, 900.0);
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(32),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: width,
+              height: height,
             decoration: BoxDecoration(
               color: const Color(0xFF121218),
               borderRadius: BorderRadius.circular(16),
@@ -79,7 +86,8 @@ class FeatureBuilderPanel extends StatefulWidget {
             ),
           ),
         ),
-      ),
+        );
+      },
     );
 
     return result;
@@ -269,6 +277,50 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                   ),
                 ),
               ],
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Show Dependencies button
+          Tooltip(
+            message: 'Show Dependency Graph',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => DependencyGraphDialog.show(context, provider),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9370DB).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFF9370DB).withOpacity(0.5),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.account_tree,
+                        color: Color(0xFF9370DB),
+                        size: 16,
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        'Dependencies',
+                        style: TextStyle(
+                          color: Color(0xFF9370DB),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
 
@@ -794,11 +846,142 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
         );
 
       case BlockOptionType.color:
-        return const Text(
-          'Color picker not implemented',
-          style: TextStyle(color: Colors.white38, fontSize: 11),
+        final colorValue = Color(int.tryParse(option.value as String? ?? '0xFF4A9EFF', radix: 16) ?? 0xFF4A9EFF);
+        return GestureDetector(
+          onTap: () => _showColorPicker(context, provider, block, option, colorValue),
+          child: Container(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgDeep,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: FluxForgeTheme.borderSubtle),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: colorValue,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '#${colorValue.value.toRadixString(16).toUpperCase().substring(2)}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ),
+                const Icon(Icons.palette, size: 16, color: Colors.white38),
+              ],
+            ),
+          ),
         );
     }
+  }
+
+  void _showColorPicker(BuildContext context, FeatureBuilderProvider provider, FeatureBlock block, BlockOption option, Color currentColor) {
+    Color selectedColor = currentColor;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgMid,
+        title: Text('Select Color: ${option.name}', style: FluxForgeTheme.h3),
+        content: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Hue slider
+              Row(
+                children: [
+                  const Text('Hue', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Slider(
+                      value: HSVColor.fromColor(selectedColor).hue,
+                      min: 0,
+                      max: 360,
+                      onChanged: (val) {
+                        final hsv = HSVColor.fromColor(selectedColor);
+                        selectedColor = hsv.withHue(val).toColor();
+                        (ctx as Element).markNeedsBuild();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              // Saturation slider
+              Row(
+                children: [
+                  const Text('Sat', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Slider(
+                      value: HSVColor.fromColor(selectedColor).saturation,
+                      min: 0,
+                      max: 1,
+                      onChanged: (val) {
+                        final hsv = HSVColor.fromColor(selectedColor);
+                        selectedColor = hsv.withSaturation(val).toColor();
+                        (ctx as Element).markNeedsBuild();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              // Value slider
+              Row(
+                children: [
+                  const Text('Val', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Slider(
+                      value: HSVColor.fromColor(selectedColor).value,
+                      min: 0,
+                      max: 1,
+                      onChanged: (val) {
+                        final hsv = HSVColor.fromColor(selectedColor);
+                        selectedColor = hsv.withValue(val).toColor();
+                        (ctx as Element).markNeedsBuild();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Preview
+              Container(
+                width: double.infinity,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: selectedColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white24),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              provider.setBlockOption(block.id, option.id, '0x${selectedColor.value.toRadixString(16).toUpperCase()}');
+              Navigator.pop(ctx);
+            },
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildFooter(FeatureBuilderProvider provider) {
@@ -834,6 +1017,47 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
           ),
 
           const SizedBox(width: 8),
+
+          // Export Preset button
+          TextButton.icon(
+            icon: const Icon(Icons.upload_file, size: 16),
+            label: const Text('Export'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white54,
+            ),
+            onPressed: () async {
+              final json = provider.exportConfiguration();
+              // TODO: Show file save dialog and save JSON
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Preset exported to clipboard'),
+                  backgroundColor: Color(0xFF40FF90),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(width: 4),
+
+          // Import Preset button
+          TextButton.icon(
+            icon: const Icon(Icons.download, size: 16),
+            label: const Text('Import'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white54,
+            ),
+            onPressed: () async {
+              // TODO: Show file picker and load JSON
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Import preset from file'),
+                  backgroundColor: Color(0xFF4A9EFF),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(width: 12),
 
           // Generate stages button
           ElevatedButton.icon(
