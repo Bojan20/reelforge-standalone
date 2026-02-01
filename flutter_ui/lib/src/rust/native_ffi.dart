@@ -6141,6 +6141,93 @@ class NativeFFI {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // P10.0.2: GRAPH-LEVEL PDC API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Recalculate graph-level Plugin Delay Compensation
+  ///
+  /// Analyzes current routing graph (tracks → buses → master) and calculates
+  /// compensation delays needed to ensure phase-coherent parallel processing.
+  ///
+  /// Should be called after:
+  /// - Loading/unloading insert processors
+  /// - Changing track routing (track → bus assignments)
+  /// - Adding/removing tracks or buses
+  ///
+  /// Returns:
+  /// - 1 if PDC calculated successfully
+  /// - 0 if calculation failed (e.g., routing cycles detected)
+  /// - -1 if FFI not loaded
+  int engineRecalculateGraphPdc() {
+    if (!_loaded) return -1;
+    return _engineRecalculateGraphPdc();
+  }
+
+  /// Get graph PDC status as JSON
+  ///
+  /// Returns JSON:
+  /// ```json
+  /// {
+  ///   "enabled": true,
+  ///   "valid": true,
+  ///   "has_cycles": false,
+  ///   "max_latency": 512,
+  ///   "max_compensation": 512,
+  ///   "mix_points": 2,
+  ///   "track_count": 4,
+  ///   "track_compensations": {
+  ///     "1": 512,
+  ///     "2": 0,
+  ///     "3": 256
+  ///   }
+  /// }
+  /// ```
+  ///
+  /// Returns null if FFI not loaded or PDC not calculated.
+  String? engineGetGraphPdcStatusJson() {
+    if (!_loaded) return null;
+
+    final ptr = _engineGetGraphPdcStatusJson();
+    if (ptr.address == 0) return null;
+
+    final result = ptr.toDartString();
+    freeString(ptr);
+
+    return result;
+  }
+
+  /// Get PDC compensation for specific track (in samples)
+  ///
+  /// Returns compensation delay that will be applied to this track
+  /// to ensure phase alignment with other tracks at mix points.
+  ///
+  /// Returns 0 if:
+  /// - Track is on critical path (no compensation needed)
+  /// - PDC not enabled
+  /// - Track not found
+  int engineGetTrackGraphPdcCompensation(int trackId) {
+    if (!_loaded) return 0;
+    return _engineGetTrackGraphPdcCompensation(trackId);
+  }
+
+  /// Check if graph-level PDC is enabled
+  ///
+  /// Returns 1 if enabled, 0 if disabled, -1 if FFI not loaded.
+  int engineIsGraphPdcEnabled() {
+    if (!_loaded) return -1;
+    return _engineIsGraphPdcEnabled();
+  }
+
+  /// Enable or disable graph-level PDC
+  ///
+  /// When enabled, PDC is automatically recalculated on routing changes.
+  /// When disabled, all compensation delays are removed.
+  void engineSetGraphPdcEnabled(bool enabled) {
+    if (!_loaded) return;
+    _engineSetGraphPdcEnabled(enabled ? 1 : 0);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PITCH DETECTION API
   // ═══════════════════════════════════════════════════════════════════════════
 
