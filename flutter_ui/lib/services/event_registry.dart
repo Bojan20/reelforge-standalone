@@ -2495,6 +2495,18 @@ class EventRegistry extends ChangeNotifier {
           volume: volume.clamp(0.0, 1.0),
           source: source,
         );
+      } else if (loop) {
+        // CRITICAL: Loop MUST come BEFORE usePool and fade/trim checks!
+        // Looping events (GAME_START, MUSIC_*) ignore fade/trim parameters
+        debugPrint('[EventRegistry] 🔄 LOOP MODE: playLoopingToBus(${layer.audioPath.split('/').last}, bus=${layer.busId})');
+        voiceId = AudioPlaybackService.instance.playLoopingToBus(
+          layer.audioPath,
+          volume: volume.clamp(0.0, 1.0),
+          pan: pan.clamp(-1.0, 1.0),
+          busId: layer.busId,
+          source: source,
+        );
+        debugPrint('[EventRegistry] 🔄 voiceId: $voiceId');
       } else if (usePool && eventKey != null) {
         // Use AudioPool for rapid-fire events (CASCADE_STEP, ROLLUP_TICK, etc.)
         voiceId = AudioPool.instance.acquire(
@@ -2505,17 +2517,6 @@ class EventRegistry extends ChangeNotifier {
           pan: pan.clamp(-1.0, 1.0),
         );
         _pooledTriggers++;
-      } else if (loop) {
-        // P0.2: Seamless looping for REEL_SPIN and similar events
-        debugPrint('[EventRegistry] 🔄 LOOP MODE: Calling playLoopingToBus(path: ${layer.audioPath.split('/').last}, busId: ${layer.busId})');
-        voiceId = AudioPlaybackService.instance.playLoopingToBus(
-          layer.audioPath,
-          volume: volume.clamp(0.0, 1.0),
-          pan: pan.clamp(-1.0, 1.0),
-          busId: layer.busId,
-          source: source,
-        );
-        debugPrint('[EventRegistry] 🔄 LOOP playLoopingToBus returned voiceId: $voiceId');
       } else {
         // Standard bus routing through PlaybackEngine
         // ═══════════════════════════════════════════════════════════════════════
