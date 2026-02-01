@@ -2063,6 +2063,7 @@ class _WinPresentationSection extends _SectionConfig {
         _SlotConfig(stage: 'BIG_WIN_COINS', label: 'Big Win Coins'),
         _SlotConfig(stage: 'BIG_WIN_IMPACT', label: 'Big Win Impact'),
         _SlotConfig(stage: 'BIG_WIN_UPGRADE', label: 'Big Win Upgrade'),
+        _SlotConfig(stage: 'BIG_WIN_END', label: 'Big Win End'),
         _SlotConfig(stage: 'BIG_WIN_OUTRO', label: 'Big Win Outro'),
       ]);
     } else {
@@ -2087,6 +2088,7 @@ class _WinPresentationSection extends _SectionConfig {
         _SlotConfig(stage: 'BIG_WIN_COINS', label: 'Big Win Coins'),
         _SlotConfig(stage: 'BIG_WIN_IMPACT', label: 'Big Win Impact'),
         _SlotConfig(stage: 'BIG_WIN_UPGRADE', label: 'Big Win Upgrade'),
+        _SlotConfig(stage: 'BIG_WIN_END', label: 'Big Win End'),
         _SlotConfig(stage: 'BIG_WIN_OUTRO', label: 'Big Win Outro'),
       ]);
     }

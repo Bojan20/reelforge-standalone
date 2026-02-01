@@ -833,16 +833,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _reelStoppedFlags.add(reelIndex);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CRITICAL: Update _displayGrid IMMEDIATELY when reel stops
-    // This ensures the symbols shown during bouncing stay after stopped phase
+    // FIX (2026-02-01): DO NOT update _displayGrid here
+    // _displayGrid is already set at spin start with final target symbols
+    // Updating here causes symbols to "change" during/after animation
     // ═══════════════════════════════════════════════════════════════════════════
-    setState(() {
-      if (reelIndex < _targetGrid.length && reelIndex < _displayGrid.length) {
-        for (int row = 0; row < widget.rows && row < _targetGrid[reelIndex].length; row++) {
-          _displayGrid[reelIndex][row] = _targetGrid[reelIndex][row];
-        }
-      }
-    });
+    // REMOVED: setState(() { _displayGrid[reelIndex][row] = _targetGrid... });
 
     // ═══════════════════════════════════════════════════════════════════════════
     // V2: LANDING IMPACT EFFECT — DISABLED per user request
@@ -1559,6 +1554,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
         return List.generate(widget.rows, (_) => _random.nextInt(10));
       });
+
+      // FIX (2026-02-01): Update _displayGrid IMMEDIATELY at spin start
+      // This ensures symbols shown during animation match the final result
+      // Prevents "symbol change" after all reels stop
+      _displayGrid = List.generate(widget.reels, (r) => List.from(_targetGrid[r]));
     }
 
     // Generate random symbols for spinning blur effect
