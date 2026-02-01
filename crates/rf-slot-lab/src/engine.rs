@@ -518,16 +518,19 @@ impl SyntheticSlotEngine {
             });
         }
 
-        // Apply near miss flag
+        // Apply near miss flag (2026-02-01: Respects anticipation config)
         if matches!(outcome, ForcedOutcome::NearMiss) {
             result.near_miss = true;
-            // Near miss typically affects last 3 reels
-            result.anticipation = Some(AnticipationInfo::from_reels(
-                vec![2, 3, 4],
-                AnticipationReason::NearMiss,
-                self.config.grid.reels,
-                self.timing_config.anticipation_duration_ms as u32,
-            ));
+            // Only set anticipation if enabled in config
+            if self.config.anticipation.enable_near_miss_anticipation {
+                // Near miss typically affects last 3 reels
+                result.anticipation = Some(AnticipationInfo::from_reels(
+                    vec![2, 3, 4],
+                    AnticipationReason::NearMiss,
+                    self.config.grid.reels,
+                    self.timing_config.anticipation_duration_ms as u32,
+                ));
+            }
         }
     }
 
@@ -571,17 +574,20 @@ impl SyntheticSlotEngine {
             }
         }
 
-        // Near miss detection
+        // Near miss detection (2026-02-01: Respects anticipation config)
         if !result.is_win() {
             let near_miss_roll: f64 = self.rng.r#gen::<f64>();
             if near_miss_roll < vol.near_miss_frequency {
                 result.near_miss = true;
-                result.anticipation = Some(AnticipationInfo::from_reels(
-                    vec![3, 4],
-                    AnticipationReason::NearMiss,
-                    self.config.grid.reels,
-                    self.timing_config.anticipation_duration_ms as u32,
-                ));
+                // Only set anticipation if enabled in config
+                if self.config.anticipation.enable_near_miss_anticipation {
+                    result.anticipation = Some(AnticipationInfo::from_reels(
+                        vec![3, 4],
+                        AnticipationReason::NearMiss,
+                        self.config.grid.reels,
+                        self.timing_config.anticipation_duration_ms as u32,
+                    ));
+                }
             }
         }
 

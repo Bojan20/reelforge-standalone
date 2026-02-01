@@ -659,6 +659,41 @@ class EventRegistry extends ChangeNotifier {
     _reelSpinLoopVoices.clear();
   }
 
+  /// Auto fade-out all active voices matching stage prefix (2026-02-01)
+  ///
+  /// Used by _END stages to fade out corresponding active audio.
+  /// Example: BIG_WIN_END fades out BIG_WIN_LOOP, BIG_WIN_COINS, etc.
+  ///
+  /// [stagePrefix] - Stage prefix to match (e.g., 'BIG_WIN', 'FREESPIN', 'CASCADE')
+  /// [fadeMs] - Fade-out duration in milliseconds (default: 100ms)
+  void _autoFadeOutMatchingStages(String stagePrefix, {int fadeMs = 100}) {
+    int fadedCount = 0;
+
+    // Find all playing instances where event stage starts with prefix
+    for (final instance in _playingInstances) {
+      final event = _events[instance.eventId];
+      if (event == null) continue;
+
+      final eventStage = event.stage.toUpperCase();
+
+      // Match if event stage starts with prefix AND doesn't end with _END
+      // (prevent BIG_WIN_END from fading itself out)
+      if (eventStage.startsWith(stagePrefix) && !eventStage.endsWith('_END')) {
+        // Fade out all voices in this instance
+        for (final voiceId in instance.voiceIds) {
+          if (voiceId > 0) {
+            AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: fadeMs);
+            fadedCount++;
+          }
+        }
+      }
+    }
+
+    if (fadedCount > 0) {
+      debugPrint('[EventRegistry] 🔇 Auto fade-out: ${stagePrefix}_END → faded $fadedCount voice(s) in ${fadeMs}ms');
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // P1.10 + P1.13: CROSSFADE SYSTEM FOR STAGE TRANSITIONS
   // Smooth audio transitions between stages instead of hard cuts
@@ -1859,6 +1894,32 @@ class EventRegistry extends ChangeNotifier {
     }
 
     final normalizedStage = stage.toUpperCase().trim();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUTO FADE-OUT FOR _END STAGES (2026-02-01)
+    //
+    // Any stage ending with _END automatically fades out all active voices from
+    // the corresponding base stage prefix.
+    //
+    // Examples:
+    //   BIG_WIN_END       → fade out BIG_WIN_LOOP, BIG_WIN_COINS, BIG_WIN_IMPACT
+    //   FREESPIN_END      → fade out FREESPIN_MUSIC, FREESPIN_LOOP
+    //   CASCADE_END       → fade out CASCADE_STEP, CASCADE_LOOP
+    //   BONUS_END         → fade out BONUS_MUSIC, BONUS_LOOP
+    //   JACKPOT_END       → fade out JACKPOT_BUILDUP, JACKPOT_CELEBRATION
+    //   GAMBLE_END        → fade out GAMBLE_MUSIC, GAMBLE_SUSPENSE
+    //   HOLD_END          → fade out HOLD_MUSIC, HOLD_RESPIN
+    //
+    // EXCEPTION: SPIN_END does NOT auto fade-out
+    //   → SPIN_END event is manually populated by user with sounds to stop
+    //   → Auto fade-out would conflict with manual audio layer design
+    //
+    // Fade duration: 100ms (smooth transition)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (normalizedStage.endsWith('_END') && normalizedStage != 'SPIN_END') {
+      final basePrefix = normalizedStage.substring(0, normalizedStage.length - 4); // Remove '_END'
+      _autoFadeOutMatchingStages(basePrefix, fadeMs: 100);
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // P1.4: CASCADE PITCH ESCALATION — Pitch rises 5% per cascade step

@@ -382,6 +382,13 @@ pub struct AnticipationConfig {
 
     /// Enable tension level escalation (L1→L2→L3→L4)
     pub tension_escalation: bool,
+
+    /// Enable near miss anticipation (2026-02-01)
+    /// When false, near miss will NOT trigger anticipation effects
+    /// When true, near miss uses volatility.near_miss_frequency (15-30% chance)
+    /// Default: false (only scatter/bonus trigger anticipation)
+    #[serde(default)]
+    pub enable_near_miss_anticipation: bool,
 }
 
 impl Default for AnticipationConfig {
@@ -396,6 +403,7 @@ impl Default for AnticipationConfig {
             trigger_rules: TriggerRules::AtLeast(3),
             sequential_stop: true,
             tension_escalation: true,
+            enable_near_miss_anticipation: false, // Disabled by default (2026-02-01)
         }
     }
 }
@@ -414,6 +422,7 @@ impl AnticipationConfig {
             trigger_rules: TriggerRules::AtLeast(3),
             sequential_stop: true,
             tension_escalation: true,
+            enable_near_miss_anticipation: false,
         }
     }
 
@@ -430,6 +439,7 @@ impl AnticipationConfig {
             trigger_rules: TriggerRules::Exact(3),
             sequential_stop: true,
             tension_escalation: true,
+            enable_near_miss_anticipation: false,
         }
     }
 
