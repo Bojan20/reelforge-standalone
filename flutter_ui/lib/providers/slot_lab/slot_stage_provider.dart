@@ -13,6 +13,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../models/stage_models.dart';
+import '../../src/rust/native_ffi.dart' show SlotLabStageEvent;
 import '../../services/event_registry.dart';
 import '../../services/unified_playback_controller.dart';
 import '../ale_provider.dart';

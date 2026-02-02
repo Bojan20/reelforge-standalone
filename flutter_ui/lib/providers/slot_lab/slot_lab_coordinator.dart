@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import '../../models/stage_models.dart';
 import '../../models/win_tier_config.dart';
 import '../../src/rust/slot_lab_v2_ffi.dart';
+import '../../src/rust/native_ffi.dart' show SlotLabStageEvent, SlotLabStats, SlotLabWinTier, SlotLabTimingConfig, VolatilityPreset, TimingProfileType, ForcedOutcome, SlotLabSpinResult;
 import '../middleware_provider.dart';
 import '../ale_provider.dart';
 
@@ -221,7 +222,7 @@ class SlotLabCoordinator extends ChangeNotifier {
   }
 
   void connectAle(AleProvider ale) {
-    engineProvider.connectAle(ale);
+    // Engine provider doesn't need ALE connection
     stageProvider.connectAle(ale);
     audioProvider.connectAle(ale);
   }
