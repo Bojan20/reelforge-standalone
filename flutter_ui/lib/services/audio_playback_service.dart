@@ -209,6 +209,7 @@ class AudioPlaybackService extends ChangeNotifier {
     PlaybackSource source = PlaybackSource.middleware,
     String? eventId,
     String? layerId,
+    double pitch = 0.0, // P12.0.1: pitch shift in semitones (-24 to +24)
   }) {
     if (path.isEmpty) return -1;
 
@@ -219,6 +220,11 @@ class AudioPlaybackService extends ChangeNotifier {
       final sourceId = _sourceToEngineId(source);
       final voiceId = _ffi.playbackPlayToBus(path, volume: volume, pan: pan, busId: busId, source: sourceId);
       if (voiceId >= 0) {
+        // P12.0.1: Apply pitch shift if non-zero
+        if (pitch.abs() > 0.001) {
+          _ffi.setVoicePitch(voiceId, pitch);
+        }
+
         _activeVoices.add(VoiceInfo(
           voiceId: voiceId,
           audioPath: path,
@@ -232,7 +238,7 @@ class AudioPlaybackService extends ChangeNotifier {
           _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
         }
 
-        debugPrint('[AudioPlayback] PlayToBus: $path -> bus $busId (voice $voiceId, source: $source)');
+        debugPrint('[AudioPlayback] PlayToBus: $path -> bus $busId (voice $voiceId, source: $source, pitch: ${pitch}st)');
       }
       return voiceId;
     } catch (e) {
@@ -316,6 +322,7 @@ class AudioPlaybackService extends ChangeNotifier {
     PlaybackSource source = PlaybackSource.slotlab,
     String? eventId,
     String? layerId,
+    double pitch = 0.0, // P12.0.1: pitch shift in semitones (-24 to +24)
   }) {
     if (path.isEmpty) return -1;
 
@@ -326,6 +333,11 @@ class AudioPlaybackService extends ChangeNotifier {
       final sourceId = _sourceToEngineId(source);
       final voiceId = _ffi.playbackPlayLoopingToBus(path, volume: volume, pan: pan, busId: busId, source: sourceId);
       if (voiceId >= 0) {
+        // P12.0.1: Apply pitch shift if non-zero
+        if (pitch.abs() > 0.001) {
+          _ffi.setVoicePitch(voiceId, pitch);
+        }
+
         _activeVoices.add(VoiceInfo(
           voiceId: voiceId,
           audioPath: path,

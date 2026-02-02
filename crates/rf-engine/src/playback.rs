@@ -1049,6 +1049,7 @@ impl OneShotVoice {
     /// Fill buffer with audio, returns true if still playing
     /// Applies equal-power panning for spatial positioning
     /// P0.2: Supports seamless looping for REEL_SPIN and similar events
+    /// P12.0.1: Supports real-time pitch shifting via resampling (-24 to +24 semitones)
     #[inline]
     fn fill_buffer(&mut self, left: &mut [f64], right: &mut [f64]) -> bool {
         if !self.active {
@@ -1085,6 +1086,17 @@ impl OneShotVoice {
         let pan_l = pan_angle.cos();
         let pan_r = pan_angle.sin();
 
+        // P12.0.1: Calculate pitch shift ratio (semitones to frequency ratio)
+        // pitch_ratio = 2^(semitones / 12)
+        // Range: -24 to +24 semitones
+        // Example: +12 semitones = 2.0x speed (one octave up)
+        //          -12 semitones = 0.5x speed (one octave down)
+        let pitch_ratio = if self.pitch_semitones.abs() > 0.001 {
+            2.0_f64.powf(self.pitch_semitones as f64 / 12.0)
+        } else {
+            1.0 // No pitch shift
+        };
+
         for frame in 0..frames_needed {
             // Handle fade-out (from stop command or explicit fade_out_one_shot)
             if self.fade_samples_remaining > 0 {
@@ -1118,11 +1130,21 @@ impl OneShotVoice {
                 }
             }
 
+            // P12.0.1: Apply pitch shift via resampling
+            // Calculate fractional sample index based on pitch ratio
+            let fractional_pos = self.position as f64 + (frame as f64 * pitch_ratio);
+            let src_frame_float = fractional_pos.floor();
+            let src_frame = src_frame_float as usize;
+            let frac = fractional_pos - src_frame_float;
+
             // P0.2: Seamless looping - wrap position
-            let src_frame = if self.looping {
-                (self.position as usize + frame) % total_frames
+            let (src_frame, next_frame) = if self.looping {
+                let wrapped = src_frame % total_frames;
+                let next = (src_frame + 1) % total_frames;
+                (wrapped, next)
             } else {
-                self.position as usize + frame
+                let next = src_frame + 1;
+                (src_frame, next)
             };
 
             // For non-looping: check bounds (respect trim_end)
@@ -1132,12 +1154,39 @@ impl OneShotVoice {
 
             let gain = self.volume * self.fade_gain;
 
-            // Read source (mono or stereo) - samples are f32, convert to f64 for bus mixing
-            let src_l = self.audio.samples[src_frame * channels_src] * gain;
-            let src_r = if channels_src > 1 {
-                self.audio.samples[src_frame * channels_src + 1] * gain
+            // P12.0.1: Linear interpolation for pitch shift
+            // Read two consecutive samples and interpolate
+            let (src_l, src_r) = if next_frame < total_frames {
+                // Sample at src_frame
+                let s0_l = self.audio.samples[src_frame * channels_src];
+                let s0_r = if channels_src > 1 {
+                    self.audio.samples[src_frame * channels_src + 1]
+                } else {
+                    s0_l
+                };
+
+                // Sample at next_frame (for interpolation)
+                let s1_l = self.audio.samples[next_frame * channels_src];
+                let s1_r = if channels_src > 1 {
+                    self.audio.samples[next_frame * channels_src + 1]
+                } else {
+                    s1_l
+                };
+
+                // Linear interpolation: s = s0 + (s1 - s0) * frac
+                let interp_l = s0_l + (s1_l - s0_l) * frac as f32;
+                let interp_r = s0_r + (s1_r - s0_r) * frac as f32;
+
+                (interp_l * gain, interp_r * gain)
             } else {
-                src_l // Mono source
+                // At end, no interpolation
+                let s_l = self.audio.samples[src_frame * channels_src] * gain;
+                let s_r = if channels_src > 1 {
+                    self.audio.samples[src_frame * channels_src + 1] * gain
+                } else {
+                    s_l
+                };
+                (s_l, s_r)
             };
 
             // Apply equal-power panning
@@ -1168,7 +1217,8 @@ impl OneShotVoice {
             right[frame] += sample_r;
         }
 
-        self.position += frames_needed as u64;
+        // P12.0.1: Advance position accounting for pitch ratio
+        self.position += (frames_needed as f64 * pitch_ratio) as u64;
 
         // P0.2: For looping, wrap position for next call
         if self.looping {
@@ -1222,6 +1272,8 @@ pub enum OneShotCommand {
     StopSource { source: PlaybackSource },
     /// P0: Fade out specific voice with configurable duration
     FadeOut { id: u64, fade_samples: u64 },
+    /// P12.0.1: Set pitch shift for specific voice (semitones, -24 to +24)
+    SetPitch { id: u64, semitones: f32 },
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3236,6 +3288,17 @@ impl PlaybackEngine {
         }
     }
 
+    /// P12.0.1: Set pitch shift for a specific one-shot voice
+    /// semitones: pitch shift in semitones (-24 to +24)
+    /// Positive values = higher pitch, negative = lower pitch
+    /// Example: +12 = one octave up, -12 = one octave down
+    pub fn set_voice_pitch(&self, voice_id: u64, semitones: f32) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let clamped = semitones.clamp(-24.0, 24.0);
+            let _ = tx.push(OneShotCommand::SetPitch { id: voice_id, semitones: clamped });
+        }
+    }
+
     /// Stop all one-shot voices
     pub fn stop_all_one_shots(&self) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
@@ -3371,6 +3434,12 @@ impl PlaybackEngine {
                 OneShotCommand::FadeOut { id, fade_samples } => {
                     if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
                         voice.start_fade_out(fade_samples);
+                    }
+                }
+                // P12.0.1: Set pitch shift for specific voice
+                OneShotCommand::SetPitch { id, semitones } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.pitch_semitones = semitones.clamp(-24.0, 24.0);
                     }
                 }
             }

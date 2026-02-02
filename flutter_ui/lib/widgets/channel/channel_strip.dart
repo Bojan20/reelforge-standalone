@@ -13,6 +13,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../models/layout_models.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../metering/gpu_meter_widget.dart';
 
 // ============ Channel Strip Widget ============
 
@@ -468,6 +469,7 @@ class _VerticalFader extends StatelessWidget {
   }
 }
 
+/// GPU-accelerated meter using GpuMeter for 120fps rendering
 class _Meter extends StatelessWidget {
   final double level;
   final double peak;
@@ -478,58 +480,15 @@ class _Meter extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 8,
-      child: CustomPaint(
-        painter: _MeterPainter(level: level, peak: peak),
-        size: const Size(8, 200),
+      height: 200,
+      child: GpuMeter(
+        levels: GpuMeterLevels(peak: level),
+        width: 8,
+        height: 200,
+        config: GpuMeterConfig.compact,
       ),
     );
   }
-}
-
-class _MeterPainter extends CustomPainter {
-  final double level;
-  final double peak;
-
-  _MeterPainter({required this.level, required this.peak});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Background
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = FluxForgeTheme.bgDeepest,
-    );
-
-    // Level fill with gradient
-    final fillHeight = size.height * level.clamp(0, 1);
-    final rect = Rect.fromLTWH(0, size.height - fillHeight, size.width, fillHeight);
-
-    final gradient = LinearGradient(
-      begin: Alignment.bottomCenter,
-      end: Alignment.topCenter,
-      colors: FluxForgeTheme.meterGradient,
-      stops: const [0.0, 0.5, 0.7, 0.85, 1.0],
-    );
-
-    canvas.drawRect(
-      rect,
-      Paint()..shader = gradient.createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
-    );
-
-    // Peak indicator
-    final peakY = size.height * (1 - peak.clamp(0, 1));
-    canvas.drawLine(
-      Offset(0, peakY),
-      Offset(size.width, peakY),
-      Paint()
-        ..color = peak >= 1.0 ? FluxForgeTheme.accentRed : FluxForgeTheme.textPrimary
-        ..strokeWidth = 2,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_MeterPainter oldDelegate) =>
-      level != oldDelegate.level || peak != oldDelegate.peak;
 }
 
 class _FaderPainter extends CustomPainter {

@@ -1445,6 +1445,120 @@ class SlotStageMarker {
 // COMPOSITE EVENT SYSTEM (Wwise/FMOD-style event layering)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LAYER DSP CHAIN (P12.1.5 — Per-Layer DSP Insert)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// DSP processor types available for layer inserts
+enum LayerDspType {
+  eq('EQ', 'Parametric EQ'),
+  compressor('Comp', 'Compressor'),
+  reverb('Reverb', 'Reverb'),
+  delay('Delay', 'Delay');
+
+  final String shortName;
+  final String fullName;
+
+  const LayerDspType(this.shortName, this.fullName);
+}
+
+/// Single DSP processor node in a layer's insert chain
+class LayerDspNode {
+  final String id;
+  final LayerDspType type;
+  final bool bypass;
+  final double wetDry; // 0 = dry, 1 = wet
+  final Map<String, dynamic> params;
+
+  const LayerDspNode({
+    required this.id,
+    required this.type,
+    this.bypass = false,
+    this.wetDry = 1.0,
+    this.params = const {},
+  });
+
+  LayerDspNode copyWith({
+    String? id,
+    LayerDspType? type,
+    bool? bypass,
+    double? wetDry,
+    Map<String, dynamic>? params,
+  }) {
+    return LayerDspNode(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      bypass: bypass ?? this.bypass,
+      wetDry: wetDry ?? this.wetDry,
+      params: params ?? this.params,
+    );
+  }
+
+  /// Create a new node with default parameters for the type
+  factory LayerDspNode.create(LayerDspType type) {
+    final id = 'layer-dsp-${DateTime.now().millisecondsSinceEpoch}-${type.name}';
+    return LayerDspNode(
+      id: id,
+      type: type,
+      params: _defaultParams(type),
+    );
+  }
+
+  static Map<String, dynamic> _defaultParams(LayerDspType type) {
+    return switch (type) {
+      LayerDspType.eq => {
+        'lowGain': 0.0,      // dB (-12 to +12)
+        'lowFreq': 100.0,    // Hz
+        'midGain': 0.0,      // dB (-12 to +12)
+        'midFreq': 1000.0,   // Hz
+        'midQ': 1.0,         // 0.1 to 10
+        'highGain': 0.0,     // dB (-12 to +12)
+        'highFreq': 8000.0,  // Hz
+      },
+      LayerDspType.compressor => {
+        'threshold': -20.0,  // dB (-60 to 0)
+        'ratio': 4.0,        // 1:1 to 20:1
+        'attack': 10.0,      // ms (0.1 to 100)
+        'release': 100.0,    // ms (10 to 1000)
+        'makeupGain': 0.0,   // dB (0 to 24)
+      },
+      LayerDspType.reverb => {
+        'decay': 2.0,        // seconds (0.1 to 10)
+        'preDelay': 20.0,    // ms (0 to 200)
+        'damping': 0.5,      // 0 to 1
+        'size': 0.7,         // 0 to 1
+      },
+      LayerDspType.delay => {
+        'time': 250.0,       // ms (1 to 2000)
+        'feedback': 0.3,     // 0 to 0.95
+        'highCut': 8000.0,   // Hz (500 to 20000)
+        'lowCut': 80.0,      // Hz (20 to 500)
+      },
+    };
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type.name,
+    'bypass': bypass,
+    'wetDry': wetDry,
+    'params': params,
+  };
+
+  factory LayerDspNode.fromJson(Map<String, dynamic> json) {
+    return LayerDspNode(
+      id: json['id'] as String? ?? '',
+      type: LayerDspType.values.firstWhere(
+        (t) => t.name == json['type'],
+        orElse: () => LayerDspType.eq,
+      ),
+      bypass: json['bypass'] as bool? ?? false,
+      wetDry: (json['wetDry'] as num?)?.toDouble() ?? 1.0,
+      params: Map<String, dynamic>.from(json['params'] as Map? ?? {}),
+    );
+  }
+}
+
 /// Single audio layer within a composite event
 class SlotEventLayer {
   final String id;
@@ -1466,6 +1580,7 @@ class SlotEventLayer {
   final int? busId; // Target bus for routing
   final String actionType; // Action type: Play, Stop, SetVolume, etc.
   final int? aleLayerId; // ALE layer assignment (1-5: L1=Calm to L5=Epic) — P0 WF-04
+  final List<LayerDspNode> dspChain; // Per-layer DSP insert chain (P12.1.5)
 
   const SlotEventLayer({
     required this.id,
@@ -1487,6 +1602,7 @@ class SlotEventLayer {
     this.busId,
     this.actionType = 'Play',
     this.aleLayerId,
+    this.dspChain = const [],
   });
 
   SlotEventLayer copyWith({
@@ -1509,6 +1625,7 @@ class SlotEventLayer {
     int? busId,
     String? actionType,
     int? aleLayerId,
+    List<LayerDspNode>? dspChain,
   }) {
     return SlotEventLayer(
       id: id ?? this.id,
@@ -1530,11 +1647,18 @@ class SlotEventLayer {
       busId: busId ?? this.busId,
       actionType: actionType ?? this.actionType,
       aleLayerId: aleLayerId ?? this.aleLayerId,
+      dspChain: dspChain ?? this.dspChain,
     );
   }
 
   /// Total duration including offset
   double get totalDurationMs => (durationSeconds ?? 0) * 1000 + offsetMs;
+
+  /// Check if layer has any DSP processors
+  bool get hasDsp => dspChain.isNotEmpty;
+
+  /// Get active (non-bypassed) DSP nodes
+  List<LayerDspNode> get activeDspNodes => dspChain.where((n) => !n.bypass).toList();
 
   /// Convert to JSON for project save
   Map<String, dynamic> toJson() => {
@@ -1556,6 +1680,7 @@ class SlotEventLayer {
     'busId': busId,
     'actionType': actionType,
     'aleLayerId': aleLayerId, // P0 WF-04
+    'dspChain': dspChain.map((n) => n.toJson()).toList(), // P12.1.5
     // Note: waveformData is not saved - it's regenerated on load
   };
 
@@ -1586,6 +1711,9 @@ class SlotEventLayer {
       busId: json['busId'] as int?,
       actionType: json['actionType'] as String? ?? 'Play',
       aleLayerId: json['aleLayerId'] as int?, // P0 WF-04
+      dspChain: (json['dspChain'] as List<dynamic>?)
+          ?.map((n) => LayerDspNode.fromJson(n as Map<String, dynamic>))
+          .toList() ?? [], // P12.1.5
     );
   }
 }

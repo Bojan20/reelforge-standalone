@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../lower_zone/daw/mix/pdc_indicator.dart';
 import '../lower_zone/daw/mix/lufs_meter_widget.dart';
+import '../metering/gpu_meter_widget.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -1016,7 +1017,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// METER BAR
+// METER BAR — Now uses GPU-accelerated GpuMeter for 120fps rendering
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _MeterBar extends StatelessWidget {
@@ -1032,78 +1033,18 @@ class _MeterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _MeterPainter(
-        peak: muted ? 0 : peak,
-        peakHold: muted ? 0 : peakHold,
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GpuMeter(
+          levels: GpuMeterLevels(peak: muted ? 0 : peak),
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          muted: muted,
+          config: GpuMeterConfig.compact,
+        );
+      },
     );
   }
-}
-
-class _MeterPainter extends CustomPainter {
-  final double peak;
-  final double peakHold;
-
-  _MeterPainter({required this.peak, this.peakHold = 0});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-
-    // Background
-    canvas.drawRect(rect, Paint()..color = const Color(0xFF0A0A0C));
-
-    // Meter gradient
-    final meterHeight = size.height * peak.clamp(0.0, 1.2);
-    if (meterHeight > 0) {
-      final gradient = LinearGradient(
-        begin: Alignment.bottomCenter,
-        end: Alignment.topCenter,
-        colors: const [
-          Color(0xFF40C8FF), // Cyan
-          Color(0xFF40FF90), // Green
-          Color(0xFFFFFF40), // Yellow
-          Color(0xFFFF9040), // Orange
-          Color(0xFFFF4040), // Red
-        ],
-        stops: const [0.0, 0.4, 0.7, 0.85, 1.0],
-      );
-
-      final meterRect = Rect.fromLTWH(
-        1,
-        size.height - meterHeight,
-        size.width - 2,
-        meterHeight,
-      );
-
-      canvas.drawRect(
-        meterRect,
-        Paint()..shader = gradient.createShader(rect),
-      );
-    }
-
-    // Peak hold line
-    if (peakHold > 0.01) {
-      final holdY = size.height * (1 - peakHold.clamp(0.0, 1.2));
-      final holdColor = peakHold > 1.0
-          ? const Color(0xFFFF4040)
-          : peakHold > 0.7
-              ? const Color(0xFFFFFF40)
-              : const Color(0xFF40FF90);
-      canvas.drawLine(
-        Offset(1, holdY),
-        Offset(size.width - 1, holdY),
-        Paint()
-          ..color = holdColor
-          ..strokeWidth = 2,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_MeterPainter oldDelegate) =>
-      peak != oldDelegate.peak || peakHold != oldDelegate.peakHold;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

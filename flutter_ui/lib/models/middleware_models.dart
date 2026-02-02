@@ -880,48 +880,315 @@ class RtpcDefinition {
 // ============ RTPC Parameter Binding ============
 
 /// Target parameter type for RTPC binding
+///
+/// P11.1.2: Extended with DSP processor parameters for game-driven audio response.
+/// Enables RTPC→DSP routing (e.g., winTier modulates filter cutoff).
 enum RtpcTargetParameter {
+  // ═══ Basic Audio Parameters ═══
   volume,
   pitch,
-  lowPassFilter,
-  highPassFilter,
   pan,
-  busVolume,
-  reverbSend,
-  delaySend,
   width,
   playbackRate,
+  busVolume,
+
+  // ═══ Send Levels ═══
+  reverbSend,
+  delaySend,
+
+  // ═══ Filter Parameters (P11.1.2) ═══
+  filterCutoff,         // Low-pass filter cutoff (20-20000 Hz)
+  filterResonance,      // Filter resonance/Q (0.1-20)
+  lowPassFilter,        // Legacy alias for filterCutoff
+  highPassFilter,       // High-pass filter cutoff (20-20000 Hz)
+
+  // ═══ Reverb Parameters (P11.1.2) ═══
+  reverbDecay,          // Decay time (0.1-20 seconds)
+  reverbPreDelay,       // Pre-delay (0-200 ms)
+  reverbMix,            // Wet/dry mix (0-1)
+  reverbDamping,        // High frequency damping (0-1)
+  reverbSize,           // Room size (0-1)
+
+  // ═══ Compressor Parameters (P11.1.2) ═══
+  compressorThreshold,  // Threshold (-60 to 0 dB)
+  compressorRatio,      // Ratio (1-20:1)
+  compressorAttack,     // Attack time (0.1-500 ms)
+  compressorRelease,    // Release time (10-2000 ms)
+  compressorMakeup,     // Makeup gain (0-24 dB)
+  compressorKnee,       // Knee width (0-24 dB)
+
+  // ═══ Delay Parameters (P11.1.2) ═══
+  delayTime,            // Delay time (0-2000 ms)
+  delayFeedback,        // Feedback amount (0-0.95)
+  delayMix,             // Wet/dry mix (0-1)
+  delayHighCut,         // High-cut filter (1000-20000 Hz)
+  delayLowCut,          // Low-cut filter (20-2000 Hz)
+
+  // ═══ Gate Parameters (P11.1.2) ═══
+  gateThreshold,        // Threshold (-80 to 0 dB)
+  gateAttack,           // Attack time (0.1-50 ms)
+  gateRelease,          // Release time (10-2000 ms)
+  gateRange,            // Range/depth (-80 to 0 dB)
+
+  // ═══ Limiter Parameters (P11.1.2) ═══
+  limiterCeiling,       // Output ceiling (-12 to 0 dB)
+  limiterRelease,       // Release time (10-1000 ms)
+
+  // ═══ Saturation Parameters (P11.1.2) ═══
+  saturationDrive,      // Drive amount (0-1)
+  saturationMix,        // Wet/dry mix (0-1)
+
+  // ═══ De-Esser Parameters (P11.1.2) ═══
+  deEsserFrequency,     // Center frequency (2000-12000 Hz)
+  deEsserThreshold,     // Threshold (-40 to 0 dB)
+  deEsserRange,         // Reduction range (-20 to 0 dB)
 }
 
 extension RtpcTargetParameterExtension on RtpcTargetParameter {
+  /// Human-readable display name
   String get displayName {
     switch (this) {
+      // Basic Audio
       case RtpcTargetParameter.volume: return 'Volume';
       case RtpcTargetParameter.pitch: return 'Pitch';
-      case RtpcTargetParameter.lowPassFilter: return 'Low-Pass Filter';
-      case RtpcTargetParameter.highPassFilter: return 'High-Pass Filter';
       case RtpcTargetParameter.pan: return 'Pan';
-      case RtpcTargetParameter.busVolume: return 'Bus Volume';
-      case RtpcTargetParameter.reverbSend: return 'Reverb Send';
-      case RtpcTargetParameter.delaySend: return 'Delay Send';
       case RtpcTargetParameter.width: return 'Width';
       case RtpcTargetParameter.playbackRate: return 'Playback Rate';
+      case RtpcTargetParameter.busVolume: return 'Bus Volume';
+
+      // Send Levels
+      case RtpcTargetParameter.reverbSend: return 'Reverb Send';
+      case RtpcTargetParameter.delaySend: return 'Delay Send';
+
+      // Filter
+      case RtpcTargetParameter.filterCutoff: return 'Filter Cutoff';
+      case RtpcTargetParameter.filterResonance: return 'Filter Resonance';
+      case RtpcTargetParameter.lowPassFilter: return 'Low-Pass Filter';
+      case RtpcTargetParameter.highPassFilter: return 'High-Pass Filter';
+
+      // Reverb
+      case RtpcTargetParameter.reverbDecay: return 'Reverb Decay';
+      case RtpcTargetParameter.reverbPreDelay: return 'Reverb Pre-Delay';
+      case RtpcTargetParameter.reverbMix: return 'Reverb Mix';
+      case RtpcTargetParameter.reverbDamping: return 'Reverb Damping';
+      case RtpcTargetParameter.reverbSize: return 'Reverb Size';
+
+      // Compressor
+      case RtpcTargetParameter.compressorThreshold: return 'Comp. Threshold';
+      case RtpcTargetParameter.compressorRatio: return 'Comp. Ratio';
+      case RtpcTargetParameter.compressorAttack: return 'Comp. Attack';
+      case RtpcTargetParameter.compressorRelease: return 'Comp. Release';
+      case RtpcTargetParameter.compressorMakeup: return 'Comp. Makeup';
+      case RtpcTargetParameter.compressorKnee: return 'Comp. Knee';
+
+      // Delay
+      case RtpcTargetParameter.delayTime: return 'Delay Time';
+      case RtpcTargetParameter.delayFeedback: return 'Delay Feedback';
+      case RtpcTargetParameter.delayMix: return 'Delay Mix';
+      case RtpcTargetParameter.delayHighCut: return 'Delay High Cut';
+      case RtpcTargetParameter.delayLowCut: return 'Delay Low Cut';
+
+      // Gate
+      case RtpcTargetParameter.gateThreshold: return 'Gate Threshold';
+      case RtpcTargetParameter.gateAttack: return 'Gate Attack';
+      case RtpcTargetParameter.gateRelease: return 'Gate Release';
+      case RtpcTargetParameter.gateRange: return 'Gate Range';
+
+      // Limiter
+      case RtpcTargetParameter.limiterCeiling: return 'Limiter Ceiling';
+      case RtpcTargetParameter.limiterRelease: return 'Limiter Release';
+
+      // Saturation
+      case RtpcTargetParameter.saturationDrive: return 'Saturation Drive';
+      case RtpcTargetParameter.saturationMix: return 'Saturation Mix';
+
+      // De-Esser
+      case RtpcTargetParameter.deEsserFrequency: return 'De-Esser Freq';
+      case RtpcTargetParameter.deEsserThreshold: return 'De-Esser Threshold';
+      case RtpcTargetParameter.deEsserRange: return 'De-Esser Range';
     }
   }
 
   /// Get default output range for this parameter type
   (double min, double max) get defaultRange {
     switch (this) {
+      // Basic Audio
       case RtpcTargetParameter.volume: return (0.0, 2.0);
       case RtpcTargetParameter.pitch: return (-24.0, 24.0);
-      case RtpcTargetParameter.lowPassFilter: return (20.0, 20000.0);
-      case RtpcTargetParameter.highPassFilter: return (20.0, 20000.0);
       case RtpcTargetParameter.pan: return (-1.0, 1.0);
-      case RtpcTargetParameter.busVolume: return (0.0, 2.0);
-      case RtpcTargetParameter.reverbSend: return (0.0, 1.0);
-      case RtpcTargetParameter.delaySend: return (0.0, 1.0);
       case RtpcTargetParameter.width: return (0.0, 1.0);
       case RtpcTargetParameter.playbackRate: return (0.5, 2.0);
+      case RtpcTargetParameter.busVolume: return (0.0, 2.0);
+
+      // Send Levels
+      case RtpcTargetParameter.reverbSend: return (0.0, 1.0);
+      case RtpcTargetParameter.delaySend: return (0.0, 1.0);
+
+      // Filter
+      case RtpcTargetParameter.filterCutoff: return (20.0, 20000.0);
+      case RtpcTargetParameter.filterResonance: return (0.1, 20.0);
+      case RtpcTargetParameter.lowPassFilter: return (20.0, 20000.0);
+      case RtpcTargetParameter.highPassFilter: return (20.0, 20000.0);
+
+      // Reverb
+      case RtpcTargetParameter.reverbDecay: return (0.1, 20.0);
+      case RtpcTargetParameter.reverbPreDelay: return (0.0, 200.0);
+      case RtpcTargetParameter.reverbMix: return (0.0, 1.0);
+      case RtpcTargetParameter.reverbDamping: return (0.0, 1.0);
+      case RtpcTargetParameter.reverbSize: return (0.0, 1.0);
+
+      // Compressor
+      case RtpcTargetParameter.compressorThreshold: return (-60.0, 0.0);
+      case RtpcTargetParameter.compressorRatio: return (1.0, 20.0);
+      case RtpcTargetParameter.compressorAttack: return (0.1, 500.0);
+      case RtpcTargetParameter.compressorRelease: return (10.0, 2000.0);
+      case RtpcTargetParameter.compressorMakeup: return (0.0, 24.0);
+      case RtpcTargetParameter.compressorKnee: return (0.0, 24.0);
+
+      // Delay
+      case RtpcTargetParameter.delayTime: return (0.0, 2000.0);
+      case RtpcTargetParameter.delayFeedback: return (0.0, 0.95);
+      case RtpcTargetParameter.delayMix: return (0.0, 1.0);
+      case RtpcTargetParameter.delayHighCut: return (1000.0, 20000.0);
+      case RtpcTargetParameter.delayLowCut: return (20.0, 2000.0);
+
+      // Gate
+      case RtpcTargetParameter.gateThreshold: return (-80.0, 0.0);
+      case RtpcTargetParameter.gateAttack: return (0.1, 50.0);
+      case RtpcTargetParameter.gateRelease: return (10.0, 2000.0);
+      case RtpcTargetParameter.gateRange: return (-80.0, 0.0);
+
+      // Limiter
+      case RtpcTargetParameter.limiterCeiling: return (-12.0, 0.0);
+      case RtpcTargetParameter.limiterRelease: return (10.0, 1000.0);
+
+      // Saturation
+      case RtpcTargetParameter.saturationDrive: return (0.0, 1.0);
+      case RtpcTargetParameter.saturationMix: return (0.0, 1.0);
+
+      // De-Esser
+      case RtpcTargetParameter.deEsserFrequency: return (2000.0, 12000.0);
+      case RtpcTargetParameter.deEsserThreshold: return (-40.0, 0.0);
+      case RtpcTargetParameter.deEsserRange: return (-20.0, 0.0);
+    }
+  }
+
+  /// Get the category of this parameter (for UI grouping)
+  String get category {
+    switch (this) {
+      case RtpcTargetParameter.volume:
+      case RtpcTargetParameter.pitch:
+      case RtpcTargetParameter.pan:
+      case RtpcTargetParameter.width:
+      case RtpcTargetParameter.playbackRate:
+      case RtpcTargetParameter.busVolume:
+        return 'Basic';
+
+      case RtpcTargetParameter.reverbSend:
+      case RtpcTargetParameter.delaySend:
+        return 'Sends';
+
+      case RtpcTargetParameter.filterCutoff:
+      case RtpcTargetParameter.filterResonance:
+      case RtpcTargetParameter.lowPassFilter:
+      case RtpcTargetParameter.highPassFilter:
+        return 'Filter';
+
+      case RtpcTargetParameter.reverbDecay:
+      case RtpcTargetParameter.reverbPreDelay:
+      case RtpcTargetParameter.reverbMix:
+      case RtpcTargetParameter.reverbDamping:
+      case RtpcTargetParameter.reverbSize:
+        return 'Reverb';
+
+      case RtpcTargetParameter.compressorThreshold:
+      case RtpcTargetParameter.compressorRatio:
+      case RtpcTargetParameter.compressorAttack:
+      case RtpcTargetParameter.compressorRelease:
+      case RtpcTargetParameter.compressorMakeup:
+      case RtpcTargetParameter.compressorKnee:
+        return 'Compressor';
+
+      case RtpcTargetParameter.delayTime:
+      case RtpcTargetParameter.delayFeedback:
+      case RtpcTargetParameter.delayMix:
+      case RtpcTargetParameter.delayHighCut:
+      case RtpcTargetParameter.delayLowCut:
+        return 'Delay';
+
+      case RtpcTargetParameter.gateThreshold:
+      case RtpcTargetParameter.gateAttack:
+      case RtpcTargetParameter.gateRelease:
+      case RtpcTargetParameter.gateRange:
+        return 'Gate';
+
+      case RtpcTargetParameter.limiterCeiling:
+      case RtpcTargetParameter.limiterRelease:
+        return 'Limiter';
+
+      case RtpcTargetParameter.saturationDrive:
+      case RtpcTargetParameter.saturationMix:
+        return 'Saturation';
+
+      case RtpcTargetParameter.deEsserFrequency:
+      case RtpcTargetParameter.deEsserThreshold:
+      case RtpcTargetParameter.deEsserRange:
+        return 'De-Esser';
+    }
+  }
+
+  /// Whether this is a DSP processor parameter (P11.1.2)
+  bool get isDspParameter {
+    switch (this) {
+      case RtpcTargetParameter.volume:
+      case RtpcTargetParameter.pitch:
+      case RtpcTargetParameter.pan:
+      case RtpcTargetParameter.width:
+      case RtpcTargetParameter.playbackRate:
+      case RtpcTargetParameter.busVolume:
+      case RtpcTargetParameter.reverbSend:
+      case RtpcTargetParameter.delaySend:
+        return false;
+      default:
+        return true;
+    }
+  }
+
+  /// Get the unit suffix for display
+  String get unit {
+    switch (this) {
+      case RtpcTargetParameter.pitch:
+        return 'st';
+      case RtpcTargetParameter.filterCutoff:
+      case RtpcTargetParameter.lowPassFilter:
+      case RtpcTargetParameter.highPassFilter:
+      case RtpcTargetParameter.deEsserFrequency:
+      case RtpcTargetParameter.delayHighCut:
+      case RtpcTargetParameter.delayLowCut:
+        return 'Hz';
+      case RtpcTargetParameter.reverbPreDelay:
+      case RtpcTargetParameter.delayTime:
+      case RtpcTargetParameter.compressorAttack:
+      case RtpcTargetParameter.compressorRelease:
+      case RtpcTargetParameter.gateAttack:
+      case RtpcTargetParameter.gateRelease:
+      case RtpcTargetParameter.limiterRelease:
+        return 'ms';
+      case RtpcTargetParameter.reverbDecay:
+        return 's';
+      case RtpcTargetParameter.compressorThreshold:
+      case RtpcTargetParameter.compressorMakeup:
+      case RtpcTargetParameter.compressorKnee:
+      case RtpcTargetParameter.gateThreshold:
+      case RtpcTargetParameter.gateRange:
+      case RtpcTargetParameter.limiterCeiling:
+      case RtpcTargetParameter.deEsserThreshold:
+      case RtpcTargetParameter.deEsserRange:
+        return 'dB';
+      case RtpcTargetParameter.compressorRatio:
+        return ':1';
+      default:
+        return '';
     }
   }
 
@@ -930,6 +1197,16 @@ extension RtpcTargetParameterExtension on RtpcTargetParameter {
   static RtpcTargetParameter fromIndex(int idx) {
     if (idx < 0 || idx >= RtpcTargetParameter.values.length) return RtpcTargetParameter.volume;
     return RtpcTargetParameter.values[idx];
+  }
+
+  /// Get all parameters in a category
+  static List<RtpcTargetParameter> getByCategory(String category) {
+    return RtpcTargetParameter.values.where((p) => p.category == category).toList();
+  }
+
+  /// Get all DSP parameters only
+  static List<RtpcTargetParameter> get dspParameters {
+    return RtpcTargetParameter.values.where((p) => p.isDspParameter).toList();
   }
 }
 

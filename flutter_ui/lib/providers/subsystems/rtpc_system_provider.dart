@@ -7,12 +7,303 @@
 /// - Global RTPC values (e.g., "Danger" level affecting music intensity)
 /// - Per-object RTPC values (e.g., engine RPM per vehicle)
 /// - RTPC Bindings map RTPC values to target parameters (volume, pitch, etc.)
+///
+/// P11.1.2: Extended with DSP parameter routing.
+/// Enables game-driven DSP (e.g., winTier modulates filter cutoff for excitement).
 
 import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart';
 import '../../models/middleware_models.dart';
 import '../../src/rust/native_ffi.dart';
+import '../dsp_chain_provider.dart';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P11.1.2: DSP BINDING MODEL
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Binding from RTPC to DSP processor parameter
+///
+/// Enables dynamic DSP control based on game state.
+/// Example: winTier RTPC → filter cutoff (more excitement at higher wins)
+class RtpcDspBinding {
+  final int id;
+  final int rtpcId;
+  final RtpcTargetParameter target;
+  final int trackId;           // Target track (0 = master)
+  final int slotIndex;         // DSP slot in chain
+  final int paramIndex;        // Parameter index in processor
+  final RtpcCurve curve;       // Mapping curve
+  final bool enabled;
+  final String? label;         // Optional descriptive label
+
+  const RtpcDspBinding({
+    required this.id,
+    required this.rtpcId,
+    required this.target,
+    required this.trackId,
+    required this.slotIndex,
+    required this.paramIndex,
+    required this.curve,
+    this.enabled = true,
+    this.label,
+  });
+
+  RtpcDspBinding copyWith({
+    int? id,
+    int? rtpcId,
+    RtpcTargetParameter? target,
+    int? trackId,
+    int? slotIndex,
+    int? paramIndex,
+    RtpcCurve? curve,
+    bool? enabled,
+    String? label,
+  }) {
+    return RtpcDspBinding(
+      id: id ?? this.id,
+      rtpcId: rtpcId ?? this.rtpcId,
+      target: target ?? this.target,
+      trackId: trackId ?? this.trackId,
+      slotIndex: slotIndex ?? this.slotIndex,
+      paramIndex: paramIndex ?? this.paramIndex,
+      curve: curve ?? this.curve,
+      enabled: enabled ?? this.enabled,
+      label: label ?? this.label,
+    );
+  }
+
+  /// Evaluate binding for given normalized RTPC value (0-1)
+  double evaluate(double normalizedRtpcValue) {
+    if (!enabled) return curve.evaluate(0.5); // Midpoint when disabled
+    return curve.evaluate(normalizedRtpcValue);
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'rtpcId': rtpcId,
+    'target': target.index,
+    'trackId': trackId,
+    'slotIndex': slotIndex,
+    'paramIndex': paramIndex,
+    'curve': curve.toJson(),
+    'enabled': enabled,
+    'label': label,
+  };
+
+  factory RtpcDspBinding.fromJson(Map<String, dynamic> json) {
+    return RtpcDspBinding(
+      id: json['id'] as int,
+      rtpcId: json['rtpcId'] as int,
+      target: RtpcTargetParameterExtension.fromIndex(json['target'] as int),
+      trackId: json['trackId'] as int? ?? 0,
+      slotIndex: json['slotIndex'] as int,
+      paramIndex: json['paramIndex'] as int,
+      curve: RtpcCurve.fromJson(json['curve'] as Map<String, dynamic>),
+      enabled: json['enabled'] as bool? ?? true,
+      label: json['label'] as String?,
+    );
+  }
+}
+
+/// DSP parameter index mapping
+///
+/// Maps RtpcTargetParameter to processor-specific param indices.
+/// Used by insertSetParam(trackId, slotIndex, paramIndex, value).
+class DspParamMapping {
+  /// Get param index for a target parameter within a processor type
+  static int? getParamIndex(DspNodeType processorType, RtpcTargetParameter target) {
+    switch (processorType) {
+      case DspNodeType.eq:
+        return _getEqParamIndex(target);
+      case DspNodeType.compressor:
+        return _getCompressorParamIndex(target);
+      case DspNodeType.limiter:
+        return _getLimiterParamIndex(target);
+      case DspNodeType.gate:
+        return _getGateParamIndex(target);
+      case DspNodeType.reverb:
+        return _getReverbParamIndex(target);
+      case DspNodeType.delay:
+        return _getDelayParamIndex(target);
+      case DspNodeType.saturation:
+        return _getSaturationParamIndex(target);
+      case DspNodeType.deEsser:
+        return _getDeEsserParamIndex(target);
+      case DspNodeType.expander:
+        return _getExpanderParamIndex(target);
+    }
+  }
+
+  // EQ param indices (per-band, but global filter cutoff/resonance)
+  static int? _getEqParamIndex(RtpcTargetParameter target) {
+    switch (target) {
+      case RtpcTargetParameter.filterCutoff:
+      case RtpcTargetParameter.lowPassFilter:
+        return 0; // Global high-cut frequency
+      case RtpcTargetParameter.filterResonance:
+        return 1; // Global Q
+      case RtpcTargetParameter.highPassFilter:
+        return 2; // Global low-cut frequency
+      default:
+        return null;
+    }
+  }
+
+  // Compressor param indices
+  static int? _getCompressorParamIndex(RtpcTargetParameter target) {
+    switch (target) {
+      case RtpcTargetParameter.compressorThreshold: return 0;
+      case RtpcTargetParameter.compressorRatio: return 1;
+      case RtpcTargetParameter.compressorAttack: return 2;
+      case RtpcTargetParameter.compressorRelease: return 3;
+      case RtpcTargetParameter.compressorKnee: return 4;
+      case RtpcTargetParameter.compressorMakeup: return 5;
+      default: return null;
+    }
+  }
+
+  // Limiter param indices
+  static int? _getLimiterParamIndex(RtpcTargetParameter target) {
+    switch (target) {
+      case RtpcTargetParameter.limiterCeiling: return 0;
+      case RtpcTargetParameter.limiterRelease: return 1;
+      default: return null;
+    }
+  }
+
+  // Gate param indices
+  static int? _getGateParamIndex(RtpcTargetParameter target) {
+    switch (target) {
+      case RtpcTargetParameter.gateThreshold: return 0;
+      case RtpcTargetParameter.gateAttack: return 1;
+      case RtpcTargetParameter.gateRelease: return 2;
+      case RtpcTargetParameter.gateRange: return 3;
+      default: return null;
+    }
+  }
+
+  // Reverb param indices
+  static int? _getReverbParamIndex(RtpcTargetParameter target) {
+    switch (target) {
+      case RtpcTargetParameter.reverbDecay: return 0;
+      case RtpcTargetParameter.reverbPreDelay: return 1;
+      case RtpcTargetParameter.reverbDamping: return 2;
+      case RtpcTargetParameter.reverbSize: return 3;
+      case RtpcTargetParameter.reverbMix: return 4;
+      default: return null;
+    }
+  }
+
+  // Delay param indices
+  static int? _getDelayParamIndex(RtpcTargetParameter target) {
+    switch (target) {
+      case RtpcTargetParameter.delayTime: return 0;
+      case RtpcTargetParameter.delayFeedback: return 1;
+      case RtpcTargetParameter.delayHighCut: return 2;
+      case RtpcTargetParameter.delayLowCut: return 3;
+      case RtpcTargetParameter.delayMix: return 4;
+      default: return null;
+    }
+  }
+
+  // Saturation param indices
+  static int? _getSaturationParamIndex(RtpcTargetParameter target) {
+    switch (target) {
+      case RtpcTargetParameter.saturationDrive: return 0;
+      case RtpcTargetParameter.saturationMix: return 1;
+      default: return null;
+    }
+  }
+
+  // De-Esser param indices
+  static int? _getDeEsserParamIndex(RtpcTargetParameter target) {
+    switch (target) {
+      case RtpcTargetParameter.deEsserFrequency: return 0;
+      case RtpcTargetParameter.deEsserThreshold: return 1;
+      case RtpcTargetParameter.deEsserRange: return 2;
+      default: return null;
+    }
+  }
+
+  // Expander param indices (similar to compressor)
+  static int? _getExpanderParamIndex(RtpcTargetParameter target) {
+    switch (target) {
+      case RtpcTargetParameter.compressorThreshold: return 0;
+      case RtpcTargetParameter.compressorRatio: return 1;
+      case RtpcTargetParameter.compressorAttack: return 2;
+      case RtpcTargetParameter.compressorRelease: return 3;
+      case RtpcTargetParameter.compressorKnee: return 4;
+      default: return null;
+    }
+  }
+
+  /// Get valid targets for a processor type
+  static List<RtpcTargetParameter> getValidTargets(DspNodeType processorType) {
+    switch (processorType) {
+      case DspNodeType.eq:
+        return [
+          RtpcTargetParameter.filterCutoff,
+          RtpcTargetParameter.filterResonance,
+          RtpcTargetParameter.lowPassFilter,
+          RtpcTargetParameter.highPassFilter,
+        ];
+      case DspNodeType.compressor:
+      case DspNodeType.expander:
+        return [
+          RtpcTargetParameter.compressorThreshold,
+          RtpcTargetParameter.compressorRatio,
+          RtpcTargetParameter.compressorAttack,
+          RtpcTargetParameter.compressorRelease,
+          RtpcTargetParameter.compressorMakeup,
+          RtpcTargetParameter.compressorKnee,
+        ];
+      case DspNodeType.limiter:
+        return [
+          RtpcTargetParameter.limiterCeiling,
+          RtpcTargetParameter.limiterRelease,
+        ];
+      case DspNodeType.gate:
+        return [
+          RtpcTargetParameter.gateThreshold,
+          RtpcTargetParameter.gateAttack,
+          RtpcTargetParameter.gateRelease,
+          RtpcTargetParameter.gateRange,
+        ];
+      case DspNodeType.reverb:
+        return [
+          RtpcTargetParameter.reverbDecay,
+          RtpcTargetParameter.reverbPreDelay,
+          RtpcTargetParameter.reverbDamping,
+          RtpcTargetParameter.reverbSize,
+          RtpcTargetParameter.reverbMix,
+        ];
+      case DspNodeType.delay:
+        return [
+          RtpcTargetParameter.delayTime,
+          RtpcTargetParameter.delayFeedback,
+          RtpcTargetParameter.delayHighCut,
+          RtpcTargetParameter.delayLowCut,
+          RtpcTargetParameter.delayMix,
+        ];
+      case DspNodeType.saturation:
+        return [
+          RtpcTargetParameter.saturationDrive,
+          RtpcTargetParameter.saturationMix,
+        ];
+      case DspNodeType.deEsser:
+        return [
+          RtpcTargetParameter.deEsserFrequency,
+          RtpcTargetParameter.deEsserThreshold,
+          RtpcTargetParameter.deEsserRange,
+        ];
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROVIDER
+// ═══════════════════════════════════════════════════════════════════════════
 
 /// Provider for managing RTPC system
 class RtpcSystemProvider extends ChangeNotifier {
@@ -33,6 +324,9 @@ class RtpcSystemProvider extends ChangeNotifier {
   /// P3.11: Preset Morphs - smooth interpolation between presets
   final Map<int, PresetMorph> _presetMorphs = {};
 
+  /// P11.1.2: DSP bindings (RTPC → DSP processor parameters)
+  final Map<int, RtpcDspBinding> _dspBindings = {};
+
   /// Next available RTPC ID
   int _nextRtpcId = 100;
 
@@ -44,6 +338,9 @@ class RtpcSystemProvider extends ChangeNotifier {
 
   /// P3.11: Next available morph ID
   int _nextMorphId = 1;
+
+  /// P11.1.2: Next available DSP binding ID
+  int _nextDspBindingId = 1;
 
   RtpcSystemProvider({required NativeFFI ffi}) : _ffi = ffi;
 
@@ -86,6 +383,15 @@ class RtpcSystemProvider extends ChangeNotifier {
 
   /// P3.11: Get morph count
   int get morphCount => _presetMorphs.length;
+
+  /// P11.1.2: Get all DSP bindings
+  Map<int, RtpcDspBinding> get dspBindings => Map.unmodifiable(_dspBindings);
+
+  /// P11.1.2: Get all DSP bindings as list
+  List<RtpcDspBinding> get dspBindingsList => _dspBindings.values.toList();
+
+  /// P11.1.2: Get DSP binding count
+  int get dspBindingCount => _dspBindings.length;
 
   /// Get a specific RTPC definition
   RtpcDefinition? getRtpc(int rtpcId) => _rtpcDefs[rtpcId];
@@ -182,7 +488,25 @@ class RtpcSystemProvider extends ChangeNotifier {
     // Send to Rust
     _ffi.middlewareSetRtpc(rtpcId, clampedValue, interpolationMs: interpolationMs);
 
+    // P11.1.2: Apply DSP bindings for this RTPC
+    _applyDspBindingsForRtpc(rtpcId);
+
     notifyListeners();
+  }
+
+  /// P11.1.2: Internal - apply all DSP bindings for a specific RTPC
+  void _applyDspBindingsForRtpc(int rtpcId) {
+    final rtpcDef = _rtpcDefs[rtpcId];
+    if (rtpcDef == null) return;
+
+    final normalized = rtpcDef.normalizedValue;
+
+    for (final binding in _dspBindings.values) {
+      if (binding.rtpcId != rtpcId || !binding.enabled) continue;
+
+      final outputValue = binding.evaluate(normalized);
+      _applyDspParameter(binding, outputValue);
+    }
   }
 
   /// Set RTPC value for specific game object
@@ -338,6 +662,264 @@ class RtpcSystemProvider extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // P11.1.2: RTPC → DSP BINDINGS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// P11.1.2: Get a specific DSP binding
+  RtpcDspBinding? getDspBinding(int bindingId) => _dspBindings[bindingId];
+
+  /// P11.1.2: Get DSP bindings for an RTPC
+  List<RtpcDspBinding> getDspBindingsForRtpc(int rtpcId) {
+    return _dspBindings.values.where((b) => b.rtpcId == rtpcId).toList();
+  }
+
+  /// P11.1.2: Get DSP bindings for a track
+  List<RtpcDspBinding> getDspBindingsForTrack(int trackId) {
+    return _dspBindings.values.where((b) => b.trackId == trackId).toList();
+  }
+
+  /// P11.1.2: Get DSP bindings for a specific slot
+  List<RtpcDspBinding> getDspBindingsForSlot(int trackId, int slotIndex) {
+    return _dspBindings.values.where((b) =>
+      b.trackId == trackId && b.slotIndex == slotIndex
+    ).toList();
+  }
+
+  /// P11.1.2: Get DSP bindings targeting a specific parameter
+  List<RtpcDspBinding> getDspBindingsForTarget(RtpcTargetParameter target) {
+    return _dspBindings.values.where((b) => b.target == target).toList();
+  }
+
+  /// P11.1.2: Create a DSP binding
+  ///
+  /// Binds an RTPC to a DSP processor parameter.
+  /// Example: winTier RTPC → filter cutoff (more excitement at higher wins)
+  RtpcDspBinding createDspBinding({
+    required int rtpcId,
+    required RtpcTargetParameter target,
+    required int trackId,
+    required int slotIndex,
+    int? paramIndex,
+    DspNodeType? processorType,
+    RtpcCurve? curve,
+    String? label,
+  }) {
+    final bindingId = _nextDspBindingId++;
+
+    // Auto-determine param index if not provided
+    int resolvedParamIndex = paramIndex ?? 0;
+    if (paramIndex == null && processorType != null) {
+      resolvedParamIndex = DspParamMapping.getParamIndex(processorType, target) ?? 0;
+    }
+
+    // Create default curve if not provided
+    final bindingCurve = curve ?? RtpcCurve.linear(
+      0.0,  // minIn
+      1.0,  // maxIn
+      target.defaultRange.$1,  // minOut
+      target.defaultRange.$2,  // maxOut
+    );
+
+    final binding = RtpcDspBinding(
+      id: bindingId,
+      rtpcId: rtpcId,
+      target: target,
+      trackId: trackId,
+      slotIndex: slotIndex,
+      paramIndex: resolvedParamIndex,
+      curve: bindingCurve,
+      label: label ?? '${target.displayName} (Track $trackId, Slot $slotIndex)',
+    );
+
+    _dspBindings[bindingId] = binding;
+    notifyListeners();
+    return binding;
+  }
+
+  /// P11.1.2: Create DSP binding with preset curve shapes
+  RtpcDspBinding createDspBindingWithPreset({
+    required int rtpcId,
+    required RtpcTargetParameter target,
+    required int trackId,
+    required int slotIndex,
+    required DspNodeType processorType,
+    required String curvePreset,
+    String? label,
+  }) {
+    final paramIndex = DspParamMapping.getParamIndex(processorType, target) ?? 0;
+    final range = target.defaultRange;
+
+    RtpcCurve curve;
+    switch (curvePreset) {
+      case 'linear':
+        curve = RtpcCurve.linear(0.0, 1.0, range.$1, range.$2);
+      case 'linear_inverted':
+        curve = RtpcCurve.linear(0.0, 1.0, range.$2, range.$1);
+      case 'exponential':
+        // Exponential curve: slow start, fast finish
+        curve = RtpcCurve(points: [
+          RtpcCurvePoint(x: 0.0, y: range.$1, shape: RtpcCurveShape.exp3),
+          RtpcCurvePoint(x: 1.0, y: range.$2),
+        ]);
+      case 'logarithmic':
+        // Logarithmic curve: fast start, slow finish
+        curve = RtpcCurve(points: [
+          RtpcCurvePoint(x: 0.0, y: range.$1, shape: RtpcCurveShape.log3),
+          RtpcCurvePoint(x: 1.0, y: range.$2),
+        ]);
+      case 's_curve':
+        // S-curve: smooth transitions
+        curve = RtpcCurve(points: [
+          RtpcCurvePoint(x: 0.0, y: range.$1, shape: RtpcCurveShape.sCurve),
+          RtpcCurvePoint(x: 1.0, y: range.$2),
+        ]);
+      case 'threshold_50':
+        // Output stays at min until RTPC reaches 0.5, then jumps to max
+        curve = RtpcCurve(points: [
+          RtpcCurvePoint(x: 0.0, y: range.$1, shape: RtpcCurveShape.constant),
+          RtpcCurvePoint(x: 0.5, y: range.$2),
+          RtpcCurvePoint(x: 1.0, y: range.$2),
+        ]);
+      default:
+        curve = RtpcCurve.linear(0.0, 1.0, range.$1, range.$2);
+    }
+
+    return createDspBinding(
+      rtpcId: rtpcId,
+      target: target,
+      trackId: trackId,
+      slotIndex: slotIndex,
+      paramIndex: paramIndex,
+      curve: curve,
+      label: label,
+    );
+  }
+
+  /// P11.1.2: Update DSP binding curve
+  void updateDspBindingCurve(int bindingId, RtpcCurve curve) {
+    final binding = _dspBindings[bindingId];
+    if (binding == null) return;
+
+    _dspBindings[bindingId] = binding.copyWith(curve: curve);
+    notifyListeners();
+  }
+
+  /// P11.1.2: Enable/disable DSP binding
+  void setDspBindingEnabled(int bindingId, bool enabled) {
+    final binding = _dspBindings[bindingId];
+    if (binding == null) return;
+
+    _dspBindings[bindingId] = binding.copyWith(enabled: enabled);
+    notifyListeners();
+  }
+
+  /// P11.1.2: Delete DSP binding
+  void deleteDspBinding(int bindingId) {
+    _dspBindings.remove(bindingId);
+    notifyListeners();
+  }
+
+  /// P11.1.2: Delete all DSP bindings for a track
+  void deleteDspBindingsForTrack(int trackId) {
+    _dspBindings.removeWhere((_, b) => b.trackId == trackId);
+    notifyListeners();
+  }
+
+  /// P11.1.2: Delete all DSP bindings for a slot (when processor removed)
+  void deleteDspBindingsForSlot(int trackId, int slotIndex) {
+    _dspBindings.removeWhere((_, b) =>
+      b.trackId == trackId && b.slotIndex == slotIndex
+    );
+    notifyListeners();
+  }
+
+  /// P11.1.2: Evaluate and apply all DSP bindings for current RTPC values
+  ///
+  /// This is the main method for real-time DSP modulation.
+  /// Called whenever RTPC values change to update all bound DSP parameters.
+  void applyAllDspBindings() {
+    for (final binding in _dspBindings.values) {
+      if (!binding.enabled) continue;
+
+      final rtpcDef = _rtpcDefs[binding.rtpcId];
+      if (rtpcDef == null) continue;
+
+      // Get normalized RTPC value (0-1)
+      final normalized = rtpcDef.normalizedValue;
+
+      // Evaluate curve to get output value
+      final outputValue = binding.evaluate(normalized);
+
+      // Apply to DSP via FFI
+      _applyDspParameter(binding, outputValue);
+    }
+  }
+
+  /// P11.1.2: Apply a single DSP binding
+  void applyDspBinding(int bindingId) {
+    final binding = _dspBindings[bindingId];
+    if (binding == null || !binding.enabled) return;
+
+    final rtpcDef = _rtpcDefs[binding.rtpcId];
+    if (rtpcDef == null) return;
+
+    final normalized = rtpcDef.normalizedValue;
+    final outputValue = binding.evaluate(normalized);
+    _applyDspParameter(binding, outputValue);
+  }
+
+  /// P11.1.2: Internal - apply DSP parameter via FFI
+  void _applyDspParameter(RtpcDspBinding binding, double value) {
+    // Use insertSetParam to update the DSP processor parameter
+    final result = _ffi.insertSetParam(
+      binding.trackId,
+      binding.slotIndex,
+      binding.paramIndex,
+      value,
+    );
+
+    if (result != 0) {
+      debugPrint('[RtpcSystemProvider] DSP param set failed: '
+          'track=${binding.trackId}, slot=${binding.slotIndex}, '
+          'param=${binding.paramIndex}, value=$value');
+    }
+  }
+
+  /// P11.1.2: Evaluate all DSP bindings and return results (for preview)
+  Map<int, double> evaluateAllDspBindings() {
+    final results = <int, double>{};
+
+    for (final binding in _dspBindings.values) {
+      if (!binding.enabled) continue;
+
+      final rtpcDef = _rtpcDefs[binding.rtpcId];
+      if (rtpcDef == null) continue;
+
+      final normalized = rtpcDef.normalizedValue;
+      results[binding.id] = binding.evaluate(normalized);
+    }
+
+    return results;
+  }
+
+  /// P11.1.2: Get DSP bindings as JSON for serialization
+  List<Map<String, dynamic>> dspBindingsToJson() {
+    return _dspBindings.values.map((b) => b.toJson()).toList();
+  }
+
+  /// P11.1.2: Import DSP bindings from JSON
+  void dspBindingsFromJson(List<dynamic> json) {
+    for (final item in json) {
+      final binding = RtpcDspBinding.fromJson(item as Map<String, dynamic>);
+      _dspBindings[binding.id] = binding;
+      if (binding.id >= _nextDspBindingId) {
+        _nextDspBindingId = binding.id + 1;
+      }
+    }
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // P3.10: RTPC MACROS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -420,27 +1002,46 @@ class RtpcSystemProvider extends ChangeNotifier {
   /// P3.10: Internal - apply macro binding result to target
   void _applyMacroBinding(RtpcTargetParameter target, double value, int interpolationMs) {
     // Route to appropriate FFI based on target type
+    // P11.1.2: Extended with DSP parameter support
+
+    // Check if this is a DSP parameter
+    if (target.isDspParameter) {
+      // DSP parameters are routed through DSP bindings
+      // Find any DSP bindings targeting this parameter and apply
+      final dspBindingsForTarget = getDspBindingsForTarget(target);
+      for (final binding in dspBindingsForTarget) {
+        if (!binding.enabled) continue;
+        _applyDspParameter(binding, value);
+      }
+      return;
+    }
+
+    // Handle basic audio parameters directly
     switch (target) {
       case RtpcTargetParameter.volume:
       case RtpcTargetParameter.busVolume:
         // Apply to master volume - specific bus targeting via binding.targetBusId
         _ffi.setBusVolume(5, value); // Master bus
+
       case RtpcTargetParameter.pitch:
       case RtpcTargetParameter.playbackRate:
         // Pitch modulation would go to engine
         break;
-      case RtpcTargetParameter.lowPassFilter:
-      case RtpcTargetParameter.highPassFilter:
-        // Filter cutoff modulation
-        break;
+
       case RtpcTargetParameter.pan:
         _ffi.setBusPan(5, (value * 2.0) - 1.0); // Convert 0-1 to -1..1
+
       case RtpcTargetParameter.width:
         // Width modulation
         break;
+
       case RtpcTargetParameter.reverbSend:
       case RtpcTargetParameter.delaySend:
         // Send levels
+        break;
+
+      default:
+        // Other parameters handled by DSP bindings
         break;
     }
   }
@@ -644,20 +1245,38 @@ class RtpcSystemProvider extends ChangeNotifier {
 
   /// P3.11: Internal - apply morph parameter to target
   void _applyMorphParameter(RtpcTargetParameter target, double value) {
+    // P11.1.2: Extended with DSP parameter support
+
+    // Check if this is a DSP parameter
+    if (target.isDspParameter) {
+      // DSP parameters are routed through DSP bindings
+      final dspBindingsForTarget = getDspBindingsForTarget(target);
+      for (final binding in dspBindingsForTarget) {
+        if (!binding.enabled) continue;
+        _applyDspParameter(binding, value);
+      }
+      return;
+    }
+
+    // Handle basic audio parameters directly
     switch (target) {
       case RtpcTargetParameter.volume:
       case RtpcTargetParameter.busVolume:
         _ffi.setBusVolume(5, value);
+
       case RtpcTargetParameter.pan:
         _ffi.setBusPan(5, (value * 2.0) - 1.0);
+
       case RtpcTargetParameter.pitch:
       case RtpcTargetParameter.playbackRate:
-      case RtpcTargetParameter.lowPassFilter:
-      case RtpcTargetParameter.highPassFilter:
       case RtpcTargetParameter.width:
       case RtpcTargetParameter.reverbSend:
       case RtpcTargetParameter.delaySend:
-        // These would route to appropriate DSP modules
+        // Basic audio modulation
+        break;
+
+      default:
+        // Other parameters handled by DSP bindings
         break;
     }
   }
@@ -857,10 +1476,12 @@ class RtpcSystemProvider extends ChangeNotifier {
     _objectRtpcs.clear();
     _rtpcMacros.clear();
     _presetMorphs.clear();
+    _dspBindings.clear();  // P11.1.2
     _nextRtpcId = 100;
     _nextBindingId = 1;
     _nextMacroId = 1;
     _nextMorphId = 1;
+    _nextDspBindingId = 1;  // P11.1.2
     notifyListeners();
   }
 
@@ -875,6 +1496,7 @@ class RtpcSystemProvider extends ChangeNotifier {
     _objectRtpcs.clear();
     _rtpcMacros.clear();
     _presetMorphs.clear();
+    _dspBindings.clear();  // P11.1.2
     super.dispose();
   }
 }

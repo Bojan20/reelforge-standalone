@@ -566,6 +566,10 @@ typedef EnginePlaybackStopAllOneShotsDart = void Function();
 typedef EnginePlaybackFadeOutOneShotNative = Void Function(Uint64 voiceId, Uint32 fadeMs);
 typedef EnginePlaybackFadeOutOneShotDart = void Function(int voiceId, int fadeMs);
 
+// P12.0.1: Real-time pitch shifting
+typedef EnginePlaybackSetVoicePitchNative = Int32 Function(Uint64 voiceId, Float semitones);
+typedef EnginePlaybackSetVoicePitchDart = int Function(int voiceId, double semitones);
+
 // Section-based playback filtering
 typedef EngineSetActiveSectionNative = Void Function(Uint8 section);
 typedef EngineSetActiveSectionDart = void Function(int section);
@@ -2219,6 +2223,7 @@ class NativeFFI {
   late final EnginePlaybackStopOneShotDart _playbackStopOneShot;
   late final EnginePlaybackStopAllOneShotsDart _playbackStopAllOneShots;
   late final EnginePlaybackFadeOutOneShotDart _playbackFadeOutOneShot; // P0
+  late final EnginePlaybackSetVoicePitchDart _playbackSetVoicePitch; // P12.0.1
 
   // Section-based playback filtering
   late final EngineSetActiveSectionDart _setActiveSection;
@@ -2887,6 +2892,7 @@ class NativeFFI {
     _playbackStopOneShot = _lib.lookupFunction<EnginePlaybackStopOneShotNative, EnginePlaybackStopOneShotDart>('engine_playback_stop_one_shot');
     _playbackStopAllOneShots = _lib.lookupFunction<EnginePlaybackStopAllOneShotsNative, EnginePlaybackStopAllOneShotsDart>('engine_playback_stop_all_one_shots');
     _playbackFadeOutOneShot = _lib.lookupFunction<EnginePlaybackFadeOutOneShotNative, EnginePlaybackFadeOutOneShotDart>('engine_playback_fade_out_one_shot'); // P0
+    _playbackSetVoicePitch = _lib.lookupFunction<EnginePlaybackSetVoicePitchNative, EnginePlaybackSetVoicePitchDart>('engine_playback_set_voice_pitch'); // P12.0.1
 
     // Section-based playback filtering
     _setActiveSection = _lib.lookupFunction<EngineSetActiveSectionNative, EngineSetActiveSectionDart>('engine_set_active_section');
@@ -4745,6 +4751,17 @@ class NativeFFI {
   void playbackFadeOutOneShot(int voiceId, {int fadeMs = 50}) {
     if (!_loaded) return;
     _playbackFadeOutOneShot(voiceId, fadeMs);
+  }
+
+  /// P12.0.1: Set pitch shift for specific voice in real-time
+  /// voiceId: voice to pitch shift
+  /// semitones: pitch shift in semitones (-24 to +24)
+  ///   Positive = higher pitch, negative = lower pitch
+  ///   +12 = one octave up, -12 = one octave down
+  /// Returns: true on success, false on failure
+  bool setVoicePitch(int voiceId, double semitones) {
+    if (!_loaded) return false;
+    return _playbackSetVoicePitch(voiceId, semitones) == 1;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

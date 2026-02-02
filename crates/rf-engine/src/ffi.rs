@@ -20221,6 +20221,16 @@ pub extern "C" fn engine_playback_fade_out_one_shot(voice_id: u64, fade_ms: u32)
     PLAYBACK_ENGINE.fade_out_one_shot(voice_id, fade_ms);
 }
 
+/// P12.0.1: Set pitch shift for specific voice
+/// voice_id: voice to pitch shift
+/// semitones: pitch shift in semitones (-24 to +24)
+/// Returns: 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_set_voice_pitch(voice_id: u64, semitones: f32) -> i32 {
+    PLAYBACK_ENGINE.set_voice_pitch(voice_id, semitones);
+    1 // Success
+}
+
 /// Set active playback section (for section-based voice filtering)
 /// section: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
 #[unsafe(no_mangle)]
