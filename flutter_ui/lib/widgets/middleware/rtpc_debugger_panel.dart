@@ -942,28 +942,27 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
   }
 
   IconData _getTargetIcon(RtpcTargetParameter target) {
-    switch (target) {
-      case RtpcTargetParameter.volume:
-        return Icons.volume_up;
-      case RtpcTargetParameter.pitch:
-        return Icons.music_note;
-      case RtpcTargetParameter.lowPassFilter:
-        return Icons.arrow_downward;
-      case RtpcTargetParameter.highPassFilter:
-        return Icons.arrow_upward;
-      case RtpcTargetParameter.pan:
-        return Icons.compare_arrows;
-      case RtpcTargetParameter.busVolume:
-        return Icons.speaker;
-      case RtpcTargetParameter.reverbSend:
-        return Icons.blur_on;
-      case RtpcTargetParameter.delaySend:
-        return Icons.timer;
-      case RtpcTargetParameter.width:
-        return Icons.unfold_more;
-      case RtpcTargetParameter.playbackRate:
-        return Icons.speed;
-    }
+    return switch (target) {
+      // Basic Audio Parameters
+      RtpcTargetParameter.volume => Icons.volume_up,
+      RtpcTargetParameter.pitch => Icons.music_note,
+      RtpcTargetParameter.pan => Icons.compare_arrows,
+      RtpcTargetParameter.width => Icons.unfold_more,
+      RtpcTargetParameter.playbackRate => Icons.speed,
+      RtpcTargetParameter.busVolume => Icons.speaker,
+      // Send Levels
+      RtpcTargetParameter.reverbSend => Icons.blur_on,
+      RtpcTargetParameter.delaySend => Icons.timer,
+      // Filter Parameters
+      RtpcTargetParameter.filterCutoff || RtpcTargetParameter.lowPassFilter => Icons.waves,
+      RtpcTargetParameter.filterResonance => Icons.auto_awesome,
+      RtpcTargetParameter.highPassFilter => Icons.arrow_upward,
+      // Reverb Parameters
+      RtpcTargetParameter.reverbDecay || RtpcTargetParameter.reverbPreDelay => Icons.timelapse,
+      RtpcTargetParameter.reverbMix || RtpcTargetParameter.reverbDamping || RtpcTargetParameter.reverbSize => Icons.blur_circular,
+      // Compressor, Delay, Gate, Limiter — grouped with default icons
+      _ => Icons.tune,
+    };
   }
 }
 

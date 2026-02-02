@@ -15,7 +15,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -541,6 +540,7 @@ class _HeaderZone extends StatelessWidget {
   final VoidCallback onSettingsTap;
   final VoidCallback onFullscreenToggle;
   final VoidCallback onExit;
+  final VoidCallback onReset;
 
   // P6: Device simulation
   final DeviceSimulation deviceSimulation;
@@ -571,6 +571,7 @@ class _HeaderZone extends StatelessWidget {
     required this.onSettingsTap,
     required this.onFullscreenToggle,
     required this.onExit,
+    required this.onReset,
     // P6 params
     this.deviceSimulation = DeviceSimulation.desktop,
     required this.onDeviceChanged,
@@ -677,6 +678,14 @@ class _HeaderZone extends StatelessWidget {
             icon: isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
             tooltip: isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
             onTap: onFullscreenToggle,
+          ),
+          const SizedBox(width: 8),
+
+          // Reset button
+          _HeaderIconButton(
+            icon: Icons.refresh,
+            tooltip: 'Reset Session (Shift+R)',
+            onTap: onReset,
           ),
           const SizedBox(width: 8),
 
@@ -5388,6 +5397,124 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     _saveSettings();
   }
 
+  /// Reset entire session to initial state (R key or Reset button)
+  void _resetSession() {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ULTIMATIVNI RESET — Sve na početak kao da je igra tek pokrenuta
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    final reg = EventRegistry.instance;
+
+    // 1. STOP SVE AUDIO (spin loops, music, win effects)
+    reg.stopAllSpinLoops();
+    reg.stopAllMusicVoices(fadeMs: 100);
+
+    // Stop specific win/celebration events
+    reg.stopEvent('BIG_WIN_LOOP');
+    reg.stopEvent('BIG_WIN_COINS');
+    reg.stopEvent('ROLLUP');
+    reg.stopEvent('WIN_COLLECT');
+    reg.stopEvent('WIN_PRESENT');
+
+    // 2. STOP Big Win protection timer
+    _stopBigWinProtection();
+
+    // 3. Cancel all reel stop timers
+    for (final timer in _reelStopTimers) {
+      timer.cancel();
+    }
+    _reelStopTimers.clear();
+
+    // 4. Cancel recording if active
+    if (_isRecording) {
+      _toggleRecording();
+    }
+
+    // 5. Cancel debug stats timer
+    _debugStatsTimer?.cancel();
+
+    // 6. Reset animation controller
+    _jackpotTickController.reset();
+
+    setState(() {
+      // ═══════════════════════════════════════════════════════════════════════════
+      // SESSION STATS — Back to fresh start
+      // ═══════════════════════════════════════════════════════════════════════════
+      _balance = 1000.0;
+      _sessionTotalBet = 0.0;
+      _totalWin = 0.0;
+      _totalSpins = 0;
+      _wins = 0;
+      _losses = 0;
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // JACKPOTS — Reset to seed + initial bonus
+      // ═══════════════════════════════════════════════════════════════════════════
+      _miniJackpot = _miniJackpotSeed + 25.50;
+      _minorJackpot = _minorJackpotSeed + 250.00;
+      _majorJackpot = _majorJackpotSeed + 2500.00;
+      _grandJackpot = _grandJackpotSeed + 25000.00;
+      _progressiveContribution = 0.0;
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // BET — Back to default
+      // ═══════════════════════════════════════════════════════════════════════════
+      _totalBet = 2.00;
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // FEATURE STATE — All features cleared
+      // ═══════════════════════════════════════════════════════════════════════════
+      _freeSpins = 0;
+      _freeSpinsRemaining = 0;
+      _bonusMeter = 0.0;
+      _featureProgress = 0.0;
+      _multiplier = 1;
+      _cascadeCount = 0;
+      _specialSymbolCount = 0;
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // AUTO-SPIN — Disabled
+      // ═══════════════════════════════════════════════════════════════════════════
+      _isAutoSpin = false;
+      _autoSpinCount = 0;
+      _autoSpinRemaining = 0;
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // WIN STATE — Cleared
+      // ═══════════════════════════════════════════════════════════════════════════
+      _currentWinTier = '';
+      _currentWinAmount = 0.0;
+      _pendingWinAmount = 0.0;
+      _bigWinProtectionRemaining = 0.0;
+      _winPresentationStartMs = 0;
+      _gambleWon = null;
+      _gambleCardRevealed = null;
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // UI STATE — All panels closed, ready for play
+      // ═══════════════════════════════════════════════════════════════════════════
+      _showWinPresenter = false;
+      _showGambleScreen = false;
+      _showMenuPanel = false;
+      _showSettingsPanel = false;
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // VISUAL-SYNC STATE — All reels stopped
+      // ═══════════════════════════════════════════════════════════════════════════
+      _reelsStopped = List.filled(widget.reels, true);
+      _pendingResultForWinStage = null;
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // DEBUG STATE — Clear message
+      // ═══════════════════════════════════════════════════════════════════════════
+      _debugMessage = 'Session reset. Waiting for spin...';
+      _processResultCallCount = 0;
+    });
+
+    debugPrint('[PremiumSlotPreview] 🔄 RESET — Session restored to initial state');
+    debugPrint('[PremiumSlotPreview] 💰 Balance: \$1000, Jackpots: Mini \$125.50, Minor \$1250, Major \$12500, Grand \$125000');
+  }
+
   /// Set master volume via FFI
   void _setMasterVolume(double volume) {
     setState(() => _masterVolume = volume);
@@ -6572,9 +6699,13 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         if (kDebugMode) _toggleDebugToolbar();
         return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
 
-      // P6: R = Recording toggle
+      // P6: R = Recording toggle, Shift+R = Reset session
       case LogicalKeyboardKey.keyR:
-        _toggleRecording();
+        if (HardwareKeyboard.instance.isShiftPressed) {
+          _resetSession();
+        } else {
+          _toggleRecording();
+        }
         return KeyEventResult.handled;
 
       // Forced outcomes (debug only)
@@ -6654,6 +6785,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   }),
                   onFullscreenToggle: () {},
                   onExit: widget.onExit,
+                  onReset: _resetSession,
                   // P6: Device simulation
                   deviceSimulation: _deviceSimulation,
                   onDeviceChanged: _setDeviceSimulation,

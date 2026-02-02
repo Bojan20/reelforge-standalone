@@ -10,7 +10,6 @@
 
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 
 /// Waveform rendering style
 enum WaveformStyle {

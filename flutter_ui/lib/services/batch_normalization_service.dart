@@ -200,10 +200,8 @@ class BatchNormalizationService extends ChangeNotifier {
     double targetLufs = LufsPresets.streaming,
     double peakCeilingDb = -1.0,
   }) async {
-    if (!_ffi.loaded) {
-      debugPrint('[BatchNorm] FFI not loaded');
-      return null;
-    }
+    // FFI is always loaded if NativeFFI.instance was obtained
+    // No explicit check needed
 
     final stopwatch = Stopwatch()..start();
 
@@ -223,8 +221,9 @@ class BatchNormalizationService extends ChangeNotifier {
       final target = mode == NormalizationMode.lufs ? targetLufs : peakCeilingDb;
       _ffi.offlinePipelineSetNormalization(handle, mode.ffiId, target);
 
-      // Process file
-      final success = _ffi.offlineProcessFile(handle, inputPath, outputPath);
+      // Process file (returns 1 on success, 0 on failure)
+      final successCode = _ffi.offlineProcessFile(handle, inputPath, outputPath);
+      final success = successCode == 1;
 
       // Get result info
       final resultJson = _ffi.offlineGetJobResult(handle);
@@ -263,7 +262,7 @@ class BatchNormalizationService extends ChangeNotifier {
         inputPath: inputPath,
         outputPath: outputPath,
         success: success,
-        error: success ? null : 'Processing failed',
+        error: !success ? 'Processing failed' : null,
         measuredLufs: measuredLufs,
         appliedGainDb: appliedGain,
         processingTimeMs: stopwatch.elapsedMilliseconds,

@@ -11,7 +11,6 @@ library;
 
 import 'package:flutter/foundation.dart';
 
-import '../../models/stage_models.dart';
 import '../../services/event_registry.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/stage_audio_mapper.dart';

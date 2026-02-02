@@ -680,17 +680,18 @@ class CloudSyncService extends ChangeNotifier {
       final hasLocalChanges = localHash != project.contentHash;
 
       // Check remote changes (simulate)
-      final remoteProject = await _fetchRemoteProject(projectId);
-      final hasRemoteChanges = remoteProject != null &&
-          remoteProject.contentHash != project.contentHash;
+      final remoteProjectNullable = await _fetchRemoteProject(projectId);
+      final hasRemoteChanges = remoteProjectNullable != null &&
+          remoteProjectNullable.contentHash != project.contentHash;
 
       int filesUploaded = 0;
       int filesDownloaded = 0;
       int conflictsResolved = 0;
 
-      // Handle conflicts
+      // Handle conflicts (Note: hasRemoteChanges already implies remoteProjectNullable != null)
+      final remoteProject = remoteProjectNullable; // Capture for null-safety in closures
       if (hasLocalChanges && hasRemoteChanges && remoteProject != null) {
-        final remote = remoteProject; // Non-null local for switch
+        final remote = remoteProject;
         _setStatus(SyncStatus.resolving, 'Resolving conflicts...');
 
         switch (conflictStrategy) {

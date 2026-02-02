@@ -6512,14 +6512,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return LayoutBuilder(
       builder: (context, constraints) {
         // DUAL MODE: Legacy timeline for backward compatibility, Ultimate for new workflow
-        final useUltimateTimeline = true; // TODO: Make this a user preference
-
-        if (useUltimateTimeline) {
-          return _buildUltimateTimelineMode(constraints);
-        }
-
-        // LEGACY MODE (preserved for backward compatibility)
-        return _buildLegacyTimelineMode(constraints);
+        // P14: Ultimate Timeline is now the only mode (legacy removed)
+        return _buildUltimateTimelineMode(constraints);
       },
     );
   }
