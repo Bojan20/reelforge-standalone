@@ -266,21 +266,17 @@ class ReelAnimationState {
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // AUDIO PRE-TRIGGER (2026-02-01): Fire audio callback DURING deceleration
+      // AUDIO SYNC (2026-02-02): Fire audio when reel VISUALLY reaches target
       //
-      // Visual landing happens at t > 0.7 when lerp starts approaching target.
-      // At t = 0.98, reel is visually ~98% settled at target position.
-      // This is the EXACT moment audio should play for perfect sync.
+      // Instead of using a fixed t threshold (which doesn't account for lerp),
+      // we check when scrollOffset is within 0.5 symbols of target.
+      // This ensures audio plays at the EXACT moment of visual landing.
       //
-      // Tuning history:
-      // - t=1.0 (bouncing entry): 100ms lag AFTER visual
-      // - t=0.95: Slight early (~10-20ms before visual)
-      // - t=0.98: Perfect sync ✓
-      //
-      // Previous bug: Audio fired when entering BOUNCING phase, which is 100-150ms
-      // AFTER visual landing, causing noticeable lag.
+      // Previous bug: t >= 0.98 fired audio before visual reached target because
+      // the lerp from t=0.7 to t=1.0 only moves 28% of the way at t=0.98.
       // ═══════════════════════════════════════════════════════════════════════════
-      if (t >= 0.98 && !_audioCallbackFired) {
+      final distanceToTarget = (scrollOffset - targetSymbolOffset).abs();
+      if (distanceToTarget < 0.5 && !_audioCallbackFired) {
         _audioCallbackFired = true;
         // NOTE: onReelStop callback will be invoked in tick() loop below
         _audioShouldFireThisTick = true;
