@@ -1,14 +1,17 @@
-/// Workspace Layout Service (P1.1)
+/// Workspace Layout Service (P1.1, P2-DAW-11)
 ///
 /// Manages workspace layout presets with SharedPreferences persistence.
+/// Extended with window positions and panel visibility (P2-DAW-11).
 ///
 /// Created: 2026-01-26
+/// Updated: 2026-02-02
 library;
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/workspace_layout_preset.dart';
+import '../models/workspace_window_layout.dart';
 import '../widgets/lower_zone/daw_lower_zone_controller.dart';
 
 class WorkspaceLayoutService extends ChangeNotifier {
@@ -18,6 +21,9 @@ class WorkspaceLayoutService extends ChangeNotifier {
   WorkspaceLayoutService._();
 
   List<WorkspaceLayoutPreset> _customPresets = [];
+  List<WorkspaceWindowLayout> _customWindowLayouts = [];
+
+  // ─── Lower Zone Presets (P1.1) ─────────────────────────────────────────────
 
   List<WorkspaceLayoutPreset> get allPresets => [
     ...WorkspaceLayoutPreset.builtIn,
@@ -26,8 +32,19 @@ class WorkspaceLayoutService extends ChangeNotifier {
 
   List<WorkspaceLayoutPreset> get customPresets => _customPresets;
 
+  // ─── Window Layouts (P2-DAW-11) ────────────────────────────────────────────
+
+  List<WorkspaceWindowLayout> get allWindowLayouts => [
+    ...BuiltInWindowLayouts.all,
+    ..._customWindowLayouts,
+  ];
+
+  List<WorkspaceWindowLayout> get customWindowLayouts => List.unmodifiable(_customWindowLayouts);
+  List<WorkspaceWindowLayout> get builtInWindowLayouts => BuiltInWindowLayouts.all;
+
   Future<void> init() async {
     await _loadCustomPresets();
+    await _loadCustomWindowLayouts();
   }
 
   Future<void> _loadCustomPresets() async {
@@ -43,6 +60,23 @@ class WorkspaceLayoutService extends ChangeNotifier {
         notifyListeners();
       } catch (e) {
         debugPrint('[WorkspaceLayoutService] Failed to load presets: $e');
+      }
+    }
+  }
+
+  Future<void> _loadCustomWindowLayouts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString('workspace_window_layouts');
+
+    if (json != null) {
+      try {
+        final List<dynamic> decoded = jsonDecode(json);
+        _customWindowLayouts = decoded
+            .map((e) => WorkspaceWindowLayout.fromJson(e as Map<String, dynamic>))
+            .toList();
+        notifyListeners();
+      } catch (e) {
+        debugPrint('[WorkspaceLayoutService] Failed to load window layouts: $e');
       }
     }
   }
@@ -109,6 +143,78 @@ class WorkspaceLayoutService extends ChangeNotifier {
       subTabIndex: controller.currentSubTabIndex,
       height: controller.height,
       isExpanded: controller.isExpanded,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  // ─── Window Layout Methods (P2-DAW-11) ─────────────────────────────────────
+
+  Future<bool> saveWindowLayout(WorkspaceWindowLayout layout) async {
+    if (layout.isBuiltIn) return false;
+
+    _customWindowLayouts.removeWhere((l) => l.id == layout.id);
+    _customWindowLayouts.add(layout.copyWith(createdAt: DateTime.now()));
+
+    final success = await _persistCustomWindowLayouts();
+    if (success) notifyListeners();
+    return success;
+  }
+
+  Future<bool> deleteWindowLayout(String id) async {
+    final index = _customWindowLayouts.indexWhere((l) => l.id == id);
+    if (index < 0) return false;
+
+    _customWindowLayouts.removeAt(index);
+    final success = await _persistCustomWindowLayouts();
+    if (success) notifyListeners();
+    return success;
+  }
+
+  Future<bool> _persistCustomWindowLayouts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = jsonEncode(_customWindowLayouts.map((l) => l.toJson()).toList());
+      return await prefs.setString('workspace_window_layouts', json);
+    } catch (e) {
+      debugPrint('[WorkspaceLayoutService] Failed to persist window layouts: $e');
+      return false;
+    }
+  }
+
+  WorkspaceWindowLayout? getWindowLayoutById(String id) {
+    return allWindowLayouts.where((l) => l.id == id).firstOrNull;
+  }
+
+  /// Create window layout from current panel states
+  WorkspaceWindowLayout createWindowLayoutFromState({
+    required String name,
+    double? leftPanelWidth,
+    double? rightPanelWidth,
+    double? bottomPanelHeight,
+    bool? leftPanelVisible,
+    bool? rightPanelVisible,
+    bool? bottomPanelExpanded,
+    bool? mixerVisible,
+    bool? browserVisible,
+  }) {
+    return WorkspaceWindowLayout(
+      id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      leftPanel: PanelConfig(
+        visible: leftPanelVisible ?? true,
+        width: leftPanelWidth,
+      ),
+      rightPanel: PanelConfig(
+        visible: rightPanelVisible ?? true,
+        width: rightPanelWidth,
+      ),
+      bottomPanel: PanelConfig(
+        visible: true,
+        height: bottomPanelHeight,
+        expanded: bottomPanelExpanded,
+      ),
+      mixerPanel: PanelConfig(visible: mixerVisible ?? true),
+      browserPanel: PanelConfig(visible: browserVisible ?? true),
       createdAt: DateTime.now(),
     );
   }
