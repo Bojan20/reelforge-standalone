@@ -763,6 +763,9 @@ class StageConfigurationService extends ChangeNotifier {
     _register('WIN_LINE_HIDE', StageCategory.win, 20, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_SYMBOL_HIGHLIGHT', StageCategory.win, 30, SpatialBus.sfx, 'DEFAULT', isPooled: true);
 
+    // Win collection — Triggered when SKIP pressed or win flow ends naturally
+    _register('WIN_COLLECT', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT');
+
     // Special Symbol Win Highlights — Triggered when WILD/SCATTER/BONUS are in winning combination
     _register('WIN_SYMBOL_HIGHLIGHT_WILD', StageCategory.win, 65, SpatialBus.sfx, 'WIN_BIG');
     _register('WIN_SYMBOL_HIGHLIGHT_SCATTER', StageCategory.win, 70, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');

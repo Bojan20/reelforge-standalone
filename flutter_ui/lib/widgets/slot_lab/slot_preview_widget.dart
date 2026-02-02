@@ -1260,6 +1260,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Guard against multiple calls (stopImmediately also fires this callback)
     if (_spinFinalized) return;
 
+    // CRITICAL: Wait for anticipation to finish before win flow
+    // Anticipation can still be active after last reel visual stop
+    if (_isAnticipation || _anticipationReels.isNotEmpty) {
+      debugPrint('[SlotPreview] ⏳ Waiting for anticipation to finish before win flow...');
+      return;
+    }
+
     // Notify provider: Reels no longer spinning (for STOP button visibility)
     widget.provider.onAllReelsVisualStop();
 
@@ -3172,6 +3179,24 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // P3.1: Reset zoom
       _anticipationZoom = 1.0;
     });
+
+    // CRITICAL: After anticipation ends, check if all reels stopped → trigger win flow
+    _checkWinFlowAfterAnticipation();
+  }
+
+  /// Check if win flow should start after anticipation finishes
+  void _checkWinFlowAfterAnticipation() {
+    if (!mounted) return;
+    if (_spinFinalized) return;
+    if (_isSpinning) return; // Still spinning
+
+    // All reels stopped AND anticipation finished → start win flow
+    final result = widget.provider.lastResult;
+    if (result != null) {
+      debugPrint('[SlotPreview] ✅ Anticipation finished, starting win flow');
+      widget.provider.onAllReelsVisualStop();
+      _finalizeSpin(result);
+    }
   }
 
   /// P3.1: Calculate camera zoom based on anticipation state
@@ -3300,6 +3325,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // P2.2: Clear anticipation particles when all anticipation ends
       _anticipationParticlePool.releaseAll(_anticipationParticles);
       _anticipationParticles.clear();
+
+      // CRITICAL: After all anticipation ends, check if win flow should start
+      _checkWinFlowAfterAnticipation();
     }
   }
 

@@ -533,6 +533,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // Convenience getter for backward compatibility
   String? get _draggingLayerId => _draggingLayerIdNotifier.value;
 
+  // Flag: EventRegistry sync was skipped during playback, needs sync when idle
+  bool _pendingRegistrySync = false;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ALL AVAILABLE STAGES — Complete list for dropdown
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1096,26 +1099,38 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (!mounted) return;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CRITICAL FIX: Skip setState during active drag!
-    // setState during gesture finalization kills the GestureDetector.
-    // The drag end handler will call setState when it's done.
+    // CRITICAL FIX: Skip EventRegistry sync during playback or drag!
+    // Re-registering events during playback can stop audio mid-play.
+    // Defer sync until playback ends or drag completes.
     // ═══════════════════════════════════════════════════════════════════════════
+    final isPlayingAudio = _hasSlotLabProvider && _slotLabProvider.isPlayingStages;
+    final skipRegistrySync = _draggingLayerId != null || isPlayingAudio;
+
     if (_draggingLayerId != null) {
       debugPrint('[SlotLab] SKIPPING setState - drag in progress');
-      // Still sync data structures, just don't trigger rebuild
       for (final event in _compositeEvents) {
         _rebuildRegionForEvent(event);
-        _syncEventToRegistry(event);
       }
       _syncLayersToTrackManager();
+      _pendingRegistrySync = true;
       return;
+    }
+
+    // If pending sync and now idle, do full sync
+    if (_pendingRegistrySync && !skipRegistrySync) {
+      _pendingRegistrySync = false;
+      _syncAllEventsToRegistry();
     }
 
     // Rebuild region layers to match updated events from MiddlewareProvider
     for (final event in _compositeEvents) {
       _rebuildRegionForEvent(event);
-      // CRITICAL: Also sync to EventRegistry so stages trigger audio
-      _syncEventToRegistry(event);
+      // Only sync to EventRegistry if not playing (prevents audio cutoff)
+      if (!skipRegistrySync) {
+        _syncEventToRegistry(event);
+      } else {
+        _pendingRegistrySync = true;
+      }
     }
 
     // CRITICAL FIX: Sync to TRACK_MANAGER for playback (removes orphaned clips)

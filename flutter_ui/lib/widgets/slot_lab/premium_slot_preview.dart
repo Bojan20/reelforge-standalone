@@ -5322,9 +5322,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Handle SKIP button press during win presentation.
   /// Industry standard (IGT, NetEnt, Pragmatic Play):
   /// - SKIP does NOT start a new spin
-  /// - SKIP jumps to END event of current phase
-  /// - For Big Wins: triggers BIG_WIN_END, waits, then collects
-  /// - For regular wins: triggers ROLLUP_END, then collects immediately
+  /// - SKIP jumps to END of ENTIRE win flow (not just current phase)
+  /// - Stops ALL win-related audio immediately
+  /// - Shows total win plaque with final amount
+  /// - Triggers WIN_COLLECT stage, then collects
   void _handleSkipWinPresentation() {
     // Don't allow skip if protection is still active
     if (_bigWinProtectionRemaining > 0) {
@@ -5332,43 +5333,41 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       return;
     }
 
-    debugPrint('[PremiumSlotPreview] 🎬 SKIP: Skipping win presentation, tier=$_currentWinTier');
+    debugPrint('[PremiumSlotPreview] 🎬 SKIP: Skipping ENTIRE win flow, tier=$_currentWinTier, pending=$_pendingWinAmount');
 
-    // Stop current win audio
+    // Stop ALL win-related audio immediately
     final eventRegistry = EventRegistry.instance;
     eventRegistry.stopEvent('BIG_WIN_LOOP');
+    eventRegistry.stopEvent('BIG_WIN_COINS');
+    eventRegistry.stopEvent('BIG_WIN_INTRO');
     eventRegistry.stopEvent('ROLLUP');
+    eventRegistry.stopEvent('ROLLUP_TICK');
+    eventRegistry.stopEvent('WIN_SYMBOL_HIGHLIGHT');
+    eventRegistry.stopEvent('WIN_LINE_SHOW');
+    eventRegistry.stopEvent('WIN_PRESENT');
 
-    // Check if this is a Big Win tier
-    final isBigWin = _currentWinTier.toUpperCase().startsWith('BIG_WIN');
-
-    if (isBigWin) {
-      // Trigger BIG_WIN_END stage (4 seconds of ending fanfare)
-      debugPrint('[PremiumSlotPreview] 🎬 SKIP: Triggering BIG_WIN_END');
-      eventRegistry.triggerStage('BIG_WIN_END');
-
-      // Wait for END event duration then collect
-      Future.delayed(
-        Duration(milliseconds: (BigWinProtection.endDuration * 1000).toInt()),
-        () {
-          if (mounted) {
-            debugPrint('[PremiumSlotPreview] 🎬 SKIP: BIG_WIN_END complete, collecting');
-            _collectWin();
-          }
-        },
-      );
-    } else {
-      // Regular win - trigger ROLLUP_END then collect
-      debugPrint('[PremiumSlotPreview] 🎬 SKIP: Triggering ROLLUP_END for regular win');
-      eventRegistry.triggerStage('ROLLUP_END');
-
-      // Short delay for END sound to play, then collect
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          _collectWin();
-        }
-      });
+    // Stop any tier-specific audio
+    for (final tier in ['BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA']) {
+      eventRegistry.stopEvent('WIN_PRESENT_$tier');
+      eventRegistry.stopEvent('BIG_WIN_TIER_$tier');
     }
+
+    // Trigger WIN_COLLECT stage (short "collect" sound)
+    debugPrint('[PremiumSlotPreview] 🎬 SKIP: Triggering WIN_COLLECT');
+    eventRegistry.triggerStage('WIN_COLLECT');
+
+    // Show final total immediately in UI (update plaque to show TOTAL WIN)
+    setState(() {
+      _currentWinTier = 'TOTAL'; // This shows "TOTAL WIN" plaque
+    });
+
+    // Short delay for collect sound, then finalize
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        debugPrint('[PremiumSlotPreview] 🎬 SKIP: Collecting win amount: $_pendingWinAmount');
+        _collectWin();
+      }
+    });
   }
 
   // === HANDLERS ===
