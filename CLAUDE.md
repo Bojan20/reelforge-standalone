@@ -23,6 +23,25 @@
 
 ---
 
+## 📋 OBAVEZNA PROCEDURA POSLE SVAKOG ZADATKA
+
+**UVEK NAKON USPEŠNOG ZAVRŠETKA ZADATKA:**
+
+1. **Ažuriraj `.claude/MASTER_TODO.md`** — Označi task kao complete
+2. **Ažuriraj README.md** (ako je potrebno) — Project metrics
+3. **Kreiraj session summary** (za velike milestone-e)
+4. **PITAJ KORISNIKA PRE COMMIT-a** — "Da li da commitujеm?"
+5. **NE COMMITUJ AUTOMATSKI** — Čekaj eksplicitnu potvrdu
+
+**NIKADA:**
+- ❌ NE commituj bez pitanja
+- ❌ NE preskači ažuriranje dokumentacije
+- ❌ NE nastavi sa sledećim taskovima dok ne dobiješ potvrdu
+
+**Razlog:** Korisnik želi kontrolu nad git historijom i dokumentacijom.
+
+---
+
 ## 🎰 SLOTLAB — ZABRANA HARDKODIRANJA 🎰
 
 **NIŠTA VEZANO ZA SLOTLAB NE SME BITI HARDKODIRANO!**
@@ -457,16 +476,28 @@ U tom režimu:
 - Ne praviš iste greške dva puta
 - Ne čekaš podsećanje
 
-### 2. Ne pitaj — implementiraj
+### 2. 🧠 GOD MODE
 
-- Kada kažem "da" → odmah radi
-- Ne objašnjavaj unapred šta ćeš raditi
-- Posle implementacije → samo lista promena
-- **NIKADA ne pitaj "da li A ili B?"** → UVEK biraj NAJBOLJE i PRAVO rešenje
-- **Nikakvi mockup-ovi, duplikati ili workaround-i** → samo konkretna, production-ready implementacija
-- **Dok korisnik ne kaže drugačije** → implementiraj ultimativno rešenje, ne privremeno
-- **NIKADA jednostavno rešenje — UVEK ultimativno** → ako postoji name collision, preimenuj klasu; ako treba refactor, uradi ga kompletno
-- **AUTOMATSKI ČITAJ pre promene** → pre bilo kakve izmene UVEK pročitaj sve relevantne fajlove, pronađi SVE instance, razumi kontekst
+| Prefiks | Značenje |
+|---------|----------|
+| `Implement:` | Kreiraj |
+| `Fix:` | Popravi |
+| `Add:` | Dodaj |
+| `Change:` | Izmeni |
+| `Audio:` | Audio |
+| `Flow:` | Game flow |
+| `UI:` | UI |
+
+| Modifikator | Efekat |
+|-------------|--------|
+| `Do it.` | Bez potvrde |
+| `Silent.` | Samo kod |
+| `Minimal.` | Najmanji diff |
+| `+commit` | Auto-commit |
+
+**Pravila:** CLAUDE.md UVEK važi. GOD MODE ne skip-uje STOP/BUILD/SHIP.
+**Escape:** Arch decision → 1 pitanje.
+**Default:** Bez prefiksa = normalan rad.
 
 ### 3. UVEK pretraži prvo
 
