@@ -112,6 +112,7 @@ class InsertSlot {
   final bool isPreFader;
   final double wetDry; // 0.0 to 1.0
   final Map<String, dynamic>? params;
+  final int pdcSamples; // Plugin delay compensation in samples
 
   const InsertSlot({
     required this.id,
@@ -121,6 +122,7 @@ class InsertSlot {
     this.isPreFader = false,
     this.wetDry = 1.0,
     this.params,
+    this.pdcSamples = 0,
   });
 
   /// Wet/dry as percentage (0-100)
@@ -144,6 +146,7 @@ class InsertSlot {
     bool? isPreFader,
     double? wetDry,
     Map<String, dynamic>? params,
+    int? pdcSamples,
   }) {
     return InsertSlot(
       id: id ?? this.id,
@@ -153,6 +156,7 @@ class InsertSlot {
       isPreFader: isPreFader ?? this.isPreFader,
       wetDry: wetDry ?? this.wetDry,
       params: params ?? this.params,
+      pdcSamples: pdcSamples ?? this.pdcSamples,
     );
   }
 }
