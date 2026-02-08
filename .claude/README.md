@@ -1,203 +1,74 @@
-# 🎯 FluxForge Studio — Documentation Index
+# FluxForge Studio — .claude/ Documentation
 
-**Project Status:** 81.4% Complete (296/362 tasks)
-**Last Updated:** 2026-02-02
-**Quality Grade:** A+ (98/100)
-
----
-
-## 📚 QUICK START — WHERE TO LOOK
-
-### For Developers
-
-**→ Start Here:** [MASTER_TODO.md](MASTER_TODO.md)
-- Current project status (83% complete)
-- Remaining tasks (61 tasks, 17%)
-- Next priorities
-
-**→ Complete Details:** [MASTER_TODO_ULTIMATE_2026_02_01.md](MASTER_TODO_ULTIMATE_2026_02_01.md)
-- All 362 tasks with full details
-- 1,820 lines of tracking information
-
-### For Reviewers
-
-**→ Latest Session:** [SESSION_2026_02_02_TOP_P1_COMPLETE.md](sessions/SESSION_2026_02_02_TOP_P1_COMPLETE.md)
-- Top 10 P1 completion (5 tasks, ~11,657 LOC)
-- 3 industry-first features delivered
-
-**→ Previous Session:** [SESSION_2026_02_01_FINAL_SUMMARY.md](SESSION_2026_02_01_FINAL_SUMMARY.md)
-- Epic session (103 tasks completed)
-- Phase A + P13 + P14 finished
-
-**→ MVP Status:** [PHASE_A_100_PERCENT_COMPLETE.md](PHASE_A_100_PERCENT_COMPLETE.md)
-- MVP ship authorization
-- Security audit results
-- Quality scorecard
-
-### For Stakeholders
-
-**→ Ship Status:** [MVP_SHIP_READY.txt](MVP_SHIP_READY.txt)
-- Visual ASCII banner
-- Ship authorization
+**Last Updated:** 2026-02-08
+**Status:** 100% Complete (362/362 tasks)
 
 ---
 
-## 🏆 COMPLETED MILESTONES
+## QUICK START
 
-### ✅ Phase A — Security & Critical (100%)
-**10 P0 Tasks, ~10,000 LOC, 155 tests**
-
-**Documentation:**
-- [PHASE_A_100_PERCENT_COMPLETE.md](PHASE_A_100_PERCENT_COMPLETE.md) — Certification
-- [PHASE_A_COMPLETE_SUMMARY.md](PHASE_A_COMPLETE_SUMMARY.md) — Review
-- [SESSION_2026_02_01_SECURITY_PHASE_A.md](sessions/SESSION_2026_02_01_SECURITY_PHASE_A.md) — Implementation log
-- [GRAPH_PDC_ULTIMATE_SPEC.md](specs/GRAPH_PDC_ULTIMATE_SPEC.md) — Algorithm explanation
-
-### ✅ P13 — Feature Builder (100%)
-**73 Tasks, ~13,500 LOC, 18 blocks**
-
-**Documentation:**
-- [P13_FEATURE_BUILDER_FINAL_PUSH.md](tasks/P13_FEATURE_BUILDER_FINAL_PUSH.md) — Execution plan
-- [FEATURE_BUILDER_ULTIMATE_SPEC.md](specs/FEATURE_BUILDER_ULTIMATE_SPEC.md) — Full specification
-
-### ✅ P14 — SlotLab Timeline (100%)
-**17 Tasks, ~4,676 LOC**
-
-**Documentation:**
-- [SLOTLAB_TIMELINE_ULTIMATE_SPEC.md](specs/SLOTLAB_TIMELINE_ULTIMATE_SPEC.md) — Architecture
-- [P14_TIMELINE_COMPLETE_2026_02_01.md](tasks/P14_TIMELINE_COMPLETE_2026_02_01.md) — Completion log
-
-### ✅ Top 10 P1 — High Impact (100%)
-**10 Tasks, ~21,257 LOC** (228% over planned!)
-
-**Completed Session 2026-02-01:**
-- Monitor Section (~1,061 LOC by Opus)
-- Stem Routing Matrix (~1,438 LOC by Opus)
-- Time-Stretch FFI (~900 LOC by Opus)
-- Subsystem Provider Tests (partial)
-- SlotLabProvider Split (partial)
-
-**Completed Session 2026-02-02:**
-- Audio Graph Visualization (~2,604 LOC, 24 tests)
-- GPU-Accelerated Meters (~1,592 LOC by Opus, 41 tests)
-- Processor Frequency Graphs (~3,449 LOC by Opus, 36 tests)
-- Per-Layer DSP Insert (~1,985 LOC by Opus, 35 tests)
-- RTPC→DSP Integration (~2,027 LOC by Opus, 35 tests)
+**Project Status:** [MASTER_TODO.md](MASTER_TODO.md)
+**Build Instructions:** [CLAUDE.md](../CLAUDE.md#kritično-full-build-procedura)
+**Truth Hierarchy:** [00_AUTHORITY.md](00_AUTHORITY.md)
+**Full Documentation Index:** [INDEX.md](INDEX.md)
 
 ---
 
-## 📋 DIRECTORY STRUCTURE
+## DIRECTORY STRUCTURE
 
 ```
 .claude/
-├── README.md (this file)               # Documentation index
+├── 00_AUTHORITY.md           — Truth hierarchy
+├── 00_MODEL_USAGE_POLICY.md  — Opus vs Sonnet rules
+├── 01_BUILD_MATRIX.md        — Build configurations
+├── 02_DOD_MILESTONES.md      — Production gates
+├── 03_SAFETY_GUARDRAILS.md   — Audio thread rules
+├── CLEANUP_TODO.md           — Cleanup tracker
+├── DOC_RULES.md              — Documentation rules
+├── INDEX.md                  — Navigation hub
+├── MASTER_TODO.md            — Global task tracker
+├── README.md                 — This file
+├── REVIEW_MODE.md            — Review procedure
+├── SYSTEM_AUDIT_2026_01_21.md — Architecture audit
 │
-├── MASTER_TODO.md                      # Current status (quick ref)
-├── MASTER_TODO_ULTIMATE_2026_02_01.md  # Complete 362-task breakdown
-├── MASTER_TODO_CONSOLIDATED_2026_02_01.md # Concise overview
-│
-├── sessions/                           # Implementation logs
-│   ├── SESSION_2026_02_01_FINAL_SUMMARY.md
-│   ├── SESSION_2026_02_01_SECURITY_PHASE_A.md
-│   └── (other session logs)
-│
-├── specs/                              # Technical specifications
-│   ├── GRAPH_PDC_ULTIMATE_SPEC.md
-│   ├── FEATURE_BUILDER_ULTIMATE_SPEC.md
-│   ├── SLOTLAB_TIMELINE_ULTIMATE_SPEC.md
-│   └── (other specs)
-│
-├── tasks/                              # Task tracking
-│   ├── P13_FEATURE_BUILDER_FINAL_PUSH.md
-│   ├── P14_TIMELINE_COMPLETE_2026_02_01.md
-│   └── (completion logs)
-│
-├── analysis/                           # System analysis
-│   ├── DAW_ULTIMATE_ANALYSIS_2026_01_31.md
-│   ├── MIDDLEWARE_ULTIMATE_ANALYSIS_2026_01_31.md
-│   └── SLOTLAB_ULTIMATE_ANALYSIS_2026_01_31.md
-│
-└── reviews/                            # Code reviews
-    └── (review documents)
+├── analysis/      (13 docs)  — Code analysis reports
+├── architecture/  (24 docs)  — System designs
+├── audits/        (1 doc)    — Security audits
+├── docs/          (4 docs)   — Technical docs
+├── domains/       (5 docs)   — Domain specs
+├── guides/        (6 docs)   — Development guides
+├── performance/   (1 doc)    — Optimization guide
+├── project/       (1 doc)    — Project spec
+├── reviews/       (1 doc)    — System review
+├── roadmap/       (1 doc)    — SlotLab roadmap
+├── specs/         (5 docs)   — Technical specs
+├── tasks/         (6 docs)   — Task tracking
+└── verification/  (1 doc)    — Verification reports
 ```
 
----
-
-## 🎯 PROJECT METRICS
-
-**Tasks:**
-- Complete: 296/362 (81.4%)
-- Remaining: 66 (18.6%)
-
-**LOC:**
-- Delivered: ~131,657+
-- Remaining: ~21,000
-
-**Tests:**
-- Passing: 371+ (97% pass rate)
-
-**Quality:**
-- Security: 10/10 ⭐⭐⭐⭐⭐
-- Reliability: 10/10 ⭐⭐⭐⭐⭐
-- Performance: 10/10 ⭐⭐⭐⭐⭐
-- Test Coverage: 8/10 ⭐⭐⭐⭐☆
-- Documentation: 10/10 ⭐⭐⭐⭐⭐
-
-**Overall:** 98/100 (A+ grade)
+**Total:** 12 root files, 14 folders, 69 subfolder docs = **81 files**
 
 ---
 
-## 🚢 SHIP STATUS
+## DOCUMENTATION RULES
 
-**MVP:** ✅ AUTHORIZED
-- Phase A: 100% complete
-- Security: Hardened
-- Quality: Validated
-- Tests: 200+ passing
-
-**Full Release:** ⏳ 2-3 weeks
-- P1: 36 tasks remaining
-- P2: 46 tasks (optional polish)
+See [DOC_RULES.md](DOC_RULES.md) for:
+- Forbidden file types (no session reports, progress reports, changelogs)
+- Folder structure with max file limits
+- Pre-creation checklist
+- Naming conventions
 
 ---
 
-## 💡 HOW TO USE THIS DOCUMENTATION
+## PREVENTION MECHANISMS
 
-### Planning Next Work
-
-1. Read [MASTER_TODO.md](MASTER_TODO.md) for current status
-2. Choose priority (Option 1/2/3 listed in TODO)
-3. Check [MASTER_TODO_ULTIMATE_2026_02_01.md](MASTER_TODO_ULTIMATE_2026_02_01.md) for task details
-
-### Understanding What Was Done
-
-1. Read [SESSION_2026_02_01_FINAL_SUMMARY.md](SESSION_2026_02_01_FINAL_SUMMARY.md)
-2. Browse [sessions/](sessions/) for implementation details
-3. Check [specs/](specs/) for technical architecture
-
-### Code Review
-
-1. Start with [PHASE_A_100_PERCENT_COMPLETE.md](PHASE_A_100_PERCENT_COMPLETE.md)
-2. Read [analysis/](analysis/) for section-by-section review
-3. Check test coverage in [sessions/](sessions/)
+| Mechanism | Location | Purpose |
+|-----------|----------|---------|
+| AppleDouble cleanup | `scripts/clean-appledouble.sh` | Removes `._*` from project |
+| Build integration | `scripts/run-macos.sh` | Auto-cleanup before build |
+| Pre-commit hook | `.git/hooks/pre-commit` | Blocks `._*` commits |
+| Documentation rules | `.claude/DOC_RULES.md` | Prevents doc spam |
 
 ---
 
-## 🏆 KEY ACHIEVEMENTS
-
-**Session 2026-02-01:**
-- 103 tasks completed in 1 day
-- ~50,000 LOC delivered
-- 200+ tests created
-- 18 commits
-- 10 Opus agents used (parallel execution)
-
-**Ultimate Philosophy:**
-- Every solution: Best-in-class, no compromises
-- Validated by 200+ automated tests
-- Fully documented (~10,000 LOC docs)
-
----
-
-*Documentation maintained by: FluxForge Development Team*
 *For questions: See MASTER_TODO.md for current priorities*

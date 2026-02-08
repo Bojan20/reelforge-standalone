@@ -222,7 +222,6 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 - .claude/guides/PROVIDER_ACCESS_PATTERN.md — Code standard for Provider usage
 
 **Active Roadmaps:**
-- .claude/tasks/DAW_LOWER_ZONE_TODO_2026_01_26.md — DAW section improvements (P0/P1/P2 ✅ COMPLETE)
 - .claude/tasks/P4_COMPLETE_VERIFICATION_2026_01_30.md — **ALL P4 TASKS COMPLETE** (26/26 ✅)
 - .claude/tasks/P9_AUDIO_PANEL_CONSOLIDATION_2026_01_31.md — **P9 COMPLETE** (12/12 ✅)
 - .claude/tasks/P13_FEATURE_BUILDER_INTEGRATION_2026_02_01.md — **P13.8 Apply & Build** (5/9 ✅)
@@ -1530,7 +1529,6 @@ Kompletna analiza 6 ključnih middleware komponenti iz svih 7 CLAUDE.md uloga.
 
 **Analysis Documents:**
 - `.claude/analysis/EVENT_REGISTRY_ANALYSIS_2026_01_24.md`
-- `.claude/analysis/COMPOSITE_EVENT_PROVIDER_ANALYSIS_2026_01_24.md`
 - `.claude/analysis/CONTAINER_PANELS_ANALYSIS_2026_01_24.md`
 - `.claude/analysis/ALE_PROVIDER_ANALYSIS_2026_01_24.md`
 - `.claude/analysis/LOWER_ZONE_CONTROLLER_ANALYSIS_2026_01_24.md`
@@ -1896,8 +1894,6 @@ Complete 18-task improvement plan for DAW section.
 ### DAW Lower Zone TODO 2026-01-26 — ✅ P0+P1+P2 COMPLETE
 
 Comprehensive 47-task improvement plan for DAW section Lower Zone.
-
-**Task Document:** `.claude/tasks/DAW_LOWER_ZONE_TODO_2026_01_26.md`
 
 **Current Status (2026-01-29):**
 - ✅ **P0 (Critical):** 8/8 complete
@@ -2754,8 +2750,6 @@ AudioPlaybackService.playFileToBus()
 | `event_log_panel.dart` | Container badge widget |
 | `*_container_panel.dart` | Audio picker UI |
 
-**Dokumentacija:** `.claude/tasks/CONTAINER_P0_INTEGRATION.md`, `.claude/tasks/CONTAINER_P1_UI_INTEGRATION.md`
-
 **P2 Rust FFI (COMPLETED 2026-01-22):**
 
 Sub-millisecond container evaluation via Rust FFI.
@@ -2790,8 +2784,6 @@ Sub-millisecond container evaluation via Rust FFI.
 - Measures Rust FFI vs Dart latency (1000 iterations)
 - Returns avg/min/max/P50/P99 statistics with speedup factors
 
-**Dokumentacija:** `.claude/tasks/CONTAINER_P2_RUST_FFI.md`
-
 **P3 Advanced (COMPLETED 2026-01-22):**
 
 All P3 optimizations implemented:
@@ -2825,8 +2817,6 @@ All P3 optimizations implemented:
 - `ContainerGroup`, `GroupChild`, `GroupEvaluationMode` (All/FirstMatch/Priority/Random)
 - FFI: `container_create_group()`, `container_evaluate_group()`, `container_group_add_child()`
 - Enables complex sound design: Random→Blend (pick variant, crossfade by RTPC)
-
-**Dokumentacija:** `.claude/tasks/CONTAINER_P3_ADVANCED.md`
 
 ### Audio Waveform Picker Dialog (2026-01-22) ✅
 
@@ -4299,8 +4289,6 @@ Reorganizovani Lower Zone, novi widgeti i 3-panel layout za V6.
 - Phase 8: Provider Registration (GetIt Layer 5.5)
 - Phase 9: FFI Integration (EventRegistry sync, ALE profile generation)
 
-**Dokumentacija:** `.claude/tasks/SLOTLAB_V6_IMPLEMENTATION.md`
-
 **Enhanced Symbol System:** `.claude/architecture/DYNAMIC_SYMBOL_CONFIGURATION.md` — Data-driven symbol configuration sa presets, Add/Remove UI, i automatskim stage generisanjem
 
 ### SlotLab V6.2 — Gap Fixes (2026-01-24) ✅ COMPLETE
@@ -5368,8 +5356,6 @@ void clearAllSpeedMultipliers();  // Called on spin start
 - `flutter_ui/lib/providers/slot_lab_provider.dart` — P0.3 anticipation callbacks
 - `flutter_ui/lib/widgets/slot_lab/professional_reel_animation.dart` — P0.3 speed multiplier
 
-**Dokumentacija:** `.claude/tasks/INDUSTRY_STANDARD_FIXES_PLAN.md`
-
 ### Advanced Audio Features (2026-01-25) ✅
 
 **Reel Spin Audio System (Updated 2026-01-31)**
@@ -5836,8 +5822,6 @@ P1 priority tasks from middleware analysis completed.
 
 **Verification:** `flutter analyze` — No errors (11 info-level only)
 
-**Documentation:** `.claude/architecture/MIDDLEWARE_TODO_M3_2026_01_23.md`
-
 ---
 
 ### M3.2 Sprint — Middleware Improvements (2026-01-23) ✅
@@ -5892,8 +5876,6 @@ await WorkspacePresetService.instance.createPreset(
 ```
 
 **Verification:** `flutter analyze` — No errors (11 info-level only)
-
-**Documentation:** `.claude/architecture/MIDDLEWARE_TODO_M3_2026_01_23.md`
 
 ---
 
@@ -5975,8 +5957,6 @@ final tutorials = BuiltInTutorials.all;
 ```
 
 **Verification:** `flutter analyze` — No errors (11 info-level only)
-
-**Documentation:** `.claude/architecture/MIDDLEWARE_TODO_M3_2026_01_23.md`
 
 **M3-M4 Summary:**
 | Sprint | Tasks | LOC | Status |
