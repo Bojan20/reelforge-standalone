@@ -46,9 +46,8 @@ if [ "$RUN_ONLY" = false ]; then
     cd "$FLUTTER_UI" && flutter pub get
 
     echo ""
-    echo "Cleaning AppleDouble files from Pods..."
-    find "$FLUTTER_UI/macos/Pods" -name '._*' -type f -delete 2>/dev/null || true
-    find "$FLUTTER_UI/macos" -name '._*' -type f -delete 2>/dev/null || true
+    echo "Cleaning AppleDouble files from entire project..."
+    "$PROJECT_ROOT/scripts/clean-appledouble.sh" --quiet
 
     echo ""
     echo "Running pod install..."
