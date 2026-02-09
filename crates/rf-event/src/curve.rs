@@ -183,10 +183,18 @@ mod tests {
             FadeCurve::Exp3,
         ] {
             // Start should be ~0
-            assert!((curve.evaluate(0.0) - 0.0).abs() < 0.001, "{:?} at 0.0", curve);
+            assert!(
+                (curve.evaluate(0.0) - 0.0).abs() < 0.001,
+                "{:?} at 0.0",
+                curve
+            );
 
             // End should be ~1
-            assert!((curve.evaluate(1.0) - 1.0).abs() < 0.001, "{:?} at 1.0", curve);
+            assert!(
+                (curve.evaluate(1.0) - 1.0).abs() < 0.001,
+                "{:?} at 1.0",
+                curve
+            );
 
             // Middle should be between 0 and 1
             let mid = curve.evaluate(0.5);
@@ -210,7 +218,14 @@ mod tests {
             for i in 0..=100 {
                 let t = i as f32 / 100.0;
                 let val = curve.evaluate(t);
-                assert!(val >= prev - 0.0001, "{:?}: {} < {} at t={}", curve, val, prev, t);
+                assert!(
+                    val >= prev - 0.0001,
+                    "{:?}: {} < {} at t={}",
+                    curve,
+                    val,
+                    prev,
+                    t
+                );
                 prev = val;
             }
         }

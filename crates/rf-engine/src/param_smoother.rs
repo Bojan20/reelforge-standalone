@@ -174,7 +174,7 @@ impl TrackParamSmoother {
     pub fn new(sample_rate: f64) -> Self {
         Self {
             volume: ParamSmoother::new(sample_rate, 1.0), // Default volume = 1.0
-            pan: ParamSmoother::new(sample_rate, 0.0),     // Default pan = center
+            pan: ParamSmoother::new(sample_rate, 0.0),    // Default pan = center
         }
     }
 
@@ -213,14 +213,15 @@ impl AtomicParamState {
     const fn new() -> Self {
         Self {
             target_volume: AtomicU64::new(0x3FF0000000000000), // 1.0 as f64 bits
-            target_pan: AtomicU64::new(0),                      // 0.0 as f64 bits
+            target_pan: AtomicU64::new(0),                     // 0.0 as f64 bits
             active: AtomicUsize::new(0),
         }
     }
 
     #[inline]
     fn set_volume(&self, volume: f64) {
-        self.target_volume.store(volume.to_bits(), Ordering::Release);
+        self.target_volume
+            .store(volume.to_bits(), Ordering::Release);
     }
 
     #[inline]
@@ -240,7 +241,8 @@ impl AtomicParamState {
 
     #[inline]
     fn set_active(&self, active: bool) {
-        self.active.store(if active { 1 } else { 0 }, Ordering::Release);
+        self.active
+            .store(if active { 1 } else { 0 }, Ordering::Release);
     }
 
     #[inline]
@@ -355,7 +357,8 @@ impl ParamSmootherManager {
 
     /// Update sample rate (UI thread)
     pub fn set_sample_rate(&self, sample_rate: f64) {
-        self.sample_rate.store(sample_rate.to_bits(), Ordering::Release);
+        self.sample_rate
+            .store(sample_rate.to_bits(), Ordering::Release);
         // Note: Audio thread will pick up new sample rate on next process call
     }
 

@@ -234,9 +234,10 @@ impl Command for AddClipCommand {
     fn undo(&mut self) {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
-            && self.inserted_index < track.regions.len() {
-                track.regions.remove(self.inserted_index);
-            }
+            && self.inserted_index < track.regions.len()
+        {
+            track.regions.remove(self.inserted_index);
+        }
         project.touch();
     }
 
@@ -268,9 +269,10 @@ impl Command for RemoveClipCommand {
     fn execute(&mut self) {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
-            && self.clip_index < track.regions.len() {
-                self.removed_clip = Some(track.regions.remove(self.clip_index));
-            }
+            && self.clip_index < track.regions.len()
+        {
+            self.removed_clip = Some(track.regions.remove(self.clip_index));
+        }
         project.touch();
     }
 
@@ -328,18 +330,20 @@ impl Command for MoveClipCommand {
     fn execute(&mut self) {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
-            && let Some(clip) = track.regions.get_mut(self.clip_index) {
-                clip.position = self.new_position;
-            }
+            && let Some(clip) = track.regions.get_mut(self.clip_index)
+        {
+            clip.position = self.new_position;
+        }
         project.touch();
     }
 
     fn undo(&mut self) {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
-            && let Some(clip) = track.regions.get_mut(self.clip_index) {
-                clip.position = self.old_position;
-            }
+            && let Some(clip) = track.regions.get_mut(self.clip_index)
+        {
+            clip.position = self.old_position;
+        }
         project.touch();
     }
 
@@ -397,18 +401,20 @@ impl Command for ResizeClipCommand {
     fn execute(&mut self) {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
-            && let Some(clip) = track.regions.get_mut(self.clip_index) {
-                clip.length = self.new_length;
-            }
+            && let Some(clip) = track.regions.get_mut(self.clip_index)
+        {
+            clip.length = self.new_length;
+        }
         project.touch();
     }
 
     fn undo(&mut self) {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
-            && let Some(clip) = track.regions.get_mut(self.clip_index) {
-                clip.length = self.old_length;
-            }
+            && let Some(clip) = track.regions.get_mut(self.clip_index)
+        {
+            clip.length = self.old_length;
+        }
         project.touch();
     }
 
@@ -451,28 +457,29 @@ impl Command for SplitClipCommand {
     fn execute(&mut self) {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
-            && let Some(clip) = track.regions.get_mut(self.clip_index) {
-                // Store original for undo
-                self.original_clip = Some(clip.clone());
+            && let Some(clip) = track.regions.get_mut(self.clip_index)
+        {
+            // Store original for undo
+            self.original_clip = Some(clip.clone());
 
-                // Calculate split point relative to clip
-                let relative_split = self.split_position.saturating_sub(clip.position);
+            // Calculate split point relative to clip
+            let relative_split = self.split_position.saturating_sub(clip.position);
 
-                if relative_split > 0 && relative_split < clip.length {
-                    // Create second half
-                    let mut second_half = clip.clone();
-                    second_half.id = format!("{}_split", clip.id);
-                    second_half.position = self.split_position;
-                    second_half.source_offset = clip.source_offset + relative_split;
-                    second_half.length = clip.length - relative_split;
+            if relative_split > 0 && relative_split < clip.length {
+                // Create second half
+                let mut second_half = clip.clone();
+                second_half.id = format!("{}_split", clip.id);
+                second_half.position = self.split_position;
+                second_half.source_offset = clip.source_offset + relative_split;
+                second_half.length = clip.length - relative_split;
 
-                    // Trim first half
-                    clip.length = relative_split;
+                // Trim first half
+                clip.length = relative_split;
 
-                    // Insert second half after first
-                    track.regions.insert(self.clip_index + 1, second_half);
-                }
+                // Insert second half after first
+                track.regions.insert(self.clip_index + 1, second_half);
             }
+        }
         project.touch();
     }
 
@@ -704,16 +711,17 @@ impl Command for AddAutomationPointCommand {
     fn execute(&mut self) {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
-            && let Some(lane) = track.automation.get_mut(self.lane_index) {
-                // Insert in sorted order
-                let pos = lane
-                    .points
-                    .iter()
-                    .position(|p| p.position > self.point.position)
-                    .unwrap_or(lane.points.len());
-                lane.points.insert(pos, self.point.clone());
-                self.inserted_index = pos;
-            }
+            && let Some(lane) = track.automation.get_mut(self.lane_index)
+        {
+            // Insert in sorted order
+            let pos = lane
+                .points
+                .iter()
+                .position(|p| p.position > self.point.position)
+                .unwrap_or(lane.points.len());
+            lane.points.insert(pos, self.point.clone());
+            self.inserted_index = pos;
+        }
         project.touch();
     }
 
@@ -721,9 +729,10 @@ impl Command for AddAutomationPointCommand {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
             && let Some(lane) = track.automation.get_mut(self.lane_index)
-                && self.inserted_index < lane.points.len() {
-                    lane.points.remove(self.inserted_index);
-                }
+            && self.inserted_index < lane.points.len()
+        {
+            lane.points.remove(self.inserted_index);
+        }
         project.touch();
     }
 
@@ -780,10 +789,11 @@ impl Command for MoveAutomationPointCommand {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
             && let Some(lane) = track.automation.get_mut(self.lane_index)
-                && let Some(point) = lane.points.get_mut(self.point_index) {
-                    point.position = self.new_position;
-                    point.value = self.new_value;
-                }
+            && let Some(point) = lane.points.get_mut(self.point_index)
+        {
+            point.position = self.new_position;
+            point.value = self.new_value;
+        }
         project.touch();
     }
 
@@ -791,10 +801,11 @@ impl Command for MoveAutomationPointCommand {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
             && let Some(lane) = track.automation.get_mut(self.lane_index)
-                && let Some(point) = lane.points.get_mut(self.point_index) {
-                    point.position = self.old_position;
-                    point.value = self.old_value;
-                }
+            && let Some(point) = lane.points.get_mut(self.point_index)
+        {
+            point.position = self.old_position;
+            point.value = self.old_value;
+        }
         project.touch();
     }
 
@@ -838,9 +849,10 @@ impl Command for DeleteAutomationPointCommand {
         let mut project = self.project.write();
         if let Some(track) = project.tracks.get_mut(self.track_index)
             && let Some(lane) = track.automation.get_mut(self.lane_index)
-                && self.point_index < lane.points.len() {
-                    self.removed_point = Some(lane.points.remove(self.point_index));
-                }
+            && self.point_index < lane.points.len()
+        {
+            self.removed_point = Some(lane.points.remove(self.point_index));
+        }
         project.touch();
     }
 
@@ -848,10 +860,11 @@ impl Command for DeleteAutomationPointCommand {
         if let Some(point) = self.removed_point.take() {
             let mut project = self.project.write();
             if let Some(track) = project.tracks.get_mut(self.track_index)
-                && let Some(lane) = track.automation.get_mut(self.lane_index) {
-                    let idx = self.point_index.min(lane.points.len());
-                    lane.points.insert(idx, point);
-                }
+                && let Some(lane) = track.automation.get_mut(self.lane_index)
+            {
+                let idx = self.point_index.min(lane.points.len());
+                lane.points.insert(idx, point);
+            }
             project.touch();
         }
     }

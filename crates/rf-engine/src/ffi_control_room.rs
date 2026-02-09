@@ -51,12 +51,14 @@ macro_rules! with_control_room {
 
 /// Helper to convert C string to Rust String
 #[allow(dead_code)]
-unsafe fn cstr_to_string(ptr: *const c_char) -> Option<String> { unsafe {
-    if ptr.is_null() {
-        return None;
+unsafe fn cstr_to_string(ptr: *const c_char) -> Option<String> {
+    unsafe {
+        if ptr.is_null() {
+            return None;
+        }
+        CStr::from_ptr(ptr).to_str().ok().map(|s| s.to_string())
     }
-    CStr::from_ptr(ptr).to_str().ok().map(|s| s.to_string())
-}}
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
@@ -85,23 +87,25 @@ pub extern "C" fn control_room_init(control_room_ptr: *mut ControlRoom) -> i32 {
 /// Returns: 1 on success, 0 on failure
 #[unsafe(no_mangle)]
 pub extern "C" fn control_room_set_monitor_source(source: u8) -> i32 {
-    with_control_room!(control_room, {
-        if let Some(monitor_source) = MonitorSource::from_u8(source) {
-            control_room.set_monitor_source(monitor_source);
-            1
-        } else {
-            0
-        }
-    }, 0)
+    with_control_room!(
+        control_room,
+        {
+            if let Some(monitor_source) = MonitorSource::from_u8(source) {
+                control_room.set_monitor_source(monitor_source);
+                1
+            } else {
+                0
+            }
+        },
+        0
+    )
 }
 
 /// Get monitor source
 /// Returns: 0=Master, 1-4=Cue 1-4, 5-6=External 1-2, 255 on error
 #[unsafe(no_mangle)]
 pub extern "C" fn control_room_get_monitor_source() -> u8 {
-    with_control_room!(control_room, {
-        control_room.monitor_source().to_u8()
-    }, 255)
+    with_control_room!(control_room, { control_room.monitor_source().to_u8() }, 255)
 }
 
 /// Set monitor level (dB)
@@ -113,10 +117,14 @@ pub extern "C" fn control_room_set_monitor_level(level_db: f64) -> i32 {
         return 0;
     }
 
-    with_control_room!(control_room, {
-        control_room.set_monitor_level_db(level_db);
-        1
-    }, 0)
+    with_control_room!(
+        control_room,
+        {
+            control_room.set_monitor_level_db(level_db);
+            1
+        },
+        0
+    )
 }
 
 /// Get monitor level (dB)
@@ -138,7 +146,9 @@ pub extern "C" fn control_room_set_dim(enabled: i32) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
         let control_room = unsafe { &*wrapper.0 };
-        control_room.dim_enabled.store(enabled != 0, Ordering::Relaxed);
+        control_room
+            .dim_enabled
+            .store(enabled != 0, Ordering::Relaxed);
         1
     } else {
         0
@@ -151,7 +161,11 @@ pub extern "C" fn control_room_get_dim() -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
         let control_room = unsafe { &*wrapper.0 };
-        if control_room.dim_enabled.load(Ordering::Relaxed) { 1 } else { 0 }
+        if control_room.dim_enabled.load(Ordering::Relaxed) {
+            1
+        } else {
+            0
+        }
     } else {
         0
     }
@@ -164,7 +178,9 @@ pub extern "C" fn control_room_set_mono(enabled: i32) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
         let control_room = unsafe { &*wrapper.0 };
-        control_room.mono_enabled.store(enabled != 0, Ordering::Relaxed);
+        control_room
+            .mono_enabled
+            .store(enabled != 0, Ordering::Relaxed);
         1
     } else {
         0
@@ -177,7 +193,11 @@ pub extern "C" fn control_room_get_mono() -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
         let control_room = unsafe { &*wrapper.0 };
-        if control_room.mono_enabled.load(Ordering::Relaxed) { 1 } else { 0 }
+        if control_room.mono_enabled.load(Ordering::Relaxed) {
+            1
+        } else {
+            0
+        }
     } else {
         0
     }
@@ -323,7 +343,11 @@ pub extern "C" fn control_room_is_soloed(channel_id: u32) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
         let control_room = unsafe { &*wrapper.0 };
-        if control_room.is_soloed(ChannelId(channel_id)) { 1 } else { 0 }
+        if control_room.is_soloed(ChannelId(channel_id)) {
+            1
+        } else {
+            0
+        }
     } else {
         0
     }
@@ -411,7 +435,7 @@ pub extern "C" fn control_room_add_cue_send(
             level,
             pan,
             enabled: true,
-            pre_fader: true,  // Cue sends are typically pre-fader
+            pre_fader: true, // Cue sends are typically pre-fader
         };
         control_room.cue_mixes[cue_index as usize]
             .channel_sends

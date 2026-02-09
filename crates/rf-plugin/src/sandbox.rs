@@ -508,18 +508,19 @@ impl SandboxedPlugin {
 
         // Check if process is alive
         if let Some(process) = &mut self.process
-            && !process.is_alive() {
-                // Try to restart
-                if self.config.auto_restart && process.restart_count < self.config.max_restarts {
-                    process.restart_count += 1;
-                    drop(self.process.take());
-                    self.spawn_process()?;
-                    self.initialize(&self.context.clone())?;
-                    self.activate()?;
-                } else {
-                    return Err(SandboxError::PluginCrashed);
-                }
+            && !process.is_alive()
+        {
+            // Try to restart
+            if self.config.auto_restart && process.restart_count < self.config.max_restarts {
+                process.restart_count += 1;
+                drop(self.process.take());
+                self.spawn_process()?;
+                self.initialize(&self.context.clone())?;
+                self.activate()?;
+            } else {
+                return Err(SandboxError::PluginCrashed);
             }
+        }
 
         // Send process command
         let resp = self.send_command(SandboxCommand::Process {
@@ -611,9 +612,10 @@ impl SandboxedPlugin {
             std::thread::sleep(Duration::from_millis(100));
             // Kill if still alive
             if let Some(process) = &mut self.process
-                && process.is_alive() {
-                    process.kill();
-                }
+                && process.is_alive()
+            {
+                process.kill();
+            }
         }
         self.process = None;
         self.active = false;
@@ -683,9 +685,10 @@ impl SandboxManager {
     /// Unload plugin
     pub fn unload_plugin(&self, instance_id: &str) {
         if let Some(plugin) = self.plugins.write().remove(instance_id)
-            && let Some(mut p) = plugin.try_lock() {
-                p.shutdown();
-            }
+            && let Some(mut p) = plugin.try_lock()
+        {
+            p.shutdown();
+        }
     }
 
     /// Check health of all plugins
@@ -698,10 +701,9 @@ impl SandboxManager {
                 let healthy = p.is_healthy();
                 results.push((id.clone(), healthy));
 
-                if !healthy
-                    && let Some(ref callback) = self.crash_callback {
-                        callback(id);
-                    }
+                if !healthy && let Some(ref callback) = self.crash_callback {
+                    callback(id);
+                }
             }
         }
 

@@ -76,7 +76,6 @@ impl CompareSlot {
     }
 }
 
-
 // ============ Parameter State ============
 
 /// Single parameter value

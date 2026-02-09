@@ -335,7 +335,7 @@ impl GlobalOversampler {
         }
         // Each polyphase filter adds taps_per_phase / 2 samples latency
         // Both upsample and downsample contribute
-        
+
         self.factor.filter_order() / self.factor.factor()
     }
 

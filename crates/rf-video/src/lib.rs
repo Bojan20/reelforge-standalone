@@ -305,9 +305,10 @@ impl VideoPlayer {
     /// Advance to next frame
     pub fn next_frame(&mut self) -> VideoResult<()> {
         if let Some(ref info) = self.info
-            && self.current_frame < info.duration_frames.saturating_sub(1) {
-                self.current_frame += 1;
-            }
+            && self.current_frame < info.duration_frames.saturating_sub(1)
+        {
+            self.current_frame += 1;
+        }
         Ok(())
     }
 
@@ -485,9 +486,10 @@ impl VideoEngine {
 
             for clip in &track.clips {
                 if let Some(frame) = clip.frame_at_position(self.playhead, self.sample_rate)
-                    && let Some(player) = self.players.get_mut(&clip.id) {
-                        return player.get_frame(frame);
-                    }
+                    && let Some(player) = self.players.get_mut(&clip.id)
+                {
+                    return player.get_frame(frame);
+                }
             }
         }
 
@@ -548,11 +550,12 @@ impl VideoEngine {
         interval_frames: u64,
     ) -> VideoResult<ThumbnailStrip> {
         if let Some(player) = self.players.get_mut(&clip_id)
-            && let Some(info) = player.info() {
-                return self
-                    .thumbnails
-                    .generate_strip(&info.path, width, interval_frames);
-            }
+            && let Some(info) = player.info()
+        {
+            return self
+                .thumbnails
+                .generate_strip(&info.path, width, interval_frames);
+        }
         Err(VideoError::OpenFailed("Clip not found".into()))
     }
 }

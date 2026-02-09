@@ -30,8 +30,7 @@ pub const MAX_LINEAR_PHASE_BANDS: usize = 32;
 // ============ Filter Type ============
 
 /// Linear phase filter type
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum LinearPhaseFilterType {
     /// Bell/Peaking
     #[default]
@@ -51,7 +50,6 @@ pub enum LinearPhaseFilterType {
     /// Tilt (full spectrum)
     Tilt,
 }
-
 
 // ============ EQ Band ============
 
@@ -215,7 +213,7 @@ impl FrequencyResponseDesigner {
                 }
 
                 let order = (band.slope / 6.0).round() as i32;
-                
+
                 1.0 / (1.0 + (band.frequency / freq).powi(2 * order)).sqrt()
             }
 
@@ -225,7 +223,7 @@ impl FrequencyResponseDesigner {
                 }
 
                 let order = (band.slope / 6.0).round() as i32;
-                
+
                 1.0 / (1.0 + (freq / band.frequency).powi(2 * order)).sqrt()
             }
 

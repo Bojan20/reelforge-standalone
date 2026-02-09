@@ -224,10 +224,11 @@ impl DelayCompensationManager {
     /// Report plugin latency for a node
     pub fn report_latency(&mut self, node_id: NodeId, latency: LatencySamples) {
         if let Some(info) = self.node_latencies.get_mut(&node_id)
-            && info.plugin_latency != latency {
-                info.plugin_latency = latency;
-                self.recalculate();
-            }
+            && info.plugin_latency != latency
+        {
+            info.plugin_latency = latency;
+            self.recalculate();
+        }
     }
 
     /// Get latency info for a node

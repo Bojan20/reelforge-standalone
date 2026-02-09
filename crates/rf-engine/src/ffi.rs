@@ -67,9 +67,7 @@ impl PendingAudioEntry {
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "Unknown".to_string());
 
-        let file_size = std::fs::metadata(&path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let file_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
 
         let format = std::path::Path::new(&path)
             .extension()
@@ -92,7 +90,8 @@ impl PendingAudioEntry {
 
     fn set_metadata(&self, duration: f64, sample_rate: u32, channels: u8, bit_depth: u8) {
         use std::sync::atomic::Ordering;
-        self.duration_secs.store(duration.to_bits(), Ordering::Release);
+        self.duration_secs
+            .store(duration.to_bits(), Ordering::Release);
         self.sample_rate.store(sample_rate, Ordering::Release);
         self.channels.store(channels, Ordering::Release);
         self.bit_depth.store(bit_depth, Ordering::Release);
@@ -104,7 +103,10 @@ impl PendingAudioEntry {
     }
 
     fn get_duration(&self) -> f64 {
-        f64::from_bits(self.duration_secs.load(std::sync::atomic::Ordering::Acquire))
+        f64::from_bits(
+            self.duration_secs
+                .load(std::sync::atomic::Ordering::Acquire),
+        )
     }
 
     fn get_state(&self) -> u8 {
@@ -227,12 +229,10 @@ fn clear_last_error() {
 pub extern "C" fn get_last_error() -> *mut c_char {
     let guard = LAST_ERROR.read();
     match &*guard {
-        Some(error) => {
-            match serde_json::to_string(error) {
-                Ok(json) => string_to_cstr(&json),
-                Err(_) => ptr::null_mut(),
-            }
-        }
+        Some(error) => match serde_json::to_string(error) {
+            Ok(json) => string_to_cstr(&json),
+            Err(_) => ptr::null_mut(),
+        },
         None => ptr::null_mut(),
     }
 }
@@ -290,7 +290,10 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> Option<String> {
 
     // Reject strings that are too long (no null terminator found within limit)
     if len >= MAX_FFI_STRING_LEN {
-        log::warn!("FFI string exceeds maximum length of {}", MAX_FFI_STRING_LEN);
+        log::warn!(
+            "FFI string exceeds maximum length of {}",
+            MAX_FFI_STRING_LEN
+        );
         return None;
     }
 
@@ -387,7 +390,13 @@ fn validate_dsp_float(value: f64, min: f64, max: f64, context: &str) -> bool {
         return false;
     }
     if value < min || value > max {
-        log::warn!("FFI {} value {} out of range [{}, {}]", context, value, min, max);
+        log::warn!(
+            "FFI {} value {} out of range [{}, {}]",
+            context,
+            value,
+            min,
+            max
+        );
         return false;
     }
     true
@@ -657,7 +666,11 @@ pub extern "C" fn engine_set_track_color(track_id: u64, color: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_mute(track_id: u64, muted: i32) -> i32 {
     let mute_state = muted != 0;
-    log::debug!("[FFI] set_track_mute: track_id={}, muted={}", track_id, mute_state);
+    log::debug!(
+        "[FFI] set_track_mute: track_id={}, muted={}",
+        track_id,
+        mute_state
+    );
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
         track.muted = mute_state;
     });
@@ -668,7 +681,11 @@ pub extern "C" fn engine_set_track_mute(track_id: u64, muted: i32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_solo(track_id: u64, solo: i32) -> i32 {
     let solo_state = solo != 0;
-    log::debug!("[FFI] set_track_solo: track_id={}, solo={}", track_id, solo_state);
+    log::debug!(
+        "[FFI] set_track_solo: track_id={}, solo={}",
+        track_id,
+        solo_state
+    );
     TRACK_MANAGER.set_track_solo(TrackId(track_id), solo_state);
     let any_solo = TRACK_MANAGER.is_solo_active();
     log::debug!("[FFI] solo_active after change: {}", any_solo);
@@ -692,7 +709,11 @@ pub extern "C" fn engine_clear_all_solos() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_armed(track_id: u64, armed: i32) -> i32 {
     let is_armed = armed != 0;
-    log::debug!("[FFI] set_track_armed: track_id={}, armed={}", track_id, is_armed);
+    log::debug!(
+        "[FFI] set_track_armed: track_id={}, armed={}",
+        track_id,
+        is_armed
+    );
     let tid = TrackId(track_id);
 
     // Get track name for recording (before updating state)
@@ -719,7 +740,11 @@ pub extern "C" fn engine_set_track_armed(track_id: u64, armed: i32) -> i32 {
 /// Set track volume (0.0 - 2.0, 1.0 = unity)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_volume(track_id: u64, volume: f64) -> i32 {
-    log::trace!("[FFI] set_track_volume: track_id={}, volume={:.3}", track_id, volume);
+    log::trace!(
+        "[FFI] set_track_volume: track_id={}, volume={:.3}",
+        track_id,
+        volume
+    );
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
         track.volume = volume.clamp(0.0, 2.0);
     });
@@ -865,7 +890,11 @@ pub extern "C" fn engine_batch_set_track_volumes(
         return 0;
     }
     if count > MAX_FFI_ARRAY_SIZE {
-        log::warn!("[FFI] batch_set_track_volumes: count {} exceeds max {}", count, MAX_FFI_ARRAY_SIZE);
+        log::warn!(
+            "[FFI] batch_set_track_volumes: count {} exceeds max {}",
+            count,
+            MAX_FFI_ARRAY_SIZE
+        );
         return 0;
     }
 
@@ -881,7 +910,10 @@ pub extern "C" fn engine_batch_set_track_volumes(
         success_count += 1;
     }
 
-    log::trace!("[FFI] batch_set_track_volumes: {} tracks updated", success_count);
+    log::trace!(
+        "[FFI] batch_set_track_volumes: {} tracks updated",
+        success_count
+    );
     success_count
 }
 
@@ -898,7 +930,11 @@ pub extern "C" fn engine_batch_set_track_pans(
         return 0;
     }
     if count > MAX_FFI_ARRAY_SIZE {
-        log::warn!("[FFI] batch_set_track_pans: count {} exceeds max {}", count, MAX_FFI_ARRAY_SIZE);
+        log::warn!(
+            "[FFI] batch_set_track_pans: count {} exceeds max {}",
+            count,
+            MAX_FFI_ARRAY_SIZE
+        );
         return 0;
     }
 
@@ -909,12 +945,15 @@ pub extern "C" fn engine_batch_set_track_pans(
     for (i, &track_id) in ids.iter().enumerate() {
         let pan = pan_values[i].clamp(-1.0, 1.0);
         TRACK_MANAGER.update_track(TrackId(track_id), |track| {
-            track.pan = pan;  // Use correct field name
+            track.pan = pan; // Use correct field name
         });
         success_count += 1;
     }
 
-    log::trace!("[FFI] batch_set_track_pans: {} tracks updated", success_count);
+    log::trace!(
+        "[FFI] batch_set_track_pans: {} tracks updated",
+        success_count
+    );
     success_count
 }
 
@@ -931,7 +970,11 @@ pub extern "C" fn engine_batch_set_track_mutes(
         return 0;
     }
     if count > MAX_FFI_ARRAY_SIZE {
-        log::warn!("[FFI] batch_set_track_mutes: count {} exceeds max {}", count, MAX_FFI_ARRAY_SIZE);
+        log::warn!(
+            "[FFI] batch_set_track_mutes: count {} exceeds max {}",
+            count,
+            MAX_FFI_ARRAY_SIZE
+        );
         return 0;
     }
 
@@ -947,7 +990,10 @@ pub extern "C" fn engine_batch_set_track_mutes(
         success_count += 1;
     }
 
-    log::trace!("[FFI] batch_set_track_mutes: {} tracks updated", success_count);
+    log::trace!(
+        "[FFI] batch_set_track_mutes: {} tracks updated",
+        success_count
+    );
     success_count
 }
 
@@ -964,7 +1010,11 @@ pub extern "C" fn engine_batch_set_track_solos(
         return 0;
     }
     if count > MAX_FFI_ARRAY_SIZE {
-        log::warn!("[FFI] batch_set_track_solos: count {} exceeds max {}", count, MAX_FFI_ARRAY_SIZE);
+        log::warn!(
+            "[FFI] batch_set_track_solos: count {} exceeds max {}",
+            count,
+            MAX_FFI_ARRAY_SIZE
+        );
         return 0;
     }
 
@@ -975,7 +1025,7 @@ pub extern "C" fn engine_batch_set_track_solos(
     for (i, &track_id) in ids.iter().enumerate() {
         let is_soloed = solo_values[i] != 0;
         TRACK_MANAGER.update_track(TrackId(track_id), |track| {
-            track.soloed = is_soloed;  // Use correct field name
+            track.soloed = is_soloed; // Use correct field name
         });
         success_count += 1;
     }
@@ -983,7 +1033,10 @@ pub extern "C" fn engine_batch_set_track_solos(
     // Update solo state after batch update
     TRACK_MANAGER.update_solo_state();
 
-    log::trace!("[FFI] batch_set_track_solos: {} tracks updated", success_count);
+    log::trace!(
+        "[FFI] batch_set_track_solos: {} tracks updated",
+        success_count
+    );
     success_count
 }
 
@@ -993,25 +1046,45 @@ pub extern "C" fn engine_batch_set_track_solos(
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_batch_set_track_params(
     track_ids: *const u64,
-    volumes: *const f64,      // Can be NULL
-    pans: *const f64,         // Can be NULL
-    muted: *const i32,        // Can be NULL
-    solo: *const i32,         // Can be NULL
+    volumes: *const f64, // Can be NULL
+    pans: *const f64,    // Can be NULL
+    muted: *const i32,   // Can be NULL
+    solo: *const i32,    // Can be NULL
     count: usize,
 ) -> usize {
     if track_ids.is_null() || count == 0 {
         return 0;
     }
     if count > MAX_FFI_ARRAY_SIZE {
-        log::warn!("[FFI] batch_set_track_params: count {} exceeds max {}", count, MAX_FFI_ARRAY_SIZE);
+        log::warn!(
+            "[FFI] batch_set_track_params: count {} exceeds max {}",
+            count,
+            MAX_FFI_ARRAY_SIZE
+        );
         return 0;
     }
 
     let ids = unsafe { std::slice::from_raw_parts(track_ids, count) };
-    let vol_slice = if volumes.is_null() { None } else { Some(unsafe { std::slice::from_raw_parts(volumes, count) }) };
-    let pan_slice = if pans.is_null() { None } else { Some(unsafe { std::slice::from_raw_parts(pans, count) }) };
-    let mute_slice = if muted.is_null() { None } else { Some(unsafe { std::slice::from_raw_parts(muted, count) }) };
-    let solo_slice = if solo.is_null() { None } else { Some(unsafe { std::slice::from_raw_parts(solo, count) }) };
+    let vol_slice = if volumes.is_null() {
+        None
+    } else {
+        Some(unsafe { std::slice::from_raw_parts(volumes, count) })
+    };
+    let pan_slice = if pans.is_null() {
+        None
+    } else {
+        Some(unsafe { std::slice::from_raw_parts(pans, count) })
+    };
+    let mute_slice = if muted.is_null() {
+        None
+    } else {
+        Some(unsafe { std::slice::from_raw_parts(muted, count) })
+    };
+    let solo_slice = if solo.is_null() {
+        None
+    } else {
+        Some(unsafe { std::slice::from_raw_parts(solo, count) })
+    };
 
     let mut success_count = 0;
     let has_solo_changes = solo_slice.is_some();
@@ -1022,13 +1095,13 @@ pub extern "C" fn engine_batch_set_track_params(
                 track.volume = vols[i].clamp(0.0, 2.0);
             }
             if let Some(pans) = pan_slice {
-                track.pan = pans[i].clamp(-1.0, 1.0);  // Use correct field name
+                track.pan = pans[i].clamp(-1.0, 1.0); // Use correct field name
             }
             if let Some(mutes) = mute_slice {
                 track.muted = mutes[i] != 0;
             }
             if let Some(solos) = solo_slice {
-                track.soloed = solos[i] != 0;  // Use correct field name
+                track.soloed = solos[i] != 0; // Use correct field name
             }
         });
         success_count += 1;
@@ -1039,7 +1112,10 @@ pub extern "C" fn engine_batch_set_track_params(
         TRACK_MANAGER.update_solo_state();
     }
 
-    log::trace!("[FFI] batch_set_track_params: {} tracks updated", success_count);
+    log::trace!(
+        "[FFI] batch_set_track_params: {} tracks updated",
+        success_count
+    );
     success_count
 }
 
@@ -1109,8 +1185,12 @@ pub extern "C" fn engine_get_track_meter(
     out_rms_r: *mut f64,
     out_correlation: *mut f64,
 ) -> bool {
-    if out_peak_l.is_null() || out_peak_r.is_null() ||
-       out_rms_l.is_null() || out_rms_r.is_null() || out_correlation.is_null() {
+    if out_peak_l.is_null()
+        || out_peak_r.is_null()
+        || out_rms_l.is_null()
+        || out_rms_r.is_null()
+        || out_correlation.is_null()
+    {
         return false;
     }
     let meter = PLAYBACK_ENGINE.get_track_meter(track_id);
@@ -1165,21 +1245,20 @@ pub extern "C" fn engine_get_all_track_meters(
     out_corr: *mut f64,
     max_count: usize,
 ) -> usize {
-    if out_ids.is_null() || out_peak_l.is_null() || out_peak_r.is_null() ||
-       out_rms_l.is_null() || out_rms_r.is_null() || out_corr.is_null() {
+    if out_ids.is_null()
+        || out_peak_l.is_null()
+        || out_peak_r.is_null()
+        || out_rms_l.is_null()
+        || out_rms_r.is_null()
+        || out_corr.is_null()
+    {
         return 0;
     }
 
     // P1.14 FIX: Direct write to buffers without HashMap clone
     unsafe {
         PLAYBACK_ENGINE.write_all_track_meters_to_buffers(
-            out_ids,
-            out_peak_l,
-            out_peak_r,
-            out_rms_l,
-            out_rms_r,
-            out_corr,
-            max_count,
+            out_ids, out_peak_l, out_peak_r, out_rms_l, out_rms_r, out_corr, max_count,
         )
     }
 }
@@ -1244,7 +1323,10 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
     let validated_path = match validate_file_path(&path_str) {
         Some(p) => p,
         None => {
-            eprintln!("[FFI Import] ERROR: Path validation failed (possible path traversal): {}", path_str);
+            eprintln!(
+                "[FFI Import] ERROR: Path validation failed (possible path traversal): {}",
+                path_str
+            );
             return 0;
         }
     };
@@ -1318,8 +1400,11 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
     eprintln!("[FFI Import] STEP 7: Clip created with ID {}", clip_id.0);
 
     // Generate waveform peaks and cache (with safety check for empty samples)
-    eprintln!("[FFI Import] STEP 8: Generating waveform peaks (samples: {}, channels: {})",
-        imported.samples.len(), imported.channels);
+    eprintln!(
+        "[FFI Import] STEP 8: Generating waveform peaks (samples: {}, channels: {})",
+        imported.samples.len(),
+        imported.channels
+    );
 
     let peaks = if imported.samples.is_empty() {
         eprintln!("[FFI Import] WARNING: Empty samples, creating empty waveform");
@@ -1359,7 +1444,10 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
 
     // Debug: verify cache contents
     let cache_size = PLAYBACK_ENGINE.cache.size();
-    eprintln!("[FFI Import] STEP 12: DONE! Cache now has {} entries", cache_size);
+    eprintln!(
+        "[FFI Import] STEP 12: DONE! Cache now has {} entries",
+        cache_size
+    );
 
     clip_id.0
 }
@@ -1415,7 +1503,9 @@ pub extern "C" fn engine_move_clip(clip_id: u64, target_track_id: u64, start_tim
             // For shuffle mode, we need to close gaps
             // Find the end of the previous clip on the same track
             let target_track = TrackId(target_track_id);
-            let clips: Vec<_> = TRACK_MANAGER.clips.iter()
+            let clips: Vec<_> = TRACK_MANAGER
+                .clips
+                .iter()
                 .filter(|e| e.value().track_id == target_track && e.key().0 != clip_id)
                 .map(|e| (e.value().start_time, e.value().end_time()))
                 .collect();
@@ -1797,7 +1887,10 @@ pub extern "C" fn engine_query_waveform_pixels_stereo(
             num_pixels as usize,
         );
 
-        let count = left_buckets.len().min(right_buckets.len()).min(num_pixels as usize);
+        let count = left_buckets
+            .len()
+            .min(right_buckets.len())
+            .min(num_pixels as usize);
 
         unsafe {
             for i in 0..count {
@@ -1858,10 +1951,10 @@ pub extern "C" fn engine_get_waveform_total_samples(clip_id: u64) -> u64 {
 /// Returns: Total number of floats written to output
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_query_waveform_tiles_batch(
-    queries: *const f64,      // Input: [clip_id, start, end, pixels] × num_tiles
+    queries: *const f64, // Input: [clip_id, start, end, pixels] × num_tiles
     num_tiles: u32,
-    out_data: *mut f32,       // Output: packed min/max/rms per pixel per tile
-    out_capacity: u32,        // Max floats that can be written
+    out_data: *mut f32, // Output: packed min/max/rms per pixel per tile
+    out_capacity: u32,  // Max floats that can be written
 ) -> u32 {
     if queries.is_null() || out_data.is_null() || num_tiles == 0 {
         return 0;
@@ -2028,7 +2121,10 @@ pub extern "C" fn engine_generate_waveform_from_file(
     };
 
     // Cache it
-    WAVEFORM_CACHE.cache.write().insert(key, Arc::new(waveform.clone()));
+    WAVEFORM_CACHE
+        .cache
+        .write()
+        .insert(key, Arc::new(waveform.clone()));
 
     // Return as JSON
     waveform_to_json(&waveform)
@@ -2069,9 +2165,7 @@ pub extern "C" fn engine_generate_waveform_from_samples(
     }
 
     // Safety: Trust FFI caller for buffer validity
-    let samples_slice = unsafe {
-        std::slice::from_raw_parts(samples, sample_count as usize)
-    };
+    let samples_slice = unsafe { std::slice::from_raw_parts(samples, sample_count as usize) };
 
     // Generate waveform
     let waveform = if channels == 2 {
@@ -2081,7 +2175,10 @@ pub extern "C" fn engine_generate_waveform_from_samples(
     };
 
     // Cache it
-    WAVEFORM_CACHE.cache.write().insert(key.clone(), Arc::new(waveform.clone()));
+    WAVEFORM_CACHE
+        .cache
+        .write()
+        .insert(key.clone(), Arc::new(waveform.clone()));
 
     // Return as JSON
     waveform_to_json(&waveform)
@@ -2098,10 +2195,7 @@ fn waveform_to_json(waveform: &crate::waveform::StereoWaveformData) -> *mut c_ch
         let samples_per_bucket = crate::waveform::SAMPLES_PER_BUCKET[level_idx];
 
         // Convert buckets to JSON array [[min,max,rms], ...]
-        let buckets: Vec<[f32; 3]> = left_buckets
-            .iter()
-            .map(|b| [b.min, b.max, b.rms])
-            .collect();
+        let buckets: Vec<[f32; 3]> = left_buckets.iter().map(|b| [b.min, b.max, b.rms]).collect();
 
         levels.push(json!({
             "samples_per_bucket": samples_per_bucket,
@@ -2297,7 +2391,10 @@ pub extern "C" fn engine_snap_to_event(time: f64, threshold: f64) -> f64 {
 pub extern "C" fn engine_play() {
     eprintln!("[FFI] engine_play() called");
     PLAYBACK_ENGINE.play();
-    eprintln!("[FFI] engine_play() - is_playing: {}", PLAYBACK_ENGINE.position.is_playing());
+    eprintln!(
+        "[FFI] engine_play() - is_playing: {}",
+        PLAYBACK_ENGINE.position.is_playing()
+    );
 }
 
 /// Pause playback
@@ -2408,7 +2505,11 @@ pub extern "C" fn engine_set_varispeed_enabled(enabled: i32) {
 /// Check if varispeed is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_is_varispeed_enabled() -> i32 {
-    if PLAYBACK_ENGINE.is_varispeed_enabled() { 1 } else { 0 }
+    if PLAYBACK_ENGINE.is_varispeed_enabled() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set varispeed rate (0.25 to 4.0, 1.0 = normal)
@@ -2486,7 +2587,9 @@ pub extern "C" fn engine_preload_range(start_time: f64, end_time: f64) {
 /// # Safety
 /// paths_json must be a valid null-terminated C string
 #[unsafe(no_mangle)]
-pub extern "C" fn engine_cache_preload_files(paths_json: *const std::ffi::c_char) -> *mut std::ffi::c_char {
+pub extern "C" fn engine_cache_preload_files(
+    paths_json: *const std::ffi::c_char,
+) -> *mut std::ffi::c_char {
     if paths_json.is_null() {
         let err = r#"{"error":"null pointer"}"#;
         return std::ffi::CString::new(err).unwrap_or_default().into_raw();
@@ -2522,7 +2625,9 @@ pub extern "C" fn engine_cache_preload_files(paths_json: *const std::ffi::c_char
         result.total, result.loaded, result.cached, result.failed, result.duration_ms
     );
 
-    std::ffi::CString::new(result_json).unwrap_or_default().into_raw()
+    std::ffi::CString::new(result_json)
+        .unwrap_or_default()
+        .into_raw()
 }
 
 /// Check if all paths are cached (fast check)
@@ -2550,7 +2655,11 @@ pub extern "C" fn engine_cache_all_loaded(paths_json: *const std::ffi::c_char) -
     };
 
     let path_refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
-    if PLAYBACK_ENGINE.cache.all_cached(&path_refs) { 1 } else { 0 }
+    if PLAYBACK_ENGINE.cache.all_cached(&path_refs) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get audio cache statistics as JSON
@@ -2571,7 +2680,13 @@ pub extern "C" fn engine_cache_is_loaded(path: *const std::ffi::c_char) -> i32 {
     }
     let c_str = unsafe { std::ffi::CStr::from_ptr(path) };
     match c_str.to_str() {
-        Ok(s) => if PLAYBACK_ENGINE.cache.is_cached(s) { 1 } else { 0 },
+        Ok(s) => {
+            if PLAYBACK_ENGINE.cache.is_cached(s) {
+                1
+            } else {
+                0
+            }
+        }
         Err(_) => 0,
     }
 }
@@ -3200,9 +3315,10 @@ pub extern "C" fn send_set_level(track_id: u64, send_index: u32, level: f64) {
     // Update legacy SEND_BANKS (for backwards compatibility)
     let banks = SEND_BANKS.read();
     if let Some(bank) = banks.get(&track_id)
-        && let Some(send) = bank.get(send_index as usize) {
-            send.set_level(level);
-        }
+        && let Some(send) = bank.get(send_index as usize)
+    {
+        send.set_level(level);
+    }
     // Also update track sends in TRACK_MANAGER (for playback routing)
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
         track.set_send_level(send_index as usize, level);
@@ -3214,9 +3330,10 @@ pub extern "C" fn send_set_level(track_id: u64, send_index: u32, level: f64) {
 pub extern "C" fn send_set_level_db(track_id: u64, send_index: u32, db: f64) {
     let banks = SEND_BANKS.read();
     if let Some(bank) = banks.get(&track_id)
-        && let Some(send) = bank.get(send_index as usize) {
-            send.set_level_db(db);
-        }
+        && let Some(send) = bank.get(send_index as usize)
+    {
+        send.set_level_db(db);
+    }
     // Convert dB to linear and update TRACK_MANAGER
     let linear = 10.0_f64.powf(db / 20.0);
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
@@ -3229,9 +3346,10 @@ pub extern "C" fn send_set_level_db(track_id: u64, send_index: u32, db: f64) {
 pub extern "C" fn send_set_destination(track_id: u64, send_index: u32, destination: u32) {
     let mut banks = SEND_BANKS.write();
     if let Some(bank) = banks.get_mut(&track_id)
-        && let Some(send) = bank.get_mut(send_index as usize) {
-            send.set_destination(destination as usize);
-        }
+        && let Some(send) = bank.get_mut(send_index as usize)
+    {
+        send.set_destination(destination as usize);
+    }
     // Update TRACK_MANAGER send destination
     let dest_bus = OutputBus::from(destination);
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
@@ -3244,9 +3362,10 @@ pub extern "C" fn send_set_destination(track_id: u64, send_index: u32, destinati
 pub extern "C" fn send_set_pan(track_id: u64, send_index: u32, pan: f64) {
     let banks = SEND_BANKS.read();
     if let Some(bank) = banks.get(&track_id)
-        && let Some(send) = bank.get(send_index as usize) {
-            send.set_pan(pan);
-        }
+        && let Some(send) = bank.get(send_index as usize)
+    {
+        send.set_pan(pan);
+    }
 }
 
 /// Enable/disable send
@@ -3254,9 +3373,10 @@ pub extern "C" fn send_set_pan(track_id: u64, send_index: u32, pan: f64) {
 pub extern "C" fn send_set_enabled(track_id: u64, send_index: u32, enabled: i32) {
     let banks = SEND_BANKS.read();
     if let Some(bank) = banks.get(&track_id)
-        && let Some(send) = bank.get(send_index as usize) {
-            send.set_enabled(enabled != 0);
-        }
+        && let Some(send) = bank.get(send_index as usize)
+    {
+        send.set_enabled(enabled != 0);
+    }
 }
 
 /// Mute/unmute send
@@ -3264,9 +3384,10 @@ pub extern "C" fn send_set_enabled(track_id: u64, send_index: u32, enabled: i32)
 pub extern "C" fn send_set_muted(track_id: u64, send_index: u32, muted: i32) {
     let banks = SEND_BANKS.read();
     if let Some(bank) = banks.get(&track_id)
-        && let Some(send) = bank.get(send_index as usize) {
-            send.set_muted(muted != 0);
-        }
+        && let Some(send) = bank.get(send_index as usize)
+    {
+        send.set_muted(muted != 0);
+    }
     // Update TRACK_MANAGER
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
         track.set_send_muted(send_index as usize, muted != 0);
@@ -3286,9 +3407,10 @@ pub extern "C" fn send_set_tap_point(track_id: u64, send_index: u32, tap_point: 
     };
     let mut banks = SEND_BANKS.write();
     if let Some(bank) = banks.get_mut(&track_id)
-        && let Some(send) = bank.get_mut(send_index as usize) {
-            send.set_tap_point(tap);
-        }
+        && let Some(send) = bank.get_mut(send_index as usize)
+    {
+        send.set_tap_point(tap);
+    }
     // Update TRACK_MANAGER (pre_fader = tap_point == 0)
     let pre_fader = tap_point == 0;
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
@@ -3300,7 +3422,9 @@ pub extern "C" fn send_set_tap_point(track_id: u64, send_index: u32, tap_point: 
 #[unsafe(no_mangle)]
 pub extern "C" fn send_create_bank(track_id: u64) {
     let mut banks = SEND_BANKS.write();
-    banks.entry(track_id).or_insert_with(|| crate::send_return::SendBank::new(48000.0));
+    banks
+        .entry(track_id)
+        .or_insert_with(|| crate::send_return::SendBank::new(48000.0));
 }
 
 /// Remove send bank (call when track is deleted)
@@ -3394,7 +3518,9 @@ pub extern "C" fn sidechain_remove_route(route_id: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn sidechain_create_input(processor_id: u32) {
     let mut inputs = SIDECHAIN_INPUTS.write();
-    inputs.entry(processor_id).or_insert_with(|| crate::sidechain::SidechainInput::new(48000.0, 512));
+    inputs
+        .entry(processor_id)
+        .or_insert_with(|| crate::sidechain::SidechainInput::new(48000.0, 512));
 }
 
 /// Remove sidechain input
@@ -3687,8 +3813,8 @@ pub extern "C" fn automation_add_point_bezier(
     // Ensure lane exists
     AUTOMATION_ENGINE.get_or_create_lane(param_id.clone(), &name);
 
-    let point = AutomationPoint::new(time_samples, value)
-        .with_bezier((cp1_x, cp1_y), (cp2_x, cp2_y));
+    let point =
+        AutomationPoint::new(time_samples, value).with_bezier((cp1_x, cp1_y), (cp2_x, cp2_y));
     AUTOMATION_ENGINE.add_point(&param_id, point);
 }
 
@@ -3726,14 +3852,20 @@ pub extern "C" fn automation_set_point_curve(
         _ => CurveType::Linear,
     };
 
-    AUTOMATION_ENGINE.with_lane(&param_id, |lane| {
-        if let Some(point) = lane.points_mut().iter_mut().find(|p| p.time_samples == time_samples) {
-            point.curve = curve;
-            1
-        } else {
-            0
-        }
-    }).unwrap_or(0)
+    AUTOMATION_ENGINE
+        .with_lane(&param_id, |lane| {
+            if let Some(point) = lane
+                .points_mut()
+                .iter_mut()
+                .find(|p| p.time_samples == time_samples)
+            {
+                point.curve = curve;
+                1
+            } else {
+                0
+            }
+        })
+        .unwrap_or(0)
 }
 
 /// Get automation value at position
@@ -3818,9 +3950,13 @@ pub extern "C" fn automation_add_plugin_point(
 
     let point = AutomationPoint::new(time_samples, value).with_curve(curve);
 
-    AUTOMATION_ENGINE.with_lane_or_create(&param_id, &format!("Plugin {} Param {}", slot, param_index), |lane| {
-        lane.add_point(point);
-    });
+    AUTOMATION_ENGINE.with_lane_or_create(
+        &param_id,
+        &format!("Plugin {} Param {}", slot, param_index),
+        |lane| {
+            lane.add_point(point);
+        },
+    );
 
     1
 }
@@ -3989,15 +4125,25 @@ pub extern "C" fn engine_detect_clip_transients(
 
     // Get clip audio data
     let audio_map = IMPORTED_AUDIO.read();
-    eprintln!("[FFI] engine_detect_clip_transients: looking for clip {}, available clips: {:?}",
-        clip_id, audio_map.keys().collect::<Vec<_>>());
+    eprintln!(
+        "[FFI] engine_detect_clip_transients: looking for clip {}, available clips: {:?}",
+        clip_id,
+        audio_map.keys().collect::<Vec<_>>()
+    );
     let Some(audio) = audio_map.get(&ClipId(clip_id)) else {
-        eprintln!("[FFI] engine_detect_clip_transients: clip {} not found in {} clips",
-            clip_id, audio_map.len());
+        eprintln!(
+            "[FFI] engine_detect_clip_transients: clip {} not found in {} clips",
+            clip_id,
+            audio_map.len()
+        );
         return 0;
     };
-    eprintln!("[FFI] engine_detect_clip_transients: found clip {}, {} samples, {} Hz",
-        clip_id, audio.samples.len(), audio.sample_rate);
+    eprintln!(
+        "[FFI] engine_detect_clip_transients: found clip {}, {} samples, {} Hz",
+        clip_id,
+        audio.samples.len(),
+        audio.sample_rate
+    );
 
     // Configure detector
     let algo = match algorithm {
@@ -4154,7 +4300,9 @@ pub extern "C" fn pitch_analyze_clip(clip_id: u64) -> u32 {
 
     // Convert to mono f64 for analysis
     let mono: Vec<f64> = if audio.channels == 2 {
-        audio.samples.chunks(2)
+        audio
+            .samples
+            .chunks(2)
             .map(|chunk| ((chunk[0] + chunk.get(1).copied().unwrap_or(0.0)) * 0.5) as f64)
             .collect()
     } else {
@@ -4169,14 +4317,19 @@ pub extern "C" fn pitch_analyze_clip(clip_id: u64) -> u32 {
     let state = PitchEditorState::new(segments, audio.sample_rate as f64, mono.len() as u64);
     PITCH_EDITOR_STATES.write().insert(clip_id, state);
 
-    log::info!("[FFI] pitch_analyze_clip: clip {} -> {} segments", clip_id, segment_count);
+    log::info!(
+        "[FFI] pitch_analyze_clip: clip {} -> {} segments",
+        clip_id,
+        segment_count
+    );
     segment_count
 }
 
 /// Get pitch segment count for clip
 #[unsafe(no_mangle)]
 pub extern "C" fn pitch_get_segment_count(clip_id: u64) -> u32 {
-    PITCH_EDITOR_STATES.read()
+    PITCH_EDITOR_STATES
+        .read()
         .get(&clip_id)
         .map(|s| s.segments.len() as u32)
         .unwrap_or(0)
@@ -4278,7 +4431,13 @@ pub extern "C" fn pitch_reset_segment(clip_id: u64, segment_id: u32) -> i32 {
 /// scale: 0=Chromatic, 1=Major, 2=Minor, 3=HarmonicMinor, 4=PentMaj, 5=PentMin, 6=Blues, 7=Dorian
 /// root: 0-11 (C=0, C#=1, ..., B=11)
 #[unsafe(no_mangle)]
-pub extern "C" fn pitch_auto_correct(clip_id: u64, scale: u8, root: u8, speed: f64, amount: f64) -> i32 {
+pub extern "C" fn pitch_auto_correct(
+    clip_id: u64,
+    scale: u8,
+    root: u8,
+    speed: f64,
+    amount: f64,
+) -> i32 {
     use rf_dsp::pitch::{PitchCorrector, Scale};
 
     let mut states = PITCH_EDITOR_STATES.write();
@@ -4355,7 +4514,11 @@ pub extern "C" fn pitch_merge_segments(clip_id: u64, segment_id_1: u32, segment_
         return 0;
     };
 
-    if state.merge_segments(segment_id_1, segment_id_2) { 1 } else { 0 }
+    if state.merge_segments(segment_id_1, segment_id_2) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get pitch contour for segment (detailed pitch over time)
@@ -4591,71 +4754,82 @@ pub extern "C" fn engine_start_playback() -> i32 {
                 // Process middleware events (Wwise/FMOD-style)
                 // Note: try_lock() is lock-free attempt - if locked, skip this frame
                 if let Some(mut processor_guard) = EVENT_MANAGER_PARTS.1.try_lock()
-                    && let Some(ref mut processor) = *processor_guard {
-                        let actions = processor.process(frames as u64);
+                    && let Some(ref mut processor) = *processor_guard
+                {
+                    let actions = processor.process(frames as u64);
 
-                        // Execute actions
-                        for action in actions {
-                            match action {
-                                ExecutedAction::Play {
-                                    playing_id,
-                                    asset_id,
-                                    bus_id: _,
-                                    gain,
-                                    loop_playback,
-                                    fade_in_frames,
-                                    priority: _,
-                                } => {
-                                    // Get asset from registry
-                                    if let Some(asset) = ASSET_REGISTRY.get(asset_id) {
-                                        let (current_gain, fade_inc) = if fade_in_frames > 0 {
-                                            (0.0, gain / fade_in_frames as f32)
-                                        } else {
-                                            (gain, 0.0)
-                                        };
+                    // Execute actions
+                    for action in actions {
+                        match action {
+                            ExecutedAction::Play {
+                                playing_id,
+                                asset_id,
+                                bus_id: _,
+                                gain,
+                                loop_playback,
+                                fade_in_frames,
+                                priority: _,
+                            } => {
+                                // Get asset from registry
+                                if let Some(asset) = ASSET_REGISTRY.get(asset_id) {
+                                    let (current_gain, fade_inc) = if fade_in_frames > 0 {
+                                        (0.0, gain / fade_in_frames as f32)
+                                    } else {
+                                        (gain, 0.0)
+                                    };
 
-                                        // Voice limit check
-                                        if middleware_voices.len() < 64 {
-                                            middleware_voices.push(PlayingVoice {
-                                                playing_id,
-                                                asset,
-                                                position: 0,
-                                                gain: current_gain,
-                                                target_gain: gain,
-                                                fade_increment: fade_inc,
-                                                looping: loop_playback,
-                                                stopping: false,
-                                                finished: false,
-                                            });
-                                        }
+                                    // Voice limit check
+                                    if middleware_voices.len() < 64 {
+                                        middleware_voices.push(PlayingVoice {
+                                            playing_id,
+                                            asset,
+                                            position: 0,
+                                            gain: current_gain,
+                                            target_gain: gain,
+                                            fade_increment: fade_inc,
+                                            looping: loop_playback,
+                                            stopping: false,
+                                            finished: false,
+                                        });
                                     }
                                 }
-                                ExecutedAction::Stop { playing_id, asset_id: _, fade_out_frames } => {
-                                    if let Some(voice) = middleware_voices.iter_mut().find(|v| v.playing_id == playing_id) {
-                                        voice.stopping = true;
-                                        voice.target_gain = 0.0;
-                                        voice.fade_increment = if fade_out_frames > 0 {
-                                            -voice.gain / fade_out_frames as f32
-                                        } else {
-                                            -1.0
-                                        };
-                                    }
-                                }
-                                ExecutedAction::StopAll { game_object: _, fade_out_frames } => {
-                                    for voice in &mut middleware_voices {
-                                        voice.stopping = true;
-                                        voice.target_gain = 0.0;
-                                        voice.fade_increment = if fade_out_frames > 0 {
-                                            -voice.gain / fade_out_frames as f32
-                                        } else {
-                                            -1.0
-                                        };
-                                    }
-                                }
-                                _ => {} // Other actions handled elsewhere
                             }
+                            ExecutedAction::Stop {
+                                playing_id,
+                                asset_id: _,
+                                fade_out_frames,
+                            } => {
+                                if let Some(voice) = middleware_voices
+                                    .iter_mut()
+                                    .find(|v| v.playing_id == playing_id)
+                                {
+                                    voice.stopping = true;
+                                    voice.target_gain = 0.0;
+                                    voice.fade_increment = if fade_out_frames > 0 {
+                                        -voice.gain / fade_out_frames as f32
+                                    } else {
+                                        -1.0
+                                    };
+                                }
+                            }
+                            ExecutedAction::StopAll {
+                                game_object: _,
+                                fade_out_frames,
+                            } => {
+                                for voice in &mut middleware_voices {
+                                    voice.stopping = true;
+                                    voice.target_gain = 0.0;
+                                    voice.fade_increment = if fade_out_frames > 0 {
+                                        -voice.gain / fade_out_frames as f32
+                                    } else {
+                                        -1.0
+                                    };
+                                }
+                            }
+                            _ => {} // Other actions handled elsewhere
                         }
                     }
+                }
 
                 // Clear middleware buffers
                 middleware_output_l[..frames].fill(0.0);
@@ -4991,7 +5165,11 @@ pub extern "C" fn engine_middleware_instance_count() -> u32 {
 pub extern "C" fn engine_middleware_is_playing(_event_id: u32, _game_object_id: u64) -> i32 {
     // Note: is_event_playing is only available on processor (audio thread)
     // For now, return based on active count
-    if event_handle().active_instance_count() > 0 { 1 } else { 0 }
+    if event_handle().active_instance_count() > 0 {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5038,7 +5216,12 @@ pub extern "C" fn engine_middleware_register_asset(
     };
 
     let asset_id = ASSET_REGISTRY.register(&name_str, samples_l_vec, samples_r_vec, sample_rate);
-    log::info!("[Middleware] Registered asset '{}' (id: {}, {} samples)", name_str, asset_id, num_samples);
+    log::info!(
+        "[Middleware] Registered asset '{}' (id: {}, {} samples)",
+        name_str,
+        asset_id,
+        num_samples
+    );
     asset_id
 }
 
@@ -5059,7 +5242,10 @@ pub extern "C" fn engine_middleware_register_asset_from_clip(
     let imported = match imported_guard.get(&ClipId(clip_id)) {
         Some(i) => i.clone(),
         None => {
-            log::warn!("[Middleware] Clip {} not found in imported audio cache", clip_id);
+            log::warn!(
+                "[Middleware] Clip {} not found in imported audio cache",
+                clip_id
+            );
             return 0;
         }
     };
@@ -5087,7 +5273,12 @@ pub extern "C" fn engine_middleware_register_asset_from_clip(
     };
 
     let asset_id = ASSET_REGISTRY.register(&name_str, samples_l, samples_r, imported.sample_rate);
-    log::info!("[Middleware] Registered asset '{}' from clip {} (id: {})", name_str, clip_id, asset_id);
+    log::info!(
+        "[Middleware] Registered asset '{}' from clip {} (id: {})",
+        name_str,
+        clip_id,
+        asset_id
+    );
     asset_id
 }
 
@@ -5284,7 +5475,11 @@ fn ensure_eq_loaded(track_id: u64) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
         let eq = crate::dsp_wrappers::ProEqWrapper::new(sample_rate);
         PLAYBACK_ENGINE.load_track_insert(track_id, EQ_SLOT_INDEX, Box::new(eq));
-        log::info!("Loaded ProEQ into track {} slot {}", track_id, EQ_SLOT_INDEX);
+        log::info!(
+            "Loaded ProEQ into track {} slot {}",
+            track_id,
+            EQ_SLOT_INDEX
+        );
     }
 }
 
@@ -5409,7 +5604,11 @@ fn ensure_compressor_loaded(track_id: u64) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
         let comp = crate::dsp_wrappers::CompressorWrapper::new(sample_rate);
         PLAYBACK_ENGINE.load_track_insert(track_id, COMP_SLOT_INDEX, Box::new(comp));
-        log::info!("Loaded Compressor into track {} slot {}", track_id, COMP_SLOT_INDEX);
+        log::info!(
+            "Loaded Compressor into track {} slot {}",
+            track_id,
+            COMP_SLOT_INDEX
+        );
     }
 }
 
@@ -5522,7 +5721,11 @@ fn ensure_limiter_loaded(track_id: u64) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
         let limiter = crate::dsp_wrappers::TruePeakLimiterWrapper::new(sample_rate);
         PLAYBACK_ENGINE.load_track_insert(track_id, LIMITER_SLOT_INDEX, Box::new(limiter));
-        log::info!("Loaded Limiter into track {} slot {}", track_id, LIMITER_SLOT_INDEX);
+        log::info!(
+            "Loaded Limiter into track {} slot {}",
+            track_id,
+            LIMITER_SLOT_INDEX
+        );
     }
 }
 
@@ -5562,7 +5765,11 @@ pub extern "C" fn track_limiter_set_oversampling(track_id: u32, oversampling: u8
     let track_id = track_id as u64;
     ensure_limiter_loaded(track_id);
     PLAYBACK_ENGINE.set_track_insert_param(track_id, LIMITER_SLOT_INDEX, 3, oversampling as f64);
-    log::debug!("Track limiter {} oversampling: {}x", track_id, 1 << oversampling);
+    log::debug!(
+        "Track limiter {} oversampling: {}x",
+        track_id,
+        1 << oversampling
+    );
     1
 }
 
@@ -5596,7 +5803,11 @@ fn ensure_gate_loaded(track_id: u64) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
         let gate = crate::dsp_wrappers::GateWrapper::new(sample_rate);
         PLAYBACK_ENGINE.load_track_insert(track_id, GATE_SLOT_INDEX, Box::new(gate));
-        log::info!("Loaded Gate into track {} slot {}", track_id, GATE_SLOT_INDEX);
+        log::info!(
+            "Loaded Gate into track {} slot {}",
+            track_id,
+            GATE_SLOT_INDEX
+        );
     }
 }
 
@@ -5678,7 +5889,11 @@ fn ensure_expander_loaded(track_id: u64) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
         let expander = crate::dsp_wrappers::ExpanderWrapper::new(sample_rate);
         PLAYBACK_ENGINE.load_track_insert(track_id, EXPANDER_SLOT_INDEX, Box::new(expander));
-        log::info!("Loaded Expander into track {} slot {}", track_id, EXPANDER_SLOT_INDEX);
+        log::info!(
+            "Loaded Expander into track {} slot {}",
+            track_id,
+            EXPANDER_SLOT_INDEX
+        );
     }
 }
 
@@ -5730,7 +5945,11 @@ pub extern "C" fn track_expander_set_bypass(track_id: u32, bypass: i32) -> i32 {
 /// Available processors: "pro-eq", "pultec", "api550", "neve1073", "compressor", "limiter", "gate", "expander"
 /// track_id=0 means master bus, others are audio track IDs
 #[unsafe(no_mangle)]
-pub extern "C" fn insert_load_processor(track_id: u32, slot_index: u32, processor_name: *const c_char) -> i32 {
+pub extern "C" fn insert_load_processor(
+    track_id: u32,
+    slot_index: u32,
+    processor_name: *const c_char,
+) -> i32 {
     ffi_panic_guard!(0, {
         let name = match unsafe { cstr_to_string(processor_name) } {
             Some(n) => n,
@@ -5746,9 +5965,15 @@ pub extern "C" fn insert_load_processor(track_id: u32, slot_index: u32, processo
         let track_id_u64 = track_id as u64;
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
 
-        log::info!("[EQ FFI] insert_load_processor: track={}, slot={}, processor='{}'", track_id, slot_index, name);
+        log::info!(
+            "[EQ FFI] insert_load_processor: track={}, slot={}, processor='{}'",
+            track_id,
+            slot_index,
+            name
+        );
 
-        if let Some(processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate) {
+        if let Some(processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate)
+        {
             let success = if track_id == 0 {
                 // Master bus uses dedicated master_insert chain
                 PLAYBACK_ENGINE.load_master_insert(slot_index, processor)
@@ -5756,8 +5981,17 @@ pub extern "C" fn insert_load_processor(track_id: u32, slot_index: u32, processo
                 // Audio tracks use per-track insert chains
                 PLAYBACK_ENGINE.load_track_insert(track_id_u64, slot_index, processor)
             };
-            log::info!("[EQ FFI] Loaded '{}' into {} slot {} -> success={}",
-                name, if track_id == 0 { "master".to_string() } else { format!("track {}", track_id) }, slot_index, success);
+            log::info!(
+                "[EQ FFI] Loaded '{}' into {} slot {} -> success={}",
+                name,
+                if track_id == 0 {
+                    "master".to_string()
+                } else {
+                    format!("track {}", track_id)
+                },
+                slot_index,
+                success
+            );
             1
         } else {
             log::warn!("[EQ FFI] Unknown processor: {}", name);
@@ -5779,12 +6013,21 @@ pub extern "C" fn insert_unload_slot(track_id: u32, slot_index: u32) -> i32 {
         let result = if track_id == 0 {
             PLAYBACK_ENGINE.unload_master_insert(slot_index).is_some()
         } else {
-            PLAYBACK_ENGINE.unload_track_insert(track_id as u64, slot_index).is_some()
+            PLAYBACK_ENGINE
+                .unload_track_insert(track_id as u64, slot_index)
+                .is_some()
         };
 
         if result {
-            log::info!("Unloaded processor from {} slot {}",
-                if track_id == 0 { "master".to_string() } else { format!("track {}", track_id) }, slot_index);
+            log::info!(
+                "Unloaded processor from {} slot {}",
+                if track_id == 0 {
+                    "master".to_string()
+                } else {
+                    format!("track {}", track_id)
+                },
+                slot_index
+            );
             1
         } else {
             0
@@ -5795,7 +6038,12 @@ pub extern "C" fn insert_unload_slot(track_id: u32, slot_index: u32) -> i32 {
 /// Set parameter on any insert slot
 /// track_id=0 means master bus, others are audio track IDs
 #[unsafe(no_mangle)]
-pub extern "C" fn insert_set_param(track_id: u32, slot_index: u32, param_index: u32, value: f64) -> i32 {
+pub extern "C" fn insert_set_param(
+    track_id: u32,
+    slot_index: u32,
+    param_index: u32,
+    value: f64,
+) -> i32 {
     ffi_panic_guard!(0, {
         let slot_index = match validate_slot_index(slot_index) {
             Some(s) => s as usize,
@@ -5813,7 +6061,10 @@ pub extern "C" fn insert_set_param(track_id: u32, slot_index: u32, param_index: 
             value
         };
 
-        eprintln!("[EQ FFI] insert_set_param: track={}, slot={}, param={}, value={:.3}", track_id, slot_index, param_index, value);
+        eprintln!(
+            "[EQ FFI] insert_set_param: track={}, slot={}, param={}, value={:.3}",
+            track_id, slot_index, param_index, value
+        );
         if track_id == 0 {
             // Master bus uses dedicated master_insert chain
             PLAYBACK_ENGINE.set_master_insert_param(slot_index, param_index, value);
@@ -5957,7 +6208,11 @@ pub extern "C" fn insert_get_metering_json(track_id: u32, slot_index: u32) -> *m
 /// bus_id: 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux
 /// Available processors: "pro-eq", "pultec", "api550", "neve1073", "compressor", "limiter", "gate", "expander"
 #[unsafe(no_mangle)]
-pub extern "C" fn bus_insert_load_processor(bus_id: u32, slot_index: u32, processor_name: *const c_char) -> i32 {
+pub extern "C" fn bus_insert_load_processor(
+    bus_id: u32,
+    slot_index: u32,
+    processor_name: *const c_char,
+) -> i32 {
     ffi_panic_guard!(0, {
         let name = match unsafe { cstr_to_string(processor_name) } {
             Some(n) => n,
@@ -5978,12 +6233,23 @@ pub extern "C" fn bus_insert_load_processor(bus_id: u32, slot_index: u32, proces
 
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
 
-        log::info!("[BusInsert FFI] bus_insert_load_processor: bus={}, slot={}, processor='{}'", bus_id, slot_index, name);
+        log::info!(
+            "[BusInsert FFI] bus_insert_load_processor: bus={}, slot={}, processor='{}'",
+            bus_id,
+            slot_index,
+            name
+        );
 
-        if let Some(processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate) {
+        if let Some(processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate)
+        {
             let success = PLAYBACK_ENGINE.load_bus_insert(bus_id, slot_index, processor);
-            log::info!("[BusInsert FFI] Loaded '{}' into bus {} slot {} -> success={}",
-                name, bus_id, slot_index, success);
+            log::info!(
+                "[BusInsert FFI] Loaded '{}' into bus {} slot {} -> success={}",
+                name,
+                bus_id,
+                slot_index,
+                success
+            );
             if success { 1 } else { 0 }
         } else {
             log::warn!("[BusInsert FFI] Unknown processor: {}", name);
@@ -6006,9 +6272,15 @@ pub extern "C" fn bus_insert_unload_slot(bus_id: u32, slot_index: u32) -> i32 {
             return 0;
         }
 
-        let result = PLAYBACK_ENGINE.unload_bus_insert(bus_id, slot_index).is_some();
+        let result = PLAYBACK_ENGINE
+            .unload_bus_insert(bus_id, slot_index)
+            .is_some();
         if result {
-            log::info!("[BusInsert FFI] Unloaded processor from bus {} slot {}", bus_id, slot_index);
+            log::info!(
+                "[BusInsert FFI] Unloaded processor from bus {} slot {}",
+                bus_id,
+                slot_index
+            );
             1
         } else {
             0
@@ -6018,7 +6290,12 @@ pub extern "C" fn bus_insert_unload_slot(bus_id: u32, slot_index: u32) -> i32 {
 
 /// Set parameter on bus insert slot (lock-free)
 #[unsafe(no_mangle)]
-pub extern "C" fn bus_insert_set_param(bus_id: u32, slot_index: u32, param_index: u32, value: f64) -> i32 {
+pub extern "C" fn bus_insert_set_param(
+    bus_id: u32,
+    slot_index: u32,
+    param_index: u32,
+    value: f64,
+) -> i32 {
     ffi_panic_guard!(0, {
         let slot_index = match validate_slot_index(slot_index) {
             Some(s) => s as usize,
@@ -6114,7 +6391,11 @@ pub extern "C" fn bus_insert_is_loaded(bus_id: u32, slot_index: u32) -> i32 {
             return 0;
         }
 
-        if PLAYBACK_ENGINE.has_bus_insert(bus_id, slot_index) { 1 } else { 0 }
+        if PLAYBACK_ENGINE.has_bus_insert(bus_id, slot_index) {
+            1
+        } else {
+            0
+        }
     })
 }
 
@@ -6137,7 +6418,11 @@ pub extern "C" fn insert_open_editor(track_id: u32, slot_index: u32) -> i32 {
         };
 
         if !has_insert {
-            log::warn!("insert_open_editor: No processor in track {} slot {}", track_id, slot_index);
+            log::warn!(
+                "insert_open_editor: No processor in track {} slot {}",
+                track_id,
+                slot_index
+            );
             return -1;
         }
 
@@ -6146,7 +6431,8 @@ pub extern "C" fn insert_open_editor(track_id: u32, slot_index: u32) -> i32 {
         // in rf-plugin crate with nih-plug editor support
         log::info!(
             "insert_open_editor: Opening editor for track {} slot {} (stub - editor GUI pending)",
-            track_id, slot_index
+            track_id,
+            slot_index
         );
 
         // Return success - editor opening will be async in future implementation
@@ -6171,7 +6457,11 @@ fn ensure_pultec_loaded(track_id: u64) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
         let pultec = crate::dsp_wrappers::PultecWrapper::new(sample_rate);
         PLAYBACK_ENGINE.load_track_insert(track_id, PULTEC_SLOT_INDEX, Box::new(pultec));
-        log::info!("Loaded Pultec into track {} slot {}", track_id, PULTEC_SLOT_INDEX);
+        log::info!(
+            "Loaded Pultec into track {} slot {}",
+            track_id,
+            PULTEC_SLOT_INDEX
+        );
     }
 }
 
@@ -6231,7 +6521,11 @@ fn ensure_api550_loaded(track_id: u64) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
         let api = crate::dsp_wrappers::Api550Wrapper::new(sample_rate);
         PLAYBACK_ENGINE.load_track_insert(track_id, API550_SLOT_INDEX, Box::new(api));
-        log::info!("Loaded API 550 into track {} slot {}", track_id, API550_SLOT_INDEX);
+        log::info!(
+            "Loaded API 550 into track {} slot {}",
+            track_id,
+            API550_SLOT_INDEX
+        );
     }
 }
 
@@ -6283,7 +6577,11 @@ fn ensure_neve1073_loaded(track_id: u64) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
         let neve = crate::dsp_wrappers::Neve1073Wrapper::new(sample_rate);
         PLAYBACK_ENGINE.load_track_insert(track_id, NEVE1073_SLOT_INDEX, Box::new(neve));
-        log::info!("Loaded Neve 1073 into track {} slot {}", track_id, NEVE1073_SLOT_INDEX);
+        log::info!(
+            "Loaded Neve 1073 into track {} slot {}",
+            track_id,
+            NEVE1073_SLOT_INDEX
+        );
     }
 }
 
@@ -6384,7 +6682,10 @@ pub extern "C" fn mixer_set_master_volume(volume_db: f64) -> i32 {
 /// Normalize clip to target dB
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_normalize(clip_id: u64, target_db: f64) -> i32 {
-    eprintln!("[FFI] clip_normalize: clip_id={}, target_db={}", clip_id, target_db);
+    eprintln!(
+        "[FFI] clip_normalize: clip_id={}, target_db={}",
+        clip_id, target_db
+    );
 
     // Get clip info
     let clip = match TRACK_MANAGER.get_clip(ClipId(clip_id)) {
@@ -6393,13 +6694,22 @@ pub extern "C" fn clip_normalize(clip_id: u64, target_db: f64) -> i32 {
             c
         }
         None => {
-            eprintln!("[FFI] clip_normalize: clip {} NOT FOUND in TRACK_MANAGER", clip_id);
+            eprintln!(
+                "[FFI] clip_normalize: clip {} NOT FOUND in TRACK_MANAGER",
+                clip_id
+            );
             // Try to get from IMPORTED_AUDIO directly
             if let Some(audio) = IMPORTED_AUDIO.read().get(&ClipId(clip_id)) {
-                eprintln!("[FFI] clip_normalize: clip {} EXISTS in IMPORTED_AUDIO ({} samples)",
-                    clip_id, audio.samples.len());
+                eprintln!(
+                    "[FFI] clip_normalize: clip {} EXISTS in IMPORTED_AUDIO ({} samples)",
+                    clip_id,
+                    audio.samples.len()
+                );
             } else {
-                eprintln!("[FFI] clip_normalize: clip {} NOT in IMPORTED_AUDIO either", clip_id);
+                eprintln!(
+                    "[FFI] clip_normalize: clip {} NOT in IMPORTED_AUDIO either",
+                    clip_id
+                );
             }
             return 0;
         }
@@ -6608,7 +6918,6 @@ pub extern "C" fn track_set_color(track_id: u64, color: u32) -> i32 {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Routing types imported in ffi_routing.rs
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VCA FADER FFI
@@ -6872,7 +7181,11 @@ pub extern "C" fn edit_mode_set_grid_enabled(enabled: i32) -> i32 {
 /// Check if grid is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn edit_mode_is_grid_enabled() -> i32 {
-    if EDIT_CONTEXT.read().grid.enabled { 1 } else { 0 }
+    if EDIT_CONTEXT.read().grid.enabled {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set grid snap strength (0.0 - 1.0)
@@ -6922,7 +7235,9 @@ pub extern "C" fn edit_mode_set_sample_rate(sample_rate: f64) -> i32 {
 pub extern "C" fn edit_mode_snap_to_grid(time_seconds: f64) -> f64 {
     let ctx = EDIT_CONTEXT.read();
     let position_samples = (time_seconds * ctx.sample_rate) as u64;
-    let snapped_samples = ctx.grid.snap_to_grid(position_samples, ctx.sample_rate, ctx.tempo);
+    let snapped_samples = ctx
+        .grid
+        .snap_to_grid(position_samples, ctx.sample_rate, ctx.tempo);
     snapped_samples as f64 / ctx.sample_rate
 }
 
@@ -7532,7 +7847,9 @@ lazy_static::lazy_static! {
 #[unsafe(no_mangle)]
 pub extern "C" fn piano_roll_create(clip_id: u32) -> i32 {
     let mut states = PIANO_ROLL_STATES.write();
-    states.entry(clip_id).or_insert_with(|| rf_core::PianoRollState::new(clip_id));
+    states
+        .entry(clip_id)
+        .or_insert_with(|| rf_core::PianoRollState::new(clip_id));
     1
 }
 
@@ -12584,7 +12901,11 @@ static PDC_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBoo
 /// Check if PDC is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn pdc_is_enabled() -> i32 {
-    if PDC_ENABLED.load(std::sync::atomic::Ordering::Relaxed) { 1 } else { 0 }
+    if PDC_ENABLED.load(std::sync::atomic::Ordering::Relaxed) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set PDC enabled state
@@ -12608,7 +12929,11 @@ pub extern "C" fn pdc_get_master_latency() -> u32 {
 /// Returns 1 on success, 0 if graph has cycles or PDC disabled.
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_recalculate_graph_pdc() -> i32 {
-    if PLAYBACK_ENGINE.recalculate_graph_pdc() { 1 } else { 0 }
+    if PLAYBACK_ENGINE.recalculate_graph_pdc() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get graph-level PDC status as JSON string.
@@ -12634,7 +12959,11 @@ pub extern "C" fn engine_get_track_graph_pdc_compensation(track_id: u64) -> u64 
 /// Returns 1 if enabled, 0 if disabled.
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_is_graph_pdc_enabled() -> i32 {
-    if PLAYBACK_ENGINE.is_graph_pdc_enabled() { 1 } else { 0 }
+    if PLAYBACK_ENGINE.is_graph_pdc_enabled() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Enable or disable graph-level PDC.
@@ -12778,8 +13107,8 @@ pub extern "C" fn render_selection_to_new_clip(
     };
 
     // Calculate source duration from imported audio
-    let source_duration = imported.samples.len() as f64
-        / (imported.sample_rate as f64 * imported.channels as f64);
+    let source_duration =
+        imported.samples.len() as f64 / (imported.sample_rate as f64 * imported.channels as f64);
 
     // Add to audio cache using LRU cache insert
     PLAYBACK_ENGINE
@@ -12835,7 +13164,11 @@ pub extern "C" fn cycle_get_end() -> f64 {
 /// Check if cycle region is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn cycle_is_enabled() -> i32 {
-    if TRACK_MANAGER.get_cycle_region().enabled { 1 } else { 0 }
+    if TRACK_MANAGER.get_cycle_region().enabled {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get current cycle count
@@ -12867,7 +13200,11 @@ pub extern "C" fn cycle_set_enabled(enabled: i32) {
 /// Set max cycles (0 = unlimited)
 #[unsafe(no_mangle)]
 pub extern "C" fn cycle_set_max(max_cycles: u32) {
-    let max = if max_cycles == 0 { None } else { Some(max_cycles) };
+    let max = if max_cycles == 0 {
+        None
+    } else {
+        Some(max_cycles)
+    };
     TRACK_MANAGER.set_cycle_max(max);
     PROJECT_STATE.mark_dirty();
 }
@@ -12897,7 +13234,11 @@ pub extern "C" fn punch_get_out() -> f64 {
 /// Check if punch is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn punch_is_enabled() -> i32 {
-    if TRACK_MANAGER.get_punch_region().enabled { 1 } else { 0 }
+    if TRACK_MANAGER.get_punch_region().enabled {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get pre-roll bars
@@ -12943,7 +13284,11 @@ pub extern "C" fn punch_set_post_roll(bars: f64) {
 /// Check if time is within punch region
 #[unsafe(no_mangle)]
 pub extern "C" fn punch_is_active(time: f64) -> i32 {
-    if TRACK_MANAGER.is_punch_active(time) { 1 } else { 0 }
+    if TRACK_MANAGER.is_punch_active(time) {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -12961,8 +13306,7 @@ pub extern "C" fn template_save_track(
     let name = unsafe { cstr_to_string(template_name) }.unwrap_or_else(|| "Untitled".to_string());
     let cat = unsafe { cstr_to_string(category) }.unwrap_or_else(|| "Custom".to_string());
 
-    if let Some(template_id) =
-        TRACK_MANAGER.save_track_as_template(TrackId(track_id), &name, &cat)
+    if let Some(template_id) = TRACK_MANAGER.save_track_as_template(TrackId(track_id), &name, &cat)
     {
         PROJECT_STATE.mark_dirty();
         string_to_cstr(&template_id)
@@ -13164,18 +13508,18 @@ pub extern "C" fn version_init(project_name: *const c_char, base_dir: *const c_c
 /// Create a new version snapshot
 /// Returns version ID (caller must free) or null on error
 #[unsafe(no_mangle)]
-pub extern "C" fn version_create(
-    name: *const c_char,
-    description: *const c_char,
-) -> *mut c_char {
-    let version_name = unsafe { cstr_to_string(name) }
-        .unwrap_or_else(|| "Unnamed Version".to_string());
+pub extern "C" fn version_create(name: *const c_char, description: *const c_char) -> *mut c_char {
+    let version_name =
+        unsafe { cstr_to_string(name) }.unwrap_or_else(|| "Unnamed Version".to_string());
     let desc = unsafe { cstr_to_string(description) }.unwrap_or_default();
 
     // Capture current project state
     let snapshot = ProjectSnapshot::capture();
 
-    match VERSION_MANAGER.write().create_version(&version_name, &desc, &snapshot) {
+    match VERSION_MANAGER
+        .write()
+        .create_version(&version_name, &desc, &snapshot)
+    {
         Ok(version) => string_to_cstr(&version.id),
         Err(e) => {
             log::error!("Failed to create version: {}", e);
@@ -13193,13 +13537,14 @@ pub extern "C" fn version_load(version_id: *const c_char) -> *mut c_char {
         None => return ptr::null_mut(),
     };
 
-    match VERSION_MANAGER.read().load_version::<serde_json::Value>(&id) {
-        Ok(data) => {
-            match serde_json::to_string(&data) {
-                Ok(json) => string_to_cstr(&json),
-                Err(_) => ptr::null_mut(),
-            }
-        }
+    match VERSION_MANAGER
+        .read()
+        .load_version::<serde_json::Value>(&id)
+    {
+        Ok(data) => match serde_json::to_string(&data) {
+            Ok(json) => string_to_cstr(&json),
+            Err(_) => ptr::null_mut(),
+        },
         Err(e) => {
             log::error!("Failed to load version: {}", e);
             ptr::null_mut()
@@ -13237,12 +13582,10 @@ pub extern "C" fn version_get(version_id: *const c_char) -> *mut c_char {
     };
 
     match VERSION_MANAGER.read().get_version(&id) {
-        Some(version) => {
-            match serde_json::to_string(&version) {
-                Ok(json) => string_to_cstr(&json),
-                Err(_) => ptr::null_mut(),
-            }
-        }
+        Some(version) => match serde_json::to_string(&version) {
+            Ok(json) => string_to_cstr(&json),
+            Err(_) => ptr::null_mut(),
+        },
         None => ptr::null_mut(),
     }
 }
@@ -13287,7 +13630,10 @@ pub extern "C" fn version_set_milestone(version_id: *const c_char, is_milestone:
         None => return 0,
     };
 
-    match VERSION_MANAGER.write().set_milestone(&id, is_milestone != 0) {
+    match VERSION_MANAGER
+        .write()
+        .set_milestone(&id, is_milestone != 0)
+    {
         Ok(_) => 1,
         Err(_) => 0,
     }
@@ -13382,12 +13728,11 @@ lazy_static::lazy_static! {
     static ref CONTROL_ROOM: RwLock<ControlRoom> = RwLock::new(ControlRoom::new(256));
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // PHASE 5.1: PLUGIN SYSTEM FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-use rf_plugin::{PluginHost, PluginScanner, PluginType, PluginCategory};
+use rf_plugin::{PluginCategory, PluginHost, PluginScanner, PluginType};
 
 /// Global plugin host instance
 static PLUGIN_HOST: std::sync::LazyLock<parking_lot::RwLock<PluginHost>> =
@@ -13493,7 +13838,9 @@ pub extern "C" fn plugin_get_info_by_index(
 
         // Has editor
         if !out_has_editor.is_null() {
-            unsafe { *out_has_editor = if info.has_editor { 1 } else { 0 }; }
+            unsafe {
+                *out_has_editor = if info.has_editor { 1 } else { 0 };
+            }
         }
 
         1
@@ -13527,7 +13874,9 @@ pub extern "C" fn plugin_get_by_type(
     for (i, info) in plugins.iter().enumerate() {
         if info.plugin_type == target_type {
             if count < max_indices && !out_indices.is_null() {
-                unsafe { *out_indices.add(count as usize) = i as u32; }
+                unsafe {
+                    *out_indices.add(count as usize) = i as u32;
+                }
             }
             count += 1;
         }
@@ -13559,7 +13908,9 @@ pub extern "C" fn plugin_get_by_category(
     for (i, info) in plugins.iter().enumerate() {
         if info.category == target_category {
             if count < max_indices && !out_indices.is_null() {
-                unsafe { *out_indices.add(count as usize) = i as u32; }
+                unsafe {
+                    *out_indices.add(count as usize) = i as u32;
+                }
             }
             count += 1;
         }
@@ -13596,7 +13947,9 @@ pub extern "C" fn plugin_search(
         // Find index of this plugin
         if let Some(idx) = plugins.iter().position(|p| p.id == result.id) {
             if count < max_indices && !out_indices.is_null() {
-                unsafe { *out_indices.add(count as usize) = idx as u32; }
+                unsafe {
+                    *out_indices.add(count as usize) = idx as u32;
+                }
             }
             count += 1;
         }
@@ -13687,10 +14040,7 @@ pub extern "C" fn plugin_get_param_count(instance_id: *const c_char) -> i32 {
 
 /// Get plugin parameter value
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_get_param(
-    instance_id: *const c_char,
-    param_id: u32,
-) -> f64 {
+pub extern "C" fn plugin_get_param(instance_id: *const c_char, param_id: u32) -> f64 {
     if instance_id.is_null() {
         return 0.0;
     }
@@ -13711,11 +14061,7 @@ pub extern "C" fn plugin_get_param(
 
 /// Set plugin parameter value (normalized 0-1)
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_set_param(
-    instance_id: *const c_char,
-    param_id: u32,
-    value: f64,
-) -> i32 {
+pub extern "C" fn plugin_set_param(instance_id: *const c_char, param_id: u32, value: f64) -> i32 {
     if instance_id.is_null() {
         return 0;
     }
@@ -13763,7 +14109,9 @@ pub extern "C" fn plugin_get_param_info(
     if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
         if let Some(info) = instance.read().parameter_info(param_index as usize) {
             if !out_id.is_null() {
-                unsafe { *out_id = info.id; }
+                unsafe {
+                    *out_id = info.id;
+                }
             }
             if !out_name.is_null() && name_len > 0 {
                 let bytes = info.name.as_bytes();
@@ -13774,13 +14122,19 @@ pub extern "C" fn plugin_get_param_info(
                 }
             }
             if !out_min.is_null() {
-                unsafe { *out_min = info.min; }
+                unsafe {
+                    *out_min = info.min;
+                }
             }
             if !out_max.is_null() {
-                unsafe { *out_max = info.max; }
+                unsafe {
+                    *out_max = info.max;
+                }
             }
             if !out_default.is_null() {
-                unsafe { *out_default = info.default; }
+                unsafe {
+                    *out_default = info.default;
+                }
             }
             1
         } else {
@@ -13930,11 +14284,7 @@ pub extern "C" fn plugin_get_state(
 /// Set plugin state (for loading presets)
 /// Returns 1 on success, 0 on failure
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_set_state(
-    instance_id: *const c_char,
-    data: *const u8,
-    len: u32,
-) -> i32 {
+pub extern "C" fn plugin_set_state(instance_id: *const c_char, data: *const u8, len: u32) -> i32 {
     if instance_id.is_null() || data.is_null() || len == 0 {
         return 0;
     }
@@ -14029,10 +14379,7 @@ pub extern "C" fn plugin_save_preset(
 /// Load plugin preset from file
 /// Returns 1 on success, 0 on failure
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_load_preset(
-    instance_id: *const c_char,
-    path: *const c_char,
-) -> i32 {
+pub extern "C" fn plugin_load_preset(instance_id: *const c_char, path: *const c_char) -> i32 {
     if instance_id.is_null() || path.is_null() {
         return 0;
     }
@@ -14112,8 +14459,7 @@ fn hex_decode(s: &str) -> Result<Vec<u8>, String> {
     (0..s.len())
         .step_by(2)
         .map(|i| {
-            u8::from_str_radix(&s[i..i + 2], 16)
-                .map_err(|e| format!("Hex decode error: {}", e))
+            u8::from_str_radix(&s[i..i + 2], 16).map_err(|e| format!("Hex decode error: {}", e))
         })
         .collect()
 }
@@ -14210,11 +14556,7 @@ pub extern "C" fn plugin_editor_size(instance_id: *const c_char) -> u64 {
 /// Resize plugin editor
 /// Returns 1 on success, 0 on failure
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_resize_editor(
-    instance_id: *const c_char,
-    width: u32,
-    height: u32,
-) -> i32 {
+pub extern "C" fn plugin_resize_editor(instance_id: *const c_char, width: u32, height: u32) -> i32 {
     if instance_id.is_null() {
         return 0;
     }
@@ -14276,7 +14618,11 @@ pub extern "C" fn plugin_get_all_json() -> *mut c_char {
             plugin_type,
             category,
             if info.has_editor { "true" } else { "false" },
-            info.path.display().to_string().replace('\\', "\\\\").replace('"', "\\\""),
+            info.path
+                .display()
+                .to_string()
+                .replace('\\', "\\\\")
+                .replace('"', "\\\""),
         );
         entries.push(entry);
     }
@@ -14317,7 +14663,11 @@ pub extern "C" fn plugin_get_info_json(index: u32) -> *mut c_char {
             plugin_type,
             category,
             if info.has_editor { "true" } else { "false" },
-            info.path.display().to_string().replace('\\', "\\\\").replace('"', "\\\""),
+            info.path
+                .display()
+                .to_string()
+                .replace('\\', "\\\\")
+                .replace('"', "\\\""),
         );
         CString::new(json).unwrap_or_default().into_raw()
     } else {
@@ -14393,7 +14743,9 @@ pub extern "C" fn plugin_get_instances_json() -> *mut c_char {
 // AUDIO DEVICE ENUMERATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-use rf_audio::{list_input_devices, list_output_devices, get_host_info, DeviceInfo as AudioDeviceInfo};
+use rf_audio::{
+    DeviceInfo as AudioDeviceInfo, get_host_info, list_input_devices, list_output_devices,
+};
 
 lazy_static::lazy_static! {
     /// Cached device lists for FFI
@@ -14489,7 +14841,11 @@ pub extern "C" fn audio_is_output_device_default(index: i32) -> i32 {
         return 0;
     }
 
-    if cache.output_devices[index as usize].is_default { 1 } else { 0 }
+    if cache.output_devices[index as usize].is_default {
+        1
+    } else {
+        0
+    }
 }
 
 /// Check if input device is default
@@ -14500,7 +14856,11 @@ pub extern "C" fn audio_is_input_device_default(index: i32) -> i32 {
         return 0;
     }
 
-    if cache.input_devices[index as usize].is_default { 1 } else { 0 }
+    if cache.input_devices[index as usize].is_default {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get output device channel count
@@ -14717,13 +15077,22 @@ pub extern "C" fn audio_set_buffer_size(buffer_size: u32) -> i32 {
 
     // Validate buffer size (must be power of 2, 32-4096)
     if !(32..=4096).contains(&buffer_size) || (buffer_size & (buffer_size - 1)) != 0 {
-        log::error!("Invalid buffer size: {} (must be power of 2, 32-4096)", buffer_size);
-        set_last_error(AppError::new(
-            "INVALID_BUFFER_SIZE",
-            "Invalid Buffer Size",
-            format!("Buffer size {} is not valid. Must be a power of 2 between 32 and 4096.", buffer_size),
-        ).with_category(ErrorCategory::Audio)
-         .with_action(ErrorAction::open_settings("Audio Settings")));
+        log::error!(
+            "Invalid buffer size: {} (must be power of 2, 32-4096)",
+            buffer_size
+        );
+        set_last_error(
+            AppError::new(
+                "INVALID_BUFFER_SIZE",
+                "Invalid Buffer Size",
+                format!(
+                    "Buffer size {} is not valid. Must be a power of 2 between 32 and 4096.",
+                    buffer_size
+                ),
+            )
+            .with_category(ErrorCategory::Audio)
+            .with_action(ErrorAction::open_settings("Audio Settings")),
+        );
         return 0;
     }
 
@@ -14799,12 +15168,12 @@ lazy_static::lazy_static! {
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_start(
     output_path: *const c_char,
-    format: u8,         // 0=WAV, 1=FLAC, 2=MP3
-    bit_depth: u8,      // 16, 24, 32
-    sample_rate: u32,   // 0 = project rate
-    start_time: f64,    // seconds
-    end_time: f64,      // seconds
-    normalize: i32,     // 1=true, 0=false
+    format: u8,            // 0=WAV, 1=FLAC, 2=MP3
+    bit_depth: u8,         // 16, 24, 32
+    sample_rate: u32,      // 0 = project rate
+    start_time: f64,       // seconds
+    end_time: f64,         // seconds
+    normalize: i32,        // 1=true, 0=false
     normalize_target: f64, // dBFS (e.g., -0.1)
 ) -> i32 {
     if output_path.is_null() {
@@ -14850,11 +15219,7 @@ pub extern "C" fn bounce_start(
     let export_format = rf_file::ExportFormat {
         format: audio_format,
         bit_depth: bit_depth_enum,
-        sample_rate: if sample_rate == 0 {
-            0
-        } else {
-            sample_rate
-        },
+        sample_rate: if sample_rate == 0 { 0 } else { sample_rate },
         bitrate: 320, // High quality MP3
         dither: rf_file::DitherType::Triangular,
         noise_shape: rf_file::NoiseShapeType::ModifiedE,
@@ -14911,7 +15276,10 @@ pub extern "C" fn bounce_is_complete() -> i32 {
     BOUNCE_RENDERER
         .lock()
         .ok()
-        .and_then(|g| g.as_ref().map(|r| if r.progress().is_complete { 1 } else { 0 }))
+        .and_then(|g| {
+            g.as_ref()
+                .map(|r| if r.progress().is_complete { 1 } else { 0 })
+        })
         .unwrap_or(0)
 }
 
@@ -14921,7 +15289,10 @@ pub extern "C" fn bounce_was_cancelled() -> i32 {
     BOUNCE_RENDERER
         .lock()
         .ok()
-        .and_then(|g| g.as_ref().map(|r| if r.progress().was_cancelled { 1 } else { 0 }))
+        .and_then(|g| {
+            g.as_ref()
+                .map(|r| if r.progress().was_cancelled { 1 } else { 0 })
+        })
         .unwrap_or(0)
 }
 
@@ -14959,9 +15330,10 @@ pub extern "C" fn bounce_get_peak_level() -> f32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_cancel() {
     if let Ok(guard) = BOUNCE_RENDERER.lock()
-        && let Some(ref renderer) = *guard {
-            renderer.cancel();
-        }
+        && let Some(ref renderer) = *guard
+    {
+        renderer.cancel();
+    }
 }
 
 /// Check if bounce is active
@@ -15207,7 +15579,11 @@ pub extern "C" fn recording_set_punch_times(punch_in_secs: f64, punch_out_secs: 
 /// Check if currently punched in (recording)
 #[unsafe(no_mangle)]
 pub extern "C" fn recording_is_punched_in() -> i32 {
-    if RECORDING_MANAGER.is_punched_in() { 1 } else { 0 }
+    if RECORDING_MANAGER.is_punched_in() {
+        1
+    } else {
+        0
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15223,7 +15599,11 @@ pub extern "C" fn recording_set_pre_roll_enabled(enabled: i32) {
 /// Check if pre-roll is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn recording_is_pre_roll_enabled() -> i32 {
-    if RECORDING_MANAGER.pre_roll_enabled() { 1 } else { 0 }
+    if RECORDING_MANAGER.pre_roll_enabled() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set pre-roll duration in seconds
@@ -15269,7 +15649,11 @@ pub extern "C" fn recording_set_auto_arm_enabled(enabled: i32) {
 /// Check if auto-arm is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn recording_is_auto_arm_enabled() -> i32 {
-    if RECORDING_MANAGER.auto_arm_enabled() { 1 } else { 0 }
+    if RECORDING_MANAGER.auto_arm_enabled() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set auto-arm threshold in dB
@@ -15423,11 +15807,7 @@ pub extern "C" fn input_bus_get_peak(bus_id: u32, channel: i32) -> f32 {
 pub extern "C" fn track_set_input_bus(track_id: u64, bus_id: u32) {
     // DashMap provides lock-free mutable access via get_mut()
     if let Some(mut track) = TRACK_MANAGER.tracks.get_mut(&TrackId(track_id)) {
-        track.input_bus = if bus_id == 0 {
-            None
-        } else {
-            Some(bus_id)
-        };
+        track.input_bus = if bus_id == 0 { None } else { Some(bus_id) };
         PROJECT_STATE.mark_dirty();
     }
 }
@@ -15629,10 +16009,7 @@ pub extern "C" fn export_stems(
 /// Load plugin instance into a channel's insert chain
 /// Returns 1 on success (command sent), -1 on failure
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_insert_load(
-    channel_id: u64,
-    plugin_id: *const c_char,
-) -> i32 {
+pub extern "C" fn plugin_insert_load(channel_id: u64, plugin_id: *const c_char) -> i32 {
     let plugin_id_str = match unsafe { cstr_to_string(plugin_id) } {
         Some(s) if s.len() <= MAX_FFI_STRING_LEN => s,
         _ => return -1,
@@ -15646,20 +16023,24 @@ pub extern "C" fn plugin_insert_load(
     };
 
     if PLAYBACK_ENGINE.send_routing_command(cmd) {
-        log::info!("Plugin insert {} queued for channel {}", plugin_id_str, channel_id);
+        log::info!(
+            "Plugin insert {} queued for channel {}",
+            plugin_id_str,
+            channel_id
+        );
         1
     } else {
-        log::error!("Failed to queue plugin insert {} - routing not initialized", plugin_id_str);
+        log::error!(
+            "Failed to queue plugin insert {} - routing not initialized",
+            plugin_id_str
+        );
         -1
     }
 }
 
 /// Remove plugin from insert chain
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_insert_remove(
-    channel_id: u64,
-    slot_index: u32,
-) -> i32 {
+pub extern "C" fn plugin_insert_remove(channel_id: u64, slot_index: u32) -> i32 {
     let cmd = crate::routing::RoutingCommand::RemoveInsert {
         id: crate::routing::ChannelId(channel_id as u32),
         slot_index: slot_index as usize,
@@ -15674,11 +16055,7 @@ pub extern "C" fn plugin_insert_remove(
 
 /// Bypass/unbypass plugin insert slot
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_insert_set_bypass(
-    channel_id: u64,
-    slot_index: u32,
-    bypass: i32,
-) -> i32 {
+pub extern "C" fn plugin_insert_set_bypass(channel_id: u64, slot_index: u32, bypass: i32) -> i32 {
     let cmd = crate::routing::RoutingCommand::SetInsertBypass {
         id: crate::routing::ChannelId(channel_id as u32),
         slot_index: slot_index as usize,
@@ -15694,11 +16071,7 @@ pub extern "C" fn plugin_insert_set_bypass(
 
 /// Set plugin insert wet/dry mix (0.0 - 1.0)
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_insert_set_mix(
-    channel_id: u64,
-    slot_index: u32,
-    mix: f32,
-) -> i32 {
+pub extern "C" fn plugin_insert_set_mix(channel_id: u64, slot_index: u32, mix: f32) -> i32 {
     let cmd = crate::routing::RoutingCommand::SetInsertMix {
         id: crate::routing::ChannelId(channel_id as u32),
         slot_index: slot_index as usize,
@@ -15714,19 +16087,13 @@ pub extern "C" fn plugin_insert_set_mix(
 
 /// Get plugin insert wet/dry mix (0.0 - 1.0)
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_insert_get_mix(
-    channel_id: u64,
-    slot_index: u32,
-) -> f32 {
+pub extern "C" fn plugin_insert_get_mix(channel_id: u64, slot_index: u32) -> f32 {
     PLAYBACK_ENGINE.get_track_insert_mix(channel_id, slot_index as usize) as f32
 }
 
 /// Get plugin insert slot latency in samples
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_insert_get_latency(
-    _channel_id: u64,
-    _slot_index: u32,
-) -> i32 {
+pub extern "C" fn plugin_insert_get_latency(_channel_id: u64, _slot_index: u32) -> i32 {
     // TODO: Integrate with RoutingGraph
     0
 }
@@ -15742,8 +16109,8 @@ pub extern "C" fn plugin_insert_chain_latency(_channel_id: u64) -> i32 {
 // ADVANCED METERS (True Peak 8x, PSR, Crest Factor, Psychoacoustic)
 // ═══════════════════════════════════════════════════════════════════════════
 
-use rf_dsp::metering_simd::{TruePeak8x, PsrMeter, CrestFactorMeter};
 use rf_dsp::loudness_advanced::PsychoacousticMeter;
+use rf_dsp::metering_simd::{CrestFactorMeter, PsrMeter, TruePeak8x};
 
 lazy_static::lazy_static! {
     /// Advanced meters instance
@@ -15833,7 +16200,8 @@ pub extern "C" fn advanced_meters_process(left: f64, right: f64) {
 /// Get True Peak 8x left channel (dBTP)
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_true_peak_l() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.true_peak_8x.peak_dbtp_l())
         .unwrap_or(-144.0)
 }
@@ -15841,7 +16209,8 @@ pub extern "C" fn advanced_meters_get_true_peak_l() -> f64 {
 /// Get True Peak 8x right channel (dBTP)
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_true_peak_r() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.true_peak_8x.peak_dbtp_r())
         .unwrap_or(-144.0)
 }
@@ -15849,7 +16218,8 @@ pub extern "C" fn advanced_meters_get_true_peak_r() -> f64 {
 /// Get True Peak 8x max (dBTP)
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_true_peak_max() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.true_peak_8x.max_dbtp())
         .unwrap_or(-144.0)
 }
@@ -15857,7 +16227,8 @@ pub extern "C" fn advanced_meters_get_true_peak_max() -> f64 {
 /// Get PSR (Peak-to-Short-term Ratio) in dB
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_psr() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.psr.psr())
         .unwrap_or(0.0)
 }
@@ -15865,7 +16236,8 @@ pub extern "C" fn advanced_meters_get_psr() -> f64 {
 /// Get short-term loudness in LUFS
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_short_term_lufs() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.psr.short_term_lufs())
         .unwrap_or(-144.0)
 }
@@ -15874,16 +16246,15 @@ pub extern "C" fn advanced_meters_get_short_term_lufs() -> f64 {
 /// Returns: 0=Severely Over-compressed, 1=Over-compressed, 2=Moderate, 3=Good, 4=High
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_psr_assessment() -> i32 {
-    ADVANCED_METERS.try_read()
-        .map(|m| {
-            match m.psr.dynamic_assessment() {
-                "Severely Over-compressed" => 0,
-                "Over-compressed" => 1,
-                "Moderate Compression" => 2,
-                "Good Dynamic Range" => 3,
-                "High Dynamic Range" => 4,
-                _ => 2,
-            }
+    ADVANCED_METERS
+        .try_read()
+        .map(|m| match m.psr.dynamic_assessment() {
+            "Severely Over-compressed" => 0,
+            "Over-compressed" => 1,
+            "Moderate Compression" => 2,
+            "Good Dynamic Range" => 3,
+            "High Dynamic Range" => 4,
+            _ => 2,
         })
         .unwrap_or(2)
 }
@@ -15891,7 +16262,8 @@ pub extern "C" fn advanced_meters_get_psr_assessment() -> i32 {
 /// Get Crest Factor left channel (dB)
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_crest_factor_l() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.crest_factor_l.crest_factor_db())
         .unwrap_or(0.0)
 }
@@ -15899,7 +16271,8 @@ pub extern "C" fn advanced_meters_get_crest_factor_l() -> f64 {
 /// Get Crest Factor right channel (dB)
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_crest_factor_r() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.crest_factor_r.crest_factor_db())
         .unwrap_or(0.0)
 }
@@ -15907,7 +16280,8 @@ pub extern "C" fn advanced_meters_get_crest_factor_r() -> f64 {
 /// Get Psychoacoustic loudness in Sones (left)
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_loudness_sones_l() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.psychoacoustic_l.loudness.loudness_sones())
         .unwrap_or(0.0)
 }
@@ -15915,7 +16289,8 @@ pub extern "C" fn advanced_meters_get_loudness_sones_l() -> f64 {
 /// Get Psychoacoustic loudness in Phons (left)
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_loudness_phons_l() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.psychoacoustic_l.loudness.loudness_phons())
         .unwrap_or(0.0)
 }
@@ -15923,7 +16298,8 @@ pub extern "C" fn advanced_meters_get_loudness_phons_l() -> f64 {
 /// Get Sharpness in Acum (left)
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_sharpness_l() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.psychoacoustic_l.sharpness.sharpness())
         .unwrap_or(0.0)
 }
@@ -15931,7 +16307,8 @@ pub extern "C" fn advanced_meters_get_sharpness_l() -> f64 {
 /// Get Fluctuation in Vacil (left)
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_fluctuation_l() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.psychoacoustic_l.fluctuation.fluctuation_strength())
         .unwrap_or(0.0)
 }
@@ -15939,7 +16316,8 @@ pub extern "C" fn advanced_meters_get_fluctuation_l() -> f64 {
 /// Get Roughness in Asper (left)
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_get_roughness_l() -> f64 {
-    ADVANCED_METERS.try_read()
+    ADVANCED_METERS
+        .try_read()
         .map(|m| m.psychoacoustic_l.roughness.roughness())
         .unwrap_or(0.0)
 }
@@ -15954,7 +16332,10 @@ pub extern "C" fn advanced_meters_get_roughness_l() -> f64 {
 pub extern "C" fn audio_pool_list() -> *mut c_char {
     let audio_map = IMPORTED_AUDIO.read();
 
-    eprintln!("[audio_pool_list] Found {} entries in IMPORTED_AUDIO", audio_map.len());
+    eprintln!(
+        "[audio_pool_list] Found {} entries in IMPORTED_AUDIO",
+        audio_map.len()
+    );
 
     let mut entries = Vec::new();
     for (clip_id, audio) in audio_map.iter() {
@@ -15965,7 +16346,12 @@ pub extern "C" fn audio_pool_list() -> *mut c_char {
 
         eprintln!(
             "[audio_pool_list] clip_id={}, name={}, duration={:.3}s, sample_count={}, sample_rate={}, channels={}",
-            clip_id.0, audio.name, audio.duration_secs, audio.sample_count, audio.sample_rate, audio.channels
+            clip_id.0,
+            audio.name,
+            audio.duration_secs,
+            audio.sample_count,
+            audio.sample_rate,
+            audio.channels
         );
 
         let entry = format!(
@@ -15983,7 +16369,10 @@ pub extern "C" fn audio_pool_list() -> *mut c_char {
     }
 
     let json = format!("[{}]", entries.join(","));
-    eprintln!("[audio_pool_list] Returning JSON: {}", &json[..json.len().min(500)]);
+    eprintln!(
+        "[audio_pool_list] Returning JSON: {}",
+        &json[..json.len().min(500)]
+    );
     CString::new(json).unwrap_or_default().into_raw()
 }
 
@@ -16016,7 +16405,11 @@ pub extern "C" fn audio_pool_clear() -> i32 {
 /// Check if audio file exists in pool
 #[unsafe(no_mangle)]
 pub extern "C" fn audio_pool_contains(clip_id: u64) -> i32 {
-    if IMPORTED_AUDIO.read().contains_key(&ClipId(clip_id)) { 1 } else { 0 }
+    if IMPORTED_AUDIO.read().contains_key(&ClipId(clip_id)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get audio file info as JSON
@@ -16067,9 +16460,9 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
     };
 
     // Use symphonia to read metadata without decoding full audio
+    use std::fs::File;
     use symphonia::core::io::MediaSourceStream;
     use symphonia::core::probe::Hint;
-    use std::fs::File;
 
     let file = match File::open(&path_str) {
         Ok(f) => f,
@@ -16078,11 +16471,19 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
 
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
     let mut hint = Hint::new();
-    if let Some(ext) = std::path::Path::new(&path_str).extension().and_then(|e| e.to_str()) {
+    if let Some(ext) = std::path::Path::new(&path_str)
+        .extension()
+        .and_then(|e| e.to_str())
+    {
         hint.with_extension(ext);
     }
 
-    let probed = match symphonia::default::get_probe().format(&hint, mss, &Default::default(), &Default::default()) {
+    let probed = match symphonia::default::get_probe().format(
+        &hint,
+        mss,
+        &Default::default(),
+        &Default::default(),
+    ) {
         Ok(p) => p,
         Err(_) => return CString::new("").unwrap().into_raw(),
     };
@@ -16143,7 +16544,8 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
                     }
                 }
                 Err(symphonia::core::errors::Error::IoError(ref e))
-                    if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof =>
+                {
                     // End of file reached - this is expected
                     break;
                 }
@@ -16383,7 +16785,11 @@ pub extern "C" fn audio_pool_clear_pending() -> i32 {
 /// This is called when user needs to play or view waveform
 /// Returns clip_id on success, 0 on failure
 #[unsafe(no_mangle)]
-pub extern "C" fn audio_pool_promote_pending(pending_id: u64, track_id: u64, start_time: f64) -> u64 {
+pub extern "C" fn audio_pool_promote_pending(
+    pending_id: u64,
+    track_id: u64,
+    start_time: f64,
+) -> u64 {
     // Get pending entry
     let entry = match PENDING_AUDIO.read().get(&pending_id) {
         Some(e) => Arc::clone(e),
@@ -16432,11 +16838,19 @@ fn load_metadata_async(entry: Arc<PendingAudioEntry>) {
 
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
     let mut hint = Hint::new();
-    if let Some(ext) = std::path::Path::new(&entry.path).extension().and_then(|e| e.to_str()) {
+    if let Some(ext) = std::path::Path::new(&entry.path)
+        .extension()
+        .and_then(|e| e.to_str())
+    {
         hint.with_extension(ext);
     }
 
-    let probed = match symphonia::default::get_probe().format(&hint, mss, &Default::default(), &Default::default()) {
+    let probed = match symphonia::default::get_probe().format(
+        &hint,
+        mss,
+        &Default::default(),
+        &Default::default(),
+    ) {
         Ok(p) => p,
         Err(_) => {
             entry.set_error();
@@ -16498,7 +16912,10 @@ fn load_metadata_async(entry: Arc<PendingAudioEntry>) {
                     }
                 }
                 Err(symphonia::core::errors::Error::IoError(ref e))
-                    if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof =>
+                {
+                    break;
+                }
                 Err(_) => break,
             }
         }
@@ -16538,7 +16955,7 @@ lazy_static::lazy_static! {
 struct ExportPreset {
     id: String,
     name: String,
-    format: String,        // "wav", "flac", "mp3", "aac"
+    format: String, // "wav", "flac", "mp3", "aac"
     sample_rate: u32,
     bit_depth: u8,
     channels: u8,
@@ -16593,8 +17010,15 @@ impl ExportPreset {
     fn to_json(&self) -> String {
         format!(
             r#"{{"id":"{}","name":"{}","format":"{}","sample_rate":{},"bit_depth":{},"channels":{},"normalize":{},"target_lufs":{},"true_peak_limit":{}}}"#,
-            self.id, self.name, self.format, self.sample_rate, self.bit_depth, self.channels,
-            self.normalize, self.target_lufs, self.true_peak_limit
+            self.id,
+            self.name,
+            self.format,
+            self.sample_rate,
+            self.bit_depth,
+            self.channels,
+            self.normalize,
+            self.target_lufs,
+            self.true_peak_limit
         )
     }
 }
@@ -16638,7 +17062,11 @@ pub extern "C" fn export_preset_delete(preset_id: *const c_char) -> i32 {
 pub extern "C" fn export_get_default_path() -> *mut c_char {
     // Use home directory or fallback to current directory
     let path = std::env::var("HOME")
-        .map(|h| PathBuf::from(h).join("Documents").join("FluxForge Studio Exports"))
+        .map(|h| {
+            PathBuf::from(h)
+                .join("Documents")
+                .join("FluxForge Studio Exports")
+        })
         .unwrap_or_else(|_| PathBuf::from("./exports"));
 
     CString::new(path.to_string_lossy().into_owned())
@@ -16671,7 +17099,11 @@ lazy_static::lazy_static! {
 pub extern "C" fn streaming_init(sample_rate: u32, num_disk_workers: u32) -> i32 {
     let engine = StreamingEngine::new(sample_rate, num_disk_workers as usize);
     *STREAMING_ENGINE.write() = Some(engine);
-    log::info!("Streaming engine initialized: {}Hz, {} workers", sample_rate, num_disk_workers);
+    log::info!(
+        "Streaming engine initialized: {}Hz, {} workers",
+        sample_rate,
+        num_disk_workers
+    );
     1
 }
 
@@ -16735,7 +17167,14 @@ pub extern "C" fn streaming_create_stream(
 ) -> u32 {
     let engine = STREAMING_ENGINE.read();
     match engine.as_ref() {
-        Some(e) => e.create_stream(track_id, asset_id, tl_start_frame, tl_end_frame, src_start_frame, gain),
+        Some(e) => e.create_stream(
+            track_id,
+            asset_id,
+            tl_start_frame,
+            tl_end_frame,
+            src_start_frame,
+            gain,
+        ),
         None => 0,
     }
 }
@@ -16827,55 +17266,91 @@ pub extern "C" fn streaming_get_stream_count() -> u32 {
 /// Send Play command to audio thread
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_play() -> i32 {
-    if CONTROL_QUEUE.push(ControlCommand::play()) { 1 } else { 0 }
+    if CONTROL_QUEUE.push(ControlCommand::play()) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Send Stop command to audio thread
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_stop() -> i32 {
-    if CONTROL_QUEUE.push(ControlCommand::stop()) { 1 } else { 0 }
+    if CONTROL_QUEUE.push(ControlCommand::stop()) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Send Pause command to audio thread
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_pause() -> i32 {
-    if CONTROL_QUEUE.push(ControlCommand::pause()) { 1 } else { 0 }
+    if CONTROL_QUEUE.push(ControlCommand::pause()) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Send Seek command to audio thread
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_seek(frame: i64) -> i32 {
-    if CONTROL_QUEUE.push(ControlCommand::seek(frame)) { 1 } else { 0 }
+    if CONTROL_QUEUE.push(ControlCommand::seek(frame)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Send SetTrackMute command
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_set_track_mute(track_id: u32, muted: i32) -> i32 {
-    if CONTROL_QUEUE.push(ControlCommand::set_track_mute(track_id, muted != 0)) { 1 } else { 0 }
+    if CONTROL_QUEUE.push(ControlCommand::set_track_mute(track_id, muted != 0)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Send SetTrackSolo command
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_set_track_solo(track_id: u32, soloed: i32) -> i32 {
-    if CONTROL_QUEUE.push(ControlCommand::set_track_solo(track_id, soloed != 0)) { 1 } else { 0 }
+    if CONTROL_QUEUE.push(ControlCommand::set_track_solo(track_id, soloed != 0)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Send SetTrackVolume command
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_set_track_volume(track_id: u32, volume: f32) -> i32 {
-    if CONTROL_QUEUE.push(ControlCommand::set_track_volume(track_id, volume)) { 1 } else { 0 }
+    if CONTROL_QUEUE.push(ControlCommand::set_track_volume(track_id, volume)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Send SetTrackPan command
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_set_track_pan(track_id: u32, pan: f32) -> i32 {
-    if CONTROL_QUEUE.push(ControlCommand::set_track_pan(track_id, pan)) { 1 } else { 0 }
+    if CONTROL_QUEUE.push(ControlCommand::set_track_pan(track_id, pan)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Send SetMasterVolume command
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_set_master_volume(volume: f32) -> i32 {
-    if CONTROL_QUEUE.push(ControlCommand::set_master_volume(volume)) { 1 } else { 0 }
+    if CONTROL_QUEUE.push(ControlCommand::set_master_volume(volume)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Drain control queue (call from audio thread at start of each block)
@@ -16926,7 +17401,11 @@ pub extern "C" fn wave_cache_has_cache(audio_path: *const c_char) -> i32 {
         Some(p) => p,
         None => return 0,
     };
-    if WAVE_CACHE_MANAGER.has_cache(&path) { 1 } else { 0 }
+    if WAVE_CACHE_MANAGER.has_cache(&path) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Start building cache for audio file
@@ -16998,10 +17477,14 @@ pub extern "C" fn wave_cache_query_tiles(
 
     // Output metadata
     if !out_mip_level.is_null() {
-        unsafe { *out_mip_level = response.mip_level as u32; }
+        unsafe {
+            *out_mip_level = response.mip_level as u32;
+        }
     }
     if !out_samples_per_tile.is_null() {
-        unsafe { *out_samples_per_tile = response.samples_per_tile as u32; }
+        unsafe {
+            *out_samples_per_tile = response.samples_per_tile as u32;
+        }
     }
 
     // Merge all channels into flat array [min0, max0, min1, max1, ...]
@@ -17027,7 +17510,9 @@ pub extern "C" fn wave_cache_query_tiles(
     };
 
     if !out_tile_count.is_null() {
-        unsafe { *out_tile_count = merged.len() as u32; }
+        unsafe {
+            *out_tile_count = merged.len() as u32;
+        }
     }
 
     // Convert to flat f32 array
@@ -17039,7 +17524,6 @@ pub extern "C" fn wave_cache_query_tiles(
     }
 
     // Allocate and copy
-    
 
     unsafe {
         let layout = match std::alloc::Layout::array::<f32>(flat.len()) {
@@ -17118,9 +17602,7 @@ pub extern "C" fn wave_cache_build_from_samples(
     }
 
     // Safety: Trust FFI caller for buffer validity
-    let samples_slice = unsafe {
-        std::slice::from_raw_parts(samples, sample_count as usize)
-    };
+    let samples_slice = unsafe { std::slice::from_raw_parts(samples, sample_count as usize) };
 
     let cache_path = WAVE_CACHE_MANAGER.cache_path_for(&path);
 
@@ -17614,7 +18096,9 @@ pub extern "C" fn comping_load_state_json(track_id: u64, json: *const c_char) ->
             // Update with correct track_id
             let mut loaded_state = state;
             loaded_state.track_id = rf_core::TrackId(track_id);
-            manager.states.insert(rf_core::TrackId(track_id), loaded_state);
+            manager
+                .states
+                .insert(rf_core::TrackId(track_id), loaded_state);
             1
         }
         Err(_) => 0,
@@ -17687,15 +18171,17 @@ pub extern "C" fn comping_promote_best_takes(track_id: u64) -> u32 {
     let mut manager = COMPING_MANAGER.write();
 
     // Collect best takes first
-    let best_takes: Vec<(rf_core::TakeId, f64, f64)> = if let Some(state) = manager.get(rf_core::TrackId(track_id)) {
-        state.all_takes()
-            .iter()
-            .filter(|t| t.rating == rf_core::TakeRating::Best)
-            .map(|t| (t.id, t.start_time, t.end_time()))
-            .collect()
-    } else {
-        return 0;
-    };
+    let best_takes: Vec<(rf_core::TakeId, f64, f64)> =
+        if let Some(state) = manager.get(rf_core::TrackId(track_id)) {
+            state
+                .all_takes()
+                .iter()
+                .filter(|t| t.rating == rf_core::TakeRating::Best)
+                .map(|t| (t.id, t.start_time, t.end_time()))
+                .collect()
+        } else {
+            return 0;
+        };
 
     if best_takes.is_empty() {
         return 0;
@@ -17708,13 +18194,8 @@ pub extern "C" fn comping_promote_best_takes(track_id: u64) -> u32 {
     let mut count = 0u32;
     for (take_id, start, end) in best_takes {
         let region_id = rf_core::CompRegionId(count as u64 + 1);
-        let region = rf_core::CompRegion::new(
-            region_id,
-            rf_core::TrackId(track_id),
-            take_id,
-            start,
-            end,
-        );
+        let region =
+            rf_core::CompRegion::new(region_id, rf_core::TrackId(track_id), take_id, start, end);
         state.add_comp_region(region);
         count += 1;
     }
@@ -17752,7 +18233,11 @@ pub extern "C" fn video_add_track(name: *const c_char) -> u64 {
 /// Import video file to track
 /// Returns clip ID (0 on failure)
 #[unsafe(no_mangle)]
-pub extern "C" fn video_import(track_id: u64, path: *const c_char, timeline_start_samples: u64) -> u64 {
+pub extern "C" fn video_import(
+    track_id: u64,
+    path: *const c_char,
+    timeline_start_samples: u64,
+) -> u64 {
     let path_str = match unsafe { cstr_to_string(path) } {
         Some(p) => p,
         None => return 0,
@@ -17862,11 +18347,7 @@ pub extern "C" fn video_get_info_json(clip_id: u64) -> *mut c_char {
 /// interval_frames: frames between thumbnails
 /// Returns number of thumbnails generated
 #[unsafe(no_mangle)]
-pub extern "C" fn video_generate_thumbnails(
-    clip_id: u64,
-    width: u32,
-    interval_frames: u64,
-) -> u32 {
+pub extern "C" fn video_generate_thumbnails(clip_id: u64, width: u32, interval_frames: u64) -> u32 {
     let mut engine = VIDEO_ENGINE.write();
 
     match engine.generate_thumbnails(clip_id, width, interval_frames) {
@@ -17937,10 +18418,7 @@ pub extern "C" fn video_format_timecode(
 /// Parse timecode to seconds
 /// Returns seconds, or -1.0 on error
 #[unsafe(no_mangle)]
-pub extern "C" fn video_parse_timecode(
-    tc_str: *const c_char,
-    frame_rate: f64,
-) -> f64 {
+pub extern "C" fn video_parse_timecode(tc_str: *const c_char, frame_rate: f64) -> f64 {
     let tc = match unsafe { cstr_to_string(tc_str) } {
         Some(s) => s,
         None => return -1.0,
@@ -18055,12 +18533,20 @@ pub extern "C" fn mastering_set_loudness_target(
     let target = LoudnessTarget {
         integrated_lufs,
         true_peak,
-        lra_target: if lra_target <= 0.0 { None } else { Some(lra_target) },
+        lra_target: if lra_target <= 0.0 {
+            None
+        } else {
+            Some(lra_target)
+        },
         short_term_max: None,
     };
 
     MASTERING_ENGINE.write().set_loudness_target(target);
-    log::info!("Mastering target: {} LUFS, {} dBTP", integrated_lufs, true_peak);
+    log::info!(
+        "Mastering target: {} LUFS, {} dBTP",
+        integrated_lufs,
+        true_peak
+    );
     1
 }
 
@@ -18092,7 +18578,9 @@ pub extern "C" fn mastering_set_reference(
     let left_slice = unsafe { std::slice::from_raw_parts(left, length as usize) };
     let right_slice = unsafe { std::slice::from_raw_parts(right, length as usize) };
 
-    MASTERING_ENGINE.write().set_reference_audio(&ref_name, left_slice, right_slice);
+    MASTERING_ENGINE
+        .write()
+        .set_reference_audio(&ref_name, left_slice, right_slice);
     log::info!("Mastering reference set: {} ({} samples)", ref_name, length);
     1
 }
@@ -18110,7 +18598,8 @@ pub extern "C" fn mastering_process_offline(
     out_right: *mut f32,
     length: u32,
 ) -> i32 {
-    if left.is_null() || right.is_null() || out_left.is_null() || out_right.is_null() || length == 0 {
+    if left.is_null() || right.is_null() || out_left.is_null() || out_right.is_null() || length == 0
+    {
         return 0;
     }
 
@@ -18131,8 +18620,10 @@ pub extern "C" fn mastering_process_offline(
             if let Some(ref audio) = result.audio {
                 let half = audio.len() / 2;
                 if half == length as usize {
-                    let out_l = unsafe { std::slice::from_raw_parts_mut(out_left, length as usize) };
-                    let out_r = unsafe { std::slice::from_raw_parts_mut(out_right, length as usize) };
+                    let out_l =
+                        unsafe { std::slice::from_raw_parts_mut(out_left, length as usize) };
+                    let out_r =
+                        unsafe { std::slice::from_raw_parts_mut(out_right, length as usize) };
                     out_l.copy_from_slice(&audio[..half]);
                     out_r.copy_from_slice(&audio[half..]);
                 }
@@ -18278,14 +18769,12 @@ fn genre_to_u8(genre: Genre) -> u8 {
 // =============================================================================
 
 use rf_restore::{
-    AnalysisResult as RestoreAnalysisResult,
-    RestoreConfig,
-    RestorationPipeline,
+    AnalysisResult as RestoreAnalysisResult, RestorationPipeline, RestoreConfig,
     analysis::RestoreAnalyzer,
-    denoise::{Denoise, DenoiseConfig},
     declick::{Declick, DeclickConfig},
     declip::{Declip, DeclipConfig},
     dehum::{Dehum, DehumConfig},
+    denoise::{Denoise, DenoiseConfig},
     dereverb::{Dereverb, DereverbConfig},
 };
 
@@ -18313,20 +18802,20 @@ lazy_static::lazy_static! {
 pub struct RestorationSettingsFFI {
     // Denoise
     pub denoise_enabled: i32,
-    pub denoise_strength: f32,   // 0-100%
+    pub denoise_strength: f32, // 0-100%
     // Declick
     pub declick_enabled: i32,
     pub declick_sensitivity: f32, // 0-100%
     // Declip
     pub declip_enabled: i32,
-    pub declip_threshold: f32,    // dB
+    pub declip_threshold: f32, // dB
     // Dehum
     pub dehum_enabled: i32,
-    pub dehum_frequency: f32,     // 50 or 60 Hz
-    pub dehum_harmonics: u32,     // 2-8
+    pub dehum_frequency: f32, // 50 or 60 Hz
+    pub dehum_harmonics: u32, // 2-8
     // Dereverb
     pub dereverb_enabled: i32,
-    pub dereverb_amount: f32,     // 0-100%
+    pub dereverb_amount: f32, // 0-100%
 }
 
 impl Default for RestorationSettingsFFI {
@@ -18474,7 +18963,8 @@ pub extern "C" fn restoration_analyze(path: *const c_char) -> RestorationAnalysi
 /// Get number of analysis suggestions
 #[unsafe(no_mangle)]
 pub extern "C" fn restoration_get_suggestion_count() -> u32 {
-    RESTORATION_ANALYSIS.read()
+    RESTORATION_ANALYSIS
+        .read()
         .as_ref()
         .map(|r| r.suggestions.len() as u32)
         .unwrap_or(0)
@@ -18498,11 +18988,7 @@ pub extern "C" fn restoration_get_suggestion(index: u32) -> *mut c_char {
 
 /// Process audio buffer through restoration pipeline
 #[unsafe(no_mangle)]
-pub extern "C" fn restoration_process(
-    input: *const f32,
-    output: *mut f32,
-    length: u32,
-) -> i32 {
+pub extern "C" fn restoration_process(input: *const f32, output: *mut f32, length: u32) -> i32 {
     if input.is_null() || output.is_null() || length == 0 {
         return 0;
     }
@@ -18510,7 +18996,10 @@ pub extern "C" fn restoration_process(
     let input_slice = unsafe { std::slice::from_raw_parts(input, length as usize) };
     let output_slice = unsafe { std::slice::from_raw_parts_mut(output, length as usize) };
 
-    match RESTORATION_PIPELINE.write().process(input_slice, output_slice) {
+    match RESTORATION_PIPELINE
+        .write()
+        .process(input_slice, output_slice)
+    {
         Ok(()) => 1,
         Err(e) => {
             log::error!("Restoration processing error: {:?}", e);
@@ -18559,7 +19048,11 @@ pub extern "C" fn restoration_process_file(
 
     // Process
     let mut output_audio = vec![0.0f32; audio.len()];
-    if RESTORATION_PIPELINE.write().process(&audio, &mut output_audio).is_err() {
+    if RESTORATION_PIPELINE
+        .write()
+        .process(&audio, &mut output_audio)
+        .is_err()
+    {
         *RESTORATION_STATE.write() = (false, 0.0, "Processing failed".to_string());
         return 0;
     }
@@ -18578,10 +19071,7 @@ pub extern "C" fn restoration_process_file(
 
 /// Learn noise profile from selection
 #[unsafe(no_mangle)]
-pub extern "C" fn restoration_learn_noise_profile(
-    input: *const f32,
-    length: u32,
-) -> i32 {
+pub extern "C" fn restoration_learn_noise_profile(input: *const f32, length: u32) -> i32 {
     if input.is_null() || length == 0 {
         return 0;
     }
@@ -18606,16 +19096,17 @@ pub extern "C" fn restoration_clear_noise_profile() {
 
 /// Get processing state
 #[unsafe(no_mangle)]
-pub extern "C" fn restoration_get_state(
-    out_is_processing: *mut i32,
-    out_progress: *mut f32,
-) {
+pub extern "C" fn restoration_get_state(out_is_processing: *mut i32, out_progress: *mut f32) {
     let state = RESTORATION_STATE.read();
     if !out_is_processing.is_null() {
-        unsafe { *out_is_processing = if state.0 { 1 } else { 0 }; }
+        unsafe {
+            *out_is_processing = if state.0 { 1 } else { 0 };
+        }
     }
     if !out_progress.is_null() {
-        unsafe { *out_progress = state.1; }
+        unsafe {
+            *out_progress = state.1;
+        }
     }
 }
 
@@ -18787,13 +19278,13 @@ fn save_audio_wav(path: &str, samples: &[f32], sample_rate: u32) -> std::io::Res
 
     // fmt chunk
     file.write_all(b"fmt ")?;
-    file.write_all(&16u32.to_le_bytes())?;      // chunk size
-    file.write_all(&1u16.to_le_bytes())?;       // PCM
-    file.write_all(&1u16.to_le_bytes())?;       // mono
+    file.write_all(&16u32.to_le_bytes())?; // chunk size
+    file.write_all(&1u16.to_le_bytes())?; // PCM
+    file.write_all(&1u16.to_le_bytes())?; // mono
     file.write_all(&sample_rate.to_le_bytes())?;
     file.write_all(&(sample_rate * 2).to_le_bytes())?; // byte rate
-    file.write_all(&2u16.to_le_bytes())?;       // block align
-    file.write_all(&16u16.to_le_bytes())?;      // bits per sample
+    file.write_all(&2u16.to_le_bytes())?; // block align
+    file.write_all(&16u16.to_le_bytes())?; // bits per sample
 
     // data chunk
     file.write_all(b"data")?;
@@ -18909,17 +19400,21 @@ pub extern "C" fn ml_model_is_available(index: u32) -> i32 {
         3 => "models/frcrn.onnx",
         _ => return 0,
     };
-    if std::path::Path::new(model_path).exists() { 1 } else { 0 }
+    if std::path::Path::new(model_path).exists() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get model size in MB
 #[unsafe(no_mangle)]
 pub extern "C" fn ml_get_model_size(index: u32) -> u32 {
     match index {
-        0 => 68,   // DeepFilterNet3
-        1 => 420,  // HTDemucs
-        2 => 35,   // aTENNuate
-        3 => 120,  // FRCRN
+        0 => 68,  // DeepFilterNet3
+        1 => 420, // HTDemucs
+        2 => 35,  // aTENNuate
+        3 => 120, // FRCRN
         _ => 0,
     }
 }
@@ -19008,10 +19503,18 @@ pub extern "C" fn ml_separate_start(
 
     // Parse stems from mask
     let mut stems = Vec::new();
-    if stems_mask & 1 != 0 { stems.push("vocals"); }
-    if stems_mask & 2 != 0 { stems.push("drums"); }
-    if stems_mask & 4 != 0 { stems.push("bass"); }
-    if stems_mask & 8 != 0 { stems.push("other"); }
+    if stems_mask & 1 != 0 {
+        stems.push("vocals");
+    }
+    if stems_mask & 2 != 0 {
+        stems.push("drums");
+    }
+    if stems_mask & 4 != 0 {
+        stems.push("bass");
+    }
+    if stems_mask & 8 != 0 {
+        stems.push("other");
+    }
 
     *ML_STATE.write() = MlProcessingState {
         is_processing: true,
@@ -19147,7 +19650,7 @@ pub extern "C" fn ml_reset() {
 // LUA SCRIPTING (rf-script)
 // =============================================================================
 
-use rf_script::{ScriptEngine, ScriptContext, ScriptAction};
+use rf_script::{ScriptAction, ScriptContext, ScriptEngine};
 
 lazy_static::lazy_static! {
     /// Global script engine
@@ -19360,7 +19863,8 @@ pub extern "C" fn script_get_error() -> *mut c_char {
 /// Get last execution duration in ms
 #[unsafe(no_mangle)]
 pub extern "C" fn script_get_duration() -> u32 {
-    SCRIPT_RESULT.read()
+    SCRIPT_RESULT
+        .read()
         .as_ref()
         .map(|r| r.duration_ms)
         .unwrap_or(0)
@@ -19393,8 +19897,7 @@ pub extern "C" fn script_get_next_action() -> *mut c_char {
         return ptr::null_mut();
     }
     let action = actions.remove(0);
-    let json = serde_json::to_string(&action_to_json(&action))
-        .unwrap_or_default();
+    let json = serde_json::to_string(&action_to_json(&action)).unwrap_or_default();
     string_to_cstr(&json)
 }
 
@@ -19428,10 +19931,7 @@ pub extern "C" fn script_set_context(
 
 /// Set selected tracks in context
 #[unsafe(no_mangle)]
-pub extern "C" fn script_set_selected_tracks(
-    track_ids: *const u64,
-    count: u32,
-) {
+pub extern "C" fn script_set_selected_tracks(track_ids: *const u64, count: u32) {
     let ids = if track_ids.is_null() || count == 0 {
         Vec::new()
     } else {
@@ -19451,10 +19951,7 @@ pub extern "C" fn script_set_selected_tracks(
 
 /// Set selected clips in context
 #[unsafe(no_mangle)]
-pub extern "C" fn script_set_selected_clips(
-    clip_ids: *const u64,
-    count: u32,
-) {
+pub extern "C" fn script_set_selected_clips(clip_ids: *const u64, count: u32) {
     let ids = if clip_ids.is_null() || count == 0 {
         Vec::new()
     } else {
@@ -19618,8 +20115,12 @@ fn action_to_json(action: &ScriptAction) -> serde_json::Value {
         ScriptAction::Play => serde_json::json!({"type": "play"}),
         ScriptAction::Stop => serde_json::json!({"type": "stop"}),
         ScriptAction::Record => serde_json::json!({"type": "record"}),
-        ScriptAction::SetPlayhead(pos) => serde_json::json!({"type": "set_playhead", "position": pos}),
-        ScriptAction::SetLoop(start, end) => serde_json::json!({"type": "set_loop", "start": start, "end": end}),
+        ScriptAction::SetPlayhead(pos) => {
+            serde_json::json!({"type": "set_playhead", "position": pos})
+        }
+        ScriptAction::SetLoop(start, end) => {
+            serde_json::json!({"type": "set_loop", "start": start, "end": end})
+        }
         ScriptAction::CreateTrack { name, track_type } => {
             serde_json::json!({"type": "create_track", "name": name, "track_type": track_type})
         }
@@ -19700,13 +20201,13 @@ pub extern "C" fn stage_parse_json(
             // Try using generic adapter
             drop(registry);
             // Parse with generic direct event layer
-            let trace = match rf_ingest::layer_event::parse_with_config(
-                &json,
-                &AdapterConfig::default(),
-            ) {
-                Ok(t) => t,
-                Err(e) => return string_to_cstr(&format!(r#"{{"error":"Parse error: {}"}}"#, e)),
-            };
+            let trace =
+                match rf_ingest::layer_event::parse_with_config(&json, &AdapterConfig::default()) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        return string_to_cstr(&format!(r#"{{"error":"Parse error: {}"}}"#, e));
+                    }
+                };
 
             // Store trace
             *CURRENT_TRACE.write() = Some(trace.clone());
@@ -20112,7 +20613,8 @@ pub extern "C" fn engine_playback_play_to_bus(
     };
 
     let source = PlaybackSource::from(source);
-    let voice_id = PLAYBACK_ENGINE.play_one_shot_to_bus(path_str, volume as f32, pan as f32, bus_id, source);
+    let voice_id =
+        PLAYBACK_ENGINE.play_one_shot_to_bus(path_str, volume as f32, pan as f32, bus_id, source);
     if voice_id > 0 {
         string_to_cstr(&format!(r#"{{"voice_id":{}}}"#, voice_id))
     } else {
@@ -20144,7 +20646,8 @@ pub extern "C" fn engine_playback_play_looping_to_bus(
     };
 
     let source = PlaybackSource::from(source);
-    let voice_id = PLAYBACK_ENGINE.play_looping_to_bus(path_str, volume as f32, pan as f32, bus_id, source);
+    let voice_id =
+        PLAYBACK_ENGINE.play_looping_to_bus(path_str, volume as f32, pan as f32, bus_id, source);
     if voice_id > 0 {
         string_to_cstr(&format!(r#"{{"voice_id":{}}}"#, voice_id))
     } else {
@@ -20262,7 +20765,7 @@ pub extern "C" fn engine_get_active_section() -> u8 {
 //   - No locks (atomics only)
 //   - Memory-safe via repr(C) layout
 
-use std::sync::atomic::{AtomicU64, AtomicU32};
+use std::sync::atomic::{AtomicU32, AtomicU64};
 
 /// Shared meter buffer - single contiguous memory region
 /// Layout: repr(C) ensures predictable memory layout for FFI
@@ -20297,7 +20800,7 @@ pub struct SharedMeterBuffer {
     pub dynamic_range: AtomicU64,
     pub crest_factor_l: AtomicU64,
     pub crest_factor_r: AtomicU64,
-    pub psr: AtomicU64,  // Peak-to-Short-term Ratio
+    pub psr: AtomicU64, // Peak-to-Short-term Ratio
 
     // Gain reduction (from compressor/limiter, dB)
     pub gain_reduction: AtomicU64,
@@ -20351,30 +20854,52 @@ impl SharedMeterBuffer {
             is_playing: AtomicU32::new(0),
             sample_rate: AtomicU32::new(48000),
             channel_peaks: [
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
             ],
             spectrum_bands: [
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
-                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF),
             ],
         }
     }
@@ -20500,14 +21025,27 @@ pub extern "C" fn metering_read_all_json() -> *mut c_char {
 /// This is the main entry point for audio thread meter updates
 #[unsafe(no_mangle)]
 pub extern "C" fn metering_update_shared(
-    peak_l: f64, peak_r: f64,
-    rms_l: f64, rms_r: f64,
-    lufs_s: f64, lufs_i: f64, lufs_m: f64,
-    tp_l: f64, tp_r: f64, tp_max: f64,
-    correlation: f64, balance: f64, width: f64,
-    dyn_range: f64, crest_l: f64, crest_r: f64,
-    psr: f64, gain_red: f64,
-    position: u64, is_playing: u32, sample_rate: u32,
+    peak_l: f64,
+    peak_r: f64,
+    rms_l: f64,
+    rms_r: f64,
+    lufs_s: f64,
+    lufs_i: f64,
+    lufs_m: f64,
+    tp_l: f64,
+    tp_r: f64,
+    tp_max: f64,
+    correlation: f64,
+    balance: f64,
+    width: f64,
+    dyn_range: f64,
+    crest_l: f64,
+    crest_r: f64,
+    psr: f64,
+    gain_red: f64,
+    position: u64,
+    is_playing: u32,
+    sample_rate: u32,
 ) {
     // Master peaks
     SHARED_METERS.update_master(peak_l, peak_r, rms_l, rms_r);
@@ -20531,9 +21069,15 @@ pub extern "C" fn metering_update_shared(
     SharedMeterBuffer::write_f64(&SHARED_METERS.gain_reduction, gain_red);
 
     // Transport
-    SHARED_METERS.playback_position_samples.store(position, Ordering::Relaxed);
-    SHARED_METERS.is_playing.store(is_playing, Ordering::Relaxed);
-    SHARED_METERS.sample_rate.store(sample_rate, Ordering::Relaxed);
+    SHARED_METERS
+        .playback_position_samples
+        .store(position, Ordering::Relaxed);
+    SHARED_METERS
+        .is_playing
+        .store(is_playing, Ordering::Relaxed);
+    SHARED_METERS
+        .sample_rate
+        .store(sample_rate, Ordering::Relaxed);
 
     // Increment sequence last (signals update complete)
     SHARED_METERS.increment_sequence();

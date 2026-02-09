@@ -598,7 +598,9 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("hold_and_win"))
             .and_then(|f| {
                 let snapshot = f.snapshot();
-                snapshot.data.get("remaining_respins")
+                snapshot
+                    .data
+                    .get("remaining_respins")
                     .and_then(|v| v.as_u64())
                     .map(|v| v as u8)
             })
@@ -611,7 +613,9 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("hold_and_win"))
             .map(|f| {
                 let snapshot = f.snapshot();
-                let locked = snapshot.data.get("locked_count")
+                let locked = snapshot
+                    .data
+                    .get("locked_count")
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0) as f64;
                 let grid_size = 15.0; // Default 5x3 grid
@@ -626,8 +630,7 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("hold_and_win"))
             .and_then(|f| {
                 let snapshot = f.snapshot();
-                snapshot.data.get("locked_count")
-                    .and_then(|v| v.as_u64())
+                snapshot.data.get("locked_count").and_then(|v| v.as_u64())
             })
             .unwrap_or(0) as usize
     }
@@ -659,7 +662,10 @@ impl SlotEngineV2 {
     pub fn force_trigger_hold_and_win(&mut self) -> bool {
         let activation_ctx = ActivationContext::new(6, self.current_bet);
 
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("hold_and_win")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("hold_and_win"))
+        {
             if !feature.is_active() && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
@@ -682,7 +688,10 @@ impl SlotEngineV2 {
 
     /// Complete Hold & Win and return final payout
     pub fn hold_and_win_complete(&mut self) -> f64 {
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("hold_and_win")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("hold_and_win"))
+        {
             if feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
@@ -751,7 +760,10 @@ impl SlotEngineV2 {
     pub fn force_trigger_pick_bonus(&mut self) -> bool {
         let activation_ctx = ActivationContext::new(6, self.current_bet);
 
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("pick_bonus")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("pick_bonus"))
+        {
             if !feature.is_active() && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
@@ -774,19 +786,24 @@ impl SlotEngineV2 {
         let mut spin_ctx = SpinContext::new(self.current_bet);
         spin_ctx.random = random;
 
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("pick_bonus")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("pick_bonus"))
+        {
             let result = feature.process_spin(&mut spin_ctx);
 
             let snapshot = feature.snapshot();
             let game_over = !result.continues();
 
             // Extract prize info from snapshot data
-            let prize_type = snapshot.data
+            let prize_type = snapshot
+                .data
                 .get("last_prize_type")
                 .and_then(|v| v.as_str())
                 .unwrap_or("coins")
                 .to_string();
-            let prize_value = snapshot.data
+            let prize_value = snapshot
+                .data
                 .get("last_prize_value")
                 .and_then(|v| v.as_f64())
                 .unwrap_or(0.0);
@@ -799,7 +816,10 @@ impl SlotEngineV2 {
 
     /// Complete Pick Bonus and return final payout
     pub fn pick_bonus_complete(&mut self) -> f64 {
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("pick_bonus")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("pick_bonus"))
+        {
             if feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
@@ -868,7 +888,10 @@ impl SlotEngineV2 {
             serde_json::Value::from(initial_stake),
         );
 
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("gamble")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("gamble"))
+        {
             if !feature.is_active() && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
@@ -891,12 +914,16 @@ impl SlotEngineV2 {
         // Use random as choice seed (would need better choice passing mechanism)
         spin_ctx.random = (choice_index as f64 + random * 0.5) / 4.0;
 
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("gamble")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("gamble"))
+        {
             let result = feature.process_spin(&mut spin_ctx);
             let snapshot = feature.snapshot();
             let game_over = !result.continues();
 
-            let won = snapshot.data
+            let won = snapshot
+                .data
                 .get("last_result")
                 .and_then(|v| v.as_str())
                 .map(|s| s == "win")
@@ -910,7 +937,10 @@ impl SlotEngineV2 {
 
     /// Collect gamble winnings and end
     pub fn gamble_collect(&mut self) -> f64 {
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("gamble")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("gamble"))
+        {
             if feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
@@ -929,7 +959,8 @@ impl SlotEngineV2 {
                 "attempts_used": snapshot.current_step,
                 "max_attempts": snapshot.total_steps,
                 "multiplier": snapshot.multiplier,
-            }).to_string()
+            })
+            .to_string()
         })
     }
 
@@ -958,7 +989,9 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("jackpot"))
             .and_then(|f| {
                 let snapshot = f.snapshot();
-                snapshot.data.get("current_values")
+                snapshot
+                    .data
+                    .get("current_values")
                     .and_then(|v| v.as_array())
                     .and_then(|arr| arr.get(tier))
                     .and_then(|v| v.as_f64())
@@ -973,7 +1006,11 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("jackpot"))
             .map(|f| {
                 let snapshot = f.snapshot();
-                if let Some(arr) = snapshot.data.get("current_values").and_then(|v| v.as_array()) {
+                if let Some(arr) = snapshot
+                    .data
+                    .get("current_values")
+                    .and_then(|v| v.as_array())
+                {
                     for (i, v) in arr.iter().enumerate().take(4) {
                         if let Some(val) = v.as_f64() {
                             values[i] = val;
@@ -990,7 +1027,9 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("jackpot"))
             .and_then(|f| {
                 let snapshot = f.snapshot();
-                snapshot.data.get("total_contributions")
+                snapshot
+                    .data
+                    .get("total_contributions")
                     .and_then(|v| v.as_f64())
             })
             .unwrap_or(0.0)
@@ -1002,7 +1041,9 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("jackpot"))
             .and_then(|f| {
                 let snapshot = f.snapshot();
-                snapshot.data.get("won_tier")
+                snapshot
+                    .data
+                    .get("won_tier")
                     .and_then(|v| v.as_u64())
                     .map(|t| t as usize)
             })
@@ -1020,12 +1061,14 @@ impl SlotEngineV2 {
     /// tier: 0=Mini, 1=Minor, 2=Major, 3=Grand
     pub fn force_trigger_jackpot(&mut self, tier: usize) -> bool {
         let mut activation_ctx = ActivationContext::new(6, self.current_bet);
-        activation_ctx.trigger_data.insert(
-            "force_tier".to_string(),
-            serde_json::Value::from(tier),
-        );
+        activation_ctx
+            .trigger_data
+            .insert("force_tier".to_string(), serde_json::Value::from(tier));
 
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("jackpot")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("jackpot"))
+        {
             if feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
@@ -1036,7 +1079,10 @@ impl SlotEngineV2 {
 
     /// Complete jackpot celebration and return won amount
     pub fn jackpot_complete(&mut self) -> f64 {
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("jackpot")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("jackpot"))
+        {
             if feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
@@ -1061,7 +1107,8 @@ impl SlotEngineV2 {
                 "won_tier": self.jackpot_won_tier(),
                 "won_amount": snapshot.accumulated_win,
                 "total_contributions": self.jackpot_total_contributions(),
-            }).to_string()
+            })
+            .to_string()
         })
     }
 
@@ -1091,7 +1138,9 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("free_spins"))
             .and_then(|f| {
                 let snapshot = f.snapshot();
-                snapshot.data.get("remaining")
+                snapshot
+                    .data
+                    .get("remaining")
                     .and_then(|v| v.as_u64())
                     .map(|v| v as u32)
             })
@@ -1133,7 +1182,10 @@ impl SlotEngineV2 {
             serde_json::Value::from(num_spins),
         );
 
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("free_spins")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("free_spins"))
+        {
             if !feature.is_active() && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
@@ -1144,7 +1196,10 @@ impl SlotEngineV2 {
 
     /// Add extra free spins (retrigger)
     pub fn free_spins_add(&mut self, extra_spins: u32) -> bool {
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("free_spins")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("free_spins"))
+        {
             if feature.is_active() {
                 // Use configure to add spins
                 let mut config = crate::features::FeatureConfig::new();
@@ -1157,7 +1212,10 @@ impl SlotEngineV2 {
 
     /// Complete Free Spins and return total win
     pub fn free_spins_complete(&mut self) -> f64 {
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("free_spins")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("free_spins"))
+        {
             if feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
@@ -1177,7 +1235,8 @@ impl SlotEngineV2 {
                 "multiplier": snapshot.multiplier,
                 "total_win": snapshot.accumulated_win,
                 "spins_played": snapshot.current_step,
-            }).to_string()
+            })
+            .to_string()
         })
     }
 
@@ -1223,7 +1282,9 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("cascades"))
             .and_then(|f| {
                 let snapshot = f.snapshot();
-                snapshot.data.get("peak_multiplier")
+                snapshot
+                    .data
+                    .get("peak_multiplier")
                     .and_then(|v| v.as_f64())
             })
             .unwrap_or(1.0)
@@ -1241,7 +1302,10 @@ impl SlotEngineV2 {
     pub fn force_trigger_cascade(&mut self) -> bool {
         let activation_ctx = ActivationContext::new(3, self.current_bet);
 
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("cascades")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("cascades"))
+        {
             if !feature.is_active() && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
@@ -1252,7 +1316,10 @@ impl SlotEngineV2 {
 
     /// Complete Cascade and return total win
     pub fn cascade_complete(&mut self) -> f64 {
-        if let Some(feature) = self.features.get_mut(&crate::features::FeatureId::new("cascades")) {
+        if let Some(feature) = self
+            .features
+            .get_mut(&crate::features::FeatureId::new("cascades"))
+        {
             if feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
@@ -1271,7 +1338,8 @@ impl SlotEngineV2 {
                 "multiplier": snapshot.multiplier,
                 "peak_multiplier": self.cascade_peak_multiplier(),
                 "total_win": snapshot.accumulated_win,
-            }).to_string()
+            })
+            .to_string()
         })
     }
 }
@@ -1337,7 +1405,12 @@ mod tests {
         let engine = SlotEngineV2::from_model(model);
 
         // Should have free_spins and cascades registered
-        assert!(engine.features().get(&FeatureId::new("free_spins")).is_some());
+        assert!(
+            engine
+                .features()
+                .get(&FeatureId::new("free_spins"))
+                .is_some()
+        );
         assert!(engine.features().get(&FeatureId::new("cascades")).is_some());
     }
 

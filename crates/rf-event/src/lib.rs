@@ -68,25 +68,48 @@ pub mod state;
 pub use action::{ActionPriority, ActionScope, ActionType, MiddlewareAction};
 pub use curve::FadeCurve;
 pub use event::MiddlewareEvent;
-pub use instance::{EventInstance, EventInstanceState, PendingAction, PlayingId, GameObjectId};
+pub use instance::{EventInstance, EventInstanceState, GameObjectId, PendingAction, PlayingId};
 pub use manager::{
-    EventCommand, EventManagerHandle, EventManagerProcessor, ExecutedAction,
-    create_event_manager,
+    EventCommand, EventManagerHandle, EventManagerProcessor, ExecutedAction, create_event_manager,
 };
 pub use state::{
-    StateGroup, SwitchGroup, RtpcDefinition,
-    RtpcCurve, RtpcCurvePoint, RtpcCurveShape, RtpcInterpolation,
-    RtpcBinding, RtpcTargetParameter,
-    // Ducking
-    DuckingRule, DuckingCurve, DuckingMatrix, DuckingState,
-    // Blend Container
-    BlendChild, BlendContainer, CrossfadeCurve,
-    // Randomization
-    RandomChild, RandomContainer, RandomMode, RandomContainerState,
-    // Sequence Container
-    SequenceStep, SequenceContainer, SequenceEndBehavior, SequenceContainerState,
-    // Music System
-    MusicSyncPoint, Stinger, MusicSegment, MusicMarker, MarkerType, MusicSystem,
+    AttenuationCurve,
+    AttenuationSystem,
     // Attenuation
-    AttenuationType, AttenuationCurve, AttenuationSystem,
+    AttenuationType,
+    // Blend Container
+    BlendChild,
+    BlendContainer,
+    CrossfadeCurve,
+    DuckingCurve,
+    DuckingMatrix,
+    // Ducking
+    DuckingRule,
+    DuckingState,
+    MarkerType,
+    MusicMarker,
+    MusicSegment,
+    // Music System
+    MusicSyncPoint,
+    MusicSystem,
+    // Randomization
+    RandomChild,
+    RandomContainer,
+    RandomContainerState,
+    RandomMode,
+    RtpcBinding,
+    RtpcCurve,
+    RtpcCurvePoint,
+    RtpcCurveShape,
+    RtpcDefinition,
+    RtpcInterpolation,
+    RtpcTargetParameter,
+    SequenceContainer,
+    SequenceContainerState,
+    SequenceEndBehavior,
+    // Sequence Container
+    SequenceStep,
+    StateGroup,
+    Stinger,
+    SwitchGroup,
 };

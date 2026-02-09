@@ -187,9 +187,10 @@ impl CoverageData {
         }
 
         let export: LlvmCovExport = serde_json::from_str(json)?;
-        let data = export.data.first().ok_or_else(|| {
-            crate::CoverageError::ParseError("No coverage data found".into())
-        })?;
+        let data = export
+            .data
+            .first()
+            .ok_or_else(|| crate::CoverageError::ParseError("No coverage data found".into()))?;
 
         let files: Vec<FileCoverage> = data
             .files

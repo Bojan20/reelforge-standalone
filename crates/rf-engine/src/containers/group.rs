@@ -40,7 +40,10 @@ pub enum ValidationError {
     /// Circular reference detected
     CycleDetected { container_id: ContainerId },
     /// Referenced container does not exist
-    MissingContainer { container_type: ContainerType, container_id: ContainerId },
+    MissingContainer {
+        container_type: ContainerType,
+        container_id: ContainerId,
+    },
     /// Too many children
     TooManyChildren { count: usize, max: usize },
     /// Self-reference (group contains itself)
@@ -56,7 +59,10 @@ impl std::fmt::Display for ValidationError {
             ValidationError::CycleDetected { container_id } => {
                 write!(f, "Cycle detected at container {}", container_id)
             }
-            ValidationError::MissingContainer { container_type, container_id } => {
+            ValidationError::MissingContainer {
+                container_type,
+                container_id,
+            } => {
                 write!(f, "Missing {:?} container {}", container_type, container_id)
             }
             ValidationError::TooManyChildren { count, max } => {
@@ -125,7 +131,11 @@ pub struct GroupChild {
 
 impl GroupChild {
     /// Create a new group child reference
-    pub fn new(container_type: ContainerType, container_id: ContainerId, name: impl Into<String>) -> Self {
+    pub fn new(
+        container_type: ContainerType,
+        container_id: ContainerId,
+        name: impl Into<String>,
+    ) -> Self {
         Self {
             container_type,
             container_id,
@@ -196,10 +206,16 @@ impl ContainerGroup {
     }
 
     /// Remove a child by container ID
-    pub fn remove_child(&mut self, container_type: ContainerType, container_id: ContainerId) -> bool {
-        if let Some(pos) = self.children.iter().position(|c| {
-            c.container_type == container_type && c.container_id == container_id
-        }) {
+    pub fn remove_child(
+        &mut self,
+        container_type: ContainerType,
+        container_id: ContainerId,
+    ) -> bool {
+        if let Some(pos) = self
+            .children
+            .iter()
+            .position(|c| c.container_type == container_type && c.container_id == container_id)
+        {
             self.children.remove(pos);
             true
         } else {
@@ -267,7 +283,8 @@ impl ContainerGroup {
                     let idx = (std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .map(|d| d.as_nanos() as usize)
-                        .unwrap_or(0)) % enabled.len();
+                        .unwrap_or(0))
+                        % enabled.len();
                     let child = enabled[idx];
                     result.children.push(GroupChildRef {
                         container_type: child.container_type,
@@ -282,7 +299,11 @@ impl ContainerGroup {
 
     /// Remove a child by container ID only (for FFI simplicity)
     pub fn remove_child_by_id(&mut self, container_id: ContainerId) -> bool {
-        if let Some(pos) = self.children.iter().position(|c| c.container_id == container_id) {
+        if let Some(pos) = self
+            .children
+            .iter()
+            .position(|c| c.container_id == container_id)
+        {
             self.children.remove(pos);
             true
         } else {
@@ -328,7 +349,14 @@ impl ContainerGroup {
         let mut total = 0;
 
         // DFS to check depth and cycles
-        self.validate_recursive(lookup, &mut visited, &mut errors, 1, &mut max_depth, &mut total);
+        self.validate_recursive(
+            lookup,
+            &mut visited,
+            &mut errors,
+            1,
+            &mut max_depth,
+            &mut total,
+        );
 
         if errors.is_empty() {
             ValidationResult::success(max_depth, total)
@@ -362,7 +390,9 @@ impl ContainerGroup {
 
         // Check cycle
         if !visited.insert(self.id) {
-            errors.push(ValidationError::CycleDetected { container_id: self.id });
+            errors.push(ValidationError::CycleDetected {
+                container_id: self.id,
+            });
             return;
         }
 
@@ -419,7 +449,9 @@ pub fn validate_group_addition<L: ContainerLookup>(
 ) -> Result<(), ValidationError> {
     // Check self-reference
     if child_type == ContainerType::Group && child_id == parent_group_id {
-        return Err(ValidationError::SelfReference { group_id: parent_group_id });
+        return Err(ValidationError::SelfReference {
+            group_id: parent_group_id,
+        });
     }
 
     // Check if child exists
@@ -436,7 +468,9 @@ pub fn validate_group_addition<L: ContainerLookup>(
         visited.insert(parent_group_id);
 
         if would_create_cycle(child_id, &visited, lookup) {
-            return Err(ValidationError::CycleDetected { container_id: child_id });
+            return Err(ValidationError::CycleDetected {
+                container_id: child_id,
+            });
         }
     }
 

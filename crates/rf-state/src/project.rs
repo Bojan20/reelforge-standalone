@@ -621,9 +621,10 @@ impl Project {
         for track in &mut self.tracks {
             for region in &mut track.regions {
                 if let AssetRef::Missing(name) = &region.asset_ref
-                    && let Some(path) = resolver(name) {
-                        region.asset_ref = AssetRef::External(path);
-                    }
+                    && let Some(path) = resolver(name)
+                {
+                    region.asset_ref = AssetRef::External(path);
+                }
             }
         }
     }

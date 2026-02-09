@@ -5,7 +5,7 @@
 //! - Algorithmic reverb (plate, hall, room)
 
 use rf_core::Sample;
-use rustfft::{num_complex::Complex, FftPlanner};
+use rustfft::{FftPlanner, num_complex::Complex};
 use std::sync::Arc;
 
 use crate::{Processor, ProcessorConfig, StereoProcessor};
@@ -63,7 +63,9 @@ impl ConvolutionReverb {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(fft_size);
         let ifft = planner.plan_fft_inverse(fft_size);
-        let scratch_len = fft.get_inplace_scratch_len().max(ifft.get_inplace_scratch_len());
+        let scratch_len = fft
+            .get_inplace_scratch_len()
+            .max(ifft.get_inplace_scratch_len());
 
         Self {
             ir_partitions_l: Vec::new(),
@@ -146,7 +148,8 @@ impl ConvolutionReverb {
         let mut buffer: Vec<Complex<f64>> = input.iter().map(|&x| Complex::new(x, 0.0)).collect();
         buffer.resize(n, Complex::new(0.0, 0.0));
 
-        self.fft.process_with_scratch(&mut buffer, &mut self.fft_scratch);
+        self.fft
+            .process_with_scratch(&mut buffer, &mut self.fft_scratch);
         buffer
     }
 
@@ -155,7 +158,8 @@ impl ConvolutionReverb {
         let n = input.len();
         let mut buffer = input.to_vec();
 
-        self.ifft.process_with_scratch(&mut buffer, &mut self.fft_scratch);
+        self.ifft
+            .process_with_scratch(&mut buffer, &mut self.fft_scratch);
 
         // rustfft doesn't normalize, so divide by n
         let scale = 1.0 / n as f64;
@@ -222,8 +226,10 @@ impl ConvolutionReverb {
         }
 
         // Save the second half for next overlap
-        self.overlap_l[..PARTITION_SIZE].copy_from_slice(&output_l[PARTITION_SIZE..PARTITION_SIZE * 2]);
-        self.overlap_r[..PARTITION_SIZE].copy_from_slice(&output_r[PARTITION_SIZE..PARTITION_SIZE * 2]);
+        self.overlap_l[..PARTITION_SIZE]
+            .copy_from_slice(&output_l[PARTITION_SIZE..PARTITION_SIZE * 2]);
+        self.overlap_r[..PARTITION_SIZE]
+            .copy_from_slice(&output_r[PARTITION_SIZE..PARTITION_SIZE * 2]);
 
         self.partition_index = (self.partition_index + 1) % num_partitions.max(1);
     }
@@ -236,7 +242,9 @@ impl Clone for ConvolutionReverb {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(fft_size);
         let ifft = planner.plan_fft_inverse(fft_size);
-        let scratch_len = fft.get_inplace_scratch_len().max(ifft.get_inplace_scratch_len());
+        let scratch_len = fft
+            .get_inplace_scratch_len()
+            .max(ifft.get_inplace_scratch_len());
 
         Self {
             ir_partitions_l: self.ir_partitions_l.clone(),

@@ -678,7 +678,8 @@ impl PluginInstance for InternalPlugin {
             InternalProcessorType::Gain => {
                 // Get gain in dB and convert to linear
                 let gain_db = self
-                    .parameters.first()
+                    .parameters
+                    .first()
                     .map(|p| {
                         let normalized = p.value;
                         p.info.min + normalized * (p.info.max - p.info.min)

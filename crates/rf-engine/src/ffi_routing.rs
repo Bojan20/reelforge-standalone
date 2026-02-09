@@ -45,12 +45,14 @@ lazy_static::lazy_static! {
 
 #[cfg(feature = "unified_routing")]
 /// Helper to convert C string to Rust String
-unsafe fn cstr_to_string(ptr: *const c_char) -> Option<String> { unsafe {
-    if ptr.is_null() {
-        return None;
+unsafe fn cstr_to_string(ptr: *const c_char) -> Option<String> {
+    unsafe {
+        if ptr.is_null() {
+            return None;
+        }
+        CStr::from_ptr(ptr).to_str().ok().map(|s| s.to_string())
     }
-    CStr::from_ptr(ptr).to_str().ok().map(|s| s.to_string())
-}}
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
@@ -106,10 +108,13 @@ pub extern "C" fn routing_create_channel(kind: u32, name: *const c_char) -> u32 
 
     // Store pending creation info for registry update when response arrives
     if let Ok(mut pending) = PENDING_CREATIONS.write() {
-        pending.insert(callback_id, ChannelRegistryEntry {
-            kind: channel_kind,
-            name: name_str.clone(),
-        });
+        pending.insert(
+            callback_id,
+            ChannelRegistryEntry {
+                kind: channel_kind,
+                name: name_str.clone(),
+            },
+        );
     }
 
     if sender.create_channel(channel_kind, name_str, callback_id) {
@@ -228,11 +233,7 @@ pub extern "C" fn routing_set_output(channel_id: u32, dest_type: u32, dest_id: u
 /// pre_fader: 1=pre-fader, 0=post-fader
 /// Returns: 1 on success, 0 on failure
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_add_send(
-    from_channel: u32,
-    to_channel: u32,
-    pre_fader: i32,
-) -> i32 {
+pub extern "C" fn routing_add_send(from_channel: u32, to_channel: u32, pre_fader: i32) -> i32 {
     let sender_ptr = ROUTING_SENDER_PTR.load(std::sync::atomic::Ordering::Acquire);
     if !sender_ptr.is_null() {
         let sender = unsafe { &mut *sender_ptr };
@@ -256,10 +257,7 @@ pub extern "C" fn routing_add_send(
 /// send_index: Index of send to remove (0-based)
 /// Returns: 1 on success, 0 on failure
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_remove_send(
-    from_channel: u32,
-    send_index: usize,
-) -> i32 {
+pub extern "C" fn routing_remove_send(from_channel: u32, send_index: usize) -> i32 {
     let sender_ptr = ROUTING_SENDER_PTR.load(std::sync::atomic::Ordering::Acquire);
     if !sender_ptr.is_null() {
         let sender = unsafe { &mut *sender_ptr };
@@ -437,7 +435,12 @@ pub extern "C" fn routing_get_channels_json() -> *const c_char {
                 ChannelKind::Vca => 3,
                 ChannelKind::Master => 4,
             };
-            format!(r#"{{"id":{},"kind":{},"name":"{}"}}"#, id, kind_value, entry.name.replace('"', r#"\""#))
+            format!(
+                r#"{{"id":{},"kind":{},"name":"{}"}}"#,
+                id,
+                kind_value,
+                entry.name.replace('"', r#"\""#)
+            )
         })
         .collect();
 
@@ -463,51 +466,75 @@ pub extern "C" fn routing_get_channels_json() -> *const c_char {
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_init(_sender_ptr: *mut core::ffi::c_void) -> i32 { 0 }
+pub extern "C" fn routing_init(_sender_ptr: *mut core::ffi::c_void) -> i32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_create_channel(_kind: u32, _name: *const c_char) -> u32 { 0 }
+pub extern "C" fn routing_create_channel(_kind: u32, _name: *const c_char) -> u32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_delete_channel(_channel_id: u32) -> i32 { 0 }
+pub extern "C" fn routing_delete_channel(_channel_id: u32) -> i32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_poll_response(_callback_id: u32) -> i32 { -1 }
+pub extern "C" fn routing_poll_response(_callback_id: u32) -> i32 {
+    -1
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_set_output(_channel_id: u32, _dest_type: u32, _dest_id: u32) -> i32 { 0 }
+pub extern "C" fn routing_set_output(_channel_id: u32, _dest_type: u32, _dest_id: u32) -> i32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_add_send(_from: u32, _to: u32, _pre_fader: i32) -> i32 { 0 }
+pub extern "C" fn routing_add_send(_from: u32, _to: u32, _pre_fader: i32) -> i32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_remove_send(_from: u32, _send_index: usize) -> i32 { 0 }
+pub extern "C" fn routing_remove_send(_from: u32, _send_index: usize) -> i32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_set_volume(_channel_id: u32, _volume_db: f64) -> i32 { 0 }
+pub extern "C" fn routing_set_volume(_channel_id: u32, _volume_db: f64) -> i32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_set_pan(_channel_id: u32, _pan: f64) -> i32 { 0 }
+pub extern "C" fn routing_set_pan(_channel_id: u32, _pan: f64) -> i32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_set_mute(_channel_id: u32, _mute: i32) -> i32 { 0 }
+pub extern "C" fn routing_set_mute(_channel_id: u32, _mute: i32) -> i32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_set_solo(_channel_id: u32, _solo: i32) -> i32 { 0 }
+pub extern "C" fn routing_set_solo(_channel_id: u32, _solo: i32) -> i32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_get_channel_count() -> u32 { 0 }
+pub extern "C" fn routing_get_channel_count() -> u32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
@@ -515,7 +542,9 @@ pub extern "C" fn routing_get_all_channels(
     _out_ids: *mut u32,
     _out_kinds: *mut u32,
     _max_count: u32,
-) -> u32 { 0 }
+) -> u32 {
+    0
+}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]

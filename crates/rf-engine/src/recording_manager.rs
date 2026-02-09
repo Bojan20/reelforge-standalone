@@ -265,7 +265,8 @@ impl RecordingManager {
     /// Set auto-arm threshold in dB
     pub fn set_auto_arm_threshold_db(&self, db: f64) {
         let linear = 10.0_f64.powf(db / 20.0);
-        self.auto_arm_threshold.store(linear.to_bits(), Ordering::Relaxed);
+        self.auto_arm_threshold
+            .store(linear.to_bits(), Ordering::Relaxed);
     }
 
     /// Get auto-arm threshold (linear)
@@ -355,9 +356,7 @@ impl RecordingManager {
         let recorders = self.recorders.read();
         recorders
             .iter()
-            .filter_map(|(track_id, recorder)| {
-                recorder.start().ok().map(|path| (*track_id, path))
-            })
+            .filter_map(|(track_id, recorder)| recorder.start().ok().map(|path| (*track_id, path)))
             .collect()
     }
 
@@ -367,11 +366,7 @@ impl RecordingManager {
         recorders
             .iter()
             .filter_map(|(track_id, recorder)| {
-                recorder
-                    .stop()
-                    .ok()
-                    .flatten()
-                    .map(|path| (*track_id, path))
+                recorder.stop().ok().flatten().map(|path| (*track_id, path))
             })
             .collect()
     }
@@ -400,10 +395,7 @@ impl RecordingManager {
 
     /// Check if track is recording
     pub fn is_recording(&self, track_id: TrackId) -> bool {
-        matches!(
-            self.get_state(track_id),
-            Some(RecordingState::Recording)
-        )
+        matches!(self.get_state(track_id), Some(RecordingState::Recording))
     }
 
     /// Get number of armed tracks

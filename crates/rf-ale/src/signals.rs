@@ -24,7 +24,6 @@ pub enum NormalizationMode {
     None,
 }
 
-
 /// Signal definition with normalization parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalDefinition {
@@ -426,8 +425,14 @@ impl SignalRegistry {
         ));
 
         // Derived signals
-        registry.register(SignalDefinition::momentum(builtins::MOMENTUM, builtins::WIN_TIER));
-        registry.register(SignalDefinition::velocity(builtins::VELOCITY, builtins::WIN_TIER));
+        registry.register(SignalDefinition::momentum(
+            builtins::MOMENTUM,
+            builtins::WIN_TIER,
+        ));
+        registry.register(SignalDefinition::velocity(
+            builtins::VELOCITY,
+            builtins::WIN_TIER,
+        ));
 
         registry
     }

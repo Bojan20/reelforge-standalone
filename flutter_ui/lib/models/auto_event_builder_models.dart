@@ -11,6 +11,7 @@
 library;
 
 import 'dart:math' as math;
+import '../utils/path_validator.dart';
 
 // =============================================================================
 // ASSET TYPE
@@ -238,7 +239,7 @@ class AudioAsset {
     }
 
     // Only allowed extensions
-    const allowedExtensions = {'.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif'};
+    final allowedExtensions = PathValidator.allowedExtensions.map((e) => '.$e').toSet();
     final dotIndex = rawPath.lastIndexOf('.');
     if (dotIndex < 0) {
       throw const InvalidAssetPathException('No file extension');

@@ -6,8 +6,8 @@
 //! - Master bus with limiter
 
 use rf_core::Sample;
-use rf_dsp::analysis::PeakMeter;
 use rf_dsp::LufsMeter; // Now from metering.rs
+use rf_dsp::analysis::PeakMeter;
 use rf_dsp::channel::ChannelStrip;
 use rf_dsp::dynamics::{CompressorType, StereoCompressor, TruePeakLimiter};
 use rf_dsp::{Processor, ProcessorConfig, StereoProcessor};
@@ -459,7 +459,9 @@ impl Mixer {
             .master
             .gain_reduction
             .store(self.master.limiter.gain_reduction_db());
-        self.meters.lufs_short.store(self.master.lufs.shortterm_loudness());
+        self.meters
+            .lufs_short
+            .store(self.master.lufs.shortterm_loudness());
         self.meters
             .lufs_integrated
             .store(self.master.lufs.integrated_loudness());

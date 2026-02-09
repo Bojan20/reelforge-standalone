@@ -11,7 +11,7 @@
 use crate::routing::ChannelId;
 use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};
 
 /// Sample type alias
 pub type Sample = f64;
@@ -33,7 +33,6 @@ pub enum MonitorSource {
     /// External input (0-3)
     External(u8) = 2,
 }
-
 
 impl MonitorSource {
     /// Encode to u32 for atomic storage
@@ -205,7 +204,11 @@ impl CueMix {
     /// Get level in dB
     pub fn level_db(&self) -> f64 {
         let linear = self.level();
-        if linear > 0.0 { 20.0 * linear.log10() } else { -144.0 }
+        if linear > 0.0 {
+            20.0 * linear.log10()
+        } else {
+            -144.0
+        }
     }
 
     /// Set level in dB
@@ -221,7 +224,8 @@ impl CueMix {
 
     /// Set pan
     pub fn set_pan(&self, pan: f64) {
-        self.pan.store(pan.clamp(-1.0, 1.0).to_bits(), Ordering::Relaxed);
+        self.pan
+            .store(pan.clamp(-1.0, 1.0).to_bits(), Ordering::Relaxed);
     }
 
     /// Get peak (linear)
@@ -236,8 +240,16 @@ impl CueMix {
     pub fn peak_db(&self) -> (f64, f64) {
         let (l, r) = self.peak();
         (
-            if l > 0.0 { 20.0 * l.log10() } else { -f64::INFINITY },
-            if r > 0.0 { 20.0 * r.log10() } else { -f64::INFINITY },
+            if l > 0.0 {
+                20.0 * l.log10()
+            } else {
+                -f64::INFINITY
+            },
+            if r > 0.0 {
+                20.0 * r.log10()
+            } else {
+                -f64::INFINITY
+            },
         )
     }
 
@@ -272,7 +284,11 @@ impl CueMix {
         if let (Some(mut out_l), Some(mut out_r)) =
             (self.output_l.try_write(), self.output_r.try_write())
         {
-            let len = input_l.len().min(input_r.len()).min(out_l.len()).min(out_r.len());
+            let len = input_l
+                .len()
+                .min(input_r.len())
+                .min(out_l.len())
+                .min(out_r.len());
             for i in 0..len {
                 out_l[i] += input_l[i] * level * pan_l;
                 out_r[i] += input_r[i] * level * pan_r;
@@ -294,12 +310,15 @@ impl CueMix {
 
     /// Set send for channel (convenience for FFI)
     pub fn set_send(&self, channel_id: ChannelId, level: f64, pan: f64) {
-        self.set_send_config(channel_id, CueSend {
-            level,
-            pan,
-            enabled: true,
-            pre_fader: true,
-        });
+        self.set_send_config(
+            channel_id,
+            CueSend {
+                level,
+                pan,
+                enabled: true,
+                pre_fader: true,
+            },
+        );
     }
 
     /// Remove send for channel
@@ -355,7 +374,12 @@ impl CueMix {
     /// Get output buffers as references (for read-only access)
     ///
     /// Returns None if buffers are locked
-    pub fn get_output(&self) -> Option<(parking_lot::RwLockReadGuard<'_, Vec<Sample>>, parking_lot::RwLockReadGuard<'_, Vec<Sample>>)> {
+    pub fn get_output(
+        &self,
+    ) -> Option<(
+        parking_lot::RwLockReadGuard<'_, Vec<Sample>>,
+        parking_lot::RwLockReadGuard<'_, Vec<Sample>>,
+    )> {
         let l = self.output_l.try_read()?;
         let r = self.output_r.try_read()?;
         Some((l, r))
@@ -617,7 +641,8 @@ impl ControlRoom {
 
     /// Set monitor source
     pub fn set_monitor_source(&self, source: MonitorSource) {
-        self.monitor_source.store(source.to_u32(), Ordering::Relaxed);
+        self.monitor_source
+            .store(source.to_u32(), Ordering::Relaxed);
     }
 
     // ========== Monitor Level ==========
@@ -743,7 +768,11 @@ impl ControlRoom {
         if let (Some(mut out_l), Some(mut out_r)) =
             (self.solo_bus_l.try_write(), self.solo_bus_r.try_write())
         {
-            let len = input_l.len().min(input_r.len()).min(out_l.len()).min(out_r.len());
+            let len = input_l
+                .len()
+                .min(input_r.len())
+                .min(out_l.len())
+                .min(out_r.len());
             for i in 0..len {
                 out_l[i] += input_l[i];
                 out_r[i] += input_r[i];
@@ -790,7 +819,10 @@ impl ControlRoom {
 
     /// Get speaker calibration for a set
     pub fn speaker_calibration(&self, index: usize) -> f64 {
-        self.speaker_sets.get(index).map(|s| s.calibration_db()).unwrap_or(0.0)
+        self.speaker_sets
+            .get(index)
+            .map(|s| s.calibration_db())
+            .unwrap_or(0.0)
     }
 
     /// Set speaker calibration for a set
@@ -868,18 +900,16 @@ impl ControlRoom {
 
     /// Set talkback dim main on talk state
     pub fn set_talkback_dim_main_on_talk(&self, enabled: bool) {
-        self.talkback.dim_main_on_talk.store(enabled, Ordering::Relaxed);
+        self.talkback
+            .dim_main_on_talk
+            .store(enabled, Ordering::Relaxed);
     }
 
     // ========== Processing ==========
 
     /// Process monitor output
     /// Call after all channels have been processed
-    pub fn process_monitor_output(
-        &self,
-        master_l: &[Sample],
-        master_r: &[Sample],
-    ) {
+    pub fn process_monitor_output(&self, master_l: &[Sample], master_r: &[Sample]) {
         let source = self.monitor_source();
         let solo_mode = self.solo_mode();
         let has_solo = self.has_solo();
@@ -911,16 +941,16 @@ impl ControlRoom {
                 if let Some(cue) = self.cue_mixes.get(idx as usize)
                     && let (Some(cue_l), Some(cue_r)) =
                         (cue.output_l.try_read(), cue.output_r.try_read())
-                    {
-                        let out_l = self.monitor_out_l.try_write();
-                        let out_r = self.monitor_out_r.try_write();
-                        if let (Some(mut ol), Some(mut or)) = (out_l, out_r) {
-                            let len = cue_l.len().min(cue_r.len()).min(ol.len()).min(or.len());
-                            ol[..len].copy_from_slice(&cue_l[..len]);
-                            or[..len].copy_from_slice(&cue_r[..len]);
-                        }
-                        return;
+                {
+                    let out_l = self.monitor_out_l.try_write();
+                    let out_r = self.monitor_out_r.try_write();
+                    if let (Some(mut ol), Some(mut or)) = (out_l, out_r) {
+                        let len = cue_l.len().min(cue_r.len()).min(ol.len()).min(or.len());
+                        ol[..len].copy_from_slice(&cue_l[..len]);
+                        or[..len].copy_from_slice(&cue_r[..len]);
                     }
+                    return;
+                }
                 (master_l, master_r)
             }
             MonitorSource::External(_) => {
@@ -946,10 +976,15 @@ impl ControlRoom {
 
         let total_gain = monitor_level * dim_mult * speaker_cal * talkback_dim;
 
-        if let (Some(mut out_l), Some(mut out_r)) =
-            (self.monitor_out_l.try_write(), self.monitor_out_r.try_write())
-        {
-            let len = src_l.len().min(src_r.len()).min(out_l.len()).min(out_r.len());
+        if let (Some(mut out_l), Some(mut out_r)) = (
+            self.monitor_out_l.try_write(),
+            self.monitor_out_r.try_write(),
+        ) {
+            let len = src_l
+                .len()
+                .min(src_r.len())
+                .min(out_l.len())
+                .min(out_r.len());
 
             if mono {
                 // Mono sum
@@ -974,10 +1009,12 @@ impl ControlRoom {
             let current_r = f64::from_bits(self.monitor_peak_r.load(Ordering::Relaxed));
 
             if peak_l > current_l {
-                self.monitor_peak_l.store(peak_l.to_bits(), Ordering::Relaxed);
+                self.monitor_peak_l
+                    .store(peak_l.to_bits(), Ordering::Relaxed);
             }
             if peak_r > current_r {
-                self.monitor_peak_r.store(peak_r.to_bits(), Ordering::Relaxed);
+                self.monitor_peak_r
+                    .store(peak_r.to_bits(), Ordering::Relaxed);
             }
         }
     }
@@ -995,21 +1032,26 @@ impl ControlRoom {
             if (destinations >> idx) & 1 != 0
                 && let (Some(mut cue_l), Some(mut cue_r)) =
                     (cue.output_l.try_write(), cue.output_r.try_write())
-                {
-                    let len = talkback_l.len().min(talkback_r.len())
-                        .min(cue_l.len()).min(cue_r.len());
-                    for i in 0..len {
-                        cue_l[i] += talkback_l[i] * level;
-                        cue_r[i] += talkback_r[i] * level;
-                    }
+            {
+                let len = talkback_l
+                    .len()
+                    .min(talkback_r.len())
+                    .min(cue_l.len())
+                    .min(cue_r.len());
+                for i in 0..len {
+                    cue_l[i] += talkback_l[i] * level;
+                    cue_r[i] += talkback_r[i] * level;
                 }
+            }
         }
     }
 
     /// Reset all peak meters
     pub fn reset_peaks(&self) {
-        self.monitor_peak_l.store(0.0_f64.to_bits(), Ordering::Relaxed);
-        self.monitor_peak_r.store(0.0_f64.to_bits(), Ordering::Relaxed);
+        self.monitor_peak_l
+            .store(0.0_f64.to_bits(), Ordering::Relaxed);
+        self.monitor_peak_r
+            .store(0.0_f64.to_bits(), Ordering::Relaxed);
         for cue in &self.cue_mixes {
             cue.reset_peaks();
         }
@@ -1020,8 +1062,16 @@ impl ControlRoom {
         let l = f64::from_bits(self.monitor_peak_l.load(Ordering::Relaxed));
         let r = f64::from_bits(self.monitor_peak_r.load(Ordering::Relaxed));
         (
-            if l > 0.0 { 20.0 * l.log10() } else { -f64::INFINITY },
-            if r > 0.0 { 20.0 * r.log10() } else { -f64::INFINITY },
+            if l > 0.0 {
+                20.0 * l.log10()
+            } else {
+                -f64::INFINITY
+            },
+            if r > 0.0 {
+                20.0 * r.log10()
+            } else {
+                -f64::INFINITY
+            },
         )
     }
 
@@ -1071,7 +1121,12 @@ impl ControlRoom {
     ///
     /// Use this to send cue mix to separate headphone output device
     /// Returns true if successful, false if buffers were locked or index invalid
-    pub fn copy_cue_output_to(&self, cue_index: usize, dest_l: &mut [Sample], dest_r: &mut [Sample]) -> bool {
+    pub fn copy_cue_output_to(
+        &self,
+        cue_index: usize,
+        dest_l: &mut [Sample],
+        dest_r: &mut [Sample],
+    ) -> bool {
         if cue_index >= 4 {
             return false;
         }
@@ -1080,12 +1135,15 @@ impl ControlRoom {
 
     /// Check if any cue mix is enabled
     pub fn any_cue_enabled(&self) -> bool {
-        self.cue_mixes.iter().any(|c| c.enabled.load(Ordering::Relaxed))
+        self.cue_mixes
+            .iter()
+            .any(|c| c.enabled.load(Ordering::Relaxed))
     }
 
     /// Get enabled cue mix indices
     pub fn enabled_cue_indices(&self) -> Vec<usize> {
-        self.cue_mixes.iter()
+        self.cue_mixes
+            .iter()
             .enumerate()
             .filter(|(_, c)| c.enabled.load(Ordering::Relaxed))
             .map(|(i, _)| i)
@@ -1153,12 +1211,15 @@ mod tests {
         let cue = CueMix::new("Test Cue", 128);
         let ch1 = ChannelId(1);
 
-        cue.set_send_config(ch1, CueSend {
-            level: 0.5,
-            pan: 0.0,
-            enabled: true,
-            pre_fader: true,
-        });
+        cue.set_send_config(
+            ch1,
+            CueSend {
+                level: 0.5,
+                pan: 0.0,
+                enabled: true,
+                pre_fader: true,
+            },
+        );
 
         let send = cue.get_send(ch1).unwrap();
         assert_eq!(send.level, 0.5);

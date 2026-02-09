@@ -19,8 +19,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
 
 /// AoIP Protocol type
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AoipProtocol {
     /// SMPTE ST 2110-30 (broadcast standard)
     Smpte2110,
@@ -33,10 +32,8 @@ pub enum AoipProtocol {
     Ravenna,
 }
 
-
 /// Audio encoding for AoIP
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AoipEncoding {
     /// Linear PCM 16-bit
     Pcm16,
@@ -48,7 +45,6 @@ pub enum AoipEncoding {
     /// 32-bit floating point
     Float32,
 }
-
 
 impl AoipEncoding {
     /// Bytes per sample
@@ -62,8 +58,7 @@ impl AoipEncoding {
 }
 
 /// PTP Clock status
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PtpStatus {
     /// Not synchronized
     #[default]
@@ -75,7 +70,6 @@ pub enum PtpStatus {
     /// Free-running (no master)
     Freerun,
 }
-
 
 /// AoIP Stream configuration
 #[derive(Debug, Clone)]
@@ -457,9 +451,10 @@ impl AoipReceiver {
 
         // Join multicast if configured
         if let Some(multicast) = self.config.multicast_addr
-            && let IpAddr::V4(addr) = multicast {
-                socket.join_multicast_v4(&addr, &std::net::Ipv4Addr::UNSPECIFIED)?;
-            }
+            && let IpAddr::V4(addr) = multicast
+        {
+            socket.join_multicast_v4(&addr, &std::net::Ipv4Addr::UNSPECIFIED)?;
+        }
 
         self.socket = Some(socket);
         self.running.store(true, Ordering::Release);

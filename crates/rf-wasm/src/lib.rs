@@ -4,11 +4,11 @@
 // Enables runtime audio processing in web browsers
 // ============================================================================
 
-use wasm_bindgen::prelude::*;
-use web_sys::{AudioContext, AudioBuffer, GainNode, StereoPannerNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
+use wasm_bindgen::prelude::*;
+use web_sys::{AudioBuffer, AudioContext, GainNode, StereoPannerNode};
 
 // ============================================================================
 // INITIALIZATION
@@ -253,7 +253,8 @@ impl FluxForgeAudio {
         for event in events {
             // Build stage mappings
             for stage in &event.stages {
-                self.stage_map.insert(stage.to_uppercase(), event.id.clone());
+                self.stage_map
+                    .insert(stage.to_uppercase(), event.id.clone());
             }
             self.events.insert(event.id.clone(), event);
         }
@@ -288,7 +289,8 @@ impl FluxForgeAudio {
         let count = groups.len() as u32;
 
         for group in groups {
-            self.state_groups.insert(group.name.clone(), group.default_state);
+            self.state_groups
+                .insert(group.name.clone(), group.default_state);
         }
 
         log::info!("[FluxForge WASM] Loaded {} state groups", count);
@@ -327,7 +329,11 @@ impl FluxForgeAudio {
 
         // Note: Actual audio playback would use AudioBufferSourceNode
         // This requires loading audio files which is handled separately
-        log::debug!("[FluxForge WASM] Playing event: {} (voice {})", event_id, voice_id);
+        log::debug!(
+            "[FluxForge WASM] Playing event: {} (voice {})",
+            event_id,
+            voice_id
+        );
 
         Some(VoiceHandle {
             id: voice_id,
@@ -408,7 +414,11 @@ impl FluxForgeAudio {
         self.bus_mutes.insert(bus_id, mute);
 
         if let Some(gain) = self.bus_gains.get(&bus_id) {
-            let volume = if mute { 0.0 } else { *self.bus_volumes.get(&bus_id).unwrap_or(&1.0) };
+            let volume = if mute {
+                0.0
+            } else {
+                *self.bus_volumes.get(&bus_id).unwrap_or(&1.0)
+            };
             gain.gain().set_value(volume);
         }
     }
@@ -467,7 +477,8 @@ impl FluxForgeAudio {
     /// Set state
     #[wasm_bindgen]
     pub fn set_state(&mut self, group: &str, state: &str) {
-        self.state_groups.insert(group.to_string(), state.to_string());
+        self.state_groups
+            .insert(group.to_string(), state.to_string());
     }
 
     /// Get current state
@@ -482,7 +493,9 @@ impl FluxForgeAudio {
 
     fn acquire_voice(&mut self, event_id: &str, priority: u8) -> Option<u32> {
         // Count voices for this event
-        let event_voice_count = self.voices.iter()
+        let event_voice_count = self
+            .voices
+            .iter()
             .filter(|v| v.event_id == event_id && v.state == PlaybackState::Playing)
             .count();
 
@@ -508,7 +521,9 @@ impl FluxForgeAudio {
 
     fn steal_voice_for_event(&mut self, event_id: &str) {
         // Find oldest voice for this event
-        if let Some(idx) = self.voices.iter()
+        if let Some(idx) = self
+            .voices
+            .iter()
             .enumerate()
             .filter(|(_, v)| v.event_id == event_id && v.state == PlaybackState::Playing)
             .min_by(|(_, a), (_, b)| a.start_time.partial_cmp(&b.start_time).unwrap())
@@ -521,27 +536,27 @@ impl FluxForgeAudio {
 
     fn steal_voice_global(&mut self) {
         let idx = match self.steal_mode {
-            VoiceStealMode::Oldest => {
-                self.voices.iter()
-                    .enumerate()
-                    .filter(|(_, v)| v.state == PlaybackState::Playing)
-                    .min_by(|(_, a), (_, b)| a.start_time.partial_cmp(&b.start_time).unwrap())
-                    .map(|(i, _)| i)
-            }
-            VoiceStealMode::Quietest => {
-                self.voices.iter()
-                    .enumerate()
-                    .filter(|(_, v)| v.state == PlaybackState::Playing)
-                    .min_by(|(_, a), (_, b)| a.volume.partial_cmp(&b.volume).unwrap())
-                    .map(|(i, _)| i)
-            }
-            VoiceStealMode::LowestPriority => {
-                self.voices.iter()
-                    .enumerate()
-                    .filter(|(_, v)| v.state == PlaybackState::Playing)
-                    .min_by(|(_, a), (_, b)| a.priority.cmp(&b.priority))
-                    .map(|(i, _)| i)
-            }
+            VoiceStealMode::Oldest => self
+                .voices
+                .iter()
+                .enumerate()
+                .filter(|(_, v)| v.state == PlaybackState::Playing)
+                .min_by(|(_, a), (_, b)| a.start_time.partial_cmp(&b.start_time).unwrap())
+                .map(|(i, _)| i),
+            VoiceStealMode::Quietest => self
+                .voices
+                .iter()
+                .enumerate()
+                .filter(|(_, v)| v.state == PlaybackState::Playing)
+                .min_by(|(_, a), (_, b)| a.volume.partial_cmp(&b.volume).unwrap())
+                .map(|(i, _)| i),
+            VoiceStealMode::LowestPriority => self
+                .voices
+                .iter()
+                .enumerate()
+                .filter(|(_, v)| v.state == PlaybackState::Playing)
+                .min_by(|(_, a), (_, b)| a.priority.cmp(&b.priority))
+                .map(|(i, _)| i),
             VoiceStealMode::None => None,
         };
 
@@ -576,7 +591,8 @@ impl FluxForgeAudio {
     /// Get active voice count
     #[wasm_bindgen]
     pub fn get_active_voice_count(&self) -> u32 {
-        self.voices.iter()
+        self.voices
+            .iter()
             .filter(|v| v.state == PlaybackState::Playing)
             .count() as u32
     }
@@ -602,13 +618,19 @@ impl FluxForgeAudio {
     /// Get current time from audio context
     #[wasm_bindgen]
     pub fn get_current_time(&self) -> f64 {
-        self.context.as_ref().map(|c| c.current_time()).unwrap_or(0.0)
+        self.context
+            .as_ref()
+            .map(|c| c.current_time())
+            .unwrap_or(0.0)
     }
 
     /// Get sample rate
     #[wasm_bindgen]
     pub fn get_sample_rate(&self) -> f32 {
-        self.context.as_ref().map(|c| c.sample_rate()).unwrap_or(44100.0)
+        self.context
+            .as_ref()
+            .map(|c| c.sample_rate())
+            .unwrap_or(44100.0)
     }
 
     // ════════════════════════════════════════════════════════════════════════

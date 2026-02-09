@@ -54,16 +54,44 @@ pub fn free_spins_demo() -> DemoScenario {
                 "Trigger 10 free spins with 2x multiplier",
             ),
             // Free spin sequence
-            spin_delayed(ScriptedOutcome::SmallWin { ratio: 4.0 }, 500.0, "FS 1 - Small"),
+            spin_delayed(
+                ScriptedOutcome::SmallWin { ratio: 4.0 },
+                500.0,
+                "FS 1 - Small",
+            ),
             spin_delayed(ScriptedOutcome::Lose, 500.0, "FS 2 - Lose"),
-            spin_delayed(ScriptedOutcome::MediumWin { ratio: 12.0 }, 500.0, "FS 3 - Medium"),
-            spin_delayed(ScriptedOutcome::SmallWin { ratio: 6.0 }, 500.0, "FS 4 - Small"),
+            spin_delayed(
+                ScriptedOutcome::MediumWin { ratio: 12.0 },
+                500.0,
+                "FS 3 - Medium",
+            ),
+            spin_delayed(
+                ScriptedOutcome::SmallWin { ratio: 6.0 },
+                500.0,
+                "FS 4 - Small",
+            ),
             spin_delayed(ScriptedOutcome::Lose, 500.0, "FS 5 - Lose"),
-            spin_delayed(ScriptedOutcome::BigWin { ratio: 25.0 }, 500.0, "FS 6 - Big win!"),
-            spin_delayed(ScriptedOutcome::SmallWin { ratio: 3.0 }, 500.0, "FS 7 - Small"),
-            spin_delayed(ScriptedOutcome::MediumWin { ratio: 15.0 }, 500.0, "FS 8 - Medium"),
+            spin_delayed(
+                ScriptedOutcome::BigWin { ratio: 25.0 },
+                500.0,
+                "FS 6 - Big win!",
+            ),
+            spin_delayed(
+                ScriptedOutcome::SmallWin { ratio: 3.0 },
+                500.0,
+                "FS 7 - Small",
+            ),
+            spin_delayed(
+                ScriptedOutcome::MediumWin { ratio: 15.0 },
+                500.0,
+                "FS 8 - Medium",
+            ),
             spin_delayed(ScriptedOutcome::Lose, 500.0, "FS 9 - Lose"),
-            spin_delayed(ScriptedOutcome::MegaWin { ratio: 50.0 }, 500.0, "FS 10 - Mega finish!"),
+            spin_delayed(
+                ScriptedOutcome::MegaWin { ratio: 50.0 },
+                500.0,
+                "FS 10 - Mega finish!",
+            ),
         ],
     }
 }
@@ -81,7 +109,10 @@ pub fn cascade_demo() -> DemoScenario {
             spin(ScriptedOutcome::Lose, "Break"),
             spin(ScriptedOutcome::CascadeChain { wins: 4 }, "4-step cascade"),
             spin(ScriptedOutcome::Lose, "Break"),
-            spin(ScriptedOutcome::CascadeChain { wins: 6 }, "6-step mega cascade!"),
+            spin(
+                ScriptedOutcome::CascadeChain { wins: 6 },
+                "6-step mega cascade!",
+            ),
         ],
     }
 }
@@ -137,12 +168,28 @@ pub fn hold_and_win_demo() -> DemoScenario {
             spin(ScriptedOutcome::SmallWin { ratio: 2.0 }, "Normal win"),
             spin(ScriptedOutcome::TriggerHoldAndWin, "Trigger Hold & Win"),
             // Respin sequence
-            spin_delayed(ScriptedOutcome::SmallWin { ratio: 5.0 }, 800.0, "Respin - 2 coins land"),
+            spin_delayed(
+                ScriptedOutcome::SmallWin { ratio: 5.0 },
+                800.0,
+                "Respin - 2 coins land",
+            ),
             spin_delayed(ScriptedOutcome::Lose, 800.0, "Respin - nothing"),
-            spin_delayed(ScriptedOutcome::SmallWin { ratio: 3.0 }, 800.0, "Respin - 1 coin"),
+            spin_delayed(
+                ScriptedOutcome::SmallWin { ratio: 3.0 },
+                800.0,
+                "Respin - 1 coin",
+            ),
             spin_delayed(ScriptedOutcome::Lose, 800.0, "Respin - nothing"),
-            spin_delayed(ScriptedOutcome::Lose, 800.0, "Respin - nothing (0 respins left)"),
-            spin_delayed(ScriptedOutcome::BigWin { ratio: 30.0 }, 1000.0, "Feature complete - total win"),
+            spin_delayed(
+                ScriptedOutcome::Lose,
+                800.0,
+                "Respin - nothing (0 respins left)",
+            ),
+            spin_delayed(
+                ScriptedOutcome::BigWin { ratio: 30.0 },
+                1000.0,
+                "Feature complete - total win",
+            ),
         ],
     }
 }
@@ -155,7 +202,9 @@ pub fn stress_test() -> DemoScenario {
     for i in 0..100 {
         let outcome = match i % 10 {
             0 => ScriptedOutcome::MediumWin { ratio: 15.0 },
-            1..=3 => ScriptedOutcome::SmallWin { ratio: (i % 5 + 2) as f64 },
+            1..=3 => ScriptedOutcome::SmallWin {
+                ratio: (i % 5 + 2) as f64,
+            },
             _ => ScriptedOutcome::Lose,
         };
         sequence.push(ScriptedSpin {
@@ -183,11 +232,23 @@ pub fn audio_test() -> DemoScenario {
         loop_mode: LoopMode::Forever, // Loop for extended testing
         sequence: vec![
             spin_delayed(ScriptedOutcome::Lose, 2000.0, "Silence baseline"),
-            spin_delayed(ScriptedOutcome::SmallWin { ratio: 3.0 }, 1500.0, "Small win audio"),
+            spin_delayed(
+                ScriptedOutcome::SmallWin { ratio: 3.0 },
+                1500.0,
+                "Small win audio",
+            ),
             spin_delayed(ScriptedOutcome::Lose, 1500.0, "Return to silence"),
-            spin_delayed(ScriptedOutcome::BigWin { ratio: 25.0 }, 1500.0, "Big win fanfare"),
+            spin_delayed(
+                ScriptedOutcome::BigWin { ratio: 25.0 },
+                1500.0,
+                "Big win fanfare",
+            ),
             spin_delayed(ScriptedOutcome::Lose, 3000.0, "Let celebration finish"),
-            spin_delayed(ScriptedOutcome::CascadeChain { wins: 3 }, 1500.0, "Cascade sounds"),
+            spin_delayed(
+                ScriptedOutcome::CascadeChain { wins: 3 },
+                1500.0,
+                "Cascade sounds",
+            ),
             spin_delayed(ScriptedOutcome::Lose, 2000.0, "Reset"),
         ],
     }

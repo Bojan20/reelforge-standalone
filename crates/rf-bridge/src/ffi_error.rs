@@ -8,7 +8,6 @@
 ///
 /// CRITICAL: All FFI functions should return FFIResult<T> instead of
 /// raw T, bool, or null pointers for proper error handling.
-
 use serde::{Deserialize, Serialize};
 use std::ffi::{CStr, CString, c_char};
 use std::fmt;
@@ -81,11 +80,7 @@ pub struct FFIError {
 
 impl FFIError {
     /// Create new error
-    pub fn new(
-        category: FFIErrorCategory,
-        code: u16,
-        message: impl Into<String>,
-    ) -> Self {
+    pub fn new(category: FFIErrorCategory, code: u16, message: impl Into<String>) -> Self {
         Self {
             category,
             code,
@@ -242,7 +237,7 @@ pub extern "C" fn ffi_error_get_code(full_code: u32) -> u16 {
 /// Macro for converting Rust Result to FFI-safe return value
 ///
 /// Usage:
-/// ```
+/// ```rust,ignore
 /// #[unsafe(no_mangle)]
 /// pub extern "C" fn my_ffi_function() -> i32 {
 ///     ffi_try!(do_something(), -1)  // Returns -1 on error
@@ -264,7 +259,7 @@ macro_rules! ffi_try {
 /// Macro for returning FFI error as JSON string
 ///
 /// Usage:
-/// ```
+/// ```rust,ignore
 /// #[unsafe(no_mangle)]
 /// pub extern "C" fn my_ffi_function() -> *mut c_char {
 ///     ffi_try_json!(do_something())
@@ -313,8 +308,14 @@ mod tests {
     fn test_error_json_serialization() {
         let err = FFIError::invalid_input(100, "Test error");
         let json = err.to_json_string();
-        assert!(json.contains("Invalid Input"));
-        assert!(json.contains("Test error"));
+        assert!(
+            json.contains("InvalidInput"),
+            "JSON should contain variant name: {json}"
+        );
+        assert!(
+            json.contains("Test error"),
+            "JSON should contain message: {json}"
+        );
     }
 
     #[test]

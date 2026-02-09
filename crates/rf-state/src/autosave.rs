@@ -181,11 +181,7 @@ impl AutosaveManager {
         let name = self.project_name.read();
         let timestamp = current_timestamp();
 
-        let filename = format!(
-            "{}_autosave_{}.rfproj",
-            sanitize_filename(&name),
-            timestamp
-        );
+        let filename = format!("{}_autosave_{}.rfproj", sanitize_filename(&name), timestamp);
 
         let path = config.autosave_dir.join(&filename);
 
@@ -197,16 +193,18 @@ impl AutosaveManager {
             path.parent()
                 .and_then(|p| p.canonicalize().ok())
                 .or_else(|| config.autosave_dir.canonicalize().ok()),
-        )
-            && !canonical_path.starts_with(&canonical_dir) {
-                log::error!(
-                    "Path traversal attempt detected: {} escapes {}",
-                    path.display(),
-                    config.autosave_dir.display()
-                );
-                // Return a safe fallback path
-                return config.autosave_dir.join(format!("unnamed_autosave_{}.rfproj", timestamp));
-            }
+        ) && !canonical_path.starts_with(&canonical_dir)
+        {
+            log::error!(
+                "Path traversal attempt detected: {} escapes {}",
+                path.display(),
+                config.autosave_dir.display()
+            );
+            // Return a safe fallback path
+            return config
+                .autosave_dir
+                .join(format!("unnamed_autosave_{}.rfproj", timestamp));
+        }
 
         path
     }
@@ -394,9 +392,10 @@ impl AutosaveManager {
                     .file_name()
                     .to_string_lossy()
                     .starts_with(&name_prefix)
-                    && std::fs::remove_file(entry.path()).is_ok() {
-                        count += 1;
-                    }
+                    && std::fs::remove_file(entry.path()).is_ok()
+                {
+                    count += 1;
+                }
             }
         }
 

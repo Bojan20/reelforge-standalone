@@ -136,14 +136,22 @@ fn linear_to_db(linear: f64) -> f64 {
 #[derive(Debug, Clone)]
 struct KWeightingFilter {
     // Biquad coefficients for stage 1 (high shelf)
-    b0_1: f64, b1_1: f64, b2_1: f64,
-    a1_1: f64, a2_1: f64,
+    b0_1: f64,
+    b1_1: f64,
+    b2_1: f64,
+    a1_1: f64,
+    a2_1: f64,
     // Biquad coefficients for stage 2 (high pass)
-    b0_2: f64, b1_2: f64, b2_2: f64,
-    a1_2: f64, a2_2: f64,
+    b0_2: f64,
+    b1_2: f64,
+    b2_2: f64,
+    a1_2: f64,
+    a2_2: f64,
     // Filter state (per channel)
-    z1_1: f64, z2_1: f64,  // Stage 1 state
-    z1_2: f64, z2_2: f64,  // Stage 2 state
+    z1_1: f64,
+    z2_1: f64, // Stage 1 state
+    z1_2: f64,
+    z2_2: f64, // Stage 2 state
 }
 
 impl KWeightingFilter {
@@ -157,10 +165,20 @@ impl KWeightingFilter {
         let (b0_2, b1_2, b2_2, a1_2, a2_2) = Self::high_pass_coeffs(sample_rate);
 
         Self {
-            b0_1, b1_1, b2_1, a1_1, a2_1,
-            b0_2, b1_2, b2_2, a1_2, a2_2,
-            z1_1: 0.0, z2_1: 0.0,
-            z1_2: 0.0, z2_2: 0.0,
+            b0_1,
+            b1_1,
+            b2_1,
+            a1_1,
+            a2_1,
+            b0_2,
+            b1_2,
+            b2_2,
+            a1_2,
+            a2_2,
+            z1_1: 0.0,
+            z2_1: 0.0,
+            z1_2: 0.0,
+            z2_2: 0.0,
         }
     }
 
@@ -193,9 +211,9 @@ impl KWeightingFilter {
 
     /// Compute high shelf coefficients analytically
     fn compute_high_shelf(fs: f64) -> (f64, f64, f64, f64, f64) {
-        let db = 4.0;  // +4 dB
-        let f0 = 1681.974450955533;  // Center frequency
-        let q = 0.7071752369554196;  // Q factor
+        let db = 4.0; // +4 dB
+        let f0 = 1681.974450955533; // Center frequency
+        let q = 0.7071752369554196; // Q factor
 
         let k = (std::f64::consts::PI * f0 / fs).tan();
         let vb = 10.0_f64.powf(db / 20.0);
@@ -216,22 +234,10 @@ impl KWeightingFilter {
     fn high_pass_coeffs(fs: f64) -> (f64, f64, f64, f64, f64) {
         if (fs - 48000.0).abs() < 1.0 {
             // 48 kHz coefficients (ITU-R BS.1770-4)
-            (
-                1.0,
-                -2.0,
-                1.0,
-                -1.99004745483398,
-                0.99007225036621,
-            )
+            (1.0, -2.0, 1.0, -1.99004745483398, 0.99007225036621)
         } else if (fs - 44100.0).abs() < 1.0 {
             // 44.1 kHz coefficients
-            (
-                0.99870036,
-                -1.99740072,
-                0.99870036,
-                -1.99740072,
-                0.99740072,
-            )
+            (0.99870036, -1.99740072, 0.99870036, -1.99740072, 0.99740072)
         } else {
             // Compute for other sample rates
             Self::compute_high_pass(fs)
@@ -240,8 +246,8 @@ impl KWeightingFilter {
 
     /// Compute high-pass coefficients analytically
     fn compute_high_pass(fs: f64) -> (f64, f64, f64, f64, f64) {
-        let f0 = 38.13547087602444;  // Cutoff frequency
-        let q = 0.5003270373238773;  // Q factor
+        let f0 = 38.13547087602444; // Cutoff frequency
+        let q = 0.5003270373238773; // Q factor
 
         let k = (std::f64::consts::PI * f0 / fs).tan();
         let norm = 1.0 / (1.0 + k / q + k * k);
@@ -332,10 +338,10 @@ impl TruePeakDetector {
 
             // Kaiser window
             let alpha = (i as f64 - (n - 1) as f64 / 2.0) / (m as f64);
-            let window = Self::bessel_i0(beta * (1.0 - alpha * alpha).sqrt())
-                       / Self::bessel_i0(beta);
+            let window =
+                Self::bessel_i0(beta * (1.0 - alpha * alpha).sqrt()) / Self::bessel_i0(beta);
 
-            coeffs[i] = sinc * window / 4.0;  // Divide by 4 for interpolation
+            coeffs[i] = sinc * window / 4.0; // Divide by 4 for interpolation
         }
 
         coeffs
@@ -365,7 +371,7 @@ impl TruePeakDetector {
         self.delay_idx = (self.delay_idx + 1) % 12;
 
         // Interpolate 4 samples (0.25, 0.5, 0.75, 1.0 positions)
-        let mut max_interp = sample.abs();  // Original sample
+        let mut max_interp = sample.abs(); // Original sample
 
         for phase in 0..4 {
             let mut sum = 0.0;
@@ -423,10 +429,10 @@ pub struct LoudnessMeter {
     tp_detectors: Vec<TruePeakDetector>,
 
     // Momentary buffer (400ms blocks, 100ms overlap)
-    block_size: usize,          // Samples per 100ms
-    block_buffer: Vec<f64>,     // Current block accumulator
-    block_sum: f64,             // Sum of squares in current block
-    block_samples: usize,       // Samples in current block
+    block_size: usize,      // Samples per 100ms
+    block_buffer: Vec<f64>, // Current block accumulator
+    block_sum: f64,         // Sum of squares in current block
+    block_samples: usize,   // Samples in current block
 
     // Gated block history (for integrated loudness)
     gated_blocks: Vec<LoudnessBlock>,
@@ -438,7 +444,7 @@ pub struct LoudnessMeter {
     // Short-term (3s) and momentary (400ms) loudness
     momentary_loudness: f64,
     short_term_loudness: f64,
-    short_term_blocks: Vec<f64>,  // Last 30 blocks (3s)
+    short_term_blocks: Vec<f64>, // Last 30 blocks (3s)
     short_term_idx: usize,
 }
 
@@ -451,14 +457,10 @@ impl LoudnessMeter {
         let block_size = (sr * 0.1) as usize;
 
         // Create K-weighting filters for each channel
-        let k_filters = (0..channels)
-            .map(|_| KWeightingFilter::new(sr))
-            .collect();
+        let k_filters = (0..channels).map(|_| KWeightingFilter::new(sr)).collect();
 
         // Create true peak detectors for each channel
-        let tp_detectors = (0..channels)
-            .map(|_| TruePeakDetector::new())
-            .collect();
+        let tp_detectors = (0..channels).map(|_| TruePeakDetector::new()).collect();
 
         Self {
             sample_rate: sr,
@@ -474,7 +476,7 @@ impl LoudnessMeter {
             true_peak: 0.0,
             momentary_loudness: -f64::INFINITY,
             short_term_loudness: -f64::INFINITY,
-            short_term_blocks: vec![0.0; 30],  // 30 x 100ms = 3s
+            short_term_blocks: vec![0.0; 30], // 30 x 100ms = 3s
             short_term_idx: 0,
         }
     }
@@ -612,9 +614,7 @@ impl LoudnessMeter {
         }
 
         // Step 1: Calculate absolute-gated loudness
-        let abs_gated_sum: f64 = self.gated_blocks.iter()
-            .map(|b| b.mean_square)
-            .sum();
+        let abs_gated_sum: f64 = self.gated_blocks.iter().map(|b| b.mean_square).sum();
         let abs_gated_count = self.gated_blocks.len();
         let abs_gated_loudness = -0.691 + 10.0 * (abs_gated_sum / abs_gated_count as f64).log10();
 
@@ -646,7 +646,9 @@ impl LoudnessMeter {
         }
 
         // Use blocks above absolute gate
-        let mut loudnesses: Vec<f64> = self.gated_blocks.iter()
+        let mut loudnesses: Vec<f64> = self
+            .gated_blocks
+            .iter()
             .map(|b| b.loudness)
             .filter(|&l| l > -f64::INFINITY)
             .collect();
@@ -744,7 +746,7 @@ mod tests {
         let mut meter = LoudnessMeter::new(48000, 2);
 
         // Process silence
-        let silence = vec![0.0; 48000 * 2];  // 1 second stereo
+        let silence = vec![0.0; 48000 * 2]; // 1 second stereo
         meter.process(&silence);
 
         let info = meter.get_info();
@@ -757,13 +759,13 @@ mod tests {
 
         // Generate 1kHz sine at -20 dBFS (both channels)
         let freq = 1000.0;
-        let amplitude = 0.1;  // ~-20 dBFS
+        let amplitude = 0.1; // ~-20 dBFS
         let mut samples = Vec::with_capacity(48000 * 2);
 
         for i in 0..48000 {
             let s = amplitude * (2.0 * std::f64::consts::PI * freq * i as f64 / 48000.0).sin();
-            samples.push(s);  // L
-            samples.push(s);  // R
+            samples.push(s); // L
+            samples.push(s); // R
         }
 
         meter.process(&samples);
@@ -778,7 +780,7 @@ mod tests {
     #[test]
     fn test_normalizer_peak() {
         let info = LoudnessInfo {
-            peak: 0.5,  // -6 dBFS
+            peak: 0.5, // -6 dBFS
             true_peak: 0.5,
             integrated: -23.0,
             short_term: -23.0,
@@ -804,7 +806,7 @@ mod tests {
             range: 5.0,
         };
 
-        let normalizer = Normalizer::new(NormalizationMode::streaming());  // -14 LUFS
+        let normalizer = Normalizer::new(NormalizationMode::streaming()); // -14 LUFS
         let gain = normalizer.calculate_gain(&info);
 
         // Should boost by 9 dB (from -23 to -14)

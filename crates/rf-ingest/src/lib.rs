@@ -15,8 +15,8 @@ pub mod wizard;
 
 // Ingest layers
 pub mod layer_event;
-pub mod layer_snapshot;
 pub mod layer_rules;
+pub mod layer_snapshot;
 
 pub use adapter::*;
 pub use config::*;

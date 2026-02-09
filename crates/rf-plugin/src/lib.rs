@@ -71,7 +71,9 @@ pub use scanner::{PluginCategory, PluginInfo, PluginScanner, PluginType};
 pub use vst3::Vst3Host;
 
 // Re-exports - Phase 5.1
-pub use audio_unit::{AUComponentDescription, AUDescriptor, AUType, AudioUnitHost, AudioUnitInstance};
+pub use audio_unit::{
+    AUComponentDescription, AUDescriptor, AUType, AudioUnitHost, AudioUnitInstance,
+};
 pub use chain::{BufferPool, ChainSlot, PdcManager, ZeroCopyChain};
 pub use clap::{ClapFeature, ClapHost, ClapPluginInstance};
 pub use lv2::{Lv2Class, Lv2Host, Lv2PluginInstance};

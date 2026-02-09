@@ -2,13 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use super::{OutputFormat, NormalizationMode, OfflineResult, OfflineError};
-use super::processors::ProcessorChain;
 use super::config::SrcQuality;
+use super::processors::ProcessorChain;
+use super::{NormalizationMode, OfflineError, OfflineResult, OutputFormat};
 
 /// Unique job identifier
 pub type JobId = u64;
@@ -203,13 +203,13 @@ impl JobBuilder {
 
     /// Build the job
     pub fn build(self) -> OfflineResult<OfflineJob> {
-        let input_path = self.input_path.ok_or_else(|| {
-            OfflineError::InvalidConfig("Input path is required".to_string())
-        })?;
+        let input_path = self
+            .input_path
+            .ok_or_else(|| OfflineError::InvalidConfig("Input path is required".to_string()))?;
 
-        let output_path = self.output_path.ok_or_else(|| {
-            OfflineError::InvalidConfig("Output path is required".to_string())
-        })?;
+        let output_path = self
+            .output_path
+            .ok_or_else(|| OfflineError::InvalidConfig("Output path is required".to_string()))?;
 
         let id = JOB_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
 

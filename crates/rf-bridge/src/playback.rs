@@ -178,8 +178,8 @@ impl PlaybackMeters {
 
 use rf_engine::InsertProcessor;
 use rf_engine::{
-    Api550Wrapper, Neve1073Wrapper, ProEqWrapper, PultecWrapper,
-    RoomCorrectionWrapper, UltraEqWrapper,
+    Api550Wrapper, Neve1073Wrapper, ProEqWrapper, PultecWrapper, RoomCorrectionWrapper,
+    UltraEqWrapper,
 };
 
 /// Per-track DSP processor collection
@@ -779,7 +779,9 @@ impl PlaybackEngine {
                                             data[idx + 1] += monitor_buffer[i * 2 + 1];
                                         } else if channels == 1 && idx < data.len() {
                                             // Mono: mix both channels
-                                            data[idx] += (monitor_buffer[i * 2] + monitor_buffer[i * 2 + 1]) * 0.5;
+                                            data[idx] += (monitor_buffer[i * 2]
+                                                + monitor_buffer[i * 2 + 1])
+                                                * 0.5;
                                         }
                                     }
                                 }
@@ -1121,7 +1123,12 @@ impl PlaybackEngine {
 
     /// Process audio offline at specific position (for export)
     /// Fills output_l and output_r with rendered audio starting at sample_position
-    pub fn process_offline(&self, sample_position: u64, output_l: &mut [f64], output_r: &mut [f64]) {
+    pub fn process_offline(
+        &self,
+        sample_position: u64,
+        output_l: &mut [f64],
+        output_r: &mut [f64],
+    ) {
         let frames = output_l.len().min(output_r.len());
 
         // Try to use rf-engine first for full DAW processing
@@ -1550,9 +1557,22 @@ impl PlaybackEngine {
     /// pan: -1.0 (full left) to +1.0 (full right), 0.0 = center
     /// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
     /// Returns voice ID (0 = failed to queue)
-    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32, source: u8) -> u64 {
+    pub fn play_one_shot_to_bus(
+        &self,
+        path: &str,
+        volume: f32,
+        pan: f32,
+        bus_id: u32,
+        source: u8,
+    ) -> u64 {
         if let Some(ref engine) = *self.engine_playback.read() {
-            engine.play_one_shot_to_bus(path, volume, pan, bus_id, rf_engine::playback::PlaybackSource::from(source))
+            engine.play_one_shot_to_bus(
+                path,
+                volume,
+                pan,
+                bus_id,
+                rf_engine::playback::PlaybackSource::from(source),
+            )
         } else {
             log::warn!("play_one_shot_to_bus: engine not connected");
             0
@@ -1565,9 +1585,22 @@ impl PlaybackEngine {
     /// pan: -1.0 (full left) to +1.0 (full right), 0.0 = center
     /// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
     /// Returns voice ID (0 = failed to queue)
-    pub fn play_looping_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32, source: u8) -> u64 {
+    pub fn play_looping_to_bus(
+        &self,
+        path: &str,
+        volume: f32,
+        pan: f32,
+        bus_id: u32,
+        source: u8,
+    ) -> u64 {
         if let Some(ref engine) = *self.engine_playback.read() {
-            engine.play_looping_to_bus(path, volume, pan, bus_id, rf_engine::playback::PlaybackSource::from(source))
+            engine.play_looping_to_bus(
+                path,
+                volume,
+                pan,
+                bus_id,
+                rf_engine::playback::PlaybackSource::from(source),
+            )
         } else {
             log::warn!("play_looping_to_bus: engine not connected");
             0
@@ -1727,7 +1760,8 @@ impl PlaybackEngine {
         let target_sr = if req_sr > 0 { req_sr } else { 48000 };
 
         let config = supported
-            .filter(|c| c.channels() >= 2).find(|c| c.min_sample_rate().0 <= target_sr && c.max_sample_rate().0 >= target_sr)
+            .filter(|c| c.channels() >= 2)
+            .find(|c| c.min_sample_rate().0 <= target_sr && c.max_sample_rate().0 >= target_sr)
             .map(|c| c.with_sample_rate(cpal::SampleRate(target_sr)))
             .or_else(|| device.default_output_config().ok())
             .ok_or_else(|| "No suitable config found".to_string())?;

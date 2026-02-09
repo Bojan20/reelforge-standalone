@@ -142,7 +142,8 @@ impl TrueHdHandler {
             format_sync: TRUEHD_SYNC_WORD,
             format_info: self.buffer[pos + 4],
             sample_rate_code: (self.buffer[pos + 8] >> 4) & 0x0F,
-            channel_assignment: ((self.buffer[pos + 11] as u16) << 8) | (self.buffer[pos + 12] as u16),
+            channel_assignment: ((self.buffer[pos + 11] as u16) << 8)
+                | (self.buffer[pos + 12] as u16),
             peak_bitrate: ((self.buffer[pos + 14] as u16) << 8) | (self.buffer[pos + 15] as u16),
             substream_info: self.buffer[pos + 18],
         };

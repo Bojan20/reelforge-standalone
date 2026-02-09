@@ -4,9 +4,9 @@
 //! Supports concurrent reads from audio thread while UI thread updates containers.
 
 use super::{
-    BlendContainer, BlendResult, ChildId, Container, ContainerId, ContainerType, RandomContainer,
-    RandomResult, SequenceContainer, SequenceResult, ContainerGroup,
-    group::{ContainerLookup, ValidationResult, ValidationError, validate_group_addition},
+    BlendContainer, BlendResult, ChildId, Container, ContainerGroup, ContainerId, ContainerType,
+    RandomContainer, RandomResult, SequenceContainer, SequenceResult,
+    group::{ContainerLookup, ValidationError, ValidationResult, validate_group_addition},
 };
 use dashmap::DashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -97,9 +97,9 @@ impl ContainerStorage {
     /// Tick smoothing by delta milliseconds (P3D)
     /// Returns Some(true) if value changed, Some(false) if unchanged, None if container not found
     pub fn tick_blend_smoothing(&self, id: ContainerId, delta_ms: f64) -> Option<bool> {
-        self.blend.get_mut(&id).map(|mut container| {
-            container.tick_smoothing(delta_ms)
-        })
+        self.blend
+            .get_mut(&id)
+            .map(|mut container| container.tick_smoothing(delta_ms))
     }
 
     /// Get blend child audio path
@@ -179,7 +179,9 @@ impl ContainerStorage {
 
     /// Get RNG state from random container (for determinism capture)
     pub fn get_random_rng_state(&self, id: ContainerId) -> Option<u64> {
-        self.random.get(&id).map(|container| container.get_rng_state())
+        self.random
+            .get(&id)
+            .map(|container| container.get_rng_state())
     }
 
     /// Set RNG state on random container (for determinism replay)
@@ -246,7 +248,9 @@ impl ContainerStorage {
 
     /// Tick sequence by delta milliseconds
     pub fn tick_sequence(&self, id: ContainerId, delta_ms: f64) -> Option<SequenceResult> {
-        self.sequence.get_mut(&id).map(|mut container| container.tick(delta_ms))
+        self.sequence
+            .get_mut(&id)
+            .map(|mut container| container.tick(delta_ms))
     }
 
     /// Get sequence step audio path

@@ -37,9 +37,10 @@ impl SpectralAnalyzer {
     /// Create new analyzer with given FFT size
     pub fn new(fft_size: usize, hop_size: usize, sample_rate: u32) -> Result<Self> {
         if !fft_size.is_power_of_two() {
-            return Err(AudioDiffError::ConfigError(
-                format!("FFT size must be power of 2, got {}", fft_size)
-            ));
+            return Err(AudioDiffError::ConfigError(format!(
+                "FFT size must be power of 2, got {}",
+                fft_size
+            )));
         }
 
         let mut planner = RealFftPlanner::<f64>::new();
@@ -47,9 +48,7 @@ impl SpectralAnalyzer {
 
         // Hann window
         let window: Vec<f64> = (0..fft_size)
-            .map(|i| {
-                0.5 * (1.0 - (2.0 * std::f64::consts::PI * i as f64 / fft_size as f64).cos())
-            })
+            .map(|i| 0.5 * (1.0 - (2.0 * std::f64::consts::PI * i as f64 / fft_size as f64).cos()))
             .collect();
 
         Ok(Self {
@@ -219,10 +218,7 @@ pub fn spectral_flatness(frame: &SpectralFrame) -> f64 {
 
     // Filter out very small values to avoid log(0)
     let threshold = 1e-10;
-    let filtered: Vec<f64> = power.iter()
-        .filter(|&&p| p > threshold)
-        .copied()
-        .collect();
+    let filtered: Vec<f64> = power.iter().filter(|&&p| p > threshold).copied().collect();
 
     if filtered.is_empty() {
         return 0.0;
@@ -265,7 +261,9 @@ mod tests {
         let first_frame = &frames[0];
 
         // Find peak bin
-        let peak_bin = first_frame.magnitude.iter()
+        let peak_bin = first_frame
+            .magnitude
+            .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(i, _)| i)

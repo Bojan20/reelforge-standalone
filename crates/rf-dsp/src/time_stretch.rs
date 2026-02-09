@@ -17,8 +17,8 @@
 //! - Minimal artifacts (Hann window, 75% overlap)
 //! - Support 0.5x to 2.0x time stretch range
 
-use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;
+use rustfft::num_complex::Complex;
 use std::f64::consts::PI;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -248,7 +248,12 @@ impl SimplePhaseVocoder {
     /// Process stereo audio
     ///
     /// Processes left and right channels independently.
-    pub fn process_stereo(&mut self, left: &[f64], right: &[f64], factor: f64) -> (Vec<f64>, Vec<f64>) {
+    pub fn process_stereo(
+        &mut self,
+        left: &[f64],
+        right: &[f64],
+        factor: f64,
+    ) -> (Vec<f64>, Vec<f64>) {
         let left_out = self.process(left, factor);
         self.reset();
         let right_out = self.process(right, factor);

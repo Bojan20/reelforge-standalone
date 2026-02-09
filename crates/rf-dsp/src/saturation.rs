@@ -135,7 +135,6 @@ impl Saturator {
         };
 
         // Add subtle even harmonics (2nd harmonic mainly)
-        
 
         saturated + saturated.powi(2) * 0.1 * self.drive.min(2.0)
     }
@@ -150,7 +149,6 @@ impl Saturator {
         let saturated = (3.0 * x) / (1.0 + 2.0 * x.abs() + x * x);
 
         // Crossover distortion simulation (subtle)
-        
 
         if x.abs() < 0.1 {
             x * 0.8 + x.powi(3) * 2.0
@@ -699,7 +697,12 @@ mod tests {
             assert!(left[i].is_finite(), "Left sample {} not finite", i);
             assert!(right[i].is_finite(), "Right sample {} not finite", i);
             // Saturated output should be bounded
-            assert!(left[i].abs() < 2.0, "Left sample {} too large: {}", i, left[i]);
+            assert!(
+                left[i].abs() < 2.0,
+                "Left sample {} too large: {}",
+                i,
+                left[i]
+            );
         }
     }
 

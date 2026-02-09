@@ -31,7 +31,8 @@ pub const NUM_LOD_LEVELS: usize = 11;
 /// Samples per bucket at each LOD level
 /// Levels 0-2: Ultra-fine for sample-level zoom (transient detail)
 /// Levels 3-10: Standard zoom levels
-pub const SAMPLES_PER_BUCKET: [usize; NUM_LOD_LEVELS] = [4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096];
+pub const SAMPLES_PER_BUCKET: [usize; NUM_LOD_LEVELS] =
+    [4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096];
 
 // Keep old constants for backward compatibility
 pub const SAMPLES_PER_PEAK: [usize; 5] = [64, 128, 256, 512, 1024];
@@ -68,8 +69,12 @@ impl WaveformBucket {
         let mut sum_sq = 0.0f64;
 
         for &s in samples {
-            if s < min { min = s; }
-            if s > max { max = s; }
+            if s < min {
+                min = s;
+            }
+            if s > max {
+                max = s;
+            }
             sum_sq += (s as f64) * (s as f64);
         }
 
@@ -90,8 +95,12 @@ impl WaveformBucket {
         let mut rms_sq_sum = 0.0f64;
 
         for b in buckets {
-            if b.min < min { min = b.min; }
-            if b.max > max { max = b.max; }
+            if b.min < min {
+                min = b.min;
+            }
+            if b.max > max {
+                max = b.max;
+            }
             rms_sq_sum += (b.rms as f64) * (b.rms as f64);
         }
 
@@ -165,16 +174,16 @@ impl WaveformData {
 
         // Build all LOD levels (11 levels: 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096)
         let levels = [
-            Self::build_level(samples, SAMPLES_PER_BUCKET[0]),  // 4 samples - ultra fine
-            Self::build_level(samples, SAMPLES_PER_BUCKET[1]),  // 8 samples
-            Self::build_level(samples, SAMPLES_PER_BUCKET[2]),  // 16 samples
-            Self::build_level(samples, SAMPLES_PER_BUCKET[3]),  // 32 samples
-            Self::build_level(samples, SAMPLES_PER_BUCKET[4]),  // 64 samples
-            Self::build_level(samples, SAMPLES_PER_BUCKET[5]),  // 128 samples
-            Self::build_level(samples, SAMPLES_PER_BUCKET[6]),  // 256 samples
-            Self::build_level(samples, SAMPLES_PER_BUCKET[7]),  // 512 samples
-            Self::build_level(samples, SAMPLES_PER_BUCKET[8]),  // 1024 samples
-            Self::build_level(samples, SAMPLES_PER_BUCKET[9]),  // 2048 samples
+            Self::build_level(samples, SAMPLES_PER_BUCKET[0]), // 4 samples - ultra fine
+            Self::build_level(samples, SAMPLES_PER_BUCKET[1]), // 8 samples
+            Self::build_level(samples, SAMPLES_PER_BUCKET[2]), // 16 samples
+            Self::build_level(samples, SAMPLES_PER_BUCKET[3]), // 32 samples
+            Self::build_level(samples, SAMPLES_PER_BUCKET[4]), // 64 samples
+            Self::build_level(samples, SAMPLES_PER_BUCKET[5]), // 128 samples
+            Self::build_level(samples, SAMPLES_PER_BUCKET[6]), // 256 samples
+            Self::build_level(samples, SAMPLES_PER_BUCKET[7]), // 512 samples
+            Self::build_level(samples, SAMPLES_PER_BUCKET[8]), // 1024 samples
+            Self::build_level(samples, SAMPLES_PER_BUCKET[9]), // 2048 samples
             Self::build_level(samples, SAMPLES_PER_BUCKET[10]), // 4096 samples - coarsest
         ];
 
@@ -376,11 +385,13 @@ impl StereoWaveformData {
 
         left.iter()
             .zip(right.iter())
-            .map(|(l, r)| WaveformBucket::new(
-                l.min.min(r.min),
-                l.max.max(r.max),
-                (l.rms + r.rms) / 2.0, // Average RMS for combined
-            ))
+            .map(|(l, r)| {
+                WaveformBucket::new(
+                    l.min.min(r.min),
+                    l.max.max(r.max),
+                    (l.rms + r.rms) / 2.0, // Average RMS for combined
+                )
+            })
             .collect()
     }
 
@@ -455,11 +466,9 @@ impl StereoWaveformPeaks {
 
         left.iter()
             .zip(right.iter())
-            .map(|(l, r)| WaveformBucket::new(
-                l.min.min(r.min),
-                l.max.max(r.max),
-                (l.rms + r.rms) / 2.0,
-            ))
+            .map(|(l, r)| {
+                WaveformBucket::new(l.min.min(r.min), l.max.max(r.max), (l.rms + r.rms) / 2.0)
+            })
             .collect()
     }
 }
@@ -493,7 +502,9 @@ impl WaveformCache {
 
         // Compute and cache
         let data = Arc::new(compute());
-        self.cache.write().insert(key.to_string(), Arc::clone(&data));
+        self.cache
+            .write()
+            .insert(key.to_string(), Arc::clone(&data));
         data
     }
 
@@ -541,7 +552,12 @@ impl WaveformCache {
                 // WaveformBucket is 12 bytes (3 x f32)
                 let bucket_size = std::mem::size_of::<WaveformBucket>();
                 let left_size: usize = data.left.levels.iter().map(|v| v.len() * bucket_size).sum();
-                let right_size: usize = data.right.levels.iter().map(|v| v.len() * bucket_size).sum();
+                let right_size: usize = data
+                    .right
+                    .levels
+                    .iter()
+                    .map(|v| v.len() * bucket_size)
+                    .sum();
                 left_size + right_size
             })
             .sum()
@@ -693,7 +709,9 @@ mod tests {
         let left: Vec<f32> = (0..1000).map(|i| (i as f32 / 100.0).sin()).collect();
         let right: Vec<f32> = (0..1000).map(|i| (i as f32 / 100.0).cos()).collect();
 
-        let stereo: Vec<f32> = left.iter().zip(right.iter())
+        let stereo: Vec<f32> = left
+            .iter()
+            .zip(right.iter())
             .flat_map(|(&l, &r)| [l, r])
             .collect();
 
@@ -724,8 +742,10 @@ mod tests {
         let avg_rms_first = result[0..5].iter().map(|b| b.rms).sum::<f32>() / 5.0;
         let avg_rms_second = result[5..10].iter().map(|b| b.rms).sum::<f32>() / 5.0;
 
-        assert!(avg_rms_second > avg_rms_first * 3.0,
-            "Loud section should have much higher RMS");
+        assert!(
+            avg_rms_second > avg_rms_first * 3.0,
+            "Loud section should have much higher RMS"
+        );
     }
 
     #[test]

@@ -115,17 +115,18 @@ impl PluginCache {
     /// Check if cache is valid for a file
     pub fn is_valid(&self, path: &Path) -> bool {
         if let Some(entry) = self.entries.get(path)
-            && let Ok(meta) = std::fs::metadata(path) {
-                let mtime = meta
-                    .modified()
-                    .ok()
-                    .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0);
-                let size = meta.len();
+            && let Ok(meta) = std::fs::metadata(path)
+        {
+            let mtime = meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let size = meta.len();
 
-                return entry.mtime == mtime && entry.size == size;
-            }
+            return entry.mtime == mtime && entry.size == size;
+        }
         false
     }
 
@@ -412,9 +413,10 @@ impl UltimateScanner {
 
         // Save cache
         if self.config.use_cache
-            && let Some(ref cache_path) = self.config.cache_path {
-                let _ = self.cache.read().save(cache_path);
-            }
+            && let Some(ref cache_path) = self.config.cache_path
+        {
+            let _ = self.cache.read().save(cache_path);
+        }
 
         self.stats = stats.clone();
         Ok(stats)
@@ -452,7 +454,10 @@ impl UltimateScanner {
             // VST3/AU bundles: Contents/MacOS/<name>
             #[cfg(target_os = "macos")]
             {
-                let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("plugin");
+                let name = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("plugin");
                 let binary = path.join("Contents/MacOS").join(name);
                 if binary.exists() {
                     binary
@@ -501,45 +506,48 @@ impl UltimateScanner {
         }
 
         // Check cache
-        if config.use_cache && cache.read().is_valid(path)
-            && let Some(entry) = cache.read().get(path) {
-                return PluginScanResult {
-                    info: Some(entry.info.clone()),
-                    scan_duration: start.elapsed(),
-                    validation: entry.validation,
-                    error: None,
-                    profile: entry.profile.clone(),
-                };
-            }
+        if config.use_cache
+            && cache.read().is_valid(path)
+            && let Some(entry) = cache.read().get(path)
+        {
+            return PluginScanResult {
+                info: Some(entry.info.clone()),
+                scan_duration: start.elapsed(),
+                validation: entry.validation,
+                error: None,
+                profile: entry.profile.clone(),
+            };
+        }
 
         // Actually scan the plugin
         let result = Self::do_scan_plugin(path, plugin_type, config);
 
         // Update cache
         if let Some(ref info) = result.info
-            && let Ok(meta) = std::fs::metadata(path) {
-                let mtime = meta
-                    .modified()
-                    .ok()
-                    .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+            && let Ok(meta) = std::fs::metadata(path)
+        {
+            let mtime = meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+
+            let entry = PluginCacheEntry {
+                info: info.clone(),
+                mtime,
+                size: meta.len(),
+                hash: Self::compute_file_hash(path),
+                validation: result.validation,
+                last_scan: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
                     .map(|d| d.as_secs())
-                    .unwrap_or(0);
+                    .unwrap_or(0),
+                profile: result.profile.clone(),
+            };
 
-                let entry = PluginCacheEntry {
-                    info: info.clone(),
-                    mtime,
-                    size: meta.len(),
-                    hash: Self::compute_file_hash(path),
-                    validation: result.validation,
-                    last_scan: SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .map(|d| d.as_secs())
-                        .unwrap_or(0),
-                    profile: result.profile.clone(),
-                };
-
-                cache.write().insert(path.to_path_buf(), entry);
-            }
+            cache.write().insert(path.to_path_buf(), entry);
+        }
 
         // Auto-blacklist crashers
         if config.auto_blacklist && result.validation == ValidationStatus::Crashed {

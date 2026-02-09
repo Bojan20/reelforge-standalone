@@ -41,18 +41,24 @@ pub struct AudioAnalysis {
 impl AudioAnalysis {
     /// Analyze audio data
     pub fn new(audio: AudioData, config: &DiffConfig) -> Result<Self> {
-        let peak_levels: Vec<f64> = audio.channels.iter()
+        let peak_levels: Vec<f64> = audio
+            .channels
+            .iter()
             .map(|ch| ch.iter().map(|s| s.abs()).fold(0.0, f64::max))
             .collect();
 
-        let rms_levels: Vec<f64> = audio.channels.iter()
+        let rms_levels: Vec<f64> = audio
+            .channels
+            .iter()
             .map(|ch| {
                 let sum_sq: f64 = ch.iter().map(|s| s * s).sum();
                 (sum_sq / ch.len() as f64).sqrt()
             })
             .collect();
 
-        let dc_offset: Vec<f64> = audio.channels.iter()
+        let dc_offset: Vec<f64> = audio
+            .channels
+            .iter()
             .map(|ch| ch.iter().sum::<f64>() / ch.len() as f64)
             .collect();
 
@@ -139,7 +145,10 @@ fn compute_time_domain_metrics(
         TimeDomainMetrics::calculate(&ref_mono, &test_mono)
     } else {
         // Per-channel analysis, then aggregate
-        let channel_metrics: Vec<TimeDomainMetrics> = reference.audio.channels.iter()
+        let channel_metrics: Vec<TimeDomainMetrics> = reference
+            .audio
+            .channels
+            .iter()
             .zip(test.audio.channels.iter())
             .map(|(ref_ch, test_ch)| TimeDomainMetrics::calculate(ref_ch, test_ch))
             .collect();
@@ -149,13 +158,20 @@ fn compute_time_domain_metrics(
         }
 
         // Aggregate: max of peaks, RMS of RMS values
-        let peak_diff = channel_metrics.iter().map(|m| m.peak_diff).fold(0.0, f64::max);
-        let peak_diff_sample = channel_metrics.iter()
+        let peak_diff = channel_metrics
+            .iter()
+            .map(|m| m.peak_diff)
+            .fold(0.0, f64::max);
+        let peak_diff_sample = channel_metrics
+            .iter()
             .max_by(|a, b| a.peak_diff.partial_cmp(&b.peak_diff).unwrap())
             .map(|m| m.peak_diff_sample)
             .unwrap_or(0);
 
-        let rms_sum_sq: f64 = channel_metrics.iter().map(|m| m.rms_diff * m.rms_diff).sum();
+        let rms_sum_sq: f64 = channel_metrics
+            .iter()
+            .map(|m| m.rms_diff * m.rms_diff)
+            .sum();
         let rms_diff = (rms_sum_sq / channel_metrics.len() as f64).sqrt();
 
         let mean_abs_diff = channel_metrics.iter().map(|m| m.mean_abs_diff).sum::<f64>()
@@ -241,38 +257,64 @@ fn compute_spectral_metrics(
 
                 // Phase difference (wrapped to -π to π)
                 let phase_diff = (ref_frame.phase[bin] - test_frame.phase[bin])
-                    .sin().atan2((ref_frame.phase[bin] - test_frame.phase[bin]).cos())
+                    .sin()
+                    .atan2((ref_frame.phase[bin] - test_frame.phase[bin]).cos())
                     .abs();
                 sum_phase_diff += phase_diff;
 
                 count += 1;
             }
 
-            let avg_diff = if count > 0 { sum_diff_db / count as f64 } else { 0.0 };
-            let avg_phase = if count > 0 { sum_phase_diff / count as f64 } else { 0.0 };
+            let avg_diff = if count > 0 {
+                sum_diff_db / count as f64
+            } else {
+                0.0
+            };
+            let avg_phase = if count > 0 {
+                sum_phase_diff / count as f64
+            } else {
+                0.0
+            };
 
-            (avg_diff, max_diff_db, avg_phase, analyzer.bin_to_freq(max_diff_bin), max_diff_bin)
+            (
+                avg_diff,
+                max_diff_db,
+                avg_phase,
+                analyzer.bin_to_freq(max_diff_bin),
+                max_diff_bin,
+            )
         })
         .collect();
 
     // Aggregate across frames
-    let avg_spectral_diff_db = frame_diffs.iter().map(|(avg, _, _, _, _)| avg).sum::<f64>()
-        / num_frames as f64;
-    let (_, max_spectral_diff_db, _, max_diff_freq, _) = frame_diffs.iter()
+    let avg_spectral_diff_db =
+        frame_diffs.iter().map(|(avg, _, _, _, _)| avg).sum::<f64>() / num_frames as f64;
+    let (_, max_spectral_diff_db, _, max_diff_freq, _) = frame_diffs
+        .iter()
         .max_by(|(_, a, _, _, _), (_, b, _, _, _)| a.partial_cmp(b).unwrap())
         .copied()
         .unwrap_or((0.0, 0.0, 0.0, 0.0, 0));
-    let avg_phase_diff = frame_diffs.iter().map(|(_, _, phase, _, _)| phase).sum::<f64>()
+    let avg_phase_diff = frame_diffs
+        .iter()
+        .map(|(_, _, phase, _, _)| phase)
+        .sum::<f64>()
         / num_frames as f64;
-    let max_phase_diff = frame_diffs.iter().map(|(_, _, phase, _, _)| *phase).fold(0.0, f64::max);
+    let max_phase_diff = frame_diffs
+        .iter()
+        .map(|(_, _, phase, _, _)| *phase)
+        .fold(0.0, f64::max);
 
     // Spectral correlation
-    let spectral_correlation = compute_spectral_correlation(&ref_frames, &test_frames, min_bin, max_bin);
+    let spectral_correlation =
+        compute_spectral_correlation(&ref_frames, &test_frames, min_bin, max_bin);
 
     // Band-by-band analysis
     let (band_diffs_db, band_centers) = compute_band_diffs(
-        &ref_frames, &test_frames,
-        config.num_bands, sample_rate, config,
+        &ref_frames,
+        &test_frames,
+        config.num_bands,
+        sample_rate,
+        config,
     );
 
     Ok(SpectralMetrics {
@@ -350,7 +392,8 @@ fn compute_band_diffs(
         let ref_frame = &ref_frames[frame_idx];
         let test_frame = &test_frames[frame_idx];
 
-        for (band_idx, (low, high)) in band_edges.iter().zip(band_edges.iter().skip(1)).enumerate() {
+        for (band_idx, (low, high)) in band_edges.iter().zip(band_edges.iter().skip(1)).enumerate()
+        {
             let low_bin = (*low / freq_resolution).floor() as usize;
             let high_bin = ((*high / freq_resolution).ceil() as usize).min(num_bins - 1);
 

@@ -17,7 +17,7 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::ptr;
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -229,12 +229,7 @@ pub extern "C" fn ale_switch_context_with_trigger(
     let _trigger_opt = if trigger.is_null() {
         None
     } else {
-        unsafe {
-            CStr::from_ptr(trigger)
-                .to_str()
-                .ok()
-                .map(|s| s.to_string())
-        }
+        unsafe { CStr::from_ptr(trigger).to_str().ok().map(|s| s.to_string()) }
     };
 
     // Verify context exists
@@ -500,11 +495,7 @@ pub extern "C" fn ale_get_target_level() -> i32 {
 /// Get active rule ID (empty if none)
 #[unsafe(no_mangle)]
 pub extern "C" fn ale_get_active_rule() -> *mut c_char {
-    let rule = ENGINE_STATE
-        .read()
-        .active_rule
-        .clone()
-        .unwrap_or_default();
+    let rule = ENGINE_STATE.read().active_rule.clone().unwrap_or_default();
 
     match CString::new(rule) {
         Ok(cstr) => cstr.into_raw(),

@@ -7,8 +7,8 @@
 //!
 //! Documentation: .claude/architecture/PLUGIN_STATE_SYSTEM.md
 
-use std::io::{Read, Write};
 use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -101,10 +101,7 @@ impl PluginUid {
 
     /// Create VST3 UID from hex string
     pub fn vst3_hex(hex: &str) -> Result<Self, &'static str> {
-        let clean: String = hex
-            .chars()
-            .filter(|c| c.is_ascii_hexdigit())
-            .collect();
+        let clean: String = hex.chars().filter(|c| c.is_ascii_hexdigit()).collect();
         if clean.len() != 32 {
             return Err("VST3 FUID must be 32 hex characters");
         }
@@ -113,7 +110,10 @@ impl PluginUid {
 
     /// Create AU Component ID
     pub fn au(type_code: &str, subtype: &str, manufacturer: &str) -> Self {
-        Self::new(PluginFormat::Au, format!("{}:{}:{}", type_code, subtype, manufacturer))
+        Self::new(
+            PluginFormat::Au,
+            format!("{}:{}:{}", type_code, subtype, manufacturer),
+        )
     }
 
     /// Create CLAP ID
@@ -183,7 +183,11 @@ impl PluginStateChunk {
     /// Write to .ffstate binary format
     pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         let uid_bytes = self.plugin_uid.to_string().as_bytes().to_vec();
-        let preset_bytes = self.preset_name.as_ref().map(|s| s.as_bytes().to_vec()).unwrap_or_default();
+        let preset_bytes = self
+            .preset_name
+            .as_ref()
+            .map(|s| s.as_bytes().to_vec())
+            .unwrap_or_default();
 
         // Header (32 bytes)
         writer.write_all(&FFSTATE_MAGIC)?;
@@ -215,7 +219,8 @@ impl PluginStateChunk {
     /// Write to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut buffer = Vec::new();
-        self.write_to(&mut buffer).expect("Vec write should not fail");
+        self.write_to(&mut buffer)
+            .expect("Vec write should not fail");
         buffer
     }
 
@@ -254,9 +259,8 @@ impl PluginStateChunk {
         let uid_len = u32::from_le_bytes(uid_len_bytes) as usize;
         let mut uid_bytes = vec![0u8; uid_len];
         reader.read_exact(&mut uid_bytes)?;
-        let uid_string = String::from_utf8(uid_bytes).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-        })?;
+        let uid_string = String::from_utf8(uid_bytes)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
         // Parse UID (format:value)
         let plugin_uid = parse_uid_string(&uid_string)?;
@@ -268,9 +272,10 @@ impl PluginStateChunk {
         let preset_name = if preset_len > 0 {
             let mut preset_bytes = vec![0u8; preset_len];
             reader.read_exact(&mut preset_bytes)?;
-            Some(String::from_utf8(preset_bytes).map_err(|e| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-            })?)
+            Some(
+                String::from_utf8(preset_bytes)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?,
+            )
         } else {
             None
         };
@@ -393,7 +398,7 @@ fn parse_uid_string(s: &str) -> std::io::Result<PluginUid> {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 format!("Unknown plugin format: {}", parts[0]),
-            ))
+            ));
         }
     };
 
@@ -442,8 +447,7 @@ mod tests {
     fn test_state_chunk_roundtrip() {
         let uid = PluginUid::vst3_hex("58E595CC2C1242FB8E32F4C9D39C5F42").unwrap();
         let state_data = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let chunk = PluginStateChunk::new(uid, state_data.clone())
-            .with_preset("My Preset");
+        let chunk = PluginStateChunk::new(uid, state_data.clone()).with_preset("My Preset");
 
         let bytes = chunk.to_bytes();
         let restored = PluginStateChunk::from_bytes(&bytes).unwrap();

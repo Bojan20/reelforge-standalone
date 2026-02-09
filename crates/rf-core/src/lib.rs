@@ -81,7 +81,6 @@ impl SampleRate {
     }
 }
 
-
 /// Buffer size options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[repr(u32)]
@@ -132,17 +131,14 @@ impl BufferSize {
     }
 }
 
-
 /// Channel configuration
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum ChannelConfig {
     Mono,
     #[default]
     Stereo,
     MidSide,
 }
-
 
 /// Decibel value wrapper
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]

@@ -14,8 +14,7 @@ use rustfft::{FftPlanner, num_complex::Complex64};
 use std::f64::consts::PI;
 
 /// Morph mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MorphMode {
     /// Simple time-domain crossfade
     Crossfade,
@@ -29,7 +28,6 @@ pub enum MorphMode {
     #[default]
     SpectralEnvelope,
 }
-
 
 /// IR Morpher
 pub struct IrMorpher {

@@ -203,7 +203,9 @@ fn find_stage_mapping(event_name: &str) -> Option<String> {
     if lower.contains("spin") && (lower.contains("start") || lower.contains("begin")) {
         return Some("SpinStart".to_string());
     }
-    if lower.contains("spin") && (lower.contains("end") || lower.contains("complete") || lower.contains("result")) {
+    if lower.contains("spin")
+        && (lower.contains("end") || lower.contains("complete") || lower.contains("result"))
+    {
         return Some("SpinEnd".to_string());
     }
 
@@ -272,17 +274,38 @@ mod tests {
 
     #[test]
     fn test_find_stage_mapping() {
-        assert_eq!(find_stage_mapping("spin_start"), Some("SpinStart".to_string()));
-        assert_eq!(find_stage_mapping("SPIN_RESULT"), Some("SpinEnd".to_string()));
-        assert_eq!(find_stage_mapping("reel_stop"), Some("ReelStop".to_string()));
-        assert_eq!(find_stage_mapping("big_win"), Some("BigWinTier".to_string()));
+        assert_eq!(
+            find_stage_mapping("spin_start"),
+            Some("SpinStart".to_string())
+        );
+        assert_eq!(
+            find_stage_mapping("SPIN_RESULT"),
+            Some("SpinEnd".to_string())
+        );
+        assert_eq!(
+            find_stage_mapping("reel_stop"),
+            Some("ReelStop".to_string())
+        );
+        assert_eq!(
+            find_stage_mapping("big_win"),
+            Some("BigWinTier".to_string())
+        );
     }
 
     #[test]
     fn test_fuzzy_mapping() {
-        assert_eq!(find_stage_mapping("begin_game_spin"), Some("SpinStart".to_string()));
-        assert_eq!(find_stage_mapping("gameSpinComplete"), Some("SpinEnd".to_string()));
-        assert_eq!(find_stage_mapping("bonusFeatureTrigger"), Some("FeatureEnter".to_string()));
+        assert_eq!(
+            find_stage_mapping("begin_game_spin"),
+            Some("SpinStart".to_string())
+        );
+        assert_eq!(
+            find_stage_mapping("gameSpinComplete"),
+            Some("SpinEnd".to_string())
+        );
+        assert_eq!(
+            find_stage_mapping("bonusFeatureTrigger"),
+            Some("FeatureEnter".to_string())
+        );
     }
 
     #[test]
@@ -302,6 +325,9 @@ mod tests {
         let spin_start = events.iter().find(|e| e.event_name == "spin_start");
         assert!(spin_start.is_some());
         assert_eq!(spin_start.unwrap().sample_count, 2);
-        assert_eq!(spin_start.unwrap().suggested_stage, Some("SpinStart".to_string()));
+        assert_eq!(
+            spin_start.unwrap().suggested_stage,
+            Some("SpinStart".to_string())
+        );
     }
 }

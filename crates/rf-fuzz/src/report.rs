@@ -97,15 +97,18 @@ impl FuzzReport {
 
         // Summary
         output.push_str("Summary:\n");
-        output.push_str(&format!("  Targets: {} total, {} passed, {} failed\n",
-            self.summary.total_targets,
-            self.summary.passed_targets,
-            self.summary.failed_targets));
-        output.push_str(&format!("  Iterations: {} total, {} failures, {} panics\n",
-            self.summary.total_iterations,
-            self.summary.total_failures,
-            self.summary.total_panics));
-        output.push_str(&format!("  Duration: {} ms\n\n", self.summary.total_duration_ms));
+        output.push_str(&format!(
+            "  Targets: {} total, {} passed, {} failed\n",
+            self.summary.total_targets, self.summary.passed_targets, self.summary.failed_targets
+        ));
+        output.push_str(&format!(
+            "  Iterations: {} total, {} failures, {} panics\n",
+            self.summary.total_iterations, self.summary.total_failures, self.summary.total_panics
+        ));
+        output.push_str(&format!(
+            "  Duration: {} ms\n\n",
+            self.summary.total_duration_ms
+        ));
 
         // Individual results
         output.push_str("Results:\n");
@@ -120,17 +123,21 @@ impl FuzzReport {
             if !target.result.failure_details.is_empty() {
                 output.push_str("    Failures:\n");
                 for (i, failure) in target.result.failure_details.iter().take(5).enumerate() {
-                    output.push_str(&format!("      {}. {:?}: {}\n",
+                    output.push_str(&format!(
+                        "      {}. {:?}: {}\n",
                         i + 1,
                         failure.failure_type,
-                        failure.description));
+                        failure.description
+                    ));
                     if failure.input.len() < 200 {
                         output.push_str(&format!("         Input: {}\n", failure.input));
                     }
                 }
                 if target.result.failure_details.len() > 5 {
-                    output.push_str(&format!("      ... and {} more failures\n",
-                        target.result.failure_details.len() - 5));
+                    output.push_str(&format!(
+                        "      ... and {} more failures\n",
+                        target.result.failure_details.len() - 5
+                    ));
                 }
             }
             output.push('\n');
@@ -152,20 +159,39 @@ impl FuzzReport {
         output.push_str(&format!("**Timestamp:** {}\n\n", self.timestamp));
 
         // Status badge
-        let status = if self.all_passed() { "✅ PASS" } else { "❌ FAIL" };
+        let status = if self.all_passed() {
+            "✅ PASS"
+        } else {
+            "❌ FAIL"
+        };
         output.push_str(&format!("## Status: {}\n\n", status));
 
         // Summary table
         output.push_str("## Summary\n\n");
         output.push_str("| Metric | Value |\n");
         output.push_str("|--------|-------|\n");
-        output.push_str(&format!("| Total Targets | {} |\n", self.summary.total_targets));
+        output.push_str(&format!(
+            "| Total Targets | {} |\n",
+            self.summary.total_targets
+        ));
         output.push_str(&format!("| Passed | {} |\n", self.summary.passed_targets));
         output.push_str(&format!("| Failed | {} |\n", self.summary.failed_targets));
-        output.push_str(&format!("| Total Iterations | {} |\n", self.summary.total_iterations));
-        output.push_str(&format!("| Total Failures | {} |\n", self.summary.total_failures));
-        output.push_str(&format!("| Total Panics | {} |\n", self.summary.total_panics));
-        output.push_str(&format!("| Duration | {} ms |\n\n", self.summary.total_duration_ms));
+        output.push_str(&format!(
+            "| Total Iterations | {} |\n",
+            self.summary.total_iterations
+        ));
+        output.push_str(&format!(
+            "| Total Failures | {} |\n",
+            self.summary.total_failures
+        ));
+        output.push_str(&format!(
+            "| Total Panics | {} |\n",
+            self.summary.total_panics
+        ));
+        output.push_str(&format!(
+            "| Duration | {} ms |\n\n",
+            self.summary.total_duration_ms
+        ));
 
         // Results table
         output.push_str("## Results\n\n");
@@ -173,12 +199,14 @@ impl FuzzReport {
         output.push_str("|--------|--------|------------|----------|----------|\n");
         for target in &self.results {
             let status = if target.result.passed { "✅" } else { "❌" };
-            output.push_str(&format!("| {} | {} | {} | {} | {:.1}% |\n",
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {:.1}% |\n",
                 target.name,
                 status,
                 target.result.iterations,
                 target.result.failures,
-                target.result.pass_rate() * 100.0));
+                target.result.pass_rate() * 100.0
+            ));
         }
         output.push('\n');
 
@@ -191,10 +219,10 @@ impl FuzzReport {
 
                 output.push_str("**Failure Details:**\n\n");
                 for failure in target.result.failure_details.iter().take(10) {
-                    output.push_str(&format!("- **{:?}** at iteration {}: {}\n",
-                        failure.failure_type,
-                        failure.iteration,
-                        failure.description));
+                    output.push_str(&format!(
+                        "- **{:?}** at iteration {}: {}\n",
+                        failure.failure_type, failure.iteration, failure.description
+                    ));
                     if failure.input.len() < 100 {
                         output.push_str(&format!("  - Input: `{}`\n", failure.input));
                     }
@@ -286,11 +314,12 @@ fn timestamp_now() -> String {
     let mut year = 1970u64;
     let mut remaining_days = days;
     loop {
-        let days_in_year = if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) {
-            366
-        } else {
-            365
-        };
+        let days_in_year =
+            if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) {
+                366
+            } else {
+                365
+            };
         if remaining_days < days_in_year {
             break;
         }
@@ -315,8 +344,10 @@ fn timestamp_now() -> String {
     }
     let day = remaining_days + 1;
 
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        year, month, day, hours, minutes, seconds)
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hours, minutes, seconds
+    )
 }
 
 fn xml_escape(s: &str) -> String {

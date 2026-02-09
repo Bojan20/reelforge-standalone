@@ -84,7 +84,8 @@ impl StateGroup {
 
     /// Get state ID by name
     pub fn state_id(&self, name: &str) -> Option<u32> {
-        self.states.iter()
+        self.states
+            .iter()
             .find(|(_, n)| n.as_str() == name)
             .map(|(id, _)| *id)
     }
@@ -160,7 +161,8 @@ impl SwitchGroup {
 
     /// Get switch ID by name
     pub fn switch_id(&self, name: &str) -> Option<u32> {
-        self.switches.iter()
+        self.switches
+            .iter()
             .find(|(_, n)| n.as_str() == name)
             .map(|(id, _)| *id)
     }
@@ -343,8 +345,16 @@ impl RtpcCurve {
     pub fn linear() -> Self {
         Self {
             points: vec![
-                RtpcCurvePoint { rtpc_value: 0.0, output_value: 0.0, curve: RtpcCurveShape::Linear },
-                RtpcCurvePoint { rtpc_value: 1.0, output_value: 1.0, curve: RtpcCurveShape::Linear },
+                RtpcCurvePoint {
+                    rtpc_value: 0.0,
+                    output_value: 0.0,
+                    curve: RtpcCurveShape::Linear,
+                },
+                RtpcCurvePoint {
+                    rtpc_value: 1.0,
+                    output_value: 1.0,
+                    curve: RtpcCurveShape::Linear,
+                },
             ],
         }
     }
@@ -356,7 +366,8 @@ impl RtpcCurve {
             output_value,
             curve,
         });
-        self.points.sort_by(|a, b| a.rtpc_value.partial_cmp(&b.rtpc_value).unwrap());
+        self.points
+            .sort_by(|a, b| a.rtpc_value.partial_cmp(&b.rtpc_value).unwrap());
     }
 
     /// Evaluate curve at given RTPC value
@@ -401,13 +412,25 @@ impl RtpcCurve {
             RtpcCurveShape::Sine => (t * std::f32::consts::FRAC_PI_2).sin(),
             RtpcCurveShape::Log1 => (1.0 + t).ln() / 2.0_f32.ln(),
             RtpcCurveShape::InvSCurve => {
-                if t < 0.5 { 2.0 * t * t } else { 1.0 - 2.0 * (1.0 - t) * (1.0 - t) }
+                if t < 0.5 {
+                    2.0 * t * t
+                } else {
+                    1.0 - 2.0 * (1.0 - t) * (1.0 - t)
+                }
             }
             RtpcCurveShape::SCurve => {
-                if t < 0.5 { 4.0 * t * t * t } else { 1.0 - (-2.0 * t + 2.0).powi(3) / 2.0 }
+                if t < 0.5 {
+                    4.0 * t * t * t
+                } else {
+                    1.0 - (-2.0 * t + 2.0).powi(3) / 2.0
+                }
             }
-            RtpcCurveShape::Exp1 => (std::f32::consts::E.powf(t) - 1.0) / (std::f32::consts::E - 1.0),
-            RtpcCurveShape::Exp3 => (std::f32::consts::E.powf(t * 3.0) - 1.0) / (std::f32::consts::E.powi(3) - 1.0),
+            RtpcCurveShape::Exp1 => {
+                (std::f32::consts::E.powf(t) - 1.0) / (std::f32::consts::E - 1.0)
+            }
+            RtpcCurveShape::Exp3 => {
+                (std::f32::consts::E.powf(t * 3.0) - 1.0) / (std::f32::consts::E.powi(3) - 1.0)
+            }
             RtpcCurveShape::Constant => 0.0, // Hold at start value
         }
     }
@@ -577,8 +600,16 @@ impl RtpcCurve {
     pub fn linear_range(in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> Self {
         Self {
             points: vec![
-                RtpcCurvePoint { rtpc_value: in_min, output_value: out_min, curve: RtpcCurveShape::Linear },
-                RtpcCurvePoint { rtpc_value: in_max, output_value: out_max, curve: RtpcCurveShape::Linear },
+                RtpcCurvePoint {
+                    rtpc_value: in_min,
+                    output_value: out_min,
+                    curve: RtpcCurveShape::Linear,
+                },
+                RtpcCurvePoint {
+                    rtpc_value: in_max,
+                    output_value: out_max,
+                    curve: RtpcCurveShape::Linear,
+                },
             ],
         }
     }
@@ -587,8 +618,16 @@ impl RtpcCurve {
     pub fn inverted_linear(in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> Self {
         Self {
             points: vec![
-                RtpcCurvePoint { rtpc_value: in_min, output_value: out_max, curve: RtpcCurveShape::Linear },
-                RtpcCurvePoint { rtpc_value: in_max, output_value: out_min, curve: RtpcCurveShape::Linear },
+                RtpcCurvePoint {
+                    rtpc_value: in_min,
+                    output_value: out_max,
+                    curve: RtpcCurveShape::Linear,
+                },
+                RtpcCurvePoint {
+                    rtpc_value: in_max,
+                    output_value: out_min,
+                    curve: RtpcCurveShape::Linear,
+                },
             ],
         }
     }
@@ -597,8 +636,16 @@ impl RtpcCurve {
     pub fn s_curve_range(in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> Self {
         Self {
             points: vec![
-                RtpcCurvePoint { rtpc_value: in_min, output_value: out_min, curve: RtpcCurveShape::SCurve },
-                RtpcCurvePoint { rtpc_value: in_max, output_value: out_max, curve: RtpcCurveShape::SCurve },
+                RtpcCurvePoint {
+                    rtpc_value: in_min,
+                    output_value: out_min,
+                    curve: RtpcCurveShape::SCurve,
+                },
+                RtpcCurvePoint {
+                    rtpc_value: in_max,
+                    output_value: out_max,
+                    curve: RtpcCurveShape::SCurve,
+                },
             ],
         }
     }
@@ -765,14 +812,16 @@ impl DuckingMatrix {
 
     /// Get all rules targeting a specific bus
     pub fn rules_for_target(&self, target_bus_id: u32) -> Vec<&DuckingRule> {
-        self.rules.iter()
+        self.rules
+            .iter()
             .filter(|r| r.target_bus_id == target_bus_id && r.enabled)
             .collect()
     }
 
     /// Get all rules sourced from a specific bus
     pub fn rules_from_source(&self, source_bus_id: u32) -> Vec<&DuckingRule> {
-        self.rules.iter()
+        self.rules
+            .iter()
             .filter(|r| r.source_bus_id == source_bus_id && r.enabled)
             .collect()
     }
@@ -976,7 +1025,8 @@ impl BlendContainer {
     pub fn add_child(&mut self, child: BlendChild) {
         self.children.push(child);
         // Sort by RTPC start for consistent evaluation
-        self.children.sort_by(|a, b| a.rtpc_start.partial_cmp(&b.rtpc_start).unwrap());
+        self.children
+            .sort_by(|a, b| a.rtpc_start.partial_cmp(&b.rtpc_start).unwrap());
     }
 
     /// Remove child by ID
@@ -992,7 +1042,8 @@ impl BlendContainer {
 
     /// Calculate gains for all children at given RTPC value
     pub fn calculate_gains(&self, rtpc_value: f32) -> Vec<(u32, f32)> {
-        self.children.iter()
+        self.children
+            .iter()
             .map(|child| {
                 let gain = child.calculate_gain(rtpc_value);
                 let shaped_gain = self.apply_crossfade_curve(gain);
@@ -1009,9 +1060,15 @@ impl BlendContainer {
             CrossfadeCurve::Linear => t,
             CrossfadeCurve::EqualPower => (t * std::f32::consts::FRAC_PI_2).sin(),
             CrossfadeCurve::SCurve => {
-                if t < 0.5 { 2.0 * t * t } else { 1.0 - (-2.0 * t + 2.0).powi(2) / 2.0 }
+                if t < 0.5 {
+                    2.0 * t * t
+                } else {
+                    1.0 - (-2.0 * t + 2.0).powi(2) / 2.0
+                }
             }
-            CrossfadeCurve::SinCos => (t * std::f32::consts::PI - std::f32::consts::FRAC_PI_2).sin() * 0.5 + 0.5,
+            CrossfadeCurve::SinCos => {
+                (t * std::f32::consts::PI - std::f32::consts::FRAC_PI_2).sin() * 0.5 + 0.5
+            }
         }
     }
 }
@@ -1204,7 +1261,11 @@ impl RandomContainerState {
 
     /// Select next child based on container mode
     /// Returns (child_id, pitch_variation, volume_variation)
-    pub fn select_next(&mut self, container: &RandomContainer, rng: &mut impl FnMut() -> f32) -> Option<(u32, f32, f32)> {
+    pub fn select_next(
+        &mut self,
+        container: &RandomContainer,
+        rng: &mut impl FnMut() -> f32,
+    ) -> Option<(u32, f32, f32)> {
         if container.children.is_empty() {
             return None;
         }
@@ -1220,10 +1281,14 @@ impl RandomContainerState {
         let child = container.children.iter().find(|c| c.id == child_id)?;
 
         // Calculate random variations
-        let pitch = container.global_pitch_min + rng() * (container.global_pitch_max - container.global_pitch_min)
-            + child.pitch_min + rng() * (child.pitch_max - child.pitch_min);
-        let volume = container.global_volume_min + rng() * (container.global_volume_max - container.global_volume_min)
-            + child.volume_min + rng() * (child.volume_max - child.volume_min);
+        let pitch = container.global_pitch_min
+            + rng() * (container.global_pitch_max - container.global_pitch_min)
+            + child.pitch_min
+            + rng() * (child.pitch_max - child.pitch_min);
+        let volume = container.global_volume_min
+            + rng() * (container.global_volume_max - container.global_volume_min)
+            + child.volume_min
+            + rng() * (child.volume_max - child.volume_min);
 
         // Update history
         self.history.push(child_id);
@@ -1234,7 +1299,11 @@ impl RandomContainerState {
         Some((child_id, pitch, volume))
     }
 
-    fn select_weighted_random(&self, container: &RandomContainer, rng: &mut impl FnMut() -> f32) -> Option<u32> {
+    fn select_weighted_random(
+        &self,
+        container: &RandomContainer,
+        rng: &mut impl FnMut() -> f32,
+    ) -> Option<u32> {
         let total = container.total_weight();
         if total <= 0.0 {
             return container.children.first().map(|c| c.id);
@@ -1250,7 +1319,11 @@ impl RandomContainerState {
         container.children.last().map(|c| c.id)
     }
 
-    fn select_shuffle(&mut self, container: &RandomContainer, rng: &mut impl FnMut() -> f32) -> Option<u32> {
+    fn select_shuffle(
+        &mut self,
+        container: &RandomContainer,
+        rng: &mut impl FnMut() -> f32,
+    ) -> Option<u32> {
         // Rebuild deck if empty
         if self.shuffle_deck.is_empty() {
             self.shuffle_deck = container.children.iter().map(|c| c.id).collect();
@@ -1271,9 +1344,15 @@ impl RandomContainerState {
         id
     }
 
-    fn select_shuffle_with_history(&mut self, container: &RandomContainer, rng: &mut impl FnMut() -> f32) -> Option<u32> {
+    fn select_shuffle_with_history(
+        &mut self,
+        container: &RandomContainer,
+        rng: &mut impl FnMut() -> f32,
+    ) -> Option<u32> {
         // Filter out recent history
-        let available: Vec<_> = container.children.iter()
+        let available: Vec<_> = container
+            .children
+            .iter()
             .filter(|c| !self.history.contains(&c.id))
             .collect();
 
@@ -1464,9 +1543,11 @@ impl SequenceContainer {
 
     /// Get total sequence duration
     pub fn total_duration(&self) -> f32 {
-        self.steps.iter()
+        self.steps
+            .iter()
             .map(|s| s.delay_secs + s.duration_secs)
-            .sum::<f32>() / self.speed
+            .sum::<f32>()
+            / self.speed
     }
 
     /// Get step at given time position
@@ -1476,7 +1557,9 @@ impl SequenceContainer {
 
         for (i, step) in self.steps.iter().enumerate() {
             cumulative += step.delay_secs;
-            if adjusted_time >= cumulative && adjusted_time < cumulative + step.duration_secs.max(0.001) {
+            if adjusted_time >= cumulative
+                && adjusted_time < cumulative + step.duration_secs.max(0.001)
+            {
                 return Some((i, step));
             }
             cumulative += step.duration_secs;
@@ -1737,13 +1820,19 @@ impl MusicSegment {
     }
 
     /// Add marker
-    pub fn add_marker(&mut self, name: impl Into<String>, position_bars: f32, marker_type: MarkerType) {
+    pub fn add_marker(
+        &mut self,
+        name: impl Into<String>,
+        position_bars: f32,
+        marker_type: MarkerType,
+    ) {
         self.markers.push(MusicMarker {
             name: name.into(),
             position_bars,
             marker_type,
         });
-        self.markers.sort_by(|a, b| a.position_bars.partial_cmp(&b.position_bars).unwrap());
+        self.markers
+            .sort_by(|a, b| a.position_bars.partial_cmp(&b.position_bars).unwrap());
     }
 
     /// Convert bars to seconds
@@ -1982,13 +2071,25 @@ impl AttenuationCurve {
             RtpcCurveShape::Sine => (t * std::f32::consts::FRAC_PI_2).sin(),
             RtpcCurveShape::Log1 => (1.0 + t).ln() / 2.0_f32.ln(),
             RtpcCurveShape::InvSCurve => {
-                if t < 0.5 { 2.0 * t * t } else { 1.0 - 2.0 * (1.0 - t) * (1.0 - t) }
+                if t < 0.5 {
+                    2.0 * t * t
+                } else {
+                    1.0 - 2.0 * (1.0 - t) * (1.0 - t)
+                }
             }
             RtpcCurveShape::SCurve => {
-                if t < 0.5 { 4.0 * t * t * t } else { 1.0 - (-2.0 * t + 2.0).powi(3) / 2.0 }
+                if t < 0.5 {
+                    4.0 * t * t * t
+                } else {
+                    1.0 - (-2.0 * t + 2.0).powi(3) / 2.0
+                }
             }
-            RtpcCurveShape::Exp1 => (std::f32::consts::E.powf(t) - 1.0) / (std::f32::consts::E - 1.0),
-            RtpcCurveShape::Exp3 => (std::f32::consts::E.powf(t * 3.0) - 1.0) / (std::f32::consts::E.powi(3) - 1.0),
+            RtpcCurveShape::Exp1 => {
+                (std::f32::consts::E.powf(t) - 1.0) / (std::f32::consts::E - 1.0)
+            }
+            RtpcCurveShape::Exp3 => {
+                (std::f32::consts::E.powf(t * 3.0) - 1.0) / (std::f32::consts::E.powi(3) - 1.0)
+            }
             RtpcCurveShape::Constant => 0.0,
         };
 
@@ -2027,7 +2128,8 @@ impl AttenuationSystem {
 
     /// Get curves by type
     pub fn curves_by_type(&self, atten_type: AttenuationType) -> Vec<&AttenuationCurve> {
-        self.curves.iter()
+        self.curves
+            .iter()
             .filter(|c| c.attenuation_type == atten_type && c.enabled)
             .collect()
     }

@@ -5,7 +5,6 @@
 
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use rf_dsp::analysis::{FftAnalyzer, PeakMeter, RmsMeter};
-use rf_dsp::{LufsMeter, TruePeakMeter}; // Now from metering.rs
 use rf_dsp::biquad::{BiquadCoeffs, BiquadTDF2};
 use rf_dsp::delay::{Delay, ModulatedDelay, PingPongDelay};
 use rf_dsp::dynamics::{
@@ -14,6 +13,7 @@ use rf_dsp::dynamics::{
 use rf_dsp::eq::{EqFilterType, ParametricEq};
 use rf_dsp::reverb::{AlgorithmicReverb, ReverbType};
 use rf_dsp::spatial::{CorrelationMeter, StereoPanner, StereoWidth};
+use rf_dsp::{LufsMeter, TruePeakMeter}; // Now from metering.rs
 use rf_dsp::{MonoProcessor, StereoProcessor};
 
 const SAMPLE_RATE: f64 = 48000.0;

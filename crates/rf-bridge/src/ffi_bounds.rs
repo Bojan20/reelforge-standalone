@@ -8,7 +8,6 @@
 ///
 /// CRITICAL: All FFI functions MUST use these validators before
 /// accessing Rust collections from Dart indices.
-
 use std::fmt;
 
 /// Result type for bounds checking operations
@@ -21,7 +20,11 @@ pub enum BoundsCheckResult {
     /// Index exceeds array length
     OutOfBounds { index: usize, len: usize },
     /// Range exceeds array length
-    RangeOutOfBounds { start: usize, end: usize, len: usize },
+    RangeOutOfBounds {
+        start: usize,
+        end: usize,
+        len: usize,
+    },
     /// Invalid range (start > end)
     InvalidRange { start: usize, end: usize },
     /// Buffer size mismatch
@@ -45,7 +48,11 @@ impl fmt::Display for BoundsCheckResult {
                 write!(f, "Invalid range: start ({}) > end ({})", start, end)
             }
             BoundsCheckResult::BufferSizeMismatch { expected, actual } => {
-                write!(f, "Buffer size mismatch: expected {}, got {}", expected, actual)
+                write!(
+                    f,
+                    "Buffer size mismatch: expected {}, got {}",
+                    expected, actual
+                )
             }
         }
     }
@@ -170,7 +177,11 @@ pub fn check_buffer_size(expected: usize, actual: usize) -> BoundsCheckResult {
 /// * `BoundsCheckResult::Valid` if offset is within bounds
 /// * Error variant otherwise
 #[inline]
-pub fn check_pointer_offset(offset: i64, element_size: usize, buffer_len: usize) -> BoundsCheckResult {
+pub fn check_pointer_offset(
+    offset: i64,
+    element_size: usize,
+    buffer_len: usize,
+) -> BoundsCheckResult {
     if offset < 0 {
         return BoundsCheckResult::NegativeIndex { index: offset };
     }
@@ -332,7 +343,10 @@ mod tests {
         assert_eq!(result, BoundsCheckResult::Valid);
 
         let result = check_buffer_size(100, 50);
-        assert!(matches!(result, BoundsCheckResult::BufferSizeMismatch { .. }));
+        assert!(matches!(
+            result,
+            BoundsCheckResult::BufferSizeMismatch { .. }
+        ));
     }
 
     #[test]

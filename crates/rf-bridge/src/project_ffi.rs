@@ -5,7 +5,7 @@
 
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 
 use crate::api_project;
 
@@ -258,12 +258,7 @@ pub extern "C" fn project_set_file_path(path: *const c_char) {
     let path_opt = if path.is_null() {
         None
     } else {
-        unsafe {
-            CStr::from_ptr(path)
-                .to_str()
-                .ok()
-                .map(|s| s.to_string())
-        }
+        unsafe { CStr::from_ptr(path).to_str().ok().map(|s| s.to_string()) }
     };
 
     api_project::project_set_file_path(path_opt);

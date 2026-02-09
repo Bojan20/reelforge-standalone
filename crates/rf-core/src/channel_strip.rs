@@ -40,8 +40,7 @@ impl Default for EqBandPreset {
 }
 
 /// EQ filter types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EqFilterType {
     /// High-pass filter
     HighPass,
@@ -63,7 +62,6 @@ pub enum EqFilterType {
     /// Tilt EQ
     Tilt,
 }
-
 
 /// Full EQ preset (up to 8 bands)
 #[derive(Debug, Clone, Serialize, Deserialize)]

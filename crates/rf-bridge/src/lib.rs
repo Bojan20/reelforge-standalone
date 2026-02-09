@@ -31,6 +31,7 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 pub mod advanced_metering;
+pub mod ale_ffi;
 mod api;
 mod api_engine;
 mod api_metering;
@@ -38,31 +39,30 @@ mod api_mixer;
 mod api_project;
 mod api_transport;
 mod audio_io;
-pub mod sidechain_ffi; // ✅ P0.5: Sidechain routing
+pub mod auto_spatial_ffi;
 pub mod autosave_ffi;
 pub mod command_queue;
+pub mod connector_ffi;
+pub mod container_ffi;
 pub mod dsp_commands;
 mod engine_bridge;
-mod metering;
-pub mod midi_bridge;
-mod midi_ffi;
-pub mod middleware_ffi;
-mod playback;
 pub mod ffi_bounds; // ✅ P12.0.5: FFI bounds checking
 pub mod ffi_error; // ✅ P12.0.2: FFI error result type
-pub mod slot_lab_ffi;
-pub mod ale_ffi;
-pub mod auto_spatial_ffi;
-pub mod container_ffi;
-pub mod stage_ffi;
 pub mod ingest_ffi;
-pub mod connector_ffi;
-pub mod offline_ffi;
-pub mod profiler_ffi;
 pub mod memory_ffi;
+mod metering;
+pub mod middleware_ffi;
+pub mod midi_bridge;
+mod midi_ffi;
+pub mod offline_ffi;
+mod playback;
 pub mod plugin_state_ffi;
-pub mod project_ffi;
+pub mod profiler_ffi;
 mod project;
+pub mod project_ffi;
+pub mod sidechain_ffi; // ✅ P0.5: Sidechain routing
+pub mod slot_lab_ffi;
+pub mod stage_ffi;
 pub mod time_stretch_ffi; // P12.1.4: Simple time-stretch for animation timing
 pub mod timestretch;
 mod transport;
@@ -341,9 +341,9 @@ pub use auto_spatial_ffi::*;
 pub use container_ffi::*;
 
 // Re-export Stage Ingest FFI (P5)
-pub use stage_ffi::*;
-pub use ingest_ffi::*;
 pub use connector_ffi::*;
+pub use ingest_ffi::*;
+pub use stage_ffi::*;
 
 // Re-export Offline DSP FFI (P2.6)
 pub use offline_ffi::*;

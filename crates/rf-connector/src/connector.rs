@@ -131,7 +131,8 @@ impl EngineConnector {
 
     /// Request the engine to seek to a timestamp
     pub async fn request_seek(&self, timestamp_ms: f64) -> Result<(), ConnectorError> {
-        self.send_command(EngineCommand::Seek { timestamp_ms }).await
+        self.send_command(EngineCommand::Seek { timestamp_ms })
+            .await
     }
 
     /// Set timing profile
@@ -173,8 +174,8 @@ impl EngineConnector {
 
         // Take command receiver
         let command_rx = self.command_rx.write().await.take();
-        let mut command_rx =
-            command_rx.ok_or_else(|| ConnectorError::ConnectionFailed("Already connected".into()))?;
+        let mut command_rx = command_rx
+            .ok_or_else(|| ConnectorError::ConnectionFailed("Already connected".into()))?;
 
         let event_tx = self.event_tx.clone();
         let message_tx = self.message_tx.clone();
@@ -258,8 +259,8 @@ impl EngineConnector {
 
         // Take command receiver
         let command_rx = self.command_rx.write().await.take();
-        let mut command_rx =
-            command_rx.ok_or_else(|| ConnectorError::ConnectionFailed("Already connected".into()))?;
+        let mut command_rx = command_rx
+            .ok_or_else(|| ConnectorError::ConnectionFailed("Already connected".into()))?;
 
         let event_tx = self.event_tx.clone();
         let message_tx = self.message_tx.clone();

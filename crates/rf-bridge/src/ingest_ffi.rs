@@ -11,10 +11,10 @@
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::ptr;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use rf_ingest::adapter::ConfigBasedAdapter;
 use rf_ingest::config::AdapterConfig;
@@ -218,10 +218,7 @@ pub extern "C" fn ingest_detect_adapter(sample_json: *const c_char) -> *mut c_ch
 /// Ingest JSON using a specific adapter
 /// Returns trace_id from stage_ffi (0 on error)
 #[unsafe(no_mangle)]
-pub extern "C" fn ingest_parse_json(
-    adapter_id: *const c_char,
-    json_data: *const c_char,
-) -> u64 {
+pub extern "C" fn ingest_parse_json(adapter_id: *const c_char, json_data: *const c_char) -> u64 {
     if adapter_id.is_null() || json_data.is_null() {
         return 0;
     }
@@ -311,10 +308,7 @@ pub extern "C" fn ingest_parse_json_auto(json_data: *const c_char) -> u64 {
 /// Parse JSON using Layer 1 (Direct Event) with a config
 /// Returns trace_id (0 on error)
 #[unsafe(no_mangle)]
-pub extern "C" fn ingest_layer1_parse(
-    json_data: *const c_char,
-    config_id: u64,
-) -> u64 {
+pub extern "C" fn ingest_layer1_parse(json_data: *const c_char, config_id: u64) -> u64 {
     if json_data.is_null() {
         return 0;
     }
@@ -354,10 +348,7 @@ pub extern "C" fn ingest_layer1_parse(
 /// Parse JSON using Layer 2 (Snapshot Diff) with a config
 /// Returns trace_id (0 on error)
 #[unsafe(no_mangle)]
-pub extern "C" fn ingest_layer2_parse(
-    snapshots_json: *const c_char,
-    config_id: u64,
-) -> u64 {
+pub extern "C" fn ingest_layer2_parse(snapshots_json: *const c_char, config_id: u64) -> u64 {
     if snapshots_json.is_null() {
         return 0;
     }
@@ -452,15 +443,13 @@ pub extern "C" fn ingest_layer3_process(
     };
 
     match engine.process(&json, timestamp_ms) {
-        Ok(events) => {
-            match serde_json::to_string(&events) {
-                Ok(json) => match CString::new(json) {
-                    Ok(cs) => cs.into_raw(),
-                    Err(_) => ptr::null_mut(),
-                },
+        Ok(events) => match serde_json::to_string(&events) {
+            Ok(json) => match CString::new(json) {
+                Ok(cs) => cs.into_raw(),
                 Err(_) => ptr::null_mut(),
-            }
-        }
+            },
+            Err(_) => ptr::null_mut(),
+        },
         Err(e) => {
             log::error!("ingest_layer3_process: process error: {}", e);
             ptr::null_mut()
@@ -815,11 +804,7 @@ pub extern "C" fn ingest_config_set_bigwin_thresholds(
 pub extern "C" fn ingest_config_validate(config_id: u64) -> i32 {
     let configs = CONFIGS.read();
     if let Some(config) = configs.get(&config_id) {
-        if config.validate().is_ok() {
-            1
-        } else {
-            0
-        }
+        if config.validate().is_ok() { 1 } else { 0 }
     } else {
         0
     }

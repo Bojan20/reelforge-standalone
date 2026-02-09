@@ -308,7 +308,8 @@ impl DeepFilterNet {
         let outputs = self.erb_model.run_f32(&[input, hidden_input])?;
 
         // Parse outputs
-        let gains_raw = outputs.first()
+        let gains_raw = outputs
+            .first()
             .ok_or_else(|| MlError::Internal("Missing ERB gains output".into()))?
             .clone();
 
@@ -362,7 +363,8 @@ impl DeepFilterNet {
 
         // Deep filter coefficients
         let _df_order = 5;
-        let coeffs_raw = outputs.first()
+        let coeffs_raw = outputs
+            .first()
             .ok_or_else(|| MlError::Internal("Missing DF coefficients".into()))?
             .clone();
 

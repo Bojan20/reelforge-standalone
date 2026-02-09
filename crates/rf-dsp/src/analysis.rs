@@ -86,7 +86,11 @@ impl FftAnalyzer {
         self.scratch_windowed.rotate_left(self.write_pos);
 
         // Perform FFT (safe: buffer sizes are validated in new())
-        if self.fft.process(&mut self.scratch_windowed, &mut self.output_buffer).is_err() {
+        if self
+            .fft
+            .process(&mut self.scratch_windowed, &mut self.output_buffer)
+            .is_err()
+        {
             // FFT failed - fill with silence
             for c in &mut self.output_buffer {
                 *c = Complex::new(0.0, 0.0);

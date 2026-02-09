@@ -7,9 +7,7 @@ fn default_total_reels() -> u8 {
     5
 }
 
-use rf_stage::{
-    BigWinTier, FeatureType, JackpotTier, Stage, StageEvent, StagePayload,
-};
+use rf_stage::{BigWinTier, FeatureType, JackpotTier, Stage, StageEvent, StagePayload};
 
 use crate::paytable::{EvaluationResult, LineWin, ScatterWin};
 use crate::timing::TimestampGenerator;
@@ -131,7 +129,7 @@ impl AnticipationReason {
     /// Higher = more important = louder tension
     pub fn base_intensity(&self) -> u8 {
         match self {
-            Self::Jackpot => 4,    // Highest priority
+            Self::Jackpot => 4, // Highest priority
             Self::Bonus => 3,
             Self::Scatter => 2,
             Self::Wild => 2,
@@ -197,7 +195,8 @@ impl AnticipationInfo {
         }
 
         // Find the rightmost reel with a scatter
-        let last_scatter_reel = scatter_positions.iter()
+        let last_scatter_reel = scatter_positions
+            .iter()
             .map(|(reel, _)| *reel)
             .max()
             .unwrap_or(0);
@@ -210,7 +209,8 @@ impl AnticipationInfo {
         }
 
         // Build per-reel anticipation data with escalating tension
-        let reel_data: Vec<ReelAnticipation> = anticipation_reels.iter()
+        let reel_data: Vec<ReelAnticipation> = anticipation_reels
+            .iter()
             .enumerate()
             .map(|(idx, &reel)| {
                 // Tension level escalates: first anticipation reel = L1, second = L2, etc.
@@ -270,14 +270,16 @@ impl AnticipationInfo {
         reason: AnticipationReason,
     ) -> Option<Self> {
         // Use config's algorithm to calculate anticipation reels
-        let anticipation_reels = config.calculate_anticipation_reels(&trigger_positions, total_reels);
+        let anticipation_reels =
+            config.calculate_anticipation_reels(&trigger_positions, total_reels);
 
         if anticipation_reels.is_empty() {
             return None;
         }
 
         // Build per-reel anticipation data with escalating tension
-        let reel_data: Vec<ReelAnticipation> = anticipation_reels.iter()
+        let reel_data: Vec<ReelAnticipation> = anticipation_reels
+            .iter()
             .enumerate()
             .map(|(idx, &reel)| {
                 let tension_level = config.tension_level_for_reel(idx);
@@ -309,7 +311,8 @@ impl AnticipationInfo {
         total_reels: u8,
         base_duration_ms: u32,
     ) -> Self {
-        let reel_data: Vec<ReelAnticipation> = reels.iter()
+        let reel_data: Vec<ReelAnticipation> = reels
+            .iter()
             .enumerate()
             .map(|(idx, &reel)| {
                 let tension_level = ((idx + 1) as u8).min(4);
@@ -335,7 +338,8 @@ impl AnticipationInfo {
 
     /// Get tension level for a specific reel (1-4, or 0 if not in anticipation)
     pub fn tension_level_for_reel(&self, reel_index: u8) -> u8 {
-        self.reel_data.iter()
+        self.reel_data
+            .iter()
             .find(|r| r.reel_index == reel_index)
             .map(|r| r.tension_level)
             .unwrap_or(0)
@@ -453,7 +457,10 @@ impl SpinResult {
     /// - `primary_stage`: stage name to trigger
     /// - `display_label`: user-editable display label
     /// - `rollup_duration_ms`: rollup animation duration
-    pub fn with_p5_win_tier(mut self, config: &crate::model::SlotWinConfig) -> (Self, crate::model::WinTierResult) {
+    pub fn with_p5_win_tier(
+        mut self,
+        config: &crate::model::SlotWinConfig,
+    ) -> (Self, crate::model::WinTierResult) {
         let result = config.evaluate(self.total_win, self.bet);
 
         // Map P5 result to legacy BigWinTier for backwards compatibility
@@ -520,8 +527,12 @@ impl SpinResult {
         let mut events = Vec::new();
 
         // DEBUG: Log timing config for troubleshooting
-        log::debug!("[SpinResult::generate_stages] Starting with {} reels, timing.current={}ms, sequential={}",
-            self.grid.len(), timing.current(), sequential_anticipation);
+        log::debug!(
+            "[SpinResult::generate_stages] Starting with {} reels, timing.current={}ms, sequential={}",
+            self.grid.len(),
+            timing.current(),
+            sequential_anticipation
+        );
 
         // 1. Spin Start
         events.push(StageEvent::new(Stage::SpinStart, timing.current()));
@@ -570,7 +581,9 @@ impl SpinResult {
         // - Tension escalates: L1 (reel 2) → L2 (reel 3) → L3 (reel 4) → L4 (reel 5)
 
         // First, identify which reels have anticipation
-        let anticipation_reels: Vec<u8> = self.anticipation.as_ref()
+        let anticipation_reels: Vec<u8> = self
+            .anticipation
+            .as_ref()
             .map(|a| a.reels.clone())
             .unwrap_or_default();
 
@@ -652,15 +665,22 @@ impl SpinResult {
                 // In sequential mode, we use a minimal delay after anticipation
                 let stop_time = timing.advance(50.0); // 50ms after antic_end
 
-                log::debug!("[SpinResult] SEQUENTIAL REEL_STOP_{} (L{}) → antic={}ms, stop={}ms",
-                    reel, tension_level, antic_time, stop_time);
+                log::debug!(
+                    "[SpinResult] SEQUENTIAL REEL_STOP_{} (L{}) → antic={}ms, stop={}ms",
+                    reel,
+                    tension_level,
+                    antic_time,
+                    stop_time
+                );
 
                 events.push(StageEvent::new(
                     Stage::ReelSpinningStop { reel_index: reel },
                     stop_time,
                 ));
 
-                let symbols = self.grid.get(reel as usize)
+                let symbols = self
+                    .grid
+                    .get(reel as usize)
                     .map(|r| r.iter().map(|&s| s).collect())
                     .unwrap_or_default();
 
@@ -671,7 +691,6 @@ impl SpinResult {
                     },
                     stop_time,
                 ));
-
             } else if has_anticipation {
                 // ═══════════════════════════════════════════════════════════════════════
                 // PARALLEL MODE (legacy): Anticipation runs alongside normal reel stops
@@ -725,14 +744,20 @@ impl SpinResult {
                 // Reel stop uses normal timing
                 let stop_time = timing.reel_stop(reel);
 
-                log::debug!("[SpinResult] PARALLEL REEL_STOP_{} → timestamp={}ms", reel, stop_time);
+                log::debug!(
+                    "[SpinResult] PARALLEL REEL_STOP_{} → timestamp={}ms",
+                    reel,
+                    stop_time
+                );
 
                 events.push(StageEvent::new(
                     Stage::ReelSpinningStop { reel_index: reel },
                     stop_time,
                 ));
 
-                let symbols = self.grid.get(reel as usize)
+                let symbols = self
+                    .grid
+                    .get(reel as usize)
                     .map(|r| r.iter().map(|&s| s).collect())
                     .unwrap_or_default();
 
@@ -743,21 +768,26 @@ impl SpinResult {
                     },
                     stop_time,
                 ));
-
             } else {
                 // ═══════════════════════════════════════════════════════════════════════
                 // NORMAL REEL (no anticipation): Standard timing
                 // ═══════════════════════════════════════════════════════════════════════
                 let stop_time = timing.reel_stop(reel);
 
-                log::debug!("[SpinResult] NORMAL REEL_STOP_{} → timestamp={}ms", reel, stop_time);
+                log::debug!(
+                    "[SpinResult] NORMAL REEL_STOP_{} → timestamp={}ms",
+                    reel,
+                    stop_time
+                );
 
                 events.push(StageEvent::new(
                     Stage::ReelSpinningStop { reel_index: reel },
                     stop_time,
                 ));
 
-                let symbols = self.grid.get(reel as usize)
+                let symbols = self
+                    .grid
+                    .get(reel as usize)
                     .map(|r| r.iter().map(|&s| s).collect())
                     .unwrap_or_default();
 
@@ -802,7 +832,11 @@ impl SpinResult {
         // Without this, events are returned in code order which may not match timing
         // Example: EVALUATE_WINS might appear before REEL_STOP_4 in array
         // ═══════════════════════════════════════════════════════════════════════════
-        events.sort_by(|a, b| a.timestamp_ms.partial_cmp(&b.timestamp_ms).unwrap_or(std::cmp::Ordering::Equal));
+        events.sort_by(|a, b| {
+            a.timestamp_ms
+                .partial_cmp(&b.timestamp_ms)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         events
     }
@@ -883,7 +917,11 @@ impl SpinResult {
         events
     }
 
-    fn generate_cascade_stages(&self, cascade: &CascadeResult, timing: &mut TimestampGenerator) -> Vec<StageEvent> {
+    fn generate_cascade_stages(
+        &self,
+        cascade: &CascadeResult,
+        timing: &mut TimestampGenerator,
+    ) -> Vec<StageEvent> {
         let mut events = Vec::new();
 
         if cascade.step_index == 0 {
@@ -896,13 +934,19 @@ impl SpinResult {
                 multiplier: cascade.multiplier,
             },
             timing.cascade_step(),
-            StagePayload::new().win_amount(cascade.win).multiplier(cascade.multiplier),
+            StagePayload::new()
+                .win_amount(cascade.win)
+                .multiplier(cascade.multiplier),
         ));
 
         events
     }
 
-    fn generate_feature_stages(&self, feature: &TriggeredFeature, timing: &mut TimestampGenerator) -> Vec<StageEvent> {
+    fn generate_feature_stages(
+        &self,
+        feature: &TriggeredFeature,
+        timing: &mut TimestampGenerator,
+    ) -> Vec<StageEvent> {
         let mut events = Vec::new();
 
         events.push(StageEvent::with_payload(
@@ -920,13 +964,15 @@ impl SpinResult {
         events
     }
 
-    fn generate_jackpot_stages(&self, jackpot: &JackpotWin, timing: &mut TimestampGenerator) -> Vec<StageEvent> {
+    fn generate_jackpot_stages(
+        &self,
+        jackpot: &JackpotWin,
+        timing: &mut TimestampGenerator,
+    ) -> Vec<StageEvent> {
         let mut events = Vec::new();
 
         events.push(StageEvent::new(
-            Stage::JackpotTrigger {
-                tier: jackpot.tier,
-            },
+            Stage::JackpotTrigger { tier: jackpot.tier },
             timing.advance(500.0),
         ));
 
@@ -1068,7 +1114,7 @@ mod tests {
     fn test_stage_ordering_after_sorting() {
         // Create a winning spin result to ensure we get WIN_PRESENT and other win stages
         let grid = vec![
-            vec![1, 1, 1],  // 5 reels x 3 rows
+            vec![1, 1, 1], // 5 reels x 3 rows
             vec![1, 1, 1],
             vec![1, 1, 1],
             vec![2, 2, 2],
@@ -1167,11 +1213,11 @@ mod tests {
 
         // Grid with scatters on reels 0 and 1 (triggers anticipation on 2, 3, 4)
         let grid = vec![
-            vec![100, 1, 1],  // Reel 0: scatter at row 0
-            vec![100, 1, 1],  // Reel 1: scatter at row 0
-            vec![1, 1, 1],    // Reel 2: anticipation
-            vec![1, 1, 1],    // Reel 3: anticipation
-            vec![1, 1, 1],    // Reel 4: anticipation
+            vec![100, 1, 1], // Reel 0: scatter at row 0
+            vec![100, 1, 1], // Reel 1: scatter at row 0
+            vec![1, 1, 1],   // Reel 2: anticipation
+            vec![1, 1, 1],   // Reel 3: anticipation
+            vec![1, 1, 1],   // Reel 4: anticipation
         ];
 
         let mut result = SpinResult::new("seq-antic-test".into(), grid, 1.0);
@@ -1222,8 +1268,16 @@ mod tests {
 
         // Verify SEQUENTIAL order:
         // 1. Non-anticipation reels (0, 1) stop with normal interval
-        let reel0_stop = reel_stop_times.iter().find(|(r, _)| *r == 0).map(|(_, t)| *t).unwrap();
-        let reel1_stop = reel_stop_times.iter().find(|(r, _)| *r == 1).map(|(_, t)| *t).unwrap();
+        let reel0_stop = reel_stop_times
+            .iter()
+            .find(|(r, _)| *r == 0)
+            .map(|(_, t)| *t)
+            .unwrap();
+        let reel1_stop = reel_stop_times
+            .iter()
+            .find(|(r, _)| *r == 1)
+            .map(|(_, t)| *t)
+            .unwrap();
 
         assert!(
             reel1_stop > reel0_stop,
@@ -1237,41 +1291,107 @@ mod tests {
         //    - Each reel's REEL_STOP must be AFTER its own ANTIC_OFF
 
         // Reel 2 anticipation
-        let reel2_antic_on = antic_on_times.iter().find(|(r, _)| *r == 2).map(|(_, t)| *t).unwrap();
-        let reel2_antic_off = antic_off_times.iter().find(|(r, _)| *r == 2).map(|(_, t)| *t).unwrap();
-        let reel2_stop = reel_stop_times.iter().find(|(r, _)| *r == 2).map(|(_, t)| *t).unwrap();
+        let reel2_antic_on = antic_on_times
+            .iter()
+            .find(|(r, _)| *r == 2)
+            .map(|(_, t)| *t)
+            .unwrap();
+        let reel2_antic_off = antic_off_times
+            .iter()
+            .find(|(r, _)| *r == 2)
+            .map(|(_, t)| *t)
+            .unwrap();
+        let reel2_stop = reel_stop_times
+            .iter()
+            .find(|(r, _)| *r == 2)
+            .map(|(_, t)| *t)
+            .unwrap();
 
         // Reel 3 anticipation
-        let reel3_antic_on = antic_on_times.iter().find(|(r, _)| *r == 3).map(|(_, t)| *t).unwrap();
-        let reel3_antic_off = antic_off_times.iter().find(|(r, _)| *r == 3).map(|(_, t)| *t).unwrap();
-        let reel3_stop = reel_stop_times.iter().find(|(r, _)| *r == 3).map(|(_, t)| *t).unwrap();
+        let reel3_antic_on = antic_on_times
+            .iter()
+            .find(|(r, _)| *r == 3)
+            .map(|(_, t)| *t)
+            .unwrap();
+        let reel3_antic_off = antic_off_times
+            .iter()
+            .find(|(r, _)| *r == 3)
+            .map(|(_, t)| *t)
+            .unwrap();
+        let reel3_stop = reel_stop_times
+            .iter()
+            .find(|(r, _)| *r == 3)
+            .map(|(_, t)| *t)
+            .unwrap();
 
         // Reel 4 anticipation
-        let reel4_antic_on = antic_on_times.iter().find(|(r, _)| *r == 4).map(|(_, t)| *t).unwrap();
-        let reel4_antic_off = antic_off_times.iter().find(|(r, _)| *r == 4).map(|(_, t)| *t).unwrap();
-        let reel4_stop = reel_stop_times.iter().find(|(r, _)| *r == 4).map(|(_, t)| *t).unwrap();
+        let reel4_antic_on = antic_on_times
+            .iter()
+            .find(|(r, _)| *r == 4)
+            .map(|(_, t)| *t)
+            .unwrap();
+        let reel4_antic_off = antic_off_times
+            .iter()
+            .find(|(r, _)| *r == 4)
+            .map(|(_, t)| *t)
+            .unwrap();
+        let reel4_stop = reel_stop_times
+            .iter()
+            .find(|(r, _)| *r == 4)
+            .map(|(_, t)| *t)
+            .unwrap();
 
         // Verify Reel 2: antic_on >= reel1_stop (can start at same time or after)
         // antic_off > antic_on (anticipation has duration), stop > antic_off (stop after antic ends)
-        assert!(reel2_antic_on >= reel1_stop, "R2 antic should start at or after R1 stop");
-        assert!(reel2_antic_off > reel2_antic_on, "R2 antic_off after antic_on");
+        assert!(
+            reel2_antic_on >= reel1_stop,
+            "R2 antic should start at or after R1 stop"
+        );
+        assert!(
+            reel2_antic_off > reel2_antic_on,
+            "R2 antic_off after antic_on"
+        );
         assert!(reel2_stop > reel2_antic_off, "R2 stop after antic_off");
 
         // Verify Reel 3: antic_on >= reel2_stop (SEQUENTIAL!)
-        assert!(reel3_antic_on >= reel2_stop, "R3 antic should start at or after R2 STOP (sequential)");
-        assert!(reel3_antic_off > reel3_antic_on, "R3 antic_off after antic_on");
+        assert!(
+            reel3_antic_on >= reel2_stop,
+            "R3 antic should start at or after R2 STOP (sequential)"
+        );
+        assert!(
+            reel3_antic_off > reel3_antic_on,
+            "R3 antic_off after antic_on"
+        );
         assert!(reel3_stop > reel3_antic_off, "R3 stop after antic_off");
 
         // Verify Reel 4: antic_on >= reel3_stop (SEQUENTIAL!)
-        assert!(reel4_antic_on >= reel3_stop, "R4 antic should start at or after R3 STOP (sequential)");
-        assert!(reel4_antic_off > reel4_antic_on, "R4 antic_off after antic_on");
+        assert!(
+            reel4_antic_on >= reel3_stop,
+            "R4 antic should start at or after R3 STOP (sequential)"
+        );
+        assert!(
+            reel4_antic_off > reel4_antic_on,
+            "R4 antic_off after antic_on"
+        );
         assert!(reel4_stop > reel4_antic_off, "R4 stop after antic_off");
 
         println!("\n✅ Sequential anticipation timing is CORRECT:");
-        println!("   R0 stop: {}ms, R1 stop: {}ms (normal)", reel0_stop, reel1_stop);
-        println!("   R2: antic {}ms → {}ms, stop {}ms", reel2_antic_on, reel2_antic_off, reel2_stop);
-        println!("   R3: antic {}ms → {}ms, stop {}ms", reel3_antic_on, reel3_antic_off, reel3_stop);
-        println!("   R4: antic {}ms → {}ms, stop {}ms", reel4_antic_on, reel4_antic_off, reel4_stop);
+        println!(
+            "   R0 stop: {}ms, R1 stop: {}ms (normal)",
+            reel0_stop, reel1_stop
+        );
+        println!(
+            "   R2: antic {}ms → {}ms, stop {}ms",
+            reel2_antic_on, reel2_antic_off, reel2_stop
+        );
+        println!(
+            "   R3: antic {}ms → {}ms, stop {}ms",
+            reel3_antic_on, reel3_antic_off, reel3_stop
+        );
+        println!(
+            "   R4: antic {}ms → {}ms, stop {}ms",
+            reel4_antic_on, reel4_antic_off, reel4_stop
+        );
     }
 
     #[test]
@@ -1281,11 +1401,11 @@ mod tests {
         // Tip B: Scatter only allowed on reels 0, 2, 4
         // Scatters on reels 0, 2 → anticipation on reel 4 (only remaining allowed reel)
         let grid = vec![
-            vec![100, 1, 1],  // Reel 0: scatter
-            vec![1, 1, 1],    // Reel 1: normal (not allowed for scatter)
-            vec![100, 1, 1],  // Reel 2: scatter
-            vec![1, 1, 1],    // Reel 3: normal (not allowed for scatter)
-            vec![1, 1, 1],    // Reel 4: anticipation
+            vec![100, 1, 1], // Reel 0: scatter
+            vec![1, 1, 1],   // Reel 1: normal (not allowed for scatter)
+            vec![100, 1, 1], // Reel 2: scatter
+            vec![1, 1, 1],   // Reel 3: normal (not allowed for scatter)
+            vec![1, 1, 1],   // Reel 4: anticipation
         ];
 
         let mut result = SpinResult::new("tip-b-seq-test".into(), grid, 1.0);
@@ -1302,9 +1422,16 @@ mod tests {
             AnticipationReason::Scatter,
         );
 
-        assert!(result.anticipation.is_some(), "Should have anticipation for Tip B");
+        assert!(
+            result.anticipation.is_some(),
+            "Should have anticipation for Tip B"
+        );
         let antic = result.anticipation.as_ref().unwrap();
-        assert_eq!(antic.reels, vec![4], "Tip B: Only reel 4 should have anticipation");
+        assert_eq!(
+            antic.reels,
+            vec![4],
+            "Tip B: Only reel 4 should have anticipation"
+        );
 
         // Generate stages with SEQUENTIAL mode
         let config = TimingConfig::normal();
@@ -1312,26 +1439,38 @@ mod tests {
         let stages = result.generate_stages_with_config(&mut timing, &antic_config);
 
         // Verify reel 4 has anticipation stages
-        let has_reel4_antic = stages.iter().any(|s| matches!(&s.stage,
-            Stage::AnticipationOn { reel_index: 4, .. }
-        ));
-        let has_reel4_tension = stages.iter().any(|s| matches!(&s.stage,
-            Stage::AnticipationTensionLayer { reel_index: 4, .. }
-        ));
+        let has_reel4_antic = stages
+            .iter()
+            .any(|s| matches!(&s.stage, Stage::AnticipationOn { reel_index: 4, .. }));
+        let has_reel4_tension = stages.iter().any(|s| {
+            matches!(
+                &s.stage,
+                Stage::AnticipationTensionLayer { reel_index: 4, .. }
+            )
+        });
 
         assert!(has_reel4_antic, "Reel 4 should have AnticipationOn stage");
-        assert!(has_reel4_tension, "Reel 4 should have AnticipationTensionLayer stage");
+        assert!(
+            has_reel4_tension,
+            "Reel 4 should have AnticipationTensionLayer stage"
+        );
 
         // Verify reels 1 and 3 do NOT have anticipation (they're not allowed reels)
-        let has_reel1_antic = stages.iter().any(|s| matches!(&s.stage,
-            Stage::AnticipationOn { reel_index: 1, .. }
-        ));
-        let has_reel3_antic = stages.iter().any(|s| matches!(&s.stage,
-            Stage::AnticipationOn { reel_index: 3, .. }
-        ));
+        let has_reel1_antic = stages
+            .iter()
+            .any(|s| matches!(&s.stage, Stage::AnticipationOn { reel_index: 1, .. }));
+        let has_reel3_antic = stages
+            .iter()
+            .any(|s| matches!(&s.stage, Stage::AnticipationOn { reel_index: 3, .. }));
 
-        assert!(!has_reel1_antic, "Reel 1 should NOT have anticipation (not allowed)");
-        assert!(!has_reel3_antic, "Reel 3 should NOT have anticipation (not allowed)");
+        assert!(
+            !has_reel1_antic,
+            "Reel 1 should NOT have anticipation (not allowed)"
+        );
+        assert!(
+            !has_reel3_antic,
+            "Reel 3 should NOT have anticipation (not allowed)"
+        );
 
         println!("\n✅ Tip B sequential anticipation:");
         println!("   Scatter allowed on: 0, 2, 4");
@@ -1345,8 +1484,8 @@ mod tests {
 
         // Same setup for both modes
         let grid = vec![
-            vec![100, 1, 1],  // scatter
-            vec![100, 1, 1],  // scatter
+            vec![100, 1, 1], // scatter
+            vec![100, 1, 1], // scatter
             vec![1, 1, 1],
             vec![1, 1, 1],
             vec![1, 1, 1],
@@ -1358,7 +1497,11 @@ mod tests {
         // PARALLEL mode
         let mut result_parallel = SpinResult::new("parallel".into(), grid.clone(), 1.0);
         result_parallel.anticipation = AnticipationInfo::from_trigger_positions_with_config(
-            trigger_positions.clone(), &antic_config, 5, 1500, AnticipationReason::Scatter,
+            trigger_positions.clone(),
+            &antic_config,
+            5,
+            1500,
+            AnticipationReason::Scatter,
         );
 
         let config = TimingConfig::normal();
@@ -1368,14 +1511,20 @@ mod tests {
         // SEQUENTIAL mode
         let mut result_sequential = SpinResult::new("sequential".into(), grid, 1.0);
         result_sequential.anticipation = AnticipationInfo::from_trigger_positions_with_config(
-            trigger_positions, &antic_config, 5, 1500, AnticipationReason::Scatter,
+            trigger_positions,
+            &antic_config,
+            5,
+            1500,
+            AnticipationReason::Scatter,
         );
 
         let mut timing_sequential = crate::timing::TimestampGenerator::new(config);
-        let stages_sequential = result_sequential.generate_stages_with_config(&mut timing_sequential, &antic_config);
+        let stages_sequential =
+            result_sequential.generate_stages_with_config(&mut timing_sequential, &antic_config);
 
         // Get last reel stop times
-        let parallel_last_stop = stages_parallel.iter()
+        let parallel_last_stop = stages_parallel
+            .iter()
             .filter_map(|s| match &s.stage {
                 Stage::ReelStop { .. } => Some(s.timestamp_ms),
                 _ => None,
@@ -1383,7 +1532,8 @@ mod tests {
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
 
-        let sequential_last_stop = stages_sequential.iter()
+        let sequential_last_stop = stages_sequential
+            .iter()
             .filter_map(|s| match &s.stage {
                 Stage::ReelStop { .. } => Some(s.timestamp_ms),
                 _ => None,
@@ -1399,31 +1549,50 @@ mod tests {
         // This test verifies both modes generate stages correctly
 
         // Count anticipation stages in each mode
-        let parallel_antic_count = stages_parallel.iter()
+        let parallel_antic_count = stages_parallel
+            .iter()
             .filter(|s| matches!(&s.stage, Stage::AnticipationOn { .. }))
             .count();
 
-        let sequential_antic_count = stages_sequential.iter()
+        let sequential_antic_count = stages_sequential
+            .iter()
             .filter(|s| matches!(&s.stage, Stage::AnticipationOn { .. }))
             .count();
 
         // Both should have same number of anticipation events (for reels 2, 3, 4)
-        assert_eq!(parallel_antic_count, 3, "Parallel should have 3 anticipation events");
-        assert_eq!(sequential_antic_count, 3, "Sequential should have 3 anticipation events");
+        assert_eq!(
+            parallel_antic_count, 3,
+            "Parallel should have 3 anticipation events"
+        );
+        assert_eq!(
+            sequential_antic_count, 3,
+            "Sequential should have 3 anticipation events"
+        );
 
         // Sequential mode should have AnticipationTensionLayer with progress 1.0 (parallel doesn't)
-        let sequential_has_progress_100 = stages_sequential.iter().any(|s| matches!(&s.stage,
-            Stage::AnticipationTensionLayer { progress, .. } if *progress >= 0.99
-        ));
+        let sequential_has_progress_100 = stages_sequential.iter().any(|s| {
+            matches!(&s.stage,
+                Stage::AnticipationTensionLayer { progress, .. } if *progress >= 0.99
+            )
+        });
 
-        assert!(sequential_has_progress_100, "Sequential mode should have progress=1.0 stages");
+        assert!(
+            sequential_has_progress_100,
+            "Sequential mode should have progress=1.0 stages"
+        );
 
         println!("\n✅ Sequential vs Parallel comparison:");
         println!("   Parallel last REEL_STOP: {}ms", parallel_last_stop);
         println!("   Sequential last REEL_STOP: {}ms", sequential_last_stop);
         println!("   Parallel anticipation events: {}", parallel_antic_count);
-        println!("   Sequential anticipation events: {}", sequential_antic_count);
-        println!("   Sequential has progress=1.0: {}", sequential_has_progress_100);
+        println!(
+            "   Sequential anticipation events: {}",
+            sequential_antic_count
+        );
+        println!(
+            "   Sequential has progress=1.0: {}",
+            sequential_has_progress_100
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1438,11 +1607,11 @@ mod tests {
         // Setup: 3 scatters (triggers feature) + line win
         // Scatters on reels 0, 2, 4 (Tip B config)
         let grid = vec![
-            vec![100, 7, 7],  // Reel 0: scatter (100) at row 0, HP1 (7) at rows 1-2
-            vec![7, 7, 7],    // Reel 1: HP1 line
-            vec![100, 7, 7],  // Reel 2: scatter (100) at row 0, HP1 (7)
-            vec![7, 7, 7],    // Reel 3: HP1 line
-            vec![100, 7, 7],  // Reel 4: scatter (100) at row 0, HP1 (7)
+            vec![100, 7, 7], // Reel 0: scatter (100) at row 0, HP1 (7) at rows 1-2
+            vec![7, 7, 7],   // Reel 1: HP1 line
+            vec![100, 7, 7], // Reel 2: scatter (100) at row 0, HP1 (7)
+            vec![7, 7, 7],   // Reel 3: HP1 line
+            vec![100, 7, 7], // Reel 4: scatter (100) at row 0, HP1 (7)
         ];
 
         let mut result = SpinResult::new("full-flow-test".into(), grid, 10.0); // bet = 10
@@ -1469,7 +1638,7 @@ mod tests {
         });
 
         result.total_win = 600.0; // 100 (scatter) + 500 (line)
-        result.win_ratio = 60.0;  // 600 / 10 bet
+        result.win_ratio = 60.0; // 600 / 10 bet
         result.big_win_tier = Some(BigWinTier::MegaWin); // 60x = Mega
 
         // Configure anticipation: Tip B on reels 0, 2, 4
@@ -1506,27 +1675,58 @@ mod tests {
         assert!(matches!(&stages[0].stage, Stage::SpinStart { .. }));
 
         // 2. Count all stage types
-        let spin_starts = stages.iter().filter(|s| matches!(&s.stage, Stage::SpinStart { .. })).count();
-        let reel_stops = stages.iter().filter(|s| matches!(&s.stage, Stage::ReelStop { .. })).count();
-        let anticipation_ons = stages.iter().filter(|s| matches!(&s.stage, Stage::AnticipationOn { .. })).count();
-        let anticipation_offs = stages.iter().filter(|s| matches!(&s.stage, Stage::AnticipationOff { .. })).count();
-        let tension_layers = stages.iter().filter(|s| matches!(&s.stage, Stage::AnticipationTensionLayer { .. })).count();
-        let evaluate_wins = stages.iter().filter(|s| matches!(&s.stage, Stage::EvaluateWins)).count();
-        let win_presents = stages.iter().filter(|s| matches!(&s.stage, Stage::WinPresent { .. })).count();
-        let spin_ends = stages.iter().filter(|s| matches!(&s.stage, Stage::SpinEnd { .. })).count();
+        let spin_starts = stages
+            .iter()
+            .filter(|s| matches!(&s.stage, Stage::SpinStart { .. }))
+            .count();
+        let reel_stops = stages
+            .iter()
+            .filter(|s| matches!(&s.stage, Stage::ReelStop { .. }))
+            .count();
+        let anticipation_ons = stages
+            .iter()
+            .filter(|s| matches!(&s.stage, Stage::AnticipationOn { .. }))
+            .count();
+        let anticipation_offs = stages
+            .iter()
+            .filter(|s| matches!(&s.stage, Stage::AnticipationOff { .. }))
+            .count();
+        let tension_layers = stages
+            .iter()
+            .filter(|s| matches!(&s.stage, Stage::AnticipationTensionLayer { .. }))
+            .count();
+        let evaluate_wins = stages
+            .iter()
+            .filter(|s| matches!(&s.stage, Stage::EvaluateWins))
+            .count();
+        let win_presents = stages
+            .iter()
+            .filter(|s| matches!(&s.stage, Stage::WinPresent { .. }))
+            .count();
+        let spin_ends = stages
+            .iter()
+            .filter(|s| matches!(&s.stage, Stage::SpinEnd { .. }))
+            .count();
 
         // 3. Verify stage counts
         assert_eq!(spin_starts, 1, "Should have exactly 1 SPIN_START");
-        assert_eq!(reel_stops, 5, "Should have 5 REEL_STOP events (one per reel)");
+        assert_eq!(
+            reel_stops, 5,
+            "Should have 5 REEL_STOP events (one per reel)"
+        );
         assert!(anticipation_ons > 0, "Should have anticipation events");
-        assert_eq!(anticipation_ons, anticipation_offs, "Anticipation ON/OFF counts should match");
+        assert_eq!(
+            anticipation_ons, anticipation_offs,
+            "Anticipation ON/OFF counts should match"
+        );
         assert!(tension_layers > 0, "Should have tension layer events");
         assert_eq!(evaluate_wins, 1, "Should have exactly 1 EVALUATE_WINS");
         assert!(win_presents > 0, "Should have WIN_PRESENT for winning spin");
         assert_eq!(spin_ends, 1, "Should have exactly 1 SPIN_END");
 
         // 4. Verify timestamp ordering: REEL_STOP < EVALUATE_WINS < WIN_PRESENT
-        let last_reel_stop_ts = stages.iter()
+        let last_reel_stop_ts = stages
+            .iter()
             .filter_map(|s| match &s.stage {
                 Stage::ReelStop { .. } => Some(s.timestamp_ms),
                 _ => None,
@@ -1534,28 +1734,40 @@ mod tests {
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
 
-        let evaluate_ts = stages.iter()
+        let evaluate_ts = stages
+            .iter()
             .find(|s| matches!(&s.stage, Stage::EvaluateWins))
             .map(|s| s.timestamp_ms)
             .unwrap();
 
-        let win_present_ts = stages.iter()
+        let win_present_ts = stages
+            .iter()
             .find(|s| matches!(&s.stage, Stage::WinPresent { .. }))
             .map(|s| s.timestamp_ms)
             .unwrap();
 
-        assert!(last_reel_stop_ts < evaluate_ts,
-            "All REEL_STOP ({}) must be before EVALUATE_WINS ({})", last_reel_stop_ts, evaluate_ts);
-        assert!(evaluate_ts < win_present_ts,
-            "EVALUATE_WINS ({}) must be before WIN_PRESENT ({})", evaluate_ts, win_present_ts);
+        assert!(
+            last_reel_stop_ts < evaluate_ts,
+            "All REEL_STOP ({}) must be before EVALUATE_WINS ({})",
+            last_reel_stop_ts,
+            evaluate_ts
+        );
+        assert!(
+            evaluate_ts < win_present_ts,
+            "EVALUATE_WINS ({}) must be before WIN_PRESENT ({})",
+            evaluate_ts,
+            win_present_ts
+        );
 
         // 5. Verify SPIN_END is last
-        let spin_end_ts = stages.iter()
+        let spin_end_ts = stages
+            .iter()
             .find(|s| matches!(&s.stage, Stage::SpinEnd { .. }))
             .map(|s| s.timestamp_ms)
             .unwrap();
 
-        let max_ts = stages.iter()
+        let max_ts = stages
+            .iter()
             .map(|s| s.timestamp_ms)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
@@ -1565,14 +1777,18 @@ mod tests {
         // 6. Verify all stages are sorted by timestamp
         for i in 1..stages.len() {
             assert!(
-                stages[i].timestamp_ms >= stages[i-1].timestamp_ms,
+                stages[i].timestamp_ms >= stages[i - 1].timestamp_ms,
                 "Stage {} ({}ms) must be >= stage {} ({}ms)",
-                i, stages[i].timestamp_ms, i-1, stages[i-1].timestamp_ms
+                i,
+                stages[i].timestamp_ms,
+                i - 1,
+                stages[i - 1].timestamp_ms
             );
         }
 
         // 7. Verify anticipation reels are correct (from trigger_positions)
-        let antic_reels: Vec<u8> = stages.iter()
+        let antic_reels: Vec<u8> = stages
+            .iter()
             .filter_map(|s| match &s.stage {
                 Stage::AnticipationOn { reel_index, .. } => Some(*reel_index),
                 _ => None,
@@ -1581,10 +1797,18 @@ mod tests {
 
         // With triggers on 0 and 2, anticipation should be on remaining reels
         // Tip A: all reels allowed, so anticipation on 1, 3, 4
-        assert!(antic_reels.contains(&1) || antic_reels.contains(&3) || antic_reels.contains(&4),
-            "Anticipation should be on non-trigger reels");
-        assert!(!antic_reels.contains(&0), "Reel 0 (trigger) should NOT have anticipation");
-        assert!(!antic_reels.contains(&2), "Reel 2 (trigger) should NOT have anticipation");
+        assert!(
+            antic_reels.contains(&1) || antic_reels.contains(&3) || antic_reels.contains(&4),
+            "Anticipation should be on non-trigger reels"
+        );
+        assert!(
+            !antic_reels.contains(&0),
+            "Reel 0 (trigger) should NOT have anticipation"
+        );
+        assert!(
+            !antic_reels.contains(&2),
+            "Reel 2 (trigger) should NOT have anticipation"
+        );
 
         println!("\n✅ Full Spin Flow Integration Test PASSED:");
         println!("   Total stages: {}", stages.len());
@@ -1607,11 +1831,11 @@ mod tests {
 
         // Grid with WILD symbols (ID 10) — these should NOT trigger anticipation
         let grid = vec![
-            vec![10, 1, 1],   // Reel 0: WILD (10)
-            vec![10, 1, 1],   // Reel 1: WILD (10)
-            vec![1, 1, 1],    // Reel 2: regular
-            vec![1, 1, 1],    // Reel 3: regular
-            vec![1, 1, 1],    // Reel 4: regular
+            vec![10, 1, 1], // Reel 0: WILD (10)
+            vec![10, 1, 1], // Reel 1: WILD (10)
+            vec![1, 1, 1],  // Reel 2: regular
+            vec![1, 1, 1],  // Reel 3: regular
+            vec![1, 1, 1],  // Reel 4: regular
         ];
 
         let _result = SpinResult::new("wild-test".into(), grid, 1.0);
@@ -1621,23 +1845,50 @@ mod tests {
         let antic_config = AnticipationConfig::tip_a(100, None); // scatter=100, NO bonus
 
         // Verify wild is NOT in trigger list
-        assert!(!antic_config.is_trigger_symbol(10), "Wild (ID 10) should NOT be a trigger symbol");
-        assert!(antic_config.is_trigger_symbol(100), "Scatter (ID 100) SHOULD be a trigger symbol");
-        assert!(!antic_config.is_trigger_symbol(7), "Random symbol (7) should NOT be a trigger");
+        assert!(
+            !antic_config.is_trigger_symbol(10),
+            "Wild (ID 10) should NOT be a trigger symbol"
+        );
+        assert!(
+            antic_config.is_trigger_symbol(100),
+            "Scatter (ID 100) SHOULD be a trigger symbol"
+        );
+        assert!(
+            !antic_config.is_trigger_symbol(7),
+            "Random symbol (7) should NOT be a trigger"
+        );
 
         // Also test with bonus (ID 11) — bonus IS a trigger, wild is NOT
         let antic_config_with_bonus = AnticipationConfig::tip_a(100, Some(11)); // scatter=100, bonus=11
-        assert!(antic_config_with_bonus.is_trigger_symbol(100), "Scatter should be trigger");
-        assert!(antic_config_with_bonus.is_trigger_symbol(11), "Bonus should be trigger");
-        assert!(!antic_config_with_bonus.is_trigger_symbol(10), "Wild should NOT be trigger");
+        assert!(
+            antic_config_with_bonus.is_trigger_symbol(100),
+            "Scatter should be trigger"
+        );
+        assert!(
+            antic_config_with_bonus.is_trigger_symbol(11),
+            "Bonus should be trigger"
+        );
+        assert!(
+            !antic_config_with_bonus.is_trigger_symbol(10),
+            "Wild should NOT be trigger"
+        );
 
         // The engine (engine.rs) filters grid positions to find ONLY trigger symbols
         // before calling from_trigger_positions_with_config()
         // Wild substitutes for wins but NEVER triggers anticipation
 
         println!("\n✅ Wild symbol exclusion verified:");
-        println!("   Wild (10) is trigger: {}", antic_config.is_trigger_symbol(10));
-        println!("   Scatter (100) is trigger: {}", antic_config.is_trigger_symbol(100));
-        println!("   Bonus (11) with bonus config: {}", antic_config_with_bonus.is_trigger_symbol(11));
+        println!(
+            "   Wild (10) is trigger: {}",
+            antic_config.is_trigger_symbol(10)
+        );
+        println!(
+            "   Scatter (100) is trigger: {}",
+            antic_config.is_trigger_symbol(100)
+        );
+        println!(
+            "   Bonus (11) with bonus config: {}",
+            antic_config_with_bonus.is_trigger_symbol(11)
+        );
     }
 }

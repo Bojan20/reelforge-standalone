@@ -136,12 +136,9 @@ impl FuzzRunner {
         G: Fn(&mut InputGenerator) -> I,
         F: Fn(I) -> R + panic::RefUnwindSafe,
     {
-        let mut generator = InputGenerator::new(
-            self.config.seed,
-            self.config.max_input_size,
-        )
-        .with_edge_cases(self.config.include_edge_cases)
-        .with_boundaries(self.config.include_boundaries);
+        let mut generator = InputGenerator::new(self.config.seed, self.config.max_input_size)
+            .with_edge_cases(self.config.include_edge_cases)
+            .with_boundaries(self.config.include_boundaries);
 
         let mut successes = 0;
         let mut failures = 0;
@@ -196,7 +193,11 @@ impl FuzzRunner {
                     });
 
                     if self.config.verbosity >= 1 {
-                        eprintln!("Panic at iteration {}: {}", iteration, failure_details.last().unwrap().description);
+                        eprintln!(
+                            "Panic at iteration {}: {}",
+                            iteration,
+                            failure_details.last().unwrap().description
+                        );
                     }
                 }
             }
@@ -218,7 +219,12 @@ impl FuzzRunner {
     }
 
     /// Fuzz with output validation
-    pub fn fuzz_with_validation<I, O, F, G, V>(&self, input_gen: G, target: F, validator: V) -> FuzzResult
+    pub fn fuzz_with_validation<I, O, F, G, V>(
+        &self,
+        input_gen: G,
+        target: F,
+        validator: V,
+    ) -> FuzzResult
     where
         I: std::fmt::Debug + Clone,
         O: std::fmt::Debug,
@@ -226,12 +232,9 @@ impl FuzzRunner {
         F: Fn(I) -> O + panic::RefUnwindSafe,
         V: Fn(&I, &O) -> Result<(), String>,
     {
-        let mut generator = InputGenerator::new(
-            self.config.seed,
-            self.config.max_input_size,
-        )
-        .with_edge_cases(self.config.include_edge_cases)
-        .with_boundaries(self.config.include_boundaries);
+        let mut generator = InputGenerator::new(self.config.seed, self.config.max_input_size)
+            .with_edge_cases(self.config.include_edge_cases)
+            .with_boundaries(self.config.include_boundaries);
 
         let mut successes = 0;
         let mut failures = 0;
@@ -252,9 +255,7 @@ impl FuzzRunner {
             let input_str = format!("{:?}", input);
             let input_clone = input.clone();
 
-            let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                target(input)
-            }));
+            let result = panic::catch_unwind(AssertUnwindSafe(|| target(input)));
 
             match result {
                 Ok(output) => {
@@ -370,9 +371,7 @@ mod tests {
 
     #[test]
     fn test_fuzz_catches_panic() {
-        let config = FuzzConfig::minimal()
-            .with_seed(42)
-            .with_iterations(100);
+        let config = FuzzConfig::minimal().with_seed(42).with_iterations(100);
         let runner = FuzzRunner::new(config);
 
         // Function that panics on NaN
@@ -389,9 +388,7 @@ mod tests {
 
     #[test]
     fn test_fuzz_with_validation() {
-        let config = FuzzConfig::minimal()
-            .with_seed(42)
-            .with_iterations(100);
+        let config = FuzzConfig::minimal().with_seed(42).with_iterations(100);
         let runner = FuzzRunner::new(config);
 
         // Clamp function (but handle NaN input - clamp(NaN) = NaN)

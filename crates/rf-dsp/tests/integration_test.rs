@@ -8,8 +8,8 @@
 //! - Phase coherence
 //! - Latency compensation
 
-use rf_dsp::analysis::{PeakMeter, RmsMeter};
 use rf_dsp::LufsMeter; // Now from metering.rs
+use rf_dsp::analysis::{PeakMeter, RmsMeter};
 use rf_dsp::biquad::{BiquadCoeffs, BiquadTDF2};
 use rf_dsp::channel::ChannelStrip;
 use rf_dsp::delay::Delay;

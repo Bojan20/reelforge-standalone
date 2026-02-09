@@ -24,14 +24,16 @@
 //! });
 //! ```
 
+pub mod audio_fuzz;
 pub mod config;
 pub mod generators;
 pub mod harness;
+pub mod json_fuzz;
 pub mod report;
 
 pub use config::FuzzConfig;
 pub use generators::*;
-pub use harness::{FuzzRunner, FuzzResult, FuzzTarget};
+pub use harness::{FuzzResult, FuzzRunner, FuzzTarget};
 pub use report::FuzzReport;
 
 use thiserror::Error;

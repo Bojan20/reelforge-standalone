@@ -39,7 +39,9 @@ fn generate_noise(num_samples: usize, seed: u64) -> Vec<f64> {
     (0..num_samples)
         .map(|_| {
             // Simple LCG for reproducible noise
-            state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             (state as f64 / u64::MAX as f64) * 2.0 - 1.0
         })
         .collect()
@@ -56,7 +58,10 @@ fn calculate_rms(signal: &[f64]) -> f64 {
 
 /// Calculate peak of a signal
 fn calculate_peak(signal: &[f64]) -> f64 {
-    signal.iter().map(|s| s.abs()).fold(0.0_f64, |a, b| a.max(b))
+    signal
+        .iter()
+        .map(|s| s.abs())
+        .fold(0.0_f64, |a, b| a.max(b))
 }
 
 /// Calculate DC offset of a signal
@@ -105,10 +110,18 @@ fn test_biquad_lowpass_impulse_response() {
     let dc_at_end = output[1000..].iter().sum::<f64>() / 24.0;
 
     // Peak should be reasonable
-    assert!(peak > 0.001 && peak < 1.0, "Peak out of expected range: {}", peak);
+    assert!(
+        peak > 0.001 && peak < 1.0,
+        "Peak out of expected range: {}",
+        peak
+    );
 
     // Should settle to near zero
-    assert!(dc_at_end.abs() < 0.001, "Filter didn't settle: {}", dc_at_end);
+    assert!(
+        dc_at_end.abs() < 0.001,
+        "Filter didn't settle: {}",
+        dc_at_end
+    );
 }
 
 #[test]
@@ -137,7 +150,11 @@ fn test_biquad_highpass_dc_rejection() {
 
     // After settling, output should be near zero
     let dc_at_end = output[3000..].iter().sum::<f64>() / 1096.0;
-    assert!(dc_at_end.abs() < 0.01, "Highpass didn't reject DC: {}", dc_at_end);
+    assert!(
+        dc_at_end.abs() < 0.01,
+        "Highpass didn't reject DC: {}",
+        dc_at_end
+    );
 }
 
 #[test]
@@ -170,7 +187,11 @@ fn test_biquad_stability() {
         assert!(
             signal_is_bounded(&output, 100.0),
             "Filter became unstable with coefficients ({}, {}, {}, {}, {})",
-            b0, b1, b2, a1, a2
+            b0,
+            b1,
+            b2,
+            a1,
+            a2
         );
     }
 }
@@ -366,19 +387,35 @@ fn test_stereo_width() {
 
         // Width 0 should be mono (L == R)
         if width == 0.0 {
-            let diff: f64 = out_left.iter().zip(out_right.iter()).map(|(l, r)| (l - r).abs()).sum();
+            let diff: f64 = out_left
+                .iter()
+                .zip(out_right.iter())
+                .map(|(l, r)| (l - r).abs())
+                .sum();
             assert!(diff < 0.0001, "Width 0 should produce mono signal");
         }
 
         // Width 1 should be unchanged
         if width == 1.0 {
-            let left_diff: f64 = left.iter().zip(out_left.iter()).map(|(a, b)| (a - b).abs()).sum();
+            let left_diff: f64 = left
+                .iter()
+                .zip(out_left.iter())
+                .map(|(a, b)| (a - b).abs())
+                .sum();
             assert!(left_diff < 0.0001, "Width 1 should be unchanged");
         }
 
         // Output should be bounded
-        assert!(signal_is_bounded(&out_left, 3.0), "Width {} caused overflow", width);
-        assert!(signal_is_bounded(&out_right, 3.0), "Width {} caused overflow", width);
+        assert!(
+            signal_is_bounded(&out_left, 3.0),
+            "Width {} caused overflow",
+            width
+        );
+        assert!(
+            signal_is_bounded(&out_right, 3.0),
+            "Width {} caused overflow",
+            width
+        );
     }
 }
 
@@ -469,16 +506,7 @@ fn test_denormal_handling() {
 fn test_coefficient_quantization() {
     // Test that coefficients maintain precision
 
-    let coefficients = [
-        0.00001,
-        0.001,
-        0.1,
-        0.5,
-        0.9,
-        0.99,
-        0.999,
-        0.9999,
-    ];
+    let coefficients = [0.00001, 0.001, 0.1, 0.5, 0.9, 0.99, 0.999, 0.9999];
 
     for &coef in &coefficients {
         // Round-trip through f32
@@ -568,6 +596,13 @@ fn test_state_independence() {
         .collect();
 
     // Should be identical
-    let diff: f64 = output1.iter().zip(output2.iter()).map(|(a, b)| (a - b).abs()).sum();
-    assert!(diff < f64::EPSILON * 1024.0, "State-dependent behavior detected");
+    let diff: f64 = output1
+        .iter()
+        .zip(output2.iter())
+        .map(|(a, b)| (a - b).abs())
+        .sum();
+    assert!(
+        diff < f64::EPSILON * 1024.0,
+        "State-dependent behavior detected"
+    );
 }

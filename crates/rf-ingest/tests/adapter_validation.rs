@@ -368,7 +368,10 @@ fn test_payload_paths_default() {
 fn test_payload_paths_custom() {
     let config = create_full_config();
 
-    assert_eq!(config.payload_paths.events_path, Some("$.events".to_string()));
+    assert_eq!(
+        config.payload_paths.events_path,
+        Some("$.events".to_string())
+    );
     assert_eq!(
         config.payload_paths.event_name_path,
         Some("$.type".to_string())
@@ -450,7 +453,11 @@ fn test_ingest_layer_invalid_deserialization() {
 
 #[test]
 fn test_config_with_special_characters() {
-    let mut config = AdapterConfig::new("adapter-with-dashes", "Company Name With Spaces", "Engine/Platform");
+    let mut config = AdapterConfig::new(
+        "adapter-with-dashes",
+        "Company Name With Spaces",
+        "Engine/Platform",
+    );
     config.map_event("event:with:colons", "Stage");
     config.map_event("event.with.dots", "Stage");
 
@@ -481,7 +488,9 @@ fn test_config_with_empty_event_mapping() {
 #[test]
 fn test_config_metadata() {
     let mut config = create_basic_config();
-    config.metadata.insert("custom_key".to_string(), json!("custom_value"));
+    config
+        .metadata
+        .insert("custom_key".to_string(), json!("custom_value"));
     config.metadata.insert("version".to_string(), json!(1));
     config
         .metadata
@@ -502,12 +511,11 @@ fn test_config_metadata() {
 
 #[test]
 fn test_config_builder_pattern() {
-    let config = AdapterConfig::new("builder-test", "Builder Co", "Engine")
-        .tap(|c| {
-            c.map_event("event1", "Stage1");
-            c.map_event("event2", "Stage2");
-            c.layers = vec![IngestLayer::DirectEvent];
-        });
+    let config = AdapterConfig::new("builder-test", "Builder Co", "Engine").tap(|c| {
+        c.map_event("event1", "Stage1");
+        c.map_event("event2", "Stage2");
+        c.layers = vec![IngestLayer::DirectEvent];
+    });
 
     assert_eq!(config.get_stage("event1"), Some("Stage1"));
     assert_eq!(config.get_stage("event2"), Some("Stage2"));

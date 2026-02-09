@@ -82,10 +82,7 @@ impl SymbolWeights {
 
     /// Calculate total weight for a reel
     pub fn total_weight(&self, reel: usize) -> u32 {
-        self.weights
-            .values()
-            .filter_map(|w| w.get(reel))
-            .sum()
+        self.weights.values().filter_map(|w| w.get(reel)).sum()
     }
 }
 
@@ -112,33 +109,33 @@ impl FeatureFrequencies {
     /// Standard frequencies
     pub fn standard() -> Self {
         Self {
-            free_spins: 0.01,   // 1 in 100
-            bonus: 0.005,       // 1 in 200
-            jackpot: 0.0001,    // 1 in 10,000
-            near_miss: 0.15,    // 15%
-            cascade: 0.30,      // 30%
+            free_spins: 0.01, // 1 in 100
+            bonus: 0.005,     // 1 in 200
+            jackpot: 0.0001,  // 1 in 10,000
+            near_miss: 0.15,  // 15%
+            cascade: 0.30,    // 30%
         }
     }
 
     /// High frequency (for testing/studio mode)
     pub fn high_frequency() -> Self {
         Self {
-            free_spins: 0.05,   // 1 in 20
-            bonus: 0.03,        // 1 in 33
-            jackpot: 0.001,     // 1 in 1,000
-            near_miss: 0.25,    // 25%
-            cascade: 0.50,      // 50%
+            free_spins: 0.05, // 1 in 20
+            bonus: 0.03,      // 1 in 33
+            jackpot: 0.001,   // 1 in 1,000
+            near_miss: 0.25,  // 25%
+            cascade: 0.50,    // 50%
         }
     }
 
     /// Low frequency (high volatility)
     pub fn low_frequency() -> Self {
         Self {
-            free_spins: 0.005,  // 1 in 200
-            bonus: 0.002,       // 1 in 500
-            jackpot: 0.00005,   // 1 in 20,000
-            near_miss: 0.20,    // 20%
-            cascade: 0.25,      // 25%
+            free_spins: 0.005, // 1 in 200
+            bonus: 0.002,      // 1 in 500
+            jackpot: 0.00005,  // 1 in 20,000
+            near_miss: 0.20,   // 20%
+            cascade: 0.25,     // 25%
         }
     }
 }

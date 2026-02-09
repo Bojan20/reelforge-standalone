@@ -10,14 +10,14 @@
 //!
 //! This crate defines these universal stages and provides timing resolution.
 
-pub mod stage;
 pub mod event;
-pub mod trace;
-pub mod timing;
+pub mod stage;
 pub mod taxonomy;
+pub mod timing;
+pub mod trace;
 
-pub use stage::*;
 pub use event::*;
-pub use trace::*;
-pub use timing::*;
+pub use stage::*;
 pub use taxonomy::*;
+pub use timing::*;
+pub use trace::*;

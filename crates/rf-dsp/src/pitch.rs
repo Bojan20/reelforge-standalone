@@ -447,9 +447,10 @@ impl PitchDetector {
 
         // Handle last segment
         if let Some((start, end, pitches)) = current_segment
-            && end - start >= min_segment_samples {
-                segments.push(Self::create_segment(segment_id, start, end, &pitches));
-            }
+            && end - start >= min_segment_samples
+        {
+            segments.push(Self::create_segment(segment_id, start, end, &pitches));
+        }
 
         segments
     }

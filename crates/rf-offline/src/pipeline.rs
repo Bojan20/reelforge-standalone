@@ -9,8 +9,8 @@
 //! 6. Write to disk
 
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use parking_lot::RwLock;
 use rayon::prelude::*;
@@ -60,8 +60,8 @@ impl Default for PipelineState {
 pub struct PipelineProgress {
     pub state: PipelineState,
     pub current_stage: String,
-    pub stage_progress: f64,    // 0.0 - 1.0 within current stage
-    pub overall_progress: f64,  // 0.0 - 1.0 total
+    pub stage_progress: f64,   // 0.0 - 1.0 within current stage
+    pub overall_progress: f64, // 0.0 - 1.0 total
     pub samples_processed: u64,
     pub total_samples: u64,
     pub elapsed_ms: u64,
@@ -228,10 +228,7 @@ impl AudioBuffer {
 
     /// Get peak level (linear)
     pub fn peak(&self) -> f64 {
-        self.samples
-            .iter()
-            .map(|s| s.abs())
-            .fold(0.0, f64::max)
+        self.samples.iter().map(|s| s.abs()).fold(0.0, f64::max)
     }
 
     /// Get peak level (dB)
@@ -339,7 +336,8 @@ impl OfflinePipeline {
             PipelineState::Failed | PipelineState::Cancelled => 0.0,
         };
 
-        let elapsed_ms = self.start_time
+        let elapsed_ms = self
+            .start_time
             .map(|t| t.elapsed().as_millis() as u64)
             .unwrap_or(0);
 
@@ -385,7 +383,8 @@ impl OfflinePipeline {
             ));
         }
 
-        self.total_samples.store(buffer.samples.len() as u64, Ordering::Relaxed);
+        self.total_samples
+            .store(buffer.samples.len() as u64, Ordering::Relaxed);
 
         // Step 2: Analyze if normalizing
         if self.normalization.is_some() {
@@ -464,14 +463,19 @@ impl OfflinePipeline {
             self.processors.process(chunk, buffer.sample_rate);
 
             processed += chunk.len();
-            self.samples_processed.store(processed as u64, Ordering::Relaxed);
+            self.samples_processed
+                .store(processed as u64, Ordering::Relaxed);
         }
 
         Ok(())
     }
 
     /// Normalize buffer
-    fn normalize_buffer(&self, buffer: &mut AudioBuffer, mode: NormalizationMode) -> OfflineResult<()> {
+    fn normalize_buffer(
+        &self,
+        buffer: &mut AudioBuffer,
+        mode: NormalizationMode,
+    ) -> OfflineResult<()> {
         match mode {
             NormalizationMode::Peak { target_db } => {
                 let current_peak = buffer.peak_db();
@@ -532,7 +536,11 @@ impl OfflinePipeline {
     }
 
     /// Convert sample rate
-    fn convert_sample_rate(&self, buffer: AudioBuffer, target_rate: u32) -> OfflineResult<AudioBuffer> {
+    fn convert_sample_rate(
+        &self,
+        buffer: AudioBuffer,
+        target_rate: u32,
+    ) -> OfflineResult<AudioBuffer> {
         if buffer.sample_rate == target_rate {
             return Ok(buffer);
         }
@@ -657,11 +665,9 @@ impl BatchProcessor {
 
                     match pipeline.process_job(job) {
                         Ok(result) => result,
-                        Err(e) => JobResult::failure(
-                            job.id,
-                            e.to_string(),
-                            std::time::Duration::ZERO,
-                        ),
+                        Err(e) => {
+                            JobResult::failure(job.id, e.to_string(), std::time::Duration::ZERO)
+                        }
                     }
                 })
                 .collect()

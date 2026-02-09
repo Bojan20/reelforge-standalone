@@ -171,7 +171,8 @@ impl StageAudioEngine {
             for cue in matching_cues.iter().filter(|c| c.enabled) {
                 // Check index match if specified - skip if mismatch
                 if cue.stage_index.is_some_and(|required_idx| {
-                    self.get_stage_index(event).is_some_and(|idx| idx != required_idx)
+                    self.get_stage_index(event)
+                        .is_some_and(|idx| idx != required_idx)
                 }) {
                     continue;
                 }
@@ -314,7 +315,8 @@ impl StageAudioEngine {
         // Sync position from playback engine
         let samples = self.playback.position.samples();
         let ms = self.samples_to_ms(samples);
-        self.preview_position_ms.store(ms.to_bits(), Ordering::Relaxed);
+        self.preview_position_ms
+            .store(ms.to_bits(), Ordering::Relaxed);
 
         // Check for stage transitions and trigger cues
         let events = self.current_events();

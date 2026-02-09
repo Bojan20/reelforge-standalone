@@ -298,7 +298,8 @@ impl InsertSlot {
 
         if let Some(ref mut processor) = self.processor {
             // P10.0.1: Update input metering BEFORE processing
-            self.metering.update_from_buffers(&left[..len], &right[..len]);
+            self.metering
+                .update_from_buffers(&left[..len], &right[..len]);
 
             // Store dry signal in pre-allocated buffers (always needed for fade)
             self.dry_buffer_l[..len].copy_from_slice(&left[..len]);
@@ -328,7 +329,8 @@ impl InsertSlot {
             }
 
             // P10.0.1: Update output metering AFTER processing + mixing
-            self.metering.update_output_levels(&left[..len], &right[..len]);
+            self.metering
+                .update_output_levels(&left[..len], &right[..len]);
             self.metering.calculate_gain_reduction();
         }
     }
@@ -718,7 +720,11 @@ mod tests {
         slot.process(&mut left, &mut right);
 
         // Should be unchanged when fully bypassed (bypass_gain ≈ 0)
-        assert!((left[0] - 1.0).abs() < 0.01, "Expected ~1.0, got {}", left[0]);
+        assert!(
+            (left[0] - 1.0).abs() < 0.01,
+            "Expected ~1.0, got {}",
+            left[0]
+        );
     }
 
     #[test]
@@ -765,6 +771,10 @@ mod tests {
         slot.process(&mut left, &mut right);
 
         // 50% of 1.0 (dry) + 50% of 0.0 (wet) = 0.5
-        assert!((left[3] - 0.5).abs() < 0.01, "Expected ~0.5, got {}", left[3]);
+        assert!(
+            (left[3] - 0.5).abs() < 0.01,
+            "Expected ~0.5, got {}",
+            left[3]
+        );
     }
 }

@@ -50,7 +50,6 @@ pub enum ComparisonOp {
     IsFalse,
 }
 
-
 /// Simple condition (signal comparison)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimpleCondition {
@@ -243,14 +242,13 @@ impl Condition {
                 CompoundType::Or => conditions
                     .iter()
                     .any(|c| c.evaluate(signals, prev_signals, held_states, current_time_ms)),
-                CompoundType::Not => {
-                    !conditions
-                        .first()
-                        .is_some_and(|c| c.evaluate(signals, prev_signals, held_states, current_time_ms))
-                }
+                CompoundType::Not => !conditions.first().is_some_and(|c| {
+                    c.evaluate(signals, prev_signals, held_states, current_time_ms)
+                }),
                 CompoundType::HeldFor => {
                     if let Some(first) = conditions.first() {
-                        let is_true = first.evaluate(signals, prev_signals, held_states, current_time_ms);
+                        let is_true =
+                            first.evaluate(signals, prev_signals, held_states, current_time_ms);
                         let duration = duration_ms.unwrap_or(0);
                         held_states.check_held_for(self, is_true, duration, current_time_ms)
                     } else {
@@ -340,7 +338,6 @@ pub enum ActionType {
     /// Momentary pulse to level then return
     Pulse,
 }
-
 
 /// Rule action
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -731,7 +728,11 @@ mod tests {
     fn test_compound_condition_or() {
         let cond = Condition::or(vec![
             Condition::Simple(SimpleCondition::new("winTier", ComparisonOp::Gte, 4.0)),
-            Condition::Simple(SimpleCondition::new("consecutiveWins", ComparisonOp::Gte, 3.0)),
+            Condition::Simple(SimpleCondition::new(
+                "consecutiveWins",
+                ComparisonOp::Gte,
+                3.0,
+            )),
         ]);
 
         let mut signals = MetricSignals::new();

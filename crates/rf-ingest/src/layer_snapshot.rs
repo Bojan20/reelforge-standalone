@@ -372,10 +372,7 @@ mod tests {
         assert_eq!(diff.stages.len(), 1);
         assert!(matches!(
             diff.stages[0].stage,
-            Stage::ReelStop {
-                reel_index: 0,
-                ..
-            }
+            Stage::ReelStop { reel_index: 0, .. }
         ));
     }
 }

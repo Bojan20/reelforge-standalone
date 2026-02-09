@@ -13,10 +13,7 @@ pub fn parse_with_config(json: &Value, config: &AdapterConfig) -> Result<StageTr
     let game_id = extract_string(json, "game_id").unwrap_or_else(|| "unknown".to_string());
     let spin_id = extract_string(json, "spin_id");
 
-    let mut trace = StageTrace::new(
-        spin_id.clone().unwrap_or_else(uuid_simple),
-        game_id,
-    );
+    let mut trace = StageTrace::new(spin_id.clone().unwrap_or_else(uuid_simple), game_id);
 
     if let Some(sid) = spin_id {
         trace = trace.with_spin(sid);
@@ -161,19 +158,19 @@ fn extract_payload(event: &Value, config: &AdapterConfig) -> StagePayload {
     }
 
     // Symbol ID
-    payload.symbol_id = extract_number(event, &["symbol", "symbol_id", "symbolId"])
-        .map(|n| n as u32);
+    payload.symbol_id =
+        extract_number(event, &["symbol", "symbol_id", "symbolId"]).map(|n| n as u32);
 
     // Symbol name
-    payload.symbol_name = extract_string(event, "symbol_name")
-        .or_else(|| extract_string(event, "symbolName"));
+    payload.symbol_name =
+        extract_string(event, "symbol_name").or_else(|| extract_string(event, "symbolName"));
 
     // Multiplier
     payload.multiplier = extract_number(event, &["multiplier", "mult", "x"]);
 
     // Spins remaining
-    payload.spins_remaining = extract_number(event, &["spins_remaining", "remaining", "spins_left"])
-        .map(|n| n as u32);
+    payload.spins_remaining =
+        extract_number(event, &["spins_remaining", "remaining", "spins_left"]).map(|n| n as u32);
 
     payload
 }
@@ -397,9 +394,7 @@ fn extract_param_string<'a>(stage_str: &'a str, _param: &str) -> Option<&'a str>
     if let Some(start) = stage_str.find(&pattern) {
         let value_start = start + pattern.len();
         let rest = &stage_str[value_start..];
-        let end = rest
-            .find([',', '}', ' '])
-            .unwrap_or(rest.len());
+        let end = rest.find([',', '}', ' ']).unwrap_or(rest.len());
         Some(&rest[..end])
     } else {
         None

@@ -268,10 +268,9 @@ impl ClickTrack {
         }
 
         // Check for regular beat
-        if tick.is_multiple_of(ticks_per_beat)
-            && self.pattern != ClickPattern::DownbeatOnly {
-                return Some((false, false));
-            }
+        if tick.is_multiple_of(ticks_per_beat) && self.pattern != ClickPattern::DownbeatOnly {
+            return Some((false, false));
+        }
 
         // Check for subdivisions
         match self.pattern {

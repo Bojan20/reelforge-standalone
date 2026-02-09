@@ -3,8 +3,8 @@
 //! Events are containers for actions that get executed together
 //! when the event is posted.
 
-use serde::{Deserialize, Serialize};
 use crate::action::MiddlewareAction;
+use serde::{Deserialize, Serialize};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EVENT ID GENERATION
@@ -197,7 +197,9 @@ impl MiddlewareEvent {
     /// Sort actions by delay (for execution order)
     pub fn sort_actions_by_delay(&mut self) {
         self.actions.sort_by(|a, b| {
-            a.delay_secs.partial_cmp(&b.delay_secs).unwrap_or(std::cmp::Ordering::Equal)
+            a.delay_secs
+                .partial_cmp(&b.delay_secs)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
     }
 
@@ -205,7 +207,9 @@ impl MiddlewareEvent {
     pub fn actions_by_delay(&self) -> Vec<&MiddlewareAction> {
         let mut sorted: Vec<_> = self.actions.iter().collect();
         sorted.sort_by(|a, b| {
-            a.delay_secs.partial_cmp(&b.delay_secs).unwrap_or(std::cmp::Ordering::Equal)
+            a.delay_secs
+                .partial_cmp(&b.delay_secs)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         sorted
     }
@@ -224,7 +228,8 @@ impl MiddlewareEvent {
 
     /// Get total duration (max delay + max fade)
     pub fn total_duration_secs(&self) -> f32 {
-        self.actions.iter()
+        self.actions
+            .iter()
             .map(|a| a.delay_secs + a.fade_time_secs)
             .fold(0.0, f32::max)
     }
@@ -290,7 +295,10 @@ mod tests {
         assert_eq!(event.id, 1);
         assert_eq!(event.name, "Test_Event");
         assert_eq!(event.category, "SFX");
-        assert_eq!(event.description, Some("Test event description".to_string()));
+        assert_eq!(
+            event.description,
+            Some("Test event description".to_string())
+        );
     }
 
     #[test]
@@ -325,7 +333,11 @@ mod tests {
     fn test_total_duration() {
         let mut event = MiddlewareEvent::new(1, "Test");
 
-        event.add_action(MiddlewareAction::play(100, 0).with_delay(0.5).with_fade(FadeCurve::Linear, 0.2));
+        event.add_action(
+            MiddlewareAction::play(100, 0)
+                .with_delay(0.5)
+                .with_fade(FadeCurve::Linear, 0.2),
+        );
         event.add_action(MiddlewareAction::play(101, 0).with_delay(1.0));
 
         // Max duration = 0.5 + 0.2 = 0.7 or 1.0 + 0.0 = 1.0
@@ -350,7 +362,10 @@ mod tests {
             .with_max_instances(1, MaxInstanceBehavior::DiscardOldest);
 
         assert_eq!(event.max_instances, 1);
-        assert_eq!(event.max_instance_behavior, MaxInstanceBehavior::DiscardOldest);
+        assert_eq!(
+            event.max_instance_behavior,
+            MaxInstanceBehavior::DiscardOldest
+        );
     }
 
     #[test]

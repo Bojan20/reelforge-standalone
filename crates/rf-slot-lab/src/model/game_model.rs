@@ -139,7 +139,9 @@ impl GameModel {
     pub fn validate(&self) -> Result<(), GameModelError> {
         // Check grid
         if self.grid.reels == 0 || self.grid.rows == 0 {
-            return Err(GameModelError::InvalidGrid("Grid must have at least 1 reel and 1 row"));
+            return Err(GameModelError::InvalidGrid(
+                "Grid must have at least 1 reel and 1 row",
+            ));
         }
 
         // Check info
@@ -153,7 +155,9 @@ impl GameModel {
 
         // Check RTP bounds
         if self.info.target_rtp <= 0.0 || self.info.target_rtp > 1.0 {
-            return Err(GameModelError::InvalidInfo("Target RTP must be between 0 and 1"));
+            return Err(GameModelError::InvalidInfo(
+                "Target RTP must be between 0 and 1",
+            ));
         }
 
         // Check math model if math-driven
@@ -180,9 +184,7 @@ pub enum SymbolSetConfig {
     Standard,
 
     /// Custom symbols from GDD
-    Custom {
-        symbols: Vec<SymbolDef>,
-    },
+    Custom { symbols: Vec<SymbolDef> },
 }
 
 impl SymbolSetConfig {
@@ -324,7 +326,11 @@ mod tests {
         assert!(valid.validate().is_ok());
 
         let invalid_grid = GameModel {
-            grid: GridSpec { reels: 0, rows: 3, paylines: 20 },
+            grid: GridSpec {
+                reels: 0,
+                rows: 3,
+                paylines: 20,
+            },
             ..Default::default()
         };
         assert!(invalid_grid.validate().is_err());

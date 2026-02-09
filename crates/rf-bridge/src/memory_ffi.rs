@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::time::{Duration, Instant};
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -102,7 +102,7 @@ pub struct MemoryBudgetConfig {
 impl Default for MemoryBudgetConfig {
     fn default() -> Self {
         Self {
-            max_resident_bytes: 64 * 1024 * 1024, // 64MB
+            max_resident_bytes: 64 * 1024 * 1024,  // 64MB
             max_streaming_bytes: 32 * 1024 * 1024, // 32MB
             warning_threshold: 0.75,
             critical_threshold: 0.90,
@@ -278,7 +278,10 @@ impl MemoryBudgetManager {
     }
 
     fn is_bank_loaded(&self, bank_id: &str) -> bool {
-        self.banks.get(bank_id).map(|b| b.is_loaded).unwrap_or(false)
+        self.banks
+            .get(bank_id)
+            .map(|b| b.is_loaded)
+            .unwrap_or(false)
     }
 
     fn loaded_banks(&self) -> Vec<&SoundBank> {

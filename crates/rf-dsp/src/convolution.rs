@@ -216,10 +216,8 @@ impl ConvolutionChannel {
         let direct_history = vec![0.0; first_size];
 
         // Create overlap buffers per unique partition size
-        let overlap_buffers: Vec<Vec<f64>> = unique_sizes
-            .iter()
-            .map(|&size| vec![0.0; size])
-            .collect();
+        let overlap_buffers: Vec<Vec<f64>> =
+            unique_sizes.iter().map(|&size| vec![0.0; size]).collect();
 
         Self {
             partitions,
@@ -288,7 +286,8 @@ impl ConvolutionChannel {
             let partition_size = partition.size;
 
             // Find which unique size this partition belongs to
-            let size_idx = self.unique_sizes
+            let size_idx = self
+                .unique_sizes
                 .iter()
                 .position(|&s| s == partition_size)
                 .unwrap_or(0);
@@ -297,7 +296,7 @@ impl ConvolutionChannel {
             // Larger partitions are triggered less frequently (non-uniform scheduling)
             let trigger_interval = partition_size / block_size;
             if !self.block_counter.is_multiple_of(trigger_interval) {
-                continue;  // Skip this partition this block
+                continue; // Skip this partition this block
             }
 
             let fft_size = partition_size * 2;

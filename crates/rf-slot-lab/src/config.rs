@@ -174,11 +174,16 @@ impl VolatilityProfile {
         Self {
             name: format!("Custom ({:.0}%)", t * 100.0),
             hit_rate: low.hit_rate + (high.hit_rate - low.hit_rate) * t,
-            big_win_frequency: low.big_win_frequency + (high.big_win_frequency - low.big_win_frequency) * t,
-            feature_frequency: low.feature_frequency + (high.feature_frequency - low.feature_frequency) * t,
-            jackpot_frequency: low.jackpot_frequency + (high.jackpot_frequency - low.jackpot_frequency) * t,
-            near_miss_frequency: low.near_miss_frequency + (high.near_miss_frequency - low.near_miss_frequency) * t,
-            cascade_probability: low.cascade_probability + (high.cascade_probability - low.cascade_probability) * t,
+            big_win_frequency: low.big_win_frequency
+                + (high.big_win_frequency - low.big_win_frequency) * t,
+            feature_frequency: low.feature_frequency
+                + (high.feature_frequency - low.feature_frequency) * t,
+            jackpot_frequency: low.jackpot_frequency
+                + (high.jackpot_frequency - low.jackpot_frequency) * t,
+            near_miss_frequency: low.near_miss_frequency
+                + (high.near_miss_frequency - low.near_miss_frequency) * t,
+            cascade_probability: low.cascade_probability
+                + (high.cascade_probability - low.cascade_probability) * t,
             win_tier_thresholds: low.win_tier_thresholds.clone(),
         }
     }
@@ -460,7 +465,8 @@ impl AnticipationConfig {
     pub fn effective_allowed_reels(&self, total_reels: u8) -> Vec<u8> {
         match &self.allowed_reels {
             None => (0..total_reels).collect(),
-            Some(allowed) => allowed.iter()
+            Some(allowed) => allowed
+                .iter()
                 .filter(|&&r| r < total_reels)
                 .copied()
                 .collect(),
@@ -800,15 +806,13 @@ mod tests {
 
     #[test]
     fn test_slot_config_with_anticipation() {
-        let config = SlotConfig::default()
-            .with_tip_a_anticipation(10, Some(11));
+        let config = SlotConfig::default().with_tip_a_anticipation(10, Some(11));
 
         assert!(config.anticipation.is_trigger_symbol(10));
         assert!(config.anticipation.is_trigger_symbol(11));
         assert!(config.anticipation.allowed_reels.is_none());
 
-        let config_b = SlotConfig::default()
-            .with_tip_b_anticipation(10, None);
+        let config_b = SlotConfig::default().with_tip_b_anticipation(10, None);
 
         assert_eq!(config_b.anticipation.allowed_reels, Some(vec![0, 2, 4]));
     }

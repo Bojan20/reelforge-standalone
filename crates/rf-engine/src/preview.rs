@@ -14,8 +14,8 @@
 //! - Automatic cleanup on stop
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -194,7 +194,11 @@ impl RtState {
     fn process_commands(&mut self) {
         while let Ok(cmd) = self.command_rx.pop() {
             match cmd {
-                PreviewCommand::AddVoice { audio, volume, voice_id } => {
+                PreviewCommand::AddVoice {
+                    audio,
+                    volume,
+                    voice_id,
+                } => {
                     // Find first inactive slot
                     if let Some(voice) = self.voices.iter_mut().find(|v| !v.active) {
                         voice.activate(audio, volume, voice_id);

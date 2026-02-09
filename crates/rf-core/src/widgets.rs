@@ -155,14 +155,12 @@ impl KnobState {
 }
 
 /// Slider orientation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum SliderOrientation {
     #[default]
     Horizontal,
     Vertical,
 }
-
 
 /// Slider configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -210,8 +208,7 @@ impl Default for SliderConfig {
 }
 
 /// Button type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ButtonType {
     /// Standard click button
     #[default]
@@ -221,7 +218,6 @@ pub enum ButtonType {
     /// Radio button (mutually exclusive)
     Radio,
 }
-
 
 /// Button configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -263,8 +259,7 @@ pub struct ButtonState {
 }
 
 /// Meter type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum MeterType {
     /// Peak meter
     #[default]
@@ -282,7 +277,6 @@ pub enum MeterType {
     /// LUFS momentary
     LufsMomentary,
 }
-
 
 /// Meter configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -569,18 +563,15 @@ pub mod shortcuts {
 }
 
 /// Layout container direction
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum LayoutDirection {
     #[default]
     Horizontal,
     Vertical,
 }
 
-
 /// Layout alignment
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum LayoutAlign {
     #[default]
     Start,
@@ -591,10 +582,8 @@ pub enum LayoutAlign {
     SpaceAround,
 }
 
-
 /// Widget size hint
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum SizeHint {
     /// Fixed size
     Fixed(f32),
@@ -610,7 +599,6 @@ pub enum SizeHint {
     /// Maximum size
     Max(f32),
 }
-
 
 #[cfg(test)]
 mod tests {

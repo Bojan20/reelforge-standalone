@@ -127,7 +127,8 @@ pub extern "C" fn profiler_stage_end(stage: DspStage) {
         return;
     }
 
-    let elapsed_us = state.stage_start
+    let elapsed_us = state
+        .stage_start
         .map(|start| start.elapsed().as_micros() as u64)
         .unwrap_or(0);
 
@@ -267,7 +268,11 @@ pub extern "C" fn profiler_get_stats(stats_out: *mut DspProfilerStats) {
 #[unsafe(no_mangle)]
 pub extern "C" fn profiler_get_current_load() -> f64 {
     let state = PROFILER.read();
-    state.history.back().map(|s| s.load_percent()).unwrap_or(0.0)
+    state
+        .history
+        .back()
+        .map(|s| s.load_percent())
+        .unwrap_or(0.0)
 }
 
 /// Get load history as JSON array
@@ -275,7 +280,8 @@ pub extern "C" fn profiler_get_current_load() -> f64 {
 pub extern "C" fn profiler_get_load_history_json(count: u32) -> *mut std::ffi::c_char {
     let state = PROFILER.read();
 
-    let history: Vec<f64> = state.history
+    let history: Vec<f64> = state
+        .history
         .iter()
         .rev()
         .take(count as usize)
@@ -343,13 +349,13 @@ mod tests {
         // Record some samples
         for i in 0..10 {
             profiler_record_full_sample(
-                100 + i * 10,  // input
-                200 + i * 10,  // mixing
-                300 + i * 10,  // effects
-                50,            // metering
-                100,           // output
-                512,           // block_size
-                48000,         // sample_rate
+                100 + i * 10, // input
+                200 + i * 10, // mixing
+                300 + i * 10, // effects
+                50,           // metering
+                100,          // output
+                512,          // block_size
+                48000,        // sample_rate
             );
         }
 
@@ -370,6 +376,10 @@ mod tests {
         };
 
         let load = sample.load_percent();
-        assert!(load > 45.0 && load < 55.0, "Load should be ~50%, got {}", load);
+        assert!(
+            load > 45.0 && load < 55.0,
+            "Load should be ~50%, got {}",
+            load
+        );
     }
 }

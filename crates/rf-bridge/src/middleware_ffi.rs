@@ -14,22 +14,44 @@ use once_cell::sync::Lazy;
 use parking_lot::{Mutex, RwLock};
 use rtrb::{Producer, RingBuffer};
 use std::collections::HashMap;
-use std::ffi::{c_char, CStr};
+use std::ffi::{CStr, c_char};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use rf_event::{
-    ActionPriority, ActionScope, ActionType, EventCommand, FadeCurve, MiddlewareAction,
-    MiddlewareEvent, RtpcDefinition, StateGroup, SwitchGroup,
-    // Advanced features
-    DuckingRule, DuckingCurve, DuckingMatrix,
-    BlendChild, BlendContainer, CrossfadeCurve,
-    RandomChild, RandomContainer, RandomMode,
-    SequenceStep, SequenceContainer, SequenceEndBehavior,
-    Stinger, MusicSegment, MusicSystem, MusicSyncPoint, MarkerType,
-    AttenuationCurve, AttenuationType, AttenuationSystem,
-    RtpcCurveShape,
-};
 use rf_event::event::MaxInstanceBehavior;
+use rf_event::{
+    ActionPriority,
+    ActionScope,
+    ActionType,
+    AttenuationCurve,
+    AttenuationSystem,
+    AttenuationType,
+    BlendChild,
+    BlendContainer,
+    CrossfadeCurve,
+    DuckingCurve,
+    DuckingMatrix,
+    // Advanced features
+    DuckingRule,
+    EventCommand,
+    FadeCurve,
+    MarkerType,
+    MiddlewareAction,
+    MiddlewareEvent,
+    MusicSegment,
+    MusicSyncPoint,
+    MusicSystem,
+    RandomChild,
+    RandomContainer,
+    RandomMode,
+    RtpcCurveShape,
+    RtpcDefinition,
+    SequenceContainer,
+    SequenceEndBehavior,
+    SequenceStep,
+    StateGroup,
+    Stinger,
+    SwitchGroup,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE
@@ -45,16 +67,14 @@ static INITIALIZED: AtomicBool = AtomicBool::new(false);
 static NEXT_PLAYING_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Command producer for sending to audio thread
-static COMMAND_TX: Lazy<Mutex<Option<Producer<EventCommand>>>> =
-    Lazy::new(|| Mutex::new(None));
+static COMMAND_TX: Lazy<Mutex<Option<Producer<EventCommand>>>> = Lazy::new(|| Mutex::new(None));
 
 /// Registered events (for lookup and registration)
 static EVENTS: Lazy<RwLock<HashMap<u32, MiddlewareEvent>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// Event name to ID mapping
-static EVENT_NAMES: Lazy<RwLock<HashMap<String, u32>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static EVENT_NAMES: Lazy<RwLock<HashMap<String, u32>>> = Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// State groups
 static STATE_GROUPS: Lazy<RwLock<HashMap<u32, StateGroup>>> =
@@ -69,12 +89,10 @@ static RTPC_DEFS: Lazy<RwLock<HashMap<u32, RtpcDefinition>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// Current state values (for query)
-static CURRENT_STATES: Lazy<RwLock<HashMap<u32, u32>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static CURRENT_STATES: Lazy<RwLock<HashMap<u32, u32>>> = Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// Current RTPC values (for query)
-static CURRENT_RTPCS: Lazy<RwLock<HashMap<u32, f32>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static CURRENT_RTPCS: Lazy<RwLock<HashMap<u32, f32>>> = Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// Active instance count
 static ACTIVE_INSTANCES: AtomicU64 = AtomicU64::new(0);
@@ -105,8 +123,7 @@ static SEQUENCE_CONTAINERS: Lazy<RwLock<HashMap<u32, SequenceContainer>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// Music system
-static MUSIC_SYSTEM: Lazy<RwLock<MusicSystem>> =
-    Lazy::new(|| RwLock::new(MusicSystem::new()));
+static MUSIC_SYSTEM: Lazy<RwLock<MusicSystem>> = Lazy::new(|| RwLock::new(MusicSystem::new()));
 
 /// Attenuation system
 static ATTENUATION_SYSTEM: Lazy<RwLock<AttenuationSystem>> =
@@ -138,7 +155,10 @@ pub extern "C" fn middleware_init() -> *mut std::ffi::c_void {
     let consumer = Box::new(rx);
     let ptr = Box::into_raw(consumer) as *mut std::ffi::c_void;
 
-    log::info!("middleware_init: Event system initialized, consumer ptr={:?}", ptr);
+    log::info!(
+        "middleware_init: Event system initialized, consumer ptr={:?}",
+        ptr
+    );
     ptr
 }
 
@@ -168,7 +188,11 @@ pub extern "C" fn middleware_shutdown() {
 /// Check if middleware is initialized
 #[unsafe(no_mangle)]
 pub extern "C" fn middleware_is_initialized() -> i32 {
-    if INITIALIZED.load(Ordering::Relaxed) { 1 } else { 0 }
+    if INITIALIZED.load(Ordering::Relaxed) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Full reset of ALL global state - used for testing
@@ -345,7 +369,11 @@ pub extern "C" fn middleware_add_action(
     let mut events = EVENTS.write();
     if let Some(event) = events.get_mut(&event_id) {
         event.add_action_auto(action);
-        log::debug!("middleware_add_action: Added {:?} to event {}", action_type, event_id);
+        log::debug!(
+            "middleware_add_action: Added {:?} to event {}",
+            action_type,
+            event_id
+        );
         1
     } else {
         log::error!("middleware_add_action: Event {} not found", event_id);
@@ -399,7 +427,10 @@ pub extern "C" fn middleware_add_action_ex(
         21 => ActionType::Trigger,
         22 => ActionType::PostEvent,
         _ => {
-            log::error!("middleware_add_action_ex: Invalid action type {}", action_type);
+            log::error!(
+                "middleware_add_action_ex: Invalid action type {}",
+                action_type
+            );
             return 0;
         }
     };
@@ -452,7 +483,14 @@ pub extern "C" fn middleware_add_action_ex(
         event.add_action_auto(action);
         log::debug!(
             "middleware_add_action_ex: Added {:?} to event {} (pan={}, gain={}, fadeIn={}ms, fadeOut={}ms, trimStart={}ms, trimEnd={}ms)",
-            action_type, event_id, pan, gain, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms
+            action_type,
+            event_id,
+            pan,
+            gain,
+            fade_in_ms,
+            fade_out_ms,
+            trim_start_ms,
+            trim_end_ms
         );
         1
     } else {
@@ -483,7 +521,11 @@ pub extern "C" fn middleware_post_event(event_id: u32, game_object_id: u64) -> u
     });
 
     if success {
-        log::debug!("middleware_post_event: {} on object {}", event_id, game_object_id);
+        log::debug!(
+            "middleware_post_event: {} on object {}",
+            event_id,
+            game_object_id
+        );
         playing_id
     } else {
         0
@@ -500,9 +542,7 @@ pub extern "C" fn middleware_post_event_by_name(
         return 0;
     }
 
-    let name = unsafe { CStr::from_ptr(event_name) }
-        .to_str()
-        .unwrap_or("");
+    let name = unsafe { CStr::from_ptr(event_name) }.to_str().unwrap_or("");
 
     let event_id = EVENT_NAMES.read().get(name).copied();
 
@@ -531,7 +571,11 @@ pub extern "C" fn middleware_stop_playing_id(playing_id: u64, fade_ms: u32) -> i
 /// Stop all instances of an event
 #[unsafe(no_mangle)]
 pub extern "C" fn middleware_stop_event(event_id: u32, game_object_id: u64, fade_ms: u32) {
-    let game_object = if game_object_id == 0 { None } else { Some(game_object_id) };
+    let game_object = if game_object_id == 0 {
+        None
+    } else {
+        Some(game_object_id)
+    };
 
     push_command(EventCommand::StopEvent {
         event_id,
@@ -575,7 +619,11 @@ pub extern "C" fn middleware_register_state_group(
     STATE_GROUPS.write().insert(group_id, group);
     CURRENT_STATES.write().insert(group_id, default_state);
 
-    log::debug!("middleware_register_state_group: {} '{}'", group_id, name_str);
+    log::debug!(
+        "middleware_register_state_group: {} '{}'",
+        group_id,
+        name_str
+    );
     1
 }
 
@@ -611,7 +659,11 @@ pub extern "C" fn middleware_set_state(group_id: u32, state_id: u32) -> i32 {
 
     // Send command to audio thread
     if push_command(EventCommand::SetState { group_id, state_id }) {
-        log::debug!("middleware_set_state: group {} = state {}", group_id, state_id);
+        log::debug!(
+            "middleware_set_state: group {} = state {}",
+            group_id,
+            state_id
+        );
         1
     } else {
         0
@@ -642,7 +694,11 @@ pub extern "C" fn middleware_register_switch_group(group_id: u32, name: *const c
     let group = SwitchGroup::new(group_id, name_str);
     SWITCH_GROUPS.write().insert(group_id, group);
 
-    log::debug!("middleware_register_switch_group: {} '{}'", group_id, name_str);
+    log::debug!(
+        "middleware_register_switch_group: {} '{}'",
+        group_id,
+        name_str
+    );
     1
 }
 
@@ -672,11 +728,7 @@ pub extern "C" fn middleware_add_switch(
 
 /// Set a switch value on a game object
 #[unsafe(no_mangle)]
-pub extern "C" fn middleware_set_switch(
-    game_object_id: u64,
-    group_id: u32,
-    switch_id: u32,
-) -> i32 {
+pub extern "C" fn middleware_set_switch(game_object_id: u64, group_id: u32, switch_id: u32) -> i32 {
     if push_command(EventCommand::SetSwitch {
         game_object: game_object_id,
         group_id,
@@ -716,7 +768,13 @@ pub extern "C" fn middleware_register_rtpc(
     RTPC_DEFS.write().insert(rtpc_id, rtpc);
     CURRENT_RTPCS.write().insert(rtpc_id, default_value);
 
-    log::debug!("middleware_register_rtpc: {} '{}' [{}, {}]", rtpc_id, name_str, min_value, max_value);
+    log::debug!(
+        "middleware_register_rtpc: {} '{}' [{}, {}]",
+        rtpc_id,
+        name_str,
+        min_value,
+        max_value
+    );
     1
 }
 
@@ -768,7 +826,8 @@ pub extern "C" fn middleware_get_rtpc(rtpc_id: u32) -> f32 {
 /// Reset RTPC to default value
 #[unsafe(no_mangle)]
 pub extern "C" fn middleware_reset_rtpc(rtpc_id: u32, interpolation_ms: u32) -> i32 {
-    let default = RTPC_DEFS.read()
+    let default = RTPC_DEFS
+        .read()
         .get(&rtpc_id)
         .map(|r| r.default)
         .unwrap_or(0.0);
@@ -782,17 +841,20 @@ pub extern "C" fn middleware_reset_rtpc(rtpc_id: u32, interpolation_ms: u32) -> 
 
 /// Register a game object (optional, for debugging)
 #[unsafe(no_mangle)]
-pub extern "C" fn middleware_register_game_object(
-    game_object_id: u64,
-    name: *const c_char,
-) -> i32 {
+pub extern "C" fn middleware_register_game_object(game_object_id: u64, name: *const c_char) -> i32 {
     let name_str = if name.is_null() {
         "Unnamed"
     } else {
-        unsafe { CStr::from_ptr(name) }.to_str().unwrap_or("Unnamed")
+        unsafe { CStr::from_ptr(name) }
+            .to_str()
+            .unwrap_or("Unnamed")
     };
 
-    log::debug!("middleware_register_game_object: {} '{}'", game_object_id, name_str);
+    log::debug!(
+        "middleware_register_game_object: {} '{}'",
+        game_object_id,
+        name_str
+    );
     1
 }
 
@@ -939,7 +1001,12 @@ pub extern "C" fn middleware_add_ducking_rule(
         .with_curve(curve_type);
 
     DUCKING_MATRIX.write().add_rule(rule);
-    log::debug!("middleware_add_ducking_rule: {} ({} → {})", rule_id, source_name, target_name);
+    log::debug!(
+        "middleware_add_ducking_rule: {} ({} → {})",
+        rule_id,
+        source_name,
+        target_name
+    );
     1
 }
 
@@ -1002,11 +1069,16 @@ pub extern "C" fn middleware_create_blend_container(
         _ => CrossfadeCurve::EqualPower,
     };
 
-    let container = BlendContainer::new(container_id, name_str, rtpc_id)
-        .with_crossfade_curve(curve);
+    let container =
+        BlendContainer::new(container_id, name_str, rtpc_id).with_crossfade_curve(curve);
 
     BLEND_CONTAINERS.write().insert(container_id, container);
-    log::debug!("middleware_create_blend_container: {} '{}' (RTPC={})", container_id, name_str, rtpc_id);
+    log::debug!(
+        "middleware_create_blend_container: {} '{}' (RTPC={})",
+        container_id,
+        name_str,
+        rtpc_id
+    );
     1
 }
 
@@ -1028,8 +1100,8 @@ pub extern "C" fn middleware_blend_add_child(
         .to_str()
         .unwrap_or("Unknown");
 
-    let child = BlendChild::new(child_id, name_str, rtpc_start, rtpc_end)
-        .with_crossfade(crossfade_width);
+    let child =
+        BlendChild::new(child_id, name_str, rtpc_start, rtpc_end).with_crossfade(crossfade_width);
 
     let mut containers = BLEND_CONTAINERS.write();
     if let Some(container) = containers.get_mut(&container_id) {
@@ -1055,7 +1127,11 @@ pub extern "C" fn middleware_blend_remove_child(container_id: u32, child_id: u32
 /// Remove blend container
 #[unsafe(no_mangle)]
 pub extern "C" fn middleware_remove_blend_container(container_id: u32) -> i32 {
-    if BLEND_CONTAINERS.write().remove(&container_id).is_some() { 1 } else { 0 }
+    if BLEND_CONTAINERS.write().remove(&container_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get blend container count
@@ -1097,7 +1173,11 @@ pub extern "C" fn middleware_create_random_container(
     container.avoid_repeat_count = avoid_repeat_count;
 
     RANDOM_CONTAINERS.write().insert(container_id, container);
-    log::debug!("middleware_create_random_container: {} '{}'", container_id, name_str);
+    log::debug!(
+        "middleware_create_random_container: {} '{}'",
+        container_id,
+        name_str
+    );
     1
 }
 
@@ -1171,7 +1251,11 @@ pub extern "C" fn middleware_random_set_global_variation(
 /// Remove random container
 #[unsafe(no_mangle)]
 pub extern "C" fn middleware_remove_random_container(container_id: u32) -> i32 {
-    if RANDOM_CONTAINERS.write().remove(&container_id).is_some() { 1 } else { 0 }
+    if RANDOM_CONTAINERS.write().remove(&container_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get random container count
@@ -1213,7 +1297,11 @@ pub extern "C" fn middleware_create_sequence_container(
         .with_speed(speed);
 
     SEQUENCE_CONTAINERS.write().insert(container_id, container);
-    log::debug!("middleware_create_sequence_container: {} '{}'", container_id, name_str);
+    log::debug!(
+        "middleware_create_sequence_container: {} '{}'",
+        container_id,
+        name_str
+    );
     1
 }
 
@@ -1268,7 +1356,11 @@ pub extern "C" fn middleware_sequence_remove_step(container_id: u32, step_index:
 /// Remove sequence container
 #[unsafe(no_mangle)]
 pub extern "C" fn middleware_remove_sequence_container(container_id: u32) -> i32 {
-    if SEQUENCE_CONTAINERS.write().remove(&container_id).is_some() { 1 } else { 0 }
+    if SEQUENCE_CONTAINERS.write().remove(&container_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get sequence container count
@@ -1305,7 +1397,12 @@ pub extern "C" fn middleware_add_music_segment(
         .with_duration(duration_bars);
 
     MUSIC_SYSTEM.write().add_segment(segment);
-    log::debug!("middleware_add_music_segment: {} '{}' ({}BPM)", segment_id, name_str, tempo);
+    log::debug!(
+        "middleware_add_music_segment: {} '{}' ({}BPM)",
+        segment_id,
+        name_str,
+        tempo
+    );
     1
 }
 
@@ -1487,7 +1584,11 @@ pub extern "C" fn middleware_add_attenuation_curve(
         .with_curve_shape(shape);
 
     ATTENUATION_SYSTEM.write().add_curve(curve);
-    log::debug!("middleware_add_attenuation_curve: {} '{}'", curve_id, name_str);
+    log::debug!(
+        "middleware_add_attenuation_curve: {} '{}'",
+        curve_id,
+        name_str
+    );
     1
 }
 
@@ -1514,7 +1615,8 @@ pub extern "C" fn middleware_set_attenuation_curve_enabled(curve_id: u32, enable
 #[unsafe(no_mangle)]
 pub extern "C" fn middleware_evaluate_attenuation_curve(curve_id: u32, input: f32) -> f32 {
     let system = ATTENUATION_SYSTEM.read();
-    system.get_curve(curve_id)
+    system
+        .get_curve(curve_id)
         .map(|c| c.evaluate(input))
         .unwrap_or(0.0)
 }
@@ -1694,7 +1796,9 @@ mod tests {
             // Step 3: Free the leaked consumer
             if !self.consumer_ptr.is_null() {
                 unsafe {
-                    drop(Box::from_raw(self.consumer_ptr as *mut rtrb::Consumer<EventCommand>));
+                    drop(Box::from_raw(
+                        self.consumer_ptr as *mut rtrb::Consumer<EventCommand>,
+                    ));
                 }
             }
             // Step 4: Lock is automatically released when _lock drops
@@ -1749,7 +1853,10 @@ mod tests {
         let group_name = std::ffi::CString::new("GameState").unwrap();
         let state_name = std::ffi::CString::new("Playing").unwrap();
 
-        assert_eq!(middleware_register_state_group(1, group_name.as_ptr(), 0), 1);
+        assert_eq!(
+            middleware_register_state_group(1, group_name.as_ptr(), 0),
+            1
+        );
         assert_eq!(middleware_add_state(1, 1, state_name.as_ptr()), 1);
         assert_eq!(middleware_set_state(1, 1), 1);
         assert_eq!(middleware_get_state(1), 1);
@@ -1761,10 +1868,7 @@ mod tests {
 
         let name = std::ffi::CString::new("Volume").unwrap();
 
-        assert_eq!(
-            middleware_register_rtpc(1, name.as_ptr(), 0.0, 1.0, 0.5),
-            1
-        );
+        assert_eq!(middleware_register_rtpc(1, name.as_ptr(), 0.0, 1.0, 0.5), 1);
         assert_eq!(middleware_set_rtpc(1, 0.75, 0), 1);
         assert!((middleware_get_rtpc(1) - 0.75).abs() < 0.001);
     }

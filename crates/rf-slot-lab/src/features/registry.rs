@@ -296,7 +296,10 @@ mod tests {
     #[test]
     fn test_registry_get() {
         let mut registry = FeatureRegistry::new();
-        registry.register(Box::new(DummyFeature::new("fs", FeatureCategory::FreeSpins)));
+        registry.register(Box::new(DummyFeature::new(
+            "fs",
+            FeatureCategory::FreeSpins,
+        )));
 
         let feature = registry.get(&FeatureId::new("fs"));
         assert!(feature.is_some());
@@ -309,8 +312,14 @@ mod tests {
     #[test]
     fn test_registry_by_category() {
         let mut registry = FeatureRegistry::new();
-        registry.register(Box::new(DummyFeature::new("fs1", FeatureCategory::FreeSpins)));
-        registry.register(Box::new(DummyFeature::new("fs2", FeatureCategory::FreeSpins)));
+        registry.register(Box::new(DummyFeature::new(
+            "fs1",
+            FeatureCategory::FreeSpins,
+        )));
+        registry.register(Box::new(DummyFeature::new(
+            "fs2",
+            FeatureCategory::FreeSpins,
+        )));
         registry.register(Box::new(DummyFeature::new("jp", FeatureCategory::Jackpot)));
 
         let fs_features = registry.list_by_category(FeatureCategory::FreeSpins);

@@ -220,7 +220,9 @@ impl CoverageReport {
         output.push_str("th { background-color: #4a9eff; color: white; }\n");
         output.push_str("tr:nth-child(even) { background-color: #f2f2f2; }\n");
         output.push_str(".pass { color: #40c840; } .fail { color: #ff4040; }\n");
-        output.push_str(".bar { background: #eee; width: 100px; height: 10px; display: inline-block; }\n");
+        output.push_str(
+            ".bar { background: #eee; width: 100px; height: 10px; display: inline-block; }\n",
+        );
         output.push_str(".bar-fill { background: #4a9eff; height: 100%; }\n");
         output.push_str("</style>\n</head>\n<body>\n");
 
@@ -228,7 +230,9 @@ impl CoverageReport {
 
         // Summary
         output.push_str("<h2>Summary</h2>\n");
-        output.push_str("<table>\n<tr><th>Metric</th><th>Covered</th><th>Total</th><th>Percentage</th></tr>\n");
+        output.push_str(
+            "<table>\n<tr><th>Metric</th><th>Covered</th><th>Total</th><th>Percentage</th></tr>\n",
+        );
         output.push_str(&format!(
             "<tr><td>Lines</td><td>{}</td><td>{}</td><td>{:.1}%</td></tr>\n",
             self.data.totals.lines_covered,

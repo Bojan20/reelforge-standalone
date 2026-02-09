@@ -2,8 +2,8 @@
 //
 // Exposed to Flutter via dart:ffi
 
-use std::ffi::c_char;
 use crate::midi_bridge;
+use std::ffi::c_char;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DEVICE ENUMERATION
@@ -26,7 +26,11 @@ pub extern "C" fn midi_scan_output_devices() -> u32 {
 /// Get MIDI input device name
 /// Returns: length of name written, -1 on error
 #[unsafe(no_mangle)]
-pub extern "C" fn midi_get_input_device_name(index: u32, out_name: *mut c_char, max_len: u32) -> i32 {
+pub extern "C" fn midi_get_input_device_name(
+    index: u32,
+    out_name: *mut c_char,
+    max_len: u32,
+) -> i32 {
     if out_name.is_null() || max_len == 0 {
         return -1;
     }
@@ -50,7 +54,11 @@ pub extern "C" fn midi_get_input_device_name(index: u32, out_name: *mut c_char, 
 
 /// Get MIDI output device name
 #[unsafe(no_mangle)]
-pub extern "C" fn midi_get_output_device_name(index: u32, out_name: *mut c_char, max_len: u32) -> i32 {
+pub extern "C" fn midi_get_output_device_name(
+    index: u32,
+    out_name: *mut c_char,
+    max_len: u32,
+) -> i32 {
     if out_name.is_null() || max_len == 0 {
         return -1;
     }
@@ -147,7 +155,11 @@ pub extern "C" fn midi_disconnect_output() {
 /// Check if MIDI output is connected
 #[unsafe(no_mangle)]
 pub extern "C" fn midi_is_output_connected() -> i32 {
-    if midi_bridge::is_output_connected() { 1 } else { 0 }
+    if midi_bridge::is_output_connected() {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -222,7 +234,11 @@ pub extern "C" fn midi_set_thru(enabled: i32) {
 /// Check if MIDI thru is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn midi_is_thru_enabled() -> i32 {
-    if midi_bridge::is_midi_thru_enabled() { 1 } else { 0 }
+    if midi_bridge::is_midi_thru_enabled() {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

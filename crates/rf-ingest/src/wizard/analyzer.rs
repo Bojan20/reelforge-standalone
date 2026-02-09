@@ -78,7 +78,10 @@ fn analyze_value(value: &Value, path: &str, structure: &mut AnalyzedStructure) {
                     .or_insert(1);
 
                 // Track sample values (limit to 5)
-                let samples = structure.field_samples.entry(field_path.clone()).or_default();
+                let samples = structure
+                    .field_samples
+                    .entry(field_path.clone())
+                    .or_default();
                 if samples.len() < 5 && !samples.contains(val) {
                     samples.push(val.clone());
                 }
@@ -126,7 +129,11 @@ pub fn detect_fields(_samples: &[Value], structure: &AnalyzedStructure) -> Vec<D
             .unwrap_or(DetectedType::Mixed);
 
         // Get sample values
-        let sample_values = structure.field_samples.get(path).cloned().unwrap_or_default();
+        let sample_values = structure
+            .field_samples
+            .get(path)
+            .cloned()
+            .unwrap_or_default();
 
         // Guess purpose from field name and values
         let suggested_purpose = guess_field_purpose(path, value_type, &sample_values);
@@ -158,8 +165,10 @@ fn guess_field_purpose(
     let last_part = path.split('.').next_back().unwrap_or(path).to_lowercase();
 
     // Event type fields
-    if matches!(last_part.as_str(), "type" | "event" | "eventtype" | "event_type" | "name" | "action")
-        && value_type == DetectedType::String
+    if matches!(
+        last_part.as_str(),
+        "type" | "event" | "eventtype" | "event_type" | "name" | "action"
+    ) && value_type == DetectedType::String
     {
         return Some(FieldPurpose::EventType);
     }
@@ -174,8 +183,10 @@ fn guess_field_purpose(
     }
 
     // Balance fields
-    if matches!(last_part.as_str(), "balance" | "credits" | "coins" | "money")
-        && value_type == DetectedType::Number
+    if matches!(
+        last_part.as_str(),
+        "balance" | "credits" | "coins" | "money"
+    ) && value_type == DetectedType::Number
     {
         return Some(FieldPurpose::Balance);
     }

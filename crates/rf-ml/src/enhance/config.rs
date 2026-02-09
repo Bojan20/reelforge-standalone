@@ -3,8 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Enhancement mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EnhanceMode {
     /// Real-time mode (minimum latency)
     Realtime,
@@ -16,7 +15,6 @@ pub enum EnhanceMode {
     /// Broadcast mode (optimized for streaming)
     Broadcast,
 }
-
 
 /// Enhancement configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

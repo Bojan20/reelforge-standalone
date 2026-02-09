@@ -496,9 +496,10 @@ impl AudioRecorder {
         if config.capture_pre_roll && *state == RecordingState::Armed {
             let pre_roll_data = self.pre_roll.lock().read_all();
             if !pre_roll_data.is_empty()
-                && let Some(writer) = self.disk_writer.lock().as_mut() {
-                    writer.write_samples(&pre_roll_data)?;
-                }
+                && let Some(writer) = self.disk_writer.lock().as_mut()
+            {
+                writer.write_samples(&pre_roll_data)?;
+            }
         }
 
         // Reset stats
@@ -923,7 +924,11 @@ fn days_to_ymd(days: u64) -> (String, String, String) {
 
     let day = remaining_days + 1; // 1-indexed
 
-    (format!("{:04}", year), format!("{:02}", month), format!("{:02}", day))
+    (
+        format!("{:04}", year),
+        format!("{:02}", month),
+        format!("{:02}", day),
+    )
 }
 
 /// Check if year is a leap year

@@ -44,14 +44,14 @@ pub const BASE_TILE_SAMPLES: usize = 256;
 
 /// Samples per tile at each mip level
 pub const MIP_TILE_SAMPLES: [usize; NUM_MIP_LEVELS] = [
-    256,    // Level 0: finest
-    512,    // Level 1
-    1024,   // Level 2
-    2048,   // Level 3
-    4096,   // Level 4
-    8192,   // Level 5
-    16384,  // Level 6
-    32768,  // Level 7: coarsest
+    256,   // Level 0: finest
+    512,   // Level 1
+    1024,  // Level 2
+    2048,  // Level 3
+    4096,  // Level 4
+    8192,  // Level 5
+    16384, // Level 6
+    32768, // Level 7: coarsest
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -112,17 +112,21 @@ impl WfcHeader {
     /// Validate header
     pub fn validate(&self) -> Result<(), WaveCacheError> {
         if self.magic != WFC_MAGIC {
-            return Err(WaveCacheError::InvalidFormat("Invalid magic number".to_string()));
+            return Err(WaveCacheError::InvalidFormat(
+                "Invalid magic number".to_string(),
+            ));
         }
         if self.version != WFC_VERSION {
-            return Err(WaveCacheError::InvalidFormat(
-                format!("Unsupported version: {}", self.version)
-            ));
+            return Err(WaveCacheError::InvalidFormat(format!(
+                "Unsupported version: {}",
+                self.version
+            )));
         }
         if self.channels == 0 || self.channels > 2 {
-            return Err(WaveCacheError::InvalidFormat(
-                format!("Invalid channel count: {}", self.channels)
-            ));
+            return Err(WaveCacheError::InvalidFormat(format!(
+                "Invalid channel count: {}",
+                self.channels
+            )));
         }
         Ok(())
     }
@@ -152,7 +156,9 @@ impl WfcHeader {
     /// Deserialize header from bytes
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, WaveCacheError> {
         if bytes.len() < 64 {
-            return Err(WaveCacheError::InvalidFormat("Header too short".to_string()));
+            return Err(WaveCacheError::InvalidFormat(
+                "Header too short".to_string(),
+            ));
         }
 
         let mut magic = [0u8; 4];
@@ -163,12 +169,10 @@ impl WfcHeader {
         let flags = bytes[7];
         let sample_rate = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]);
         let total_frames = u64::from_le_bytes([
-            bytes[12], bytes[13], bytes[14], bytes[15],
-            bytes[16], bytes[17], bytes[18], bytes[19],
+            bytes[12], bytes[13], bytes[14], bytes[15], bytes[16], bytes[17], bytes[18], bytes[19],
         ]);
         let duration_secs = f64::from_le_bytes([
-            bytes[20], bytes[21], bytes[22], bytes[23],
-            bytes[24], bytes[25], bytes[26], bytes[27],
+            bytes[20], bytes[21], bytes[22], bytes[23], bytes[24], bytes[25], bytes[26], bytes[27],
         ]);
         let num_base_tiles = u32::from_le_bytes([bytes[28], bytes[29], bytes[30], bytes[31]]);
 
@@ -176,7 +180,10 @@ impl WfcHeader {
         for (i, offset) in mip_offsets.iter_mut().enumerate() {
             let start = 32 + i * 4;
             *offset = u32::from_le_bytes([
-                bytes[start], bytes[start + 1], bytes[start + 2], bytes[start + 3]
+                bytes[start],
+                bytes[start + 1],
+                bytes[start + 2],
+                bytes[start + 3],
             ]);
         }
 
@@ -311,17 +318,14 @@ impl WfcFile {
     pub fn new(channels: u8, sample_rate: u32, total_frames: u64) -> Self {
         let header = WfcHeader::new(channels, sample_rate, total_frames);
 
-        let mip_levels = std::array::from_fn(|i| {
-            MipLevel::new(i, channels as usize)
-        });
+        let mip_levels = std::array::from_fn(|i| MipLevel::new(i, channels as usize));
 
         Self { header, mip_levels }
     }
 
     /// Save to file
     pub fn save(&self, path: &Path) -> Result<(), WaveCacheError> {
-        let file = File::create(path)
-            .map_err(|e| WaveCacheError::IoError(e.to_string()))?;
+        let file = File::create(path).map_err(|e| WaveCacheError::IoError(e.to_string()))?;
         let mut writer = BufWriter::new(file);
 
         // Calculate offsets
@@ -336,20 +340,23 @@ impl WfcFile {
         // Write header with correct offsets
         let mut header = self.header;
         header.mip_offsets = mip_offsets;
-        writer.write_all(&header.to_bytes())
+        writer
+            .write_all(&header.to_bytes())
             .map_err(|e| WaveCacheError::IoError(e.to_string()))?;
 
         // Write mip levels
         for level in &self.mip_levels {
             for channel_tiles in &level.tiles {
                 for tile in channel_tiles {
-                    writer.write_all(&tile.to_bytes())
+                    writer
+                        .write_all(&tile.to_bytes())
                         .map_err(|e| WaveCacheError::IoError(e.to_string()))?;
                 }
             }
         }
 
-        writer.flush()
+        writer
+            .flush()
             .map_err(|e| WaveCacheError::IoError(e.to_string()))?;
 
         Ok(())
@@ -357,13 +364,13 @@ impl WfcFile {
 
     /// Load from file
     pub fn load(path: &Path) -> Result<Self, WaveCacheError> {
-        let file = File::open(path)
-            .map_err(|e| WaveCacheError::IoError(e.to_string()))?;
+        let file = File::open(path).map_err(|e| WaveCacheError::IoError(e.to_string()))?;
         let mut reader = BufReader::new(file);
 
         // Read header
         let mut header_bytes = [0u8; 64];
-        reader.read_exact(&mut header_bytes)
+        reader
+            .read_exact(&mut header_bytes)
             .map_err(|e| WaveCacheError::IoError(e.to_string()))?;
 
         let header = WfcHeader::from_bytes(&header_bytes)?;
@@ -418,9 +425,7 @@ impl WfcFile {
     /// Get total memory usage
     pub fn memory_usage(&self) -> usize {
         let header_size = std::mem::size_of::<WfcHeader>();
-        let level_size: usize = self.mip_levels.iter()
-            .map(|l| l.byte_size())
-            .sum();
+        let level_size: usize = self.mip_levels.iter().map(|l| l.byte_size()).sum();
         header_size + level_size
     }
 }
@@ -442,17 +447,17 @@ pub struct WfcFileMmap {
 impl WfcFileMmap {
     /// Open .wfc file with memory mapping
     pub fn open(path: &Path) -> Result<Self, WaveCacheError> {
-        let file = File::open(path)
-            .map_err(|e| WaveCacheError::IoError(e.to_string()))?;
+        let file = File::open(path).map_err(|e| WaveCacheError::IoError(e.to_string()))?;
 
         // Safety: The file must exist and be valid
         let mmap = unsafe {
-            Mmap::map(&file)
-                .map_err(|e| WaveCacheError::IoError(format!("mmap failed: {}", e)))?
+            Mmap::map(&file).map_err(|e| WaveCacheError::IoError(format!("mmap failed: {}", e)))?
         };
 
         if mmap.len() < 64 {
-            return Err(WaveCacheError::InvalidFormat("File too small for header".to_string()));
+            return Err(WaveCacheError::InvalidFormat(
+                "File too small for header".to_string(),
+            ));
         }
 
         // Parse header from mmap
@@ -483,9 +488,7 @@ impl WfcFileMmap {
             return None;
         }
 
-        let bytes: [u8; 8] = self.mmap[tile_offset..tile_offset + 8]
-            .try_into()
-            .ok()?;
+        let bytes: [u8; 8] = self.mmap[tile_offset..tile_offset + 8].try_into().ok()?;
 
         Some(TileData::from_bytes(&bytes))
     }
@@ -594,11 +597,19 @@ mod tests {
 
         // High zoom (many pixels per second) -> fine mip level
         let level_high = wfc.select_mip_level(10000.0, 48000);
-        assert!(level_high <= 2, "High zoom should use fine level, got {}", level_high);
+        assert!(
+            level_high <= 2,
+            "High zoom should use fine level, got {}",
+            level_high
+        );
 
         // Low zoom (few pixels per second) -> coarse mip level
         let level_low = wfc.select_mip_level(10.0, 48000);
-        assert!(level_low >= 4, "Low zoom should use coarse level, got {}", level_low);
+        assert!(
+            level_low >= 4,
+            "Low zoom should use coarse level, got {}",
+            level_low
+        );
     }
 
     #[test]

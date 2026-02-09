@@ -164,7 +164,11 @@ impl FeatureChapter for HoldAndWinChapter {
         self.state.is_active = snapshot.is_active;
         self.state.total_respins = snapshot.current_step as u8;
         self.state.total_value = snapshot.accumulated_win;
-        if let Some(remaining) = snapshot.data.get("remaining_respins").and_then(|v| v.as_u64()) {
+        if let Some(remaining) = snapshot
+            .data
+            .get("remaining_respins")
+            .and_then(|v| v.as_u64())
+        {
             self.state.remaining_respins = remaining as u8;
         }
         Ok(())
@@ -209,8 +213,7 @@ impl FeatureChapter for HoldAndWinChapter {
             self.state.remaining_respins = self.state.remaining_respins.saturating_sub(1);
         }
 
-        let feature_ends =
-            self.state.remaining_respins == 0 || self.fill_percentage() >= 1.0;
+        let feature_ends = self.state.remaining_respins == 0 || self.fill_percentage() >= 1.0;
 
         if feature_ends {
             FeatureResult::complete(self.state.total_value)
@@ -268,7 +271,12 @@ impl FeatureChapter for HoldAndWinChapter {
     }
 
     fn stage_types(&self) -> Vec<&'static str> {
-        vec!["FEATURE_ENTER", "HOLD_SYMBOL_LAND", "RESPIN", "FEATURE_EXIT"]
+        vec![
+            "FEATURE_ENTER",
+            "HOLD_SYMBOL_LAND",
+            "RESPIN",
+            "FEATURE_EXIT",
+        ]
     }
 
     fn info(&self) -> FeatureInfo {

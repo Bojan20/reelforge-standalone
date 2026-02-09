@@ -191,7 +191,8 @@ pub extern "C" fn time_stretch_match_duration(
     }
 
     // Validate target duration
-    if target_duration_ms <= 0.0 || target_duration_ms.is_nan() || target_duration_ms.is_infinite() {
+    if target_duration_ms <= 0.0 || target_duration_ms.is_nan() || target_duration_ms.is_infinite()
+    {
         return ptr::null_mut();
     }
 
@@ -362,9 +363,7 @@ mod tests {
         assert!(handle > 0);
 
         // Create test input
-        let input: Vec<f64> = (0..4410)
-            .map(|i| (i as f64 * 0.01).sin())
-            .collect();
+        let input: Vec<f64> = (0..4410).map(|i| (i as f64 * 0.01).sin()).collect();
 
         let mut out_len: usize = 0;
         let output_ptr = time_stretch_process(
@@ -391,9 +390,7 @@ mod tests {
         assert!(handle > 0);
 
         // Create 1 second of audio at 44.1kHz
-        let input: Vec<f64> = (0..44100)
-            .map(|i| (i as f64 * 0.01).sin())
-            .collect();
+        let input: Vec<f64> = (0..44100).map(|i| (i as f64 * 0.01).sin()).collect();
 
         let mut out_len: usize = 0;
         let output_ptr = time_stretch_match_duration(

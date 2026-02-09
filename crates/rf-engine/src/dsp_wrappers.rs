@@ -9,8 +9,8 @@ use rf_dsp::delay_compensation::LatencySamples;
 use rf_dsp::eq_room::RoomCorrectionEq;
 use rf_dsp::linear_phase::{LinearPhaseBand, LinearPhaseEQ, LinearPhaseFilterType};
 use rf_dsp::{
-    FilterShape, OversampleMode, ProEq, Processor, ProcessorConfig,
-    StereoApi550, StereoNeve1073, StereoProcessor, StereoPultec, UltraEq, UltraFilterType,
+    FilterShape, OversampleMode, ProEq, Processor, ProcessorConfig, StereoApi550, StereoNeve1073,
+    StereoProcessor, StereoPultec, UltraEq, UltraFilterType,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -166,7 +166,13 @@ impl InsertProcessor for ProEqWrapper {
                     }
                     4 => band.shape as u8 as f64,
                     // Dynamic EQ params
-                    5 => if band.dynamic.enabled { 1.0 } else { 0.0 },
+                    5 => {
+                        if band.dynamic.enabled {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    }
                     6 => band.dynamic.threshold_db,
                     7 => band.dynamic.ratio,
                     8 => band.dynamic.attack_ms,
@@ -199,11 +205,23 @@ impl InsertProcessor for ProEqWrapper {
                 };
 
                 match param_idx {
-                    0 => self.eq.set_band(band_idx, value.clamp(10.0, 30000.0), gain, q, shape),
-                    1 => self.eq.set_band(band_idx, freq, value.clamp(-30.0, 30.0), q, shape),
-                    2 => self.eq.set_band(band_idx, freq, gain, value.clamp(0.05, 50.0), shape),
+                    0 => self
+                        .eq
+                        .set_band(band_idx, value.clamp(10.0, 30000.0), gain, q, shape),
+                    1 => self
+                        .eq
+                        .set_band(band_idx, freq, value.clamp(-30.0, 30.0), q, shape),
+                    2 => self
+                        .eq
+                        .set_band(band_idx, freq, gain, value.clamp(0.05, 50.0), shape),
                     3 => self.eq.enable_band(band_idx, value > 0.5),
-                    4 => self.eq.set_band(band_idx, freq, gain, q, FilterShape::from_index(value as usize)),
+                    4 => self.eq.set_band(
+                        band_idx,
+                        freq,
+                        gain,
+                        q,
+                        FilterShape::from_index(value as usize),
+                    ),
                     _ => {}
                 }
             } else {
@@ -269,10 +287,11 @@ impl UltraEqWrapper {
         // Find free band
         for i in 0..rf_dsp::ULTRA_MAX_BANDS {
             if let Some(band) = self.eq.band(i)
-                && !band.enabled {
-                    self.eq.set_band(i, freq, gain, q, filter_type);
-                    return Some(i);
-                }
+                && !band.enabled
+            {
+                self.eq.set_band(i, freq, gain, q, filter_type);
+                return Some(i);
+            }
         }
         None
     }
@@ -661,7 +680,6 @@ impl InsertProcessor for Neve1073Wrapper {
     }
 }
 
-
 // ============ Room Correction Wrapper ============
 
 /// Room correction EQ wrapper
@@ -747,7 +765,9 @@ impl InsertProcessor for RoomCorrectionWrapper {
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
-        if index == 0 { self.eq.enabled = value > 0.5 }
+        if index == 0 {
+            self.eq.enabled = value > 0.5
+        }
     }
 
     fn param_name(&self, index: usize) -> &str {
@@ -779,7 +799,8 @@ pub fn create_processor(name: &str, sample_rate: f64) -> Option<Box<dyn InsertPr
 
 use rf_dsp::MonoProcessor;
 use rf_dsp::dynamics::{
-    CompressorType, DeEsser, DeEsserMode, Expander, Gate, Oversampling, StereoCompressor, TruePeakLimiter,
+    CompressorType, DeEsser, DeEsserMode, Expander, Gate, Oversampling, StereoCompressor,
+    TruePeakLimiter,
 };
 
 /// Compressor wrapper for insert chain
@@ -1278,8 +1299,20 @@ impl InsertProcessor for DeEsserWrapper {
             4 => self.deesser.mode() as u8 as f64,
             5 => self.deesser.attack(),
             6 => self.deesser.release(),
-            7 => if self.deesser.listen() { 1.0 } else { 0.0 },
-            8 => if self.deesser.bypassed() { 1.0 } else { 0.0 },
+            7 => {
+                if self.deesser.listen() {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+            8 => {
+                if self.deesser.bypassed() {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
             _ => 0.0,
         }
     }
@@ -1339,7 +1372,13 @@ impl LinearPhaseEqWrapper {
     }
 
     /// Add a band
-    pub fn add_band(&mut self, freq: f64, gain_db: f64, q: f64, filter_type: LinearPhaseFilterType) {
+    pub fn add_band(
+        &mut self,
+        freq: f64,
+        gain_db: f64,
+        q: f64,
+        filter_type: LinearPhaseFilterType,
+    ) {
         let band = match filter_type {
             LinearPhaseFilterType::Bell => LinearPhaseBand::bell(freq, gain_db, q),
             LinearPhaseFilterType::LowShelf => LinearPhaseBand::low_shelf(freq, gain_db, q),

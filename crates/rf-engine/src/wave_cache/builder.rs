@@ -9,8 +9,8 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering};
 
-use super::format::{WfcFile, MipLevel, TileData, MIP_TILE_SAMPLES, NUM_MIP_LEVELS};
 use super::WaveCacheError;
+use super::format::{MIP_TILE_SAMPLES, MipLevel, NUM_MIP_LEVELS, TileData, WfcFile};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BUILD STATE
@@ -176,18 +176,21 @@ impl WaveCacheBuilder {
     /// Call this from a background thread
     pub fn build(&self) -> Result<(), WaveCacheError> {
         // Set state to reading
-        self.state.store(BuildState::Reading as u8, Ordering::Relaxed);
+        self.state
+            .store(BuildState::Reading as u8, Ordering::Relaxed);
 
         // Load audio data
         let audio_data = self.load_audio()?;
 
         if self.cancelled.load(Ordering::Relaxed) {
-            self.state.store(BuildState::Cancelled as u8, Ordering::Relaxed);
+            self.state
+                .store(BuildState::Cancelled as u8, Ordering::Relaxed);
             return Ok(());
         }
 
         // Build mip levels
-        self.state.store(BuildState::BuildingMips as u8, Ordering::Relaxed);
+        self.state
+            .store(BuildState::BuildingMips as u8, Ordering::Relaxed);
 
         let mut wfc = WfcFile::new(self.channels, self.sample_rate, self.total_frames);
 
@@ -195,7 +198,8 @@ impl WaveCacheBuilder {
         // This allows preview to start with coarse level immediately
         for level in (0..NUM_MIP_LEVELS).rev() {
             if self.cancelled.load(Ordering::Relaxed) {
-                self.state.store(BuildState::Cancelled as u8, Ordering::Relaxed);
+                self.state
+                    .store(BuildState::Cancelled as u8, Ordering::Relaxed);
                 return Ok(());
             }
 
@@ -211,15 +215,18 @@ impl WaveCacheBuilder {
             // Update progress
             let levels_done = NUM_MIP_LEVELS - level;
             let progress = levels_done as f32 / NUM_MIP_LEVELS as f32;
-            self.progress_pct.store((progress * 10000.0) as u32, Ordering::Relaxed);
+            self.progress_pct
+                .store((progress * 10000.0) as u32, Ordering::Relaxed);
         }
 
         // Write to file
-        self.state.store(BuildState::Writing as u8, Ordering::Relaxed);
+        self.state
+            .store(BuildState::Writing as u8, Ordering::Relaxed);
 
         wfc.save(&self.output_path)?;
 
-        self.state.store(BuildState::Complete as u8, Ordering::Relaxed);
+        self.state
+            .store(BuildState::Complete as u8, Ordering::Relaxed);
         self.progress_pct.store(10000, Ordering::Relaxed);
 
         Ok(())
@@ -252,13 +259,16 @@ impl WaveCacheBuilder {
             }
             Err(e) => {
                 // Fallback: create empty data
-                log::warn!("Failed to load audio {}: {:?}, using empty data", self.audio_path, e);
+                log::warn!(
+                    "Failed to load audio {}: {:?}, using empty data",
+                    self.audio_path,
+                    e
+                );
                 let channels = self.channels as usize;
                 let frames = self.total_frames as usize;
 
-                let channel_data: Vec<Vec<f32>> = (0..channels)
-                    .map(|_| vec![0.0; frames])
-                    .collect();
+                let channel_data: Vec<Vec<f32>> =
+                    (0..channels).map(|_| vec![0.0; frames]).collect();
 
                 Ok(AudioData {
                     channels: channel_data,
@@ -299,14 +309,22 @@ impl WaveCacheBuilder {
 
         for chunk in chunks {
             for &sample in chunk {
-                if sample < min { min = sample; }
-                if sample > max { max = sample; }
+                if sample < min {
+                    min = sample;
+                }
+                if sample > max {
+                    max = sample;
+                }
             }
         }
 
         for &sample in remainder {
-            if sample < min { min = sample; }
-            if sample > max { max = sample; }
+            if sample < min {
+                min = sample;
+            }
+            if sample > max {
+                max = sample;
+            }
         }
 
         (min, max)
@@ -382,8 +400,12 @@ fn find_min_max_simple(samples: &[f32]) -> (f32, f32) {
     let mut max = samples[0];
 
     for &sample in &samples[1..] {
-        if sample < min { min = sample; }
-        if sample > max { max = sample; }
+        if sample < min {
+            min = sample;
+        }
+        if sample > max {
+            max = sample;
+        }
     }
 
     (min, max)

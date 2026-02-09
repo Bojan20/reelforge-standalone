@@ -369,7 +369,6 @@ impl OutputTransformer {
 
         // Core saturation (iron hysteresis)
         let sat_input = self.lp_state * (1.0 + self.saturation);
-        
 
         sat_input.tanh()
     }

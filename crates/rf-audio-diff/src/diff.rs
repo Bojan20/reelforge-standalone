@@ -111,14 +111,23 @@ impl DiffResult {
     /// Get a summary string
     pub fn summary(&self) -> String {
         if self.passed {
-            format!("PASS: {} vs {} - All checks passed", self.reference_path, self.test_path)
+            format!(
+                "PASS: {} vs {} - All checks passed",
+                self.reference_path, self.test_path
+            )
         } else {
-            let failed: Vec<&str> = self.checks.iter()
+            let failed: Vec<&str> = self
+                .checks
+                .iter()
                 .filter(|c| !c.passed)
                 .map(|c| c.name.as_str())
                 .collect();
-            format!("FAIL: {} vs {} - Failed checks: {}",
-                self.reference_path, self.test_path, failed.join(", "))
+            format!(
+                "FAIL: {} vs {} - Failed checks: {}",
+                self.reference_path,
+                self.test_path,
+                failed.join(", ")
+            )
         }
     }
 
@@ -129,19 +138,34 @@ impl DiffResult {
         report.push_str(&format!("Audio Diff Report\n"));
         report.push_str(&format!("================\n\n"));
 
-        report.push_str(&format!("Result: {}\n\n", if self.passed { "PASS ✓" } else { "FAIL ✗" }));
+        report.push_str(&format!(
+            "Result: {}\n\n",
+            if self.passed { "PASS ✓" } else { "FAIL ✗" }
+        ));
 
         report.push_str("Reference:\n");
         report.push_str(&format!("  Path: {}\n", self.reference_info.path));
-        report.push_str(&format!("  Sample Rate: {} Hz\n", self.reference_info.sample_rate));
-        report.push_str(&format!("  Channels: {}\n", self.reference_info.num_channels));
-        report.push_str(&format!("  Duration: {:.3} s\n", self.reference_info.duration));
+        report.push_str(&format!(
+            "  Sample Rate: {} Hz\n",
+            self.reference_info.sample_rate
+        ));
+        report.push_str(&format!(
+            "  Channels: {}\n",
+            self.reference_info.num_channels
+        ));
+        report.push_str(&format!(
+            "  Duration: {:.3} s\n",
+            self.reference_info.duration
+        ));
         report.push_str(&format!("  Peak: {:.1} dB\n", self.reference_info.peak_db));
         report.push_str(&format!("  RMS: {:.1} dB\n\n", self.reference_info.rms_db));
 
         report.push_str("Test:\n");
         report.push_str(&format!("  Path: {}\n", self.test_info.path));
-        report.push_str(&format!("  Sample Rate: {} Hz\n", self.test_info.sample_rate));
+        report.push_str(&format!(
+            "  Sample Rate: {} Hz\n",
+            self.test_info.sample_rate
+        ));
         report.push_str(&format!("  Channels: {}\n", self.test_info.num_channels));
         report.push_str(&format!("  Duration: {:.3} s\n", self.test_info.duration));
         report.push_str(&format!("  Peak: {:.1} dB\n", self.test_info.peak_db));
@@ -150,7 +174,10 @@ impl DiffResult {
         report.push_str("Checks:\n");
         for check in &self.checks {
             let status = if check.passed { "✓" } else { "✗" };
-            report.push_str(&format!("  {} {} - {}\n", status, check.name, check.description));
+            report.push_str(&format!(
+                "  {} {} - {}\n",
+                status, check.name, check.description
+            ));
         }
 
         report.push_str("\nMetrics Summary:\n");
@@ -253,8 +280,7 @@ impl AudioDiff {
             tolerance: config.peak_diff_tolerance,
             description: format!(
                 "Peak sample diff: {:.6} (tolerance: {:.6})",
-                metrics.time_domain.peak_diff,
-                config.peak_diff_tolerance
+                metrics.time_domain.peak_diff, config.peak_diff_tolerance
             ),
         });
 
@@ -266,21 +292,20 @@ impl AudioDiff {
             tolerance: config.rms_diff_tolerance,
             description: format!(
                 "RMS diff: {:.6} (tolerance: {:.6})",
-                metrics.time_domain.rms_diff,
-                config.rms_diff_tolerance
+                metrics.time_domain.rms_diff, config.rms_diff_tolerance
             ),
         });
 
         // Spectral difference
         checks.push(DiffCheck {
             name: "spectral_diff".into(),
-            passed: metrics.spectral.avg_spectral_diff_db.abs() <= config.spectral_diff_db_tolerance,
+            passed: metrics.spectral.avg_spectral_diff_db.abs()
+                <= config.spectral_diff_db_tolerance,
             actual: metrics.spectral.avg_spectral_diff_db,
             tolerance: config.spectral_diff_db_tolerance,
             description: format!(
                 "Avg spectral diff: {:.2} dB (tolerance: {:.2} dB)",
-                metrics.spectral.avg_spectral_diff_db,
-                config.spectral_diff_db_tolerance
+                metrics.spectral.avg_spectral_diff_db, config.spectral_diff_db_tolerance
             ),
         });
 
@@ -292,8 +317,7 @@ impl AudioDiff {
             tolerance: config.phase_diff_tolerance,
             description: format!(
                 "Avg phase diff: {:.4} rad (tolerance: {:.4} rad)",
-                metrics.spectral.avg_phase_diff,
-                config.phase_diff_tolerance
+                metrics.spectral.avg_phase_diff, config.phase_diff_tolerance
             ),
         });
 
@@ -305,8 +329,7 @@ impl AudioDiff {
             tolerance: config.correlation_tolerance,
             description: format!(
                 "Correlation: {:.6} (min: {:.6})",
-                metrics.correlation.pearson,
-                config.correlation_tolerance
+                metrics.correlation.pearson, config.correlation_tolerance
             ),
         });
 
@@ -365,12 +388,8 @@ mod tests {
             .map(|i| (2.0 * std::f64::consts::PI * 440.0 * i as f64 / 44100.0).sin())
             .collect();
 
-        let result = AudioDiff::compare_samples(
-            &samples,
-            &samples,
-            44100,
-            &DiffConfig::default(),
-        ).unwrap();
+        let result =
+            AudioDiff::compare_samples(&samples, &samples, 44100, &DiffConfig::default()).unwrap();
 
         assert!(result.is_pass());
         assert!(result.metrics.time_domain.peak_diff < 1e-10);
@@ -386,12 +405,8 @@ mod tests {
             .map(|i| (2.0 * std::f64::consts::PI * 880.0 * i as f64 / 44100.0).sin())
             .collect();
 
-        let result = AudioDiff::compare_samples(
-            &reference,
-            &test,
-            44100,
-            &DiffConfig::default(),
-        ).unwrap();
+        let result =
+            AudioDiff::compare_samples(&reference, &test, 44100, &DiffConfig::default()).unwrap();
 
         // Different frequencies should fail strict comparison
         assert!(!result.is_pass());
@@ -404,16 +419,15 @@ mod tests {
             .collect();
 
         // Very small amplitude difference
-        let test: Vec<f64> = reference.iter()
-            .map(|&s| s * 0.9999)
-            .collect();
+        let test: Vec<f64> = reference.iter().map(|&s| s * 0.9999).collect();
 
         let result = AudioDiff::compare_samples(
             &reference,
             &test,
             44100,
-            &DiffConfig::perceptual(),  // More relaxed
-        ).unwrap();
+            &DiffConfig::perceptual(), // More relaxed
+        )
+        .unwrap();
 
         // Should pass with perceptual config
         assert!(result.is_pass());
@@ -425,12 +439,8 @@ mod tests {
             .map(|i| (2.0 * std::f64::consts::PI * 440.0 * i as f64 / 44100.0).sin())
             .collect();
 
-        let result = AudioDiff::compare_samples(
-            &samples,
-            &samples,
-            44100,
-            &DiffConfig::default(),
-        ).unwrap();
+        let result =
+            AudioDiff::compare_samples(&samples, &samples, 44100, &DiffConfig::default()).unwrap();
 
         let report = result.detailed_report();
         assert!(report.contains("PASS"));

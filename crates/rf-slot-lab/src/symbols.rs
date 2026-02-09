@@ -113,7 +113,10 @@ pub struct ReelStrip {
 impl ReelStrip {
     /// Create a new reel strip
     pub fn new(reel_index: u8, symbols: Vec<u32>) -> Self {
-        Self { symbols, reel_index }
+        Self {
+            symbols,
+            reel_index,
+        }
     }
 
     /// Get symbol at position (wraps around)
@@ -148,7 +151,7 @@ impl StandardSymbolSet {
     pub fn new() -> Self {
         let symbols = vec![
             // High paying (HP1 = highest, HP4 = lowest of high tier)
-            Symbol::regular(1, "HP1", 0, &[20.0, 100.0, 500.0]),  // Premium symbol
+            Symbol::regular(1, "HP1", 0, &[20.0, 100.0, 500.0]), // Premium symbol
             Symbol::regular(2, "HP2", 1, &[15.0, 75.0, 300.0]),
             Symbol::regular(3, "HP3", 2, &[10.0, 50.0, 200.0]),
             Symbol::regular(4, "HP4", 3, &[8.0, 40.0, 150.0]),

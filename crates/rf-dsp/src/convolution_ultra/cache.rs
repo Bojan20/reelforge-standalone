@@ -62,7 +62,11 @@ impl CachedSpectrum {
 
         // Each partition
         for (i, partition) in self.partitions.iter().enumerate() {
-            let size = self.partition_sizes.get(i).copied().unwrap_or(partition.len()) as u32;
+            let size = self
+                .partition_sizes
+                .get(i)
+                .copied()
+                .unwrap_or(partition.len()) as u32;
             writer.write_all(&size.to_le_bytes())?;
 
             let num_complex = partition.len() as u32;
@@ -255,20 +259,21 @@ impl IrCache {
         if self.disk_cache_enabled {
             let cache_path = self.cache_path(ir_path);
             if cache_path.exists()
-                && let Ok(spectrum) = CachedSpectrum::read_from_file(&cache_path) {
-                    // Validate hash matches
-                    if spectrum.source_hash == hash {
-                        let spectrum = Arc::new(spectrum);
+                && let Ok(spectrum) = CachedSpectrum::read_from_file(&cache_path)
+            {
+                // Validate hash matches
+                if spectrum.source_hash == hash {
+                    let spectrum = Arc::new(spectrum);
 
-                        // Add to memory cache
-                        self.add_to_memory_cache(hash, Arc::clone(&spectrum));
+                    // Add to memory cache
+                    self.add_to_memory_cache(hash, Arc::clone(&spectrum));
 
-                        return Some(spectrum);
-                    } else {
-                        // Hash mismatch - cache is stale, delete it
-                        let _ = fs::remove_file(&cache_path);
-                    }
+                    return Some(spectrum);
+                } else {
+                    // Hash mismatch - cache is stale, delete it
+                    let _ = fs::remove_file(&cache_path);
                 }
+            }
         }
 
         None
@@ -335,13 +340,14 @@ impl IrCache {
         self.memory_cache.write().clear();
 
         if let Some(ref cache_dir) = self.cache_dir
-            && let Ok(entries) = fs::read_dir(cache_dir) {
-                for entry in entries.flatten() {
-                    if entry.path().extension().is_some_and(|e| e == "irspec") {
-                        let _ = fs::remove_file(entry.path());
-                    }
+            && let Ok(entries) = fs::read_dir(cache_dir)
+        {
+            for entry in entries.flatten() {
+                if entry.path().extension().is_some_and(|e| e == "irspec") {
+                    let _ = fs::remove_file(entry.path());
                 }
             }
+        }
     }
 
     /// Get cache statistics
@@ -363,14 +369,15 @@ impl IrCache {
         let mut disk_bytes = 0u64;
 
         if let Some(ref cache_dir) = self.cache_dir
-            && let Ok(entries) = fs::read_dir(cache_dir) {
-                for entry in entries.flatten() {
-                    if entry.path().extension().is_some_and(|e| e == "irspec") {
-                        disk_entries += 1;
-                        disk_bytes += entry.metadata().map(|m| m.len()).unwrap_or(0);
-                    }
+            && let Ok(entries) = fs::read_dir(cache_dir)
+        {
+            for entry in entries.flatten() {
+                if entry.path().extension().is_some_and(|e| e == "irspec") {
+                    disk_entries += 1;
+                    disk_bytes += entry.metadata().map(|m| m.len()).unwrap_or(0);
                 }
             }
+        }
 
         CacheStats {
             memory_entries,

@@ -9,15 +9,14 @@
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 /// Input bus ID
 pub type InputBusId = u32;
 
 /// Input monitoring mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum MonitorMode {
     /// Monitor when armed and playing (DAW standard)
     #[default]
@@ -27,7 +26,6 @@ pub enum MonitorMode {
     /// Never monitor input
     Off,
 }
-
 
 /// Input bus configuration
 #[derive(Debug, Clone)]
@@ -65,9 +63,7 @@ impl InputBus {
             .map(|_| RwLock::new(vec![0.0; buffer_size]))
             .collect();
 
-        let peaks = (0..channels)
-            .map(|_| AtomicU64::new(0))
-            .collect();
+        let peaks = (0..channels).map(|_| AtomicU64::new(0)).collect();
 
         let enabled = AtomicBool::new(config.enabled);
 

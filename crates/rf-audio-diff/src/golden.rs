@@ -157,11 +157,13 @@ impl GoldenStore {
 
     /// Save metadata for a golden file
     fn save_metadata(&self, metadata: &GoldenMetadata) -> Result<()> {
-        let path = self.root.join("metadata").join(format!("{}.json", metadata.id));
-        let content = serde_json::to_string_pretty(metadata)
-            .map_err(|e| crate::AudioDiffError::IoError(
-                std::io::Error::new(std::io::ErrorKind::Other, e)
-            ))?;
+        let path = self
+            .root
+            .join("metadata")
+            .join(format!("{}.json", metadata.id));
+        let content = serde_json::to_string_pretty(metadata).map_err(|e| {
+            crate::AudioDiffError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+        })?;
         fs::write(path, content)?;
         Ok(())
     }
@@ -178,7 +180,8 @@ impl GoldenStore {
 
     /// List golden files by tag
     pub fn list_by_tag(&self, tag: &str) -> Vec<&GoldenMetadata> {
-        self.index.values()
+        self.index
+            .values()
             .filter(|m| m.tags.contains(&tag.to_string()))
             .collect()
     }
@@ -255,12 +258,21 @@ impl GoldenStore {
         description: Option<String>,
     ) -> Result<GoldenMetadata> {
         let audio = AudioData::load(audio_path)?;
-        self.create(id, name, &audio, generator, generator_version, tags, description)
+        self.create(
+            id,
+            name,
+            &audio,
+            generator,
+            generator_version,
+            tags,
+            description,
+        )
     }
 
     /// Update a golden file with new audio
     pub fn update(&mut self, id: &str, audio: &AudioData) -> Result<GoldenMetadata> {
-        let mut metadata = self.get(id)
+        let mut metadata = self
+            .get(id)
             .ok_or_else(|| crate::AudioDiffError::LoadError(format!("Golden not found: {}", id)))?
             .clone();
 
@@ -306,7 +318,8 @@ impl GoldenStore {
 
     /// Compare audio against a golden file
     pub fn compare(&self, id: &str, test_audio: &AudioData) -> Result<GoldenCompareResult> {
-        let metadata = self.get(id)
+        let metadata = self
+            .get(id)
             .ok_or_else(|| crate::AudioDiffError::LoadError(format!("Golden not found: {}", id)))?
             .clone();
 
@@ -324,7 +337,11 @@ impl GoldenStore {
     }
 
     /// Compare a test audio file against a golden
-    pub fn compare_file<P: AsRef<Path>>(&self, id: &str, test_path: P) -> Result<GoldenCompareResult> {
+    pub fn compare_file<P: AsRef<Path>>(
+        &self,
+        id: &str,
+        test_path: P,
+    ) -> Result<GoldenCompareResult> {
         let test_audio = AudioData::load(test_path)?;
         self.compare(id, &test_audio)
     }
@@ -375,10 +392,9 @@ impl GoldenStore {
     /// Export golden store manifest
     pub fn export_manifest(&self) -> Result<String> {
         let manifest: Vec<&GoldenMetadata> = self.index.values().collect();
-        serde_json::to_string_pretty(&manifest)
-            .map_err(|e| crate::AudioDiffError::IoError(
-                std::io::Error::new(std::io::ErrorKind::Other, e)
-            ))
+        serde_json::to_string_pretty(&manifest).map_err(|e| {
+            crate::AudioDiffError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+        })
     }
 
     /// Get store statistics
@@ -449,26 +465,23 @@ fn save_audio_as_wav(audio: &AudioData, path: &Path) -> Result<()> {
         sample_format: hound::SampleFormat::Float,
     };
 
-    let mut writer = hound::WavWriter::create(path, spec)
-        .map_err(|e| crate::AudioDiffError::IoError(
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        ))?;
+    let mut writer = hound::WavWriter::create(path, spec).map_err(|e| {
+        crate::AudioDiffError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+    })?;
 
     // Interleave channels
     for i in 0..audio.num_samples {
         for ch in &audio.channels {
             let sample = ch.get(i).copied().unwrap_or(0.0) as f32;
-            writer.write_sample(sample)
-                .map_err(|e| crate::AudioDiffError::IoError(
-                    std::io::Error::new(std::io::ErrorKind::Other, e)
-                ))?;
+            writer.write_sample(sample).map_err(|e| {
+                crate::AudioDiffError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+            })?;
         }
     }
 
-    writer.finalize()
-        .map_err(|e| crate::AudioDiffError::IoError(
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        ))?;
+    writer.finalize().map_err(|e| {
+        crate::AudioDiffError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+    })?;
 
     Ok(())
 }
@@ -533,8 +546,10 @@ fn timestamp_now() -> String {
     }
     let day = remaining_days + 1;
 
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        year, month, day, hours, minutes, seconds)
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hours, minutes, seconds
+    )
 }
 
 #[cfg(test)]
@@ -563,15 +578,17 @@ mod tests {
         let mut store = GoldenStore::open(temp_dir.path()).unwrap();
 
         let audio = make_test_audio(440.0);
-        let metadata = store.create(
-            "test_440hz",
-            "440 Hz Sine Wave",
-            &audio,
-            "test",
-            "1.0.0",
-            vec!["test".into(), "sine".into()],
-            Some("Test sine wave".into()),
-        ).unwrap();
+        let metadata = store
+            .create(
+                "test_440hz",
+                "440 Hz Sine Wave",
+                &audio,
+                "test",
+                "1.0.0",
+                vec!["test".into(), "sine".into()],
+                Some("Test sine wave".into()),
+            )
+            .unwrap();
 
         assert_eq!(metadata.id, "test_440hz");
         assert_eq!(metadata.version, 1);
@@ -584,15 +601,17 @@ mod tests {
         let mut store = GoldenStore::open(temp_dir.path()).unwrap();
 
         let audio = make_test_audio(440.0);
-        store.create(
-            "test_440hz",
-            "440 Hz Sine Wave",
-            &audio,
-            "test",
-            "1.0.0",
-            vec![],
-            None,
-        ).unwrap();
+        store
+            .create(
+                "test_440hz",
+                "440 Hz Sine Wave",
+                &audio,
+                "test",
+                "1.0.0",
+                vec![],
+                None,
+            )
+            .unwrap();
 
         let result = store.compare("test_440hz", &audio).unwrap();
         assert!(result.passed);
@@ -606,15 +625,17 @@ mod tests {
         let audio_440 = make_test_audio(440.0);
         let audio_880 = make_test_audio(880.0);
 
-        store.create(
-            "test_440hz",
-            "440 Hz Sine Wave",
-            &audio_440,
-            "test",
-            "1.0.0",
-            vec![],
-            None,
-        ).unwrap();
+        store
+            .create(
+                "test_440hz",
+                "440 Hz Sine Wave",
+                &audio_440,
+                "test",
+                "1.0.0",
+                vec![],
+                None,
+            )
+            .unwrap();
 
         let result = store.compare("test_440hz", &audio_880).unwrap();
         assert!(!result.passed);
@@ -628,15 +649,17 @@ mod tests {
         let audio_440 = make_test_audio(440.0);
         let audio_880 = make_test_audio(880.0);
 
-        store.create(
-            "test_tone",
-            "Test Tone",
-            &audio_440,
-            "test",
-            "1.0.0",
-            vec![],
-            None,
-        ).unwrap();
+        store
+            .create(
+                "test_tone",
+                "Test Tone",
+                &audio_440,
+                "test",
+                "1.0.0",
+                vec![],
+                None,
+            )
+            .unwrap();
 
         let updated = store.update("test_tone", &audio_880).unwrap();
         assert_eq!(updated.version, 2);
@@ -654,12 +677,32 @@ mod tests {
         let audio_440 = make_test_audio(440.0);
         let audio_880 = make_test_audio(880.0);
 
-        store.create("tone_440", "440 Hz", &audio_440, "test", "1.0", vec![], None).unwrap();
-        store.create("tone_880", "880 Hz", &audio_880, "test", "1.0", vec![], None).unwrap();
+        store
+            .create(
+                "tone_440",
+                "440 Hz",
+                &audio_440,
+                "test",
+                "1.0",
+                vec![],
+                None,
+            )
+            .unwrap();
+        store
+            .create(
+                "tone_880",
+                "880 Hz",
+                &audio_880,
+                "test",
+                "1.0",
+                vec![],
+                None,
+            )
+            .unwrap();
 
         let tests = vec![
             ("tone_440".to_string(), audio_440.clone()),
-            ("tone_880".to_string(), audio_440.clone()),  // Wrong audio, should fail
+            ("tone_880".to_string(), audio_440.clone()), // Wrong audio, should fail
         ];
 
         let batch_result = store.compare_batch(&tests);
@@ -674,10 +717,28 @@ mod tests {
         let mut store = GoldenStore::open(temp_dir.path()).unwrap();
 
         let audio = make_test_audio(440.0);
-        store.create("test1", "Test 1", &audio, "test", "1.0",
-            vec!["tag_a".into()], None).unwrap();
-        store.create("test2", "Test 2", &audio, "test", "1.0",
-            vec!["tag_a".into(), "tag_b".into()], None).unwrap();
+        store
+            .create(
+                "test1",
+                "Test 1",
+                &audio,
+                "test",
+                "1.0",
+                vec!["tag_a".into()],
+                None,
+            )
+            .unwrap();
+        store
+            .create(
+                "test2",
+                "Test 2",
+                &audio,
+                "test",
+                "1.0",
+                vec!["tag_a".into(), "tag_b".into()],
+                None,
+            )
+            .unwrap();
 
         let stats = store.stats();
         assert_eq!(stats.total_goldens, 2);

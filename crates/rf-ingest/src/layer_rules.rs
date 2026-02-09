@@ -127,7 +127,11 @@ impl RuleEngine {
     }
 
     /// Process a data point and derive stages
-    pub fn process(&mut self, data: &Value, timestamp_ms: f64) -> Result<Vec<StageEvent>, AdapterError> {
+    pub fn process(
+        &mut self,
+        data: &Value,
+        timestamp_ms: f64,
+    ) -> Result<Vec<StageEvent>, AdapterError> {
         let mut events = Vec::new();
 
         for rule in &self.rules {
@@ -150,16 +154,28 @@ impl RuleEngine {
     }
 
     /// Evaluate rule conditions
-    fn evaluate_conditions(&self, conditions: &[RuleCondition], data: &Value, timestamp_ms: f64) -> bool {
-        conditions.iter().all(|c| self.evaluate_condition(c, data, timestamp_ms))
+    fn evaluate_conditions(
+        &self,
+        conditions: &[RuleCondition],
+        data: &Value,
+        timestamp_ms: f64,
+    ) -> bool {
+        conditions
+            .iter()
+            .all(|c| self.evaluate_condition(c, data, timestamp_ms))
     }
 
     /// Evaluate a single condition
-    fn evaluate_condition(&self, condition: &RuleCondition, data: &Value, timestamp_ms: f64) -> bool {
+    fn evaluate_condition(
+        &self,
+        condition: &RuleCondition,
+        data: &Value,
+        timestamp_ms: f64,
+    ) -> bool {
         match condition {
-            RuleCondition::FieldEquals { path, value } => {
-                get_json_value(data, path).map(|v| v == value).unwrap_or(false)
-            }
+            RuleCondition::FieldEquals { path, value } => get_json_value(data, path)
+                .map(|v| v == value)
+                .unwrap_or(false),
 
             RuleCondition::FieldChanged { path } => {
                 if let Some(prev) = &self.previous_data {
@@ -219,23 +235,32 @@ impl RuleEngine {
             RuleCondition::Sequence { conditions } => {
                 // Sequence requires all conditions in order
                 // For now, simplified to AND
-                conditions.iter().all(|c| self.evaluate_condition(c, data, timestamp_ms))
+                conditions
+                    .iter()
+                    .all(|c| self.evaluate_condition(c, data, timestamp_ms))
             }
 
-            RuleCondition::Any { conditions } => {
-                conditions.iter().any(|c| self.evaluate_condition(c, data, timestamp_ms))
-            }
+            RuleCondition::Any { conditions } => conditions
+                .iter()
+                .any(|c| self.evaluate_condition(c, data, timestamp_ms)),
 
-            RuleCondition::All { conditions } => {
-                conditions.iter().all(|c| self.evaluate_condition(c, data, timestamp_ms))
-            }
+            RuleCondition::All { conditions } => conditions
+                .iter()
+                .all(|c| self.evaluate_condition(c, data, timestamp_ms)),
 
-            RuleCondition::Not { condition } => !self.evaluate_condition(condition, data, timestamp_ms),
+            RuleCondition::Not { condition } => {
+                !self.evaluate_condition(condition, data, timestamp_ms)
+            }
         }
     }
 
     /// Create stage from rule emit string
-    fn create_stage(&self, emit_stage: &str, data: &Value, timestamp_ms: f64) -> Option<StageEvent> {
+    fn create_stage(
+        &self,
+        emit_stage: &str,
+        data: &Value,
+        timestamp_ms: f64,
+    ) -> Option<StageEvent> {
         let stage = match emit_stage {
             "SpinStart" => Stage::SpinStart,
             "SpinEnd" => Stage::SpinEnd,
@@ -442,9 +467,7 @@ fn extract_param_str<'a>(s: &'a str, param: &str) -> Option<&'a str> {
     if let Some(start) = s.find(&pattern) {
         let value_start = start + pattern.len();
         let rest = &s[value_start..];
-        let end = rest
-            .find([',', '}', ' '])
-            .unwrap_or(rest.len());
+        let end = rest.find([',', '}', ' ']).unwrap_or(rest.len());
         Some(&rest[..end])
     } else {
         None

@@ -3,7 +3,7 @@
 //! Extracted from api.rs as part of modular FFI decomposition.
 //! Handles playback transport control: play, stop, pause, seek, loop, tempo.
 
-use crate::{TransportState, ENGINE};
+use crate::{ENGINE, TransportState};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TRANSPORT

@@ -3,7 +3,7 @@
 //! Extracted from api.rs as part of modular FFI decomposition.
 //! Handles real-time metering: peak levels, LUFS, CPU usage, correlation.
 
-use crate::{MeteringState, ENGINE};
+use crate::{ENGINE, MeteringState};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // METERING

@@ -56,32 +56,83 @@ impl Payline {
 pub fn standard_20_paylines() -> Vec<Payline> {
     vec![
         // Straight lines
-        Payline::straight(0, 1, 5),  // Middle
-        Payline::straight(1, 0, 5),  // Top
-        Payline::straight(2, 2, 5),  // Bottom
+        Payline::straight(0, 1, 5), // Middle
+        Payline::straight(1, 0, 5), // Top
+        Payline::straight(2, 2, 5), // Bottom
         // V shapes
-        Payline { index: 3, positions: vec![0, 1, 2, 1, 0] },
-        Payline { index: 4, positions: vec![2, 1, 0, 1, 2] },
+        Payline {
+            index: 3,
+            positions: vec![0, 1, 2, 1, 0],
+        },
+        Payline {
+            index: 4,
+            positions: vec![2, 1, 0, 1, 2],
+        },
         // Zigzag
-        Payline { index: 5, positions: vec![0, 0, 1, 2, 2] },
-        Payline { index: 6, positions: vec![2, 2, 1, 0, 0] },
-        Payline { index: 7, positions: vec![1, 0, 0, 0, 1] },
-        Payline { index: 8, positions: vec![1, 2, 2, 2, 1] },
+        Payline {
+            index: 5,
+            positions: vec![0, 0, 1, 2, 2],
+        },
+        Payline {
+            index: 6,
+            positions: vec![2, 2, 1, 0, 0],
+        },
+        Payline {
+            index: 7,
+            positions: vec![1, 0, 0, 0, 1],
+        },
+        Payline {
+            index: 8,
+            positions: vec![1, 2, 2, 2, 1],
+        },
         // W shapes
-        Payline { index: 9, positions: vec![0, 1, 0, 1, 0] },
-        Payline { index: 10, positions: vec![2, 1, 2, 1, 2] },
+        Payline {
+            index: 9,
+            positions: vec![0, 1, 0, 1, 0],
+        },
+        Payline {
+            index: 10,
+            positions: vec![2, 1, 2, 1, 2],
+        },
         // Diagonal
-        Payline { index: 11, positions: vec![0, 1, 1, 1, 0] },
-        Payline { index: 12, positions: vec![2, 1, 1, 1, 2] },
+        Payline {
+            index: 11,
+            positions: vec![0, 1, 1, 1, 0],
+        },
+        Payline {
+            index: 12,
+            positions: vec![2, 1, 1, 1, 2],
+        },
         // Steps
-        Payline { index: 13, positions: vec![1, 1, 0, 1, 1] },
-        Payline { index: 14, positions: vec![1, 1, 2, 1, 1] },
+        Payline {
+            index: 13,
+            positions: vec![1, 1, 0, 1, 1],
+        },
+        Payline {
+            index: 14,
+            positions: vec![1, 1, 2, 1, 1],
+        },
         // Complex
-        Payline { index: 15, positions: vec![0, 2, 0, 2, 0] },
-        Payline { index: 16, positions: vec![2, 0, 2, 0, 2] },
-        Payline { index: 17, positions: vec![1, 0, 1, 0, 1] },
-        Payline { index: 18, positions: vec![1, 2, 1, 2, 1] },
-        Payline { index: 19, positions: vec![0, 0, 2, 0, 0] },
+        Payline {
+            index: 15,
+            positions: vec![0, 2, 0, 2, 0],
+        },
+        Payline {
+            index: 16,
+            positions: vec![2, 0, 2, 0, 2],
+        },
+        Payline {
+            index: 17,
+            positions: vec![1, 0, 1, 0, 1],
+        },
+        Payline {
+            index: 18,
+            positions: vec![1, 2, 1, 2, 1],
+        },
+        Payline {
+            index: 19,
+            positions: vec![0, 0, 2, 0, 0],
+        },
     ]
 }
 
@@ -171,10 +222,7 @@ impl PayTable {
                 20
             };
             // Use standard paylines, limited to count
-            standard_20_paylines()
-                .into_iter()
-                .take(count)
-                .collect()
+            standard_20_paylines().into_iter().take(count).collect()
         } else {
             // For ways/cluster, use no paylines (separate evaluation)
             Vec::new()
@@ -221,7 +269,12 @@ impl PayTable {
         }
     }
 
-    fn evaluate_line(&self, grid: &[Vec<u32>], payline: &Payline, bet_per_line: f64) -> Option<LineWin> {
+    fn evaluate_line(
+        &self,
+        grid: &[Vec<u32>],
+        payline: &Payline,
+        bet_per_line: f64,
+    ) -> Option<LineWin> {
         if payline.positions.len() != grid.len() {
             return None;
         }
@@ -368,11 +421,11 @@ mod tests {
 
         // Create a winning grid (3 sevens on middle line)
         let grid = vec![
-            vec![9, 1, 8],  // Reel 0: Cherry, Seven, Plum
-            vec![9, 1, 8],  // Reel 1
-            vec![9, 1, 8],  // Reel 2
-            vec![9, 5, 8],  // Reel 3: Cherry, Bell, Plum
-            vec![9, 6, 8],  // Reel 4: Cherry, Grape, Plum
+            vec![9, 1, 8], // Reel 0: Cherry, Seven, Plum
+            vec![9, 1, 8], // Reel 1
+            vec![9, 1, 8], // Reel 2
+            vec![9, 5, 8], // Reel 3: Cherry, Bell, Plum
+            vec![9, 6, 8], // Reel 4: Cherry, Grape, Plum
         ];
 
         let result = paytable.evaluate(&grid, 1.0);

@@ -76,7 +76,8 @@ fn main() {
         println!("\n✓ Unified routing working!");
 
         println!("\n=== Integration Pattern ===");
-        println!("
+        println!(
+            "
 In your audio callback:
 
 ```rust
@@ -104,6 +105,7 @@ UI thread can control routing via:
 - playback_engine.create_routing_channel()
 - playback_engine.set_routing_output()
 - playback_engine.send_routing_command()
-");
+"
+        );
     }
 }

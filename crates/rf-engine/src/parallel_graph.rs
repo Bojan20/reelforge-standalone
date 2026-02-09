@@ -298,9 +298,10 @@ impl ParallelAudioGraph {
         // Count incoming edges
         for conn in &self.connections {
             if conn.connection_type == ConnectionType::Audio
-                && let Some(deg) = in_degree.get_mut(&conn.to_node) {
-                    *deg += 1;
-                }
+                && let Some(deg) = in_degree.get_mut(&conn.to_node)
+            {
+                *deg += 1;
+            }
         }
 
         // BFS for topological sort
@@ -411,21 +412,21 @@ impl ParallelAudioGraph {
 
                 // Sum inputs from connections
                 for conn in connections {
-                    if conn.to_node == node_id && conn.to_channel < num_inputs
+                    if conn.to_node == node_id
+                        && conn.to_channel < num_inputs
                         && let Some(from_outputs) = node_outputs.get(&conn.from_node)
-                            && conn.from_channel < from_outputs.len() {
-                                let target = match conn.connection_type {
-                                    ConnectionType::Audio => &mut inputs[conn.to_channel],
-                                    ConnectionType::Sidechain => &mut sidechains[conn.to_channel],
-                                    ConnectionType::Modulation => &mut inputs[conn.to_channel],
-                                };
+                        && conn.from_channel < from_outputs.len()
+                    {
+                        let target = match conn.connection_type {
+                            ConnectionType::Audio => &mut inputs[conn.to_channel],
+                            ConnectionType::Sidechain => &mut sidechains[conn.to_channel],
+                            ConnectionType::Modulation => &mut inputs[conn.to_channel],
+                        };
 
-                                for (i, &sample) in
-                                    from_outputs[conn.from_channel].iter().enumerate()
-                                {
-                                    target[i] += sample * conn.gain;
-                                }
-                            }
+                        for (i, &sample) in from_outputs[conn.from_channel].iter().enumerate() {
+                            target[i] += sample * conn.gain;
+                        }
+                    }
                 }
 
                 (node_id, inputs, sidechains)

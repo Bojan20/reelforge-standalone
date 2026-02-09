@@ -5,7 +5,7 @@
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::ptr;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -104,7 +104,13 @@ pub extern "C" fn stage_create_reel_stop(
         }
     };
 
-    create_event_json(Stage::ReelStop { reel_index, symbols }, timestamp_ms)
+    create_event_json(
+        Stage::ReelStop {
+            reel_index,
+            symbols,
+        },
+        timestamp_ms,
+    )
 }
 
 /// Create AnticipationOn event
@@ -237,10 +243,7 @@ fn create_event_json(stage: Stage, timestamp_ms: f64) -> *mut c_char {
 /// game_id: Game identifier string
 /// Returns trace handle (0 on error)
 #[unsafe(no_mangle)]
-pub extern "C" fn stage_trace_create(
-    trace_id_str: *const c_char,
-    game_id: *const c_char,
-) -> u64 {
+pub extern "C" fn stage_trace_create(trace_id_str: *const c_char, game_id: *const c_char) -> u64 {
     if trace_id_str.is_null() || game_id.is_null() {
         return 0;
     }
@@ -476,10 +479,7 @@ pub extern "C" fn stage_trace_summary(handle: u64) -> *mut c_char {
 /// Get events by stage type
 /// Returns JSON array, caller must free
 #[unsafe(no_mangle)]
-pub extern "C" fn stage_trace_events_by_type(
-    handle: u64,
-    type_name: *const c_char,
-) -> *mut c_char {
+pub extern "C" fn stage_trace_events_by_type(handle: u64, type_name: *const c_char) -> *mut c_char {
     if type_name.is_null() {
         return ptr::null_mut();
     }
@@ -806,7 +806,9 @@ fn parse_stage_string(s: &str) -> Option<Stage> {
                 if let Some(rest) = normalized.strip_prefix("ANTICIPATION_TENSION_LAYER_R") {
                     let parts: Vec<&str> = rest.split("_L").collect();
                     if parts.len() == 2 {
-                        if let (Ok(reel), Ok(level)) = (parts[0].parse::<u8>(), parts[1].parse::<u8>()) {
+                        if let (Ok(reel), Ok(level)) =
+                            (parts[0].parse::<u8>(), parts[1].parse::<u8>())
+                        {
                             return Some(Stage::AnticipationTensionLayer {
                                 reel_index: reel,
                                 tension_level: level,
@@ -959,11 +961,7 @@ pub extern "C" fn stage_is_looping(stage_json: *const c_char) -> i32 {
         },
     };
 
-    if stage.is_looping() {
-        1
-    } else {
-        0
-    }
+    if stage.is_looping() { 1 } else { 0 }
 }
 
 /// Get stage category

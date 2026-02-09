@@ -174,7 +174,7 @@ impl AleProfile {
                 return Err(AleError::ProfileError(format!(
                     "Unknown profile version: {}",
                     version
-                )))
+                )));
             }
         };
 
@@ -206,14 +206,15 @@ impl AleProfile {
         if let Some(contexts) = v1["contexts"].as_object_mut() {
             for (_id, context) in contexts.iter_mut() {
                 if let Some(fade_time) = context["fade_time_ms"].take().as_u64()
-                    && context["entry_policy"]["transition"].is_null() {
-                        context["entry_policy"]["transition"] = serde_json::json!({
-                            "fade_in": {
-                                "duration_ms": fade_time,
-                                "curve": "ease_out_quad"
-                            }
-                        });
-                    }
+                    && context["entry_policy"]["transition"].is_null()
+                {
+                    context["entry_policy"]["transition"] = serde_json::json!({
+                        "fade_in": {
+                            "duration_ms": fade_time,
+                            "curve": "ease_out_quad"
+                        }
+                    });
+                }
             }
         }
 
@@ -248,12 +249,14 @@ impl AleProfile {
         // Validate transition references
         for rule in &self.rules {
             if let Some(ref t_id) = rule.transition
-                && !self.transitions.contains_key(t_id) && t_id != "default" {
-                    errors.push(format!(
-                        "Rule '{}' references unknown transition '{}'",
-                        rule.id, t_id
-                    ));
-                }
+                && !self.transitions.contains_key(t_id)
+                && t_id != "default"
+            {
+                errors.push(format!(
+                    "Rule '{}' references unknown transition '{}'",
+                    rule.id, t_id
+                ));
+            }
         }
 
         if errors.is_empty() {
@@ -383,7 +386,7 @@ impl Default for ProfileBuilder {
 mod tests {
     use super::*;
     use crate::context::Layer;
-    use crate::rules::{Action, Condition, SimpleCondition, ComparisonOp};
+    use crate::rules::{Action, ComparisonOp, Condition, SimpleCondition};
 
     #[test]
     fn test_profile_serialization() {
@@ -439,9 +442,11 @@ mod tests {
         let validation = profile.validate();
         assert!(validation.is_err());
         let errors = validation.unwrap_err();
-        assert!(errors
-            .iter()
-            .any(|e| e.contains("unknown context 'NONEXISTENT'")));
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.contains("unknown context 'NONEXISTENT'"))
+        );
     }
 
     #[test]

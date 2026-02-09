@@ -98,12 +98,7 @@ pub struct BlendChild {
 
 impl BlendChild {
     /// Create a new blend child
-    pub fn new(
-        id: ChildId,
-        name: impl Into<String>,
-        rtpc_start: f64,
-        rtpc_end: f64,
-    ) -> Self {
+    pub fn new(id: ChildId, name: impl Into<String>, rtpc_start: f64, rtpc_end: f64) -> Self {
         Self {
             id,
             name: name.into(),
@@ -263,8 +258,8 @@ impl BlendContainer {
 
         // Simplified critically damped response
         let new_x = exp_term * (x * cos_term + (v + zeta * omega * x) * sin_term / omega);
-        let new_v = exp_term
-            * (v * cos_term - (v * zeta * omega + omega * omega * x) * sin_term / omega);
+        let new_v =
+            exp_term * (v * cos_term - (v * zeta * omega + omega * omega * x) * sin_term / omega);
 
         self.rtpc_value = self.rtpc_target + new_x;
         self.smoothing_velocity = new_v;

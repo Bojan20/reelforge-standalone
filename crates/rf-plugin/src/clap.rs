@@ -58,10 +58,11 @@ impl ClapHost {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
                 if entry_path.extension().is_some_and(|e| e == "clap")
-                    && let Ok(desc) = self.scan_plugin(&entry_path) {
-                        self.plugin_paths.insert(desc.id.clone(), entry_path);
-                        descriptors.push(desc);
-                    }
+                    && let Ok(desc) = self.scan_plugin(&entry_path)
+                {
+                    self.plugin_paths.insert(desc.id.clone(), entry_path);
+                    descriptors.push(desc);
+                }
             }
         }
 

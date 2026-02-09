@@ -61,10 +61,12 @@ impl PluginSecurityInfo {
         Self {
             status: PluginSecurityStatus::Internal,
             signer: Some("FluxForge Studio".to_string()),
-            verified_at: Some(std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()),
+            verified_at: Some(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            ),
             message: "Internal plugin - always trusted".to_string(),
         }
     }
@@ -208,9 +210,9 @@ fn verify_macos_signature(path: &Path) -> PluginSecurityInfo {
 
                 // Check if it's from a known trusted authority
                 let is_trusted = signing_authority.as_ref().is_some_and(|auth| {
-                    auth.contains("Apple") ||
-                    auth.contains("Developer ID") ||
-                    auth.contains("Mac Developer")
+                    auth.contains("Apple")
+                        || auth.contains("Developer ID")
+                        || auth.contains("Mac Developer")
                 });
 
                 PluginSecurityInfo {
@@ -220,10 +222,12 @@ fn verify_macos_signature(path: &Path) -> PluginSecurityInfo {
                         PluginSecurityStatus::SignedUntrusted
                     },
                     signer: signing_authority,
-                    verified_at: Some(std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs()),
+                    verified_at: Some(
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs(),
+                    ),
                     message: "Valid code signature".to_string(),
                 }
             } else {
@@ -416,10 +420,8 @@ impl PluginScanner {
                     PluginType::AudioUnit,
                     home.join("Library/Audio/Plug-Ins/Components"),
                 ));
-                self.scan_paths.push((
-                    PluginType::Lv2,
-                    home.join("Library/Audio/Plug-Ins/LV2"),
-                ));
+                self.scan_paths
+                    .push((PluginType::Lv2, home.join("Library/Audio/Plug-Ins/LV2")));
             }
         }
 

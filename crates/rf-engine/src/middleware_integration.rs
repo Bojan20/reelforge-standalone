@@ -27,8 +27,10 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 use rtrb::Producer;
 
-use rf_event::manager::{EventManagerHandle, EventManagerProcessor, ExecutedAction, create_event_manager};
 use rf_event::action::ActionPriority;
+use rf_event::manager::{
+    EventManagerHandle, EventManagerProcessor, ExecutedAction, create_event_manager,
+};
 
 use crate::mixer::{ChannelId, MixerCommand, NUM_CHANNELS};
 
@@ -68,8 +70,16 @@ impl AssetRegistry {
     }
 
     /// Register an audio asset
-    pub fn register(&self, name: &str, samples_l: Vec<f64>, samples_r: Vec<f64>, sample_rate: u32) -> u32 {
-        let id = self.next_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    pub fn register(
+        &self,
+        name: &str,
+        samples_l: Vec<f64>,
+        samples_r: Vec<f64>,
+        sample_rate: u32,
+    ) -> u32 {
+        let id = self
+            .next_id
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let duration = samples_l.len() as u64;
 
         let asset = AudioAsset {
@@ -283,7 +293,12 @@ pub struct ActionExecutor {
 }
 
 impl ActionExecutor {
-    pub fn new(assets: Arc<AssetRegistry>, mixer_tx: Producer<MixerCommand>, sample_rate: u32, block_size: usize) -> Self {
+    pub fn new(
+        assets: Arc<AssetRegistry>,
+        mixer_tx: Producer<MixerCommand>,
+        sample_rate: u32,
+        block_size: usize,
+    ) -> Self {
         Self {
             assets,
             voices: Vec::with_capacity(MAX_VOICES),
@@ -331,18 +346,26 @@ impl ActionExecutor {
                 } => {
                     self.execute_stop_all(fade_out_frames);
                 }
-                ExecutedAction::SetVolume { bus_id, volume, fade_frames: _ } => {
+                ExecutedAction::SetVolume {
+                    bus_id,
+                    volume,
+                    fade_frames: _,
+                } => {
                     self.execute_set_volume(bus_id, volume);
                 }
-                ExecutedAction::SetBusVolume { bus_id, volume, fade_frames: _ } => {
+                ExecutedAction::SetBusVolume {
+                    bus_id,
+                    volume,
+                    fade_frames: _,
+                } => {
                     self.execute_set_volume(bus_id, volume);
                 }
-                ExecutedAction::SetState { .. } |
-                ExecutedAction::SetSwitch { .. } |
-                ExecutedAction::SetRtpc { .. } |
-                ExecutedAction::PostEvent { .. } |
-                ExecutedAction::EventPosted { .. } |
-                ExecutedAction::Other { .. } => {
+                ExecutedAction::SetState { .. }
+                | ExecutedAction::SetSwitch { .. }
+                | ExecutedAction::SetRtpc { .. }
+                | ExecutedAction::PostEvent { .. }
+                | ExecutedAction::EventPosted { .. }
+                | ExecutedAction::Other { .. } => {
                     // These are handled by EventManagerProcessor internally
                     // or don't directly affect audio output
                 }
@@ -392,7 +415,12 @@ impl ActionExecutor {
         );
 
         self.voices.push(voice);
-        log::debug!("[ActionExecutor] Playing asset {} on bus {} (playing_id: {})", asset_id, bus_id, playing_id);
+        log::debug!(
+            "[ActionExecutor] Playing asset {} on bus {} (playing_id: {})",
+            asset_id,
+            bus_id,
+            playing_id
+        );
     }
 
     fn execute_stop(&mut self, playing_id: u64, fade_frames: u64) {
@@ -415,7 +443,9 @@ impl ActionExecutor {
             } else {
                 20.0 * (volume as f64).log10()
             };
-            let _ = self.mixer_tx.push(MixerCommand::SetChannelVolume(channel_id, db));
+            let _ = self
+                .mixer_tx
+                .push(MixerCommand::SetChannelVolume(channel_id, db));
         }
     }
 
@@ -577,17 +607,15 @@ mod tests {
         let asset_id = assets.register("test_sound", samples.clone(), samples, 48000);
 
         // Execute play action
-        executor.execute(vec![
-            ExecutedAction::Play {
-                playing_id: 1,
-                asset_id,
-                bus_id: 2,
-                gain: 1.0,
-                loop_playback: false,
-                fade_in_frames: 0,
-                priority: ActionPriority::Normal,
-            }
-        ]);
+        executor.execute(vec![ExecutedAction::Play {
+            playing_id: 1,
+            asset_id,
+            bus_id: 2,
+            gain: 1.0,
+            loop_playback: false,
+            fade_in_frames: 0,
+            priority: ActionPriority::Normal,
+        }]);
 
         assert_eq!(executor.active_voice_count(), 1);
 

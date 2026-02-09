@@ -142,10 +142,10 @@ impl AnticipationTimingConfig {
             return (255, 215, 0); // Gold always
         }
         match tension_level {
-            1 => (255, 215, 0),   // Gold #FFD700
-            2 => (255, 165, 0),   // Orange #FFA500
-            3 => (255, 99, 71),   // Red-Orange #FF6347
-            _ => (255, 69, 0),    // Red #FF4500
+            1 => (255, 215, 0), // Gold #FFD700
+            2 => (255, 165, 0), // Orange #FFA500
+            3 => (255, 99, 71), // Red-Orange #FF6347
+            _ => (255, 69, 0),  // Red #FF4500
         }
     }
 
@@ -317,9 +317,9 @@ impl TimingConfig {
             big_win_base_duration_ms: 1000.0,
             feature_enter_duration_ms: 500.0,
             cascade_step_duration_ms: 300.0,
-            min_event_interval_ms: 50.0,  // Minimum gap za audio playback latency
+            min_event_interval_ms: 50.0, // Minimum gap za audio playback latency
             // Studio - precise timing for audio production
-            audio_latency_compensation_ms: 3.0,  // Low latency for pro audio setup
+            audio_latency_compensation_ms: 3.0, // Low latency for pro audio setup
             visual_audio_sync_offset_ms: 0.0,
             anticipation_audio_pre_trigger_ms: 30.0,
             reel_stop_audio_pre_trigger_ms: 15.0,
@@ -397,7 +397,9 @@ impl TimingConfig {
         if self.rollup_speed <= 0.0 {
             return 0.0;
         }
-        (amount / self.rollup_speed * 1000.0).max(500.0).min(10000.0)
+        (amount / self.rollup_speed * 1000.0)
+            .max(500.0)
+            .min(10000.0)
     }
 
     /// Calculate big win celebration duration
@@ -470,8 +472,12 @@ impl TimestampGenerator {
             self.config.reel_stop_interval_ms
         };
         let result = self.advance(advance_ms);
-        log::debug!("[TimestampGenerator::reel_stop] reel={}, advance={}ms, result={}ms",
-            reel_index, advance_ms, result);
+        log::debug!(
+            "[TimestampGenerator::reel_stop] reel={}, advance={}ms, result={}ms",
+            reel_index,
+            advance_ms,
+            result
+        );
         result
     }
 

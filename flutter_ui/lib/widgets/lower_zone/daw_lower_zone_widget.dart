@@ -28,6 +28,7 @@ import '../../services/service_locator.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
 import '../../utils/input_validator.dart'; // ✅ P0.3: Input validation
+import '../../utils/path_validator.dart' as pv;
 import '../common/error_boundary.dart'; // ✅ P0.7: Error handling
 import '../meters/lufs_meter_widget.dart'; // ✅ P0.2: LUFS metering
 import 'workspace_preset_dropdown.dart'; // ✅ P1.1: Workspace presets
@@ -1228,7 +1229,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           // Import audio files via FilePicker
           final result = await FilePicker.platform.pickFiles(
             type: FileType.custom,
-            allowedExtensions: ['wav', 'mp3', 'flac', 'ogg', 'aiff', 'aif'],
+            allowedExtensions: pv.PathValidator.allowedExtensions,
             allowMultiple: true,
           );
           if (result != null && result.files.isNotEmpty) {

@@ -12,8 +12,7 @@ pub struct AutomationPoint {
 }
 
 /// Curve type between automation points
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum CurveType {
     #[default]
     Linear,
@@ -22,7 +21,6 @@ pub enum CurveType {
     Logarithmic,
     SCurve,
 }
-
 
 /// Automation lane for a single parameter
 #[derive(Debug, Clone, Serialize, Deserialize)]

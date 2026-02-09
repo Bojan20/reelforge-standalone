@@ -38,11 +38,7 @@ impl Default for CoverageThreshold {
             min_function_coverage: 70.0,
             min_branch_coverage: 50.0,
             min_file_coverage: 50.0,
-            exclude_paths: vec![
-                "tests/".into(),
-                "benches/".into(),
-                "examples/".into(),
-            ],
+            exclude_paths: vec!["tests/".into(), "benches/".into(), "examples/".into()],
             crate_thresholds: vec![],
         }
     }
@@ -87,12 +83,12 @@ impl CoverageThreshold {
             crate_thresholds: vec![
                 CrateThreshold {
                     path: "rf-dsp".into(),
-                    min_line_coverage: 50.0,  // DSP code has many edge cases
+                    min_line_coverage: 50.0, // DSP code has many edge cases
                     min_function_coverage: 60.0,
                 },
                 CrateThreshold {
                     path: "rf-engine".into(),
-                    min_line_coverage: 55.0,  // Engine has async paths
+                    min_line_coverage: 55.0, // Engine has async paths
                     min_function_coverage: 65.0,
                 },
             ],

@@ -351,7 +351,8 @@ impl StabilityState {
 
     /// Check if momentum change is significant
     pub fn is_momentum_significant(&self, new_momentum: f32) -> bool {
-        (new_momentum - self.smoothed_momentum).abs() >= self.config.momentum_buffer.change_threshold
+        (new_momentum - self.smoothed_momentum).abs()
+            >= self.config.momentum_buffer.change_threshold
     }
 
     /// Calculate decay
@@ -403,7 +404,11 @@ impl StabilityState {
     }
 
     /// Calculate prediction
-    pub fn calculate_prediction(&mut self, current_level: LayerId, current_time_ms: u64) -> Option<Prediction> {
+    pub fn calculate_prediction(
+        &mut self,
+        current_level: LayerId,
+        current_time_ms: u64,
+    ) -> Option<Prediction> {
         if !self.config.prediction.enabled {
             return None;
         }
@@ -442,7 +447,10 @@ impl StabilityState {
 
         // Calculate confidence based on R² of the regression
         let mean_y = sum_y / n;
-        let ss_tot: f32 = recent.iter().map(|(_, l)| (*l as f32 - mean_y).powi(2)).sum();
+        let ss_tot: f32 = recent
+            .iter()
+            .map(|(_, l)| (*l as f32 - mean_y).powi(2))
+            .sum();
         let intercept = (sum_y - slope * sum_x) / n;
         let ss_res: f32 = recent
             .iter()

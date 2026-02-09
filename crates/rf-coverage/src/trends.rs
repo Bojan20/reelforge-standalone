@@ -111,9 +111,7 @@ impl TrendAnalysis {
     /// Calculate change from previous
     pub fn line_coverage_change(&self) -> Option<f64> {
         match (self.latest(), self.previous()) {
-            (Some(latest), Some(previous)) => {
-                Some(latest.line_coverage - previous.line_coverage)
-            }
+            (Some(latest), Some(previous)) => Some(latest.line_coverage - previous.line_coverage),
             _ => None,
         }
     }

@@ -159,9 +159,7 @@ impl PhaseVocoder {
 
         // Create Hann window
         let window: Vec<f64> = (0..fft_size)
-            .map(|i| {
-                0.5 * (1.0 - (2.0 * PI * i as f64 / fft_size as f64).cos())
-            })
+            .map(|i| 0.5 * (1.0 - (2.0 * PI * i as f64 / fft_size as f64).cos()))
             .collect();
 
         Self {
@@ -179,7 +177,11 @@ impl PhaseVocoder {
     }
 
     /// Process audio buffer with time-stretch
-    pub fn process(&mut self, buffer: &AudioBuffer, config: &TimeStretchConfig) -> OfflineResult<AudioBuffer> {
+    pub fn process(
+        &mut self,
+        buffer: &AudioBuffer,
+        config: &TimeStretchConfig,
+    ) -> OfflineResult<AudioBuffer> {
         if buffer.channels != 1 {
             // Process each channel separately for stereo
             return self.process_stereo(buffer, config);
@@ -209,7 +211,11 @@ impl PhaseVocoder {
     }
 
     /// Process stereo buffer
-    fn process_stereo(&mut self, buffer: &AudioBuffer, config: &TimeStretchConfig) -> OfflineResult<AudioBuffer> {
+    fn process_stereo(
+        &mut self,
+        buffer: &AudioBuffer,
+        config: &TimeStretchConfig,
+    ) -> OfflineResult<AudioBuffer> {
         // Split channels
         let left = buffer.get_channel(0);
         let right = buffer.get_channel(1);
@@ -252,7 +258,9 @@ impl PhaseVocoder {
     /// Time stretch mono signal using OLA
     fn time_stretch_mono(&mut self, samples: &[f64], ratio: f64) -> OfflineResult<Vec<f64>> {
         if ratio <= 0.0 {
-            return Err(OfflineError::ConfigError("Time ratio must be positive".into()));
+            return Err(OfflineError::ConfigError(
+                "Time ratio must be positive".into(),
+            ));
         }
 
         let input_len = samples.len();
@@ -408,16 +416,13 @@ impl WsolaStretcher {
             .map(|i| i as f64 / self.overlap as f64)
             .collect();
 
-        while (pos_in as usize) + self.frame_size <= input_len && pos_out + self.frame_size <= output.len() {
+        while (pos_in as usize) + self.frame_size <= input_len
+            && pos_out + self.frame_size <= output.len()
+        {
             let ideal_pos = pos_in as usize;
 
             // Find best match in search range
-            let best_pos = self.find_best_position(
-                samples,
-                &output,
-                ideal_pos,
-                pos_out,
-            );
+            let best_pos = self.find_best_position(samples, &output, ideal_pos, pos_out);
 
             // Copy frame with overlap-add
             for i in 0..self.frame_size {
@@ -461,7 +466,12 @@ impl WsolaStretcher {
 
         // Reference from output overlap region
         let output_ref: Vec<f64> = (0..self.overlap)
-            .map(|i| output.get(output_pos.saturating_sub(self.overlap) + i).copied().unwrap_or(0.0))
+            .map(|i| {
+                output
+                    .get(output_pos.saturating_sub(self.overlap) + i)
+                    .copied()
+                    .unwrap_or(0.0)
+            })
             .collect();
 
         for pos in search_start..search_end {
@@ -500,11 +510,7 @@ impl WsolaStretcher {
         }
 
         let denom = (sum_a2 * sum_b2).sqrt();
-        if denom > 0.0 {
-            sum / denom
-        } else {
-            0.0
-        }
+        if denom > 0.0 { sum / denom } else { 0.0 }
     }
 }
 
@@ -530,9 +536,7 @@ impl TimeStretcher {
         };
 
         let wsola = match config.algorithm {
-            TimeStretchAlgorithm::Wsola => {
-                Some(WsolaStretcher::new(config.quality.fft_size()))
-            }
+            TimeStretchAlgorithm::Wsola => Some(WsolaStretcher::new(config.quality.fft_size())),
             _ => None,
         };
 
@@ -546,8 +550,7 @@ impl TimeStretcher {
     /// Process buffer
     pub fn process(&mut self, buffer: &AudioBuffer) -> OfflineResult<AudioBuffer> {
         // Check if processing is needed
-        if (self.config.time_ratio - 1.0).abs() < 0.001
-            && self.config.pitch_semitones.abs() < 0.01
+        if (self.config.time_ratio - 1.0).abs() < 0.001 && self.config.pitch_semitones.abs() < 0.01
         {
             return Ok(buffer.clone());
         }
@@ -557,7 +560,9 @@ impl TimeStretcher {
                 if let Some(ref mut pv) = self.phase_vocoder {
                     pv.process(buffer, &self.config)
                 } else {
-                    Err(OfflineError::ConfigError("Phase vocoder not initialized".into()))
+                    Err(OfflineError::ConfigError(
+                        "Phase vocoder not initialized".into(),
+                    ))
                 }
             }
             TimeStretchAlgorithm::Wsola => {

@@ -932,9 +932,9 @@ impl EqBand {
             6 => {
                 // 36dB/oct - 3 conjugate pairs
                 match stage {
-                    0 => 0.5176380902050415, // Q1
+                    0 => 0.5176380902050415,              // Q1
                     1 => std::f64::consts::FRAC_1_SQRT_2, // Q2
-                    _ => 1.9318516525781366, // Q3
+                    _ => 1.9318516525781366,              // Q3
                 }
             }
             8 => {
@@ -999,24 +999,23 @@ impl EqBand {
         // Calculate dynamic gain if enabled
         let (dyn_gain_l, dyn_gain_r) = if self.dynamic.enabled {
             // Apply sidechain filter if configured (filter the detector input, not audio)
-            let (detect_l, detect_r) =
-                if let (Some(sc_svf), Some(sc_coeffs)) =
-                    (self.sidechain_svf.as_mut(), self.sidechain_coeffs.as_ref())
-                {
-                    // Filter the sidechain signal for frequency-focused detection
-                    let filtered = sc_svf.process(
-                        (left + right) * 0.5, // Use mono for sidechain
-                        sc_coeffs.a1,
-                        sc_coeffs.a2,
-                        sc_coeffs.a3,
-                        sc_coeffs.m0,
-                        sc_coeffs.m1,
-                        sc_coeffs.m2,
-                    );
-                    (filtered.abs(), filtered.abs())
-                } else {
-                    (left.abs(), right.abs())
-                };
+            let (detect_l, detect_r) = if let (Some(sc_svf), Some(sc_coeffs)) =
+                (self.sidechain_svf.as_mut(), self.sidechain_coeffs.as_ref())
+            {
+                // Filter the sidechain signal for frequency-focused detection
+                let filtered = sc_svf.process(
+                    (left + right) * 0.5, // Use mono for sidechain
+                    sc_coeffs.a1,
+                    sc_coeffs.a2,
+                    sc_coeffs.a3,
+                    sc_coeffs.m0,
+                    sc_coeffs.m1,
+                    sc_coeffs.m2,
+                );
+                (filtered.abs(), filtered.abs())
+            } else {
+                (left.abs(), right.abs())
+            };
 
             self.envelope_l.process(detect_l);
             self.envelope_r.process(detect_r);

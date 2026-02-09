@@ -12,16 +12,16 @@
 //! - `EventManagerHandle`: Thread-safe handle for UI/game thread
 //! - `EventManagerProcessor`: Audio-thread-only processor (not Sync)
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use parking_lot::{Mutex, RwLock};
 use rtrb::{Consumer, Producer, RingBuffer};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::action::{ActionPriority, ActionType, MiddlewareAction};
 use crate::event::MiddlewareEvent;
 use crate::instance::{
-    CallbackInfo, CallbackType, EventInstance, EventInstanceState,
-    GameObjectId, PlayingId, generate_playing_id,
+    CallbackInfo, CallbackType, EventInstance, EventInstanceState, GameObjectId, PlayingId,
+    generate_playing_id,
 };
 use crate::state::{RtpcDefinition, StateGroup, SwitchGroup};
 
@@ -49,10 +49,7 @@ pub enum EventCommand {
         user_data: u64,
     },
     /// Stop a specific playing instance
-    StopPlayingId {
-        playing_id: PlayingId,
-        fade_ms: u32,
-    },
+    StopPlayingId { playing_id: PlayingId, fade_ms: u32 },
     /// Stop all instances of an event
     StopEvent {
         event_id: u32,
@@ -65,26 +62,15 @@ pub enum EventCommand {
         fade_ms: u32,
     },
     /// Pause playing instance
-    PausePlayingId {
-        playing_id: PlayingId,
-    },
+    PausePlayingId { playing_id: PlayingId },
     /// Pause all instances
-    PauseAll {
-        game_object: Option<GameObjectId>,
-    },
+    PauseAll { game_object: Option<GameObjectId> },
     /// Resume playing instance
-    ResumePlayingId {
-        playing_id: PlayingId,
-    },
+    ResumePlayingId { playing_id: PlayingId },
     /// Resume all instances
-    ResumeAll {
-        game_object: Option<GameObjectId>,
-    },
+    ResumeAll { game_object: Option<GameObjectId> },
     /// Set state group value
-    SetState {
-        group_id: u32,
-        state_id: u32,
-    },
+    SetState { group_id: u32, state_id: u32 },
     /// Set switch for game object
     SetSwitch {
         game_object: GameObjectId,
@@ -116,9 +102,7 @@ pub enum EventCommand {
         position_secs: f32,
     },
     /// Break loop in playing instance
-    BreakLoop {
-        playing_id: PlayingId,
-    },
+    BreakLoop { playing_id: PlayingId },
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -336,7 +320,11 @@ impl EventManagerHandle {
     pub fn stop_event(&self, event_id: u32, game_object: GameObjectId, fade_ms: u32) {
         self.push_command(EventCommand::StopEvent {
             event_id,
-            game_object: if game_object == 0 { None } else { Some(game_object) },
+            game_object: if game_object == 0 {
+                None
+            } else {
+                Some(game_object)
+            },
             fade_ms,
         });
     }
@@ -371,10 +359,7 @@ impl EventManagerHandle {
 
     /// Set state
     pub fn set_state(&self, group_id: u32, state_id: u32) {
-        self.push_command(EventCommand::SetState {
-            group_id,
-            state_id,
-        });
+        self.push_command(EventCommand::SetState { group_id, state_id });
     }
 
     /// Set switch
@@ -413,7 +398,12 @@ impl EventManagerHandle {
     }
 
     /// Reset RTPC to default
-    pub fn reset_rtpc(&self, rtpc_id: u32, game_object: Option<GameObjectId>, interpolation_ms: u32) {
+    pub fn reset_rtpc(
+        &self,
+        rtpc_id: u32,
+        game_object: Option<GameObjectId>,
+        interpolation_ms: u32,
+    ) {
         self.push_command(EventCommand::ResetRtpc {
             rtpc_id,
             game_object,
@@ -436,7 +426,9 @@ impl EventManagerHandle {
 
     /// Get active instance count (approximate, updated by processor)
     pub fn active_instance_count(&self) -> usize {
-        self.shared.active_count.load(std::sync::atomic::Ordering::Relaxed)
+        self.shared
+            .active_count
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -496,8 +488,14 @@ impl EventManagerProcessor {
         self.cleanup_instances();
 
         // 6. Update shared active count
-        let active = self.instances.iter().filter(|i| i.state.is_active()).count();
-        self.shared.active_count.store(active, std::sync::atomic::Ordering::Relaxed);
+        let active = self
+            .instances
+            .iter()
+            .filter(|i| i.state.is_active())
+            .count();
+        self.shared
+            .active_count
+            .store(active, std::sync::atomic::Ordering::Relaxed);
 
         // 7. Advance frame counter
         self.current_frame += num_frames;
@@ -508,26 +506,66 @@ impl EventManagerProcessor {
     fn process_commands(&mut self, executed: &mut Vec<ExecutedAction>) {
         while let Ok(cmd) = self.command_rx.pop() {
             match cmd {
-                EventCommand::PostEvent { event_id, game_object, playing_id, callback_id, user_data } => {
-                    self.execute_post_event(event_id, game_object, playing_id, callback_id, user_data, executed);
+                EventCommand::PostEvent {
+                    event_id,
+                    game_object,
+                    playing_id,
+                    callback_id,
+                    user_data,
+                } => {
+                    self.execute_post_event(
+                        event_id,
+                        game_object,
+                        playing_id,
+                        callback_id,
+                        user_data,
+                        executed,
+                    );
                 }
-                EventCommand::PostEventByName { name, game_object, playing_id, callback_id, user_data } => {
+                EventCommand::PostEventByName {
+                    name,
+                    game_object,
+                    playing_id,
+                    callback_id,
+                    user_data,
+                } => {
                     let event_id = self.shared.event_names.read().get(&name).copied();
                     if let Some(id) = event_id {
-                        self.execute_post_event(id, game_object, playing_id, callback_id, user_data, executed);
+                        self.execute_post_event(
+                            id,
+                            game_object,
+                            playing_id,
+                            callback_id,
+                            user_data,
+                            executed,
+                        );
                     }
                 }
-                EventCommand::StopPlayingId { playing_id, fade_ms } => {
+                EventCommand::StopPlayingId {
+                    playing_id,
+                    fade_ms,
+                } => {
                     self.execute_stop_playing_id(playing_id, fade_ms);
                 }
-                EventCommand::StopEvent { event_id, game_object, fade_ms } => {
+                EventCommand::StopEvent {
+                    event_id,
+                    game_object,
+                    fade_ms,
+                } => {
                     self.execute_stop_event(event_id, game_object, fade_ms);
                 }
-                EventCommand::StopAll { game_object, fade_ms } => {
+                EventCommand::StopAll {
+                    game_object,
+                    fade_ms,
+                } => {
                     self.execute_stop_all(game_object, fade_ms);
                 }
                 EventCommand::PausePlayingId { playing_id } => {
-                    if let Some(inst) = self.instances.iter_mut().find(|i| i.playing_id == playing_id) {
+                    if let Some(inst) = self
+                        .instances
+                        .iter_mut()
+                        .find(|i| i.playing_id == playing_id)
+                    {
                         inst.pause();
                     }
                 }
@@ -539,7 +577,11 @@ impl EventManagerProcessor {
                     }
                 }
                 EventCommand::ResumePlayingId { playing_id } => {
-                    if let Some(inst) = self.instances.iter_mut().find(|i| i.playing_id == playing_id) {
+                    if let Some(inst) = self
+                        .instances
+                        .iter_mut()
+                        .find(|i| i.playing_id == playing_id)
+                    {
                         inst.resume();
                     }
                 }
@@ -553,37 +595,61 @@ impl EventManagerProcessor {
                 EventCommand::SetState { group_id, state_id } => {
                     self.current_states.insert(group_id, state_id);
                 }
-                EventCommand::SetSwitch { game_object, group_id, switch_id } => {
-                    self.current_switches.insert((game_object, group_id), switch_id);
+                EventCommand::SetSwitch {
+                    game_object,
+                    group_id,
+                    switch_id,
+                } => {
+                    self.current_switches
+                        .insert((game_object, group_id), switch_id);
                 }
-                EventCommand::SetRtpc { rtpc_id, value, game_object, interpolation_ms } => {
-                    let frames = (interpolation_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
+                EventCommand::SetRtpc {
+                    rtpc_id,
+                    value,
+                    game_object,
+                    interpolation_ms,
+                } => {
+                    let frames =
+                        (interpolation_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
 
                     // Get default value from RTPC definition, or 0.0
-                    let default_value = self.shared.rtpc_definitions.read()
+                    let default_value = self
+                        .shared
+                        .rtpc_definitions
+                        .read()
                         .get(&rtpc_id)
                         .map(|d| d.default)
                         .unwrap_or(0.0);
 
                     if let Some(go) = game_object {
-                        let entry = self.object_rtpcs
+                        let entry = self
+                            .object_rtpcs
                             .entry((go, rtpc_id))
                             .or_insert_with(|| RtpcValue::new(default_value));
                         entry.set_target(value, frames);
                     } else {
-                        let entry = self.current_rtpcs
+                        let entry = self
+                            .current_rtpcs
                             .entry(rtpc_id)
                             .or_insert_with(|| RtpcValue::new(default_value));
                         entry.set_target(value, frames);
                     }
                 }
-                EventCommand::ResetRtpc { rtpc_id, game_object, interpolation_ms } => {
-                    let default_value = self.shared.rtpc_definitions.read()
+                EventCommand::ResetRtpc {
+                    rtpc_id,
+                    game_object,
+                    interpolation_ms,
+                } => {
+                    let default_value = self
+                        .shared
+                        .rtpc_definitions
+                        .read()
                         .get(&rtpc_id)
                         .map(|d| d.default)
                         .unwrap_or(0.0);
 
-                    let frames = (interpolation_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
+                    let frames =
+                        (interpolation_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
 
                     if let Some(go) = game_object {
                         if let Some(val) = self.object_rtpcs.get_mut(&(go, rtpc_id)) {
@@ -593,9 +659,14 @@ impl EventManagerProcessor {
                         val.set_target(default_value, frames);
                     }
                 }
-                EventCommand::SetBusVolume { bus_id, volume, fade_ms } => {
+                EventCommand::SetBusVolume {
+                    bus_id,
+                    volume,
+                    fade_ms,
+                } => {
                     let frames = (fade_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
-                    let entry = self.bus_volumes
+                    let entry = self
+                        .bus_volumes
                         .entry(bus_id)
                         .or_insert_with(|| RtpcValue::new(1.0));
                     entry.set_target(volume, frames);
@@ -626,7 +697,9 @@ impl EventManagerProcessor {
 
         // Check max instances
         if event.max_instances > 0 {
-            let count = self.instances.iter()
+            let count = self
+                .instances
+                .iter()
                 .filter(|i| i.event_id == event_id && i.state.is_active())
                 .count() as u32;
 
@@ -635,7 +708,9 @@ impl EventManagerProcessor {
                     crate::event::MaxInstanceBehavior::DiscardNewest => return,
                     crate::event::MaxInstanceBehavior::DiscardOldest => {
                         // Stop oldest instance
-                        if let Some(oldest) = self.instances.iter_mut()
+                        if let Some(oldest) = self
+                            .instances
+                            .iter_mut()
                             .filter(|i| i.event_id == event_id && i.state.is_active())
                             .min_by_key(|i| i.start_frame)
                         {
@@ -690,19 +765,29 @@ impl EventManagerProcessor {
     fn execute_stop_playing_id(&mut self, playing_id: PlayingId, fade_ms: u32) {
         let fade_frames = (fade_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
 
-        if let Some(inst) = self.instances.iter_mut().find(|i| i.playing_id == playing_id) {
+        if let Some(inst) = self
+            .instances
+            .iter_mut()
+            .find(|i| i.playing_id == playing_id)
+        {
             inst.start_stopping(fade_frames);
         }
     }
 
-    fn execute_stop_event(&mut self, event_id: u32, game_object: Option<GameObjectId>, fade_ms: u32) {
+    fn execute_stop_event(
+        &mut self,
+        event_id: u32,
+        game_object: Option<GameObjectId>,
+        fade_ms: u32,
+    ) {
         let fade_frames = (fade_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
 
         for inst in &mut self.instances {
             if inst.event_id == event_id
-                && (game_object.is_none() || Some(inst.game_object) == game_object) {
-                    inst.start_stopping(fade_frames);
-                }
+                && (game_object.is_none() || Some(inst.game_object) == game_object)
+            {
+                inst.start_stopping(fade_frames);
+            }
         }
     }
 
@@ -733,7 +818,9 @@ impl EventManagerProcessor {
         let sample_rate = self.shared.sample_rate;
 
         // Build RTPC value map for condition checking (current values only)
-        let rtpc_values: HashMap<u32, f32> = self.current_rtpcs.iter()
+        let rtpc_values: HashMap<u32, f32> = self
+            .current_rtpcs
+            .iter()
             .map(|(id, val)| (*id, val.current))
             .collect();
 
@@ -745,7 +832,9 @@ impl EventManagerProcessor {
             let game_object = instance.game_object;
 
             // Collect ready actions data first, checking conditions
-            let ready_action_data: Vec<_> = instance.pending_actions.iter()
+            let ready_action_data: Vec<_> = instance
+                .pending_actions
+                .iter()
                 .filter(|a| {
                     if a.executed || a.execute_at_frame > current_frame {
                         return false;
@@ -757,7 +846,10 @@ impl EventManagerProcessor {
                     }
 
                     // Check switch condition (for this game object)
-                    if !a.action.check_switch_condition(game_object, &self.current_switches) {
+                    if !a
+                        .action
+                        .check_switch_condition(game_object, &self.current_switches)
+                    {
                         return false;
                     }
 
@@ -772,9 +864,8 @@ impl EventManagerProcessor {
                 .collect();
 
             // Mark as executed only those that passed conditions
-            let passed_ids: std::collections::HashSet<_> = ready_action_data.iter()
-                .map(|(a, _, _)| a.id)
-                .collect();
+            let passed_ids: std::collections::HashSet<_> =
+                ready_action_data.iter().map(|(a, _, _)| a.id).collect();
 
             for pending in &mut instance.pending_actions {
                 if !pending.executed && pending.execute_at_frame <= current_frame {
@@ -821,7 +912,8 @@ impl EventManagerProcessor {
 
         // Only remove instances that are fully stopped
         // Keep Playing/Paused/Stopping instances even if all actions executed
-        self.instances.retain(|i| i.state != EventInstanceState::Stopped);
+        self.instances
+            .retain(|i| i.state != EventInstanceState::Stopped);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -845,17 +937,25 @@ impl EventManagerProcessor {
 
     /// Get RTPC value for specific game object
     pub fn get_object_rtpc(&self, game_object: GameObjectId, rtpc_id: u32) -> Option<f32> {
-        self.object_rtpcs.get(&(game_object, rtpc_id)).map(|v| v.current)
+        self.object_rtpcs
+            .get(&(game_object, rtpc_id))
+            .map(|v| v.current)
     }
 
     /// Get bus volume
     pub fn get_bus_volume(&self, bus_id: u32) -> f32 {
-        self.bus_volumes.get(&bus_id).map(|v| v.current).unwrap_or(1.0)
+        self.bus_volumes
+            .get(&bus_id)
+            .map(|v| v.current)
+            .unwrap_or(1.0)
     }
 
     /// Get active instance count
     pub fn active_instance_count(&self) -> usize {
-        self.instances.iter().filter(|i| i.state.is_active()).count()
+        self.instances
+            .iter()
+            .filter(|i| i.state.is_active())
+            .count()
     }
 
     /// Get all active instances
@@ -940,73 +1040,55 @@ fn execute_action(
     sample_rate: u32,
 ) -> ExecutedAction {
     match action.action_type {
-        ActionType::Play | ActionType::PlayAndContinue => {
-            ExecutedAction::Play {
-                playing_id,
-                asset_id: action.asset_id.unwrap_or(0),
-                bus_id: action.bus_id,
-                gain: action.gain,
-                loop_playback: action.loop_playback,
-                fade_in_frames: action.fade_frames(sample_rate),
-                priority: action.priority,
-            }
-        }
-        ActionType::Stop => {
-            ExecutedAction::Stop {
-                playing_id,
-                asset_id: action.asset_id,
-                fade_out_frames: action.fade_frames(sample_rate),
-            }
-        }
-        ActionType::StopAll => {
-            ExecutedAction::StopAll {
-                game_object: if action.scope == crate::action::ActionScope::Global {
-                    None
-                } else {
-                    Some(game_object)
-                },
-                fade_out_frames: action.fade_frames(sample_rate),
-            }
-        }
-        ActionType::SetVolume => {
-            ExecutedAction::SetVolume {
-                bus_id: action.bus_id,
-                volume: action.gain,
-                fade_frames: action.fade_frames(sample_rate),
-            }
-        }
-        ActionType::SetBusVolume => {
-            ExecutedAction::SetBusVolume {
-                bus_id: action.bus_id,
-                volume: action.gain,
-                fade_frames: action.fade_frames(sample_rate),
-            }
-        }
-        ActionType::SetState => {
-            ExecutedAction::SetState {
-                group_id: action.group_id.unwrap_or(0),
-                state_id: action.value_id.unwrap_or(0),
-            }
-        }
-        ActionType::SetSwitch => {
-            ExecutedAction::SetSwitch {
-                game_object,
-                group_id: action.group_id.unwrap_or(0),
-                switch_id: action.value_id.unwrap_or(0),
-            }
-        }
-        ActionType::SetRTPC => {
-            ExecutedAction::SetRtpc {
-                rtpc_id: action.rtpc_id.unwrap_or(0),
-                value: action.rtpc_value.unwrap_or(0.0),
-            }
-        }
-        ActionType::PostEvent => {
-            ExecutedAction::PostEvent {
-                event_id: action.target_event_id.unwrap_or(0),
-                game_object,
-            }
-        }
+        ActionType::Play | ActionType::PlayAndContinue => ExecutedAction::Play {
+            playing_id,
+            asset_id: action.asset_id.unwrap_or(0),
+            bus_id: action.bus_id,
+            gain: action.gain,
+            loop_playback: action.loop_playback,
+            fade_in_frames: action.fade_frames(sample_rate),
+            priority: action.priority,
+        },
+        ActionType::Stop => ExecutedAction::Stop {
+            playing_id,
+            asset_id: action.asset_id,
+            fade_out_frames: action.fade_frames(sample_rate),
+        },
+        ActionType::StopAll => ExecutedAction::StopAll {
+            game_object: if action.scope == crate::action::ActionScope::Global {
+                None
+            } else {
+                Some(game_object)
+            },
+            fade_out_frames: action.fade_frames(sample_rate),
+        },
+        ActionType::SetVolume => ExecutedAction::SetVolume {
+            bus_id: action.bus_id,
+            volume: action.gain,
+            fade_frames: action.fade_frames(sample_rate),
+        },
+        ActionType::SetBusVolume => ExecutedAction::SetBusVolume {
+            bus_id: action.bus_id,
+            volume: action.gain,
+            fade_frames: action.fade_frames(sample_rate),
+        },
+        ActionType::SetState => ExecutedAction::SetState {
+            group_id: action.group_id.unwrap_or(0),
+            state_id: action.value_id.unwrap_or(0),
+        },
+        ActionType::SetSwitch => ExecutedAction::SetSwitch {
+            game_object,
+            group_id: action.group_id.unwrap_or(0),
+            switch_id: action.value_id.unwrap_or(0),
+        },
+        ActionType::SetRTPC => ExecutedAction::SetRtpc {
+            rtpc_id: action.rtpc_id.unwrap_or(0),
+            value: action.rtpc_value.unwrap_or(0.0),
+        },
+        ActionType::PostEvent => ExecutedAction::PostEvent {
+            event_id: action.target_event_id.unwrap_or(0),
+            game_object,
+        },
         _ => ExecutedAction::Other {
             action_type: action.action_type,
         },
@@ -1062,10 +1144,7 @@ pub enum ExecutedAction {
         fade_frames: u64,
     },
     /// Set state
-    SetState {
-        group_id: u32,
-        state_id: u32,
-    },
+    SetState { group_id: u32, state_id: u32 },
     /// Set switch
     SetSwitch {
         game_object: GameObjectId,
@@ -1073,19 +1152,14 @@ pub enum ExecutedAction {
         switch_id: u32,
     },
     /// Set RTPC
-    SetRtpc {
-        rtpc_id: u32,
-        value: f32,
-    },
+    SetRtpc { rtpc_id: u32, value: f32 },
     /// Post another event
     PostEvent {
         event_id: u32,
         game_object: GameObjectId,
     },
     /// Other action type
-    Other {
-        action_type: ActionType,
-    },
+    Other { action_type: ActionType },
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1131,8 +1205,16 @@ mod tests {
 
         // Should have created instance and executed play
         assert_eq!(processor.active_instance_count(), 1);
-        assert!(executed.iter().any(|e| matches!(e, ExecutedAction::EventPosted { .. })));
-        assert!(executed.iter().any(|e| matches!(e, ExecutedAction::Play { .. })));
+        assert!(
+            executed
+                .iter()
+                .any(|e| matches!(e, ExecutedAction::EventPosted { .. }))
+        );
+        assert!(
+            executed
+                .iter()
+                .any(|e| matches!(e, ExecutedAction::Play { .. }))
+        );
     }
 
     #[test]

@@ -18,13 +18,13 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::ptr;
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 
 use rf_slot_lab::{
-    ForcedOutcome, GameModel, SlotEngineV2, SpinResult, SyntheticSlotEngine,
-    TimingProfile, VolatilityProfile,
+    ForcedOutcome, GameModel, SlotEngineV2, SpinResult, SyntheticSlotEngine, TimingProfile,
+    VolatilityProfile,
     parser::GddParser,
     scenario::{ScenarioPlayback, ScenarioRegistry},
 };
@@ -49,16 +49,13 @@ static SLOT_LAB_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
 static SPIN_COUNT: AtomicU64 = AtomicU64::new(0);
 
 /// Global slot engine instance
-static SLOT_ENGINE: Lazy<RwLock<Option<SyntheticSlotEngine>>> =
-    Lazy::new(|| RwLock::new(None));
+static SLOT_ENGINE: Lazy<RwLock<Option<SyntheticSlotEngine>>> = Lazy::new(|| RwLock::new(None));
 
 /// Last spin result (for retrieval by Dart)
-static LAST_SPIN_RESULT: Lazy<RwLock<Option<SpinResult>>> =
-    Lazy::new(|| RwLock::new(None));
+static LAST_SPIN_RESULT: Lazy<RwLock<Option<SpinResult>>> = Lazy::new(|| RwLock::new(None));
 
 /// Last generated stages (for retrieval by Dart)
-static LAST_STAGES: Lazy<RwLock<Vec<StageEvent>>> =
-    Lazy::new(|| RwLock::new(Vec::new()));
+static LAST_STAGES: Lazy<RwLock<Vec<StageEvent>>> = Lazy::new(|| RwLock::new(Vec::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
@@ -165,7 +162,11 @@ pub extern "C" fn slot_lab_shutdown() {
 /// Check if engine is initialized
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_is_initialized() -> i32 {
-    if SLOT_LAB_STATE.load(Ordering::SeqCst) == STATE_INITIALIZED { 1 } else { 0 }
+    if SLOT_LAB_STATE.load(Ordering::SeqCst) == STATE_INITIALIZED {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -283,12 +284,10 @@ pub extern "C" fn slot_lab_get_timing_config_json() -> *mut c_char {
         Some(engine) => {
             let config = engine.timing_config();
             match serde_json::to_string(config) {
-                Ok(json) => {
-                    match CString::new(json) {
-                        Ok(c_str) => c_str.into_raw(),
-                        Err(_) => std::ptr::null_mut(),
-                    }
-                }
+                Ok(json) => match CString::new(json) {
+                    Ok(c_str) => c_str.into_raw(),
+                    Err(_) => std::ptr::null_mut(),
+                },
                 Err(_) => std::ptr::null_mut(),
             }
         }
@@ -471,7 +470,10 @@ pub extern "C" fn slot_lab_spin_forced(outcome: i32) -> u64 {
         13 => ForcedOutcome::Cascade,
         // This should never be reached due to validation above
         _ => {
-            log::error!("slot_lab_spin_forced: Unexpected outcome after validation: {}", outcome);
+            log::error!(
+                "slot_lab_spin_forced: Unexpected outcome after validation: {}",
+                outcome
+            );
             return 0;
         }
     };
@@ -482,7 +484,11 @@ pub extern "C" fn slot_lab_spin_forced(outcome: i32) -> u64 {
     *LAST_SPIN_RESULT.write() = Some(result);
     *LAST_STAGES.write() = stages;
 
-    log::debug!("slot_lab_spin_forced: outcome={:?}, spin_id={}", forced, spin_id);
+    log::debug!(
+        "slot_lab_spin_forced: outcome={:?}, spin_id={}",
+        forced,
+        spin_id
+    );
     spin_id
 }
 
@@ -514,11 +520,12 @@ pub extern "C" fn slot_lab_spin_p5() -> u64 {
     let p5_result = win_config.evaluate(result.total_win, result.bet);
 
     // Update SpinResult with P5 tier info
-    result.win_tier_name = if p5_result.primary_stage.is_empty() || p5_result.primary_stage == "NO_WIN" {
-        None
-    } else {
-        Some(p5_result.primary_stage.clone())
-    };
+    result.win_tier_name =
+        if p5_result.primary_stage.is_empty() || p5_result.primary_stage == "NO_WIN" {
+            None
+        } else {
+            Some(p5_result.primary_stage.clone())
+        };
 
     // Map P5 result to legacy BigWinTier for backwards compatibility
     if p5_result.is_big_win {
@@ -583,7 +590,10 @@ pub extern "C" fn slot_lab_spin_forced_p5(outcome: i32) -> u64 {
         12 => ForcedOutcome::NearMiss,
         13 => ForcedOutcome::Cascade,
         _ => {
-            log::error!("slot_lab_spin_forced_p5: Unexpected outcome after validation: {}", outcome);
+            log::error!(
+                "slot_lab_spin_forced_p5: Unexpected outcome after validation: {}",
+                outcome
+            );
             return 0;
         }
     };
@@ -596,11 +606,12 @@ pub extern "C" fn slot_lab_spin_forced_p5(outcome: i32) -> u64 {
     let p5_result = win_config.evaluate(result.total_win, result.bet);
 
     // Update SpinResult with P5 tier info
-    result.win_tier_name = if p5_result.primary_stage.is_empty() || p5_result.primary_stage == "NO_WIN" {
-        None
-    } else {
-        Some(p5_result.primary_stage.clone())
-    };
+    result.win_tier_name =
+        if p5_result.primary_stage.is_empty() || p5_result.primary_stage == "NO_WIN" {
+            None
+        } else {
+            Some(p5_result.primary_stage.clone())
+        };
 
     // Map P5 result to legacy BigWinTier for backwards compatibility
     if p5_result.is_big_win {
@@ -622,7 +633,11 @@ pub extern "C" fn slot_lab_spin_forced_p5(outcome: i32) -> u64 {
     *LAST_SPIN_RESULT.write() = Some(result);
     *LAST_STAGES.write() = stages;
 
-    log::debug!("slot_lab_spin_forced_p5: outcome={:?}, spin_id={}", forced, spin_id);
+    log::debug!(
+        "slot_lab_spin_forced_p5: outcome={:?}, spin_id={}",
+        forced,
+        spin_id
+    );
     spin_id
 }
 
@@ -637,7 +652,10 @@ pub extern "C" fn slot_lab_spin_forced_p5(outcome: i32) -> u64 {
 ///
 /// Returns spin ID (> 0) on success, 0 if invalid
 #[unsafe(no_mangle)]
-pub extern "C" fn slot_lab_spin_forced_with_multiplier(outcome: i32, target_multiplier: f64) -> u64 {
+pub extern "C" fn slot_lab_spin_forced_with_multiplier(
+    outcome: i32,
+    target_multiplier: f64,
+) -> u64 {
     // Validate outcome range first
     if !(FORCED_OUTCOME_MIN..=FORCED_OUTCOME_MAX).contains(&outcome) {
         log::warn!(
@@ -671,24 +689,29 @@ pub extern "C" fn slot_lab_spin_forced_with_multiplier(outcome: i32, target_mult
         12 => ForcedOutcome::NearMiss,
         13 => ForcedOutcome::Cascade,
         _ => {
-            log::error!("slot_lab_spin_forced_with_multiplier: Unexpected outcome: {}", outcome);
+            log::error!(
+                "slot_lab_spin_forced_with_multiplier: Unexpected outcome: {}",
+                outcome
+            );
             return 0;
         }
     };
 
     // Execute spin with EXACT target multiplier
-    let (mut result, stages) = engine.spin_forced_with_multiplier_and_stages(forced, target_multiplier);
+    let (mut result, stages) =
+        engine.spin_forced_with_multiplier_and_stages(forced, target_multiplier);
 
     // Reevaluate with P5 Win Tier config to get correct tier name
     let win_config = WIN_TIER_CONFIG.read();
     let p5_result = win_config.evaluate(result.total_win, result.bet);
 
     // Update SpinResult with P5 tier info
-    result.win_tier_name = if p5_result.primary_stage.is_empty() || p5_result.primary_stage == "NO_WIN" {
-        None
-    } else {
-        Some(p5_result.primary_stage.clone())
-    };
+    result.win_tier_name =
+        if p5_result.primary_stage.is_empty() || p5_result.primary_stage == "NO_WIN" {
+            None
+        } else {
+            Some(p5_result.primary_stage.clone())
+        };
 
     // Map P5 result to legacy BigWinTier for backwards compatibility
     if p5_result.is_big_win {
@@ -738,7 +761,9 @@ pub extern "C" fn slot_lab_get_last_spin_p5_tier_json() -> *mut c_char {
     let spin_result = LAST_SPIN_RESULT.read();
     let Some(ref result) = *spin_result else {
         let empty = r#"{"error":"No spin result available"}"#;
-        return CString::new(empty).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+        return CString::new(empty)
+            .map(|c| c.into_raw())
+            .unwrap_or(ptr::null_mut());
     };
 
     let win_config = WIN_TIER_CONFIG.read();
@@ -821,9 +846,7 @@ pub extern "C" fn slot_lab_free_string(s: *mut c_char) {
 pub extern "C" fn slot_lab_get_stats_json() -> *mut c_char {
     let guard = SLOT_ENGINE.read();
     let json = match &*guard {
-        Some(engine) => {
-            serde_json::to_string(engine.stats()).unwrap_or_else(|_| "{}".to_string())
-        }
+        Some(engine) => serde_json::to_string(engine.stats()).unwrap_or_else(|_| "{}".to_string()),
         None => "{}".to_string(),
     };
 
@@ -908,7 +931,13 @@ pub extern "C" fn slot_lab_get_max_win_ratio() -> f64 {
 pub extern "C" fn slot_lab_in_free_spins() -> i32 {
     let guard = SLOT_ENGINE.read();
     match &*guard {
-        Some(engine) => if engine.in_free_spins() { 1 } else { 0 },
+        Some(engine) => {
+            if engine.in_free_spins() {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -961,7 +990,11 @@ pub extern "C" fn slot_lab_import_config(json: *const c_char) -> i32 {
     let mut guard = SLOT_ENGINE.write();
     match &mut *guard {
         Some(engine) => {
-            if engine.import_config(json_str).is_ok() { 1 } else { 0 }
+            if engine.import_config(json_str).is_ok() {
+                1
+            } else {
+                0
+            }
         }
         None => 0,
     }
@@ -976,7 +1009,13 @@ pub extern "C" fn slot_lab_import_config(json: *const c_char) -> i32 {
 pub extern "C" fn slot_lab_last_spin_is_win() -> i32 {
     let guard = LAST_SPIN_RESULT.read();
     match &*guard {
-        Some(result) => if result.is_win() { 1 } else { 0 },
+        Some(result) => {
+            if result.is_win() {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -1026,7 +1065,13 @@ pub extern "C" fn slot_lab_last_spin_line_count() -> i32 {
 pub extern "C" fn slot_lab_last_spin_triggered_feature() -> i32 {
     let guard = LAST_SPIN_RESULT.read();
     match &*guard {
-        Some(result) => if result.feature_triggered.is_some() { 1 } else { 0 },
+        Some(result) => {
+            if result.feature_triggered.is_some() {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -1036,7 +1081,13 @@ pub extern "C" fn slot_lab_last_spin_triggered_feature() -> i32 {
 pub extern "C" fn slot_lab_last_spin_near_miss() -> i32 {
     let guard = LAST_SPIN_RESULT.read();
     match &*guard {
-        Some(result) => if result.near_miss { 1 } else { 0 },
+        Some(result) => {
+            if result.near_miss {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -1145,11 +1196,16 @@ pub extern "C" fn slot_lab_v2_init_with_model_json(json: *const c_char) -> i32 {
                     let engine = SlotEngineV2::from_model(model);
                     *ENGINE_V2.write() = Some(engine);
                     ENGINE_V2_STATE.store(STATE_INITIALIZED, Ordering::SeqCst);
-                    log::info!("slot_lab_v2_init_with_model_json: Engine V2 initialized with custom model");
+                    log::info!(
+                        "slot_lab_v2_init_with_model_json: Engine V2 initialized with custom model"
+                    );
                     1
                 }
                 Err(e) => {
-                    log::error!("slot_lab_v2_init_with_model_json: Failed to parse model: {}", e);
+                    log::error!(
+                        "slot_lab_v2_init_with_model_json: Failed to parse model: {}",
+                        e
+                    );
                     ENGINE_V2_STATE.store(STATE_UNINITIALIZED, Ordering::SeqCst);
                     0
                 }
@@ -1320,9 +1376,7 @@ pub extern "C" fn slot_lab_v2_get_stages_json() -> *mut c_char {
 pub extern "C" fn slot_lab_v2_get_model_json() -> *mut c_char {
     let guard = ENGINE_V2.read();
     let json = match &*guard {
-        Some(engine) => {
-            serde_json::to_string(engine.model()).unwrap_or_else(|_| "{}".to_string())
-        }
+        Some(engine) => serde_json::to_string(engine.model()).unwrap_or_else(|_| "{}".to_string()),
         None => "{}".to_string(),
     };
 
@@ -1337,9 +1391,7 @@ pub extern "C" fn slot_lab_v2_get_model_json() -> *mut c_char {
 pub extern "C" fn slot_lab_v2_get_stats_json() -> *mut c_char {
     let guard = ENGINE_V2.read();
     let json = match &*guard {
-        Some(engine) => {
-            serde_json::to_string(engine.stats()).unwrap_or_else(|_| "{}".to_string())
-        }
+        Some(engine) => serde_json::to_string(engine.stats()).unwrap_or_else(|_| "{}".to_string()),
         None => "{}".to_string(),
     };
 
@@ -1414,8 +1466,7 @@ static SCENARIO_REGISTRY: Lazy<RwLock<ScenarioRegistry>> =
     Lazy::new(|| RwLock::new(ScenarioRegistry::new()));
 
 /// Active playback state
-static ACTIVE_PLAYBACK: Lazy<RwLock<Option<ScenarioPlayback>>> =
-    Lazy::new(|| RwLock::new(None));
+static ACTIVE_PLAYBACK: Lazy<RwLock<Option<ScenarioPlayback>>> = Lazy::new(|| RwLock::new(None));
 
 /// List all available scenarios as JSON array
 #[unsafe(no_mangle)]
@@ -1463,7 +1514,11 @@ pub extern "C" fn slot_lab_scenario_load(id: *const c_char) -> i32 {
 /// Check if a scenario is currently loaded
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_scenario_is_loaded() -> i32 {
-    if ACTIVE_PLAYBACK.read().is_some() { 1 } else { 0 }
+    if ACTIVE_PLAYBACK.read().is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get the next spin from the loaded scenario
@@ -1511,7 +1566,13 @@ pub extern "C" fn slot_lab_scenario_progress() -> *mut c_char {
 pub extern "C" fn slot_lab_scenario_is_complete() -> i32 {
     let playback = ACTIVE_PLAYBACK.read();
     match &*playback {
-        Some(pb) => if pb.is_complete() { 1 } else { 0 },
+        Some(pb) => {
+            if pb.is_complete() {
+                1
+            } else {
+                0
+            }
+        }
         None => 1, // No playback = complete
     }
 }
@@ -1550,7 +1611,10 @@ pub extern "C" fn slot_lab_scenario_register_json(json: *const c_char) -> i32 {
     match serde_json::from_str::<rf_slot_lab::DemoScenario>(json_str) {
         Ok(scenario) => {
             let mut registry = SCENARIO_REGISTRY.write();
-            log::info!("slot_lab_scenario_register_json: Registered scenario '{}'", scenario.id);
+            log::info!(
+                "slot_lab_scenario_register_json: Registered scenario '{}'",
+                scenario.id
+            );
             registry.register(scenario);
             1
         }
@@ -1598,7 +1662,9 @@ pub extern "C" fn slot_lab_scenario_get_json(id: *const c_char) -> *mut c_char {
 pub extern "C" fn slot_lab_gdd_validate(gdd_json: *const c_char) -> *mut c_char {
     if gdd_json.is_null() {
         let error_json = r#"{"valid":false,"errors":["Null input"]}"#;
-        return CString::new(error_json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+        return CString::new(error_json)
+            .map(|c| c.into_raw())
+            .unwrap_or(ptr::null_mut());
     }
 
     let json_str = unsafe {
@@ -1606,7 +1672,9 @@ pub extern "C" fn slot_lab_gdd_validate(gdd_json: *const c_char) -> *mut c_char 
             Ok(s) => s,
             Err(_) => {
                 let error_json = r#"{"valid":false,"errors":["Invalid UTF-8"]}"#;
-                return CString::new(error_json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+                return CString::new(error_json)
+                    .map(|c| c.into_raw())
+                    .unwrap_or(ptr::null_mut());
             }
         }
     };
@@ -1619,16 +1687,22 @@ pub extern "C" fn slot_lab_gdd_validate(gdd_json: *const c_char) -> *mut c_char 
                 "valid": true,
                 "errors": serde_json::Value::Array(vec![]),
             });
-            let json = serde_json::to_string(&result).unwrap_or_else(|_| r#"{"valid":true}"#.to_string());
-            CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+            let json =
+                serde_json::to_string(&result).unwrap_or_else(|_| r#"{"valid":true}"#.to_string());
+            CString::new(json)
+                .map(|c| c.into_raw())
+                .unwrap_or(ptr::null_mut())
         }
         Err(e) => {
             let result = serde_json::json!({
                 "valid": false,
                 "errors": [format!("Parse error: {:?}", e)],
             });
-            let json = serde_json::to_string(&result).unwrap_or_else(|_| r#"{"valid":false}"#.to_string());
-            CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+            let json =
+                serde_json::to_string(&result).unwrap_or_else(|_| r#"{"valid":false}"#.to_string());
+            CString::new(json)
+                .map(|c| c.into_raw())
+                .unwrap_or(ptr::null_mut())
         }
     }
 }
@@ -1640,7 +1714,9 @@ pub extern "C" fn slot_lab_gdd_validate(gdd_json: *const c_char) -> *mut c_char 
 pub extern "C" fn slot_lab_gdd_to_model(gdd_json: *const c_char) -> *mut c_char {
     if gdd_json.is_null() {
         let error_json = r#"{"error":"Null input"}"#;
-        return CString::new(error_json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+        return CString::new(error_json)
+            .map(|c| c.into_raw())
+            .unwrap_or(ptr::null_mut());
     }
 
     let json_str = unsafe {
@@ -1648,7 +1724,9 @@ pub extern "C" fn slot_lab_gdd_to_model(gdd_json: *const c_char) -> *mut c_char 
             Ok(s) => s,
             Err(_) => {
                 let error_json = r#"{"error":"Invalid UTF-8"}"#;
-                return CString::new(error_json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+                return CString::new(error_json)
+                    .map(|c| c.into_raw())
+                    .unwrap_or(ptr::null_mut());
             }
         }
     };
@@ -1657,11 +1735,15 @@ pub extern "C" fn slot_lab_gdd_to_model(gdd_json: *const c_char) -> *mut c_char 
     match parser.parse_json(json_str) {
         Ok(model) => {
             let json = serde_json::to_string(&model).unwrap_or_else(|_| "{}".to_string());
-            CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+            CString::new(json)
+                .map(|c| c.into_raw())
+                .unwrap_or(ptr::null_mut())
         }
         Err(e) => {
             let error_json = format!(r#"{{"error":"Parse error: {:?}"}}"#, e);
-            CString::new(error_json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+            CString::new(error_json)
+                .map(|c| c.into_raw())
+                .unwrap_or(ptr::null_mut())
         }
     }
 }
@@ -1698,7 +1780,11 @@ pub extern "C" fn slot_lab_hold_and_win_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
         Some(engine) => {
-            if engine.is_hold_and_win_active() { 1 } else { 0 }
+            if engine.is_hold_and_win_active() {
+                1
+            } else {
+                0
+            }
         }
         None => 0,
     }
@@ -1756,17 +1842,22 @@ pub extern "C" fn slot_lab_hold_and_win_get_state_json() -> *mut c_char {
                 Some(snapshot) => {
                     let state_json = HoldAndWinStateJson {
                         is_active: snapshot.is_active,
-                        remaining_respins: snapshot.data.get("remaining_respins")
+                        remaining_respins: snapshot
+                            .data
+                            .get("remaining_respins")
                             .and_then(|v| v.as_u64())
                             .unwrap_or(0) as u8,
                         total_respins: snapshot.current_step as u8,
-                        locked_count: snapshot.data.get("locked_count")
+                        locked_count: snapshot
+                            .data
+                            .get("locked_count")
                             .and_then(|v| v.as_u64())
                             .unwrap_or(0) as usize,
                         grid_size: 15, // Default grid size
                         fill_percentage: engine.hold_and_win_fill_percentage(),
                         total_value: snapshot.accumulated_win,
-                        locked_symbols: engine.hold_and_win_locked_symbols()
+                        locked_symbols: engine
+                            .hold_and_win_locked_symbols()
                             .iter()
                             .map(|sym| LockedSymbolJson {
                                 position: sym.position,
@@ -1822,7 +1913,11 @@ pub extern "C" fn slot_lab_hold_and_win_force_trigger() -> i32 {
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
         Some(engine) => {
-            if engine.force_trigger_hold_and_win() { 1 } else { 0 }
+            if engine.force_trigger_hold_and_win() {
+                1
+            } else {
+                0
+            }
         }
         None => 0,
     }
@@ -1845,13 +1940,20 @@ pub extern "C" fn slot_lab_hold_and_win_add_locked_symbol(
     // P12.0.5: Validate position (typical 5x3 grid = 15 positions, use 100 as safe max)
     const MAX_GRID_POSITIONS: u8 = 100;
     if position >= MAX_GRID_POSITIONS {
-        log::error!("slot_lab_hold_and_win_add_locked_symbol: Position {} exceeds max {}", position, MAX_GRID_POSITIONS);
+        log::error!(
+            "slot_lab_hold_and_win_add_locked_symbol: Position {} exceeds max {}",
+            position,
+            MAX_GRID_POSITIONS
+        );
         return 0;
     }
 
     // P12.0.5: Validate symbol_type (0-4 for Normal/Mini/Minor/Major/Grand)
     if symbol_type < 0 || symbol_type > 4 {
-        log::error!("slot_lab_hold_and_win_add_locked_symbol: Invalid symbol_type {}", symbol_type);
+        log::error!(
+            "slot_lab_hold_and_win_add_locked_symbol: Invalid symbol_type {}",
+            symbol_type
+        );
         return 0;
     }
 
@@ -1899,7 +2001,11 @@ pub extern "C" fn slot_lab_pick_bonus_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
         Some(engine) => {
-            if engine.is_pick_bonus_active() { 1 } else { 0 }
+            if engine.is_pick_bonus_active() {
+                1
+            } else {
+                0
+            }
         }
         None => 0,
     }
@@ -1952,7 +2058,11 @@ pub extern "C" fn slot_lab_pick_bonus_force_trigger() -> i32 {
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
         Some(engine) => {
-            if engine.force_trigger_pick_bonus() { 1 } else { 0 }
+            if engine.force_trigger_pick_bonus() {
+                1
+            } else {
+                0
+            }
         }
         None => 0,
     }
@@ -2020,7 +2130,11 @@ pub extern "C" fn slot_lab_gamble_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
         Some(engine) => {
-            if engine.is_gamble_active() { 1 } else { 0 }
+            if engine.is_gamble_active() {
+                1
+            } else {
+                0
+            }
         }
         None => 0,
     }
@@ -2053,7 +2167,11 @@ pub extern "C" fn slot_lab_gamble_force_trigger(initial_stake: f64) -> i32 {
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
         Some(engine) => {
-            if engine.force_trigger_gamble(initial_stake) { 1 } else { 0 }
+            if engine.force_trigger_gamble(initial_stake) {
+                1
+            } else {
+                0
+            }
         }
         None => 0,
     }
@@ -2070,7 +2188,10 @@ pub extern "C" fn slot_lab_gamble_make_choice(choice_index: i32) -> *mut c_char 
     const MAX_CHOICES: usize = 100;
 
     if choice_index < 0 {
-        log::error!("slot_lab_gamble_make_choice: Negative index {}", choice_index);
+        log::error!(
+            "slot_lab_gamble_make_choice: Negative index {}",
+            choice_index
+        );
         return std::ptr::null_mut();
     }
 
@@ -2086,7 +2207,8 @@ pub extern "C" fn slot_lab_gamble_make_choice(choice_index: i32) -> *mut c_char 
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
         Some(engine) => {
-            if let Some((won, new_stake, game_over)) = engine.gamble_make_choice(choice_index as u8) {
+            if let Some((won, new_stake, game_over)) = engine.gamble_make_choice(choice_index as u8)
+            {
                 let json = serde_json::json!({
                     "won": won,
                     "new_stake": new_stake,
@@ -2138,7 +2260,13 @@ pub extern "C" fn slot_lab_gamble_get_state_json() -> *mut c_char {
 pub extern "C" fn slot_lab_jackpot_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
-        Some(engine) => if engine.is_jackpot_active() { 1 } else { 0 },
+        Some(engine) => {
+            if engine.is_jackpot_active() {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -2228,7 +2356,13 @@ pub extern "C" fn slot_lab_jackpot_won_amount() -> f64 {
 pub extern "C" fn slot_lab_jackpot_force_trigger(tier: i32) -> i32 {
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
-        Some(engine) => if engine.force_trigger_jackpot(tier as usize) { 1 } else { 0 },
+        Some(engine) => {
+            if engine.force_trigger_jackpot(tier as usize) {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -2291,7 +2425,13 @@ pub extern "C" fn slot_lab_jackpot_get_state_json() -> *mut c_char {
 pub extern "C" fn slot_lab_free_spins_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
-        Some(engine) => if engine.is_free_spins_active() { 1 } else { 0 },
+        Some(engine) => {
+            if engine.is_free_spins_active() {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -2343,7 +2483,13 @@ pub extern "C" fn slot_lab_free_spins_total_win() -> f64 {
 pub extern "C" fn slot_lab_free_spins_force_trigger(num_spins: i32) -> i32 {
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
-        Some(engine) => if engine.force_trigger_free_spins(num_spins as u32) { 1 } else { 0 },
+        Some(engine) => {
+            if engine.force_trigger_free_spins(num_spins as u32) {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -2354,7 +2500,13 @@ pub extern "C" fn slot_lab_free_spins_force_trigger(num_spins: i32) -> i32 {
 pub extern "C" fn slot_lab_free_spins_add(extra_spins: i32) -> i32 {
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
-        Some(engine) => if engine.free_spins_add(extra_spins as u32) { 1 } else { 0 },
+        Some(engine) => {
+            if engine.free_spins_add(extra_spins as u32) {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -2411,7 +2563,13 @@ pub extern "C" fn slot_lab_free_spins_get_state_json() -> *mut c_char {
 pub extern "C" fn slot_lab_cascade_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
-        Some(engine) => if engine.is_cascade_active() { 1 } else { 0 },
+        Some(engine) => {
+            if engine.is_cascade_active() {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -2462,7 +2620,13 @@ pub extern "C" fn slot_lab_cascade_total_win() -> f64 {
 pub extern "C" fn slot_lab_cascade_force_trigger() -> i32 {
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
-        Some(engine) => if engine.force_trigger_cascade() { 1 } else { 0 },
+        Some(engine) => {
+            if engine.force_trigger_cascade() {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -2513,7 +2677,7 @@ pub extern "C" fn slot_lab_cascade_get_state_json() -> *mut c_char {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 use rf_slot_lab::model::{
-    SlotWinConfig, RegularWinConfig, RegularWinTier, BigWinConfig, BigWinTier, WinTierResult,
+    BigWinConfig, BigWinTier, RegularWinConfig, RegularWinTier, SlotWinConfig, WinTierResult,
 };
 
 /// Global Win Tier Configuration
@@ -2609,9 +2773,14 @@ pub extern "C" fn slot_lab_win_tier_get_config_json() -> *mut c_char {
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_win_tier_evaluate(win_amount: f64, bet_amount: f64) -> *mut c_char {
     if bet_amount <= 0.0 {
-        log::warn!("slot_lab_win_tier_evaluate: Invalid bet amount: {}", bet_amount);
+        log::warn!(
+            "slot_lab_win_tier_evaluate: Invalid bet amount: {}",
+            bet_amount
+        );
         let error = r#"{"error":"Invalid bet amount"}"#;
-        return CString::new(error).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+        return CString::new(error)
+            .map(|c| c.into_raw())
+            .unwrap_or(ptr::null_mut());
     }
 
     let config = WIN_TIER_CONFIG.read();
@@ -2636,7 +2805,10 @@ pub extern "C" fn slot_lab_win_tier_get_big_win_threshold() -> f64 {
 pub extern "C" fn slot_lab_win_tier_set_big_win_threshold(threshold: f64) {
     if threshold > 0.0 {
         WIN_TIER_CONFIG.write().big_wins.threshold = threshold;
-        log::debug!("slot_lab_win_tier_set_big_win_threshold: Set to {}x", threshold);
+        log::debug!(
+            "slot_lab_win_tier_set_big_win_threshold: Set to {}x",
+            threshold
+        );
     }
 }
 
@@ -2680,20 +2852,31 @@ pub extern "C" fn slot_lab_win_tier_add_regular(
         to_multiplier,
         display_label: label,
         rollup_duration_ms,
-        rollup_tick_rate: 15, // Default
+        rollup_tick_rate: 15,     // Default
         particle_burst_count: 10, // Default
     };
 
     let mut config = WIN_TIER_CONFIG.write();
 
     // Check for duplicate
-    if config.regular_wins.tiers.iter().any(|t| t.tier_id == tier_id) {
-        log::warn!("slot_lab_win_tier_add_regular: Tier {} already exists", tier_id);
+    if config
+        .regular_wins
+        .tiers
+        .iter()
+        .any(|t| t.tier_id == tier_id)
+    {
+        log::warn!(
+            "slot_lab_win_tier_add_regular: Tier {} already exists",
+            tier_id
+        );
         return 0;
     }
 
     config.regular_wins.tiers.push(tier);
-    config.regular_wins.tiers.sort_by(|a, b| a.tier_id.cmp(&b.tier_id));
+    config
+        .regular_wins
+        .tiers
+        .sort_by(|a, b| a.tier_id.cmp(&b.tier_id));
 
     log::debug!("slot_lab_win_tier_add_regular: Added tier {}", tier_id);
     1
@@ -2712,7 +2895,12 @@ pub extern "C" fn slot_lab_win_tier_update_regular(
 ) -> i32 {
     let mut config = WIN_TIER_CONFIG.write();
 
-    if let Some(tier) = config.regular_wins.tiers.iter_mut().find(|t| t.tier_id == tier_id) {
+    if let Some(tier) = config
+        .regular_wins
+        .tiers
+        .iter_mut()
+        .find(|t| t.tier_id == tier_id)
+    {
         tier.from_multiplier = from_multiplier;
         tier.to_multiplier = to_multiplier;
         tier.rollup_duration_ms = rollup_duration_ms;
@@ -2726,7 +2914,10 @@ pub extern "C" fn slot_lab_win_tier_update_regular(
         log::debug!("slot_lab_win_tier_update_regular: Updated tier {}", tier_id);
         1
     } else {
-        log::warn!("slot_lab_win_tier_update_regular: Tier {} not found", tier_id);
+        log::warn!(
+            "slot_lab_win_tier_update_regular: Tier {} not found",
+            tier_id
+        );
         0
     }
 }
@@ -2744,7 +2935,10 @@ pub extern "C" fn slot_lab_win_tier_remove_regular(tier_id: i32) -> i32 {
         log::debug!("slot_lab_win_tier_remove_regular: Removed tier {}", tier_id);
         1
     } else {
-        log::warn!("slot_lab_win_tier_remove_regular: Tier {} not found", tier_id);
+        log::warn!(
+            "slot_lab_win_tier_remove_regular: Tier {} not found",
+            tier_id
+        );
         0
     }
 }
@@ -2763,7 +2957,12 @@ pub extern "C" fn slot_lab_win_tier_update_big(
 ) -> i32 {
     let mut config = WIN_TIER_CONFIG.write();
 
-    if let Some(tier) = config.big_wins.tiers.iter_mut().find(|t| t.tier_id == tier_id) {
+    if let Some(tier) = config
+        .big_wins
+        .tiers
+        .iter_mut()
+        .find(|t| t.tier_id == tier_id)
+    {
         tier.from_multiplier = from_multiplier;
         tier.to_multiplier = to_multiplier;
         tier.duration_ms = duration_ms;
@@ -2774,10 +2973,16 @@ pub extern "C" fn slot_lab_win_tier_update_big(
             }
         }
 
-        log::debug!("slot_lab_win_tier_update_big: Updated big win tier {}", tier_id);
+        log::debug!(
+            "slot_lab_win_tier_update_big: Updated big win tier {}",
+            tier_id
+        );
         1
     } else {
-        log::warn!("slot_lab_win_tier_update_big: Big win tier {} not found", tier_id);
+        log::warn!(
+            "slot_lab_win_tier_update_big: Big win tier {} not found",
+            tier_id
+        );
         0
     }
 }
@@ -2844,8 +3049,12 @@ pub extern "C" fn slot_lab_win_tier_set_big_win_durations(
     config.big_wins.intro_duration_ms = intro_duration_ms;
     config.big_wins.end_duration_ms = end_duration_ms;
     config.big_wins.fade_out_duration_ms = fade_out_duration_ms;
-    log::debug!("slot_lab_win_tier_set_big_win_durations: intro={}ms, end={}ms, fadeout={}ms",
-        intro_duration_ms, end_duration_ms, fade_out_duration_ms);
+    log::debug!(
+        "slot_lab_win_tier_set_big_win_durations: intro={}ms, end={}ms, fadeout={}ms",
+        intro_duration_ms,
+        end_duration_ms,
+        fade_out_duration_ms
+    );
 }
 
 #[cfg(test)]
@@ -2912,15 +3121,24 @@ mod tests {
 
         // Add a custom tier
         let label = CString::new("Custom Win").unwrap();
-        assert_eq!(slot_lab_win_tier_add_regular(7, 15.0, 20.0, label.as_ptr(), 3000), 1);
+        assert_eq!(
+            slot_lab_win_tier_add_regular(7, 15.0, 20.0, label.as_ptr(), 3000),
+            1
+        );
         assert!(slot_lab_win_tier_regular_count() >= 9);
 
         // Try adding duplicate
-        assert_eq!(slot_lab_win_tier_add_regular(7, 15.0, 20.0, label.as_ptr(), 3000), 0);
+        assert_eq!(
+            slot_lab_win_tier_add_regular(7, 15.0, 20.0, label.as_ptr(), 3000),
+            0
+        );
 
         // Update tier
         let new_label = CString::new("Updated Custom Win").unwrap();
-        assert_eq!(slot_lab_win_tier_update_regular(7, 16.0, 20.0, new_label.as_ptr(), 3500), 1);
+        assert_eq!(
+            slot_lab_win_tier_update_regular(7, 16.0, 20.0, new_label.as_ptr(), 3500),
+            1
+        );
 
         // Remove tier
         assert_eq!(slot_lab_win_tier_remove_regular(7), 1);

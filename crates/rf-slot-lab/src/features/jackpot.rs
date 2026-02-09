@@ -265,7 +265,11 @@ impl FeatureChapter for JackpotChapter {
                 self.state.current_values = v;
             }
         }
-        if let Some(contrib) = snapshot.data.get("total_contributions").and_then(|v| v.as_f64()) {
+        if let Some(contrib) = snapshot
+            .data
+            .get("total_contributions")
+            .and_then(|v| v.as_f64())
+        {
             self.state.total_contributions = contrib;
         }
 
@@ -301,10 +305,8 @@ impl FeatureChapter for JackpotChapter {
             let amount = self.award_jackpot(tier);
             self.state.is_active = true;
 
-            return FeatureResult::complete(amount).with_data(
-                "jackpot_tier",
-                serde_json::Value::from(tier),
-            );
+            return FeatureResult::complete(amount)
+                .with_data("jackpot_tier", serde_json::Value::from(tier));
         }
 
         FeatureResult::inactive()
@@ -326,14 +328,18 @@ impl FeatureChapter for JackpotChapter {
         // 1. JACKPOT_TRIGGER (500ms) - Alert tone
         let trigger_time = timing.advance(500.0);
         events.push(StageEvent::new(
-            Stage::JackpotTrigger { tier: tier_enum.clone() },
+            Stage::JackpotTrigger {
+                tier: tier_enum.clone(),
+            },
             trigger_time,
         ));
 
         // 2. JACKPOT_BUILDUP (2000ms) - Rising tension
         let buildup_time = timing.advance(2000.0);
         events.push(StageEvent::new(
-            Stage::JackpotBuildup { tier: tier_enum.clone() },
+            Stage::JackpotBuildup {
+                tier: tier_enum.clone(),
+            },
             buildup_time,
         ));
 

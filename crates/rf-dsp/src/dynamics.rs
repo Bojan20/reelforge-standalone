@@ -11,9 +11,9 @@
 use rf_core::Sample;
 
 #[cfg(target_arch = "x86_64")]
-use std::simd::{f64x4, f64x8};
-#[cfg(target_arch = "x86_64")]
 use std::simd::prelude::SimdFloat;
+#[cfg(target_arch = "x86_64")]
+use std::simd::{f64x4, f64x8};
 
 use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
 
@@ -98,7 +98,8 @@ impl LinearToDbTable {
         let mut table = [0.0; LINEAR_TO_DB_TABLE_SIZE];
         let mut i = 0;
         while i < LINEAR_TO_DB_TABLE_SIZE {
-            let log_val = log_linear_min + (i as f64 / (LINEAR_TO_DB_TABLE_SIZE - 1) as f64) * log_range;
+            let log_val =
+                log_linear_min + (i as f64 / (LINEAR_TO_DB_TABLE_SIZE - 1) as f64) * log_range;
             let linear = const_exp(log_val);
             // 20 * log10(x) = 20 * ln(x) / ln(10)
             table[i] = 20.0 * const_ln(linear) / CONST_LN_10;
@@ -329,7 +330,11 @@ impl EnvelopeFollower {
         // Process remaining samples (0-3)
         for i in unroll_len..len {
             let abs_input = input[i].abs();
-            let coeff = if abs_input > envelope { attack } else { release };
+            let coeff = if abs_input > envelope {
+                attack
+            } else {
+                release
+            };
             envelope = abs_input + coeff * (envelope - abs_input);
             output[i] = envelope;
         }
@@ -357,7 +362,11 @@ impl EnvelopeFollower {
             // Unrolled: process 8 samples sequentially
             for j in 0..8 {
                 let abs_input = input[i + j].abs();
-                let coeff = if abs_input > envelope { attack } else { release };
+                let coeff = if abs_input > envelope {
+                    attack
+                } else {
+                    release
+                };
                 envelope = abs_input + coeff * (envelope - abs_input);
                 output[i + j] = envelope;
             }
@@ -366,7 +375,11 @@ impl EnvelopeFollower {
         // Process remaining samples (0-7)
         for i in unroll_len..len {
             let abs_input = input[i].abs();
-            let coeff = if abs_input > envelope { attack } else { release };
+            let coeff = if abs_input > envelope {
+                attack
+            } else {
+                release
+            };
             envelope = abs_input + coeff * (envelope - abs_input);
             output[i] = envelope;
         }
@@ -594,7 +607,7 @@ impl Compressor {
 
         // Fast gain conversion using lookup table
         let gain = db_to_linear_fast(-gr_db);
-        input * gain  // Apply gain to INPUT, not detection signal
+        input * gain // Apply gain to INPUT, not detection signal
     }
 
     /// Opto-style compression (smooth, program-dependent)
@@ -829,7 +842,9 @@ impl StereoProcessor for StereoCompressor {
             // Fully linked - use max of both channels (or sidechain if enabled)
             let detection = if self.sidechain_enabled {
                 // Use sidechain key signal for detection
-                self.sidechain_key_left.abs().max(self.sidechain_key_right.abs())
+                self.sidechain_key_left
+                    .abs()
+                    .max(self.sidechain_key_right.abs())
             } else {
                 // Use input signal for detection
                 left.abs().max(right.abs())
@@ -1955,9 +1970,7 @@ mod tests {
         envelope_simd.set_times(10.0, 100.0);
 
         // Generate test signal (sine wave with attack/release)
-        let input: Vec<f64> = (0..1024)
-            .map(|i| (i as f64 * 0.01).sin() * 0.5)
-            .collect();
+        let input: Vec<f64> = (0..1024).map(|i| (i as f64 * 0.01).sin() * 0.5).collect();
 
         // Process with scalar
         let mut output_scalar = vec![0.0; 1024];
@@ -1988,9 +2001,7 @@ mod tests {
         envelope.set_times(5.0, 50.0);
 
         // Large block for performance testing
-        let input: Vec<f64> = (0..8192)
-            .map(|i| (i as f64 * 0.001).sin())
-            .collect();
+        let input: Vec<f64> = (0..8192).map(|i| (i as f64 * 0.001).sin()).collect();
         let mut output = vec![0.0; 8192];
 
         // Process block (should use SIMD on x86_64)
@@ -2012,9 +2023,7 @@ mod tests {
         let mut envelope = EnvelopeFollower::new(48000.0);
         envelope.set_times(10.0, 100.0);
 
-        let input: Vec<f64> = (0..1024)
-            .map(|i| (i as f64 * 0.01).sin())
-            .collect();
+        let input: Vec<f64> = (0..1024).map(|i| (i as f64 * 0.01).sin()).collect();
         let mut output = vec![0.0; 1024];
 
         envelope.process_block_simd8(&input, &mut output);
@@ -2035,7 +2044,7 @@ mod tests {
             (-20.0, 0.1),
             (-40.0, 0.01),
             (-60.0, 0.001),
-            (6.0, 1.9952),  // +6dB ≈ 2.0
+            (6.0, 1.9952), // +6dB ≈ 2.0
             (20.0, 10.0),
         ];
 
@@ -2058,10 +2067,10 @@ mod tests {
         // Test known values
         let test_cases = [
             (1.0, 0.0),
-            (0.5, -6.0206),  // -6dB
+            (0.5, -6.0206), // -6dB
             (0.1, -20.0),
             (0.01, -40.0),
-            (2.0, 6.0206),   // +6dB
+            (2.0, 6.0206), // +6dB
             (10.0, 20.0),
         ];
 
@@ -2143,7 +2152,7 @@ mod tests {
 
         // Small input signal, loud sidechain key
         let input = 0.05; // -26dB - below threshold normally
-        let key = 0.5;    // -6dB - above threshold
+        let key = 0.5; // -6dB - above threshold
 
         // Feed sidechain key and process
         for _ in 0..1000 {
@@ -2169,8 +2178,8 @@ mod tests {
         gate.set_sidechain_enabled(true);
 
         // Loud input, quiet sidechain - gate should close
-        let input = 0.5;  // -6dB - would normally open gate
-        let key = 0.001;  // -60dB - below threshold
+        let input = 0.5; // -6dB - would normally open gate
+        let key = 0.001; // -60dB - below threshold
 
         // First open the gate with loud key
         for _ in 0..500 {
@@ -2222,8 +2231,8 @@ mod tests {
         exp.set_sidechain_enabled(true);
 
         // Loud input, quiet sidechain - should expand (reduce) the signal
-        let input = 0.5;  // -6dB - above threshold normally
-        let key = 0.01;   // -40dB - below threshold
+        let input = 0.5; // -6dB - above threshold normally
+        let key = 0.01; // -40dB - below threshold
 
         // Process with quiet sidechain key
         let mut last_output = 0.0;

@@ -145,23 +145,28 @@ impl SeedLog {
 
     /// Export to JSON string
     pub fn to_json(&self) -> String {
-        let entries: Vec<_> = self.entries.iter().map(|e| {
-            serde_json::json!({
-                "tick": e.tick,
-                "containerId": e.container_id,
-                "seedBefore": e.seed_before.to_string(),
-                "seedAfter": e.seed_after.to_string(),
-                "selectedId": e.selected_id,
-                "pitchOffset": e.pitch_offset,
-                "volumeOffset": e.volume_offset,
+        let entries: Vec<_> = self
+            .entries
+            .iter()
+            .map(|e| {
+                serde_json::json!({
+                    "tick": e.tick,
+                    "containerId": e.container_id,
+                    "seedBefore": e.seed_before.to_string(),
+                    "seedAfter": e.seed_after.to_string(),
+                    "selectedId": e.selected_id,
+                    "pitchOffset": e.pitch_offset,
+                    "volumeOffset": e.volume_offset,
+                })
             })
-        }).collect();
+            .collect();
 
         serde_json::json!({
             "entries": entries,
             "count": self.entries.len(),
             "tickCounter": self.tick_counter,
-        }).to_string()
+        })
+        .to_string()
     }
 }
 

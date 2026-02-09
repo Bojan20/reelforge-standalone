@@ -15,14 +15,13 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use std::ffi::{c_char, CStr};
+use std::ffi::{CStr, c_char};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use rf_engine::containers::{
-    BlendChild, BlendContainer, BlendCurve, ContainerStorage, ContainerType,
-    RandomChild, RandomContainer, RandomMode, RandomVariation,
+    BlendChild, BlendContainer, BlendCurve, ContainerGroup, ContainerStorage, ContainerType,
+    GroupChild, GroupEvaluationMode, RandomChild, RandomContainer, RandomMode, RandomVariation,
     SequenceContainer, SequenceEndBehavior, SequenceStep,
-    ContainerGroup, GroupChild, GroupEvaluationMode,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -177,7 +176,13 @@ pub extern "C" fn container_set_blend_smoothing(container_id: u32, smoothing_ms:
 #[unsafe(no_mangle)]
 pub extern "C" fn container_tick_blend_smoothing(container_id: u32, delta_ms: f64) -> i32 {
     match STORAGE.tick_blend_smoothing(container_id, delta_ms) {
-        Some(changed) => if changed { 1 } else { 0 },
+        Some(changed) => {
+            if changed {
+                1
+            } else {
+                0
+            }
+        }
         None => -1,
     }
 }
@@ -421,7 +426,10 @@ pub extern "C" fn container_update_sequence(json_ptr: *const c_char) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn container_remove_sequence(container_id: u32) -> i32 {
     if STORAGE.remove_sequence(container_id).is_some() {
-        log::debug!("[container_ffi] Removed sequence container {}", container_id);
+        log::debug!(
+            "[container_ffi] Removed sequence container {}",
+            container_id
+        );
         1
     } else {
         0
@@ -456,7 +464,11 @@ pub extern "C" fn container_resume_sequence(container_id: u32) {
 /// Returns 1 if playing, 0 otherwise
 #[unsafe(no_mangle)]
 pub extern "C" fn container_is_sequence_playing(container_id: u32) -> i32 {
-    if STORAGE.is_sequence_playing(container_id) { 1 } else { 0 }
+    if STORAGE.is_sequence_playing(container_id) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Tick sequence by delta milliseconds
@@ -723,8 +735,8 @@ pub extern "C" fn container_clear_all() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 fn parse_blend_container(json: &str) -> Result<BlendContainer, String> {
-    let v: serde_json::Value = serde_json::from_str(json)
-        .map_err(|e| format!("JSON parse error: {}", e))?;
+    let v: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| format!("JSON parse error: {}", e))?;
 
     let id = v["id"].as_u64().ok_or("Missing 'id'")? as u32;
     let name = v["name"].as_str().unwrap_or("Unnamed").to_string();
@@ -759,8 +771,8 @@ fn parse_blend_container(json: &str) -> Result<BlendContainer, String> {
 }
 
 fn parse_random_container(json: &str) -> Result<RandomContainer, String> {
-    let v: serde_json::Value = serde_json::from_str(json)
-        .map_err(|e| format!("JSON parse error: {}", e))?;
+    let v: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| format!("JSON parse error: {}", e))?;
 
     let id = v["id"].as_u64().ok_or("Missing 'id'")? as u32;
     let name = v["name"].as_str().unwrap_or("Unnamed").to_string();
@@ -802,8 +814,8 @@ fn parse_random_container(json: &str) -> Result<RandomContainer, String> {
 }
 
 fn parse_sequence_container(json: &str) -> Result<SequenceContainer, String> {
-    let v: serde_json::Value = serde_json::from_str(json)
-        .map_err(|e| format!("JSON parse error: {}", e))?;
+    let v: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| format!("JSON parse error: {}", e))?;
 
     let id = v["id"].as_u64().ok_or("Missing 'id'")? as u32;
     let name = v["name"].as_str().unwrap_or("Unnamed").to_string();
@@ -838,8 +850,8 @@ fn parse_sequence_container(json: &str) -> Result<SequenceContainer, String> {
 }
 
 fn parse_group_container(json: &str) -> Result<ContainerGroup, String> {
-    let v: serde_json::Value = serde_json::from_str(json)
-        .map_err(|e| format!("JSON parse error: {}", e))?;
+    let v: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| format!("JSON parse error: {}", e))?;
 
     let id = v["id"].as_u64().ok_or("Missing 'id'")? as u32;
     let name = v["name"].as_str().unwrap_or("Unnamed").to_string();
@@ -852,10 +864,11 @@ fn parse_group_container(json: &str) -> Result<ContainerGroup, String> {
 
     if let Some(children) = v["children"].as_array() {
         for child_v in children {
-            let child_type = ContainerType::from_u8(
-                child_v["containerType"].as_u64().unwrap_or(0) as u8
-            );
-            let child_id = child_v["containerId"].as_u64().ok_or("Child missing 'containerId'")? as u32;
+            let child_type =
+                ContainerType::from_u8(child_v["containerType"].as_u64().unwrap_or(0) as u8);
+            let child_id = child_v["containerId"]
+                .as_u64()
+                .ok_or("Child missing 'containerId'")? as u32;
             let child_name = child_v["name"].as_str().unwrap_or("Unnamed").to_string();
             let child_enabled = child_v["enabled"].as_bool().unwrap_or(true);
             let order = child_v["order"].as_u64().unwrap_or(0) as u32;
@@ -1028,7 +1041,8 @@ pub extern "C" fn seed_log_get_json() -> *const c_char {
     static SEED_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
     let log = SEED_LOG.lock();
-    let entries: Vec<serde_json::Value> = log.entries()
+    let entries: Vec<serde_json::Value> = log
+        .entries()
         .iter()
         .map(|e| {
             serde_json::json!({
@@ -1065,7 +1079,11 @@ pub extern "C" fn seed_log_get_last_n_json(n: usize) -> *const c_char {
 
     let log = SEED_LOG.lock();
     let all_entries = log.entries();
-    let start = if all_entries.len() > n { all_entries.len() - n } else { 0 };
+    let start = if all_entries.len() > n {
+        all_entries.len() - n
+    } else {
+        0
+    };
 
     let entries: Vec<serde_json::Value> = all_entries[start..]
         .iter()
@@ -1142,13 +1160,7 @@ mod tests {
         let mut child_ids = [0u32; 8];
         let mut volumes = [0.0f64; 8];
         let count = unsafe {
-            container_evaluate_blend(
-                1,
-                0.45,
-                child_ids.as_mut_ptr(),
-                volumes.as_mut_ptr(),
-                8,
-            )
+            container_evaluate_blend(1, 0.45, child_ids.as_mut_ptr(), volumes.as_mut_ptr(), 8)
         };
         assert!(count >= 1);
 
@@ -1178,9 +1190,7 @@ mod tests {
         let mut child_id = 0u32;
         let mut pitch = 0.0f64;
         let mut volume = 0.0f64;
-        let result = unsafe {
-            container_select_random(2, &mut child_id, &mut pitch, &mut volume)
-        };
+        let result = unsafe { container_select_random(2, &mut child_id, &mut pitch, &mut volume) };
         assert_eq!(result, 1);
         assert!(child_id == 1 || child_id == 2);
 

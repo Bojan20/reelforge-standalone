@@ -163,9 +163,7 @@ pub use elastic_pro::{
 };
 
 // Re-export Simple Time Stretch (P12.1.4: Animation timing)
-pub use time_stretch::{
-    audio_duration_ms, calculate_stretch_factor, SimplePhaseVocoder,
-};
+pub use time_stretch::{SimplePhaseVocoder, audio_duration_ms, calculate_stretch_factor};
 
 // Re-export LUFS and True Peak metering (ITU-R BS.1770-4 / EBU R128)
 pub use metering::{
@@ -176,8 +174,8 @@ pub use metering::{
 
 // Re-export SIMD-optimized metering (8x True Peak, PSR, vectorized RMS)
 pub use metering_simd::{
-    TruePeak8x, PsrMeter, CrestFactorMeter,
-    calculate_rms_simd, find_peak_simd, calculate_correlation_simd,
+    CrestFactorMeter, PsrMeter, TruePeak8x, calculate_correlation_simd, calculate_rms_simd,
+    find_peak_simd,
 };
 
 // Re-exports for convenience

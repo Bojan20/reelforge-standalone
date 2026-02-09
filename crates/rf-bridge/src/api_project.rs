@@ -3,7 +3,7 @@
 //! Extracted from api.rs as part of modular FFI decomposition.
 //! Handles project management: new, save, load, metadata, recent projects.
 
-use crate::{EngineBridge, ENGINE};
+use crate::{ENGINE, EngineBridge};
 use std::path::Path;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -68,19 +68,17 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
             let regions: Vec<RegionState> = all_clips
                 .iter()
                 .filter(|c| c.track_id == track.id)
-                .map(|clip| {
-                    RegionState {
-                        id: clip.id.0.to_string(),
-                        name: clip.name.clone(),
-                        asset_ref: AssetRef::External(std::path::PathBuf::from(&clip.source_file)),
-                        position: (clip.start_time * sample_rate as f64) as u64,
-                        length: (clip.duration * sample_rate as f64) as u64,
-                        source_offset: (clip.source_offset * sample_rate as f64) as u64,
-                        gain_db: linear_to_db(clip.gain),
-                        fade_in: (clip.fade_in * sample_rate as f64) as u64,
-                        fade_out: (clip.fade_out * sample_rate as f64) as u64,
-                        locked: false,
-                    }
+                .map(|clip| RegionState {
+                    id: clip.id.0.to_string(),
+                    name: clip.name.clone(),
+                    asset_ref: AssetRef::External(std::path::PathBuf::from(&clip.source_file)),
+                    position: (clip.start_time * sample_rate as f64) as u64,
+                    length: (clip.duration * sample_rate as f64) as u64,
+                    source_offset: (clip.source_offset * sample_rate as f64) as u64,
+                    gain_db: linear_to_db(clip.gain),
+                    fade_in: (clip.fade_in * sample_rate as f64) as u64,
+                    fade_out: (clip.fade_out * sample_rate as f64) as u64,
+                    locked: false,
                 })
                 .collect();
 

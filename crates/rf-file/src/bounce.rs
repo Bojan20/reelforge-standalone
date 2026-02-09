@@ -13,8 +13,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use parking_lot::RwLock;
 use mp3lame_encoder::{Builder, FlushNoGap, InterleavedPcm};
+use parking_lot::RwLock;
 
 use crate::{AudioData, AudioFormat, BitDepth, FileError, FileResult, write_flac, write_wav};
 
@@ -703,11 +703,7 @@ impl OfflineRenderer {
             }
             AudioFormat::Mp3 => {
                 // Use LAME encoder for MP3
-                write_mp3(
-                    output_path,
-                    &output_data,
-                    self.config.export_format.bitrate,
-                )?;
+                write_mp3(output_path, &output_data, self.config.export_format.bitrate)?;
             }
             AudioFormat::Aac | AudioFormat::Ogg => {
                 // AAC/Ogg not yet implemented - fall back to WAV
@@ -868,11 +864,7 @@ impl Mp3Quality {
 }
 
 /// Write audio data to MP3 file using LAME encoder
-pub fn write_mp3<P: AsRef<Path>>(
-    path: P,
-    data: &AudioData,
-    bitrate_kbps: u32,
-) -> FileResult<()> {
+pub fn write_mp3<P: AsRef<Path>>(path: P, data: &AudioData, bitrate_kbps: u32) -> FileResult<()> {
     let path = path.as_ref();
     let sample_rate = data.sample_rate;
     let num_channels = data.num_channels();
@@ -886,9 +878,8 @@ pub fn write_mp3<P: AsRef<Path>>(
     }
 
     // Build LAME encoder
-    let mut builder = Builder::new().ok_or_else(|| {
-        FileError::WriteError("Failed to create LAME encoder".to_string())
-    })?;
+    let mut builder = Builder::new()
+        .ok_or_else(|| FileError::WriteError("Failed to create LAME encoder".to_string()))?;
 
     // Configure encoder
     builder

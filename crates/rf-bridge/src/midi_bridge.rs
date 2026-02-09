@@ -7,8 +7,8 @@
 // - MIDI routing to tracks
 
 use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
     Mutex,
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
@@ -348,10 +348,7 @@ pub fn disconnect_all_inputs() {
 
 /// Get number of active input connections
 pub fn active_input_count() -> usize {
-    INPUT_CONNECTIONS
-        .lock()
-        .map(|c| c.len())
-        .unwrap_or(0)
+    INPUT_CONNECTIONS.lock().map(|c| c.len()).unwrap_or(0)
 }
 
 /// Get list of active input connection names

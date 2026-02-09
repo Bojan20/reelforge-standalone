@@ -14,6 +14,7 @@ library;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../utils/path_validator.dart';
 import '../../../models/auto_event_builder_models.dart';
 import '../../../models/slot_audio_events.dart';
 import '../../../providers/middleware_provider.dart';
@@ -306,7 +307,7 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
       return null;
     }
     final ext = path.split('.').last.toLowerCase();
-    if (!['wav', 'mp3', 'ogg', 'flac', 'aiff', 'aif', 'm4a'].contains(ext)) {
+    if (!PathValidator.allowedExtensions.contains(ext)) {
       debugPrint('[DropTargetWrapper] ❌ Not an audio file: $path');
       return null;
     }

@@ -26,6 +26,7 @@ import '../../config/stage_config.dart'; // P1.16 + P1.17
 import '../../theme/fluxforge_theme.dart';
 import 'audio_hover_preview.dart';
 import 'package:file_picker/file_picker.dart'; // P2.1: Batch assign file picker
+import '../../utils/path_validator.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // P2.3: STAGE SEQUENCE TEMPLATES
@@ -846,7 +847,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
     // Use file_picker to select audio file
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['wav', 'mp3', 'ogg', 'flac', 'aiff'],
+      allowedExtensions: PathValidator.allowedExtensions,
       dialogTitle: 'Select audio for ${_formatStageName(stageType)}',
     );
 
@@ -1633,7 +1634,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
     // Use file_picker to select audio file
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['wav', 'mp3', 'ogg', 'flac', 'aiff'],
+      allowedExtensions: PathValidator.allowedExtensions,
       dialogTitle: 'Select audio for ${_selectedStageIndices.length} stages',
     );
 

@@ -184,7 +184,10 @@ mod tests {
     #[test]
     fn test_volatility_from_str() {
         assert_eq!(Volatility::from_str("high"), Some(Volatility::High));
-        assert_eq!(Volatility::from_str("medium-low"), Some(Volatility::MediumLow));
+        assert_eq!(
+            Volatility::from_str("medium-low"),
+            Some(Volatility::MediumLow)
+        );
         assert_eq!(Volatility::from_str("invalid"), None);
     }
 

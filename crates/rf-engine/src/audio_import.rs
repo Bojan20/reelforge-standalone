@@ -260,9 +260,7 @@ impl AudioImporter {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 Err(ImportError::FileNotFound(path_str.to_string()))
             }
-            Err(e) => {
-                Err(ImportError::InvalidPath(format!("{}: {}", path_str, e)))
-            }
+            Err(e) => Err(ImportError::InvalidPath(format!("{}: {}", path_str, e))),
         }
     }
 
@@ -274,7 +272,9 @@ impl AudioImporter {
         let validated_path = Self::validate_path(path)?;
 
         if !validated_path.exists() {
-            return Err(ImportError::FileNotFound(validated_path.display().to_string()));
+            return Err(ImportError::FileNotFound(
+                validated_path.display().to_string(),
+            ));
         }
 
         let extension = validated_path

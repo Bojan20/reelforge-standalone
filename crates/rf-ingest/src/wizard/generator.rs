@@ -10,7 +10,10 @@ use super::{DetectedEvent, DetectedField, FieldPurpose};
 /// Determine best ingest layer based on analysis
 pub fn determine_layer(events: &[DetectedEvent], fields: &[DetectedField]) -> IngestLayer {
     // Count how many events have stage mappings
-    let mapped_events = events.iter().filter(|e| e.suggested_stage.is_some()).count();
+    let mapped_events = events
+        .iter()
+        .filter(|e| e.suggested_stage.is_some())
+        .count();
     let total_events = events.len();
 
     // If we have good event mappings, use Layer 1
@@ -19,9 +22,15 @@ pub fn determine_layer(events: &[DetectedEvent], fields: &[DetectedField]) -> In
     }
 
     // Check if we have state fields that would work for snapshot diff
-    let has_phase = fields.iter().any(|f| f.suggested_purpose == Some(FieldPurpose::Phase));
-    let has_balance = fields.iter().any(|f| f.suggested_purpose == Some(FieldPurpose::Balance));
-    let has_reels = fields.iter().any(|f| f.suggested_purpose == Some(FieldPurpose::ReelSymbols));
+    let has_phase = fields
+        .iter()
+        .any(|f| f.suggested_purpose == Some(FieldPurpose::Phase));
+    let has_balance = fields
+        .iter()
+        .any(|f| f.suggested_purpose == Some(FieldPurpose::Balance));
+    let has_reels = fields
+        .iter()
+        .any(|f| f.suggested_purpose == Some(FieldPurpose::ReelSymbols));
 
     if has_phase && (has_balance || has_reels) {
         return IngestLayer::SnapshotDiff;
@@ -126,7 +135,10 @@ pub fn calculate_confidence(
     // Event mapping quality (40% of score)
     max_score += 40.0;
     if !events.is_empty() {
-        let mapped = events.iter().filter(|e| e.suggested_stage.is_some()).count();
+        let mapped = events
+            .iter()
+            .filter(|e| e.suggested_stage.is_some())
+            .count();
         score += 40.0 * (mapped as f64 / events.len() as f64);
     }
 
@@ -177,8 +189,8 @@ pub fn calculate_confidence(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::DetectedType;
+    use super::*;
 
     #[test]
     fn test_determine_layer_direct_event() {
@@ -211,14 +223,12 @@ mod tests {
 
     #[test]
     fn test_determine_layer_snapshot() {
-        let events = vec![
-            DetectedEvent {
-                event_name: "state_update".to_string(),
-                suggested_stage: None,
-                sample_count: 100,
-                sample_payload: None,
-            },
-        ];
+        let events = vec![DetectedEvent {
+            event_name: "state_update".to_string(),
+            suggested_stage: None,
+            sample_count: 100,
+            sample_payload: None,
+        }];
 
         let fields = vec![
             DetectedField {
@@ -291,14 +301,12 @@ mod tests {
             },
         ];
 
-        let fields = vec![
-            DetectedField {
-                path: "win_amount".to_string(),
-                value_type: DetectedType::Number,
-                sample_values: vec![],
-                suggested_purpose: Some(FieldPurpose::Win),
-            },
-        ];
+        let fields = vec![DetectedField {
+            path: "win_amount".to_string(),
+            value_type: DetectedType::Number,
+            sample_values: vec![],
+            suggested_purpose: Some(FieldPurpose::Win),
+        }];
 
         let config = generate_config(&events, &fields, IngestLayer::DirectEvent);
         let confidence = calculate_confidence(&events, &fields, &config);

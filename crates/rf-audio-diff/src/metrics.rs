@@ -279,37 +279,46 @@ impl ComparisonMetrics {
         vec![
             (
                 "Peak Difference".into(),
-                format!("{:.6} ({:.1} dB)", self.time_domain.peak_diff, self.time_domain.peak_diff_db),
-                true
+                format!(
+                    "{:.6} ({:.1} dB)",
+                    self.time_domain.peak_diff, self.time_domain.peak_diff_db
+                ),
+                true,
             ),
             (
                 "RMS Difference".into(),
-                format!("{:.6} ({:.1} dB)", self.time_domain.rms_diff, self.time_domain.rms_diff_db),
-                true
+                format!(
+                    "{:.6} ({:.1} dB)",
+                    self.time_domain.rms_diff, self.time_domain.rms_diff_db
+                ),
+                true,
             ),
             (
                 "Spectral Difference".into(),
-                format!("{:.2} dB avg, {:.2} dB max",
-                    self.spectral.avg_spectral_diff_db,
-                    self.spectral.max_spectral_diff_db),
-                true
+                format!(
+                    "{:.2} dB avg, {:.2} dB max",
+                    self.spectral.avg_spectral_diff_db, self.spectral.max_spectral_diff_db
+                ),
+                true,
             ),
             (
                 "Phase Difference".into(),
-                format!("{:.4} rad avg ({:.1}°)",
+                format!(
+                    "{:.4} rad avg ({:.1}°)",
                     self.spectral.avg_phase_diff,
-                    self.spectral.avg_phase_diff.to_degrees()),
-                true
+                    self.spectral.avg_phase_diff.to_degrees()
+                ),
+                true,
             ),
             (
                 "Correlation".into(),
                 format!("{:.6} (Pearson)", self.correlation.pearson),
-                true
+                true,
             ),
             (
                 "Duration Difference".into(),
                 format!("{:.3} ms", self.duration_diff * 1000.0),
-                true
+                true,
             ),
         ]
     }

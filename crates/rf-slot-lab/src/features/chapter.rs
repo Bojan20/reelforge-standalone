@@ -5,8 +5,8 @@ use rf_stage::StageEvent;
 use crate::timing::TimestampGenerator;
 
 use super::{
-    ActivationContext, FeatureCategory, FeatureConfig, FeatureId, FeatureResult,
-    FeatureSnapshot, FeatureState, SpinContext,
+    ActivationContext, FeatureCategory, FeatureConfig, FeatureId, FeatureResult, FeatureSnapshot,
+    FeatureState, SpinContext,
 };
 
 /// The core trait that all feature implementations must implement.

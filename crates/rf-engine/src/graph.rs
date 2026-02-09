@@ -96,16 +96,18 @@ impl AudioGraph {
     ) -> bool {
         // Validate connection
         if let (Some(from), Some(to)) = (self.nodes.get(&from_node), self.nodes.get(&to_node))
-            && from_channel < from.num_outputs() && to_channel < to.num_inputs() {
-                self.connections.push(Connection {
-                    from_node,
-                    from_channel,
-                    to_node,
-                    to_channel,
-                });
-                self.dirty = true;
-                return true;
-            }
+            && from_channel < from.num_outputs()
+            && to_channel < to.num_inputs()
+        {
+            self.connections.push(Connection {
+                from_node,
+                from_channel,
+                to_node,
+                to_channel,
+            });
+            self.dirty = true;
+            return true;
+        }
         false
     }
 
@@ -195,7 +197,10 @@ impl AudioGraph {
 
             // Gather inputs from connected nodes
             let (num_inputs, num_outputs) = match self.nodes.get(&node_id) {
-                Some(n) => (n.num_inputs().min(MAX_NODE_CHANNELS), n.num_outputs().min(MAX_NODE_CHANNELS)),
+                Some(n) => (
+                    n.num_inputs().min(MAX_NODE_CHANNELS),
+                    n.num_outputs().min(MAX_NODE_CHANNELS),
+                ),
                 None => continue,
             };
 
@@ -206,16 +211,18 @@ impl AudioGraph {
 
             // Gather inputs from connections into pre-allocated buffers
             for conn in &self.connections {
-                if conn.to_node == node_id && conn.to_channel < num_inputs
+                if conn.to_node == node_id
+                    && conn.to_channel < num_inputs
                     && let Some(from_buffers) = self.buffers.get(&conn.from_node)
-                        && conn.from_channel < from_buffers.len() {
-                            // Add to input (allows summing multiple sources)
-                            let input_buf = &mut self.input_buffers[conn.to_channel];
-                            let from_buf = &from_buffers[conn.from_channel];
-                            for i in 0..self.block_size {
-                                input_buf[i] += from_buf[i];
-                            }
-                        }
+                    && conn.from_channel < from_buffers.len()
+                {
+                    // Add to input (allows summing multiple sources)
+                    let input_buf = &mut self.input_buffers[conn.to_channel];
+                    let from_buf = &from_buffers[conn.from_channel];
+                    for i in 0..self.block_size {
+                        input_buf[i] += from_buf[i];
+                    }
+                }
             }
 
             // Clear pre-allocated output buffers (only channels we need)

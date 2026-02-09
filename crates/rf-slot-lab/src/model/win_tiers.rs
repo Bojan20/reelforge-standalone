@@ -98,7 +98,11 @@ impl RegularWinTier {
         if self.tier_id == -1 {
             None
         } else {
-            let suffix = if self.tier_id == 0 { "EQUAL".to_string() } else { self.tier_id.to_string() };
+            let suffix = if self.tier_id == 0 {
+                "EQUAL".to_string()
+            } else {
+                self.tier_id.to_string()
+            };
             Some(format!("ROLLUP_START_{}", suffix))
         }
     }
@@ -286,7 +290,10 @@ impl BigWinConfig {
         if max_tier == 0 {
             return Vec::new();
         }
-        self.tiers.iter().filter(|t| t.tier_id <= max_tier).collect()
+        self.tiers
+            .iter()
+            .filter(|t| t.tier_id <= max_tier)
+            .collect()
     }
 
     /// Calculate total celebration duration for a win
@@ -409,7 +416,9 @@ fn default_config_name() -> String {
 impl RegularWinConfig {
     /// Get tier for given win/bet amounts
     pub fn get_tier(&self, win_amount: f64, bet_amount: f64) -> Option<&RegularWinTier> {
-        self.tiers.iter().find(|t| t.matches(win_amount, bet_amount))
+        self.tiers
+            .iter()
+            .find(|t| t.matches(win_amount, bet_amount))
     }
 
     /// Default configuration with standard win tiers
@@ -1031,11 +1040,11 @@ mod tests {
 
         // Test threshold
         assert!(!config.is_big_win(15.0, 1.0)); // 15x - not big win
-        assert!(config.is_big_win(25.0, 1.0));  // 25x - big win tier 1
+        assert!(config.is_big_win(25.0, 1.0)); // 25x - big win tier 1
 
         // Test max tier
-        assert_eq!(config.get_max_tier(25.0, 1.0), 1);  // 25x = tier 1
-        assert_eq!(config.get_max_tier(60.0, 1.0), 2);  // 60x = tier 2
+        assert_eq!(config.get_max_tier(25.0, 1.0), 1); // 25x = tier 1
+        assert_eq!(config.get_max_tier(60.0, 1.0), 2); // 60x = tier 2
         assert_eq!(config.get_max_tier(150.0, 1.0), 3); // 150x = tier 3
         assert_eq!(config.get_max_tier(300.0, 1.0), 4); // 300x = tier 4
         assert_eq!(config.get_max_tier(600.0, 1.0), 5); // 600x = tier 5

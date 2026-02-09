@@ -423,7 +423,12 @@ impl SuggestionGenerator {
     }
 
     /// Generate suggestions from stereo analysis
-    pub fn suggest_from_stereo(&self, width: f32, correlation: f32, balance: f32) -> Vec<Suggestion> {
+    pub fn suggest_from_stereo(
+        &self,
+        width: f32,
+        correlation: f32,
+        balance: f32,
+    ) -> Vec<Suggestion> {
         let mut suggestions = Vec::new();
 
         // Check correlation (phase issues)

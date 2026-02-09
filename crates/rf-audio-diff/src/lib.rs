@@ -37,12 +37,14 @@ pub mod report;
 pub mod spectral;
 
 pub use analysis::AudioAnalysis;
-pub use determinism::{DeterminismConfig, DeterminismResult, DeterminismValidator, check_determinism};
-pub use golden::{GoldenStore, GoldenMetadata, GoldenCompareResult, GoldenBatchResult};
-pub use quality_gates::{QualityGateConfig, QualityGateResult, QualityGateRunner};
 pub use config::DiffConfig;
+pub use determinism::{
+    check_determinism, DeterminismConfig, DeterminismResult, DeterminismValidator,
+};
 pub use diff::{AudioDiff, DiffResult};
+pub use golden::{GoldenBatchResult, GoldenCompareResult, GoldenMetadata, GoldenStore};
 pub use metrics::*;
+pub use quality_gates::{QualityGateConfig, QualityGateResult, QualityGateRunner};
 pub use report::DiffReport;
 
 use thiserror::Error;

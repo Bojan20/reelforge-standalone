@@ -14,6 +14,7 @@ import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../../utils/path_validator.dart';
 import 'package:provider/provider.dart';
 
 import 'middleware_lower_zone_controller.dart';
@@ -1542,7 +1543,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
           final subTab = widget.controller.state.containersSubTab;
           final result = await FilePicker.platform.pickFiles(
             type: FileType.custom,
-            allowedExtensions: ['wav', 'mp3', 'flac', 'ogg'],
+            allowedExtensions: PathValidator.allowedExtensions,
           );
           if (result != null && result.files.isNotEmpty && middleware != null) {
             final name = result.files.first.name.replaceAll(RegExp(r'\.[^.]+$'), '');

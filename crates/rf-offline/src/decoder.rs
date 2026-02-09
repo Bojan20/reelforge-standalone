@@ -42,7 +42,12 @@ impl AudioDecoder {
 
         // Probe format
         let probed = symphonia::default::get_probe()
-            .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+            .format(
+                &hint,
+                mss,
+                &FormatOptions::default(),
+                &MetadataOptions::default(),
+            )
             .map_err(|e| OfflineError::ReadError(format!("Failed to probe format: {}", e)))?;
 
         let mut format = probed.format;
@@ -193,7 +198,8 @@ impl AudioDecoder {
 
                 for frame in 0..frames {
                     for ch in 0..channels.min(planes.planes().len()) {
-                        let sample = (planes.planes()[ch][frame].inner() as f64 - 8388608.0) / 8388608.0;
+                        let sample =
+                            (planes.planes()[ch][frame].inner() as f64 - 8388608.0) / 8388608.0;
                         output.push(sample);
                     }
                 }
@@ -204,7 +210,8 @@ impl AudioDecoder {
 
                 for frame in 0..frames {
                     for ch in 0..channels.min(planes.planes().len()) {
-                        let sample = (planes.planes()[ch][frame] as f64 - 2147483648.0) / 2147483648.0;
+                        let sample =
+                            (planes.planes()[ch][frame] as f64 - 2147483648.0) / 2147483648.0;
                         output.push(sample);
                     }
                 }
@@ -236,7 +243,12 @@ impl AudioDecoder {
         }
 
         let probed = symphonia::default::get_probe()
-            .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+            .format(
+                &hint,
+                mss,
+                &FormatOptions::default(),
+                &MetadataOptions::default(),
+            )
             .map_err(|e| OfflineError::ReadError(format!("Failed to probe format: {}", e)))?;
 
         let format = probed.format;
@@ -253,11 +265,13 @@ impl AudioDecoder {
         let channels = codec_params.channels.map(|c| c.count()).unwrap_or(2);
         let bit_depth = codec_params.bits_per_sample.unwrap_or(16);
 
-        let duration = codec_params.n_frames
+        let duration = codec_params
+            .n_frames
             .map(|f| f as f64 / sample_rate as f64)
             .unwrap_or(0.0);
 
-        let format_name = path.extension()
+        let format_name = path
+            .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("unknown")
             .to_uppercase();
@@ -328,7 +342,7 @@ mod tests {
             sample_rate: 44100,
             channels: 2,
             bit_depth: 16,
-            duration: 65.5,  // 1:05.500
+            duration: 65.5, // 1:05.500
             samples: 44100 * 65,
         };
 

@@ -17,10 +17,10 @@ use parking_lot::{Mutex, RwLock};
 
 use rf_core::{BufferSize, Sample, SampleRate};
 
+use crate::engine::MeterData;
 use crate::{
     AudioConfig, AudioResult, AudioStream, get_default_output_device, get_output_device_by_name,
 };
-use crate::engine::MeterData;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // OUTPUT DESTINATION
@@ -107,7 +107,8 @@ impl OutputChannel {
 
     /// Set output level (0.0 - 2.0)
     pub fn set_level(&self, level: f64) {
-        self.level.store(level.clamp(0.0, 2.0).to_bits(), Ordering::Relaxed);
+        self.level
+            .store(level.clamp(0.0, 2.0).to_bits(), Ordering::Relaxed);
     }
 
     /// Check if output is enabled
@@ -193,10 +194,13 @@ impl Default for MultiOutputSettings {
 /// - `cue_outputs`: Array of (left, right) buffer pairs for each cue output
 pub type MultiOutputCallback = Box<
     dyn FnMut(
-        &mut [Sample], &mut [Sample],           // Main L/R
-        &mut [Sample], &mut [Sample],           // Monitor L/R
-        &mut [(&mut [Sample], &mut [Sample])]   // Cue outputs [(L, R); 4]
-    ) + Send + 'static
+            &mut [Sample],
+            &mut [Sample], // Main L/R
+            &mut [Sample],
+            &mut [Sample],                         // Monitor L/R
+            &mut [(&mut [Sample], &mut [Sample])], // Cue outputs [(L, R); 4]
+        ) + Send
+        + 'static,
 >;
 
 /// Multi-output audio engine
@@ -242,7 +246,6 @@ impl MultiOutputEngine {
         let buffer_size = settings.buffer_size.as_usize();
         let sample_rate = settings.sample_rate.as_u32() as u64;
 
-        
         Self {
             settings: RwLock::new(settings),
             main: Mutex::new(OutputChannel::new(buffer_size)),
@@ -395,8 +398,10 @@ impl MultiOutputEngine {
         let sample_rate = settings.sample_rate;
         let buffer_size = settings.buffer_size;
 
-        self.sample_rate.store(sample_rate.as_u32() as u64, Ordering::Relaxed);
-        self.block_size.store(buffer_size.as_usize() as u64, Ordering::Relaxed);
+        self.sample_rate
+            .store(sample_rate.as_u32() as u64, Ordering::Relaxed);
+        self.block_size
+            .store(buffer_size.as_usize() as u64, Ordering::Relaxed);
 
         // Start main output
         self.start_output_stream(
@@ -413,9 +418,10 @@ impl MultiOutputEngine {
                 &settings.monitor_output,
                 sample_rate,
                 buffer_size,
-            ) {
-                log::warn!("Failed to start monitor output: {}", e);
-            }
+            )
+        {
+            log::warn!("Failed to start monitor output: {}", e);
+        }
 
         // Start cue outputs (if enabled)
         for (i, cue_config) in settings.cue_outputs.iter().enumerate() {
@@ -425,9 +431,10 @@ impl MultiOutputEngine {
                     cue_config,
                     sample_rate,
                     buffer_size,
-                ) {
-                    log::warn!("Failed to start cue output {}: {}", i, e);
-                }
+                )
+            {
+                log::warn!("Failed to start cue output {}: {}", i, e);
+            }
         }
 
         self.running.store(true, Ordering::Release);
@@ -584,9 +591,11 @@ impl MultiOutputEngine {
     pub fn fill_outputs<F>(&self, mut fill_fn: F)
     where
         F: FnMut(
-            &mut [Sample], &mut [Sample],  // main L/R
-            &mut [Sample], &mut [Sample],  // monitor L/R
-            [(&mut [Sample], &mut [Sample]); NUM_CUE_OUTPUTS],  // cues
+            &mut [Sample],
+            &mut [Sample], // main L/R
+            &mut [Sample],
+            &mut [Sample],                                     // monitor L/R
+            [(&mut [Sample], &mut [Sample]); NUM_CUE_OUTPUTS], // cues
         ),
     {
         let block_size = self.block_size() * 2; // Stereo interleaved
@@ -617,10 +626,13 @@ impl MultiOutputEngine {
         // Create cue buffer pairs
         let cue_pairs: [(&mut [Sample], &mut [Sample]); NUM_CUE_OUTPUTS] = unsafe {
             // Safe because we hold exclusive locks and buffers are correctly sized
-            std::mem::transmute(std::array::from_fn::<_, NUM_CUE_OUTPUTS, _>(|i| {
-                let (l, r) = cues[i].buffer.split_at_mut(frames);
-                (l as *mut [Sample], r as *mut [Sample])
-            }).map(|(l, r)| (&mut *l, &mut *r)))
+            std::mem::transmute(
+                std::array::from_fn::<_, NUM_CUE_OUTPUTS, _>(|i| {
+                    let (l, r) = cues[i].buffer.split_at_mut(frames);
+                    (l as *mut [Sample], r as *mut [Sample])
+                })
+                .map(|(l, r)| (&mut *l, &mut *r)),
+            )
         };
 
         // Call fill function

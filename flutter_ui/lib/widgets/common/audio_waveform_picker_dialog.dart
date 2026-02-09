@@ -20,6 +20,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import '../../theme/fluxforge_theme.dart';
+import '../../utils/path_validator.dart';
 import '../slot_lab/audio_hover_preview.dart';
 
 /// Dialog for picking audio files with waveform preview
@@ -33,18 +34,18 @@ class AudioWaveformPickerDialog extends StatefulWidget {
   /// Dialog title
   final String title;
 
-  const AudioWaveformPickerDialog({
+  AudioWaveformPickerDialog({
     super.key,
     this.initialDirectory,
-    this.allowedExtensions = const ['wav', 'mp3', 'ogg', 'flac', 'aiff'],
+    List<String>? allowedExtensions,
     this.title = 'Select Audio File',
-  });
+  }) : allowedExtensions = allowedExtensions ?? PathValidator.allowedExtensions;
 
   /// Show the dialog and return selected file path (or null if cancelled)
   static Future<String?> show(
     BuildContext context, {
     String? initialDirectory,
-    List<String> allowedExtensions = const ['wav', 'mp3', 'ogg', 'flac', 'aiff'],
+    List<String>? allowedExtensions,
     String title = 'Select Audio File',
   }) {
     return showDialog<String>(

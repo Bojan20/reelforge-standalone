@@ -59,10 +59,11 @@ impl UndoManager {
     fn push_command(&mut self, command: Box<dyn Command>) {
         // Try to merge with previous command
         if let Some(last) = self.undo_stack.back_mut()
-            && last.can_merge(command.as_ref()) {
-                last.merge(command);
-                return;
-            }
+            && last.can_merge(command.as_ref())
+        {
+            last.merge(command);
+            return;
+        }
 
         // Enforce max history
         while self.undo_stack.len() >= self.max_history {

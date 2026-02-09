@@ -6,10 +6,10 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 use std::ffi::c_char;
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::fs;
 use std::io::Write;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use parking_lot::RwLock;
 
@@ -104,7 +104,11 @@ pub extern "C" fn autosave_set_enabled(enabled: i32) {
 /// Check if autosave is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn autosave_is_enabled() -> i32 {
-    if AUTOSAVE_ENABLED.load(Ordering::Relaxed) { 1 } else { 0 }
+    if AUTOSAVE_ENABLED.load(Ordering::Relaxed) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set autosave interval in seconds
@@ -207,7 +211,8 @@ pub extern "C" fn autosave_now(project_data: *const c_char) -> i32 {
     // Generate filename with timestamp
     let project_name = PROJECT_NAME.read().clone();
     let timestamp = current_timestamp();
-    let filename = format!("{}_autosave_{}.json",
+    let filename = format!(
+        "{}_autosave_{}.json",
         sanitize_filename(&project_name),
         timestamp
     );

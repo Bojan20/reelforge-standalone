@@ -5,7 +5,7 @@
 //! - Tile batching for efficient rendering
 //! - Memory-efficient iteration over visible tiles
 
-use super::format::{WfcFile, TileData, MIP_TILE_SAMPLES};
+use super::format::{MIP_TILE_SAMPLES, TileData, WfcFile};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TILE REQUEST/RESPONSE
@@ -328,8 +328,8 @@ pub fn tiles_to_flat_with_frames(tiles: &[CachedTile]) -> Vec<f32> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::format::{NUM_MIP_LEVELS, WfcFile};
     use super::*;
-    use super::super::format::{WfcFile, NUM_MIP_LEVELS};
 
     fn create_test_wfc() -> WfcFile {
         let mut wfc = WfcFile::new(2, 48000, 48000); // 1 second stereo
@@ -374,8 +374,18 @@ mod tests {
     #[test]
     fn test_flat_array_output() {
         let tiles = vec![
-            CachedTile { tile_index: 0, frame_offset: 0, min: -0.5, max: 0.5 },
-            CachedTile { tile_index: 1, frame_offset: 256, min: -0.3, max: 0.3 },
+            CachedTile {
+                tile_index: 0,
+                frame_offset: 0,
+                min: -0.5,
+                max: 0.5,
+            },
+            CachedTile {
+                tile_index: 1,
+                frame_offset: 256,
+                min: -0.3,
+                max: 0.3,
+            },
         ];
 
         let flat = tiles_to_flat_array(&tiles);

@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, AtomicUsize, Ordering};
 use std::thread;
 
-use crossbeam_channel::{bounded, Sender};
+use crossbeam_channel::{Sender, bounded};
 use parking_lot::RwLock;
 use rayon::prelude::*;
 
@@ -107,9 +107,9 @@ use crate::input_bus::{InputBusManager, MonitorMode};
 use crate::insert_chain::{InsertChain, InsertParamChange};
 use crate::recording_manager::RecordingManager;
 use crate::routing::ChannelId;
-use crate::routing_pdc::{GraphNode, PDCCalculator, PDCResult, RoutingGraph};
 #[cfg(feature = "unified_routing")]
 use crate::routing::{ChannelKind, OutputDestination, RoutingCommandSender, RoutingGraphRT};
+use crate::routing_pdc::{GraphNode, PDCCalculator, PDCResult, RoutingGraph};
 use crate::track_manager::{
     Clip, ClipFxChain, ClipFxSlot, ClipFxType, Crossfade, OutputBus, Track, TrackId, TrackManager,
 };
@@ -247,7 +247,8 @@ impl AudioCache {
                 };
 
                 self.entries.write().insert(path.to_string(), entry);
-                self.current_bytes.fetch_add(size_bytes as u64, Ordering::Relaxed);
+                self.current_bytes
+                    .fetch_add(size_bytes as u64, Ordering::Relaxed);
 
                 log::debug!(
                     "Cached audio '{}' ({:.2} MB, total cache: {:.2} MB)",
@@ -278,7 +279,9 @@ impl AudioCache {
         // Signal background eviction (non-blocking, fire-and-forget)
         // This allows RT path to continue without waiting for eviction
         if !self.eviction_pending.swap(true, Ordering::AcqRel) {
-            let _ = self.eviction_tx.try_send(EvictionCommand::EvictIfNeeded { new_size });
+            let _ = self
+                .eviction_tx
+                .try_send(EvictionCommand::EvictIfNeeded { new_size });
         }
 
         // P0.5/P0.6 FIX: Perform eviction with optimized algorithm that avoids
@@ -516,16 +519,14 @@ impl AudioCache {
         // Parallel load using rayon
         let results: Vec<Option<(String, Arc<ImportedAudio>, usize)>> = paths_to_load
             .par_iter()
-            .map(|path| {
-                match AudioImporter::import(Path::new(path)) {
-                    Ok(audio) => {
-                        let size_bytes = audio.samples.len() * std::mem::size_of::<f32>();
-                        Some((path.to_string(), Arc::new(audio), size_bytes))
-                    }
-                    Err(e) => {
-                        log::warn!("[AudioCache] Preload failed for '{}': {}", path, e);
-                        None
-                    }
+            .map(|path| match AudioImporter::import(Path::new(path)) {
+                Ok(audio) => {
+                    let size_bytes = audio.samples.len() * std::mem::size_of::<f32>();
+                    Some((path.to_string(), Arc::new(audio), size_bytes))
+                }
+                Err(e) => {
+                    log::warn!("[AudioCache] Preload failed for '{}': {}", path, e);
+                    None
                 }
             })
             .collect();
@@ -546,7 +547,8 @@ impl AudioCache {
                 };
 
                 self.entries.write().insert(path, entry);
-                self.current_bytes.fetch_add(size_bytes as u64, Ordering::Relaxed);
+                self.current_bytes
+                    .fetch_add(size_bytes as u64, Ordering::Relaxed);
                 loaded_count += 1;
             } else {
                 failed_count += 1;
@@ -556,7 +558,10 @@ impl AudioCache {
         let duration_ms = start_time.elapsed().as_millis() as u64;
         log::info!(
             "[AudioCache] Parallel preload: {} loaded, {} cached, {} failed in {}ms",
-            loaded_count, cached_count, failed_count, duration_ms
+            loaded_count,
+            cached_count,
+            failed_count,
+            duration_ms
         );
 
         PreloadResult {
@@ -747,13 +752,19 @@ impl PlaybackPosition {
 
     #[inline]
     pub fn is_playing(&self) -> bool {
-        matches!(self.state(), PlaybackState::Playing | PlaybackState::Recording | PlaybackState::Scrubbing)
+        matches!(
+            self.state(),
+            PlaybackState::Playing | PlaybackState::Recording | PlaybackState::Scrubbing
+        )
     }
 
     /// Check if transport should advance position (excludes scrubbing where position is manually controlled)
     #[inline]
     pub fn should_advance(&self) -> bool {
-        matches!(self.state(), PlaybackState::Playing | PlaybackState::Recording)
+        matches!(
+            self.state(),
+            PlaybackState::Playing | PlaybackState::Recording
+        )
     }
 
     #[inline]
@@ -795,7 +806,8 @@ impl PlaybackPosition {
     #[inline]
     pub fn set_scrub_velocity(&self, velocity: f64) {
         let clamped = velocity.clamp(-4.0, 4.0);
-        self.scrub_velocity.store(clamped.to_bits(), Ordering::Relaxed);
+        self.scrub_velocity
+            .store(clamped.to_bits(), Ordering::Relaxed);
     }
 
     /// Get scrub window size in samples
@@ -950,7 +962,15 @@ impl OneShotVoice {
         }
     }
 
-    fn activate(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, pan: f32, bus: OutputBus, source: PlaybackSource) {
+    fn activate(
+        &mut self,
+        id: u64,
+        audio: Arc<ImportedAudio>,
+        volume: f32,
+        pan: f32,
+        bus: OutputBus,
+        source: PlaybackSource,
+    ) {
         self.id = id;
         self.audio = audio;
         self.position = 0;
@@ -973,7 +993,15 @@ impl OneShotVoice {
     }
 
     /// Activate with looping enabled (P0.2: Seamless REEL_SPIN loop)
-    fn activate_looping(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, pan: f32, bus: OutputBus, source: PlaybackSource) {
+    fn activate_looping(
+        &mut self,
+        id: u64,
+        audio: Arc<ImportedAudio>,
+        volume: f32,
+        pan: f32,
+        bus: OutputBus,
+        source: PlaybackSource,
+    ) {
         self.activate(id, audio, volume, pan, bus, source);
         self.looping = true;
     }
@@ -1014,7 +1042,11 @@ impl OneShotVoice {
         // Fade-in: start at 0 gain, ramp up to 1.0
         self.fade_in_samples_total = ((sample_rate * fade_in_ms as f64) / 1000.0) as u64;
         self.fade_in_samples_elapsed = 0;
-        self.fade_gain = if self.fade_in_samples_total > 0 { 0.0 } else { 1.0 };
+        self.fade_gain = if self.fade_in_samples_total > 0 {
+            0.0
+        } else {
+            1.0
+        };
 
         // Trim: convert ms to samples
         self.trim_start_sample = ((sample_rate * trim_start_ms as f64) / 1000.0) as u64;
@@ -1067,11 +1099,12 @@ impl OneShotVoice {
 
         // P0.2: For non-looping, check end condition
         // Also check trim_end_sample if set
-        let effective_end = if self.trim_end_sample > 0 && self.trim_end_sample < total_frames as u64 {
-            self.trim_end_sample
-        } else {
-            total_frames as u64
-        };
+        let effective_end =
+            if self.trim_end_sample > 0 && self.trim_end_sample < total_frames as u64 {
+                self.trim_end_sample
+            } else {
+                total_frames as u64
+            };
 
         if !self.looping && self.position >= effective_end {
             self.active = false;
@@ -1112,7 +1145,8 @@ impl OneShotVoice {
             if self.fade_in_samples_elapsed < self.fade_in_samples_total {
                 self.fade_in_samples_elapsed += 1;
                 // Linear fade-in (can be changed to quadratic for smoother curve)
-                self.fade_gain = self.fade_in_samples_elapsed as f32 / self.fade_in_samples_total as f32;
+                self.fade_gain =
+                    self.fade_in_samples_elapsed as f32 / self.fade_in_samples_total as f32;
             }
 
             // Check if we need to start fade-out at end (auto fade-out near trim_end)
@@ -1569,7 +1603,6 @@ pub struct PlaybackEngine {
     // - RoutingGraph (Sync) can be stored for read-only state queries
     // - RoutingGraphRT is created and owned by the audio thread directly
     // - RoutingCommandSender is used by UI thread
-
     /// Routing command sender (UI thread → audio thread)
     /// Wrapped in parking_lot::Mutex which IS Sync
     #[cfg(feature = "unified_routing")]
@@ -1610,12 +1643,10 @@ pub struct PlaybackEngine {
 impl PlaybackEngine {
     pub fn new(track_manager: Arc<TrackManager>, sample_rate: u32) -> Self {
         // Create single ring buffer and split into tx/rx
-        let (insert_param_tx, insert_param_rx) =
-            rtrb::RingBuffer::<InsertParamChange>::new(4096);
+        let (insert_param_tx, insert_param_rx) = rtrb::RingBuffer::<InsertParamChange>::new(4096);
 
         // Create one-shot voice command ring buffer
-        let (one_shot_tx, one_shot_rx) =
-            rtrb::RingBuffer::<OneShotCommand>::new(256);
+        let (one_shot_tx, one_shot_rx) = rtrb::RingBuffer::<OneShotCommand>::new(256);
 
         Self {
             track_manager,
@@ -1639,7 +1670,9 @@ impl PlaybackEngine {
             correlation: AtomicU64::new(1.0_f64.to_bits()),
             balance: AtomicU64::new(0.0_f64.to_bits()),
             automation: None,
-            param_smoother: Arc::new(crate::param_smoother::ParamSmootherManager::new(sample_rate as f64)),
+            param_smoother: Arc::new(crate::param_smoother::ParamSmootherManager::new(
+                sample_rate as f64,
+            )),
             group_manager: None,
             elastic_params: RwLock::new(HashMap::new()),
             varispeed_rate: AtomicU64::new(1.0_f64.to_bits()),
@@ -1648,7 +1681,9 @@ impl PlaybackEngine {
             insert_chains: RwLock::new(HashMap::new()),
             master_insert: RwLock::new(InsertChain::new(sample_rate as f64)),
             // Bus insert chains (6 buses: 0=Master routing bus, 1-5 = Music/Sfx/Voice/Amb/Aux)
-            bus_inserts: RwLock::new(std::array::from_fn(|_| InsertChain::new(sample_rate as f64))),
+            bus_inserts: RwLock::new(std::array::from_fn(|_| {
+                InsertChain::new(sample_rate as f64)
+            })),
             // Lock-free ring buffer for insert params (4096 = ~85ms at 60fps UI updates)
             insert_param_tx: parking_lot::Mutex::new(insert_param_tx),
             insert_param_rx: parking_lot::Mutex::new(insert_param_rx),
@@ -1739,22 +1774,21 @@ impl PlaybackEngine {
     /// Get routing command sender (for UI thread to control routing)
     /// Returns None if unified routing hasn't been initialized
     #[cfg(feature = "unified_routing")]
-    pub fn routing_sender(&self) -> Option<parking_lot::MutexGuard<'_, Option<RoutingCommandSender>>> {
+    pub fn routing_sender(
+        &self,
+    ) -> Option<parking_lot::MutexGuard<'_, Option<RoutingCommandSender>>> {
         let guard = self.routing_sender.lock();
-        if guard.is_some() {
-            Some(guard)
-        } else {
-            None
-        }
+        if guard.is_some() { Some(guard) } else { None }
     }
 
     /// Send routing command (convenience method)
     #[cfg(feature = "unified_routing")]
     pub fn send_routing_command(&self, cmd: crate::routing::RoutingCommand) -> bool {
         if let Some(mut guard) = self.routing_sender()
-            && let Some(sender) = guard.as_mut() {
-                return sender.send(cmd);
-            }
+            && let Some(sender) = guard.as_mut()
+        {
+            return sender.send(cmd);
+        }
         false
     }
 
@@ -1764,9 +1798,10 @@ impl PlaybackEngine {
         static CALLBACK_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
         let id = CALLBACK_ID.fetch_add(1, Ordering::Relaxed);
         if let Some(mut guard) = self.routing_sender()
-            && let Some(sender) = guard.as_mut() {
-                return sender.create_channel(kind, name.to_string(), id);
-            }
+            && let Some(sender) = guard.as_mut()
+        {
+            return sender.create_channel(kind, name.to_string(), id);
+        }
         false
     }
 
@@ -1774,9 +1809,10 @@ impl PlaybackEngine {
     #[cfg(feature = "unified_routing")]
     pub fn set_routing_output(&self, channel: ChannelId, dest: OutputDestination) -> bool {
         if let Some(mut guard) = self.routing_sender()
-            && let Some(sender) = guard.as_mut() {
-                return sender.set_output(channel, dest);
-            }
+            && let Some(sender) = guard.as_mut()
+        {
+            return sender.set_output(channel, dest);
+        }
         false
     }
 
@@ -1925,7 +1961,8 @@ impl PlaybackEngine {
     /// This affects both playback speed AND pitch (tape-style)
     pub fn set_varispeed_rate(&self, rate: f64) {
         let clamped = rate.clamp(0.25, 4.0);
-        self.varispeed_rate.store(clamped.to_bits(), Ordering::Relaxed);
+        self.varispeed_rate
+            .store(clamped.to_bits(), Ordering::Relaxed);
         log::debug!("Varispeed rate set to {:.2}x", clamped);
     }
 
@@ -2027,25 +2064,28 @@ impl PlaybackEngine {
     /// Set bypass for track insert slot
     pub fn set_track_insert_bypass(&self, track_id: u64, slot_index: usize, bypass: bool) {
         if let Some(chain) = self.insert_chains.read().get(&track_id)
-            && let Some(slot) = chain.slot(slot_index) {
-                slot.set_bypass(bypass);
-            }
+            && let Some(slot) = chain.slot(slot_index)
+        {
+            slot.set_bypass(bypass);
+        }
     }
 
     /// Set track insert slot wet/dry mix (0.0 = dry, 1.0 = wet)
     pub fn set_track_insert_mix(&self, track_id: u64, slot_index: usize, mix: f64) {
         if let Some(chain) = self.insert_chains.read().get(&track_id)
-            && let Some(slot) = chain.slot(slot_index) {
-                slot.set_mix(mix);
-            }
+            && let Some(slot) = chain.slot(slot_index)
+        {
+            slot.set_mix(mix);
+        }
     }
 
     /// Get track insert slot wet/dry mix
     pub fn get_track_insert_mix(&self, track_id: u64, slot_index: usize) -> f64 {
         if let Some(chain) = self.insert_chains.read().get(&track_id)
-            && let Some(slot) = chain.slot(slot_index) {
-                return slot.mix();
-            }
+            && let Some(slot) = chain.slot(slot_index)
+        {
+            return slot.mix();
+        }
         1.0 // Default to full wet
     }
 
@@ -2100,7 +2140,9 @@ impl PlaybackEngine {
 
     /// Get parameter from master insert processor
     pub fn get_master_insert_param(&self, slot_index: usize, param_index: usize) -> f64 {
-        self.master_insert.read().get_slot_param(slot_index, param_index)
+        self.master_insert
+            .read()
+            .get_slot_param(slot_index, param_index)
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -2124,7 +2166,12 @@ impl PlaybackEngine {
         }
         let mut bus_inserts = self.bus_inserts.write();
         let result = bus_inserts[bus_id].load(slot_index, processor);
-        log::info!("[BusInsert] Loaded processor into bus {} slot {} -> {}", bus_id, slot_index, result);
+        log::info!(
+            "[BusInsert] Loaded processor into bus {} slot {} -> {}",
+            bus_id,
+            slot_index,
+            result
+        );
         result
     }
 
@@ -2177,13 +2224,20 @@ impl PlaybackEngine {
         if bus_id >= 6 {
             return false;
         }
-        self.bus_inserts.read()[bus_id].slot(slot_index)
+        self.bus_inserts.read()[bus_id]
+            .slot(slot_index)
             .map(|s| s.is_loaded())
             .unwrap_or(false)
     }
 
     /// Set parameter on bus insert processor (lock-free via ring buffer)
-    pub fn set_bus_insert_param(&self, bus_id: usize, slot_index: usize, param_index: usize, value: f64) {
+    pub fn set_bus_insert_param(
+        &self,
+        bus_id: usize,
+        slot_index: usize,
+        param_index: usize,
+        value: f64,
+    ) {
         if bus_id >= 6 {
             return;
         }
@@ -2197,7 +2251,12 @@ impl PlaybackEngine {
     }
 
     /// Get parameter from bus insert processor
-    pub fn get_bus_insert_param(&self, bus_id: usize, slot_index: usize, param_index: usize) -> f64 {
+    pub fn get_bus_insert_param(
+        &self,
+        bus_id: usize,
+        slot_index: usize,
+        param_index: usize,
+    ) -> f64 {
         if bus_id >= 6 {
             return 0.0;
         }
@@ -2437,10 +2496,7 @@ impl PlaybackEngine {
             }
         }
 
-        log::info!(
-            "[GraphPDC] Applied delays to {} tracks",
-            delays.len()
-        );
+        log::info!("[GraphPDC] Applied delays to {} tracks", delays.len());
     }
 
     /// Get graph-level PDC compensation for a specific track.
@@ -2448,7 +2504,11 @@ impl PlaybackEngine {
         if !self.is_graph_pdc_enabled() {
             return 0;
         }
-        self.graph_pdc_delays.read().get(&track_id).copied().unwrap_or(0)
+        self.graph_pdc_delays
+            .read()
+            .get(&track_id)
+            .copied()
+            .unwrap_or(0)
     }
 
     /// Get graph-level PDC status as JSON string.
@@ -2515,7 +2575,10 @@ impl PlaybackEngine {
                 Ok(()) => {
                     log::info!(
                         "[EQ] Queued param: track={}, slot={}, param={}, value={:.3}",
-                        track_id, slot_index, param_index, value
+                        track_id,
+                        slot_index,
+                        param_index,
+                        value
                     );
                 }
                 Err(_) => {
@@ -2671,8 +2734,7 @@ impl PlaybackEngine {
             return None;
         }
 
-        self.bus_inserts
-            .read()[bus_id]
+        self.bus_inserts.read()[bus_id]
             .slot(slot_index)?
             .get_metering()
             .into()
@@ -2683,13 +2745,14 @@ impl PlaybackEngine {
         use crate::insert_chain::InsertPosition;
         let mut chains = self.insert_chains.write();
         if let Some(chain) = chains.get_mut(&track_id)
-            && let Some(slot) = chain.slot_mut(slot_index) {
-                slot.set_position(if pre_fader {
-                    InsertPosition::PreFader
-                } else {
-                    InsertPosition::PostFader
-                });
-            }
+            && let Some(slot) = chain.slot_mut(slot_index)
+        {
+            slot.set_position(if pre_fader {
+                InsertPosition::PreFader
+            } else {
+                InsertPosition::PostFader
+            });
+        }
     }
 
     /// Bypass all inserts on track
@@ -2947,7 +3010,8 @@ impl PlaybackEngine {
 
     /// Arm track for recording
     pub fn arm_track(&self, track_id: TrackId, num_channels: u16, track_name: &str) -> bool {
-        self.recording_manager.arm_track(track_id, num_channels, track_name)
+        self.recording_manager
+            .arm_track(track_id, num_channels, track_name)
     }
 
     /// Disarm track
@@ -2972,7 +3036,8 @@ impl PlaybackEngine {
 
     /// Set punch in/out points
     pub fn set_punch(&self, punch_in_secs: f64, punch_out_secs: f64) {
-        self.recording_manager.set_punch_times(punch_in_secs, punch_out_secs);
+        self.recording_manager
+            .set_punch_times(punch_in_secs, punch_out_secs);
     }
 
     /// Set punch mode
@@ -3118,7 +3183,14 @@ impl PlaybackEngine {
     ///
     /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
     /// source: PlaybackSource for section-based filtering
-    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32, source: PlaybackSource) -> u64 {
+    pub fn play_one_shot_to_bus(
+        &self,
+        path: &str,
+        volume: f32,
+        pan: f32,
+        bus_id: u32,
+        source: PlaybackSource,
+    ) -> u64 {
         // Load audio from cache (may block if not cached)
         let audio = match self.cache.load(path) {
             Some(a) => a,
@@ -3130,13 +3202,13 @@ impl PlaybackEngine {
 
         // Map bus_id to OutputBus
         let bus = match bus_id {
-            0 => OutputBus::Sfx,      // Master routes through Sfx
+            0 => OutputBus::Sfx, // Master routes through Sfx
             1 => OutputBus::Music,
             2 => OutputBus::Sfx,
             3 => OutputBus::Voice,
             4 => OutputBus::Ambience,
             5 => OutputBus::Aux,
-            _ => OutputBus::Sfx,      // Default to Sfx
+            _ => OutputBus::Sfx, // Default to Sfx
         };
 
         // Get next voice ID
@@ -3152,7 +3224,14 @@ impl PlaybackEngine {
                 bus,
                 source,
             });
-            log::debug!("[PlaybackEngine] One-shot play: {} (id={}, pan={:.2}, bus={:?}, source={:?})", path, id, pan, bus, source);
+            log::debug!(
+                "[PlaybackEngine] One-shot play: {} (id={}, pan={:.2}, bus={:?}, source={:?})",
+                path,
+                id,
+                pan,
+                bus,
+                source
+            );
             id
         } else {
             log::warn!("[PlaybackEngine] One-shot command queue busy");
@@ -3163,7 +3242,14 @@ impl PlaybackEngine {
     /// P0.2: Play looping audio through a specific bus (Middleware/SlotLab REEL_SPIN etc.)
     /// Loops seamlessly until explicitly stopped with stop_one_shot()
     /// Returns voice ID (0 = failed to queue)
-    pub fn play_looping_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32, source: PlaybackSource) -> u64 {
+    pub fn play_looping_to_bus(
+        &self,
+        path: &str,
+        volume: f32,
+        pan: f32,
+        bus_id: u32,
+        source: PlaybackSource,
+    ) -> u64 {
         // Load audio from cache (may block if not cached)
         let audio = match self.cache.load(path) {
             Some(a) => a,
@@ -3197,7 +3283,14 @@ impl PlaybackEngine {
                 bus,
                 source,
             });
-            log::debug!("[PlaybackEngine] Looping play: {} (id={}, pan={:.2}, bus={:?}, source={:?})", path, id, pan, bus, source);
+            log::debug!(
+                "[PlaybackEngine] Looping play: {} (id={}, pan={:.2}, bus={:?}, source={:?})",
+                path,
+                id,
+                pan,
+                bus,
+                source
+            );
             id
         } else {
             log::warn!("[PlaybackEngine] One-shot command queue busy");
@@ -3226,7 +3319,10 @@ impl PlaybackEngine {
         let audio = match self.cache.load(path) {
             Some(a) => a,
             None => {
-                log::warn!("[PlaybackEngine] Failed to load audio for extended play: {}", path);
+                log::warn!(
+                    "[PlaybackEngine] Failed to load audio for extended play: {}",
+                    path
+                );
                 return 0;
             }
         };
@@ -3261,7 +3357,12 @@ impl PlaybackEngine {
             });
             log::debug!(
                 "[PlaybackEngine] Extended play: {} (id={}, fadeIn={:.0}ms, fadeOut={:.0}ms, trim={:.0}-{:.0}ms)",
-                path, id, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms
+                path,
+                id,
+                fade_in_ms,
+                fade_out_ms,
+                trim_start_ms,
+                trim_end_ms
             );
             id
         } else {
@@ -3284,7 +3385,10 @@ impl PlaybackEngine {
             // Convert ms to samples at 48kHz (common sample rate)
             // For 50ms fade: 48000 * 0.050 = 2400 samples
             let fade_samples = ((48000.0 * fade_ms as f64) / 1000.0) as u64;
-            let _ = tx.push(OneShotCommand::FadeOut { id: voice_id, fade_samples });
+            let _ = tx.push(OneShotCommand::FadeOut {
+                id: voice_id,
+                fade_samples,
+            });
         }
     }
 
@@ -3295,7 +3399,10 @@ impl PlaybackEngine {
     pub fn set_voice_pitch(&self, voice_id: u64, semitones: f32) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
             let clamped = semitones.clamp(-24.0, 24.0);
-            let _ = tx.push(OneShotCommand::SetPitch { id: voice_id, semitones: clamped });
+            let _ = tx.push(OneShotCommand::SetPitch {
+                id: voice_id,
+                semitones: clamped,
+            });
         }
     }
 
@@ -3388,7 +3495,14 @@ impl PlaybackEngine {
 
         while let Ok(cmd) = rx.pop() {
             match cmd {
-                OneShotCommand::Play { id, audio, volume, pan, bus, source } => {
+                OneShotCommand::Play {
+                    id,
+                    audio,
+                    volume,
+                    pan,
+                    bus,
+                    source,
+                } => {
                     // Find first inactive slot
                     // Note: If no slot available, command is silently dropped (audio thread cannot log)
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
@@ -3396,17 +3510,46 @@ impl PlaybackEngine {
                     }
                     // Voice stealing would go here in future (oldest voice eviction)
                 }
-                OneShotCommand::PlayLooping { id, audio, volume, pan, bus, source } => {
+                OneShotCommand::PlayLooping {
+                    id,
+                    audio,
+                    volume,
+                    pan,
+                    bus,
+                    source,
+                } => {
                     // Seamless looping voice (REEL_SPIN etc.)
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
                         voice.activate_looping(id, audio, volume, pan, bus, source);
                     }
                     // Silent drop if no voice available (audio thread rule: no logging)
                 }
-                OneShotCommand::PlayEx { id, audio, volume, pan, bus, source, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms } => {
+                OneShotCommand::PlayEx {
+                    id,
+                    audio,
+                    volume,
+                    pan,
+                    bus,
+                    source,
+                    fade_in_ms,
+                    fade_out_ms,
+                    trim_start_ms,
+                    trim_end_ms,
+                } => {
                     // Extended play with fadeIn, fadeOut, and trim
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
-                        voice.activate_ex(id, audio, volume, pan, bus, source, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms);
+                        voice.activate_ex(
+                            id,
+                            audio,
+                            volume,
+                            pan,
+                            bus,
+                            source,
+                            fade_in_ms,
+                            fade_out_ms,
+                            trim_start_ms,
+                            trim_end_ms,
+                        );
                     }
                     // Silent drop if no voice available (audio thread rule: no logging)
                 }
@@ -3479,8 +3622,8 @@ impl PlaybackEngine {
                     // - Browser voices always play (isolated preview engine)
                     // - SlotLab/Middleware voices only play when their section is active
                     let should_play = match voice.source {
-                        PlaybackSource::Daw => true,  // DAW tracks use their own mute
-                        PlaybackSource::Browser => true,  // Browser is always isolated
+                        PlaybackSource::Daw => true,     // DAW tracks use their own mute
+                        PlaybackSource::Browser => true, // Browser is always isolated
                         _ => voice.source == active_section,
                     };
 
@@ -3495,10 +3638,8 @@ impl PlaybackEngine {
                     guard_r[..frames].fill(0.0);
 
                     // Fill with voice audio
-                    let still_playing = voice.fill_buffer(
-                        &mut guard_l[..frames],
-                        &mut guard_r[..frames],
-                    );
+                    let still_playing =
+                        voice.fill_buffer(&mut guard_l[..frames], &mut guard_r[..frames]);
 
                     // Route to bus
                     bus_buffers.add_to_bus(voice.bus, &guard_l[..frames], &guard_r[..frames]);
@@ -3546,7 +3687,8 @@ impl PlaybackEngine {
             }
 
             // Route to input buses
-            self.input_bus_manager.route_hardware_input(&input_buf[..required_size], frames);
+            self.input_bus_manager
+                .route_hardware_input(&input_buf[..required_size], frames);
         }
 
         // Continue with standard playback processing
@@ -3641,7 +3783,14 @@ impl PlaybackEngine {
         self.control_room.clear_all_buffers();
 
         // Resize control room buffers if needed
-        if self.control_room.solo_bus_l.try_read().map(|b| b.len()).unwrap_or(0) != frames {
+        if self
+            .control_room
+            .solo_bus_l
+            .try_read()
+            .map(|b| b.len())
+            .unwrap_or(0)
+            != frames
+        {
             self.control_room.resize_buffers(frames);
         }
 
@@ -3666,10 +3815,7 @@ impl PlaybackEngine {
                 // Return raw pointers to avoid borrow checker issues with closures
                 // SAFETY: These buffers are thread-local and only accessed from audio thread
                 // The pointers are valid for the duration of this function call
-                (
-                    guard_l.as_mut_ptr(),
-                    guard_r.as_mut_ptr(),
-                )
+                (guard_l.as_mut_ptr(), guard_r.as_mut_ptr())
             })
         });
 
@@ -3699,70 +3845,69 @@ impl PlaybackEngine {
             // === INPUT MONITORING & RECORDING ===
             // If track has input bus routing, get audio from that bus
             if let Some(input_bus_id) = track.input_bus
-                && let Some(bus) = self.input_bus_manager.get_bus(input_bus_id) {
-                    // Check monitor mode and armed state
-                    let should_monitor = match track.monitor_mode {
-                        MonitorMode::Manual => true,
-                        MonitorMode::Auto => track.armed && self.position.is_playing(),
-                        MonitorMode::Off => false,
-                    };
+                && let Some(bus) = self.input_bus_manager.get_bus(input_bus_id)
+            {
+                // Check monitor mode and armed state
+                let should_monitor = match track.monitor_mode {
+                    MonitorMode::Manual => true,
+                    MonitorMode::Auto => track.armed && self.position.is_playing(),
+                    MonitorMode::Off => false,
+                };
 
-                    if should_monitor {
-                        // Read audio from input bus (zero-copy reference)
-                        if let Some((left, right)) = bus.read_buffers() {
-                            // Mix input into track buffer (for monitoring)
-                            let frames_to_copy = frames.min(left.len());
-                            for i in 0..frames_to_copy {
-                                track_l[i] += left[i] as f64;
-                                if let Some(ref r) = right {
-                                    track_r[i] += r[i] as f64;
-                                } else {
-                                    // Mono input - copy to both channels
-                                    track_r[i] += left[i] as f64;
-                                }
+                if should_monitor {
+                    // Read audio from input bus (zero-copy reference)
+                    if let Some((left, right)) = bus.read_buffers() {
+                        // Mix input into track buffer (for monitoring)
+                        let frames_to_copy = frames.min(left.len());
+                        for i in 0..frames_to_copy {
+                            track_l[i] += left[i] as f64;
+                            if let Some(ref r) = right {
+                                track_r[i] += r[i] as f64;
+                            } else {
+                                // Mono input - copy to both channels
+                                track_r[i] += left[i] as f64;
                             }
+                        }
 
-                            // Send to RecordingManager if track is armed and recording
-                            if track.armed && self.position.is_recording() {
-                                // Check punch in/out
-                                if self.recording_manager.check_punch(start_sample) {
-                                    // Prepare interleaved samples for recording
-                                    // Use stack-allocated buffer for small blocks, heap for larger
-                                    let num_samples = frames_to_copy * 2; // stereo interleaved
-                                    if num_samples <= 2048 {
-                                        // Stack allocation for typical block sizes
-                                        let mut rec_buffer = [0.0f32; 2048];
-                                        for i in 0..frames_to_copy {
-                                            rec_buffer[i * 2] = left[i];
-                                            rec_buffer[i * 2 + 1] = right.as_ref()
-                                                .map(|r| r[i])
-                                                .unwrap_or(left[i]);
-                                        }
-                                        self.recording_manager.write_samples(
-                                            TrackId(track.id.0),
-                                            &rec_buffer[..num_samples],
-                                            start_sample,
-                                        );
-                                    } else {
-                                        // Heap allocation for large blocks (rare)
-                                        let mut rec_buffer = vec![0.0f32; num_samples];
-                                        for i in 0..frames_to_copy {
-                                            rec_buffer[i * 2] = left[i];
-                                            rec_buffer[i * 2 + 1] = right.as_ref()
-                                                .map(|r| r[i])
-                                                .unwrap_or(left[i]);
-                                        }
-                                        self.recording_manager.write_samples(
-                                            TrackId(track.id.0),
-                                            &rec_buffer,
-                                            start_sample,
-                                        );
+                        // Send to RecordingManager if track is armed and recording
+                        if track.armed && self.position.is_recording() {
+                            // Check punch in/out
+                            if self.recording_manager.check_punch(start_sample) {
+                                // Prepare interleaved samples for recording
+                                // Use stack-allocated buffer for small blocks, heap for larger
+                                let num_samples = frames_to_copy * 2; // stereo interleaved
+                                if num_samples <= 2048 {
+                                    // Stack allocation for typical block sizes
+                                    let mut rec_buffer = [0.0f32; 2048];
+                                    for i in 0..frames_to_copy {
+                                        rec_buffer[i * 2] = left[i];
+                                        rec_buffer[i * 2 + 1] =
+                                            right.as_ref().map(|r| r[i]).unwrap_or(left[i]);
                                     }
+                                    self.recording_manager.write_samples(
+                                        TrackId(track.id.0),
+                                        &rec_buffer[..num_samples],
+                                        start_sample,
+                                    );
+                                } else {
+                                    // Heap allocation for large blocks (rare)
+                                    let mut rec_buffer = vec![0.0f32; num_samples];
+                                    for i in 0..frames_to_copy {
+                                        rec_buffer[i * 2] = left[i];
+                                        rec_buffer[i * 2 + 1] =
+                                            right.as_ref().map(|r| r[i]).unwrap_or(left[i]);
+                                    }
+                                    self.recording_manager.write_samples(
+                                        TrackId(track.id.0),
+                                        &rec_buffer,
+                                        start_sample,
+                                    );
                                 }
                             }
                         }
                     }
                 }
+            }
 
             // Find crossfades active in this track for this time range (iterate without collect)
             // Store matching crossfade IDs to avoid lifetime issues
@@ -3831,9 +3976,10 @@ impl PlaybackEngine {
             // Process track insert chain (pre-fader inserts applied before volume)
             // NOTE: Param changes already consumed at start of process() via consume_insert_param_changes()
             if let Some(mut chains) = self.insert_chains.try_write()
-                && let Some(chain) = chains.get_mut(&track.id.0) {
-                    chain.process_pre_fader(track_l, track_r);
-                }
+                && let Some(chain) = chains.get_mut(&track.id.0)
+            {
+                chain.process_pre_fader(track_l, track_r);
+            }
 
             // === PFL TAP POINT (Pre-Fade Listen) ===
             // Capture pre-fader signal for PFL monitoring
@@ -3853,9 +3999,10 @@ impl PlaybackEngine {
                     continue;
                 }
                 if let Some(send) = cue_mix.get_send(channel_id)
-                    && send.pre_fader {
-                        cue_mix.add_signal(track_l, track_r, &send);
-                    }
+                    && send.pre_fader
+                {
+                    cue_mix.add_signal(track_l, track_r, &send);
+                }
             }
 
             // Apply track volume and pan (fader stage)
@@ -3942,9 +4089,10 @@ impl PlaybackEngine {
             // Process track insert chain (post-fader inserts applied after volume)
             // Use try_write to avoid blocking audio thread - skip inserts if lock contended
             if let Some(mut chains) = self.insert_chains.try_write()
-                && let Some(chain) = chains.get_mut(&track.id.0) {
-                    chain.process_post_fader(track_l, track_r);
-                }
+                && let Some(chain) = chains.get_mut(&track.id.0)
+            {
+                chain.process_post_fader(track_l, track_r);
+            }
 
             // Apply delay compensation for tracks with lower latency than max
             // This aligns all tracks in time regardless of plugin latency
@@ -3965,9 +4113,10 @@ impl PlaybackEngine {
                     continue;
                 }
                 if let Some(send) = cue_mix.get_send(channel_id)
-                    && !send.pre_fader {
-                        cue_mix.add_signal(track_l, track_r, &send);
-                    }
+                    && !send.pre_fader
+                {
+                    cue_mix.add_signal(track_l, track_r, &send);
+                }
             }
 
             // Process sends - route to send buses (Aux, Sfx, etc.)
@@ -4220,9 +4369,7 @@ impl PlaybackEngine {
                         // Bass: average 3 neighboring bins for smoother response
                         let low_bin = center_bin.saturating_sub(1);
                         let high_bin = (center_bin + 1).min(bin_count - 1);
-                        let sum: f64 = (low_bin..=high_bin)
-                            .map(|b| analyzer.magnitude(b))
-                            .sum();
+                        let sum: f64 = (low_bin..=high_bin).map(|b| analyzer.magnitude(b)).sum();
                         sum / (high_bin - low_bin + 1) as f64
                     } else {
                         analyzer.magnitude(center_bin)
@@ -4247,7 +4394,8 @@ impl PlaybackEngine {
         // Advance position (only if not scrubbing - scrub position is controlled externally)
         if self.position.should_advance() {
             let varispeed_rate = self.effective_playback_rate();
-            self.position.advance_with_rate(frames as u64, varispeed_rate);
+            self.position
+                .advance_with_rate(frames as u64, varispeed_rate);
         } else if self.position.is_scrubbing() {
             // During scrubbing, advance within the scrub window (loops automatically)
             self.position.advance_scrub(frames as u64);
@@ -4285,7 +4433,9 @@ impl PlaybackEngine {
                         // Mute is binary - no smoothing needed (would cause glitches)
                         // DashMap provides lock-free write access via get_mut()
                         let muted = change.value > 0.5;
-                        if let Some(mut track) = self.track_manager.tracks.get_mut(&TrackId(track_id)) {
+                        if let Some(mut track) =
+                            self.track_manager.tracks.get_mut(&TrackId(track_id))
+                        {
                             track.muted = muted;
                         }
                     }
@@ -4296,23 +4446,41 @@ impl PlaybackEngine {
             }
             TargetType::Send => {
                 // TODO: Apply send level when send system integrated
-                log::trace!("Send automation not yet implemented: track={}, slot={:?}, value={}",
-                    track_id, param_id.slot, change.value);
+                log::trace!(
+                    "Send automation not yet implemented: track={}, slot={:?}, value={}",
+                    track_id,
+                    param_id.slot,
+                    change.value
+                );
             }
             TargetType::Plugin => {
                 // TODO: Apply plugin parameter when plugin system fully integrated
-                log::trace!("Plugin parameter automation not yet implemented: track={}, slot={:?}, param={}, value={}",
-                    track_id, param_id.slot, param_id.param_name, change.value);
+                log::trace!(
+                    "Plugin parameter automation not yet implemented: track={}, slot={:?}, param={}, value={}",
+                    track_id,
+                    param_id.slot,
+                    param_id.param_name,
+                    change.value
+                );
             }
             TargetType::Bus | TargetType::Master => {
                 // TODO: Apply bus/master volume when unified routing integrated
-                log::trace!("Bus/Master automation not yet implemented: type={:?}, id={}, param={}, value={}",
-                    param_id.target_type, track_id, param_id.param_name, change.value);
+                log::trace!(
+                    "Bus/Master automation not yet implemented: type={:?}, id={}, param={}, value={}",
+                    param_id.target_type,
+                    track_id,
+                    param_id.param_name,
+                    change.value
+                );
             }
             TargetType::Clip => {
                 // TODO: Apply clip parameters (gain, pitch, etc.)
-                log::trace!("Clip automation not yet implemented: clip={}, param={}, value={}",
-                    track_id, param_id.param_name, change.value);
+                log::trace!(
+                    "Clip automation not yet implemented: clip={}, param={}, value={}",
+                    track_id,
+                    param_id.param_name,
+                    change.value
+                );
             }
         }
     }
@@ -4324,7 +4492,12 @@ impl PlaybackEngine {
     /// (contains rtrb Consumer/Producer) and cannot be stored in PlaybackEngine.
     /// The audio thread should own and pass this reference each call.
     #[cfg(feature = "unified_routing")]
-    pub fn process_unified(&self, routing: &mut RoutingGraphRT, output_l: &mut [f64], output_r: &mut [f64]) {
+    pub fn process_unified(
+        &self,
+        routing: &mut RoutingGraphRT,
+        output_l: &mut [f64],
+        output_r: &mut [f64],
+    ) {
         let frames = output_l.len();
 
         // Clear output buffers
@@ -4405,14 +4578,7 @@ impl PlaybackEngine {
                 };
 
                 // Process clip into track buffer
-                self.process_clip_simple(
-                    clip,
-                    &audio,
-                    start_sample,
-                    sample_rate,
-                    track_l,
-                    track_r,
-                );
+                self.process_clip_simple(clip, &audio, start_sample, sample_rate, track_l, track_r);
             }
 
             // Apply dual-pan for stereo tracks BEFORE feeding to routing graph
@@ -4471,7 +4637,8 @@ impl PlaybackEngine {
         // Advance position (only if not scrubbing - scrub position is controlled externally)
         if self.position.should_advance() {
             let varispeed_rate = self.effective_playback_rate();
-            self.position.advance_with_rate(frames as u64, varispeed_rate);
+            self.position
+                .advance_with_rate(frames as u64, varispeed_rate);
         } else if self.position.is_scrubbing() {
             // During scrubbing, advance within the scrub window (loops automatically)
             self.position.advance_scrub(frames as u64);
@@ -4563,7 +4730,9 @@ impl PlaybackEngine {
         let mut track_r = vec![0.0f64; frames];
 
         // Collect crossfades for this time range (need owned copies for lifetime)
-        let crossfades_snapshot: Vec<Crossfade> = self.track_manager.crossfades
+        let crossfades_snapshot: Vec<Crossfade> = self
+            .track_manager
+            .crossfades
             .iter()
             .filter(|entry| {
                 let xf = entry.value();
@@ -4628,11 +4797,18 @@ impl PlaybackEngine {
 
             // Pro Tools dual-pan for stereo, single pan for mono
             // Debug: Log pan values periodically
-            static DEBUG_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            static DEBUG_COUNTER: std::sync::atomic::AtomicU64 =
+                std::sync::atomic::AtomicU64::new(0);
             let count = DEBUG_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             if count.is_multiple_of(48000) {
-                eprintln!("[PLAYBACK] Track {} channels={}, is_stereo={}, pan={:.2}, pan_right={:.2}",
-                    track.id.0, track.channels, track.is_stereo(), track.pan, track.pan_right);
+                eprintln!(
+                    "[PLAYBACK] Track {} channels={}, is_stereo={}, pan={:.2}, pan_right={:.2}",
+                    track.id.0,
+                    track.channels,
+                    track.is_stereo(),
+                    track.pan,
+                    track.pan_right
+                );
             }
 
             if track.is_stereo() {
@@ -4727,11 +4903,15 @@ impl PlaybackEngine {
         let end_time = (start_sample + frames) as f64 / sample_rate;
 
         // Collect crossfades for this track
-        let crossfades_snapshot: Vec<Crossfade> = self.track_manager.crossfades
+        let crossfades_snapshot: Vec<Crossfade> = self
+            .track_manager
+            .crossfades
             .iter()
             .filter(|entry| {
                 let xf = entry.value();
-                xf.track_id == TrackId(track_id) && xf.start_time < end_time && xf.end_time() > start_time
+                xf.track_id == TrackId(track_id)
+                    && xf.start_time < end_time
+                    && xf.end_time() > start_time
             })
             .map(|entry| entry.value().clone())
             .collect();

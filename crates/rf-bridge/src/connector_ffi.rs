@@ -11,10 +11,10 @@
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::ptr;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use rf_connector::commands::{EngineCapabilities, EngineCommand};
 use rf_connector::connector::EngineConnector;
@@ -324,7 +324,9 @@ pub extern "C" fn connector_play_spin(connector_id: u64, spin_id: *const c_char)
         Err(_) => return 0,
     };
 
-    let command = EngineCommand::PlaySpin { spin_id: spin_id_str };
+    let command = EngineCommand::PlaySpin {
+        spin_id: spin_id_str,
+    };
     send_command_internal(connector_id, command)
 }
 
@@ -384,7 +386,9 @@ pub extern "C" fn connector_set_timing_profile(connector_id: u64, profile: *cons
         Err(_) => return 0,
     };
 
-    let command = EngineCommand::SetTimingProfile { profile: profile_str };
+    let command = EngineCommand::SetTimingProfile {
+        profile: profile_str,
+    };
     send_command_internal(connector_id, command)
 }
 
@@ -506,7 +510,10 @@ pub extern "C" fn connector_custom_command(
         }
     };
 
-    let command = EngineCommand::Custom { name: cmd_name, data };
+    let command = EngineCommand::Custom {
+        name: cmd_name,
+        data,
+    };
     send_command_internal(connector_id, command)
 }
 

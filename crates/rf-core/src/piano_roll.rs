@@ -19,8 +19,7 @@ use serde::{Deserialize, Serialize};
 pub const TICKS_PER_BEAT: u64 = 960;
 
 /// Grid divisions
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum GridDivision {
     /// 1 bar (4 beats in 4/4)
     Bar,
@@ -73,14 +72,12 @@ impl GridDivision {
     }
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // EDIT TOOL
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Piano roll editing tool
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum PianoRollTool {
     /// Select and move notes
     #[default]
@@ -98,7 +95,6 @@ pub enum PianoRollTool {
     /// Mute/unmute notes
     Mute,
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // NOTE SELECTION

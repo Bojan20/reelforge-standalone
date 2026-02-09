@@ -59,6 +59,7 @@ import '../services/native_file_picker.dart';
 import '../services/audio_playback_service.dart';
 import '../services/service_locator.dart';
 import '../services/unified_search_service.dart';
+import '../utils/path_validator.dart';
 
 import '../providers/dsp_chain_provider.dart';
 import '../providers/engine_provider.dart';
@@ -2206,7 +2207,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     }
 
     // Scan folder for audio files
-    final audioExtensions = ['wav', 'mp3', 'flac', 'ogg', 'aiff', 'aif', 'm4a'];
+    final audioExtensions = PathValidator.allowedExtensions;
     final dir = Directory(result);
     final audioFiles = <FileSystemEntity>[];
 

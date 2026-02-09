@@ -188,7 +188,10 @@ impl AdapterWizard {
 
         // Step 3: Detect events
         let detected_events = detect_events(&self.samples, &structure);
-        notes.push(format!("Found {} unique event types", detected_events.len()));
+        notes.push(format!(
+            "Found {} unique event types",
+            detected_events.len()
+        ));
 
         // Step 4: Detect fields
         let detected_fields = detect_fields(&self.samples, &structure);
@@ -229,7 +232,10 @@ impl AdapterWizard {
     fn detect_engine(&self) -> (Option<String>, Option<String>) {
         for signature in &self.signatures {
             if self.matches_signature(signature) {
-                return (Some(signature.company.clone()), Some(signature.engine.clone()));
+                return (
+                    Some(signature.company.clone()),
+                    Some(signature.engine.clone()),
+                );
             }
         }
         (None, None)
@@ -259,9 +265,9 @@ fn match_marker(sample: &Value, marker: &SignatureMarker) -> bool {
     match marker {
         SignatureMarker::FieldExists(path) => get_value_at_path(sample, path).is_some(),
 
-        SignatureMarker::FieldValue(path, expected) => {
-            get_value_at_path(sample, path).map(|v| v == expected).unwrap_or(false)
-        }
+        SignatureMarker::FieldValue(path, expected) => get_value_at_path(sample, path)
+            .map(|v| v == expected)
+            .unwrap_or(false),
 
         SignatureMarker::FieldPattern(path, pattern) => {
             if let Some(Value::String(s)) = get_value_at_path(sample, path) {
@@ -323,9 +329,10 @@ fn default_signatures() -> Vec<EngineSignature> {
         EngineSignature {
             company: "Play'n GO".to_string(),
             engine: "PNG Framework".to_string(),
-            markers: vec![
-                SignatureMarker::FieldPattern("version".to_string(), r"PNG.*".to_string()),
-            ],
+            markers: vec![SignatureMarker::FieldPattern(
+                "version".to_string(),
+                r"PNG.*".to_string(),
+            )],
         },
         // Big Time Gaming
         EngineSignature {

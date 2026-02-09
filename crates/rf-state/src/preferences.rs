@@ -33,7 +33,6 @@ pub struct AppPreferences {
     pub window: WindowState,
 }
 
-
 /// Audio preferences
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -219,8 +218,7 @@ impl AppPreferences {
             fs::create_dir_all(parent)?;
         }
 
-        let json = serde_json::to_string_pretty(self)
-            .map_err(std::io::Error::other)?;
+        let json = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
         fs::write(path, json)
     }
 

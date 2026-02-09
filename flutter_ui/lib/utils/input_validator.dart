@@ -19,18 +19,29 @@ import 'dart:io';
 
 /// Validates and sanitizes file paths
 class PathValidator {
-  /// Allowed audio file extensions
+  /// Allowed audio file extensions — ALL known audio formats.
+  /// Keep in sync with PathValidator._allowedExtensions (SSoT).
   static const allowedAudioExtensions = [
-    'wav',
-    'flac',
-    'mp3',
-    'ogg',
-    'aiff',
-    'aif',
-    'm4a',
-    'aac',
-    'opus',
-    'wv', // WavPack
+    // Uncompressed / PCM
+    'wav', 'wave', 'aiff', 'aif', 'aifc', 'au', 'snd', 'raw', 'pcm',
+    'caf', 'w64', 'rf64', 'bwf', 'sd2', 'voc', 'avr', 'pvf',
+    'ircam', 'sf', 'htk', 'sph', 'nist', 'svx', '8svx', 'paf', 'fap',
+    // Lossless Compressed
+    'flac', 'alac', 'ape', 'wv', 'tta', 'tak', 'ofr', 'ofs',
+    'wma', 'shn', 'la', 'mlp',
+    // Lossy Compressed
+    'mp3', 'ogg', 'oga', 'opus', 'm4a', 'aac', 'mp4', 'mp2', 'mp1',
+    'mpc', 'mp+', 'mpp', 'spx', 'ac3', 'eac3', 'ec3', 'dts',
+    'ra', 'ram', 'amr', 'awb', 'gsm', 'adts',
+    // DSD
+    'dsf', 'dff', 'dsd',
+    // Module / Tracker
+    'mid', 'midi', 'mod', 'xm', 'it', 's3m', 'stm',
+    // Web / Streaming
+    'webm', 'weba', 'mka',
+    // Game Audio
+    'wem', 'bnk', 'fsb', 'xwm', 'xwma', 'brstm', 'bcstm', 'bfstm',
+    'adx', 'hca', 'at3', 'at9', 'vag', 'xma', 'xma2',
   ];
 
   /// Allowed project file extensions

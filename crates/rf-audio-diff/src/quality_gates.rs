@@ -488,7 +488,8 @@ impl QualityGateRunner {
             }
         }
 
-        let passed = checks.iter()
+        let passed = checks
+            .iter()
             .filter(|c| c.severity == CheckSeverity::Error)
             .all(|c| c.passed);
 
@@ -496,7 +497,11 @@ impl QualityGateRunner {
         let summary = if passed {
             format!("PASS: All {} quality checks passed", checks.len())
         } else {
-            format!("FAIL: {}/{} quality checks failed", failed_count, checks.len())
+            format!(
+                "FAIL: {}/{} quality checks failed",
+                failed_count,
+                checks.len()
+            )
         };
 
         Ok(QualityGateResult {
@@ -531,43 +536,58 @@ impl QualityGateRunner {
         let dynamic_range_db = sample_peak_dbfs - rms_dbfs + 3.0;
 
         // DC offset
-        let dc_offset: f64 = audio.channels.iter()
+        let dc_offset: f64 = audio
+            .channels
+            .iter()
             .map(|ch| ch.iter().sum::<f64>() / ch.len() as f64)
             .map(|dc| dc.abs())
             .fold(0.0, f64::max);
 
         // Silence detection
         let silence_threshold = 10.0_f64.powf(
-            self.config.silence
+            self.config
+                .silence
                 .as_ref()
                 .map(|s| s.silence_threshold_db)
-                .unwrap_or(-60.0) / 20.0
+                .unwrap_or(-60.0)
+                / 20.0,
         );
 
-        let leading_silence_samples = mono.iter()
+        let leading_silence_samples = mono
+            .iter()
             .take_while(|&&s| s.abs() < silence_threshold)
             .count();
         let leading_silence_ms = leading_silence_samples as f64 * 1000.0 / audio.sample_rate as f64;
 
-        let trailing_silence_samples = mono.iter().rev()
+        let trailing_silence_samples = mono
+            .iter()
+            .rev()
             .take_while(|&&s| s.abs() < silence_threshold)
             .count();
-        let trailing_silence_ms = trailing_silence_samples as f64 * 1000.0 / audio.sample_rate as f64;
+        let trailing_silence_ms =
+            trailing_silence_samples as f64 * 1000.0 / audio.sample_rate as f64;
 
         // Clipping detection
-        let clip_threshold = self.config.clipping
+        let clip_threshold = self
+            .config
+            .clipping
             .as_ref()
             .map(|c| c.clip_threshold)
             .unwrap_or(0.99);
 
-        let clipped_samples: usize = audio.channels.iter()
+        let clipped_samples: usize = audio
+            .channels
+            .iter()
             .flat_map(|ch| ch.iter())
             .filter(|&&s| s.abs() >= clip_threshold)
             .count();
 
         // Stereo correlation
         let stereo_correlation = if audio.num_channels >= 2 {
-            Some(calculate_stereo_correlation(&audio.channels[0], &audio.channels[1]))
+            Some(calculate_stereo_correlation(
+                &audio.channels[0],
+                &audio.channels[1],
+            ))
         } else {
             None
         };
@@ -586,14 +606,22 @@ impl QualityGateRunner {
         })
     }
 
-    fn check_loudness(&self, metrics: &QualityMetrics, gate: &LoudnessGate, checks: &mut Vec<QualityCheck>) {
+    fn check_loudness(
+        &self,
+        metrics: &QualityMetrics,
+        gate: &LoudnessGate,
+        checks: &mut Vec<QualityCheck>,
+    ) {
         if let Some(min) = gate.min_lufs {
             checks.push(QualityCheck {
                 name: "loudness_min".into(),
                 passed: metrics.loudness_lufs >= min,
                 measured: metrics.loudness_lufs,
                 threshold: min,
-                description: format!("Loudness {:.1} LUFS >= {:.1} LUFS", metrics.loudness_lufs, min),
+                description: format!(
+                    "Loudness {:.1} LUFS >= {:.1} LUFS",
+                    metrics.loudness_lufs, min
+                ),
                 severity: CheckSeverity::Error,
             });
         }
@@ -604,7 +632,10 @@ impl QualityGateRunner {
                 passed: metrics.loudness_lufs <= max,
                 measured: metrics.loudness_lufs,
                 threshold: max,
-                description: format!("Loudness {:.1} LUFS <= {:.1} LUFS", metrics.loudness_lufs, max),
+                description: format!(
+                    "Loudness {:.1} LUFS <= {:.1} LUFS",
+                    metrics.loudness_lufs, max
+                ),
                 severity: CheckSeverity::Error,
             });
         }
@@ -616,21 +647,30 @@ impl QualityGateRunner {
                 passed: diff <= gate.tolerance_lu,
                 measured: metrics.loudness_lufs,
                 threshold: target,
-                description: format!("Loudness {:.1} LUFS within ±{:.1} LU of target {:.1} LUFS",
-                    metrics.loudness_lufs, gate.tolerance_lu, target),
+                description: format!(
+                    "Loudness {:.1} LUFS within ±{:.1} LU of target {:.1} LUFS",
+                    metrics.loudness_lufs, gate.tolerance_lu, target
+                ),
                 severity: CheckSeverity::Warning,
             });
         }
     }
 
-    fn check_peak(&self, metrics: &QualityMetrics, gate: &PeakGate, checks: &mut Vec<QualityCheck>) {
+    fn check_peak(
+        &self,
+        metrics: &QualityMetrics,
+        gate: &PeakGate,
+        checks: &mut Vec<QualityCheck>,
+    ) {
         checks.push(QualityCheck {
             name: "true_peak".into(),
             passed: metrics.true_peak_dbtp <= gate.max_true_peak_dbtp,
             measured: metrics.true_peak_dbtp,
             threshold: gate.max_true_peak_dbtp,
-            description: format!("True peak {:.1} dBTP <= {:.1} dBTP",
-                metrics.true_peak_dbtp, gate.max_true_peak_dbtp),
+            description: format!(
+                "True peak {:.1} dBTP <= {:.1} dBTP",
+                metrics.true_peak_dbtp, gate.max_true_peak_dbtp
+            ),
             severity: CheckSeverity::Error,
         });
 
@@ -639,21 +679,30 @@ impl QualityGateRunner {
             passed: metrics.sample_peak_dbfs <= gate.max_sample_peak_dbfs,
             measured: metrics.sample_peak_dbfs,
             threshold: gate.max_sample_peak_dbfs,
-            description: format!("Sample peak {:.1} dBFS <= {:.1} dBFS",
-                metrics.sample_peak_dbfs, gate.max_sample_peak_dbfs),
+            description: format!(
+                "Sample peak {:.1} dBFS <= {:.1} dBFS",
+                metrics.sample_peak_dbfs, gate.max_sample_peak_dbfs
+            ),
             severity: CheckSeverity::Error,
         });
     }
 
-    fn check_dynamic_range(&self, metrics: &QualityMetrics, gate: &DynamicRangeGate, checks: &mut Vec<QualityCheck>) {
+    fn check_dynamic_range(
+        &self,
+        metrics: &QualityMetrics,
+        gate: &DynamicRangeGate,
+        checks: &mut Vec<QualityCheck>,
+    ) {
         if let Some(min) = gate.min_dr {
             checks.push(QualityCheck {
                 name: "dynamic_range_min".into(),
                 passed: metrics.dynamic_range_db >= min,
                 measured: metrics.dynamic_range_db,
                 threshold: min,
-                description: format!("Dynamic range {:.1} dB >= {:.1} dB",
-                    metrics.dynamic_range_db, min),
+                description: format!(
+                    "Dynamic range {:.1} dB >= {:.1} dB",
+                    metrics.dynamic_range_db, min
+                ),
                 severity: CheckSeverity::Warning,
             });
         }
@@ -664,21 +713,30 @@ impl QualityGateRunner {
                 passed: metrics.dynamic_range_db <= max,
                 measured: metrics.dynamic_range_db,
                 threshold: max,
-                description: format!("Dynamic range {:.1} dB <= {:.1} dB",
-                    metrics.dynamic_range_db, max),
+                description: format!(
+                    "Dynamic range {:.1} dB <= {:.1} dB",
+                    metrics.dynamic_range_db, max
+                ),
                 severity: CheckSeverity::Info,
             });
         }
     }
 
-    fn check_silence(&self, metrics: &QualityMetrics, gate: &SilenceGate, checks: &mut Vec<QualityCheck>) {
+    fn check_silence(
+        &self,
+        metrics: &QualityMetrics,
+        gate: &SilenceGate,
+        checks: &mut Vec<QualityCheck>,
+    ) {
         checks.push(QualityCheck {
             name: "leading_silence".into(),
             passed: metrics.leading_silence_ms <= gate.max_leading_silence_ms,
             measured: metrics.leading_silence_ms,
             threshold: gate.max_leading_silence_ms,
-            description: format!("Leading silence {:.1} ms <= {:.1} ms",
-                metrics.leading_silence_ms, gate.max_leading_silence_ms),
+            description: format!(
+                "Leading silence {:.1} ms <= {:.1} ms",
+                metrics.leading_silence_ms, gate.max_leading_silence_ms
+            ),
             severity: CheckSeverity::Warning,
         });
 
@@ -687,32 +745,48 @@ impl QualityGateRunner {
             passed: metrics.trailing_silence_ms <= gate.max_trailing_silence_ms,
             measured: metrics.trailing_silence_ms,
             threshold: gate.max_trailing_silence_ms,
-            description: format!("Trailing silence {:.1} ms <= {:.1} ms",
-                metrics.trailing_silence_ms, gate.max_trailing_silence_ms),
+            description: format!(
+                "Trailing silence {:.1} ms <= {:.1} ms",
+                metrics.trailing_silence_ms, gate.max_trailing_silence_ms
+            ),
             severity: CheckSeverity::Warning,
         });
     }
 
-    fn check_clipping(&self, metrics: &QualityMetrics, gate: &ClippingGate, checks: &mut Vec<QualityCheck>) {
+    fn check_clipping(
+        &self,
+        metrics: &QualityMetrics,
+        gate: &ClippingGate,
+        checks: &mut Vec<QualityCheck>,
+    ) {
         checks.push(QualityCheck {
             name: "clipping".into(),
             passed: metrics.clipped_samples <= gate.max_total_clips,
             measured: metrics.clipped_samples as f64,
             threshold: gate.max_total_clips as f64,
-            description: format!("Clipped samples {} <= {}",
-                metrics.clipped_samples, gate.max_total_clips),
+            description: format!(
+                "Clipped samples {} <= {}",
+                metrics.clipped_samples, gate.max_total_clips
+            ),
             severity: CheckSeverity::Error,
         });
     }
 
-    fn check_dc_offset(&self, metrics: &QualityMetrics, gate: &DcOffsetGate, checks: &mut Vec<QualityCheck>) {
+    fn check_dc_offset(
+        &self,
+        metrics: &QualityMetrics,
+        gate: &DcOffsetGate,
+        checks: &mut Vec<QualityCheck>,
+    ) {
         checks.push(QualityCheck {
             name: "dc_offset".into(),
             passed: metrics.dc_offset <= gate.max_dc_offset,
             measured: metrics.dc_offset,
             threshold: gate.max_dc_offset,
-            description: format!("DC offset {:.6} <= {:.6}",
-                metrics.dc_offset, gate.max_dc_offset),
+            description: format!(
+                "DC offset {:.6} <= {:.6}",
+                metrics.dc_offset, gate.max_dc_offset
+            ),
             severity: CheckSeverity::Warning,
         });
     }
@@ -723,8 +797,10 @@ impl QualityGateRunner {
             passed: correlation >= gate.min_correlation,
             measured: correlation,
             threshold: gate.min_correlation,
-            description: format!("Stereo correlation {:.3} >= {:.3} (mono compatible)",
-                correlation, gate.min_correlation),
+            description: format!(
+                "Stereo correlation {:.3} >= {:.3} (mono compatible)",
+                correlation, gate.min_correlation
+            ),
             severity: CheckSeverity::Warning,
         });
 
@@ -733,8 +809,10 @@ impl QualityGateRunner {
             passed: correlation <= gate.max_correlation,
             measured: correlation,
             threshold: gate.max_correlation,
-            description: format!("Stereo correlation {:.3} <= {:.3} (not too mono)",
-                correlation, gate.max_correlation),
+            description: format!(
+                "Stereo correlation {:.3} <= {:.3} (not too mono)",
+                correlation, gate.max_correlation
+            ),
             severity: CheckSeverity::Info,
         });
     }
@@ -776,18 +854,36 @@ impl QualityGateResult {
         let mut output = String::new();
 
         output.push_str("# Audio Quality Gate Report\n\n");
-        output.push_str(&format!("## Status: {}\n\n", if self.passed { "✅ PASS" } else { "❌ FAIL" }));
+        output.push_str(&format!(
+            "## Status: {}\n\n",
+            if self.passed { "✅ PASS" } else { "❌ FAIL" }
+        ));
 
         output.push_str("## Metrics\n\n");
         output.push_str("| Metric | Value |\n");
         output.push_str("|--------|-------|\n");
-        output.push_str(&format!("| Loudness | {:.1} LUFS |\n", self.metrics.loudness_lufs));
-        output.push_str(&format!("| Sample Peak | {:.1} dBFS |\n", self.metrics.sample_peak_dbfs));
-        output.push_str(&format!("| True Peak | {:.1} dBTP |\n", self.metrics.true_peak_dbtp));
+        output.push_str(&format!(
+            "| Loudness | {:.1} LUFS |\n",
+            self.metrics.loudness_lufs
+        ));
+        output.push_str(&format!(
+            "| Sample Peak | {:.1} dBFS |\n",
+            self.metrics.sample_peak_dbfs
+        ));
+        output.push_str(&format!(
+            "| True Peak | {:.1} dBTP |\n",
+            self.metrics.true_peak_dbtp
+        ));
         output.push_str(&format!("| RMS | {:.1} dBFS |\n", self.metrics.rms_dbfs));
-        output.push_str(&format!("| Dynamic Range | {:.1} dB |\n", self.metrics.dynamic_range_db));
+        output.push_str(&format!(
+            "| Dynamic Range | {:.1} dB |\n",
+            self.metrics.dynamic_range_db
+        ));
         output.push_str(&format!("| DC Offset | {:.6} |\n", self.metrics.dc_offset));
-        output.push_str(&format!("| Clipped Samples | {} |\n", self.metrics.clipped_samples));
+        output.push_str(&format!(
+            "| Clipped Samples | {} |\n",
+            self.metrics.clipped_samples
+        ));
         output.push('\n');
 
         output.push_str("## Checks\n\n");
@@ -795,8 +891,10 @@ impl QualityGateResult {
         output.push_str("|-------|--------|----------|----------|\n");
         for check in &self.checks {
             let icon = if check.passed { "✅" } else { "❌" };
-            output.push_str(&format!("| {} | {} | {:.3} | {:.3} |\n",
-                check.name, icon, check.measured, check.threshold));
+            output.push_str(&format!(
+                "| {} | {} | {:.3} | {:.3} |\n",
+                check.name, icon, check.measured, check.threshold
+            ));
         }
 
         output

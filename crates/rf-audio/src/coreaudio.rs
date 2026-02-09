@@ -106,8 +106,7 @@ struct AudioTimeStamp {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 struct SMPTETime {
     subframes: i16,
     subframe_divisor: i16,
@@ -119,7 +118,6 @@ struct SMPTETime {
     seconds: i16,
     frames: i16,
 }
-
 
 impl Default for AudioTimeStamp {
     fn default() -> Self {

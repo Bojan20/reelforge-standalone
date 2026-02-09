@@ -141,10 +141,8 @@ impl FromStr for Version {
     type Err = ReleaseError;
 
     fn from_str(s: &str) -> Result<Self> {
-        let re = Regex::new(
-            r"^v?(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.]+))?(?:\+([a-zA-Z0-9.]+))?$",
-        )
-        .unwrap();
+        let re = Regex::new(r"^v?(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.]+))?(?:\+([a-zA-Z0-9.]+))?$")
+            .unwrap();
 
         let caps = re
             .captures(s)

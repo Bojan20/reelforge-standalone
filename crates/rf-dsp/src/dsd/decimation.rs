@@ -7,8 +7,7 @@ use rf_core::Sample;
 use std::f64::consts::PI;
 
 /// Decimation quality level
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DecimationQuality {
     /// Fast decimation, lower quality
     Fast,
@@ -20,7 +19,6 @@ pub enum DecimationQuality {
     /// Ultimate quality (audiophile)
     Ultimate,
 }
-
 
 impl DecimationQuality {
     /// Get filter order for this quality

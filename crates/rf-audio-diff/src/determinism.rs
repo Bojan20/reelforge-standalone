@@ -219,9 +219,11 @@ impl DeterminismValidator {
         };
 
         let timing_variance = if timings.len() > 1 && avg_time_ms > 0.0 {
-            let variance: f64 = timings.iter()
+            let variance: f64 = timings
+                .iter()
                 .map(|t| (t - avg_time_ms).powi(2))
-                .sum::<f64>() / (timings.len() - 1) as f64;
+                .sum::<f64>()
+                / (timings.len() - 1) as f64;
             variance.sqrt() / avg_time_ms
         } else {
             0.0
@@ -279,8 +281,7 @@ impl DeterminismValidator {
         let diff_config = if self.config.bit_exact {
             DiffConfig::strict()
         } else {
-            DiffConfig::dsp_regression()
-                .with_peak_tolerance(self.config.tolerance)
+            DiffConfig::dsp_regression().with_peak_tolerance(self.config.tolerance)
         };
 
         let mut comparisons = Vec::new();
@@ -291,11 +292,8 @@ impl DeterminismValidator {
         let reference = &outputs[0];
 
         for (i, output) in outputs.iter().enumerate().skip(1) {
-            let diff_result = AudioDiff::compare_audio(
-                reference.clone(),
-                output.clone(),
-                &diff_config,
-            )?;
+            let diff_result =
+                AudioDiff::compare_audio(reference.clone(), output.clone(), &diff_config)?;
 
             let peak_diff = diff_result.metrics.time_domain.peak_diff;
             let rms_diff = diff_result.metrics.time_domain.rms_diff;
@@ -325,9 +323,11 @@ impl DeterminismValidator {
         };
 
         let timing_variance = if timings.len() > 1 && avg_time_ms > 0.0 {
-            let variance: f64 = timings.iter()
+            let variance: f64 = timings
+                .iter()
                 .map(|t| (t - avg_time_ms).powi(2))
-                .sum::<f64>() / (timings.len() - 1) as f64;
+                .sum::<f64>()
+                / (timings.len() - 1) as f64;
             variance.sqrt() / avg_time_ms
         } else {
             0.0
@@ -363,11 +363,7 @@ impl DeterminismResult {
         let status = if self.passed { "PASS" } else { "FAIL" };
         format!(
             "{}: {}/{} runs matched (max diff: {:.2e}, avg time: {:.2}ms)",
-            status,
-            self.matching_runs,
-            self.num_runs,
-            self.max_diff,
-            self.avg_time_ms
+            status, self.matching_runs, self.num_runs, self.max_diff, self.avg_time_ms
         )
     }
 
@@ -378,7 +374,10 @@ impl DeterminismResult {
         report.push_str(&format!("Determinism Test Report\n"));
         report.push_str(&format!("=======================\n\n"));
 
-        report.push_str(&format!("Status: {}\n", if self.passed { "PASS ✓" } else { "FAIL ✗" }));
+        report.push_str(&format!(
+            "Status: {}\n",
+            if self.passed { "PASS ✓" } else { "FAIL ✗" }
+        ));
         report.push_str(&format!("Runs: {}\n", self.num_runs));
         report.push_str(&format!("Matching: {}\n", self.matching_runs));
         report.push_str(&format!("Max Diff: {:.2e}\n", self.max_diff));
@@ -390,7 +389,10 @@ impl DeterminismResult {
 
         report.push_str(&format!("\nTiming:\n"));
         report.push_str(&format!("  Avg: {:.2} ms\n", self.avg_time_ms));
-        report.push_str(&format!("  Variance: {:.2}%\n", self.timing_variance * 100.0));
+        report.push_str(&format!(
+            "  Variance: {:.2}%\n",
+            self.timing_variance * 100.0
+        ));
 
         if !self.run_timings_ms.is_empty() {
             report.push_str(&format!("  Runs: {:?}\n", self.run_timings_ms));
@@ -452,7 +454,11 @@ where
 }
 
 /// Check determinism with strict settings
-pub fn check_determinism_strict<F>(input: &[f64], process_fn: F, num_runs: usize) -> DeterminismResult
+pub fn check_determinism_strict<F>(
+    input: &[f64],
+    process_fn: F,
+    num_runs: usize,
+) -> DeterminismResult
 where
     F: Fn(&[f64]) -> Vec<f64>,
 {
@@ -470,9 +476,11 @@ mod tests {
         // A deterministic function (simple gain)
         let input: Vec<f64> = (0..1000).map(|i| (i as f64 / 100.0).sin()).collect();
 
-        let result = check_determinism_strict(&input, |samples| {
-            samples.iter().map(|s| s * 0.5).collect()
-        }, 5);
+        let result = check_determinism_strict(
+            &input,
+            |samples| samples.iter().map(|s| s * 0.5).collect(),
+            5,
+        );
 
         assert!(result.passed);
         assert_eq!(result.matching_runs, 5);
@@ -486,13 +494,18 @@ mod tests {
         // A non-deterministic function (uses system time as noise)
         let input: Vec<f64> = vec![0.0; 100];
 
-        let result = check_determinism_strict(&input, |samples| {
-            let noise = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .subsec_nanos() as f64 / 1e15; // Very small noise
-            samples.iter().map(|s| s + noise).collect()
-        }, 3);
+        let result = check_determinism_strict(
+            &input,
+            |samples| {
+                let noise = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .subsec_nanos() as f64
+                    / 1e15; // Very small noise
+                samples.iter().map(|s| s + noise).collect()
+            },
+            3,
+        );
 
         // May or may not pass depending on timing
         // Just check it runs without panic

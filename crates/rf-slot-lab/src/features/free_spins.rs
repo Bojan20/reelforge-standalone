@@ -235,10 +235,18 @@ impl FeatureChapter for FreeSpinsChapter {
         self.state.current_multiplier = snapshot.multiplier;
         self.state.total_win = snapshot.accumulated_win;
 
-        if let Some(remaining) = snapshot.data.get("remaining_spins").and_then(|v| v.as_u64()) {
+        if let Some(remaining) = snapshot
+            .data
+            .get("remaining_spins")
+            .and_then(|v| v.as_u64())
+        {
             self.state.remaining_spins = remaining as u32;
         }
-        if let Some(retriggers) = snapshot.data.get("retrigger_count").and_then(|v| v.as_u64()) {
+        if let Some(retriggers) = snapshot
+            .data
+            .get("retrigger_count")
+            .and_then(|v| v.as_u64())
+        {
             self.state.retrigger_count = retriggers as u32;
         }
 

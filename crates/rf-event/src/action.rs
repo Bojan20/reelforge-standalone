@@ -3,8 +3,8 @@
 //! Complete action system matching Wwise/FMOD functionality.
 //! All enums match Dart UI exactly for seamless FFI.
 
-use serde::{Deserialize, Serialize};
 use crate::curve::FadeCurve;
+use serde::{Deserialize, Serialize};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ACTION TYPE
@@ -206,7 +206,9 @@ impl ActionScope {
 ///
 /// Matches Dart `ActionPriority` exactly.
 /// Higher priority = less likely to be stolen.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize, Deserialize,
+)]
 #[repr(u8)]
 pub enum ActionPriority {
     /// Lowest priority — first to be stolen
@@ -613,17 +615,26 @@ impl MiddlewareAction {
     /// Check if action has any state/switch/rtpc condition
     #[inline]
     pub fn has_condition(&self) -> bool {
-        self.require_state_group.is_some() ||
-        self.require_switch_group.is_some() ||
-        self.require_rtpc_id.is_some()
+        self.require_state_group.is_some()
+            || self.require_switch_group.is_some()
+            || self.require_rtpc_id.is_some()
     }
 
     /// Check state condition against current states
-    pub fn check_state_condition(&self, current_states: &std::collections::HashMap<u32, u32>) -> bool {
-        if let (Some(group_id), Some(required_state)) = (self.require_state_group, self.require_state_id) {
+    pub fn check_state_condition(
+        &self,
+        current_states: &std::collections::HashMap<u32, u32>,
+    ) -> bool {
+        if let (Some(group_id), Some(required_state)) =
+            (self.require_state_group, self.require_state_id)
+        {
             let current = current_states.get(&group_id).copied().unwrap_or(0);
             let matches = current == required_state;
-            if self.require_state_inverted { !matches } else { matches }
+            if self.require_state_inverted {
+                !matches
+            } else {
+                matches
+            }
         } else {
             true // No condition = always passes
         }
@@ -635,8 +646,13 @@ impl MiddlewareAction {
         game_object: u64,
         current_switches: &std::collections::HashMap<(u64, u32), u32>,
     ) -> bool {
-        if let (Some(group_id), Some(required_switch)) = (self.require_switch_group, self.require_switch_id) {
-            let current = current_switches.get(&(game_object, group_id)).copied().unwrap_or(0);
+        if let (Some(group_id), Some(required_switch)) =
+            (self.require_switch_group, self.require_switch_id)
+        {
+            let current = current_switches
+                .get(&(game_object, group_id))
+                .copied()
+                .unwrap_or(0);
             current == required_switch
         } else {
             true
@@ -644,7 +660,10 @@ impl MiddlewareAction {
     }
 
     /// Check RTPC condition against current values
-    pub fn check_rtpc_condition(&self, current_rtpcs: &std::collections::HashMap<u32, f32>) -> bool {
+    pub fn check_rtpc_condition(
+        &self,
+        current_rtpcs: &std::collections::HashMap<u32, f32>,
+    ) -> bool {
         if let Some(rtpc_id) = self.require_rtpc_id {
             let current = current_rtpcs.get(&rtpc_id).copied().unwrap_or(0.0);
             let min = self.require_rtpc_min.unwrap_or(f32::MIN);

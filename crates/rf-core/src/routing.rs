@@ -18,8 +18,7 @@ use crate::{Decibels, TrackId};
 pub const MAX_DIRECT_ROUTES: usize = 8;
 
 /// Direct route destination
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum RouteDestination {
     /// Route to a track (including buses)
     Track(TrackId),
@@ -29,7 +28,6 @@ pub enum RouteDestination {
     #[default]
     Master,
 }
-
 
 /// Single direct route configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

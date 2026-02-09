@@ -304,8 +304,14 @@ impl std::fmt::Debug for ZeroCopyChain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ZeroCopyChain")
             .field("slot_count", &self.slots.len())
-            .field("is_bypassed", &self.bypass.load(std::sync::atomic::Ordering::Relaxed))
-            .field("is_processing", &self.processing.load(std::sync::atomic::Ordering::Relaxed))
+            .field(
+                "is_bypassed",
+                &self.bypass.load(std::sync::atomic::Ordering::Relaxed),
+            )
+            .field(
+                "is_processing",
+                &self.processing.load(std::sync::atomic::Ordering::Relaxed),
+            )
             .finish()
     }
 }

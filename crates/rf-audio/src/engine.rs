@@ -14,13 +14,13 @@ use std::time::Duration;
 use parking_lot::{Mutex, RwLock};
 
 use rf_core::{BufferSize, Sample, SampleRate};
-use rf_dsp::eq::{ParametricEq, EqFilterType}; // For EQ processing
 use rf_dsp::StereoProcessor; // Trait for process_sample()
+use rf_dsp::eq::{EqFilterType, ParametricEq}; // For EQ processing
 use rf_file::recording::{AudioRecorder, RecordingConfig, RecordingState};
 
 use crate::{
-    AudioConfig, AudioResult, AudioStream, get_default_input_device,
-    get_default_output_device, get_input_device_by_name, get_output_device_by_name,
+    AudioConfig, AudioResult, AudioStream, get_default_input_device, get_default_output_device,
+    get_input_device_by_name, get_output_device_by_name,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -34,7 +34,7 @@ use crate::{
 pub struct MeterData {
     /// Left channel peak (0.0 - 1.0+)
     pub left_peak: AtomicU64,
-    _pad1: [u8; 56],  // Cache-line padding (64 - 8 = 56)
+    _pad1: [u8; 56], // Cache-line padding (64 - 8 = 56)
 
     /// Right channel peak (0.0 - 1.0+)
     pub right_peak: AtomicU64,
@@ -58,7 +58,7 @@ pub struct MeterData {
 
     /// Clip indicator
     pub clipped: AtomicBool,
-    _pad7: [u8; 63],  // Cache-line padding (64 - 1 = 63)
+    _pad7: [u8; 63], // Cache-line padding (64 - 1 = 63)
 }
 
 impl Default for MeterData {
@@ -129,8 +129,7 @@ impl MeterData {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Transport state
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TransportState {
     #[default]
     Stopped,
@@ -160,7 +159,6 @@ impl TransportState {
         }
     }
 }
-
 
 /// Transport position (atomic for lock-free access)
 #[derive(Debug)]
@@ -538,12 +536,7 @@ impl AudioEngine {
         });
 
         // Create and start stream (with input device if available)
-        let stream = AudioStream::new(
-            &output_device,
-            input_device.as_ref(),
-            config,
-            callback,
-        )?;
+        let stream = AudioStream::new(&output_device, input_device.as_ref(), config, callback)?;
         stream.start()?;
 
         if input_device.is_some() {
@@ -743,8 +736,10 @@ impl AudioEngine {
         };
 
         // Update audio settings atomically (lock-free)
-        self.sample_rate.store(settings.sample_rate.as_u32(), Ordering::Release);
-        self.buffer_size.store(settings.buffer_size.as_u32(), Ordering::Release);
+        self.sample_rate
+            .store(settings.sample_rate.as_u32(), Ordering::Release);
+        self.buffer_size
+            .store(settings.buffer_size.as_u32(), Ordering::Release);
     }
 
     /// Get current settings

@@ -3,8 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Denoising mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum DenoiseMode {
     /// Speech enhancement (optimized for voice)
     Speech,
@@ -18,7 +17,6 @@ pub enum DenoiseMode {
     /// Gentle (preserve detail)
     Gentle,
 }
-
 
 /// Denoiser configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

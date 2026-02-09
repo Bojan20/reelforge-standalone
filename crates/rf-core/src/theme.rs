@@ -104,8 +104,7 @@ impl Default for Color {
 }
 
 /// Theme variant
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ThemeVariant {
     /// Pro audio dark (default)
     #[default]
@@ -118,10 +117,8 @@ pub enum ThemeVariant {
     Custom,
 }
 
-
 /// Color blindness mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ColorBlindMode {
     /// Normal vision
     #[default]
@@ -133,7 +130,6 @@ pub enum ColorBlindMode {
     /// Blue-yellow
     Tritanopia,
 }
-
 
 /// Complete theme definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -495,8 +491,7 @@ impl Default for AnimationTiming {
 }
 
 /// Easing function type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EasingFunction {
     Linear,
     EaseIn,
@@ -504,7 +499,6 @@ pub enum EasingFunction {
     EaseOut,
     EaseInOut,
 }
-
 
 impl EasingFunction {
     /// Apply easing to a 0-1 value

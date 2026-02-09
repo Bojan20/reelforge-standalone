@@ -144,7 +144,10 @@ impl PickBonusChapter {
     /// Get picks remaining (including extra picks)
     pub fn picks_remaining(&self) -> u8 {
         let revealed = self.state.items.iter().filter(|i| i.revealed).count() as u8;
-        let end_games_hit = self.state.items.iter()
+        let end_games_hit = self
+            .state
+            .items
+            .iter()
             .filter(|i| i.revealed && i.prize.is_end_game())
             .count() as u8;
 
@@ -201,7 +204,9 @@ impl PickBonusChapter {
             } else if normalized < 0.25 {
                 // Multiplier
                 let mult_idx = (normalized * self.config.multiplier_values.len() as f64) as usize;
-                let mult = self.config.multiplier_values
+                let mult = self
+                    .config
+                    .multiplier_values
                     .get(mult_idx)
                     .copied()
                     .unwrap_or(2.0);
@@ -209,7 +214,9 @@ impl PickBonusChapter {
             } else {
                 // Coins
                 let coin_idx = (normalized * self.config.base_coin_values.len() as f64) as usize;
-                let base = self.config.base_coin_values
+                let base = self
+                    .config
+                    .base_coin_values
                     .get(coin_idx)
                     .copied()
                     .unwrap_or(10.0);
@@ -240,7 +247,12 @@ impl PickBonusChapter {
 
     /// Process a pick
     fn process_pick(&mut self, index: u8) -> bool {
-        if let Some(item) = self.state.items.iter_mut().find(|i| i.index == index && !i.revealed) {
+        if let Some(item) = self
+            .state
+            .items
+            .iter_mut()
+            .find(|i| i.index == index && !i.revealed)
+        {
             item.revealed = true;
             self.state.picks_made += 1;
             self.state.last_pick_index = Some(index);
@@ -272,7 +284,10 @@ impl PickBonusChapter {
     }
 
     fn check_game_end(&self) -> bool {
-        let end_games_hit = self.state.items.iter()
+        let end_games_hit = self
+            .state
+            .items
+            .iter()
             .filter(|i| i.revealed && i.prize.is_end_game())
             .count() as u8;
 
@@ -356,9 +371,7 @@ impl FeatureChapter for PickBonusChapter {
         );
         data.insert(
             "items_revealed".to_string(),
-            serde_json::Value::from(
-                self.state.items.iter().filter(|i| i.revealed).count()
-            ),
+            serde_json::Value::from(self.state.items.iter().filter(|i| i.revealed).count()),
         );
 
         FeatureSnapshot {
@@ -419,7 +432,10 @@ impl FeatureChapter for PickBonusChapter {
         }
 
         // Use random value to select a pick (simulating player choice)
-        let available: Vec<u8> = self.state.items.iter()
+        let available: Vec<u8> = self
+            .state
+            .items
+            .iter()
             .filter(|i| !i.revealed)
             .map(|i| i.index)
             .collect();
@@ -589,13 +605,19 @@ mod tests {
         chapter.activate(&context);
 
         // Should have exactly end_game_count end games
-        let end_games = chapter.state.items.iter()
+        let end_games = chapter
+            .state
+            .items
+            .iter()
             .filter(|i| matches!(i.prize, PrizeType::EndGame))
             .count();
         assert_eq!(end_games, chapter.config.end_game_count as usize);
 
         // Should have one collect
-        let collects = chapter.state.items.iter()
+        let collects = chapter
+            .state
+            .items
+            .iter()
             .filter(|i| matches!(i.prize, PrizeType::Collect))
             .count();
         assert_eq!(collects, 1);

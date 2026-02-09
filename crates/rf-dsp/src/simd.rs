@@ -375,7 +375,10 @@ mod x86_impl {
         }
 
         // Remainder - safe because simd_len..len is within bounds of both slices
-        debug_assert!(simd_len <= len, "SIMD mix_add remainder loop bounds check failed");
+        debug_assert!(
+            simd_len <= len,
+            "SIMD mix_add remainder loop bounds check failed"
+        );
         for i in simd_len..len {
             dest[i] += src[i] * gain;
         }
@@ -436,7 +439,10 @@ mod x86_impl {
         }
 
         // Remainder - safe because simd_len..len is within bounds
-        debug_assert!(simd_len <= len, "AVX2 mix_add remainder loop bounds check failed");
+        debug_assert!(
+            simd_len <= len,
+            "AVX2 mix_add remainder loop bounds check failed"
+        );
         for i in simd_len..len {
             dest[i] += src[i] * gain;
         }
@@ -593,7 +599,10 @@ mod arm_impl {
             }
 
             // Remainder - safe because simd_len..len is within bounds
-            debug_assert!(simd_len <= len, "NEON mix_add remainder loop bounds check failed");
+            debug_assert!(
+                simd_len <= len,
+                "NEON mix_add remainder loop bounds check failed"
+            );
             for i in simd_len..len {
                 dest[i] += src[i] * gain;
             }

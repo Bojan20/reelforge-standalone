@@ -46,16 +46,92 @@ class PathValidator {
   // =============================================================================
 
   /// Allowed audio file extensions (lowercase, no dot)
+  /// This is the SINGLE SOURCE OF TRUTH for all audio format support.
+  /// Other files should reference PathValidator.allowedExtensions.
   static const Set<String> _allowedExtensions = {
-    'wav', 'wave',
-    'mp3',
-    'ogg', 'oga',
-    'flac',
-    'aiff', 'aif', 'aifc',
-    'm4a', 'aac',
-    'opus',
-    'wv', // WavPack
-    'ape', // Monkey's Audio
+    // ── Uncompressed / PCM ──
+    'wav', 'wave',           // Microsoft WAV / RIFF
+    'aiff', 'aif', 'aifc',  // Apple AIFF / AIFF-C
+    'au', 'snd',             // Sun/NeXT AU
+    'raw', 'pcm',            // Raw PCM (headerless)
+    'caf',                   // Apple Core Audio Format
+    'w64',                   // Sony Wave64
+    'rf64',                  // EBU RF64 (>4GB WAV)
+    'bwf',                   // Broadcast Wave Format
+    'sd2',                   // Sound Designer II
+    'voc',                   // Creative Voice
+    'avr',                   // Audio Visual Research
+    'pvf',                   // Portable Voice Format
+    'ircam', 'sf',           // IRCAM/BICSF
+    'htk',                   // Hidden Markov Model Toolkit
+    'sph', 'nist',           // NIST/SPHERE
+    'svx', '8svx',           // Amiga IFF/8SVX
+    'paf',                   // Ensoniq PARIS
+    'fap',                   // FAAD raw AAC
+
+    // ── Lossless Compressed ──
+    'flac',                  // Free Lossless Audio Codec
+    'alac',                  // Apple Lossless (also in .m4a)
+    'ape',                   // Monkey's Audio
+    'wv',                    // WavPack
+    'tta',                   // True Audio
+    'tak',                   // Tom's lossless Audio Kompressor
+    'ofr', 'ofs',            // OptimFROG
+    'wma',                   // Windows Media Audio (lossless variant)
+    'shn',                   // Shorten
+    'la',                    // Lossless Audio
+    'mlp',                   // Meridian Lossless Packing
+
+    // ── Lossy Compressed ──
+    'mp3',                   // MPEG-1/2 Audio Layer III
+    'ogg', 'oga',            // Ogg Vorbis
+    'opus',                  // Opus (in Ogg container)
+    'm4a', 'aac',            // AAC / MPEG-4 Audio
+    'mp4',                   // MPEG-4 (audio-only)
+    'mp2',                   // MPEG-1 Audio Layer II
+    'mp1',                   // MPEG-1 Audio Layer I
+    'mpc', 'mp+', 'mpp',    // Musepack
+    'spx',                   // Speex
+    'ac3',                   // Dolby Digital AC-3
+    'eac3', 'ec3',           // Enhanced AC-3 (Dolby Digital Plus)
+    'dts',                   // DTS Coherent Acoustics
+    'ra', 'ram',             // RealAudio
+    'amr',                   // Adaptive Multi-Rate (mobile voice)
+    'awb',                   // AMR-WB (wideband)
+    'gsm',                   // GSM 06.10
+    'adts',                  // Audio Data Transport Stream (raw AAC)
+
+    // ── DSD (Direct Stream Digital) ──
+    'dsf',                   // DSD Stream File
+    'dff',                   // DSDIFF
+    'dsd',                   // Generic DSD
+
+    // ── Module / Tracker ──
+    'mid', 'midi',           // Standard MIDI
+    'mod',                   // Amiga ProTracker
+    'xm',                    // FastTracker 2
+    'it',                    // Impulse Tracker
+    's3m',                   // Scream Tracker 3
+    'stm',                   // Scream Tracker 2
+
+    // ── Web / Streaming ──
+    'webm',                  // WebM (Vorbis/Opus)
+    'weba',                  // WebM Audio
+    'mka',                   // Matroska Audio
+
+    // ── Game Audio ──
+    'wem',                   // Wwise Encoded Media
+    'bnk',                   // Wwise SoundBank
+    'fsb',                   // FMOD Sound Bank
+    'xwm', 'xwma',          // Xbox WMA
+    'brstm',                 // BRSTM (Nintendo)
+    'bcstm',                 // BCSTM (Nintendo 3DS)
+    'bfstm',                 // BFSTM (Nintendo Wii U/Switch)
+    'adx',                   // CRI ADX
+    'hca',                   // CRI HCA
+    'at3', 'at9',            // Sony ATRAC3/ATRAC9
+    'vag',                   // PlayStation VAG
+    'xma', 'xma2',          // Xbox XMA/XMA2
   };
 
   /// Maximum path length (prevent buffer overflows)

@@ -6,7 +6,6 @@ use rf_plugin::{PluginInstance, PluginScanner, PluginType};
 
 #[test]
 fn test_scan_vst3_directory() {
-
     let mut scanner = PluginScanner::new();
 
     // Scan actual VST3 directory
@@ -56,7 +55,6 @@ fn test_scan_vst3_directory() {
 
 #[test]
 fn test_load_vst3_plugin() {
-
     // Try to load FabFilter Pro-Q 4
     let plugin_path =
         std::path::PathBuf::from("/Library/Audio/Plug-Ins/VST3/FabFilter Pro-Q 4.vst3");

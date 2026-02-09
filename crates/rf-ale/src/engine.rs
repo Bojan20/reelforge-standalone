@@ -9,7 +9,7 @@ use crate::signals::MetricSignals;
 use crate::stability::{StabilityConfig, StabilityState};
 use crate::transitions::{ActiveTransition, TransitionRegistry};
 use rtrb::{Consumer, Producer, RingBuffer};
-use std::sync::atomic::{AtomicU32, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 
 /// Commands from UI thread to RT engine
 #[derive(Debug, Clone)]
@@ -111,10 +111,7 @@ pub struct AdaptiveLayerEngine {
 
 impl AdaptiveLayerEngine {
     /// Create a new engine with command/state channels
-    pub fn new(
-        command_rx: Consumer<EngineCommand>,
-        state_tx: Producer<EngineState>,
-    ) -> Self {
+    pub fn new(command_rx: Consumer<EngineCommand>, state_tx: Producer<EngineState>) -> Self {
         Self {
             contexts: ContextRegistry::new(),
             rules: RuleRegistry::new(),
@@ -176,7 +173,9 @@ impl AdaptiveLayerEngine {
     pub fn switch_context(&mut self, context_id: &str, trigger: Option<&str>) {
         if let Some(context) = self.contexts.get(context_id) {
             let current_level = self.current_level.load(Ordering::Relaxed);
-            let start_level = context.entry_policy.resolve_start_level(trigger, current_level);
+            let start_level = context
+                .entry_policy
+                .resolve_start_level(trigger, current_level);
 
             self.current_context_id = context_id.to_string();
             self.current_context_hash
@@ -269,7 +268,10 @@ impl AdaptiveLayerEngine {
             EngineCommand::UpdateSignals(signals) => {
                 self.signals = signals;
             }
-            EngineCommand::SwitchContext { context_id, trigger } => {
+            EngineCommand::SwitchContext {
+                context_id,
+                trigger,
+            } => {
                 self.switch_context(&context_id, trigger.as_deref());
             }
             EngineCommand::ForceLevel { level } => {
@@ -335,34 +337,38 @@ impl AdaptiveLayerEngine {
         }
 
         // Find first matching rule and extract needed data
-        let rule_match = self.rules.find_match(
-            context_id,
-            &self.signals,
-            self.prev_signals.as_ref(),
-            &mut self.held_states,
-            self.current_time_ms,
-        ).map(|rule| {
-            // Clone the data we need to avoid borrow issues
-            (
-                rule.id.clone(),
-                rule.requires_hold_expired,
-                rule.action.clone(),
-                rule.transition.clone(),
-                rule.cooldown_ms,
-                rule.hold_ms,
+        let rule_match = self
+            .rules
+            .find_match(
+                context_id,
+                &self.signals,
+                self.prev_signals.as_ref(),
+                &mut self.held_states,
+                self.current_time_ms,
             )
-        });
+            .map(|rule| {
+                // Clone the data we need to avoid borrow issues
+                (
+                    rule.id.clone(),
+                    rule.requires_hold_expired,
+                    rule.action.clone(),
+                    rule.transition.clone(),
+                    rule.cooldown_ms,
+                    rule.hold_ms,
+                )
+            });
 
-        let Some((rule_id, requires_hold_expired, action, transition, cooldown_ms, hold_ms)) = rule_match else {
+        let Some((rule_id, requires_hold_expired, action, transition, cooldown_ms, hold_ms)) =
+            rule_match
+        else {
             return;
         };
 
         // Check stability constraints
-        if !self.stability.can_change_level(
-            &rule_id,
-            requires_hold_expired,
-            self.current_time_ms,
-        ) {
+        if !self
+            .stability
+            .can_change_level(&rule_id, requires_hold_expired, self.current_time_ms)
+        {
             return;
         }
 
@@ -560,7 +566,7 @@ impl AdaptiveLayerEngine {
 mod tests {
     use super::*;
     use crate::context::{Context, Layer};
-    use crate::rules::{Action, Condition, SimpleCondition, ComparisonOp};
+    use crate::rules::{Action, ComparisonOp, Condition, SimpleCondition};
 
     fn create_test_engine() -> AdaptiveLayerEngine {
         let (_, _, cmd_rx, state_tx) = AdaptiveLayerEngine::create_channels();

@@ -54,7 +54,10 @@ impl WaveletFilter {
     pub fn new(wavelet: WaveletType) -> Self {
         let lo_d = match wavelet {
             WaveletType::Haar | WaveletType::Daubechies(1) => {
-                vec![std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2]
+                vec![
+                    std::f64::consts::FRAC_1_SQRT_2,
+                    std::f64::consts::FRAC_1_SQRT_2,
+                ]
             }
             WaveletType::Daubechies(2) => {
                 vec![

@@ -6,18 +6,18 @@
 //! - Normalization
 //! - Format conversion
 
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::ptr;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 
 use rf_offline::{
-    BatchProcessor, JobBuilder, JobResult, NormalizationMode, OfflineConfig,
-    OfflinePipeline, OutputFormat, PipelineState,
+    BatchProcessor, JobBuilder, JobResult, NormalizationMode, OfflineConfig, OfflinePipeline,
+    OutputFormat, PipelineState,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -99,7 +99,9 @@ pub extern "C" fn offline_pipeline_set_normalization(handle: u64, mode: i32, tar
     if let Some(pipeline) = PIPELINES.get(&handle) {
         let norm_mode = match mode {
             1 => Some(NormalizationMode::Peak { target_db: target }),
-            2 => Some(NormalizationMode::Lufs { target_lufs: target }),
+            2 => Some(NormalizationMode::Lufs {
+                target_lufs: target,
+            }),
             3 => Some(NormalizationMode::TruePeak { target_db: target }),
             4 => Some(NormalizationMode::NoClip),
             _ => None,
@@ -279,7 +281,9 @@ pub extern "C" fn offline_process_file_with_options(
     if let (Some(mode), Some(target)) = (opts.normalize_mode, opts.normalize_target) {
         let norm = match mode {
             1 => NormalizationMode::Peak { target_db: target },
-            2 => NormalizationMode::Lufs { target_lufs: target },
+            2 => NormalizationMode::Lufs {
+                target_lufs: target,
+            },
             3 => NormalizationMode::TruePeak { target_db: target },
             _ => NormalizationMode::NoClip,
         };
@@ -386,12 +390,10 @@ pub extern "C" fn offline_pipeline_get_progress_json(handle: u64) -> *mut c_char
         };
 
         match serde_json::to_string(&json) {
-            Ok(s) => {
-                match CString::new(s) {
-                    Ok(c) => c.into_raw(),
-                    Err(_) => ptr::null_mut(),
-                }
-            }
+            Ok(s) => match CString::new(s) {
+                Ok(c) => c.into_raw(),
+                Err(_) => ptr::null_mut(),
+            },
             Err(_) => ptr::null_mut(),
         }
     } else {
@@ -418,12 +420,10 @@ pub extern "C" fn offline_pipeline_cancel(handle: u64) {
 pub extern "C" fn offline_get_job_result(job_id: u64) -> *mut c_char {
     if let Some(result) = JOB_RESULTS.get(&job_id) {
         match serde_json::to_string(result.value()) {
-            Ok(s) => {
-                match CString::new(s) {
-                    Ok(c) => c.into_raw(),
-                    Err(_) => ptr::null_mut(),
-                }
-            }
+            Ok(s) => match CString::new(s) {
+                Ok(c) => c.into_raw(),
+                Err(_) => ptr::null_mut(),
+            },
             Err(_) => ptr::null_mut(),
         }
     } else {
@@ -531,12 +531,10 @@ pub extern "C" fn offline_batch_process(jobs_json: *const c_char) -> *mut c_char
 
     // Return JSON
     match serde_json::to_string(&results) {
-        Ok(s) => {
-            match CString::new(s) {
-                Ok(c) => c.into_raw(),
-                Err(_) => ptr::null_mut(),
-            }
-        }
+        Ok(s) => match CString::new(s) {
+            Ok(c) => c.into_raw(),
+            Err(_) => ptr::null_mut(),
+        },
         Err(_) => ptr::null_mut(),
     }
 }

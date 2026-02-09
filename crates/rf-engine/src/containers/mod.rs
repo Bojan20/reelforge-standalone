@@ -33,13 +33,12 @@ mod storage;
 
 pub use blend::{BlendChild, BlendContainer, BlendCurve, BlendResult};
 pub use group::{
-    ContainerGroup, GroupChild, GroupChildRef, GroupEvaluationMode, GroupResult,
-    ContainerLookup, ValidationError, ValidationResult, MAX_NESTING_DEPTH,
-    validate_group_addition,
+    ContainerGroup, ContainerLookup, GroupChild, GroupChildRef, GroupEvaluationMode, GroupResult,
+    MAX_NESTING_DEPTH, ValidationError, ValidationResult, validate_group_addition,
 };
 pub use random::{
-    RandomChild, RandomContainer, RandomMode, RandomResult, RandomVariation,
-    SeedLog, SeedLogEntry, SEED_LOG,
+    RandomChild, RandomContainer, RandomMode, RandomResult, RandomVariation, SEED_LOG, SeedLog,
+    SeedLogEntry,
 };
 pub use sequence::{
     SequenceContainer, SequenceEndBehavior, SequenceResult, SequenceState, SequenceStep,

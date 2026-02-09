@@ -338,9 +338,10 @@ void main() {
       });
 
       test('totalHeight should include header when expanded', () {
+        // totalHeight = content height + header (36) + sub-tab row (28)
         expect(
           controller.totalHeight,
-          controller.height + kLowerZoneHeaderHeight,
+          controller.height + kLowerZoneHeaderHeight + 28,
         );
       });
 

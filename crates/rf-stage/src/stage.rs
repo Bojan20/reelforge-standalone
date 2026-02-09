@@ -415,7 +415,6 @@ pub enum Stage {
     // ═══════════════════════════════════════════════════════════════════════
     // P0.13-P0.17: ADDITIONAL STAGES
     // ═══════════════════════════════════════════════════════════════════════
-
     /// P0.13: Near miss — close to big win but didn't quite make it
     NearMiss {
         /// Which reel had the near miss
@@ -552,8 +551,8 @@ impl Stage {
         match self {
             Stage::SpinStart => "spin_start",
             Stage::ReelSpinning { .. } => "reel_spinning",
-            Stage::ReelSpinningStart { .. } => "reel_spinning_start",  // P0.1
-            Stage::ReelSpinningStop { .. } => "reel_spinning_stop",    // P0.1
+            Stage::ReelSpinningStart { .. } => "reel_spinning_start", // P0.1
+            Stage::ReelSpinningStop { .. } => "reel_spinning_stop",   // P0.1
             Stage::ReelStop { .. } => "reel_stop",
             Stage::EvaluateWins => "evaluate_wins",
             Stage::SpinEnd => "spin_end",
@@ -599,7 +598,7 @@ impl Stage {
             Stage::SymbolTransform { .. } => "symbol_transform",
             Stage::WildExpand { .. } => "wild_expand",
             Stage::MultiplierChange { .. } => "multiplier_change",
-            Stage::NearMiss { .. } => "near_miss",           // P0.13
+            Stage::NearMiss { .. } => "near_miss", // P0.13
             Stage::SymbolUpgrade { .. } => "symbol_upgrade", // P0.15
             Stage::MysteryReveal { .. } => "mystery_reveal", // P0.16
             Stage::MultiplierApply { .. } => "multiplier_apply", // P0.17
@@ -640,8 +639,8 @@ impl Stage {
         &[
             "spin_start",
             "reel_spinning",
-            "reel_spinning_start",  // P0.1
-            "reel_spinning_stop",   // P0.1
+            "reel_spinning_start", // P0.1
+            "reel_spinning_stop",  // P0.1
             "reel_stop",
             "evaluate_wins",
             "spin_end",
@@ -700,7 +699,10 @@ impl Stage {
     /// Create a Stage from type name with default values
     /// Returns None for invalid type names
     /// For stages with required fields, use serde deserialization instead
-    pub fn from_type_name(name: &str, data: &std::collections::HashMap<String, serde_json::Value>) -> Option<Self> {
+    pub fn from_type_name(
+        name: &str,
+        data: &std::collections::HashMap<String, serde_json::Value>,
+    ) -> Option<Self> {
         let name_lower = name.to_lowercase();
 
         // Helper to extract u8 value
@@ -712,11 +714,7 @@ impl Stage {
         };
 
         // Helper to extract f64 value
-        let get_f64 = |key: &str| -> f64 {
-            data.get(key)
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0)
-        };
+        let get_f64 = |key: &str| -> f64 { data.get(key).and_then(|v| v.as_f64()).unwrap_or(0.0) };
 
         // Helper to extract optional string
         let get_string = |key: &str| -> Option<String> {
@@ -796,7 +794,10 @@ impl Stage {
                 multiplier: get_f64("multiplier"),
             }),
             "cascade_end" => Some(Stage::CascadeEnd {
-                total_steps: data.get("total_steps").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                total_steps: data
+                    .get("total_steps")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as u32,
                 total_win: get_f64("total_win"),
             }),
             "jackpot_trigger" => {
@@ -877,21 +878,33 @@ impl Stage {
             }),
             // P0.13-P0.17: New stages
             "near_miss" => Some(Stage::NearMiss {
-                reel_index: data.get("reel_index").and_then(|v| v.as_u64()).map(|v| v as u8),
+                reel_index: data
+                    .get("reel_index")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as u8),
                 reason: get_string("reason"),
                 proximity: get_f64("proximity"),
             }),
             "symbol_upgrade" => Some(Stage::SymbolUpgrade {
                 reel_index: get_u8("reel_index"),
                 row_index: get_u8("row_index"),
-                from_symbol: data.get("from_symbol").and_then(|v| v.as_u64()).map(|v| v as u32),
+                from_symbol: data
+                    .get("from_symbol")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as u32),
                 to_symbol: data.get("to_symbol").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
                 upgrade_tier: get_u8("upgrade_tier"),
             }),
             "mystery_reveal" => Some(Stage::MysteryReveal {
                 mystery_count: get_u8("mystery_count"),
-                revealed_symbol: data.get("revealed_symbol").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-                simultaneous: data.get("simultaneous").and_then(|v| v.as_bool()).unwrap_or(false),
+                revealed_symbol: data
+                    .get("revealed_symbol")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as u32,
+                simultaneous: data
+                    .get("simultaneous")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
             }),
             "multiplier_apply" => Some(Stage::MultiplierApply {
                 multiplier: get_f64("multiplier"),

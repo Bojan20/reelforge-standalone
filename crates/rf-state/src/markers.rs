@@ -35,8 +35,7 @@ fn new_marker_id() -> MarkerId {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Marker type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum MarkerType {
     /// Simple position marker
     #[default]
@@ -52,7 +51,6 @@ pub enum MarkerType {
     /// Cue point (for video sync)
     Cue,
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKER
@@ -451,9 +449,10 @@ impl MarkerTrack {
     /// Set cycle from marker
     pub fn set_cycle_from_marker(&mut self, id: MarkerId) {
         if let Some(marker) = self.markers.get(&id)
-            && marker.end_position.is_some() {
-                self.locators.set_from_cycle(marker);
-            }
+            && marker.end_position.is_some()
+        {
+            self.locators.set_from_cycle(marker);
+        }
     }
 
     /// Create quick marker at position

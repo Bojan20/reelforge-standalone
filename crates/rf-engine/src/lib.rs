@@ -42,8 +42,8 @@ mod fx_container;
 // Phase 4: Timeline & Track Management
 pub mod audio_import;
 pub mod ffi;
-pub mod ffi_routing;
 pub mod ffi_control_room;
+pub mod ffi_routing;
 pub mod playback;
 pub mod track_manager;
 pub mod waveform;
@@ -112,7 +112,7 @@ pub use send_return::{
 
 pub use dual_path::{
     AudioBlock, AudioBlockPool, DualPathEngine, DualPathStats, FnGuardProcessor, GuardProcessor,
-    ProcessingMode, MAX_BLOCK_SIZE,
+    MAX_BLOCK_SIZE, ProcessingMode,
 };
 
 pub use sidechain::{
@@ -189,9 +189,9 @@ pub use link::{LinkBeat, LinkConfig, LinkEvent, LinkHost, LinkSession, LinkState
 
 // Re-exports: Phase 7 - DSP Wrappers
 pub use dsp_wrappers::{
-    Api550Wrapper, CompressorWrapper, ExpanderWrapper, GateWrapper,
-    Neve1073Wrapper, ProEqWrapper, PultecWrapper, RoomCorrectionWrapper, TruePeakLimiterWrapper,
-    UltraEqWrapper, available_processors, create_processor, create_processor_extended,
+    Api550Wrapper, CompressorWrapper, ExpanderWrapper, GateWrapper, Neve1073Wrapper, ProEqWrapper,
+    PultecWrapper, RoomCorrectionWrapper, TruePeakLimiterWrapper, UltraEqWrapper,
+    available_processors, create_processor, create_processor_extended,
 };
 
 // Re-exports: Phase 8 - Automation
@@ -216,19 +216,18 @@ pub use export::{ExportConfig, ExportEngine, ExportError, ExportFormat};
 
 // Re-exports: Phase 13 - Disk Streaming
 pub use streaming::{
-    AssetCatalog, AssetInfo, AudioEvent, AudioFormat, AudioRingBuffer,
-    ControlCommand, ControlCommandType, ControlQueue, DiskJob, DiskReaderPool,
-    EventIndex, StreamRT, StreamState, StreamingEngine, TrackRT,
-    DEFAULT_RING_BUFFER_FRAMES, HIGH_WATER_FRAMES, LOW_WATER_FRAMES,
+    AssetCatalog, AssetInfo, AudioEvent, AudioFormat, AudioRingBuffer, ControlCommand,
+    ControlCommandType, ControlQueue, DEFAULT_RING_BUFFER_FRAMES, DiskJob, DiskReaderPool,
+    EventIndex, HIGH_WATER_FRAMES, LOW_WATER_FRAMES, StreamRT, StreamState, StreamingEngine,
+    TrackRT,
 };
 
 // Re-exports: Phase 14 - Wave Cache
 pub use wave_cache::{
-    WaveCacheManager, WaveCacheBuilder, WaveCacheQuery, WaveCacheError,
-    GetCacheResult, BuildProgress, BuildState, TileRequest, TileResponse,
-    CachedTile, WfcFile, WfcHeader, MipLevel, TileData,
-    build_from_samples, tiles_to_flat_array,
-    WFC_MAGIC, WFC_VERSION, NUM_MIP_LEVELS, BASE_TILE_SAMPLES,
+    BASE_TILE_SAMPLES, BuildProgress, BuildState, CachedTile, GetCacheResult, MipLevel,
+    NUM_MIP_LEVELS, TileData, TileRequest, TileResponse, WFC_MAGIC, WFC_VERSION, WaveCacheBuilder,
+    WaveCacheError, WaveCacheManager, WaveCacheQuery, WfcFile, WfcHeader, build_from_samples,
+    tiles_to_flat_array,
 };
 
 // Re-exports: Phase 15 - Stage Audio
@@ -241,18 +240,36 @@ pub use middleware_integration::{
 
 // Re-exports: Phase 17 - Container System
 pub use containers::{
-    // Types
-    ContainerType, ContainerId, ChildId, Container,
+    BlendChild,
     // Blend
-    BlendContainer, BlendChild, BlendCurve, BlendResult,
-    // Random
-    RandomContainer, RandomChild, RandomMode, RandomResult, RandomVariation,
-    // Sequence
-    SequenceContainer, SequenceStep, SequenceEndBehavior, SequenceResult, SequenceState,
+    BlendContainer,
+    BlendCurve,
+    BlendResult,
+    ChildId,
+    Container,
     // Group (P3C)
-    ContainerGroup, GroupChild, GroupChildRef, GroupEvaluationMode, GroupResult,
+    ContainerGroup,
+    ContainerId,
     // Storage
     ContainerStorage,
+    // Types
+    ContainerType,
+    GroupChild,
+    GroupChildRef,
+    GroupEvaluationMode,
+    GroupResult,
+    RandomChild,
+    // Random
+    RandomContainer,
+    RandomMode,
+    RandomResult,
+    RandomVariation,
+    // Sequence
+    SequenceContainer,
+    SequenceEndBehavior,
+    SequenceResult,
+    SequenceState,
+    SequenceStep,
 };
 
 // Re-exports: Freeze additions

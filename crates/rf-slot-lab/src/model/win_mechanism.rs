@@ -92,11 +92,7 @@ impl PaylinePattern {
         let mid = reels / 2;
         let positions = (0..reels)
             .map(|i| {
-                let v = if i <= mid {
-                    i
-                } else {
-                    reels - 1 - i
-                };
+                let v = if i <= mid { i } else { reels - 1 - i };
                 (rows - 1).saturating_sub(v)
             })
             .collect();

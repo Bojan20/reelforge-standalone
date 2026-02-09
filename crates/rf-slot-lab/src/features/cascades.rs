@@ -159,7 +159,11 @@ impl FeatureChapter for CascadesChapter {
         self.state.current_multiplier = snapshot.multiplier;
         self.state.total_win = snapshot.accumulated_win;
 
-        if let Some(peak) = snapshot.data.get("peak_multiplier").and_then(|v| v.as_f64()) {
+        if let Some(peak) = snapshot
+            .data
+            .get("peak_multiplier")
+            .and_then(|v| v.as_f64())
+        {
             self.state.peak_multiplier = peak;
         }
         Ok(())

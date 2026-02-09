@@ -5,19 +5,18 @@
 //!
 //! Documentation: .claude/architecture/PLUGIN_STATE_SYSTEM.md
 
-use std::ffi::{c_char, CStr, CString};
-use std::sync::Mutex;
 use once_cell::sync::Lazy;
+use std::ffi::{CStr, CString, c_char};
+use std::sync::Mutex;
 
-use rf_state::{PluginStateChunk, PluginStateStorage, PluginUid, PluginFormat};
+use rf_state::{PluginFormat, PluginStateChunk, PluginStateStorage, PluginUid};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE STORAGE
 // ═══════════════════════════════════════════════════════════════════════════
 
-static STATE_STORAGE: Lazy<Mutex<PluginStateStorage>> = Lazy::new(|| {
-    Mutex::new(PluginStateStorage::new())
-});
+static STATE_STORAGE: Lazy<Mutex<PluginStateStorage>> =
+    Lazy::new(|| Mutex::new(PluginStateStorage::new()));
 
 // Thread-local buffer for returning strings
 thread_local! {
@@ -144,11 +143,7 @@ pub extern "C" fn plugin_state_get(
 
     if !out_data.is_null() && out_capacity >= data_len {
         unsafe {
-            std::ptr::copy_nonoverlapping(
-                chunk.state_data.as_ptr(),
-                out_data,
-                data_len,
-            );
+            std::ptr::copy_nonoverlapping(chunk.state_data.as_ptr(), out_data, data_len);
         }
     }
 
@@ -352,7 +347,9 @@ pub extern "C" fn plugin_state_get_all_json() -> *const c_char {
                         slot_index,
                         chunk.plugin_uid.to_string().replace('"', r#"\""#),
                         chunk.state_data.len(),
-                        chunk.preset_name.as_ref()
+                        chunk
+                            .preset_name
+                            .as_ref()
                             .map(|n| format!(r#""{}""#, n.replace('"', r#"\""#)))
                             .unwrap_or_else(|| "null".to_string())
                     )
@@ -385,7 +382,9 @@ mod tests {
 
         // Store
         let result = plugin_state_store(
-            1, 0, 0, // track 1, slot 0, VST3
+            1,
+            0,
+            0, // track 1, slot 0, VST3
             uid.as_ptr(),
             state_data.as_ptr(),
             state_data.len(),
@@ -403,12 +402,7 @@ mod tests {
         // Get data
         let mut buffer = vec![0u8; 10];
         let mut out_len = 0usize;
-        let result = plugin_state_get(
-            1, 0,
-            buffer.as_mut_ptr(),
-            buffer.len(),
-            &mut out_len,
-        );
+        let result = plugin_state_get(1, 0, buffer.as_mut_ptr(), buffer.len(), &mut out_len);
         assert_eq!(result, 1);
         assert_eq!(out_len, 5);
         assert_eq!(&buffer[..5], &[1, 2, 3, 4, 5]);

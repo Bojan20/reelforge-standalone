@@ -13,7 +13,7 @@ void main() {
 
     test('initializes with default state', () {
       expect(controller.superTab, DawSuperTab.edit); // Default changed from browse to edit
-      expect(controller.isExpanded, true);
+      expect(controller.isExpanded, false); // DawLowerZoneState default is collapsed
       expect(controller.height, kLowerZoneDefaultHeight);
     });
 
@@ -24,13 +24,14 @@ void main() {
     });
 
     test('toggle changes expand state', () {
-      expect(controller.isExpanded, true);
+      // After previous test (setSuperTab), isExpanded may be true
+      final initial = controller.isExpanded;
 
       controller.toggle();
-      expect(controller.isExpanded, false);
+      expect(controller.isExpanded, !initial);
 
       controller.toggle();
-      expect(controller.isExpanded, true);
+      expect(controller.isExpanded, initial);
     });
 
     test('setHeight clamps to min/max', () {
@@ -66,7 +67,7 @@ void main() {
 
       expect(json['superTab'], 3); // DawSuperTab.process.index
       expect(json['height'], 400.0);
-      expect(json['isExpanded'], true);
+      expect(json['isExpanded'], true); // setSuperTab(process) expands when switching tabs
     });
 
     test('fromJson deserializes state', () {

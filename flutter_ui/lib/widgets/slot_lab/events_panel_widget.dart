@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../utils/path_validator.dart';
 import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
@@ -43,7 +44,7 @@ List<FileSystemEntity> _scanDirectoryIsolate(String directoryPath) {
     final filtered = entities.where((e) {
       if (e is Directory) return true;
       final ext = e.path.split('.').last.toLowerCase();
-      return ['wav', 'mp3', 'flac', 'ogg', 'aiff', 'aif'].contains(ext);
+      return PathValidator.allowedExtensions.contains(ext);
     }).toList();
 
     // Sort: directories first, then files, alphabetically
@@ -414,7 +415,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   Future<void> _importAudioFiles() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['wav', 'mp3', 'flac', 'ogg', 'aiff', 'aif'],
+      allowedExtensions: PathValidator.allowedExtensions,
       allowMultiple: true,
     );
 
@@ -474,7 +475,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           .whereType<File>()
           .where((f) {
             final ext = f.path.split('.').last.toLowerCase();
-            return ['wav', 'mp3', 'flac', 'ogg', 'aiff', 'aif'].contains(ext);
+            return PathValidator.allowedExtensions.contains(ext);
           })
           .toList()
         ..sort((a, b) => a.path.split('/').last.toLowerCase()

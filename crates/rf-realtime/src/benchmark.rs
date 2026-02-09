@@ -13,8 +13,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 /// Performance target levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PerformanceTarget {
     /// Minimum viable (30% CPU budget)
     Minimum,
@@ -48,7 +47,6 @@ impl PerformanceTarget {
         }
     }
 }
-
 
 /// Timing measurement
 #[derive(Debug, Clone, Default)]

@@ -19,7 +19,9 @@ pub fn generate_sine_buffer(size: usize, freq: f64, sample_rate: f64) -> Vec<f64
 /// Generate stereo buffer (interleaved)
 pub fn generate_stereo_buffer(size: usize, seed: u64) -> Vec<f64> {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
-    (0..size * 2).map(|_| rng.random::<f64>() * 2.0 - 1.0).collect()
+    (0..size * 2)
+        .map(|_| rng.random::<f64>() * 2.0 - 1.0)
+        .collect()
 }
 
 /// Generate impulse buffer

@@ -143,8 +143,16 @@ impl ChangelogEntry {
 
     /// Format as markdown list item
     pub fn to_markdown(&self) -> String {
-        let scope = self.scope.as_ref().map(|s| format!("**{}:** ", s)).unwrap_or_default();
-        let commit = self.commit.as_ref().map(|c| format!(" ({})", &c[..7.min(c.len())])).unwrap_or_default();
+        let scope = self
+            .scope
+            .as_ref()
+            .map(|s| format!("**{}:** ", s))
+            .unwrap_or_default();
+        let commit = self
+            .commit
+            .as_ref()
+            .map(|c| format!(" ({})", &c[..7.min(c.len())]))
+            .unwrap_or_default();
 
         format!("- {}{}{}", scope, self.message, commit)
     }
@@ -263,7 +271,9 @@ impl Changelog {
 
         output.push_str("# Changelog\n\n");
         output.push_str("All notable changes to this project will be documented in this file.\n\n");
-        output.push_str("The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\n");
+        output.push_str(
+            "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\n",
+        );
         output.push_str("and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n");
 
         for release in &self.releases {
@@ -335,11 +345,7 @@ mod tests {
 
     #[test]
     fn test_breaking_change() {
-        let entry = ChangelogEntry::from_commit(
-            "feat(api)!: change parameter order",
-            None,
-            None,
-        );
+        let entry = ChangelogEntry::from_commit("feat(api)!: change parameter order", None, None);
 
         assert_eq!(entry.change_type, ChangeType::Breaking);
         assert!(entry.breaking);

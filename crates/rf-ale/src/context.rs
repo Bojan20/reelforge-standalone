@@ -171,7 +171,6 @@ pub enum EntryPolicyType {
     MomentumInherit,
 }
 
-
 /// Trigger to level mapping
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerMapping {
@@ -282,8 +281,7 @@ impl Default for WindDown {
 }
 
 /// Summary stinger configuration (tiered by win result)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SummaryStinger {
     /// Small win stinger path
     #[serde(default)]
@@ -295,7 +293,6 @@ pub struct SummaryStinger {
     #[serde(default)]
     pub mega_win: Option<String>,
 }
-
 
 /// Exit policy for a context
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -403,7 +400,6 @@ pub enum NarrativeArcType {
     DataDriven,
 }
 
-
 /// Narrative arc phase
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NarrativePhase {
@@ -499,7 +495,12 @@ impl NarrativeArc {
     }
 
     /// Apply narrative arc to a computed level
-    pub fn apply(&self, level: LayerId, progress: f32, constraints: &ContextConstraints) -> LayerId {
+    pub fn apply(
+        &self,
+        level: LayerId,
+        progress: f32,
+        constraints: &ContextConstraints,
+    ) -> LayerId {
         if !self.enabled {
             return level;
         }

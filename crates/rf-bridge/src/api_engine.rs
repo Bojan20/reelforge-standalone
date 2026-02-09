@@ -3,7 +3,7 @@
 //! Extracted from api.rs as part of modular FFI decomposition.
 //! Handles engine initialization, shutdown, and status.
 
-use crate::{EngineBridge, ENGINE};
+use crate::{ENGINE, EngineBridge};
 use rf_core::SampleRate;
 use rf_engine::EngineConfig;
 

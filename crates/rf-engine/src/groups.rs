@@ -376,13 +376,15 @@ impl GroupManager {
         if let Some(group_ids) = self.track_groups.get(&source_track) {
             for group_id in group_ids {
                 if let Some(group) = self.groups.get(group_id)
-                    && group.active && group.is_linked(param) {
-                        for &member in &group.members {
-                            if member != source_track && !linked.contains(&member) {
-                                linked.push(member);
-                            }
+                    && group.active
+                    && group.is_linked(param)
+                {
+                    for &member in &group.members {
+                        if member != source_track && !linked.contains(&member) {
+                            linked.push(member);
                         }
                     }
+                }
             }
         }
 

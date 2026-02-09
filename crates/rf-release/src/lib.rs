@@ -23,7 +23,7 @@ pub mod changelog;
 pub mod packaging;
 pub mod version;
 
-pub use changelog::{ChangelogEntry, ChangelogGenerator, ChangeType};
+pub use changelog::{ChangeType, ChangelogEntry, ChangelogGenerator};
 pub use packaging::{PackageConfig, ReleasePackage};
 pub use version::{BumpType, Version};
 
@@ -155,7 +155,11 @@ impl ReleasePlan {
         if !self.changelog.is_empty() {
             output.push_str("## Changes\n\n");
             for entry in &self.changelog {
-                output.push_str(&format!("- {} {}\n", entry.change_type.emoji(), entry.message));
+                output.push_str(&format!(
+                    "- {} {}\n",
+                    entry.change_type.emoji(),
+                    entry.message
+                ));
             }
         }
 

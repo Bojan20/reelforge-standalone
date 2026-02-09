@@ -3,8 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Matching mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum MatchMode {
     /// Full spectrum matching
     #[default]
@@ -19,10 +18,8 @@ pub enum MatchMode {
     Custom,
 }
 
-
 /// Perceptual weighting curve
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum MatchWeighting {
     /// No weighting (linear)
     None,
@@ -36,7 +33,6 @@ pub enum MatchWeighting {
     #[default]
     Perceptual,
 }
-
 
 /// EQ matching configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

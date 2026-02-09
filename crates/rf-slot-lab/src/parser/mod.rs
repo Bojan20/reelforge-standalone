@@ -76,8 +76,8 @@ impl GddParser {
     /// Parse JSON GDD into GameModel
     pub fn parse_json(&self, json: &str) -> Result<GameModel, GddParseError> {
         // Parse JSON
-        let doc: GddDocument = serde_json::from_str(json)
-            .map_err(|e| GddParseError::JsonError(e.to_string()))?;
+        let doc: GddDocument =
+            serde_json::from_str(json).map_err(|e| GddParseError::JsonError(e.to_string()))?;
 
         // Validate
         self.validate(&doc)?;
@@ -90,29 +90,35 @@ impl GddParser {
     pub fn validate(&self, doc: &GddDocument) -> Result<(), GddParseError> {
         // Check name length
         if doc.game.name.len() > self.limits.max_name_length {
-            return Err(GddParseError::ValidationError(
-                format!("Game name too long: {} > {}", doc.game.name.len(), self.limits.max_name_length)
-            ));
+            return Err(GddParseError::ValidationError(format!(
+                "Game name too long: {} > {}",
+                doc.game.name.len(),
+                self.limits.max_name_length
+            )));
         }
 
         // Check symbol count
         if doc.symbols.len() > self.limits.max_symbols {
-            return Err(GddParseError::ValidationError(
-                format!("Too many symbols: {} > {}", doc.symbols.len(), self.limits.max_symbols)
-            ));
+            return Err(GddParseError::ValidationError(format!(
+                "Too many symbols: {} > {}",
+                doc.symbols.len(),
+                self.limits.max_symbols
+            )));
         }
 
         // Check grid
         if doc.grid.reels > self.limits.max_reels as u8 {
-            return Err(GddParseError::ValidationError(
-                format!("Too many reels: {} > {}", doc.grid.reels, self.limits.max_reels)
-            ));
+            return Err(GddParseError::ValidationError(format!(
+                "Too many reels: {} > {}",
+                doc.grid.reels, self.limits.max_reels
+            )));
         }
 
         if doc.grid.rows > self.limits.max_rows as u8 {
-            return Err(GddParseError::ValidationError(
-                format!("Too many rows: {} > {}", doc.grid.rows, self.limits.max_rows)
-            ));
+            return Err(GddParseError::ValidationError(format!(
+                "Too many rows: {} > {}",
+                doc.grid.rows, self.limits.max_rows
+            )));
         }
 
         Ok(())
@@ -239,9 +245,7 @@ impl GddParser {
                 let config_value = if config.is_empty() {
                     None
                 } else {
-                    Some(serde_json::Value::Object(
-                        config.into_iter().collect(),
-                    ))
+                    Some(serde_json::Value::Object(config.into_iter().collect()))
                 };
 
                 crate::model::FeatureRef {
@@ -391,13 +395,25 @@ pub enum GddParseError {
 fn is_builtin_feature(feature_type: &str) -> bool {
     matches!(
         feature_type.to_lowercase().as_str(),
-        "free_spins" | "freespins" | "cascades" | "cascade" | "tumble" | "avalanche"
-            | "hold_and_win" | "holdandwin" | "hold_and_spin"
-            | "jackpot" | "jackpots"
-            | "gamble" | "risk"
-            | "multiplier" | "wild_multiplier"
-            | "expanding_wild" | "sticky_wild"
-            | "bonus" | "pick_bonus"
+        "free_spins"
+            | "freespins"
+            | "cascades"
+            | "cascade"
+            | "tumble"
+            | "avalanche"
+            | "hold_and_win"
+            | "holdandwin"
+            | "hold_and_spin"
+            | "jackpot"
+            | "jackpots"
+            | "gamble"
+            | "risk"
+            | "multiplier"
+            | "wild_multiplier"
+            | "expanding_wild"
+            | "sticky_wild"
+            | "bonus"
+            | "pick_bonus"
     )
 }
 

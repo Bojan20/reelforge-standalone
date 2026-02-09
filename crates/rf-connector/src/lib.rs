@@ -9,10 +9,10 @@
 //! - Automatic reconnection
 //! - Multiple protocol support
 
+pub mod commands;
 pub mod connector;
 pub mod protocol;
-pub mod commands;
 
+pub use commands::*;
 pub use connector::*;
 pub use protocol::*;
-pub use commands::*;

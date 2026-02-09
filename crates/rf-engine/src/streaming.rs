@@ -15,8 +15,8 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
-use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU8, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, AtomicU32, Ordering};
 use std::thread::{self, JoinHandle};
 
 use parking_lot::{Mutex, RwLock};
@@ -117,7 +117,9 @@ impl AudioRingBuffer {
     /// Leaves 1 frame gap to distinguish full from empty
     #[inline]
     pub fn available_write(&self) -> usize {
-        self.capacity_frames.saturating_sub(1).saturating_sub(self.available_read())
+        self.capacity_frames
+            .saturating_sub(1)
+            .saturating_sub(self.available_read())
     }
 
     /// Read frames from ring buffer (audio callback - RT safe)
@@ -406,7 +408,8 @@ impl EventIndex {
 
     /// Rebuild index from streams
     pub fn rebuild(&self, streams: &[Arc<StreamRT>], timeline_frames: i64) {
-        self.timeline_frames.store(timeline_frames, Ordering::Relaxed);
+        self.timeline_frames
+            .store(timeline_frames, Ordering::Relaxed);
 
         let num_bins = (timeline_frames as usize / EVENT_BIN_SIZE) + 1;
         let mut bins = vec![Vec::new(); num_bins];
@@ -588,11 +591,14 @@ impl DiskReaderPool {
                 .name(format!("disk-reader-{}", i))
                 .spawn(move || {
                     Self::worker_loop(queue, flag, assets, streams);
-                })
-            {
+                }) {
                 Ok(handle) => workers.push(handle),
                 Err(e) => {
-                    log::error!("Failed to spawn disk reader thread {}: {}. Streaming may be degraded.", i, e);
+                    log::error!(
+                        "Failed to spawn disk reader thread {}: {}. Streaming may be degraded.",
+                        i,
+                        e
+                    );
                 }
             }
         }
@@ -687,7 +693,8 @@ impl DiskReaderPool {
 
         // Read frames
         let frames_to_read = job.frames.min(DISK_READ_CHUNK_FRAMES);
-        let bytes_to_read = frames_to_read * asset.channels as usize * asset.bytes_per_sample as usize;
+        let bytes_to_read =
+            frames_to_read * asset.channels as usize * asset.bytes_per_sample as usize;
 
         let mut byte_buffer = vec![0u8; bytes_to_read];
         if reader.read_exact(&mut byte_buffer).is_err() {
@@ -705,7 +712,9 @@ impl DiskReaderPool {
 
         // Update read position
         let old_pos = stream.src_read_frame.load(Ordering::Relaxed);
-        stream.src_read_frame.store(old_pos + written as i64, Ordering::Relaxed);
+        stream
+            .src_read_frame
+            .store(old_pos + written as i64, Ordering::Relaxed);
 
         // Update state if was priming and now has enough data
         if stream.get_state() == StreamState::Priming
@@ -773,11 +782,8 @@ impl StreamingEngine {
         let streams = Arc::new(RwLock::new(HashMap::new()));
         let event_index = Arc::new(EventIndex::new());
 
-        let disk_reader = DiskReaderPool::new(
-            num_disk_workers,
-            Arc::clone(&assets),
-            Arc::clone(&streams),
-        );
+        let disk_reader =
+            DiskReaderPool::new(num_disk_workers, Arc::clone(&assets), Arc::clone(&streams));
 
         Self {
             assets,
@@ -816,7 +822,9 @@ impl StreamingEngine {
         let stream_id = self.next_stream_id.fetch_add(1, Ordering::Relaxed);
 
         // Get channel count from asset
-        let channels = self.assets.get(asset_id)
+        let channels = self
+            .assets
+            .get(asset_id)
             .map(|a| a.channels as usize)
             .unwrap_or(2);
 
@@ -866,7 +874,9 @@ impl StreamingEngine {
 
         // Prime all streams that will be active soon
         for stream in self.streams.read().values() {
-            if stream.is_active_at(frame) || stream.tl_start_frame <= frame + HIGH_WATER_FRAMES as i64 {
+            if stream.is_active_at(frame)
+                || stream.tl_start_frame <= frame + HIGH_WATER_FRAMES as i64
+            {
                 stream.set_state(StreamState::Priming);
             }
         }
@@ -903,11 +913,8 @@ impl StreamingEngine {
                 let need_frames = (HIGH_WATER_FRAMES - available).min(DISK_READ_CHUNK_FRAMES);
                 let src_frame = stream.src_read_frame.load(Ordering::Relaxed);
 
-                let priority = DiskJob::calculate_priority(
-                    available,
-                    stream.tl_start_frame,
-                    current_frame,
-                );
+                let priority =
+                    DiskJob::calculate_priority(available, stream.tl_start_frame, current_frame);
 
                 jobs.push(DiskJob {
                     stream_id: stream.stream_id,
@@ -930,12 +937,7 @@ impl StreamingEngine {
     /// Process audio block (called from audio callback)
     /// Returns mixed stereo output
     #[inline]
-    pub fn process_block(
-        &self,
-        output_l: &mut [f64],
-        output_r: &mut [f64],
-        frames: usize,
-    ) {
+    pub fn process_block(&self, output_l: &mut [f64], output_r: &mut [f64], frames: usize) {
         let current_frame = self.current_frame.load(Ordering::Relaxed);
 
         // Clear output
@@ -987,11 +989,14 @@ impl StreamingEngine {
 
             // Update play position
             let old_pos = stream.src_play_frame.load(Ordering::Relaxed);
-            stream.src_play_frame.store(old_pos + read_frames as i64, Ordering::Relaxed);
+            stream
+                .src_play_frame
+                .store(old_pos + read_frames as i64, Ordering::Relaxed);
         }
 
         // Advance position
-        self.current_frame.fetch_add(frames as i64, Ordering::Relaxed);
+        self.current_frame
+            .fetch_add(frames as i64, Ordering::Relaxed);
     }
 
     /// Get current position in seconds
@@ -1154,8 +1159,15 @@ impl ControlQueue {
     /// Create new control queue with given capacity (rounded up to power of 2)
     pub fn new(capacity: usize) -> Self {
         let capacity = capacity.next_power_of_two();
-        let commands = vec![ControlCommand { cmd_type: 0, track_id: 0, value: 0 }; capacity]
-            .into_boxed_slice();
+        let commands = vec![
+            ControlCommand {
+                cmd_type: 0,
+                track_id: 0,
+                value: 0
+            };
+            capacity
+        ]
+        .into_boxed_slice();
 
         Self {
             commands,

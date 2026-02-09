@@ -66,11 +66,12 @@ fn validate_clip_path(path: &str) -> FileResult<&str> {
             std::path::Component::Normal(s) => {
                 // Also check for Windows-style traversal attempts
                 if let Some(s_str) = s.to_str()
-                    && s_str.starts_with("..") {
-                        return Err(FileError::ProjectError(
-                            "Path traversal detected".to_string(),
-                        ));
-                    }
+                    && s_str.starts_with("..")
+                {
+                    return Err(FileError::ProjectError(
+                        "Path traversal detected".to_string(),
+                    ));
+                }
             }
             _ => {}
         }
@@ -641,7 +642,11 @@ mod tests {
         // Path traversal attempts should fail
         assert!(project.add_clip(0, "../etc/passwd", 0).is_err());
         assert!(project.add_clip(0, "audio/../../../secret.txt", 0).is_err());
-        assert!(project.add_clip(0, "..\\windows\\system32\\config", 0).is_err());
+        assert!(
+            project
+                .add_clip(0, "..\\windows\\system32\\config", 0)
+                .is_err()
+        );
     }
 
     #[test]
@@ -655,8 +660,16 @@ mod tests {
 
         #[cfg(windows)]
         {
-            assert!(project.add_clip(0, "C:\\Windows\\System32\\config", 0).is_err());
-            assert!(project.add_clip(0, "\\\\server\\share\\file.wav", 0).is_err());
+            assert!(
+                project
+                    .add_clip(0, "C:\\Windows\\System32\\config", 0)
+                    .is_err()
+            );
+            assert!(
+                project
+                    .add_clip(0, "\\\\server\\share\\file.wav", 0)
+                    .is_err()
+            );
         }
     }
 

@@ -56,11 +56,11 @@ impl Default for DiffConfig {
         Self {
             fft_size: 4096,
             hop_size: 1024,
-            peak_diff_tolerance: 0.001,        // -60 dB
-            rms_diff_tolerance: 0.0001,        // -80 dB
-            spectral_diff_db_tolerance: 0.5,   // 0.5 dB
-            phase_diff_tolerance: 0.1,         // ~6 degrees
-            duration_tolerance_sec: 0.001,     // 1ms
+            peak_diff_tolerance: 0.001,      // -60 dB
+            rms_diff_tolerance: 0.0001,      // -80 dB
+            spectral_diff_db_tolerance: 0.5, // 0.5 dB
+            phase_diff_tolerance: 0.1,       // ~6 degrees
+            duration_tolerance_sec: 0.001,   // 1ms
             allow_sample_rate_conversion: false,
             compare_mono: false,
             freq_range: (20.0, 20000.0),
@@ -90,11 +90,11 @@ impl DiffConfig {
     /// Relaxed configuration for perceptual comparison
     pub fn perceptual() -> Self {
         Self {
-            peak_diff_tolerance: 0.01,         // -40 dB
-            rms_diff_tolerance: 0.001,         // -60 dB
-            spectral_diff_db_tolerance: 3.0,   // 3 dB (just noticeable)
-            phase_diff_tolerance: 0.5,         // ~30 degrees
-            duration_tolerance_sec: 0.01,      // 10ms
+            peak_diff_tolerance: 0.01,       // -40 dB
+            rms_diff_tolerance: 0.001,       // -60 dB
+            spectral_diff_db_tolerance: 3.0, // 3 dB (just noticeable)
+            phase_diff_tolerance: 0.5,       // ~30 degrees
+            duration_tolerance_sec: 0.01,    // 10ms
             use_a_weighting: true,
             correlation_tolerance: 0.999,
             ..Default::default()
@@ -105,10 +105,10 @@ impl DiffConfig {
     pub fn dsp_regression() -> Self {
         Self {
             fft_size: 8192,
-            peak_diff_tolerance: 1e-6,         // -120 dB
-            rms_diff_tolerance: 1e-7,          // -140 dB
-            spectral_diff_db_tolerance: 0.01,  // 0.01 dB
-            phase_diff_tolerance: 0.001,       // ~0.06 degrees
+            peak_diff_tolerance: 1e-6,        // -120 dB
+            rms_diff_tolerance: 1e-7,         // -140 dB
+            spectral_diff_db_tolerance: 0.01, // 0.01 dB
+            phase_diff_tolerance: 0.001,      // ~0.06 degrees
             detailed_analysis: true,
             ..Default::default()
         }
@@ -119,7 +119,7 @@ impl DiffConfig {
         Self {
             peak_diff_tolerance: 0.1,
             rms_diff_tolerance: 0.01,
-            spectral_diff_db_tolerance: 6.0,   // 6 dB
+            spectral_diff_db_tolerance: 6.0, // 6 dB
             phase_diff_tolerance: 1.0,
             duration_tolerance_sec: 0.05,
             use_a_weighting: true,

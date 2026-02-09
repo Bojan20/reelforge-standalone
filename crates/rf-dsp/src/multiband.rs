@@ -94,7 +94,9 @@ impl LRFilter {
         for _i in 0..num_stages {
             let q = match crossover_type {
                 CrossoverType::Butterworth12 => std::f64::consts::FRAC_1_SQRT_2,
-                CrossoverType::LinkwitzRiley24 | CrossoverType::LinkwitzRiley48 => std::f64::consts::FRAC_1_SQRT_2,
+                CrossoverType::LinkwitzRiley24 | CrossoverType::LinkwitzRiley48 => {
+                    std::f64::consts::FRAC_1_SQRT_2
+                }
             };
 
             let coeffs = BiquadCoeffs::highpass(freq, q, sample_rate);

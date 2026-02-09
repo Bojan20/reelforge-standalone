@@ -2,10 +2,10 @@
 //!
 //! Tracks active event executions and their pending actions.
 
-use std::sync::atomic::{AtomicU64, Ordering};
-use serde::{Deserialize, Serialize};
 use crate::action::MiddlewareAction;
 use crate::event::MiddlewareEvent;
+use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE ALIASES
@@ -62,7 +62,10 @@ impl EventInstanceState {
     /// Check if instance is active (playing or paused)
     #[inline]
     pub fn is_active(&self) -> bool {
-        matches!(self, EventInstanceState::Playing | EventInstanceState::Paused)
+        matches!(
+            self,
+            EventInstanceState::Playing | EventInstanceState::Paused
+        )
     }
 
     /// Check if instance can be cleaned up
@@ -154,7 +157,13 @@ impl EventInstance {
         game_object: GameObjectId,
         current_frame: u64,
     ) -> Self {
-        Self::new_with_id(generate_playing_id(), event_id, event_name, game_object, current_frame)
+        Self::new_with_id(
+            generate_playing_id(),
+            event_id,
+            event_name,
+            game_object,
+            current_frame,
+        )
     }
 
     /// Create new instance with specific playing_id
@@ -189,10 +198,8 @@ impl EventInstance {
             let delay_frames = action.delay_frames(sample_rate);
             let execute_at = self.start_frame + delay_frames;
 
-            self.pending_actions.push(PendingAction::new(
-                action.clone(),
-                execute_at,
-            ));
+            self.pending_actions
+                .push(PendingAction::new(action.clone(), execute_at));
         }
 
         // Sort by execution time for efficient processing

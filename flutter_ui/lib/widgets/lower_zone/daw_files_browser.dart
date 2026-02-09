@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../../services/audio_asset_manager.dart';
+import '../../utils/path_validator.dart';
 import '../common/fluxforge_search_field.dart';
 import '../slot_lab/audio_hover_preview.dart';
 import 'lower_zone_types.dart';
@@ -71,9 +72,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
   final Set<String> _favoritePaths = {};
   bool _isFavoritesExpanded = true;
 
-  static const List<String> _supportedFormats = [
-    'wav', 'flac', 'mp3', 'ogg', 'aiff', 'aif', 'm4a'
-  ];
+  static List<String> get _supportedFormats => PathValidator.allowedExtensions;
 
   static const List<String> _formatFilters = [
     'All', 'WAV', 'FLAC', 'MP3', 'OGG', 'AIFF'

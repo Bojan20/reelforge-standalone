@@ -93,7 +93,9 @@ impl FeatureConfig {
 
     /// Get a parameter value
     pub fn get<T: serde::de::DeserializeOwned>(&self, key: &str) -> Option<T> {
-        self.params.get(key).and_then(|v| serde_json::from_value(v.clone()).ok())
+        self.params
+            .get(key)
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
     }
 
     /// Get a parameter with default

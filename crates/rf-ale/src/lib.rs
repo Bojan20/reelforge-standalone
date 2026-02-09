@@ -16,21 +16,21 @@
 //! The engine uses lock-free communication (rtrb) and pre-allocated buffers.
 //! No allocations occur during audio processing.
 
-pub mod signals;
 pub mod context;
-pub mod rules;
-pub mod transitions;
-pub mod stability;
 pub mod engine;
 pub mod profile;
+pub mod rules;
+pub mod signals;
+pub mod stability;
+pub mod transitions;
 
-pub use signals::*;
 pub use context::*;
-pub use rules::*;
-pub use transitions::*;
-pub use stability::*;
 pub use engine::*;
 pub use profile::*;
+pub use rules::*;
+pub use signals::*;
+pub use stability::*;
+pub use transitions::*;
 
 use thiserror::Error;
 

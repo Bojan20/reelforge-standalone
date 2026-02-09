@@ -58,16 +58,16 @@ impl AudioData {
         let num_channels = spec.channels as usize;
 
         let samples: Vec<f64> = match spec.sample_format {
-            hound::SampleFormat::Float => {
-                reader.into_samples::<f32>()
-                    .map(|s| s.map(|v| v as f64))
-                    .collect::<std::result::Result<Vec<_>, _>>()
-                    .map_err(|e| AudioDiffError::LoadError(format!("{}: {}", path_str, e)))?
-            }
+            hound::SampleFormat::Float => reader
+                .into_samples::<f32>()
+                .map(|s| s.map(|v| v as f64))
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(|e| AudioDiffError::LoadError(format!("{}: {}", path_str, e)))?,
             hound::SampleFormat::Int => {
                 let bits = spec.bits_per_sample;
                 let max_val = (1i64 << (bits - 1)) as f64;
-                reader.into_samples::<i32>()
+                reader
+                    .into_samples::<i32>()
                     .map(|s| s.map(|v| v as f64 / max_val))
                     .collect::<std::result::Result<Vec<_>, _>>()
                     .map_err(|e| AudioDiffError::LoadError(format!("{}: {}", path_str, e)))?
@@ -105,18 +105,27 @@ impl AudioData {
         }
 
         let probed = symphonia::default::get_probe()
-            .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+            .format(
+                &hint,
+                mss,
+                &FormatOptions::default(),
+                &MetadataOptions::default(),
+            )
             .map_err(|e| AudioDiffError::LoadError(format!("{}: {}", path_str, e)))?;
 
         let mut format = probed.format;
 
-        let track = format.default_track()
+        let track = format
+            .default_track()
             .ok_or_else(|| AudioDiffError::LoadError(format!("{}: no audio track", path_str)))?;
 
-        let sample_rate = track.codec_params.sample_rate
-            .ok_or_else(|| AudioDiffError::LoadError(format!("{}: unknown sample rate", path_str)))?;
+        let sample_rate = track.codec_params.sample_rate.ok_or_else(|| {
+            AudioDiffError::LoadError(format!("{}: unknown sample rate", path_str))
+        })?;
 
-        let num_channels = track.codec_params.channels
+        let num_channels = track
+            .codec_params
+            .channels
             .map(|c| c.count())
             .ok_or_else(|| AudioDiffError::LoadError(format!("{}: unknown channels", path_str)))?;
 
@@ -131,7 +140,10 @@ impl AudioData {
             let packet = match format.next_packet() {
                 Ok(p) => p,
                 Err(symphonia::core::errors::Error::IoError(ref e))
-                    if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof =>
+                {
+                    break
+                }
                 Err(e) => return Err(AudioDiffError::LoadError(format!("{}: {}", path_str, e))),
             };
 
@@ -139,7 +151,8 @@ impl AudioData {
                 continue;
             }
 
-            let decoded = decoder.decode(&packet)
+            let decoded = decoder
+                .decode(&packet)
                 .map_err(|e| AudioDiffError::LoadError(format!("{}: {}", path_str, e)))?;
 
             Self::copy_samples(&decoded, &mut channels);
@@ -227,7 +240,8 @@ impl AudioData {
                 for (ch_idx, channel) in channels.iter_mut().enumerate() {
                     if ch_idx < buf.spec().channels.count() {
                         let plane = buf.chan(ch_idx);
-                        channel.extend(plane.iter().map(|s| (s.inner() as f64 - 8388608.0) * SCALE));
+                        channel
+                            .extend(plane.iter().map(|s| (s.inner() as f64 - 8388608.0) * SCALE));
                     }
                 }
             }
@@ -261,9 +275,11 @@ impl AudioData {
         let scale = 1.0 / self.num_channels as f64;
         (0..self.num_samples)
             .map(|i| {
-                self.channels.iter()
+                self.channels
+                    .iter()
                     .map(|ch| ch.get(i).copied().unwrap_or(0.0))
-                    .sum::<f64>() * scale
+                    .sum::<f64>()
+                    * scale
             })
             .collect()
     }
@@ -281,7 +297,8 @@ impl AudioData {
 
     /// Get peak amplitude
     pub fn peak(&self) -> f64 {
-        self.channels.iter()
+        self.channels
+            .iter()
             .flat_map(|ch| ch.iter())
             .map(|s| s.abs())
             .fold(0.0, f64::max)
@@ -289,7 +306,9 @@ impl AudioData {
 
     /// Get RMS level
     pub fn rms(&self) -> f64 {
-        let sum: f64 = self.channels.iter()
+        let sum: f64 = self
+            .channels
+            .iter()
             .flat_map(|ch| ch.iter())
             .map(|s| s * s)
             .sum();
@@ -321,10 +340,7 @@ mod tests {
     #[test]
     fn test_to_mono() {
         let data = AudioData {
-            channels: vec![
-                vec![1.0, 0.0],
-                vec![0.0, 1.0],
-            ],
+            channels: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
             sample_rate: 44100,
             num_channels: 2,
             num_samples: 2,

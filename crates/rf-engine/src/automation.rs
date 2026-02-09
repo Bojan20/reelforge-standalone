@@ -231,7 +231,11 @@ impl AutomationLane {
     }
 
     /// Get all points within sample range (for sample-accurate automation)
-    pub fn points_in_range(&self, start_sample: u64, end_sample: u64) -> impl Iterator<Item = &AutomationPoint> {
+    pub fn points_in_range(
+        &self,
+        start_sample: u64,
+        end_sample: u64,
+    ) -> impl Iterator<Item = &AutomationPoint> {
         self.points
             .iter()
             .filter(move |p| p.time_samples >= start_sample && p.time_samples < end_sample)
@@ -249,10 +253,7 @@ impl AutomationLane {
         }
 
         // After last point (SAFETY: is_empty() check above guarantees last() is Some)
-        let last = self
-            .points
-            .last()
-            .expect("points checked non-empty above");
+        let last = self.points.last().expect("points checked non-empty above");
         if time_samples >= last.time_samples {
             return last.value;
         }
@@ -506,9 +507,9 @@ impl AutomationEngine {
         F: FnOnce(&mut AutomationLane) -> R,
     {
         let mut lanes = self.lanes.write();
-        let lane = lanes.entry(param_id.clone()).or_insert_with(|| {
-            AutomationLane::new(param_id.clone(), name)
-        });
+        let lane = lanes
+            .entry(param_id.clone())
+            .or_insert_with(|| AutomationLane::new(param_id.clone(), name));
         f(lane)
     }
 
@@ -571,18 +572,20 @@ impl AutomationEngine {
         if matches!(
             mode,
             AutomationMode::Touch | AutomationMode::Latch | AutomationMode::Write
-        )
-            && self.touched_params.read().contains_key(param_id) {
-                return None;
-            }
+        ) && self.touched_params.read().contains_key(param_id)
+        {
+            return None;
+        }
 
         // Read automation
         let lanes = self.lanes.read();
         if let Some(lane) = lanes.get(param_id)
-            && lane.enabled && !lane.points.is_empty() {
-                let pos = self.position();
-                return Some(lane.value_at(pos));
-            }
+            && lane.enabled
+            && !lane.points.is_empty()
+        {
+            let pos = self.position();
+            return Some(lane.value_at(pos));
+        }
 
         None
     }
@@ -597,9 +600,11 @@ impl AutomationEngine {
 
         let lanes = self.lanes.read();
         if let Some(lane) = lanes.get(param_id)
-            && lane.enabled && !lane.points.is_empty() {
-                return Some(lane.value_at(time_samples));
-            }
+            && lane.enabled
+            && !lane.points.is_empty()
+        {
+            return Some(lane.value_at(time_samples));
+        }
 
         None
     }
@@ -964,11 +969,7 @@ impl AutomationEngine {
 
     /// Get interpolated value at any sample within a block
     /// Useful for per-sample automation (expensive, use sparingly)
-    pub fn get_interpolated_value(
-        &self,
-        param_id: &ParamId,
-        sample: u64,
-    ) -> Option<f64> {
+    pub fn get_interpolated_value(&self, param_id: &ParamId, sample: u64) -> Option<f64> {
         let lanes = self.lanes.try_read()?;
         let lane = lanes.get(param_id)?;
 
@@ -1048,11 +1049,7 @@ impl AutomationEngine {
     /// Get all automation changes within a block (for sample-accurate processing)
     /// Returns changes sorted by sample_offset
     /// Lock-free — uses try_read() to avoid blocking audio thread
-    pub fn get_block_changes(
-        &self,
-        start_sample: u64,
-        block_size: usize,
-    ) -> Vec<AutomationChange> {
+    pub fn get_block_changes(&self, start_sample: u64, block_size: usize) -> Vec<AutomationChange> {
         // Try to read lanes without blocking
         let lanes = match self.lanes.try_read() {
             Some(l) => l,

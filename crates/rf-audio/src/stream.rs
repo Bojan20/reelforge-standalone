@@ -76,11 +76,8 @@ impl AudioStream {
         // Returns (Stream, Consumer<f32>) - consumer goes to output callback
         let (input_stream, input_consumer, input_info) = if let Some(input_dev) = input_device {
             let input_config = get_stream_config(input_dev, &config, true)?;
-            let (stream, consumer) = build_input_stream_lockfree(
-                input_dev,
-                &input_config,
-                config.buffer_size,
-            )?;
+            let (stream, consumer) =
+                build_input_stream_lockfree(input_dev, &input_config, config.buffer_size)?;
             let info = Arc::new(SharedInputBuffer::new(config.input_channels as usize));
             (Some(stream), Some(consumer), Some(info))
         } else {
@@ -321,7 +318,8 @@ fn build_output_stream_lockfree(
                     1 => {
                         // Mono output: mix L+R
                         for i in 0..frames {
-                            let mono = (output_buffer_f64[i * 2] + output_buffer_f64[i * 2 + 1]) * 0.5;
+                            let mono =
+                                (output_buffer_f64[i * 2] + output_buffer_f64[i * 2 + 1]) * 0.5;
                             data[i] = mono as f32;
                         }
                     }

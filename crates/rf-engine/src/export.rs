@@ -23,8 +23,7 @@ use rf_file::{AudioData, AudioFormat, BitDepth, write_flac, write_mp3};
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Export format
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ExportFormat {
     /// 16-bit PCM WAV
     Wav16,
@@ -53,7 +52,10 @@ impl ExportFormat {
         match self {
             ExportFormat::Wav16 | ExportFormat::Wav24 | ExportFormat::Wav32Float => "wav",
             ExportFormat::Flac16 | ExportFormat::Flac24 => "flac",
-            ExportFormat::Mp3_320 | ExportFormat::Mp3_256 | ExportFormat::Mp3_192 | ExportFormat::Mp3_128 => "mp3",
+            ExportFormat::Mp3_320
+            | ExportFormat::Mp3_256
+            | ExportFormat::Mp3_192
+            | ExportFormat::Mp3_128 => "mp3",
         }
     }
 
@@ -88,7 +90,6 @@ impl ExportFormat {
         }
     }
 }
-
 
 /// Export configuration
 #[derive(Debug, Clone)]
@@ -148,10 +149,7 @@ pub struct ExportEngine {
 
 impl ExportEngine {
     /// Create new export engine
-    pub fn new(
-        playback_engine: Arc<PlaybackEngine>,
-        track_manager: Arc<TrackManager>,
-    ) -> Self {
+    pub fn new(playback_engine: Arc<PlaybackEngine>, track_manager: Arc<TrackManager>) -> Self {
         Self {
             playback_engine,
             track_manager,
@@ -179,8 +177,7 @@ impl ExportEngine {
 
         // Ensure output directory exists
         if let Some(parent) = config.output_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| ExportError::IoError(e.to_string()))?;
+            std::fs::create_dir_all(parent).map_err(|e| ExportError::IoError(e.to_string()))?;
         }
 
         // Calculate duration
@@ -220,14 +217,16 @@ impl ExportEngine {
             let block_end = (block_start + config.block_size).min(total_samples);
 
             // Calculate block time
-            let block_start_sample = (config.start_time * sample_rate as f64) as usize + block_start;
+            let block_start_sample =
+                (config.start_time * sample_rate as f64) as usize + block_start;
 
             // Get block buffers
             let block_l = &mut output_l[block_start..block_end];
             let block_r = &mut output_r[block_start..block_end];
 
             // Render block through playback engine
-            self.playback_engine.process_offline(block_start_sample, block_l, block_r);
+            self.playback_engine
+                .process_offline(block_start_sample, block_l, block_r);
 
             // Update progress
             let progress = (block_idx as f64 / num_blocks as f64) * 100.0;
@@ -240,7 +239,13 @@ impl ExportEngine {
         }
 
         // Write to file based on format
-        self.write_output(&config.output_path, &output_l, &output_r, sample_rate, config.format)?;
+        self.write_output(
+            &config.output_path,
+            &output_l,
+            &output_r,
+            sample_rate,
+            config.format,
+        )?;
 
         // Mark complete
         self.progress.store(100.0_f64.to_bits(), Ordering::Relaxed);
@@ -290,7 +295,10 @@ impl ExportEngine {
                 write_flac(path, &audio_data, bit_depth)
                     .map_err(|e: rf_file::FileError| ExportError::IoError(e.to_string()))?;
             }
-            ExportFormat::Mp3_320 | ExportFormat::Mp3_256 | ExportFormat::Mp3_192 | ExportFormat::Mp3_128 => {
+            ExportFormat::Mp3_320
+            | ExportFormat::Mp3_256
+            | ExportFormat::Mp3_192
+            | ExportFormat::Mp3_128 => {
                 let bitrate = match format {
                     ExportFormat::Mp3_320 => 320,
                     ExportFormat::Mp3_256 => 256,
@@ -425,7 +433,11 @@ impl ExportEngine {
             render_duration
         };
 
-        let sample_rate = if config.sample_rate == 0 { 48000 } else { config.sample_rate };
+        let sample_rate = if config.sample_rate == 0 {
+            48000
+        } else {
+            config.sample_rate
+        };
         let total_samples = (total_duration * sample_rate as f64) as usize;
 
         // Export each track
@@ -433,9 +445,20 @@ impl ExportEngine {
         for (idx, track) in tracks.iter().enumerate() {
             // Generate output filename
             let filename = if config.prefix.is_empty() {
-                format!("{}_{}.{}", track.id.0, sanitize_filename(&track.name), extension)
+                format!(
+                    "{}_{}.{}",
+                    track.id.0,
+                    sanitize_filename(&track.name),
+                    extension
+                )
             } else {
-                format!("{}_{}_{}.{}", config.prefix, track.id.0, sanitize_filename(&track.name), extension)
+                format!(
+                    "{}_{}_{}.{}",
+                    config.prefix,
+                    track.id.0,
+                    sanitize_filename(&track.name),
+                    extension
+                )
             };
             let output_path = config.output_dir.join(&filename);
 
@@ -457,7 +480,8 @@ impl ExportEngine {
                 let block_start = block_idx * config.block_size;
                 let block_end = (block_start + config.block_size).min(total_samples);
 
-                let block_start_sample = (config.start_time * sample_rate as f64) as usize + block_start;
+                let block_start_sample =
+                    (config.start_time * sample_rate as f64) as usize + block_start;
 
                 let block_l = &mut output_l[block_start..block_end];
                 let block_r = &mut output_r[block_start..block_end];
@@ -477,12 +501,16 @@ impl ExportEngine {
             }
 
             // Write to file
-            let write_result = self.write_output(&output_path, &output_l, &output_r, sample_rate, config.format);
+            let write_result = self.write_output(
+                &output_path,
+                &output_l,
+                &output_r,
+                sample_rate,
+                config.format,
+            );
 
             // SAFETY: stems.push() was called above, so last_mut() is always Some
-            let current_stem = stems
-                .last_mut()
-                .expect("stem was just pushed above");
+            let current_stem = stems.last_mut().expect("stem was just pushed above");
 
             if let Err(e) = write_result {
                 current_stem.status = 3; // Error
@@ -555,7 +583,11 @@ mod tests {
         export_engine.normalize_audio(&mut left, &mut right);
 
         // Peak should be at -0.1 dBFS (0.989)
-        let peak = left.iter().chain(right.iter()).map(|s| s.abs()).fold(0.0f64, f64::max);
+        let peak = left
+            .iter()
+            .chain(right.iter())
+            .map(|s| s.abs())
+            .fold(0.0f64, f64::max);
         assert!((peak - 0.989).abs() < 0.01);
     }
 }

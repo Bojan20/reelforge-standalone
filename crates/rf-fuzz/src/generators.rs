@@ -159,16 +159,7 @@ impl InputGenerator {
 
     /// Generate u32 edge case
     fn u32_edge_case(&mut self) -> u32 {
-        const EDGE_CASES: [u32; 8] = [
-            0,
-            1,
-            u32::MAX,
-            u32::MAX - 1,
-            u32::MAX / 2,
-            255,
-            256,
-            65535,
-        ];
+        const EDGE_CASES: [u32; 8] = [0, 1, u32::MAX, u32::MAX - 1, u32::MAX / 2, 255, 256, 65535];
         EDGE_CASES[self.rng.random_range(0..EDGE_CASES.len())]
     }
 
@@ -186,16 +177,7 @@ impl InputGenerator {
 
     /// Generate usize edge case
     fn usize_edge_case(&mut self) -> usize {
-        const EDGE_CASES: [usize; 8] = [
-            0,
-            1,
-            2,
-            255,
-            256,
-            1023,
-            1024,
-            4096,
-        ];
+        const EDGE_CASES: [usize; 8] = [0, 1, 2, 255, 256, 1023, 1024, 4096];
         EDGE_CASES[self.rng.random_range(0..EDGE_CASES.len())]
     }
 
@@ -211,15 +193,15 @@ impl InputGenerator {
 
     /// Generate normalized audio samples (-1.0 to 1.0)
     pub fn normalized_audio(&mut self, len: usize) -> Vec<f64> {
-        (0..len).map(|_| self.rng.random::<f64>() * 2.0 - 1.0).collect()
+        (0..len)
+            .map(|_| self.rng.random::<f64>() * 2.0 - 1.0)
+            .collect()
     }
 
     /// Generate frequency value (Hz)
     pub fn frequency(&mut self) -> f64 {
         if self.include_edge_cases && self.rng.random_bool(0.1) {
-            const EDGE_FREQS: [f64; 8] = [
-                0.0, 1.0, 20.0, 440.0, 1000.0, 20000.0, 22050.0, 44100.0,
-            ];
+            const EDGE_FREQS: [f64; 8] = [0.0, 1.0, 20.0, 440.0, 1000.0, 20000.0, 22050.0, 44100.0];
             return EDGE_FREQS[self.rng.random_range(0..EDGE_FREQS.len())];
         }
 
@@ -233,9 +215,8 @@ impl InputGenerator {
     /// Generate gain value (dB)
     pub fn gain_db(&mut self) -> f64 {
         if self.include_edge_cases && self.rng.random_bool(0.1) {
-            const EDGE_GAINS: [f64; 8] = [
-                f64::NEG_INFINITY, -96.0, -60.0, -12.0, 0.0, 6.0, 12.0, 24.0,
-            ];
+            const EDGE_GAINS: [f64; 8] =
+                [f64::NEG_INFINITY, -96.0, -60.0, -12.0, 0.0, 6.0, 12.0, 24.0];
             return EDGE_GAINS[self.rng.random_range(0..EDGE_GAINS.len())];
         }
 
@@ -308,7 +289,11 @@ impl AudioInputs {
                 (0..len)
                     .map(|i| {
                         let phase = (freq * i as f64 / sr).fract();
-                        if phase < 0.5 { 1.0 } else { -1.0 }
+                        if phase < 0.5 {
+                            1.0
+                        } else {
+                            -1.0
+                        }
                     })
                     .collect()
             }

@@ -473,11 +473,7 @@ impl PDCCalculator {
         // They get max_latency compensation to stay aligned.
         for node in graph.nodes() {
             let in_degree = graph.in_degree(node);
-            let out_degree = graph
-                .adjacency
-                .get(&node)
-                .map(|v| v.len())
-                .unwrap_or(0);
+            let out_degree = graph.adjacency.get(&node).map(|v| v.len()).unwrap_or(0);
 
             if in_degree == 0 && out_degree == 0 {
                 // Truly orphaned node
@@ -543,8 +539,7 @@ impl PDCCalculator {
         graph: &RoutingGraph,
         topo_order: &[NodeId],
     ) -> HashMap<NodeId, LatencySamples> {
-        let mut longest: HashMap<NodeId, LatencySamples> =
-            graph.nodes().map(|n| (n, 0)).collect();
+        let mut longest: HashMap<NodeId, LatencySamples> = graph.nodes().map(|n| (n, 0)).collect();
 
         // Process nodes in topological order
         for &node in topo_order {

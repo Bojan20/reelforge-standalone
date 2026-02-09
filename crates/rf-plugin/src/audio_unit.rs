@@ -24,25 +24,25 @@ use crate::{
 #[repr(u32)]
 pub enum AUType {
     /// Effect (kAudioUnitType_Effect)
-    Effect = 0x61756678,      // 'aufx'
+    Effect = 0x61756678, // 'aufx'
     /// Instrument (kAudioUnitType_MusicDevice)
     Instrument = 0x61756d75, // 'aumu'
     /// Generator (kAudioUnitType_Generator)
-    Generator = 0x6175676e,  // 'augn'
+    Generator = 0x6175676e, // 'augn'
     /// MIDI Processor (kAudioUnitType_MIDIProcessor)
     MidiProcessor = 0x61756d70, // 'aump'
     /// Music Effect (kAudioUnitType_MusicEffect)
     MusicEffect = 0x61756d66, // 'aumf'
     /// Mixer (kAudioUnitType_Mixer)
-    Mixer = 0x61756d78,      // 'aumx'
+    Mixer = 0x61756d78, // 'aumx'
     /// Panner (kAudioUnitType_Panner)
-    Panner = 0x6175706e,     // 'aupn'
+    Panner = 0x6175706e, // 'aupn'
     /// Offline Effect (kAudioUnitType_OfflineEffect)
     OfflineEffect = 0x61756f6c, // 'auol'
     /// Format Converter (kAudioUnitType_FormatConverter)
     FormatConverter = 0x61756663, // 'aufc'
     /// Output (kAudioUnitType_Output)
-    Output = 0x61756f75,     // 'auou'
+    Output = 0x61756f75, // 'auou'
 }
 
 impl AUType {
@@ -205,18 +205,15 @@ impl AudioUnitHost {
     }
 
     #[cfg(target_os = "macos")]
-    fn scan_directory(
-        &self,
-        path: &Path,
-        descriptors: &mut Vec<AUDescriptor>,
-    ) -> PluginResult<()> {
+    fn scan_directory(&self, path: &Path, descriptors: &mut Vec<AUDescriptor>) -> PluginResult<()> {
         if let Ok(entries) = std::fs::read_dir(path) {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
                 if entry_path.extension().is_some_and(|e| e == "component")
-                    && let Ok(desc) = self.scan_component(&entry_path) {
-                        descriptors.push(desc);
-                    }
+                    && let Ok(desc) = self.scan_component(&entry_path)
+                {
+                    descriptors.push(desc);
+                }
             }
         }
         Ok(())

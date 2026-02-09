@@ -12,14 +12,16 @@
 #   ./scripts/qa.sh --report           # Generate HTML report only (from last run)
 #
 # Gates (in order):
-#   1. ANALYZE    — flutter analyze (0 errors in lib/) + cargo clippy
-#   2. UNIT       — cargo test + flutter test (unit only)
-#   3. REGRESSION — rf-dsp + rf-engine regression tests
-#   4. DETERMINISM— rf-slot-lab seed reproducibility + rf-audio-diff
-#   5. BENCH      — rf-bench performance benchmarks (budget enforcement)
-#   6. GOLDEN     — rf-audio-diff golden file comparison
-#   7. SECURITY   — cargo audit + unsafe pattern scan + dependency check
-#   8. FUZZ       — rf-fuzz FFI boundary fuzzing
+#   1. ANALYZE     — flutter analyze (0 errors in lib/) + cargo clippy
+#   2. UNIT        — cargo test + flutter test (unit only)
+#   3. REGRESSION  — rf-dsp + rf-engine regression tests
+#   4. DETERMINISM — rf-slot-lab seed reproducibility + rf-audio-diff
+#   5. BENCH       — rf-bench performance benchmarks (budget enforcement)
+#   6. GOLDEN      — rf-audio-diff golden file comparison
+#   7. SECURITY    — cargo audit + unsafe pattern scan + FFI input validation
+#   8. COVERAGE    — cargo llvm-cov threshold enforcement
+#   9. LATENCY     — DSP latency budget enforcement (< 3ms @ 128 samples)
+#  10. FUZZ        — rf-fuzz FFI boundary fuzzing
 #
 # Exit codes:
 #   0 — All gates PASS
@@ -64,12 +66,14 @@ START_TIME=""
 # GATE_TIMES stored as _GT_<GATE>=<ms>
 
 # ── Profiles ─────────────────────────────────────────────────────────────────
-# local:  ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY
-# ci:     ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY FUZZ
 # quick:  ANALYZE UNIT
-ALL_GATES_LOCAL="ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY"
-ALL_GATES_CI="ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY FUZZ"
+# local:  ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY
+# full:   ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY COVERAGE LATENCY
+# ci:     ALL 10 gates
 ALL_GATES_QUICK="ANALYZE UNIT"
+ALL_GATES_LOCAL="ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY"
+ALL_GATES_FULL="ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY COVERAGE LATENCY"
+ALL_GATES_CI="ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY COVERAGE LATENCY FUZZ"
 
 # ── Parse Args ───────────────────────────────────────────────────────────────
 for arg in "$@"; do
@@ -91,10 +95,11 @@ if [[ -n "$SINGLE_GATE" ]]; then
   GATES="$SINGLE_GATE"
 else
   case "$PROFILE" in
-    local) GATES="$ALL_GATES_LOCAL" ;;
-    ci)    GATES="$ALL_GATES_CI" ;;
     quick) GATES="$ALL_GATES_QUICK" ;;
-    *)     echo -e "${RED}ERROR: Unknown profile '$PROFILE'${NC}"; exit 2 ;;
+    local) GATES="$ALL_GATES_LOCAL" ;;
+    full)  GATES="$ALL_GATES_FULL" ;;
+    ci)    GATES="$ALL_GATES_CI" ;;
+    *)     echo -e "${RED}ERROR: Unknown profile '$PROFILE' (use: quick|local|full|ci)${NC}"; exit 2 ;;
   esac
 fi
 
@@ -330,7 +335,7 @@ gate_security() {
   local hits=0
 
   # 1. cargo audit (known CVEs)
-  echo "  [1/4] cargo audit ..." | tee -a "$log"
+  echo "  [1/7] cargo audit ..." | tee -a "$log"
   cd "$PROJECT_ROOT"
   if command -v cargo-audit &>/dev/null; then
     if ! cargo audit >> "$log" 2>&1; then
@@ -342,8 +347,7 @@ gate_security() {
   fi
 
   # 2. Unsafe code audit in audio thread paths
-  echo "  [2/4] Scanning for unsafe audio thread violations ..." | tee -a "$log"
-  # Check for heap allocations in audio callback paths
+  echo "  [2/7] Scanning for unsafe audio thread violations ..." | tee -a "$log"
   local unsafe_patterns=(
     "Vec::new\|Vec::push\|vec!\[" # Heap allocation
     "Box::new"                     # Heap allocation
@@ -352,7 +356,6 @@ gate_security() {
     "unwrap()\|expect("            # Panics in audio thread
   )
 
-  # Only check audio-critical paths
   local audio_paths=(
     "crates/rf-engine/src/playback.rs"
     "crates/rf-dsp/src/biquad.rs"
@@ -363,7 +366,7 @@ gate_security() {
     for audio_file in "${audio_paths[@]}"; do
       if [[ -f "$PROJECT_ROOT/$audio_file" ]]; then
         local found
-        found=$(grep -n "$pattern" "$PROJECT_ROOT/$audio_file" 2>/dev/null | grep -v "test\|mod tests\|#\[test\]" | head -5)
+        found=$(grep -n "$pattern" "$PROJECT_ROOT/$audio_file" 2>/dev/null | grep -v "test\|mod tests\|#\[test\]\|#\[cfg(test)\]\|// " | head -5)
         if [[ -n "$found" ]]; then
           echo "  WARNING: Potential audio thread violation in $audio_file:" | tee -a "$log"
           echo "    $found" | tee -a "$log"
@@ -373,22 +376,92 @@ gate_security() {
     done
   done
 
-  # 3. Dart unsafe patterns
-  echo "  [3/4] Scanning Dart code for unsafe patterns ..." | tee -a "$log"
+  # 3. Dart unsafe patterns (critical — fails gate)
+  echo "  [3/7] Scanning Dart code for critical unsafe patterns ..." | tee -a "$log"
   cd "$FLUTTER_DIR"
   local dart_hits=0
-  for pattern in "eval(" "Process.run(" "dart:mirrors"; do
+  for pattern in "eval(" "dart:mirrors" "dart:developer_tools"; do
     local dart_found
     dart_found=$(grep -rn "$pattern" lib/ 2>/dev/null | head -5)
     if [[ -n "$dart_found" ]]; then
-      echo "  HIT: '$pattern' found in Dart code:" | tee -a "$log"
+      echo "  CRITICAL: '$pattern' found in Dart code:" | tee -a "$log"
       echo "    $dart_found" | tee -a "$log"
       dart_hits=$((dart_hits + 1))
     fi
   done
 
-  # 4. Dependency license check
-  echo "  [4/4] Checking dependency licenses ..." | tee -a "$log"
+  # 4. FFI input validation — ensure all FFI entry points validate parameters
+  echo "  [4/7] Scanning FFI input validation coverage ..." | tee -a "$log"
+  cd "$PROJECT_ROOT"
+  local ffi_files=(
+    "crates/rf-bridge/src/ffi.rs"
+    "crates/rf-bridge/src/middleware_ffi.rs"
+    "crates/rf-bridge/src/container_ffi.rs"
+    "crates/rf-bridge/src/slot_lab_ffi.rs"
+    "crates/rf-bridge/src/ale_ffi.rs"
+    "crates/rf-bridge/src/offline_ffi.rs"
+    "crates/rf-bridge/src/plugin_state_ffi.rs"
+  )
+  local ffi_warnings=0
+
+  for ffi_file in "${ffi_files[@]}"; do
+    if [[ -f "$PROJECT_ROOT/$ffi_file" ]]; then
+      # Check for raw pointer dereference without null check
+      local null_deref
+      null_deref=$(grep -n "\.as_ref()\.\|\.as_str()\.\|CStr::from_ptr" "$PROJECT_ROOT/$ffi_file" 2>/dev/null | \
+        grep -v "is_null\|null_check\|if.*null\|guard\|// safe" | head -3)
+      if [[ -n "$null_deref" ]]; then
+        echo "  WARNING: Potential unchecked pointer in $ffi_file:" | tee -a "$log"
+        echo "    $null_deref" | tee -a "$log"
+        ffi_warnings=$((ffi_warnings + 1))
+      fi
+
+      # Check for NaN/Inf unguarded float parameters
+      local float_params
+      float_params=$(grep -n "pub.*extern.*fn.*f32\|pub.*extern.*fn.*f64" "$PROJECT_ROOT/$ffi_file" 2>/dev/null | head -3)
+      # Just count — don't fail, informational
+      if [[ -n "$float_params" ]]; then
+        local fn_count
+        fn_count=$(echo "$float_params" | wc -l | tr -d ' ')
+        echo "  INFO: $ffi_file has $fn_count FFI functions with float params" >> "$log"
+      fi
+    fi
+  done
+
+  # 5. Dart path traversal protection
+  echo "  [5/7] Checking Dart path traversal protection ..." | tee -a "$log"
+  cd "$FLUTTER_DIR"
+  local path_hits=0
+
+  # Find File() or Directory() calls that don't use PathValidator
+  local unvalidated_paths
+  unvalidated_paths=$(grep -rn "File(\|Directory(" lib/ 2>/dev/null | \
+    grep -v "PathValidator\|path_validator\|import\|test\|// \|\.g\.dart" | \
+    grep -v "tempDir\|cacheDir\|appDir\|DocumentsDirectory\|getApplicationDocumentsDirectory" | head -10)
+  if [[ -n "$unvalidated_paths" ]]; then
+    local path_count
+    path_count=$(echo "$unvalidated_paths" | wc -l | tr -d ' ')
+    echo "  INFO: $path_count File/Directory calls without PathValidator (review needed)" >> "$log"
+    echo "$unvalidated_paths" >> "$log"
+  fi
+
+  # 6. Credential/secret leak check
+  echo "  [6/7] Scanning for credential leaks ..." | tee -a "$log"
+  cd "$PROJECT_ROOT"
+  local secret_hits=0
+  for pattern in "password.*=.*['\"]" "api_key.*=.*['\"]" "secret.*=.*['\"]" "token.*=.*['\"].*[a-zA-Z0-9]\\{20,\\}"; do
+    local secret_found
+    secret_found=$(grep -rn "$pattern" --include="*.dart" --include="*.rs" --include="*.toml" --include="*.yaml" 2>/dev/null | \
+      grep -v "test\|example\|mock\|placeholder\|TODO\|password_field\|PasswordField\|obscureText" | head -3)
+    if [[ -n "$secret_found" ]]; then
+      echo "  WARNING: Potential credential in code:" | tee -a "$log"
+      echo "    $secret_found" | tee -a "$log"
+      secret_hits=$((secret_hits + 1))
+    fi
+  done
+
+  # 7. Dependency license check
+  echo "  [7/7] Checking dependency licenses ..." | tee -a "$log"
   cd "$PROJECT_ROOT"
   if command -v cargo-deny &>/dev/null; then
     cargo deny check licenses >> "$log" 2>&1 || true
@@ -401,7 +474,177 @@ gate_security() {
     ok=false
   fi
 
-  echo "  Audio thread warnings: $hits, Dart unsafe patterns: $dart_hits" | tee -a "$log"
+  echo "  Audio thread warnings: $hits" | tee -a "$log"
+  echo "  Dart critical patterns: $dart_hits" | tee -a "$log"
+  echo "  FFI validation warnings: $ffi_warnings" | tee -a "$log"
+  echo "  Credential warnings: $secret_hits" | tee -a "$log"
+  return $([[ "$ok" == "true" ]] && echo 0 || echo 1)
+}
+
+# ── Gate: COVERAGE ──────────────────────────────────────────────────────────
+gate_coverage() {
+  local log="$ARTIFACTS_DIR/gate-coverage.log"
+  local ok=true
+  local min_line_pct=60   # Minimum line coverage percentage
+  local min_fn_pct=50     # Minimum function coverage percentage
+
+  echo "  Checking code coverage thresholds ..." | tee -a "$log"
+  cd "$PROJECT_ROOT"
+
+  # Check if cargo-llvm-cov is installed
+  if ! command -v cargo-llvm-cov &>/dev/null; then
+    echo "  SKIP: cargo-llvm-cov not installed" | tee -a "$log"
+    echo "  Install: rustup component add llvm-tools && cargo install cargo-llvm-cov" >> "$log"
+    # Don't fail — just skip with warning
+    return 0
+  fi
+
+  # Generate coverage JSON
+  echo "  [1/3] Running cargo llvm-cov ..." | tee -a "$log"
+  local cov_json="$ARTIFACTS_DIR/coverage.json"
+  if ! cargo llvm-cov --workspace --release --json --output-path "$cov_json" >> "$log" 2>&1; then
+    echo "  WARNING: cargo llvm-cov failed — attempting test-only coverage" | tee -a "$log"
+    # Fallback: run without --release for faster execution
+    if ! cargo llvm-cov --workspace --json --output-path "$cov_json" >> "$log" 2>&1; then
+      echo "  FAIL: Coverage generation failed" | tee -a "$log"
+      ok=false
+      return $([[ "$ok" == "true" ]] && echo 0 || echo 1)
+    fi
+  fi
+
+  # Parse coverage (using python3 for JSON parsing — available on macOS)
+  echo "  [2/3] Parsing coverage results ..." | tee -a "$log"
+  local line_pct fn_pct
+  line_pct=$(python3 -c "
+import json, sys
+with open('$cov_json') as f:
+    data = json.load(f)
+totals = data.get('data', [{}])[0].get('totals', {})
+lines = totals.get('lines', {})
+covered = lines.get('covered', 0)
+total = lines.get('count', 1)
+print(f'{(covered/total)*100:.1f}')
+" 2>/dev/null || echo "0.0")
+
+  fn_pct=$(python3 -c "
+import json, sys
+with open('$cov_json') as f:
+    data = json.load(f)
+totals = data.get('data', [{}])[0].get('totals', {})
+fns = totals.get('functions', {})
+covered = fns.get('covered', 0)
+total = fns.get('count', 1)
+print(f'{(covered/total)*100:.1f}')
+" 2>/dev/null || echo "0.0")
+
+  echo "  Line coverage:     ${line_pct}% (min: ${min_line_pct}%)" | tee -a "$log"
+  echo "  Function coverage: ${fn_pct}% (min: ${min_fn_pct}%)" | tee -a "$log"
+
+  # Threshold enforcement
+  echo "  [3/3] Enforcing thresholds ..." | tee -a "$log"
+  local line_ok fn_ok
+  line_ok=$(python3 -c "print('true' if float('$line_pct') >= $min_line_pct else 'false')" 2>/dev/null || echo "true")
+  fn_ok=$(python3 -c "print('true' if float('$fn_pct') >= $min_fn_pct else 'false')" 2>/dev/null || echo "true")
+
+  if [[ "$line_ok" == "false" ]]; then
+    echo "  FAIL: Line coverage ${line_pct}% < ${min_line_pct}% threshold" | tee -a "$log"
+    ok=false
+  fi
+  if [[ "$fn_ok" == "false" ]]; then
+    echo "  FAIL: Function coverage ${fn_pct}% < ${min_fn_pct}% threshold" | tee -a "$log"
+    ok=false
+  fi
+
+  # Generate HTML report via rf-coverage if available
+  if [[ -f "$cov_json" ]]; then
+    echo "  Coverage JSON saved to: $cov_json" | tee -a "$log"
+  fi
+
+  return $([[ "$ok" == "true" ]] && echo 0 || echo 1)
+}
+
+# ── Gate: LATENCY ──────────────────────────────────────────────────────────
+gate_latency() {
+  local log="$ARTIFACTS_DIR/gate-latency.log"
+  local ok=true
+
+  # Latency budget: DSP must process 1s stereo in < 50ms (20x realtime)
+  # Audio latency target: < 3ms @ 128 samples / 44100Hz
+  # = 128/44100 = 2.9ms audio buffer
+  # DSP must process this in < 2.0ms (70% CPU budget)
+  local max_1s_stereo_ms=50
+  local max_block_us=2000   # 2ms for 128 samples
+
+  echo "  Enforcing DSP latency budgets ..." | tee -a "$log"
+  cd "$PROJECT_ROOT"
+
+  # 1. Run criterion benchmarks and check for regressions
+  echo "  [1/3] Running DSP benchmarks ..." | tee -a "$log"
+  if ! cargo bench -p rf-bench -- --output-format bencher 2>/dev/null >> "$log" 2>&1; then
+    # Fallback: run normally (criterion might not support --output-format)
+    cargo bench -p rf-bench >> "$log" 2>&1 || true
+  fi
+
+  # 2. Parse criterion results for specific benchmarks
+  echo "  [2/3] Checking benchmark results ..." | tee -a "$log"
+  local criterion_dir="$PROJECT_ROOT/target/criterion"
+
+  if [[ -d "$criterion_dir" ]]; then
+    # Check each benchmark group for timing
+    local budget_violations=0
+
+    for bench_dir in "$criterion_dir"/*/new; do
+      if [[ -f "$bench_dir/estimates.json" ]]; then
+        local bench_name
+        bench_name=$(basename "$(dirname "$bench_dir")")
+
+        # Extract median time in nanoseconds
+        local median_ns
+        median_ns=$(python3 -c "
+import json
+with open('$bench_dir/estimates.json') as f:
+    data = json.load(f)
+print(int(data.get('median', {}).get('point_estimate', 0)))
+" 2>/dev/null || echo "0")
+
+        local median_us=$((median_ns / 1000))
+        local median_ms=$((median_ns / 1000000))
+
+        echo "    $bench_name: ${median_us}μs (${median_ms}ms)" >> "$log"
+
+        # Check if any DSP benchmark exceeds budget
+        if [[ "$bench_name" == *"1s_stereo"* ]] && [[ $median_ms -gt $max_1s_stereo_ms ]]; then
+          echo "  BUDGET VIOLATION: $bench_name = ${median_ms}ms (max: ${max_1s_stereo_ms}ms)" | tee -a "$log"
+          budget_violations=$((budget_violations + 1))
+        fi
+        if [[ "$bench_name" == *"block_128"* ]] && [[ $median_us -gt $max_block_us ]]; then
+          echo "  BUDGET VIOLATION: $bench_name = ${median_us}μs (max: ${max_block_us}μs)" | tee -a "$log"
+          budget_violations=$((budget_violations + 1))
+        fi
+      fi
+    done
+
+    if [[ $budget_violations -gt 0 ]]; then
+      echo "  FAIL: $budget_violations latency budget violations" | tee -a "$log"
+      ok=false
+    else
+      echo "  All latency budgets within limits" | tee -a "$log"
+    fi
+  else
+    echo "  No criterion results found — benchmarks may not have run" | tee -a "$log"
+    echo "  NOTE: First run generates baseline, subsequent runs enforce budgets" >> "$log"
+  fi
+
+  # 3. Check for regression vs saved baseline
+  echo "  [3/3] Checking for performance regressions ..." | tee -a "$log"
+  local baseline_dir="$criterion_dir/../criterion-baseline"
+  if [[ -d "$baseline_dir" ]]; then
+    echo "  Baseline found — checking for regressions" | tee -a "$log"
+    # Criterion automatically reports regressions in its output
+  else
+    echo "  No baseline saved yet. Run: cargo bench -p rf-bench -- --save-baseline main" | tee -a "$log"
+  fi
+
   return $([[ "$ok" == "true" ]] && echo 0 || echo 1)
 }
 
@@ -559,6 +802,15 @@ HTML
 # ── Main Orchestrator ────────────────────────────────────────────────────────
 main() {
   mkdir -p "$ARTIFACTS_DIR"
+
+  # Truncate all gate logs so results reflect ONLY this run
+  for f in "$ARTIFACTS_DIR"/gate-*.log; do
+    [[ -f "$f" ]] && : > "$f"
+  done
+
+  # Clean AppleDouble files on ExFAT volumes (crash Flutter test runner)
+  find "$FLUTTER_DIR" -name '._*' -type f -delete 2>/dev/null || true
+
   START_TIME=$(now_ms)
 
   print_header

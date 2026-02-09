@@ -257,9 +257,10 @@ impl Lv2Host {
                 if entry_path.is_dir() {
                     // LV2 bundles are directories with .lv2 extension
                     if entry_path.extension().is_some_and(|e| e == "lv2")
-                        && let Ok(desc) = self.scan_bundle(&entry_path) {
-                            descriptors.push(desc);
-                        }
+                        && let Ok(desc) = self.scan_bundle(&entry_path)
+                    {
+                        descriptors.push(desc);
+                    }
                 }
             }
         }

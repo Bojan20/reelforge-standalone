@@ -1,7 +1,7 @@
+use std::collections::HashMap;
 /// Sidechain Routing FFI (P0.5)
 use std::ffi::c_int;
 use std::sync::Mutex;
-use std::collections::HashMap;
 
 // Global sidechain routing storage (track_id, slot) -> source_track_id
 static SIDECHAIN_MAP: Mutex<Option<HashMap<(u64, u64), i64>>> = Mutex::new(None);
@@ -27,7 +27,7 @@ pub extern "C" fn insert_set_sidechain_source(
     if map_lock.is_none() {
         *map_lock = Some(HashMap::new());
     }
-    
+
     if let Some(ref mut map) = *map_lock {
         map.insert((track_id, slot_index), source_track_id);
     }
@@ -36,10 +36,7 @@ pub extern "C" fn insert_set_sidechain_source(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn insert_get_sidechain_source(
-    track_id: u64,
-    slot_index: u64,
-) -> i64 {
+pub extern "C" fn insert_get_sidechain_source(track_id: u64, slot_index: u64) -> i64 {
     if slot_index >= 8 {
         return -2;
     }
@@ -72,7 +69,7 @@ mod tests {
     fn test_sidechain_set_get() {
         let result = insert_set_sidechain_source(0, 0, 5);
         assert_eq!(result, 0);
-        
+
         let source = insert_get_sidechain_source(0, 0);
         assert_eq!(source, 5);
     }

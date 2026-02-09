@@ -8,9 +8,10 @@ use rf_stage::{BigWinTier, FeatureType, JackpotTier, StageEvent};
 use crate::config::{FeatureConfig, SlotConfig, VolatilityProfile};
 use crate::paytable::PayTable;
 use crate::spin::{
-    AnticipationInfo, AnticipationReason, CascadeResult, ForcedOutcome, JackpotWin, SpinResult, TriggeredFeature,
+    AnticipationInfo, AnticipationReason, CascadeResult, ForcedOutcome, JackpotWin, SpinResult,
+    TriggeredFeature,
 };
-use crate::symbols::{generate_balanced_strips, ReelStrip, StandardSymbolSet};
+use crate::symbols::{ReelStrip, StandardSymbolSet, generate_balanced_strips};
 use crate::timing::{TimestampGenerator, TimingConfig, TimingProfile};
 
 /// Synthetic Slot Engine
@@ -214,11 +215,19 @@ impl SyntheticSlotEngine {
     ///
     /// This ensures the exact win tier by overriding the paytable-evaluated win amount
     /// with `bet * target_multiplier`. Use for precise tier testing (WIN_1, WIN_2, etc.)
-    pub fn spin_forced_with_multiplier(&mut self, outcome: ForcedOutcome, target_multiplier: f64) -> SpinResult {
+    pub fn spin_forced_with_multiplier(
+        &mut self,
+        outcome: ForcedOutcome,
+        target_multiplier: f64,
+    ) -> SpinResult {
         self.spin_internal(Some(outcome), Some(target_multiplier))
     }
 
-    fn spin_internal(&mut self, forced: Option<ForcedOutcome>, target_multiplier: Option<f64>) -> SpinResult {
+    fn spin_internal(
+        &mut self,
+        forced: Option<ForcedOutcome>,
+        target_multiplier: Option<f64>,
+    ) -> SpinResult {
         self.spin_count += 1;
         self.timestamp_gen.reset();
 
@@ -226,12 +235,13 @@ impl SyntheticSlotEngine {
         let spin_id = format!("spin-{:06}", self.spin_count);
 
         // Check if in free spins
-        let (is_free_spin, free_spin_index, multiplier) = if let Some(ref mut fs) = self.free_spin_state {
-            fs.remaining = fs.remaining.saturating_sub(1);
-            (true, Some(fs.total - fs.remaining), fs.multiplier)
-        } else {
-            (false, None, 1.0)
-        };
+        let (is_free_spin, free_spin_index, multiplier) =
+            if let Some(ref mut fs) = self.free_spin_state {
+                fs.remaining = fs.remaining.saturating_sub(1);
+                (true, Some(fs.total - fs.remaining), fs.multiplier)
+            } else {
+                (false, None, 1.0)
+            };
 
         // Generate grid
         let grid = if let Some(outcome) = forced {
@@ -417,7 +427,11 @@ impl SyntheticSlotEngine {
             let mut column = vec![0u32; rows];
             if reel < match_count as usize {
                 // Alternate between wild and symbol
-                column[1] = if reel % 2 == 0 { winning_symbol } else { wild_id };
+                column[1] = if reel % 2 == 0 {
+                    winning_symbol
+                } else {
+                    wild_id
+                };
             }
             // Fill other positions
             for row in 0..rows {
@@ -538,7 +552,10 @@ impl SyntheticSlotEngine {
         let vol = &self.config.volatility;
 
         // Check for feature trigger from scatter
-        if result.scatter_win.as_ref().is_some_and(|s| s.triggers_feature)
+        if result
+            .scatter_win
+            .as_ref()
+            .is_some_and(|s| s.triggers_feature)
             && self.config.features.free_spins_enabled
         {
             let spins = self.rng.gen_range(
@@ -742,7 +759,10 @@ impl SyntheticSlotEngine {
     }
 
     /// Execute forced spin and immediately generate stages
-    pub fn spin_forced_with_stages(&mut self, outcome: ForcedOutcome) -> (SpinResult, Vec<StageEvent>) {
+    pub fn spin_forced_with_stages(
+        &mut self,
+        outcome: ForcedOutcome,
+    ) -> (SpinResult, Vec<StageEvent>) {
         let result = self.spin_forced(outcome);
         let stages = self.generate_stages(&result);
         (result, stages)

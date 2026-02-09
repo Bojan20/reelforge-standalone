@@ -102,8 +102,10 @@ impl DiffReport {
         output.push_str(&format!("{}\n\n", "=".repeat(self.title.len())));
 
         output.push_str(&format!("Timestamp: {}\n", self.timestamp));
-        output.push_str(&format!("Total: {} | Passed: {} | Failed: {}\n",
-            self.total, self.passed, self.failed));
+        output.push_str(&format!(
+            "Total: {} | Passed: {} | Failed: {}\n",
+            self.total, self.passed, self.failed
+        ));
         output.push_str(&format!("Pass Rate: {:.1}%\n\n", self.pass_rate() * 100.0));
 
         output.push_str("Results:\n");
@@ -112,8 +114,10 @@ impl DiffReport {
 
         for result in &self.results {
             let status = if result.passed { "PASS" } else { "FAIL" };
-            output.push_str(&format!("[{}] {} vs {}\n",
-                status, result.reference_path, result.test_path));
+            output.push_str(&format!(
+                "[{}] {} vs {}\n",
+                status, result.reference_path, result.test_path
+            ));
 
             if !result.passed {
                 for check in &result.checks {
@@ -127,8 +131,10 @@ impl DiffReport {
 
         output.push_str(&"-".repeat(80));
         output.push_str("\n");
-        output.push_str(&format!("Summary: {} tests, {} passed, {} failed\n",
-            self.total, self.passed, self.failed));
+        output.push_str(&format!(
+            "Summary: {} tests, {} passed, {} failed\n",
+            self.total, self.passed, self.failed
+        ));
 
         output
     }
@@ -151,26 +157,40 @@ impl DiffReport {
         output.push_str(&format!("| Total | {} |\n", self.total));
         output.push_str(&format!("| Passed | {} |\n", self.passed));
         output.push_str(&format!("| Failed | {} |\n", self.failed));
-        output.push_str(&format!("| Pass Rate | {:.1}% |\n\n", self.pass_rate() * 100.0));
+        output.push_str(&format!(
+            "| Pass Rate | {:.1}% |\n\n",
+            self.pass_rate() * 100.0
+        ));
 
         output.push_str("## Results\n\n");
 
         for result in &self.results {
-            let status = if result.passed { "✅ PASS" } else { "❌ FAIL" };
-            output.push_str(&format!("### {} - `{}` vs `{}`\n\n",
+            let status = if result.passed {
+                "✅ PASS"
+            } else {
+                "❌ FAIL"
+            };
+            output.push_str(&format!(
+                "### {} - `{}` vs `{}`\n\n",
                 status,
-                Path::new(&result.reference_path).file_name()
-                    .and_then(|n| n.to_str()).unwrap_or(&result.reference_path),
-                Path::new(&result.test_path).file_name()
-                    .and_then(|n| n.to_str()).unwrap_or(&result.test_path)
+                Path::new(&result.reference_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(&result.reference_path),
+                Path::new(&result.test_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(&result.test_path)
             ));
 
             output.push_str("| Check | Status | Value | Tolerance |\n");
             output.push_str("|-------|--------|-------|----------|\n");
             for check in &result.checks {
                 let icon = if check.passed { "✓" } else { "✗" };
-                output.push_str(&format!("| {} | {} | {:.6} | {:.6} |\n",
-                    check.name, icon, check.actual, check.tolerance));
+                output.push_str(&format!(
+                    "| {} | {} | {:.6} | {:.6} |\n",
+                    check.name, icon, check.actual, check.tolerance
+                ));
             }
             output.push_str("\n");
 
@@ -201,14 +221,22 @@ impl DiffReport {
         ));
 
         for result in &self.results {
-            let test_name = format!("{} vs {}",
-                Path::new(&result.reference_path).file_name()
-                    .and_then(|n| n.to_str()).unwrap_or(&result.reference_path),
-                Path::new(&result.test_path).file_name()
-                    .and_then(|n| n.to_str()).unwrap_or(&result.test_path)
+            let test_name = format!(
+                "{} vs {}",
+                Path::new(&result.reference_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(&result.reference_path),
+                Path::new(&result.test_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(&result.test_path)
             );
 
-            output.push_str(&format!("  <testcase name=\"{}\">\n", xml_escape(&test_name)));
+            output.push_str(&format!(
+                "  <testcase name=\"{}\">\n",
+                xml_escape(&test_name)
+            ));
 
             if !result.passed {
                 let mut failure_msg = String::new();
@@ -282,8 +310,10 @@ fn chrono_lite_now() -> String {
     }
     let day = remaining_days + 1;
 
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        year, month, day, hours, minutes, seconds)
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hours, minutes, seconds
+    )
 }
 
 /// Escape XML special characters

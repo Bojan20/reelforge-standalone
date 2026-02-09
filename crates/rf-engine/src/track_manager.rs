@@ -59,8 +59,7 @@ fn next_id() -> u64 {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Output bus routing
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum OutputBus {
     #[default]
     Master = 0,
@@ -70,7 +69,6 @@ pub enum OutputBus {
     Ambience = 4,
     Aux = 5,
 }
-
 
 impl From<u32> for OutputBus {
     fn from(value: u32) -> Self {
@@ -346,8 +344,8 @@ impl TrackTemplate {
             height: 80.0,
             output_bus: OutputBus::Master,
             volume: 1.0,
-            pan: -1.0,        // Stereo: L hard left
-            pan_right: 1.0,   // Stereo: R hard right
+            pan: -1.0,      // Stereo: L hard left
+            pan_right: 1.0, // Stereo: R hard right
             channels: 2,
             tags: vec!["audio".to_string()],
         }
@@ -365,9 +363,9 @@ impl TrackTemplate {
             height: 80.0,
             output_bus: OutputBus::Voice,
             volume: 1.0,
-            pan: 0.0,         // Mono: center
+            pan: 0.0, // Mono: center
             pan_right: 0.0,
-            channels: 1,      // Vocals typically mono
+            channels: 1, // Vocals typically mono
             tags: vec!["vocal".to_string(), "voice".to_string()],
         }
     }
@@ -384,9 +382,9 @@ impl TrackTemplate {
             height: 100.0,
             output_bus: OutputBus::Sfx,
             volume: 1.0,
-            pan: -1.0,        // Stereo: L hard left
-            pan_right: 1.0,   // Stereo: R hard right
-            channels: 2,      // Drums typically stereo
+            pan: -1.0,      // Stereo: L hard left
+            pan_right: 1.0, // Stereo: R hard right
+            channels: 2,    // Drums typically stereo
             tags: vec!["drums".to_string(), "percussion".to_string()],
         }
     }
@@ -403,9 +401,9 @@ impl TrackTemplate {
             height: 80.0,
             output_bus: OutputBus::Music,
             volume: 1.0,
-            pan: 0.0,         // Mono: center
+            pan: 0.0, // Mono: center
             pan_right: 0.0,
-            channels: 1,      // Bass typically mono
+            channels: 1, // Bass typically mono
             tags: vec!["bass".to_string(), "music".to_string()],
         }
     }
@@ -855,8 +853,7 @@ impl Clip {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Crossfade curve type
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum CrossfadeCurve {
     /// Straight line (0dB at midpoint)
     Linear,
@@ -873,7 +870,6 @@ pub enum CrossfadeCurve {
     /// Vec of (position, value) where position and value are 0.0-1.0
     Custom(Vec<(f32, f32)>),
 }
-
 
 impl CrossfadeCurve {
     /// Calculate curve value at normalized position (0.0 to 1.0)
@@ -1532,7 +1528,11 @@ impl TrackManager {
 
     /// Get all clips sorted by start time
     pub fn get_all_clips(&self) -> Vec<Clip> {
-        let mut clips: Vec<_> = self.clips.iter().map(|entry| entry.value().clone()).collect();
+        let mut clips: Vec<_> = self
+            .clips
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect();
         clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
         clips
     }
@@ -1653,7 +1653,9 @@ impl TrackManager {
 
     /// Add FX to a clip's chain
     pub fn add_clip_fx(&self, clip_id: ClipId, fx_type: ClipFxType) -> Option<ClipFxSlotId> {
-        self.clips.get_mut(&clip_id).map(|mut clip| clip.add_fx(fx_type))
+        self.clips
+            .get_mut(&clip_id)
+            .map(|mut clip| clip.add_fx(fx_type))
     }
 
     /// Add FX slot to a clip's chain
@@ -1701,10 +1703,11 @@ impl TrackManager {
     /// Bypass/enable a specific FX slot
     pub fn set_clip_fx_bypass(&self, clip_id: ClipId, slot_id: ClipFxSlotId, bypass: bool) -> bool {
         if let Some(mut clip) = self.clips.get_mut(&clip_id)
-            && let Some(slot) = clip.fx_chain.get_slot_mut(slot_id) {
-                slot.bypass = bypass;
-                return true;
-            }
+            && let Some(slot) = clip.fx_chain.get_slot_mut(slot_id)
+        {
+            slot.bypass = bypass;
+            return true;
+        }
         false
     }
 
@@ -1724,10 +1727,11 @@ impl TrackManager {
         F: FnOnce(&mut ClipFxSlot),
     {
         if let Some(mut clip) = self.clips.get_mut(&clip_id)
-            && let Some(slot) = clip.fx_chain.get_slot_mut(slot_id) {
-                f(slot);
-                return true;
-            }
+            && let Some(slot) = clip.fx_chain.get_slot_mut(slot_id)
+        {
+            f(slot);
+            return true;
+        }
         false
     }
 
@@ -1767,23 +1771,24 @@ impl TrackManager {
         let source_chain = self.clips.get(&source_clip_id).map(|c| c.fx_chain.clone());
 
         if let Some(chain) = source_chain
-            && let Some(mut target_clip) = self.clips.get_mut(&target_clip_id) {
-                // Clone chain but regenerate slot IDs
-                target_clip.fx_chain.bypass = chain.bypass;
-                target_clip.fx_chain.input_gain_db = chain.input_gain_db;
-                target_clip.fx_chain.output_gain_db = chain.output_gain_db;
-                target_clip.fx_chain.slots.clear();
+            && let Some(mut target_clip) = self.clips.get_mut(&target_clip_id)
+        {
+            // Clone chain but regenerate slot IDs
+            target_clip.fx_chain.bypass = chain.bypass;
+            target_clip.fx_chain.input_gain_db = chain.input_gain_db;
+            target_clip.fx_chain.output_gain_db = chain.output_gain_db;
+            target_clip.fx_chain.slots.clear();
 
-                for slot in chain.slots {
-                    let mut new_slot = ClipFxSlot::new(slot.fx_type);
-                    new_slot.bypass = slot.bypass;
-                    new_slot.wet_dry = slot.wet_dry;
-                    new_slot.output_gain_db = slot.output_gain_db;
-                    new_slot.name = slot.name;
-                    target_clip.fx_chain.add_slot(new_slot);
-                }
-                return true;
+            for slot in chain.slots {
+                let mut new_slot = ClipFxSlot::new(slot.fx_type);
+                new_slot.bypass = slot.bypass;
+                new_slot.wet_dry = slot.wet_dry;
+                new_slot.output_gain_db = slot.output_gain_db;
+                new_slot.name = slot.name;
+                target_clip.fx_chain.add_slot(new_slot);
             }
+            return true;
+        }
         false
     }
 

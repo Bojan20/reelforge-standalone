@@ -16,7 +16,7 @@
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::ffi::{c_char, CStr};
+use std::ffi::{CStr, c_char};
 use std::sync::atomic::{AtomicU8, Ordering};
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -79,8 +79,8 @@ impl Default for KalmanState {
         Self {
             state: [0.0; 6],
             covariance: cov,
-            q: 0.01,  // Process noise
-            r: 0.1,   // Measurement noise
+            q: 0.01, // Process noise
+            r: 0.1,  // Measurement noise
             last_update_ms: 0,
         }
     }
@@ -136,8 +136,7 @@ impl KalmanState {
 }
 
 /// Event tracker with Kalman filter
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 struct EventTracker {
     id: u64,
     intent: String,
@@ -146,7 +145,6 @@ struct EventTracker {
     active: bool,
     bus_id: u8,
 }
-
 
 /// Global engine state
 #[derive(Debug)]
@@ -222,7 +220,8 @@ const STATE_INITIALIZED: u8 = 2;
 static AUTO_SPATIAL_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
 
 /// Engine state
-static ENGINE: Lazy<RwLock<AutoSpatialState>> = Lazy::new(|| RwLock::new(AutoSpatialState::default()));
+static ENGINE: Lazy<RwLock<AutoSpatialState>> =
+    Lazy::new(|| RwLock::new(AutoSpatialState::default()));
 
 /// Current timestamp (for Kalman dt calculation)
 static CURRENT_TIME_MS: Lazy<RwLock<u64>> = Lazy::new(|| RwLock::new(0));
@@ -284,7 +283,11 @@ pub extern "C" fn auto_spatial_shutdown() {
 /// Check if engine is initialized
 #[unsafe(no_mangle)]
 pub extern "C" fn auto_spatial_is_initialized() -> i32 {
-    if AUTO_SPATIAL_STATE.load(Ordering::SeqCst) == STATE_INITIALIZED { 1 } else { 0 }
+    if AUTO_SPATIAL_STATE.load(Ordering::SeqCst) == STATE_INITIALIZED {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -363,12 +366,7 @@ pub extern "C" fn auto_spatial_start_event(
 
 /// Update event position
 #[unsafe(no_mangle)]
-pub extern "C" fn auto_spatial_update_event(
-    event_id: u64,
-    x: f64,
-    y: f64,
-    z: f64,
-) -> i32 {
+pub extern "C" fn auto_spatial_update_event(event_id: u64, x: f64, y: f64, z: f64) -> i32 {
     if AUTO_SPATIAL_STATE.load(Ordering::SeqCst) != STATE_INITIALIZED {
         return 0;
     }
@@ -457,7 +455,10 @@ pub extern "C" fn auto_spatial_get_all_outputs(
     out_outputs: *mut SpatialOutput,
     max_count: u32,
 ) -> u32 {
-    if out_ids.is_null() || out_outputs.is_null() || AUTO_SPATIAL_STATE.load(Ordering::SeqCst) != STATE_INITIALIZED {
+    if out_ids.is_null()
+        || out_outputs.is_null()
+        || AUTO_SPATIAL_STATE.load(Ordering::SeqCst) != STATE_INITIALIZED
+    {
         return 0;
     }
 
@@ -610,16 +611,24 @@ pub extern "C" fn auto_spatial_get_stats(
     let engine = ENGINE.read();
 
     if !out_active_events.is_null() {
-        unsafe { *out_active_events = engine.active_count as u32; }
+        unsafe {
+            *out_active_events = engine.active_count as u32;
+        }
     }
     if !out_pool_utilization.is_null() {
-        unsafe { *out_pool_utilization = (engine.active_count as f32 / 128.0) * 100.0; }
+        unsafe {
+            *out_pool_utilization = (engine.active_count as f32 / 128.0) * 100.0;
+        }
     }
     if !out_processing_time_us.is_null() {
-        unsafe { *out_processing_time_us = engine.processing_time_us; }
+        unsafe {
+            *out_processing_time_us = engine.processing_time_us;
+        }
     }
     if !out_dropped_events.is_null() {
-        unsafe { *out_dropped_events = engine.dropped_events; }
+        unsafe {
+            *out_dropped_events = engine.dropped_events;
+        }
     }
 }
 

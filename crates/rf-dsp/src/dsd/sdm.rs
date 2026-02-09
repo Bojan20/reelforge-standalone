@@ -9,8 +9,7 @@
 use rf_core::Sample;
 
 /// Sigma-Delta Modulator type
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SdmType {
     /// 5th order classic modulator
     Order5Classic,
@@ -22,7 +21,6 @@ pub enum SdmType {
     /// MECO algorithm (Pyramix compatible)
     Meco,
 }
-
 
 /// Sigma-Delta Modulator state
 pub struct SigmaDeltaModulator {

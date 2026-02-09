@@ -30,7 +30,6 @@ pub enum SyncMode {
     Custom,
 }
 
-
 /// Fade curve type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -58,7 +57,6 @@ pub enum FadeCurve {
     /// S-curve (sine-based)
     SCurve,
 }
-
 
 impl FadeCurve {
     /// Apply the curve to a linear progress value (0.0-1.0)
@@ -491,10 +489,7 @@ impl ActiveTransition {
                 let overlap_progress = self.progress;
                 0.3 + 0.7 * overlap_progress // Fade from 0.3 to 1.0
             }
-            TransitionPhase::FadeIn => {
-                
-                self.profile.fade_in.curve.apply(self.progress)
-            }
+            TransitionPhase::FadeIn => self.profile.fade_in.curve.apply(self.progress),
             TransitionPhase::Complete => 1.0,
         }
     }

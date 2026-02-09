@@ -199,10 +199,7 @@ impl SequenceContainer {
 
     /// Get total sequence duration (in milliseconds)
     pub fn duration_ms(&self) -> f64 {
-        self.steps
-            .iter()
-            .map(|s| s.end_ms())
-            .fold(0.0, f64::max)
+        self.steps.iter().map(|s| s.end_ms()).fold(0.0, f64::max)
     }
 
     /// Start playback

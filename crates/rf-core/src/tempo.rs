@@ -95,7 +95,6 @@ impl TimeSignature {
     pub fn is_compound(&self) -> bool {
         self.denominator == 8 && self.numerator.is_multiple_of(3)
     }
-
 }
 
 impl std::fmt::Display for TimeSignature {
@@ -283,17 +282,19 @@ impl TempoMap {
 
         // Check if we need to interpolate (ramp)
         if let Some(next) = self.tempo_events.get(idx + 1)
-            && event.ramp != TempoRamp::Instant && tick < next.tick {
-                let t = (tick - event.tick) as f64 / (next.tick - event.tick) as f64;
-                return match event.ramp {
-                    TempoRamp::Linear => event.bpm + (next.bpm - event.bpm) * t,
-                    TempoRamp::SCurve => {
-                        let s = (1.0 - (t * std::f64::consts::PI).cos()) * 0.5;
-                        event.bpm + (next.bpm - event.bpm) * s
-                    }
-                    TempoRamp::Instant => event.bpm,
-                };
-            }
+            && event.ramp != TempoRamp::Instant
+            && tick < next.tick
+        {
+            let t = (tick - event.tick) as f64 / (next.tick - event.tick) as f64;
+            return match event.ramp {
+                TempoRamp::Linear => event.bpm + (next.bpm - event.bpm) * t,
+                TempoRamp::SCurve => {
+                    let s = (1.0 - (t * std::f64::consts::PI).cos()) * 0.5;
+                    event.bpm + (next.bpm - event.bpm) * s
+                }
+                TempoRamp::Instant => event.bpm,
+            };
+        }
 
         event.bpm
     }
@@ -345,7 +346,8 @@ impl TempoMap {
         }
 
         self.time_sig_events
-            .iter().rfind(|e| e.bar <= bar)
+            .iter()
+            .rfind(|e| e.bar <= bar)
             .map(|e| e.time_signature)
             .unwrap_or_default()
     }
@@ -700,8 +702,7 @@ impl TempoMap {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Grid/quantize values
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum GridValue {
     /// Whole note
     Whole,
@@ -733,7 +734,6 @@ pub enum GridValue {
     /// Custom ticks
     Custom(u32),
 }
-
 
 impl GridValue {
     /// Convert to ticks

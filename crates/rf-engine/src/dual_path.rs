@@ -93,7 +93,13 @@ impl AudioBlock {
     /// Copy data into this block without allocation
     /// Use this in audio thread
     #[inline]
-    pub fn copy_from_slices(&mut self, left: &[Sample], right: &[Sample], sequence: u64, position: u64) {
+    pub fn copy_from_slices(
+        &mut self,
+        left: &[Sample],
+        right: &[Sample],
+        sequence: u64,
+        position: u64,
+    ) {
         let len = left.len().min(right.len()).min(self.left.len());
         self.left[..len].copy_from_slice(&left[..len]);
         self.right[..len].copy_from_slice(&right[..len]);
@@ -182,9 +188,7 @@ impl SharedAudioBlockPool {
             .map(|_| AudioBlock::new(block_size))
             .collect();
 
-        let free_stack: Vec<AtomicUsize> = (0..pool_size)
-            .map(AtomicUsize::new)
-            .collect();
+        let free_stack: Vec<AtomicUsize> = (0..pool_size).map(AtomicUsize::new).collect();
 
         Self {
             blocks: std::cell::UnsafeCell::new(blocks),
@@ -295,9 +299,7 @@ impl AudioBlockPool {
             .collect();
 
         // Initialize free stack with all indices
-        let free_stack: Vec<AtomicUsize> = (0..pool_size)
-            .map(AtomicUsize::new)
-            .collect();
+        let free_stack: Vec<AtomicUsize> = (0..pool_size).map(AtomicUsize::new).collect();
 
         Self {
             blocks,
@@ -640,7 +642,9 @@ impl DualPathEngine {
                             }
 
                             let elapsed = start.elapsed().as_micros() as u64;
-                            stats.guard_process_time_us.store(elapsed, Ordering::Relaxed);
+                            stats
+                                .guard_process_time_us
+                                .store(elapsed, Ordering::Relaxed);
                             stats.guard_blocks.fetch_add(1, Ordering::Relaxed);
 
                             // Send processed block index back
@@ -664,7 +668,10 @@ impl DualPathEngine {
                 log::info!("Guard thread started (lock-free mode)");
             }
             Err(e) => {
-                log::error!("Failed to spawn guard thread: {}. Audio will use fallback path only.", e);
+                log::error!(
+                    "Failed to spawn guard thread: {}. Audio will use fallback path only.",
+                    e
+                );
                 running.store(false, Ordering::SeqCst);
             }
         }
@@ -734,7 +741,13 @@ impl DualPathEngine {
 
     /// Lock-free Guard mode processing
     #[inline]
-    fn process_guard_lockfree(&self, left: &mut [Sample], right: &mut [Sample], seq: u64, pos: u64) {
+    fn process_guard_lockfree(
+        &self,
+        left: &mut [Sample],
+        right: &mut [Sample],
+        seq: u64,
+        pos: u64,
+    ) {
         // Try to acquire a block from pool for input
         if let Some(input_idx) = self.shared_pool.acquire() {
             // Copy input data to pool block (no allocation!)
@@ -752,10 +765,8 @@ impl DualPathEngine {
             if count < self.lookahead_capacity {
                 // Buffer not full, just store
                 self.lookahead_indices[write_pos].store(input_idx, Ordering::Release);
-                self.lookahead_write_pos.store(
-                    (write_pos + 1) % self.lookahead_capacity,
-                    Ordering::Release,
-                );
+                self.lookahead_write_pos
+                    .store((write_pos + 1) % self.lookahead_capacity, Ordering::Release);
                 self.lookahead_count.fetch_add(1, Ordering::AcqRel);
             } else {
                 // Buffer full - send oldest to guard, store new
@@ -767,9 +778,8 @@ impl DualPathEngine {
                     let msg = BlockMessage {
                         pool_index: oldest_idx,
                         sequence: seq.saturating_sub(self.lookahead_capacity as u64),
-                        sample_position: pos.saturating_sub(
-                            (self.lookahead_capacity * self.block_size) as u64,
-                        ),
+                        sample_position: pos
+                            .saturating_sub((self.lookahead_capacity * self.block_size) as u64),
                     };
 
                     // Try lock-free push via SyncProducer wrapper
@@ -790,14 +800,10 @@ impl DualPathEngine {
                     }
                 }
 
-                self.lookahead_read_pos.store(
-                    (read_pos + 1) % self.lookahead_capacity,
-                    Ordering::Release,
-                );
-                self.lookahead_write_pos.store(
-                    (write_pos + 1) % self.lookahead_capacity,
-                    Ordering::Release,
-                );
+                self.lookahead_read_pos
+                    .store((read_pos + 1) % self.lookahead_capacity, Ordering::Release);
+                self.lookahead_write_pos
+                    .store((write_pos + 1) % self.lookahead_capacity, Ordering::Release);
             }
         }
 
@@ -831,7 +837,13 @@ impl DualPathEngine {
 
     /// Lock-free Hybrid mode processing
     #[inline]
-    fn process_hybrid_lockfree(&self, left: &mut [Sample], right: &mut [Sample], seq: u64, pos: u64) {
+    fn process_hybrid_lockfree(
+        &self,
+        left: &mut [Sample],
+        right: &mut [Sample],
+        seq: u64,
+        pos: u64,
+    ) {
         // Try to acquire block and send to guard
 
         if let Some(input_idx) = self.shared_pool.acquire() {
@@ -870,14 +882,15 @@ impl DualPathEngine {
         // SAFETY: Audio thread is single-threaded access
         unsafe {
             if let Some(ref mut rx) = *self.guard_output_rx.get_mut()
-                && let Ok(msg) = rx.pop() {
-                    self.stats.queue_depth.fetch_sub(1, Ordering::Relaxed);
-                    if let Some(block) = self.shared_pool.get(msg.pool_index) {
-                        block.copy_to_slices(left, right);
-                    }
-                    self.shared_pool.release(msg.pool_index);
-                    got_output = true;
+                && let Ok(msg) = rx.pop()
+            {
+                self.stats.queue_depth.fetch_sub(1, Ordering::Relaxed);
+                if let Some(block) = self.shared_pool.get(msg.pool_index) {
+                    block.copy_to_slices(left, right);
                 }
+                self.shared_pool.release(msg.pool_index);
+                got_output = true;
+            }
         }
 
         // Fallback if guard didn't provide output

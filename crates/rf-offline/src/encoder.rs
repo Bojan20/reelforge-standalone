@@ -68,7 +68,11 @@ impl AudioEncoder for WavEncoder {
             .map_err(|e| OfflineError::EncodingError(e.to_string()))?;
 
         // Apply dithering for bit depth reduction
-        let dithered = apply_dithering(&buffer.samples, self.config.bit_depth, self.config.dithering);
+        let dithered = apply_dithering(
+            &buffer.samples,
+            self.config.bit_depth,
+            self.config.dithering,
+        );
 
         match self.config.bit_depth {
             8 => {
@@ -167,8 +171,11 @@ impl AudioEncoder for FlacEncoder {
             .map_err(|e| OfflineError::EncodingError(format!("FLAC init write failed: {:?}", e)))?;
 
         // Apply dithering
-        let dithered =
-            apply_dithering(&buffer.samples, self.config.bit_depth, self.config.dithering);
+        let dithered = apply_dithering(
+            &buffer.samples,
+            self.config.bit_depth,
+            self.config.dithering,
+        );
 
         // Convert to i32 samples
         let max_val = (1i64 << (self.config.bit_depth - 1)) as f64;
@@ -195,7 +202,9 @@ impl AudioEncoder for FlacEncoder {
 
             encoder
                 .process_interleaved(&block_samples, block_frames as u32)
-                .map_err(|e| OfflineError::EncodingError(format!("FLAC process failed: {:?}", e)))?;
+                .map_err(|e| {
+                    OfflineError::EncodingError(format!("FLAC process failed: {:?}", e))
+                })?;
         }
 
         // Finish encoding
@@ -299,7 +308,7 @@ impl AudioEncoder for AiffEncoder {
         // ═══════════════════════════════════════════════════════════════════════
         output.extend_from_slice(b"COMM");
         output.extend_from_slice(&comm_chunk_size.to_be_bytes());
-        output.extend_from_slice(&channels.to_be_bytes());           // numChannels (2 bytes)
+        output.extend_from_slice(&channels.to_be_bytes()); // numChannels (2 bytes)
         output.extend_from_slice(&(num_frames as u32).to_be_bytes()); // numSampleFrames (4 bytes)
         output.extend_from_slice(&(bit_depth as u16).to_be_bytes()); // sampleSize (2 bytes)
         output.extend_from_slice(&Self::f64_to_extended(sample_rate as f64)); // sampleRate (10 bytes, 80-bit extended)
@@ -429,22 +438,24 @@ impl AudioEncoder for LameMp3Encoder {
         // Set channels
         builder
             .set_num_channels(buffer.channels as u8)
-            .map_err(|e| OfflineError::EncodingError(format!("LAME set channels failed: {:?}", e)))?;
+            .map_err(|e| {
+                OfflineError::EncodingError(format!("LAME set channels failed: {:?}", e))
+            })?;
 
         // Set sample rate
-        builder
-            .set_sample_rate(buffer.sample_rate)
-            .map_err(|e| OfflineError::EncodingError(format!("LAME set sample rate failed: {:?}", e)))?;
+        builder.set_sample_rate(buffer.sample_rate).map_err(|e| {
+            OfflineError::EncodingError(format!("LAME set sample rate failed: {:?}", e))
+        })?;
 
         // Set bitrate
-        builder
-            .set_brate(self.get_lame_bitrate())
-            .map_err(|e| OfflineError::EncodingError(format!("LAME set bitrate failed: {:?}", e)))?;
+        builder.set_brate(self.get_lame_bitrate()).map_err(|e| {
+            OfflineError::EncodingError(format!("LAME set bitrate failed: {:?}", e))
+        })?;
 
         // Set quality
-        builder
-            .set_quality(self.get_lame_quality())
-            .map_err(|e| OfflineError::EncodingError(format!("LAME set quality failed: {:?}", e)))?;
+        builder.set_quality(self.get_lame_quality()).map_err(|e| {
+            OfflineError::EncodingError(format!("LAME set quality failed: {:?}", e))
+        })?;
 
         // Build encoder
         let mut encoder = builder
@@ -743,17 +754,20 @@ impl AudioEncoder for NativeOpusEncoder {
         };
 
         // Create Opus encoder
-        let mut encoder = OpusEnc::new(sample_rate, channels, Application::Audio)
-            .map_err(|e| OfflineError::EncodingError(format!("Opus encoder init failed: {:?}", e)))?;
+        let mut encoder = OpusEnc::new(sample_rate, channels, Application::Audio).map_err(|e| {
+            OfflineError::EncodingError(format!("Opus encoder init failed: {:?}", e))
+        })?;
 
         // Configure encoder
-        encoder
-            .set_bitrate(self.get_opus_bitrate())
-            .map_err(|e| OfflineError::EncodingError(format!("Opus set bitrate failed: {:?}", e)))?;
+        encoder.set_bitrate(self.get_opus_bitrate()).map_err(|e| {
+            OfflineError::EncodingError(format!("Opus set bitrate failed: {:?}", e))
+        })?;
 
         encoder
             .set_complexity(self.config.complexity.min(10))
-            .map_err(|e| OfflineError::EncodingError(format!("Opus set complexity failed: {:?}", e)))?;
+            .map_err(|e| {
+                OfflineError::EncodingError(format!("Opus set complexity failed: {:?}", e))
+            })?;
 
         // Frame size: 20ms at 48kHz = 960 samples per channel
         let frame_size = 960;
@@ -773,13 +787,25 @@ impl AudioEncoder for NativeOpusEncoder {
         // Write Opus identification header (OpusHead)
         let opus_head = Self::create_opus_head(buffer.channels as u8, 48000);
         packet_writer
-            .write_packet(opus_head, serial, ogg::writing::PacketWriteEndInfo::EndPage, 0)
-            .map_err(|e| OfflineError::EncodingError(format!("OGG write header failed: {:?}", e)))?;
+            .write_packet(
+                opus_head,
+                serial,
+                ogg::writing::PacketWriteEndInfo::EndPage,
+                0,
+            )
+            .map_err(|e| {
+                OfflineError::EncodingError(format!("OGG write header failed: {:?}", e))
+            })?;
 
         // Write Opus comment header (OpusTags)
         let opus_tags = Self::create_opus_tags();
         packet_writer
-            .write_packet(opus_tags, serial, ogg::writing::PacketWriteEndInfo::EndPage, 0)
+            .write_packet(
+                opus_tags,
+                serial,
+                ogg::writing::PacketWriteEndInfo::EndPage,
+                0,
+            )
             .map_err(|e| OfflineError::EncodingError(format!("OGG write tags failed: {:?}", e)))?;
 
         // Encode audio frames
@@ -812,7 +838,9 @@ impl AudioEncoder for NativeOpusEncoder {
                     end_info,
                     granule_pos,
                 )
-                .map_err(|e| OfflineError::EncodingError(format!("OGG write packet failed: {:?}", e)))?;
+                .map_err(|e| {
+                    OfflineError::EncodingError(format!("OGG write packet failed: {:?}", e))
+                })?;
         }
 
         // Handle remaining samples (pad to frame size if needed)
@@ -822,9 +850,9 @@ impl AudioEncoder for NativeOpusEncoder {
             let start = num_frames * frame_samples;
             last_frame[..remaining].copy_from_slice(&samples_i16[start..]);
 
-            let encoded_len = encoder
-                .encode(&last_frame, &mut opus_packet)
-                .map_err(|e| OfflineError::EncodingError(format!("Opus encode final failed: {:?}", e)))?;
+            let encoded_len = encoder.encode(&last_frame, &mut opus_packet).map_err(|e| {
+                OfflineError::EncodingError(format!("Opus encode final failed: {:?}", e))
+            })?;
 
             granule_pos += frame_size as u64;
 
@@ -835,7 +863,9 @@ impl AudioEncoder for NativeOpusEncoder {
                     ogg::writing::PacketWriteEndInfo::EndStream,
                     granule_pos,
                 )
-                .map_err(|e| OfflineError::EncodingError(format!("OGG write final failed: {:?}", e)))?;
+                .map_err(|e| {
+                    OfflineError::EncodingError(format!("OGG write final failed: {:?}", e))
+                })?;
         }
 
         Ok(ogg_data)
@@ -1232,7 +1262,11 @@ mod tests {
         assert!(!data.is_empty());
         // Check OGG header magic bytes "OggS"
         assert!(data.len() > 4);
-        assert_eq!(&data[0..4], b"OggS", "OGG file should start with OggS magic");
+        assert_eq!(
+            &data[0..4],
+            b"OggS",
+            "OGG file should start with OggS magic"
+        );
     }
 
     #[test]
@@ -1247,7 +1281,12 @@ mod tests {
         for quality in [0.0_f32, 3.0, 5.0, 8.0, 10.0] {
             let encoder = NativeOggEncoder::new(OggConfig { quality });
             let result = encoder.encode(&buffer);
-            assert!(result.is_ok(), "OGG Q{} encoding failed: {:?}", quality, result.err());
+            assert!(
+                result.is_ok(),
+                "OGG Q{} encoding failed: {:?}",
+                quality,
+                result.err()
+            );
             let data = result.unwrap();
             assert!(!data.is_empty());
             assert_eq!(&data[0..4], b"OggS");
@@ -1264,7 +1303,11 @@ mod tests {
 
         let encoder = NativeOggEncoder::new(OggConfig { quality: 6.0 });
         let result = encoder.encode(&buffer);
-        assert!(result.is_ok(), "OGG mono encoding failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "OGG mono encoding failed: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -1280,8 +1323,16 @@ mod tests {
 
         assert!(q_low < q_mid, "Low quality should be less than mid");
         assert!(q_mid < q_high, "Mid quality should be less than high");
-        assert!(q_low >= -0.15 && q_low <= 0.0, "Quality -1 should map to ~-0.1, got {}", q_low);
-        assert!(q_high >= 0.9 && q_high <= 1.05, "Quality 10 should map to ~1.0, got {}", q_high);
+        assert!(
+            q_low >= -0.15 && q_low <= 0.0,
+            "Quality -1 should map to ~-0.1, got {}",
+            q_low
+        );
+        assert!(
+            q_high >= 0.9 && q_high <= 1.05,
+            "Quality 10 should map to ~1.0, got {}",
+            q_high
+        );
     }
 
     #[test]
@@ -1337,7 +1388,12 @@ mod tests {
                 joint_stereo: true,
             });
             let result = encoder.encode(&buffer);
-            assert!(result.is_ok(), "CBR {} encoding failed: {:?}", bitrate, result.err());
+            assert!(
+                result.is_ok(),
+                "CBR {} encoding failed: {:?}",
+                bitrate,
+                result.err()
+            );
         }
     }
 
@@ -1392,7 +1448,11 @@ mod tests {
         assert!(!data.is_empty());
         // Check OGG header magic bytes "OggS"
         assert!(data.len() > 4);
-        assert_eq!(&data[0..4], b"OggS", "Opus file should start with OggS magic");
+        assert_eq!(
+            &data[0..4],
+            b"OggS",
+            "Opus file should start with OggS magic"
+        );
     }
 
     #[test]
@@ -1411,7 +1471,12 @@ mod tests {
                 complexity: 10,
             });
             let result = encoder.encode(&buffer);
-            assert!(result.is_ok(), "Opus {}kbps encoding failed: {:?}", bitrate, result.err());
+            assert!(
+                result.is_ok(),
+                "Opus {}kbps encoding failed: {:?}",
+                bitrate,
+                result.err()
+            );
             let data = result.unwrap();
             assert!(!data.is_empty());
             assert_eq!(&data[0..4], b"OggS");
@@ -1432,7 +1497,11 @@ mod tests {
             complexity: 5,
         });
         let result = encoder.encode(&buffer);
-        assert!(result.is_ok(), "Opus mono encoding failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Opus mono encoding failed: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -1449,7 +1518,11 @@ mod tests {
             complexity: 10,
         });
         let result = encoder.encode(&buffer);
-        assert!(result.is_ok(), "Opus resampling encoding failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Opus resampling encoding failed: {:?}",
+            result.err()
+        );
         let data = result.unwrap();
         assert!(!data.is_empty());
         assert_eq!(&data[0..4], b"OggS");
@@ -1470,7 +1543,12 @@ mod tests {
                 complexity,
             });
             let result = encoder.encode(&buffer);
-            assert!(result.is_ok(), "Opus complexity {} encoding failed: {:?}", complexity, result.err());
+            assert!(
+                result.is_ok(),
+                "Opus complexity {} encoding failed: {:?}",
+                complexity,
+                result.err()
+            );
         }
     }
 

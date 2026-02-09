@@ -101,8 +101,7 @@ pub enum PhaseMode {
 }
 
 /// Track routing destination
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum RoutingDestination {
     /// Route to another track
     Track(TrackId),
@@ -114,7 +113,6 @@ pub enum RoutingDestination {
     /// No output (muted)
     None,
 }
-
 
 /// Send configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

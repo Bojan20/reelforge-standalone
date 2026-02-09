@@ -190,7 +190,8 @@ impl WorldVocoder {
 
         // Interpolate spectral envelope
         let num_bins = analysis
-            .spectral_envelope.first()
+            .spectral_envelope
+            .first()
             .map(|v| v.len())
             .unwrap_or(0);
         let mut new_envelope = vec![vec![0.0; num_bins]; new_len];
