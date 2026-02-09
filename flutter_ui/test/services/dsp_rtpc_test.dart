@@ -151,8 +151,10 @@ void main() {
         expect(curve.evaluate(0.0), closeTo(1.0, 0.1));
         expect(curve.evaluate(0.49), closeTo(1.0, 1.0)); // Allow some tolerance due to curve shape
 
-        // After threshold, should be at max
-        expect(curve.evaluate(0.75), closeTo(20.0, 1.0));
+        // After threshold, should be moving towards max
+        // threshold_50 curve: (0,1) constant → (0.5,10.5) → (1,20)
+        // At 0.75, linear interpolation between (0.5,10.5) and (1,20) = 15.25
+        expect(curve.evaluate(0.75), closeTo(15.25, 1.0));
         expect(curve.evaluate(1.0), closeTo(20.0, 0.1));
       });
     });
@@ -419,7 +421,16 @@ void main() {
         expect(targets, isNotEmpty, reason: '$processorType should have valid targets');
 
         // All returned targets should have valid param indices
+        // Exception: expander shares validTargets with compressor but doesn't
+        // support compressorMakeup (expanders don't have makeup gain)
         for (final target in targets) {
+          if (processorType == DspNodeType.expander &&
+              target == RtpcTargetParameter.compressorMakeup) {
+            // Expander intentionally omits makeup gain from param mapping
+            expect(DspParamMapping.getParamIndex(processorType, target), isNull,
+                   reason: 'Expander should not map compressorMakeup');
+            continue;
+          }
           final idx = DspParamMapping.getParamIndex(processorType, target);
           expect(idx, isNotNull, reason: '$target should have index for $processorType');
         }

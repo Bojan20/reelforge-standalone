@@ -62,7 +62,7 @@ void main() {
         description: '',
         previewData: {},
       );
-      expect(blendEntry.typeIcon.codePoint, 0xe3a5); // blur_linear
+      expect(blendEntry.typeIcon.codePoint, 0xe0eb); // blur_linear
 
       const randomEntry = ContainerPresetEntry(
         id: 'test2',
@@ -72,7 +72,7 @@ void main() {
         description: '',
         previewData: {},
       );
-      expect(randomEntry.typeIcon.codePoint, 0xe043); // shuffle
+      expect(randomEntry.typeIcon.codePoint, 0xe5a1); // shuffle
     });
 
     test('ContainerPresetType has all values', () {

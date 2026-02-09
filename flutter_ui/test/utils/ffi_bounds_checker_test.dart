@@ -40,7 +40,7 @@ void main() {
         final result = FFIBoundsChecker.checkIndex(9999999999, 100);
 
         expect(result.isValid, isFalse);
-        expect(result.error, contains('exceeds maximum'));
+        expect(result.error, contains('out of bounds'));
       });
 
       test('throwIfInvalid throws on error', () {

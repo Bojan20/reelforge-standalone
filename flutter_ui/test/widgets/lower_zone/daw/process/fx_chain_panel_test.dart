@@ -29,7 +29,9 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      // Use pump(Duration) instead of pumpAndSettle because
+      // ProcessorCpuMeterInline has a Timer.periodic(100ms) that never settles.
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('FX CHAIN — Track 10'), findsOneWidget);
       expect(find.text('INPUT'), findsOneWidget);
@@ -47,7 +49,9 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      // Use pump(Duration) instead of pumpAndSettle because
+      // ProcessorCpuMeterInline has a Timer.periodic(100ms) that never settles.
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('Drop here\nor click Add'), findsOneWidget);
     });

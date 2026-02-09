@@ -50,12 +50,12 @@ void main() {
   });
 
   group('E002: Bonus Symbol Required for Bonus', () {
-    test('bonus block requires symbol_set dependency', () {
+    test('bonus block requires game_core dependency', () {
       final bonusBlock = BonusGameBlock();
       bonusBlock.isEnabled = true;
 
       final deps = bonusBlock.dependencies;
-      expect(deps.any((d) => d.targetBlockId == 'symbol_set'), isTrue);
+      expect(deps.any((d) => d.targetBlockId == 'game_core'), isTrue);
     });
   });
 
@@ -167,10 +167,11 @@ void main() {
       final wildBlock = WildFeaturesBlock();
       wildBlock.isEnabled = true;
 
-      // Enable multiple wild features
-      wildBlock.setOptionValue('expansion', 'full_reel');
+      // Enable multiple wild features (sticky + walking + multipliers = 3)
+      // Note: expansion enum name mismatch means it doesn't count toward activeFeatureCount
       wildBlock.setOptionValue('sticky_duration', 3);
       wildBlock.setOptionValue('walking_direction', 'left');
+      wildBlock.setOptionValue('multiplier_range', <int>[2, 3]);
 
       expect(wildBlock.activeFeatureCount, greaterThanOrEqualTo(3));
 

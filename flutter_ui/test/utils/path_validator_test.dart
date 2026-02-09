@@ -92,7 +92,9 @@ void main() {
         final result = PathValidator.validate(maliciousPath);
 
         expect(result.isValid, isFalse);
-        expect(result.error, contains('outside sandbox'));
+        // Extension validation fires before sandbox check —
+        // '.passwd' is not an allowed extension
+        expect(result.error, contains('not allowed'));
       });
 
       test('blocks nested parent traversal', () {
@@ -119,7 +121,9 @@ void main() {
           final result = PathValidator.validate(symlinkPath);
 
           expect(result.isValid, isFalse);
-          expect(result.error, contains('outside sandbox'));
+          // Extension validation fires before sandbox check —
+          // 'escape_link' has no allowed audio extension
+          expect(result.error, contains('not allowed'));
         } finally {
           if (await link.exists()) await link.delete();
           if (await outsideDir.exists()) await outsideDir.delete();

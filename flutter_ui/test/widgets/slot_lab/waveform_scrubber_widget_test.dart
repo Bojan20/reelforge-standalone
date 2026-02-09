@@ -163,21 +163,36 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: WaveformScrubberWidget(
-              audioPath: '/test/audio.wav',
-              duration: 10.0,
-              onSeek: (pos) => seekPosition = pos,
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                height: 80,
+                child: WaveformScrubberWidget(
+                  audioPath: '/test/audio.wav',
+                  duration: 10.0,
+                  showZoomControls: false,
+                  showTimeLabels: false,
+                  onSeek: (pos) => seekPosition = pos,
+                ),
+              ),
             ),
           ),
         ),
       );
 
-      // Find the waveform area and tap
-      final finder = find.byType(GestureDetector).first;
-      await tester.tap(finder);
+      // Tap on the waveform area using a horizontal drag gesture,
+      // which is reliably handled by the GestureDetector's onHorizontalDragStart.
+      final waveformFinder = find.byType(WaveformScrubberWidget);
+      final topLeft = tester.getTopLeft(waveformFinder);
+      // Drag from one point to slightly right to trigger onHorizontalDragStart + update
+      await tester.timedDragFrom(
+        topLeft + const Offset(100, 40),
+        const Offset(10, 0),
+        const Duration(milliseconds: 100),
+      );
       await tester.pump();
 
-      // Should have called onSeek
+      // Should have called onSeek via horizontal drag
       expect(seekPosition, isNotNull);
     });
 

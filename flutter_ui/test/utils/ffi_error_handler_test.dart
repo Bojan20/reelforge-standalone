@@ -203,7 +203,8 @@ void main() {
 
       expect(error, isNotNull);
       expect(error!.category, equals(FFIErrorCategory.unknown));
-      expect(error.message, equals(malformed));
+      // FFIError.fromJson wraps the parse error message
+      expect(error.message, contains('Failed to parse'));
     });
 
     test('handleError calls onError callback', () {
