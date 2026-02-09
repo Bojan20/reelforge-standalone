@@ -1,0 +1,85 @@
+{
+  "version": "1.0.0",
+  "type": "fluxforge-qa-fixture",
+  "description": "Minimal GDD fixture for import wizard testing",
+  "gdd": {
+    "name": "QA Test Slot",
+    "version": "1.0",
+    "grid": {
+      "rows": 3,
+      "columns": 5,
+      "mechanic": "lines",
+      "paylines": 10
+    },
+    "symbols": [
+      {
+        "id": "diamond",
+        "name": "Diamond",
+        "tier": "premium",
+        "payouts": { "3": 50, "4": 200, "5": 1000 },
+        "isWild": false,
+        "isScatter": false,
+        "isBonus": false
+      },
+      {
+        "id": "crown",
+        "name": "Crown",
+        "tier": "high",
+        "payouts": { "3": 30, "4": 100, "5": 500 },
+        "isWild": false,
+        "isScatter": false,
+        "isBonus": false
+      },
+      {
+        "id": "bell",
+        "name": "Bell",
+        "tier": "mid",
+        "payouts": { "3": 15, "4": 50, "5": 200 },
+        "isWild": false,
+        "isScatter": false,
+        "isBonus": false
+      },
+      {
+        "id": "cherry",
+        "name": "Cherry",
+        "tier": "low",
+        "payouts": { "3": 5, "4": 20, "5": 75 },
+        "isWild": false,
+        "isScatter": false,
+        "isBonus": false
+      },
+      {
+        "id": "wild",
+        "name": "Wild Star",
+        "tier": "wild",
+        "payouts": { "3": 100, "4": 500, "5": 2000 },
+        "isWild": true,
+        "isScatter": false,
+        "isBonus": false
+      },
+      {
+        "id": "scatter",
+        "name": "Scatter",
+        "tier": "scatter",
+        "payouts": {},
+        "isWild": false,
+        "isScatter": true,
+        "isBonus": false
+      }
+    ],
+    "features": [
+      {
+        "name": "Free Spins",
+        "type": "free_spins",
+        "trigger": "3+ Scatter",
+        "description": "3 scatters trigger 10 free spins with 2x multiplier"
+      }
+    ],
+    "math": {
+      "volatility": "medium",
+      "rtp": 96.5,
+      "hitFrequency": 0.32,
+      "maxWin": 5000
+    }
+  }
+}

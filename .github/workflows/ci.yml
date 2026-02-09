@@ -526,3 +526,62 @@ jobs:
           name: fluxforge-macos-flutter
           path: flutter_ui/build/macos/Build/Products/Release/
           retention-days: 7
+
+  # ============================================
+  # Unified QA Pipeline
+  # ============================================
+  qa-pipeline:
+    name: QA Pipeline (8 Gates)
+    needs: [check, regression-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libjack-jackd2-dev \
+            libpipewire-0.3-dev
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-qa-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit || true
+
+      - name: Flutter pub get
+        working-directory: flutter_ui
+        run: flutter pub get
+
+      - name: Run QA Pipeline (CI profile)
+        run: |
+          chmod +x scripts/qa.sh
+          ./scripts/qa.sh --profile=ci --no-fail-fast
+
+      - name: Upload QA Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report
+          path: artifacts/qa/
+          retention-days: 30

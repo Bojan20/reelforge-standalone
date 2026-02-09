@@ -1,0 +1,128 @@
+{
+  "version": "1.0.0",
+  "type": "fluxforge-qa-fixture",
+  "description": "Minimal SlotLab project for QA testing — 5x3 grid with basic audio events",
+  "project": {
+    "name": "QA Test Project",
+    "created": "2026-02-09T00:00:00Z"
+  },
+  "grid": {
+    "reels": 5,
+    "rows": 3,
+    "mechanic": "lines",
+    "paylines": 10
+  },
+  "symbols": [
+    { "id": "hp1", "name": "High Pay 1", "emoji": "💎", "type": "highPay" },
+    { "id": "hp2", "name": "High Pay 2", "emoji": "👑", "type": "highPay" },
+    { "id": "mp1", "name": "Mid Pay 1", "emoji": "🔔", "type": "mediumPay" },
+    { "id": "lp1", "name": "Low Pay 1", "emoji": "🍒", "type": "lowPay" },
+    { "id": "lp2", "name": "Low Pay 2", "emoji": "🍋", "type": "lowPay" },
+    { "id": "wild", "name": "Wild", "emoji": "⭐", "type": "wild" },
+    { "id": "scatter", "name": "Scatter", "emoji": "💫", "type": "scatter" }
+  ],
+  "events": [
+    {
+      "id": "evt_spin_start",
+      "name": "onUiSpinButton",
+      "stage": "SPIN_START",
+      "layers": [
+        { "audioPath": "__placeholder__/spin_start.wav", "volume": 1.0, "pan": 0.0, "busId": 2 }
+      ]
+    },
+    {
+      "id": "evt_reel_spin_loop",
+      "name": "onReelSpinLoop",
+      "stage": "REEL_SPIN_LOOP",
+      "layers": [
+        { "audioPath": "__placeholder__/reel_spin_loop.wav", "volume": 0.7, "pan": 0.0, "busId": 2, "loop": true }
+      ]
+    },
+    {
+      "id": "evt_reel_stop_0",
+      "name": "onReelLand1",
+      "stage": "REEL_STOP_0",
+      "layers": [
+        { "audioPath": "__placeholder__/reel_stop.wav", "volume": 0.9, "pan": -0.8, "busId": 2 }
+      ]
+    },
+    {
+      "id": "evt_reel_stop_1",
+      "name": "onReelLand2",
+      "stage": "REEL_STOP_1",
+      "layers": [
+        { "audioPath": "__placeholder__/reel_stop.wav", "volume": 0.9, "pan": -0.4, "busId": 2 }
+      ]
+    },
+    {
+      "id": "evt_reel_stop_2",
+      "name": "onReelLand3",
+      "stage": "REEL_STOP_2",
+      "layers": [
+        { "audioPath": "__placeholder__/reel_stop.wav", "volume": 0.9, "pan": 0.0, "busId": 2 }
+      ]
+    },
+    {
+      "id": "evt_reel_stop_3",
+      "name": "onReelLand4",
+      "stage": "REEL_STOP_3",
+      "layers": [
+        { "audioPath": "__placeholder__/reel_stop.wav", "volume": 0.9, "pan": 0.4, "busId": 2 }
+      ]
+    },
+    {
+      "id": "evt_reel_stop_4",
+      "name": "onReelLand5",
+      "stage": "REEL_STOP_4",
+      "layers": [
+        { "audioPath": "__placeholder__/reel_stop.wav", "volume": 0.9, "pan": 0.8, "busId": 2 }
+      ]
+    },
+    {
+      "id": "evt_win_present_small",
+      "name": "onWinSmall",
+      "stage": "WIN_PRESENT_SMALL",
+      "layers": [
+        { "audioPath": "__placeholder__/win_small.wav", "volume": 1.0, "pan": 0.0, "busId": 2 }
+      ]
+    },
+    {
+      "id": "evt_win_present_big",
+      "name": "onWinBig",
+      "stage": "WIN_PRESENT_BIG",
+      "layers": [
+        { "audioPath": "__placeholder__/win_big.wav", "volume": 1.0, "pan": 0.0, "busId": 2 }
+      ]
+    },
+    {
+      "id": "evt_rollup_tick",
+      "name": "onRollupTick",
+      "stage": "ROLLUP_TICK",
+      "layers": [
+        { "audioPath": "__placeholder__/rollup_tick.wav", "volume": 0.6, "pan": 0.0, "busId": 2 }
+      ]
+    }
+  ],
+  "contexts": [
+    { "id": "base", "displayName": "Base Game", "type": "baseGame", "layerCount": 3 },
+    { "id": "freespins", "displayName": "Free Spins", "type": "freeSpins", "layerCount": 3 }
+  ],
+  "winTiers": {
+    "preset": "standard",
+    "bigWinThreshold": 20.0,
+    "regularTiers": [
+      { "id": "win_low", "label": "WIN_LOW", "minMultiplier": 0.0, "maxMultiplier": 1.0 },
+      { "id": "win_1", "label": "WIN 1", "minMultiplier": 1.0, "maxMultiplier": 2.0 },
+      { "id": "win_2", "label": "WIN 2", "minMultiplier": 2.0, "maxMultiplier": 5.0 },
+      { "id": "win_3", "label": "WIN 3", "minMultiplier": 5.0, "maxMultiplier": 8.0 },
+      { "id": "win_4", "label": "WIN 4", "minMultiplier": 8.0, "maxMultiplier": 12.0 },
+      { "id": "win_5", "label": "WIN 5", "minMultiplier": 12.0, "maxMultiplier": 16.0 },
+      { "id": "win_6", "label": "WIN 6", "minMultiplier": 16.0, "maxMultiplier": 20.0 }
+    ],
+    "bigWinTiers": [
+      { "id": "big_win_1", "label": "BIG WIN 1", "minMultiplier": 20.0, "maxMultiplier": 50.0 },
+      { "id": "big_win_2", "label": "BIG WIN 2", "minMultiplier": 50.0, "maxMultiplier": 100.0 },
+      { "id": "big_win_3", "label": "BIG WIN 3", "minMultiplier": 100.0, "maxMultiplier": 250.0 }
+    ]
+  }
+}
