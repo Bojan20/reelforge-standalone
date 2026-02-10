@@ -13,7 +13,6 @@ fn bench_buffer_copy(c: &mut Criterion) {
         group.throughput(Throughput::Bytes((size * 8) as u64)); // f64 = 8 bytes
 
         let input = generate_audio_buffer(size, 42);
-        let mut output = vec![0.0; size];
 
         group.bench_with_input(BenchmarkId::new("clone", size), &size, |b, _| {
             b.iter(|| black_box(input.clone()))
@@ -21,17 +20,19 @@ fn bench_buffer_copy(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("copy_from_slice", size), &size, |b, _| {
             b.iter(|| {
+                let mut output = vec![0.0; size];
                 output.copy_from_slice(&input);
-                black_box(&output)
+                black_box(output)
             })
         });
 
         group.bench_with_input(BenchmarkId::new("ptr_copy", size), &size, |b, _| {
             b.iter(|| {
+                let mut output = vec![0.0; size];
                 unsafe {
                     std::ptr::copy_nonoverlapping(input.as_ptr(), output.as_mut_ptr(), size);
                 }
-                black_box(&output)
+                black_box(output)
             })
         });
     }
@@ -122,28 +123,29 @@ fn bench_ring_buffer(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
 
         let input = generate_audio_buffer(size, 42);
-        let mut output = vec![0.0; size];
 
         // Ring buffer with 2x capacity for headroom
         let mut ring = RingBuffer::new(size * 2);
 
         group.bench_with_input(BenchmarkId::new("push_pop_single", size), &size, |b, _| {
             b.iter(|| {
+                let mut local_output = vec![0.0; size];
                 for &sample in &input {
                     ring.push(black_box(sample));
                 }
-                for o in output.iter_mut() {
+                for o in local_output.iter_mut() {
                     *o = ring.pop();
                 }
-                black_box(&output)
+                black_box(local_output)
             })
         });
 
         group.bench_with_input(BenchmarkId::new("push_pop_slice", size), &size, |b, _| {
             b.iter(|| {
+                let mut local_output = vec![0.0; size];
                 ring.push_slice(black_box(&input));
-                ring.pop_slice(&mut output);
-                black_box(&output)
+                ring.pop_slice(&mut local_output);
+                black_box(local_output)
             })
         });
     }
@@ -158,30 +160,31 @@ fn bench_buffer_zero(c: &mut Criterion) {
     for &size in BUFFER_SIZES {
         group.throughput(Throughput::Bytes((size * 8) as u64));
 
-        let mut buffer = vec![1.0f64; size];
-
         group.bench_with_input(BenchmarkId::new("fill_zero", size), &size, |b, _| {
             b.iter(|| {
+                let mut buffer = vec![1.0f64; size];
                 buffer.fill(0.0);
-                black_box(&buffer)
+                black_box(buffer)
             })
         });
 
         group.bench_with_input(BenchmarkId::new("iter_zero", size), &size, |b, _| {
             b.iter(|| {
+                let mut buffer = vec![1.0f64; size];
                 for sample in buffer.iter_mut() {
                     *sample = 0.0;
                 }
-                black_box(&buffer)
+                black_box(buffer)
             })
         });
 
         group.bench_with_input(BenchmarkId::new("write_bytes", size), &size, |b, _| {
             b.iter(|| {
+                let mut buffer = vec![1.0f64; size];
                 unsafe {
                     std::ptr::write_bytes(buffer.as_mut_ptr(), 0, size);
                 }
-                black_box(&buffer)
+                black_box(buffer)
             })
         });
     }
@@ -197,7 +200,6 @@ fn bench_inplace_vs_outofplace(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
 
         let input = generate_audio_buffer(size, 42);
-        let mut output = vec![0.0; size];
 
         // Simple gain operation
         let gain = 0.8;
@@ -214,10 +216,11 @@ fn bench_inplace_vs_outofplace(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("outofplace", size), &size, |b, _| {
             b.iter(|| {
+                let mut output = vec![0.0; size];
                 for (i, &sample) in input.iter().enumerate() {
                     output[i] = sample * gain;
                 }
-                black_box(&output)
+                black_box(output)
             })
         });
     }

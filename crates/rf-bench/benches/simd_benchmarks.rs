@@ -256,20 +256,21 @@ fn bench_mix_scalar_vs_simd(c: &mut Criterion) {
 
         let a = generate_audio_buffer(size, 42);
         let b = generate_audio_buffer(size, 43);
-        let mut output = vec![0.0; size];
 
         group.bench_with_input(BenchmarkId::new("scalar", size), &size, |b_iter, _| {
             b_iter.iter(|| {
+                let mut output = vec![0.0; size];
                 mix_scalar(&a, &b, black_box(0.5), &mut output);
-                black_box(&output)
+                black_box(output)
             })
         });
 
         #[cfg(target_arch = "x86_64")]
         group.bench_with_input(BenchmarkId::new("avx2", size), &size, |b_iter, _| {
             b_iter.iter(|| {
+                let mut output = vec![0.0; size];
                 mix_simd_avx2(&a, &b, black_box(0.5), &mut output);
-                black_box(&output)
+                black_box(output)
             })
         });
     }
@@ -285,23 +286,25 @@ fn bench_interleave(c: &mut Criterion) {
 
         let left = generate_audio_buffer(size, 42);
         let right = generate_audio_buffer(size, 43);
-        let mut interleaved = vec![0.0; size * 2];
-        let mut out_left = vec![0.0; size];
-        let mut out_right = vec![0.0; size];
 
         group.bench_with_input(BenchmarkId::new("interleave", size), &size, |b, _| {
             b.iter(|| {
+                let mut interleaved = vec![0.0; size * 2];
                 interleave_scalar(&left, &right, &mut interleaved);
-                black_box(&interleaved)
+                black_box(interleaved)
             })
         });
 
-        interleave_scalar(&left, &right, &mut interleaved);
+        // Pre-interleave for deinterleave bench
+        let mut interleaved_ref = vec![0.0; size * 2];
+        interleave_scalar(&left, &right, &mut interleaved_ref);
 
         group.bench_with_input(BenchmarkId::new("deinterleave", size), &size, |b, _| {
             b.iter(|| {
-                deinterleave_scalar(&interleaved, &mut out_left, &mut out_right);
-                black_box((&out_left, &out_right))
+                let mut out_left = vec![0.0; size];
+                let mut out_right = vec![0.0; size];
+                deinterleave_scalar(&interleaved_ref, &mut out_left, &mut out_right);
+                black_box((out_left, out_right))
             })
         });
     }

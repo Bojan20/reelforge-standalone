@@ -1,12 +1,13 @@
 //! DSP Processor Benchmarks
 //!
-//! Benchmarks for core DSP processors: filters, dynamics, gain.
+//! Benchmarks for core DSP processors: filters, dynamics, spatial, gain.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rf_bench::{generate_audio_buffer, generate_sine_buffer, BUFFER_SIZES};
-use rf_dsp::biquad::{BiquadCoeffs, BiquadFilter, FilterType};
-use rf_dsp::dynamics::{Compressor, CompressorParams, Limiter};
+use rf_dsp::biquad::BiquadTDF2;
+use rf_dsp::dynamics::{Compressor, Limiter};
 use rf_dsp::spatial::{StereoPanner, StereoWidth};
+use rf_dsp::{MonoProcessor, Processor, StereoProcessor};
 
 const SAMPLE_RATE: f64 = 48000.0;
 
@@ -17,15 +18,13 @@ fn bench_biquad_lowpass(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
 
         let input = generate_sine_buffer(size, 1000.0, SAMPLE_RATE);
-        let coeffs = BiquadCoeffs::lowpass(1000.0, 0.707, SAMPLE_RATE);
-        let mut filter = BiquadFilter::new(coeffs);
+        let mut filter = BiquadTDF2::new(SAMPLE_RATE);
+        filter.set_lowpass(1000.0, 0.707);
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
                 let mut output = input.clone();
-                for sample in output.iter_mut() {
-                    *sample = filter.process_sample(black_box(*sample));
-                }
+                filter.process_block(&mut output);
                 filter.reset();
                 black_box(output)
             })
@@ -42,15 +41,13 @@ fn bench_biquad_peaking(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
 
         let input = generate_audio_buffer(size, 42);
-        let coeffs = BiquadCoeffs::peaking(1000.0, 2.0, 6.0, SAMPLE_RATE);
-        let mut filter = BiquadFilter::new(coeffs);
+        let mut filter = BiquadTDF2::new(SAMPLE_RATE);
+        filter.set_peaking(1000.0, 2.0, 6.0);
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
                 let mut output = input.clone();
-                for sample in output.iter_mut() {
-                    *sample = filter.process_sample(black_box(*sample));
-                }
+                filter.process_block(&mut output);
                 filter.reset();
                 black_box(output)
             })
@@ -69,23 +66,25 @@ fn bench_biquad_cascade(c: &mut Criterion) {
         let input = generate_audio_buffer(size, 42);
 
         // 4-band EQ (typical parametric EQ)
-        let coeffs = [
-            BiquadCoeffs::lowshelf(80.0, 0.707, 3.0, SAMPLE_RATE),
-            BiquadCoeffs::peaking(250.0, 2.0, -2.0, SAMPLE_RATE),
-            BiquadCoeffs::peaking(2500.0, 1.5, 4.0, SAMPLE_RATE),
-            BiquadCoeffs::highshelf(8000.0, 0.707, 2.0, SAMPLE_RATE),
-        ];
-        let mut filters: Vec<BiquadFilter> = coeffs.iter().map(|&c| BiquadFilter::new(c)).collect();
+        let mut filters: Vec<BiquadTDF2> = Vec::with_capacity(4);
+        let mut f0 = BiquadTDF2::new(SAMPLE_RATE);
+        f0.set_low_shelf(80.0, 0.707, 3.0);
+        filters.push(f0);
+        let mut f1 = BiquadTDF2::new(SAMPLE_RATE);
+        f1.set_peaking(250.0, 2.0, -2.0);
+        filters.push(f1);
+        let mut f2 = BiquadTDF2::new(SAMPLE_RATE);
+        f2.set_peaking(2500.0, 1.5, 4.0);
+        filters.push(f2);
+        let mut f3 = BiquadTDF2::new(SAMPLE_RATE);
+        f3.set_high_shelf(8000.0, 0.707, 2.0);
+        filters.push(f3);
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
                 let mut output = input.clone();
-                for sample in output.iter_mut() {
-                    let mut s = black_box(*sample);
-                    for filter in filters.iter_mut() {
-                        s = filter.process_sample(s);
-                    }
-                    *sample = s;
+                for filter in filters.iter_mut() {
+                    filter.process_block(&mut output);
                 }
                 for filter in filters.iter_mut() {
                     filter.reset();
@@ -105,24 +104,18 @@ fn bench_compressor(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
 
         let input = generate_audio_buffer(size, 42);
-        let params = CompressorParams {
-            threshold_db: -20.0,
-            ratio: 4.0,
-            attack_ms: 10.0,
-            release_ms: 100.0,
-            knee_db: 6.0,
-            makeup_db: 0.0,
-        };
-        let mut comp = Compressor::new(SAMPLE_RATE, params);
+        let mut comp = Compressor::new(SAMPLE_RATE);
+        comp.set_threshold(-20.0);
+        comp.set_ratio(4.0);
+        comp.set_times(10.0, 100.0);
+        comp.set_knee(6.0);
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
-                let mut output = input.clone();
-                for sample in output.iter_mut() {
-                    *sample = comp.process_sample(black_box(*sample));
-                }
+                let mut buffer = input.clone();
+                comp.process_block(&mut buffer);
                 comp.reset();
-                black_box(output)
+                black_box(buffer)
             })
         });
     }
@@ -137,16 +130,16 @@ fn bench_limiter(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
 
         let input = generate_audio_buffer(size, 42);
-        let mut limiter = Limiter::new(SAMPLE_RATE, -1.0, 5.0, 50.0);
+        let mut limiter = Limiter::new(SAMPLE_RATE);
+        limiter.set_threshold(-1.0);
+        limiter.set_release(50.0);
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
-                let mut output = input.clone();
-                for sample in output.iter_mut() {
-                    *sample = limiter.process_sample(black_box(*sample));
-                }
+                let mut buffer = input.clone();
+                limiter.process_block(&mut buffer);
                 limiter.reset();
-                black_box(output)
+                black_box(buffer)
             })
         });
     }
@@ -161,13 +154,14 @@ fn bench_stereo_panner(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
 
         let input = generate_audio_buffer(size, 42);
-        let panner = StereoPanner::new(0.3); // Pan slightly right
+        let mut panner = StereoPanner::new();
+        panner.set_pan(0.3); // Pan slightly right
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
                 let mut left = input.clone();
                 let mut right = input.clone();
-                panner.process_stereo(&mut left, &mut right);
+                panner.process_block(&mut left, &mut right);
                 black_box((left, right))
             })
         });
@@ -184,13 +178,14 @@ fn bench_stereo_width(c: &mut Criterion) {
 
         let left = generate_audio_buffer(size, 42);
         let right = generate_audio_buffer(size, 43);
-        let width = StereoWidth::new(1.5); // Wider stereo
+        let mut width = StereoWidth::new();
+        width.set_width(1.5); // Wider stereo
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
                 let mut l = left.clone();
                 let mut r = right.clone();
-                width.process(&mut l, &mut r);
+                width.process_block(&mut l, &mut r);
                 black_box((l, r))
             })
         });
