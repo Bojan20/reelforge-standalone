@@ -746,4 +746,390 @@ mod tests {
         assert!((result[0] - 0.7071).abs() < 0.001);
         assert!((result[1] - 0.7071).abs() < 0.001);
     }
+
+    #[test]
+    fn test_db_to_linear_unity() {
+        assert!((db_to_linear(0.0) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_db_to_linear_minus6() {
+        // -6 dB ≈ 0.5012
+        let result = db_to_linear(-6.0);
+        assert!((result - 0.5012).abs() < 0.01, "Expected ~0.5012, got {}", result);
+    }
+
+    #[test]
+    fn test_db_to_linear_minus_inf() {
+        // -100 dB should be near zero
+        let result = db_to_linear(-100.0);
+        assert!(result < 0.00002, "Expected near-zero, got {}", result);
+    }
+
+    #[test]
+    fn test_linear_to_db_unity() {
+        assert!((linear_to_db(1.0) - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_linear_to_db_half() {
+        // 0.5 linear ≈ -6.02 dB
+        let result = linear_to_db(0.5);
+        assert!((result - (-6.02)).abs() < 0.1, "Expected ~-6.02, got {}", result);
+    }
+
+    #[test]
+    fn test_linear_to_db_roundtrip() {
+        // db_to_linear(linear_to_db(x)) ≈ x for various x values
+        for &x in &[0.001, 0.1, 0.25, 0.5, 0.707, 1.0, 1.5, 2.0] {
+            let roundtrip = db_to_linear(linear_to_db(x));
+            assert!(
+                (roundtrip - x).abs() < 0.001,
+                "Roundtrip failed for x={}: got {}",
+                x,
+                roundtrip
+            );
+        }
+    }
+
+    #[test]
+    fn test_equal_power_crossfade_extremes() {
+        // At t=0: left=1.0, right=0.0
+        let r0 = equal_power_crossfade(0.0);
+        assert!((r0[0] - 1.0).abs() < 1e-6);
+        assert!(r0[1].abs() < 1e-6);
+
+        // At t=1: left=0.0, right=1.0
+        let r1 = equal_power_crossfade(1.0);
+        assert!(r1[0].abs() < 1e-6);
+        assert!((r1[1] - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_equal_power_crossfade_midpoint() {
+        // At t=0.5: both ≈ 0.7071
+        let r = equal_power_crossfade(0.5);
+        assert!((r[0] - 0.7071).abs() < 0.001, "Left at 0.5: {}", r[0]);
+        assert!((r[1] - 0.7071).abs() < 0.001, "Right at 0.5: {}", r[1]);
+    }
+
+    #[test]
+    fn test_equal_power_crossfade_energy() {
+        // left^2 + right^2 ≈ 1.0 for various t values (energy conservation)
+        for i in 0..=20 {
+            let t = i as f32 / 20.0;
+            let r = equal_power_crossfade(t);
+            let energy = r[0] * r[0] + r[1] * r[1];
+            assert!(
+                (energy - 1.0).abs() < 0.001,
+                "Energy not conserved at t={}: energy={}",
+                t,
+                energy
+            );
+        }
+    }
+
+    #[test]
+    fn test_audio_bus_variants() {
+        // Verify all AudioBus variants exist with correct indices
+        assert_eq!(AudioBus::Master as u8, 0);
+        assert_eq!(AudioBus::Sfx as u8, 1);
+        assert_eq!(AudioBus::Music as u8, 2);
+        assert_eq!(AudioBus::Voice as u8, 3);
+        assert_eq!(AudioBus::Ambience as u8, 4);
+        assert_eq!(AudioBus::Ui as u8, 5);
+        assert_eq!(AudioBus::Reels as u8, 6);
+    }
+
+    #[test]
+    fn test_voice_steal_mode_variants() {
+        // Verify all VoiceStealMode variants exist
+        assert_eq!(VoiceStealMode::None as u8, 0);
+        assert_eq!(VoiceStealMode::Oldest as u8, 1);
+        assert_eq!(VoiceStealMode::Quietest as u8, 2);
+        assert_eq!(VoiceStealMode::LowestPriority as u8, 3);
+    }
+
+    #[test]
+    fn test_playback_state_variants() {
+        // Verify all PlaybackState variants exist
+        assert_eq!(PlaybackState::Stopped as u8, 0);
+        assert_eq!(PlaybackState::Playing as u8, 1);
+        assert_eq!(PlaybackState::Paused as u8, 2);
+        assert_eq!(PlaybackState::FadingOut as u8, 3);
+    }
+
+    #[test]
+    fn test_new_creates_instance() {
+        // FluxForgeAudio::new() works without panic (no AudioContext needed)
+        let audio = FluxForgeAudio::new();
+        assert!(!audio.is_initialized());
+        assert_eq!(audio.get_active_voice_count(), 0);
+        assert_eq!(audio.get_event_count(), 0);
+        assert_eq!(audio.get_rtpc_count(), 0);
+    }
+
+    #[test]
+    fn test_set_max_voices() {
+        let mut audio = FluxForgeAudio::new();
+        audio.set_max_voices(64);
+        audio.set_max_voices(1);
+        audio.set_max_voices(256);
+        // No panic = success
+    }
+
+    #[test]
+    fn test_set_voice_steal_mode() {
+        let mut audio = FluxForgeAudio::new();
+        audio.set_voice_steal_mode(VoiceStealMode::None);
+        audio.set_voice_steal_mode(VoiceStealMode::Oldest);
+        audio.set_voice_steal_mode(VoiceStealMode::Quietest);
+        audio.set_voice_steal_mode(VoiceStealMode::LowestPriority);
+        // No panic = success
+    }
+
+    #[test]
+    fn test_set_bus_volume() {
+        let mut audio = FluxForgeAudio::new();
+        audio.set_bus_volume(AudioBus::Sfx, 0.75);
+        assert!((audio.get_bus_volume(AudioBus::Sfx) - 0.75).abs() < 1e-6);
+
+        // Clamping: volume clamped to [0.0, 2.0]
+        audio.set_bus_volume(AudioBus::Music, 5.0);
+        assert!((audio.get_bus_volume(AudioBus::Music) - 2.0).abs() < 1e-6);
+
+        audio.set_bus_volume(AudioBus::Music, -1.0);
+        assert!((audio.get_bus_volume(AudioBus::Music) - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_set_bus_mute() {
+        let mut audio = FluxForgeAudio::new();
+        // Default: not muted
+        assert!(!audio.is_bus_muted(AudioBus::Sfx));
+
+        audio.set_bus_mute(AudioBus::Sfx, true);
+        assert!(audio.is_bus_muted(AudioBus::Sfx));
+
+        audio.set_bus_mute(AudioBus::Sfx, false);
+        assert!(!audio.is_bus_muted(AudioBus::Sfx));
+    }
+
+    #[test]
+    fn test_rtpc_state() {
+        let mut audio = FluxForgeAudio::new();
+
+        // Load an RTPC definition
+        let json = r#"[{"name": "winAmount", "min": 0.0, "max": 100.0, "default": 50.0}]"#;
+        let count = audio.load_rtpc_json(json).unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(audio.get_rtpc_count(), 1);
+
+        // Default value
+        assert!((audio.get_rtpc("winAmount") - 50.0).abs() < 1e-6);
+
+        // Set value
+        audio.set_rtpc("winAmount", 75.0);
+        assert!((audio.get_rtpc("winAmount") - 75.0).abs() < 1e-6);
+
+        // Normalized: (75 - 0) / (100 - 0) = 0.75
+        assert!((audio.get_rtpc_normalized("winAmount") - 0.75).abs() < 1e-6);
+
+        // Clamped to [min, max]
+        audio.set_rtpc("winAmount", 999.0);
+        assert!((audio.get_rtpc("winAmount") - 100.0).abs() < 1e-6);
+
+        audio.set_rtpc("winAmount", -50.0);
+        assert!((audio.get_rtpc("winAmount") - 0.0).abs() < 1e-6);
+
+        // Non-existent RTPC returns default 0
+        assert!((audio.get_rtpc("nonexistent") - 0.0).abs() < 1e-6);
+        assert!((audio.get_rtpc_normalized("nonexistent") - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_state_groups() {
+        let mut audio = FluxForgeAudio::new();
+
+        // No state group initially
+        assert!(audio.get_state("gamePhase").is_none());
+
+        // Set state
+        audio.set_state("gamePhase", "baseGame");
+        assert_eq!(audio.get_state("gamePhase").unwrap(), "baseGame");
+
+        // Change state
+        audio.set_state("gamePhase", "freeSpins");
+        assert_eq!(audio.get_state("gamePhase").unwrap(), "freeSpins");
+
+        // Load state groups from JSON
+        let json = r#"[{"name": "musicState", "states": ["idle", "playing", "paused"], "default_state": "idle"}]"#;
+        let count = audio.load_state_groups_json(json).unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(audio.get_state("musicState").unwrap(), "idle");
+    }
+
+    #[test]
+    fn test_dispose() {
+        let mut audio = FluxForgeAudio::new();
+
+        // Load some data
+        audio.set_state("test", "value");
+        audio.set_bus_volume(AudioBus::Sfx, 0.5);
+        audio.set_bus_mute(AudioBus::Music, true);
+
+        // Dispose should not panic
+        audio.dispose();
+
+        // After dispose, should be clean
+        assert!(!audio.is_initialized());
+        assert_eq!(audio.get_event_count(), 0);
+        assert_eq!(audio.get_rtpc_count(), 0);
+        assert!(audio.get_state("test").is_none());
+    }
+
+    #[test]
+    fn test_load_events_json() {
+        let mut audio = FluxForgeAudio::new();
+
+        let json = r#"[
+            {
+                "id": "spin_click",
+                "name": "Spin Click",
+                "stages": ["SPIN_START"],
+                "layers": [{
+                    "audio_path": "sfx/spin.wav",
+                    "volume": 1.0,
+                    "pan": 0.0,
+                    "delay_ms": 0,
+                    "offset_ms": 0,
+                    "bus": "Sfx",
+                    "loop_enabled": false
+                }],
+                "priority": 50
+            }
+        ]"#;
+
+        let count = audio.load_events_json(json).unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(audio.get_event_count(), 1);
+    }
+
+    // test_load_events_invalid_json is skipped on non-wasm32 targets because
+    // the error path uses JsValue::from_str() which panics outside WASM.
+    // This test would pass correctly on wasm32 targets with wasm-bindgen-test.
+
+    #[test]
+    fn test_cleanup_voices() {
+        let mut audio = FluxForgeAudio::new();
+        // Should not panic even with no voices
+        audio.cleanup_voices();
+        assert_eq!(audio.get_active_voice_count(), 0);
+    }
+
+    #[test]
+    fn test_stop_all_without_init() {
+        let mut audio = FluxForgeAudio::new();
+        audio.stop_all(0);
+        audio.stop_all(100);
+        // No panic = success
+    }
+
+    #[test]
+    fn test_stop_event_without_init() {
+        let mut audio = FluxForgeAudio::new();
+        audio.stop_event("nonexistent", 100);
+        // No panic = success
+    }
+
+    #[test]
+    fn test_stop_voice_without_init() {
+        let mut audio = FluxForgeAudio::new();
+        audio.stop_voice(9999, 100);
+        // No panic = success
+    }
+
+    #[test]
+    fn test_get_version() {
+        let version = get_version();
+        assert!(!version.is_empty());
+        assert_eq!(version, "0.1.0");
+    }
+
+    #[test]
+    fn test_voice_handle() {
+        let handle = VoiceHandle {
+            id: 42,
+            event_id: "test_event".to_string(),
+        };
+        assert_eq!(handle.id(), 42);
+        assert_eq!(handle.event_id(), "test_event");
+        assert!(handle.is_valid());
+
+        let invalid = VoiceHandle {
+            id: 0,
+            event_id: String::new(),
+        };
+        assert!(!invalid.is_valid());
+    }
+
+    #[test]
+    fn test_equal_power_crossfade_clamping() {
+        // Values outside [0, 1] should be clamped
+        let r_neg = equal_power_crossfade(-1.0);
+        let r_zero = equal_power_crossfade(0.0);
+        assert!((r_neg[0] - r_zero[0]).abs() < 1e-6);
+        assert!((r_neg[1] - r_zero[1]).abs() < 1e-6);
+
+        let r_over = equal_power_crossfade(2.0);
+        let r_one = equal_power_crossfade(1.0);
+        assert!((r_over[0] - r_one[0]).abs() < 1e-6);
+        assert!((r_over[1] - r_one[1]).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_set_master_volume() {
+        let mut audio = FluxForgeAudio::new();
+        audio.set_master_volume(0.5);
+        assert!((audio.get_bus_volume(AudioBus::Master) - 0.5).abs() < 1e-6);
+
+        // Clamped to [0.0, 2.0]
+        audio.set_master_volume(3.0);
+        assert!((audio.get_bus_volume(AudioBus::Master) - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_set_max_voices_per_event() {
+        let mut audio = FluxForgeAudio::new();
+        audio.set_max_voices_per_event(8);
+        audio.set_max_voices_per_event(1);
+        // No panic = success
+    }
+
+    #[test]
+    fn test_get_current_time_no_context() {
+        let audio = FluxForgeAudio::new();
+        assert!((audio.get_current_time() - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_get_sample_rate_no_context() {
+        let audio = FluxForgeAudio::new();
+        assert!((audio.get_sample_rate() - 44100.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_play_event_without_init() {
+        let mut audio = FluxForgeAudio::new();
+        let result = audio.play_event("test", 1.0, 1.0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_trigger_stage_without_init() {
+        let mut audio = FluxForgeAudio::new();
+        let result = audio.trigger_stage("SPIN_START", 1.0);
+        assert!(result.is_none());
+    }
+
 }

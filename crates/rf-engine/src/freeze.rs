@@ -773,12 +773,20 @@ mod tests {
         assert!(manager.frozen_tracks().is_empty());
     }
 
+    /// Force OS buffer → disk sync (ExFAT volumes have delayed allocation)
+    fn sync_file(path: &std::path::Path) {
+        if let Ok(file) = std::fs::File::open(path) {
+            let _ = file.sync_all();
+        }
+    }
+
     #[test]
     fn test_offline_renderer_wav_write() {
         let dir = std::env::temp_dir().join("rf_freeze_test");
         std::fs::create_dir_all(&dir).ok();
 
         let path = dir.join("test_render.wav");
+        let _ = std::fs::remove_file(&path); // Clean up leftover
 
         // Generate 1 second of stereo sine wave
         let sample_rate = 48000;
@@ -793,14 +801,17 @@ mod tests {
         }
 
         // Write 32-bit float
-        OfflineRenderer::write_wav_f32(&path, &left, &right, sample_rate as u32).unwrap();
-        assert!(path.exists());
+        OfflineRenderer::write_wav_f32(&path, &left, &right, sample_rate as u32)
+            .expect("Failed to write WAV f32");
+        sync_file(&path);
 
-        let metadata = std::fs::metadata(&path).unwrap();
-        assert!(metadata.len() > 0);
+        assert!(path.exists(), "WAV f32 file should exist after write+sync");
+
+        let metadata = std::fs::metadata(&path).expect("Failed to read metadata");
+        assert!(metadata.len() > 0, "WAV f32 file should have content");
 
         // Cleanup
-        std::fs::remove_file(&path).ok();
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
@@ -809,14 +820,18 @@ mod tests {
         std::fs::create_dir_all(&dir).ok();
 
         let path = dir.join("test_render_24.wav");
+        let _ = std::fs::remove_file(&path); // Clean up leftover
 
         let left = vec![0.5f64; 1000];
         let right = vec![-0.5f64; 1000];
 
-        OfflineRenderer::write_wav_24bit(&path, &left, &right, 48000).unwrap();
-        assert!(path.exists());
+        OfflineRenderer::write_wav_24bit(&path, &left, &right, 48000)
+            .expect("Failed to write WAV 24bit");
+        sync_file(&path);
 
-        std::fs::remove_file(&path).ok();
+        assert!(path.exists(), "WAV 24bit file should exist after write+sync");
+
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
@@ -825,13 +840,17 @@ mod tests {
         std::fs::create_dir_all(&dir).ok();
 
         let path = dir.join("test_render_16.wav");
+        let _ = std::fs::remove_file(&path); // Clean up leftover
 
         let left = vec![0.25f64; 1000];
         let right = vec![-0.25f64; 1000];
 
-        OfflineRenderer::write_wav_16bit(&path, &left, &right, 44100).unwrap();
-        assert!(path.exists());
+        OfflineRenderer::write_wav_16bit(&path, &left, &right, 44100)
+            .expect("Failed to write WAV 16bit");
+        sync_file(&path);
 
-        std::fs::remove_file(&path).ok();
+        assert!(path.exists(), "WAV 16bit file should exist after write+sync");
+
+        let _ = std::fs::remove_file(&path);
     }
 }

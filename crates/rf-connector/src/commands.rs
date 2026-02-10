@@ -236,4 +236,218 @@ mod tests {
         assert!(!caps.seekable);
         assert!(caps.supported_commands.contains(&"pause".to_string()));
     }
+
+    #[test]
+    fn test_all_command_variants() {
+        // Verify all 13 EngineCommand variants can be constructed
+        let commands: Vec<EngineCommand> = vec![
+            EngineCommand::PlaySpin { spin_id: "s1".to_string() },
+            EngineCommand::Pause,
+            EngineCommand::Resume,
+            EngineCommand::Stop,
+            EngineCommand::Seek { timestamp_ms: 1000.0 },
+            EngineCommand::SetSpeed { speed: 2.0 },
+            EngineCommand::SetTimingProfile { profile: "turbo".to_string() },
+            EngineCommand::GetState,
+            EngineCommand::GetSpinList,
+            EngineCommand::GetCapabilities,
+            EngineCommand::TriggerEvent {
+                event_name: "test".to_string(),
+                payload: None,
+            },
+            EngineCommand::SetParameter {
+                name: "volume".to_string(),
+                value: serde_json::json!(0.8),
+            },
+            EngineCommand::Custom {
+                name: "my_cmd".to_string(),
+                data: serde_json::json!({}),
+            },
+        ];
+        assert_eq!(commands.len(), 13);
+    }
+
+    #[test]
+    fn test_command_name() {
+        assert_eq!(EngineCommand::PlaySpin { spin_id: "x".into() }.name(), "play_spin");
+        assert_eq!(EngineCommand::Pause.name(), "pause");
+        assert_eq!(EngineCommand::Resume.name(), "resume");
+        assert_eq!(EngineCommand::Stop.name(), "stop");
+        assert_eq!(EngineCommand::Seek { timestamp_ms: 0.0 }.name(), "seek");
+        assert_eq!(EngineCommand::SetSpeed { speed: 1.0 }.name(), "set_speed");
+        assert_eq!(EngineCommand::SetTimingProfile { profile: "n".into() }.name(), "set_timing_profile");
+        assert_eq!(EngineCommand::GetState.name(), "get_state");
+        assert_eq!(EngineCommand::GetSpinList.name(), "get_spin_list");
+        assert_eq!(EngineCommand::GetCapabilities.name(), "get_capabilities");
+        assert_eq!(EngineCommand::TriggerEvent { event_name: "e".into(), payload: None }.name(), "trigger_event");
+        assert_eq!(EngineCommand::SetParameter { name: "p".into(), value: serde_json::json!(1) }.name(), "set_parameter");
+        assert_eq!(EngineCommand::Custom { name: "c".into(), data: serde_json::json!({}) }.name(), "custom");
+    }
+
+    #[test]
+    fn test_command_expects_response() {
+        // These expect responses
+        assert!(EngineCommand::GetState.expects_response());
+        assert!(EngineCommand::GetSpinList.expects_response());
+        assert!(EngineCommand::GetCapabilities.expects_response());
+
+        // These do NOT expect responses
+        assert!(!EngineCommand::PlaySpin { spin_id: "x".into() }.expects_response());
+        assert!(!EngineCommand::Pause.expects_response());
+        assert!(!EngineCommand::Resume.expects_response());
+        assert!(!EngineCommand::Stop.expects_response());
+        assert!(!EngineCommand::Seek { timestamp_ms: 0.0 }.expects_response());
+        assert!(!EngineCommand::SetSpeed { speed: 1.0 }.expects_response());
+        assert!(!EngineCommand::SetTimingProfile { profile: "x".into() }.expects_response());
+        assert!(!EngineCommand::TriggerEvent { event_name: "e".into(), payload: None }.expects_response());
+        assert!(!EngineCommand::SetParameter { name: "n".into(), value: serde_json::json!(1) }.expects_response());
+        assert!(!EngineCommand::Custom { name: "c".into(), data: serde_json::json!({}) }.expects_response());
+    }
+
+    #[test]
+    fn test_command_response_success() {
+        let resp = CommandResponse::success("cmd-1", Some(serde_json::json!({"result": "ok"})));
+        assert_eq!(resp.command_id, "cmd-1");
+        assert!(resp.success);
+        assert!(resp.data.is_some());
+        assert_eq!(resp.data.unwrap()["result"], "ok");
+        assert!(resp.error.is_none());
+        assert!(resp.timestamp_ms > 0.0);
+    }
+
+    #[test]
+    fn test_command_response_success_no_data() {
+        let resp = CommandResponse::success("cmd-2", None);
+        assert_eq!(resp.command_id, "cmd-2");
+        assert!(resp.success);
+        assert!(resp.data.is_none());
+        assert!(resp.error.is_none());
+    }
+
+    #[test]
+    fn test_command_response_error() {
+        let resp = CommandResponse::error("cmd-3", "something went wrong");
+        assert_eq!(resp.command_id, "cmd-3");
+        assert!(!resp.success);
+        assert!(resp.data.is_none());
+        assert_eq!(resp.error, Some("something went wrong".to_string()));
+        assert!(resp.timestamp_ms > 0.0);
+    }
+
+    #[test]
+    fn test_engine_capabilities_default() {
+        let caps = EngineCapabilities::default();
+        assert_eq!(caps.engine_name, "Unknown");
+        assert_eq!(caps.version, "1.0");
+        assert!(!caps.bidirectional);
+        assert!(!caps.seekable);
+        assert!(!caps.variable_speed);
+        assert_eq!(caps.min_speed, 1.0);
+        assert_eq!(caps.max_speed, 1.0);
+        assert_eq!(caps.supported_commands.len(), 4);
+        assert_eq!(caps.timing_profiles.len(), 2);
+    }
+
+    #[test]
+    fn test_engine_capabilities_fields() {
+        let caps = EngineCapabilities {
+            engine_name: "TestEngine".to_string(),
+            version: "2.5.0".to_string(),
+            supported_commands: vec!["play_spin".into(), "pause".into(), "seek".into()],
+            timing_profiles: vec!["normal".into(), "turbo".into(), "mobile".into()],
+            bidirectional: true,
+            seekable: true,
+            variable_speed: true,
+            min_speed: 0.25,
+            max_speed: 4.0,
+        };
+        assert_eq!(caps.engine_name, "TestEngine");
+        assert_eq!(caps.version, "2.5.0");
+        assert_eq!(caps.supported_commands.len(), 3);
+        assert_eq!(caps.timing_profiles.len(), 3);
+        assert!(caps.bidirectional);
+        assert!(caps.seekable);
+        assert!(caps.variable_speed);
+        assert_eq!(caps.min_speed, 0.25);
+        assert_eq!(caps.max_speed, 4.0);
+    }
+
+    #[test]
+    fn test_command_serialization_all() {
+        // Verify all 13 variants serialize to valid JSON
+        let commands: Vec<EngineCommand> = vec![
+            EngineCommand::PlaySpin { spin_id: "s1".to_string() },
+            EngineCommand::Pause,
+            EngineCommand::Resume,
+            EngineCommand::Stop,
+            EngineCommand::Seek { timestamp_ms: 500.0 },
+            EngineCommand::SetSpeed { speed: 1.5 },
+            EngineCommand::SetTimingProfile { profile: "turbo".to_string() },
+            EngineCommand::GetState,
+            EngineCommand::GetSpinList,
+            EngineCommand::GetCapabilities,
+            EngineCommand::TriggerEvent {
+                event_name: "win".to_string(),
+                payload: Some(serde_json::json!({"amount": 100})),
+            },
+            EngineCommand::SetParameter {
+                name: "volume".to_string(),
+                value: serde_json::json!(0.75),
+            },
+            EngineCommand::Custom {
+                name: "reset".to_string(),
+                data: serde_json::json!({"full": true}),
+            },
+        ];
+
+        for cmd in &commands {
+            let json_str = serde_json::to_string(cmd).unwrap();
+            assert!(!json_str.is_empty(), "Serialization produced empty string for {:?}", cmd);
+
+            // Verify it contains the command tag
+            let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+            assert!(parsed.get("command").is_some(), "Missing 'command' tag in {:?}", json_str);
+            assert_eq!(parsed["command"].as_str().unwrap(), cmd.name());
+        }
+    }
+
+    #[test]
+    fn test_command_serialization_roundtrip() {
+        let cmd = EngineCommand::TriggerEvent {
+            event_name: "test_event".to_string(),
+            payload: Some(serde_json::json!({"key": "value", "num": 42})),
+        };
+        let json_str = serde_json::to_string(&cmd).unwrap();
+        let deserialized: EngineCommand = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(deserialized.name(), "trigger_event");
+        // Verify payload survived roundtrip
+        match deserialized {
+            EngineCommand::TriggerEvent { event_name, payload } => {
+                assert_eq!(event_name, "test_event");
+                assert_eq!(payload.unwrap()["key"], "value");
+            }
+            _ => panic!("Wrong variant after deserialization"),
+        }
+    }
+
+    #[test]
+    fn test_command_response_serialization() {
+        let resp = CommandResponse::success("id-1", Some(serde_json::json!({"items": [1, 2, 3]})));
+        let json_str = serde_json::to_string(&resp).unwrap();
+        let deserialized: CommandResponse = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(deserialized.command_id, "id-1");
+        assert!(deserialized.success);
+        assert_eq!(deserialized.data.unwrap()["items"][1], 2);
+    }
+
+    #[test]
+    fn test_engine_capabilities_serialization() {
+        let caps = EngineCapabilities::default();
+        let json_str = serde_json::to_string(&caps).unwrap();
+        let deserialized: EngineCapabilities = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(deserialized.engine_name, caps.engine_name);
+        assert_eq!(deserialized.version, caps.version);
+        assert_eq!(deserialized.supported_commands.len(), caps.supported_commands.len());
+    }
+
 }

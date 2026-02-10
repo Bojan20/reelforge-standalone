@@ -1035,4 +1035,384 @@ mod tests {
         let is_playing: bool = engine.eval("return rf.context:is_playing()").unwrap();
         assert!(is_playing);
     }
+
+    // ==================== Sandbox Security Tests ====================
+
+    #[test]
+    fn test_sandbox_no_os() {
+        let engine = ScriptEngine::new().unwrap();
+        // os library should not be loaded in sandboxed engine
+        let result: mlua::Value = engine.eval("return os").unwrap();
+        assert!(
+            matches!(result, mlua::Value::Nil),
+            "os should be nil in sandboxed Lua"
+        );
+        // Attempting to call os.execute should error
+        let err = engine.execute("os.execute('ls')");
+        assert!(err.is_err(), "os.execute must fail in sandbox");
+    }
+
+    #[test]
+    fn test_sandbox_no_io() {
+        let engine = ScriptEngine::new().unwrap();
+        // io library should not be loaded
+        let result: mlua::Value = engine.eval("return io").unwrap();
+        assert!(
+            matches!(result, mlua::Value::Nil),
+            "io should be nil in sandboxed Lua"
+        );
+        // Attempting to use io.open should error
+        let err = engine.execute("io.open('test.txt')");
+        assert!(err.is_err(), "io.open must fail in sandbox");
+    }
+
+    #[test]
+    fn test_sandbox_no_loadfile() {
+        let engine = ScriptEngine::new().unwrap();
+        // loadfile was explicitly set to nil
+        let result: mlua::Value = engine.eval("return loadfile").unwrap();
+        assert!(
+            matches!(result, mlua::Value::Nil),
+            "loadfile should be nil in sandboxed Lua"
+        );
+        // Calling loadfile should error (it's nil, so calling nil errors)
+        let err = engine.execute("loadfile('test.lua')");
+        assert!(err.is_err(), "loadfile('test.lua') must fail in sandbox");
+    }
+
+    #[test]
+    fn test_sandbox_no_dofile() {
+        let engine = ScriptEngine::new().unwrap();
+        // dofile was explicitly set to nil
+        let result: mlua::Value = engine.eval("return dofile").unwrap();
+        assert!(
+            matches!(result, mlua::Value::Nil),
+            "dofile should be nil in sandboxed Lua"
+        );
+        // Calling dofile should error
+        let err = engine.execute("dofile('test.lua')");
+        assert!(err.is_err(), "dofile('test.lua') must fail in sandbox");
+    }
+
+    #[test]
+    fn test_sandbox_math_works() {
+        let engine = ScriptEngine::new().unwrap();
+        // math library should still be available
+        let result: f64 = engine.eval("return math.sqrt(16)").unwrap();
+        assert!(
+            (result - 4.0).abs() < 0.001,
+            "math.sqrt(16) should be 4.0, got {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_sandbox_string_works() {
+        let engine = ScriptEngine::new().unwrap();
+        // string library should still be available
+        let result: String = engine.eval("return string.upper('hello')").unwrap();
+        assert_eq!(result, "HELLO");
+    }
+
+    #[test]
+    fn test_sandbox_table_works() {
+        let engine = ScriptEngine::new().unwrap();
+        // table library should still be available
+        let result: String = engine.eval("return table.concat({'a','b','c'}, ',')").unwrap();
+        assert_eq!(result, "a,b,c");
+    }
+
+    // ==================== ScriptAction Tests ====================
+
+    #[test]
+    fn test_script_action_play() {
+        let action = ScriptAction::Play;
+        assert!(matches!(action, ScriptAction::Play));
+    }
+
+    #[test]
+    fn test_script_action_stop() {
+        let action = ScriptAction::Stop;
+        assert!(matches!(action, ScriptAction::Stop));
+    }
+
+    #[test]
+    fn test_script_action_all_variants() {
+        // Transport
+        let _ = ScriptAction::Play;
+        let _ = ScriptAction::Stop;
+        let _ = ScriptAction::Record;
+        let _ = ScriptAction::SetPlayhead(0);
+        let _ = ScriptAction::SetLoop(0, 48000);
+
+        // Track operations
+        let _ = ScriptAction::CreateTrack {
+            name: "Test".into(),
+            track_type: "audio".into(),
+        };
+        let _ = ScriptAction::DeleteTrack(1);
+        let _ = ScriptAction::RenameTrack(1, "New Name".into());
+        let _ = ScriptAction::MuteTrack(1, true);
+        let _ = ScriptAction::SoloTrack(1, true);
+        let _ = ScriptAction::SetTrackVolume(1, 0.8);
+        let _ = ScriptAction::SetTrackPan(1, -0.5);
+
+        // Clip operations
+        let _ = ScriptAction::CreateClip {
+            track_id: 1,
+            start: 0,
+            length: 48000,
+        };
+        let _ = ScriptAction::DeleteClip(1);
+        let _ = ScriptAction::MoveClip {
+            clip_id: 1,
+            new_start: 96000,
+        };
+        let _ = ScriptAction::TrimClip {
+            clip_id: 1,
+            new_start: 100,
+            new_end: 48000,
+        };
+        let _ = ScriptAction::SplitClip {
+            clip_id: 1,
+            position: 24000,
+        };
+        let _ = ScriptAction::DuplicateClip(1);
+
+        // Selection
+        let _ = ScriptAction::SelectTrack(1);
+        let _ = ScriptAction::SelectClip(1);
+        let _ = ScriptAction::SelectAll;
+        let _ = ScriptAction::DeselectAll;
+
+        // Edit operations
+        let _ = ScriptAction::Cut;
+        let _ = ScriptAction::Copy;
+        let _ = ScriptAction::Paste;
+        let _ = ScriptAction::Delete;
+        let _ = ScriptAction::Undo;
+        let _ = ScriptAction::Redo;
+
+        // Plugin operations
+        let _ = ScriptAction::InsertPlugin {
+            track_id: 1,
+            slot: 0,
+            plugin_id: "com.example.eq".into(),
+        };
+        let _ = ScriptAction::RemovePlugin {
+            track_id: 1,
+            slot: 0,
+        };
+        let _ = ScriptAction::SetPluginParam {
+            track_id: 1,
+            slot: 0,
+            param_id: 42,
+            value: 0.75,
+        };
+
+        // Automation
+        let _ = ScriptAction::WriteAutomation {
+            track_id: 1,
+            param: "volume".into(),
+            time: 48000,
+            value: 0.5,
+        };
+        let _ = ScriptAction::ClearAutomation {
+            track_id: 1,
+            param: "volume".into(),
+        };
+
+        // Markers
+        let _ = ScriptAction::AddMarker {
+            position: 0,
+            name: "Intro".into(),
+            color: 0xFF0000,
+        };
+        let _ = ScriptAction::DeleteMarker(1);
+
+        // Project
+        let _ = ScriptAction::Save;
+        let _ = ScriptAction::SaveAs(PathBuf::from("/tmp/test.rfp"));
+        let _ = ScriptAction::Export {
+            path: PathBuf::from("/tmp/out.wav"),
+            format: "wav".into(),
+        };
+
+        // Custom
+        let _ = ScriptAction::Custom {
+            name: "my_action".into(),
+            data: "{}".into(),
+        };
+    }
+
+    // ==================== ScriptContext Tests ====================
+
+    #[test]
+    fn test_script_context_creation() {
+        let ctx = ScriptContext::default();
+        assert_eq!(ctx.playhead, 0);
+        assert_eq!(ctx.sample_rate, 48000);
+        assert_eq!(ctx.block_size, 256);
+        assert!(!ctx.is_playing);
+        assert!(!ctx.is_recording);
+        assert!(ctx.selected_tracks.is_empty());
+        assert!(ctx.selected_clips.is_empty());
+        assert!(ctx.project_path.is_none());
+    }
+
+    #[test]
+    fn test_script_context_fields() {
+        let engine = ScriptEngine::new().unwrap();
+
+        let ctx = ScriptContext {
+            playhead: 192000,
+            sample_rate: 96000,
+            is_playing: false,
+            is_recording: true,
+            selected_tracks: vec![1, 2, 3],
+            selected_clips: vec![10, 20],
+            project_path: Some(PathBuf::from("/tmp/test.rfp")),
+            block_size: 512,
+        };
+
+        engine.update_context(ctx);
+
+        let playhead: u64 = engine.eval("return rf.context:get_playhead()").unwrap();
+        assert_eq!(playhead, 192000);
+
+        let sr: u32 = engine.eval("return rf.context:get_sample_rate()").unwrap();
+        assert_eq!(sr, 96000);
+
+        let playing: bool = engine.eval("return rf.context:is_playing()").unwrap();
+        assert!(!playing);
+
+        let recording: bool = engine.eval("return rf.context:is_recording()").unwrap();
+        assert!(recording);
+    }
+
+    // ==================== Script Execution Tests ====================
+
+    #[test]
+    fn test_execute_simple_script() {
+        let engine = ScriptEngine::new().unwrap();
+        let result: i64 = engine.eval("return 1 + 1").unwrap();
+        assert_eq!(result, 2);
+    }
+
+    #[test]
+    fn test_execute_variable_assignment() {
+        let engine = ScriptEngine::new().unwrap();
+        engine.execute("x = 42").unwrap();
+        let result: i64 = engine.eval("return x").unwrap();
+        assert_eq!(result, 42);
+    }
+
+    #[test]
+    fn test_execute_function_definition() {
+        let engine = ScriptEngine::new().unwrap();
+        engine
+            .execute(
+                r#"
+function add(a, b)
+    return a + b
+end
+"#,
+            )
+            .unwrap();
+        let result: i64 = engine.eval("return add(10, 32)").unwrap();
+        assert_eq!(result, 42);
+    }
+
+    // ==================== ScriptManager Tests ====================
+
+    #[test]
+    fn test_script_manager_builtin_count() {
+        let manager = ScriptManager::new().unwrap();
+        // Should have exactly 3 built-in scripts
+        let all = manager.list_all_scripts();
+        assert!(
+            all.len() >= 3,
+            "Expected at least 3 built-in scripts, got {}",
+            all.len()
+        );
+        assert!(all.contains(&"normalize_clips".to_string()));
+        assert!(all.contains(&"mute_all".to_string()));
+        assert!(all.contains(&"duplicate_track".to_string()));
+    }
+
+    #[test]
+    fn test_script_manager_get_script() {
+        let manager = ScriptManager::new().unwrap();
+        // Execute a built-in script — mute_all with empty context should print "No tracks selected"
+        let ctx = ScriptContext::default();
+        manager.engine().update_context(ctx);
+        let result = manager.execute("mute_all");
+        assert!(result.is_ok(), "mute_all should execute without error");
+    }
+
+    #[test]
+    fn test_script_manager_list_scripts() {
+        let manager = ScriptManager::new().unwrap();
+        let scripts = manager.list_all_scripts();
+        // Must be sorted (as the implementation sorts)
+        let mut sorted = scripts.clone();
+        sorted.sort();
+        assert_eq!(scripts, sorted, "list_all_scripts should return sorted list");
+    }
+
+    // ==================== rf Namespace Tests ====================
+
+    #[test]
+    fn test_rf_namespace_exists() {
+        let engine = ScriptEngine::new().unwrap();
+        let result: mlua::Value = engine.eval("return rf").unwrap();
+        assert!(
+            matches!(result, mlua::Value::Table(_)),
+            "rf should be a table, got {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_db_to_linear_utility() {
+        let engine = ScriptEngine::new().unwrap();
+        // 0 dB = 1.0 linear
+        let result: f64 = engine.eval("return rf.db_to_linear(0)").unwrap();
+        assert!(
+            (result - 1.0).abs() < 0.001,
+            "db_to_linear(0) should be 1.0, got {}",
+            result
+        );
+        // -20 dB = 0.1 linear
+        let result: f64 = engine.eval("return rf.db_to_linear(-20)").unwrap();
+        assert!(
+            (result - 0.1).abs() < 0.001,
+            "db_to_linear(-20) should be 0.1, got {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_samples_to_seconds_utility() {
+        let engine = ScriptEngine::new().unwrap();
+        // 44100 samples at 44100 Hz = 1.0 second
+        let result: f64 = engine
+            .eval("return rf.samples_to_seconds(44100, 44100)")
+            .unwrap();
+        assert!(
+            (result - 1.0).abs() < 0.001,
+            "samples_to_seconds(44100, 44100) should be 1.0, got {}",
+            result
+        );
+        // 96000 samples at 48000 Hz = 2.0 seconds
+        let result: f64 = engine
+            .eval("return rf.samples_to_seconds(96000, 48000)")
+            .unwrap();
+        assert!(
+            (result - 2.0).abs() < 0.001,
+            "samples_to_seconds(96000, 48000) should be 2.0, got {}",
+            result
+        );
+    }
+
 }

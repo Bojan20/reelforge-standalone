@@ -134,4 +134,69 @@ mod tests {
         // The important thing is that run() completes without panic
         assert!(duration.as_secs() < 10, "Benchmark took unreasonably long");
     }
+
+    #[test]
+    fn test_throughput_not_realtime() {
+        let metrics = ThroughputMetrics::from_benchmark(1, Duration::from_secs(10), 44100.0);
+        assert!(!metrics.is_realtime());
+    }
+
+    #[test]
+    fn test_throughput_summary_format() {
+        let metrics = ThroughputMetrics::from_benchmark(44100, Duration::from_millis(10), 44100.0);
+        let summary = metrics.summary();
+        assert!(summary.contains("MS/s"));
+        assert!(summary.contains("realtime"));
+        assert!(summary.contains("latency"));
+    }
+
+    #[test]
+    fn test_throughput_latency() {
+        let metrics = ThroughputMetrics::from_benchmark(44100, Duration::from_millis(50), 44100.0);
+        assert!((metrics.latency_ms - 50.0).abs() < 1.0, "Latency should be ~50ms, got {}", metrics.latency_ms);
+    }
+
+    #[test]
+    fn test_black_box_passthrough() {
+        let val = black_box(42);
+        assert_eq!(val, 42);
+        let s = black_box(String::from("test"));
+        assert_eq!(s, "test");
+    }
+
+    #[test]
+    fn test_overhead_percent_no_overhead() {
+        let baseline = Duration::from_millis(100);
+        let measured = Duration::from_millis(100);
+        let overhead = overhead_percent(baseline, measured);
+        assert!((overhead - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_overhead_percent_double() {
+        let baseline = Duration::from_millis(100);
+        let measured = Duration::from_millis(200);
+        let overhead = overhead_percent(baseline, measured);
+        assert!((overhead - 100.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_overhead_percent_50() {
+        let baseline = Duration::from_millis(100);
+        let measured = Duration::from_millis(150);
+        let overhead = overhead_percent(baseline, measured);
+        assert!((overhead - 50.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_quick_bench_with_metrics() {
+        let bench = QuickBench::new(50);
+        let metrics = bench.run_with_metrics(1024, 44100.0, || {
+            black_box((0..100).sum::<i32>());
+        });
+        assert!(metrics.samples_per_sec > 0.0);
+        assert!(metrics.ns_per_sample > 0.0);
+        assert!(metrics.realtime_ratio > 0.0);
+    }
+
 }

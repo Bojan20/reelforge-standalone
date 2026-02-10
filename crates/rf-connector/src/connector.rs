@@ -464,4 +464,85 @@ mod tests {
 
         assert_eq!(connector.state().await, ConnectionState::Disconnected);
     }
+
+    #[tokio::test]
+    async fn test_builder_websocket() {
+        let connector = ConnectorBuilder::websocket("ws://localhost:8080").build();
+        match connector.config.protocol {
+            crate::protocol::Protocol::WebSocket { ref url } => {
+                assert_eq!(url, "ws://localhost:8080");
+            }
+            _ => panic!("Expected WebSocket protocol"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_builder_tcp() {
+        let connector = ConnectorBuilder::tcp("localhost", 9090).build();
+        match connector.config.protocol {
+            crate::protocol::Protocol::Tcp { ref host, port } => {
+                assert_eq!(host, "localhost");
+                assert_eq!(port, 9090);
+            }
+            _ => panic!("Expected TCP protocol"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_builder_auth() {
+        let connector = ConnectorBuilder::websocket("ws://localhost:8080")
+            .auth("token123")
+            .build();
+        assert_eq!(connector.config.auth_token, Some("token123".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_builder_timeout() {
+        let connector = ConnectorBuilder::websocket("ws://localhost:8080")
+            .timeout(5000)
+            .build();
+        assert_eq!(connector.config.timeout_ms, 5000);
+    }
+
+    #[tokio::test]
+    async fn test_builder_auto_reconnect() {
+        let builder = ConnectorBuilder::websocket("ws://localhost:8080")
+            .auto_reconnect(true);
+        assert!(builder.auto_reconnect);
+
+        let builder2 = ConnectorBuilder::websocket("ws://localhost:8080")
+            .auto_reconnect(false);
+        assert!(!builder2.auto_reconnect);
+    }
+
+    #[tokio::test]
+    async fn test_builder_adapter() {
+        let connector = ConnectorBuilder::websocket("ws://localhost:8080")
+            .adapter("my-adapter")
+            .build();
+        assert_eq!(connector.config.adapter_id, "my-adapter");
+    }
+
+    #[tokio::test]
+    async fn test_builder_chaining() {
+        let connector = ConnectorBuilder::websocket("ws://test:1234")
+            .adapter("chain-adapter")
+            .auth("secret")
+            .timeout(10000)
+            .auto_reconnect(false)
+            .reconnect_delay(Duration::from_secs(5))
+            .build();
+
+        assert_eq!(connector.config.adapter_id, "chain-adapter");
+        assert_eq!(connector.config.auth_token, Some("secret".to_string()));
+        assert_eq!(connector.config.timeout_ms, 10000);
+        match connector.config.protocol {
+            crate::protocol::Protocol::WebSocket { ref url } => {
+                assert_eq!(url, "ws://test:1234");
+            }
+            _ => panic!("Expected WebSocket protocol"),
+        }
+        assert_eq!(connector.state().await, ConnectionState::Disconnected);
+    }
+
 }
