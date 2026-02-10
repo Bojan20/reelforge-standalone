@@ -9,7 +9,6 @@
 /// - EQ band summation
 /// - Edge cases (DC, Nyquist, extreme Q values)
 
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';

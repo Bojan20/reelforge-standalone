@@ -11,7 +11,6 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show Color;
 import 'package:path/path.dart' as p;
 import '../models/slot_lab_models.dart';

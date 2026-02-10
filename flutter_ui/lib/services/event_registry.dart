@@ -594,7 +594,8 @@ class EventRegistry extends ChangeNotifier {
     }
   }
 
-  // Currently playing instances
+  // Currently playing instances — capped at _maxPlayingInstances to prevent memory leak
+  static const int _maxPlayingInstances = 256;
   final List<_PlayingInstance> _playingInstances = [];
 
   // Preloaded paths (for tracking)
@@ -626,12 +627,21 @@ class EventRegistry extends ChangeNotifier {
   final Map<int, int> _reelSpinLoopVoices = {};
   static const int _spinLoopFadeMs = 50; // Fade duration for smooth stop
 
+  // P0-C3: Guard flag to serialize reel spin loop access and prevent concurrent modification
+  bool _processingReelStop = false;
+
   /// P0: Fade out a specific reel's spin loop with smooth crossfade
   void _fadeOutReelSpinLoop(int reelIndex) {
-    final voiceId = _reelSpinLoopVoices[reelIndex];
-    if (voiceId != null && voiceId > 0) {
-      AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: _spinLoopFadeMs);
-      _reelSpinLoopVoices.remove(reelIndex);
+    if (_processingReelStop) return; // Prevent concurrent access
+    _processingReelStop = true;
+    try {
+      final voiceId = _reelSpinLoopVoices[reelIndex];
+      if (voiceId != null && voiceId > 0) {
+        AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: _spinLoopFadeMs);
+        _reelSpinLoopVoices.remove(reelIndex);
+      }
+    } finally {
+      _processingReelStop = false;
     }
   }
 
@@ -647,10 +657,12 @@ class EventRegistry extends ChangeNotifier {
 
   /// P0: Stop all spin loops (called when spin ends abruptly)
   void stopAllSpinLoops() {
-    for (final entry in _reelSpinLoopVoices.entries) {
+    // P0-C3: Snapshot map to avoid concurrent modification
+    final snapshot = Map<int, int>.from(_reelSpinLoopVoices);
+    _reelSpinLoopVoices.clear();
+    for (final entry in snapshot.entries) {
       AudioPlaybackService.instance.fadeOutVoice(entry.value, fadeMs: _spinLoopFadeMs);
     }
-    _reelSpinLoopVoices.clear();
   }
 
   /// Auto fade-out all active voices matching stage prefix (2026-02-01)
@@ -1381,10 +1393,12 @@ class EventRegistry extends ChangeNotifier {
   /// Check if two AudioEvents are equivalent (same layers, same audio data)
   /// Used to avoid stopping playback when re-registering identical events
   bool _eventsAreEquivalent(AudioEvent a, AudioEvent b) {
-    // Compare basic fields
+    // Compare basic fields (P2-M2: include overlap, crossfadeMs, targetBusId)
     if (a.name != b.name || a.stage != b.stage || a.duration != b.duration ||
         a.loop != b.loop || a.priority != b.priority ||
-        a.containerType != b.containerType || a.containerId != b.containerId) {
+        a.containerType != b.containerType || a.containerId != b.containerId ||
+        a.overlap != b.overlap || a.crossfadeMs != b.crossfadeMs ||
+        a.targetBusId != b.targetBusId) {
       return false;
     }
 
@@ -1393,7 +1407,7 @@ class EventRegistry extends ChangeNotifier {
       return false;
     }
 
-    // Compare each layer (order-dependent)
+    // Compare each layer (order-dependent, P2-M2: include fade/trim fields)
     for (int i = 0; i < a.layers.length; i++) {
       final layerA = a.layers[i];
       final layerB = b.layers[i];
@@ -1403,7 +1417,11 @@ class EventRegistry extends ChangeNotifier {
           layerA.pan != layerB.pan ||
           layerA.delay != layerB.delay ||
           layerA.offset != layerB.offset ||
-          layerA.busId != layerB.busId) {
+          layerA.busId != layerB.busId ||
+          layerA.fadeInMs != layerB.fadeInMs ||
+          layerA.fadeOutMs != layerB.fadeOutMs ||
+          layerA.trimStartMs != layerB.trimStartMs ||
+          layerA.trimEndMs != layerB.trimEndMs) {
         return false;
       }
     }
@@ -2066,7 +2084,7 @@ class EventRegistry extends ChangeNotifier {
       }
     }
 
-    // P1.2: Check voice limit before spawning new voices
+    // P1-H1: Atomic voice limit check + placeholder insertion (prevents TOCTOU race)
     final activeVoices = _countActiveVoices(eventId);
     if (activeVoices >= _maxVoicesPerEvent) {
       _voiceLimitRejects++;
@@ -2076,7 +2094,7 @@ class EventRegistry extends ChangeNotifier {
       return;
     }
 
-    // Kreiraj playing instance
+    // Kreiraj playing instance IMMEDIATELY (before async playback) to hold the slot
     // P0: Track isLooping so cleanup timer doesn't kill looping voices
     final voiceIds = <int>[];
     final instance = _PlayingInstance(
@@ -2085,6 +2103,16 @@ class EventRegistry extends ChangeNotifier {
       startTime: DateTime.now(),
       isLooping: event.loop,
     );
+    // P0-C2: Evict oldest non-looping instances when at capacity to prevent memory leak
+    while (_playingInstances.length >= _maxPlayingInstances) {
+      final oldestIdx = _playingInstances.indexWhere((i) => !i.isLooping);
+      if (oldestIdx >= 0) {
+        _playingInstances.removeAt(oldestIdx);
+      } else {
+        // All are looping — evict the oldest looping instance
+        _playingInstances.removeAt(0);
+      }
+    }
     _playingInstances.add(instance);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2523,6 +2551,13 @@ class EventRegistry extends ChangeNotifier {
             source: source,
           );
         }
+      }
+
+      // P2-M3: Check FFI return value — negative voiceId means playback failed
+      if (voiceId < 0) {
+        _lastTriggerSuccess = false;
+        _lastTriggerError = 'FFI playback failed for ${layer.audioPath} (voiceId=$voiceId)';
+        return; // Skip this layer
       }
 
       if (voiceId >= 0) {

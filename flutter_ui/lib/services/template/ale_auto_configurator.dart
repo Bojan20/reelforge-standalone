@@ -8,8 +8,6 @@ library;
 
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
-
 import '../../models/template_models.dart';
 import '../../providers/ale_provider.dart';
 import '../service_locator.dart';

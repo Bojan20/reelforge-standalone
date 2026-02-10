@@ -6,8 +6,6 @@
 /// P3-12: Template Gallery
 library;
 
-import 'package:flutter/foundation.dart';
-
 import '../../models/advanced_middleware_models.dart';
 import '../../models/template_models.dart';
 import '../../providers/subsystems/bus_hierarchy_provider.dart';

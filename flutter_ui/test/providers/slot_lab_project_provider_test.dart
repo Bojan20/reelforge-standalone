@@ -164,7 +164,7 @@ void main() {
     test('audioAssignments map is unmodifiable', () {
       provider.setAudioAssignment('SPIN_START', '/a.wav');
       expect(
-        () => (provider.audioAssignments as Map<String, String>)['X'] = 'Y',
+        () => provider.audioAssignments['X'] = 'Y',
         throwsA(isA<UnsupportedError>()),
       );
     });
@@ -321,7 +321,7 @@ void main() {
 
     test('expandedSections set is unmodifiable', () {
       expect(
-        () => (provider.expandedSections as Set<String>).add('x'),
+        () => provider.expandedSections.add('x'),
         throwsA(isA<UnsupportedError>()),
       );
     });

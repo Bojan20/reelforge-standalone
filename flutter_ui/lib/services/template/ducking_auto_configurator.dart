@@ -6,8 +6,6 @@
 /// P3-12: Template Gallery
 library;
 
-import 'package:flutter/foundation.dart';
-
 import '../../models/middleware_models.dart';
 import '../../models/template_models.dart';
 import '../../providers/subsystems/ducking_system_provider.dart';

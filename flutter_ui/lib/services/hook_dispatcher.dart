@@ -20,7 +20,6 @@
 //   HookDispatcher.instance.unregister(hookId);
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import '../models/hook_models.dart';
 
 class HookDispatcher {
@@ -167,7 +166,7 @@ class HookDispatcher {
       try {
         hook.execute(context);
         executedCount++;
-      } catch (e, stackTrace) {
+      } catch (e) {
         errors[hook.id] = e;
       }
     }
@@ -201,7 +200,7 @@ class HookDispatcher {
       try {
         await hook.executeAsync(context);
         executedCount++;
-      } catch (e, stackTrace) {
+      } catch (e) {
         errors[hook.id] = e;
       }
     }

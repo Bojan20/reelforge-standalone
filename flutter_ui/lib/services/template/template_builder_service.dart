@@ -6,8 +6,6 @@
 /// P3-12: Template Gallery
 library;
 
-import 'package:flutter/foundation.dart';
-
 import '../../models/template_models.dart';
 
 /// Service for building templates from JSON config

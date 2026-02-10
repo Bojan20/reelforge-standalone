@@ -6,7 +6,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive.dart';
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
 /// Session archive configuration

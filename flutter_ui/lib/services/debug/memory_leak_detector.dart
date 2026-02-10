@@ -16,7 +16,6 @@
 /// ```
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 
 /// Memory leak type
 enum LeakType {

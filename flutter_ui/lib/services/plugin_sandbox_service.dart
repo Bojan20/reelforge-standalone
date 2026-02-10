@@ -12,7 +12,6 @@
 /// - Plugin state preservation on crash
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PLUGIN SANDBOX STATUS

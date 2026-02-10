@@ -21,7 +21,6 @@ library;
 
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
 import '../providers/middleware_provider.dart';
 
 /// Sentinel for copyWith null handling

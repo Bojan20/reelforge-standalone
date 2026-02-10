@@ -7,7 +7,6 @@
 
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
 import '../models/plugin_manifest.dart';

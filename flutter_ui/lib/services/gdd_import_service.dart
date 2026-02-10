@@ -11,7 +11,6 @@
 library;
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../models/win_tier_config.dart';
 

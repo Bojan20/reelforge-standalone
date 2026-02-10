@@ -8,7 +8,6 @@
 /// - Playback uses engine_play() / engine_seek() (same as DAW)
 /// - Transport is synchronized between SlotLab and DAW
 
-import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
 
 /// Bridge between SlotLab timeline and DAW TRACK_MANAGER

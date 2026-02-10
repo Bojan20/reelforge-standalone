@@ -598,7 +598,11 @@ impl SpinResult {
                 // ═══════════════════════════════════════════════════════════════════════
                 // SEQUENTIAL MODE: Each anticipation reel is processed one at a time
                 // ═══════════════════════════════════════════════════════════════════════
-                let antic = self.anticipation.as_ref().unwrap();
+                // P2-M1: Safe unwrap — anticipation is guaranteed by has_anticipation guard
+                let antic = match self.anticipation.as_ref() {
+                    Some(a) => a,
+                    None => continue, // Should never happen, but don't panic
+                };
                 let tension_level = antic.tension_level_for_reel(reel);
                 let antic_duration = timing.config().anticipation_duration_ms;
 
@@ -695,7 +699,11 @@ impl SpinResult {
                 // ═══════════════════════════════════════════════════════════════════════
                 // PARALLEL MODE (legacy): Anticipation runs alongside normal reel stops
                 // ═══════════════════════════════════════════════════════════════════════
-                let antic = self.anticipation.as_ref().unwrap();
+                // P2-M1: Safe unwrap — anticipation is guaranteed by has_anticipation guard
+                let antic = match self.anticipation.as_ref() {
+                    Some(a) => a,
+                    None => continue, // Should never happen, but don't panic
+                };
                 let tension_level = antic.tension_level_for_reel(reel);
 
                 // Anticipation ON happens at current timeline position (before stop)

@@ -272,11 +272,13 @@ class SlotLabProvider extends ChangeNotifier {
 
   // ─── Audio Integration ─────────────────────────────────────────────────────
   MiddlewareProvider? _middleware;
+  VoidCallback? _middlewareListener; // P1-H2: Track for cleanup
   StageAudioMapper? _audioMapper;
   bool _autoTriggerAudio = true;
 
   // ─── ALE Integration ──────────────────────────────────────────────────────
   AleProvider? _aleProvider;
+  VoidCallback? _aleListener; // P1-H2: Track for cleanup
   bool _aleAutoSync = true;
 
   // ─── Stage Event Playback ──────────────────────────────────────────────────
@@ -802,13 +804,23 @@ class SlotLabProvider extends ChangeNotifier {
   }
 
   /// Connect middleware for audio triggering
+  /// P1-H2: Remove old listener before setting new reference to prevent leaks
   void connectMiddleware(MiddlewareProvider middleware) {
+    if (_middleware != null && _middlewareListener != null) {
+      _middleware!.removeListener(_middlewareListener!);
+      _middlewareListener = null;
+    }
     _middleware = middleware;
     _audioMapper = StageAudioMapper(middleware, _ffi);
   }
 
   /// Connect ALE provider for signal sync
+  /// P1-H2: Remove old listener before setting new reference to prevent leaks
   void connectAle(AleProvider ale) {
+    if (_aleProvider != null && _aleListener != null) {
+      _aleProvider!.removeListener(_aleListener!);
+      _aleListener = null;
+    }
     _aleProvider = ale;
   }
 
@@ -2561,6 +2573,15 @@ class SlotLabProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    // P1-H2: Clean up listeners to prevent memory leaks
+    if (_middleware != null && _middlewareListener != null) {
+      _middleware!.removeListener(_middlewareListener!);
+      _middlewareListener = null;
+    }
+    if (_aleProvider != null && _aleListener != null) {
+      _aleProvider!.removeListener(_aleListener!);
+      _aleListener = null;
+    }
     _stagePlaybackTimer?.cancel();
     _audioPreTriggerTimer?.cancel();
     shutdownEngineV2();

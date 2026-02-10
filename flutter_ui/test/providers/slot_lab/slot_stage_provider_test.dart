@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxforge_ui/providers/slot_lab/slot_stage_provider.dart';
-import 'package:fluxforge_ui/models/stage_models.dart';
 
 void main() {
   // ═══════════════════════════════════════════════════════════════════════════

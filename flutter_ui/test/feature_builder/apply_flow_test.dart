@@ -7,11 +7,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxforge_ui/providers/feature_builder_provider.dart';
-import 'package:fluxforge_ui/blocks/game_core_block.dart';
-import 'package:fluxforge_ui/blocks/grid_block.dart';
-import 'package:fluxforge_ui/blocks/symbol_set_block.dart';
-import 'package:fluxforge_ui/blocks/free_spins_block.dart';
-import 'package:fluxforge_ui/blocks/cascades_block.dart';
 import 'package:fluxforge_ui/services/feature_builder/feature_block_registry.dart';
 
 void main() {

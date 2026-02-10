@@ -2083,7 +2083,10 @@ pub extern "C" fn slot_lab_pick_bonus_make_pick() -> *mut c_char {
                     "game_over": game_over,
                 });
                 let json_str = serde_json::to_string(&json).unwrap_or_default();
-                CString::new(json_str).unwrap().into_raw()
+                match CString::new(json_str) {
+                    Ok(c) => c.into_raw(),
+                    Err(_) => std::ptr::null_mut(),
+                }
             } else {
                 std::ptr::null_mut()
             }
@@ -2100,7 +2103,10 @@ pub extern "C" fn slot_lab_pick_bonus_get_state_json() -> *mut c_char {
     match &*guard {
         Some(engine) => {
             if let Some(json_str) = engine.pick_bonus_get_state_json() {
-                CString::new(json_str).unwrap().into_raw()
+                match CString::new(json_str) {
+                    Ok(c) => c.into_raw(),
+                    Err(_) => std::ptr::null_mut(),
+                }
             } else {
                 std::ptr::null_mut()
             }
@@ -2215,7 +2221,10 @@ pub extern "C" fn slot_lab_gamble_make_choice(choice_index: i32) -> *mut c_char 
                     "game_over": game_over,
                 });
                 let json_str = serde_json::to_string(&json).unwrap_or_default();
-                CString::new(json_str).unwrap().into_raw()
+                match CString::new(json_str) {
+                    Ok(c) => c.into_raw(),
+                    Err(_) => std::ptr::null_mut(),
+                }
             } else {
                 std::ptr::null_mut()
             }
@@ -2241,7 +2250,10 @@ pub extern "C" fn slot_lab_gamble_get_state_json() -> *mut c_char {
     match &*guard {
         Some(engine) => {
             if let Some(json_str) = engine.gamble_get_state_json() {
-                CString::new(json_str).unwrap().into_raw()
+                match CString::new(json_str) {
+                    Ok(c) => c.into_raw(),
+                    Err(_) => std::ptr::null_mut(),
+                }
             } else {
                 std::ptr::null_mut()
             }

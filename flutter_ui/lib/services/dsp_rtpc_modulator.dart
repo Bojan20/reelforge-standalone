@@ -11,7 +11,6 @@
 library;
 
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
 import '../models/middleware_models.dart';
 import '../providers/dsp_chain_provider.dart';
 import '../providers/subsystems/rtpc_system_provider.dart';

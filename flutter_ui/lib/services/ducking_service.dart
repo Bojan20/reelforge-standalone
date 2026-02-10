@@ -13,7 +13,6 @@ library;
 
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
 import '../models/middleware_models.dart';
 
 /// Service for automatic audio ducking

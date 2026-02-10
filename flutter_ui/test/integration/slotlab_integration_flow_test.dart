@@ -26,7 +26,6 @@ import 'package:fluxforge_ui/models/event_zoom_settings.dart';
 import 'package:fluxforge_ui/models/middleware_models.dart'
     show ActionType, MusicSyncPoint, CrossfadeCurve;
 import 'package:fluxforge_ui/models/slot_audio_events.dart';
-import 'package:fluxforge_ui/models/slot_lab_models.dart';
 import 'package:fluxforge_ui/models/timeline_models.dart' hide CrossfadeCurve;
 import 'package:fluxforge_ui/models/win_tier_config.dart';
 import 'package:fluxforge_ui/services/event_registry.dart' show ContainerType;

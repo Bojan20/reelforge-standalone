@@ -19,7 +19,6 @@
 //   final result = await bridge.execute('return fluxforge.createEvent("Test", "SPIN_START")');
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'fluxforge_api.dart';
 
 /// Lua execution result

@@ -6,14 +6,11 @@
 // ============================================================================
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fluxforge_ui/blocks/free_spins_block.dart';
 import 'package:fluxforge_ui/blocks/bonus_game_block.dart';
 import 'package:fluxforge_ui/blocks/hold_and_win_block.dart';
 import 'package:fluxforge_ui/blocks/wild_features_block.dart';
-import 'package:fluxforge_ui/blocks/cascades_block.dart';
 import 'package:fluxforge_ui/blocks/jackpot_block.dart';
 import 'package:fluxforge_ui/blocks/symbol_set_block.dart';
-import 'package:fluxforge_ui/blocks/grid_block.dart';
 import 'package:fluxforge_ui/blocks/anticipation_block.dart';
 import 'package:fluxforge_ui/models/feature_builder/feature_block.dart';
 import 'package:fluxforge_ui/providers/feature_builder_provider.dart';

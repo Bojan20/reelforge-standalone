@@ -5,14 +5,10 @@
 // Tests verify that presets can be saved, loaded, and migrated correctly.
 // ============================================================================
 
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxforge_ui/models/feature_builder/feature_preset.dart';
 import 'package:fluxforge_ui/blocks/anticipation_block.dart';
 import 'package:fluxforge_ui/blocks/wild_features_block.dart';
-import 'package:fluxforge_ui/blocks/game_core_block.dart';
-import 'package:fluxforge_ui/blocks/grid_block.dart';
 import 'package:fluxforge_ui/blocks/free_spins_block.dart';
 
 void main() {

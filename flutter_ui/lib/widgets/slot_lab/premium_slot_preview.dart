@@ -4932,7 +4932,7 @@ class PremiumSlotPreview extends StatefulWidget {
   final bool isFullscreen;
 
   /// P5: Project provider for dynamic win tier configuration
-  /// When null, uses context.read<SlotLabProjectProvider>() or legacy fallback
+  /// When null, uses context.read or legacy fallback
   final SlotLabProjectProvider? projectProvider;
 
   const PremiumSlotPreview({

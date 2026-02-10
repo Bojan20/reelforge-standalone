@@ -7,8 +7,6 @@
 library;
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
-
 import '../../models/template_models.dart';
 import '../../providers/subsystems/rtpc_system_provider.dart';
 import '../event_registry.dart';
@@ -324,7 +322,7 @@ class TemplateAutoWireService {
         validationReport: validationReport,
         duration: stopwatch.elapsed,
       );
-    } catch (e, stack) {
+    } catch (e) {
       stopwatch.stop();
 
       return WireResult.failure(e.toString(), stopwatch.elapsed);
