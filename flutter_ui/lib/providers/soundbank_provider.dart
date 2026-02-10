@@ -644,8 +644,6 @@ class SoundbankProvider extends ChangeNotifier {
           );
           if (jobId == 0) {
             // Conversion failed, fall back to copy
-            debugPrint(
-                'Warning: Format conversion failed for ${asset.name}, copying original');
             await sourceFile.copy(destPath.replaceAll(
                 '.$outputExt',
                 '.${path.extension(asset.sourcePath).replaceFirst('.', '')}'));

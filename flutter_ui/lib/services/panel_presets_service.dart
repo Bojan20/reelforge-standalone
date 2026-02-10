@@ -329,9 +329,7 @@ class PanelPresetsService extends ChangeNotifier {
           }
         }
       }
-    } catch (e) {
-      debugPrint('[PanelPresets] Error loading: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     _isLoaded = true;
     notifyListeners();
@@ -344,9 +342,7 @@ class PanelPresetsService extends ChangeNotifier {
       // Only save user presets (built-in are always added at load)
       final userPresetsJson = userPresets.map((p) => p.toJson()).toList();
       await prefs.setString(_prefsKey, jsonEncode(userPresetsJson));
-    } catch (e) {
-      debugPrint('[PanelPresets] Error saving: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get preset by ID

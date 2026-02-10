@@ -175,7 +175,6 @@ class AudioPool extends ChangeNotifier {
   /// Configure the pool (call early, before first use)
   void configure(AudioPoolConfig config) {
     _config = config;
-    debugPrint('[AudioPool] Configured: min=${config.minVoicesPerEvent}, max=${config.maxVoicesPerEvent}');
   }
 
   // ==========================================================================
@@ -218,7 +217,6 @@ class AudioPool extends ChangeNotifier {
       voice.markPlaying();
       voice.lastPan = pan;
       _playVoice(voice.voiceId, audioPath, volume, pan, busId);
-      debugPrint('[AudioPool] HIT: $normalizedKey (voice ${voice.voiceId}, pan ${pan.toStringAsFixed(2)})');
       return voice.voiceId;
     }
 
@@ -235,7 +233,6 @@ class AudioPool extends ChangeNotifier {
           v.markPlaying();
           v.lastPan = pan;
           _playVoice(v.voiceId, audioPath, volume, pan, busId);
-          debugPrint('[AudioPool] RECYCLE: $normalizedKey (voice ${v.voiceId}, pan ${pan.toStringAsFixed(2)})');
           return v.voiceId;
         }
       }
@@ -251,7 +248,6 @@ class AudioPool extends ChangeNotifier {
           estimatedDurationMs: 2000,
         );
       }
-      debugPrint('[AudioPool] OVERFLOW: $normalizedKey (voice $tempVoiceId, total overflow: $_overflowCount)');
       return tempVoiceId;
     }
 
@@ -267,7 +263,6 @@ class AudioPool extends ChangeNotifier {
     pool.add(newVoice);
     _activeVoices[newVoiceId] = newVoice;
 
-    debugPrint('[AudioPool] MISS: $normalizedKey (new voice $newVoiceId, pool size: ${pool.length})');
     return newVoiceId;
   }
 
@@ -279,9 +274,7 @@ class AudioPool extends ChangeNotifier {
       // Stop playback
       try {
         NativeFFI.instance.playbackStopOneShot(voiceId);
-      } catch (e) {
-        debugPrint('[AudioPool] Release error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
   }
 
@@ -312,9 +305,7 @@ class AudioPool extends ChangeNotifier {
           try {
             NativeFFI.instance.playbackStopOneShot(voice.voiceId);
             voice.markStopped();
-          } catch (e) {
-            debugPrint('[AudioPool] StopAll error: $e');
-          }
+          } catch (e) { /* ignored */ }
         }
       }
     }
@@ -339,7 +330,6 @@ class AudioPool extends ChangeNotifier {
     for (final key in eventKeys) {
       _ensurePoolSize(key, _config.minVoicesPerEvent, busId);
     }
-    debugPrint('[AudioPool] Preloaded ${eventKeys.length} event types');
   }
 
   /// Preload voices for slot lab events
@@ -359,7 +349,6 @@ class AudioPool extends ChangeNotifier {
     for (final event in slotEvents) {
       _ensurePoolSize(event, _config.minVoicesPerEvent, 0); // Bus 0 = SFX
     }
-    debugPrint('[AudioPool] Preloaded Slot Lab events');
   }
 
   // ==========================================================================
@@ -375,18 +364,11 @@ class AudioPool extends ChangeNotifier {
     }
 
     final uniquePaths = paths.toSet().toList(); // Remove duplicates
-    debugPrint('[AudioPool] Preloading ${uniquePaths.length} audio files...');
 
     final result = NativeFFI.instance.cachePreloadFiles(uniquePaths);
 
     if (result.containsKey('error')) {
-      debugPrint('[AudioPool] Preload error: ${result['error']}');
     } else {
-      debugPrint('[AudioPool] Preload complete: '
-          '${result['loaded']}/${result['total']} loaded, '
-          '${result['cached']} cached, '
-          '${result['failed']} failed, '
-          '${result['duration_ms']}ms');
     }
 
     return result;
@@ -444,7 +426,6 @@ class AudioPool extends ChangeNotifier {
       );
       return voiceId;
     } catch (e) {
-      debugPrint('[AudioPool] Create voice error: $e');
       return -1;
     }
   }
@@ -459,9 +440,7 @@ class AudioPool extends ChangeNotifier {
         pan: pan.clamp(-1.0, 1.0),
         busId: busId,
       );
-    } catch (e) {
-      debugPrint('[AudioPool] Play voice error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ==========================================================================
@@ -493,7 +472,6 @@ class AudioPool extends ChangeNotifier {
     }
 
     if (cleaned > 0) {
-      debugPrint('[AudioPool] Cleaned $cleaned idle voices');
     }
   }
 
@@ -529,7 +507,6 @@ class AudioPool extends ChangeNotifier {
     }
 
     if (toRemove.isNotEmpty) {
-      debugPrint('[AudioPool] Cleaned ${toRemove.length} overflow voices (remaining: ${_overflowVoices.length})');
     }
   }
 
@@ -542,7 +519,6 @@ class AudioPool extends ChangeNotifier {
       } catch (e) {
         // Voice may already be stopped
       }
-      debugPrint('[AudioPool] Released overflow voice $voiceId');
     }
   }
 
@@ -610,6 +586,5 @@ class AudioPool extends ChangeNotifier {
     _poolHits = 0;
     _poolMisses = 0;
     _overflowCount = 0;  // P0.4: Reset overflow counter
-    debugPrint('[AudioPool] Reset');
   }
 }

@@ -419,9 +419,7 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
           }
         }
         setState(() {});
-      } catch (e) {
-        debugPrint('Error loading custom shortcuts: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
   }
 

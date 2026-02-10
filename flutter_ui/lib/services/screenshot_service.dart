@@ -263,10 +263,8 @@ class ScreenshotService {
         _history.removeLast();
       }
 
-      debugPrint('[ScreenshotService] Captured: $filePath (${result.sizeString}, ${result.fileSizeString})');
       return result;
     } catch (e) {
-      debugPrint('[ScreenshotService] Capture error: $e');
       return ScreenshotResult.failure(e.toString());
     }
   }
@@ -277,10 +275,8 @@ class ScreenshotService {
       // Note: Flutter's clipboard doesn't directly support images
       // This would need platform-specific implementation
       // For now, we return false indicating clipboard not supported
-      debugPrint('[ScreenshotService] Clipboard copy not yet implemented');
       return false;
     } catch (e) {
-      debugPrint('[ScreenshotService] Clipboard error: $e');
       return false;
     }
   }
@@ -301,7 +297,6 @@ class ScreenshotService {
       }
       return false;
     } catch (e) {
-      debugPrint('[ScreenshotService] Delete error: $e');
       return false;
     }
   }
@@ -317,8 +312,6 @@ class ScreenshotService {
       } else if (Platform.isLinux) {
         await Process.run('xdg-open', [dir.path]);
       }
-    } catch (e) {
-      debugPrint('[ScreenshotService] Open folder error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 }

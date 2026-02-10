@@ -299,7 +299,6 @@ class DspRtpcModulator {
     }
 
     if (paramIndex == null) {
-      debugPrint('[DspRtpcModulator] No param index for $param in ${processorType?.name ?? "unknown"}');
       return false;
     }
 
@@ -316,7 +315,6 @@ class DspRtpcModulator {
     );
 
     if (result != 0) {
-      debugPrint('[DspRtpcModulator] FFI error: $result for track=$trackId, slot=$slotIndex, param=$paramIndex');
       return false;
     }
 

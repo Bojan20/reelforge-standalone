@@ -39,9 +39,7 @@ class DuckingAutoConfigurator {
           curve: DuckingCurve.linear,
         );
         count++;
-      } catch (e) {
-        debugPrint('[DuckingAutoConfigurator] ⚠️ Failed to add rule: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Add default rules if template doesn't define any
@@ -49,7 +47,6 @@ class DuckingAutoConfigurator {
       count += _addDefaultRules(duckingProvider);
     }
 
-    debugPrint('[DuckingAutoConfigurator] Configured $count ducking rules');
     return count;
   }
 
@@ -72,9 +69,7 @@ class DuckingAutoConfigurator {
         curve: DuckingCurve.exponential,
       );
       count++;
-    } catch (e) {
-      debugPrint('[DuckingAutoConfigurator] ⚠️ Failed to add wins→music rule: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // 2. Voice ducks music (dialog clarity)
     try {
@@ -89,9 +84,7 @@ class DuckingAutoConfigurator {
         curve: DuckingCurve.linear,
       );
       count++;
-    } catch (e) {
-      debugPrint('[DuckingAutoConfigurator] ⚠️ Failed to add voice→music rule: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // 3. Voice ducks SFX (dialog priority)
     try {
@@ -106,9 +99,7 @@ class DuckingAutoConfigurator {
         curve: DuckingCurve.linear,
       );
       count++;
-    } catch (e) {
-      debugPrint('[DuckingAutoConfigurator] ⚠️ Failed to add voice→sfx rule: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // 4. Wins duck ambience (focus on wins)
     try {
@@ -123,9 +114,7 @@ class DuckingAutoConfigurator {
         curve: DuckingCurve.exponential,
       );
       count++;
-    } catch (e) {
-      debugPrint('[DuckingAutoConfigurator] ⚠️ Failed to add wins→ambience rule: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // 5. Reels duck ambience (subtle)
     try {
@@ -140,9 +129,7 @@ class DuckingAutoConfigurator {
         curve: DuckingCurve.linear,
       );
       count++;
-    } catch (e) {
-      debugPrint('[DuckingAutoConfigurator] ⚠️ Failed to add reels→ambience rule: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     return count;
   }

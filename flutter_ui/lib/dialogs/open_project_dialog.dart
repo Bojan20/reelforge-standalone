@@ -80,9 +80,7 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
           exists: exists,
         ));
       }
-    } catch (e) {
-      debugPrint('Error loading recent projects: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     setState(() => _isLoading = false);
   }

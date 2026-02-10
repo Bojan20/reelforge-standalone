@@ -44,9 +44,7 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
         // Check if FFI is available by trying to get current load
         NativeFFI.instance.profilerGetCurrentLoad();
         _rustFFIAvailable = true;
-        debugPrint('[DspProfiler] Rust FFI connected');
       } catch (e) {
-        debugPrint('[DspProfiler] Rust FFI not available, using simulation: $e');
         _rustFFIAvailable = false;
       }
     }
@@ -84,7 +82,6 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
       );
     } catch (e) {
       // Silent fail - FFI might not be ready yet
-      debugPrint('[DspProfiler] FFI update error: $e');
     }
   }
 

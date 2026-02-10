@@ -456,11 +456,9 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
           final accepted = details.data is AudioAsset ||
               details.data is List<AudioAsset> ||
               details.data is String;
-          debugPrint('[SymbolStrip] 🎯 onWillAccept: ${details.data.runtimeType} → $accepted');
           return accepted;
         },
         onAcceptWithDetails: (details) {
-          debugPrint('[SymbolStrip] ✅ onAccept: ${details.data.runtimeType}');
           String? path;
           if (details.data is AudioAsset) {
             path = (details.data as AudioAsset).path;
@@ -471,10 +469,8 @@ class _SymbolStripWidgetState extends State<SymbolStripWidget> {
             path = details.data as String;
           }
           if (path != null) {
-            debugPrint('[SymbolStrip] 🎵 Calling onDrop with: ${path.split('/').last}');
             onDrop?.call(path);
           } else {
-            debugPrint('[SymbolStrip] ❌ No path extracted from drop data');
           }
         },
         builder: (context, candidateData, rejectedData) {

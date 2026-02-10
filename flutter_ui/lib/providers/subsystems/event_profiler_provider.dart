@@ -110,9 +110,7 @@ class EventProfilerProvider extends ChangeNotifier {
       _stageBreakdown = _ffi.profilerGetStageBreakdown();
       _overloadCount = _ffi.profilerGetOverloadCount();
       notifyListeners();
-    } catch (e) {
-      debugPrint('[EventProfilerProvider] FFI sync error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get DSP load history from engine

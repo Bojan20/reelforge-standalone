@@ -874,7 +874,6 @@ class MidiProvider extends ChangeNotifier {
     // Send via FFI to connected MIDI output device
     final success = _ffi.midiSendNoteOn(channel, pitch, velocity);
     if (!success) {
-      debugPrint('MIDI OUT: Failed to send Note On ch$channel $pitch vel$velocity (no output connected)');
     }
   }
 
@@ -882,7 +881,6 @@ class MidiProvider extends ChangeNotifier {
     // Send via FFI to connected MIDI output device
     final success = _ffi.midiSendNoteOff(channel, pitch, 64); // Standard release velocity
     if (!success) {
-      debugPrint('MIDI OUT: Failed to send Note Off ch$channel $pitch (no output connected)');
     }
   }
 
@@ -1141,9 +1139,7 @@ class MidiProvider extends ChangeNotifier {
           velocityMidi,
         );
       }
-    } catch (e) {
-      debugPrint('Failed to sync note to FFI: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

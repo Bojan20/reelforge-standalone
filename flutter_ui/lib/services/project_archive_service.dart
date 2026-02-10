@@ -174,8 +174,6 @@ class ProjectArchiveService {
 
       onProgress?.call(1.0, 'Complete!');
 
-      debugPrint('[ProjectArchiveService] Created archive: $outputPath');
-      debugPrint('[ProjectArchiveService] Files: $processedFiles, Size: ${(zipData.length / 1024).toStringAsFixed(1)} KB');
 
       return ArchiveResult.success(
         outputPath: outputPath,
@@ -183,7 +181,6 @@ class ProjectArchiveService {
         totalBytes: zipData.length,
       );
     } catch (e) {
-      debugPrint('[ProjectArchiveService] Error: $e');
       return ArchiveResult.failure('Archive creation failed: $e');
     }
   }

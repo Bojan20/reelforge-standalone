@@ -309,7 +309,6 @@ class DspChainProvider extends ChangeNotifier {
     // Add Compressor via FFI
     addNode(trackId, DspNodeType.compressor);
 
-    debugPrint('[DspChainProvider] ✅ Initialized chain for track $trackId with EQ + Comp');
   }
 
   /// Clear chain for track
@@ -323,7 +322,6 @@ class DspChainProvider extends ChangeNotifier {
     }
 
     _chains[trackId] = DspChain(trackId: trackId);
-    debugPrint('[DspChainProvider] ✅ Cleared chain for track $trackId (unloaded ${chain.nodes.length} processors)');
     notifyListeners();
   }
 
@@ -337,7 +335,6 @@ class DspChainProvider extends ChangeNotifier {
     _ffi.insertBypassAll(trackId, newBypass);
 
     _chains[trackId] = chain.copyWith(bypass: newBypass);
-    debugPrint('[DspChainProvider] ✅ Chain bypass: $newBypass for track $trackId');
     notifyListeners();
   }
 
@@ -363,7 +360,6 @@ class DspChainProvider extends ChangeNotifier {
     // 1. FFI sync — CRITICAL: Load processor in Rust engine first
     final result = _ffi.insertLoadProcessor(trackId, slotIndex, processorName);
     if (result < 0) {
-      debugPrint('[DspChainProvider] ❌ FFI Failed to load processor: $processorName (error: $result)');
       return;
     }
 
@@ -372,7 +368,6 @@ class DspChainProvider extends ChangeNotifier {
     final node = DspNode.create(type, order: order);
     _chains[trackId] = chain.copyWith(nodes: [...chain.nodes, node]);
 
-    debugPrint('[DspChainProvider] ✅ Added ${type.name} to track $trackId (slot $slotIndex, processor: $processorName)');
     notifyListeners();
   }
 
@@ -382,14 +377,12 @@ class DspChainProvider extends ChangeNotifier {
     final chain = getChain(trackId);
     final nodeIndex = chain.nodes.indexWhere((n) => n.id == nodeId);
     if (nodeIndex == -1) {
-      debugPrint('[DspChainProvider] ⚠️ Node $nodeId not found in track $trackId');
       return;
     }
 
     // 1. FFI sync — Unload from Rust engine
     final result = _ffi.insertUnloadSlot(trackId, nodeIndex);
     if (result < 0) {
-      debugPrint('[DspChainProvider] ❌ FFI Failed to unload slot $nodeIndex (error: $result)');
       return;
     }
 
@@ -401,7 +394,6 @@ class DspChainProvider extends ChangeNotifier {
     }
     _chains[trackId] = chain.copyWith(nodes: newNodes);
 
-    debugPrint('[DspChainProvider] ✅ Removed node $nodeId from track $trackId (slot $nodeIndex)');
     notifyListeners();
   }
 
@@ -411,7 +403,6 @@ class DspChainProvider extends ChangeNotifier {
     final chain = getChain(trackId);
     final nodeIndex = chain.nodes.indexWhere((n) => n.id == nodeId);
     if (nodeIndex == -1) {
-      debugPrint('[DspChainProvider] ⚠️ Node $nodeId not found in track $trackId');
       return;
     }
 
@@ -430,7 +421,6 @@ class DspChainProvider extends ChangeNotifier {
     }).toList();
     _chains[trackId] = chain.copyWith(nodes: newNodes);
 
-    debugPrint('[DspChainProvider] ✅ Toggled bypass for node $nodeId → $newBypass (slot $nodeIndex)');
     notifyListeners();
   }
 
@@ -525,7 +515,6 @@ class DspChainProvider extends ChangeNotifier {
     }
 
     _chains[trackId] = chain.copyWith(nodes: newNodes);
-    debugPrint('[DspChainProvider] ✅ Reordered node $nodeId to position $newOrder (reloaded ${newNodes.length} processors with params)');
     notifyListeners();
   }
 
@@ -567,7 +556,6 @@ class DspChainProvider extends ChangeNotifier {
     _restoreNodeParameters(trackId, secondIdx, secondNode); // ✅ Restore params
 
     _chains[trackId] = chain.copyWith(nodes: newNodes);
-    debugPrint('[DspChainProvider] ✅ Swapped nodes $nodeIdA <-> $nodeIdB (slots $indexA <-> $indexB, params restored)');
     notifyListeners();
   }
 
@@ -673,7 +661,6 @@ class DspChainProvider extends ChangeNotifier {
         break;
     }
 
-    debugPrint('[DspChainProvider] ✅ Restored ${node.params.length} parameters for ${node.type.name} (track $trackId, slot $slotIndex)');
   }
 
   // ─── Copy/Paste ────────────────────────────────────────────────────────────
@@ -683,7 +670,6 @@ class DspChainProvider extends ChangeNotifier {
   /// Copy chain to clipboard
   void copyChain(int trackId) {
     _clipboard = getChain(trackId);
-    debugPrint('[DspChainProvider] Copied chain from track $trackId');
   }
 
   /// Paste chain from clipboard
@@ -735,7 +721,6 @@ class DspChainProvider extends ChangeNotifier {
       outputGain: _clipboard!.outputGain,
     );
 
-    debugPrint('[DspChainProvider] ✅ Pasted chain to track $trackId (loaded ${newNodes.length} processors with params)');
     notifyListeners();
   }
 
@@ -798,7 +783,6 @@ class DspChainProvider extends ChangeNotifier {
         _ffi.insertBypassAll(trackId, true);
       }
     }
-    debugPrint('[DspChainProvider] ✅ Loaded ${_chains.length} chains from JSON (params restored)');
     notifyListeners();
   }
 }

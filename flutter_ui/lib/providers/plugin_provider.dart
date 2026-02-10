@@ -340,7 +340,6 @@ class PluginProvider extends ChangeNotifier {
       _scanProgress = 1.0;
       notifyListeners();
 
-      debugPrint('[PluginProvider] Scan complete: ${_plugins.length} plugins found');
     } catch (e) {
       _scanState = ScanState.error;
       _scanError = e.toString();

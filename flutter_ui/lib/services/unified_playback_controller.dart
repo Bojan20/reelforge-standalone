@@ -180,19 +180,16 @@ class UnifiedPlaybackController extends ChangeNotifier {
   bool acquireSection(PlaybackSection section) {
     // Browser uses PREVIEW_ENGINE — never conflicts, always allowed
     if (section == PlaybackSection.browser) {
-      debugPrint('[UnifiedPlayback] Browser preview — always allowed (PREVIEW_ENGINE)');
       return true;
     }
 
     // Recording blocks non-DAW sections
     if (_isRecording && section != PlaybackSection.daw) {
-      debugPrint('[UnifiedPlayback] DENIED: Cannot acquire ${section.name} during recording');
       return false;
     }
 
     // Same section — already acquired
     if (_activeSection == section) {
-      debugPrint('[UnifiedPlayback] ${section.name} already active');
       return true;
     }
 
@@ -201,7 +198,6 @@ class UnifiedPlaybackController extends ChangeNotifier {
       final previousSection = _activeSection!;
       final positionAtInterrupt = position;
 
-      debugPrint('[UnifiedPlayback] Switching: ${previousSection.name} → ${section.name}');
 
       // Stop current section
       _stopCurrentSection();
@@ -220,7 +216,6 @@ class UnifiedPlaybackController extends ChangeNotifier {
     // Notify engine of active section for one-shot voice filtering
     _setActiveSection(section);
 
-    debugPrint('[UnifiedPlayback] Acquired: ${section.name}');
     notifyListeners();
     return true;
   }
@@ -238,7 +233,6 @@ class UnifiedPlaybackController extends ChangeNotifier {
     }
 
     if (_activeSection == section) {
-      debugPrint('[UnifiedPlayback] Released: ${section.name}');
       _activeSection = null;
       notifyListeners();
     }
@@ -260,22 +254,18 @@ class UnifiedPlaybackController extends ChangeNotifier {
   /// Browser section cannot start PLAYBACK_ENGINE transport.
   void play() {
     if (_activeSection == null) {
-      debugPrint('[UnifiedPlayback] play() ignored — no active section');
       return;
     }
     if (_activeSection == PlaybackSection.browser) {
-      debugPrint('[UnifiedPlayback] play() ignored — browser uses PREVIEW_ENGINE');
       return;
     }
 
     // Ensure audio stream is running before transport play
     final streamStarted = _ffi.startPlayback();
     if (!streamStarted) {
-      debugPrint('[UnifiedPlayback] WARNING: Failed to start audio stream');
     }
 
     _ffi.play();
-    debugPrint('[UnifiedPlayback] Play (section: ${_activeSection!.name}, stream: $streamStarted)');
     notifyListeners();
   }
 
@@ -288,12 +278,10 @@ class UnifiedPlaybackController extends ChangeNotifier {
   /// Returns true if stream started successfully.
   bool ensureStreamRunning() {
     if (_activeSection == null) {
-      debugPrint('[UnifiedPlayback] ensureStreamRunning() ignored — no active section');
       return false;
     }
 
     final streamStarted = _ffi.startPlayback();
-    debugPrint('[UnifiedPlayback] EnsureStream (section: ${_activeSection!.name}, started: $streamStarted)');
     return streamStarted;
   }
 
@@ -304,7 +292,6 @@ class UnifiedPlaybackController extends ChangeNotifier {
     }
 
     _ffi.pause();
-    debugPrint('[UnifiedPlayback] Pause (section: ${_activeSection!.name})');
     notifyListeners();
   }
 
@@ -318,7 +305,6 @@ class UnifiedPlaybackController extends ChangeNotifier {
 
     final section = _activeSection!;
     _ffi.stop();
-    debugPrint('[UnifiedPlayback] Stop (section: ${section.name})');
 
     if (releaseAfterStop) {
       releaseSection(section);
@@ -383,7 +369,6 @@ class UnifiedPlaybackController extends ChangeNotifier {
     if (_isRecording == recording) return;
 
     _isRecording = recording;
-    debugPrint('[UnifiedPlayback] Recording: $recording');
     notifyListeners();
   }
 
@@ -403,7 +388,6 @@ class UnifiedPlaybackController extends ChangeNotifier {
       PlaybackSection.browser => 3,
     };
     _ffi.setActiveSection(sourceId);
-    debugPrint('[UnifiedPlayback] Engine active section set to: ${section.name} ($sourceId)');
   }
 
   // ===========================================================================
@@ -417,7 +401,6 @@ class UnifiedPlaybackController extends ChangeNotifier {
     // Stop PLAYBACK_ENGINE
     _ffi.stop();
 
-    debugPrint('[UnifiedPlayback] Stopped section: ${_activeSection!.name}');
   }
 
   // ===========================================================================

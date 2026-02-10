@@ -279,14 +279,12 @@ class StageIngestProvider extends ChangeNotifier {
   /// Validate WebSocket URL for security and format compliance
   bool _validateWebSocketUrl(String url) {
     if (url.isEmpty) {
-      debugPrint('[StageIngest] ⚠️ Empty WebSocket URL');
       return false;
     }
 
     // Must have valid scheme
     final lowerUrl = url.toLowerCase();
     if (!lowerUrl.startsWith('ws://') && !lowerUrl.startsWith('wss://')) {
-      debugPrint('[StageIngest] ⚠️ Invalid WebSocket scheme (must be ws:// or wss://): $url');
       return false;
     }
 
@@ -294,22 +292,18 @@ class StageIngestProvider extends ChangeNotifier {
     try {
       final uri = Uri.parse(url);
       if (uri.host.isEmpty) {
-        debugPrint('[StageIngest] ⚠️ Empty host in WebSocket URL: $url');
         return false;
       }
       // Validate port if specified
       if (uri.port < 0 || uri.port > 65535) {
-        debugPrint('[StageIngest] ⚠️ Invalid port in WebSocket URL: $url');
         return false;
       }
     } catch (e) {
-      debugPrint('[StageIngest] ⛔ Malformed WebSocket URL: $url ($e)');
       return false;
     }
 
     // Block suspicious characters
     if (url.contains('\n') || url.contains('\r') || url.contains('\x00')) {
-      debugPrint('[StageIngest] ⛔ SECURITY: Suspicious characters in URL blocked: $url');
       return false;
     }
 
@@ -897,7 +891,7 @@ class StageIngestProvider extends ChangeNotifier {
             engineName: data['engine_name'] as String? ?? 'Auto-detected',
           );
           notifyListeners();
-        } catch (_) {}
+        } catch (_) { /* ignored */ }
       }
     }
     return configId;
@@ -1113,7 +1107,6 @@ class StageIngestProvider extends ChangeNotifier {
 
     // Log if we hit the limit (may indicate backpressure)
     if (processed >= _kMaxEventsPerPoll) {
-      debugPrint('[StageIngest] Poll limit reached ($processed events), remaining events queued');
     }
   }
 

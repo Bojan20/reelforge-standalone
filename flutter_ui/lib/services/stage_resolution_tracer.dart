@@ -269,7 +269,6 @@ class StageResolutionTracer extends ChangeNotifier {
   void enable() {
     if (_enabled) return;
     _enabled = true;
-    debugPrint('[StageResolutionTracer] ✅ Enabled');
     notifyListeners();
   }
 
@@ -277,7 +276,6 @@ class StageResolutionTracer extends ChangeNotifier {
   void disable() {
     if (!_enabled) return;
     _enabled = false;
-    debugPrint('[StageResolutionTracer] ⏸ Disabled');
     notifyListeners();
   }
 
@@ -285,7 +283,6 @@ class StageResolutionTracer extends ChangeNotifier {
   void clear() {
     _activeTraces.clear();
     _completedTraces.clear();
-    debugPrint('[StageResolutionTracer] 🧹 Cleared all traces');
     notifyListeners();
   }
 
@@ -315,7 +312,6 @@ class StageResolutionTracer extends ChangeNotifier {
 
     _activeTraces[id] = trace;
 
-    debugPrint('[StageResolutionTracer] 🎬 Started trace: $stage (id=$id)');
 
     return id;
   }
@@ -358,13 +354,8 @@ class StageResolutionTracer extends ChangeNotifier {
     final icon = success ? '✅' : '❌';
     final resolutionMs = trace.resolutionTimeMs?.toStringAsFixed(2) ?? '?';
 
-    debugPrint('[StageResolutionTracer] $icon Complete: ${trace.originalStage}');
-    debugPrint('  Resolution time: ${resolutionMs}ms');
-    debugPrint('  Steps: ${trace.steps.length}');
     if (success) {
-      debugPrint('  Resolved to: $eventName');
     } else {
-      debugPrint('  Failed to resolve');
     }
 
     notifyListeners();

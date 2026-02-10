@@ -387,7 +387,6 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         });
       }
     } catch (e) {
-      debugPrint('[EventsPanel] Directory scan error: $e');
       if (mounted) {
         setState(() {
           _audioFiles = [];

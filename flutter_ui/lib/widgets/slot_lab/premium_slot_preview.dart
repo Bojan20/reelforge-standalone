@@ -3956,14 +3956,11 @@ class _SpinButtonState extends State<_SpinButton>
       child: GestureDetector(
         onTap: () {
           // 🔴 DEBUG: Log button tap with all conditions
-          debugPrint('[_SpinButton] TAP! phase=$phase, canSpin=${widget.canSpin}, isEnabled=$isEnabled');
           switch (phase) {
             case SpinButtonPhase.spin:
               if (widget.canSpin) {
-                debugPrint('[_SpinButton] ✅ Calling onSpin()...');
                 widget.onSpin();
               } else {
-                debugPrint('[_SpinButton] ❌ BLOCKED: canSpin=false!');
               }
             case SpinButtonPhase.stop:
               widget.onStop();
@@ -5154,7 +5151,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
     // Grid dimensions changed — reset reel state arrays
     if (oldWidget.reels != widget.reels || oldWidget.rows != widget.rows) {
-      debugPrint('[PremiumSlotPreview] 📐 Grid changed: ${oldWidget.reels}x${oldWidget.rows} → ${widget.reels}x${widget.rows}');
       setState(() {
         _reelsStopped = List.filled(widget.reels, true);
         // Force re-render with new dimensions
@@ -5338,11 +5334,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   void _handleSkipWinPresentation() {
     // Don't allow skip if protection is still active
     if (_bigWinProtectionRemaining > 0) {
-      debugPrint('[PremiumSlotPreview] 🚫 SKIP blocked: Big Win protection active (${_bigWinProtectionRemaining}s remaining)');
       return;
     }
 
-    debugPrint('[PremiumSlotPreview] 🎬 SKIP: Skipping ENTIRE win flow, tier=$_currentWinTier, pending=$_pendingWinAmount');
 
     // Stop ALL win-related audio immediately
     final eventRegistry = EventRegistry.instance;
@@ -5362,7 +5356,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
 
     // Trigger WIN_COLLECT stage (short "collect" sound)
-    debugPrint('[PremiumSlotPreview] 🎬 SKIP: Triggering WIN_COLLECT');
     eventRegistry.triggerStage('WIN_COLLECT');
 
     // Show final total immediately in UI (update plaque to show TOTAL WIN)
@@ -5373,7 +5366,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Short delay for collect sound, then finalize
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) {
-        debugPrint('[PremiumSlotPreview] 🎬 SKIP: Collecting win amount: $_pendingWinAmount');
         _collectWin();
       }
     });
@@ -5511,8 +5503,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _processResultCallCount = 0;
     });
 
-    debugPrint('[PremiumSlotPreview] 🔄 RESET — Session restored to initial state');
-    debugPrint('[PremiumSlotPreview] 💰 Balance: \$1000, Jackpots: Mini \$125.50, Minor \$1250, Major \$12500, Grand \$125000');
   }
 
   /// Set master volume via FFI
@@ -5763,7 +5753,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       });
     } catch (e) {
       // Recording not available on this platform
-      debugPrint('[PSP] Recording not available: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -5784,7 +5773,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       setState(() => _isRecording = false);
       return path;
     } catch (e) {
-      debugPrint('[PSP] Failed to stop recording: $e');
       setState(() => _isRecording = false);
       return null;
     }
@@ -5870,11 +5858,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     );
 
     if (config == null) {
-      debugPrint('[PremiumSlotPreview] No config for key $key');
       return;
     }
 
-    debugPrint('[PremiumSlotPreview] Force outcome: ${config.label} (${config.expectedWinMultiplier}x)');
 
     // Use expectedWinMultiplier if available
     if (config.expectedWinMultiplier != null && config.expectedWinMultiplier! > 0) {
@@ -5891,28 +5877,20 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     setState(() {
       _debugMessage = '_handleSpin CALLED!';
     });
-    debugPrint('[PremiumSlotPreview] 🎰 _handleSpin called');
-    debugPrint('[PremiumSlotPreview]   initialized=${provider.initialized}');
-    debugPrint('[PremiumSlotPreview]   isPlayingStages=${provider.isPlayingStages}');
-    debugPrint('[PremiumSlotPreview]   isWinPresentationActive=${provider.isWinPresentationActive}');
-    debugPrint('[PremiumSlotPreview]   balance=$_balance, totalBet=$_totalBetAmount');
 
     if (!provider.initialized) {
-      debugPrint('[PremiumSlotPreview] ❌ BLOCKED: Provider not initialized!');
       setState(() {
         _debugMessage = 'BLOCKED: Provider not initialized!';
       });
       return;
     }
     if (provider.isPlayingStages) {
-      debugPrint('[PremiumSlotPreview] ❌ BLOCKED: Already playing stages');
       setState(() {
         _debugMessage = 'BLOCKED: Already playing stages';
       });
       return;
     }
     if (_balance < _totalBetAmount) {
-      debugPrint('[PremiumSlotPreview] ❌ BLOCKED: Insufficient balance');
       setState(() {
         _debugMessage = 'BLOCKED: Insufficient balance (${_balance.toStringAsFixed(2)} < ${_totalBetAmount.toStringAsFixed(2)})';
       });
@@ -5924,9 +5902,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // If win presentation is active, request skip and wait for fade-out to complete
     // ═══════════════════════════════════════════════════════════════════════════
     if (provider.isWinPresentationActive) {
-      debugPrint('[PremiumSlotPreview] 🎬 Win presentation active — requesting skip with fade-out');
       provider.requestSkipPresentation(() {
-        debugPrint('[PremiumSlotPreview] ✅ Skip complete — proceeding with spin');
         _executeSpinAfterSkip(provider);
       });
       return;
@@ -5960,16 +5936,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // ═══════════════════════════════════════════════════════════════════════
     _scheduleVisualSyncCallbacks(null);
 
-    debugPrint('[PremiumSlotPreview] ✅ Calling provider.spin()...');
     setState(() {
       _debugMessage = 'Spin started, waiting for result...';
     });
 
     provider.spin().then((result) {
       if (result != null && mounted) {
-        debugPrint('[PremiumSlotPreview] ✅ spin() returned result: ${result.spinId}');
-        debugPrint('[PremiumSlotPreview]   stages count: ${provider.lastStages.length}');
-        debugPrint('[PremiumSlotPreview]   isPlayingStages: ${provider.isPlayingStages}');
         setState(() {
           _debugMessage = 'Got result! spinId=${result.spinId}, calling _processResult...';
         });
@@ -5977,7 +5949,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         _pendingResultForWinStage = result;
         _processResult(result);
       } else {
-        debugPrint('[PremiumSlotPreview] ❌ spin() returned NULL! Provider may not be initialized.');
         setState(() {
           _debugMessage = 'ERROR: spin() returned NULL!';
         });
@@ -6196,7 +6167,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     setState(() {
       _debugMessage = 'CALLED #$_processResultCallCount | isWin=${result.isWin} | ratio=${result.winRatio.toStringAsFixed(2)}';
     });
-    debugPrint('[_processResult] 🚨 CALLED! isWin=${result.isWin}, winRatio=${result.winRatio}, bigWinTier=${result.bigWinTier}');
 
     // CRITICAL: Use winRatio (multiplier) from engine, not totalWin (absolute amount)
     // Engine calculates: total_win = engine_bet * target_multiplier
@@ -6224,7 +6194,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         _debugMessage = 'WIN! engineTier=$engineTier | ratioTier=$ratioTier | FINAL=$_currentWinTier';
 
         // DEBUG: Log win tier for plaque display
-        debugPrint('[WinPresenter] 🏆 Win detected: winRatio=${result.winRatio.toStringAsFixed(2)}x, bigWinTier=${result.bigWinTier}, engineTier=$engineTier, ratioTier=$ratioTier, FINAL _currentWinTier=$_currentWinTier, isBigWin=${_isBigWinTier(_currentWinTier)}');
 
         // Jackpot chance based on win RATIO from ENGINE (not absolute amount)
         // Uses probability bands tied to multiplier - engine determines the win,
@@ -6283,7 +6252,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       } else {
         // 🔴 DEBUG: On-screen message for NO WIN path
         _debugMessage = 'NO WIN — isWin=false, ratio=${result.winRatio}';
-        debugPrint('[_processResult] ❌ NO WIN — setting _currentWinTier to empty string');
         _losses++;
         _currentWinTier = '';
         _pendingWinAmount = 0.0; // No win to collect
@@ -6572,7 +6540,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // which in turn calls _reelAnimController.stopImmediately()
     final provider = context.read<SlotLabProvider>();
     if (provider.isPlayingStages) {
-      debugPrint('[PremiumSlotPreview] ⏹ STOP pressed — stopping all reels immediately');
       provider.stopStagePlayback();
     }
   }
@@ -6625,7 +6592,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         // This prevents double-handling where both handlers process same event
         // ═══════════════════════════════════════════════════════════════════════
         if (!widget.isFullscreen) {
-          debugPrint('[PremiumSlotPreview] ⏭️ SPACE ignored (embedded mode — global handler will handle)');
           return KeyEventResult.ignored;
         }
 
@@ -6634,7 +6600,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         // ═══════════════════════════════════════════════════════════════════════
         final now = DateTime.now().millisecondsSinceEpoch;
         if (now - _lastSpaceKeyTime < _spaceKeyDebounceMs) {
-          debugPrint('[PremiumSlotPreview] ⏱️ SPACE debounced (${now - _lastSpaceKeyTime}ms < ${_spaceKeyDebounceMs}ms)');
           return KeyEventResult.handled;
         }
         _lastSpaceKeyTime = now;
@@ -6653,14 +6618,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         // IMPORTANT: SKIP does NOT start a new spin! Only SPIN button starts spins.
         // SKIP jumps to END event of current phase (BIG_WIN_END, ROLLUP_END, etc.)
         // ═══════════════════════════════════════════════════════════════════════
-        debugPrint('[PremiumSlotPreview] 🎰 SPACE pressed — isReelsSpinning=${provider.isReelsSpinning}, isPlayingStages=${provider.isPlayingStages}, isWinPresentationActive=${provider.isWinPresentationActive}');
 
         if (provider.isReelsSpinning) {
           // During reel spin → STOP (stop reels immediately)
           _handleStop();
         } else if (provider.isWinPresentationActive) {
           // During win presentation → SKIP to END event (NO new spin!)
-          debugPrint('[PremiumSlotPreview] 🎬 SKIP: Win presentation active — skipping to END event');
           _handleSkipWinPresentation();
         } else {
           // Idle → SPIN (start new spin)

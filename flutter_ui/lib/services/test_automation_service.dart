@@ -69,7 +69,6 @@ class TestRunner extends ChangeNotifier {
     // Listen for stage events
     _eventRegistry!.addListener(_onEventRegistryChanged);
 
-    debugPrint('[TestRunner] Initialized');
   }
 
   void _onEventRegistryChanged() {
@@ -151,7 +150,7 @@ class TestRunner extends ChangeNotifier {
       if (_config.enableRngLogging) {
         try {
           NativeFFI.instance.seedLogEnable(false);
-        } catch (_) {}
+        } catch (_) { /* ignored */ }
       }
     }
 
@@ -442,7 +441,6 @@ class TestRunner extends ChangeNotifier {
   }
 
   void _log(String message) {
-    debugPrint('[TestRunner] $message');
     onLog?.call(message);
   }
 
@@ -657,7 +655,6 @@ class TestStorage {
       await resultsDir.create(recursive: true);
     }
 
-    debugPrint('[TestStorage] Initialized at: $basePath');
   }
 
   String _getBasePath() {
@@ -679,7 +676,6 @@ class TestStorage {
 
     final file = File('$scenariosPath/${scenario.id}$_scenarioExt');
     await file.writeAsString(scenario.toJsonString(pretty: true));
-    debugPrint('[TestStorage] Saved scenario: ${scenario.name}');
   }
 
   Future<TestScenario?> loadScenario(String path) async {
@@ -689,9 +685,7 @@ class TestStorage {
         final content = await file.readAsString();
         return TestScenario.fromJsonString(content);
       }
-    } catch (e) {
-      debugPrint('[TestStorage] Error loading scenario: $e');
-    }
+    } catch (e) { /* ignored */ }
     return null;
   }
 
@@ -719,7 +713,6 @@ class TestStorage {
     final file = File('$scenariosPath/$scenarioId$_scenarioExt');
     if (await file.exists()) {
       await file.delete();
-      debugPrint('[TestStorage] Deleted scenario: $scenarioId');
     }
   }
 
@@ -732,7 +725,6 @@ class TestStorage {
     final file = File('$resultsPath/$fileName');
 
     await file.writeAsString(jsonEncode(result.toJson()));
-    debugPrint('[TestStorage] Saved result: $fileName');
   }
 
   Future<List<TestScenarioResult>> loadResults({
@@ -765,9 +757,7 @@ class TestStorage {
         final content = await file.readAsString();
         final json = jsonDecode(content) as Map<String, dynamic>;
         results.add(TestScenarioResult.fromJson(json));
-      } catch (e) {
-        debugPrint('[TestStorage] Error loading result: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     return results;

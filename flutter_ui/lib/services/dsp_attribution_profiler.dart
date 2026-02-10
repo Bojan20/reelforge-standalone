@@ -237,7 +237,6 @@ class DspAttributionProfiler extends ChangeNotifier {
     if (_enabled) return;
     _enabled = true;
     _startPolling();
-    debugPrint('[DspAttributionProfiler] ✅ Enabled');
     notifyListeners();
   }
 
@@ -246,7 +245,6 @@ class DspAttributionProfiler extends ChangeNotifier {
     if (!_enabled) return;
     _enabled = false;
     _stopPolling();
-    debugPrint('[DspAttributionProfiler] ⏸ Disabled');
     notifyListeners();
   }
 
@@ -254,7 +252,6 @@ class DspAttributionProfiler extends ChangeNotifier {
   void clear() {
     _attributions.clear();
     _sourceStats.clear();
-    debugPrint('[DspAttributionProfiler] 🧹 Cleared all statistics');
     notifyListeners();
   }
 
@@ -321,8 +318,6 @@ class DspAttributionProfiler extends ChangeNotifier {
 
     // Log expensive operations (> 10% CPU)
     if (attribution.loadPercent > 10.0) {
-      debugPrint('[DspAttributionProfiler] ⚠️ EXPENSIVE: '
-          '$source (${operation.name}) consumed ${attribution.loadPercent.toStringAsFixed(1)}% CPU');
     }
 
     notifyListeners();

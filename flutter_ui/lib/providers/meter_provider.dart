@@ -157,16 +157,13 @@ class MeterProvider extends ChangeNotifier {
       if (success) {
         _useSharedMemory = true;
         _startSharedMemoryPolling();
-        debugPrint('[MeterProvider] Using shared memory metering (60fps)');
       } else {
         _useSharedMemory = false;
         _subscribeToEngine();
-        debugPrint('[MeterProvider] Falling back to stream metering (20fps)');
       }
     } catch (e) {
       _useSharedMemory = false;
       _subscribeToEngine();
-      debugPrint('[MeterProvider] Shared memory init failed: $e');
     }
   }
 
@@ -507,7 +504,6 @@ class MeterProvider extends ChangeNotifier {
       const Duration(milliseconds: _lufsHistoryIntervalMs),
       (_) => _recordLufsSnapshot(),
     );
-    debugPrint('[MeterProvider] LUFS history recording started');
   }
 
   /// Stop recording LUFS history
@@ -515,7 +511,6 @@ class MeterProvider extends ChangeNotifier {
     _lufsHistoryRecording = false;
     _lufsHistoryTimer?.cancel();
     _lufsHistoryTimer = null;
-    debugPrint('[MeterProvider] LUFS history recording stopped');
   }
 
   /// Resume recording LUFS history
@@ -528,7 +523,6 @@ class MeterProvider extends ChangeNotifier {
     _lufsHistory.clear();
     _lufsHistoryStartTime = DateTime.now().millisecondsSinceEpoch / 1000.0;
     notifyListeners();
-    debugPrint('[MeterProvider] LUFS history cleared');
   }
 
   /// Record a single LUFS snapshot

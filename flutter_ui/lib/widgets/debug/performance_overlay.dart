@@ -91,18 +91,18 @@ class PerformanceMonitor {
         final voiceStats = NativeFFI.instance.getVoicePoolStats();
         activeVoices = voiceStats.activeCount;
         maxVoices = voiceStats.maxVoices;
-      } catch (_) {}
+      } catch (_) { /* ignored */ }
 
       try {
         dspLoad = NativeFFI.instance.profilerGetCurrentLoad();
-      } catch (_) {}
+      } catch (_) { /* ignored */ }
 
       try {
         // Use mastering latency as approximate audio latency (in samples)
         final latencySamples = NativeFFI.instance.masteringGetLatency();
         // Convert to ms assuming 48kHz sample rate
         latency = (latencySamples / 48000.0) * 1000.0;
-      } catch (_) {}
+      } catch (_) { /* ignored */ }
 
       // Get Dart heap usage (approximate)
       final dartHeapMB = _estimateDartHeap();

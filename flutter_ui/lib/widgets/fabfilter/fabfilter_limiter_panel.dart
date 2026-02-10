@@ -198,10 +198,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       _nodeId = limiterNode.id;
       _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       _initialized = true;
-      debugPrint('[FabFilterLimiter] ✅ Initialized via DspChainProvider (track=${widget.trackId}, slot=$_slotIndex)');
       _applyAllParameters();
     } else {
-      debugPrint('[FabFilterLimiter] ❌ Failed to initialize limiter for track ${widget.trackId}');
     }
   }
 
@@ -222,7 +220,6 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _output);     // Ceiling
     _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _release);    // Release
 
-    debugPrint('[FabFilterLimiter] Applied params: threshold=${_threshold}dB, ceiling=${_output}dB, release=${_release}ms (slot=$_slotIndex)');
   }
 
   @override
@@ -567,7 +564,6 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             setState(() => _threshold = v * 24 - 24);
             if (_slotIndex >= 0) {
               _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold); // Threshold
-              debugPrint('[FabFilterLimiter] Threshold → ${_threshold}dB');
             }
           },
         ),
@@ -581,7 +577,6 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             setState(() => _output = v * 12 - 12);
             if (_slotIndex >= 0) {
               _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _output); // Ceiling only
-              debugPrint('[FabFilterLimiter] Ceiling → ${_output}dB');
             }
           },
         ),

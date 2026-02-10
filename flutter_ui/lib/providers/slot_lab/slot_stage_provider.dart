@@ -79,7 +79,6 @@ class StageEventPool {
       for (int i = 0; i < _initialPoolSize; i++) {
         _pool.add(PooledStageEvent());
       }
-      debugPrint('[StageEventPool] Initialized with $_initialPoolSize objects');
     }
   }
 
@@ -259,7 +258,6 @@ class SlotStageProvider extends ChangeNotifier {
 
   void setAnticipationConfigType(AnticipationConfigType type) {
     _anticipationConfigType = type;
-    debugPrint('[SlotStageProvider] Anticipation config type: ${type.name}');
     notifyListeners();
   }
 
@@ -280,7 +278,6 @@ class SlotStageProvider extends ChangeNotifier {
 
   void connectAle(AleProvider ale) {
     _aleProvider = ale;
-    debugPrint('[SlotStageProvider] ALE provider connected');
   }
 
   void setAleAutoSync(bool enabled) {
@@ -354,13 +351,9 @@ class SlotStageProvider extends ChangeNotifier {
   void _playStagesSequentially() {
     if (_lastStages.isEmpty) return;
 
-    debugPrint('╔══════════════════════════════════════════════════════════════╗');
-    debugPrint('║ STAGE PLAYBACK — ${_lastStages.length} stages                 ');
-    debugPrint('╚══════════════════════════════════════════════════════════════╝');
 
     final controller = UnifiedPlaybackController.instance;
     if (!controller.acquireSection(PlaybackSection.slotLab)) {
-      debugPrint('[SlotStageProvider] Failed to acquire SlotLab section');
       return;
     }
 
@@ -423,7 +416,6 @@ class SlotStageProvider extends ChangeNotifier {
     _pausedRemainingDelayMs = 0;
     _currentStageIndex = 0;
     UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
-    debugPrint('[SlotStageProvider] Stage playback STOPPED');
     notifyListeners();
   }
 
@@ -451,7 +443,6 @@ class SlotStageProvider extends ChangeNotifier {
     _isPaused = true;
     UnifiedPlaybackController.instance.pause();
 
-    debugPrint('[SlotStageProvider] Stages PAUSED at index $_currentStageIndex');
     notifyListeners();
   }
 
@@ -513,14 +504,12 @@ class SlotStageProvider extends ChangeNotifier {
   void startStageRecording() {
     if (_isRecordingStages) return;
     _isRecordingStages = true;
-    debugPrint('[SlotStageProvider] Stage recording STARTED');
     notifyListeners();
   }
 
   void stopStageRecording() {
     if (!_isRecordingStages) return;
     _isRecordingStages = false;
-    debugPrint('[SlotStageProvider] Stage recording STOPPED');
     notifyListeners();
   }
 
@@ -528,7 +517,6 @@ class SlotStageProvider extends ChangeNotifier {
     _lastStages = [];
     _currentStageIndex = 0;
     _cachedStagesSpinId = null;
-    debugPrint('[SlotStageProvider] Stages cleared');
     notifyListeners();
   }
 
@@ -595,13 +583,11 @@ class SlotStageProvider extends ChangeNotifier {
 
     // Skip REEL_STOP in visual-sync mode
     if (_useVisualSyncForReelStop && stageType == 'REEL_STOP') {
-      debugPrint('[Stage] REEL_STOP [$reelIndex] -> SKIPPED (visual-sync)');
       return;
     }
 
     // Skip win presentation stages (handled by widget)
     if (_isWinPresentationStage(stageType)) {
-      debugPrint('[Stage] $stageType -> SKIPPED (widget handles)');
       return;
     }
 
@@ -845,9 +831,7 @@ class SlotStageProvider extends ChangeNotifier {
     }
 
     if (issues.isEmpty) {
-      debugPrint('[SlotStageProvider] Stage sequence VALID');
     } else {
-      debugPrint('[SlotStageProvider] Stage sequence INVALID (${issues.length} issues)');
     }
 
     _lastValidationIssues = issues;

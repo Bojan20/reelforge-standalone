@@ -227,9 +227,7 @@ class EventZoomService extends ChangeNotifier {
       }
 
       notifyListeners();
-    } catch (e) {
-      debugPrint('[EventZoomService] Failed to load from JSON: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Calculate zoom level as percentage (for UI display)

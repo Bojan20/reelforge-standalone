@@ -41,7 +41,7 @@ class PdcIndicator extends StatelessWidget {
           onTap: onTap,
         );
       }
-    } catch (_) {}
+    } catch (_) { /* ignored */ }
     return PdcIndicator(
       totalLatencySamples: 0,
       totalLatencyMs: 0,
@@ -146,7 +146,7 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
           };
         });
       }
-    } catch (_) {}
+    } catch (_) { /* ignored */ }
   }
 
   String _samplesToMs(int samples) {

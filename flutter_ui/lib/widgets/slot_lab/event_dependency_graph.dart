@@ -258,7 +258,6 @@ class EventDependencyGraphState extends State<EventDependencyGraph>
 
       return await boundary.toImage(pixelRatio: 2.0);
     } catch (e) {
-      debugPrint('[EventDependencyGraph] Export failed: $e');
       return null;
     }
   }

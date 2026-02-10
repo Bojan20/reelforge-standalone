@@ -130,7 +130,6 @@ class StageCoverageService extends ChangeNotifier {
       }
     }
 
-    debugPrint('[StageCoverageService] Initialized with ${_coverage.length} stages');
     notifyListeners();
   }
 
@@ -195,7 +194,6 @@ class StageCoverageService extends ChangeNotifier {
   /// Toggle recording
   void setRecording(bool enabled) {
     _isRecording = enabled;
-    debugPrint('[StageCoverageService] Recording ${enabled ? 'enabled' : 'disabled'}');
     notifyListeners();
   }
 
@@ -273,7 +271,6 @@ class StageCoverageService extends ChangeNotifier {
         status: CoverageStatus.untested,
       );
     }
-    debugPrint('[StageCoverageService] Coverage data reset');
     notifyListeners();
   }
 
@@ -303,7 +300,6 @@ class StageCoverageService extends ChangeNotifier {
       _coverage[entry.stage] = entry;
     }
 
-    debugPrint('[StageCoverageService] Imported coverage for ${_coverage.length} stages');
     notifyListeners();
   }
 

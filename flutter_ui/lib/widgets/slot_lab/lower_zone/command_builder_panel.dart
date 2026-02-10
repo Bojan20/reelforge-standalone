@@ -436,18 +436,15 @@ class _DropZoneBoxState extends State<_DropZoneBox> {
         final isValid = data is AudioAsset ||
             data is String ||  // Accept path strings from _buildAudioBrowserItem
             (data is List && data.isNotEmpty && data.first is AudioAsset);
-        debugPrint('[CommandBuilder] onWillAccept: data=$data, type=${data.runtimeType}, isValid=$isValid');
         if (isValid) {
           setState(() => _isHovering = true);
         }
         return isValid;
       },
       onLeave: (_) {
-        debugPrint('[CommandBuilder] onLeave');
         setState(() => _isHovering = false);
       },
       onAcceptWithDetails: (details) {
-        debugPrint('[CommandBuilder] onAccept: data=${details.data}');
         setState(() => _isHovering = false);
         final data = details.data;
         if (data is AudioAsset) {
@@ -609,7 +606,6 @@ class _DropZoneBoxState extends State<_DropZoneBox> {
     // Add to MiddlewareProvider (this is the SINGLE SOURCE OF TRUTH)
     widget.middleware.addCompositeEvent(event);
 
-    debugPrint('[CommandBuilder] Created event "${event.name}" for stage $stage');
 
     // Show snackbar
     if (context.mounted) {
@@ -675,7 +671,6 @@ class _DropZoneBoxState extends State<_DropZoneBox> {
     // Add to MiddlewareProvider (this is the SINGLE SOURCE OF TRUTH)
     widget.middleware.addCompositeEvent(event);
 
-    debugPrint('[CommandBuilder] Created event from path "$eventName" for stage $stage');
 
     // Show snackbar
     if (context.mounted) {

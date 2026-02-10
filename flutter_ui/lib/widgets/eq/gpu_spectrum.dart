@@ -47,7 +47,6 @@ class _GpuSpectrumState extends State<GpuSpectrum> {
       setState(() {
         _loadError = e.toString();
       });
-      debugPrint('[GpuSpectrum] Shader load error: $e');
     }
   }
 

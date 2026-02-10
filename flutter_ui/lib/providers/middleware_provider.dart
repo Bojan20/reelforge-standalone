@@ -214,7 +214,6 @@ class MiddlewareProvider extends ChangeNotifier {
       if ((_lastChanges & changeCompositeEvents) != 0) domains.add('Events');
       if ((_lastChanges & changeMusicSystem) != 0) domains.add('Music');
       if (domains.isNotEmpty) {
-        debugPrint('[MiddlewareProvider] Batched notify: ${domains.join(", ")}');
       }
     }
 
@@ -403,7 +402,6 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Prevents memory accumulation from duplicate listeners during hot reload
   void _registerSubsystemListeners() {
     if (_listenersRegistered) {
-      debugPrint('[MiddlewareProvider] Skipping duplicate listener registration');
       return;
     }
 
@@ -468,7 +466,6 @@ class MiddlewareProvider extends ChangeNotifier {
     RtpcModulationService.instance.init(this);
     DuckingService.instance.init();
     ContainerService.instance.init(this);
-    debugPrint('[MiddlewareProvider] Services initialized (RTPC, Ducking, Container)');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1157,7 +1154,6 @@ class MiddlewareProvider extends ChangeNotifier {
   void addBlendChild(int containerId, {required String name, required double rtpcStart, required double rtpcEnd}) {
     final currentCount = _blendContainersProvider.getContainer(containerId)?.children.length ?? 0;
     if (currentCount >= kMaxContainerChildren) {
-      debugPrint('[MiddlewareProvider] Cannot add blend child: limit reached ($kMaxContainerChildren)');
       return;
     }
     final nextId = currentCount + 1;
@@ -1184,7 +1180,6 @@ class MiddlewareProvider extends ChangeNotifier {
   void addRandomChild(int containerId, {required String name, required double weight}) {
     final currentCount = _randomContainersProvider.getContainer(containerId)?.children.length ?? 0;
     if (currentCount >= kMaxContainerChildren) {
-      debugPrint('[MiddlewareProvider] Cannot add random child: limit reached ($kMaxContainerChildren)');
       return;
     }
     final nextId = currentCount + 1;
@@ -1211,7 +1206,6 @@ class MiddlewareProvider extends ChangeNotifier {
   void addSequenceStep(int containerId, {required int childId, required String childName, required double delayMs, required double durationMs}) {
     final currentCount = _sequenceContainersProvider.getContainer(containerId)?.steps.length ?? 0;
     if (currentCount >= kMaxContainerChildren) {
-      debugPrint('[MiddlewareProvider] Cannot add sequence step: limit reached ($kMaxContainerChildren)');
       return;
     }
     final nextIndex = currentCount;
@@ -1933,7 +1927,6 @@ class MiddlewareProvider extends ChangeNotifier {
   }) {
     final event = _eventSystemProvider.getEvent(eventId);
     if (event == null) {
-      debugPrint('[Middleware] Event not found: $eventId');
       return 0;
     }
 
@@ -1947,7 +1940,6 @@ class MiddlewareProvider extends ChangeNotifier {
     // Acquire the specified section before playback
     final controller = UnifiedPlaybackController.instance;
     if (!controller.acquireSection(source)) {
-      debugPrint('[Middleware] Failed to acquire playback section: ${source.name}');
       return 0;
     }
 
@@ -2021,19 +2013,16 @@ class MiddlewareProvider extends ChangeNotifier {
   int playCompositeEvent(String compositeEventId, {PlaybackSection source = PlaybackSection.slotLab}) {
     final event = _compositeEventSystemProvider.getCompositeEvent(compositeEventId);
     if (event == null) {
-      debugPrint('[Middleware] playCompositeEvent: Event not found: $compositeEventId');
       return 0;
     }
 
     if (event.layers.isEmpty) {
-      debugPrint('[Middleware] playCompositeEvent: Event "${event.name}" has no layers');
       return 0;
     }
 
     // Acquire the specified section before playback
     final controller = UnifiedPlaybackController.instance;
     if (!controller.acquireSection(source)) {
-      debugPrint('[Middleware] playCompositeEvent: Failed to acquire playback section: ${source.name}');
       return 0;
     }
 
@@ -2083,7 +2072,6 @@ class MiddlewareProvider extends ChangeNotifier {
       }
     }
 
-    debugPrint('[Middleware] playCompositeEvent: "${event.name}" started $voicesStarted/${event.layers.length} voices');
     return voicesStarted;
   }
 
@@ -2125,7 +2113,6 @@ class MiddlewareProvider extends ChangeNotifier {
   void stopCompositeEvent(String eventId, {int fadeMs = 100}) {
     final event = compositeEvents.where((e) => e.id == eventId).firstOrNull;
     if (event == null) {
-      debugPrint('[Middleware] stopCompositeEvent: Event not found: $eventId');
       return;
     }
 
@@ -2144,7 +2131,6 @@ class MiddlewareProvider extends ChangeNotifier {
     // Also stop via AudioPlaybackService if using bus routing
     AudioPlaybackService.instance.stopEvent(eventId);
 
-    debugPrint('[Middleware] stopCompositeEvent: "${event.name}" stopped ${toRemove.length} instances');
 
     // Release section when no more playing instances
     if (_playingInstances.isEmpty) {
@@ -2158,12 +2144,10 @@ class MiddlewareProvider extends ChangeNotifier {
   void stopEventByName(String eventName, {int fadeMs = 100, int gameObjectId = 0}) {
     final event = _eventSystemProvider.events.where((e) => e.name == eventName).firstOrNull;
     if (event == null) {
-      debugPrint('[Middleware] stopEventByName: Event not found: $eventName');
       return;
     }
 
     stopEvent(event.id, fadeMs: fadeMs, gameObjectId: gameObjectId);
-    debugPrint('[Middleware] stopEventByName: "$eventName" stopped');
   }
 
   /// Stop all playing events
@@ -3552,7 +3536,6 @@ class MiddlewareProvider extends ChangeNotifier {
     }
 
     selectCompositeEvent(newEvent.id);
-    debugPrint('[MiddlewareProvider] Duplicated event "${source.name}" → "${newEvent.name}"');
   }
 
   /// Preview a composite event (play all layers)
@@ -3560,15 +3543,12 @@ class MiddlewareProvider extends ChangeNotifier {
   void previewCompositeEvent(String eventId) {
     final event = compositeEvents.where((e) => e.id == eventId).firstOrNull;
     if (event == null) {
-      debugPrint('[MiddlewareProvider] previewCompositeEvent: Event not found: $eventId');
       return;
     }
 
-    debugPrint('[MiddlewareProvider] Preview event "${event.name}" (${event.layers.length} layers)');
 
     // Use playCompositeEvent for actual audio playback
     final voicesStarted = playCompositeEvent(eventId);
-    debugPrint('[MiddlewareProvider] Preview started $voicesStarted voices for "${event.name}"');
   }
 
   /// Add existing composite event (for sync from external sources)
@@ -3995,7 +3975,6 @@ class MiddlewareProvider extends ChangeNotifier {
     _slotTracks.clear();
     _slotMarkers.clear();
 
-    debugPrint('[MiddlewareProvider] dispose() complete - all resources released');
 
     super.dispose();
   }

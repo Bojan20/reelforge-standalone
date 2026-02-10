@@ -859,7 +859,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _flushPendingReelStops();
     } else {
       // Out of order — buffer it for later
-      debugPrint('[SlotPreview] 📦 REEL $reelIndex BUFFERED (waiting for reel $_nextExpectedReelIndex)');
       _pendingReelStops.add(reelIndex);
     }
   }
@@ -938,7 +937,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════════
 
     // 1. REEL_STOP AUDIO — Primary reel landing sound
-    debugPrint('[SlotPreview] 🎰 REEL $reelIndex STOPPED → triggering REEL_STOP_$reelIndex (rust_ts: ${timestampMs.toStringAsFixed(0)}ms) [IMMEDIATE]');
     eventRegistry.triggerStage('REEL_STOP_$reelIndex', context: {'timestamp_ms': timestampMs});
 
     // 2. SPECIAL SYMBOL LAND EVENTS — Trigger when WILD, SCATTER, BONUS land on reel
@@ -961,7 +959,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
 
         if (symbolLandStage != null) {
-          debugPrint('[SlotPreview] ✨ SPECIAL SYMBOL LAND: $symbolLandStage at reel $reelIndex, row $rowIndex [IMMEDIATE]');
           eventRegistry.triggerStage(symbolLandStage, context: {
             'reel_index': reelIndex,
             'row_index': rowIndex,
@@ -981,7 +978,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     if (reelIndex == widget.reels - 1 && !_symbolHighlightPreTriggered) {
       final result = widget.provider.lastResult;
       if (result != null && result.isWin) {
-        debugPrint('[SlotPreview] P0.2: Last reel stopped with WIN → pre-triggering WIN_SYMBOL_HIGHLIGHT');
 
         // Pre-populate winning symbols info (normally done in _finalizeSpin)
         // WILD PRIORITY RULE: When WILD substitutes for another symbol in a win,
@@ -1030,13 +1026,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (hasWildInWin) {
           _winningSymbolNames.add('WILD');
           _winningPositionsBySymbol['WILD'] = wildPositions;
-          debugPrint('[SlotPreview] P0.2: ⭐ WILD detected in win (${wildPositions.length} positions)');
         }
 
         // Trigger symbol-specific highlights (V14)
         for (final symbolName in _winningSymbolNames) {
           final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
-          debugPrint('[SlotPreview] P0.2: Pre-triggering $stage');
           eventRegistry.triggerStage(stage);
         }
 
@@ -1045,7 +1039,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _startSymbolPulseAnimation();
 
         _symbolHighlightPreTriggered = true;
-        debugPrint('[SlotPreview] P0.2: ✅ WIN_SYMBOL_HIGHLIGHT pre-triggered (${_winningSymbolNames.length} symbols, flag set)');
       }
     }
 
@@ -1069,7 +1062,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
       if (hasScatter) {
         _scatterReels.add(reelIndex);
-        debugPrint('[SlotPreview] ◆ SCATTER detected on reel $reelIndex (total: ${_scatterReels.length})');
 
         // Trigger anticipation when we have 2 scatters and remaining reels exist
         if (_scatterReels.length >= _scattersNeededForAnticipation) {
@@ -1082,7 +1074,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           }
 
           if (remainingReels.isNotEmpty) {
-            debugPrint('[SlotPreview] 🎯 ANTICIPATION TRIGGERED! Scatters: $_scatterReels, extending reels: $remainingReels');
 
             // ═══════════════════════════════════════════════════════════════════════════
             // P7.2.1: SEQUENTIAL ANTICIPATION MODE
@@ -1097,7 +1088,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               _isAnticipation = true;
             });
 
-            debugPrint('[SlotPreview] P7.2.1: SEQUENTIAL MODE ACTIVATED, queue: $_sequentialAnticipationQueue');
 
             // Start first reel in sequence
             _startNextSequentialAnticipationReel();
@@ -1118,7 +1108,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// Start anticipation on the next reel in the sequential queue
   void _startNextSequentialAnticipationReel() {
     if (_sequentialAnticipationQueue.isEmpty) {
-      debugPrint('[SlotPreview] P7.2.1: Sequential queue empty, all anticipation reels processed');
       _sequentialAnticipationMode = false;
       _currentSequentialReel = null;
       return;
@@ -1131,7 +1120,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // First anticipation reel = L1, second = L2, etc.
     final tensionLevel = (_anticipationReels.length + 1).clamp(1, 4);
 
-    debugPrint('[SlotPreview] P7.2.1: Starting SEQUENTIAL anticipation on reel $nextReel (tension L$tensionLevel, remaining: $_sequentialAnticipationQueue)');
 
     // Extend spin time SIGNIFICANTLY for this reel (others stay spinning)
     _reelAnimController.extendReelSpinTime(nextReel, _anticipationDurationMs);
@@ -1151,7 +1139,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _startSequentialReelAnticipation(int reelIndex, int tensionLevel) {
     if (_anticipationReels.contains(reelIndex)) return;
 
-    debugPrint('[SlotPreview] P7.2.1: SEQUENTIAL ANTICIPATION START: Reel $reelIndex, tension L$tensionLevel');
 
     setState(() {
       _anticipationReels.add(reelIndex);
@@ -1197,7 +1184,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   /// Complete anticipation for a reel and trigger next in sequence
   void _completeSequentialReelAnticipation(int reelIndex) {
-    debugPrint('[SlotPreview] P7.2.1: SEQUENTIAL ANTICIPATION COMPLETE: Reel $reelIndex → stopping reel');
 
     // End anticipation visuals
     _anticipationTimers[reelIndex]?.cancel();
@@ -1247,7 +1233,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     while (_pendingReelStops.contains(_nextExpectedReelIndex)) {
       final reelToFlush = _nextExpectedReelIndex;
       _pendingReelStops.remove(reelToFlush);
-      debugPrint('[SlotPreview] 📤 FLUSHING BUFFERED REEL $reelToFlush');
       _triggerReelStopAudio(reelToFlush);
       _nextExpectedReelIndex++;
     }
@@ -1263,7 +1248,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // CRITICAL: Wait for anticipation to finish before win flow
     // Anticipation can still be active after last reel visual stop
     if (_isAnticipation || _anticipationReels.isNotEmpty) {
-      debugPrint('[SlotPreview] ⏳ Waiting for anticipation to finish before win flow...');
       return;
     }
 
@@ -1298,7 +1282,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // V13: SKIP PRESENTATION REQUEST — Fade out before new spin
     // ═══════════════════════════════════════════════════════════════════════════
     if (widget.provider.skipRequested) {
-      debugPrint('[SlotPreview] 📤 SKIP REQUESTED — starting fade-out');
       _executeSkipFadeOut();
       return; // Don't process other updates during fade-out
     }
@@ -1311,18 +1294,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════════
     // DETAILED DEBUG — Track every state change
     // ═══════════════════════════════════════════════════════════════════════════
-    debugPrint('╔══════════════════════════════════════════════════════════════╗');
-    debugPrint('║ [SlotPreview] _onProviderUpdate                              ║');
-    debugPrint('╠══════════════════════════════════════════════════════════════╣');
-    debugPrint('║ Provider state:');
-    debugPrint('║   isPlayingStages = $isPlaying');
-    debugPrint('║   stages.length = ${stages.length}');
-    debugPrint('║   result.spinId = $spinId');
-    debugPrint('║ Widget state:');
-    debugPrint('║   _isSpinning = $_isSpinning');
-    debugPrint('║   _spinFinalized = $_spinFinalized');
-    debugPrint('║   _lastProcessedSpinId = $_lastProcessedSpinId');
-    debugPrint('╚══════════════════════════════════════════════════════════════╝');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SPIN START LOGIC — Guard against re-triggering after finalize
@@ -1335,40 +1306,28 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // 5. This is a NEW spin result (different spinId)
 
     final canStartSpin = isPlaying && stages.isNotEmpty && !_isSpinning && !_spinFinalized;
-    debugPrint('[SlotPreview] canStartSpin=$canStartSpin (isPlaying=$isPlaying, stages=${stages.length}, !spinning=${!_isSpinning}, !finalized=${!_spinFinalized})');
 
     if (canStartSpin) {
       final hasSpinStart = stages.any((s) => s.stageType == 'spin_start');
 
       // DEBUG: Log stage types for verification
       if (stages.isNotEmpty) {
-        debugPrint('[SlotPreview] Stage types: ${stages.map((s) => s.stageType).take(5).join(", ")}...');
       }
-      debugPrint('[SlotPreview] hasSpinStart=$hasSpinStart, spinId=$spinId, lastProcessed=$_lastProcessedSpinId');
 
       // Only start if this is a genuinely new spin
       if (hasSpinStart && spinId != null && spinId != _lastProcessedSpinId) {
-        debugPrint('[SlotPreview] 🆕 NEW SPIN DETECTED: $spinId');
         _lastProcessedSpinId = spinId;
         _startSpin(result);
       } else if (!hasSpinStart) {
-        debugPrint('[SlotPreview] ⚠️ BLOCKED: No spin_start stage found!');
       } else if (spinId == _lastProcessedSpinId) {
-        debugPrint('[SlotPreview] ⚠️ BLOCKED: Same spinId as last processed ($spinId)');
       } else if (spinId == null) {
-        debugPrint('[SlotPreview] ⚠️ BLOCKED: spinId is null');
       }
     } else {
-      // Log WHY we can't start spin
-      if (!isPlaying) debugPrint('[SlotPreview] ⏸️ Not starting: isPlaying=false');
-      if (stages.isEmpty) debugPrint('[SlotPreview] ⏸️ Not starting: stages empty');
-      if (_isSpinning) debugPrint('[SlotPreview] ⏸️ Not starting: already spinning');
-      if (_spinFinalized) debugPrint('[SlotPreview] ⏸️ Not starting: spinFinalized=true');
+      // Not starting spin — conditions not met
     }
 
     // Reset finalized flag when provider stops playing (ready for next spin)
     if (!isPlaying && _spinFinalized) {
-      debugPrint('[SlotPreview] 🔄 RESET: spinFinalized false → ready for next spin');
       setState(() {
         _spinFinalized = false;
         _isSpinning = false; // CRITICAL: Reset spinning state so STOP→SPIN button transition happens
@@ -1382,7 +1341,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     //   - Normal end:  isPlayingStages=false BUT isReelsSpinning=true (wait for animation)
     // ═══════════════════════════════════════════════════════════════════════════
     if (!isPlaying && _isSpinning && !widget.provider.isReelsSpinning) {
-      debugPrint('[SlotPreview] ⏹️ STOP BUTTON DETECTED: Provider explicitly stopped → force stop all reels');
 
       // Stop the visual animation immediately
       if (_reelAnimController.isSpinning) {
@@ -1421,8 +1379,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // This happens when the callback chain breaks or timing mismatches occur.
     // ═══════════════════════════════════════════════════════════════════════════
     if (!isPlaying && _isSpinning && widget.provider.isReelsSpinning && !_reelAnimController.isSpinning) {
-      debugPrint('[SlotPreview] 🔧 AUTO-FINALIZE: Animation done but callback missed!');
-      debugPrint('  → Provider stages: DONE, widget spinning: YES, provider reels: YES, controller: DONE');
 
       // Manually trigger the same flow as onAllReelsStopped callback
       _onAllReelsStoppedVisual();
@@ -1491,12 +1447,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   void _startSpin(SlotLabSpinResult? result) {
-    debugPrint('[SlotPreview] 🎬 _startSpin() called, _isSpinning=$_isSpinning');
     if (_isSpinning) {
-      debugPrint('[SlotPreview] ❌ _startSpin BLOCKED: already spinning!');
       return;
     }
-    debugPrint('[SlotPreview] ✅ _startSpin PROCEEDING — will set _isSpinning=true');
 
     // Stop any previous win line presentation and tier progression
     _stopWinLinePresentation();
@@ -1583,24 +1536,19 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // NOTE: SPIN_START audio is triggered by SlotLabProvider._playStage()
     // DO NOT trigger here - causes double trigger!
-    debugPrint('[SlotPreview] 🎰 SPIN STARTED (visual only, audio via provider)');
   }
 
   void _finalizeSpin(SlotLabSpinResult result) {
-    debugPrint('[SlotPreview] ✅ FINALIZE SPIN — _isSpinning=$_isSpinning, _spinFinalized=$_spinFinalized');
 
     // Guard against double finalize
     if (_spinFinalized) {
-      debugPrint('[SlotPreview] ⚠️ _finalizeSpin SKIPPED: already finalized');
       return;
     }
 
     // Stop visual animation ONLY if still spinning (avoid duplicate callback from stopImmediately)
     if (_reelAnimController.isSpinning) {
-      debugPrint('[SlotPreview] Stopping animation controller...');
       _reelAnimController.stopImmediately();
     } else {
-      debugPrint('[SlotPreview] Animation already stopped, skipping stopImmediately()');
     }
 
     // Stop any existing win line presentation
@@ -1678,10 +1626,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (hasWildInWin) {
           _winningSymbolNames.add('WILD');
           _winningPositionsBySymbol['WILD'] = wildPositions;
-          debugPrint('[SlotPreview] ⭐ WILD detected in win (${wildPositions.length} positions)');
         }
 
-        debugPrint('[SlotPreview] 🎯 V14: Winning symbols: ${_winningSymbolNames.join(', ')}');
 
         // ═══════════════════════════════════════════════════════════════════════
         // ULTIMATIVNO REŠENJE: P5 Win Tier System
@@ -1727,30 +1673,23 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // V14: Trigger symbol-specific highlight stages (HP1 → WIN_SYMBOL_HIGHLIGHT_HP1)
         // P0.2: Guard with pre-trigger flag - may have been triggered on last reel stop
         if (!_symbolHighlightPreTriggered) {
-          debugPrint('[SlotPreview] 🎯 WIN_SYMBOL_HIGHLIGHT PHASE 1 START:');
-          debugPrint('[SlotPreview]   → Winning symbols: ${_winningSymbolNames.isEmpty ? "(empty)" : _winningSymbolNames.join(", ")}');
-          debugPrint('[SlotPreview]   → LineWins count: ${result.lineWins.length}');
 
           for (final symbolName in _winningSymbolNames) {
             final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
-            debugPrint('[SlotPreview] 🔊 V14: Triggering $stage (${_winningPositionsBySymbol[symbolName]?.length ?? 0} positions)');
             eventRegistry.triggerStage(stage);
           }
 
           // Also trigger generic stage for backwards compatibility
-          debugPrint('[SlotPreview] 🔊 Triggering generic WIN_SYMBOL_HIGHLIGHT');
           eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
 
           _startSymbolPulseAnimation();
         } else {
-          debugPrint('[SlotPreview] P0.2: WIN_SYMBOL_HIGHLIGHT SKIPPED (already pre-triggered on last reel stop)');
         }
         _triggerStaggeredSymbolPopups(); // V6: Staggered popup effect (always runs)
 
         // Store win tier info for Phase 2 audio trigger
         final winPresentTier = _getWinPresentTier(result.totalWin);
 
-        debugPrint('[SlotPreview] 🎰 PHASE 1: Symbol highlight (tier: ${_winTier.isEmpty ? "SMALL" : _winTier}, duration: ${symbolHighlightMs}ms)');
 
         // ═══════════════════════════════════════════════════════════════════════
         // PHASE 2: WIN PLAQUE (after symbol highlight)
@@ -1759,7 +1698,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           if (!mounted) return;
           // FIX: Guard against skip race condition
           if (widget.provider.skipRequested) {
-            debugPrint('[SlotPreview] ⚠️ Phase 2 skipped — skip was requested during symbol highlight');
             return;
           }
 
@@ -1774,7 +1712,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // REGULAR WIN: Simple plaque with counter, then win lines
             // WIN_PRESENT_X audio triggers NOW when plaque appears (not during symbol highlight)
             // ═══════════════════════════════════════════════════════════════════
-            debugPrint('[SlotPreview] 💰 PHASE 2: Regular win plaque (tier: $_winTier, win: ${result.totalWin})');
 
             // 🔊 Trigger WIN_PRESENT audio when plaque appears
             eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
@@ -1796,11 +1733,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
                 // Start win line presentation
                 if (lineWinsForPhase3.isNotEmpty) {
-                  debugPrint('[SlotPreview] 🎰 PHASE 3: Win lines (after regular win)');
                   _startWinLinePresentation(lineWinsForPhase3);
                 } else {
                   // V13: No win lines — win presentation is COMPLETE
-                  debugPrint('[SlotPreview] 🏁 Win presentation COMPLETE (regular win, no lines)');
                   widget.provider.setWinPresentationActive(false);
                 }
               });
@@ -1812,7 +1747,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // No separate "total win" plaque — the tier plaque shows the counter
             // WIN_PRESENT_X audio triggers NOW when plaque appears (not during symbol highlight)
             // ═══════════════════════════════════════════════════════════════════
-            debugPrint('[SlotPreview] 🎰 PHASE 2: Tier progression (${result.totalWin}) → $_winTier');
 
             // 🔊 Trigger WIN_PRESENT audio when plaque appears
             eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
@@ -1823,7 +1757,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             final bet = widget.provider.betAmount;
             final winRatio = bet > 0 ? result.totalWin / bet : 0.0;
             if (winRatio >= 20) {
-              debugPrint('[SlotPreview] 🌟 BIG WIN TRIGGERED (${winRatio.toStringAsFixed(1)}x bet)');
               eventRegistry.triggerStage('BIG_WIN_LOOP');
               eventRegistry.triggerStage('BIG_WIN_COINS');
             }
@@ -1880,7 +1813,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _advanceToNextWinLine();
     });
 
-    debugPrint('[SlotPreview] 🎯 Started win line presentation: ${lineWins.length} lines (counter hidden)');
   }
 
   /// Stop win line presentation
@@ -1919,7 +1851,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// Execute fade-out of all win presentation elements
   /// Called when provider.skipRequested is true
   void _executeSkipFadeOut() {
-    debugPrint('[SlotPreview] 🎬 _executeSkipFadeOut — stopping timers, starting fade');
 
     // 1. Stop all presentation timers (but don't reset visual state yet)
     _winLineCycleTimer?.cancel();
@@ -1953,7 +1884,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _symbolHighlightPreTriggered = false;
       });
 
-      debugPrint('[SlotPreview] ✅ Skip fade-out COMPLETE — calling onSkipComplete()');
 
       // ANALYTICS: Track skip completed
       WinAnalyticsService.instance.trackSkipCompleted(
@@ -1967,7 +1897,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // 2. Check if plaque is already hidden — if so, complete immediately
     if (_winAmountController.value == 0 && !_winAmountController.isAnimating) {
-      debugPrint('[SlotPreview] ⚡ Plaque already hidden — completing skip immediately');
       completeSkip();
       return;
     }
@@ -1989,7 +1918,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // When last line is reached, stop the timer and end presentation
     // ═══════════════════════════════════════════════════════════════════════════
     if (nextIndex >= _lineWinsForPresentation.length) {
-      debugPrint('[SlotPreview] 🏁 Win line presentation COMPLETE (${_lineWinsForPresentation.length} lines shown once)');
       _stopWinLinePresentation();
       return;
     }
@@ -2022,8 +1950,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       eventRegistry.triggerStage('WIN_LINE_SHOW');
     }
 
-    debugPrint('[SlotPreview] 🎯 Showing line ${_currentPresentingLineIndex + 1}/${_lineWinsForPresentation.length}: '
-        '${currentLine.symbolName} x${currentLine.matchCount} = ${currentLine.winAmount}');
   }
 
   /// Update visual state for currently shown win line WITH setState
@@ -2051,8 +1977,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       eventRegistry.triggerStage('WIN_LINE_SHOW');
     }
 
-    debugPrint('[SlotPreview] 🎯 [setState] Showing line ${_currentPresentingLineIndex + 1}/${_lineWinsForPresentation.length}: '
-        '${currentLine.symbolName} x${currentLine.matchCount} = ${currentLine.winAmount}');
   }
 
   /// Get current line win for display (or null if no presentation active)
@@ -2221,23 +2145,17 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final projectProvider = widget.projectProvider;
     final bet = widget.provider.betAmount;
 
-    debugPrint('[WIN DEBUG] ═══════════════════════════════════════');
-    debugPrint('[WIN DEBUG] Bet: \$${bet.toStringAsFixed(2)}, Win: \$${totalWin.toStringAsFixed(2)}');
-    debugPrint('[WIN DEBUG] Multiplier: ${bet > 0 ? (totalWin/bet).toStringAsFixed(2) : "N/A"}x');
 
     if (projectProvider == null || bet <= 0 || totalWin <= 0) {
-      debugPrint('[WIN DEBUG] ⚠️ Fallback to legacy (provider=$projectProvider, bet=$bet, win=$totalWin)');
       return widget.provider.getVisualTierForWin(totalWin);
     }
 
     // P5 System: Get tier result from project provider
     final tierResult = projectProvider.getWinTierForAmount(totalWin, bet);
     if (tierResult == null) {
-      debugPrint('[WIN DEBUG] ❌ tierResult is NULL!');
       return '';
     }
 
-    debugPrint('[WIN DEBUG] isBigWin: ${tierResult.isBigWin}, maxTier: ${tierResult.bigWinMaxTier}');
 
     // Big Win — return big win tier ID for progression system
     if (tierResult.isBigWin) {
@@ -2249,18 +2167,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         5 => 'BIG_WIN_TIER_5',
         _ => 'BIG_WIN_TIER_1',
       };
-      debugPrint('[WIN DEBUG] ✅ BIG WIN: Tier=$tierId (maxTier=${tierResult.bigWinMaxTier})');
       return tierId;
     }
 
     // Regular Win — return stage name as tier ID (WIN_LOW, WIN_1, WIN_2, etc.)
     if (tierResult.regularTier != null) {
       final stageName = tierResult.regularTier!.stageName;
-      debugPrint('[WIN DEBUG] ✅ REGULAR WIN: Tier=$stageName (${tierResult.regularTier!.displayLabel})');
       return stageName;
     }
 
-    debugPrint('[WIN DEBUG] ⚠️ No tier matched!');
     return '';
   }
 
@@ -2498,7 +2413,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (mounted) {
           // ROLLUP_END when counter finishes
           eventRegistry.triggerStage('ROLLUP_END');
-          debugPrint('[SlotPreview] 🔊 ROLLUP_END');
         }
         return;
       }
@@ -2509,7 +2423,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       eventRegistry.triggerStage('ROLLUP_TICK', context: {'progress': progress});
     });
 
-    debugPrint('[SlotPreview] 🔊 ROLLUP started ($_rollupTicksTotal ticks)');
   }
 
   /// Stop rollup ticks (on early interrupt)
@@ -2562,7 +2475,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         return partsA[1].compareTo(partsB[1]);
       });
 
-      debugPrint('[SlotPreview] 🎬 V14: Popup group "$symbolName" — ${sortedPositions.length} symbols');
 
       // Trigger staggered popups for this symbol group
       for (final position in sortedPositions) {
@@ -2634,7 +2546,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// Run single pulse cycle, repeats until 3 cycles complete
   void _runSymbolPulseCycle() {
     if (!mounted || _symbolPulseCount >= _symbolPulseCycles) {
-      debugPrint('[SlotPreview] ✅ Symbol pulse complete ($_symbolPulseCount cycles)');
       return;
     }
 
@@ -2669,7 +2580,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // But still show the "WIN!" plaque briefly (800ms minimum) so player sees it
     // ═══════════════════════════════════════════════════════════════════════════
     if (winPresentTier == 1) {
-      debugPrint('[SlotPreview] 💨 TIER 1 QUICK — showing plaque briefly (800ms), no rollup');
 
       setState(() {
         _displayedWinAmount = _targetWinAmount;
@@ -2681,7 +2591,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
       // Trigger ROLLUP_END audio (no tick sounds)
       eventRegistry.triggerStage('ROLLUP_END');
-      debugPrint('[SlotPreview] 🔊 ROLLUP_END (tier 1 instant)');
 
       // P0.16 FIX: Wait 800ms so player can SEE the plaque before fading
       // Without this delay, the plaque appears and immediately fades out
@@ -2691,7 +2600,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // FIX: If skip was requested during delay, don't call onComplete
         // The skip flow will handle completion via onSkipComplete()
         if (widget.provider.skipRequested) {
-          debugPrint('[SlotPreview] ⚠️ Tier 1 callback skipped — skip was requested during delay');
           return;
         }
         onComplete?.call();
@@ -2705,16 +2613,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final totalTicks = (duration / tickIntervalMs).round();
     final incrementPerTick = _targetWinAmount / totalTicks;
 
-    debugPrint('[WIN DEBUG] ═══════════════════════════════════════');
-    debugPrint('[WIN DEBUG] ROLLUP CONFIG:');
-    debugPrint('[WIN DEBUG]   Tier: $tier');
-    debugPrint('[WIN DEBUG]   Duration: ${duration}ms');
-    debugPrint('[WIN DEBUG]   Tick Rate: $tickRate ticks/s');
-    debugPrint('[WIN DEBUG]   Tick Interval: ${tickIntervalMs}ms');
-    debugPrint('[WIN DEBUG]   Total Ticks: $totalTicks');
-    debugPrint('[WIN DEBUG]   Increment/Tick: \$${incrementPerTick.toStringAsFixed(2)}');
-    debugPrint('[WIN DEBUG]   Target: \$${_targetWinAmount.toStringAsFixed(2)}');
-    debugPrint('[WIN DEBUG] ═══════════════════════════════════════');
 
     // ANALYTICS: Track rollup started
     WinAnalyticsService.instance.trackRollupStarted(
@@ -2754,7 +2652,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             _rtlRollupProgress = 1.0;
           });
           eventRegistry.triggerStage('ROLLUP_END');
-          debugPrint('[SlotPreview] 🔊 ROLLUP_END (completed $totalTicks ticks)');
 
           // ANALYTICS: Track rollup completed (not skipped)
           WinAnalyticsService.instance.trackRollupCompleted(
@@ -2796,7 +2693,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final tickIntervalMs = (1000 / tickRate).round();
     final totalTicks = (totalDurationMs / tickIntervalMs).round();
 
-    debugPrint('[SlotPreview] 🔊 Tier progression rollup: ${totalDurationMs}ms, $totalTicks ticks');
 
     _rollupTickCount = 0;
     _rollupTickTimer?.cancel();
@@ -2809,7 +2705,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             _rollupProgress = 1.0;
           });
           eventRegistry.triggerStage('ROLLUP_END');
-          debugPrint('[SlotPreview] 🔊 Tier rollup ROLLUP_END');
         }
         return;
       }
@@ -2893,7 +2788,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _tierProgressionIndex = 0;
     _isInTierProgression = true;
 
-    debugPrint('[SlotPreview] 🏆 Starting tier progression: $_tierProgressionList');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CALCULATE TOTAL ROLLUP DURATION
@@ -2904,7 +2798,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final counterDurationMs = _bigWinIntroDurationMs +
                               (numTiers * _tierDisplayDurationMs);
 
-    debugPrint('[SlotPreview] 🏆 Counter duration: ${counterDurationMs}ms (intro 500ms + ${numTiers} tiers × 4s) — STOPS at BIG_WIN_END');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STEP 1: BIG_WIN_INTRO (0.5s) — Entry fanfare
@@ -2938,7 +2831,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // V8: Spawn celebration particles
     _spawnPlaqueCelebrationParticles(_tierProgressionList.first);
 
-    debugPrint('[SlotPreview] 🏆 BIG_WIN_INTRO → showing ${_tierProgressionList.first}');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STEP 2: After intro (0.5s), start tier display sequence
@@ -2947,7 +2839,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       if (!mounted) return;
       // FIX: Guard against skip race condition
       if (widget.provider.skipRequested) {
-        debugPrint('[SlotPreview] ⚠️ Tier progression skipped — skip was requested during intro');
         return;
       }
       _advanceTierProgression(lineWinsForPhase3, onComplete);
@@ -2961,7 +2852,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Trigger visual tier stage (optional — main audio is WIN_PRESENT_N)
     final currentTier = _tierProgressionList[_tierProgressionIndex];
     eventRegistry.triggerStage('WIN_TIER_$currentTier');
-    debugPrint('[SlotPreview] 🏆 Tier ${_tierProgressionIndex + 1}/${_tierProgressionList.length}: $currentTier');
 
     // Update display
     setState(() {
@@ -2979,7 +2869,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       if (!mounted) return;
       // FIX: Guard against skip race condition
       if (widget.provider.skipRequested) {
-        debugPrint('[SlotPreview] ⚠️ Tier advance skipped — skip was requested');
         return;
       }
 
@@ -3007,7 +2896,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════════
     eventRegistry.triggerStage('BIG_WIN_END');
     final lastTier = _currentDisplayTier;
-    debugPrint('[SlotPreview] 🏆 BIG_WIN_END — plaque ostaje: $lastTier');
 
     // Plaketa OSTAJE sa poslednjim tier-om (ne menja se)
     // Counter je već stao i ostaje na finalnoj vrednosti
@@ -3018,7 +2906,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       if (!mounted) return;
       // FIX: Guard against skip race condition
       if (widget.provider.skipRequested) {
-        debugPrint('[SlotPreview] ⚠️ Big win end skipped — skip was requested');
         return;
       }
 
@@ -3027,7 +2914,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // ═══════════════════════════════════════════════════════════════════════
       // STEP 4: Fade out plaque
       // ═══════════════════════════════════════════════════════════════════════
-      debugPrint('[SlotPreview] 🏆 Tier progression complete — fading plaque');
       _winAmountController.reverse().then((_) {
         if (!mounted) return;
 
@@ -3035,11 +2921,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // STEP 5: Start win line presentation
         // ═══════════════════════════════════════════════════════════════════
         if (lineWinsForPhase3.isNotEmpty) {
-          debugPrint('[SlotPreview] 🎰 PHASE 3: Win lines (after tier progression)');
           _startWinLinePresentation(lineWinsForPhase3);
         } else {
           // V13: No win lines — win presentation is COMPLETE
-          debugPrint('[SlotPreview] 🏁 Win presentation COMPLETE (big win, no lines)');
           widget.provider.setWinPresentationActive(false);
         }
 
@@ -3073,7 +2957,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _startReelAnticipation(int reelIndex) {
     if (_anticipationReels.contains(reelIndex)) return; // Already anticipating
 
-    debugPrint('[SlotPreview] 🎯 ANTICIPATION START: Reel $reelIndex (${_anticipationDurationMs}ms)');
 
     setState(() {
       _isAnticipation = true;
@@ -3118,7 +3001,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   /// End anticipation on a specific reel
   void _endReelAnticipation(int reelIndex) {
-    debugPrint('[SlotPreview] 🎯 ANTICIPATION END: Reel $reelIndex');
 
     _anticipationTimers[reelIndex]?.cancel();
     _anticipationTimers.remove(reelIndex);
@@ -3193,7 +3075,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // All reels stopped AND anticipation finished → start win flow
     final result = widget.provider.lastResult;
     if (result != null) {
-      debugPrint('[SlotPreview] ✅ Anticipation finished, starting win flow');
       widget.provider.onAllReelsVisualStop();
       _finalizeSpin(result);
     }
@@ -3224,7 +3105,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Clamp to max zoom
     final totalZoom = (reelZoom + tensionBonus).clamp(1.0, _anticipationZoomMax);
 
-    debugPrint('[SlotPreview] 🔍 ZOOM: $totalZoom (reels: $reelCount, tensionBonus: $tensionBonus)');
     return totalZoom;
   }
 
@@ -3249,7 +3129,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // NOT based on reel index! (Reel 4 should not automatically be L4/red)
     final level = tensionLevel ?? (_anticipationReels.length + 1).clamp(1, 4);
 
-    debugPrint('[SlotPreview] P0.3: PROVIDER ANTICIPATION START: reel=$reelIndex, reason=$reason, tension=L$level');
 
     setState(() {
       _isAnticipation = true;
@@ -3299,7 +3178,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _onProviderAnticipationEnd(int reelIndex) {
     if (!_anticipationReels.contains(reelIndex)) return;
 
-    debugPrint('[SlotPreview] P0.3: PROVIDER ANTICIPATION END: reel=$reelIndex');
 
     _anticipationTimers[reelIndex]?.cancel();
     _anticipationTimers.remove(reelIndex);
@@ -3339,7 +3217,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // If no actual near-miss detected, don't show visual effect
     if (nearMissReels.isEmpty) {
-      debugPrint('[SlotPreview] 🎯 No actual near-miss detected, skipping visual effect');
       return;
     }
 
@@ -3371,7 +3248,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         'near_miss_type': nearMissType,
       });
 
-      debugPrint('[SlotPreview] 🎯 Near-miss on reel $reelIndex (type: $nearMissType, pan: ${pan.toStringAsFixed(2)})');
     }
 
     // Also trigger generic near-miss stage for backwards compatibility
@@ -3864,7 +3740,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// PUBLIC: Parent calls this when Space is pressed and canHandleSpaceKey is true
   void handleSpaceKey() {
     if (_isSpinning) {
-      debugPrint('[SlotPreview] ⏹ SPACE pressed — stopping all reels immediately');
 
       // 1. Stop visual animation immediately
       _reelAnimController.stopImmediately();

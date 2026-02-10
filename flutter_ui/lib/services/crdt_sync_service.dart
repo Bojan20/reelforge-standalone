@@ -710,7 +710,6 @@ class CrdtSyncService extends ChangeNotifier {
     _sequenceCounter = _prefs!.getInt('crdt_sequence_counter') ?? 0;
 
     _initialized = true;
-    debugPrint('[CrdtSyncService] Initialized with nodeId: $_nodeId');
     notifyListeners();
   }
 
@@ -737,7 +736,6 @@ class CrdtSyncService extends ChangeNotifier {
     _currentProjectId = doc.id;
     _setStatus(CrdtSyncStatus.synced);
 
-    debugPrint('[CrdtSyncService] Created document: ${doc.id}');
     notifyListeners();
     return doc;
   }
@@ -759,7 +757,6 @@ class CrdtSyncService extends ChangeNotifier {
     _currentDocument = doc;
     _setStatus(CrdtSyncStatus.synced);
 
-    debugPrint('[CrdtSyncService] Opened document: $projectId');
     notifyListeners();
     return doc;
   }
@@ -776,7 +773,6 @@ class CrdtSyncService extends ChangeNotifier {
     _pendingOperations.clear();
     _setStatus(CrdtSyncStatus.disconnected);
 
-    debugPrint('[CrdtSyncService] Document closed');
     notifyListeners();
   }
 
@@ -817,8 +813,6 @@ class CrdtSyncService extends ChangeNotifier {
     // Broadcast
     _operationController.add(op);
 
-    debugPrint(
-        '[CrdtSyncService] Created operation: ${op.type.name} on ${op.dataType.name}:${op.targetId}');
     notifyListeners();
 
     return op;
@@ -860,8 +854,6 @@ class CrdtSyncService extends ChangeNotifier {
     _peerClocks[op.authorId] = op.vectorClock;
     _peerLastSeen[op.authorId] = DateTime.now();
 
-    debugPrint(
-        '[CrdtSyncService] Received operation from ${op.authorId}: ${op.type.name}');
     notifyListeners();
   }
 
@@ -908,7 +900,6 @@ class CrdtSyncService extends ChangeNotifier {
       _setStatus(CrdtSyncStatus.synced);
     }
 
-    debugPrint('[CrdtSyncService] Conflict resolved: $conflictId');
     notifyListeners();
   }
 
@@ -919,7 +910,6 @@ class CrdtSyncService extends ChangeNotifier {
     _currentDocument!.merge(remoteDoc);
     _mergesPerformed++;
 
-    debugPrint('[CrdtSyncService] Merged with remote document: ${remoteDoc.id}');
     notifyListeners();
   }
 
@@ -937,10 +927,8 @@ class CrdtSyncService extends ChangeNotifier {
       _pendingOperations.clear();
 
       _setStatus(CrdtSyncStatus.synced);
-      debugPrint('[CrdtSyncService] Synced ${_operationsSent} operations');
     } catch (e) {
       _setStatus(CrdtSyncStatus.error);
-      debugPrint('[CrdtSyncService] Sync error: $e');
     }
 
     notifyListeners();
@@ -995,7 +983,6 @@ class CrdtSyncService extends ChangeNotifier {
   Future<void> _saveDocumentLocally(CrdtDocument doc) async {
     final json = jsonEncode(doc.toJson());
     await _prefs?.setString('crdt_doc_${doc.id}', json);
-    debugPrint('[CrdtSyncService] Document saved locally: ${doc.id}');
   }
 
   Future<CrdtDocument?> _loadDocumentLocally(String docId) async {

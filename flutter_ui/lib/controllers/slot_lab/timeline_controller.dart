@@ -307,7 +307,6 @@ class TimelineController extends ChangeNotifier {
       }
     } catch (e) {
       // Waveform load failed — region will display filename instead
-      debugPrint('[TimelineController] Waveform load failed for ${region.audioPath}: $e');
     }
   }
 

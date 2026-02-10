@@ -178,9 +178,7 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
       _selectedBufferSize = _currentBufferSize;
 
       setState(() {});
-    } catch (e) {
-      debugPrint('[AudioSettingsPanel] Failed to load current settings: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Calculate latency in milliseconds

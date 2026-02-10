@@ -157,7 +157,6 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       _events[event.id] = updatedEvent;
     });
     _syncEventToProvider(updatedEvent);
-    debugPrint('[EventEditor] Updated loop: ${event.name} → $loop');
   }
 
   /// Sync all events to provider
@@ -4055,7 +4054,6 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       if (event.id.startsWith('mw_event_')) {
         // Convert middleware ID to composite ID (mw_event_XXX → event_XXX)
         final compositeId = event.id.substring(3);
-        debugPrint('[EventEditor] Using composite playback for: $compositeId');
 
         // Ensure composite event is synced with latest action parameters
         provider.syncMiddlewareToComposite(event.id);
@@ -4073,7 +4071,6 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             // Get bus ID from bus name
             final busId = _busNameToId(action.bus);
 
-            debugPrint('[EventEditor] Direct playback: ${action.assetId}, pan: ${action.pan}, gain: ${action.gain}');
 
             final voiceId = playbackService.playFileToBus(
               action.assetId,
@@ -4090,7 +4087,6 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         playingId = voicesStarted;
       }
 
-      debugPrint('[EventEditor] Testing event: ${event.name} (playingId: $playingId)');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -4121,7 +4117,6 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         ),
       );
     } catch (e) {
-      debugPrint('[EventEditor] Error testing event: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: $e'),
@@ -4308,10 +4303,8 @@ class _EventEditorPanelState extends State<EventEditorPanel>
 
     // DEBUG: Log parameter updates
     if (pan != null) {
-      debugPrint('[EventEditor] Pan updated: eventId=${event.id}, actionId=${action.id}, oldPan=${action.pan}, newPan=$pan');
     }
     if (gain != null) {
-      debugPrint('[EventEditor] Gain updated: eventId=${event.id}, gain=$gain');
     }
 
     // P1.1 FIX: Auto-sync to provider on edit

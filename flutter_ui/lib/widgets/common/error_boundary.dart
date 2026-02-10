@@ -337,8 +337,6 @@ class ProviderErrorBoundary extends StatelessWidget {
         );
       },
       onError: (error, stack) {
-        debugPrint('[$providerName ErrorBoundary] Caught error: $error');
-        debugPrint('Stack trace:\n$stack');
       },
     );
   }

@@ -145,7 +145,6 @@ class _GpuSpectrumWidgetState extends State<GpuSpectrumWidget>
         });
       }
     } catch (e) {
-      debugPrint('[GpuSpectrum] Shader load failed: $e');
       if (mounted) {
         setState(() {
           _shaderFailed = true;

@@ -103,7 +103,6 @@ class _StematrixContentState extends State<_StematrixContent> {
           textColor: Colors.black,
           onPressed: () {
             // TODO: Call actual export service
-            debugPrint('[StemsPanel] Export stems: $config');
           },
         ),
       ),

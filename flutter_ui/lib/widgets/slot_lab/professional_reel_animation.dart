@@ -455,7 +455,6 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
   /// P7.2.2: Now accepts tension level and reason
   void extendReelSpinTime(int reelIndex, int extensionMs, {int tensionLevel = 1, String reason = 'scatter'}) {
     if (reelIndex >= 0 && reelIndex < reelCount) {
-      debugPrint('[ReelAnimController] 🎯 ANTICIPATION: Extending reel $reelIndex spin by ${extensionMs}ms (tension L$tensionLevel, reason: $reason)');
       _reelStates[reelIndex].extendSpinTime(extensionMs, level: tensionLevel, reason: reason);
       notifyListeners();
     }
@@ -545,7 +544,6 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
     if (reelIndex >= 0 && reelIndex < reelCount) {
       _reelStates[reelIndex].setSpeedMultiplier(clampedMultiplier);
     }
-    debugPrint('[ReelAnimController] P0.3: Reel $reelIndex speed = ${(clampedMultiplier * 100).toInt()}%');
     notifyListeners();
   }
 
@@ -573,7 +571,6 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
     if (reelIndex < 0 || reelIndex >= reelCount) return;
     if (_reelStates[reelIndex].phase == ReelPhase.stopped) return;
 
-    debugPrint('[ReelAnimController] P7.2.1: FORCE STOP reel $reelIndex');
 
     // Transition directly to decelerating phase with minimal remaining time
     _reelStates[reelIndex].forceStop();
@@ -582,13 +579,10 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
   /// Start spin animation
   void startSpin() {
-    debugPrint('[ReelAnimController] startSpin() called, _isSpinning=$_isSpinning');
     if (_isSpinning) {
-      debugPrint('[ReelAnimController] ❌ startSpin BLOCKED: already spinning!');
       return;
     }
 
-    debugPrint('[ReelAnimController] ✅ Starting spin animation');
     _isSpinning = true;
     _startTime = DateTime.now().millisecondsSinceEpoch;
 
@@ -622,7 +616,6 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
     // DEBUG: Log elapsed time and all reel phases periodically
     if (elapsed % 500 < 17) {
       final phases = _reelStates.map((s) => s.phase.name[0].toUpperCase()).join('');
-      debugPrint('[tick] elapsed=${elapsed}ms phases=$phases');
     }
 
     for (int i = 0; i < reelCount; i++) {
@@ -643,7 +636,6 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
       // ═══════════════════════════════════════════════════════════════════════════
       if (state._audioShouldFireThisTick) {
         state._audioShouldFireThisTick = false;  // Clear flag
-        debugPrint('[ReelAnimController] 🎯 REEL $i AUDIO PRE-TRIGGER at ${elapsed}ms (phase=${state.phase}, progress=${state.phaseProgress.toStringAsFixed(2)}, stopTime=${state.stopTime}ms)');
         onReelStop?.call(i);  // Audio triggers at visual landing (95% decel progress)
       }
 
@@ -673,7 +665,6 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
   /// Stop all reels immediately (for turbo skip / STOP button)
   void stopImmediately() {
-    debugPrint('[ReelAnimController] stopImmediately() called, _isSpinning=$_isSpinning');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CRITICAL: Fire callbacks for each reel that was still spinning
@@ -697,12 +688,10 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
       }
     }
 
-    debugPrint('[ReelAnimController] stopImmediately: $stillMovingCount reels were still moving');
     _isSpinning = false;
     notifyListeners();
 
     // Fire all-stopped callback
-    debugPrint('[ReelAnimController] Firing onAllReelsStopped callback');
     onAllReelsStopped?.call();
   }
 

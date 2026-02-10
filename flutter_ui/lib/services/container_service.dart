@@ -71,14 +71,11 @@ class ContainerService {
       if (_ffi!.isLoaded) {
         _ffi!.containerInit();
         _ffiAvailable = true;
-        debugPrint('[ContainerService] ✅ Initialized with Rust FFI');
       } else {
         _ffiAvailable = false;
-        debugPrint('[ContainerService] ⚠️ FFI not loaded, using Dart fallback');
       }
     } catch (e) {
       _ffiAvailable = false;
-      debugPrint('[ContainerService] ⚠️ FFI init error: $e, using Dart fallback');
     }
   }
 
@@ -318,13 +315,11 @@ class ContainerService {
     Map<String, dynamic>? context,
   }) async {
     if (_middleware == null) {
-      debugPrint('[ContainerService] triggerBlendContainer: No middleware');
       return [];
     }
 
     final container = _middleware!.getBlendContainer(containerId);
     if (container == null) {
-      debugPrint('[ContainerService] triggerBlendContainer: Container $containerId not found');
       return [];
     }
 
@@ -341,7 +336,6 @@ class ContainerService {
 
       if (results.isNotEmpty) {
         volumes = {for (final r in results) r.childId: r.volume};
-        debugPrint('[ContainerService] ⚡ Blend eval via Rust: ${results.length} children');
       } else {
         // Fallback to Dart
         volumes = evaluateBlendContainer(container);
@@ -352,7 +346,6 @@ class ContainerService {
     }
 
     if (volumes.isEmpty) {
-      debugPrint('[ContainerService] triggerBlendContainer: No active children for RTPC');
       return [];
     }
 
@@ -378,7 +371,6 @@ class ContainerService {
       }
 
       if (audioPath == null || audioPath.isEmpty) {
-        debugPrint('[ContainerService] BlendChild $childId has no audioPath');
         continue;
       }
 
@@ -393,7 +385,6 @@ class ContainerService {
 
       if (voiceId > 0) {
         voiceIds.add(voiceId);
-        debugPrint('[ContainerService] ✅ Blend child $childId → voice $voiceId, vol=${volume.toStringAsFixed(2)}');
       }
     }
 
@@ -408,13 +399,11 @@ class ContainerService {
     Map<String, dynamic>? context,
   }) async {
     if (_middleware == null) {
-      debugPrint('[ContainerService] triggerRandomContainer: No middleware');
       return -1;
     }
 
     final container = _middleware!.getRandomContainer(containerId);
     if (container == null) {
-      debugPrint('[ContainerService] triggerRandomContainer: Container $containerId not found');
       return -1;
     }
 
@@ -433,12 +422,10 @@ class ContainerService {
         pitchOffset = result.pitchOffset;
         volumeOffset = result.volumeOffset;
         audioPath = _ffi!.containerGetRandomChildAudioPath(rustId, selectedChildId);
-        debugPrint('[ContainerService] ⚡ Random select via Rust: child=$selectedChildId, pitch=${pitchOffset.toStringAsFixed(2)}, vol=${volumeOffset.toStringAsFixed(2)}');
       } else {
         // Rust returned null (disabled/empty), try Dart fallback
         final selectedIndex = selectRandomChild(container);
         if (selectedIndex < 0 || selectedIndex >= container.children.length) {
-          debugPrint('[ContainerService] triggerRandomContainer: No valid selection');
           return -1;
         }
         final child = container.children[selectedIndex];
@@ -452,7 +439,6 @@ class ContainerService {
       // Dart fallback
       final selectedIndex = selectRandomChild(container);
       if (selectedIndex < 0 || selectedIndex >= container.children.length) {
-        debugPrint('[ContainerService] triggerRandomContainer: No valid selection');
         return -1;
       }
       final child = container.children[selectedIndex];
@@ -464,7 +450,6 @@ class ContainerService {
     }
 
     if (audioPath == null || audioPath.isEmpty) {
-      debugPrint('[ContainerService] RandomChild $selectedChildId has no audioPath');
       return -1;
     }
 
@@ -483,7 +468,6 @@ class ContainerService {
     );
 
     if (voiceId > 0) {
-      debugPrint('[ContainerService] ✅ Random child $selectedChildId → voice $voiceId, vol=${finalVolume.toStringAsFixed(2)}');
     }
 
     return voiceId;
@@ -500,18 +484,15 @@ class ContainerService {
     Map<String, dynamic>? context,
   }) async {
     if (_middleware == null) {
-      debugPrint('[ContainerService] triggerSequenceContainer: No middleware');
       return -1;
     }
 
     final container = _middleware!.getSequenceContainer(containerId);
     if (container == null) {
-      debugPrint('[ContainerService] triggerSequenceContainer: Container $containerId not found');
       return -1;
     }
 
     if (container.steps.isEmpty) {
-      debugPrint('[ContainerService] triggerSequenceContainer: No steps');
       return -1;
     }
 
@@ -557,7 +538,6 @@ class ContainerService {
       _tickRustSequence(instanceId);
     });
 
-    debugPrint('[ContainerService] ⚡ Sequence started via Rust: ${container.name}, instance=$instanceId');
     return instanceId;
   }
 
@@ -582,7 +562,6 @@ class ContainerService {
     if (result.ended) {
       _stopRustSequence(instanceId, 'ended');
     } else if (result.looped) {
-      debugPrint('[ContainerService] Sequence $instanceId looped (Rust)');
     }
   }
 
@@ -599,7 +578,6 @@ class ContainerService {
     }
 
     if (audioPath == null || audioPath.isEmpty) {
-      debugPrint('[ContainerService] SequenceStep $stepIdx has no audioPath');
       return;
     }
 
@@ -619,7 +597,6 @@ class ContainerService {
     if (voiceId > 0) {
       instance.voiceIds.add(voiceId);
       final stepName = step?.childName ?? 'step_$stepIdx';
-      debugPrint('[ContainerService] ⚡ Sequence step "$stepName" → voice $voiceId (Rust tick)');
     }
   }
 
@@ -636,7 +613,6 @@ class ContainerService {
       AudioPlaybackService.instance.stopOneShotVoice(voiceId);
     }
 
-    debugPrint('[ContainerService] Sequence $instanceId stopped ($reason, Rust)');
   }
 
   /// Dart Timer fallback for sequence playback
@@ -661,7 +637,6 @@ class ContainerService {
     // Schedule each step
     for (final step in stepsToPlay) {
       if (step.audioPath == null || step.audioPath!.isEmpty) {
-        debugPrint('[ContainerService] SequenceStep ${step.childName} has no audioPath');
         continue;
       }
 
@@ -689,7 +664,6 @@ class ContainerService {
 
         if (voiceId > 0) {
           voiceIds.add(voiceId);
-          debugPrint('[ContainerService] ✅ Sequence step "${step.childName}" → voice $voiceId @ ${adjustedDelay}ms${reversed ? ' (reversed)' : ''}');
         }
       });
 
@@ -715,7 +689,6 @@ class ContainerService {
       _handleSequenceEnd(instanceId);
     });
 
-    debugPrint('[ContainerService] ✅ Sequence started (Dart Timer): ${container.name}, instance=$instanceId, steps=${container.steps.length}');
     return instanceId;
   }
 
@@ -742,7 +715,6 @@ class ContainerService {
     }
 
     _activeSequences.remove(instanceId);
-    debugPrint('[ContainerService] Sequence $instanceId stopped (Dart Timer)');
   }
 
   /// Handle sequence end behavior (loop, hold, ping-pong)
@@ -754,7 +726,6 @@ class ContainerService {
       case SequenceEndBehavior.stop:
         // Just clean up
         _activeSequences.remove(instanceId);
-        debugPrint('[ContainerService] Sequence $instanceId ended (stop)');
         break;
 
       case SequenceEndBehavior.loop:
@@ -765,12 +736,10 @@ class ContainerService {
           busId: instance.busId,
           context: instance.context,
         );
-        debugPrint('[ContainerService] Sequence $instanceId looping');
         break;
 
       case SequenceEndBehavior.holdLast:
         // Keep the last sound playing (handled by voice)
-        debugPrint('[ContainerService] Sequence $instanceId holding last');
         break;
 
       case SequenceEndBehavior.pingPong:
@@ -787,9 +756,7 @@ class ContainerService {
             instance.context,
             reversed: nextReversed,
           );
-          debugPrint('[ContainerService] Sequence $instanceId ping-pong → ${nextReversed ? 'backward' : 'forward'}');
         } else {
-          debugPrint('[ContainerService] Sequence $instanceId ping-pong: container not found');
         }
         break;
     }
@@ -825,12 +792,10 @@ class ContainerService {
       final rustId = _ffi!.containerCreateBlend(config);
       if (rustId > 0) {
         _blendRustIds[container.id] = rustId;
-        debugPrint('[ContainerService] ✅ Synced BlendContainer ${container.id} → Rust $rustId');
         return true;
       }
       return false;
     } catch (e) {
-      debugPrint('[ContainerService] ❌ Failed to sync BlendContainer: $e');
       return false;
     }
   }
@@ -866,12 +831,10 @@ class ContainerService {
       final rustId = _ffi!.containerCreateRandom(config);
       if (rustId > 0) {
         _randomRustIds[container.id] = rustId;
-        debugPrint('[ContainerService] ✅ Synced RandomContainer ${container.id} → Rust $rustId');
         return true;
       }
       return false;
     } catch (e) {
-      debugPrint('[ContainerService] ❌ Failed to sync RandomContainer: $e');
       return false;
     }
   }
@@ -904,12 +867,10 @@ class ContainerService {
       final rustId = _ffi!.containerCreateSequence(config);
       if (rustId > 0) {
         _sequenceRustIds[container.id] = rustId;
-        debugPrint('[ContainerService] ✅ Synced SequenceContainer ${container.id} → Rust $rustId');
         return true;
       }
       return false;
     } catch (e) {
-      debugPrint('[ContainerService] ❌ Failed to sync SequenceContainer: $e');
       return false;
     }
   }
@@ -920,7 +881,6 @@ class ContainerService {
     final rustId = _blendRustIds.remove(containerId);
     if (rustId != null) {
       _ffi!.containerRemoveBlend(rustId);
-      debugPrint('[ContainerService] Removed BlendContainer $containerId from Rust');
     }
   }
 
@@ -930,7 +890,6 @@ class ContainerService {
     final rustId = _randomRustIds.remove(containerId);
     if (rustId != null) {
       _ffi!.containerRemoveRandom(rustId);
-      debugPrint('[ContainerService] Removed RandomContainer $containerId from Rust');
     }
   }
 
@@ -940,7 +899,6 @@ class ContainerService {
     final rustId = _sequenceRustIds.remove(containerId);
     if (rustId != null) {
       _ffi!.containerRemoveSequence(rustId);
-      debugPrint('[ContainerService] Removed SequenceContainer $containerId from Rust');
     }
   }
 
@@ -969,7 +927,6 @@ class ContainerService {
       syncSequenceToRust(container);
     }
 
-    debugPrint('[ContainerService] ✅ Synced all containers to Rust: ${_ffi!.containerGetTotalCount()} total');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

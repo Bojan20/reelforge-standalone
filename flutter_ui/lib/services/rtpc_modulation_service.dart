@@ -38,7 +38,6 @@ class RtpcModulationService {
   /// Initialize with middleware provider reference
   void init(MiddlewareProvider middleware) {
     _middleware = middleware;
-    debugPrint('[RtpcModulation] Initialized with MiddlewareProvider');
   }
 
   /// Register RTPC modulation for an event
@@ -59,7 +58,6 @@ class RtpcModulationService {
     _eventMappings.putIfAbsent(eventId, () => []);
     _eventMappings[eventId]!.add(mapping);
 
-    debugPrint('[RtpcModulation] Registered: event=$eventId, rtpc=$rtpcId, target=$target');
   }
 
   /// Unregister all RTPC modulation for an event

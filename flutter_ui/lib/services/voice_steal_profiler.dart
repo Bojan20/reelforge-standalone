@@ -180,7 +180,6 @@ class VoiceStealProfiler extends ChangeNotifier {
     if (_enabled) return;
     _enabled = true;
     _startPolling();
-    debugPrint('[VoiceStealProfiler] ✅ Enabled');
     notifyListeners();
   }
 
@@ -189,7 +188,6 @@ class VoiceStealProfiler extends ChangeNotifier {
     if (!_enabled) return;
     _enabled = false;
     _stopPolling();
-    debugPrint('[VoiceStealProfiler] ⏸ Disabled');
     notifyListeners();
   }
 
@@ -197,7 +195,6 @@ class VoiceStealProfiler extends ChangeNotifier {
   void clear() {
     _stealEvents.clear();
     _sourceStats.clear();
-    debugPrint('[VoiceStealProfiler] 🧹 Cleared all statistics');
     notifyListeners();
   }
 
@@ -265,9 +262,6 @@ class VoiceStealProfiler extends ChangeNotifier {
 
     // Log abnormal steals
     if (event.isAbnormal) {
-      debugPrint('[VoiceStealProfiler] ⚠️ ABNORMAL STEAL: '
-          '${event.stealerSource} (P${event.stealerPriority}) '
-          'stole ${event.stolenSource} (P${event.stolenPriority})');
     }
 
     notifyListeners();

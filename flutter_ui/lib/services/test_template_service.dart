@@ -149,7 +149,6 @@ class TestTemplateService extends ChangeNotifier {
         } catch (e) {
           failureCount++;
           errors.add('${action.stage}: $e');
-          debugPrint('[TestTemplateService] Action failed: ${action.stage} - $e');
         }
       }
 

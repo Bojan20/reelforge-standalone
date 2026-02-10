@@ -138,11 +138,6 @@ class WaveformTextureCache {
     );
     _currentCacheSizeBytes += sizeBytes;
 
-    debugPrint(
-      '[WaveformCache] Cached $key (${_formatBytes(sizeBytes)}) '
-      '→ Total: ${_formatBytes(_currentCacheSizeBytes)}/${_formatBytes(maxCacheSizeBytes)} '
-      '(${_cache.length} entries)',
-    );
   }
 
   /// Remove specific entry
@@ -151,7 +146,6 @@ class WaveformTextureCache {
     if (entry != null) {
       _currentCacheSizeBytes -= entry.sizeBytes;
       entry.image.dispose();
-      debugPrint('[WaveformCache] Removed $key (${_formatBytes(entry.sizeBytes)})');
     }
   }
 
@@ -161,7 +155,6 @@ class WaveformTextureCache {
     for (final key in keysToRemove) {
       remove(key);
     }
-    debugPrint('[WaveformCache] Invalidated clip $clipId (${keysToRemove.length} entries)');
   }
 
   /// Clear entire cache
@@ -173,7 +166,6 @@ class WaveformTextureCache {
     _currentCacheSizeBytes = 0;
     _hits = 0;
     _misses = 0;
-    debugPrint('[WaveformCache] Cleared all entries');
   }
 
   /// Evict oldest (LRU) entry
@@ -216,10 +208,6 @@ class WaveformTextureCache {
   /// Print cache stats
   void printStats() {
     final stats = getStats();
-    debugPrint('[WaveformCache] Stats:');
-    debugPrint('  Entries: ${stats['entries']}');
-    debugPrint('  Size: ${stats['size_formatted']} / ${stats['max_size_formatted']} (${stats['usage_percent']}%)');
-    debugPrint('  Hits: ${stats['hits']}, Misses: ${stats['misses']}, Hit Rate: ${stats['hit_rate_percent']}%');
   }
 }
 

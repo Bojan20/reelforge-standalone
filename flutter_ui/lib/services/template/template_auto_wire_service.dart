@@ -209,7 +209,6 @@ class TemplateAutoWireService {
       final stageCount = _stageRegistrar.registerAll(template);
       stats = stats.copyWith(stagesRegistered: stageCount);
 
-      debugPrint('[TemplateAutoWire] ✅ Registered $stageCount stages');
 
       // ─────────────────────────────────────────────────────────────────────
       // STEP 2: Create Events
@@ -226,9 +225,7 @@ class TemplateAutoWireService {
         unmappedStages: template.unmappedStages.length,
       );
 
-      debugPrint('[TemplateAutoWire] ✅ Created $eventCount events');
       if (template.unmappedStages.isNotEmpty) {
-        debugPrint('[TemplateAutoWire] ⚠️ ${template.unmappedStages.length} stages have no audio');
       }
 
       // ─────────────────────────────────────────────────────────────────────
@@ -243,7 +240,6 @@ class TemplateAutoWireService {
       final busCount = _busConfigurator.configureAll(template);
       stats = stats.copyWith(busesConfigured: busCount);
 
-      debugPrint('[TemplateAutoWire] ✅ Configured $busCount buses');
 
       // ─────────────────────────────────────────────────────────────────────
       // STEP 4: Setup Ducking
@@ -257,7 +253,6 @@ class TemplateAutoWireService {
       final duckingCount = _duckingConfigurator.configureAll(template);
       stats = stats.copyWith(duckingRulesAdded: duckingCount);
 
-      debugPrint('[TemplateAutoWire] ✅ Added $duckingCount ducking rules');
 
       // ─────────────────────────────────────────────────────────────────────
       // STEP 5: Configure ALE
@@ -271,7 +266,6 @@ class TemplateAutoWireService {
       final aleCount = _aleConfigurator.configureAll(template);
       stats = stats.copyWith(aleContextsConfigured: aleCount);
 
-      debugPrint('[TemplateAutoWire] ✅ Configured $aleCount ALE contexts');
 
       // ─────────────────────────────────────────────────────────────────────
       // STEP 6: Configure RTPC
@@ -285,7 +279,6 @@ class TemplateAutoWireService {
       final rtpcCount = _rtpcConfigurator.configureAll(template);
       stats = stats.copyWith(rtpcParametersConfigured: rtpcCount);
 
-      debugPrint('[TemplateAutoWire] ✅ Configured $rtpcCount RTPC parameters');
 
       // ─────────────────────────────────────────────────────────────────────
       // STEP 7: Validate (optional)
@@ -301,12 +294,9 @@ class TemplateAutoWireService {
         validationReport = _validationService.validate(template);
 
         if (!validationReport.allPassed) {
-          debugPrint('[TemplateAutoWire] ⚠️ Validation issues:');
           for (final result in validationReport.results.where((r) => !r.passed)) {
-            debugPrint('  ${result.severity.name.toUpperCase()}: ${result.checkName} - ${result.message}');
           }
         } else {
-          debugPrint('[TemplateAutoWire] ✅ Validation passed');
         }
       }
 
@@ -327,11 +317,6 @@ class TemplateAutoWireService {
         'Template wired successfully!',
       );
 
-      debugPrint('[TemplateAutoWire] ════════════════════════════════════════');
-      debugPrint('[TemplateAutoWire] ✅ WIRING COMPLETE');
-      debugPrint(stats.toString());
-      debugPrint('[TemplateAutoWire] Duration: ${stopwatch.elapsedMilliseconds}ms');
-      debugPrint('[TemplateAutoWire] ════════════════════════════════════════');
 
       return WireResult(
         success: true,
@@ -341,8 +326,6 @@ class TemplateAutoWireService {
       );
     } catch (e, stack) {
       stopwatch.stop();
-      debugPrint('[TemplateAutoWire] ❌ ERROR: $e');
-      debugPrint(stack.toString());
 
       return WireResult.failure(e.toString(), stopwatch.elapsed);
     }
@@ -356,7 +339,6 @@ class TemplateAutoWireService {
   Future<void> unwireTemplate() async {
     if (!_isWired) return;
 
-    debugPrint('[TemplateAutoWire] Unwiring current template...');
 
     // Disconnect listener
     await _slotLabSubscription?.cancel();
@@ -372,7 +354,6 @@ class TemplateAutoWireService {
     _currentTemplate = null;
     _isWired = false;
 
-    debugPrint('[TemplateAutoWire] ✅ Template unwired');
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -386,8 +367,6 @@ class TemplateAutoWireService {
 
     // Get SlotLabProvider (might be via GetIt or passed in)
     // For now, we'll use a callback-based approach
-    debugPrint('[TemplateAutoWire] Runtime listener ready');
-    debugPrint('[TemplateAutoWire] Stages will trigger via EventRegistry.triggerStage()');
   }
 
   /// Called by SlotLabProvider when stages change
@@ -412,9 +391,7 @@ class TemplateAutoWireService {
       if (rtpc != null) {
         rtpcProvider.setRtpc(rtpc.id, _normalizeMultiplier(multiplier));
       }
-    } catch (e) {
-      debugPrint('[TemplateAutoWire] ⚠️ Failed to update winMultiplier: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Normalize win multiplier to 0-1 range based on template's max tier

@@ -216,7 +216,6 @@ class OfflineService extends ChangeNotifier {
     });
 
     _initialized = true;
-    debugPrint('[OfflineService] Initialized with ${_queue.length} pending operations');
     notifyListeners();
   }
 
@@ -226,14 +225,12 @@ class OfflineService extends ChangeNotifier {
     Future<bool> Function(OfflineOperation) handler,
   ) {
     _handlers[type] = handler;
-    debugPrint('[OfflineService] Registered handler for $type');
   }
 
   /// Queue an operation for later sync
   Future<void> queueOperation(OfflineOperation operation) async {
     // Check for duplicate
     if (_queue.any((op) => op.id == operation.id)) {
-      debugPrint('[OfflineService] Duplicate operation: ${operation.id}');
       return;
     }
 
@@ -245,7 +242,6 @@ class OfflineService extends ChangeNotifier {
     await _saveQueue();
     notifyListeners();
 
-    debugPrint('[OfflineService] Queued: ${operation.type} (${operation.id})');
 
     // Try immediate sync if online
     if (isOnline) {
@@ -265,7 +261,6 @@ class OfflineService extends ChangeNotifier {
     _queue.clear();
     await _saveQueue();
     notifyListeners();
-    debugPrint('[OfflineService] Queue cleared');
   }
 
   /// Force connectivity check
@@ -276,7 +271,6 @@ class OfflineService extends ChangeNotifier {
   /// Force sync attempt
   Future<void> forceSync() async {
     if (!isOnline) {
-      debugPrint('[OfflineService] Cannot sync while offline');
       return;
     }
     await _attemptSync();
@@ -310,7 +304,6 @@ class OfflineService extends ChangeNotifier {
     }
 
     if (previousStatus != _status) {
-      debugPrint('[OfflineService] Connectivity: $previousStatus → $_status');
       notifyListeners();
 
       // Attempt sync when coming online
@@ -327,7 +320,6 @@ class OfflineService extends ChangeNotifier {
     _syncing = true;
     notifyListeners();
 
-    debugPrint('[OfflineService] Starting sync (${_queue.length} pending)');
 
     final toRemove = <String>[];
     final toUpdate = <OfflineOperation>[];
@@ -336,7 +328,6 @@ class OfflineService extends ChangeNotifier {
       final handler = _handlers[operation.type];
 
       if (handler == null) {
-        debugPrint('[OfflineService] No handler for ${operation.type}');
         continue;
       }
 
@@ -345,7 +336,6 @@ class OfflineService extends ChangeNotifier {
 
         if (success) {
           toRemove.add(operation.id);
-          debugPrint('[OfflineService] ✓ Synced: ${operation.id}');
         } else {
           // Increment retry count
           final updated = operation.copyWith(
@@ -355,13 +345,11 @@ class OfflineService extends ChangeNotifier {
 
           if (updated.retryCount >= _maxRetries) {
             toRemove.add(operation.id);
-            debugPrint('[OfflineService] ✗ Max retries: ${operation.id}');
           } else {
             toUpdate.add(updated);
           }
         }
       } catch (e) {
-        debugPrint('[OfflineService] Error syncing ${operation.id}: $e');
 
         final updated = operation.copyWith(
           retryCount: operation.retryCount + 1,
@@ -390,7 +378,6 @@ class OfflineService extends ChangeNotifier {
     _syncing = false;
     notifyListeners();
 
-    debugPrint('[OfflineService] Sync complete (${_queue.length} remaining)');
   }
 
   /// Load queue from SharedPreferences
@@ -406,9 +393,7 @@ class OfflineService extends ChangeNotifier {
           list.map((item) => OfflineOperation.fromJson(item as Map<String, dynamic>)),
         );
       }
-    } catch (e) {
-      debugPrint('[OfflineService] Load error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Save queue to SharedPreferences
@@ -417,9 +402,7 @@ class OfflineService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final json = jsonEncode(_queue.map((op) => op.toJson()).toList());
       await prefs.setString(_prefsKeyQueue, json);
-    } catch (e) {
-      debugPrint('[OfflineService] Save error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Dispose timers

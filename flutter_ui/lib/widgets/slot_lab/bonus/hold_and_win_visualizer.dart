@@ -187,9 +187,7 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
           _state = HoldAndWinState.fromJson(data);
         });
       }
-    } catch (e) {
-      debugPrint('[HoldAndWin] Refresh error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   @override
@@ -543,7 +541,6 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
         ElevatedButton.icon(
           onPressed: () {
             final payout = NativeFFI.instance.holdAndWinComplete();
-            debugPrint('[HoldAndWin] Complete payout: $payout');
             widget.onComplete?.call();
           },
           icon: const Icon(Icons.done, size: 16),

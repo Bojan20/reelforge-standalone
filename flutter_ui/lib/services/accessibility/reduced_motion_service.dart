@@ -163,9 +163,7 @@ class ReducedMotionService extends ChangeNotifier {
 
       _initialized = true;
       notifyListeners();
-      debugPrint('[ReducedMotionService] Initialized: $_effectiveMotionLevel');
     } catch (e) {
-      debugPrint('[ReducedMotionService] Init error: $e');
       _initialized = true;
     }
   }
@@ -205,7 +203,6 @@ class ReducedMotionService extends ChangeNotifier {
     _motionLevel = level;
     await _save();
     notifyListeners();
-    debugPrint('[ReducedMotionService] Motion level: $level');
   }
 
   /// Set whether to follow system preference
@@ -215,7 +212,6 @@ class ReducedMotionService extends ChangeNotifier {
     _followSystemPreference = follow;
     await _save();
     notifyListeners();
-    debugPrint('[ReducedMotionService] Follow system: $follow');
   }
 
   /// Save preferences
@@ -224,9 +220,7 @@ class ReducedMotionService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_prefsKeyMotionLevel, _motionLevel.index);
       await prefs.setBool(_prefsKeyFollowSystem, _followSystemPreference);
-    } catch (e) {
-      debugPrint('[ReducedMotionService] Save error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Scale a duration based on motion level

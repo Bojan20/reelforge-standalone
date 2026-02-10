@@ -284,8 +284,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           );
         },
         onError: (error, stack) {
-          debugPrint('[DawLowerZone] Panel error in ${widget.controller.superTab.label}: $error');
-          debugPrint('Stack trace:\n$stack');
         },
       ),
     );
@@ -376,7 +374,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                 );
               },
               onError: (error, stack) {
-                debugPrint('[DawLowerZone] Split pane $paneIndex error in ${superTab.label}: $error');
               },
             ),
           ),
@@ -1248,14 +1245,12 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                 validPaths.add(path);
               } else {
                 invalidPaths.add(path);
-                debugPrint('[DAW] ❌ Invalid path: $path ($error)');
               }
             }
 
             // Import only valid paths
             if (validPaths.isNotEmpty) {
               await assetManager.importFiles(validPaths, folder: 'Imported');
-              debugPrint('[DAW] ✅ Imported ${validPaths.length}/${paths.length} files');
             }
 
             // Show warning if some paths were invalid
@@ -1275,7 +1270,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           final selectedPath = assetManager.selectedAssetPath;
           if (selectedPath != null) {
             assetManager.removeByPath(selectedPath);
-            debugPrint('[DAW] Deleted: $selectedPath');
           }
         },
         onPreview: () {
@@ -1284,7 +1278,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           final selectedPath = assetManager.selectedAssetPath;
           if (selectedPath != null) {
             AudioPlaybackService.instance.previewFile(selectedPath);
-            debugPrint('[DAW] Previewing: $selectedPath');
           }
         },
         onAddToProject: () {
@@ -1301,7 +1294,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           final channel = mixer.createChannel(
             name: 'Audio ${mixer.channelCount + 1}',
           );
-          debugPrint('[DAW] Created track: ${channel.name}');
           widget.onDspAction?.call('trackCreated', {'id': channel.id});
         },
         onSplit: () {
@@ -1324,7 +1316,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           final bus = mixer.createBus(
             name: 'Bus ${mixer.busCount + 1}',
           );
-          debugPrint('[DAW] Created bus: ${bus.name}');
         },
         onMuteAll: () {
           // Mute all channels
@@ -1332,13 +1323,11 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           for (final channel in mixer.channels) {
             mixer.setMuted(channel.id, true);
           }
-          debugPrint('[DAW] Muted all channels');
         },
         onSolo: () {
           // Clear all solos (toggle solo mode)
           final mixer = context.read<MixerProvider>();
           mixer.clearAllSolo();
-          debugPrint('[DAW] Cleared all solos');
         },
         onReset: () {
           // Reset mixer to defaults
@@ -1349,7 +1338,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             mixer.setMuted(channel.id, false);
             mixer.setSoloed(channel.id, false);
           }
-          debugPrint('[DAW] Reset mixer to defaults');
         },
       ),
       DawSuperTab.process => DawActions.forProcess(
@@ -1358,7 +1346,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           final trackId = widget.selectedTrackId ?? 0;
           final dspChain = context.read<DspChainProvider>();
           dspChain.addNode(trackId, DspNodeType.eq);
-          debugPrint('[DAW] Added EQ to track $trackId');
         },
         onRemove: () {
           // Remove selected processor
@@ -1367,7 +1354,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           final chain = dspChain.getChain(trackId);
           if (chain.nodes.isNotEmpty) {
             dspChain.removeNode(trackId, chain.nodes.last.id);
-            debugPrint('[DAW] Removed last processor from track $trackId');
           }
         },
         onCopy: () {
@@ -1384,7 +1370,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           for (final node in chain.nodes) {
             dspChain.toggleNodeBypass(trackId, node.id);
           }
-          debugPrint('[DAW] Toggled bypass on all processors');
         },
       ),
       DawSuperTab.deliver => DawActions.forDeliver(

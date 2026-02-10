@@ -253,10 +253,7 @@ class RecentFavoritesService extends ChangeNotifier {
       }
 
       _isLoaded = true;
-      debugPrint('[RecentFavorites] Loaded ${_items.length} items');
-    } catch (e) {
-      debugPrint('[RecentFavorites] Error loading: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Save to persistent storage
@@ -275,10 +272,7 @@ class RecentFavoritesService extends ChangeNotifier {
       final favoritesJson = jsonEncode(favoriteItems.map((i) => i.toJson()).toList());
       await prefs.setString(_favoritesKey, favoritesJson);
 
-      debugPrint('[RecentFavorites] Saved ${recentItems.length} recent, ${favoriteItems.length} favorites');
-    } catch (e) {
-      debugPrint('[RecentFavorites] Error saving: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Add or update a recent item

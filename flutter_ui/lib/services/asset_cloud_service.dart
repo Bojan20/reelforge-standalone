@@ -545,10 +545,7 @@ class AssetCloudService extends ChangeNotifier {
       _cacheDir = path.join(Directory.systemTemp.path, 'fluxforge_asset_cache');
       await Directory(_cacheDir).create(recursive: true);
 
-      debugPrint('[AssetCloud] Service initialized');
-    } catch (e) {
-      debugPrint('[AssetCloud] Init error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Save configuration
@@ -567,9 +564,7 @@ class AssetCloudService extends ChangeNotifier {
           'favorites': _favoriteAssets.map((f) => f.toJson()).toList(),
         }),
       );
-    } catch (e) {
-      debugPrint('[AssetCloud] Save config error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ============================================================================
@@ -596,7 +591,6 @@ class AssetCloudService extends ChangeNotifier {
       await _saveConfig();
       notifyListeners();
 
-      debugPrint('[AssetCloud] Authenticated as $_userName');
       return true;
     } catch (e) {
       _lastError = 'Authentication failed: $e';

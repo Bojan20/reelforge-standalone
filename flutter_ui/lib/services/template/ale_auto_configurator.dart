@@ -29,12 +29,10 @@ class AleAutoConfigurator {
     final success = aleProvider.loadProfile(jsonEncode(profileJson));
 
     if (success) {
-      debugPrint('[AleAutoConfigurator] ✅ Loaded ALE profile with ${template.source.aleContexts.length} contexts');
       return template.source.aleContexts.isNotEmpty
           ? template.source.aleContexts.length
           : 5; // Default context count
     } else {
-      debugPrint('[AleAutoConfigurator] ⚠️ Failed to load ALE profile, creating new');
 
       // Try creating a new profile
       final created = aleProvider.createNewProfile(
@@ -43,11 +41,9 @@ class AleAutoConfigurator {
       );
 
       if (created) {
-        debugPrint('[AleAutoConfigurator] ✅ Created new ALE profile');
         return 5; // Default contexts
       }
 
-      debugPrint('[AleAutoConfigurator] ❌ Failed to create ALE profile');
       return 0;
     }
   }

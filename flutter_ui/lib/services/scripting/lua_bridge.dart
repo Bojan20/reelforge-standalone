@@ -69,7 +69,6 @@ class LuaBridge {
     // For now, we'll simulate Lua execution with a simple interpreter
 
     _initialized = true;
-    debugPrint('[LuaBridge] Initialized');
   }
 
   /// Execute a Lua script
@@ -271,6 +270,5 @@ class LuaBridge {
   /// Dispose the Lua bridge
   void dispose() {
     _initialized = false;
-    debugPrint('[LuaBridge] Disposed');
   }
 }

@@ -227,7 +227,6 @@ class KeyboardNavService extends ChangeNotifier {
 
     _registerBuiltInShortcuts();
     _initialized = true;
-    debugPrint('[KeyboardNavService] Initialized');
   }
 
   void _registerBuiltInShortcuts() {
@@ -352,7 +351,6 @@ class KeyboardNavService extends ChangeNotifier {
 
     for (final shortcut in [...zoneShortcuts, ...globalShortcuts]) {
       if (shortcut.matches(event)) {
-        debugPrint('[KeyboardNavService] Triggered: ${shortcut.id}');
         shortcut.action?.call();
         return true;
       }
@@ -396,7 +394,6 @@ class KeyboardNavService extends ChangeNotifier {
     _currentZone = zone;
     onZoneChanged?.call(zone);
     notifyListeners();
-    debugPrint('[KeyboardNavService] Zone: $zone');
   }
 
   /// Push zone onto stack (for dialogs/overlays)
@@ -428,7 +425,6 @@ class KeyboardNavService extends ChangeNotifier {
   void registerShortcut(KeyboardShortcut shortcut) {
     _shortcuts[shortcut.id] = shortcut;
     notifyListeners();
-    debugPrint('[KeyboardNavService] Registered: ${shortcut.id}');
   }
 
   /// Unregister a custom shortcut

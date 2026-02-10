@@ -392,13 +392,11 @@ class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
 
   /// Direct FFI call for hitpoint detection - bypasses broken callback chain
   void _detectHitpointsDirect(ClipEditorClip clip) {
-    debugPrint('[ClipEditor] _detectHitpointsDirect for clip ${clip.id}');
 
     try {
       // Parse clip ID to int
       final clipId = int.tryParse(clip.id) ?? 0;
       if (clipId == 0) {
-        debugPrint('[ClipEditor] Invalid clip ID: ${clip.id}');
         return;
       }
 
@@ -414,7 +412,6 @@ class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
         maxCount: 2000,
       );
 
-      debugPrint('[ClipEditor] FFI returned ${results.length} hitpoints');
 
       // Convert to Hitpoint objects
       final hitpoints = results.map((r) => Hitpoint(
@@ -431,10 +428,7 @@ class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
       // Also notify parent if callback exists
       widget.onHitpointsChange?.call(hitpoints);
 
-      debugPrint('[ClipEditor] Hitpoints stored locally: ${_localHitpoints.length}');
-    } catch (e) {
-      debugPrint('[ClipEditor] FFI error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get effective hitpoints (local or from widget)
@@ -513,7 +507,6 @@ class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
     // Only allow repeat for zoom and fade keys
     if (event is KeyRepeatEvent && !isZoomKey && !isFadeKey) return;
 
-    debugPrint('[ClipEditor] Key: ${event.logicalKey.keyLabel}');
 
     // G - zoom out (SMOOTH animated, center-screen anchor)
     if (event.logicalKey == LogicalKeyboardKey.keyG && clip != null && _containerWidth > 0) {
@@ -814,7 +807,6 @@ class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
           isEnabled: hasClip,
           onTap: hasClip
               ? () {
-                  debugPrint('[ClipEditor] Normalize clicked for clip ${widget.clip!.id}');
                   widget.onNormalize?.call(widget.clip!.id);
                 }
               : null,
@@ -825,7 +817,6 @@ class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
           isEnabled: hasClip,
           onTap: hasClip
               ? () {
-                  debugPrint('[ClipEditor] Reverse clicked for clip ${widget.clip!.id}');
                   widget.onReverse?.call(widget.clip!.id);
                 }
               : null,
@@ -2985,7 +2976,6 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
           onHitpointSensitivityChange: widget.onHitpointSensitivityChange,
           onHitpointAlgorithmChange: widget.onHitpointAlgorithmChange,
           onDetectHitpoints: () {
-            debugPrint('[ConnectedClipEditor] onDetectHitpoints wrapper called, parent callback=${widget.onDetectHitpoints != null}');
             widget.onDetectHitpoints?.call();
           },
           onSliceAtHitpoints: widget.onSliceAtHitpoints,

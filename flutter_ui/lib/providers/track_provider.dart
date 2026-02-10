@@ -257,7 +257,6 @@ class TrackProvider extends ChangeNotifier {
     _tracks[trackId] = track;
     notifyListeners();
 
-    debugPrint('[TrackProvider] Created track: $trackName (engine: $engineTrackId)');
     return track;
   }
 
@@ -290,7 +289,6 @@ class TrackProvider extends ChangeNotifier {
     _multiSelectedTrackIds.remove(trackId);
 
     notifyListeners();
-    debugPrint('[TrackProvider] Deleted track: ${track.name}');
     return true;
   }
 
@@ -569,7 +567,6 @@ class TrackProvider extends ChangeNotifier {
     // Bus inputs (bus1-bus6) could use routing functions if available.
     if (_ffi.isLoaded && track.engineTrackId >= 0) {
       final inputIndex = _inputSourceToEngineIndex(source);
-      debugPrint('[TrackProvider] Set input source: track ${track.engineTrackId} → input $inputIndex (${source.name})');
     }
 
     notifyListeners();
@@ -613,7 +610,6 @@ class TrackProvider extends ChangeNotifier {
     if (_ffi.isLoaded && track.engineTrackId >= 0) {
       final busId = _outputToBusId(output);
       _ffi.setTrackBus(track.engineTrackId, busId);
-      debugPrint('[TrackProvider] Set output: track ${track.engineTrackId} → bus $busId (${output.name})');
     }
 
     notifyListeners();
@@ -645,7 +641,6 @@ class TrackProvider extends ChangeNotifier {
     // Sync with engine via trackSetInputMonitor
     if (_ffi.isLoaded && track.engineTrackId >= 0) {
       _ffi.trackSetInputMonitor(track.engineTrackId, newMonitorState);
-      debugPrint('[TrackProvider] Set input monitor: track ${track.engineTrackId} → $newMonitorState');
     }
 
     notifyListeners();
@@ -710,7 +705,6 @@ class TrackProvider extends ChangeNotifier {
     }
 
     notifyListeners();
-    debugPrint('[TrackProvider] Refresh: $armedCount armed, $recordingCount recording');
   }
 
   @override

@@ -88,8 +88,6 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
   @override
   void didUpdateWidget(DraggableLayerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    debugPrint('[DraggableLayer] didUpdateWidget: _isDragging=$_isDragging, '
-        'old=${oldWidget.initialOffsetMs}, new=${widget.initialOffsetMs}, current=$_currentOffsetMs');
 
     // CRITICAL: Only update if NOT dragging AND the new value differs significantly
     // from our CURRENT value. This prevents:
@@ -102,10 +100,8 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
       // This means: external changes (from other UI) will update us,
       // but our own just-committed drag value won't be overwritten
       if (delta > 1.0) {
-        debugPrint('[DraggableLayer] EXTERNAL UPDATE: $_currentOffsetMs -> ${widget.initialOffsetMs} (delta=$delta)');
         _currentOffsetMs = widget.initialOffsetMs;
       } else {
-        debugPrint('[DraggableLayer] SKIPPING update (delta=$delta is within tolerance)');
       }
     }
   }
@@ -317,7 +313,6 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
       _dragPixelsPerMs = widget.regionWidth / (widget.regionDuration * 1000);
     });
 
-    debugPrint('[DraggableLayer] PAN START: layer=${widget.layerId}, startMs=$freshOffsetMs');
 
     // CRITICAL: Notify parent that drag started (so _dragController knows)
     // This prevents region.start from being updated during drag
@@ -341,7 +336,6 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
 
     final finalOffsetMs = _currentOffsetMs;
 
-    debugPrint('[DraggableLayer] PAN END: layer=${widget.layerId}, finalMs=$finalOffsetMs');
 
     // CRITICAL FIX: Set local state to FINAL value and mark as not dragging
     // This ensures _currentOffsetMs survives the parent rebuild
@@ -365,7 +359,6 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
   void _onPanCancel() {
     if (!_isDragging) return;
 
-    debugPrint('[DraggableLayer] PAN CANCEL');
 
     setState(() {
       _isDragging = false;

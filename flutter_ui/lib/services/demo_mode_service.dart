@@ -370,7 +370,6 @@ class DemoModeService extends ChangeNotifier {
     notifyListeners();
 
     _scheduleNextSpin(interval ?? _config.defaultSpinInterval);
-    debugPrint('[DemoMode] Started auto-spin');
   }
 
   /// Start a demo sequence
@@ -387,7 +386,6 @@ class DemoModeService extends ChangeNotifier {
     notifyListeners();
 
     _executeCurrentStep();
-    debugPrint('[DemoMode] Started sequence: ${sequence.name}');
   }
 
   /// Pause demo mode
@@ -397,7 +395,6 @@ class DemoModeService extends ChangeNotifier {
     _cancelTimers();
     _state = DemoModeState.paused;
     notifyListeners();
-    debugPrint('[DemoMode] Paused');
   }
 
   /// Resume demo mode
@@ -412,7 +409,6 @@ class DemoModeService extends ChangeNotifier {
     } else {
       _scheduleNextSpin(_config.defaultSpinInterval);
     }
-    debugPrint('[DemoMode] Resumed');
   }
 
   /// Stop demo mode
@@ -423,7 +419,6 @@ class DemoModeService extends ChangeNotifier {
     _currentStepIndex = 0;
     _currentLoop = 0;
     notifyListeners();
-    debugPrint('[DemoMode] Stopped');
   }
 
   /// Reset statistics
@@ -577,7 +572,6 @@ class DemoModeService extends ChangeNotifier {
   }
 
   void _onSequenceComplete() {
-    debugPrint('[DemoMode] Sequence complete: ${_currentSequence?.name}');
     _state = DemoModeState.idle;
     _currentSequence = null;
     _currentStepIndex = 0;

@@ -1834,7 +1834,6 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
       });
     } catch (e) {
       setState(() => _isExporting = false);
-      debugPrint('Export failed: $e');
     }
   }
 
@@ -3041,7 +3040,6 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
         _isExporting = false;
         _exportStatus = 'Error: $e';
       });
-      debugPrint('Audio pack export failed: $e');
     }
   }
 

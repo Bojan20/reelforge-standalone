@@ -241,7 +241,6 @@ class LatencyProfiler extends ChangeNotifier {
   void enable() {
     if (_enabled) return;
     _enabled = true;
-    debugPrint('[LatencyProfiler] ✅ Enabled');
     notifyListeners();
   }
 
@@ -249,7 +248,6 @@ class LatencyProfiler extends ChangeNotifier {
   void disable() {
     if (!_enabled) return;
     _enabled = false;
-    debugPrint('[LatencyProfiler] ⏸ Disabled');
     notifyListeners();
   }
 
@@ -257,7 +255,6 @@ class LatencyProfiler extends ChangeNotifier {
   void clear() {
     _activeMeasurements.clear();
     _completedMeasurements.clear();
-    debugPrint('[LatencyProfiler] 🧹 Cleared all measurements');
     notifyListeners();
   }
 
@@ -281,7 +278,6 @@ class LatencyProfiler extends ChangeNotifier {
 
     _activeMeasurements[id] = measurement;
 
-    debugPrint('[LatencyProfiler] 🎬 Started: $source (id=$id)');
 
     return id;
   }
@@ -294,7 +290,6 @@ class LatencyProfiler extends ChangeNotifier {
 
     final measurement = _activeMeasurements[id];
     if (measurement == null) {
-      debugPrint('[LatencyProfiler] ⚠️ Unknown measurement ID: $id');
       return;
     }
 
@@ -310,7 +305,6 @@ class LatencyProfiler extends ChangeNotifier {
     );
 
     final dartToFfi = nowUs - measurement.dartTriggerUs;
-    debugPrint('[LatencyProfiler] 🔗 FFI return: ${measurement.source} (Dart→FFI: ${dartToFfi}µs)');
   }
 
   /// Mark engine processed
@@ -334,7 +328,6 @@ class LatencyProfiler extends ChangeNotifier {
 
     if (measurement.ffiReturnUs != null) {
       final ffiToEngine = timestampUs - measurement.ffiReturnUs!;
-      debugPrint('[LatencyProfiler] ⚙️ Engine processed: ${measurement.source} (FFI→Engine: ${ffiToEngine}µs)');
     }
   }
 
@@ -388,16 +381,11 @@ class LatencyProfiler extends ChangeNotifier {
     final meetsTarget = completedMeasurement.meetsTarget;
     final icon = meetsTarget ? '✅' : '⚠️';
 
-    debugPrint('[LatencyProfiler] $icon Complete: ${measurement.source}');
-    debugPrint('  Total: ${totalMs?.toStringAsFixed(2)}ms');
     if (completedMeasurement.dartToFfiUs != null) {
-      debugPrint('  Dart→FFI: ${completedMeasurement.dartToFfiUs}µs');
     }
     if (completedMeasurement.ffiToEngineUs != null) {
-      debugPrint('  FFI→Engine: ${completedMeasurement.ffiToEngineUs}µs');
     }
     if (completedMeasurement.scheduledToOutputUs != null) {
-      debugPrint('  Buffer: ${completedMeasurement.scheduledToOutputUs}µs');
     }
 
     notifyListeners();

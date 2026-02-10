@@ -358,9 +358,7 @@ class ChannelStripPresetService {
         for (final item in list) {
           _presets.add(ChannelStripPreset.fromJson(item as Map<String, dynamic>));
         }
-      } catch (e) {
-        debugPrint('[ChannelStripPresets] Load error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     _initialized = true;

@@ -898,9 +898,7 @@ class _AssetsTab extends StatelessWidget {
         final provider = context.read<SoundbankProvider>();
         await provider.addAssets(bank.manifest.id, files);
       }
-    } catch (e) {
-      debugPrint('Failed to add assets: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 }
 
@@ -1701,9 +1699,7 @@ class _ExportTabState extends State<_ExportTab> {
       if (directory != null) {
         setState(() => _outputPath = directory);
       }
-    } catch (e) {
-      debugPrint('Failed to select directory: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _startExport() async {

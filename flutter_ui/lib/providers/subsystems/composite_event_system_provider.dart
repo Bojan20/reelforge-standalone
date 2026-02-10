@@ -83,19 +83,16 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   bool _validateAudioPath(String path) {
     // Empty paths are invalid for actual audio
     if (path.isEmpty) {
-      debugPrint('[CompositeEvents] ⚠️ Empty audio path');
       return false;
     }
 
     // Block path traversal attacks
     if (path.contains('..')) {
-      debugPrint('[CompositeEvents] ⛔ SECURITY: Path traversal attempt blocked: $path');
       return false;
     }
 
     // Block null byte injection
     if (path.contains('\x00')) {
-      debugPrint('[CompositeEvents] ⛔ SECURITY: Null byte in path blocked: $path');
       return false;
     }
 
@@ -103,13 +100,11 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final lowerPath = path.toLowerCase();
     final hasValidExtension = _allowedAudioExtensions.any((ext) => lowerPath.endsWith(ext));
     if (!hasValidExtension) {
-      debugPrint('[CompositeEvents] ⚠️ Invalid audio extension: $path');
       return false;
     }
 
     // Block suspicious characters (command injection prevention)
     if (path.contains('\n') || path.contains('\r') || path.contains('|') || path.contains(';')) {
-      debugPrint('[CompositeEvents] ⛔ SECURITY: Suspicious characters in path blocked: $path');
       return false;
     }
 
@@ -147,7 +142,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     sanitized = sanitized.trim();
 
     if (sanitized != input) {
-      debugPrint('[CompositeEvents] Name sanitized: "$input" → "$sanitized"');
     }
 
     return sanitized;
@@ -354,7 +348,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
 
   /// Add existing composite event (for sync from external sources)
   void addCompositeEvent(SlotCompositeEvent event, {bool select = true}) {
-    debugPrint('[CompositeEvents] addCompositeEvent: ${event.name} (id: ${event.id})');
     _pushUndoState();
     _compositeEvents[event.id] = event;
     _syncCompositeToMiddleware(event);
@@ -372,8 +365,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       details: '${event.layers.length} layer(s), ${event.triggerStages.length} stage(s)',
     );
 
-    debugPrint(
-        '[CompositeEvents] Total: ${_compositeEvents.length}, selected: $_selectedCompositeEventId');
     notifyListeners();
   }
 
@@ -459,7 +450,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       description: 'Deleted "$deletedName"',
     );
 
-    debugPrint('[CompositeEvents] deleteCompositeEvent: removed event $eventId');
     notifyListeners();
   }
 
@@ -481,8 +471,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       final oldest = entries.removeAt(0);
       if (oldest.key == _selectedCompositeEventId) continue;
       _compositeEvents.remove(oldest.key);
-      debugPrint(
-          '[CompositeEvents] P2.17: Evicted old event "${oldest.value.name}" (modified: ${oldest.value.modifiedAt})');
     }
   }
 
@@ -513,8 +501,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final validDuration = (actualDuration > 0) ? actualDuration : null;
 
     if (durationSeconds == null && validDuration != null) {
-      debugPrint(
-          '[CompositeEvents] Auto-detected duration for $name: ${validDuration.toStringAsFixed(2)}s');
     }
 
     final layerId = 'layer_${_nextLayerId++}';
@@ -542,8 +528,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       details: 'Audio: ${audioPath.split('/').last}',
     );
 
-    debugPrint(
-        '[CompositeEvents] addLayerToEvent: "${updated.name}" now has ${updated.layers.length} layers');
     notifyListeners();
     return layer;
   }
@@ -578,8 +562,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       description: 'Removed layer "${removedLayer.name}" from "${event.name}"',
     );
 
-    debugPrint(
-        '[CompositeEvents] removeLayerFromEvent: removed layer $layerId from "${event.name}"');
     notifyListeners();
   }
 
@@ -755,8 +737,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     }
 
     notifyListeners();
-    debugPrint(
-        '[Undo] Restored composite events state (undo: ${_undoStack.length}, redo: ${_redoStack.length})');
   }
 
   /// Redo previously undone change
@@ -785,8 +765,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     }
 
     notifyListeners();
-    debugPrint(
-        '[Redo] Restored composite events state (undo: ${_undoStack.length}, redo: ${_redoStack.length})');
   }
 
   /// Clear undo/redo history
@@ -875,10 +853,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       _layerClipboard = layer;
       _selectedLayerId = layerId;
       notifyListeners();
-      debugPrint('[Clipboard] Copied layer: ${layer.name}');
-    } catch (e) {
-      debugPrint('[Clipboard] Layer not found: $layerId');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Paste layer from clipboard to event
@@ -903,7 +878,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     _syncCompositeToMiddleware(updated);
     notifyListeners();
 
-    debugPrint('[Clipboard] Pasted layer: ${pastedLayer.name}');
     return pastedLayer;
   }
 
@@ -931,10 +905,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       _syncCompositeToMiddleware(updated);
       notifyListeners();
 
-      debugPrint('[Duplicate] Created: ${duplicatedLayer.name}');
       return duplicatedLayer;
     } catch (e) {
-      debugPrint('[Duplicate] Layer not found: $layerId');
       return null;
     }
   }
@@ -1039,7 +1011,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
         .where((l) => _selectedLayerIds.contains(l.id))
         .toList();
 
-    debugPrint('[Clipboard] Copied ${_layersClipboard.length} layers');
     notifyListeners();
   }
 
@@ -1074,7 +1045,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     _syncCompositeToMiddleware(updated);
     notifyListeners();
 
-    debugPrint('[Clipboard] Pasted ${pastedLayers.length} layers');
     return pastedLayers;
   }
 
@@ -1217,7 +1187,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     );
 
     _eventSystemProvider.importEvent(middlewareEvent);
-    debugPrint('[Sync] Composite → Middleware: ${composite.name} (${actions.length} actions)');
 
     _notifyCompositeChange(composite.id, CompositeEventChangeType.updated);
   }
@@ -1226,26 +1195,21 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void _removeMiddlewareEventForComposite(String compositeId) {
     final middlewareId = _compositeToMiddlewareId(compositeId);
     _eventSystemProvider.deleteEvent(middlewareId);
-    debugPrint('[Sync] Removed middleware event: $middlewareId');
 
     _notifyCompositeChange(compositeId, CompositeEventChangeType.deleted);
   }
 
   /// Sync MiddlewareEvent back to SlotCompositeEvent (bidirectional)
   void syncMiddlewareToComposite(String middlewareId) {
-    debugPrint('[Sync] syncMiddlewareToComposite called: middlewareId=$middlewareId');
 
     final compositeId = _middlewareToCompositeId(middlewareId);
     if (compositeId == null) {
-      debugPrint('[Sync] ❌ Could not map middlewareId to compositeId (not mw_event_* format)');
       return;
     }
-    debugPrint('[Sync] Mapped to compositeId=$compositeId');
 
     final middlewareEvent = _eventSystemProvider.getEvent(middlewareId);
     final composite = _compositeEvents[compositeId];
     if (middlewareEvent == null || composite == null) {
-      debugPrint('[Sync] ❌ Event not found: middlewareEvent=${middlewareEvent != null}, composite=${composite != null}');
       return;
     }
 
@@ -1275,9 +1239,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
 
     // Log synced pan values
     for (int i = 0; i < updatedLayers.length; i++) {
-      debugPrint('[Sync] Layer $i: pan=${updatedLayers[i].pan}');
     }
-    debugPrint('[Sync] ✅ Middleware → Composite: ${middlewareEvent.name} (${updatedLayers.length} layers)');
     notifyListeners();
   }
 
@@ -1377,21 +1339,17 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     // Validate version
     final version = json['version'] as int?;
     if (version == null || version < 1) {
-      debugPrint('[CompositeEvents] ❌ ERROR: Invalid or missing version in import JSON');
       return;
     }
     if (version > 1) {
-      debugPrint('[CompositeEvents] ⚠️ Warning: Future version $version, attempting import');
     }
 
     // Validate events array exists and is a list
     final events = json['compositeEvents'];
     if (events == null) {
-      debugPrint('[CompositeEvents] ❌ ERROR: Missing compositeEvents array in import JSON');
       return;
     }
     if (events is! List) {
-      debugPrint('[CompositeEvents] ❌ ERROR: compositeEvents must be an array');
       return;
     }
 
@@ -1416,14 +1374,12 @@ class CompositeEventSystemProvider extends ChangeNotifier {
         final validatedEvent = _validateEventLayers(event);
         validEvents.add(validatedEvent);
       } catch (e) {
-        debugPrint('[CompositeEvents] ⚠️ Skipped invalid event: $e');
         skippedCount++;
       }
     }
 
     // Only apply if we have valid events (or empty import is intentional)
     if (validEvents.isEmpty && events.isNotEmpty) {
-      debugPrint('[CompositeEvents] ❌ ERROR: No valid events found in import (skipped $skippedCount)');
       return;
     }
 
@@ -1434,7 +1390,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       _syncCompositeToMiddleware(event);
     }
 
-    debugPrint('[CompositeEvents] ✅ Imported ${validEvents.length} composite events (skipped $skippedCount)');
     notifyListeners();
   }
 
@@ -1442,11 +1397,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   bool _validateEventJson(Map<String, dynamic> json) {
     // Required fields
     if (json['id'] is! String || (json['id'] as String).isEmpty) {
-      debugPrint('[CompositeEvents] Invalid event: missing or empty id');
       return false;
     }
     if (json['name'] is! String) {
-      debugPrint('[CompositeEvents] Invalid event: missing name');
       return false;
     }
 
@@ -1454,7 +1407,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final layers = json['layers'];
     if (layers != null) {
       if (layers is! List) {
-        debugPrint('[CompositeEvents] Invalid event: layers must be an array');
         return false;
       }
       // Check each layer has required fields
@@ -1468,7 +1420,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     // Validate triggerStages if present
     final stages = json['triggerStages'];
     if (stages != null && stages is! List) {
-      debugPrint('[CompositeEvents] Invalid event: triggerStages must be an array');
       return false;
     }
 
@@ -1485,8 +1436,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     }).toList();
 
     if (validLayers.length != event.layers.length) {
-      debugPrint(
-          '[CompositeEvents] ⚠️ Removed ${event.layers.length - validLayers.length} invalid layer(s) from "${event.name}"');
     }
 
     return event.copyWith(layers: validLayers);
@@ -1503,9 +1452,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     try {
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
       importCompositeEventsFromJson(json);
-    } catch (e) {
-      debugPrint('[CompositeEvents] Failed to import composite events: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Clear all composite events

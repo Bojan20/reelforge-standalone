@@ -957,7 +957,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
 
     search.registerProvider(eventProvider);
-    debugPrint('[EngineConnectedLayout] Registered EventSearchProvider');
   }
 
   /// Initialize P2 search providers with data callbacks (P2.1, P2.2, P2.3)
@@ -981,11 +980,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           }).toList();
         },
         onFileSelect: (path) {
-          debugPrint('[FileSearch] Selected: $path');
           // Could navigate to asset browser or import
         },
       );
-      debugPrint('[EngineConnectedLayout] Initialized FileSearchProvider');
     }
 
     // P2.2: Initialize TrackSearchProvider
@@ -1004,13 +1001,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           }).toList();
         },
         onTrackSelect: (trackId) {
-          debugPrint('[TrackSearch] Selected: $trackId');
           setState(() {
             _selectedTrackId = trackId;
           });
         },
       );
-      debugPrint('[EngineConnectedLayout] Initialized TrackSearchProvider');
     }
 
     // P2.3: Initialize PresetSearchProvider
@@ -1055,11 +1050,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           return presets;
         },
         onPresetSelect: (presetId) {
-          debugPrint('[PresetSearch] Selected: $presetId');
           // Could open preset editor
         },
       );
-      debugPrint('[EngineConnectedLayout] Initialized PresetSearchProvider');
     }
   }
 
@@ -2094,7 +2087,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       controller.stop(releaseAfterStop: true);
     }
 
-    debugPrint('[ModeSwitch] Stopped all playback');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3370,7 +3362,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       paths.map((path) => _loadMetadataForPoolFile(path)),
     ).then((_) {
       // All metadata loaded — UI already updated incrementally
-      debugPrint('[DAW] ✅ Background metadata load complete for ${paths.length} files');
     });
   }
 
@@ -3881,11 +3872,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     if (_isPreviewingEvent) {
       // Play all layers via provider
       provider.previewCompositeEvent(event.id);
-      debugPrint('[Middleware] Preview started: ${event.name} with ${event.layers.length} layers');
     } else {
       // Stop all voices for this event
       provider.stopCompositeEvent(event.id);
-      debugPrint('[Middleware] Preview stopped: ${event.name}');
     }
   }
 
@@ -3900,11 +3889,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     if (_isPreviewingEvent) {
       // Play event via provider (EventRegistry handles the audio)
       provider.postEvent(event.name);
-      debugPrint('[Middleware] Preview started: ${event.name} with ${event.actions.length} actions');
     } else {
       // Stop event playback
       provider.stopEventByName(event.name);
-      debugPrint('[Middleware] Preview stopped: ${event.name}');
     }
   }
 
@@ -4003,7 +3990,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                           nameController.text = nameWithoutExt;
                         });
                       }
-                    } catch (_) {}
+                    } catch (_) { /* ignored */ }
                     setDialogState(() => isPickingFile = false);
                   },
                   child: Container(
@@ -4861,7 +4848,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           controller: _dawLowerZoneController,
           selectedTrackId: selectedTrackId,
           onDspAction: (action, params) {
-            debugPrint('[LowerZone] DSP action: $action, params: $params');
             switch (action) {
               case 'splitClip':
                 // Split selected clip at playhead
@@ -7982,7 +7968,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       case 'ui':
         // WARNING: Buses should use busInsertXxx functions, not insertXxx
         // Return bus ID for backwards compatibility but log warning
-        debugPrint('[WARN] _busIdToTrackId called for bus "$busId" - use _getBusId + busInsertXxx instead');
         return _getBusId(busId);
       default:
         // For audio channels (ch_xxx), get trackIndex from MixerProvider
@@ -8350,23 +8335,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         }
       },
       onInsertClick: (channelId, insertIndex) {
-        debugPrint('[UltimateMixer] Insert click: channel=$channelId, slot=$insertIndex');
         _handleUltimateMixerInsertClick(channelId, insertIndex);
       },
       onSendLevelChange: (channelId, sendIndex, level) {
-        debugPrint('[UltimateMixer] Send level: channel=$channelId, send=$sendIndex, level=$level');
         engine.setSendLevel(channelId, sendIndex, level);
       },
       onSendMuteToggle: (channelId, sendIndex, muted) {
-        debugPrint('[UltimateMixer] Send mute: channel=$channelId, send=$sendIndex, muted=$muted');
         engine.setSendMuted(channelId, sendIndex, muted);
       },
       onSendPreFaderToggle: (channelId, sendIndex, preFader) {
-        debugPrint('[UltimateMixer] Send pre-fader: channel=$channelId, send=$sendIndex, preFader=$preFader');
         engine.setSendPreFader(channelId, sendIndex, preFader);
       },
       onSendDestChange: (channelId, sendIndex, destination) {
-        debugPrint('[UltimateMixer] Send destination: channel=$channelId, send=$sendIndex, dest=$destination');
         engine.setSendDestinationById(channelId, sendIndex, destination);
       },
       onPhaseToggle: (id) {
@@ -8477,20 +8457,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onMuteToggle: (id) => _onBusMuteToggle(id),
       onSoloToggle: (id) => _onBusSoloToggle(id),
       onInsertClick: (busId, insertIndex) {
-        debugPrint('[MiddlewareMixer] Insert click: bus=$busId, slot=$insertIndex');
         _handleUltimateMixerInsertClick(busId, insertIndex);
       },
       onSendLevelChange: (busId, sendIndex, level) {
-        debugPrint('[MiddlewareMixer] Send level: bus=$busId, send=$sendIndex, level=$level');
       },
       onSendMuteToggle: (busId, sendIndex, muted) {
-        debugPrint('[MiddlewareMixer] Send mute: bus=$busId, send=$sendIndex, muted=$muted');
       },
       onSendPreFaderToggle: (busId, sendIndex, preFader) {
-        debugPrint('[MiddlewareMixer] Send pre-fader: bus=$busId, send=$sendIndex, preFader=$preFader');
       },
       onSendDestChange: (busId, sendIndex, destination) {
-        debugPrint('[MiddlewareMixer] Send destination: bus=$busId, send=$sendIndex, dest=$destination');
       },
     );
   }
@@ -8566,7 +8541,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         if (currentSlot.plugin!.category == PluginCategory.eq) {
           _openEqWindow(channelId);
         }
-        debugPrint('[Mixer] Open editor for ${currentSlot.plugin!.name}');
       } else if (result == 'bypass') {
         setState(() {
           _busInserts[channelId] = chain.toggleBypass(insertIndex);
@@ -8575,7 +8549,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         final trackId = _busIdToTrackId(channelId);
         final newBypass = !currentSlot.bypassed;
         NativeFFI.instance.insertSetBypass(trackId, insertIndex, newBypass);
-        debugPrint('[Mixer] Bypass toggled for slot $insertIndex on $channelId -> $newBypass');
       } else if (result == 'replace') {
         final plugin = await showPluginSelector(context: context, channelName: channelName, slotIndex: insertIndex, isPreFader: isPreFader);
         if (plugin != null) {
@@ -8590,14 +8563,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           } else {
             NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
           }
-          debugPrint('[Mixer] Replaced with ${plugin.name} on slot $insertIndex');
         }
       } else if (result == 'remove') {
         setState(() { _busInserts[channelId] = chain.removePlugin(insertIndex); });
         // Unload processor from engine audio path
         final trackId = _busIdToTrackId(channelId);
         NativeFFI.instance.insertUnloadSlot(trackId, insertIndex);
-        debugPrint('[Mixer] Removed plugin from slot $insertIndex on $channelId');
       }
     } else {
       // Empty slot - show plugin selector
@@ -8616,7 +8587,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         } else {
           NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
         }
-        debugPrint('[UltimateMixer] Inserted ${plugin.name} on slot $insertIndex for $channelId');
 
         // Auto-open EQ editor
         if (plugin.category == PluginCategory.eq) {
@@ -8757,7 +8727,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     if (engineIdx >= 0) {
       NativeFFI.instance.setBusMute(engineIdx, _busMuted[busId] ?? false);
     }
-    debugPrint('[Mixer] Bus $busId muted: ${_busMuted[busId]} (engine idx: $engineIdx)');
   }
 
   void _onBusSoloToggle(String busId) {
@@ -8769,7 +8738,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     if (engineIdx >= 0) {
       NativeFFI.instance.setBusSolo(engineIdx, _busSoloed[busId] ?? false);
     }
-    debugPrint('[Mixer] Bus $busId soloed: ${_busSoloed[busId]} (engine idx: $engineIdx)');
   }
 
   void _onBusPanChange(String busId, double pan) {
@@ -8780,7 +8748,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     });
     // Send to Rust engine
     _sendBusPanToEngine(busId, clampedPan);
-    debugPrint('[Mixer] Bus $busId pan L: $clampedPan');
   }
 
   void _onBusPanRightChange(String busId, double pan) {
@@ -8791,7 +8758,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     });
     // Send to Rust engine (R channel)
     _sendBusPanRightToEngine(busId, clampedPan);
-    debugPrint('[Mixer] Bus $busId pan R: $clampedPan');
   }
 
   void _sendBusPanRightToEngine(String busId, double pan) {
@@ -8852,7 +8818,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     if (result != null) {
       mixerProvider.setChannelOutput(channelId, result);
-      debugPrint('[Mixer] Channel $channelId output set to $result');
     }
   }
 
@@ -8894,7 +8859,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     if (result != null) {
       mixerProvider.setChannelInput(channelId, result);
-      debugPrint('[Mixer] Channel $channelId input set to $result');
     }
   }
 
@@ -8934,10 +8898,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final fromChannelId = _busIdToChannelId(channelId);
       final success = routingAddSend(fromChannelId, fxIndex, 0);
       if (success == 1) {
-        debugPrint('[Mixer] Channel $channelId send $sendIndex routed to $result');
         _showSnackBar('Send $sendIndex → $result');
       } else {
-        debugPrint('[Mixer] FAILED: Channel $channelId send $sendIndex route to $result');
         _showSnackBar('Failed to route send $sendIndex', isError: true);
       }
     } else if (result == 'None') {
@@ -8945,10 +8907,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final fromChannelId = _busIdToChannelId(channelId);
       final success = routingRemoveSend(fromChannelId, sendIndex);
       if (success == 1) {
-        debugPrint('[Mixer] Channel $channelId send $sendIndex removed');
         _showSnackBar('Send $sendIndex removed');
       } else {
-        debugPrint('[Mixer] FAILED: Channel $channelId send $sendIndex removal');
         _showSnackBar('Failed to remove send $sendIndex', isError: true);
       }
     }
@@ -8969,7 +8929,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       setState(() {
         _busInserts[busId] = chain.removePlugin(slotIndex);
       });
-      debugPrint('[Mixer] Cleared slot $slotIndex on $busId');
       return;
     }
 
@@ -8985,13 +8944,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               _activeLowerTab = 'eq';
             }
           });
-          debugPrint('[Mixer] Inserted ${pluginInfo.name} on slot $slotIndex of $busId');
         }
         break;
 
       case SlotDestinationType.aux:
         // Send to FX bus
-        debugPrint('[Mixer] Send slot $slotIndex to AUX $targetId');
         final fromChannelId = _busIdToChannelId(busId);
         final toChannelId = int.tryParse(targetId) ?? 0;
         final success = routingAddSend(fromChannelId, toChannelId, 0);
@@ -9002,7 +8959,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
       case SlotDestinationType.bus:
         // Route output to bus
-        debugPrint('[Mixer] Route $busId output to BUS $targetId');
         final fromId = _busIdToChannelId(busId);
         final toId = int.tryParse(targetId) ?? 0;
         routingSetOutput(fromId, 1, toId);  // dest_type=1 (channel)
@@ -9156,7 +9112,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         if (plugin.category == PluginCategory.eq) {
           _openEqWindow(busId);
         }
-        debugPrint('[Mixer] Open editor for ${plugin.name}');
       } else if (result == 'bypass') {
         // Toggle bypass
         setState(() {
@@ -9166,7 +9121,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         final trackId = _busIdToTrackId(busId);
         final newBypass = !currentSlot.bypassed;
         NativeFFI.instance.insertSetBypass(trackId, insertIndex, newBypass);
-        debugPrint('[Mixer] Bypass toggled for slot $insertIndex on $busId -> $newBypass');
       } else if (result == 'replace') {
         // Show plugin selector for replacement
         final plugin = await showPluginSelector(
@@ -9185,13 +9139,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             final processorName = _pluginIdToProcessorName(plugin.id);
             if (processorName != null) {
               final result = NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
-              debugPrint('[Mixer] Load internal processor "$processorName" -> result: $result');
             }
           } else {
             final result = NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
-            debugPrint('[Mixer] Load external plugin "${plugin.name}" -> result: $result');
           }
-          debugPrint('[Mixer] Replaced with ${plugin.name} on slot $insertIndex');
         }
       } else if (result == 'remove') {
         // Remove plugin from UI state
@@ -9201,7 +9152,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         // Unload processor from engine audio path
         final trackId = _busIdToTrackId(busId);
         NativeFFI.instance.insertUnloadSlot(trackId, insertIndex);
-        debugPrint('[Mixer] Removed plugin from slot $insertIndex on $busId');
       }
     } else {
       // Empty slot - show plugin selector
@@ -9227,15 +9177,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           final processorName = _pluginIdToProcessorName(plugin.id);
           if (processorName != null) {
             final result = NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
-            debugPrint('[Mixer] Load internal processor "$processorName" -> result: $result');
           }
         } else {
           // External plugin (VST3/AU/CLAP) - use pluginInsertLoad
           final result = NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
-          debugPrint('[Mixer] Load external plugin "${plugin.name}" (${plugin.format.name}) -> result: $result');
         }
 
-        debugPrint('[Mixer] Inserted ${plugin.name} on slot $insertIndex');
 
         // Auto-open EQ editor in floating window if EQ was inserted
         if (plugin.category == PluginCategory.eq) {
@@ -9310,28 +9257,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         if (_isBusChannel(channelId)) {
           final busId = _getBusId(channelId);
           NativeFFI.instance.busInsertLoadProcessor(busId, i, 'pro-eq');
-          debugPrint('[EQ] Auto-created Pro EQ in bus $busId slot $i for $channelId');
         } else {
           final trackId = _busIdToTrackId(channelId);
           NativeFFI.instance.insertLoadProcessor(trackId, i, 'pro-eq');
-          debugPrint('[EQ] Auto-created Pro EQ in track $trackId slot $i for $channelId');
         }
         return i;
       }
     }
 
     // No empty slots
-    debugPrint('[EQ] No empty slots for $channelId');
     return -1;
   }
 
   /// Open EQ in floating window
   void _openEqWindow(String channelId) {
-    debugPrint('[EQ] Opening floating window for: $channelId');
     setState(() {
       _openEqWindows[channelId] = true;
     });
-    debugPrint('[EQ] Open windows: $_openEqWindows');
   }
 
   /// Close EQ floating window
@@ -9343,7 +9285,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Build floating EQ windows
   List<Widget> _buildFloatingEqWindows(MeteringState metering, bool isPlaying) {
-    // debugPrint('[EQ] Building floating windows, count: ${_openEqWindows.length}');
     return _openEqWindows.entries.map((entry) {
       final channelId = entry.key;
       final channelName = channelId == 'master' ? 'Master' : channelId;
@@ -9441,7 +9382,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         // Auto-create EQ in first empty insert slot
                         slotIndex = _autoCreateEqSlot(channelId);
                         if (slotIndex < 0) {
-                          debugPrint('[EQ] Failed to create EQ slot for $channelId');
                           return;
                         }
                       } else {
@@ -9450,13 +9390,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         if (isBus) {
                           final busId = _getBusId(channelId);
                           if (!NativeFFI.instance.busInsertIsLoaded(busId, slotIndex)) {
-                            debugPrint('[EQ] Bus processor not loaded in engine, loading now...');
                             NativeFFI.instance.busInsertLoadProcessor(busId, slotIndex, 'pro-eq');
                           }
                         } else {
                           final trackId = _busIdToTrackId(channelId);
                           if (!NativeFFI.instance.insertIsLoaded(trackId, slotIndex)) {
-                            debugPrint('[EQ] Track processor not loaded in engine, loading now...');
                             NativeFFI.instance.insertLoadProcessor(trackId, slotIndex, 'pro-eq');
                           }
                         }
@@ -9518,7 +9456,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       lengthBars: 8,
       bpm: 120.0,
       onNotesChanged: () {
-        debugPrint('MIDI notes changed');
       },
     );
   }
@@ -9872,7 +9809,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       onPressed: () {
                         // TODO: Get audio data from selected clip
                         // final positions = NativeFFI.instance.transientDetect(samples, sampleRate, sensitivity: _transientSensitivity, algorithm: _transientAlgorithm);
-                        debugPrint('[Analysis] Transient detection: sens=$_transientSensitivity algo=$_transientAlgorithm');
                       },
                     ),
                   ),
@@ -9977,7 +9913,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         // TODO: Get audio data from selected clip
                         // _detectedPitch = NativeFFI.instance.pitchDetect(samples, sampleRate);
                         // _detectedMidi = NativeFFI.instance.pitchDetectMidi(samples, sampleRate);
-                        debugPrint('[Analysis] Pitch detection triggered');
                       },
                     ),
                   ),
@@ -10077,7 +10012,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   void _syncEqToEngine() {
     // TODO: Call Rust engine via FFI when ready
     // engine.setMasterEq(_eqBands.map((b) => b.toMap()).toList());
-    debugPrint('[EQ] Syncing ${_eqBands.length} bands to engine');
   }
 
   /// Build Loudness meter content (LUFS + True Peak)
@@ -10101,7 +10035,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 },
                 onResetIntegrated: () {
                   // TODO: Call engine.resetLufsIntegrated()
-                  debugPrint('[Loudness] Reset integrated LUFS');
                 },
               ),
             ),
@@ -10759,7 +10692,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         icon: Icons.extension,
         content: PluginBrowser(
           onPluginLoad: (plugin) {
-            debugPrint('Load plugin: ${plugin.name}');
           },
         ),
         groupId: 'media',

@@ -115,8 +115,6 @@ class MathModelConnector extends ChangeNotifier {
     _rtpcThresholds[config.gameId] = thresholds;
 
     notifyListeners();
-    debugPrint(
-        '[MathModelConnector] Registered config: ${config.gameName} with ${config.tiers.length} tiers');
   }
 
   /// Get config for a game
@@ -137,7 +135,6 @@ class MathModelConnector extends ChangeNotifier {
     registerConfig(DefaultWinTierConfigs.standard);
     registerConfig(DefaultWinTierConfigs.highVolatility);
     registerConfig(DefaultWinTierConfigs.jackpot);
-    debugPrint('[MathModelConnector] Loaded default configurations');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -253,9 +250,6 @@ class MathModelConnector extends ChangeNotifier {
       onStageTrigger?.call(tier!.triggerStage!);
     }
 
-    debugPrint(
-        '[MathModelConnector] Processed win: ${winAmount.toStringAsFixed(2)}x '
-        '(${tier?.tier.displayName ?? "No Win"}, RTPC: ${rtpcValue.toStringAsFixed(3)})');
 
     return WinProcessResult(
       tier: tier,
@@ -347,7 +341,6 @@ class MathModelConnector extends ChangeNotifier {
       registerConfig(config);
       return config;
     } catch (e) {
-      debugPrint('[MathModelConnector] Error importing paytable: $e');
       return null;
     }
   }
@@ -463,9 +456,7 @@ class MathModelConnector extends ChangeNotifier {
       }
 
       notifyListeners();
-    } catch (e) {
-      debugPrint('[MathModelConnector] Error importing: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Clear all data

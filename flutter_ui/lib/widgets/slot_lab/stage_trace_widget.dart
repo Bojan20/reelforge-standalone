@@ -365,9 +365,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
       _profiler = sl<EventProfilerProvider>();
       _profiler?.addListener(_onProfilerUpdate);
       _updateLatencyMetrics();
-    } catch (e) {
-      debugPrint('[StageTrace] Profiler not available: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// P0.7: Handle profiler updates
@@ -586,9 +584,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
         _stageWaveformCache[stageType] = waveform;
         return waveform;
       }
-    } catch (e) {
-      debugPrint('[StageTrace] Waveform load error for $stageType: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     _stageWaveformCache[stageType] = null;
     return null;
@@ -923,7 +919,6 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
               final event = eventRegistry.getEventForStage(normalizedStage);
               if (event != null) {
                 eventRegistry.unregisterEvent(event.id);
-                debugPrint('[StageTrace] P1.2: Removed audio "${event.name}" from stage $normalizedStage');
               }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -1279,7 +1274,6 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
       );
       eventRegistry.unregisterEvent(existingEvent.id);
       eventRegistry.registerEvent(updatedEvent);
-      debugPrint('[StageTrace] P1.2: Applied variant $variant to $normalizedStage');
     } else {
       // Create new event for this stage
       final layerId = 'layer_${DateTime.now().millisecondsSinceEpoch}';
@@ -1304,7 +1298,6 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
         loop: false,
       );
       eventRegistry.registerEvent(newEvent);
-      debugPrint('[StageTrace] P1.2: Created new event for $normalizedStage with variant $variant');
     }
 
     // Clear caches
@@ -1780,9 +1773,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
           _dragWaveformCache = waveform;
         });
       }
-    } catch (e) {
-      debugPrint('[StageTrace] Drag waveform load error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// P1.2: Build ghost waveform preview overlay

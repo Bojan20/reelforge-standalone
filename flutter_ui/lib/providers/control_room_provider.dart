@@ -461,7 +461,6 @@ class ControlRoomProvider extends ChangeNotifier {
     // TODO: FFI call to start pink noise generator in Rust
     // For now, just set state - Rust engine will handle actual audio
     // api.controlRoomStartPinkNoise(_pinkNoiseLevelDb);
-    debugPrint('[ControlRoom] Pink noise started at ${_pinkNoiseLevelDb} dB');
   }
 
   void _stopPinkNoise() {
@@ -469,7 +468,6 @@ class ControlRoomProvider extends ChangeNotifier {
     // api.controlRoomStopPinkNoise();
     _pinkNoiseTimer?.cancel();
     _pinkNoiseTimer = null;
-    debugPrint('[ControlRoom] Pink noise stopped');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

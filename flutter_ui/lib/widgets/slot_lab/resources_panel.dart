@@ -95,7 +95,6 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
           );
         }).toList();
       });
-      debugPrint('[ResourcesPanel] Loaded ${_resources.length} resources from parent');
       return;
     }
 

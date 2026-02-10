@@ -68,9 +68,7 @@ class BrandingService extends ChangeNotifier {
 
       _initialized = true;
       notifyListeners();
-      debugPrint('[BrandingService] Initialized with ${_configs.length} configs');
     } catch (e) {
-      debugPrint('[BrandingService] Init error: $e');
       _ensureBuiltInPresets();
       _initialized = true;
     }
@@ -91,9 +89,7 @@ class BrandingService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final configsJson = jsonEncode(_configs.map((c) => c.toJson()).toList());
       await prefs.setString(_prefsKeyConfigs, configsJson);
-    } catch (e) {
-      debugPrint('[BrandingService] Save error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Save active config ID
@@ -105,9 +101,7 @@ class BrandingService extends ChangeNotifier {
       } else {
         await prefs.remove(_prefsKeyActiveId);
       }
-    } catch (e) {
-      debugPrint('[BrandingService] Save active ID error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Create a new branding config
@@ -135,7 +129,6 @@ class BrandingService extends ChangeNotifier {
     await _saveConfigs();
     notifyListeners();
 
-    debugPrint('[BrandingService] Created config: ${config.name}');
     return config;
   }
 
@@ -152,7 +145,6 @@ class BrandingService extends ChangeNotifier {
 
       await _saveConfigs();
       notifyListeners();
-      debugPrint('[BrandingService] Updated config: ${config.name}');
     }
   }
 
@@ -164,7 +156,6 @@ class BrandingService extends ChangeNotifier {
         configId.startsWith('neon_') ||
         configId.startsWith('classic_') ||
         configId.startsWith('ocean_')) {
-      debugPrint('[BrandingService] Cannot delete built-in config');
       return;
     }
 
@@ -178,7 +169,6 @@ class BrandingService extends ChangeNotifier {
 
     await _saveConfigs();
     notifyListeners();
-    debugPrint('[BrandingService] Deleted config: $configId');
   }
 
   /// Apply a branding config
@@ -191,7 +181,6 @@ class BrandingService extends ChangeNotifier {
     _activeConfig = config;
     await _saveActiveId();
     notifyListeners();
-    debugPrint('[BrandingService] Applied config: ${config.name}');
   }
 
   /// Revert to default branding
@@ -199,7 +188,6 @@ class BrandingService extends ChangeNotifier {
     _activeConfig = null;
     await _saveActiveId();
     notifyListeners();
-    debugPrint('[BrandingService] Reverted to default');
   }
 
   /// Duplicate a config
@@ -224,7 +212,6 @@ class BrandingService extends ChangeNotifier {
     await _saveConfigs();
     notifyListeners();
 
-    debugPrint('[BrandingService] Duplicated config: ${source.name} → ${duplicate.name}');
     return duplicate;
   }
 
@@ -252,10 +239,8 @@ class BrandingService extends ChangeNotifier {
       await _saveConfigs();
       notifyListeners();
 
-      debugPrint('[BrandingService] Imported config: ${importedConfig.name}');
       return importedConfig;
     } catch (e) {
-      debugPrint('[BrandingService] Import error: $e');
       return null;
     }
   }

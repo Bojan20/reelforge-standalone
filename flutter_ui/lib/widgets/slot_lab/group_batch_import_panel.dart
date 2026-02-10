@@ -899,9 +899,7 @@ class _GroupBatchImportPanelState extends State<GroupBatchImportPanel> {
       if (paths.isNotEmpty) {
         _processFiles(paths);
       }
-    } catch (e) {
-      debugPrint('File picker error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   void _processFiles(List<String> paths) {

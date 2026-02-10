@@ -102,10 +102,8 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
             onSelected: (value) {
               if (value == 'json') {
                 final json = profiler.exportToJson();
-                debugPrint('[VoiceStealPanel] Exported JSON: $json');
               } else if (value == 'csv') {
                 final csv = profiler.exportToCsv();
-                debugPrint('[VoiceStealPanel] Exported CSV:\n$csv');
               }
             },
             itemBuilder: (context) => [

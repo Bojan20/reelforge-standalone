@@ -75,7 +75,6 @@ class _PitchSegmentEditorState extends State<PitchSegmentEditor> {
 
     // Run analysis (potentially long operation)
     final segmentCount = _ffi.pitchAnalyzeClip(widget.clipId);
-    debugPrint('[PitchEditor] Analyzed clip ${widget.clipId}: $segmentCount segments');
 
     if (segmentCount > 0) {
       _loadSegments();

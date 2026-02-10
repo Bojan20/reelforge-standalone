@@ -625,7 +625,6 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
 
   void _applyRepair(SpectralSelection selection) {
     // Would call FFI to apply spectral repair
-    debugPrint('[SpectralRepair] Apply ${selection.mode} to selection ${selection.id}');
     widget.onChanged?.call();
   }
 

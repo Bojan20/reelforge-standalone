@@ -754,7 +754,6 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             icon: const Icon(Icons.folder_open, size: 16),
             onPressed: () {
               // File picker would go here
-              debugPrint('[Branding] Select $label file');
             },
             color: Colors.white70,
             padding: EdgeInsets.zero,
@@ -786,7 +785,6 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             onPressed: _selectedConfigId != null
                 ? () {
                     final json = service.exportConfig(_selectedConfigId!);
-                    debugPrint('[Branding] Export: $json');
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Config exported to clipboard')),
                     );
@@ -797,7 +795,6 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             icon: const Icon(Icons.file_upload, size: 16),
             label: const Text('Import', style: TextStyle(fontSize: 11)),
             onPressed: () {
-              debugPrint('[Branding] Import config');
             },
           ),
           const Spacer(),

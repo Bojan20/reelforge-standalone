@@ -147,8 +147,6 @@ class AdvancedDuckingCurvesService {
   /// Set curve parameters for a rule
   void setRuleParams(int ruleId, DuckingCurveParams params) {
     _ruleParams[ruleId] = params;
-    debugPrint(
-        '[AdvancedDuckingCurves] Set params for rule $ruleId: ${params.type.displayName}');
   }
 
   /// Get curve parameters for a rule

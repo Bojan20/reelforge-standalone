@@ -545,7 +545,6 @@ class UltimateWebSocketClient {
   Future<bool> connect(WebSocketConfig config) async {
     if (_state == WsConnectionState.connected ||
         _state == WsConnectionState.connecting) {
-      debugPrint('[WS] Already connected or connecting');
       return false;
     }
 
@@ -613,7 +612,6 @@ class UltimateWebSocketClient {
       _metrics = ConnectionMetrics();
       _metricsController.add(_metrics);
 
-      debugPrint('[WS] Connected to ${config.url}');
 
       // Re-subscribe to channels
       for (final channel in _subscribedChannels) {
@@ -622,7 +620,6 @@ class UltimateWebSocketClient {
 
       return true;
     } catch (e) {
-      debugPrint('[WS] Connection error: $e');
       _channel = null;
       return false;
     }
@@ -642,15 +639,12 @@ class UltimateWebSocketClient {
     try {
       await _subscription?.cancel();
       await _channel?.sink.close();
-    } catch (e) {
-      debugPrint('[WS] Disconnect error: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     _channel = null;
     _subscription = null;
     _setState(WsConnectionState.closed);
 
-    debugPrint('[WS] Disconnected');
   }
 
   /// Reconnect to server
@@ -671,7 +665,6 @@ class UltimateWebSocketClient {
     if (!isConnected) {
       if (_config != null && _messageQueue.length < _config!.maxQueueSize) {
         _messageQueue.add(message);
-        debugPrint('[WS] Message queued (${_messageQueue.length} pending)');
         return true;
       }
       return false;
@@ -753,7 +746,6 @@ class UltimateWebSocketClient {
       _sendInternal(message);
     }
     if (_messageQueue.isEmpty) {
-      debugPrint('[WS] Message queue flushed');
     }
   }
 
@@ -811,7 +803,6 @@ class UltimateWebSocketClient {
         final json = jsonDecode(data) as Map<String, dynamic>;
         message = WsMessage.fromJson(json);
       } else {
-        debugPrint('[WS] Unknown message type: ${data.runtimeType}');
         return;
       }
 
@@ -823,7 +814,6 @@ class UltimateWebSocketClient {
 
       _processMessage(message);
     } catch (e) {
-      debugPrint('[WS] Message parse error: $e');
       _handleError('Message parse error', e);
     }
   }
@@ -846,7 +836,6 @@ class UltimateWebSocketClient {
         );
 
       case WsMessageType.ack:
-        debugPrint('[WS] ACK: ${message.correlationId}');
 
       default:
         // Route to channel if specified
@@ -879,7 +868,6 @@ class UltimateWebSocketClient {
   }
 
   void _onDone() {
-    debugPrint('[WS] Connection closed');
 
     if (_state == WsConnectionState.connected) {
       _setState(WsConnectionState.disconnected);
@@ -919,7 +907,6 @@ class UltimateWebSocketClient {
     _pongTimer = Timer(
       _config?.pongTimeout ?? const Duration(seconds: 10),
       () {
-        debugPrint('[WS] Pong timeout - connection may be dead');
         _handleError('Pong timeout', null);
         _scheduleReconnect();
       },
@@ -948,7 +935,6 @@ class UltimateWebSocketClient {
       return;
     }
     if (_reconnectAttempts >= _config!.maxReconnectAttempts) {
-      debugPrint('[WS] Max reconnect attempts reached');
       _setState(WsConnectionState.error);
       _errorController.add(WsError(
         message: 'Max reconnection attempts reached',
@@ -970,8 +956,6 @@ class UltimateWebSocketClient {
     final delay = Duration(milliseconds: clampedDelay + jitter);
 
     _reconnectAttempts++;
-    debugPrint(
-        '[WS] Reconnecting in ${delay.inMilliseconds}ms (attempt $_reconnectAttempts)');
 
     _reconnectTimer = Timer(delay, () async {
       if (await _doConnect()) {
@@ -992,7 +976,6 @@ class UltimateWebSocketClient {
   // =============================================================================
 
   void _handleError(String message, Object? error) {
-    debugPrint('[WS] Error: $message - $error');
     _errorController.add(WsError(
       message: message,
       error: error,
@@ -1109,9 +1092,7 @@ class MeteringChannel {
     try {
       final data = MeteringData.fromJson(_lastMessage!.payload);
       _controller.add(data);
-    } catch (e) {
-      debugPrint('[Metering] Parse error: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     _lastMessage = null;
   }
@@ -1220,9 +1201,7 @@ class StageEventChannel {
       } else {
         _batchTimer ??= Timer(batchInterval, _flushBatch);
       }
-    } catch (e) {
-      debugPrint('[StageEvent] Parse error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   void _flushBatch() {
@@ -1525,9 +1504,7 @@ class LiveParameterChannel {
           onRemoteUpdate?.call(update);
         }
       }
-    } catch (e) {
-      debugPrint('[LiveParam] Parse error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   void dispose() {

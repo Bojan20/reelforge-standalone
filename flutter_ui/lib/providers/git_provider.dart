@@ -505,9 +505,7 @@ class GitProvider extends ChangeNotifier {
         unstagedFiles: unstaged,
       );
       notifyListeners();
-    } catch (e) {
-      debugPrint('[GitProvider] Failed to refresh status: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _refreshBranches() async {
@@ -523,9 +521,7 @@ class GitProvider extends ChangeNotifier {
         currentBranch: currentBranch,
       );
       notifyListeners();
-    } catch (e) {
-      debugPrint('[GitProvider] Failed to refresh branches: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Clear any error state

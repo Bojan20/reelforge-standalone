@@ -76,10 +76,8 @@ class ContainerPresetService {
       final file = File(filePath);
       await file.writeAsString(jsonStr);
 
-      debugPrint('[ContainerPresetService] Exported blend preset: ${container.name} → $filePath');
       return true;
     } catch (e) {
-      debugPrint('[ContainerPresetService] Export error: $e');
       return false;
     }
   }
@@ -89,7 +87,6 @@ class ContainerPresetService {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        debugPrint('[ContainerPresetService] File not found: $filePath');
         return null;
       }
 
@@ -98,15 +95,12 @@ class ContainerPresetService {
       final preset = ContainerPreset.fromJson(json);
 
       if (preset.type != 'blend') {
-        debugPrint('[ContainerPresetService] Wrong type: expected blend, got ${preset.type}');
         return null;
       }
 
       final container = _presetDataToBlend(preset.data, newId: newId);
-      debugPrint('[ContainerPresetService] Imported blend preset: ${container.name}');
       return container;
     } catch (e) {
-      debugPrint('[ContainerPresetService] Import error: $e');
       return null;
     }
   }
@@ -169,10 +163,8 @@ class ContainerPresetService {
       final file = File(filePath);
       await file.writeAsString(jsonStr);
 
-      debugPrint('[ContainerPresetService] Exported random preset: ${container.name}');
       return true;
     } catch (e) {
-      debugPrint('[ContainerPresetService] Export error: $e');
       return false;
     }
   }
@@ -188,15 +180,12 @@ class ContainerPresetService {
       final preset = ContainerPreset.fromJson(json);
 
       if (preset.type != 'random') {
-        debugPrint('[ContainerPresetService] Wrong type: expected random, got ${preset.type}');
         return null;
       }
 
       final container = _presetDataToRandom(preset.data, newId: newId);
-      debugPrint('[ContainerPresetService] Imported random preset: ${container.name}');
       return container;
     } catch (e) {
-      debugPrint('[ContainerPresetService] Import error: $e');
       return null;
     }
   }
@@ -268,10 +257,8 @@ class ContainerPresetService {
       final file = File(filePath);
       await file.writeAsString(jsonStr);
 
-      debugPrint('[ContainerPresetService] Exported sequence preset: ${container.name}');
       return true;
     } catch (e) {
-      debugPrint('[ContainerPresetService] Export error: $e');
       return false;
     }
   }
@@ -287,15 +274,12 @@ class ContainerPresetService {
       final preset = ContainerPreset.fromJson(json);
 
       if (preset.type != 'sequence') {
-        debugPrint('[ContainerPresetService] Wrong type: expected sequence, got ${preset.type}');
         return null;
       }
 
       final container = _presetDataToSequence(preset.data, newId: newId);
-      debugPrint('[ContainerPresetService] Imported sequence preset: ${container.name}');
       return container;
     } catch (e) {
-      debugPrint('[ContainerPresetService] Import error: $e');
       return null;
     }
   }
@@ -360,7 +344,6 @@ class ContainerPresetService {
       final json = jsonDecode(jsonStr) as Map<String, dynamic>;
       return ContainerPreset.fromJson(json);
     } catch (e) {
-      debugPrint('[ContainerPresetService] Import error: $e');
       return null;
     }
   }

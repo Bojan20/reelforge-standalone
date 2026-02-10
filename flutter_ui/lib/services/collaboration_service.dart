@@ -484,10 +484,7 @@ class CollaborationService extends ChangeNotifier {
             config['maxReconnectAttempts'] as int? ?? _maxReconnectAttempts;
       }
 
-      debugPrint('[Collaboration] Service initialized');
-    } catch (e) {
-      debugPrint('[Collaboration] Init error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Save configuration
@@ -502,9 +499,7 @@ class CollaborationService extends ChangeNotifier {
           'maxReconnectAttempts': _maxReconnectAttempts,
         }),
       );
-    } catch (e) {
-      debugPrint('[Collaboration] Save config error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ============================================================================
@@ -627,9 +622,7 @@ class CollaborationService extends ChangeNotifier {
 
       _setStatus(CollaborationStatus.disconnected);
       notifyListeners();
-    } catch (e) {
-      debugPrint('[Collaboration] Leave error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Connect to WebSocket server
@@ -772,9 +765,7 @@ class CollaborationService extends ChangeNotifier {
           // Forward operation-like messages
           _handleGenericOperation(type, data);
       }
-    } catch (e) {
-      debugPrint('[Collaboration] Message parse error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   void _handleUserJoined(Map<String, dynamic> data) {
@@ -895,7 +886,6 @@ class CollaborationService extends ChangeNotifier {
     _pendingOperations.removeWhere((op) => op.id == operationId);
 
     if (rejected != null) {
-      debugPrint('[Collaboration] Operation rejected: $reason');
       // TODO: Handle rejection (rollback, conflict resolution)
     }
   }
@@ -991,12 +981,10 @@ class CollaborationService extends ChangeNotifier {
   }
 
   void _handleError(dynamic error) {
-    debugPrint('[Collaboration] WebSocket error: $error');
     _setStatus(CollaborationStatus.error, error.toString());
   }
 
   void _handleDisconnect() {
-    debugPrint('[Collaboration] WebSocket disconnected');
     if (_status != CollaborationStatus.disconnected) {
       _reconnect();
     }

@@ -47,9 +47,7 @@ class RtpcAutoConfigurator {
       rtpcProvider.registerRtpc(rtpcDef);
       _rtpcIdMap['winMultiplier'] = count;
       count++;
-    } catch (e) {
-      debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to add winMultiplier RTPC: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // Add additional default RTPCs
     count += _addDefaultRtpcs(rtpcProvider, template);
@@ -57,7 +55,6 @@ class RtpcAutoConfigurator {
     // Configure RTPC bindings
     _configureDefaultBindings(rtpcProvider);
 
-    debugPrint('[RtpcAutoConfigurator] Configured $count RTPC definitions');
     return count;
   }
 
@@ -121,9 +118,7 @@ class RtpcAutoConfigurator {
       _rtpcIdMap['winMultiplier'] = nextId;
       nextId++;
       count++;
-    } catch (e) {
-      debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to add winMultiplier RTPC: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // spinEnergy RTPC (builds during spin, resets at result)
     try {
@@ -142,9 +137,7 @@ class RtpcAutoConfigurator {
       _rtpcIdMap['spinEnergy'] = nextId;
       nextId++;
       count++;
-    } catch (e) {
-      debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to add spinEnergy RTPC: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // cascadeDepth RTPC (for cascade/tumble games)
     if (template.source.modules.any((f) => f.type == FeatureModuleType.cascade)) {
@@ -167,9 +160,7 @@ class RtpcAutoConfigurator {
         _rtpcIdMap['cascadeDepth'] = nextId;
         nextId++;
         count++;
-      } catch (e) {
-        debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to add cascadeDepth RTPC: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // featureProgress RTPC (0-1 progress through feature)
@@ -193,9 +184,7 @@ class RtpcAutoConfigurator {
         _rtpcIdMap['featureProgress'] = nextId;
         nextId++;
         count++;
-      } catch (e) {
-        debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to add featureProgress RTPC: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // anticipationLevel RTPC (for near-miss/anticipation)
@@ -218,9 +207,7 @@ class RtpcAutoConfigurator {
       _rtpcIdMap['anticipationLevel'] = nextId;
       nextId++;
       count++;
-    } catch (e) {
-      debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to add anticipationLevel RTPC: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // rollupSpeed RTPC (controls rollup tick rate)
     try {
@@ -240,9 +227,7 @@ class RtpcAutoConfigurator {
       _rtpcIdMap['rollupSpeed'] = nextId;
       nextId++;
       count++;
-    } catch (e) {
-      debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to add rollupSpeed RTPC: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     return count;
   }
@@ -258,9 +243,7 @@ class RtpcAutoConfigurator {
           RtpcTargetParameter.busVolume,
           busId: 1, // Music bus
         );
-      } catch (e) {
-        debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to bind winMultiplier to music: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Bind spinEnergy to ambience bus volume (bus ID 4 = ambience)
@@ -272,9 +255,7 @@ class RtpcAutoConfigurator {
           RtpcTargetParameter.busVolume,
           busId: 4, // Ambience bus
         );
-      } catch (e) {
-        debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to bind spinEnergy to ambience: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Bind anticipationLevel to low-pass filter on music bus
@@ -286,9 +267,7 @@ class RtpcAutoConfigurator {
           RtpcTargetParameter.lowPassFilter,
           busId: 1, // Music bus
         );
-      } catch (e) {
-        debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to bind anticipationLevel: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Bind cascadeDepth to pitch (for cascade events)
@@ -299,9 +278,7 @@ class RtpcAutoConfigurator {
           cascadeId,
           RtpcTargetParameter.pitch,
         );
-      } catch (e) {
-        debugPrint('[RtpcAutoConfigurator] ⚠️ Failed to bind cascadeDepth: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
   }
 

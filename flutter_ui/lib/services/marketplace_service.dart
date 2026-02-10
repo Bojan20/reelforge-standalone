@@ -565,10 +565,7 @@ class MarketplaceService extends ChangeNotifier {
       // Load featured products
       await _loadFeaturedProducts();
 
-      debugPrint('[Marketplace] Service initialized');
-    } catch (e) {
-      debugPrint('[Marketplace] Init error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Save configuration
@@ -585,9 +582,7 @@ class MarketplaceService extends ChangeNotifier {
           'purchases': _purchases.map((p) => p.toJson()).toList(),
         }),
       );
-    } catch (e) {
-      debugPrint('[Marketplace] Save config error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _loadFeaturedProducts() async {
@@ -596,9 +591,7 @@ class MarketplaceService extends ChangeNotifier {
       _featuredProducts = _generateMockProducts(10);
       _recentProducts = _generateMockProducts(5);
       notifyListeners();
-    } catch (e) {
-      debugPrint('[Marketplace] Load featured error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ============================================================================

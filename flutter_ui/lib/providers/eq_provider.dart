@@ -377,7 +377,6 @@ class EqProvider extends ChangeNotifier {
       ffi.eqSetBandShape(trackId, i, band.filterType.index);
     }
 
-    debugPrint('[EQ] Synced ${bands.length} bands to engine for $busId');
   }
 
   /// Convert bus ID to track ID for FFI

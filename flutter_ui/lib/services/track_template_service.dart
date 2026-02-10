@@ -54,9 +54,7 @@ class TrackTemplateService extends ChangeNotifier {
         for (final item in jsonList) {
           try {
             _templates.add(TrackTemplate.fromJson(item as Map<String, dynamic>));
-          } catch (e) {
-            debugPrint('[TrackTemplateService] Error parsing template: $e');
-          }
+          } catch (e) { /* ignored */ }
         }
       }
 
@@ -67,10 +65,8 @@ class TrackTemplateService extends ChangeNotifier {
       }
 
       _isInitialized = true;
-      debugPrint('[TrackTemplateService] Loaded ${_templates.length} templates');
       notifyListeners();
     } catch (e) {
-      debugPrint('[TrackTemplateService] Init error: $e');
       _addBuiltInTemplates();
       _isInitialized = true;
       notifyListeners();
@@ -285,10 +281,8 @@ class TrackTemplateService extends ChangeNotifier {
 
       await _saveToStorage();
       notifyListeners();
-      debugPrint('[TrackTemplateService] Saved template: ${template.name}');
       return true;
     } catch (e) {
-      debugPrint('[TrackTemplateService] Save error: $e');
       return false;
     }
   }
@@ -303,17 +297,14 @@ class TrackTemplateService extends ChangeNotifier {
     try {
       // Prevent deleting built-in templates
       if (id.startsWith('builtin_')) {
-        debugPrint('[TrackTemplateService] Cannot delete built-in template');
         return false;
       }
 
       _templates.removeWhere((t) => t.id == id);
       await _saveToStorage();
       notifyListeners();
-      debugPrint('[TrackTemplateService] Deleted template: $id');
       return true;
     } catch (e) {
-      debugPrint('[TrackTemplateService] Delete error: $e');
       return false;
     }
   }
@@ -369,9 +360,7 @@ class TrackTemplateService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = _templates.map((t) => t.toJson()).toList();
       await prefs.setString(_kStorageKey, jsonEncode(jsonList));
-    } catch (e) {
-      debugPrint('[TrackTemplateService] Storage error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Export template to JSON string
@@ -388,7 +377,6 @@ class TrackTemplateService extends ChangeNotifier {
         createdAt: DateTime.now(),
       );
     } catch (e) {
-      debugPrint('[TrackTemplateService] Import error: $e');
       return null;
     }
   }

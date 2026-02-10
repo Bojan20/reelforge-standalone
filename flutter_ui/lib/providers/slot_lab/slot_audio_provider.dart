@@ -80,13 +80,11 @@ class SlotAudioProvider extends ChangeNotifier {
   void connectMiddleware(MiddlewareProvider middleware) {
     _middleware = middleware;
     _audioMapper = StageAudioMapper(middleware, _ffi);
-    debugPrint('[SlotAudioProvider] Middleware connected');
   }
 
   /// Connect ALE provider for signal sync
   void connectAle(AleProvider ale) {
     _aleProvider = ale;
-    debugPrint('[SlotAudioProvider] ALE provider connected');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -114,7 +112,6 @@ class SlotAudioProvider extends ChangeNotifier {
   // ─── Lower Zone State ───────────────────────────────────────────────────
 
   void setLowerZoneTabIndex(int index) {
-    debugPrint('[SlotAudioProvider] setLowerZoneTabIndex: $index');
     if (_persistedLowerZoneTabIndex != index) {
       _persistedLowerZoneTabIndex = index;
     }
@@ -158,7 +155,6 @@ class SlotAudioProvider extends ChangeNotifier {
     _aleProvider!.updateSignals(signals);
     _syncAleContext(result, inFreeSpins);
 
-    debugPrint('[SlotAudioProvider] ALE signals synced');
   }
 
   double _calculateWinTier(double winRatio) {
@@ -205,7 +201,6 @@ class SlotAudioProvider extends ChangeNotifier {
 
     if (currentContext != targetContext) {
       _aleProvider!.enterContext(targetContext);
-      debugPrint('[SlotAudioProvider] ALE context: $currentContext -> $targetContext');
     }
   }
 

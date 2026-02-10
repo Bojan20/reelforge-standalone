@@ -45,7 +45,6 @@ class SlotLabTrackBridge {
   int _createSlotLabTrack() {
     // createTrack(String name, int color, int busId) - positional args
     final trackId = _ffi.createTrack('SlotLab', 0xFF4A9EFF, 2); // Blue, SFX bus
-    debugPrint('[SlotLabBridge] Created SlotLab track: $trackId');
     return trackId;
   }
 
@@ -64,7 +63,6 @@ class SlotLabTrackBridge {
     if (_layerToClipId.containsKey(layerId)) {
       // If same audio path, just return existing clip
       if (_layerAudioPath[layerId] == audioPath) {
-        debugPrint('[SlotLabBridge] Layer $layerId already has clip ${_layerToClipId[layerId]}');
         return _layerToClipId[layerId]!;
       }
       // Different audio - remove old clip first
@@ -75,7 +73,6 @@ class SlotLabTrackBridge {
     // importAudio(String path, int trackId, double startTime) - returns clip ID
     final clipId = _ffi.importAudio(audioPath, slotLabTrackId, startTime);
     if (clipId <= 0) {
-      debugPrint('[SlotLabBridge] Failed to import audio: $audioPath');
       return -1;
     }
 
@@ -84,7 +81,6 @@ class SlotLabTrackBridge {
 
     // Set clip gain
     _ffi.setClipGain(clipId, volume);
-    debugPrint('[SlotLabBridge] Added clip $clipId for layer $layerId at ${startTime}s');
 
     return clipId;
   }
@@ -104,7 +100,6 @@ class SlotLabTrackBridge {
     // resizeClip(int clipId, double startTime, double duration, double sourceOffset)
     // Keep sourceOffset at 0 (play from beginning of source)
     _ffi.resizeClip(clipId, startTime, duration, 0.0);
-    debugPrint('[SlotLabBridge] Updated clip $clipId: start=${startTime}s, dur=${duration}s');
   }
 
   /// Remove layer clip from TRACK_MANAGER
@@ -113,7 +108,6 @@ class SlotLabTrackBridge {
     _layerAudioPath.remove(layerId);
     if (clipId != null) {
       _ffi.deleteClip(clipId);
-      debugPrint('[SlotLabBridge] Removed clip $clipId for layer $layerId');
     }
   }
 
@@ -124,7 +118,6 @@ class SlotLabTrackBridge {
     }
     _layerToClipId.clear();
     _layerAudioPath.clear();
-    debugPrint('[SlotLabBridge] Cleared all SlotLab clips');
   }
 
   /// Start playback at position (uses PLAYBACK_ENGINE)
@@ -135,25 +128,21 @@ class SlotLabTrackBridge {
     _ffi.seek(fromPosition);
     // Start transport
     _ffi.play();
-    debugPrint('[SlotLabBridge] Play from ${fromPosition}s');
   }
 
   /// Pause playback
   void pause() {
     _ffi.pause();
-    debugPrint('[SlotLabBridge] Pause');
   }
 
   /// Stop playback (resets to start)
   void stop() {
     _ffi.stop();
-    debugPrint('[SlotLabBridge] Stop');
   }
 
   /// Seek to position
   void seek(double seconds) {
     _ffi.seek(seconds);
-    debugPrint('[SlotLabBridge] Seek to ${seconds}s');
   }
 
   /// Check if playing
@@ -169,6 +158,5 @@ class SlotLabTrackBridge {
       _ffi.deleteTrack(_slotLabTrackId!);
       _slotLabTrackId = null;
     }
-    debugPrint('[SlotLabBridge] Disposed');
   }
 }

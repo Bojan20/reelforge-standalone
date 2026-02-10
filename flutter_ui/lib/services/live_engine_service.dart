@@ -114,7 +114,6 @@ class LiveEngineService {
       );
 
       _setState(EngineConnectionState.connected);
-      debugPrint('[LiveEngine] WebSocket connected to $url');
       return true;
     } catch (e) {
       _handleError('WebSocket connection failed: $e');
@@ -140,7 +139,6 @@ class LiveEngineService {
       );
 
       _setState(EngineConnectionState.connected);
-      debugPrint('[LiveEngine] TCP connected to ${config.host}:${config.port}');
       return true;
     } catch (e) {
       _handleError('TCP connection failed: $e');
@@ -162,12 +160,9 @@ class LiveEngineService {
 
       _tcpSocket?.destroy();
       _tcpSocket = null;
-    } catch (e) {
-      debugPrint('[LiveEngine] Error during disconnect: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     _setState(EngineConnectionState.disconnected);
-    debugPrint('[LiveEngine] Disconnected');
   }
 
   // =============================================================================
@@ -188,7 +183,6 @@ class LiveEngineService {
   }
 
   void _onWebSocketDone() {
-    debugPrint('[LiveEngine] WebSocket connection closed');
     if (_state == EngineConnectionState.connected) {
       _attemptReconnect();
     }
@@ -205,7 +199,6 @@ class LiveEngineService {
   }
 
   void _onTcpDone() {
-    debugPrint('[LiveEngine] TCP connection closed');
     if (_state == EngineConnectionState.connected) {
       _attemptReconnect();
     }
@@ -237,15 +230,12 @@ class LiveEngineService {
           if (json.containsKey('stage') || json.containsKey('event')) {
             _processStageEvent(json);
           } else {
-            debugPrint('[LiveEngine] Unknown message type: $type');
           }
       }
 
       // Emit raw message
       _messageController.add(EngineMessage.fromJson(json));
-    } catch (e) {
-      debugPrint('[LiveEngine] Error processing message: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   void _processStageEvent(Map<String, dynamic> json) {
@@ -256,14 +246,12 @@ class LiveEngineService {
           stageData['type'] as String? ?? stageData['name'] as String?;
 
       if (stageName == null) {
-        debugPrint('[LiveEngine] Missing stage type in event');
         return;
       }
 
       // Parse stage
       final stage = Stage.fromTypeName(stageName, stageData);
       if (stage == null) {
-        debugPrint('[LiveEngine] Unknown stage type: $stageName');
         return;
       }
 
@@ -295,18 +283,13 @@ class LiveEngineService {
         ));
       }
 
-      debugPrint('[LiveEngine] Stage event: ${stage.typeName}');
-    } catch (e) {
-      debugPrint('[LiveEngine] Error processing stage event: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   void _processEngineState(Map<String, dynamic> json) {
-    debugPrint('[LiveEngine] Engine state: $json');
   }
 
   void _processCommandResponse(Map<String, dynamic> json) {
-    debugPrint('[LiveEngine] Command response: $json');
   }
 
   // =============================================================================
@@ -316,7 +299,6 @@ class LiveEngineService {
   /// Send command to engine
   Future<bool> sendCommand(EngineCommand command) async {
     if (!isConnected) {
-      debugPrint('[LiveEngine] Cannot send command: not connected');
       return false;
     }
 
@@ -331,7 +313,6 @@ class LiveEngineService {
         return false;
       }
 
-      debugPrint('[LiveEngine] Sent command: ${command.type.name}');
       return true;
     } catch (e) {
       _handleError('Failed to send command: $e');
@@ -367,7 +348,6 @@ class LiveEngineService {
     _isRecording = true;
     _recordedEvents.clear();
     _recordingStartTime = DateTime.now();
-    debugPrint('[LiveEngine] Recording started');
   }
 
   /// Stop recording and return events
@@ -375,7 +355,6 @@ class LiveEngineService {
     _isRecording = false;
     _recordingStartTime = null;
     final events = List<RecordedEvent>.from(_recordedEvents);
-    debugPrint('[LiveEngine] Recording stopped: ${events.length} events');
     return events;
   }
 
@@ -417,13 +396,6 @@ class LiveEngineService {
     _reconnectTimer?.cancel();
     _reconnectAttempts++;
 
-    debugPrint(
-        '[LiveEngine] Reconnecting (attempt $_reconnectAttempts/$_maxReconnectAttempts)...');
-
-    _reconnectTimer = Timer(
-      const Duration(milliseconds: _reconnectDelayMs),
-      () => connect(_config!),
-    );
   }
 
   // =============================================================================
@@ -438,7 +410,6 @@ class LiveEngineService {
   }
 
   void _handleError(String message) {
-    debugPrint('[LiveEngine] Error: $message');
     _errorController.add(message);
   }
 

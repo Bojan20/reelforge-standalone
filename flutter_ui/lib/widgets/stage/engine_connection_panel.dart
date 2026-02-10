@@ -771,7 +771,6 @@ class _RecordButton extends StatelessWidget {
 
   void _copyToClipboard(BuildContext context, String json) {
     // Copy to clipboard would require services package
-    debugPrint('[Recording] JSON length: ${json.length}');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(

@@ -110,7 +110,6 @@ class StageEventPool {
       for (int i = 0; i < _initialPoolSize; i++) {
         _pool.add(PooledStageEvent());
       }
-      debugPrint('[StageEventPool] Initialized with $_initialPoolSize objects');
     }
   }
 
@@ -264,7 +263,6 @@ class SlotLabProvider extends ChangeNotifier {
   /// Enable/disable P5 win tier evaluation
   void setUseP5WinTier(bool enabled) {
     _useP5WinTier = enabled;
-    debugPrint('[SlotLabProvider] P5 Win Tier mode: ${enabled ? "ENABLED" : "DISABLED"}');
     notifyListeners();
   }
 
@@ -337,28 +335,24 @@ class SlotLabProvider extends ChangeNotifier {
   /// Set anticipation configuration type
   void setAnticipationConfigType(AnticipationConfigType type) {
     _anticipationConfigType = type;
-    debugPrint('[SlotLabProvider] P7.2.3: Anticipation config type: ${type.name}');
     notifyListeners();
   }
 
   /// Set scatter symbol ID for anticipation detection
   void setScatterSymbolId(int symbolId) {
     _scatterSymbolId = symbolId;
-    debugPrint('[SlotLabProvider] P7.2.3: Scatter symbol ID: $symbolId');
     notifyListeners();
   }
 
   /// Set bonus symbol ID
   void setBonusSymbolId(int symbolId) {
     _bonusSymbolId = symbolId;
-    debugPrint('[SlotLabProvider] P7.2.3: Bonus symbol ID: $symbolId');
     notifyListeners();
   }
 
   /// Set allowed reels for Tip B configuration
   void setTipBAllowedReels(List<int> reels) {
     _tipBAllowedReels = List.from(reels)..sort();
-    debugPrint('[SlotLabProvider] P7.2.3: Tip B allowed reels: $_tipBAllowedReels');
     notifyListeners();
   }
 
@@ -476,7 +470,6 @@ class SlotLabProvider extends ChangeNotifier {
   double get persistedLowerZoneHeight => _persistedLowerZoneHeight;
 
   void setLowerZoneTabIndex(int index) {
-    debugPrint('[SlotLabProvider] setLowerZoneTabIndex: $index (was $_persistedLowerZoneTabIndex)');
     if (_persistedLowerZoneTabIndex != index) {
       _persistedLowerZoneTabIndex = index;
       // Don't notify - this is just persistence, UI handles its own updates
@@ -562,7 +555,6 @@ class SlotLabProvider extends ChangeNotifier {
     if (reels != _totalReels || rows != _totalRows) {
       _totalReels = reels;
       _totalRows = rows;
-      debugPrint('[SlotLabProvider] Grid updated: ${reels}×$rows');
 
       // Re-initialize engine with new grid if already initialized
       if (_initialized) {
@@ -578,10 +570,7 @@ class SlotLabProvider extends ChangeNotifier {
     try {
       // The Rust engine is initialized via slotLabInit which doesn't take
       // grid parameters directly. Grid is configured via spin parameters.
-      debugPrint('[SlotLabProvider] Engine will use new grid on next spin');
-    } catch (e) {
-      debugPrint('[SlotLabProvider] Engine reinitialization error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get the visual tier name for a win amount
@@ -774,7 +763,6 @@ class SlotLabProvider extends ChangeNotifier {
   /// Initialize the slot engine
   bool initialize({bool audioTestMode = false}) {
     if (_initialized) {
-      debugPrint('[SlotLabProvider] Already initialized');
       return true;
     }
 
@@ -791,10 +779,8 @@ class SlotLabProvider extends ChangeNotifier {
       AudioPool.instance.configure(AudioPoolConfig.slotLabConfig);
       AudioPool.instance.preloadSlotLabEvents();
 
-      debugPrint('[SlotLabProvider] Engine initialized (audioTest: $audioTestMode)');
       notifyListeners();
     } else {
-      debugPrint('[SlotLabProvider] Failed to initialize engine');
     }
 
     return success;
@@ -812,7 +798,6 @@ class SlotLabProvider extends ChangeNotifier {
     _lastStages = [];
     _stats = null;
     _spinCount = 0;
-    debugPrint('[SlotLabProvider] Engine shutdown');
     notifyListeners();
   }
 
@@ -820,13 +805,11 @@ class SlotLabProvider extends ChangeNotifier {
   void connectMiddleware(MiddlewareProvider middleware) {
     _middleware = middleware;
     _audioMapper = StageAudioMapper(middleware, _ffi);
-    debugPrint('[SlotLabProvider] Middleware connected');
   }
 
   /// Connect ALE provider for signal sync
   void connectAle(AleProvider ale) {
     _aleProvider = ale;
-    debugPrint('[SlotLabProvider] ALE provider connected');
   }
 
   /// Set ALE auto sync
@@ -876,15 +859,9 @@ class SlotLabProvider extends ChangeNotifier {
       // Apply timing config values to local fields
       _anticipationPreTriggerMs = _timingConfig!.anticipationAudioPreTriggerMs.round();
       _reelStopPreTriggerMs = _timingConfig!.reelStopAudioPreTriggerMs.round();
-      debugPrint('[SlotLabProvider] P0.1 Timing config loaded: '
-          'latency=${_timingConfig!.audioLatencyCompensationMs}ms, '
-          'syncOffset=${_timingConfig!.visualAudioSyncOffsetMs}ms, '
-          'anticipationPreTrigger=${_anticipationPreTriggerMs}ms, '
-          'reelStopPreTrigger=${_reelStopPreTriggerMs}ms');
     } else {
       // Use defaults if config not available
       _timingConfig = SlotLabTimingConfig.studio();
-      debugPrint('[SlotLabProvider] P0.1 Using default studio timing config');
     }
   }
 
@@ -935,7 +912,6 @@ class SlotLabProvider extends ChangeNotifier {
   /// Typical values: 30-100ms
   void setAnticipationPreTriggerMs(int ms) {
     _anticipationPreTriggerMs = ms.clamp(0, 200);
-    debugPrint('[SlotLabProvider] Anticipation pre-trigger: ${_anticipationPreTriggerMs}ms');
     notifyListeners();
   }
 
@@ -943,7 +919,6 @@ class SlotLabProvider extends ChangeNotifier {
   void seedRng(int seed) {
     if (_initialized) {
       _ffi.slotLabSeedRng(seed);
-      debugPrint('[SlotLabProvider] RNG seeded: $seed');
     }
   }
 
@@ -964,10 +939,8 @@ class SlotLabProvider extends ChangeNotifier {
   /// Execute a random spin
   Future<SlotLabSpinResult?> spin() async {
     // DEBUG: Trace entry conditions
-    debugPrint('[SlotLabProvider] spin() called: initialized=$_initialized, isSpinning=$_isSpinning');
 
     if (!_initialized || _isSpinning) {
-      debugPrint('[SlotLabProvider] ❌ spin() BLOCKED: initialized=$_initialized, isSpinning=$_isSpinning');
       return null;
     }
 
@@ -979,20 +952,15 @@ class SlotLabProvider extends ChangeNotifier {
       // With P5 Win Tier enabled, use P5 spin functions for dynamic tier evaluation
       final int spinId;
       if (_engineV2Initialized) {
-        debugPrint('[SlotLabProvider] Calling FFI slotLabV2Spin() (V2 engine with GDD)...');
         spinId = _ffi.slotLabV2Spin();
       } else if (_useP5WinTier) {
         // P5 Win Tier mode: Use FFI function that applies P5 config after spin
-        debugPrint('[SlotLabProvider] Calling FFI slotLabSpinP5() (V1 + P5 win tier)...');
         spinId = _ffi.slotLabSpinP5();
       } else {
-        debugPrint('[SlotLabProvider] Calling FFI slotLabSpin() (V1 default engine)...');
         spinId = _ffi.slotLabSpin();
       }
-      debugPrint('[SlotLabProvider] FFI returned spinId=$spinId');
 
       if (spinId == 0) {
-        debugPrint('[SlotLabProvider] ❌ spinId=0, aborting');
         _isSpinning = false;
         notifyListeners();
         return null;
@@ -1019,13 +987,10 @@ class SlotLabProvider extends ChangeNotifier {
       _cachedStagesSpinId = _lastResult?.spinId;
 
       // DEBUG: Log stage details
-      debugPrint('[SlotLabProvider] Got ${_lastStages.length} stages:');
       for (int i = 0; i < _lastStages.length && i < 10; i++) {
         final s = _lastStages[i];
-        debugPrint('[SlotLabProvider]   [$i] type="${s.stageType}", ts=${s.timestampMs}ms');
       }
       if (_lastStages.length > 10) {
-        debugPrint('[SlotLabProvider]   ... and ${_lastStages.length - 10} more');
       }
 
       _updateFreeSpinsState();
@@ -1037,7 +1002,6 @@ class SlotLabProvider extends ChangeNotifier {
       // Compact spin summary
       final win = _lastResult?.totalWin ?? 0;
       final isWin = _lastResult?.isWin ?? false;
-      debugPrint('[Spin #$_spinCount] ${isWin ? "WIN \$${win.toStringAsFixed(2)}" : "no win"} | ${_lastStages.length} stages');
 
       // Auto-trigger audio if enabled
       if (_autoTriggerAudio && _lastStages.isNotEmpty) {
@@ -1051,7 +1015,6 @@ class SlotLabProvider extends ChangeNotifier {
       notifyListeners();
       return _lastResult;
     } catch (e) {
-      debugPrint('[SlotLabProvider] Spin error: $e');
       _isSpinning = false;
       notifyListeners();
       return null;
@@ -1070,14 +1033,11 @@ class SlotLabProvider extends ChangeNotifier {
       // With P5 Win Tier enabled, use P5 spin functions for dynamic tier evaluation
       final int spinId;
       if (_engineV2Initialized) {
-        debugPrint('[SlotLabProvider] Calling FFI slotLabV2SpinForced(${outcome.index}) (V2 engine with GDD)...');
         spinId = _ffi.slotLabV2SpinForced(outcome.index);
       } else if (_useP5WinTier) {
         // P5 Win Tier mode: Use FFI function that applies P5 config after spin
-        debugPrint('[SlotLabProvider] Calling FFI slotLabSpinForcedP5() (V1 + P5 win tier)...');
         spinId = _ffi.slotLabSpinForcedP5(outcome);
       } else {
-        debugPrint('[SlotLabProvider] Calling FFI slotLabSpinForced() (V1 default engine)...');
         spinId = _ffi.slotLabSpinForced(outcome);
       }
       if (spinId == 0) {
@@ -1111,7 +1071,6 @@ class SlotLabProvider extends ChangeNotifier {
 
       final win = _lastResult?.totalWin ?? 0;
       final isWin = _lastResult?.isWin ?? false;
-      debugPrint('[Spin #$_spinCount ${outcome.name}] ${isWin ? "WIN \$${win.toStringAsFixed(2)}" : "no win"} | ${_lastStages.length} stages');
 
       // Auto-trigger audio if enabled
       if (_autoTriggerAudio && _lastStages.isNotEmpty) {
@@ -1125,7 +1084,6 @@ class SlotLabProvider extends ChangeNotifier {
       notifyListeners();
       return _lastResult;
     } catch (e) {
-      debugPrint('[SlotLabProvider] Forced spin error: $e');
       _isSpinning = false;
       notifyListeners();
       return null;
@@ -1157,12 +1115,10 @@ class SlotLabProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      debugPrint('[SlotLabProvider] spinForcedWithMultiplier: ${outcome.name} @ ${targetMultiplier}x');
 
       final int spinId = _ffi.slotLabSpinForcedWithMultiplier(outcome, targetMultiplier);
 
       if (spinId == 0) {
-        debugPrint('[SlotLabProvider] spinForcedWithMultiplier FAILED: spinId=0');
         _isSpinning = false;
         notifyListeners();
         return null;
@@ -1189,8 +1145,6 @@ class SlotLabProvider extends ChangeNotifier {
       final win = _lastResult?.totalWin ?? 0;
       final isWin = _lastResult?.isWin ?? false;
       final tierName = _lastResult?.winTierName ?? 'unknown';
-      debugPrint('[Spin #$_spinCount ${outcome.name}@${targetMultiplier}x] '
-          '${isWin ? "WIN \$${win.toStringAsFixed(2)} (${tierName})" : "no win"} | ${_lastStages.length} stages');
 
       // Auto-trigger audio if enabled
       if (_autoTriggerAudio && _lastStages.isNotEmpty) {
@@ -1204,7 +1158,6 @@ class SlotLabProvider extends ChangeNotifier {
       notifyListeners();
       return _lastResult;
     } catch (e) {
-      debugPrint('[SlotLabProvider] spinForcedWithMultiplier error: $e');
       _isSpinning = false;
       notifyListeners();
       return null;
@@ -1266,7 +1219,6 @@ class SlotLabProvider extends ChangeNotifier {
     // Handle context switching based on game state
     _syncAleContext();
 
-    debugPrint('[SlotLabProvider] ALE signals synced: winTier=${signals['winTier']?.toStringAsFixed(2)}, momentum=${signals['momentum']?.toStringAsFixed(2)}');
   }
 
   /// Calculate win tier (0-5) from win ratio
@@ -1334,7 +1286,6 @@ class SlotLabProvider extends ChangeNotifier {
     // Switch context if different
     if (currentContext != targetContext) {
       _aleProvider!.enterContext(targetContext);
-      debugPrint('[SlotLabProvider] ALE context switched: $currentContext → $targetContext');
     }
   }
 
@@ -1349,30 +1300,20 @@ class SlotLabProvider extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     // DEBUG: Dump ALL stages with timing and reel indices for verification
     // ═══════════════════════════════════════════════════════════════════════════
-    debugPrint('╔══════════════════════════════════════════════════════════════╗');
-    debugPrint('║ STAGE PLAYBACK — ${_lastStages.length} stages                 ');
-    debugPrint('╠══════════════════════════════════════════════════════════════╣');
     for (int i = 0; i < _lastStages.length; i++) {
       final s = _lastStages[i];
       final type = s.stageType.toUpperCase();
       final reelIdx = s.rawStage['reel_index'];
       final ts = s.timestampMs.toStringAsFixed(0);
       final reelInfo = reelIdx != null ? ' [reel=$reelIdx]' : '';
-      debugPrint('║ [$i] ${ts.padLeft(5)}ms: $type$reelInfo');
     }
-    debugPrint('╚══════════════════════════════════════════════════════════════╝');
 
     // Acquire SlotLab section in UnifiedPlaybackController
     final controller = UnifiedPlaybackController.instance;
-    debugPrint('[SlotLabProvider] 🔒 Attempting to acquire SlotLab section...');
-    debugPrint('[SlotLabProvider]   activeSection=${controller.activeSection}');
 
     if (!controller.acquireSection(PlaybackSection.slotLab)) {
-      debugPrint('[SlotLabProvider] ❌ Failed to acquire SlotLab section!');
-      debugPrint('[SlotLabProvider]   isRecording=${controller.isRecording}');
       return;
     }
-    debugPrint('[SlotLabProvider] ✅ SlotLab section acquired');
 
     // CRITICAL: Start the audio stream WITHOUT starting transport
     // SlotLab uses one-shot voices (playFileToBus), not timeline clips
@@ -1386,10 +1327,8 @@ class SlotLabProvider extends ChangeNotifier {
     _currentStageIndex = 0;
     _isPlayingStages = true;
 
-    debugPrint('[SlotLabProvider] 🎬 Starting stage playback: _isPlayingStages=$_isPlayingStages');
 
     // Trigeruj prvi stage odmah
-    debugPrint('[SlotLabProvider] Triggering first stage: ${_lastStages[0].stageType}');
     _triggerStage(_lastStages[0]);
 
     if (_lastStages.length > 1) {
@@ -1399,7 +1338,6 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     notifyListeners();
-    debugPrint('[SlotLabProvider] notifyListeners() called, _isPlayingStages=$_isPlayingStages');
   }
 
   void _scheduleNextStage() {
@@ -1435,7 +1373,6 @@ class SlotLabProvider extends ChangeNotifier {
       // Check if this timer belongs to the current playback session
       // P0.3: Also check if paused
       if (!_isPlayingStages || _playbackGeneration != generation || _isPaused) {
-        debugPrint('[SlotLabProvider] Ignoring stale timer (gen: $generation, current: $_playbackGeneration, paused: $_isPaused)');
         return;
       }
 
@@ -1458,14 +1395,12 @@ class SlotLabProvider extends ChangeNotifier {
     // Cast to int properly (may be dynamic from JSON)
     final int? reelIdx = reelIndex is int ? reelIndex : null;
 
-    debugPrint('[SlotLabProvider] _handleReelStopUIOnly: reelIdx=$reelIdx, totalReels=$_totalReels');
 
     // REEL_SPIN STOP LOGIC — Stop loop kad poslednji reel stane
     final bool shouldStopReelSpin;
     if (reelIdx != null) {
       // Ako imamo specifičan reel index, stop kad je poslednji
       shouldStopReelSpin = reelIdx >= _totalReels - 1;
-      debugPrint('[SlotLabProvider] UI-only: reelIdx=$reelIdx >= ${_totalReels - 1} → shouldStop=$shouldStopReelSpin');
     } else {
       // Ako nema reel indexa, ovo je generički REEL_STOP — proveri da li je poslednji
       final currentIdx = _lastStages.indexWhere((s) =>
@@ -1477,22 +1412,18 @@ class SlotLabProvider extends ChangeNotifier {
         // Poslednji stage u listi
         shouldStopReelSpin = true;
       }
-      debugPrint('[SlotLabProvider] UI-only: fallback logic → shouldStop=$shouldStopReelSpin');
     }
 
     if (shouldStopReelSpin) {
       // Stop both spin loop variants
       eventRegistry.stopEvent('REEL_SPIN_LOOP');
       eventRegistry.stopEvent('REEL_SPIN');
-      debugPrint('[SlotLabProvider] REEL_SPIN + REEL_SPIN_LOOP stopped (UI-only, last reel, index: $reelIdx)');
 
       // AUTO-TRIGGER SPIN_END immediately after last reel stop
       if (eventRegistry.hasEventForStage('SPIN_END')) {
         final context = {...stage.payload, ...stage.rawStage, 'timestamp_ms': stage.timestampMs};
         eventRegistry.triggerStage('SPIN_END', context: context);
-        debugPrint('[SlotLabProvider] ✅ AUTO: SPIN_END triggered (UI-only path)');
       } else {
-        debugPrint('[SlotLabProvider] ⚠️ SPIN_END not triggered — no event registered (UI-only path)');
       }
     }
   }
@@ -1540,7 +1471,6 @@ class SlotLabProvider extends ChangeNotifier {
       effectiveStage = escalationResult.effectiveStage;
       context['volumeMultiplier'] = escalationResult.volumeMultiplier;
       if (escalationResult.effectiveStage != 'ANTICIPATION_ON') {
-        debugPrint('[SlotLabProvider] P1.2 Escalation: ${escalationResult.effectiveStage} (vol: ${escalationResult.volumeMultiplier.toStringAsFixed(2)})');
       }
     }
 
@@ -1549,14 +1479,11 @@ class SlotLabProvider extends ChangeNotifier {
 
     // ALWAYS call triggerStage() - EventRegistry will notify Event Log even for stages without audio
     if (eventRegistry.hasEventForStage(effectiveStage)) {
-      debugPrint('[SlotLabProvider] ✅ Triggering audio: $effectiveStage');
       eventRegistry.triggerStage(effectiveStage, context: context);
     } else if (effectiveStage != stageType && eventRegistry.hasEventForStage(stageType)) {
-      debugPrint('[SlotLabProvider] ✅ Triggering audio (fallback): $stageType');
       eventRegistry.triggerStage(stageType, context: context);
     } else {
       // STILL trigger so Event Log shows the stage (even without audio)
-      debugPrint('[SlotLabProvider] ⚠️ No audio event for: $effectiveStage (will show in Event Log)');
       eventRegistry.triggerStage(stageType, context: context);
     }
   }
@@ -1632,7 +1559,6 @@ class SlotLabProvider extends ChangeNotifier {
     // This prevents duplicate audio (provider + visual callback both triggering)
     // ═══════════════════════════════════════════════════════════════════════════
     if (_useVisualSyncForReelStop && stageType == 'REEL_STOP') {
-      debugPrint('[Stage] REEL_STOP [$reelIndex] → SKIPPED (visual-sync mode)');
       return; // Visual callback in slot_preview_widget.dart will handle this
     }
 
@@ -1667,14 +1593,12 @@ class SlotLabProvider extends ChangeNotifier {
 
     // Check exact matches
     if (winPresentationStagesExact.contains(stageType)) {
-      debugPrint('[Stage] $stageType → SKIPPED (visual-sync, widget handles)');
       return;
     }
 
     // Check pattern prefixes
     for (final prefix in winPresentationPrefixes) {
       if (stageType == prefix || stageType.startsWith('${prefix}_')) {
-        debugPrint('[Stage] $stageType → SKIPPED (visual-sync, widget handles)');
         return;
       }
     }
@@ -1690,19 +1614,16 @@ class SlotLabProvider extends ChangeNotifier {
           stage.rawStage['reason'] as String? ?? 'scatter';
       // Calculate tension level based on reel position: R1=L1, R2=L2, etc. (max L4)
       final tensionLevel = reelIdx.clamp(1, 4);
-      debugPrint('[Stage] P0.3: ANTICIPATION_ON → invoking onAnticipationStart(reel=$reelIdx, reason=$reason, tension=L$tensionLevel)');
       onAnticipationStart?.call(reelIdx, reason, tensionLevel: tensionLevel);
       // Continue to trigger audio below (don't return)
     } else if (stageType.startsWith('ANTICIPATION_OFF')) {
       final reelIdx = _extractReelIndexFromStage(stageType);
-      debugPrint('[Stage] P0.3: ANTICIPATION_OFF → invoking onAnticipationEnd(reel=$reelIdx)');
       onAnticipationEnd?.call(reelIdx);
       // Continue to trigger audio below (don't return)
     }
 
     // Simplified debug - only show stage name, skip per-reel spam for REEL_SPINNING
     if (stageType != 'REEL_SPINNING') {
-      debugPrint('[Stage] $stageType${reelIndex != null ? " [$reelIndex]" : ""}');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1759,13 +1680,11 @@ class SlotLabProvider extends ChangeNotifier {
 
       // Invoke visual callback for anticipation start (if not already invoked by ANTICIPATION_ON)
       if (progress == 0.0) {
-        debugPrint('[Stage] P0.4: ANTICIPATION_TENSION_LAYER reel=$reelIdx, level=$tensionLevel, reason=$reason');
         onAnticipationStart?.call(reelIdx, reason, tensionLevel: tensionLevel);
       }
 
       // Map to stage name for EventRegistry: ANTICIPATION_TENSION_R{reel}_L{level}
       effectiveStage = 'ANTICIPATION_TENSION_R${reelIdx}_L$tensionLevel';
-      debugPrint('[SlotLabProvider] P0.5 Tension: reel=$reelIdx L$tensionLevel vol=${volumeMultiplier.toStringAsFixed(2)} pitch=+${pitchSemitones.toInt()}st filter=${filterCutoffHz.toInt()}Hz');
     }
     // ═══════════════════════════════════════════════════════════════════════════
     // P1.2: NEAR MISS AUDIO ESCALATION — Intensity-based anticipation (legacy)
@@ -1775,7 +1694,6 @@ class SlotLabProvider extends ChangeNotifier {
       effectiveStage = escalationResult.effectiveStage;
       context['volumeMultiplier'] = escalationResult.volumeMultiplier;
       if (escalationResult.effectiveStage != 'ANTICIPATION_ON') {
-        debugPrint('[SlotLabProvider] P1.2 Escalation: ${escalationResult.effectiveStage} (vol: ${escalationResult.volumeMultiplier.toStringAsFixed(2)})');
       }
     }
 
@@ -1786,7 +1704,6 @@ class SlotLabProvider extends ChangeNotifier {
       final lineIndex = stage.payload['line_index'] as int? ?? 0;
       final linePan = _calculateWinLinePan(lineIndex);
       context['pan'] = linePan;
-      debugPrint('[SlotLabProvider] P1.3 Win Line Pan: line $lineIndex → pan ${linePan.toStringAsFixed(2)}');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1806,7 +1723,6 @@ class SlotLabProvider extends ChangeNotifier {
           _rollupEndTimestampMs = s.timestampMs;
         }
       }
-      debugPrint('[SlotLabProvider] P1.2 ROLLUP_START: duration=${(_rollupEndTimestampMs - _rollupStartTimestampMs).toInt()}ms, ticks=$_rollupTotalTicks');
     } else if (stageType == 'ROLLUP_TICK') {
       _rollupTickCount++;
 
@@ -1822,14 +1738,12 @@ class SlotLabProvider extends ChangeNotifier {
 
       // Add progress to context — EventRegistry will use this for pitch/volume modulation
       context['progress'] = progress;
-      debugPrint('[SlotLabProvider] P1.2 ROLLUP_TICK: progress=${progress.toStringAsFixed(2)} (tick $_rollupTickCount/$_rollupTotalTicks)');
     } else if (stageType == 'ROLLUP_END') {
       // Reset rollup tracking
       _rollupStartTimestampMs = 0.0;
       _rollupEndTimestampMs = 0.0;
       _rollupTickCount = 0;
       _rollupTotalTicks = 0;
-      debugPrint('[SlotLabProvider] P1.2 ROLLUP_END: resetting rollup tracking');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1840,7 +1754,6 @@ class SlotLabProvider extends ChangeNotifier {
       // Pass reel_index to EventRegistry for voice tracking
       context['reel_index'] = reelIndex;
       context['is_reel_spin_loop'] = true; // Flag for voice tracking
-      debugPrint('[SlotLabProvider] P0 Per-reel spin: $effectiveStage');
     }
 
     if (stageType == 'REEL_STOP' && reelIndex != null) {
@@ -1848,13 +1761,6 @@ class SlotLabProvider extends ChangeNotifier {
       // P0: Tell EventRegistry to fade out this reel's spin loop
       context['fade_out_spin_reel'] = reelIndex;
       // DEBUG: Detailed logging for REEL_STOP issue
-      debugPrint('═══════════════════════════════════════════════════════════');
-      debugPrint('[REEL_STOP] 🎰 RAW DATA:');
-      debugPrint('  rawStage = ${stage.rawStage}');
-      debugPrint('  reel_index type = ${reelIndex.runtimeType}, value = $reelIndex');
-      debugPrint('  effectiveStage = $effectiveStage');
-      debugPrint('  timestampMs = ${stage.timestampMs.toStringAsFixed(0)}ms');
-      debugPrint('═══════════════════════════════════════════════════════════');
 
       // ═══════════════════════════════════════════════════════════════════════════
       // P1.1: SYMBOL-SPECIFIC AUDIO — Different sounds for special symbols
@@ -1879,7 +1785,6 @@ class SlotLabProvider extends ChangeNotifier {
 
       if (symbolSpecificStage != null) {
         effectiveStage = symbolSpecificStage;
-        debugPrint('[SlotLabProvider] P1.1 Symbol-specific: $symbolSpecificStage');
       }
     }
 
@@ -1892,28 +1797,18 @@ class SlotLabProvider extends ChangeNotifier {
 
     // DEBUG: Log which path is taken for REEL_STOP
     if (stageType == 'REEL_STOP') {
-      debugPrint('[REEL_STOP] 🔍 EVENT LOOKUP:');
-      debugPrint('  effectiveStage = "$effectiveStage"');
-      debugPrint('  stageType = "$stageType"');
-      debugPrint('  hasSpecific($effectiveStage) = $hasSpecific');
-      debugPrint('  hasFallback($stageType) = $hasFallback');
-      debugPrint('  hasGeneric($stageType) = $hasGeneric');
       // List all registered stages containing REEL
       final allReelStages = eventRegistry.registeredStages
           .where((s) => s.contains('REEL'))
           .toList();
-      debugPrint('  registered REEL stages: $allReelStages');
     }
 
     if (hasSpecific) {
-      if (stageType == 'REEL_STOP') debugPrint('[REEL_STOP] ✅ TRIGGERING: $effectiveStage (specific)');
       eventRegistry.triggerStage(effectiveStage, context: context);
     } else if (hasFallback) {
-      if (stageType == 'REEL_STOP') debugPrint('[REEL_STOP] ⚠️ TRIGGERING: $stageType (fallback from $effectiveStage)');
       eventRegistry.triggerStage(stageType, context: context);
     } else {
       // STILL trigger so Event Log shows the stage (even without audio)
-      if (stageType == 'REEL_STOP') debugPrint('[REEL_STOP] ❌ TRIGGERING: $stageType (no audio event)');
       eventRegistry.triggerStage(stageType, context: context);
     }
 
@@ -1922,10 +1817,8 @@ class SlotLabProvider extends ChangeNotifier {
     if (stageType == 'SPIN_START') {
       if (eventRegistry.hasEventForStage('REEL_SPIN_LOOP')) {
         eventRegistry.triggerStage('REEL_SPIN_LOOP', context: context);
-        debugPrint('[SlotLabProvider] ▶️ REEL_SPIN_LOOP triggered on SPIN_START');
       } else if (eventRegistry.hasEventForStage('REEL_SPIN')) {
         eventRegistry.triggerStage('REEL_SPIN', context: context);
-        debugPrint('[SlotLabProvider] ▶️ REEL_SPIN triggered on SPIN_START (legacy)');
       }
     }
 
@@ -1977,10 +1870,8 @@ class SlotLabProvider extends ChangeNotifier {
         // Stop both spin loop variants
         eventRegistry.stopEvent('REEL_SPIN_LOOP');
         eventRegistry.stopEvent('REEL_SPIN');
-        debugPrint('[SlotLabProvider] ⏹️ Spin loop stopped (REEL_SPIN + REEL_SPIN_LOOP)');
         if (eventRegistry.hasEventForStage('SPIN_END')) {
           eventRegistry.triggerStage('SPIN_END', context: context);
-          debugPrint('[Stage] SPIN_END (auto after last REEL_STOP)');
         }
       }
     }
@@ -2105,7 +1996,6 @@ class SlotLabProvider extends ChangeNotifier {
     _currentStageIndex = 0; // P0.3: Reset to beginning
     // Release SlotLab section
     UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
-    debugPrint('[SlotLabProvider] Stage playback STOPPED (full reset)');
     notifyListeners();
   }
 
@@ -2125,7 +2015,6 @@ class SlotLabProvider extends ChangeNotifier {
   void startStageRecording() {
     if (_isRecordingStages) return;
     _isRecordingStages = true;
-    debugPrint('[SlotLabProvider] Stage recording STARTED');
     notifyListeners();
   }
 
@@ -2133,7 +2022,6 @@ class SlotLabProvider extends ChangeNotifier {
   void stopStageRecording() {
     if (!_isRecordingStages) return;
     _isRecordingStages = false;
-    debugPrint('[SlotLabProvider] Stage recording STOPPED (${_lastStages.length} stages captured)');
     notifyListeners();
   }
 
@@ -2142,7 +2030,6 @@ class SlotLabProvider extends ChangeNotifier {
     _lastStages = [];
     _currentStageIndex = 0;
     _cachedStagesSpinId = null; // P0.18: Clear cache
-    debugPrint('[SlotLabProvider] Stages cleared');
     notifyListeners();
   }
 
@@ -2161,7 +2048,6 @@ class SlotLabProvider extends ChangeNotifier {
   /// Call [resumeStages()] to continue from paused position.
   void pauseStages() {
     if (!_isPlayingStages || _isPaused) {
-      debugPrint('[SlotLabProvider] pauseStages() ignored - not playing or already paused');
       return;
     }
 
@@ -2185,7 +2071,6 @@ class SlotLabProvider extends ChangeNotifier {
     // Pause Rust engine audio (delegates to UnifiedPlaybackController)
     UnifiedPlaybackController.instance.pause();
 
-    debugPrint('[SlotLabProvider] Stages PAUSED at index $_currentStageIndex, remaining delay: ${_pausedRemainingDelayMs}ms');
     notifyListeners();
   }
 
@@ -2197,7 +2082,6 @@ class SlotLabProvider extends ChangeNotifier {
   /// - Restarts audio engine
   void resumeStages() {
     if (!_isPlayingStages || !_isPaused) {
-      debugPrint('[SlotLabProvider] resumeStages() ignored - not paused');
       return;
     }
 
@@ -2209,16 +2093,13 @@ class SlotLabProvider extends ChangeNotifier {
     // If we have remaining delay, schedule the next stage with that delay
     if (_pausedRemainingDelayMs > 0 && _currentStageIndex < _lastStages.length - 1) {
       _scheduleNextStageWithDelay(_pausedRemainingDelayMs);
-      debugPrint('[SlotLabProvider] Stages RESUMED from index $_currentStageIndex with ${_pausedRemainingDelayMs}ms remaining');
     } else if (_currentStageIndex < _lastStages.length - 1) {
       // No remaining delay, just schedule normally
       _scheduleNextStage();
-      debugPrint('[SlotLabProvider] Stages RESUMED from index $_currentStageIndex (no delay remaining)');
     } else {
       // We were at the last stage
       _isPlayingStages = false;
       UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
-      debugPrint('[SlotLabProvider] Stages RESUMED but already at end - completing');
     }
 
     _pausedRemainingDelayMs = 0;
@@ -2257,7 +2138,6 @@ class SlotLabProvider extends ChangeNotifier {
     _stagePlaybackTimer = Timer(Duration(milliseconds: delayMs.clamp(10, 5000)), () {
       // Check if playback was cancelled or paused
       if (!_isPlayingStages || _playbackGeneration != generation || _isPaused) {
-        debugPrint('[SlotLabProvider] Timer fired but playback invalid (gen: $generation vs $_playbackGeneration, paused: $_isPaused)');
         return;
       }
 
@@ -2393,11 +2273,8 @@ class SlotLabProvider extends ChangeNotifier {
 
     // Log validation result
     if (issues.isEmpty) {
-      debugPrint('[SlotLabProvider] P0.10: Stage sequence VALID (${_lastStages.length} stages)');
     } else {
-      debugPrint('[SlotLabProvider] P0.10: Stage sequence INVALID (${issues.length} issues):');
       for (final issue in issues) {
-        debugPrint('  [${issue.severity.name}] ${issue.message}');
       }
     }
 
@@ -2522,7 +2399,6 @@ class SlotLabProvider extends ChangeNotifier {
       _engineV2Initialized = true;
       _currentGameModel = _ffi.slotLabV2GetModel();
       _refreshScenarioList();
-      debugPrint('[SlotLabProvider] Engine V2 initialized');
       notifyListeners();
     }
     return success;
@@ -2541,7 +2417,6 @@ class SlotLabProvider extends ChangeNotifier {
       _engineV2Initialized = true;
       _currentGameModel = _ffi.slotLabV2GetModel();
       _refreshScenarioList();
-      debugPrint('[SlotLabProvider] Engine V2 initialized from GDD');
       notifyListeners();
     }
     return success;
@@ -2571,12 +2446,10 @@ class SlotLabProvider extends ChangeNotifier {
       final newReels = newGrid?['reels'] as int? ?? 5;
 
       if (newReels != oldReels) {
-        debugPrint('[SlotLabProvider] 📐 Grid changed: $oldReels → $newReels reels');
         // Trigger reel stage regeneration callback
         onGridDimensionsChanged?.call(newReels);
       }
 
-      debugPrint('[SlotLabProvider] Game model updated');
       notifyListeners();
     }
     return success;
@@ -2636,7 +2509,6 @@ class SlotLabProvider extends ChangeNotifier {
     final success = _ffi.slotLabScenarioLoad(scenarioId);
     if (success) {
       _loadedScenarioId = scenarioId;
-      debugPrint('[SlotLabProvider] Loaded scenario: $scenarioId');
       notifyListeners();
     }
     return success;
@@ -2655,7 +2527,6 @@ class SlotLabProvider extends ChangeNotifier {
     final success = _ffi.slotLabScenarioRegister(jsonStr);
     if (success) {
       _refreshScenarioList();
-      debugPrint('[SlotLabProvider] Registered custom scenario');
       notifyListeners();
     }
     return success;
@@ -2667,7 +2538,6 @@ class SlotLabProvider extends ChangeNotifier {
     final success = _ffi.slotLabScenarioRegister(jsonStr);
     if (success) {
       _refreshScenarioList();
-      debugPrint('[SlotLabProvider] Registered scenario: ${scenario.id}');
       notifyListeners();
     }
     return success;

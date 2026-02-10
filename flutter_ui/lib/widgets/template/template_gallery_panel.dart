@@ -97,9 +97,7 @@ class _TemplateGalleryPanelState extends State<TemplateGalleryPanel> {
         final jsonStr = await rootBundle.loadString('assets/templates/$name.json');
         final json = jsonDecode(jsonStr) as Map<String, dynamic>;
         templates.add(SlotTemplate.fromJson(json));
-      } catch (e) {
-        debugPrint('[TemplateGallery] Could not load built-in template $name: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     return templates;

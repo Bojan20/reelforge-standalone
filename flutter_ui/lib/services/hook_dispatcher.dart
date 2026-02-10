@@ -169,7 +169,6 @@ class HookDispatcher {
         executedCount++;
       } catch (e, stackTrace) {
         errors[hook.id] = e;
-        debugPrint('[HookDispatcher] Hook ${hook.id} failed: $e\n$stackTrace');
       }
     }
 
@@ -204,7 +203,6 @@ class HookDispatcher {
         executedCount++;
       } catch (e, stackTrace) {
         errors[hook.id] = e;
-        debugPrint('[HookDispatcher] Hook ${hook.id} failed: $e\n$stackTrace');
       }
     }
 

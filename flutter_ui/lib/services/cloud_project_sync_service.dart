@@ -257,7 +257,6 @@ class CloudProjectSyncService extends ChangeNotifier {
 
     await _loadVersions();
     _initialized = true;
-    debugPrint('[CloudProjectSync] Initialized');
     notifyListeners();
   }
 
@@ -291,17 +290,12 @@ class CloudProjectSyncService extends ChangeNotifier {
       _autoSave(projectId);
     });
 
-    debugPrint(
-      '[CloudProjectSync] Auto-save enabled for $projectId '
-      '(${saveInterval.inMinutes}min)',
-    );
   }
 
   /// Disable auto-save for a project
   void disableAutoSave(String projectId) {
     _autoSaveTimers[projectId]?.cancel();
     _autoSaveTimers[projectId] = null;
-    debugPrint('[CloudProjectSync] Auto-save disabled for $projectId');
   }
 
   /// Check if auto-save is enabled
@@ -312,7 +306,6 @@ class CloudProjectSyncService extends ChangeNotifier {
     try {
       await saveVersion(projectId, isAutoSave: true);
     } catch (e) {
-      debugPrint('[CloudProjectSync] Auto-save error: $e');
       onSyncError?.call(projectId, e.toString());
     }
   }
@@ -341,7 +334,6 @@ class CloudProjectSyncService extends ChangeNotifier {
       final lastVersion = getLatestVersion(projectId);
       if (lastVersion != null && lastVersion.contentHash == contentHash) {
         _setSyncStatus(projectId, ProjectSyncStatus.synced);
-        debugPrint('[CloudProjectSync] No changes to save for $projectId');
         return null;
       }
 
@@ -377,16 +369,11 @@ class CloudProjectSyncService extends ChangeNotifier {
       _setSyncStatus(projectId, ProjectSyncStatus.synced);
       onVersionSaved?.call(projectId, version);
 
-      debugPrint(
-        '[CloudProjectSync] Saved ${version.label} for $projectId '
-        '(${isAutoSave ? "auto" : "manual"})',
-      );
 
       return version;
     } catch (e) {
       _setSyncStatus(projectId, ProjectSyncStatus.error);
       onSyncError?.call(projectId, e.toString());
-      debugPrint('[CloudProjectSync] Save error: $e');
       return null;
     }
   }
@@ -434,10 +421,8 @@ class CloudProjectSyncService extends ChangeNotifier {
         isAutoSave: false,
       );
 
-      debugPrint('[CloudProjectSync] Restored $projectId to v$versionNumber');
       return true;
     } catch (e) {
-      debugPrint('[CloudProjectSync] Restore error: $e');
       return false;
     }
   }
@@ -453,7 +438,6 @@ class CloudProjectSyncService extends ChangeNotifier {
     versions.removeWhere((v) => v.versionNumber == versionNumber);
     await _saveVersions();
 
-    debugPrint('[CloudProjectSync] Deleted v$versionNumber from $projectId');
     notifyListeners();
     return true;
   }
@@ -521,10 +505,8 @@ class CloudProjectSyncService extends ChangeNotifier {
       _conflicts.remove(projectId);
       _setSyncStatus(projectId, ProjectSyncStatus.synced);
 
-      debugPrint('[CloudProjectSync] Conflict resolved for $projectId');
       return true;
     } catch (e) {
-      debugPrint('[CloudProjectSync] Conflict resolution error: $e');
       return false;
     }
   }
@@ -601,9 +583,7 @@ class CloudProjectSyncService extends ChangeNotifier {
               .toList();
         });
       }
-    } catch (e) {
-      debugPrint('[CloudProjectSync] Load versions error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _saveVersions() async {
@@ -616,9 +596,7 @@ class CloudProjectSyncService extends ChangeNotifier {
       });
 
       await prefs.setString(_prefsKeyVersions, jsonEncode(data));
-    } catch (e) {
-      debugPrint('[CloudProjectSync] Save versions error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   @override

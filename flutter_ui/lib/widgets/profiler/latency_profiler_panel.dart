@@ -100,7 +100,6 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
             onPressed: () {
               // TODO: Export to file
               final json = profiler.exportToJson();
-              debugPrint('[LatencyProfiler] Exported: $json');
             },
             tooltip: 'Export to JSON',
           ),

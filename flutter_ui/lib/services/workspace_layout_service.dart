@@ -58,9 +58,7 @@ class WorkspaceLayoutService extends ChangeNotifier {
             .map((e) => WorkspaceLayoutPreset.fromJson(e as Map<String, dynamic>))
             .toList();
         notifyListeners();
-      } catch (e) {
-        debugPrint('[WorkspaceLayoutService] Failed to load presets: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
   }
 
@@ -75,9 +73,7 @@ class WorkspaceLayoutService extends ChangeNotifier {
             .map((e) => WorkspaceWindowLayout.fromJson(e as Map<String, dynamic>))
             .toList();
         notifyListeners();
-      } catch (e) {
-        debugPrint('[WorkspaceLayoutService] Failed to load window layouts: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
   }
 
@@ -112,7 +108,6 @@ class WorkspaceLayoutService extends ChangeNotifier {
       final json = jsonEncode(_customPresets.map((p) => p.toJson()).toList());
       return await prefs.setString('workspace_layout_presets', json);
     } catch (e) {
-      debugPrint('[WorkspaceLayoutService] Failed to persist: $e');
       return false;
     }
   }
@@ -176,7 +171,6 @@ class WorkspaceLayoutService extends ChangeNotifier {
       final json = jsonEncode(_customWindowLayouts.map((l) => l.toJson()).toList());
       return await prefs.setString('workspace_window_layouts', json);
     } catch (e) {
-      debugPrint('[WorkspaceLayoutService] Failed to persist window layouts: $e');
       return false;
     }
   }

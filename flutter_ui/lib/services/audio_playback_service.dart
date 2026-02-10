@@ -134,12 +134,10 @@ class AudioPlaybackService extends ChangeNotifier {
     // If source doesn't match active section, it means the caller didn't acquire first
     // We still allow it but log a warning for debugging
     if (activeSection != expectedSection && activeSection != null) {
-      debugPrint('[AudioPlayback] WARNING: Source $source but active section is $activeSection');
     }
 
     // If switching sources locally, stop previous voices (not transport)
     if (_activeSource != null && _activeSource != source && _activeSource != PlaybackSource.browser) {
-      debugPrint('[AudioPlayback] Switching from $_activeSource to $source — clearing voices');
       _activeVoices.clear();
       _eventVoices.clear();
     }
@@ -184,11 +182,9 @@ class AudioPlaybackService extends ChangeNotifier {
           audioPath: path,
           source: source,
         ));
-        debugPrint('[AudioPlayback] Preview started: $path (voice $voiceId, source: $source, vol: $normalizedVolume)');
       }
       return voiceId;
     } catch (e) {
-      debugPrint('[AudioPlayback] Preview error: $e');
       return -1;
     }
   }
@@ -238,11 +234,9 @@ class AudioPlaybackService extends ChangeNotifier {
           _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
         }
 
-        debugPrint('[AudioPlayback] PlayToBus: $path -> bus $busId (voice $voiceId, source: $source, pitch: ${pitch}st)');
       }
       return voiceId;
     } catch (e) {
-      debugPrint('[AudioPlayback] PlayToBus error: $e');
       return -1;
     }
   }
@@ -300,11 +294,9 @@ class AudioPlaybackService extends ChangeNotifier {
           _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
         }
 
-        debugPrint('[AudioPlayback] PlayToBusEx: $path -> bus $busId (voice $voiceId, fadeIn=${fadeInMs}ms, fadeOut=${fadeOutMs}ms, trim=${trimStartMs}-${trimEndMs}ms)');
       }
       return voiceId;
     } catch (e) {
-      debugPrint('[AudioPlayback] PlayToBusEx error: $e');
       return -1;
     }
   }
@@ -351,11 +343,9 @@ class AudioPlaybackService extends ChangeNotifier {
           _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
         }
 
-        debugPrint('[AudioPlayback] PlayLoopingToBus: $path -> bus $busId (voice $voiceId, source: $source)');
       }
       return voiceId;
     } catch (e) {
-      debugPrint('[AudioPlayback] PlayLoopingToBus error: $e');
       return -1;
     }
   }
@@ -373,7 +363,6 @@ class AudioPlaybackService extends ChangeNotifier {
         v.source == PlaybackSource.middleware || v.source == PlaybackSource.slotlab);
     _eventVoices.clear();
     _ffi.playbackStopAllOneShots();
-    debugPrint('[AudioPlayback] All one-shots stopped');
   }
 
   // ===========================================================================
@@ -430,11 +419,9 @@ class AudioPlaybackService extends ChangeNotifier {
           _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
         }
 
-        debugPrint('[AudioPlayback] Layer started: ${layer.name} (voice $voiceId, bus: ${layer.busId ?? 0})');
       }
       return voiceId;
     } catch (e) {
-      debugPrint('[AudioPlayback] Layer play error: $e');
       return -1;
     }
   }
@@ -508,10 +495,7 @@ class AudioPlaybackService extends ChangeNotifier {
             layerId: layer.id,
           ));
         }
-        debugPrint('[AudioPlayback] Event layer: ${layer.name} (voice $voiceId, bus: ${layer.busId ?? defaultBusId ?? 0})');
-      } catch (e) {
-        debugPrint('[AudioPlayback] Event layer error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Track voices by event
@@ -519,7 +503,6 @@ class AudioPlaybackService extends ChangeNotifier {
       _eventVoices[event.id] = voiceIds;
     }
 
-    debugPrint('[AudioPlayback] Event "${event.name}" started with ${voiceIds.length} voices');
     return voiceIds;
   }
 
@@ -537,7 +520,6 @@ class AudioPlaybackService extends ChangeNotifier {
     // Just prepare DAW source, don't acquire section or start playback
     // Actual playback is triggered via UnifiedPlaybackController.play()
     // which is called from TimelinePlaybackProvider.play() when user presses Space/Play
-    debugPrint('[AudioPlayback] DAW audio stream ready (no auto-play)');
     return true;
   }
 
@@ -549,7 +531,6 @@ class AudioPlaybackService extends ChangeNotifier {
     final controller = UnifiedPlaybackController.instance;
     controller.stop(releaseAfterStop: true);
     _releasePlayback(PlaybackSource.daw);
-    debugPrint('[AudioPlayback] DAW playback stopped via UnifiedPlaybackController');
   }
 
   // ===========================================================================
@@ -562,7 +543,6 @@ class AudioPlaybackService extends ChangeNotifier {
     _ffi.playbackStopOneShot(voiceId);
     _activeVoices.removeWhere((v) => v.voiceId == voiceId);
     _checkAndReleasePlayback();
-    debugPrint('[AudioPlayback] Stopped voice: $voiceId');
   }
 
   /// P0: Fade out specific voice with configurable duration
@@ -573,7 +553,6 @@ class AudioPlaybackService extends ChangeNotifier {
     // Remove from tracking after fade starts (voice will deactivate itself)
     _activeVoices.removeWhere((v) => v.voiceId == voiceId);
     _checkAndReleasePlayback();
-    debugPrint('[AudioPlayback] Fading out voice: $voiceId (${fadeMs}ms)');
   }
 
   /// Stop all voices for a specific event
@@ -585,7 +564,6 @@ class AudioPlaybackService extends ChangeNotifier {
         _ffi.playbackStopOneShot(voiceId);
       }
       _activeVoices.removeWhere((v) => v.eventId == eventId);
-      debugPrint('[AudioPlayback] Stopped event: $eventId (${voices.length} voices)');
     }
     _checkAndReleasePlayback();
   }
@@ -603,7 +581,6 @@ class AudioPlaybackService extends ChangeNotifier {
     _activeVoices.removeWhere((v) => v.layerId == layerId);
     _checkAndReleasePlayback();
     if (voicesToStop.isNotEmpty) {
-      debugPrint('[AudioPlayback] Stopped layer: $layerId (${voicesToStop.length} voices)');
     }
   }
 
@@ -633,7 +610,6 @@ class AudioPlaybackService extends ChangeNotifier {
       _releasePlayback(source);
     }
 
-    debugPrint('[AudioPlayback] Stopped source: $source (${voicesToStop.length} voices)');
   }
 
   // ===========================================================================
@@ -694,11 +670,9 @@ class AudioPlaybackService extends ChangeNotifier {
         busId: busId,
         source: source,
       );
-      debugPrint('[AudioPlayback] P1.11: Pre-triggered playback fired (${offsetMs}ms offset, voice $voiceId)');
     });
 
     _preTriggerTimers[handleId] = timer;
-    debugPrint('[AudioPlayback] P1.11: Scheduled pre-trigger: $handleId (${offsetMs}ms)');
     return handleId;
   }
 
@@ -707,7 +681,6 @@ class AudioPlaybackService extends ChangeNotifier {
     final timer = _preTriggerTimers.remove(handleId);
     if (timer != null) {
       timer.cancel();
-      debugPrint('[AudioPlayback] P1.11: Cancelled pre-trigger: $handleId');
     }
   }
 
@@ -719,7 +692,6 @@ class AudioPlaybackService extends ChangeNotifier {
     final count = _preTriggerTimers.length;
     _preTriggerTimers.clear();
     if (count > 0) {
-      debugPrint('[AudioPlayback] P1.11: Cancelled $count pending pre-triggers');
     }
   }
 
@@ -761,7 +733,6 @@ class AudioPlaybackService extends ChangeNotifier {
   void stopVoiceWithTail(int voiceId, {String? stageType, int? fadeMs}) {
     final fadeDuration = fadeMs ?? getTailFadeDuration(stageType);
     fadeOutVoice(voiceId, fadeMs: fadeDuration);
-    debugPrint('[AudioPlayback] P1.12: Soft stop voice $voiceId (${fadeDuration}ms tail)');
   }
 
   /// Stop event with tail fade-out (soft stop all voices)
@@ -773,7 +744,6 @@ class AudioPlaybackService extends ChangeNotifier {
         fadeOutVoice(voiceId, fadeMs: fadeDuration);
       }
       _activeVoices.removeWhere((v) => v.eventId == eventId);
-      debugPrint('[AudioPlayback] P1.12: Soft stop event $eventId (${voices.length} voices, ${fadeDuration}ms tail)');
     }
     _checkAndReleasePlayback();
   }
@@ -799,7 +769,6 @@ class AudioPlaybackService extends ChangeNotifier {
       _releasePlayback(source);
     }
 
-    debugPrint('[AudioPlayback] P1.12: Soft stop source $source (${voicesToStop.length} voices, ${fadeMs}ms tail)');
   }
 
   /// Stop ALL playback (all sources)
@@ -814,17 +783,13 @@ class AudioPlaybackService extends ChangeNotifier {
     if (_activeSource == PlaybackSource.daw) {
       try {
         _ffi.stopPlayback();
-      } catch (e) {
-        debugPrint('[AudioPlayback] DAW stop error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Stop preview engine (covers all preview sources)
     try {
       _ffi.previewStop();
-    } catch (e) {
-      debugPrint('[AudioPlayback] Preview stop error: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // Clear tracking
     _activeVoices.clear();
@@ -832,7 +797,6 @@ class AudioPlaybackService extends ChangeNotifier {
     _activeSource = null;
     _isPlaying = false;
 
-    debugPrint('[AudioPlayback] All playback stopped');
   }
 
   /// Check if we should release playback (no active voices)
@@ -866,7 +830,6 @@ class AudioPlaybackService extends ChangeNotifier {
   void previewCompositeEvent(SlotCompositeEvent event) {
     if (event.layers.isEmpty) return;
 
-    debugPrint('[AudioPlayback] 🎵 Previewing event: ${event.name} (${event.layers.length} layers)');
 
     for (final layer in event.layers) {
       if (layer.muted || layer.audioPath.isEmpty) continue;
@@ -875,12 +838,10 @@ class AudioPlaybackService extends ChangeNotifier {
         // Schedule delayed playback
         Future.delayed(Duration(milliseconds: layer.offsetMs.round()), () {
           final voiceId = previewFile(layer.audioPath);
-          debugPrint('[AudioPlayback]   Layer "${layer.id}" @ +${layer.offsetMs}ms → voice=$voiceId');
         });
       } else {
         // Play immediately
         final voiceId = previewFile(layer.audioPath);
-        debugPrint('[AudioPlayback]   Layer "${layer.id}" @ 0ms → voice=$voiceId');
       }
     }
   }
@@ -896,7 +857,6 @@ class AudioPlaybackService extends ChangeNotifier {
       _targetLufs = targetLufs.clamp(-40.0, 0.0);
     }
     notifyListeners();
-    debugPrint('[AudioPlayback] LUFS normalization: ${enabled ? "ON" : "OFF"} (target: $_targetLufs LUFS)');
   }
 
   /// Set target LUFS level
@@ -922,10 +882,8 @@ class AudioPlaybackService extends ChangeNotifier {
       // Real implementation would call:
       // final lufs = _ffi.offlineMeasureLufs(audioPath);
 
-      debugPrint('[AudioPlayback] LUFS measurement for $audioPath not yet implemented');
       return null;
     } catch (e) {
-      debugPrint('[AudioPlayback] LUFS measurement error: $e');
       return null;
     }
   }
@@ -957,11 +915,6 @@ class AudioPlaybackService extends ChangeNotifier {
 
     final normalizedVolume = baseVolume * linearGain;
 
-    debugPrint(
-      '[AudioPlayback] LUFS normalize: measured=${measuredLufs.toStringAsFixed(1)} '
-      'target=$_targetLufs → gain=${clampedGainDb.toStringAsFixed(1)}dB '
-      '(vol: $baseVolume → ${normalizedVolume.toStringAsFixed(2)})',
-    );
 
     return normalizedVolume;
   }

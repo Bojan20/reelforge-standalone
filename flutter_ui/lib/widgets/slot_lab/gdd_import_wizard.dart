@@ -1935,10 +1935,7 @@ class _GddImportWizardState extends State<GddImportWizard>
       try {
         final projectProvider = sl<SlotLabProjectProvider>();
         projectProvider.replaceSymbols(_importResult!.generatedSymbols);
-        debugPrint('[GddImportWizard] Imported ${_importResult!.generatedSymbols.length} symbols');
-      } catch (e) {
-        debugPrint('[GddImportWizard] Failed to import symbols: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Register custom stages with StageConfigurationService

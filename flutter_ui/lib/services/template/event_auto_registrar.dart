@@ -35,12 +35,9 @@ class EventAutoRegistrar {
         final event = _createAudioEvent(stageId, mappings, template);
         eventRegistry.registerEvent(event);
         count++;
-      } catch (e) {
-        debugPrint('[EventAutoRegistrar] ⚠️ Failed to create event for $stageId: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
-    debugPrint('[EventAutoRegistrar] Registered $count events');
     return count;
   }
 

@@ -1002,7 +1002,6 @@ String formatTime(
 
     return (leftPeaks, rightPeaks);
   } catch (e) {
-    debugPrint('[Waveform] Failed to parse waveform JSON: $e');
     return (null, null);
   }
 }

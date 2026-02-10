@@ -368,7 +368,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
 
     _markDirty();
-    debugPrint('[SlotLabProject] Bulk assigned "$audioPath" to ${assignedStages.length} stages: $assignedStages');
     return assignedStages;
   }
 
@@ -436,7 +435,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
 
     _markDirty();
-    debugPrint('[SlotLabProject] Undo: ${entry.description}');
     return true;
   }
 
@@ -467,7 +465,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
 
     _markDirty();
-    debugPrint('[SlotLabProject] Redo: ${entry.description}');
     return true;
   }
 
@@ -611,15 +608,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
     if (gdd.math.winTiers.isNotEmpty) {
       final winConfig = convertGddWinTiersToP5(gdd.math);
       setWinConfigurationFromGdd(winConfig);
-      debugPrint('[SlotLabProject]   Win tiers: ${gdd.math.winTiers.length} (converted to P5)');
-      debugPrint('[SlotLabProject]     Regular tiers: ${winConfig.regularWins.tiers.length}');
-      debugPrint('[SlotLabProject]     Big win threshold: ${winConfig.bigWins.threshold}x');
     }
 
-    debugPrint('[SlotLabProject] Imported GDD: ${gdd.name}');
-    debugPrint('[SlotLabProject]   Grid: ${gdd.grid.columns}x${gdd.grid.rows} (${gdd.grid.mechanic})');
-    debugPrint('[SlotLabProject]   Symbols: ${gdd.symbols.length}');
-    debugPrint('[SlotLabProject]   Features: ${gdd.features.length}');
 
     _markDirty();
   }
@@ -713,7 +703,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
     _syncSymbolStages(); // Sync stages for new preset symbols
     _markDirty();
-    debugPrint('[SlotLabProject] Applied preset: ${preset.name} (${preset.symbols.length} symbols)');
   }
 
   /// Apply preset by ID
@@ -940,7 +929,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
     // Build layer configuration for this context
     final contextLayers = getContextLayers(context.id);
-    debugPrint('[SlotLabProject] Syncing context ${context.id} to ALE with ${contextLayers.length} layers');
 
     // Note: Full ALE integration would require generating a profile JSON
     // and loading it via AleProvider.loadProfile(). For now, we log the sync.
@@ -950,9 +938,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
   void _syncMusicLayerToAle(MusicLayerAssignment assignment) {
     if (_aleProvider == null) return;
 
-    debugPrint('[SlotLabProject] Syncing music layer ${assignment.contextId}:L${assignment.layer}');
-    debugPrint('[SlotLabProject]   → Audio: ${assignment.audioPath}');
-    debugPrint('[SlotLabProject]   → Volume: ${assignment.volume}, Loop: ${assignment.loop}');
 
     // Note: Full ALE integration would require:
     // 1. Register audio path as ALE asset ID
@@ -1025,10 +1010,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _winConfigFromGdd = false;
     _syncWinTierStages();
     _markDirty();
-    debugPrint('[SlotLabProject] Win configuration updated');
-    debugPrint('[SlotLabProject]   Regular tiers: ${config.regularWins.tiers.length}');
-    debugPrint('[SlotLabProject]   Big win threshold: ${config.bigWins.threshold}x');
-    debugPrint('[SlotLabProject]   Big win tiers: ${config.bigWins.tiers.length}');
   }
 
   /// Set win configuration from GDD import
@@ -1037,7 +1018,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _winConfigFromGdd = true;
     _syncWinTierStages();
     _markDirty();
-    debugPrint('[SlotLabProject] Win configuration imported from GDD');
   }
 
   /// Add a new regular win tier
@@ -1046,7 +1026,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
     // Check for ID collision
     if (currentTiers.any((t) => t.tierId == tier.tierId)) {
-      debugPrint('[SlotLabProject] Warning: Tier ID ${tier.tierId} already exists');
       return;
     }
 
@@ -1059,7 +1038,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _winConfigFromGdd = false;
     _syncWinTierStages();
     _markDirty();
-    debugPrint('[SlotLabProject] Added regular win tier: ${tier.stageName}');
   }
 
   /// Update existing regular win tier
@@ -1068,7 +1046,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final index = currentTiers.indexWhere((t) => t.tierId == tierId);
 
     if (index == -1) {
-      debugPrint('[SlotLabProject] Warning: Tier ID $tierId not found');
       return;
     }
 
@@ -1080,7 +1057,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _winConfigFromGdd = false;
     _syncWinTierStages();
     _markDirty();
-    debugPrint('[SlotLabProject] Updated regular win tier: ${tier.stageName}');
   }
 
   /// Remove regular win tier
@@ -1089,7 +1065,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final removed = currentTiers.where((t) => t.tierId == tierId).firstOrNull;
 
     if (removed == null) {
-      debugPrint('[SlotLabProject] Warning: Tier ID $tierId not found');
       return;
     }
 
@@ -1101,7 +1076,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _winConfigFromGdd = false;
     _syncWinTierStages();
     _markDirty();
-    debugPrint('[SlotLabProject] Removed regular win tier: ${removed.stageName}');
   }
 
   /// Update big win tier
@@ -1110,7 +1084,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final index = currentTiers.indexWhere((t) => t.tierId == tierId);
 
     if (index == -1) {
-      debugPrint('[SlotLabProject] Warning: Big win tier ID $tierId not found');
       return;
     }
 
@@ -1121,7 +1094,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     );
     _winConfigFromGdd = false;
     _markDirty();
-    debugPrint('[SlotLabProject] Updated big win tier: ${tier.stageName}');
   }
 
   /// Update big win threshold
@@ -1131,7 +1103,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     );
     _winConfigFromGdd = false;
     _markDirty();
-    debugPrint('[SlotLabProject] Big win threshold set to ${threshold}x');
   }
 
   /// Get win tier for a specific win amount and bet
@@ -1184,7 +1155,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _winConfigFromGdd = false;
     _syncWinTierStages();
     _markDirty();
-    debugPrint('[SlotLabProject] Win configuration reset to defaults');
   }
 
   /// Sync win tier stages to StageConfigurationService AND Rust engine
@@ -1192,7 +1162,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // 1. Register all win tier stages with StageConfigurationService (Dart side)
     StageConfigurationService.instance.registerWinTierStages(_winConfiguration);
     final stages = _winConfiguration.allStageNames;
-    debugPrint('[SlotLabProject] Synced ${stages.length} win tier stages to StageConfigurationService');
 
     // 2. Sync P5 win tier config to Rust engine (FFI)
     _syncWinTierConfigToRust();
@@ -1214,13 +1183,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
       final success = ffi.winTierSetConfigJson(jsonStr);
       if (success) {
-        debugPrint('[SlotLabProject] ✅ P5 win tier config synced to Rust engine');
       } else {
-        debugPrint('[SlotLabProject] ⚠️ Failed to sync P5 win tier config to Rust');
       }
-    } catch (e) {
-      debugPrint('[SlotLabProject] ❌ Error syncing P5 win tier to Rust: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Convert Dart JSON format to Rust JSON format (snake_case)
@@ -1287,10 +1252,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _winConfigFromGdd = false;
     _syncWinTierStages();
     _markDirty();
-    debugPrint('[SlotLabProject] Applied win tier preset');
-    debugPrint('[SlotLabProject]   Regular tiers: ${preset.regularWins.tiers.length}');
-    debugPrint('[SlotLabProject]   Big win threshold: ${preset.bigWins.threshold}x');
-    debugPrint('[SlotLabProject]   Big win tiers: ${preset.bigWins.tiers.length}');
   }
 
   /// Export win configuration to JSON string
@@ -1304,17 +1265,14 @@ class SlotLabProjectProvider extends ChangeNotifier {
     try {
       final config = SlotWinConfiguration.fromJsonString(jsonString);
       if (!config.regularWins.validate() || !config.bigWins.validate()) {
-        debugPrint('[SlotLabProject] Import failed: Invalid configuration');
         return false;
       }
       _winConfiguration = config;
       _winConfigFromGdd = false;
       _syncWinTierStages();
       _markDirty();
-      debugPrint('[SlotLabProject] Win configuration imported from JSON');
       return true;
     } catch (e) {
-      debugPrint('[SlotLabProject] Import failed: $e');
       return false;
     }
   }
@@ -1347,9 +1305,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
             customMessage: 'Auto-save: $_projectName',
           );
         }
-      } catch (e) {
-        debugPrint('[SlotLabProjectProvider] Auto-commit failed: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
   }
 
@@ -1460,7 +1416,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final before = _symbolAudio.length;
     _symbolAudio = _symbolAudio.where((a) => a.context != context).toList();
     final removed = before - _symbolAudio.length;
-    debugPrint('[SlotLabProject] Reset symbol audio for context "$context" — removed $removed assignments');
     _markDirty();
   }
 
@@ -1469,7 +1424,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final before = _symbolAudio.length;
     _symbolAudio = _symbolAudio.where((a) => a.symbolId != symbolId).toList();
     final removed = before - _symbolAudio.length;
-    debugPrint('[SlotLabProject] Reset symbol audio for symbol "$symbolId" — removed $removed assignments');
     _markDirty();
   }
 
@@ -1477,7 +1431,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
   void resetAllSymbolAudio() {
     final count = _symbolAudio.length;
     _symbolAudio = [];
-    debugPrint('[SlotLabProject] Reset ALL symbol audio — removed $count assignments');
     _markDirty();
   }
 
@@ -1486,7 +1439,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final before = _musicLayers.length;
     _musicLayers = _musicLayers.where((a) => a.contextId != contextId).toList();
     final removed = before - _musicLayers.length;
-    debugPrint('[SlotLabProject] Reset music layers for context "$contextId" — removed $removed assignments');
     _markDirty();
   }
 
@@ -1494,7 +1446,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
   void resetAllMusicLayers() {
     final count = _musicLayers.length;
     _musicLayers = [];
-    debugPrint('[SlotLabProject] Reset ALL music layers — removed $count assignments');
     _markDirty();
   }
 
@@ -1619,13 +1570,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
   /// Debug: print current state
   void debugPrintState() {
-    debugPrint('=== SlotLabProject State ===');
-    debugPrint('Name: $_projectName');
-    debugPrint('Symbols: ${_symbols.length}');
-    debugPrint('Contexts: ${_contexts.length}');
-    debugPrint('Symbol Audio: ${_symbolAudio.length}');
-    debugPrint('Music Layers: ${_musicLayers.length}');
-    debugPrint('Dirty: $_isDirty');
   }
 }
 

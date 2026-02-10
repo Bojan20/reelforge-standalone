@@ -30,7 +30,6 @@ class DuckingService {
   void init() {
     if (_initialized) return;
     _initialized = true;
-    debugPrint('[DuckingService] Initialized');
   }
 
   /// Check if initialized
@@ -52,7 +51,6 @@ class DuckingService {
   void addRule(DuckingRule rule) {
     _rules[rule.id] = rule;
     _currentDuckLevels.putIfAbsent(rule.targetBusId, () => 0.0);
-    debugPrint('[Ducking] Added rule: ${rule.sourceBus} → ${rule.targetBus} (${rule.duckAmountDb}dB)');
   }
 
   /// Remove a ducking rule
@@ -78,7 +76,6 @@ class DuckingService {
     // Apply instant duck for relevant rules
     for (final rule in _rules.values) {
       if (rule.enabled && rule.sourceBusId == busId) {
-        debugPrint('[Ducking] Source active: ${rule.sourceBus} → ducking ${rule.targetBus}');
       }
     }
   }
@@ -90,7 +87,6 @@ class DuckingService {
     // Check if we need to release any ducks
     for (final rule in _rules.values) {
       if (rule.enabled && rule.sourceBusId == busId) {
-        debugPrint('[Ducking] Source inactive: ${rule.sourceBus} → releasing ${rule.targetBus}');
       }
     }
   }

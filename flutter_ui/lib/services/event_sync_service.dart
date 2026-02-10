@@ -115,7 +115,6 @@ class EventSyncService extends ChangeNotifier {
     try {
       final existingEvent = _registry.getEventById(eventId);
       if (existingEvent == null) {
-        debugPrint('[EventSyncService] Event not found: $eventId');
         return;
       }
 
@@ -325,8 +324,6 @@ class EventSyncService extends ChangeNotifier {
       _middleware.addCompositeEvent(composite, select: false);
     }
 
-    debugPrint(
-        '[EventSyncService] Synced to Middleware: ${event.name} (${layers.length} layers)');
   }
 
   /// Sync SlotCompositeEvent → AudioEvent
@@ -373,8 +370,6 @@ class EventSyncService extends ChangeNotifier {
 
     _registry.registerEvent(audioEvent);
 
-    debugPrint(
-        '[EventSyncService] Synced to Registry: ${composite.name} (${layers.length} layers)');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

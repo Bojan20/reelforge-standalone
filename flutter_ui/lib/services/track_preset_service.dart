@@ -291,18 +291,13 @@ class TrackPresetService extends ChangeNotifier {
           final jsonStr = await file.readAsString();
           final json = jsonDecode(jsonStr) as Map<String, dynamic>;
           _presets.add(TrackPreset.fromJson(json));
-        } catch (e) {
-          debugPrint('[TrackPresetService] Error loading ${file.path}: $e');
-        }
+        } catch (e) { /* ignored */ }
       }
 
       // Sort by name
       _presets.sort((a, b) => a.name.compareTo(b.name));
 
-      debugPrint('[TrackPresetService] Loaded ${_presets.length} presets');
-    } catch (e) {
-      debugPrint('[TrackPresetService] Error loading presets: $e');
-    } finally {
+    } catch (e) { /* ignored */ } finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -328,11 +323,9 @@ class TrackPresetService extends ChangeNotifier {
         _presets.sort((a, b) => a.name.compareTo(b.name));
       }
 
-      debugPrint('[TrackPresetService] Saved preset: ${preset.name}');
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('[TrackPresetService] Error saving preset: $e');
       return false;
     }
   }
@@ -351,11 +344,9 @@ class TrackPresetService extends ChangeNotifier {
 
       _presets.removeWhere((p) => p.name == name);
 
-      debugPrint('[TrackPresetService] Deleted preset: $name');
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('[TrackPresetService] Error deleting preset: $e');
       return false;
     }
   }
@@ -367,10 +358,8 @@ class TrackPresetService extends ChangeNotifier {
       final jsonStr = const JsonEncoder.withIndent('  ').convert(preset.toJson());
       await file.writeAsString(jsonStr);
 
-      debugPrint('[TrackPresetService] Exported preset: ${preset.name} → $filePath');
       return true;
     } catch (e) {
-      debugPrint('[TrackPresetService] Export error: $e');
       return false;
     }
   }
@@ -380,7 +369,6 @@ class TrackPresetService extends ChangeNotifier {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        debugPrint('[TrackPresetService] File not found: $filePath');
         return null;
       }
 
@@ -391,10 +379,8 @@ class TrackPresetService extends ChangeNotifier {
       // Auto-save to presets folder
       await savePreset(preset);
 
-      debugPrint('[TrackPresetService] Imported preset: ${preset.name}');
       return preset;
     } catch (e) {
-      debugPrint('[TrackPresetService] Import error: $e');
       return null;
     }
   }
@@ -563,6 +549,5 @@ class TrackPresetService extends ChangeNotifier {
       await savePreset(preset);
     }
 
-    debugPrint('[TrackPresetService] Initialized ${factoryPresets.length} factory presets');
   }
 }

@@ -71,9 +71,7 @@ class MeteringPresetService extends ChangeNotifier {
         for (final item in jsonList) {
           try {
             _userPresets.add(MeteringPreset.fromJson(item as Map<String, dynamic>));
-          } catch (e) {
-            debugPrint('[MeteringPresetService] Error parsing preset: $e');
-          }
+          } catch (e) { /* ignored */ }
         }
       }
 
@@ -87,10 +85,8 @@ class MeteringPresetService extends ChangeNotifier {
       _activePreset ??= MeteringPresets.music;
 
       _isInitialized = true;
-      debugPrint('[MeteringPresetService] Loaded ${_userPresets.length} user presets, active: ${_activePreset?.name}');
       notifyListeners();
     } catch (e) {
-      debugPrint('[MeteringPresetService] Init error: $e');
       _activePreset = MeteringPresets.music;
       _isInitialized = true;
       notifyListeners();
@@ -107,22 +103,18 @@ class MeteringPresetService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kActivePresetKey, preset.id);
-    } catch (e) {
-      debugPrint('[MeteringPresetService] Error saving active preset: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // Apply to MeterProvider if provided
     // Note: MeterProvider would need methods to accept these settings
     // For now, this just updates the active preset reference
     if (meterProvider != null) {
-      debugPrint('[MeteringPresetService] Applied preset "${preset.name}" to MeterProvider');
       // meterProvider.applyBallistics(preset.ballistics);
       // meterProvider.applyScale(preset.scale);
       // meterProvider.applyColors(preset.colors);
     }
 
     notifyListeners();
-    debugPrint('[MeteringPresetService] Activated preset: ${preset.name}');
   }
 
   // ─── CRUD Operations ────────────────────────────────────────────────────
@@ -132,7 +124,6 @@ class MeteringPresetService extends ChangeNotifier {
     try {
       // Don't allow saving with built-in IDs
       if (preset.id.startsWith('builtin_')) {
-        debugPrint('[MeteringPresetService] Cannot overwrite built-in preset');
         return false;
       }
 
@@ -145,10 +136,8 @@ class MeteringPresetService extends ChangeNotifier {
 
       await _saveToStorage();
       notifyListeners();
-      debugPrint('[MeteringPresetService] Saved preset: ${preset.name}');
       return true;
     } catch (e) {
-      debugPrint('[MeteringPresetService] Save error: $e');
       return false;
     }
   }
@@ -162,7 +151,6 @@ class MeteringPresetService extends ChangeNotifier {
   Future<bool> deletePreset(String id) async {
     try {
       if (id.startsWith('builtin_')) {
-        debugPrint('[MeteringPresetService] Cannot delete built-in preset');
         return false;
       }
 
@@ -175,10 +163,8 @@ class MeteringPresetService extends ChangeNotifier {
 
       await _saveToStorage();
       notifyListeners();
-      debugPrint('[MeteringPresetService] Deleted preset: $id');
       return true;
     } catch (e) {
-      debugPrint('[MeteringPresetService] Delete error: $e');
       return false;
     }
   }
@@ -190,9 +176,7 @@ class MeteringPresetService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = _userPresets.map((p) => p.toJson()).toList();
       await prefs.setString(_kStorageKey, jsonEncode(jsonList));
-    } catch (e) {
-      debugPrint('[MeteringPresetService] Storage error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Export preset to JSON string
@@ -209,7 +193,6 @@ class MeteringPresetService extends ChangeNotifier {
         createdAt: DateTime.now(),
       );
     } catch (e) {
-      debugPrint('[MeteringPresetService] Import error: $e');
       return null;
     }
   }

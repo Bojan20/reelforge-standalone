@@ -238,7 +238,6 @@ class EnvelopeFollowerRtpcService {
     if (_initialized) return;
     _middleware = middleware;
     _initialized = true;
-    debugPrint('[EnvelopeFollower] Initialized with MiddlewareProvider');
   }
 
   /// Check if initialized
@@ -287,14 +286,12 @@ class EnvelopeFollowerRtpcService {
     _states[config.id] = EnvelopeFollowerState(configId: config.id);
 
     _startUpdateLoopIfNeeded();
-    debugPrint('[EnvelopeFollower] Created follower ${config.id}: ${config.name}');
     return config;
   }
 
   /// Update a follower configuration
   void updateFollower(EnvelopeFollowerConfig config) {
     _configs[config.id] = config;
-    debugPrint('[EnvelopeFollower] Updated follower ${config.id}');
   }
 
   /// Remove a follower
@@ -305,7 +302,6 @@ class EnvelopeFollowerRtpcService {
     if (_configs.isEmpty) {
       _stopUpdateLoop();
     }
-    debugPrint('[EnvelopeFollower] Removed follower $configId');
   }
 
   /// Get a follower by ID
@@ -441,7 +437,6 @@ class EnvelopeFollowerRtpcService {
     if (config == null) return;
 
     _configs[configId] = config.copyWith(targetRtpcId: rtpcId);
-    debugPrint('[EnvelopeFollower] Set RTPC target for $configId: $rtpcId');
   }
 
   /// Clear RTPC target
@@ -584,14 +579,12 @@ class EnvelopeFollowerRtpcService {
     // 60fps update rate
     const updateInterval = Duration(milliseconds: 16);
     _updateTimer = Timer.periodic(updateInterval, (_) => _updateTick());
-    debugPrint('[EnvelopeFollower] Started update loop');
   }
 
   /// Stop the update loop
   void _stopUpdateLoop() {
     _updateTimer?.cancel();
     _updateTimer = null;
-    debugPrint('[EnvelopeFollower] Stopped update loop');
   }
 
   /// Update tick - called periodically to update followers
@@ -714,7 +707,6 @@ class EnvelopeFollowerRtpcService {
     _nextId = json['nextId'] as int? ?? _configs.length + 1;
     _startUpdateLoopIfNeeded();
 
-    debugPrint('[EnvelopeFollower] Loaded ${_configs.length} followers from JSON');
   }
 
   /// Clear all followers

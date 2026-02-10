@@ -243,7 +243,6 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
     PluginProvider provider,
   ) async {
     // In real implementation, show file save dialog
-    debugPrint('[PluginEditor] Save preset for ${instance.name}');
   }
 
   Future<void> _loadPreset(
@@ -252,7 +251,6 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
     PluginProvider provider,
   ) async {
     // In real implementation, show file open dialog
-    debugPrint('[PluginEditor] Load preset for ${instance.name}');
   }
 
   String _getFormatName(PluginFormat format) {

@@ -108,9 +108,7 @@ class _LufsMeterWidgetState extends State<LufsMeterWidget> {
             truePeakR: truePeakR,
           );
         });
-      } catch (e) {
-        debugPrint('[LufsMeter] ❌ Failed to get LUFS data: $e');
-      }
+      } catch (e) { /* ignored */ }
     });
   }
 
@@ -325,7 +323,7 @@ class _LufsBadgeState extends State<LufsBadge> {
       try {
         final (_, _, integrated) = NativeFFI.instance.getLufsMeters();
         setState(() => _integrated = integrated);
-      } catch (_) {}
+      } catch (_) { /* ignored */ }
     });
   }
 

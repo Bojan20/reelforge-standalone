@@ -379,7 +379,6 @@ class PanelUndoManager extends ChangeNotifier {
     action.undo();
     _redoStack.add(action);
 
-    debugPrint('[PanelUndoManager:$panelId] Undo: ${action.description}');
     notifyListeners();
     return true;
   }
@@ -393,7 +392,6 @@ class PanelUndoManager extends ChangeNotifier {
     action.execute();
     _undoStack.add(action);
 
-    debugPrint('[PanelUndoManager:$panelId] Redo: ${action.description}');
     notifyListeners();
     return true;
   }

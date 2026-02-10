@@ -343,7 +343,6 @@ class AudioAssetManager extends ChangeNotifier {
   /// Initialize with FFI reference
   void initialize(NativeFFI ffi) {
     _ffi = ffi;
-    debugPrint('[AudioAssetManager] Initialized with FFI');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -457,7 +456,6 @@ class AudioAssetManager extends ChangeNotifier {
     _startBackgroundMetadataLoader();
 
     notifyListeners();
-    debugPrint('[AudioAssetManager] ⚡ INSTANT import: ${imported.length} files (metadata loading in background)');
     return imported;
   }
 
@@ -485,7 +483,6 @@ class AudioAssetManager extends ChangeNotifier {
       }
 
       _isBackgroundLoading = false;
-      debugPrint('[AudioAssetManager] ✅ Background metadata loading complete');
     });
   }
 
@@ -534,9 +531,7 @@ class AudioAssetManager extends ChangeNotifier {
 
       // Notify callback if set (silent — no notifyListeners here)
       onAssetMetadataLoaded?.call(path);
-    } catch (e) {
-      debugPrint('[AudioAssetManager] Metadata load failed for $path: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Load metadata for single path (called in parallel from background loader)
@@ -565,7 +560,6 @@ class AudioAssetManager extends ChangeNotifier {
   /// Add pre-created asset (for migration from other systems)
   void addAsset(UnifiedAudioAsset asset) {
     if (_assets.containsKey(asset.path)) {
-      debugPrint('[AudioAssetManager] Asset already exists: ${asset.path}');
       return;
     }
 
@@ -598,7 +592,6 @@ class AudioAssetManager extends ChangeNotifier {
   void removeByPath(String path) {
     if (_assets.remove(path) != null) {
       notifyListeners();
-      debugPrint('[AudioAssetManager] Removed: $path');
     }
   }
 
@@ -614,7 +607,6 @@ class AudioAssetManager extends ChangeNotifier {
   void clear() {
     _assets.clear();
     notifyListeners();
-    debugPrint('[AudioAssetManager] Cleared all assets');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -678,7 +670,6 @@ class AudioAssetManager extends ChangeNotifier {
       _expandedFolderIds.add('folder_$folder');
     }
     notifyListeners();
-    debugPrint('[AudioAssetManager] Expanded all folders');
   }
 
   /// Collapse all folders
@@ -728,9 +719,7 @@ class AudioAssetManager extends ChangeNotifier {
       try {
         final asset = UnifiedAudioAsset.fromJson(assetJson as Map<String, dynamic>);
         _assets[asset.path] = asset;
-      } catch (e) {
-        debugPrint('[AudioAssetManager] Failed to load asset: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Load folders
@@ -739,9 +728,7 @@ class AudioAssetManager extends ChangeNotifier {
       try {
         final folder = AudioFolder.fromJson(folderJson as Map<String, dynamic>);
         _folders[folder.id] = folder;
-      } catch (e) {
-        debugPrint('[AudioAssetManager] Failed to load folder: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Load expanded state
@@ -749,7 +736,6 @@ class AudioAssetManager extends ChangeNotifier {
     _expandedFolderIds.addAll(expandedList.cast<String>());
 
     notifyListeners();
-    debugPrint('[AudioAssetManager] Loaded ${_assets.length} assets, ${_folders.length} folders');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -804,6 +790,5 @@ class AudioAssetManager extends ChangeNotifier {
 
     // Don't call notifyListeners here to avoid infinite loop
     // The caller should handle updates
-    debugPrint('[AudioAssetManager] Added from pool file: $name');
   }
 }

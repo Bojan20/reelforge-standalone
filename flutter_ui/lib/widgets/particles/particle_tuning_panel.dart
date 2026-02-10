@@ -649,9 +649,7 @@ class ParticleConfigService {
           _configs[configName] = ParticlePresets.all[configName] ?? const ParticleConfig();
         }
       }
-    } catch (e) {
-      debugPrint('[ParticleConfigService] Load error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get config by name
@@ -666,8 +664,6 @@ class ParticleConfigService {
       final prefs = await SharedPreferences.getInstance();
       // Would serialize to JSON here
       await prefs.setString('$_prefsKeyPrefix$name', 'saved');
-    } catch (e) {
-      debugPrint('[ParticleConfigService] Save error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 }

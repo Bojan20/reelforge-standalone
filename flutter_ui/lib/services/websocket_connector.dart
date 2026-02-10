@@ -263,7 +263,6 @@ class WebSocketConnector {
   Future<bool> connect() async {
     if (_state == WebSocketConnectionState.connecting ||
         _state == WebSocketConnectionState.connected) {
-      debugPrint('[WS] Already connected or connecting');
       return true;
     }
 
@@ -274,7 +273,6 @@ class WebSocketConnector {
       final url = config.auth.buildUrl(config.url);
       final headers = config.auth.buildHeaders();
 
-      debugPrint('[WS] Connecting to $url');
 
       _socket = await WebSocket.connect(
         url,
@@ -302,7 +300,6 @@ class WebSocketConnector {
 
       return true;
     } catch (e) {
-      debugPrint('[WS] Connection error: $e');
       _errorController.add('Connection failed: $e');
       _setState(WebSocketConnectionState.error);
       _scheduleReconnect();
@@ -323,7 +320,6 @@ class WebSocketConnector {
 
     _authenticated = false;
     _setState(WebSocketConnectionState.disconnected);
-    debugPrint('[WS] Disconnected');
   }
 
   // ─── Messaging ──────────────────────────────────────────────────────────────
@@ -336,7 +332,6 @@ class WebSocketConnector {
       // Queue message for later
       if (_messageQueue.length < _maxQueueSize) {
         _messageQueue.add(json);
-        debugPrint('[WS] Message queued (offline)');
       }
       return false;
     }
@@ -352,7 +347,6 @@ class WebSocketConnector {
       _socket!.add(message);
       return true;
     } catch (e) {
-      debugPrint('[WS] Send error: $e');
       _errorController.add('Send failed: $e');
       return false;
     }
@@ -365,7 +359,6 @@ class WebSocketConnector {
       _sendRaw(message);
     }
     if (_messageQueue.isNotEmpty) {
-      debugPrint('[WS] Flushed ${_messageQueue.length} queued messages');
     }
   }
 
@@ -382,7 +375,6 @@ class WebSocketConnector {
           _setState(WebSocketConnectionState.connected);
           _startHeartbeat();
           _flushQueue();
-          debugPrint('[WS] Authenticated successfully');
         } else {
           _authenticated = false;
           _errorController.add('Authentication failed: ${message['error']}');
@@ -400,19 +392,15 @@ class WebSocketConnector {
 
       // Forward other messages
       _messageController.add(message);
-    } catch (e) {
-      debugPrint('[WS] Message parse error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   void _onError(Object error) {
-    debugPrint('[WS] Socket error: $error');
     _errorController.add('Socket error: $error');
     _setState(WebSocketConnectionState.error);
   }
 
   void _onDone() {
-    debugPrint('[WS] Socket closed');
     _socket = null;
     _authenticated = false;
     _stopHeartbeat();
@@ -453,7 +441,6 @@ class WebSocketConnector {
     _pingTimer = Timer(Duration(milliseconds: config.pingTimeoutMs), () {
       if (_lastPong == null ||
           DateTime.now().difference(_lastPong!).inMilliseconds > config.pingTimeoutMs) {
-        debugPrint('[WS] Ping timeout, reconnecting...');
         _socket?.close(WebSocketStatus.goingAway, 'Ping timeout');
       }
     });
@@ -466,7 +453,6 @@ class WebSocketConnector {
 
     if (config.maxReconnectAttempts > 0 &&
         _reconnectAttempts >= config.maxReconnectAttempts) {
-      debugPrint('[WS] Max reconnect attempts reached');
       _setState(WebSocketConnectionState.disconnected);
       return;
     }
@@ -477,7 +463,6 @@ class WebSocketConnector {
     final delay = (config.reconnectDelayMs * (1 << _reconnectAttempts))
         .clamp(config.reconnectDelayMs, config.maxReconnectDelayMs);
 
-    debugPrint('[WS] Reconnecting in ${delay}ms (attempt ${_reconnectAttempts + 1})');
 
     _reconnectTimer = Timer(Duration(milliseconds: delay), () {
       _reconnectAttempts++;
@@ -491,7 +476,6 @@ class WebSocketConnector {
     if (_state != newState) {
       _state = newState;
       _stateController.add(newState);
-      debugPrint('[WS] State: $newState');
     }
   }
 

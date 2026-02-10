@@ -1095,7 +1095,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     }
     // trackId == null means: create new track (Cubase-style behavior)
 
-    debugPrint('[Timeline] Pool drop: global=$globalPosition, local=$localPosition, trackIndex=$trackIndex, trackId=$trackId');
 
     widget.onPoolFileDrop!(poolFile, trackId, startTime);
 
@@ -1114,7 +1113,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   }
 
   KeyEventResult _handleKeyEvent(KeyEvent event) {
-    debugPrint('[Timeline] Key event: ${event.logicalKey.keyLabel} (${event.runtimeType})');
 
     // Keys that allow repeat (hold key for continuous adjustment)
     final isZoomKey = event.logicalKey == LogicalKeyboardKey.keyG ||
@@ -1147,42 +1145,36 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
     // Cmd+S - Save
     if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyS) {
-      debugPrint('[Timeline] Cmd+S detected, calling onSave');
       widget.onSave?.call();
       return KeyEventResult.handled;
     }
 
     // Cmd+Shift+S - Save As
     if (isCmd && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyS) {
-      debugPrint('[Timeline] Cmd+Shift+S detected, calling onSaveAs');
       widget.onSaveAs?.call();
       return KeyEventResult.handled;
     }
 
     // Cmd+O - Open
     if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyO) {
-      debugPrint('[Timeline] Cmd+O detected, calling onOpen');
       widget.onOpen?.call();
       return KeyEventResult.handled;
     }
 
     // Cmd+N - New
     if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyN) {
-      debugPrint('[Timeline] Cmd+N detected, calling onNew');
       widget.onNew?.call();
       return KeyEventResult.handled;
     }
 
     // Cmd+Shift+I - Import Audio Files
     if (isCmd && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyI) {
-      debugPrint('[Timeline] Cmd+Shift+I detected, calling onImportAudio');
       widget.onImportAudio?.call();
       return KeyEventResult.handled;
     }
 
     // Alt+Cmd+E - Export Audio
     if (isCmd && isAlt && !isShift && event.logicalKey == LogicalKeyboardKey.keyE) {
-      debugPrint('[Timeline] Alt+Cmd+E detected, calling onExportAudio');
       widget.onExportAudio?.call();
       return KeyEventResult.handled;
     }
@@ -1193,28 +1185,24 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
     // Cmd+Z - Undo
     if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyZ) {
-      debugPrint('[Timeline] Cmd+Z detected, calling onUndo');
       widget.onUndo?.call();
       return KeyEventResult.handled;
     }
 
     // Cmd+Shift+Z - Redo
     if (isCmd && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyZ) {
-      debugPrint('[Timeline] Cmd+Shift+Z detected, calling onRedo');
       widget.onRedo?.call();
       return KeyEventResult.handled;
     }
 
     // Cmd+Y - Redo (Windows style)
     if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyY) {
-      debugPrint('[Timeline] Cmd+Y detected, calling onRedo');
       widget.onRedo?.call();
       return KeyEventResult.handled;
     }
 
     // Cmd+A - Select All
     if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyA) {
-      debugPrint('[Timeline] Cmd+A detected, calling onSelectAll');
       widget.onSelectAll?.call();
       return KeyEventResult.handled;
     }
@@ -1222,7 +1210,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     // Cmd+C - Copy
     if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyC) {
       if (selectedClip != null) {
-        debugPrint('[Timeline] Cmd+C detected, calling onClipCopy');
         widget.onClipCopy?.call(selectedClip.id);
         return KeyEventResult.handled;
       }
@@ -1230,7 +1217,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
     // Cmd+V - Paste
     if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyV) {
-      debugPrint('[Timeline] Cmd+V detected, calling onClipPaste');
       widget.onClipPaste?.call();
       return KeyEventResult.handled;
     }
@@ -1238,7 +1224,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     // Cmd+D - Duplicate
     if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyD) {
       if (selectedClip != null) {
-        debugPrint('[Timeline] Cmd+D detected, calling onClipDuplicate');
         widget.onClipDuplicate?.call(selectedClip.id);
         return KeyEventResult.handled;
       }
@@ -1250,7 +1235,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
     // Cmd+T - Add Track
     if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyT) {
-      debugPrint('[Timeline] Cmd+T detected, calling onAddTrack');
       widget.onAddTrack?.call();
       return KeyEventResult.handled;
     }
@@ -1261,14 +1245,12 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
     // SPACE - Play/Pause
     if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.space) {
-      debugPrint('[Timeline] Space detected, calling onPlayPause');
       widget.onPlayPause?.call();
       return KeyEventResult.handled;
     }
 
     // Escape - Deselect
     if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.escape) {
-      debugPrint('[Timeline] Escape detected, calling onDeselect');
       widget.onDeselect?.call();
       return KeyEventResult.handled;
     }
@@ -1277,7 +1259,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     if (!isCmd && (event.logicalKey == LogicalKeyboardKey.delete ||
             event.logicalKey == LogicalKeyboardKey.backspace)) {
       if (selectedClip != null) {
-        debugPrint('[Timeline] Delete detected, calling onClipDelete');
         widget.onClipDelete?.call(selectedClip.id);
         return KeyEventResult.handled;
       }
@@ -1288,7 +1269,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       if (selectedClip != null && widget.onClipSplit != null) {
         if (widget.playheadPosition > selectedClip.startTime &&
             widget.playheadPosition < selectedClip.endTime) {
-          debugPrint('[Timeline] S detected, calling onClipSplit');
           widget.onClipSplit!(selectedClip.id);
           return KeyEventResult.handled;
         }
@@ -1298,7 +1278,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     // M key - Mute selected track
     if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyM) {
       if (_selectedTrackId != null && widget.onTrackMuteToggle != null) {
-        debugPrint('[Timeline] M detected, calling onTrackMuteToggle');
         widget.onTrackMuteToggle!(_selectedTrackId!);
         return KeyEventResult.handled;
       }
@@ -1307,7 +1286,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     // Alt+S - Solo selected track
     if (!isCmd && !isShift && isAlt && event.logicalKey == LogicalKeyboardKey.keyS) {
       if (_selectedTrackId != null && widget.onTrackSoloToggle != null) {
-        debugPrint('[Timeline] Alt+S detected, calling onTrackSoloToggle');
         widget.onTrackSoloToggle!(_selectedTrackId!);
         return KeyEventResult.handled;
       }
@@ -1530,7 +1508,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
   /// Start dragging a clip (track source for cross-track detection)
   void _handleClipDragStart(String clipId, Offset globalPosition, Offset localPosition, int trackIndex) {
-    debugPrint('[Timeline] _handleClipDragStart called for $clipId');
     // Find the clip being dragged
     final clip = widget.clips.firstWhere(
       (c) => c.id == clipId,
@@ -1578,7 +1555,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
   /// End drag - clear ghost and snap preview
   void _handleClipDragEnd(Offset globalPosition) {
-    debugPrint('[Timeline] _handleClipDragEnd called - clearing ghost');
     setState(() {
       _dragSourceTrackIndex = -1;
       _draggingClip = null;

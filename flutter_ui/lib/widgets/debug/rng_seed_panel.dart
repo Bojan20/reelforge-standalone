@@ -60,9 +60,7 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
         final state = NativeFFI.instance.seedLogGetRngState(_selectedContainerId!);
         _currentRngState = state.toRadixString(16).padLeft(16, '0').toUpperCase();
       }
-    } catch (e) {
-      debugPrint('[RngSeedPanel] Failed to load state: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   void _startRefreshTimer() {
@@ -656,7 +654,7 @@ class _RngStatusBadgeState extends State<RngStatusBadge> {
         _isLogging = NativeFFI.instance.seedLogIsEnabled();
         _entryCount = NativeFFI.instance.seedLogGetCount();
       });
-    } catch (_) {}
+    } catch (_) { /* ignored */ }
   }
 
   @override

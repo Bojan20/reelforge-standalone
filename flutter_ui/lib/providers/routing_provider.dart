@@ -222,16 +222,12 @@ class RoutingProvider extends ChangeNotifier {
           _channels[id] = ChannelInfo(id: id, kind: kind, name: name);
         }
 
-        debugPrint('[RoutingProvider] Synced ${_channels.length} channels from engine');
         return;
-      } catch (e) {
-        debugPrint('[RoutingProvider] JSON parse error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Fallback: just log count mismatch
     if (count != _channels.length) {
-      debugPrint('[RoutingProvider] Channel count mismatch - engine: $count, local: ${_channels.length}');
     }
   }
 

@@ -457,12 +457,10 @@ class ValidationResult {
 /// Example 3: Validate FFI parameters before call
 /// ```dart
 /// if (!FFIBoundsChecker.validateTrackId(trackId)) {
-///   debugPrint('Invalid track ID: $trackId');
-///   return;
+//////   return;
 /// }
 /// if (!FFIBoundsChecker.validateVolume(volume)) {
-///   debugPrint('Invalid volume: $volume');
-///   return;
+//////   return;
 /// }
 /// // Safe to call FFI
 /// NativeFFI.instance.setTrackVolume(trackId, volume);

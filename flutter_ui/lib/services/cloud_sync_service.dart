@@ -429,10 +429,8 @@ class CloudSyncService extends ChangeNotifier {
       await _loadProjects();
 
       _initialized = true;
-      debugPrint('[CloudSyncService] Initialized with provider: $_provider');
       notifyListeners();
     } catch (e) {
-      debugPrint('[CloudSyncService] Init error: $e');
       _initialized = true;
     }
   }
@@ -445,7 +443,6 @@ class CloudSyncService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_prefsKeyProvider, provider.index);
 
-    debugPrint('[CloudSyncService] Provider changed to: $provider');
     notifyListeners();
   }
 
@@ -479,7 +476,6 @@ class CloudSyncService extends ChangeNotifier {
       await prefs.setString(_prefsKeyUserId, _userId!);
 
       _setStatus(SyncStatus.idle);
-      debugPrint('[CloudSyncService] Authenticated as: $email');
       return true;
     } catch (e) {
       _setStatus(SyncStatus.error, null, 'Authentication failed: $e');
@@ -497,7 +493,6 @@ class CloudSyncService extends ChangeNotifier {
     await prefs.remove(_prefsKeyUserId);
 
     notifyListeners();
-    debugPrint('[CloudSyncService] Signed out');
   }
 
   /// Upload a project to cloud
@@ -575,7 +570,6 @@ class CloudSyncService extends ChangeNotifier {
       );
 
       onSyncComplete?.call(result);
-      debugPrint('[CloudSyncService] Upload complete: $result');
 
       return result;
     } catch (e) {
@@ -642,7 +636,6 @@ class CloudSyncService extends ChangeNotifier {
       );
 
       onSyncComplete?.call(result);
-      debugPrint('[CloudSyncService] Download complete: $result');
 
       return result;
     } catch (e) {
@@ -807,10 +800,8 @@ class CloudSyncService extends ChangeNotifier {
       await _saveProjects();
 
       notifyListeners();
-      debugPrint('[CloudSyncService] Deleted project: $projectId');
       return true;
     } catch (e) {
-      debugPrint('[CloudSyncService] Delete error: $e');
       return false;
     }
   }
@@ -830,10 +821,8 @@ class CloudSyncService extends ChangeNotifier {
       await _saveProjects();
 
       notifyListeners();
-      debugPrint('[CloudSyncService] Shared project $projectId with $email');
       return true;
     } catch (e) {
-      debugPrint('[CloudSyncService] Share error: $e');
       return false;
     }
   }
@@ -849,14 +838,12 @@ class CloudSyncService extends ChangeNotifier {
         syncAllProjects();
       }
     });
-    debugPrint('[CloudSyncService] Auto-sync enabled: ${interval.inMinutes}min');
   }
 
   /// Disable auto-sync
   void disableAutoSync() {
     _autoSyncTimer?.cancel();
     _autoSyncTimer = null;
-    debugPrint('[CloudSyncService] Auto-sync disabled');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -885,9 +872,7 @@ class CloudSyncService extends ChangeNotifier {
           list.map((item) => CloudProject.fromJson(item as Map<String, dynamic>)),
         );
       }
-    } catch (e) {
-      debugPrint('[CloudSyncService] Load projects error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _saveProjects() async {
@@ -895,9 +880,7 @@ class CloudSyncService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final json = jsonEncode(_projects.map((p) => p.toJson()).toList());
       await prefs.setString(_prefsKeyProjects, json);
-    } catch (e) {
-      debugPrint('[CloudSyncService] Save projects error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<String> _calculateDirectoryHash(String dirPath) async {

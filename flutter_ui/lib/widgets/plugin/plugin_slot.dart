@@ -184,7 +184,6 @@ class PluginSlot extends StatelessWidget {
             Text('Copy'),
           ],
         ),
-        onTap: () => debugPrint('Copy plugin'),
       ),
       PopupMenuItem<void>(
         child: const Row(
@@ -194,7 +193,6 @@ class PluginSlot extends StatelessWidget {
             Text('Paste'),
           ],
         ),
-        onTap: () => debugPrint('Paste plugin'),
       ),
       const PopupMenuDivider(),
       PopupMenuItem<void>(
@@ -230,7 +228,6 @@ class PluginSlot extends StatelessWidget {
     PluginInstance instance,
   ) async {
     // In real implementation, show file save dialog
-    debugPrint('[PluginSlot] Save preset for ${instance.name}');
   }
 
   Future<void> _loadPreset(
@@ -239,7 +236,6 @@ class PluginSlot extends StatelessWidget {
     PluginInstance instance,
   ) async {
     // In real implementation, show file open dialog
-    debugPrint('[PluginSlot] Load preset for ${instance.name}');
   }
 
   Color _getFormatColor(PluginFormat format) {

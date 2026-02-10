@@ -163,7 +163,6 @@ class RtpcAutomationService extends ChangeNotifier {
     _recordingStopwatch = Stopwatch()..start();
     _state = AutomationState.recording;
 
-    debugPrint('[RtpcAutomation] Recording started for RTPC $rtpcId');
     notifyListeners();
   }
 
@@ -199,8 +198,6 @@ class RtpcAutomationService extends ChangeNotifier {
     _recordingStopwatch = null;
     _state = AutomationState.idle;
 
-    debugPrint(
-        '[RtpcAutomation] Recording stopped: ${lane.points.length} points, ${lane.durationMs}ms');
     notifyListeners();
 
     return lane;
@@ -230,8 +227,6 @@ class RtpcAutomationService extends ChangeNotifier {
       (_) => _onPlaybackTick(),
     );
 
-    debugPrint(
-        '[RtpcAutomation] Playback started (loop=$loop, speed=$speed)');
     notifyListeners();
   }
 
@@ -271,7 +266,6 @@ class RtpcAutomationService extends ChangeNotifier {
     _playbackStopwatch = null;
     _state = AutomationState.idle;
 
-    debugPrint('[RtpcAutomation] Playback stopped');
     notifyListeners();
   }
 
@@ -283,7 +277,6 @@ class RtpcAutomationService extends ChangeNotifier {
     _playbackTimer = null;
     _playbackStopwatch?.stop();
 
-    debugPrint('[RtpcAutomation] Playback paused');
     notifyListeners();
   }
 
@@ -298,7 +291,6 @@ class RtpcAutomationService extends ChangeNotifier {
       (_) => _onPlaybackTick(),
     );
 
-    debugPrint('[RtpcAutomation] Playback resumed');
     notifyListeners();
   }
 

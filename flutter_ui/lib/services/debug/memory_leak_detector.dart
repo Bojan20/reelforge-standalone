@@ -96,7 +96,6 @@ class MemoryLeakDetector {
     _monitoringTimer?.cancel();
     _monitoringTimer = Timer.periodic(scanInterval, (_) => _scanForLeaks());
 
-    debugPrint('[MemoryLeakDetector] Started monitoring');
   }
 
   /// Stop monitoring
@@ -105,7 +104,6 @@ class MemoryLeakDetector {
     _monitoringTimer?.cancel();
     _monitoringTimer = null;
 
-    debugPrint('[MemoryLeakDetector] Stopped monitoring');
   }
 
   /// Track voice creation

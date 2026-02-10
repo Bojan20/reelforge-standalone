@@ -429,7 +429,6 @@ class VideoExportService extends ChangeNotifier {
     await _loadHistory();
 
     _initialized = true;
-    debugPrint('[VideoExportService] Initialized');
   }
 
   Future<void> _loadConfig() async {
@@ -442,9 +441,7 @@ class VideoExportService extends ChangeNotifier {
         );
         _config = VideoExportConfig.fromJson(json);
       }
-    } catch (e) {
-      debugPrint('[VideoExportService] Error loading config: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _loadHistory() async {
@@ -459,14 +456,10 @@ class VideoExportService extends ChangeNotifier {
               (await compute(_parseJson, json)) as Map,
             );
             _history.add(VideoExportResult.fromJson(map));
-          } catch (e) {
-            debugPrint('[VideoExportService] Error parsing history item: $e');
-          }
+          } catch (e) { /* ignored */ }
         }
       }
-    } catch (e) {
-      debugPrint('[VideoExportService] Error loading history: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   static dynamic _parseJson(String jsonStr) {
@@ -480,9 +473,7 @@ class VideoExportService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final jsonStr = jsonEncode(_config.toJson());
       await prefs.setString(_prefsKeyConfig, jsonStr);
-    } catch (e) {
-      debugPrint('[VideoExportService] Error saving config: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _saveHistory() async {
@@ -492,9 +483,7 @@ class VideoExportService extends ChangeNotifier {
           .map((r) => jsonEncode(r.toJson()))
           .toList();
       await prefs.setStringList(_prefsKeyHistory, historyJson);
-    } catch (e) {
-      debugPrint('[VideoExportService] Error saving history: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Update configuration
@@ -515,7 +504,6 @@ class VideoExportService extends ChangeNotifier {
     VideoExportConfig? config,
   }) async {
     if (_state != RecordingState.idle) {
-      debugPrint('[VideoExportService] Cannot start: already recording');
       return false;
     }
 
@@ -524,7 +512,6 @@ class VideoExportService extends ChangeNotifier {
     }
 
     if (_boundary == null) {
-      debugPrint('[VideoExportService] Cannot start: no boundary set');
       return false;
     }
 
@@ -549,7 +536,6 @@ class VideoExportService extends ChangeNotifier {
     );
 
     notifyListeners();
-    debugPrint('[VideoExportService] Recording started');
     return true;
   }
 
@@ -560,7 +546,6 @@ class VideoExportService extends ChangeNotifier {
     _frameTimer?.cancel();
     _state = RecordingState.paused;
     notifyListeners();
-    debugPrint('[VideoExportService] Recording paused');
   }
 
   /// Resume recording
@@ -573,7 +558,6 @@ class VideoExportService extends ChangeNotifier {
     _frameTimer = Timer.periodic(frameInterval, (_) => _captureFrame());
     _state = RecordingState.recording;
     notifyListeners();
-    debugPrint('[VideoExportService] Recording resumed');
   }
 
   /// Stop recording and encode video
@@ -621,7 +605,6 @@ class VideoExportService extends ChangeNotifier {
     _frames.clear();
     _recordingStartTime = null;
     notifyListeners();
-    debugPrint('[VideoExportService] Recording cancelled');
   }
 
   Future<void> _captureFrame() async {
@@ -642,9 +625,7 @@ class VideoExportService extends ChangeNotifier {
         ));
       }
       image.dispose();
-    } catch (e) {
-      debugPrint('[VideoExportService] Error capturing frame: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   double _getPixelRatioForQuality() {
@@ -706,9 +687,7 @@ class VideoExportService extends ChangeNotifier {
     // Cleanup temp frames
     try {
       await framesDir.delete(recursive: true);
-    } catch (e) {
-      debugPrint('[VideoExportService] Error cleaning up temp frames: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     if (!ffmpegResult.success) {
       return VideoExportResult.failure(
@@ -796,13 +775,11 @@ class VideoExportService extends ChangeNotifier {
       final result = await Process.run('ffmpeg', args);
 
       if (result.exitCode != 0) {
-        debugPrint('[VideoExportService] FFmpeg error: ${result.stderr}');
         return (success: false, error: 'FFmpeg failed: ${result.stderr}');
       }
 
       return (success: true, error: null);
     } catch (e) {
-      debugPrint('[VideoExportService] FFmpeg exception: $e');
       return (success: false, error: 'FFmpeg not available: $e');
     }
   }
@@ -896,9 +873,7 @@ class VideoExportService extends ChangeNotifier {
           await Process.run('xdg-open', [dir]);
         }
       }
-    } catch (e) {
-      debugPrint('[VideoExportService] Error opening file manager: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Check if FFmpeg is available
@@ -920,9 +895,7 @@ class VideoExportService extends ChangeNotifier {
         final firstLine = output.split('\n').first;
         return firstLine;
       }
-    } catch (e) {
-      debugPrint('[VideoExportService] Error getting FFmpeg version: $e');
-    }
+    } catch (e) { /* ignored */ }
     return null;
   }
 }

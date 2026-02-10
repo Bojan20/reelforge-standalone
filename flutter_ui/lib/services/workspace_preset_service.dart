@@ -50,7 +50,6 @@ class WorkspacePresetService extends ChangeNotifier {
 
     _initialized = true;
     notifyListeners();
-    debugPrint('[WorkspacePresetService] Initialized with ${_presets.length} presets');
   }
 
   /// Load custom presets from SharedPreferences
@@ -67,9 +66,7 @@ class WorkspacePresetService extends ChangeNotifier {
           }
         }
       }
-    } catch (e) {
-      debugPrint('[WorkspacePresetService] Error loading custom presets: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Save custom presets to SharedPreferences
@@ -79,9 +76,7 @@ class WorkspacePresetService extends ChangeNotifier {
       final customPresets = _presets.where((p) => !p.isBuiltIn).toList();
       final jsonString = jsonEncode(customPresets.map((p) => p.toJson()).toList());
       await prefs.setString(_prefsKeyCustomPresets, jsonString);
-    } catch (e) {
-      debugPrint('[WorkspacePresetService] Error saving custom presets: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Load active preset state
@@ -95,9 +90,7 @@ class WorkspacePresetService extends ChangeNotifier {
           _activePresetIds[section] = map[section.name] as String?;
         }
       }
-    } catch (e) {
-      debugPrint('[WorkspacePresetService] Error loading active presets: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Save active preset state
@@ -109,9 +102,7 @@ class WorkspacePresetService extends ChangeNotifier {
         map[section.name] = _activePresetIds[section];
       }
       await prefs.setString(_prefsKeyActivePreset, jsonEncode(map));
-    } catch (e) {
-      debugPrint('[WorkspacePresetService] Error saving active presets: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get presets for a specific section
@@ -141,7 +132,6 @@ class WorkspacePresetService extends ChangeNotifier {
     }
 
     notifyListeners();
-    debugPrint('[WorkspacePresetService] Active preset for $section: ${preset?.name ?? "none"}');
   }
 
   /// Apply a preset
@@ -178,14 +168,12 @@ class WorkspacePresetService extends ChangeNotifier {
     await _saveCustomPresets();
     notifyListeners();
 
-    debugPrint('[WorkspacePresetService] Created preset: ${preset.name}');
     return preset;
   }
 
   /// Update an existing preset
   Future<void> updatePreset(WorkspacePreset preset) async {
     if (preset.isBuiltIn) {
-      debugPrint('[WorkspacePresetService] Cannot update built-in preset');
       return;
     }
 
@@ -196,14 +184,12 @@ class WorkspacePresetService extends ChangeNotifier {
     await _saveCustomPresets();
     notifyListeners();
 
-    debugPrint('[WorkspacePresetService] Updated preset: ${preset.name}');
   }
 
   /// Delete a custom preset
   Future<void> deletePreset(String presetId) async {
     final preset = _presets.where((p) => p.id == presetId).firstOrNull;
     if (preset == null || preset.isBuiltIn) {
-      debugPrint('[WorkspacePresetService] Cannot delete preset: $presetId');
       return;
     }
 
@@ -220,7 +206,6 @@ class WorkspacePresetService extends ChangeNotifier {
     await _saveActivePresets();
     notifyListeners();
 
-    debugPrint('[WorkspacePresetService] Deleted preset: ${preset.name}');
   }
 
   /// Duplicate a preset
@@ -282,10 +267,8 @@ class WorkspacePresetService extends ChangeNotifier {
         imported++;
       }
 
-      debugPrint('[WorkspacePresetService] Imported $imported presets');
       return imported;
     } catch (e) {
-      debugPrint('[WorkspacePresetService] Error importing presets: $e');
       return 0;
     }
   }

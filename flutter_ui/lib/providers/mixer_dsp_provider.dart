@@ -262,11 +262,9 @@ class MixerDSPProvider extends ChangeNotifier {
       }
       _isConnected = true;
       _error = null;
-      debugPrint('[MixerDSPProvider] Connected and synced ${_buses.length} buses to engine');
       notifyListeners();
     } catch (e) {
       _error = e.toString();
-      debugPrint('[MixerDSPProvider] Connection error: $e');
       notifyListeners();
     }
   }
@@ -379,7 +377,6 @@ class MixerDSPProvider extends ChangeNotifier {
     final processorName = _pluginIdToProcessorName(pluginId);
     if (processorName != null) {
       final result = _ffi.insertLoadProcessor(trackId, slotIndex, processorName);
-      debugPrint('[MixerDSPProvider] Load processor "$processorName" on bus $busId slot $slotIndex -> result: $result');
     }
 
     notifyListeners();
@@ -405,7 +402,6 @@ class MixerDSPProvider extends ChangeNotifier {
     if (slotIndex >= 0) {
       final trackId = _busIdToEngineIndex(busId);
       _ffi.insertUnloadSlot(trackId, slotIndex);
-      debugPrint('[MixerDSPProvider] Unload processor from bus $busId slot $slotIndex');
     }
 
     notifyListeners();
@@ -435,7 +431,6 @@ class MixerDSPProvider extends ChangeNotifier {
     if (slotIndex >= 0) {
       final trackId = _busIdToEngineIndex(busId);
       _ffi.insertSetBypass(trackId, slotIndex, newBypassed);
-      debugPrint('[MixerDSPProvider] Set bypass=$newBypassed on bus $busId slot $slotIndex');
     }
 
     notifyListeners();
@@ -474,7 +469,6 @@ class MixerDSPProvider extends ChangeNotifier {
           _ffi.insertSetParam(trackId, slotIndex, paramIndex, entry.value);
         }
       }
-      debugPrint('[MixerDSPProvider] Updated ${params.length} params on bus $busId slot $slotIndex');
     }
 
     notifyListeners();

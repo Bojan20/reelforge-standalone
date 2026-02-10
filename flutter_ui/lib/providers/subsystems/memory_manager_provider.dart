@@ -52,7 +52,6 @@ class MemoryManagerProvider extends ChangeNotifier {
         'min_resident_time_ms': config.minResidentTimeMs,
       });
     } catch (e) {
-      debugPrint('[MemoryManagerProvider] FFI init error: $e');
       _useFfi = false;
     }
   }
@@ -74,9 +73,7 @@ class MemoryManagerProvider extends ChangeNotifier {
     try {
       _engineStats = _ffi.memoryManagerGetStats();
       notifyListeners();
-    } catch (e) {
-      debugPrint('[MemoryManagerProvider] FFI sync error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get banks from engine (FFI)
@@ -210,9 +207,7 @@ class MemoryManagerProvider extends ChangeNotifier {
           priority: _loadPriorityToNative(bank.priority),
           soundIds: bank.soundIds,
         );
-      } catch (e) {
-        debugPrint('[MemoryManagerProvider] FFI register error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     notifyListeners();
@@ -255,9 +250,7 @@ class MemoryManagerProvider extends ChangeNotifier {
           syncFromEngine();
           return true;
         }
-      } catch (e) {
-        debugPrint('[MemoryManagerProvider] FFI load error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Fallback to Dart
@@ -280,9 +273,7 @@ class MemoryManagerProvider extends ChangeNotifier {
           syncFromEngine();
           return true;
         }
-      } catch (e) {
-        debugPrint('[MemoryManagerProvider] FFI unload error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Fallback to Dart
@@ -299,9 +290,7 @@ class MemoryManagerProvider extends ChangeNotifier {
     if (_ffi != null && _useFfi) {
       try {
         return _ffi.memoryManagerIsBankLoaded(bankId);
-      } catch (e) {
-        debugPrint('[MemoryManagerProvider] FFI check error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
     return _memoryManager.isBankLoaded(bankId);
   }
@@ -313,9 +302,7 @@ class MemoryManagerProvider extends ChangeNotifier {
       try {
         _ffi.memoryManagerTouchBank(bankId);
         return;
-      } catch (e) {
-        debugPrint('[MemoryManagerProvider] FFI touch error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
     _memoryManager.touchBank(bankId);
   }
@@ -491,9 +478,7 @@ class MemoryManagerProvider extends ChangeNotifier {
     if (_ffi != null && _useFfi) {
       try {
         _ffi.memoryManagerClear();
-      } catch (e) {
-        debugPrint('[MemoryManagerProvider] FFI clear error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     _engineStats = null;

@@ -191,7 +191,6 @@ class SymbolAudioBatchService extends ChangeNotifier {
       final regex = RegExp(regexPattern);
       return assignments.where((a) => regex.hasMatch(a.audioPath)).toList();
     } catch (e) {
-      debugPrint('[SymbolAudioBatch] Invalid regex: $regexPattern - $e');
       return [];
     }
   }
@@ -333,8 +332,6 @@ class SymbolAudioBatchService extends ChangeNotifier {
       _pushUndo(result);
     }
 
-    debugPrint(
-        '[SymbolAudioBatch] Replaced $pattern with $replacement: ${result.modifiedCount}/${result.totalChecked}');
     return result;
   }
 
@@ -365,8 +362,6 @@ class SymbolAudioBatchService extends ChangeNotifier {
       _pushUndo(result);
     }
 
-    debugPrint(
-        '[SymbolAudioBatch] Set all to $newAudioPath: ${result.modifiedCount}/${result.totalChecked}');
     return result;
   }
 
@@ -406,8 +401,6 @@ class SymbolAudioBatchService extends ChangeNotifier {
       _pushUndo(result);
     }
 
-    debugPrint(
-        '[SymbolAudioBatch] Set volume to $clampedVolume: ${result.modifiedCount}/${result.totalChecked}');
     return result;
   }
 
@@ -439,8 +432,6 @@ class SymbolAudioBatchService extends ChangeNotifier {
       _pushUndo(result);
     }
 
-    debugPrint(
-        '[SymbolAudioBatch] Set pan to $clampedPan: ${result.modifiedCount}/${result.totalChecked}');
     return result;
   }
 
@@ -457,7 +448,6 @@ class SymbolAudioBatchService extends ChangeNotifier {
     _redoStack.add(operation);
     notifyListeners();
 
-    debugPrint('[SymbolAudioBatch] Undo: ${operation.modifiedCount} assignments');
     return operation.originalAssignments;
   }
 
@@ -470,7 +460,6 @@ class SymbolAudioBatchService extends ChangeNotifier {
     _undoStack.add(operation);
     notifyListeners();
 
-    debugPrint('[SymbolAudioBatch] Redo: ${operation.modifiedCount} assignments');
     return operation.modifiedAssignments;
   }
 

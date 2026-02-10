@@ -99,10 +99,8 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
             onSelected: (value) {
               if (value == 'json') {
                 final json = profiler.exportToJson();
-                debugPrint('[DspAttribution] Exported JSON: $json');
               } else if (value == 'csv') {
                 final csv = profiler.exportToCsv();
-                debugPrint('[DspAttribution] Exported CSV:\n$csv');
               }
             },
             itemBuilder: (context) => [

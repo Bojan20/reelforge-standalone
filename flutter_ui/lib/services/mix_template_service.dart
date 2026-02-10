@@ -341,10 +341,8 @@ class MixTemplateService extends ChangeNotifier {
       _activeTemplateId = prefs.getString(_activeKey);
 
       _isInitialized = true;
-      debugPrint('[MixTemplateService] Initialized: ${_userTemplates.length} user templates');
       notifyListeners();
     } catch (e) {
-      debugPrint('[MixTemplateService] Init error: $e');
       _isInitialized = true;
     }
   }
@@ -363,7 +361,6 @@ class MixTemplateService extends ChangeNotifier {
 
     await _persist();
     notifyListeners();
-    debugPrint('[MixTemplateService] Saved template: ${template.name}');
   }
 
   Future<void> deleteTemplate(String templateId) async {
@@ -375,7 +372,6 @@ class MixTemplateService extends ChangeNotifier {
 
     await _persist();
     notifyListeners();
-    debugPrint('[MixTemplateService] Deleted template: $templateId');
   }
 
   Future<void> setActiveTemplate(String? templateId) async {
@@ -389,7 +385,6 @@ class MixTemplateService extends ChangeNotifier {
     }
 
     notifyListeners();
-    debugPrint('[MixTemplateService] Active template: $templateId');
   }
 
   MixTemplate? getTemplateById(String id) {
@@ -406,10 +401,8 @@ class MixTemplateService extends ChangeNotifier {
       final jsonStr = const JsonEncoder.withIndent('  ').convert(template.toJson());
       final file = File(filePath);
       await file.writeAsString(jsonStr);
-      debugPrint('[MixTemplateService] Exported: ${template.name} → $filePath');
       return true;
     } catch (e) {
-      debugPrint('[MixTemplateService] Export error: $e');
       return false;
     }
   }
@@ -427,10 +420,8 @@ class MixTemplateService extends ChangeNotifier {
       );
 
       await saveTemplate(template);
-      debugPrint('[MixTemplateService] Imported: ${template.name}');
       return template;
     } catch (e) {
-      debugPrint('[MixTemplateService] Import error: $e');
       return null;
     }
   }
@@ -442,8 +433,6 @@ class MixTemplateService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final jsonStr = jsonEncode(_userTemplates.map((t) => t.toJson()).toList());
       await prefs.setString(_prefsKey, jsonStr);
-    } catch (e) {
-      debugPrint('[MixTemplateService] Persist error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 }

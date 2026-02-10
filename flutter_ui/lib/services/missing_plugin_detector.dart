@@ -120,7 +120,6 @@ class PluginAlternativesRegistry {
       ],
     );
 
-    debugPrint('[PluginAlternativesRegistry] Initialized ${_alternatives.length} alternative mappings');
   }
 
   void _registerAlternatives(PluginUid plugin, List<PluginUid> alts) {
@@ -191,7 +190,6 @@ class MissingPluginDetector {
   /// Scan system for installed plugins
   Future<void> scanInstalledPlugins() async {
     _installedCache.clear();
-    debugPrint('[MissingPluginDetector] Scanning plugin directories...');
 
     for (final basePath in _pluginPaths) {
       final dir = Directory(basePath);
@@ -209,7 +207,6 @@ class MissingPluginDetector {
       }
     }
 
-    debugPrint('[MissingPluginDetector] Found ${_installedCache.length} installed plugins');
   }
 
   /// Check if a plugin is installed

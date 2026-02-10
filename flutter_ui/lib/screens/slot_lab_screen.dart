@@ -411,9 +411,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   /// P3-19: Handle Quick Assign — reuses existing audio assignment logic
   void _handleQuickAssign(String audioPath, String stage, SlotLabProjectProvider projectProvider) {
-    debugPrint('[SlotLab] 🎵 Quick Assign:');
-    debugPrint('[SlotLab]   stage: $stage');
-    debugPrint('[SlotLab]   audioPath: ${audioPath.split('/').last}');
 
     // Update provider (persisted state)
     projectProvider.setAudioAssignment(stage, audioPath);
@@ -422,7 +419,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // This ensures GAME_START and all other assignments are registered
     _syncAudioAssignmentsToRegistry();
 
-    debugPrint('[SlotLab] ⚡ INSTANT Quick Assign: $stage → ${audioPath.split('/').last}');
   }
 
   /// Get stereo pan position for a stage (per-reel panning for REEL_STOP_*)
@@ -865,7 +861,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (!_didInitializeEngine) {
       _didInitializeEngine = true;
       _initializeSlotEngine();
-      debugPrint('[SlotLabScreen] ⚡ Engine initialized synchronously in didChangeDependencies');
     }
   }
 
@@ -913,7 +908,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     if (assignments.isEmpty) return;
 
-    debugPrint('[SlotLab] ⚡ Fast sync: ${assignments.length} audio assignments → EventRegistry');
 
     for (final entry in assignments.entries) {
       final stage = entry.key;
@@ -944,7 +938,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       ));
     }
 
-    debugPrint('[SlotLab] ✅ Fast sync complete');
   }
 
   /// Global keyboard handler — handles Space + Timeline shortcuts
@@ -976,7 +969,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // (slot_lab_screen's GestureDetector takes focus), so we MUST handle Space here.
     // ═══════════════════════════════════════════════════════════════════════════
     if (_isPreviewMode) {
-      debugPrint('[SlotLab] 🌍 GLOBAL Space — SKIPPED (Fullscreen PremiumSlotPreview handles it)');
       return false; // Let PremiumSlotPreview handle it (it has focus in fullscreen)
     }
 
@@ -987,12 +979,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // ═══════════════════════════════════════════════════════════════════════════
     final now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastSpaceKeyTime < _spaceKeyDebounceMs) {
-      debugPrint('[SlotLab] ⏱️ SPACE debounced (${now - _lastSpaceKeyTime}ms < ${_spaceKeyDebounceMs}ms)');
       return true; // Handled (debounced)
     }
     _lastSpaceKeyTime = now;
 
-    debugPrint('[SlotLab] 🌍 GLOBAL Space key handler (isReelsSpinning=${_slotLabProvider.isReelsSpinning}, isPlayingStages=${_slotLabProvider.isPlayingStages})');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SPACE KEY LOGIC (matches premium_slot_preview.dart):
@@ -1008,20 +998,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // STOP only when reels are actually spinning (not during win presentation)
     if (_hasSlotLabProvider && _slotLabProvider.isReelsSpinning) {
-      debugPrint('[SlotLab] → SPACE: Stopping (isReelsSpinning=true)');
       _slotLabProvider.stopStagePlayback();
       return true; // Handled
     }
 
     // Either idle OR win presentation — start new spin
     if (_hasSlotLabProvider && _slotLabProvider.initialized) {
-      debugPrint('[SlotLab] → SPACE: Starting new spin');
       _slotLabProvider.spin();
       return true; // Handled
     }
 
     // Fallback: Toggle timeline playback (non-slot contexts)
-    debugPrint('[SlotLab] → SPACE: Toggling timeline playback (fallback)');
     _togglePlayback();
     return true; // Handled
   }
@@ -1095,7 +1082,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   /// Callback when MiddlewareProvider changes (bidirectional sync)
   void _onMiddlewareChanged() {
-    debugPrint('[SlotLab] _onMiddlewareChanged called, mounted=$mounted, _draggingLayerId=$_draggingLayerId');
     if (!mounted) return;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1107,7 +1093,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final skipRegistrySync = _draggingLayerId != null || isPlayingAudio;
 
     if (_draggingLayerId != null) {
-      debugPrint('[SlotLab] SKIPPING setState - drag in progress');
       for (final event in _compositeEvents) {
         _rebuildRegionForEvent(event);
       }
@@ -1138,20 +1123,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _syncLayersToTrackManager();
 
     setState(() {});
-    debugPrint('[SlotLab] Synced ${_compositeEvents.length} events from MiddlewareProvider (+ EventRegistry + TrackManager)');
   }
 
   /// Callback when SlotLabLowerZoneController changes (persist tab state)
   void _onLowerZoneChanged() {
-    debugPrint('[SlotLab] _onLowerZoneChanged: mounted=$mounted, hasProvider=$_hasSlotLabProvider, restoreComplete=$_lowerZoneRestoreComplete');
-    debugPrint('[SlotLab] _onLowerZoneChanged: superTab=${_lowerZoneController.superTab}');
     // CRITICAL: Don't persist until restore is complete, otherwise we overwrite saved state
     if (!mounted || !_hasSlotLabProvider || !_lowerZoneRestoreComplete) {
-      debugPrint('[SlotLab] _onLowerZoneChanged: SKIPPING persist (conditions not met)');
       return;
     }
     // Persist lower zone state to provider (survives screen switches)
-    debugPrint('[SlotLab] _onLowerZoneChanged: PERSISTING superTab=${_lowerZoneController.superTab.index}');
     _slotLabProvider.setLowerZoneTabIndex(_lowerZoneController.superTab.index);
     _slotLabProvider.setLowerZoneExpanded(_lowerZoneController.isExpanded);
     _slotLabProvider.setLowerZoneHeight(_lowerZoneController.height);
@@ -1206,21 +1186,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
 
         if (mounted) setState(() {});
-        debugPrint('[SlotLab] Waveform cache initialized (${audioPaths.length} paths)');
       }
     });
   }
 
   void _doRestorePersistedState() {
-    debugPrint('[SlotLab] ═══ _doRestorePersistedState CALLED ═══');
     try {
       final provider = _slotLabProvider;
 
       // Restore lower zone tab state (survives screen switches)
       // NOTE: We persist SlotLabSuperTab index (0-4: stages, events, mix, dsp, bake)
       final tabIndex = provider.persistedLowerZoneTabIndex;
-      debugPrint('[SlotLab] Provider persistedLowerZoneTabIndex=$tabIndex');
-      debugPrint('[SlotLab] Current superTab BEFORE restore: ${_lowerZoneController.superTab}');
 
       if (tabIndex >= 0 && tabIndex < SlotLabSuperTab.values.length) {
         // Restore super-tab via controller WITHOUT changing expand state
@@ -1239,15 +1215,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           // No persisted height or default - set to half screen
           final screenHeight = MediaQuery.of(context).size.height;
           _lowerZoneController.setHeightToHalfScreen(screenHeight);
-          debugPrint('[SlotLab] ✅ Set height to half screen (no persisted height)');
         } else {
           _lowerZoneController.setHeight(persistedHeight);
-          debugPrint('[SlotLab] ✅ Restored height to $persistedHeight');
         }
 
-        debugPrint('[SlotLab] ✅ Restored superTab to $superTab (index=$tabIndex)');
       } else {
-        debugPrint('[SlotLab] ⚠️ tabIndex $tabIndex out of range (max=${SlotLabSuperTab.values.length - 1}), skipping restore');
         // Still set half screen height for default case
         final screenHeight = MediaQuery.of(context).size.height;
         _lowerZoneController.setHeightToHalfScreen(screenHeight);
@@ -1256,7 +1228,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // NOW add listener and set flag - after restore is complete
       _lowerZoneRestoreComplete = true;
       _lowerZoneController.addListener(_onLowerZoneChanged);
-      debugPrint('[SlotLab] ✅ Listener added, _lowerZoneRestoreComplete=true');
 
       // Restore audio pool
       if (provider.persistedAudioPool.isNotEmpty) {
@@ -1328,8 +1299,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       for (final track in _tracks) {
         totalRegions += track.regions.length;
       }
-      debugPrint('[SlotLab] Restored persisted state: ${_audioPool.length} audio, ${_compositeEvents.length} events, ${_tracks.length} tracks, $totalRegions regions');
-      debugPrint('[SlotLab] persistedTracks had ${provider.persistedTracks.length} tracks');
 
       // CRITICAL: Sync region layers to match event layers (remove stale data)
       _syncAllRegionsToEvents();
@@ -1344,14 +1313,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             rows: gridConfig.rows.clamp(2, 8),
           );
         });
-        debugPrint('[SlotLab] ✅ Restored grid from GDD: ${gridConfig.columns}x${gridConfig.rows}');
       }
 
       // Sync with MiddlewareProvider to get any changes made in Middleware mode
       _syncFromMiddlewareProvider();
-    } catch (e) {
-      debugPrint('[SlotLab] Error restoring state: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Sync ALL region layers to match their corresponding event layers
@@ -1436,10 +1402,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _rebuildRegionForEvent(event);
       }
 
-      debugPrint('[SlotLab] Synced ${_middlewareEvents.length} events from MiddlewareProvider (rebuilt regions)');
-    } catch (e) {
-      debugPrint('[SlotLab] Error syncing from MiddlewareProvider: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Check if any event in MiddlewareProvider has new actions and sync to timeline
@@ -1450,7 +1413,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
       // Detect new actions added
       if (currentActionCount > lastKnownCount) {
-        debugPrint('[SlotLab] Middleware event "${mwEvent.name}" has new actions: $lastKnownCount → $currentActionCount');
 
         // Find if this event is on our timeline - try by ID first, then by name
         String? regionId = _eventToRegionMap[mwEvent.id];
@@ -1463,7 +1425,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 regionId = region.id;
                 // Cache this mapping for future
                 _eventToRegionMap[mwEvent.id] = regionId;
-                debugPrint('[SlotLab] Found region by name match: ${mwEvent.name} → $regionId');
                 break;
               }
             }
@@ -1477,13 +1438,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             final regionIndex = track.regions.indexWhere((r) => r.id == regionId);
             if (regionIndex >= 0) {
               // Sync the new layers to the region
-              debugPrint('[SlotLab] Syncing to region: $regionId on track ${track.name}');
               _syncEventLayersToRegion(mwEvent, track.regions[regionIndex], track);
               break;
             }
           }
         } else {
-          debugPrint('[SlotLab] No matching region found for event "${mwEvent.name}"');
         }
 
         // Update known count
@@ -1499,8 +1458,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// INCREMENTAL: Only adds NEW layers, preserves existing ones
   /// Loads REAL waveform and duration via FFI for accurate display
   void _syncEventLayersToRegion(MiddlewareEvent mwEvent, _AudioRegion region, _SlotAudioTrack track) {
-    debugPrint('[SlotLab] ═══ SYNC START: "${mwEvent.name}" → region "${region.id}" ═══');
-    debugPrint('[SlotLab] Audio pool: ${_audioPool.length} files, Region layers: ${region.layers.length}');
 
     // Get existing layer IDs and audio paths to avoid duplicates
     final existingLayerIds = region.layers.map((l) => l.id).toSet();
@@ -1519,17 +1476,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     for (final action in mwEvent.actions) {
       // Skip if this action is already synced (by ID)
       if (existingLayerIds.contains(action.id)) {
-        debugPrint('[SlotLab] Skip: action ${action.id} already synced');
         continue;
       }
 
       // Skip empty asset IDs
       if (action.assetId.isEmpty || action.assetId == '—') {
-        debugPrint('[SlotLab] Skip: empty assetId');
         continue;
       }
 
-      debugPrint('[SlotLab] Processing NEW action: "${action.assetId}"');
 
       // Resolve assetId to full path
       String audioPath = action.assetId;
@@ -1543,12 +1497,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         audioPath = poolFile['path'] as String? ?? action.assetId;
         audioDuration = (poolFile['duration'] as num?)?.toDouble() ?? 0.0;
         clipId = poolFile['clipId'] as int? ?? 0;
-        debugPrint('[SlotLab] Found in pool: "$audioPath", dur=$audioDuration, clipId=$clipId');
       }
 
       // Skip if we already have a layer with this audioPath
       if (existingPaths.contains(audioPath)) {
-        debugPrint('[SlotLab] Skip: path already exists');
         continue;
       }
 
@@ -1563,17 +1515,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             clipId = _ffi.importAudio(audioPath, slotLabTrackId, action.delay);
             if (clipId > 0) {
               _clipIdCache[audioPath] = clipId;
-              debugPrint('[SlotLab] FFI imported: clipId=$clipId');
 
               // Get REAL duration from FFI metadata
               if (audioDuration <= 0) {
                 audioDuration = _getAudioDuration(audioPath);
-                debugPrint('[SlotLab] FFI duration: ${audioDuration}s');
               }
             }
-          } catch (e) {
-            debugPrint('[SlotLab] FFI import error: $e');
-          }
+          } catch (e) { /* ignored */ }
         }
       }
 
@@ -1599,12 +1547,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         duration: audioDuration, // REAL duration from FFI/pool
       ));
 
-      debugPrint('[SlotLab] Added layer: "$layerName", clipId=$clipId, dur=${audioDuration}s');
     }
 
     // If no new layers, nothing to do
     if (newLayers.isEmpty) {
-      debugPrint('[SlotLab] ═══ SYNC END: No new layers ═══');
       return;
     }
 
@@ -1632,7 +1578,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           eventId: region.eventId, // CRITICAL: Preserve eventId for lookup
         );
       });
-      debugPrint('[SlotLab] ═══ SYNC END: Added ${newLayers.length} layers. Total: ${region.layers.length + newLayers.length} ═══');
     }
   }
 
@@ -1687,7 +1632,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       try {
         provider = Provider.of<SlotLabProvider>(context, listen: false);
       } catch (e) {
-        debugPrint('[SlotLab] Cannot persist state: no provider available');
         return;
       }
     }
@@ -1749,21 +1693,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       for (final track in _tracks) {
         totalRegions += track.regions.length;
       }
-      debugPrint('[SlotLab] Persisted state: ${_audioPool.length} audio, ${_compositeEvents.length} events, ${_tracks.length} tracks, $totalRegions regions');
-    } catch (e) {
-      debugPrint('[SlotLab] Error persisting state: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   void _initializeSlotEngine() {
-    debugPrint('[SlotLabScreen] _initializeSlotEngine() called');
     if (!mounted) return;
 
     try {
       // Get SlotLabProvider synchronously (no postFrameCallback!)
       _slotLabProviderNullable = Provider.of<SlotLabProvider>(context, listen: false);
-      debugPrint('[SlotLabScreen] Got SlotLabProvider: ${_slotLabProviderNullable != null}');
-      debugPrint('[SlotLabScreen] Provider already initialized: ${_slotLabProvider.initialized}');
 
       // Migrate local cache to provider (in case anything was cached before init)
       if (_localWaveformCache.isNotEmpty) {
@@ -1776,10 +1714,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
 
       // Initialize engine for audio testing mode
-      debugPrint('[SlotLabScreen] Calling provider.initialize(audioTestMode: true)...');
       _engineInitialized = _slotLabProvider.initialize(audioTestMode: true);
-      debugPrint('[SlotLabScreen] initialize() returned: $_engineInitialized');
-      debugPrint('[SlotLabScreen] provider.initialized now: ${_slotLabProvider.initialized}');
 
       if (_engineInitialized) {
         // Connect to middleware for audio triggering
@@ -1788,7 +1723,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
         // Setup grid change callback (P0 WF-03)
         _slotLabProvider.onGridDimensionsChanged = (newReelCount) {
-          debugPrint('[SlotLab] 🔄 Regenerating reel stages for $newReelCount reels');
           _regenerateReelStages(newReelCount);
         };
 
@@ -1796,9 +1730,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         try {
           final ale = Provider.of<AleProvider>(context, listen: false);
           _slotLabProvider.connectAle(ale);
-          } catch (e) {
-            debugPrint('[SlotLab] ALE not available: $e');
-          }
+          } catch (e) { /* ignored */ }
 
           // Set bet amount from UI
           _slotLabProvider.setBetAmount(_bet);
@@ -1806,9 +1738,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           // Listen to provider changes
           _slotLabProvider.addListener(_onSlotLabUpdate);
 
-          debugPrint('[SlotLab] Synthetic engine initialized');
         } else {
-          debugPrint('[SlotLab] Engine init failed, using fallback');
         }
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -1820,7 +1750,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final compositeEvents = middleware.compositeEvents;
       if (compositeEvents.isNotEmpty) {
         _syncAllEventsToRegistry();
-        debugPrint('[SlotLab] ⚡ Initial sync: ${compositeEvents.length} events → EventRegistry');
       }
 
       // Sync persisted audio assignments from SlotLabProjectProvider
@@ -1839,7 +1768,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // Start background audio preload (does NOT block UI!)
       _startBackgroundAudioPreload();
     } catch (e) {
-      debugPrint('[SlotLab] Engine init error: $e');
       _engineInitialized = false;
       _reelSymbols = List.from(_fallbackReelSymbols);
     }
@@ -1849,13 +1777,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// This runs AFTER the UI is rendered, providing instant section switching
   void _startBackgroundAudioPreload() {
     if (_compositeEvents.isEmpty) {
-      debugPrint('[SlotLab] ⚡ No events to preload — UI ready immediately');
       return;
     }
 
     final pathCount = eventRegistry.preloadedPathCount;
     if (pathCount == 0) {
-      debugPrint('[SlotLab] ⚡ No audio paths to preload — UI ready immediately');
       return;
     }
 
@@ -1866,7 +1792,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       _preloadTotalCount = pathCount;
     });
 
-    debugPrint('[SlotLab] 🔄 Starting background audio preload: $pathCount files...');
 
     // Run preload in async isolate-friendly way (microtask queue)
     // This allows UI to render first, then preload runs
@@ -1889,9 +1814,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           _preloadTotalCount = total;
         });
 
-        debugPrint('[SlotLab] ✅ Background preload complete: $loaded/$total files in ${duration}ms');
       } catch (e) {
-        debugPrint('[SlotLab] ❌ Background preload error: $e');
         if (mounted) {
           setState(() => _isPreloadingAudio = false);
         }
@@ -1955,13 +1878,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     super.didUpdateWidget(oldWidget);
     // Reload audio pool if parent's pool changed
     if (widget.audioPool != oldWidget.audioPool) {
-      debugPrint('[SlotLab] Parent audio pool changed, reloading...');
       _loadAudioPool();
     }
   }
 
   void _loadAudioPool() {
-    debugPrint('[SlotLab] _loadAudioPool called, parent pool: ${widget.audioPool?.length ?? 0} items');
 
     // First try to use audio pool passed from parent (DAW mode's pool)
     if (widget.audioPool != null && widget.audioPool!.isNotEmpty) {
@@ -1993,7 +1914,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           };
         }).toList();
       });
-      debugPrint('[SlotLab] Loaded ${_audioPool.length} audio files from parent');
       return;
     }
 
@@ -2022,19 +1942,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             };
           }).toList();
         });
-        debugPrint('[SlotLab] Loaded ${_audioPool.length} audio files from FFI');
         return;
       }
-    } catch (e) {
-      debugPrint('[SlotLab] FFI audio pool error: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     // Keep existing audio pool if we have one (don't clear user's imported files)
     // Only initialize to empty if pool is truly uninitialized
     if (_audioPool.isEmpty) {
-      debugPrint('[SlotLab] No external audio pool, keeping local pool (${_audioPool.length} files)');
     } else {
-      debugPrint('[SlotLab] Preserving existing local pool with ${_audioPool.length} files');
     }
   }
 
@@ -2071,10 +1986,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // 🔄 BACKGROUND: Load metadata for duration display
       _loadMetadataInBackground(newEntries.map((e) => e['path'] as String).toList());
 
-      debugPrint('[SlotLab] ⚡ Instant added ${newEntries.length} files');
-    } catch (e) {
-      debugPrint('[SlotLab] File picker error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Import entire folder of audio files (native picker - faster)
@@ -2094,7 +2006,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       try {
         entities = dir.listSync(recursive: true);
       } catch (e) {
-        debugPrint('[SlotLab] Error listing directory: $e');
         return;
       }
 
@@ -2139,10 +2050,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // 🔄 BACKGROUND: Load metadata for duration display
       _loadMetadataInBackground(newEntries.map((e) => e['path'] as String).toList());
 
-      debugPrint('[SlotLab] ⚡ Instant added ${newEntries.length} files from folder');
-    } catch (e) {
-      debugPrint('[SlotLab] Folder picker error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Create audio pool entry (no setState - for batch operations)
@@ -2219,7 +2127,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         });
       }
 
-      debugPrint('[SlotLab] ✅ Background metadata: ${updates.length}/${paths.length} files');
     });
   }
 
@@ -2257,7 +2164,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   Future<void> _addAudioToPool(String path, String name) async {
     // Check if already in pool
     if (_audioPool.any((a) => a['path'] == path)) {
-      debugPrint('[SlotLab] Audio already in pool: $name');
       return;
     }
 
@@ -2269,7 +2175,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Load metadata in background
     _loadMetadataForPoolFile(path);
 
-    debugPrint('[SlotLab] Added to pool: $name - ${entry['folder']}');
   }
 
   @override
@@ -2330,19 +2235,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         'balance': _balance,
         'volatility': _volatility,
       });
-      debugPrint('[SlotLab] Audio: $eventId');
-    } catch (e) {
-      debugPrint('[SlotLab] Audio error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   void _setRtpc(int rtpcId, double value) {
     try {
       final mw = Provider.of<MiddlewareProvider>(this.context, listen: false);
       mw.setRtpc(rtpcId, value);
-    } catch (e) {
-      debugPrint('[SlotLab] RTPC error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Map intent/stage name to priority (0-100)
@@ -2508,21 +2408,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                     _quickAssignSelectedSlot = null;
                                   }
                                 });
-                                debugPrint('[SlotLab] ⚡ Quick Assign Mode: ${_quickAssignMode ? "ON" : "OFF"}');
                               } else if (stage == '__UNSELECT__') {
                                 // Unselect (toggle off)
                                 setState(() => _quickAssignSelectedSlot = null);
-                                debugPrint('[SlotLab] ⚡ Quick Assign: Unselected slot');
                               } else {
                                 // Select slot
                                 setState(() => _quickAssignSelectedSlot = stage);
-                                debugPrint('[SlotLab] ⚡ Quick Assign: Selected slot "$stage"');
                               }
                             },
                             onAudioAssign: (stage, audioPath) {
-                              debugPrint('[SlotLab] 🎵 UltimateAudioPanel.onAudioAssign:');
-                              debugPrint('[SlotLab]   stage: $stage');
-                              debugPrint('[SlotLab]   audioPath: ${audioPath.split('/').last}');
 
                               // Update provider (persisted state)
                               projectProvider.setAudioAssignment(stage, audioPath);
@@ -2544,7 +2438,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               // Crossfade duration for music transitions (500ms for smooth transition)
                               final crossfadeMs = isMusicBus ? 500 : 0;
 
-                              debugPrint('[SlotLab]   🎵 Stage config: loop=$shouldLoop, overlap=$shouldOverlap, bus=$busId, crossfade=${crossfadeMs}ms');
 
                               // Register event to EventRegistry for instant playback
                               eventRegistry.registerEvent(AudioEvent(
@@ -2610,8 +2503,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               // Add to MiddlewareProvider (visible in Event Folder)
                               middleware.addCompositeEvent(compositeEvent, select: false);
 
-                              debugPrint('[SlotLab]   ✅ Event registered for stage: $stage');
-                              debugPrint('[SlotLab]   ✅ CompositeEvent added to Middleware: $eventId');
 
                               // SL-INT-P1.1: Show SnackBar confirmation
                               if (mounted) {
@@ -2639,7 +2530,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               }
                             },
                             onAudioClear: (stage) {
-                              debugPrint('[SlotLab] 🗑️ UltimateAudioPanel.onAudioClear: $stage');
                               // Update provider (persisted state)
                               projectProvider.removeAudioAssignment(stage);
                               // Remove from EventRegistry
@@ -2647,7 +2537,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               // Remove from MiddlewareProvider (Event Folder)
                               final middleware = context.read<MiddlewareProvider>();
                               middleware.deleteCompositeEvent('audio_$stage');
-                              debugPrint('[SlotLab]   ✅ CompositeEvent removed from Middleware');
                             },
                             onSectionToggle: (sectionId) {
                               projectProvider.toggleSection(sectionId);
@@ -2656,7 +2545,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               projectProvider.toggleGroup(groupId);
                             },
                             onBatchDistribute: (matched, unmatched) async {
-                              debugPrint('[SlotLab] 📦 Batch distribute: ${matched.length} matched, ${unmatched.length} unmatched');
                               // Show results dialog (SL-LP-P0.3)
                               await BatchDistributionDialog.show(
                                 context,
@@ -2761,7 +2649,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                   ),
                                 );
-                                debugPrint('[SlotLab] 📦 Bulk assigned $baseStage → ${expandedStages.length} stages');
                               }
                             },
                           ),
@@ -2798,7 +2685,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               // P3-19: Quick Assign Mode — click audio to assign to selected slot
                               onAudioClicked: (audioPath) {
                                 if (_quickAssignMode && _quickAssignSelectedSlot != null) {
-                                  debugPrint('[SlotLab] ⚡ Quick Assign: "$audioPath" → "$_quickAssignSelectedSlot"');
                                   // Use existing onAudioAssign logic
                                   final projectProvider = context.read<SlotLabProjectProvider>();
                                   _handleQuickAssign(audioPath, _quickAssignSelectedSlot!, projectProvider);
@@ -2911,7 +2797,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     final key = event.logicalKey;
 
-    debugPrint('[SlotLab] Key event: ${key.keyLabel}, type: ${event.runtimeType}');
 
     // Keys that allow repeat (hold key for continuous adjustment)
     final isZoomKey = key == LogicalKeyboardKey.keyG || key == LogicalKeyboardKey.keyH;
@@ -2935,13 +2820,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       var handled = false;
       // P0.3: Stop stage playback if active
       if (_hasSlotLabProvider && (_slotLabProvider.isPlayingStages || _slotLabProvider.isPaused)) {
-        debugPrint('[SlotLab] ESCAPE pressed - stopping stage playback');
         _slotLabProvider.stopStagePlayback();
         handled = true;
       }
       // Stop timeline playback if active
       if (_isPlaying) {
-        debugPrint('[SlotLab] ESCAPE pressed - stopping timeline playback');
         _stopPlayback();
         handled = true;
       }
@@ -2950,7 +2833,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // G = Zoom Out (supports hold for continuous zoom)
     if (key == LogicalKeyboardKey.keyG) {
-      debugPrint('[SlotLab] G pressed - zoom out, current=$_timelineZoom');
       setState(() {
         _timelineZoom = (_timelineZoom * 0.85).clamp(0.1, 10.0);
       });
@@ -2959,7 +2841,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // H = Zoom In (supports hold for continuous zoom)
     if (key == LogicalKeyboardKey.keyH) {
-      debugPrint('[SlotLab] H pressed - zoom in, current=$_timelineZoom');
       setState(() {
         _timelineZoom = (_timelineZoom * 1.18).clamp(0.1, 10.0);
       });
@@ -2984,7 +2865,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // L = Set loop around selected region AND toggle loop
     if (key == LogicalKeyboardKey.keyL) {
-      debugPrint('[SlotLab] L pressed - toggle loop, isLooping=$_isLooping');
       // Find selected region
       _AudioRegion? selectedRegion;
       for (final track in _tracks) {
@@ -3145,7 +3025,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // ESC = Cancel active drag (revert to original position)
     if (key == LogicalKeyboardKey.escape) {
       if (_dragController?.cancelActiveDrag() == true) {
-        debugPrint('[SlotLab] ESC pressed - drag cancelled, reverted to original position');
         return KeyEventResult.handled;
       }
       // ESC with no active drag - deselect regions
@@ -3256,7 +3135,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   /// When a region is deleted from timeline, DELETE the composite event too
   void _syncRegionDeleteToEvent(_AudioRegion region) {
-    debugPrint('[SlotLab] Sync delete for region: "${region.name}" (id=${region.id})');
 
     // Strategy 1: Find event by ID mapping
     String? eventId;
@@ -3277,7 +3155,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       event = _findEventByName(region.name);
       if (event != null) {
         eventId = event.id;
-        debugPrint('[SlotLab] Found event by name match: ${region.name}');
       }
     }
 
@@ -3285,7 +3162,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final eventName = event.name;
       final deletedEventId = event.id;
 
-      debugPrint('[SlotLab] Deleting composite event: "$eventName"');
 
       // Remove the mapping
       _eventToRegionMap.remove(deletedEventId);
@@ -3300,11 +3176,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _deleteMiddlewareEvent(deletedEventId);
-          debugPrint('[SlotLab] Deleted composite event from Middleware: "$eventName"');
         }
       });
     } else {
-      debugPrint('[SlotLab] No matching composite event found for region "${region.name}"');
     }
   }
 
@@ -3585,7 +3459,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Apply template configuration to project
     // This would register stages, create events, set up buses, etc.
-    debugPrint('[SlotLab] 📦 Applying template: ${template.name}');
 
     // Update grid settings from template
     setState(() {
@@ -4001,7 +3874,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final confirmed = await GddPreviewDialog.show(context, result);
 
     if (confirmed == true && mounted) {
-        debugPrint('[SlotLab] 🚀 BEFORE GDD apply: reels=${_slotLabSettings.reels}, rows=${_slotLabSettings.rows}');
 
         // P0 FIX: Store GDD in SlotLabProjectProvider for persistence
         final projectProvider = context.read<SlotLabProjectProvider>();
@@ -4009,20 +3881,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
         // P0 FIX: Populate dynamic slot symbols from GDD for reel display
         _populateSlotSymbolsFromGdd(result.gdd.symbols);
-        debugPrint('[SlotLab] 🎰 Populated ${result.gdd.symbols.length} dynamic slot symbols from GDD');
 
         // P0 FIX: Initialize Rust engine with GDD to update grid configuration
         // Use toRustJson() which converts to the format rf-slot-lab's GddParser expects
         final slotLabProvider = context.read<SlotLabProvider>();
         final gddJson = jsonEncode(result.gdd.toRustJson());
-        debugPrint('[SlotLab] 📋 Sending GDD to Rust: ${gddJson.length} chars');
         final engineInitialized = slotLabProvider.initEngineFromGdd(gddJson);
-        debugPrint('[SlotLab] 🔧 Rust engine initialized from GDD: $engineInitialized');
 
         final newReels = result.gdd.grid.columns.clamp(3, 10);
         final newRows = result.gdd.grid.rows.clamp(2, 8);
-        debugPrint('[SlotLab] 📐 GDD grid: columns=${result.gdd.grid.columns}, rows=${result.gdd.grid.rows}');
-        debugPrint('[SlotLab] 📐 Clamped: reels=$newReels, rows=$newRows');
 
         // Apply GDD grid configuration to local slot settings
         // AND open fullscreen preview to show the new slot machine
@@ -4035,7 +3902,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           _isPreviewMode = true;  // Open fullscreen slot machine
         });
 
-        debugPrint('[SlotLab] ✅ AFTER GDD apply: reels=${_slotLabSettings.reels}, rows=${_slotLabSettings.rows}');
 
         // Show success message with grid info
         if (mounted) {
@@ -4103,33 +3969,22 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // Check special types first (by flag OR by tier enum)
       if (gdd.isWild || gdd.tier == SymbolTier.wild) {
         wildSymbol = gdd;
-        debugPrint('[GDD Parse] WILD: "${gdd.name}" (id=${gdd.id})');
       } else if (gdd.isScatter || gdd.tier == SymbolTier.scatter) {
         scatterSymbol = gdd;
-        debugPrint('[GDD Parse] SCATTER: "${gdd.name}" (id=${gdd.id})');
       } else if (gdd.isBonus || gdd.tier == SymbolTier.bonus) {
         bonusSymbol = gdd;
-        debugPrint('[GDD Parse] BONUS: "${gdd.name}" (id=${gdd.id})');
       } else if (gdd.tier == SymbolTier.premium) {
         premiumSymbols.add(gdd);
-        debugPrint('[GDD Parse] PREMIUM: "${gdd.name}" (id=${gdd.id})');
       } else if (gdd.tier == SymbolTier.high) {
         highSymbols.add(gdd);
-        debugPrint('[GDD Parse] HIGH: "${gdd.name}" (id=${gdd.id})');
       } else if (gdd.tier == SymbolTier.mid) {
         midSymbols.add(gdd);
-        debugPrint('[GDD Parse] MID: "${gdd.name}" (id=${gdd.id})');
       } else {
         // low, special (non-wild/scatter/bonus)
         lowSymbols.add(gdd);
-        debugPrint('[GDD Parse] LOW: "${gdd.name}" (id=${gdd.id}, tier=${gdd.tier})');
       }
     }
 
-    debugPrint('[GDD→Symbols] Categorized: '
-        '${premiumSymbols.length} premium, ${highSymbols.length} high, '
-        '${midSymbols.length} mid, ${lowSymbols.length} low, '
-        'wild=${wildSymbol != null}, scatter=${scatterSymbol != null}, bonus=${bonusSymbol != null}');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STEP 2: Assign Rust engine IDs based on category
@@ -4147,7 +4002,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     for (final gdd in premiumSymbols) {
       if (nextHpId > 4) break;  // Max 4 HP symbols
       dynamicSymbols[nextHpId] = _createSlotSymbol(gdd, nextHpId);
-      debugPrint('[GDD→Symbols] HP$nextHpId (ID $nextHpId) = "${gdd.name}" [PREMIUM]');
       nextHpId++;
     }
 
@@ -4155,7 +4009,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     for (final gdd in highSymbols) {
       if (nextHpId > 4) break;  // Max 4 HP symbols
       dynamicSymbols[nextHpId] = _createSlotSymbol(gdd, nextHpId);
-      debugPrint('[GDD→Symbols] HP$nextHpId (ID $nextHpId) = "${gdd.name}" [HIGH]');
       nextHpId++;
     }
 
@@ -4164,7 +4017,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       if (nextLpId > 10) break;  // Max 6 LP symbols (ID 5-10)
       final lpNum = nextLpId - 4;  // LP1=5, LP2=6...
       dynamicSymbols[nextLpId] = _createSlotSymbol(gdd, nextLpId);
-      debugPrint('[GDD→Symbols] LP$lpNum (ID $nextLpId) = "${gdd.name}" [MID]');
       nextLpId++;
     }
 
@@ -4173,22 +4025,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       if (nextLpId > 10) break;  // Max 6 LP symbols
       final lpNum = nextLpId - 4;
       dynamicSymbols[nextLpId] = _createSlotSymbol(gdd, nextLpId);
-      debugPrint('[GDD→Symbols] LP$lpNum (ID $nextLpId) = "${gdd.name}" [LOW]');
       nextLpId++;
     }
 
     // Special symbols at fixed IDs
     if (wildSymbol != null) {
       dynamicSymbols[11] = _createSlotSymbol(wildSymbol, 11, isSpecial: true);
-      debugPrint('[GDD→Symbols] WILD (ID 11) = "${wildSymbol.name}"');
     }
     if (scatterSymbol != null) {
       dynamicSymbols[12] = _createSlotSymbol(scatterSymbol, 12, isSpecial: true);
-      debugPrint('[GDD→Symbols] SCATTER (ID 12) = "${scatterSymbol.name}"');
     }
     if (bonusSymbol != null) {
       dynamicSymbols[13] = _createSlotSymbol(bonusSymbol, 13, isSpecial: true);
-      debugPrint('[GDD→Symbols] BONUS (ID 13) = "${bonusSymbol.name}"');
     }
 
     // Add blank symbol for ID 0
@@ -4200,7 +4048,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       glowColor: Color(0xFF666666),
     );
 
-    debugPrint('[GDD→Symbols] Total: ${dynamicSymbols.length} symbols registered (IDs: ${dynamicSymbols.keys.toList()..sort()})');
     SlotSymbol.setDynamicSymbols(dynamicSymbols);
   }
 
@@ -4400,7 +4247,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               final providerProfile = _timingProfileToProvider(newSettings.timingProfile);
               final provider = context.read<SlotLabProvider>();
               provider.setTimingProfile(providerProfile);
-              debugPrint('[SlotLab] ⏱️ Timing profile changed: ${newSettings.timingProfile.label}');
             }
           },
           onClose: () => Navigator.of(context).pop(),
@@ -4550,7 +4396,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       _loopEnd = end;
       _isLooping = true;  // Auto-enable looping when region is set
     });
-    debugPrint('[SlotLab] Loop region set: ${start.toStringAsFixed(2)}s - ${end.toStringAsFixed(2)}s');
   }
 
   /// Clear loop region
@@ -4616,7 +4461,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           try {
             _ffi.seek(region.start);
             _ffi.play();
-          } catch (_) {}
+          } catch (_) { /* ignored */ }
         }
       } else if (value == 'delete') {
         setState(() {
@@ -4659,7 +4504,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // Start playback via PLAYBACK_ENGINE
       _trackBridge.play(fromPosition: _playheadPosition);
 
-      debugPrint('[SlotLab] Playback started at ${_playheadPosition}s via PLAYBACK_ENGINE');
 
       // UI update timer (visual only - audio is handled by PLAYBACK_ENGINE)
       _playbackTimer = Timer.periodic(const Duration(milliseconds: 33), (timer) {
@@ -4714,7 +4558,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final orphanedIds = registeredIds.difference(currentLayerIds);
     for (final orphanId in orphanedIds) {
       _trackBridge.removeLayerClip(orphanId);
-      debugPrint('[SlotLab] Removed orphaned clip: $orphanId');
     }
 
     // Step 3: Add/update clips for current layers (skip muted)
@@ -4741,7 +4584,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
       }
     }
-    debugPrint('[SlotLab] Synced ${currentLayerIds.length} layers to TRACK_MANAGER (removed ${orphanedIds.length} orphaned)');
   }
 
   void _stopPlayback() {
@@ -4770,20 +4612,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// @deprecated Use _syncLayersToTrackManager() + _trackBridge.play() instead
   void _triggerLayersAtPosition(double position) {
     // DEPRECATED: PLAYBACK_ENGINE handles this automatically
-    debugPrint('[SlotLab] DEPRECATED: _triggerLayersAtPosition called');
   }
 
   /// @deprecated Use _syncLayersToTrackManager() + _trackBridge.play() instead
   void _checkAndTriggerLayers(double prevPos, double currentPos) {
     // DEPRECATED: PLAYBACK_ENGINE handles this automatically
-    debugPrint('[SlotLab] DEPRECATED: _checkAndTriggerLayers called');
   }
 
   /// @deprecated Use _syncLayersToTrackManager() + _trackBridge.play() instead
   /// Was used for individual layer playback via PREVIEW_ENGINE
   Future<void> _playLayerAudio(_RegionLayer layer, double offsetSeconds) async {
     // DEPRECATED: PLAYBACK_ENGINE handles clip playback automatically
-    debugPrint('[SlotLab] DEPRECATED: _playLayerAudio called for ${layer.name}');
   }
 
   /// Stop all currently playing layer audio
@@ -4898,9 +4737,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       );
 
       if (voiceId >= 0) {
-        debugPrint('[SlotLab] Playing preview via AudioPlaybackService: $path (voice: $voiceId, ${duration}s)');
       } else {
-        debugPrint('[SlotLab] Preview failed to start for: $path');
         _stopAudioPreview();
         return;
       }
@@ -4913,7 +4750,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
       });
     } catch (e) {
-      debugPrint('[SlotLab] Preview error: $e');
       _stopAudioPreview();
     }
   }
@@ -4929,7 +4765,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Stop via AudioPlaybackService (browser source uses PreviewEngine)
     AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
-    debugPrint('[SlotLab] Preview stopped');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -5019,7 +4854,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   // Scenario trigger handlers
   void _triggerScenario(ScenarioResult result) {
-    debugPrint('[SlotLab] Scenario triggered: ${result.type} - ${result.parameters}');
 
     final stageProvider = context.read<StageProvider>();
     final multiplier = (result.parameters['multiplier'] as num?)?.toDouble() ?? 1.0;
@@ -5094,7 +4928,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
       case 'reset':
         // Reset to normal play mode
-        debugPrint('[SlotLab] Reset to normal mode');
         break;
     }
   }
@@ -5247,7 +5080,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   void _replayLastSpin() {
-    debugPrint('[SlotLab] Replaying last spin');
     final stageProvider = context.read<StageProvider>();
     final currentTrace = stageProvider.currentTrace;
     if (currentTrace != null && currentTrace.events.isNotEmpty) {
@@ -5266,7 +5098,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   void _batchPlay(int count) async {
-    debugPrint('[SlotLab] Batch play: $count spins');
     final stageProvider = context.read<StageProvider>();
 
     for (int i = 0; i < count; i++) {
@@ -6595,7 +6426,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
     }
 
-    debugPrint('[SlotLab] ✅ Migrated ${_tracks.length} tracks to Ultimate Timeline');
   }
 
   /// Handle audio drop to Ultimate Timeline
@@ -6631,7 +6461,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Load waveform + get real duration
     _loadWaveformAndDuration(track.id, region);
 
-    debugPrint('[SlotLab] 🎵 Audio dropped to Ultimate Timeline: ${audioPath.split('/').last} at ${dropTime.toStringAsFixed(2)}s');
   }
 
   /// Load waveform and update region duration
@@ -6654,9 +6483,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           return json ?? '';
         },
       );
-    } catch (e) {
-      debugPrint('[SlotLab] Waveform load failed: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Sync stage markers from SlotLabProvider to Ultimate Timeline
@@ -6834,7 +6661,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                             if (_ffi.isLoaded) {
                               try {
                                 _ffi.seek(_playheadPosition);
-                              } catch (_) {}
+                              } catch (_) { /* ignored */ }
                             }
                           }
                         },
@@ -7157,7 +6984,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
       }
     });
-    debugPrint('[SlotLab] Selected all regions');
   }
 
   /// Invert current region selection
@@ -7169,7 +6995,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
       }
     });
-    debugPrint('[SlotLab] Inverted region selection');
   }
 
   /// Toggle mute on all selected regions
@@ -7184,7 +7009,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         region.isMuted = anyUnmuted;
       }
     });
-    debugPrint('[SlotLab] ${anyUnmuted ? "Muted" : "Unmuted"} ${selected.length} regions');
   }
 
   void _clearRegionDrag() {
@@ -7292,7 +7116,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       _middleware.setLayerOffset(event.id, eventLayer.id, totalOffsetMs);
     }
 
-    debugPrint('[SlotLab] Synced region "${region.name}" to ${baseOffsetMs.toStringAsFixed(0)}ms');
   }
 
   /// Calculate track height based on expanded regions
@@ -7344,7 +7167,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       if (_draggingRegion != region && !anyLayerDragging) {
         final minOffsetMs = event.layers.map((l) => l.offsetMs).reduce((a, b) => a < b ? a : b);
         final regionStartFromProvider = minOffsetMs / 1000.0;
-        debugPrint('[REGION-DEBUG] Updating region.start: ${region.start} → $regionStartFromProvider (event: ${event.name})');
         region.start = regionStartFromProvider;
         // Recalculate end based on max layer end
         double maxEnd = region.start + 0.5; // Minimum 0.5s
@@ -7498,14 +7320,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Resolve parent event ID
     String parentEventId = region.eventId ?? '';
-    debugPrint('[SlotLab] BEFORE: parentEventId="$parentEventId", region.id=${region.id}');
     if (parentEventId.isEmpty) {
-      debugPrint('[SlotLab] eventToRegionMap entries: ${_eventToRegionMap.entries.map((e) => "${e.key}->${e.value}").join(", ")}');
       for (final entry in _eventToRegionMap.entries) {
         if (entry.value == region.id) {
           parentEventId = entry.key;
           region.eventId = parentEventId;
-          debugPrint('[SlotLab] FOUND: parentEventId=$parentEventId');
           break;
         }
       }
@@ -7521,7 +7340,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (parentEvent != null) {
       if (parentEventId.isEmpty) {
         parentEventId = parentEvent.id;
-        debugPrint('[SlotLab] FIX: parentEventId was empty, now set to ${parentEvent.id}');
       }
       if (region.eventId == null || region.eventId!.isEmpty) {
         region.eventId = parentEvent.id;
@@ -7532,9 +7350,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final realDuration = eventLayer?.durationSeconds ?? layer.duration;
     final currentOffsetMs = eventLayer?.offsetMs ?? 0.0;
 
-    debugPrint('[SlotLab] _buildDraggableLayerRow: layerId=$layerId, parentEventId=$parentEventId');
-    debugPrint('[SlotLab] → parentEvent=${parentEvent?.name ?? "NULL"}, eventLayer=${eventLayer != null ? "FOUND" : "NULL"}');
-    debugPrint('[SlotLab] → currentOffsetMs=$currentOffsetMs');
 
     // Use ISOLATED DraggableLayerWidget — setState in it doesn't affect THIS widget
     return DraggableLayerWidget(
@@ -7553,7 +7368,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       waveformData: _getWaveformForPath(layer.audioPath),
       onDragStart: (lid, eid, startOffsetMs) {
         // CRITICAL: Notify drag controller so region.start doesn't update during drag
-        debugPrint('[SlotLab] DraggableLayerWidget.onDragStart: $lid -> ${startOffsetMs}ms');
         _dragController?.startLayerDrag(
           layerEventId: lid,
           parentEventId: eid,
@@ -7570,12 +7384,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         final event = _middleware.getCompositeEvent(eid);
         final l = event?.layers.where((x) => x.id == lid).firstOrNull;
         final offset = l?.offsetMs ?? 0.0;
-        debugPrint('[SlotLab] getFreshOffset: lid=$lid, eid=$eid → offsetMs=$offset');
         return offset;
       },
       onDragEnd: (lid, eid, finalOffsetMs) {
         // Callback when drag completes — commit to provider
-        debugPrint('[SlotLab] DraggableLayerWidget.onDragEnd: $lid -> ${finalOffsetMs}ms');
         _middleware.setLayerOffset(eid, lid, finalOffsetMs);
         // End drag in controller
         _dragController?.endLayerDrag();
@@ -7668,7 +7480,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     final totalOffsetMs = (region.start + layer.offset) * 1000.0;
     _middleware.setLayerOffset(event.id, eventLayer.id, totalOffsetMs);
-    debugPrint('[SlotLab] Synced layer "${layer.name}" offset: ${totalOffsetMs.toStringAsFixed(0)}ms');
   }
 
   /// Build a single layer row with waveform and name
@@ -7863,7 +7674,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         // Found in disk cache - add to memory cache
         _waveformCache[audioPath] = waveform;
         if (mounted) setState(() {});
-        debugPrint('[SlotLab] Loaded waveform from disk cache: $audioPath');
       }
     } catch (e) {
       // Ignore disk cache errors
@@ -7893,7 +7703,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       if (diskWaveform != null && diskWaveform.isNotEmpty) {
         _waveformCache[audioPath] = diskWaveform;
         if (mounted) setState(() {});
-        debugPrint('[SlotLab] Loaded waveform from disk: $audioPath (${diskWaveform.length} peaks)');
         return;
       }
     } catch (_) {
@@ -7914,12 +7723,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           _cacheWaveform(audioPath, waveform);
           // Trigger rebuild to show waveform
           if (mounted) setState(() {});
-          debugPrint('[SlotLab] Generated waveform via FFI: $audioPath (${waveform.length} peaks)');
         }
       }
-    } catch (e) {
-      debugPrint('[SlotLab] Async waveform generation error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Parse waveform JSON from generateWaveformFromFile into List of double peaks
@@ -7943,7 +7749,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
       return result;
     } catch (e) {
-      debugPrint('[SlotLab] Waveform JSON parse error: $e');
       return null;
     }
   }
@@ -7990,10 +7795,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           slotLabTrackId,
           0.0, // Always start at beginning
         );
-        debugPrint('[SlotLab] Imported audio clip: $ffiClipId to track $slotLabTrackId (local: $localTrackId)');
-      } catch (e) {
-        debugPrint('[SlotLab] FFI importAudio error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Load real waveform from clip - NO fake waveform for empty clips
@@ -8029,12 +7831,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // Use higher resolution for better waveform detail (512 peaks = 1024 values for min/max pairs)
       final peaks = _ffi.getWaveformPeaks(clipId, maxPeaks: 512);
       if (peaks.isNotEmpty) {
-        debugPrint('[SlotLab] Loaded waveform with ${peaks.length} values (${peaks.length ~/ 2} peaks)');
         return peaks;
       }
-    } catch (e) {
-      debugPrint('[SlotLab] Waveform load error: $e');
-    }
+    } catch (e) { /* ignored */ }
     return null;
   }
 
@@ -8047,13 +7846,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         final metadata = jsonDecode(metadataJson) as Map<String, dynamic>;
         final duration = (metadata['duration'] as num?)?.toDouble();
         if (duration != null && duration > 0) {
-          debugPrint('[SlotLab] Got duration for $audioPath: ${duration}s');
           return duration;
         }
       }
-    } catch (e) {
-      debugPrint('[SlotLab] Metadata error: $e');
-    }
+    } catch (e) { /* ignored */ }
     return 1.0;
   }
 
@@ -8073,10 +7869,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     int ffiTrackId = 0;
     try {
       ffiTrackId = _ffi.createTrack(event.name, trackColor.value, 2); // Bus ID 2 = SFX
-      debugPrint('[SlotLab] Created event track: $ffiTrackId for ${event.name}');
-    } catch (e) {
-      debugPrint('[SlotLab] FFI createTrack error: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     final newTrack = _SlotAudioTrack(
       id: ffiTrackId > 0 ? 'ffi_$ffiTrackId' : 'track_${_tracks.length + 1}',
@@ -8091,7 +7884,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _selectedTrackIndex = _tracks.length - 1;
         _eventToRegionMap[event.id] = 'empty_${newTrack.id}'; // Track mapping without region
       });
-      debugPrint('[SlotLab] Created empty track header: ${event.name}');
       _persistState();
       return;
     }
@@ -8133,15 +7925,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             slotLabTrackId,
             layer.offsetMs, // startTime = delay offset from start
           );
-          debugPrint('[SlotLab] Imported layer audio: $ffiClipId (${layer.name}) to track $slotLabTrackId');
 
           // Use first layer's clip for waveform
           if (primaryClipId == 0) {
             primaryClipId = ffiClipId;
           }
-        } catch (e) {
-          debugPrint('[SlotLab] FFI importAudio error: $e');
-        }
+        } catch (e) { /* ignored */ }
       }
 
       regionLayers.add(_RegionLayer(
@@ -8176,7 +7965,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       eventId: event.id, // CRITICAL: Store event ID for reliable lookup
     );
 
-    debugPrint('[SlotLab] Created region: ${region.name}, layers: ${regionLayers.length}, waveform: ${waveformData != null}');
 
     setState(() {
       _tracks.add(newTrack);
@@ -8207,7 +7995,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
     });
 
-    debugPrint('[SlotLab] Event "${event.name}" added with ${event.layers.length} layers');
   }
 
   void _addTrack() {
@@ -8227,10 +8014,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     int ffiTrackId = 0;
     try {
       ffiTrackId = _ffi.createTrack(trackName, trackColor.value, 2); // Bus ID 2 = SFX
-      debugPrint('[SlotLab] Created FFI track: $ffiTrackId');
-    } catch (e) {
-      debugPrint('[SlotLab] FFI createTrack error: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     final newTrack = _SlotAudioTrack(
       id: ffiTrackId > 0 ? 'ffi_$ffiTrackId' : 'track_${_tracks.length + 1}',
@@ -8252,10 +8036,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     int ffiTrackId = 0;
     try {
       ffiTrackId = _ffi.createTrack(event.name, trackColor.value, event.targetBusId ?? SlotBusIds.sfx);
-      debugPrint('[SlotLab] Created FFI track for dropped event: $ffiTrackId → ${event.name}');
-    } catch (e) {
-      debugPrint('[SlotLab] FFI createTrack error: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     final newTrack = _SlotAudioTrack(
       id: ffiTrackId > 0 ? 'ffi_$ffiTrackId' : 'track_${_tracks.length + 1}',
@@ -8267,7 +8048,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Add track directly (no setState - called from _rebuildRegionForEvent which may be in _onMiddlewareChanged)
     _tracks.add(newTrack);
     _selectedTrackIndex = _tracks.length - 1;
-    debugPrint('[SlotLab] Track created: ${newTrack.name} (id=${newTrack.id})');
   }
 
   void _toggleAllTracksExpanded() {
@@ -8998,7 +8778,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // If no track exists for this event, CREATE ONE (drop-created events)
     if (trackIndex < 0) {
-      debugPrint('[SlotLab] Creating new track for dropped event: ${event.name}');
       _createTrackForNewEvent(event);
       trackIndex = _tracks.indexWhere((t) => t.name == event.name);
       if (trackIndex < 0) return; // Failed to create track
@@ -9055,7 +8834,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           // CRITICAL: Use SlotLab track ID offset to avoid DAW collision
           final slotLabTrackId = slotLabTrackIdToFfi(localTid);
           ffiClipId = _ffi.importAudio(el.audioPath, slotLabTrackId, 0.0);
-        } catch (_) {}
+        } catch (_) { /* ignored */ }
       }
 
       regionLayers.add(_RegionLayer(
@@ -9086,10 +8865,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   /// Sync region layers to exactly match event layers (remove old, add missing, update offsets)
   void _syncRegionLayersToEvent(_AudioRegion region, SlotCompositeEvent event, _SlotAudioTrack track) {
-    debugPrint('[SYNC-DEBUG] ═══════════════════════════════════════════════════');
-    debugPrint('[SYNC-DEBUG] _syncRegionLayersToEvent called');
-    debugPrint('[SYNC-DEBUG] region.name: ${region.name}, region.start: ${region.start.toStringAsFixed(4)}s');
-    debugPrint('[SYNC-DEBUG] event.name: ${event.name}, layers: ${event.layers.length}');
 
     // Get event layer IDs for comparison (use ID, not audioPath - allows duplicates)
     final eventLayerIds = event.layers.map((l) => l.id).toSet();
@@ -9107,10 +8882,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         // isDraggingLayer() returns true for _justEndedLayerId (to prevent visual glitch)
         // but we NEED to sync the offset when drag ends, so only skip ACTIVE drags
         final isActivelyDragging = _dragController?.draggingLayerEventId == regionLayer.eventLayerId;
-        debugPrint('[SYNC-DEBUG] Layer ${regionLayer.eventLayerId}: isActivelyDragging=$isActivelyDragging');
 
         if (isActivelyDragging) {
-          debugPrint('[SYNC-DEBUG]   → SKIPPING (drag active)');
           continue; // Skip - drag controller manages this layer's position
         }
 
@@ -9118,18 +8891,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         if (eventLayer != null) {
           // Convert absolute offsetMs to relative offset from region.start
           final absoluteOffsetSec = eventLayer.offsetMs / 1000.0;
-          debugPrint('[SYNC-DEBUG]   eventLayer.offsetMs: ${eventLayer.offsetMs.toStringAsFixed(2)}ms');
-          debugPrint('[SYNC-DEBUG]   absoluteOffsetSec: ${absoluteOffsetSec.toStringAsFixed(4)}s');
-          debugPrint('[SYNC-DEBUG]   region.start: ${region.start.toStringAsFixed(4)}s');
           final relativeOffset = absoluteOffsetSec - region.start;
-          debugPrint('[SYNC-DEBUG]   relativeOffset: ${relativeOffset.toStringAsFixed(4)}s');
-          debugPrint('[SYNC-DEBUG]   regionLayer.offset BEFORE: ${regionLayer.offset.toStringAsFixed(4)}s');
           regionLayer.offset = relativeOffset;
-          debugPrint('[SYNC-DEBUG]   regionLayer.offset AFTER: ${regionLayer.offset.toStringAsFixed(4)}s');
         }
       }
     }
-    debugPrint('[SYNC-DEBUG] ═══════════════════════════════════════════════════');
 
     // Add missing layers from event (by eventLayerId, not audioPath)
     for (final eventLayer in event.layers) {
@@ -9144,9 +8910,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             // CRITICAL: Use SlotLab track ID offset to avoid DAW collision
             final slotLabTrackId = slotLabTrackIdToFfi(localTrackId);
             ffiClipId = _ffi.importAudio(eventLayer.audioPath, slotLabTrackId, 0.0);
-          } catch (e) {
-            debugPrint('[SlotLab] FFI import error: $e');
-          }
+          } catch (e) { /* ignored */ }
         }
 
         // Convert absolute offsetMs to relative offset from region.start
@@ -9201,9 +8965,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           // CRITICAL: Use SlotLab track ID offset to avoid DAW collision
           final slotLabTrackId = slotLabTrackIdToFfi(localTrackId);
           ffiClipId = _ffi.importAudio(eventLayer.audioPath, slotLabTrackId, 0.0);
-        } catch (e) {
-          debugPrint('[SlotLab] FFI import error: $e');
-        }
+        } catch (e) { /* ignored */ }
       }
 
       regionLayers.add(_RegionLayer(
@@ -9230,7 +8992,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     track.regions.add(newRegion);
     _eventToRegionMap[event.id] = newRegion.id;
 
-    debugPrint('[SlotLab] Created region "${newRegion.name}" with ${regionLayers.length} layers');
   }
 
   /// Create a new timeline region for an event (when region was deleted but event still exists)
@@ -9251,10 +9012,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         // CRITICAL: Use SlotLab track ID offset to avoid DAW collision
         final slotLabTrackId = slotLabTrackIdToFfi(localTrackId);
         ffiClipId = _ffi.importAudio(audioPath, slotLabTrackId, 0.0);
-        debugPrint('[SlotLab] Created new region - imported audio: $ffiClipId');
-      } catch (e) {
-        debugPrint('[SlotLab] FFI importAudio error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Create new region
@@ -9284,7 +9042,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     track.regions.add(newRegion);
     _eventToRegionMap[event.id] = newRegion.id;
 
-    debugPrint('[SlotLab] Created new region "${newRegion.name}" for event "${event.name}"');
   }
 
   /// Update timeline region when audio is added to mapped event
@@ -9304,7 +9061,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         final audioPath = audioInfo['path'] as String? ?? '';
         final alreadyExists = region.layers.any((l) => l.audioPath == audioPath);
         if (alreadyExists) {
-          debugPrint('[SlotLab] Layer already exists in region, skipping: $audioPath');
           return;
         }
 
@@ -9323,10 +9079,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               slotLabTrackId,
               0.0, // Start at beginning
             );
-            debugPrint('[SlotLab] Auto-imported layer audio: $ffiClipId');
-          } catch (e) {
-            debugPrint('[SlotLab] FFI importAudio error: $e');
-          }
+          } catch (e) { /* ignored */ }
         }
 
         // Add layer to region
@@ -9355,7 +9108,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           region.isExpanded = true;
         }
 
-        debugPrint('[SlotLab] Updated region ${region.id} with new layer: ${audioInfo['name']}');
         return;
       }
     }
@@ -9448,7 +9200,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         } else if (_selectedTrackIndex != null && _selectedTrackIndex! > trackIndex) {
           _selectedTrackIndex = _selectedTrackIndex! - 1;
         }
-        debugPrint('[SlotLab] Also deleted track header: $eventName');
       }
 
       // Clear selection if this was selected
@@ -9466,7 +9217,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _syncLayersToTrackManager();
 
     _persistState();
-    debugPrint('[SlotLab] Deleted event, region and track: $eventName');
   }
 
   /// Delete entire track with all its regions (syncs to composite events)
@@ -9503,11 +9253,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Delete from Middleware (single source of truth) and EventRegistry
     if (deletedEventId != null) {
       _deleteMiddlewareEvent(deletedEventId);
-      debugPrint('[SlotLab] Also deleted composite event: ${track.name}');
     }
 
     _persistState();
-    debugPrint('[SlotLab] Deleted track: ${track.name}');
   }
 
   /// Delete entire region from timeline (syncs to composite event too)
@@ -9523,7 +9271,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     });
 
     _persistState();
-    debugPrint('[SlotLab] Deleted region from timeline: ${region.name}');
   }
 
   /// Delete a layer from timeline - removes from event and rebuilds region
@@ -9539,13 +9286,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     ).firstOrNull;
 
     if (layerToRemove != null) {
-      debugPrint('[SlotLab] Deleting layer from timeline: ${layer.name}');
-      debugPrint('[SlotLab] Event "${middlewareEvent.name}" had ${middlewareEvent.layers.length} layers');
 
       // Remove layer via MiddlewareProvider (single source of truth)
       _removeLayerFromMiddlewareEvent(middlewareEvent.id, layerToRemove.id);
 
-      debugPrint('[SlotLab] Synced layer deletion to Middleware');
 
       // Rebuild region from updated event
       setState(() {
@@ -9661,7 +9405,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Re-sync to EventRegistry (will be handled by _onMiddlewareChanged)
     _persistState();
 
-    debugPrint('[SlotLab] Renamed event $eventId to "$newName"');
   }
 
   void _createCompositeEvent() {
@@ -9788,7 +9531,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Skip if no layers (nothing to play)
     if (event.layers.isEmpty) {
-      debugPrint('[SlotLab] Skipping registry for "${event.name}" — no layers');
       return;
     }
 
@@ -9830,7 +9572,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       eventRegistry.registerEvent(audioEvent);
     }
 
-    debugPrint('[SlotLab] ✅ Registered "${event.name}" under ${stages.length} stage(s): ${stages.join(", ")} (${layers.length} layers)');
   }
 
   // NOTE: _syncEventToMiddleware removed - MiddlewareProvider is now the single source of truth
@@ -9886,11 +9627,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final symbolAudio = projectProvider.symbolAudio;
 
       if (symbolAudio.isEmpty) {
-        debugPrint('[SlotLab] No symbol audio to sync');
         return;
       }
 
-      debugPrint('[SlotLab] 🔄 Syncing ${symbolAudio.length} symbol audio assignments to EventRegistry');
 
       for (final assignment in symbolAudio) {
         // Find symbol definition for metadata
@@ -9919,11 +9658,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         );
 
         eventRegistry.registerEvent(audioEvent);
-        debugPrint('[SlotLab] ✅ Synced symbol audio: ${symbol.name} ${assignment.context} → $stageName');
       }
-    } catch (e) {
-      debugPrint('[SlotLab] Error syncing symbol audio: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// ═══════════════════════════════════════════════════════════════════════════
@@ -9938,11 +9674,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final audioAssignments = projectProvider.audioAssignments;
 
       if (audioAssignments.isEmpty) {
-        debugPrint('[SlotLab] No audio assignments to sync');
         return;
       }
 
-      debugPrint('[SlotLab] 🔄 Syncing ${audioAssignments.length} audio assignments to EventRegistry');
 
       for (final entry in audioAssignments.entries) {
         final stage = entry.key;
@@ -9972,19 +9706,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         );
 
         eventRegistry.registerEvent(audioEvent);
-        debugPrint('[SlotLab] ✅ Synced audio assignment: $stage → ${audioPath.split('/').last} [loop=$shouldLoop, bus=$busId]');
       }
 
-      debugPrint('[SlotLab] ✅ Audio assignments sync complete');
-    } catch (e) {
-      debugPrint('[SlotLab] Error syncing audio assignments: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Handle audio dropped on stage from StageTraceWidget drag & drop
   /// Creates or updates an AudioEvent for the target stage
   void _onAudioDroppedOnStage(AudioFileInfo audio, String stageType) {
-    debugPrint('[SlotLab] Audio dropped on stage: ${audio.name} → $stageType');
 
     // Normalize stage type to uppercase
     final normalizedStage = stageType.toUpperCase().replaceAll(' ', '_');
@@ -10016,7 +9745,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       );
 
       eventRegistry.registerEvent(updatedEvent);
-      debugPrint('[SlotLab] Added layer to existing event: ${existingEvent.name}');
     } else {
       // Create new event for this stage
       final eventId = 'event_${normalizedStage.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}';
@@ -10041,7 +9769,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       );
 
       eventRegistry.registerEvent(newEvent);
-      debugPrint('[SlotLab] Created new event: ${newEvent.name}');
     }
 
     // Trigger visual feedback
@@ -10101,7 +9828,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Call this when deleting an event to ensure full cleanup
   /// CRITICAL: Unregisters ALL stage-variants of this event from EventRegistry
   void _deleteEventFromAllSystems(String eventId, String eventName, String stage) {
-    debugPrint('[SlotLab] _deleteEventFromAllSystems: $eventName (id: $eventId, stage: $stage)');
 
     // Get event to find all trigger stages before deletion
     final event = _findEventById(eventId);
@@ -10112,17 +9838,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     for (int i = 1; i < stageCount; i++) {
       eventRegistry.unregisterEvent('${eventId}_stage_$i');
     }
-    debugPrint('[SlotLab] Unregistered from EventRegistry: $eventName ($stageCount stage variants)');
 
     // 2. Remove from MiddlewareProvider
     if (mounted) {
       try {
         final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
         middleware.deleteCompositeEvent(eventId);
-        debugPrint('[SlotLab] Deleted from Middleware: $eventName');
-      } catch (e) {
-        debugPrint('[SlotLab] Error deleting from Middleware: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
   }
@@ -10879,11 +10601,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       builder: (context, provider, _) => StageIngestPanel(
         onTraceSelected: (traceHandle) {
           // When a trace is selected, could trigger audio preview
-          debugPrint('[SlotLab] Trace selected: $traceHandle');
         },
         onLiveEvent: (event) {
           // When live event arrives, trigger stage audio via global eventRegistry
-          debugPrint('[SlotLab] Live event: ${event.stage}');
           eventRegistry.triggerStage(event.stage);
         },
       ),
@@ -11092,7 +10812,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 rows: newRows,
               );
             });
-            debugPrint('[SlotLab] 📐 Grid synced from GameModel: ${newReels}x$newRows');
           }
         }
       },
@@ -11238,8 +10957,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       eventRegistry.unregisterStage('REEL_SPINNING_STOP_$i');
     }
 
-    debugPrint('[SlotLab] ♻️ Cleared old reel stages (0-9)');
-    debugPrint('[SlotLab] 🎯 Will regenerate for $newReelCount reels');
 
     // Note: New reel events will be created when audio is assigned
     // Pan law will be auto-calculated based on new reel count:

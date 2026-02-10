@@ -102,7 +102,6 @@ class FocusManagementService extends ChangeNotifier {
   void init() {
     if (_initialized) return;
     _initialized = true;
-    debugPrint('[FocusManagementService] Initialized');
   }
 
   /// Register a focus node
@@ -124,7 +123,6 @@ class FocusManagementService extends ChangeNotifier {
     // Listen for focus changes
     node.addListener(() => _onFocusChanged(id, node));
 
-    debugPrint('[FocusManagementService] Registered: $id');
   }
 
   /// Unregister a focus node
@@ -132,7 +130,6 @@ class FocusManagementService extends ChangeNotifier {
     final info = _registeredNodes.remove(id);
     if (info != null) {
       _focusHistory.remove(id);
-      debugPrint('[FocusManagementService] Unregistered: $id');
     }
   }
 
@@ -141,7 +138,6 @@ class FocusManagementService extends ChangeNotifier {
       _currentFocusId = id;
       _addToHistory(id);
       notifyListeners();
-      debugPrint('[FocusManagementService] Focused: $id');
     }
   }
 
@@ -162,12 +158,10 @@ class FocusManagementService extends ChangeNotifier {
   bool requestFocus(String id) {
     final info = _registeredNodes[id];
     if (info == null) {
-      debugPrint('[FocusManagementService] Node not found: $id');
       return false;
     }
 
     if (!info.node.canRequestFocus) {
-      debugPrint('[FocusManagementService] Cannot request focus: $id');
       return false;
     }
 
@@ -253,7 +247,6 @@ class FocusManagementService extends ChangeNotifier {
     _restorationFocusId = _currentFocusId;
     _currentScope = scope;
     notifyListeners();
-    debugPrint('[FocusManagementService] Pushed scope: $scope');
   }
 
   /// Pop the current focus scope and restore previous focus
@@ -269,13 +262,11 @@ class FocusManagementService extends ChangeNotifier {
       _restorationFocusId = null;
     }
 
-    debugPrint('[FocusManagementService] Popped scope, now: $_currentScope');
   }
 
   /// Set focus restoration point (called before dialogs)
   void saveFocusRestoration() {
     _restorationFocusId = _currentFocusId;
-    debugPrint('[FocusManagementService] Saved restoration: $_restorationFocusId');
   }
 
   /// Restore focus to saved point
@@ -292,7 +283,6 @@ class FocusManagementService extends ChangeNotifier {
     FocusManager.instance.primaryFocus?.unfocus();
     _currentFocusId = null;
     notifyListeners();
-    debugPrint('[FocusManagementService] Focus cleared');
   }
 
   /// Get info about a registered node

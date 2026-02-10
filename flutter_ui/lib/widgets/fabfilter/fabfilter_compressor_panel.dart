@@ -300,10 +300,8 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
       _nodeId = compNode.id;
       _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       _initialized = true;
-      debugPrint('[FabFilterCompressor] ✅ Initialized via DspChainProvider (track=${widget.trackId}, slot=$_slotIndex)');
       _applyAllParameters();
     } else {
-      debugPrint('[FabFilterCompressor] ❌ Failed to initialize compressor for track ${widget.trackId}');
     }
   }
 

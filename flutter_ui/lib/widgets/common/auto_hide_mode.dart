@@ -214,9 +214,7 @@ class AutoHideModeProvider extends ChangeNotifier {
     if (json != null) {
       try {
         _config = AutoHideConfig.fromJson(jsonDecode(json) as Map<String, dynamic>);
-      } catch (e) {
-        debugPrint('[AutoHide] Load error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     _initialized = true;

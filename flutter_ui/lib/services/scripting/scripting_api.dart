@@ -273,7 +273,6 @@ class ScriptingApiService extends ChangeNotifier {
     _registerDefaultHandlers();
 
     _initialized = true;
-    debugPrint('[ScriptingApiService] Initialized');
   }
 
   void _registerDefaultHandlers() {
@@ -288,7 +287,6 @@ class ScriptingApiService extends ChangeNotifier {
     registerHandler(ScriptCommandType.log, (command, context) async {
       final message = command.args['message'] as String? ?? '';
       context.addLog(message);
-      debugPrint('[Script] $message');
     });
 
     // Trigger stage handler (placeholder - integrate with EventRegistry)

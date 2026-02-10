@@ -432,27 +432,20 @@ class _AppInitializerState extends State<_AppInitializer> {
       // Clipboard operations
       KeyboardCommand.copy: () {
         // Copy is handled via timeline provider selection
-        debugPrint('[Keyboard] Copy command');
       },
       KeyboardCommand.cut: () {
-        debugPrint('[Keyboard] Cut command');
       },
       KeyboardCommand.paste: () {
-        debugPrint('[Keyboard] Paste command');
       },
 
       // Edit operations
       KeyboardCommand.duplicate: () {
-        debugPrint('[Keyboard] Duplicate command');
       },
       KeyboardCommand.separate: () {
-        debugPrint('[Keyboard] Separate (split) command');
       },
       KeyboardCommand.joinClips: () {
-        debugPrint('[Keyboard] Join clips command');
       },
       KeyboardCommand.muteClip: () {
-        debugPrint('[Keyboard] Mute clip command');
       },
 
       // Undo/Redo
@@ -474,101 +467,68 @@ class _AppInitializerState extends State<_AppInitializer> {
 
       // Navigation
       KeyboardCommand.nextClip: () {
-        debugPrint('[Keyboard] Next clip command');
       },
       KeyboardCommand.previousClip: () {
-        debugPrint('[Keyboard] Previous clip command');
       },
       KeyboardCommand.nudgeLeft: () {
-        debugPrint('[Keyboard] Nudge left command');
       },
       KeyboardCommand.nudgeRight: () {
-        debugPrint('[Keyboard] Nudge right command');
       },
 
       // Tools
       KeyboardCommand.editTool: () {
-        debugPrint('[Keyboard] Edit tool selected');
       },
       KeyboardCommand.trimTool: () {
-        debugPrint('[Keyboard] Trim tool selected');
       },
       KeyboardCommand.fadeTool: () {
-        debugPrint('[Keyboard] Fade tool selected');
       },
       KeyboardCommand.zoomTool: () {
-        debugPrint('[Keyboard] Zoom tool selected');
       },
 
       // Grid/snap
       KeyboardCommand.gridToggle: () {
-        debugPrint('[Keyboard] Grid toggle command');
       },
       KeyboardCommand.quantize: () {
-        debugPrint('[Keyboard] Quantize command');
       },
 
       // Other edit operations
       KeyboardCommand.fadeBoth: () {
-        debugPrint('[Keyboard] Fade both command');
       },
       KeyboardCommand.healSeparation: () {
-        debugPrint('[Keyboard] Heal separation command');
       },
       KeyboardCommand.insertSilence: () {
-        debugPrint('[Keyboard] Insert silence command');
       },
       KeyboardCommand.trimEndToCursor: () {
-        debugPrint('[Keyboard] Trim end to cursor command');
       },
       KeyboardCommand.stripSilence: () {
-        debugPrint('[Keyboard] Strip silence command');
       },
       KeyboardCommand.renameClip: () {
-        debugPrint('[Keyboard] Rename clip command');
       },
 
       // Automation
       KeyboardCommand.toggleAutomation: () {
-        debugPrint('[Keyboard] Toggle automation command');
       },
 
       // Plugin
       KeyboardCommand.openPlugin: () {
-        debugPrint('[Keyboard] Open plugin command');
       },
 
       // Window
       KeyboardCommand.closeWindow: () {
-        debugPrint('[Keyboard] Close window command');
       },
 
       // Track selection (1-0 keys)
-      KeyboardCommand.selectTrack1: () => debugPrint('[Keyboard] Select track 1'),
-      KeyboardCommand.selectTrack2: () => debugPrint('[Keyboard] Select track 2'),
-      KeyboardCommand.selectTrack3: () => debugPrint('[Keyboard] Select track 3'),
-      KeyboardCommand.selectTrack4: () => debugPrint('[Keyboard] Select track 4'),
-      KeyboardCommand.selectTrack5: () => debugPrint('[Keyboard] Select track 5'),
-      KeyboardCommand.selectTrack6: () => debugPrint('[Keyboard] Select track 6'),
-      KeyboardCommand.selectTrack7: () => debugPrint('[Keyboard] Select track 7'),
-      KeyboardCommand.selectTrack8: () => debugPrint('[Keyboard] Select track 8'),
-      KeyboardCommand.selectTrack9: () => debugPrint('[Keyboard] Select track 9'),
-      KeyboardCommand.selectTrack10: () => debugPrint('[Keyboard] Select track 10'),
 
       // Vertical navigation
-      KeyboardCommand.nudgeUp: () => debugPrint('[Keyboard] Nudge up'),
-      KeyboardCommand.nudgeDown: () => debugPrint('[Keyboard] Nudge down'),
 
       // Record (delegated to recording provider when available)
       KeyboardCommand.record: () {
-        debugPrint('[Keyboard] Record command');
       },
 
       // Escape (handled by KeyboardFocusProvider itself)
       KeyboardCommand.escape: null,
     });
 
-    debugPrint('[Keyboard] Registered ${KeyboardCommand.values.length} keyboard handlers');
   }
 
   void _retry() {

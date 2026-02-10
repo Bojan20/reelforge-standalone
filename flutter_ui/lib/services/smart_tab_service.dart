@@ -160,9 +160,7 @@ class SmartTabService extends ChangeNotifier {
 
         // Rebuild stats
         _rebuildStats();
-      } catch (e) {
-        debugPrint('[SmartTabService] Failed to load history: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Load custom tab sets
@@ -172,9 +170,7 @@ class SmartTabService extends ChangeNotifier {
         final List<dynamic> decoded = jsonDecode(setsJson);
         _customTabSets.clear();
         _customTabSets.addAll(decoded.map((e) => TabSet.fromJson(e)));
-      } catch (e) {
-        debugPrint('[SmartTabService] Failed to load custom sets: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     notifyListeners();
@@ -361,8 +357,6 @@ class SmartTabService extends ChangeNotifier {
       // Save custom tab sets
       final setsJson = jsonEncode(_customTabSets.map((s) => s.toJson()).toList());
       await prefs.setString('custom_tab_sets', setsJson);
-    } catch (e) {
-      debugPrint('[SmartTabService] Failed to persist: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 }

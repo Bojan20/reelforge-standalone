@@ -646,7 +646,6 @@ class MixerProvider extends ChangeNotifier {
     // ✅ P0.3: Input validation
     final validationError = InputSanitizer.validateName(name);
     if (validationError != null) {
-      debugPrint('[MixerProvider] ❌ Invalid channel name: $validationError');
       throw ArgumentError('Invalid channel name: $validationError');
     }
 
@@ -672,7 +671,6 @@ class MixerProvider extends ChangeNotifier {
 
     _channels[id] = channel;
     _channelOrder.add(id); // Maintain order list
-    debugPrint('[MixerProvider] ✅ Created channel "$sanitizedName" (id: $id, engineTrack: $engineTrackId)');
     notifyListeners();
     return channel;
   }
@@ -690,7 +688,6 @@ class MixerProvider extends ChangeNotifier {
     // ✅ P0.3: Input validation
     final validationError = InputSanitizer.validateName(trackName);
     if (validationError != null) {
-      debugPrint('[MixerProvider] ❌ Invalid track name: $validationError');
       throw ArgumentError('Invalid track name: $validationError');
     }
 
@@ -862,7 +859,6 @@ class MixerProvider extends ChangeNotifier {
     // ✅ P0.3: Input validation
     final validationError = InputSanitizer.validateName(name);
     if (validationError != null) {
-      debugPrint('[MixerProvider] ❌ Invalid bus name: $validationError');
       throw ArgumentError('Invalid bus name: $validationError');
     }
 
@@ -880,7 +876,6 @@ class MixerProvider extends ChangeNotifier {
     );
 
     _buses[id] = bus;
-    debugPrint('[MixerProvider] ✅ Created bus "$sanitizedName" (id: $id)');
     notifyListeners();
     return bus;
   }
@@ -916,7 +911,6 @@ class MixerProvider extends ChangeNotifier {
     // ✅ P0.3: Input validation
     final validationError = InputSanitizer.validateName(name);
     if (validationError != null) {
-      debugPrint('[MixerProvider] ❌ Invalid aux name: $validationError');
       throw ArgumentError('Invalid aux name: $validationError');
     }
 
@@ -932,7 +926,6 @@ class MixerProvider extends ChangeNotifier {
     );
 
     _auxes[id] = aux;
-    debugPrint('[MixerProvider] ✅ Created aux "$sanitizedName" (id: $id)');
     notifyListeners();
     return aux;
   }
@@ -1580,7 +1573,6 @@ class MixerProvider extends ChangeNotifier {
 
     // ✅ P0.3: FFI bounds checking (NaN/Infinite protection)
     if (!FFIBoundsChecker.validateVolume(volume)) {
-      debugPrint('[MixerProvider] ❌ Invalid volume: $volume (NaN/Infinite/OutOfBounds)');
       return; // Abort instead of crashing
     }
 
@@ -1598,7 +1590,6 @@ class MixerProvider extends ChangeNotifier {
         if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
           engine.setTrackVolume(channel.trackIndex!, clampedVolume);
         } else {
-          debugPrint('[MixerProvider] ⚠️ Invalid trackIndex: ${channel.trackIndex}');
         }
       }
     } else if (_buses.containsKey(id)) {
@@ -1620,7 +1611,6 @@ class MixerProvider extends ChangeNotifier {
 
     // ✅ P0.3: FFI bounds checking (NaN/Infinite protection)
     if (!FFIBoundsChecker.validatePan(pan)) {
-      debugPrint('[MixerProvider] ❌ Invalid pan: $pan (NaN/Infinite/OutOfBounds)');
       return;
     }
 
@@ -1638,7 +1628,6 @@ class MixerProvider extends ChangeNotifier {
         if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
           engine.setTrackPan(channel.trackIndex!, clampedPan);
         } else {
-          debugPrint('[MixerProvider] ⚠️ Invalid trackIndex: ${channel.trackIndex}');
         }
       }
     } else if (_buses.containsKey(id)) {
@@ -1990,7 +1979,6 @@ class MixerProvider extends ChangeNotifier {
 
     // Send bypass state to Rust engine
     NativeFFI.instance.insertSetBypass(trackId, slotIndex, bypassed);
-    debugPrint('[MixerProvider] Set bypass=$bypassed on track $trackId slot $slotIndex');
 
     // Update UI state
     final inserts = List<InsertSlot>.from(channel.inserts);
@@ -2030,7 +2018,6 @@ class MixerProvider extends ChangeNotifier {
 
     // Unload processor from Rust engine
     NativeFFI.instance.insertUnloadSlot(trackId, slotIndex);
-    debugPrint('[MixerProvider] Unloaded processor from track $trackId slot $slotIndex');
 
     // Update UI state
     final inserts = List<InsertSlot>.from(channel.inserts);
@@ -2053,7 +2040,6 @@ class MixerProvider extends ChangeNotifier {
     // Map plugin ID to Rust processor name
     final processorName = _pluginIdToProcessorName(pluginId);
     if (processorName == null) {
-      debugPrint('[MixerProvider] Unknown plugin ID: $pluginId');
       return;
     }
 
@@ -2063,11 +2049,9 @@ class MixerProvider extends ChangeNotifier {
     // Load processor into the slot
     final result = NativeFFI.instance.insertLoadProcessor(trackId, slotIndex, processorName);
     if (result < 0) {
-      debugPrint('[MixerProvider] Failed to load processor $processorName into track $trackId slot $slotIndex (error: $result)');
       return;
     }
 
-    debugPrint('[MixerProvider] Loaded $processorName into track $trackId slot $slotIndex');
 
     // Update UI state
     final inserts = List<InsertSlot>.from(channel.inserts);

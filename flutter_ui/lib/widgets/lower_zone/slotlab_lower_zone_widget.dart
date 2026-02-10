@@ -1896,7 +1896,6 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   /// SL-RP-P1.1: Export event as JSON
   void _exportEventAsJson(SlotCompositeEvent event) {
     final json = event.toJson();
-    debugPrint('[SlotLab] Event JSON:\n$json');
     // Copy to clipboard
     Clipboard.setData(ClipboardData(text: json.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1917,7 +1916,6 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     }
     // For now just show paths, future: create ZIP bundle
     final paths = event.layers.map((l) => l.audioPath).join('\n');
-    debugPrint('[SlotLab] Audio paths for ${event.name}:\n$paths');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${event.layers.length} audio file(s) in ${event.name}'),
@@ -2967,7 +2965,6 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       return;
     }
     // TODO: Implement actual stem export via offline rendering
-    debugPrint('[SlotLab] Exporting stems: ${_selectedStemBusIds.join(', ')}');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Exporting ${_selectedStemBusIds.length} stems...')),
     );
@@ -3468,7 +3465,6 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           // Export stages to JSON
           final stages = slotLab?.lastStages ?? [];
           if (stages.isNotEmpty) {
-            debugPrint('[SlotLab] Exporting ${stages.length} stages...');
             // TODO: Show export dialog
           }
         },

@@ -417,9 +417,7 @@ class EditModeProProvider extends ChangeNotifier {
       };
 
       ffi.editModeSet(modeIndex);
-    } catch (e) {
-      debugPrint('Failed to sync edit mode to engine: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Set mode by index (0=Shuffle, 1=Slip, 2=Spot, 3=Grid)
@@ -473,9 +471,7 @@ class EditModeProProvider extends ChangeNotifier {
       };
 
       ffi.editModeSetGridResolution(resIndex);
-    } catch (e) {
-      debugPrint('Failed to sync grid resolution to engine: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Toggle grid on/off
@@ -495,9 +491,7 @@ class EditModeProProvider extends ChangeNotifier {
         if (ffi.isLoaded) {
           ffi.editModeSetGridEnabled(enabled);
         }
-      } catch (e) {
-        debugPrint('Failed to sync grid enabled to engine: $e');
-      }
+      } catch (e) { /* ignored */ }
 
       notifyListeners();
     }

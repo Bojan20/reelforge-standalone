@@ -759,8 +759,6 @@ class GddImportService {
       final symbols = generateSymbolDefinitions(gdd);
       final warnings = _validateGdd(gdd);
 
-      debugPrint('[GddImportService] Imported GDD: ${gdd.name}');
-      debugPrint('[GddImportService] Generated ${stages.length} stages, ${symbols.length} symbols');
 
       return GddImportResult(
         gdd: gdd,
@@ -769,7 +767,6 @@ class GddImportService {
         warnings: warnings,
       );
     } catch (e) {
-      debugPrint('[GddImportService] JSON parse error: $e');
       return GddImportResult(
         gdd: const GameDesignDocument(
           name: 'Error',
@@ -789,7 +786,6 @@ class GddImportService {
   /// Parse GDD from plain text (PDF extraction)
   /// Extracts game configuration using regex patterns
   GddImportResult? _parseFromText(String text) {
-    debugPrint('[GddImportService] Parsing plain text (${text.length} chars)');
 
     final warnings = <String>[];
     final textLower = text.toLowerCase();
@@ -1285,13 +1281,6 @@ class GddImportService {
     final validationWarnings = _validateGdd(gdd);
     warnings.addAll(validationWarnings);
 
-    debugPrint('[GddImportService] Text parse complete:');
-    debugPrint('  - Name: $gameName');
-    debugPrint('  - Grid: ${reels}x$rows ($mechanic)');
-    debugPrint('  - RTP: ${(rtp * 100).toStringAsFixed(2)}%');
-    debugPrint('  - Symbols: ${symbols.length}');
-    debugPrint('  - Features: ${features.length}');
-    debugPrint('  - Stages: ${stages.length}');
 
     return GddImportResult(
       gdd: gdd,

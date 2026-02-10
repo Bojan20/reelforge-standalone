@@ -370,9 +370,6 @@ class SessionArchiveService {
 
       onProgress?.call(1.0, 'Complete!');
 
-      debugPrint('[SessionArchive] Created archive: $outputPath');
-      debugPrint(
-          '[SessionArchive] Files: ${filesToArchive.length}, Size: ${_formatSize(zipData.length)}');
 
       return SessionArchiveResult.success(
         archivePath: outputPath,
@@ -385,7 +382,6 @@ class SessionArchiveService {
         skippedFiles: skippedFiles,
       );
     } catch (e) {
-      debugPrint('[SessionArchive] Error: $e');
       return SessionArchiveResult.failure('Archive creation failed: $e');
     }
   }
@@ -462,7 +458,6 @@ class SessionArchiveService {
         compressedSizeBytes: bytes.length,
       );
     } catch (e) {
-      debugPrint('[SessionArchive] Extraction error: $e');
       return SessionArchiveResult.failure('Extraction failed: $e');
     }
   }
@@ -492,7 +487,7 @@ class SessionArchiveService {
               final jsonStr = utf8.decode(file.content as List<int>);
               manifest = SessionArchiveManifest.fromJson(
                   json.decode(jsonStr) as Map<String, dynamic>);
-            } catch (_) {}
+            } catch (_) { /* ignored */ }
           } else if (_audioExtensions.contains(ext)) {
             audioCount++;
           } else if (_presetExtensions.contains(ext)) {
@@ -515,7 +510,6 @@ class SessionArchiveService {
         'project_name': manifest?.projectName,
       };
     } catch (e) {
-      debugPrint('[SessionArchive] Info error: $e');
       return null;
     }
   }

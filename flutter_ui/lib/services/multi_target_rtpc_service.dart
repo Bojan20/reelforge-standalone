@@ -190,8 +190,6 @@ class MultiTargetRtpcService extends ChangeNotifier {
   /// Register a multi-target RTPC
   void registerMultiTarget(MultiTargetRtpc config) {
     _multiTargets[config.rtpcId] = config;
-    debugPrint(
-        '[MultiTargetRTPC] Registered ${config.name} with ${config.targets.length} targets');
     notifyListeners();
   }
 
@@ -211,8 +209,6 @@ class MultiTargetRtpcService extends ChangeNotifier {
     final config = _multiTargets[rtpcId];
     if (config == null || !config.enabled) return;
 
-    debugPrint(
-        '[MultiTargetRTPC] Updated ${config.name} = ${value.toStringAsFixed(3)}');
     notifyListeners();
   }
 

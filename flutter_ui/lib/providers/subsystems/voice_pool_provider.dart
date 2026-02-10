@@ -113,9 +113,7 @@ class VoicePoolProvider extends ChangeNotifier {
       }
 
       notifyListeners();
-    } catch (e) {
-      debugPrint('[VoicePoolProvider] FFI sync error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

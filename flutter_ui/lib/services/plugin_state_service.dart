@@ -68,7 +68,6 @@ class PluginStateService {
     _projectDir = projectDir;
     _manifest = PluginManifest(projectName: projectName ?? path.basename(projectDir));
     _stateCache.clear();
-    debugPrint('[PluginStateService] Initialized for project: $projectDir');
   }
 
   /// Reset service state
@@ -93,7 +92,6 @@ class PluginStateService {
   /// Store plugin state in cache
   void cacheState(int trackId, int slotIndex, PluginStateChunk chunk) {
     _stateCache[_cacheKey(trackId, slotIndex)] = chunk;
-    debugPrint('[PluginStateService] Cached state for track $trackId, slot $slotIndex');
   }
 
   /// Get plugin state from cache
@@ -141,10 +139,8 @@ class PluginStateService {
       final bytes = chunk.toBytes();
       await File(filePath).writeAsBytes(bytes);
 
-      debugPrint('[PluginStateService] Saved state to: $filePath (${bytes.length} bytes)');
       return true;
     } catch (e) {
-      debugPrint('[PluginStateService] Failed to save state: $e');
       return false;
     }
   }
@@ -162,10 +158,8 @@ class PluginStateService {
       final bytes = await file.readAsBytes();
       final chunk = PluginStateChunk.fromBytes(Uint8List.fromList(bytes));
 
-      debugPrint('[PluginStateService] Loaded state from: $filePath');
       return chunk;
     } catch (e) {
-      debugPrint('[PluginStateService] Failed to load state: $e');
       return null;
     }
   }
@@ -180,7 +174,6 @@ class PluginStateService {
       }
       return false;
     } catch (e) {
-      debugPrint('[PluginStateService] Failed to delete state file: $e');
       return false;
     }
   }
@@ -208,10 +201,8 @@ class PluginStateService {
       final json = _manifest!.toJsonString();
       await File(_manifestPath).writeAsString(json);
 
-      debugPrint('[PluginStateService] Saved manifest: ${_manifest!.plugins.length} plugins');
       return true;
     } catch (e) {
-      debugPrint('[PluginStateService] Failed to save manifest: $e');
       return false;
     }
   }
@@ -221,17 +212,14 @@ class PluginStateService {
     try {
       final file = File(_manifestPath);
       if (!await file.exists()) {
-        debugPrint('[PluginStateService] No manifest file found');
         return false;
       }
 
       final json = await file.readAsString();
       _manifest = PluginManifest.fromJsonString(json);
 
-      debugPrint('[PluginStateService] Loaded manifest: ${_manifest!.plugins.length} plugins');
       return true;
     } catch (e) {
-      debugPrint('[PluginStateService] Failed to load manifest: $e');
       return false;
     }
   }
@@ -244,7 +232,6 @@ class PluginStateService {
   void registerPlugin(PluginReference plugin) {
     if (_manifest == null) return;
     _manifest!.addPlugin(plugin);
-    debugPrint('[PluginStateService] Registered plugin: ${plugin.name} (${plugin.uid})');
   }
 
   /// Get registered plugin by UID
@@ -257,7 +244,6 @@ class PluginStateService {
     final plugin = _manifest?.getPlugin(uid);
     if (plugin != null) {
       plugin.isInstalled = isInstalled;
-      debugPrint('[PluginStateService] Updated plugin status: ${plugin.name} installed=$isInstalled');
     }
   }
 
@@ -295,7 +281,6 @@ class PluginStateService {
       final stateData = await _getPluginStateFromFFI(ffi, trackId, slotIndex);
 
       if (stateData == null || stateData.isEmpty) {
-        debugPrint('[PluginStateService] No state data from FFI for track $trackId, slot $slotIndex');
         return null;
       }
 
@@ -325,7 +310,6 @@ class PluginStateService {
 
       return chunk;
     } catch (e) {
-      debugPrint('[PluginStateService] Failed to capture state: $e');
       return null;
     }
   }
@@ -343,7 +327,6 @@ class PluginStateService {
       chunk ??= await loadStateFromFile(trackId, slotIndex);
 
       if (chunk == null) {
-        debugPrint('[PluginStateService] No state found for track $trackId, slot $slotIndex');
         return false;
       }
 
@@ -352,12 +335,10 @@ class PluginStateService {
       final success = await _setPluginStateToFFI(ffi, trackId, slotIndex, chunk);
 
       if (success) {
-        debugPrint('[PluginStateService] Restored state for track $trackId, slot $slotIndex');
       }
 
       return success;
     } catch (e) {
-      debugPrint('[PluginStateService] Failed to restore state: $e');
       return false;
     }
   }
@@ -373,11 +354,9 @@ class PluginStateService {
     try {
       final data = ffi.pluginStateGet(trackId, slotIndex);
       if (data != null) {
-        debugPrint('[PluginStateService] Got ${data.length} bytes from FFI for track $trackId, slot $slotIndex');
       }
       return data;
     } catch (e) {
-      debugPrint('[PluginStateService] FFI getPluginState failed: $e');
       return null;
     }
   }
@@ -401,11 +380,9 @@ class PluginStateService {
         presetName: chunk.presetName,
       );
       if (success) {
-        debugPrint('[PluginStateService] Stored ${chunk.stateData.length} bytes to FFI for track $trackId, slot $slotIndex');
       }
       return success;
     } catch (e) {
-      debugPrint('[PluginStateService] FFI setPluginState failed: $e');
       return false;
     }
   }
@@ -416,7 +393,6 @@ class PluginStateService {
       final ffi = sl<NativeFFI>();
       return ffi.pluginStateSaveToFile(trackId, slotIndex, filePath);
     } catch (e) {
-      debugPrint('[PluginStateService] FFI saveStateToFile failed: $e');
       return false;
     }
   }
@@ -427,7 +403,6 @@ class PluginStateService {
       final ffi = sl<NativeFFI>();
       return ffi.pluginStateLoadFromFile(trackId, slotIndex, filePath);
     } catch (e) {
-      debugPrint('[PluginStateService] FFI loadStateFromFile failed: $e');
       return false;
     }
   }
@@ -447,10 +422,7 @@ class PluginStateService {
     try {
       final ffi = sl<NativeFFI>();
       ffi.pluginStateClearAll();
-      debugPrint('[PluginStateService] Cleared FFI state cache');
-    } catch (e) {
-      debugPrint('[PluginStateService] FFI clearAll failed: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get all states info from FFI as JSON
@@ -518,10 +490,8 @@ class PluginStateService {
         }
       }
 
-      debugPrint('[PluginStateService] Exported states to: $outputDir');
       return true;
     } catch (e) {
-      debugPrint('[PluginStateService] Failed to export states: $e');
       return false;
     }
   }
@@ -546,10 +516,8 @@ class PluginStateService {
         }
       }
 
-      debugPrint('[PluginStateService] Imported $count states from: $inputDir');
       return count;
     } catch (e) {
-      debugPrint('[PluginStateService] Failed to import states: $e');
       return 0;
     }
   }
@@ -570,9 +538,7 @@ class PluginStateService {
   void importManifestJson(Map<String, dynamic> json) {
     try {
       _manifest = PluginManifest.fromJson(json);
-      debugPrint('[PluginStateService] Imported manifest with ${_manifest!.plugins.length} plugins');
     } catch (e) {
-      debugPrint('[PluginStateService] Failed to import manifest: $e');
       _manifest = PluginManifest(projectName: _manifest?.projectName ?? 'Unknown');
     }
   }
@@ -583,6 +549,5 @@ class PluginStateService {
   /// Clear manifest and start fresh
   void clearManifest() {
     _manifest = PluginManifest(projectName: _manifest?.projectName ?? 'New Project');
-    debugPrint('[PluginStateService] Manifest cleared');
   }
 }

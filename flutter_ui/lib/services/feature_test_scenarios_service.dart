@@ -357,7 +357,6 @@ class FeatureTestScenariosService extends ChangeNotifier {
   /// Run a scenario by triggering its stages with timing
   Future<ScenarioValidationResult> runScenario(TestScenario scenario) async {
     if (_runningScenario != null) {
-      debugPrint('[FeatureTestScenarios] Already running a scenario');
       return ScenarioValidationResult(
         scenarioId: scenario.id,
         passed: false,
@@ -371,7 +370,6 @@ class FeatureTestScenariosService extends ChangeNotifier {
     _triggeredStages.clear();
     notifyListeners();
 
-    debugPrint('[FeatureTestScenarios] Starting scenario: ${scenario.name}');
 
     int successfulSteps = 0;
 
@@ -392,10 +390,7 @@ class FeatureTestScenariosService extends ChangeNotifier {
         onTriggerStage?.call(step.stageName, step.payload);
         _triggeredStages.add(step.stageName);
         successfulSteps++;
-        debugPrint('[FeatureTestScenarios] Step $i: ${step.stageName}');
-      } catch (e) {
-        debugPrint('[FeatureTestScenarios] Step $i failed: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Calculate missing stages
@@ -409,7 +404,6 @@ class FeatureTestScenariosService extends ChangeNotifier {
     _currentStepIndex = -1;
     notifyListeners();
 
-    debugPrint('[FeatureTestScenarios] Scenario complete: ${passed ? 'PASSED' : 'FAILED'}');
 
     return ScenarioValidationResult(
       scenarioId: scenario.id,
@@ -425,7 +419,6 @@ class FeatureTestScenariosService extends ChangeNotifier {
   void cancelScenario() {
     if (_runningScenario != null) {
       _isCancelled = true;
-      debugPrint('[FeatureTestScenarios] Scenario cancelled');
     }
   }
 

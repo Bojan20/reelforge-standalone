@@ -46,15 +46,12 @@ class BusAutoConfigurator {
     for (final bus in buses) {
       try {
         busProvider.addBus(bus);
-      } catch (e) {
-        debugPrint('[BusAutoConfigurator] ⚠️ Failed to add bus ${bus.name}: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Apply template-specific bus settings
     _applyBusSettings(template, busProvider);
 
-    debugPrint('[BusAutoConfigurator] Configured ${buses.length} buses');
     return buses.length;
   }
 

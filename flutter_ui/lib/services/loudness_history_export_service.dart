@@ -171,15 +171,12 @@ class LoudnessHistoryExportService {
       final file = File(outputPath);
       await file.writeAsString(content);
 
-      debugPrint(
-          '[LoudnessExport] Exported ${filteredHistory.length} records to: $outputPath');
 
       return LoudnessExportResult.success(
         filePath: outputPath,
         recordCount: filteredHistory.length,
       );
     } catch (e) {
-      debugPrint('[LoudnessExport] Error: $e');
       return LoudnessExportResult.failure('Export failed: $e');
     }
   }

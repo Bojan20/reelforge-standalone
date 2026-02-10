@@ -60,7 +60,6 @@ class SessionPersistenceService {
 
     // Get or create session directory
     _sessionDirectory = await _getSessionDirectory();
-    debugPrint('[SessionPersistence] Session directory: $_sessionDirectory');
 
     // Start autosave timer
     _startAutosave();
@@ -72,7 +71,6 @@ class SessionPersistenceService {
   /// Connect SlotLabProjectProvider after init (for late binding)
   void connectSlotLabProject(SlotLabProjectProvider provider) {
     _slotLabProject = provider;
-    debugPrint('[SessionPersistence] SlotLabProjectProvider connected');
   }
 
   /// Get session directory path
@@ -93,7 +91,6 @@ class SessionPersistenceService {
     final dir = Directory(sessionDir);
     if (!await dir.exists()) {
       await dir.create(recursive: true);
-      debugPrint('[SessionPersistence] Created session directory: $sessionDir');
     }
 
     return sessionDir;
@@ -107,7 +104,6 @@ class SessionPersistenceService {
         saveSession();
       }
     });
-    debugPrint('[SessionPersistence] Autosave started (interval: ${autosaveInterval.inSeconds}s)');
   }
 
   /// Mark session as dirty (needs saving)
@@ -122,7 +118,6 @@ class SessionPersistenceService {
   /// Save all session data to disk
   Future<bool> saveSession() async {
     if (_sessionDirectory == null || _middleware == null || _slotLab == null) {
-      debugPrint('[SessionPersistence] Cannot save: not initialized');
       return false;
     }
 
@@ -144,10 +139,8 @@ class SessionPersistenceService {
 
       _isDirty = false;
       _lastSave = DateTime.now();
-      debugPrint('[SessionPersistence] Session saved at ${_lastSave!.toIso8601String()}');
       return true;
     } catch (e) {
-      debugPrint('[SessionPersistence] Save failed: $e');
       return false;
     }
   }
@@ -169,7 +162,6 @@ class SessionPersistenceService {
 
     final jsonString = const JsonEncoder.withIndent('  ').convert(json);
     await File(filePath).writeAsString(jsonString);
-    debugPrint('[SessionPersistence] Saved composite events: $filePath');
   }
 
   Future<void> _saveAudioPool() async {
@@ -184,7 +176,6 @@ class SessionPersistenceService {
 
     final jsonString = const JsonEncoder.withIndent('  ').convert(json);
     await File(filePath).writeAsString(jsonString);
-    debugPrint('[SessionPersistence] Saved audio pool (${audioPool.length} files): $filePath');
   }
 
   Future<void> _saveEventRegistry() async {
@@ -225,12 +216,10 @@ class SessionPersistenceService {
 
     final jsonString = const JsonEncoder.withIndent('  ').convert(json);
     await File(filePath).writeAsString(jsonString);
-    debugPrint('[SessionPersistence] Saved event registry (${events.length} events): $filePath');
   }
 
   Future<void> _saveSymbolConfig() async {
     if (_slotLabProject == null) {
-      debugPrint('[SessionPersistence] Skipping symbol config save: SlotLabProjectProvider not connected');
       return;
     }
 
@@ -260,7 +249,6 @@ class SessionPersistenceService {
 
     final jsonString = const JsonEncoder.withIndent('  ').convert(json);
     await File(filePath).writeAsString(jsonString);
-    debugPrint('[SessionPersistence] Saved symbol config (${symbols.length} symbols): $filePath');
   }
 
   Future<void> _saveStageConfig() async {
@@ -295,7 +283,6 @@ class SessionPersistenceService {
 
     final jsonString = const JsonEncoder.withIndent('  ').convert(json);
     await File(filePath).writeAsString(jsonString);
-    debugPrint('[SessionPersistence] Saved stage config (${customStages.length} custom stages): $filePath');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -305,7 +292,6 @@ class SessionPersistenceService {
   /// Load all session data from disk
   Future<bool> loadSession() async {
     if (_sessionDirectory == null || _middleware == null || _slotLab == null) {
-      debugPrint('[SessionPersistence] Cannot load: not initialized');
       return false;
     }
 
@@ -326,10 +312,8 @@ class SessionPersistenceService {
       await _loadEventRegistry();
 
       _isDirty = false;
-      debugPrint('[SessionPersistence] Session loaded');
       return true;
     } catch (e) {
-      debugPrint('[SessionPersistence] Load failed: $e');
       return false;
     }
   }
@@ -339,7 +323,6 @@ class SessionPersistenceService {
     final file = File(filePath);
 
     if (!await file.exists()) {
-      debugPrint('[SessionPersistence] No session file found: $filePath');
       return;
     }
 
@@ -361,10 +344,7 @@ class SessionPersistenceService {
       }
 
       final lastSaved = json['lastSaved'] as String?;
-      debugPrint('[SessionPersistence] Loaded composite events (last saved: $lastSaved)');
-    } catch (e) {
-      debugPrint('[SessionPersistence] Failed to load composite events: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _loadAudioPool() async {
@@ -372,7 +352,6 @@ class SessionPersistenceService {
     final file = File(filePath);
 
     if (!await file.exists()) {
-      debugPrint('[SessionPersistence] No audio pool file found: $filePath');
       return;
     }
 
@@ -388,10 +367,7 @@ class SessionPersistenceService {
         }
       }
 
-      debugPrint('[SessionPersistence] Loaded audio pool (${audioFiles?.length ?? 0} files)');
-    } catch (e) {
-      debugPrint('[SessionPersistence] Failed to load audio pool: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _loadEventRegistry() async {
@@ -399,7 +375,6 @@ class SessionPersistenceService {
     final file = File(filePath);
 
     if (!await file.exists()) {
-      debugPrint('[SessionPersistence] No event registry file found: $filePath');
       return;
     }
 
@@ -411,15 +386,11 @@ class SessionPersistenceService {
       eventRegistry.loadFromJson(json);
 
       final events = json['events'] as List<dynamic>?;
-      debugPrint('[SessionPersistence] Loaded event registry (${events?.length ?? 0} events)');
-    } catch (e) {
-      debugPrint('[SessionPersistence] Failed to load event registry: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _loadSymbolConfig() async {
     if (_slotLabProject == null) {
-      debugPrint('[SessionPersistence] Skipping symbol config load: SlotLabProjectProvider not connected');
       return;
     }
 
@@ -427,7 +398,6 @@ class SessionPersistenceService {
     final file = File(filePath);
 
     if (!await file.exists()) {
-      debugPrint('[SessionPersistence] No symbol config file found: $filePath');
       return;
     }
 
@@ -460,11 +430,8 @@ class SessionPersistenceService {
 
         // Replace symbols in provider (this will trigger stage sync)
         _slotLabProject!.replaceSymbols(symbols);
-        debugPrint('[SessionPersistence] Loaded symbol config (${symbols.length} symbols)');
       }
-    } catch (e) {
-      debugPrint('[SessionPersistence] Failed to load symbol config: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _loadStageConfig() async {
@@ -472,7 +439,6 @@ class SessionPersistenceService {
     final file = File(filePath);
 
     if (!await file.exists()) {
-      debugPrint('[SessionPersistence] No stage config file found: $filePath');
       return;
     }
 
@@ -486,10 +452,7 @@ class SessionPersistenceService {
       // recreated automatically via SlotLabProjectProvider._syncSymbolStages()
 
       final customStages = json['customStages'] as List<dynamic>?;
-      debugPrint('[SessionPersistence] Stage config loaded (${customStages?.length ?? 0} custom stages recorded)');
-    } catch (e) {
-      debugPrint('[SessionPersistence] Failed to load stage config: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -523,10 +486,8 @@ class SessionPersistenceService {
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(exportData);
       await File(filePath).writeAsString(jsonString);
-      debugPrint('[SessionPersistence] Exported session to: $filePath');
       return true;
     } catch (e) {
-      debugPrint('[SessionPersistence] Export failed: $e');
       return false;
     }
   }
@@ -538,7 +499,6 @@ class SessionPersistenceService {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        debugPrint('[SessionPersistence] Import file not found: $filePath');
         return false;
       }
 
@@ -569,10 +529,8 @@ class SessionPersistenceService {
         eventRegistry.loadFromJson({'events': events});
       }
 
-      debugPrint('[SessionPersistence] Imported session from: $filePath');
       return true;
     } catch (e) {
-      debugPrint('[SessionPersistence] Import failed: $e');
       return false;
     }
   }
@@ -644,10 +602,8 @@ class SessionPersistenceService {
       }
 
       await File(filePath).writeAsString(buffer.toString());
-      debugPrint('[SessionPersistence] Exported CSV to: $filePath');
       return true;
     } catch (e) {
-      debugPrint('[SessionPersistence] CSV export failed: $e');
       return false;
     }
   }
@@ -700,10 +656,8 @@ class SessionPersistenceService {
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(exportData);
       await File(filePath).writeAsString(jsonString);
-      debugPrint('[SessionPersistence] Exported timeline to: $filePath');
       return true;
     } catch (e) {
-      debugPrint('[SessionPersistence] Timeline export failed: $e');
       return false;
     }
   }
@@ -724,7 +678,6 @@ class SessionPersistenceService {
     _slotLab?.persistedAudioPool.clear();
     // Note: eventRegistry doesn't have clearAll, would need to iterate
     _isDirty = false;
-    debugPrint('[SessionPersistence] Session cleared');
   }
 
   /// Delete all session files from disk
@@ -735,11 +688,8 @@ class SessionPersistenceService {
       final dir = Directory(_sessionDirectory!);
       if (await dir.exists()) {
         await dir.delete(recursive: true);
-        debugPrint('[SessionPersistence] Deleted session directory: $_sessionDirectory');
       }
-    } catch (e) {
-      debugPrint('[SessionPersistence] Failed to delete session: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -172,10 +172,7 @@ class VideoProvider extends ChangeNotifier {
         _videoClip!.frameRate, // One thumbnail per second
       );
 
-      debugPrint('Generated $count thumbnails for video clip $clipId');
-    } catch (e) {
-      debugPrint('Failed to generate thumbnails: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Remove video
@@ -186,9 +183,7 @@ class VideoProvider extends ChangeNotifier {
       if (ffi.isLoaded) {
         ffi.videoClearAll();
       }
-    } catch (e) {
-      debugPrint('Failed to clear video engine: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     _videoClip = null;
     _currentFrame = null;
@@ -293,9 +288,7 @@ class VideoProvider extends ChangeNotifier {
         final samples = ((_currentTime + _syncOffset) * sampleRate).toInt();
         ffi.videoSetPlayhead(samples);
       }
-    } catch (e) {
-      debugPrint('Failed to sync video playhead: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     notifyListeners();
 
@@ -387,9 +380,7 @@ class VideoProvider extends ChangeNotifier {
         _currentFrame = result.data;
         notifyListeners();
       }
-    } catch (e) {
-      debugPrint('Failed to update preview frame: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

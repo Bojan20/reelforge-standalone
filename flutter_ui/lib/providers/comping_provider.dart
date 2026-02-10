@@ -174,9 +174,7 @@ class CompingProvider extends ChangeNotifier {
       final ffi = NativeFFI.instance;
       if (!ffi.isLoaded) return;
       ffi.compingCreateLane(trackId);
-    } catch (e) {
-      debugPrint('Failed to sync lane to engine: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Delete a lane
@@ -232,9 +230,7 @@ class CompingProvider extends ChangeNotifier {
       final ffi = NativeFFI.instance;
       if (!ffi.isLoaded) return;
       ffi.compingSetActiveLane(trackId, index);
-    } catch (e) {
-      debugPrint('Failed to sync active lane to engine: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Toggle lane mute
@@ -366,9 +362,7 @@ class CompingProvider extends ChangeNotifier {
       final ffi = NativeFFI.instance;
       if (!ffi.isLoaded) return;
       ffi.compingAddTake(trackId, sourcePath, startTime, duration);
-    } catch (e) {
-      debugPrint('Failed to sync take to engine: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Delete a take
@@ -511,9 +505,7 @@ class CompingProvider extends ChangeNotifier {
       final ffi = NativeFFI.instance;
       if (!ffi.isLoaded) return;
       ffi.compingCreateRegion(trackId, takeId, startTime, endTime);
-    } catch (e) {
-      debugPrint('Failed to sync comp region to engine: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Delete a comp region
@@ -614,9 +606,7 @@ class CompingProvider extends ChangeNotifier {
         CompMode.auditAll => 2,
       };
       ffi.compingSetMode(trackId, modeIndex);
-    } catch (e) {
-      debugPrint('Failed to sync comp mode to engine: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Toggle between single and comp mode

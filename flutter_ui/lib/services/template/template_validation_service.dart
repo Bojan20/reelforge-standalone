@@ -129,7 +129,6 @@ class TemplateValidationService {
       timestamp: DateTime.now(),
     );
 
-    debugPrint('[TemplateValidationService] ${report.summary}');
     return report;
   }
 

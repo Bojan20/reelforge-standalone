@@ -148,7 +148,6 @@ class SlotEngineProvider extends ChangeNotifier {
   /// Initialize the slot engine
   bool initialize({bool audioTestMode = false}) {
     if (_initialized) {
-      debugPrint('[SlotEngineProvider] Already initialized');
       return true;
     }
 
@@ -165,10 +164,8 @@ class SlotEngineProvider extends ChangeNotifier {
       AudioPool.instance.configure(AudioPoolConfig.slotLabConfig);
       AudioPool.instance.preloadSlotLabEvents();
 
-      debugPrint('[SlotEngineProvider] Engine initialized (audioTest: $audioTestMode)');
       notifyListeners();
     } else {
-      debugPrint('[SlotEngineProvider] Failed to initialize engine');
     }
 
     return success;
@@ -184,7 +181,6 @@ class SlotEngineProvider extends ChangeNotifier {
     _lastStages = [];
     _stats = null;
     _spinCount = 0;
-    debugPrint('[SlotEngineProvider] Engine shutdown');
     notifyListeners();
   }
 
@@ -227,12 +223,8 @@ class SlotEngineProvider extends ChangeNotifier {
     if (_timingConfig != null) {
       _anticipationPreTriggerMs = _timingConfig!.anticipationAudioPreTriggerMs.round();
       _reelStopPreTriggerMs = _timingConfig!.reelStopAudioPreTriggerMs.round();
-      debugPrint('[SlotEngineProvider] Timing config loaded: '
-          'latency=${_timingConfig!.audioLatencyCompensationMs}ms, '
-          'syncOffset=${_timingConfig!.visualAudioSyncOffsetMs}ms');
     } else {
       _timingConfig = SlotLabTimingConfig.studio();
-      debugPrint('[SlotEngineProvider] Using default studio timing config');
     }
   }
 
@@ -281,14 +273,12 @@ class SlotEngineProvider extends ChangeNotifier {
   /// Enable/disable P5 win tier evaluation
   void setUseP5WinTier(bool enabled) {
     _useP5WinTier = enabled;
-    debugPrint('[SlotEngineProvider] P5 Win Tier mode: ${enabled ? "ENABLED" : "DISABLED"}');
     notifyListeners();
   }
 
   /// Set anticipation pre-trigger offset in ms
   void setAnticipationPreTriggerMs(int ms) {
     _anticipationPreTriggerMs = ms.clamp(0, 200);
-    debugPrint('[SlotEngineProvider] Anticipation pre-trigger: ${_anticipationPreTriggerMs}ms');
     notifyListeners();
   }
 
@@ -296,7 +286,6 @@ class SlotEngineProvider extends ChangeNotifier {
   void seedRng(int seed) {
     if (_initialized) {
       _ffi.slotLabSeedRng(seed);
-      debugPrint('[SlotEngineProvider] RNG seeded: $seed');
     }
   }
 
@@ -317,7 +306,6 @@ class SlotEngineProvider extends ChangeNotifier {
     if (reels != _totalReels || rows != _totalRows) {
       _totalReels = reels;
       _totalRows = rows;
-      debugPrint('[SlotEngineProvider] Grid updated: ${reels}x$rows');
 
       if (_initialized) {
         _reinitializeEngine();
@@ -330,10 +318,7 @@ class SlotEngineProvider extends ChangeNotifier {
   /// Reinitialize the Rust engine with current configuration
   void _reinitializeEngine() {
     try {
-      debugPrint('[SlotEngineProvider] Engine will use new grid on next spin');
-    } catch (e) {
-      debugPrint('[SlotEngineProvider] Engine reinitialization error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -399,10 +384,8 @@ class SlotEngineProvider extends ChangeNotifier {
 
   /// Execute a random spin
   Future<SlotLabSpinResult?> spin() async {
-    debugPrint('[SlotEngineProvider] spin() called: initialized=$_initialized, isSpinning=$_isSpinning');
 
     if (!_initialized || _isSpinning) {
-      debugPrint('[SlotEngineProvider] spin() BLOCKED');
       return null;
     }
 
@@ -412,18 +395,14 @@ class SlotEngineProvider extends ChangeNotifier {
     try {
       final int spinId;
       if (_engineV2Initialized) {
-        debugPrint('[SlotEngineProvider] Calling FFI slotLabV2Spin()...');
         spinId = _ffi.slotLabV2Spin();
       } else if (_useP5WinTier) {
-        debugPrint('[SlotEngineProvider] Calling FFI slotLabSpinP5()...');
         spinId = _ffi.slotLabSpinP5();
       } else {
-        debugPrint('[SlotEngineProvider] Calling FFI slotLabSpin()...');
         spinId = _ffi.slotLabSpin();
       }
 
       if (spinId == 0) {
-        debugPrint('[SlotEngineProvider] spinId=0, aborting');
         _isSpinning = false;
         notifyListeners();
         return null;
@@ -447,7 +426,6 @@ class SlotEngineProvider extends ChangeNotifier {
 
       final win = _lastResult?.totalWin ?? 0;
       final isWin = _lastResult?.isWin ?? false;
-      debugPrint('[Spin #$_spinCount] ${isWin ? "WIN \$${win.toStringAsFixed(2)}" : "no win"} | ${_lastStages.length} stages');
 
       // Notify coordinator to trigger stage playback
       if (_lastResult != null) {
@@ -458,7 +436,6 @@ class SlotEngineProvider extends ChangeNotifier {
       notifyListeners();
       return _lastResult;
     } catch (e) {
-      debugPrint('[SlotEngineProvider] Spin error: $e');
       _isSpinning = false;
       notifyListeners();
       return null;
@@ -504,7 +481,6 @@ class SlotEngineProvider extends ChangeNotifier {
 
       final win = _lastResult?.totalWin ?? 0;
       final isWin = _lastResult?.isWin ?? false;
-      debugPrint('[Spin #$_spinCount ${outcome.name}] ${isWin ? "WIN \$${win.toStringAsFixed(2)}" : "no win"} | ${_lastStages.length} stages');
 
       if (_lastResult != null) {
         onSpinComplete?.call(_lastResult!, _lastStages);
@@ -514,7 +490,6 @@ class SlotEngineProvider extends ChangeNotifier {
       notifyListeners();
       return _lastResult;
     } catch (e) {
-      debugPrint('[SlotEngineProvider] Forced spin error: $e');
       _isSpinning = false;
       notifyListeners();
       return null;
@@ -532,12 +507,10 @@ class SlotEngineProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      debugPrint('[SlotEngineProvider] spinForcedWithMultiplier: ${outcome.name} @ ${targetMultiplier}x');
 
       final int spinId = _ffi.slotLabSpinForcedWithMultiplier(outcome, targetMultiplier);
 
       if (spinId == 0) {
-        debugPrint('[SlotEngineProvider] spinForcedWithMultiplier FAILED: spinId=0');
         _isSpinning = false;
         notifyListeners();
         return null;
@@ -555,8 +528,6 @@ class SlotEngineProvider extends ChangeNotifier {
       final win = _lastResult?.totalWin ?? 0;
       final isWin = _lastResult?.isWin ?? false;
       final tierName = _lastResult?.winTierName ?? 'unknown';
-      debugPrint('[Spin #$_spinCount ${outcome.name}@${targetMultiplier}x] '
-          '${isWin ? "WIN \$${win.toStringAsFixed(2)} ($tierName)" : "no win"} | ${_lastStages.length} stages');
 
       if (_lastResult != null) {
         onSpinComplete?.call(_lastResult!, _lastStages);
@@ -566,7 +537,6 @@ class SlotEngineProvider extends ChangeNotifier {
       notifyListeners();
       return _lastResult;
     } catch (e) {
-      debugPrint('[SlotEngineProvider] spinForcedWithMultiplier error: $e');
       _isSpinning = false;
       notifyListeners();
       return null;
@@ -605,7 +575,6 @@ class SlotEngineProvider extends ChangeNotifier {
       _engineV2Initialized = true;
       _currentGameModel = _ffi.slotLabV2GetModel();
       _refreshScenarioList();
-      debugPrint('[SlotEngineProvider] Engine V2 initialized');
       notifyListeners();
     }
     return success;
@@ -623,7 +592,6 @@ class SlotEngineProvider extends ChangeNotifier {
       _engineV2Initialized = true;
       _currentGameModel = _ffi.slotLabV2GetModel();
       _refreshScenarioList();
-      debugPrint('[SlotEngineProvider] Engine V2 initialized from GDD');
       notifyListeners();
     }
     return success;
@@ -649,11 +617,9 @@ class SlotEngineProvider extends ChangeNotifier {
       final newReels = newGrid?['reels'] as int? ?? 5;
 
       if (newReels != oldReels) {
-        debugPrint('[SlotEngineProvider] Grid changed: $oldReels -> $newReels reels');
         onGridDimensionsChanged?.call(newReels);
       }
 
-      debugPrint('[SlotEngineProvider] Game model updated');
       notifyListeners();
     }
     return success;
@@ -692,7 +658,6 @@ class SlotEngineProvider extends ChangeNotifier {
     final success = _ffi.slotLabScenarioLoad(scenarioId);
     if (success) {
       _loadedScenarioId = scenarioId;
-      debugPrint('[SlotEngineProvider] Loaded scenario: $scenarioId');
       notifyListeners();
     }
     return success;
@@ -711,7 +676,6 @@ class SlotEngineProvider extends ChangeNotifier {
     final success = _ffi.slotLabScenarioRegister(jsonStr);
     if (success) {
       _refreshScenarioList();
-      debugPrint('[SlotEngineProvider] Registered custom scenario');
       notifyListeners();
     }
     return success;
@@ -723,7 +687,6 @@ class SlotEngineProvider extends ChangeNotifier {
     final success = _ffi.slotLabScenarioRegister(jsonStr);
     if (success) {
       _refreshScenarioList();
-      debugPrint('[SlotEngineProvider] Registered scenario: ${scenario.id}');
       notifyListeners();
     }
     return success;

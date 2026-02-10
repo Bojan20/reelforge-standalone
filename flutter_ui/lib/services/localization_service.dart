@@ -110,7 +110,6 @@ class LocalizationService extends ChangeNotifier {
     );
 
     if (!isSupported) {
-      debugPrint('[Localization] Unsupported locale: $locale');
       return;
     }
 
@@ -121,7 +120,6 @@ class LocalizationService extends ChangeNotifier {
     _currentLocale = locale;
     await _prefs?.setString(_prefsKey, locale.languageCode);
 
-    debugPrint('[Localization] Changed to: ${locale.languageCode}');
     notifyListeners();
   }
 

@@ -398,7 +398,6 @@ class PluginSandboxService {
     );
 
     _sandboxes[sandboxId] = state;
-    debugPrint('[PluginSandbox] Created sandbox: $sandboxId for $pluginName');
 
     return state;
   }
@@ -421,7 +420,6 @@ class PluginSandboxService {
   void removeSandbox(String sandboxId) {
     final state = _sandboxes.remove(sandboxId);
     if (state != null) {
-      debugPrint('[PluginSandbox] Removed sandbox: $sandboxId');
     }
   }
 
@@ -439,7 +437,6 @@ class PluginSandboxService {
     }
 
     if (!state.canRestart) {
-      debugPrint('[PluginSandbox] Cannot restart $sandboxId - max crashes reached or in cooldown');
       return false;
     }
 
@@ -454,13 +451,11 @@ class PluginSandboxService {
       state.errorMessage = null;
 
       _eventController.add(PluginStartedEvent(sandboxId));
-      debugPrint('[PluginSandbox] Started plugin: ${state.pluginName}');
 
       return true;
     } catch (e) {
       state.recordCrash(e.toString());
       _eventController.add(PluginCrashedEvent(sandboxId, e.toString(), state.crashCount));
-      debugPrint('[PluginSandbox] Failed to start plugin: $e');
       return false;
     }
   }
@@ -486,11 +481,9 @@ class PluginSandboxService {
       await _simulatePluginStop(state);
 
       state.status = PluginSandboxStatus.unloaded;
-      debugPrint('[PluginSandbox] Stopped plugin: ${state.pluginName}');
 
       return true;
     } catch (e) {
-      debugPrint('[PluginSandbox] Error stopping plugin: $e');
       state.status = PluginSandboxStatus.unloaded;
       return false;
     }
@@ -501,7 +494,6 @@ class PluginSandboxService {
     final state = _sandboxes[sandboxId];
     if (state == null) return;
 
-    debugPrint('[PluginSandbox] Killing plugin $sandboxId: $reason');
 
     // Force stop without waiting
     state.status = PluginSandboxStatus.killed;
@@ -521,11 +513,9 @@ class PluginSandboxService {
     }
 
     if (!state.canRestart) {
-      debugPrint('[PluginSandbox] Cannot recover $sandboxId - max crashes reached or in cooldown');
       return false;
     }
 
-    debugPrint('[PluginSandbox] Attempting recovery for ${state.pluginName}');
 
     // Try to restart
     final started = await startPlugin(sandboxId);
@@ -538,7 +528,6 @@ class PluginSandboxService {
     }
 
     _eventController.add(PluginRecoveredEvent(sandboxId, stateRestored));
-    debugPrint('[PluginSandbox] Recovered plugin: ${state.pluginName}, state restored: $stateRestored');
 
     return true;
   }
@@ -557,7 +546,6 @@ class PluginSandboxService {
       (_) => _monitorSandboxes(),
     );
 
-    debugPrint('[PluginSandbox] Started monitoring (interval: ${_monitorIntervalMs}ms)');
   }
 
   /// Stop monitoring
@@ -565,7 +553,6 @@ class PluginSandboxService {
     _monitorTimer?.cancel();
     _monitorTimer = null;
     _monitoringActive = false;
-    debugPrint('[PluginSandbox] Stopped monitoring');
   }
 
   void _monitorSandboxes() {
@@ -577,7 +564,6 @@ class PluginSandboxService {
         final elapsed = DateTime.now().difference(state.lastActivityTime).inMilliseconds;
         state.status = PluginSandboxStatus.unresponsive;
         _eventController.add(PluginUnresponsiveEvent(state.sandboxId, elapsed));
-        debugPrint('[PluginSandbox] Plugin unresponsive: ${state.pluginName} (${elapsed}ms)');
         continue;
       }
 
@@ -614,7 +600,6 @@ class PluginSandboxService {
         state.preservedState = await _capturePluginState(state.sandboxId);
       }
     }
-    debugPrint('[PluginSandbox] Preserved state for ${_sandboxes.length} plugins');
   }
 
   /// Update metrics for a sandbox (called from audio thread proxy)
@@ -695,7 +680,6 @@ class PluginSandboxService {
       await stopPlugin(sandboxId, preserveState: false);
     }
     _sandboxes.clear();
-    debugPrint('[PluginSandbox] Cleared all sandboxes');
   }
 
   /// Dispose the service

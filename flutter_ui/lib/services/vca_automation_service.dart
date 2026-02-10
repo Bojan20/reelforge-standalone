@@ -217,7 +217,6 @@ class VcaAutomationService {
     _recordingStartTime = DateTime.now();
     _recordingPoints = [];
 
-    debugPrint('[VcaAutomation] Started recording for VCA: $vcaId');
     _notifyListeners();
   }
 
@@ -255,7 +254,6 @@ class VcaAutomationService {
     _recordingPoints = [];
 
     if (points.isEmpty) {
-      debugPrint('[VcaAutomation] Stopped recording with no points');
       _notifyListeners();
       return null;
     }
@@ -271,8 +269,6 @@ class VcaAutomationService {
 
     _lanes[laneId] = lane;
 
-    debugPrint(
-        '[VcaAutomation] Stopped recording: ${points.length} points captured');
     _notifyListeners();
 
     return lane;
@@ -296,7 +292,6 @@ class VcaAutomationService {
 
     final vcaLanes = getLanesForVca(vcaId).where((l) => l.enabled).toList();
     if (vcaLanes.isEmpty) {
-      debugPrint('[VcaAutomation] No enabled lanes for VCA: $vcaId');
       return;
     }
 
@@ -310,7 +305,6 @@ class VcaAutomationService {
       (timer) => _updatePlayback(vcaId, vcaLanes),
     );
 
-    debugPrint('[VcaAutomation] Started playback for VCA: $vcaId');
     _notifyListeners();
   }
 
@@ -350,7 +344,6 @@ class VcaAutomationService {
     _isPlaying = false;
     _playbackPositionMs = 0;
 
-    debugPrint('[VcaAutomation] Stopped playback');
     _notifyListeners();
   }
 

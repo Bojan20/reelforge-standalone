@@ -69,9 +69,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
         _timeSigDenom = 4;
         _sampleRate = 48000;
       }
-    } catch (e) {
-      debugPrint('Error loading project info: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     setState(() => _isLoading = false);
   }

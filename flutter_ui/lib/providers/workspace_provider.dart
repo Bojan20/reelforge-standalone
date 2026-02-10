@@ -333,7 +333,6 @@ class WorkspaceProvider extends ChangeNotifier {
       _initialized = true;
       notifyListeners();
     } catch (e) {
-      debugPrint('Failed to load workspaces: $e');
       _workspaces = [...BuiltInWorkspaces.all];
       _currentWorkspace = BuiltInWorkspaces.mixing;
       _currentLayout = _currentWorkspace!.layout;
@@ -475,9 +474,7 @@ class WorkspaceProvider extends ChangeNotifier {
       if (_currentWorkspace != null) {
         await prefs.setString(_currentKey, _currentWorkspace!.id);
       }
-    } catch (e) {
-      debugPrint('Failed to save workspaces: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ═══════════════════════════════════════════════════════════════════════

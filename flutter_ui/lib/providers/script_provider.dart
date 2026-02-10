@@ -97,7 +97,6 @@ class ScriptProvider extends ChangeNotifier {
       _isInitialized = true;
       _loadBuiltinScripts();
       notifyListeners();
-      debugPrint('[ScriptProvider] Script engine initialized');
     }
     return result;
   }

@@ -208,7 +208,6 @@ class ContainerEvaluationLogger {
 
     // Debug print
     if (kDebugMode) {
-      debugPrint('[ContainerEval] ${log.summary}');
     }
   }
 
@@ -268,9 +267,7 @@ class ContainerEvaluationLogger {
 
         _notifyListeners();
       }
-    } catch (e) {
-      debugPrint('[ContainerEvaluationLogger] Import error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get statistics

@@ -178,9 +178,7 @@ class TouchPenModeProvider extends ChangeNotifier {
           )),
         );
         _config = TouchPenConfig.fromJson(map);
-      } catch (e) {
-        debugPrint('[TouchPenMode] Load error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     _initialized = true;

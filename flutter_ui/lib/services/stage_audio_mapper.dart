@@ -88,8 +88,6 @@ class StageAudioMapper {
       );
     }
 
-    debugPrint('[StageAudioMapper] Initialized ${events.length} slot events, '
-        '${rtpcs.length} RTPCs, ${stateGroups.length} state groups');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -130,7 +128,6 @@ class StageAudioMapper {
     }
 
     if (userEvents.isNotEmpty) {
-      debugPrint('[StageAudioMapper] Stage ${stage.typeName} triggered ${userEvents.length} user events');
     }
   }
 
@@ -151,7 +148,6 @@ class StageAudioMapper {
     // Trigger via middleware - use composite event ID directly
     final playingId = _middleware.playCompositeEvent(compositeEvent.id, source: _source);
 
-    debugPrint('[StageAudioMapper] Triggered composite: ${compositeEvent.name} (id: ${compositeEvent.id}, playingId: $playingId) for ${stage.typeName}');
   }
 
   /// Map a Stage to one or more event IDs
@@ -392,7 +388,6 @@ class StageAudioMapper {
   }
 
   List<String> _handleUnknownStage(Stage stage) {
-    debugPrint('[StageAudioMapper] Unknown stage: ${stage.typeName}');
     return [];
   }
 
@@ -434,7 +429,6 @@ class StageAudioMapper {
   void _triggerEvent(String eventId, Stage stage, StagePayload payload) {
     final event = _slotEvents[eventId];
     if (event == null) {
-      debugPrint('[StageAudioMapper] Event not found: $eventId');
       return;
     }
 
@@ -458,7 +452,6 @@ class StageAudioMapper {
       trackLoop(eventId, playingId);
     }
 
-    debugPrint('[StageAudioMapper] Triggered: $eventId (playingId: $playingId) for ${stage.typeName}');
   }
 
   /// Check if an event contains looping sounds

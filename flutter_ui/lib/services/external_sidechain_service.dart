@@ -242,7 +242,6 @@ class ExternalSidechainService {
     if (_initialized) return;
     _initialized = true;
     _updateAvailableSources();
-    debugPrint('[ExternalSidechain] Initialized');
   }
 
   /// Check if initialized
@@ -296,7 +295,6 @@ class ExternalSidechainService {
     _syncConfigurationToEngine(config);
 
     _notifyListeners();
-    debugPrint('[ExternalSidechain] Created config ${config.id} for processor $processorId');
     return config;
   }
 
@@ -323,7 +321,6 @@ class ExternalSidechainService {
       });
 
       _notifyListeners();
-      debugPrint('[ExternalSidechain] Removed config $configId');
     }
   }
 
@@ -527,7 +524,6 @@ class ExternalSidechainService {
     _monitoringProcessorId = enable ? config.processorId : -1;
 
     _notifyListeners();
-    debugPrint('[ExternalSidechain] Monitor ${enable ? "enabled" : "disabled"} for config $configId');
   }
 
   /// Check if monitoring is enabled for any processor
@@ -595,7 +591,6 @@ class ExternalSidechainService {
         sourceId: sourceId,
         destProcessorId: destProcessorId,
       );
-      debugPrint('[ExternalSidechain] Created route $routeId: $sourceId → $destProcessorId');
     }
   }
 
@@ -603,7 +598,6 @@ class ExternalSidechainService {
   void removeRoute(int routeId) {
     if (_ffi.sidechainRemoveRoute(routeId)) {
       _routes.remove(routeId);
-      debugPrint('[ExternalSidechain] Removed route $routeId');
     }
   }
 
@@ -628,7 +622,6 @@ class ExternalSidechainService {
       _ffi.sidechainCreateInput(config.processorId);
       _syncConfigurationToEngine(config);
     }
-    debugPrint('[ExternalSidechain] Synced ${_configurations.length} configurations to engine');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -681,7 +674,6 @@ class ExternalSidechainService {
     syncAllToEngine();
 
     _notifyListeners();
-    debugPrint('[ExternalSidechain] Loaded ${_configurations.length} configurations from JSON');
   }
 
   /// Clear all configurations

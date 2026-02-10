@@ -93,17 +93,14 @@ class AleLayer {
   static bool _validateAssetPath(String path) {
     if (path.isEmpty) return true; // Empty allowed (placeholder)
     if (path.contains('..')) {
-      debugPrint('[AleLayer] ⛔ SECURITY: Path traversal blocked: $path');
       return false;
     }
     if (path.contains('\x00')) {
-      debugPrint('[AleLayer] ⛔ SECURITY: Null byte blocked: $path');
       return false;
     }
     final lowerPath = path.toLowerCase();
     final hasValidExt = _allowedAudioExtensions.any((ext) => lowerPath.endsWith(ext));
     if (!hasValidExt && path.isNotEmpty) {
-      debugPrint('[AleLayer] ⚠️ Invalid audio extension: $path');
       return false;
     }
     return true;
@@ -114,7 +111,6 @@ class AleLayer {
 
     // P1.2 SECURITY: Validate asset path
     if (!_validateAssetPath(assetId)) {
-      debugPrint('[AleLayer] ⛔ Blocked invalid asset, using empty path');
       return AleLayer(
         index: json['index'] as int? ?? 0,
         assetId: '', // Sanitized
@@ -612,7 +608,6 @@ class AleProvider extends ChangeNotifier {
   /// Initialize ALE engine
   bool initialize() {
     if (_initialized) {
-      debugPrint('[AleProvider] Already initialized');
       return true;
     }
 
@@ -620,10 +615,8 @@ class AleProvider extends ChangeNotifier {
     if (success) {
       _initialized = true;
       _refreshState();
-      debugPrint('[AleProvider] Engine initialized');
       notifyListeners();
     } else {
-      debugPrint('[AleProvider] Failed to initialize engine');
     }
 
     return success;
@@ -640,7 +633,6 @@ class AleProvider extends ChangeNotifier {
     _profile = null;
     _state = const AleEngineState();
     _currentSignals = {};
-    debugPrint('[AleProvider] Engine shutdown');
     notifyListeners();
   }
 
@@ -659,10 +651,8 @@ class AleProvider extends ChangeNotifier {
         final data = jsonDecode(json) as Map<String, dynamic>;
         _profile = AleProfile.fromJson(data);
         _refreshState();
-        debugPrint('[AleProvider] Profile loaded: ${_profile?.gameName ?? "unnamed"}');
         notifyListeners();
       } catch (e) {
-        debugPrint('[AleProvider] Failed to parse profile: $e');
         return false;
       }
     }
@@ -710,7 +700,6 @@ class AleProvider extends ChangeNotifier {
     final success = _ffi.aleEnterContext(contextId, transitionId);
     if (success) {
       _refreshState();
-      debugPrint('[AleProvider] Entered context: $contextId');
       notifyListeners();
     }
 
@@ -724,7 +713,6 @@ class AleProvider extends ChangeNotifier {
     final success = _ffi.aleExitContext(transitionId);
     if (success) {
       _refreshState();
-      debugPrint('[AleProvider] Exited context');
       notifyListeners();
     }
 
@@ -790,7 +778,6 @@ class AleProvider extends ChangeNotifier {
     // P2.1 FIX: Clamp level to valid range to prevent invalid state
     final clampedLevel = level.clamp(kMinLevel, kMaxLevel);
     if (clampedLevel != level) {
-      debugPrint('[ALE] Level clamped: $level → $clampedLevel');
     }
 
     final success = _ffi.aleSetLevel(clampedLevel);
@@ -853,10 +840,8 @@ class AleProvider extends ChangeNotifier {
           stability: config,
         );
       }
-      debugPrint('[AleProvider] Stability config updated');
       notifyListeners();
     } else {
-      debugPrint('[AleProvider] Failed to update stability config');
     }
 
     return success;
@@ -898,14 +883,12 @@ class AleProvider extends ChangeNotifier {
     _tickTimer = Timer.periodic(Duration(milliseconds: intervalMs), (_) {
       tick();
     });
-    debugPrint('[AleProvider] Tick loop started (${intervalMs}ms)');
   }
 
   /// Stop automatic tick loop
   void stopTickLoop() {
     _tickTimer?.cancel();
     _tickTimer = null;
-    debugPrint('[AleProvider] Tick loop stopped');
   }
 
   /// Manual tick - call this from audio callback or timer
@@ -940,7 +923,6 @@ class AleProvider extends ChangeNotifier {
       _state = AleEngineState.fromJson(data);
       return true;
     } catch (e) {
-      debugPrint('[AleProvider] Failed to parse state: $e');
       return false;
     }
   }

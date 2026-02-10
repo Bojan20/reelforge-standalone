@@ -317,7 +317,6 @@ class _MainLayoutState extends State<MainLayout>
     // In DAW mode: toggles playback
     // In Middleware mode: triggers event preview (handled by callback)
     if (key == LogicalKeyboardKey.space) {
-      debugPrint('[MainLayout] SPACE pressed, editorMode=${widget.editorMode}, onPlay=${widget.onPlay != null}');
       if (widget.editorMode == EditorMode.daw || widget.editorMode == EditorMode.middleware) {
         widget.onPlay?.call();
         return KeyEventResult.handled;

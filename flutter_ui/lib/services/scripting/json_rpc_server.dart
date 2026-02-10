@@ -50,11 +50,9 @@ class JsonRpcServer {
       _server = await HttpServer.bind(InternetAddress.loopbackIPv4, _port);
       _isRunning = true;
 
-      debugPrint('[JsonRpcServer] Started on http://localhost:$_port');
 
       _server!.listen(_handleRequest);
     } catch (e) {
-      debugPrint('[JsonRpcServer] Failed to start: $e');
       rethrow;
     }
   }
@@ -67,7 +65,6 @@ class JsonRpcServer {
     _server = null;
     _isRunning = false;
 
-    debugPrint('[JsonRpcServer] Stopped');
   }
 
   /// Handle incoming HTTP request

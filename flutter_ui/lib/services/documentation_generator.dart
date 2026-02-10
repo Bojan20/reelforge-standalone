@@ -339,7 +339,7 @@ class DocumentationGenerator {
         final content = await cargoToml.readAsString();
         final descMatch = RegExp(r'description\s*=\s*"([^"]+)"').firstMatch(content);
         description = descMatch?.group(1);
-      } catch (_) {}
+      } catch (_) { /* ignored */ }
 
       entries.add(DocEntry(
         name: crateName,
@@ -395,7 +395,7 @@ class DocumentationGenerator {
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { /* ignored */ }
     }
   }
 

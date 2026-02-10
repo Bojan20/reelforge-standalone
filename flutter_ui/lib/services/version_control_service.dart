@@ -222,14 +222,14 @@ class VersionControlService {
     try {
       final branchResult = await _runGit(['rev-parse', '--abbrev-ref', 'HEAD']);
       branch = branchResult.trim();
-    } catch (_) {}
+    } catch (_) { /* ignored */ }
 
     // Get remote URL
     String? remote;
     try {
       final remoteResult = await _runGit(['remote', 'get-url', 'origin']);
       remote = remoteResult.trim();
-    } catch (_) {}
+    } catch (_) { /* ignored */ }
 
     // Get status counts
     int uncommitted = 0;
@@ -238,7 +238,7 @@ class VersionControlService {
       final status = await getStatus();
       uncommitted = status.where((s) => s.status != GitFileStatus.untracked).length;
       untracked = status.where((s) => s.status == GitFileStatus.untracked).length;
-    } catch (_) {}
+    } catch (_) { /* ignored */ }
 
     return GitRepoInfo(
       path: _repoPath!,
@@ -363,7 +363,7 @@ class VersionControlService {
       if (line.isEmpty) continue;
       try {
         commits.add(GitCommit.fromLog(line));
-      } catch (_) {}
+      } catch (_) { /* ignored */ }
     }
 
     return commits;

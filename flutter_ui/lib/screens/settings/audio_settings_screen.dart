@@ -113,9 +113,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
       _selectedInputDevice = _currentSettings?.inputDevice;
       _selectedSampleRate = _currentSettings?.sampleRate ?? 48000;
       _selectedBufferSize = _currentSettings?.bufferSize ?? 256;
-    } catch (e) {
-      debugPrint('Error loading devices: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     setState(() => _isLoading = false);
   }
@@ -128,7 +126,6 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
     // Call Rust to switch device
     final success = api.audioSetOutputDevice(deviceName);
     if (!success) {
-      debugPrint('Failed to set output device: $deviceName');
       // Show rich error from Rust
       if (mounted) {
         final error = api.getLastAppError();
@@ -163,7 +160,6 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
     // Call Rust to switch input device
     final success = api.audioSetInputDevice(deviceName);
     if (!success) {
-      debugPrint('Failed to set input device: $deviceName');
       if (mounted) {
         final error = api.getLastAppError();
         if (error != null) {
@@ -188,7 +184,6 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
     // Call Rust to set sample rate
     final success = api.audioSetSampleRate(rate);
     if (!success) {
-      debugPrint('Failed to set sample rate: $rate');
       if (mounted) {
         final error = api.getLastAppError();
         if (error != null) {
@@ -213,7 +208,6 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
     // Call Rust to set buffer size
     final success = api.audioSetBufferSize(size);
     if (!success) {
-      debugPrint('Failed to set buffer size: $size');
       if (mounted) {
         final error = api.getLastAppError();
         if (error != null) {

@@ -226,14 +226,12 @@ class ParallelProcessingService extends ChangeNotifier {
         _timeOnB[trackId] = Duration.zero;
         _switchCounts[trackId] = 0;
 
-        debugPrint('[ParallelProcessing] Enabled for track $trackId');
       } else if (!enable && _configs.containsKey(trackId)) {
         // Finalize comparison and disable
         _finalizeComparison(trackId);
         _configs.remove(trackId);
         _cleanupTracking(trackId);
 
-        debugPrint('[ParallelProcessing] Disabled for track $trackId');
       } else if (enable && _configs.containsKey(trackId)) {
         // Just update enabled state
         _configs[trackId] = _configs[trackId]!.copyWith(enabled: true);
@@ -242,7 +240,6 @@ class ParallelProcessingService extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('[ParallelProcessing] Error: $e');
       return false;
     }
   }
@@ -277,10 +274,8 @@ class ParallelProcessingService extends ChangeNotifier {
       onChainSwitched?.call(trackId, chain);
       notifyListeners();
 
-      debugPrint('[ParallelProcessing] Track $trackId switched to $chain');
       return true;
     } catch (e) {
-      debugPrint('[ParallelProcessing] Switch error: $e');
       return false;
     }
   }
@@ -316,7 +311,6 @@ class ParallelProcessingService extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('[ParallelProcessing] Blend error: $e');
       return false;
     }
   }
@@ -335,7 +329,6 @@ class ParallelProcessingService extends ChangeNotifier {
     );
 
     notifyListeners();
-    debugPrint('[ParallelProcessing] Copied A → B for track $trackId');
     return true;
   }
 
@@ -349,7 +342,6 @@ class ParallelProcessingService extends ChangeNotifier {
     );
 
     notifyListeners();
-    debugPrint('[ParallelProcessing] Copied B → A for track $trackId');
     return true;
   }
 
@@ -364,7 +356,6 @@ class ParallelProcessingService extends ChangeNotifier {
     );
 
     notifyListeners();
-    debugPrint('[ParallelProcessing] Swapped A ↔ B for track $trackId');
     return true;
   }
 

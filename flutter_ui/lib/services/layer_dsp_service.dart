@@ -407,13 +407,11 @@ class LayerDspService extends ChangeNotifier {
   /// Validate a DSP chain (check max processors, parameter ranges)
   bool validateChain(List<LayerDspNode> chain) {
     if (chain.length > maxProcessorsPerLayer) {
-      debugPrint('[LayerDsp] Chain exceeds max processors: ${chain.length} > $maxProcessorsPerLayer');
       return false;
     }
 
     for (final node in chain) {
       if (!_validateNodeParams(node)) {
-        debugPrint('[LayerDsp] Invalid parameters for node: ${node.type.name}');
         return false;
       }
     }
@@ -462,7 +460,6 @@ class LayerDspService extends ChangeNotifier {
     if (chain.isEmpty) return true;
 
     if (!validateChain(chain)) {
-      debugPrint('[LayerDsp] Invalid chain for layer $layerId');
       return false;
     }
 
@@ -480,7 +477,6 @@ class LayerDspService extends ChangeNotifier {
       final result = _ffi.insertLoadProcessor(virtualTrackId, loadedCount, processorName);
 
       if (result < 0) {
-        debugPrint('[LayerDsp] Failed to load processor ${node.type.name} for layer $layerId');
         continue;
       }
 
@@ -493,13 +489,11 @@ class LayerDspService extends ChangeNotifier {
       _applyNodeParameters(virtualTrackId, loadedCount, node);
 
       loadedCount++;
-      debugPrint('[LayerDsp] Loaded ${node.type.name} for layer $layerId (slot $loadedCount)');
     }
 
     _activeLayerDsp[layerId] = loadedCount;
     notifyListeners();
 
-    debugPrint('[LayerDsp] ✅ Loaded $loadedCount processors for layer $layerId');
     return true;
   }
 
@@ -518,7 +512,6 @@ class LayerDspService extends ChangeNotifier {
     _activeLayerDsp.remove(layerId);
     notifyListeners();
 
-    debugPrint('[LayerDsp] Unloaded $count processors for layer $layerId');
   }
 
   /// Apply node parameters to loaded processor
@@ -598,7 +591,6 @@ class LayerDspService extends ChangeNotifier {
     if (paramIndex < 0) return;
 
     _ffi.insertSetParam(virtualTrackId, nodeIndex, paramIndex, value);
-    debugPrint('[LayerDsp] Updated $paramName=$value for layer $layerId node $nodeIndex');
   }
 
   /// Get parameter index for a given param name and type
@@ -666,7 +658,6 @@ class LayerDspService extends ChangeNotifier {
     for (final layerId in layerIds) {
       unloadChainForLayer(layerId);
     }
-    debugPrint('[LayerDsp] Unloaded all layer DSP');
   }
 
   /// Get stats

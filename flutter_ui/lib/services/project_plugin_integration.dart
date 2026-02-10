@@ -38,7 +38,6 @@ class ProjectPluginIntegration {
   Future<Map<String, dynamic>> captureAllPluginStates({
     required List<PluginSlotState> pluginSlots,
   }) async {
-    debugPrint('[ProjectPluginIntegration] Capturing ${pluginSlots.length} plugin states');
 
     for (final slot in pluginSlots) {
       try {
@@ -48,9 +47,7 @@ class ProjectPluginIntegration {
           plugin: slot.plugin,
           presetName: slot.presetName,
         );
-      } catch (e) {
-        debugPrint('[ProjectPluginIntegration] Failed to capture state for ${slot.plugin.name}: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Return manifest JSON
@@ -78,7 +75,6 @@ class ProjectPluginIntegration {
       );
 
       if (success) {
-        debugPrint('[ProjectPluginIntegration] Saved state to: $filename');
       }
     }
   }
@@ -112,9 +108,6 @@ class ProjectPluginIntegration {
     // Detect missing plugins
     final report = await _detector.detectMissingPlugins(manifest);
 
-    debugPrint('[ProjectPluginIntegration] Plugin report: '
-        '${report.installedPlugins}/${report.totalPlugins} installed, '
-        '${report.missingCount} missing');
 
     return report;
   }
@@ -129,7 +122,6 @@ class ProjectPluginIntegration {
     final dir = Directory(statesDir);
 
     if (!await dir.exists()) {
-      debugPrint('[ProjectPluginIntegration] No states directory found');
       return 0;
     }
 
@@ -155,7 +147,6 @@ class ProjectPluginIntegration {
 
       if (success) {
         loadedCount++;
-        debugPrint('[ProjectPluginIntegration] Loaded state from: $filename');
       }
     }
 
@@ -171,7 +162,6 @@ class ProjectPluginIntegration {
     for (final slot in pluginSlots) {
       // Check if plugin is installed
       if (!_detector.isPluginInstalled(slot.plugin)) {
-        debugPrint('[ProjectPluginIntegration] Skipping ${slot.plugin.name} (not installed)');
         continue;
       }
 
@@ -181,7 +171,6 @@ class ProjectPluginIntegration {
       );
 
       if (success) {
-        debugPrint('[ProjectPluginIntegration] Restored state for ${slot.plugin.name}');
       }
     }
   }

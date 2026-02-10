@@ -344,11 +344,9 @@ class AutoSpatialProvider extends ChangeNotifier {
       if (NativeFFI.instance.isLoaded) {
         _ffiAvailable = NativeFFI.instance.autoSpatialInit();
         if (_ffiAvailable) {
-          debugPrint('[AutoSpatialProvider] Rust FFI spatial engine initialized');
         }
       }
     } catch (e) {
-      debugPrint('[AutoSpatialProvider] FFI init failed: $e');
       _ffiAvailable = false;
     }
 
@@ -937,9 +935,7 @@ class AutoSpatialProvider extends ChangeNotifier {
       }
 
       notifyListeners();
-    } catch (e) {
-      debugPrint('[AutoSpatialProvider] Failed to import rules: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // === CLEANUP ===

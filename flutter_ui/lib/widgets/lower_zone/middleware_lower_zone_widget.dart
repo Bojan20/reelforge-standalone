@@ -1476,22 +1476,13 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
 
     // Build comprehensive parameter strip for selected layer
     Widget? parameterStrip;
-    debugPrint('[MW-DEBUG] 🔍 Building action strip...');
-    debugPrint('[MW-DEBUG]   middleware != null: ${middleware != null}');
-    debugPrint('[MW-DEBUG]   superTab: ${widget.controller.superTab}');
-    debugPrint('[MW-DEBUG]   isEvents: ${widget.controller.superTab == MiddlewareSuperTab.events}');
 
     if (middleware != null && widget.controller.superTab == MiddlewareSuperTab.events) {
       final selectedEvent = middleware.selectedCompositeEvent;
-      debugPrint('[MW-DEBUG]   selectedEvent: ${selectedEvent?.name ?? "NULL"}');
-      debugPrint('[MW-DEBUG]   layers count: ${selectedEvent?.layers.length ?? 0}');
 
       if (selectedEvent != null && selectedEvent.layers.isNotEmpty) {
         // Get first layer or selected layer
         final layer = selectedEvent.layers.first;
-        debugPrint('[MW-DEBUG] ✅ Building parameter strip for layer: ${layer.id}');
-        debugPrint('[MW-DEBUG]   layer.pan = ${layer.pan}');
-        debugPrint('[MW-DEBUG]   layer.volume = ${layer.volume}');
 
         parameterStrip = _buildLayerParameterStrip(
           layer: layer,
@@ -1504,10 +1495,8 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
           },
         );
       } else {
-        debugPrint('[MW-DEBUG] ❌ No parameter strip - event null or no layers');
       }
     } else {
-      debugPrint('[MW-DEBUG] ❌ No parameter strip - not on EVENTS tab or no middleware');
     }
 
     final actions = switch (widget.controller.superTab) {
@@ -1581,10 +1570,8 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
                 }
                 break;
               case MiddlewareContainersSubTab.switchTab:
-                debugPrint('[Middleware] Switch containers not yet supported');
                 break;
             }
-            debugPrint('[Middleware] Added $name to $subTab container');
           }
         },
         onBalance: () {
@@ -1593,14 +1580,12 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
             final container = middleware.randomContainers.first;
             if (container.children.isNotEmpty) {
               final equalWeight = 1.0 / container.children.length;
-              debugPrint('[Middleware] Would balance ${container.children.length} children to $equalWeight each');
             }
           }
         },
         onShuffle: () {
           // Shuffle order in sequence container
           if (middleware != null && middleware.sequenceContainers.isNotEmpty) {
-            debugPrint('[Middleware] Would shuffle sequence steps');
           }
         },
         onTest: () {
@@ -1610,21 +1595,17 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
             switch (subTab) {
               case MiddlewareContainersSubTab.blend:
                 if (middleware.blendContainers.isNotEmpty) {
-                  debugPrint('[Middleware] Testing blend container: ${middleware.blendContainers.first.id}');
                 }
                 break;
               case MiddlewareContainersSubTab.random:
                 if (middleware.randomContainers.isNotEmpty) {
-                  debugPrint('[Middleware] Testing random container: ${middleware.randomContainers.first.id}');
                 }
                 break;
               case MiddlewareContainersSubTab.sequence:
                 if (middleware.sequenceContainers.isNotEmpty) {
-                  debugPrint('[Middleware] Testing sequence container: ${middleware.sequenceContainers.first.id}');
                 }
                 break;
               default:
-                debugPrint('[Middleware] Container type not supported for testing');
             }
           }
         },
@@ -1644,7 +1625,6 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
           if (middleware != null && middleware.duckingRules.isNotEmpty) {
             final rule = middleware.duckingRules.first;
             middleware.removeDuckingRule(rule.id);
-            debugPrint('[Middleware] Removed ducking rule: ${rule.sourceBus} → ${rule.targetBus}');
           }
         },
         onCopy: () {
@@ -1657,13 +1637,11 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
               'attackMs': r.attackMs,
               'releaseMs': r.releaseMs,
             }).toList());
-            debugPrint('[Middleware] Copied ${middleware.duckingRules.length} ducking rules to clipboard');
           }
         },
         onTest: () {
           // Test ducking by triggering a notification
           if (middleware != null && middleware.duckingRules.isNotEmpty) {
-            debugPrint('[Middleware] Testing ducking rule');
           }
         },
       ),
@@ -1677,7 +1655,6 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
               y: 0.5,
             );
             middleware.addRtpcCurvePoint(rtpc.id, newPoint);
-            debugPrint('[Middleware] Added curve point to RTPC: ${rtpc.name}');
           }
         },
         onRemove: () {
@@ -1686,7 +1663,6 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
             final rtpc = middleware.rtpcDefinitions.first;
             if (rtpc.curve != null && rtpc.curve!.points.isNotEmpty) {
               middleware.removeRtpcCurvePoint(rtpc.id, rtpc.curve!.points.length - 1);
-              debugPrint('[Middleware] Removed curve point from RTPC: ${rtpc.name}');
             }
           }
         },
@@ -1695,14 +1671,12 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
           if (middleware != null && middleware.rtpcDefinitions.isNotEmpty) {
             final rtpc = middleware.rtpcDefinitions.first;
             middleware.resetRtpc(rtpc.id);
-            debugPrint('[Middleware] Reset RTPC: ${rtpc.name}');
           }
         },
         onPreview: () {
           // Preview RTPC effect
           if (middleware != null && middleware.rtpcDefinitions.isNotEmpty) {
             final rtpc = middleware.rtpcDefinitions.first;
-            debugPrint('[Middleware] Would preview RTPC: ${rtpc.name}');
           }
         },
       ),
@@ -1718,7 +1692,6 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
               if (event.triggerStages.isEmpty) warnings++;
             }
             final msg = 'Validation: ${events.length} events, $errors errors, $warnings warnings';
-            debugPrint('[Middleware] $msg');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(msg)),
             );
@@ -1736,7 +1709,6 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
             if (result != null) {
               final json = jsonEncode(middleware.exportEventsToJson());
               await File(result).writeAsString(json);
-              debugPrint('[Middleware] Exported events to: $result');
             }
           }
         },
@@ -1754,7 +1726,6 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
             final eventsJson = jsonEncode(middleware.exportEventsToJson());
             await File('${packageDir.path}/events.json').writeAsString(eventsJson);
 
-            debugPrint('[Middleware] Created package at: ${packageDir.path}');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Package created: ${packageDir.path}')),
             );

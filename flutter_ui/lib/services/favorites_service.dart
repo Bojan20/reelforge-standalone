@@ -34,9 +34,7 @@ class FavoritesService extends ChangeNotifier {
         _favorites = Set.from(saved);
       }
       _isInitialized = true;
-      debugPrint('[FavoritesService] Initialized with ${_favorites.length} favorites');
     } catch (e) {
-      debugPrint('[FavoritesService] ❌ Init failed: $e');
       _favorites = {};
       _isInitialized = true;
     }
@@ -50,10 +48,8 @@ class FavoritesService extends ChangeNotifier {
 
     if (_favorites.contains(filePath)) {
       _favorites.remove(filePath);
-      debugPrint('[FavoritesService] ⭐ Removed: $filePath');
     } else {
       _favorites.add(filePath);
-      debugPrint('[FavoritesService] ⭐ Added: $filePath');
     }
 
     await _save();
@@ -95,7 +91,6 @@ class FavoritesService extends ChangeNotifier {
     _favorites.clear();
     await _save();
     notifyListeners();
-    debugPrint('[FavoritesService] ⭐ Cleared all favorites');
   }
 
   /// Get favorite count
@@ -106,9 +101,7 @@ class FavoritesService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_kFavoritesKey, _favorites.toList());
-    } catch (e) {
-      debugPrint('[FavoritesService] ❌ Save failed: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Filter files to show only favorites

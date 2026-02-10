@@ -119,9 +119,7 @@ class MarkerService extends ChangeNotifier {
         _markers.clear();
         _markers.addAll(decoded.map((e) => DawMarker.fromJson(e as Map<String, dynamic>)));
         notifyListeners();
-      } catch (e) {
-        debugPrint('[MarkerService] Failed to load markers: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
   }
 
@@ -131,7 +129,6 @@ class MarkerService extends ChangeNotifier {
       final json = jsonEncode(_markers.map((m) => m.toJson()).toList());
       return await prefs.setString('daw_markers', json);
     } catch (e) {
-      debugPrint('[MarkerService] Failed to save markers: $e');
       return false;
     }
   }

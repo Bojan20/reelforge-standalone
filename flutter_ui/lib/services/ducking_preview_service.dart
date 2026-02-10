@@ -104,8 +104,6 @@ class DuckingPreviewService {
     _currentDuckLevel = 1.0;
     _previewStartTime = DateTime.now();
 
-    debugPrint(
-        '[DuckingPreview] Starting preview: ${rule.sourceBus} → ${rule.targetBus}');
 
     // Simulate source bus becoming active
     DuckingService.instance.notifyBusActive(rule.sourceBusId);
@@ -194,7 +192,6 @@ class DuckingPreviewService {
     _isPreviewActive = false;
     _currentDuckLevel = 1.0;
 
-    debugPrint('[DuckingPreview] Stopped preview');
     _notifyListeners();
   }
 

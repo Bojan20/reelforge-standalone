@@ -249,7 +249,6 @@ class UiUndoManager extends ChangeNotifier {
       _undoStack.removeAt(0);
     }
 
-    debugPrint('[UiUndoManager] Executed: ${action.description} (stack: ${_undoStack.length})');
     notifyListeners();
   }
 
@@ -262,7 +261,6 @@ class UiUndoManager extends ChangeNotifier {
       _undoStack.removeAt(0);
     }
 
-    debugPrint('[UiUndoManager] Recorded: ${action.description} (stack: ${_undoStack.length})');
     notifyListeners();
   }
 
@@ -274,7 +272,6 @@ class UiUndoManager extends ChangeNotifier {
     action.undo();
     _redoStack.add(action);
 
-    debugPrint('[UiUndoManager] Undo: ${action.description}');
     notifyListeners();
     return true;
   }
@@ -287,7 +284,6 @@ class UiUndoManager extends ChangeNotifier {
     action.execute();
     _undoStack.add(action);
 
-    debugPrint('[UiUndoManager] Redo: ${action.description}');
     notifyListeners();
     return true;
   }

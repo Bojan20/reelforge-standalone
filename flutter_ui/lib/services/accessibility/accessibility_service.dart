@@ -186,9 +186,7 @@ class AccessibilityService extends ChangeNotifier {
 
       _initialized = true;
       notifyListeners();
-      debugPrint('[AccessibilityService] Initialized');
     } catch (e) {
-      debugPrint('[AccessibilityService] Init error: $e');
       _initialized = true;
     }
   }
@@ -203,9 +201,7 @@ class AccessibilityService extends ChangeNotifier {
       await prefs.setBool(_prefsKeyFocusHighlight, _focusHighlightEnabled);
       await prefs.setDouble(_prefsKeyTextScale, _textScale);
       await prefs.setBool(_prefsKeyLargePointer, _largePointerEnabled);
-    } catch (e) {
-      debugPrint('[AccessibilityService] Save error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Set high contrast mode
@@ -214,7 +210,6 @@ class AccessibilityService extends ChangeNotifier {
     _highContrastMode = mode;
     await _save();
     notifyListeners();
-    debugPrint('[AccessibilityService] High contrast: $mode');
   }
 
   /// Set color blindness simulation mode
@@ -223,7 +218,6 @@ class AccessibilityService extends ChangeNotifier {
     _colorBlindnessMode = mode;
     await _save();
     notifyListeners();
-    debugPrint('[AccessibilityService] Color blindness mode: $mode');
   }
 
   /// Enable/disable screen reader support
@@ -232,7 +226,6 @@ class AccessibilityService extends ChangeNotifier {
     _screenReaderEnabled = enabled;
     await _save();
     notifyListeners();
-    debugPrint('[AccessibilityService] Screen reader: $enabled');
   }
 
   /// Enable/disable enhanced focus highlight
@@ -241,7 +234,6 @@ class AccessibilityService extends ChangeNotifier {
     _focusHighlightEnabled = enabled;
     await _save();
     notifyListeners();
-    debugPrint('[AccessibilityService] Focus highlight: $enabled');
   }
 
   /// Set text scale factor (0.8 - 2.0)
@@ -251,7 +243,6 @@ class AccessibilityService extends ChangeNotifier {
     _textScale = clamped;
     await _save();
     notifyListeners();
-    debugPrint('[AccessibilityService] Text scale: $clamped');
   }
 
   /// Enable/disable large pointer
@@ -260,7 +251,6 @@ class AccessibilityService extends ChangeNotifier {
     _largePointerEnabled = enabled;
     await _save();
     notifyListeners();
-    debugPrint('[AccessibilityService] Large pointer: $enabled');
   }
 
   /// Announce message for screen readers
@@ -273,7 +263,6 @@ class AccessibilityService extends ChangeNotifier {
       assertiveness:
           assertive ? Assertiveness.assertive : Assertiveness.polite,
     );
-    debugPrint('[AccessibilityService] Announced: $message');
   }
 
   /// Apply color blindness simulation to a color

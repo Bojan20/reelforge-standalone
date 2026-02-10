@@ -387,11 +387,9 @@ class SessionPersistenceProvider extends ChangeNotifier {
       final json = jsonEncode(state.toJson());
       _storage[_storageKey] = json;
       _lastSaveTime = DateTime.now().millisecondsSinceEpoch;
-      debugPrint('[SessionPersistence] State saved');
       return true;
     } catch (e) {
       onError?.call(Exception('Save failed: $e'));
-      debugPrint('[SessionPersistence] Save failed: $e');
       return false;
     }
   }
@@ -407,15 +405,12 @@ class SessionPersistenceProvider extends ChangeNotifier {
 
       // Version check
       if (state.version != _sessionVersion) {
-        debugPrint('[SessionPersistence] Version mismatch, may need migration');
       }
 
       onRestore?.call(state);
-      debugPrint('[SessionPersistence] State restored');
       return state;
     } catch (e) {
       onError?.call(Exception('Load failed: $e'));
-      debugPrint('[SessionPersistence] Load failed: $e');
       return null;
     }
   }
@@ -424,7 +419,6 @@ class SessionPersistenceProvider extends ChangeNotifier {
   Future<bool> clearState() async {
     try {
       _storage.remove(_storageKey);
-      debugPrint('[SessionPersistence] State cleared');
       return true;
     } catch (e) {
       onError?.call(Exception('Clear failed: $e'));

@@ -74,9 +74,7 @@ class _TestAutomationPanelState extends State<TestAutomationPanel>
 
       await _storage.init();
       await _loadData();
-    } catch (e) {
-      debugPrint('[TestAutomationPanel] Init error: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     if (mounted) {
       setState(() => _isLoading = false);

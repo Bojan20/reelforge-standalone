@@ -197,7 +197,6 @@ class AudioExportProvider extends ChangeNotifier {
     bool normalize = false,
   }) async {
     if (_isExporting) {
-      debugPrint('[AudioExport] Export already in progress');
       return false;
     }
 
@@ -327,7 +326,6 @@ class AudioExportProvider extends ChangeNotifier {
     ExportSettings settings = kDefaultExportSettings,
   }) async {
     if (_isExporting) {
-      debugPrint('[AudioExport] Export already in progress');
       return null;
     }
 
@@ -443,7 +441,6 @@ class AudioExportProvider extends ChangeNotifier {
     String prefix = '',
   }) async {
     if (_isExporting) {
-      debugPrint('[AudioExport] Export already in progress');
       return -1;
     }
 

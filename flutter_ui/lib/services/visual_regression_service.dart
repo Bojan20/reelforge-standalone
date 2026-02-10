@@ -430,7 +430,6 @@ class VisualRegressionService extends ChangeNotifier {
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
     } catch (e) {
-      debugPrint('[VisualRegressionService] Capture failed: $e');
       return null;
     }
   }
@@ -442,7 +441,6 @@ class VisualRegressionService extends ChangeNotifier {
   }) async {
     final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) {
-      debugPrint('[VisualRegressionService] RenderRepaintBoundary not found');
       return null;
     }
     return captureScreenshot(boundary, pixelRatio: pixelRatio);
@@ -466,7 +464,6 @@ class VisualRegressionService extends ChangeNotifier {
       if (_config.autoUpdateMissingGoldens) {
         // Create golden from captured
         await _saveImage(capturedImage, goldenPath);
-        debugPrint('[VisualRegressionService] Created golden: $goldenPath');
 
         final result = ImageComparisonResult.identical(
           testName: testName,
@@ -655,9 +652,7 @@ class VisualRegressionService extends ChangeNotifier {
       if (byteData != null) {
         await _saveImage(byteData.buffer.asUint8List(), filePath);
       }
-    } catch (e) {
-      debugPrint('[VisualRegressionService] Failed to save diff: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Update golden image
@@ -669,7 +664,6 @@ class VisualRegressionService extends ChangeNotifier {
     final goldenFileName = variant != null ? '${testName}_$variant.png' : '$testName.png';
     final goldenPath = path.join(_config.goldenDirectory, goldenFileName);
     await _saveImage(image, goldenPath);
-    debugPrint('[VisualRegressionService] Updated golden: $goldenPath');
   }
 
   /// Run visual regression test for a slot machine state
@@ -846,7 +840,6 @@ class VisualRegressionService extends ChangeNotifier {
     final file = File(filePath);
     await file.parent.create(recursive: true);
     await file.writeAsString(html);
-    debugPrint('[VisualRegressionService] Report saved: $filePath');
   }
 
   /// Export session results to JSON

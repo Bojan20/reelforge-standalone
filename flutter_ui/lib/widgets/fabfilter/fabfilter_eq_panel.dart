@@ -242,9 +242,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       setState(() => _initialized = true);
       _startSpectrumUpdate();
-      debugPrint('[FabFilterEQ] ✅ Initialized via DspChainProvider (track=${widget.trackId}, slot=$_slotIndex)');
     } else {
-      debugPrint('[FabFilterEQ] ❌ Failed to initialize EQ for track ${widget.trackId}');
     }
   }
 
@@ -913,7 +911,6 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     _setBandParam(bandIndex, 3, 1.0);        // Enabled
     _setBandParam(bandIndex, 4, _shapeToParamValue(shape)); // Shape
 
-    debugPrint('[FabFilterEQ] Added band $bandIndex: freq=$freq, shape=$shape');
 
     setState(() {
       _bands.add(band);

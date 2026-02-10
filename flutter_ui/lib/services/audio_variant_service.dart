@@ -257,7 +257,6 @@ class AudioVariantService extends ChangeNotifier {
 
       return metadata;
     } catch (e) {
-      debugPrint('[AudioVariantService] Failed to analyze $audioPath: $e');
       return _fallbackMetadata(audioPath);
     }
   }
@@ -305,9 +304,7 @@ class AudioVariantService extends ChangeNotifier {
       }
 
       notifyListeners();
-    } catch (e) {
-      debugPrint('[AudioVariantService] Failed to load from JSON: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Save to file
@@ -316,7 +313,6 @@ class AudioVariantService extends ChangeNotifier {
       final file = File(filePath);
       await file.writeAsString(toJson());
     } catch (e) {
-      debugPrint('[AudioVariantService] Failed to save to file: $e');
       rethrow;
     }
   }
@@ -330,7 +326,6 @@ class AudioVariantService extends ChangeNotifier {
       final json = await file.readAsString();
       fromJson(json);
     } catch (e) {
-      debugPrint('[AudioVariantService] Failed to load from file: $e');
       rethrow;
     }
   }

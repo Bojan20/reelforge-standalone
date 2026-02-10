@@ -249,7 +249,6 @@ class AudioAssetTaggingService extends ChangeNotifier {
     final newTags = Set<AudioTag>.from(existing.tags)..add(tag);
     _entries[assetId] = existing.copyWith(tags: newTags);
     notifyListeners();
-    debugPrint('[AudioTagging] Added tag ${tag.displayName} to $assetId');
   }
 
   /// Remove a predefined tag from an asset
@@ -261,7 +260,6 @@ class AudioAssetTaggingService extends ChangeNotifier {
     _entries[assetId] = existing.copyWith(tags: newTags);
     _cleanupEmptyEntry(assetId);
     notifyListeners();
-    debugPrint('[AudioTagging] Removed tag ${tag.displayName} from $assetId');
   }
 
   /// Add a custom tag to an asset
@@ -274,7 +272,6 @@ class AudioAssetTaggingService extends ChangeNotifier {
     final newTags = Set<String>.from(existing.customTags)..add(normalizedTag);
     _entries[assetId] = existing.copyWith(customTags: newTags);
     notifyListeners();
-    debugPrint('[AudioTagging] Added custom tag "$normalizedTag" to $assetId');
   }
 
   /// Remove a custom tag from an asset
@@ -287,7 +284,6 @@ class AudioAssetTaggingService extends ChangeNotifier {
     _entries[assetId] = existing.copyWith(customTags: newTags);
     _cleanupEmptyEntry(assetId);
     notifyListeners();
-    debugPrint('[AudioTagging] Removed custom tag "$normalizedTag" from $assetId');
   }
 
   /// Set notes for an asset
@@ -303,7 +299,6 @@ class AudioAssetTaggingService extends ChangeNotifier {
   void clearTags(String assetId) {
     _entries.remove(assetId);
     notifyListeners();
-    debugPrint('[AudioTagging] Cleared all tags from $assetId');
   }
 
   /// Check if asset has a specific tag
@@ -329,7 +324,6 @@ class AudioAssetTaggingService extends ChangeNotifier {
       _entries[id] = existing.copyWith(tags: newTags);
     }
     notifyListeners();
-    debugPrint('[AudioTagging] Bulk added tag ${tag.displayName} to ${assetIds.length} assets');
   }
 
   /// Remove a tag from multiple assets
@@ -343,7 +337,6 @@ class AudioAssetTaggingService extends ChangeNotifier {
       _cleanupEmptyEntry(id);
     }
     notifyListeners();
-    debugPrint('[AudioTagging] Bulk removed tag ${tag.displayName} from ${assetIds.length} assets');
   }
 
   /// Add a custom tag to multiple assets
@@ -358,7 +351,6 @@ class AudioAssetTaggingService extends ChangeNotifier {
       _entries[id] = existing.copyWith(customTags: newTags);
     }
     notifyListeners();
-    debugPrint('[AudioTagging] Bulk added custom tag "$normalizedTag" to ${assetIds.length} assets');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -441,17 +433,13 @@ class AudioAssetTaggingService extends ChangeNotifier {
         _entries[entry.assetId] = entry;
       }
       notifyListeners();
-      debugPrint('[AudioTagging] Imported ${tags.length} tag entries');
-    } catch (e) {
-      debugPrint('[AudioTagging] Import error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Clear all tags
   void clearAll() {
     _entries.clear();
     notifyListeners();
-    debugPrint('[AudioTagging] Cleared all tags');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

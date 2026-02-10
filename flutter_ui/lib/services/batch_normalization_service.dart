@@ -321,7 +321,6 @@ class BatchNormalizationService extends ChangeNotifier {
 
     for (int i = 0; i < files.length; i++) {
       if (_cancelRequested) {
-        debugPrint('[BatchNorm] Cancelled by user');
         break;
       }
 
@@ -382,7 +381,6 @@ class BatchNormalizationService extends ChangeNotifier {
       totalTimeMs: stopwatch.elapsedMilliseconds,
     );
 
-    debugPrint('[BatchNorm] Completed: $result');
     return result;
   }
 
@@ -390,7 +388,6 @@ class BatchNormalizationService extends ChangeNotifier {
   void cancel() {
     if (_isProcessing) {
       _cancelRequested = true;
-      debugPrint('[BatchNorm] Cancel requested');
     }
   }
 

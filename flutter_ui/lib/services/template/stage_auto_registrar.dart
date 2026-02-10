@@ -25,9 +25,7 @@ class StageAutoRegistrar {
       try {
         stageService.registerCustomStage(_convertToStageDefinition(stage, template));
         count++;
-      } catch (e) {
-        debugPrint('[StageAutoRegistrar] ⚠️ Failed to register ${stage.id}: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // Also register symbol stages
@@ -46,9 +44,7 @@ class StageAutoRegistrar {
             description: '${symbol.id} ${context.id}',
           ));
           count++;
-        } catch (e) {
-          debugPrint('[StageAutoRegistrar] ⚠️ Failed to register $stageId: $e');
-        }
+        } catch (e) { /* ignored */ }
       }
     }
 
@@ -67,13 +63,10 @@ class StageAutoRegistrar {
             description: '${tier.label} ${_stageTypeFromId(stageId)}',
           ));
           count++;
-        } catch (e) {
-          debugPrint('[StageAutoRegistrar] ⚠️ Failed to register $stageId: $e');
-        }
+        } catch (e) { /* ignored */ }
       }
     }
 
-    debugPrint('[StageAutoRegistrar] Registered $count stages');
     return count;
   }
 

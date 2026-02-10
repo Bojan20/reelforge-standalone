@@ -433,9 +433,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
     try {
       final mw = Provider.of<MiddlewareProvider>(context, listen: false);
       mw.setRtpc(rtpcId, value, interpolationMs: 50);
-    } catch (e) {
-      debugPrint('[RtpcEditor] Error setting RTPC: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Widget _buildCurveEditor() {

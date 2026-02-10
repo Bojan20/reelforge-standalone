@@ -329,9 +329,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
         }
         setState(() => _userPresets = presets);
       }
-    } catch (e) {
-      debugPrint('[PresetLibrary] Error loading user presets: $e');
-    } finally {
+    } catch (e) { /* ignored */ } finally {
       setState(() => _isLoadingUserPresets = false);
     }
   }

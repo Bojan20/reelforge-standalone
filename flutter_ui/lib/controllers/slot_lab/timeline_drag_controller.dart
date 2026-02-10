@@ -160,7 +160,6 @@ class TimelineDragController extends ChangeNotifier {
         _middleware.setLayerOffset(event.id, layer.id, newOffsetMs);
       }
 
-      debugPrint('[TimelineDragController] Region "${event.name}" moved by ${deltaMs.toStringAsFixed(0)}ms');
     }
 
     _clearRegionDrag();
@@ -170,7 +169,6 @@ class TimelineDragController extends ChangeNotifier {
   /// Call this on ESC key press to revert to original position
   void cancelRegionDrag() {
     if (_draggingRegionId != null) {
-      debugPrint('[TimelineDragController] Region drag CANCELLED - reverting to original position');
     }
     _clearRegionDrag();
   }
@@ -250,14 +248,8 @@ class TimelineDragController extends ChangeNotifier {
   /// End layer drag and sync to provider
   /// Applies snap-to-grid if enabled
   void endLayerDrag() {
-    debugPrint('[DRAG-END] ═══════════════════════════════════════════════════');
-    debugPrint('[DRAG-END] _draggingLayerEventId=$_draggingLayerEventId');
-    debugPrint('[DRAG-END] _draggingLayerParentEventId=$_draggingLayerParentEventId');
-    debugPrint('[DRAG-END] _absoluteStartSeconds=$_absoluteStartSeconds');
-    debugPrint('[DRAG-END] _layerDragDelta=$_layerDragDelta');
 
     if (_draggingLayerEventId == null || _draggingLayerParentEventId == null) {
-      debugPrint('[DRAG-END] ❌ ABORT: null eventId or parentEventId');
       _clearLayerDrag();
       return;
     }
@@ -265,16 +257,13 @@ class TimelineDragController extends ChangeNotifier {
     // Calculate new absolute offset - apply snap if enabled
     final snappedPosition = getSnappedAbsolutePosition();
     final newAbsoluteOffsetMs = snappedPosition * 1000;
-    debugPrint('[DRAG-END] snappedPosition=${snappedPosition}s, newAbsoluteOffsetMs=$newAbsoluteOffsetMs');
 
     // Sync to provider
-    debugPrint('[DRAG-END] Calling setLayerOffset($_draggingLayerParentEventId, $_draggingLayerEventId, $newAbsoluteOffsetMs)');
     _middleware.setLayerOffset(
       _draggingLayerParentEventId!,
       _draggingLayerEventId!,
       newAbsoluteOffsetMs,
     );
-    debugPrint('[DRAG-END] ✅ setLayerOffset completed');
 
     // CRITICAL: Keep reporting isDragging=true until AFTER the rebuild triggered by setLayerOffset
     _justEndedLayerId = _draggingLayerEventId;
@@ -291,7 +280,6 @@ class TimelineDragController extends ChangeNotifier {
   /// Call this on ESC key press to revert to original position
   void cancelLayerDrag() {
     if (_draggingLayerEventId != null) {
-      debugPrint('[TimelineDragController] Layer drag CANCELLED - reverting to original position');
     }
     _clearLayerDrag();
   }

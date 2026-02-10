@@ -376,7 +376,6 @@ class StageConfigurationService extends ChangeNotifier {
     );
 
     notifyListeners();
-    debugPrint('[StageConfig] Registered ${_winTierGeneratedStages.length} P5 win tier stages');
   }
 
   /// Helper to register a single win stage
@@ -439,7 +438,6 @@ class StageConfigurationService extends ChangeNotifier {
     for (final contextStr in symbol.contexts) {
       final context = SymbolAudioContext.fromString(contextStr);
       if (context == null) {
-        debugPrint('[StageConfig] Unknown context: $contextStr for symbol: ${symbol.id}');
         continue;
       }
 
@@ -459,7 +457,6 @@ class StageConfigurationService extends ChangeNotifier {
       _symbolGeneratedStages.add(stageName);
     }
 
-    debugPrint('[StageConfig] Registered ${symbol.contexts.length} stages for symbol: ${symbol.id}');
   }
 
   /// Remove all stages for a symbol
@@ -479,7 +476,6 @@ class StageConfigurationService extends ChangeNotifier {
     }
 
     if (toRemove.isNotEmpty) {
-      debugPrint('[StageConfig] Removed ${toRemove.length} stages for symbol: $symbolId');
       notifyListeners();
     }
   }
@@ -499,7 +495,6 @@ class StageConfigurationService extends ChangeNotifier {
     }
 
     notifyListeners();
-    debugPrint('[StageConfig] Synced ${_symbolGeneratedStages.length} stages from ${symbols.length} symbols');
   }
 
   /// Get all stage names generated from a specific symbol

@@ -175,7 +175,6 @@ class AudioExportQueueService extends ChangeNotifier {
 
     _queue.add(job);
     notifyListeners();
-    debugPrint('[AudioExportQueue] Added job: ${job.inputFileName} → ${format.displayName}');
 
     return id;
   }
@@ -194,7 +193,6 @@ class AudioExportQueueService extends ChangeNotifier {
     }
 
     notifyListeners();
-    debugPrint('[AudioExportQueue] Removed job: $jobId');
   }
 
   /// Clear all completed and failed jobs
@@ -232,7 +230,6 @@ class AudioExportQueueService extends ChangeNotifier {
 
     _isProcessing = false;
     notifyListeners();
-    debugPrint('[AudioExportQueue] Processing complete: $_completedCount succeeded, $_failedCount failed');
   }
 
   /// Stop processing (current job will complete)
@@ -256,7 +253,6 @@ class AudioExportQueueService extends ChangeNotifier {
       // Check if cancelled during processing
       final currentJob = _queue.firstWhere((j) => j.id == job.id);
       if (currentJob.status == ExportJobStatus.cancelled) {
-        debugPrint('[AudioExportQueue] Job cancelled: ${job.id}');
         return;
       }
 
@@ -267,7 +263,6 @@ class AudioExportQueueService extends ChangeNotifier {
         completedAt: DateTime.now(),
       );
       _completedCount++;
-      debugPrint('[AudioExportQueue] Job completed: ${job.inputFileName}');
     } catch (e) {
       // Mark as failed
       _queue[index] = _queue[index].copyWith(
@@ -275,7 +270,6 @@ class AudioExportQueueService extends ChangeNotifier {
         errorMessage: e.toString(),
       );
       _failedCount++;
-      debugPrint('[AudioExportQueue] Job failed: ${job.inputFileName} - $e');
     }
 
     notifyListeners();

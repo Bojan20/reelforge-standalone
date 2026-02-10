@@ -213,8 +213,6 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
 
   /// Create event directly via MiddlewareProvider
   void _handleDrop(String audioPath, Offset globalPosition, MiddlewareProvider provider) {
-    debugPrint('[DropTargetWrapper] 🎯 Creating event for ${widget.target.targetId}');
-    debugPrint('[DropTargetWrapper]    audioPath: $audioPath');
 
     final targetId = widget.target.targetId;
     final stage = _targetIdToStage(targetId);
@@ -252,10 +250,6 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
     final crossfadeDuration = isMusicBus ? 500 : 0; // 500ms crossfade for music
 
     if (isMusicBus) {
-      debugPrint('[DropTargetWrapper] 🎵 MUSIC EVENT DETECTED');
-      debugPrint('[DropTargetWrapper]    overlap: $shouldOverlap (always false for music)');
-      debugPrint('[DropTargetWrapper]    looping: $shouldLoop (${isEndFile ? "END file - no loop" : "auto-loop"})');
-      debugPrint('[DropTargetWrapper]    crossfadeMs: $crossfadeDuration');
     }
 
     // Create composite event with music-aware defaults
@@ -281,7 +275,6 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
 
     // Add to MiddlewareProvider (SSoT)
     provider.addCompositeEvent(event);
-    debugPrint('[DropTargetWrapper] ✅ Created event: $eventName → $stage');
 
     // Visual feedback
     _triggerPulse();
@@ -303,12 +296,10 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
     // Check if file exists and is audio
     final file = File(path);
     if (!file.existsSync()) {
-      debugPrint('[DropTargetWrapper] ❌ File not found: $path');
       return null;
     }
     final ext = path.split('.').last.toLowerCase();
     if (!PathValidator.allowedExtensions.contains(ext)) {
-      debugPrint('[DropTargetWrapper] ❌ Not an audio file: $path');
       return null;
     }
     return path;
@@ -335,7 +326,6 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
               setState(() => _isDragOver = true);
               return true;
             }
-            debugPrint('[DropTargetWrapper] ❌ Rejected drop: ${details.data.runtimeType}');
             return false;
           },
           onLeave: (_) {
@@ -344,8 +334,6 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
           onAcceptWithDetails: (details) {
             setState(() => _isDragOver = false);
 
-            debugPrint('[DropTargetWrapper] 🎯 onAcceptWithDetails for ${widget.target.targetId}');
-            debugPrint('[DropTargetWrapper]    data type: ${details.data.runtimeType}');
 
             // Extract audio paths from drop data
             List<String> audioPaths = [];

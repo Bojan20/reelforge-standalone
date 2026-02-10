@@ -80,12 +80,7 @@ class WaveformCacheService {
       // P0.2: Load existing disk cache metadata for LRU tracking
       await _loadDiskCacheMetadata();
 
-      debugPrint('[WaveformCache] Initialized: $_cacheDirectory '
-          '(${(_estimatedDiskSize / 1024 / 1024).toStringAsFixed(1)} MB, '
-          '${_diskLruMap.length} files)');
-    } catch (e) {
-      debugPrint('[WaveformCache] Init failed: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// P0.2: Load existing disk cache metadata for quota enforcement
@@ -110,14 +105,9 @@ class WaveformCacheService {
 
       // Check if we're over quota and cleanup if needed
       if (_estimatedDiskSize > maxDiskCacheBytes) {
-        debugPrint('[WaveformCache] Over quota on init: '
-            '${(_estimatedDiskSize / 1024 / 1024 / 1024).toStringAsFixed(2)} GB > '
-            '${(maxDiskCacheBytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB');
         await _enforceDiskQuota();
       }
-    } catch (e) {
-      debugPrint('[WaveformCache] Metadata load error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get cache directory path
@@ -137,7 +127,6 @@ class WaveformCacheService {
     final dir = Directory(cacheDir);
     if (!await dir.exists()) {
       await dir.create(recursive: true);
-      debugPrint('[WaveformCache] Created cache directory: $cacheDir');
     }
 
     return cacheDir;
@@ -196,14 +185,11 @@ class WaveformCacheService {
           _diskHits++;
           // Add to memory cache (as Float32List)
           _putMemoryFloat32(audioPath, waveform);
-          debugPrint('[WaveformCache] Disk hit: $audioPath (${waveform.length} samples)');
           // Return as List<double> for API compatibility
           return List<double>.from(waveform);
         }
       }
-    } catch (e) {
-      debugPrint('[WaveformCache] Read error: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     _diskMisses++;
     return null;
@@ -258,12 +244,7 @@ class WaveformCacheService {
       _diskLruMap[key] = DateTime.now();
       _estimatedDiskSize += fileSize;
 
-      debugPrint('[WaveformCache] Saved: $audioPath '
-          '(${waveform.length} samples, ${(fileSize / 1024).toStringAsFixed(1)} KB, '
-          'total: ${(_estimatedDiskSize / 1024 / 1024).toStringAsFixed(1)} MB)');
-    } catch (e) {
-      debugPrint('[WaveformCache] Write error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// P0.2: Enforce disk quota by evicting oldest files
@@ -279,9 +260,6 @@ class WaveformCacheService {
         return;
       }
 
-      debugPrint('[WaveformCache] Enforcing quota: '
-          '${(_estimatedDiskSize / 1024 / 1024).toStringAsFixed(1)} MB → '
-          '${(targetSize / 1024 / 1024).toStringAsFixed(1)} MB');
 
       // Sort by access time (oldest first)
       final sortedEntries = _diskLruMap.entries.toList()
@@ -303,17 +281,12 @@ class WaveformCacheService {
             evictedCount++;
             _diskLruMap.remove(entry.key);
           }
-        } catch (e) {
-          debugPrint('[WaveformCache] Eviction error for ${entry.key}: $e');
-        }
+        } catch (e) { /* ignored */ }
       }
 
       _estimatedDiskSize -= freedBytes;
       _diskEvictions += evictedCount;
 
-      debugPrint('[WaveformCache] Evicted $evictedCount files, '
-          'freed ${(freedBytes / 1024 / 1024).toStringAsFixed(1)} MB, '
-          'now: ${(_estimatedDiskSize / 1024 / 1024).toStringAsFixed(1)} MB');
     } finally {
       _isCleaningDisk = false;
     }
@@ -379,8 +352,6 @@ class WaveformCacheService {
       result.add(minVal.abs() > maxVal.abs() ? minVal : maxVal);
     }
 
-    debugPrint('[WaveformCache] P2.15: Downsampled ${waveform.length} → ${result.length} samples '
-        '(${((1 - result.length / waveform.length) * 100).toStringAsFixed(1)}% reduction)');
 
     return result;
   }
@@ -431,10 +402,7 @@ class WaveformCacheService {
             }
           }
         }
-        debugPrint('[WaveformCache] Cleared all cache');
-      } catch (e) {
-        debugPrint('[WaveformCache] Clear error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     // P0.2: Clear disk LRU tracking
@@ -452,7 +420,6 @@ class WaveformCacheService {
     _memoryCache.clear();
     _lruOrder.clear();
     _memoryHits = 0;
-    debugPrint('[WaveformCache] Cleared memory cache');
   }
 
   /// Remove specific entry from cache
@@ -472,9 +439,7 @@ class WaveformCacheService {
           _diskLruMap.remove(key);
           _estimatedDiskSize -= stat.size;
         }
-      } catch (e) {
-        debugPrint('[WaveformCache] Remove error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
   }
 
@@ -512,9 +477,7 @@ class WaveformCacheService {
           }
         }
       }
-    } catch (e) {
-      debugPrint('[WaveformCache] Size calc error: $e');
-    }
+    } catch (e) { /* ignored */ }
     return totalSize;
   }
 
@@ -532,9 +495,7 @@ class WaveformCacheService {
           }
         }
       }
-    } catch (e) {
-      debugPrint('[WaveformCache] Count error: $e');
-    }
+    } catch (e) { /* ignored */ }
     return count;
   }
 
@@ -554,7 +515,6 @@ class WaveformCacheService {
       }
     }
 
-    debugPrint('[WaveformCache] Preloaded $loaded/${audioPaths.length} waveforms');
   }
 
   /// Export memory cache to provider format
@@ -579,7 +539,6 @@ class WaveformCacheService {
       }
     }
 
-    debugPrint('[WaveformCache] Imported $saved waveforms from provider');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

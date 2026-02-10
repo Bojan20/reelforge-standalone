@@ -247,7 +247,6 @@ class UnifiedSearchService extends ChangeNotifier {
   /// Register a search provider
   void registerProvider(SearchProvider provider) {
     _providers.add(provider);
-    debugPrint('[UnifiedSearch] Registered provider for: ${provider.categories}');
   }
 
   /// Unregister a search provider
@@ -297,7 +296,6 @@ class UnifiedSearchService extends ChangeNotifier {
           maxResults: maxResultsPerProvider,
         );
       } catch (e) {
-        debugPrint('[UnifiedSearch] Provider error: $e');
         return <SearchResult>[];
       }
     });
@@ -643,7 +641,6 @@ class EventSearchProvider extends SearchProvider {
     int maxResults = 10,
   }) async {
     if (_getEventsCallback == null) {
-      debugPrint('[EventSearchProvider] Not initialized - call init() first');
       return [];
     }
 
@@ -815,7 +812,6 @@ class FileSearchProvider extends SearchProvider {
     }
 
     if (_getAssetsCallback == null) {
-      debugPrint('[FileSearchProvider] Not initialized - call init() first');
       return [];
     }
 
@@ -890,7 +886,6 @@ class TrackSearchProvider extends SearchProvider {
     }
 
     if (_getTracksCallback == null) {
-      debugPrint('[TrackSearchProvider] Not initialized - call init() first');
       return [];
     }
 
@@ -955,7 +950,6 @@ class PresetSearchProvider extends SearchProvider {
     }
 
     if (_getPresetsCallback == null) {
-      debugPrint('[PresetSearchProvider] Not initialized - call init() first');
       return [];
     }
 

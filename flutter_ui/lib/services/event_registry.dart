@@ -452,9 +452,7 @@ class _PlayingInstance {
       for (final voiceId in voiceIds) {
         NativeFFI.instance.playbackStopOneShot(voiceId);
       }
-    } catch (e) {
-      debugPrint('[EventRegistry] Stop error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 }
 
@@ -588,12 +586,11 @@ class EventRegistry extends ChangeNotifier {
         for (final voiceId in instance.voiceIds) {
           try {
             NativeFFI.instance.playbackStopOneShot(voiceId);
-          } catch (_) {}
+          } catch (_) { /* ignored */ }
         }
       }
       _playingInstances.removeWhere((i) => toRemove.contains(i));
       _cleanedInstances += toRemove.length;
-      debugPrint('[EventRegistry] 🧹 Cleaned up ${toRemove.length} stale instance(s)');
     }
   }
 
@@ -633,7 +630,6 @@ class EventRegistry extends ChangeNotifier {
   void _fadeOutReelSpinLoop(int reelIndex) {
     final voiceId = _reelSpinLoopVoices[reelIndex];
     if (voiceId != null && voiceId > 0) {
-      debugPrint('[EventRegistry] P0: Fading out REEL_SPIN loop for reel $reelIndex (voice $voiceId, ${_spinLoopFadeMs}ms)');
       AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: _spinLoopFadeMs);
       _reelSpinLoopVoices.remove(reelIndex);
     }
@@ -644,17 +640,14 @@ class EventRegistry extends ChangeNotifier {
     // Stop any existing loop on this reel first
     final existingVoiceId = _reelSpinLoopVoices[reelIndex];
     if (existingVoiceId != null && existingVoiceId != voiceId) {
-      debugPrint('[EventRegistry] P0: Replacing existing spin loop on reel $reelIndex');
       AudioPlaybackService.instance.fadeOutVoice(existingVoiceId, fadeMs: _spinLoopFadeMs);
     }
     _reelSpinLoopVoices[reelIndex] = voiceId;
-    debugPrint('[EventRegistry] P0: Tracking REEL_SPIN loop: reel=$reelIndex, voice=$voiceId');
   }
 
   /// P0: Stop all spin loops (called when spin ends abruptly)
   void stopAllSpinLoops() {
     for (final entry in _reelSpinLoopVoices.entries) {
-      debugPrint('[EventRegistry] P0: Stopping spin loop: reel=${entry.key}, voice=${entry.value}');
       AudioPlaybackService.instance.fadeOutVoice(entry.value, fadeMs: _spinLoopFadeMs);
     }
     _reelSpinLoopVoices.clear();
@@ -691,7 +684,6 @@ class EventRegistry extends ChangeNotifier {
     }
 
     if (fadedCount > 0) {
-      debugPrint('[EventRegistry] 🔇 Auto fade-out: ${stagePrefix}_END → faded $fadedCount voice(s) in ${fadeMs}ms');
     }
   }
 
@@ -705,7 +697,6 @@ class EventRegistry extends ChangeNotifier {
   bool get crossfadeEnabled => _crossfadeEnabled;
   set crossfadeEnabled(bool value) {
     _crossfadeEnabled = value;
-    debugPrint('[EventRegistry] P1.10: Crossfade ${value ? 'enabled' : 'disabled'}');
   }
 
   /// P1.10: Default crossfade duration for stage groups
@@ -810,7 +801,6 @@ class EventRegistry extends ChangeNotifier {
     final existingVoices = _crossfadeGroupVoices[group];
     if (existingVoices != null && existingVoices.isNotEmpty) {
       for (final voice in existingVoices) {
-        debugPrint('[EventRegistry] P1.10: Crossfading out voice ${voice.voiceId} (${voice.fadeOutMs}ms)');
         AudioPlaybackService.instance.fadeOutVoice(voice.voiceId, fadeMs: voice.fadeOutMs);
       }
     }
@@ -818,7 +808,6 @@ class EventRegistry extends ChangeNotifier {
     // Track new voices for future crossfade
     _crossfadeGroupVoices[group] = newVoiceIds.map((id) => (voiceId: id, fadeOutMs: fadeMs)).toList();
 
-    debugPrint('[EventRegistry] P1.10: Started crossfade for group "$group", stage "$stage", fadeMs=$fadeMs');
     return fadeMs;
   }
 
@@ -830,7 +819,6 @@ class EventRegistry extends ChangeNotifier {
   /// P1.10: Clear all crossfade tracking (call on stop/reset)
   void clearCrossfadeTracking() {
     _crossfadeGroupVoices.clear();
-    debugPrint('[EventRegistry] P1.10: Cleared crossfade tracking');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -856,8 +844,6 @@ class EventRegistry extends ChangeNotifier {
       final fadeMs = overrideFadeMs ?? voice.crossfadeMs;
       if (fadeMs > maxFadeMs) maxFadeMs = fadeMs;
 
-      debugPrint('[EventRegistry] 🎵 Music crossfade: fading out voice ${voice.voiceId} '
-          'from event "${voice.eventId}" (${fadeMs}ms)');
       AudioPlaybackService.instance.fadeOutVoice(voice.voiceId, fadeMs: fadeMs);
     }
 
@@ -874,21 +860,17 @@ class EventRegistry extends ChangeNotifier {
       eventId: eventId,
       crossfadeMs: crossfadeMs,
     ));
-    debugPrint('[EventRegistry] 🎵 Tracking music voice $voiceId on bus $busId '
-        '(event: $eventId, crossfade: ${crossfadeMs}ms)');
   }
 
   /// Stop all music voices (e.g., when feature ends)
   void stopAllMusicVoices({int fadeMs = 500}) {
     const musicBusId = 1; // SlotBusIds.music
     _fadeOutBusVoices(musicBusId, overrideFadeMs: fadeMs);
-    debugPrint('[EventRegistry] 🎵 Stopped all music voices (${fadeMs}ms fade)');
   }
 
   /// Clear all bus voice tracking (call on stop/reset)
   void clearBusVoiceTracking() {
     _activeBusVoices.clear();
-    debugPrint('[EventRegistry] 🎵 Cleared bus voice tracking');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -904,13 +886,11 @@ class EventRegistry extends ChangeNotifier {
     // Remove existing rule with same ID
     _conditionalRules.removeWhere((r) => r.id == rule.id);
     _conditionalRules.add(rule);
-    debugPrint('[EventRegistry] P1.15: Registered conditional rule: ${rule.id}');
   }
 
   /// P1.15: Remove a conditional rule
   void removeConditionalRule(String ruleId) {
     _conditionalRules.removeWhere((r) => r.id == ruleId);
-    debugPrint('[EventRegistry] P1.15: Removed conditional rule: $ruleId');
   }
 
   /// P1.15: Get all registered rules
@@ -919,7 +899,6 @@ class EventRegistry extends ChangeNotifier {
   /// P1.15: Clear all conditional rules
   void clearConditionalRules() {
     _conditionalRules.clear();
-    debugPrint('[EventRegistry] P1.15: Cleared all conditional rules');
   }
 
   /// P1.15: Evaluate conditional rules and get modified event/context
@@ -946,7 +925,6 @@ class EventRegistry extends ChangeNotifier {
       }
 
       if (allConditionsMet) {
-        debugPrint('[EventRegistry] P1.15: Rule "${rule.id}" matched for $stage');
         return (
           eventId: rule.overrideEventId,
           contextOverrides: rule.contextOverrides,
@@ -1073,7 +1051,6 @@ class EventRegistry extends ChangeNotifier {
   /// Enable/disable spatial audio positioning
   void setUseSpatialAudio(bool enabled) {
     _useSpatialAudio = enabled;
-    debugPrint('[EventRegistry] Spatial audio: ${enabled ? "ENABLED" : "DISABLED"}');
   }
 
   /// Check if spatial audio is enabled
@@ -1116,7 +1093,6 @@ class EventRegistry extends ChangeNotifier {
   /// Enable/disable audio pooling for rapid-fire events
   void setUseAudioPool(bool enabled) {
     _useAudioPool = enabled;
-    debugPrint('[EventRegistry] Audio pooling: ${enabled ? "ENABLED" : "DISABLED"}');
   }
 
   /// Check if a stage should use pooling
@@ -1148,7 +1124,6 @@ class EventRegistry extends ChangeNotifier {
   /// Zero tolerance for path traversal attacks.
   bool _validateAudioPath(String path) {
     if (path.isEmpty) {
-      debugPrint('[EventRegistry] ⛔ SECURITY: Empty path');
       return false;
     }
 
@@ -1156,13 +1131,10 @@ class EventRegistry extends ChangeNotifier {
     final result = PathValidator.validate(path);
 
     if (!result.isValid) {
-      debugPrint('[EventRegistry] ⛔ SECURITY BLOCKED: ${result.error}');
-      debugPrint('[EventRegistry] ⛔ Original path: $path');
       return false;
     }
 
     // Path is valid and canonicalized
-    debugPrint('[EventRegistry] ✅ Path validated: ${result.sanitizedPath}');
     return true;
   }
 
@@ -1230,10 +1202,8 @@ class EventRegistry extends ChangeNotifier {
       if (hasChanged) {
         // Event data changed - stop all playing instances SYNCHRONOUSLY
         _stopEventSync(event.id);
-        debugPrint('[EventRegistry] Event changed - stopping existing instances: ${event.name}');
       } else {
         // Event data is identical - skip update, keep playing
-        debugPrint('[EventRegistry] Event unchanged - skipping re-registration: ${event.name}');
         return; // Don't re-register if identical
       }
     }
@@ -1243,7 +1213,6 @@ class EventRegistry extends ChangeNotifier {
     if (existingByStage != null && existingByStage.id != event.id) {
       _stopEventSync(existingByStage.id);
       _events.remove(existingByStage.id);
-      debugPrint('[EventRegistry] Removed conflicting event for stage: ${event.stage}');
     }
 
     _events[event.id] = event;
@@ -1251,7 +1220,6 @@ class EventRegistry extends ChangeNotifier {
 
     // Log layer details for debugging
     final layerPaths = event.layers.map((l) => l.audioPath.split('/').last).join(', ');
-    debugPrint('[EventRegistry] Registered: ${event.name} → ${event.stage} (${event.layers.length} layers: $layerPaths)');
 
     // Update preloaded paths
     for (final layer in event.layers) {
@@ -1279,14 +1247,12 @@ class EventRegistry extends ChangeNotifier {
   /// If handler returns true, default event processing is skipped
   void registerCustomHandler(String stageName, CustomEventHandler handler) {
     _customHandlers[stageName.toUpperCase().trim()] = handler;
-    debugPrint('[EventRegistry] Registered custom handler for stage: $stageName');
   }
 
   /// Unregister a custom handler
   void unregisterCustomHandler(String stageName) {
     final removed = _customHandlers.remove(stageName.toUpperCase().trim());
     if (removed != null) {
-      debugPrint('[EventRegistry] Unregistered custom handler for stage: $stageName');
     }
   }
 
@@ -1294,7 +1260,6 @@ class EventRegistry extends ChangeNotifier {
   void clearCustomHandlers() {
     final count = _customHandlers.length;
     _customHandlers.clear();
-    debugPrint('[EventRegistry] Cleared $count custom handlers');
   }
 
   /// Get registered custom handler for a stage (if any)
@@ -1347,7 +1312,6 @@ class EventRegistry extends ChangeNotifier {
     }
     final audioPath = event.layers.first.audioPath;
 
-    debugPrint('[EventRegistry] 🔄 Auto-expanding $stage → ${stage}_0..${count - 1}');
 
     // Create per-index events
     for (int i = 0; i < count; i++) {
@@ -1388,7 +1352,6 @@ class EventRegistry extends ChangeNotifier {
       _events[specificEvent.id] = specificEvent;
       _stageToEvent[specificEvent.stage] = specificEvent;
 
-      debugPrint('[EventRegistry] 🎰 Auto: $specificStage (pan: ${pan.toStringAsFixed(2)})');
     }
   }
 
@@ -1405,16 +1368,13 @@ class EventRegistry extends ChangeNotifier {
           for (final voiceId in instance.voiceIds) {
             NativeFFI.instance.playbackStopOneShot(voiceId);
           }
-        } catch (e) {
-          debugPrint('[EventRegistry] Stop error: $e');
-        }
+        } catch (e) { /* ignored */ }
         toRemove.add(instance);
       }
     }
 
     _playingInstances.removeWhere((i) => toRemove.contains(i));
     if (toRemove.isNotEmpty) {
-      debugPrint('[EventRegistry] Sync stopped ${toRemove.length} instance(s) of: $eventIdOrStage');
     }
   }
 
@@ -1512,10 +1472,8 @@ class EventRegistry extends ChangeNotifier {
       registerEvent(event);
       createdIds.add(eventId);
 
-      debugPrint('[EventRegistry] 🎰 Auto-created: $stage (pan: ${pan.toStringAsFixed(2)})');
     }
 
-    debugPrint('[EventRegistry] ✅ Created $reelCount per-reel REEL_STOP events from: ${audioPath.split('/').last}');
     return createdIds;
   }
 
@@ -1570,7 +1528,6 @@ class EventRegistry extends ChangeNotifier {
       createdIds.add(eventId);
     }
 
-    debugPrint('[EventRegistry] ✅ Created $count ${upperStage}_N events');
     return createdIds;
   }
 
@@ -1591,7 +1548,6 @@ class EventRegistry extends ChangeNotifier {
     final event = _events.remove(eventId);
     if (event != null) {
       _stageToEvent.remove(event.stage);
-      debugPrint('[EventRegistry] Unregistered: ${event.name} (stopped all instances)');
       notifyListeners();
     }
   }
@@ -1612,7 +1568,6 @@ class EventRegistry extends ChangeNotifier {
     clearConditionalRules();
     clearHistory();
 
-    debugPrint('[EventRegistry] Cleared all events and stage mappings');
     notifyListeners();
   }
 
@@ -1626,11 +1581,9 @@ class EventRegistry extends ChangeNotifier {
   Map<String, dynamic> preloadAllAudioFiles() {
     final paths = _preloadedPaths.toList();
     if (paths.isEmpty) {
-      debugPrint('[EventRegistry] No audio files to preload');
       return {'total': 0, 'loaded': 0, 'cached': 0, 'failed': 0, 'duration_ms': 0};
     }
 
-    debugPrint('[EventRegistry] Preloading ${paths.length} audio files via FFI...');
     return AudioPool.instance.preloadAudioFiles(paths);
   }
 
@@ -1784,12 +1737,10 @@ class EventRegistry extends ChangeNotifier {
     if (customHandler != null) {
       final preventDefault = customHandler(stage, context);
       if (preventDefault) {
-        debugPrint('[EventRegistry] Custom handler intercepted stage: $stage (prevented default)');
         // P0 WF-10: Still record coverage even if custom handler prevents default
         StageCoverageService.instance.recordTrigger(stage);
         return; // Skip default event triggering
       }
-      debugPrint('[EventRegistry] Custom handler processed stage: $stage (continuing default)');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1822,7 +1773,6 @@ class EventRegistry extends ChangeNotifier {
     if (reelStopMatch != null) {
       final reelIndex = int.tryParse(reelStopMatch.group(1) ?? '');
       if (reelIndex != null) {
-        debugPrint('[EventRegistry] P0: Auto-detected REEL_STOP_$reelIndex → Fading spin loop');
         _fadeOutReelSpinLoop(reelIndex);
       }
     }
@@ -1836,7 +1786,6 @@ class EventRegistry extends ChangeNotifier {
     if (reelSpinStopMatch != null) {
       final reelIndex = int.tryParse(reelSpinStopMatch.group(1) ?? '');
       if (reelIndex != null) {
-        debugPrint('[EventRegistry] P0.1: Auto-detected REEL_SPINNING_STOP_$reelIndex → Early fade-out');
         _fadeOutReelSpinLoop(reelIndex);
         // Don't return - still process the stage for potential audio event
       }
@@ -1852,7 +1801,6 @@ class EventRegistry extends ChangeNotifier {
     if (reelSpinStartMatch != null) {
       final reelIndex = int.tryParse(reelSpinStartMatch.group(1) ?? '');
       if (reelIndex != null) {
-        debugPrint('[EventRegistry] P0.1: Auto-detected REEL_SPINNING_START_$reelIndex → Setting up spin loop');
         enhancedContext['is_reel_spin_loop'] = true;
         enhancedContext['reel_index'] = reelIndex;
       }
@@ -1862,13 +1810,11 @@ class EventRegistry extends ChangeNotifier {
     if (reelSpinMatch != null && !upperStage.contains('START') && !upperStage.contains('STOP')) {
       final reelIndex = int.tryParse(reelSpinMatch.group(1) ?? '');
       if (reelIndex != null) {
-        debugPrint('[EventRegistry] P0.1: Legacy REEL_SPINNING_$reelIndex → Setting up spin loop');
         enhancedContext['is_reel_spin_loop'] = true;
         enhancedContext['reel_index'] = reelIndex;
       }
     } else if (upperStage == 'REEL_SPINNING' || upperStage == 'REEL_SPIN_LOOP') {
       // Generic spin loop (reel index 0 for single shared loop)
-      debugPrint('[EventRegistry] P0.1: Auto-detected generic REEL_SPINNING → Setting up shared spin loop');
       enhancedContext['is_reel_spin_loop'] = true;
       enhancedContext['reel_index'] = 0;
     }
@@ -1878,17 +1824,14 @@ class EventRegistry extends ChangeNotifier {
     // INPUT VALIDATION (P1.2 Security Fix)
     // ═══════════════════════════════════════════════════════════════════════════
     if (stage.isEmpty) {
-      debugPrint('[EventRegistry] ⚠️ Empty stage name rejected');
       return;
     }
     if (stage.length > 128) {
-      debugPrint('[EventRegistry] ⚠️ Stage name too long (${stage.length} > 128): "${stage.substring(0, 32)}..."');
       return;
     }
     // Allow only alphanumeric + underscore (prevent injection)
     final validChars = RegExp(r'^[A-Za-z0-9_]+$');
     if (!validChars.hasMatch(stage)) {
-      debugPrint('[EventRegistry] ⚠️ Stage name contains invalid characters: "$stage"');
       return;
     }
 
@@ -1936,7 +1879,6 @@ class EventRegistry extends ChangeNotifier {
         context = context != null ? Map.from(context) : {};
         context['cascade_pitch'] = cascadePitch;
         context['cascade_volume'] = cascadeVolume.clamp(0.0, 1.5);
-        debugPrint('[EventRegistry] P1.4: CASCADE_STEP_$stepIndex → pitch=${cascadePitch.toStringAsFixed(2)}, volume=${cascadeVolume.toStringAsFixed(2)}');
       }
     }
 
@@ -1948,13 +1890,11 @@ class EventRegistry extends ChangeNotifier {
     if (_isPreTriggerStage(normalizedStage)) {
       context = context != null ? Map.from(context) : {};
       context['pre_trigger_ms'] = kAnticipationPreTriggerMs;
-      debugPrint('[EventRegistry] P0.8: Pre-trigger activated for $normalizedStage (${kAnticipationPreTriggerMs}ms)');
     }
     // Also apply slight pre-trigger to REEL_STOP for tighter sync
     if (normalizedStage.startsWith('REEL_STOP')) {
       context = context != null ? Map.from(context) : {};
       context['pre_trigger_ms'] = (context['pre_trigger_ms'] as double? ?? 0.0) + kReelStopPreTriggerMs;
-      debugPrint('[EventRegistry] P0.8: Reel stop pre-trigger for $normalizedStage (${kReelStopPreTriggerMs}ms)');
     }
 
     // Try exact match first, then normalized
@@ -1987,9 +1927,7 @@ class EventRegistry extends ChangeNotifier {
 
         event = _stageToEvent[fallbackStage];
         if (event != null) {
-          debugPrint('[EventRegistry] 🔄 Using fallback: $normalizedStage → $fallbackStage');
         } else {
-          debugPrint('[EventRegistry] ⚠️ Fallback stage "$fallbackStage" not registered, trying next level...');
           currentStage = fallbackStage; // Try next level of fallback
         }
         fallbackAttempts++;
@@ -1998,17 +1936,11 @@ class EventRegistry extends ChangeNotifier {
 
     // V14: Specific debug for WIN_SYMBOL_HIGHLIGHT stages
     if (normalizedStage.contains('WIN_SYMBOL_HIGHLIGHT')) {
-      debugPrint('[EventRegistry] 🎯 WIN_SYMBOL_HIGHLIGHT stage: "$normalizedStage"');
-      debugPrint('[EventRegistry]   → Event found: ${event != null}');
       if (event != null) {
-        debugPrint('[EventRegistry]   → Event name: ${event.name}');
-        debugPrint('[EventRegistry]   → Layers: ${event.layers.length}');
       } else {
         // Check if generic WIN_SYMBOL_HIGHLIGHT is registered
         final genericEvent = _stageToEvent['WIN_SYMBOL_HIGHLIGHT'];
-        debugPrint('[EventRegistry]   → Generic WIN_SYMBOL_HIGHLIGHT registered: ${genericEvent != null}');
         if (genericEvent != null) {
-          debugPrint('[EventRegistry]   → Generic has ${genericEvent.layers.length} layers');
         }
       }
     }
@@ -2017,8 +1949,6 @@ class EventRegistry extends ChangeNotifier {
       // More detailed logging for debugging
       final registeredStages = _stageToEvent.keys.take(10).join(', ');
       final suffix = _stageToEvent.length > 10 ? '...(+${_stageToEvent.length - 10} more)' : '';
-      debugPrint('[EventRegistry] ❌ No event for stage: "$stage" (normalized: "$normalizedStage")');
-      debugPrint('[EventRegistry] 📋 Registered stages (${_stageToEvent.length}): $registeredStages$suffix');
 
       // STILL increment counter and notify listeners so Event Log can show the stage
       _triggerCount++;
@@ -2045,11 +1975,6 @@ class EventRegistry extends ChangeNotifier {
 
     // DEBUG: Log found event for REEL_STOP stages
     if (normalizedStage.contains('REEL_STOP')) {
-      debugPrint('[EventRegistry] ✅ FOUND event for $normalizedStage:');
-      debugPrint('  eventId = ${event.id}');
-      debugPrint('  eventName = ${event.name}');
-      debugPrint('  eventStage = ${event.stage}');
-      debugPrint('  layers = ${event.layers.map((l) => l.audioPath.split('/').last).join(', ')}');
     }
 
     await triggerEvent(event.id, context: context);
@@ -2059,13 +1984,11 @@ class EventRegistry extends ChangeNotifier {
   Future<void> triggerEvent(String eventId, {Map<String, dynamic>? context}) async {
     // Input validation
     if (eventId.isEmpty || eventId.length > 256) {
-      debugPrint('[EventRegistry] ⚠️ Invalid eventId length');
       return;
     }
 
     final event = _events[eventId];
     if (event == null) {
-      debugPrint('[EventRegistry] Event not found: $eventId');
       return;
     }
 
@@ -2098,7 +2021,6 @@ class EventRegistry extends ChangeNotifier {
     if (_lastTriggeredLayers.isEmpty) {
       _lastTriggerSuccess = false;
       _lastTriggerError = 'No audio layers';
-      debugPrint('[EventRegistry] ⚠️ Event "${event.name}" has no playable audio layers!');
       notifyListeners();
       return;
     }
@@ -2109,8 +2031,6 @@ class EventRegistry extends ChangeNotifier {
 
     // Debug: Log all layer paths
     final layerPaths = event.layers.map((l) => l.audioPath).toList();
-    debugPrint('[EventRegistry] Triggering: ${event.name} (${event.layers.length} layers)$poolStr');
-    debugPrint('[EventRegistry] Layer paths: $layerPaths');
 
     // Reset success tracking
     _lastTriggerSuccess = true;
@@ -2138,12 +2058,10 @@ class EventRegistry extends ChangeNotifier {
         }
 
         if (anyVoiceStillPlaying) {
-          debugPrint('[EventRegistry] 🔄 Loop event "${event.name}" already playing — skipping re-trigger');
           return; // Don't restart — let it continue looping!
         } else {
           // Stale instance (voice failed) — clean up and allow re-trigger
           _playingInstances.removeWhere((i) => i.eventId == eventId);
-          debugPrint('[EventRegistry] 🧹 Cleaned stale loop instance for "${event.name}" — re-triggering');
         }
       }
     }
@@ -2154,7 +2072,6 @@ class EventRegistry extends ChangeNotifier {
       _voiceLimitRejects++;
       _lastTriggerSuccess = false;
       _lastTriggerError = 'Voice limit reached ($activeVoices/$_maxVoicesPerEvent)';
-      debugPrint('[EventRegistry] ⚠️ Voice limit reached for "${event.name}": $activeVoices active (max $_maxVoicesPerEvent)');
       notifyListeners();
       return;
     }
@@ -2182,8 +2099,6 @@ class EventRegistry extends ChangeNotifier {
       crossfadeInMs = _fadeOutBusVoices(busId, overrideFadeMs: event.crossfadeMs);
 
       if (crossfadeInMs > 0) {
-        debugPrint('[EventRegistry] 🎵 Non-overlap event "${event.name}": '
-            'fading out bus $busId voices (${crossfadeInMs}ms crossfade)');
 
         // Add fade-in to context for _playLayer
         context = context != null ? Map.from(context) : {};
@@ -2204,13 +2119,11 @@ class EventRegistry extends ChangeNotifier {
       final existingVoices = _crossfadeGroupVoices[group];
       if (existingVoices != null && existingVoices.isNotEmpty) {
         for (final voice in existingVoices) {
-          debugPrint('[EventRegistry] P1.10: Crossfading out voice ${voice.voiceId} (${voice.fadeOutMs}ms)');
           AudioPlaybackService.instance.fadeOutVoice(voice.voiceId, fadeMs: voice.fadeOutMs);
         }
       }
 
       crossfadeInMs = fadeMs;
-      debugPrint('[EventRegistry] P1.10: Crossfade initiated for group "$group", fadeIn=${fadeMs}ms');
 
       // Add fade-in to context for _playLayer
       context = context != null ? Map.from(context) : {};
@@ -2240,8 +2153,6 @@ class EventRegistry extends ChangeNotifier {
           for (final voiceId in voiceIds) {
             _trackBusVoice(event.targetBusId, voiceId, event.id, event.crossfadeMs);
           }
-          debugPrint('[EventRegistry] 🎵 Tracking ${voiceIds.length} non-overlap voices '
-              'on bus ${event.targetBusId} for event "${event.name}"');
         }
       });
     }
@@ -2253,7 +2164,6 @@ class EventRegistry extends ChangeNotifier {
         if (group != null && voiceIds.isNotEmpty) {
           final fadeMs = _getCrossfadeDuration(event.stage);
           _crossfadeGroupVoices[group] = voiceIds.map((id) => (voiceId: id, fadeOutMs: fadeMs)).toList();
-          debugPrint('[EventRegistry] P1.10: Tracking ${voiceIds.length} voices for group "$group"');
         }
       });
     }
@@ -2272,7 +2182,6 @@ class EventRegistry extends ChangeNotifier {
       Timer(Duration(milliseconds: cleanupDelayMs), () {
         if (_playingInstances.contains(instance)) {
           _playingInstances.remove(instance);
-          debugPrint('[EventRegistry] 🧹 Auto-cleaned one-shot: "${event.name}" (after ${cleanupDelayMs}ms)');
         }
       });
     }
@@ -2311,7 +2220,6 @@ class EventRegistry extends ChangeNotifier {
   Future<void> _triggerViaContainer(AudioEvent event, Map<String, dynamic>? context) async {
     final containerId = event.containerId;
     if (containerId == null) {
-      debugPrint('[EventRegistry] ⚠️ Container event "${event.name}" has no containerId');
       return;
     }
 
@@ -2343,7 +2251,6 @@ class EventRegistry extends ChangeNotifier {
           _lastTriggerSuccess = false;
           _lastTriggerError = 'No active blend children';
         }
-        debugPrint('[EventRegistry] ✅ Blend container triggered: ${voiceIds.length} voices');
         break;
 
       case ContainerType.random:
@@ -2362,7 +2269,6 @@ class EventRegistry extends ChangeNotifier {
           _lastTriggerSuccess = false;
           _lastTriggerError = 'Random selection failed';
         }
-        debugPrint('[EventRegistry] ✅ Random container triggered: voice $voiceId');
         break;
 
       case ContainerType.sequence:
@@ -2381,14 +2287,12 @@ class EventRegistry extends ChangeNotifier {
           _lastTriggerSuccess = false;
           _lastTriggerError = 'Sequence start failed';
         }
-        debugPrint('[EventRegistry] ✅ Sequence container triggered: instance $instanceId');
         break;
 
       case ContainerType.none:
         // Should not happen (usesContainer was true)
         _lastContainerName = null;
         _lastContainerChildCount = 0;
-        debugPrint('[EventRegistry] ⚠️ ContainerType.none but usesContainer was true');
         break;
     }
 
@@ -2412,19 +2316,16 @@ class EventRegistry extends ChangeNotifier {
     bool loop = false, // P0.2: Seamless loop support
   }) async {
     if (layer.audioPath.isEmpty) {
-      debugPrint('[EventRegistry] ⚠️ Skipping layer "${layer.name}" — empty audioPath');
       return;
     }
 
     // P1.1 SECURITY: Validate audio path before playback
     if (!_validateAudioPath(layer.audioPath)) {
-      debugPrint('[EventRegistry] ⛔ BLOCKED: Invalid audio path for layer "${layer.name}"');
       _lastTriggerSuccess = false;
       _lastTriggerError = 'Invalid audio path (security)';
       return;
     }
 
-    debugPrint('[EventRegistry] 🔊 Playing layer "${layer.name}" | path: ${layer.audioPath}');
 
     // Delay pre početka
     // P0.8: Apply pre-trigger offset (negative delay) for tighter audio-visual sync
@@ -2432,7 +2333,6 @@ class EventRegistry extends ChangeNotifier {
     final baseDelayMs = (layer.delay + layer.offset * 1000).round();
     final totalDelayMs = (baseDelayMs - preTriggerMs).round().clamp(0, 10000);
     if (preTriggerMs > 0) {
-      debugPrint('[EventRegistry] P0.8: Pre-trigger ${preTriggerMs}ms, delay ${baseDelayMs}ms → ${totalDelayMs}ms');
     }
     if (totalDelayMs > 0) {
       await Future.delayed(Duration(milliseconds: totalDelayMs));
@@ -2461,7 +2361,6 @@ class EventRegistry extends ChangeNotifier {
         if (progress != null) {
           final escalation = RtpcModulationService.instance.getRollupVolumeEscalation(progress);
           volume *= escalation;
-          debugPrint('[EventRegistry] P1.2 Rollup modulation: progress=${progress.toStringAsFixed(2)}, volume=${(volume).toStringAsFixed(2)}');
         }
       }
 
@@ -2473,7 +2372,6 @@ class EventRegistry extends ChangeNotifier {
       if (context != null && context.containsKey('cascade_volume')) {
         final cascadeVolume = (context['cascade_volume'] as num?)?.toDouble() ?? 1.0;
         volume *= cascadeVolume;
-        debugPrint('[EventRegistry] P1.4 Cascade modulation: volume=${volume.toStringAsFixed(2)}');
       }
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -2484,7 +2382,6 @@ class EventRegistry extends ChangeNotifier {
       if (context != null && context.containsKey('intensity')) {
         final intensity = (context['intensity'] as num?)?.toDouble() ?? 1.0;
         volume *= intensity.clamp(0.5, 1.5);
-        debugPrint('[EventRegistry] P3.3 Near-miss intensity: ${intensity.toStringAsFixed(2)}, volume=${volume.toStringAsFixed(2)}');
       }
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -2543,7 +2440,6 @@ class EventRegistry extends ChangeNotifier {
         // Also ensure audio stream is running
         UnifiedPlaybackController.instance.ensureStreamRunning();
         activeSection = PlaybackSection.slotLab;
-        debugPrint('[EventRegistry] Auto-acquired SlotLab section for playback');
       }
 
       final source = switch (activeSection) {
@@ -2553,7 +2449,6 @@ class EventRegistry extends ChangeNotifier {
         PlaybackSection.browser => PlaybackSource.browser,
       };
 
-      debugPrint('[EventRegistry] _playLayer: activeSection=$activeSection, source=$source, path=${layer.audioPath}');
 
       int voiceId;
 
@@ -2568,7 +2463,6 @@ class EventRegistry extends ChangeNotifier {
       } else if (loop) {
         // CRITICAL: Loop MUST come BEFORE usePool and fade/trim checks!
         // Looping events (GAME_START, MUSIC_*) ignore fade/trim parameters
-        debugPrint('[EventRegistry] 🔄 LOOP MODE: playLoopingToBus(${layer.audioPath.split('/').last}, bus=${layer.busId})');
         voiceId = AudioPlaybackService.instance.playLoopingToBus(
           layer.audioPath,
           volume: volume.clamp(0.0, 1.0),
@@ -2576,7 +2470,6 @@ class EventRegistry extends ChangeNotifier {
           busId: layer.busId,
           source: source,
         );
-        debugPrint('[EventRegistry] 🔄 voiceId: $voiceId');
       } else if (usePool && eventKey != null) {
         // Use AudioPool for rapid-fire events (CASCADE_STEP, ROLLUP_TICK, etc.)
         voiceId = AudioPool.instance.acquire(
@@ -2620,7 +2513,6 @@ class EventRegistry extends ChangeNotifier {
             trimEndMs: layer.trimEndMs,
           );
           if (crossfadeInMs > 0) {
-            debugPrint('[EventRegistry] P1.10: Crossfade-in ${crossfadeInMs}ms applied to ${layer.name}');
           }
         } else {
           voiceId = AudioPlaybackService.instance.playFileToBus(
@@ -2640,7 +2532,6 @@ class EventRegistry extends ChangeNotifier {
         final spatialStr = (_useSpatialAudio && pan != layer.pan) ? ' [SPATIAL pan=${pan.toStringAsFixed(2)}]' : '';
         // Store voice info for debug display
         _lastTriggerError = 'voice=$voiceId, bus=${layer.busId}, section=$activeSection';
-        debugPrint('[EventRegistry] ✅ Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})$poolStr$loopStr$spatialStr');
 
         // ═══════════════════════════════════════════════════════════════════════
         // P1-15: DISPATCH HOOK FOR AUDIO PLAYED (2026-01-30)
@@ -2674,11 +2565,8 @@ class EventRegistry extends ChangeNotifier {
         final ffiError = AudioPlaybackService.instance.lastPlaybackToBusError;
         _lastTriggerSuccess = false;
         _lastTriggerError = 'FAILED: $ffiError';
-        debugPrint('[EventRegistry] ❌ FAILED to play: ${layer.name} | path: ${layer.audioPath} | error: $ffiError');
       }
-    } catch (e) {
-      debugPrint('[EventRegistry] Error playing layer ${layer.name}: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ==========================================================================
@@ -2702,7 +2590,6 @@ class EventRegistry extends ChangeNotifier {
 
     _playingInstances.removeWhere((i) => toRemove.contains(i));
     if (toRemove.isNotEmpty) {
-      debugPrint('[EventRegistry] Stopped ${toRemove.length} instance(s) of: $eventIdOrStage');
     }
     notifyListeners();
   }
@@ -2731,7 +2618,6 @@ class EventRegistry extends ChangeNotifier {
     for (final layer in event.layers) {
       if (layer.audioPath.isEmpty) continue;
       _preloadedPaths.add(layer.audioPath);
-      debugPrint('[EventRegistry] Marked for preload: ${layer.name}');
     }
   }
 
@@ -2849,7 +2735,6 @@ class EventRegistry extends ChangeNotifier {
         voiceOverPath: '',
       );
       registerEvent(event);
-      debugPrint('[EventRegistry] P0.7: Registered Big Win template: ${event.id}');
     }
   }
 
@@ -2864,7 +2749,6 @@ class EventRegistry extends ChangeNotifier {
     final eventId = 'slot_bigwin_tier_$tier';
     final existing = _events[eventId];
     if (existing == null) {
-      debugPrint('[EventRegistry] Big Win event not found: $eventId');
       return;
     }
 
@@ -2878,7 +2762,6 @@ class EventRegistry extends ChangeNotifier {
     );
 
     registerEvent(event);
-    debugPrint('[EventRegistry] P0.7: Updated Big Win event: $eventId');
   }
 
   // ==========================================================================
@@ -2937,10 +2820,8 @@ class EventRegistry extends ChangeNotifier {
 
     if (_stageToEvent.containsKey(normalized)) {
       _stageToEvent.remove(normalized);
-      debugPrint('[EventRegistry] 🗑️ Unregistered stage: $stage');
       notifyListeners();
     } else {
-      debugPrint('[EventRegistry] ⚠️ Stage not found for unregister: $stage');
     }
   }
 

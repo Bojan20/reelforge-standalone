@@ -143,7 +143,6 @@ class ProcessorLatencyCompensation extends ChangeNotifier {
 
       // Apply compensation via FFI (TODO: Add FFI function)
       // NativeFFI.instance.trackSetCompensationDelay(trackId, compensation);
-      debugPrint('[PDC] Track $trackId: ${state.totalLatencyMs}ms → compensate +${(compensation / _sampleRate) * 1000}ms');
     }
   }
 

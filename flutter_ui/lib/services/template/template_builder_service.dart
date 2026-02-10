@@ -20,12 +20,10 @@ class TemplateBuilderService {
   /// Note: audioFolderPath should be empty for new templates.
   /// Audio mappings are added later by the user.
   BuiltTemplate buildTemplate(SlotTemplate source, {String audioFolderPath = ''}) {
-    debugPrint('[TemplateBuilder] Building template: ${source.name}');
 
     // Template starts with no audio mappings - user assigns them later
     final audioMappings = <AudioMapping>[];
 
-    debugPrint('[TemplateBuilder] Generated ${source.allStages.length} stages from template');
 
     return BuiltTemplate(
       source: source,

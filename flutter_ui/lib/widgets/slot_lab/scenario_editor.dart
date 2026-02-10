@@ -77,7 +77,6 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      debugPrint('[ScenarioEditor] Failed to load scenarios: $e');
     }
   }
 

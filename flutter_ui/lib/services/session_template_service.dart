@@ -267,9 +267,7 @@ class SessionTemplateService extends ChangeNotifier {
           decoded.map((e) => SessionTemplate.fromJson(e as Map<String, dynamic>)),
         );
         notifyListeners();
-      } catch (e) {
-        debugPrint('[SessionTemplateService] Failed to load templates: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
   }
 
@@ -279,7 +277,6 @@ class SessionTemplateService extends ChangeNotifier {
       final json = jsonEncode(_customTemplates.map((t) => t.toJson()).toList());
       return await prefs.setString('session_templates', json);
     } catch (e) {
-      debugPrint('[SessionTemplateService] Failed to save templates: $e');
       return false;
     }
   }
@@ -321,7 +318,6 @@ class SessionTemplateService extends ChangeNotifier {
       await file.writeAsString(json);
       return true;
     } catch (e) {
-      debugPrint('[SessionTemplateService] Export failed: $e');
       return false;
     }
   }
@@ -343,7 +339,6 @@ class SessionTemplateService extends ChangeNotifier {
 
       return template;
     } catch (e) {
-      debugPrint('[SessionTemplateService] Import failed: $e');
       return null;
     }
   }

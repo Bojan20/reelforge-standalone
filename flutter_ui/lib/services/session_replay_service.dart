@@ -63,13 +63,11 @@ class SessionRecorder extends ChangeNotifier {
     _gameId = gameId;
     _gameName = gameName;
     _config = config ?? const SessionConfig();
-    debugPrint('[SessionRecorder] Initialized for game: $gameId');
   }
 
   /// Start recording a new session
   void startRecording() {
     if (!_state.canRecord) {
-      debugPrint('[SessionRecorder] Cannot start recording in state: $_state');
       return;
     }
 
@@ -85,13 +83,10 @@ class SessionRecorder extends ChangeNotifier {
     try {
       NativeFFI.instance.seedLogEnable(true);
       NativeFFI.instance.seedLogClear();
-    } catch (e) {
-      debugPrint('[SessionRecorder] Failed to enable seed logging: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     _state = RecordingState.recording;
     notifyListeners();
-    debugPrint('[SessionRecorder] Started recording session: $_sessionId');
   }
 
   /// Pause recording
@@ -100,7 +95,6 @@ class SessionRecorder extends ChangeNotifier {
     _sessionStopwatch.stop();
     _state = RecordingState.paused;
     notifyListeners();
-    debugPrint('[SessionRecorder] Paused recording');
   }
 
   /// Resume recording
@@ -109,7 +103,6 @@ class SessionRecorder extends ChangeNotifier {
     _sessionStopwatch.start();
     _state = RecordingState.recording;
     notifyListeners();
-    debugPrint('[SessionRecorder] Resumed recording');
   }
 
   /// Stop recording and finalize session
@@ -121,9 +114,7 @@ class SessionRecorder extends ChangeNotifier {
     // Disable seed logging
     try {
       NativeFFI.instance.seedLogEnable(false);
-    } catch (e) {
-      debugPrint('[SessionRecorder] Failed to disable seed logging: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     final session = RecordedSession(
       sessionId: _sessionId ?? 'unknown',
@@ -139,8 +130,6 @@ class SessionRecorder extends ChangeNotifier {
 
     _state = RecordingState.stopped;
     notifyListeners();
-    debugPrint(
-        '[SessionRecorder] Stopped recording. Total spins: ${_spins.length}');
 
     return session;
   }
@@ -158,7 +147,6 @@ class SessionRecorder extends ChangeNotifier {
     _currentSeedSnapshots.clear();
     _spinStartTime = DateTime.now();
 
-    debugPrint('[SessionRecorder] Spin started: $spinId, bet: $betAmount');
   }
 
   /// Record a stage event during spin
@@ -203,8 +191,6 @@ class SessionRecorder extends ChangeNotifier {
     _spins.add(spin);
     _spinIndex++;
 
-    debugPrint(
-        '[SessionRecorder] Spin ended: $_currentSpinId, win: $winAmount, stages: ${_currentStageEvents.length}');
 
     _currentSpinId = null;
     _currentStageEvents.clear();
@@ -258,9 +244,7 @@ class SessionRecorder extends ChangeNotifier {
       }
       // Clear log for next spin
       NativeFFI.instance.seedLogClear();
-    } catch (e) {
-      debugPrint('[SessionRecorder] Failed to capture seed snapshots: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Reset recorder to initial state
@@ -350,11 +334,8 @@ class SessionReplayEngine extends ChangeNotifier {
 
       _state = ReplayState.idle;
       notifyListeners();
-      debugPrint(
-          '[SessionReplay] Loaded session: ${session.sessionId}, spins: ${session.spinCount}');
       return true;
     } catch (e) {
-      debugPrint('[SessionReplay] Failed to load session: $e');
       _state = ReplayState.error;
       notifyListeners();
       return false;
@@ -369,7 +350,6 @@ class SessionReplayEngine extends ChangeNotifier {
     _playbackStopwatch.start();
     _startPlaybackLoop();
     notifyListeners();
-    debugPrint('[SessionReplay] Started playback');
   }
 
   /// Pause playback
@@ -380,7 +360,6 @@ class SessionReplayEngine extends ChangeNotifier {
     _playbackStopwatch.stop();
     _state = ReplayState.paused;
     notifyListeners();
-    debugPrint('[SessionReplay] Paused playback');
   }
 
   /// Stop playback
@@ -393,7 +372,6 @@ class SessionReplayEngine extends ChangeNotifier {
     _position = const ReplayPosition();
     _state = ReplayState.stopped;
     notifyListeners();
-    debugPrint('[SessionReplay] Stopped playback');
   }
 
   /// Seek to position
@@ -420,14 +398,12 @@ class SessionReplayEngine extends ChangeNotifier {
     _state = wasPlaying ? ReplayState.playing : ReplayState.paused;
     if (wasPlaying) play();
     notifyListeners();
-    debugPrint('[SessionReplay] Seeked to spin: $spinIndex');
   }
 
   /// Set playback speed
   void setSpeed(ReplaySpeed newSpeed) {
     _speed = newSpeed;
     notifyListeners();
-    debugPrint('[SessionReplay] Set speed: ${newSpeed.label}');
   }
 
   /// Unload session
@@ -545,9 +521,7 @@ class SessionReplayEngine extends ChangeNotifier {
           snapshot.containerId,
           snapshot.seedBeforeInt,
         );
-      } catch (e) {
-        debugPrint('[SessionReplay] Failed to restore seed: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
   }
 
@@ -579,7 +553,6 @@ class SessionStorage {
     if (!await _storageDir!.exists()) {
       await _storageDir!.create(recursive: true);
     }
-    debugPrint('[SessionStorage] Initialized at: ${_storageDir!.path}');
   }
 
   String _getBasePath() {
@@ -602,10 +575,8 @@ class SessionStorage {
       final fileName = '${session.sessionId}$_extension';
       final file = File('${_storageDir!.path}/$fileName');
       await file.writeAsString(session.toJsonString(pretty: true));
-      debugPrint('[SessionStorage] Saved session: $fileName');
       return file.path;
     } catch (e) {
-      debugPrint('[SessionStorage] Failed to save session: $e');
       return null;
     }
   }
@@ -615,16 +586,13 @@ class SessionStorage {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        debugPrint('[SessionStorage] File not found: $filePath');
         return null;
       }
 
       final jsonStr = await file.readAsString();
       final session = RecordedSession.fromJsonString(jsonStr);
-      debugPrint('[SessionStorage] Loaded session: ${session.sessionId}');
       return session;
     } catch (e) {
-      debugPrint('[SessionStorage] Failed to load session: $e');
       return null;
     }
   }
@@ -646,16 +614,12 @@ class SessionStorage {
           final jsonStr = await file.readAsString();
           final session = RecordedSession.fromJsonString(jsonStr);
           summaries.add(SessionSummary.fromSession(session));
-        } catch (e) {
-          debugPrint('[SessionStorage] Failed to read ${file.path}: $e');
-        }
+        } catch (e) { /* ignored */ }
       }
 
       // Sort by date, newest first
       summaries.sort((a, b) => b.startedAt.compareTo(a.startedAt));
-    } catch (e) {
-      debugPrint('[SessionStorage] Failed to list sessions: $e');
-    }
+    } catch (e) { /* ignored */ }
 
     return summaries;
   }
@@ -668,12 +632,9 @@ class SessionStorage {
       final file = File('${_storageDir!.path}/$sessionId$_extension');
       if (await file.exists()) {
         await file.delete();
-        debugPrint('[SessionStorage] Deleted session: $sessionId');
         return true;
       }
-    } catch (e) {
-      debugPrint('[SessionStorage] Failed to delete session: $e');
-    }
+    } catch (e) { /* ignored */ }
     return false;
   }
 
@@ -682,10 +643,8 @@ class SessionStorage {
     try {
       final file = File(path);
       await file.writeAsString(session.toJsonString(pretty: true));
-      debugPrint('[SessionStorage] Exported session to: $path');
       return true;
     } catch (e) {
-      debugPrint('[SessionStorage] Failed to export session: $e');
       return false;
     }
   }
@@ -722,10 +681,8 @@ class SessionStorage {
 
       final file = File(path);
       await file.writeAsString(buffer.toString());
-      debugPrint('[SessionStorage] Exported CSV to: $path');
       return true;
     } catch (e) {
-      debugPrint('[SessionStorage] Failed to export CSV: $e');
       return false;
     }
   }

@@ -93,7 +93,6 @@ class NavigationCoordinator extends ChangeNotifier {
   void navigate(NavigationContext context) {
     _pendingNavigation = context;
     _addToHistory(context);
-    debugPrint('[NavigationCoordinator] Navigate to ${context.target} with data: ${context.data}');
     notifyListeners();
   }
 
@@ -133,7 +132,6 @@ class NavigationCoordinator extends ChangeNotifier {
       _history.removeLast(); // Remove current
       final previous = _history.last;
       _pendingNavigation = previous;
-      debugPrint('[NavigationCoordinator] Go back to ${previous.target}');
       notifyListeners();
     }
   }
@@ -141,7 +139,6 @@ class NavigationCoordinator extends ChangeNotifier {
   /// Clear history
   void clearHistory() {
     _history.clear();
-    debugPrint('[NavigationCoordinator] History cleared');
   }
 
   /// Add to history

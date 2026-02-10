@@ -189,7 +189,6 @@ class TrackFreezeService extends ChangeNotifier {
       await dir.create(recursive: true);
     }
 
-    debugPrint('[TrackFreeze] Initialized: $_freezeDirectory');
   }
 
   /// Set freeze quality
@@ -220,7 +219,6 @@ class TrackFreezeService extends ChangeNotifier {
   Future<bool> freezeTrack(int trackId, {String? trackName}) async {
     // Check if already frozen
     if (_trackInfo[trackId]?.state == FreezeState.frozen) {
-      debugPrint('[TrackFreeze] Track $trackId already frozen');
       return true;
     }
 
@@ -273,7 +271,6 @@ class TrackFreezeService extends ChangeNotifier {
       onFreezeComplete?.call(trackId, _trackInfo[trackId]!);
       notifyListeners();
 
-      debugPrint('[TrackFreeze] Track $trackId frozen: $outputPath');
       return true;
     } catch (e) {
       _trackInfo[trackId] = info.copyWith(
@@ -284,7 +281,6 @@ class TrackFreezeService extends ChangeNotifier {
       onFreezeError?.call(trackId, e.toString());
       notifyListeners();
 
-      debugPrint('[TrackFreeze] Freeze error: $e');
       return false;
     }
   }
@@ -293,7 +289,6 @@ class TrackFreezeService extends ChangeNotifier {
   Future<bool> unfreezeTrack(int trackId) async {
     final info = _trackInfo[trackId];
     if (info == null || info.state != FreezeState.frozen) {
-      debugPrint('[TrackFreeze] Track $trackId not frozen');
       return false;
     }
 
@@ -324,10 +319,8 @@ class TrackFreezeService extends ChangeNotifier {
 
       notifyListeners();
 
-      debugPrint('[TrackFreeze] Track $trackId unfrozen');
       return true;
     } catch (e) {
-      debugPrint('[TrackFreeze] Unfreeze error: $e');
       return false;
     }
   }

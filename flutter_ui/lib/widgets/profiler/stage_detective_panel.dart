@@ -127,10 +127,8 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
             onSelected: (value) {
               if (value == 'json') {
                 final json = tracer.exportToJson();
-                debugPrint('[StageDetective] Exported JSON: $json');
               } else if (value == 'csv') {
                 final csv = tracer.exportToCsv();
-                debugPrint('[StageDetective] Exported CSV:\n$csv');
               }
             },
             itemBuilder: (context) => [

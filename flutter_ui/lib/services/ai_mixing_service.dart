@@ -545,10 +545,8 @@ class AiMixingService extends ChangeNotifier {
       }
 
       _initialized = true;
-      debugPrint('[AiMixingService] Initialized, genre: $_selectedGenre');
       notifyListeners();
     } catch (e) {
-      debugPrint('[AiMixingService] Init error: $e');
       _initialized = true;
     }
   }
@@ -562,7 +560,6 @@ class AiMixingService extends ChangeNotifier {
     await prefs.setInt(_prefsKeyGenre, genre.index);
 
     notifyListeners();
-    debugPrint('[AiMixingService] Genre set to: $genre');
   }
 
   /// Enable/disable AI mixing
@@ -669,8 +666,6 @@ class AiMixingService extends ChangeNotifier {
       _analyzing = false;
       notifyListeners();
 
-      debugPrint('[AiMixingService] Analysis complete: score=${score.toStringAsFixed(1)}, '
-          '${suggestions.length} suggestions');
 
       return result;
     } catch (e) {
@@ -688,13 +683,10 @@ class AiMixingService extends ChangeNotifier {
       await _saveHistory();
 
       // In real implementation, this would apply the DSP changes
-      debugPrint('[AiMixingService] Applied: ${suggestion.title}');
-      debugPrint('  Parameters: ${suggestion.parameters}');
 
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('[AiMixingService] Apply error: $e');
       return false;
     }
   }
@@ -1036,9 +1028,7 @@ class AiMixingService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final json = jsonEncode(_suggestionHistory.map((s) => s.toJson()).toList());
       await prefs.setString(_prefsKeyHistory, json);
-    } catch (e) {
-      debugPrint('[AiMixingService] Save history error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   @override

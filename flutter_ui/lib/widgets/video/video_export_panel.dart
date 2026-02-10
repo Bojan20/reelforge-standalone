@@ -845,7 +845,6 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
 
   void _openFFmpegDownload() {
     // In real implementation, open URL
-    debugPrint('Open https://ffmpeg.org/download.html');
   }
 
   void _showError(String message) {

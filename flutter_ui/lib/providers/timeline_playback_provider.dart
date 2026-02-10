@@ -192,7 +192,6 @@ class TimelinePlaybackProvider extends ChangeNotifier {
     // Acquire DAW section in UnifiedPlaybackController
     final controller = UnifiedPlaybackController.instance;
     if (!controller.acquireSection(PlaybackSection.daw)) {
-      debugPrint('[TimelinePlayback] Failed to acquire DAW section');
       return;
     }
 

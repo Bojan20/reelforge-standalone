@@ -160,9 +160,7 @@ class PanelOpacityProvider extends ChangeNotifier {
     if (json != null) {
       try {
         _config = PanelOpacityConfig.fromJson(jsonDecode(json) as Map<String, dynamic>);
-      } catch (e) {
-        debugPrint('[PanelOpacity] Load error: $e');
-      }
+      } catch (e) { /* ignored */ }
     }
 
     _initialized = true;

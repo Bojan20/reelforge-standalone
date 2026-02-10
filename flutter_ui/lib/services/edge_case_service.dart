@@ -57,10 +57,7 @@ class EdgeCaseService extends ChangeNotifier {
       await _loadCustomPresets();
       await _loadRecentHistory();
       _isInitialized = true;
-      debugPrint('[EdgeCaseService] Initialized with ${_customPresets.length} custom presets');
-    } catch (e) {
-      debugPrint('[EdgeCaseService] Init error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Get preset by ID
@@ -128,21 +125,21 @@ class EdgeCaseService extends ChangeNotifier {
         try {
           NativeFFI.instance.setBusMute(1, !config.musicEnabled!);
           changes.add('Music: ${config.musicEnabled! ? "on" : "off"}');
-        } catch (_) {}
+        } catch (_) { /* ignored */ }
       }
 
       if (config.sfxEnabled != null) {
         try {
           NativeFFI.instance.setBusMute(2, !config.sfxEnabled!);
           changes.add('SFX: ${config.sfxEnabled! ? "on" : "off"}');
-        } catch (_) {}
+        } catch (_) { /* ignored */ }
       }
 
       if (config.volume != null) {
         try {
           NativeFFI.instance.setMasterVolume(config.volume!);
           changes.add('Volume: ${(config.volume! * 100).toInt()}%');
-        } catch (_) {}
+        } catch (_) { /* ignored */ }
       }
 
       // Apply feature config (stored in config, visual-only in simulation)
@@ -167,7 +164,6 @@ class EdgeCaseService extends ChangeNotifier {
       _addToRecent(preset.id);
       notifyListeners();
 
-      debugPrint('[EdgeCaseService] Applied preset "${preset.name}": ${changes.join(", ")}');
 
       return ApplyResult(
         success: true,
@@ -175,7 +171,6 @@ class EdgeCaseService extends ChangeNotifier {
         changes: changes,
       );
     } catch (e) {
-      debugPrint('[EdgeCaseService] Apply error: $e');
       return ApplyResult(
         success: false,
         preset: preset,
@@ -207,7 +202,6 @@ class EdgeCaseService extends ChangeNotifier {
 
     await _saveCustomPresets();
     notifyListeners();
-    debugPrint('[EdgeCaseService] Saved preset: ${toSave.name}');
   }
 
   /// Delete a custom preset
@@ -222,7 +216,6 @@ class EdgeCaseService extends ChangeNotifier {
     await _saveCustomPresets();
     await _saveRecentHistory();
     notifyListeners();
-    debugPrint('[EdgeCaseService] Deleted preset: $id');
   }
 
   /// Duplicate a preset
@@ -265,10 +258,8 @@ class EdgeCaseService extends ChangeNotifier {
         }
       }
 
-      debugPrint('[EdgeCaseService] Imported $imported presets');
       return imported;
     } catch (e) {
-      debugPrint('[EdgeCaseService] Import error: $e');
       return 0;
     }
   }
@@ -300,9 +291,7 @@ class EdgeCaseService extends ChangeNotifier {
             .map((p) => EdgeCasePreset.fromJson(p as Map<String, dynamic>))
             .toList();
       }
-    } catch (e) {
-      debugPrint('[EdgeCaseService] Load error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _saveCustomPresets() async {
@@ -313,9 +302,7 @@ class EdgeCaseService extends ChangeNotifier {
         'presets': _customPresets.map((p) => p.toJson()).toList(),
       };
       await prefs.setString(_presetsKey, jsonEncode(data));
-    } catch (e) {
-      debugPrint('[EdgeCaseService] Save error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _loadRecentHistory() async {
@@ -326,9 +313,7 @@ class EdgeCaseService extends ChangeNotifier {
         final data = jsonDecode(json) as Map<String, dynamic>;
         _recentPresetIds = (data['recent'] as List<dynamic>).cast<String>();
       }
-    } catch (e) {
-      debugPrint('[EdgeCaseService] Load recent error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   Future<void> _saveRecentHistory() async {
@@ -336,9 +321,7 @@ class EdgeCaseService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final data = {'recent': _recentPresetIds};
       await prefs.setString(_recentKey, jsonEncode(data));
-    } catch (e) {
-      debugPrint('[EdgeCaseService] Save recent error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 }
 

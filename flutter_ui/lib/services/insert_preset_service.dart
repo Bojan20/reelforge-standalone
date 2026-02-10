@@ -54,9 +54,7 @@ class InsertPresetService extends ChangeNotifier {
         for (final item in jsonList) {
           try {
             _presets.add(InsertChainPreset.fromJson(item as Map<String, dynamic>));
-          } catch (e) {
-            debugPrint('[InsertPresetService] Error parsing preset: $e');
-          }
+          } catch (e) { /* ignored */ }
         }
       }
 
@@ -67,10 +65,8 @@ class InsertPresetService extends ChangeNotifier {
       }
 
       _isInitialized = true;
-      debugPrint('[InsertPresetService] Loaded ${_presets.length} presets');
       notifyListeners();
     } catch (e) {
-      debugPrint('[InsertPresetService] Init error: $e');
       _addBuiltInPresets();
       _isInitialized = true;
       notifyListeners();
@@ -378,10 +374,8 @@ class InsertPresetService extends ChangeNotifier {
 
       await _saveToStorage();
       notifyListeners();
-      debugPrint('[InsertPresetService] Saved preset: ${preset.name}');
       return true;
     } catch (e) {
-      debugPrint('[InsertPresetService] Save error: $e');
       return false;
     }
   }
@@ -395,17 +389,14 @@ class InsertPresetService extends ChangeNotifier {
   Future<bool> deletePreset(String id) async {
     try {
       if (id.startsWith('builtin_')) {
-        debugPrint('[InsertPresetService] Cannot delete built-in preset');
         return false;
       }
 
       _presets.removeWhere((p) => p.id == id);
       await _saveToStorage();
       notifyListeners();
-      debugPrint('[InsertPresetService] Deleted preset: $id');
       return true;
     } catch (e) {
-      debugPrint('[InsertPresetService] Delete error: $e');
       return false;
     }
   }
@@ -470,9 +461,7 @@ class InsertPresetService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = _presets.map((p) => p.toJson()).toList();
       await prefs.setString(_kStorageKey, jsonEncode(jsonList));
-    } catch (e) {
-      debugPrint('[InsertPresetService] Storage error: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   /// Export preset to JSON string
@@ -489,7 +478,6 @@ class InsertPresetService extends ChangeNotifier {
         createdAt: DateTime.now(),
       );
     } catch (e) {
-      debugPrint('[InsertPresetService] Import error: $e');
       return null;
     }
   }
@@ -566,6 +554,5 @@ class InsertPresetService extends ChangeNotifier {
       outputGain: preset.chainOutputGain,
     );
 
-    debugPrint('[InsertPresetService] Applied preset "${preset.name}" to track $trackId');
   }
 }

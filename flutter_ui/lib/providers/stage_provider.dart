@@ -57,7 +57,6 @@ class StageProvider extends ChangeNotifier {
   /// Initialize audio mapper with middleware provider
   void initializeAudioMapper(MiddlewareProvider middleware) {
     _audioMapper = StageAudioMapper(middleware, _ffi);
-    debugPrint('[Stage] Audio mapper initialized');
   }
 
   /// Get audio mapper stats
@@ -103,7 +102,6 @@ class StageProvider extends ChangeNotifier {
       // Call FFI wizard - returns JSON result string or null
       final resultJson = _ffi.wizardAnalyzeJson(jsonString);
       if (resultJson == null || resultJson.isEmpty) {
-        debugPrint('[Stage] Wizard analysis failed');
         return null;
       }
 
@@ -112,7 +110,6 @@ class StageProvider extends ChangeNotifier {
       notifyListeners();
       return _wizardResult;
     } catch (e) {
-      debugPrint('[Stage] Error analyzing JSON: $e');
       return null;
     }
   }
@@ -125,14 +122,12 @@ class StageProvider extends ChangeNotifier {
 
       final resultJson = _ffi.stageParseJson(jsonString, id);
       if (resultJson == null) {
-        debugPrint('[Stage] Failed to parse JSON with adapter: $id');
         return null;
       }
 
       // Check for error in result
       final result = jsonDecode(resultJson) as Map<String, dynamic>;
       if (result.containsKey('error')) {
-        debugPrint('[Stage] Parse error: ${result['error']}');
         return null;
       }
 
@@ -145,7 +140,6 @@ class StageProvider extends ChangeNotifier {
       notifyListeners();
       return _currentTrace;
     } catch (e) {
-      debugPrint('[Stage] Error parsing JSON: $e');
       return null;
     }
   }
@@ -155,7 +149,6 @@ class StageProvider extends ChangeNotifier {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        debugPrint('[Stage] File not found: $filePath');
         return null;
       }
 
@@ -167,7 +160,6 @@ class StageProvider extends ChangeNotifier {
       // Then parse with detected adapter
       return parseJson(jsonString);
     } catch (e) {
-      debugPrint('[Stage] Error importing file: $e');
       return null;
     }
   }
@@ -188,9 +180,7 @@ class StageProvider extends ChangeNotifier {
         try {
           final map = jsonDecode(eventJson) as Map<String, dynamic>;
           events.add(DetectedEvent.fromJson(map));
-        } catch (e) {
-          debugPrint('[Stage] Error parsing detected event $i: $e');
-        }
+        } catch (e) { /* ignored */ }
       }
     }
 
@@ -213,7 +203,6 @@ class StageProvider extends ChangeNotifier {
       final map = jsonDecode(traceJson) as Map<String, dynamic>;
       return StageTrace.fromJson(map);
     } catch (e) {
-      debugPrint('[Stage] Error parsing trace JSON: $e');
       return null;
     }
   }
@@ -239,7 +228,6 @@ class StageProvider extends ChangeNotifier {
     // profile: 0=Normal, 1=Turbo, 2=Mobile, 3=Studio, 4=Instant
     final success = _ffi.stageResolveTiming(_timingProfile.index);
     if (!success) {
-      debugPrint('[Stage] Failed to resolve timing');
       return;
     }
 
@@ -249,9 +237,7 @@ class StageProvider extends ChangeNotifier {
     try {
       final map = jsonDecode(timedJson) as Map<String, dynamic>;
       _currentTimedTrace = TimedStageTrace.fromJson(map);
-    } catch (e) {
-      debugPrint('[Stage] Error parsing timed trace: $e');
-    }
+    } catch (e) { /* ignored */ }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -349,7 +335,6 @@ class StageProvider extends ChangeNotifier {
       }
       return success;
     } catch (e) {
-      debugPrint('[Stage] Error loading adapter config: $e');
       return false;
     }
   }
@@ -369,9 +354,7 @@ class StageProvider extends ChangeNotifier {
         try {
           final map = jsonDecode(infoJson) as Map<String, dynamic>;
           _adapters.add(AdapterInfo.fromJson(map));
-        } catch (e) {
-          debugPrint('[Stage] Error parsing adapter info $i: $e');
-        }
+        } catch (e) { /* ignored */ }
       }
     }
   }
@@ -420,7 +403,6 @@ class StageProvider extends ChangeNotifier {
       notifyListeners();
       return success;
     } catch (e) {
-      debugPrint('[Stage] Connection failed: $e');
       _connectionState = EngineConnectionState.error;
       notifyListeners();
       return false;
@@ -472,7 +454,6 @@ class StageProvider extends ChangeNotifier {
     if (_audioMapper != null) {
       _audioMapper!.mapAndTrigger(event);
     } else {
-      debugPrint('[Stage] Audio mapper not initialized - event: ${event.stage.typeName}');
     }
   }
 
