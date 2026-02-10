@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use wasm_bindgen::prelude::*;
-use web_sys::{AudioBuffer, AudioContext, GainNode, StereoPannerNode};
+use web_sys::{AudioContext, GainNode};
 
 // ============================================================================
 // INITIALIZATION
@@ -303,7 +303,7 @@ impl FluxForgeAudio {
 
     /// Play an event by ID
     #[wasm_bindgen]
-    pub fn play_event(&mut self, event_id: &str, volume: f32, pitch: f32) -> Option<VoiceHandle> {
+    pub fn play_event(&mut self, event_id: &str, volume: f32, _pitch: f32) -> Option<VoiceHandle> {
         if !self.initialized {
             log::warn!("[FluxForge WASM] Not initialized");
             return None;
@@ -358,7 +358,7 @@ impl FluxForgeAudio {
 
     /// Stop an event
     #[wasm_bindgen]
-    pub fn stop_event(&mut self, event_id: &str, fade_time_ms: u32) {
+    pub fn stop_event(&mut self, event_id: &str, _fade_time_ms: u32) {
         for voice in &mut self.voices {
             if voice.event_id == event_id && voice.state == PlaybackState::Playing {
                 voice.state = PlaybackState::FadingOut;
@@ -369,7 +369,7 @@ impl FluxForgeAudio {
 
     /// Stop a specific voice
     #[wasm_bindgen]
-    pub fn stop_voice(&mut self, voice_id: u32, fade_time_ms: u32) {
+    pub fn stop_voice(&mut self, voice_id: u32, _fade_time_ms: u32) {
         if let Some(voice) = self.voices.iter_mut().find(|v| v.id == voice_id) {
             voice.state = PlaybackState::FadingOut;
         }
@@ -377,7 +377,7 @@ impl FluxForgeAudio {
 
     /// Stop all sounds
     #[wasm_bindgen]
-    pub fn stop_all(&mut self, fade_time_ms: u32) {
+    pub fn stop_all(&mut self, _fade_time_ms: u32) {
         for voice in &mut self.voices {
             if voice.state == PlaybackState::Playing {
                 voice.state = PlaybackState::FadingOut;
@@ -491,7 +491,7 @@ impl FluxForgeAudio {
     // VOICE MANAGEMENT
     // ════════════════════════════════════════════════════════════════════════
 
-    fn acquire_voice(&mut self, event_id: &str, priority: u8) -> Option<u32> {
+    fn acquire_voice(&mut self, event_id: &str, _priority: u8) -> Option<u32> {
         // Count voices for this event
         let event_voice_count = self
             .voices

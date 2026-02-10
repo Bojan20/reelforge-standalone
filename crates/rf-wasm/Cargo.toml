@@ -70,12 +70,8 @@ uuid = { version = "1.8", features = ["v4", "js"] }
 [dev-dependencies]
 wasm-bindgen-test = "0.3.42"
 
-[profile.release]
-# Optimize for size in WASM
-opt-level = "s"
-lto = true
-codegen-units = 1
-panic = "abort"
+# Note: [profile.release] is defined at workspace root (Cargo.toml)
+# For WASM-specific size optimization, use: cargo build --profile min-size
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-Os", "--enable-mutable-globals"]
