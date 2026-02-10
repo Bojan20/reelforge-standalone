@@ -26,12 +26,14 @@
 
 pub mod audio_fuzz;
 pub mod config;
+pub mod dsp_fuzz;
 pub mod generators;
 pub mod harness;
 pub mod json_fuzz;
 pub mod report;
 
 pub use config::FuzzConfig;
+pub use dsp_fuzz::run_dsp_fuzz_suite;
 pub use generators::*;
 pub use harness::{FuzzResult, FuzzRunner, FuzzTarget};
 pub use report::FuzzReport;
