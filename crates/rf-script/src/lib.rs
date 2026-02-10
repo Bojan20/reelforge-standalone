@@ -1118,7 +1118,9 @@ mod tests {
     fn test_sandbox_table_works() {
         let engine = ScriptEngine::new().unwrap();
         // table library should still be available
-        let result: String = engine.eval("return table.concat({'a','b','c'}, ',')").unwrap();
+        let result: String = engine
+            .eval("return table.concat({'a','b','c'}, ',')")
+            .unwrap();
         assert_eq!(result, "a,b,c");
     }
 
@@ -1357,7 +1359,10 @@ end
         // Must be sorted (as the implementation sorts)
         let mut sorted = scripts.clone();
         sorted.sort();
-        assert_eq!(scripts, sorted, "list_all_scripts should return sorted list");
+        assert_eq!(
+            scripts, sorted,
+            "list_all_scripts should return sorted list"
+        );
     }
 
     // ==================== rf Namespace Tests ====================
@@ -1414,5 +1419,4 @@ end
             result
         );
     }
-
 }

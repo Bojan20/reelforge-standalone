@@ -829,7 +829,10 @@ mod tests {
             .expect("Failed to write WAV 24bit");
         sync_file(&path);
 
-        assert!(path.exists(), "WAV 24bit file should exist after write+sync");
+        assert!(
+            path.exists(),
+            "WAV 24bit file should exist after write+sync"
+        );
 
         let _ = std::fs::remove_file(&path);
     }
@@ -849,7 +852,10 @@ mod tests {
             .expect("Failed to write WAV 16bit");
         sync_file(&path);
 
-        assert!(path.exists(), "WAV 16bit file should exist after write+sync");
+        assert!(
+            path.exists(),
+            "WAV 16bit file should exist after write+sync"
+        );
 
         let _ = std::fs::remove_file(&path);
     }

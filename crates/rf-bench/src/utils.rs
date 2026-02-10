@@ -153,7 +153,11 @@ mod tests {
     #[test]
     fn test_throughput_latency() {
         let metrics = ThroughputMetrics::from_benchmark(44100, Duration::from_millis(50), 44100.0);
-        assert!((metrics.latency_ms - 50.0).abs() < 1.0, "Latency should be ~50ms, got {}", metrics.latency_ms);
+        assert!(
+            (metrics.latency_ms - 50.0).abs() < 1.0,
+            "Latency should be ~50ms, got {}",
+            metrics.latency_ms
+        );
     }
 
     #[test]
@@ -198,5 +202,4 @@ mod tests {
         assert!(metrics.ns_per_sample > 0.0);
         assert!(metrics.realtime_ratio > 0.0);
     }
-
 }

@@ -385,7 +385,11 @@ fn fft_magnitude(signal: &[f64]) -> Vec<f64> {
         .take(n / 2 + 1)
         .map(|(re, im)| {
             let mag = (re * re + im * im).sqrt();
-            if mag.is_finite() { mag } else { 0.0 }
+            if mag.is_finite() {
+                mag
+            } else {
+                0.0
+            }
         })
         .collect()
 }
@@ -440,10 +444,7 @@ pub fn fuzz_biquad_coefficients(config: &FuzzConfig) -> FuzzResult {
                 // that output doesn't contain NaN (Inf from resonance is acceptable)
                 for (i, &s) in output.iter().enumerate() {
                     if s.is_nan() {
-                        return Err(format!(
-                            "Biquad produced NaN at sample {}",
-                            i
-                        ));
+                        return Err(format!("Biquad produced NaN at sample {}", i));
                     }
                 }
             }
@@ -505,10 +506,7 @@ pub fn fuzz_gain_to_db_conversion(config: &FuzzConfig) -> FuzzResult {
             // Specific property checks
             if *gain <= 0.0 {
                 if *db != f64::NEG_INFINITY {
-                    return Err(format!(
-                        "gain_to_db({}) should be -Inf, got {}",
-                        gain, db
-                    ));
+                    return Err(format!("gain_to_db({}) should be -Inf, got {}", gain, db));
                 }
             }
 
@@ -614,10 +612,7 @@ pub fn fuzz_pan_law(config: &FuzzConfig) -> FuzzResult {
                 }
                 let (ll, lr) = lin;
                 if (ll - lr).abs() > 1e-6 {
-                    return Err(format!(
-                        "Linear not balanced at center: L={}, R={}",
-                        ll, lr
-                    ));
+                    return Err(format!("Linear not balanced at center: L={}, R={}", ll, lr));
                 }
             }
 
@@ -650,9 +645,12 @@ pub fn fuzz_sample_rate_conversion(config: &FuzzConfig) -> FuzzResult {
             // Skip validation when source or target are non-finite (edge cases)
             // or when they are too extreme (e.g. f64::MIN_POSITIVE = 2.2e-308 is
             // technically finite but target/source overflows to Inf)
-            if !source.is_finite() || !target.is_finite()
-                || source.abs() < 1.0 || target.abs() < 1.0
-                || source.abs() > 1e15 || target.abs() > 1e15
+            if !source.is_finite()
+                || !target.is_finite()
+                || source.abs() < 1.0
+                || target.abs() < 1.0
+                || source.abs() > 1e15
+                || target.abs() > 1e15
             {
                 return Ok(());
             }
@@ -758,7 +756,8 @@ pub fn fuzz_buffer_processing(config: &FuzzConfig) -> FuzzResult {
             // Check that all inputs are finite AND within a practical range.
             // f64::MIN (~-1.8e308) is technically finite but gain*f64::MIN overflows.
             let all_inputs_practical = buffer.iter().all(|s| s.is_finite() && s.abs() < 1e100)
-                && gain.is_finite() && gain.abs() < 1e100;
+                && gain.is_finite()
+                && gain.abs() < 1e100;
             (gained, all_inputs_practical)
         },
         |_input, (output, all_inputs_practical)| {
@@ -913,16 +912,16 @@ pub fn fuzz_fft_sizes(config: &FuzzConfig) -> FuzzResult {
             // Mix of various sizes: tiny, non-power-of-2, power-of-2, odd primes
             let size_choice = gen.u32() % 10;
             let size = match size_choice {
-                0 => 0,                          // empty
-                1 => 1,                          // single sample
-                2 => 2,                          // minimum FFT
-                3 => 3,                          // prime, non-power-of-2
-                4 => 7,                          // prime
-                5 => gen.usize(256).max(1),      // random small
+                0 => 0,                           // empty
+                1 => 1,                           // single sample
+                2 => 2,                           // minimum FFT
+                3 => 3,                           // prime, non-power-of-2
+                4 => 7,                           // prime
+                5 => gen.usize(256).max(1),       // random small
                 6 => gen.buffer_size().min(1024), // power of 2
-                7 => 100,                        // non-power-of-2
-                8 => 255,                        // just below power-of-2
-                _ => 513,                        // just above power-of-2
+                7 => 100,                         // non-power-of-2
+                8 => 255,                         // just below power-of-2
+                _ => 513,                         // just above power-of-2
             };
             let samples = if size == 0 {
                 vec![]
@@ -1018,10 +1017,7 @@ pub fn fuzz_biquad_stability(config: &FuzzConfig) -> FuzzResult {
             // No NaN in output (lowpass design should always produce stable filters)
             for (i, &s) in output.iter().enumerate() {
                 if s.is_nan() {
-                    return Err(format!(
-                        "Biquad produced NaN at sample {}",
-                        i
-                    ));
+                    return Err(format!("Biquad produced NaN at sample {}", i));
                 }
             }
 
@@ -1032,11 +1028,8 @@ pub fn fuzz_biquad_stability(config: &FuzzConfig) -> FuzzResult {
             // generator (which includes NaN/Inf) produce passthrough filters.
             if output.len() >= 4 {
                 let quarter = output.len() / 4;
-                let first_rms: f64 = output[..quarter]
-                    .iter()
-                    .map(|x| x * x)
-                    .sum::<f64>()
-                    / quarter as f64;
+                let first_rms: f64 =
+                    output[..quarter].iter().map(|x| x * x).sum::<f64>() / quarter as f64;
                 let last_rms: f64 = output[output.len() - quarter..]
                     .iter()
                     .map(|x| x * x)
@@ -1147,13 +1140,19 @@ pub fn run_dsp_fuzz_suite(config: &FuzzConfig) -> FuzzReport {
     report.add_result("pan_law", fuzz_pan_law(config));
 
     // Sample rate conversion targets
-    report.add_result("sample_rate_conversion", fuzz_sample_rate_conversion(config));
+    report.add_result(
+        "sample_rate_conversion",
+        fuzz_sample_rate_conversion(config),
+    );
 
     // Buffer processing targets
     report.add_result("buffer_processing", fuzz_buffer_processing(config));
 
     // Ring buffer targets
-    report.add_result("ring_buffer_operations", fuzz_ring_buffer_operations(config));
+    report.add_result(
+        "ring_buffer_operations",
+        fuzz_ring_buffer_operations(config),
+    );
 
     // Envelope follower targets
     report.add_result("envelope_follower", fuzz_envelope_follower(config));

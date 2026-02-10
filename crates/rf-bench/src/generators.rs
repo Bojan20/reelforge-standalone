@@ -66,7 +66,11 @@ mod tests {
     fn test_audio_buffer_range() {
         let buf = generate_audio_buffer(1000, 99);
         for &sample in &buf {
-            assert!(sample >= -1.0 && sample <= 1.0, "Sample {} out of range", sample);
+            assert!(
+                sample >= -1.0 && sample <= 1.0,
+                "Sample {} out of range",
+                sample
+            );
         }
     }
 
@@ -74,7 +78,10 @@ mod tests {
     fn test_audio_buffer_different_seeds() {
         let buf1 = generate_audio_buffer(100, 1);
         let buf2 = generate_audio_buffer(100, 2);
-        assert_ne!(buf1, buf2, "Different seeds should produce different buffers");
+        assert_ne!(
+            buf1, buf2,
+            "Different seeds should produce different buffers"
+        );
     }
 
     #[test]
@@ -98,7 +105,11 @@ mod tests {
                 crossings += 1;
             }
         }
-        assert!((crossings as i32 - 880).abs() < 5, "Expected ~880 crossings, got {}", crossings);
+        assert!(
+            (crossings as i32 - 880).abs() < 5,
+            "Expected ~880 crossings, got {}",
+            crossings
+        );
     }
 
     #[test]
@@ -161,5 +172,4 @@ mod tests {
             assert!(rate > 0.0);
         }
     }
-
 }

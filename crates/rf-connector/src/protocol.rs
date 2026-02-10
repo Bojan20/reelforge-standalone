@@ -372,5 +372,4 @@ mod tests {
         assert_eq!(deserialized.message_type, "test_type");
         assert_eq!(deserialized.payload["data"], 123);
     }
-
 }

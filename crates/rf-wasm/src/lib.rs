@@ -756,7 +756,11 @@ mod tests {
     fn test_db_to_linear_minus6() {
         // -6 dB ≈ 0.5012
         let result = db_to_linear(-6.0);
-        assert!((result - 0.5012).abs() < 0.01, "Expected ~0.5012, got {}", result);
+        assert!(
+            (result - 0.5012).abs() < 0.01,
+            "Expected ~0.5012, got {}",
+            result
+        );
     }
 
     #[test]
@@ -775,7 +779,11 @@ mod tests {
     fn test_linear_to_db_half() {
         // 0.5 linear ≈ -6.02 dB
         let result = linear_to_db(0.5);
-        assert!((result - (-6.02)).abs() < 0.1, "Expected ~-6.02, got {}", result);
+        assert!(
+            (result - (-6.02)).abs() < 0.1,
+            "Expected ~-6.02, got {}",
+            result
+        );
     }
 
     #[test]
@@ -1131,5 +1139,4 @@ mod tests {
         let result = audio.trigger_stage("SPIN_START", 1.0);
         assert!(result.is_none());
     }
-
 }

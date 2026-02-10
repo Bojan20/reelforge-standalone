@@ -241,13 +241,19 @@ mod tests {
     fn test_all_command_variants() {
         // Verify all 13 EngineCommand variants can be constructed
         let commands: Vec<EngineCommand> = vec![
-            EngineCommand::PlaySpin { spin_id: "s1".to_string() },
+            EngineCommand::PlaySpin {
+                spin_id: "s1".to_string(),
+            },
             EngineCommand::Pause,
             EngineCommand::Resume,
             EngineCommand::Stop,
-            EngineCommand::Seek { timestamp_ms: 1000.0 },
+            EngineCommand::Seek {
+                timestamp_ms: 1000.0,
+            },
             EngineCommand::SetSpeed { speed: 2.0 },
-            EngineCommand::SetTimingProfile { profile: "turbo".to_string() },
+            EngineCommand::SetTimingProfile {
+                profile: "turbo".to_string(),
+            },
             EngineCommand::GetState,
             EngineCommand::GetSpinList,
             EngineCommand::GetCapabilities,
@@ -269,19 +275,52 @@ mod tests {
 
     #[test]
     fn test_command_name() {
-        assert_eq!(EngineCommand::PlaySpin { spin_id: "x".into() }.name(), "play_spin");
+        assert_eq!(
+            EngineCommand::PlaySpin {
+                spin_id: "x".into()
+            }
+            .name(),
+            "play_spin"
+        );
         assert_eq!(EngineCommand::Pause.name(), "pause");
         assert_eq!(EngineCommand::Resume.name(), "resume");
         assert_eq!(EngineCommand::Stop.name(), "stop");
         assert_eq!(EngineCommand::Seek { timestamp_ms: 0.0 }.name(), "seek");
         assert_eq!(EngineCommand::SetSpeed { speed: 1.0 }.name(), "set_speed");
-        assert_eq!(EngineCommand::SetTimingProfile { profile: "n".into() }.name(), "set_timing_profile");
+        assert_eq!(
+            EngineCommand::SetTimingProfile {
+                profile: "n".into()
+            }
+            .name(),
+            "set_timing_profile"
+        );
         assert_eq!(EngineCommand::GetState.name(), "get_state");
         assert_eq!(EngineCommand::GetSpinList.name(), "get_spin_list");
         assert_eq!(EngineCommand::GetCapabilities.name(), "get_capabilities");
-        assert_eq!(EngineCommand::TriggerEvent { event_name: "e".into(), payload: None }.name(), "trigger_event");
-        assert_eq!(EngineCommand::SetParameter { name: "p".into(), value: serde_json::json!(1) }.name(), "set_parameter");
-        assert_eq!(EngineCommand::Custom { name: "c".into(), data: serde_json::json!({}) }.name(), "custom");
+        assert_eq!(
+            EngineCommand::TriggerEvent {
+                event_name: "e".into(),
+                payload: None
+            }
+            .name(),
+            "trigger_event"
+        );
+        assert_eq!(
+            EngineCommand::SetParameter {
+                name: "p".into(),
+                value: serde_json::json!(1)
+            }
+            .name(),
+            "set_parameter"
+        );
+        assert_eq!(
+            EngineCommand::Custom {
+                name: "c".into(),
+                data: serde_json::json!({})
+            }
+            .name(),
+            "custom"
+        );
     }
 
     #[test]
@@ -292,16 +331,34 @@ mod tests {
         assert!(EngineCommand::GetCapabilities.expects_response());
 
         // These do NOT expect responses
-        assert!(!EngineCommand::PlaySpin { spin_id: "x".into() }.expects_response());
+        assert!(!EngineCommand::PlaySpin {
+            spin_id: "x".into()
+        }
+        .expects_response());
         assert!(!EngineCommand::Pause.expects_response());
         assert!(!EngineCommand::Resume.expects_response());
         assert!(!EngineCommand::Stop.expects_response());
         assert!(!EngineCommand::Seek { timestamp_ms: 0.0 }.expects_response());
         assert!(!EngineCommand::SetSpeed { speed: 1.0 }.expects_response());
-        assert!(!EngineCommand::SetTimingProfile { profile: "x".into() }.expects_response());
-        assert!(!EngineCommand::TriggerEvent { event_name: "e".into(), payload: None }.expects_response());
-        assert!(!EngineCommand::SetParameter { name: "n".into(), value: serde_json::json!(1) }.expects_response());
-        assert!(!EngineCommand::Custom { name: "c".into(), data: serde_json::json!({}) }.expects_response());
+        assert!(!EngineCommand::SetTimingProfile {
+            profile: "x".into()
+        }
+        .expects_response());
+        assert!(!EngineCommand::TriggerEvent {
+            event_name: "e".into(),
+            payload: None
+        }
+        .expects_response());
+        assert!(!EngineCommand::SetParameter {
+            name: "n".into(),
+            value: serde_json::json!(1)
+        }
+        .expects_response());
+        assert!(!EngineCommand::Custom {
+            name: "c".into(),
+            data: serde_json::json!({})
+        }
+        .expects_response());
     }
 
     #[test]
@@ -376,13 +433,19 @@ mod tests {
     fn test_command_serialization_all() {
         // Verify all 13 variants serialize to valid JSON
         let commands: Vec<EngineCommand> = vec![
-            EngineCommand::PlaySpin { spin_id: "s1".to_string() },
+            EngineCommand::PlaySpin {
+                spin_id: "s1".to_string(),
+            },
             EngineCommand::Pause,
             EngineCommand::Resume,
             EngineCommand::Stop,
-            EngineCommand::Seek { timestamp_ms: 500.0 },
+            EngineCommand::Seek {
+                timestamp_ms: 500.0,
+            },
             EngineCommand::SetSpeed { speed: 1.5 },
-            EngineCommand::SetTimingProfile { profile: "turbo".to_string() },
+            EngineCommand::SetTimingProfile {
+                profile: "turbo".to_string(),
+            },
             EngineCommand::GetState,
             EngineCommand::GetSpinList,
             EngineCommand::GetCapabilities,
@@ -402,11 +465,19 @@ mod tests {
 
         for cmd in &commands {
             let json_str = serde_json::to_string(cmd).unwrap();
-            assert!(!json_str.is_empty(), "Serialization produced empty string for {:?}", cmd);
+            assert!(
+                !json_str.is_empty(),
+                "Serialization produced empty string for {:?}",
+                cmd
+            );
 
             // Verify it contains the command tag
             let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
-            assert!(parsed.get("command").is_some(), "Missing 'command' tag in {:?}", json_str);
+            assert!(
+                parsed.get("command").is_some(),
+                "Missing 'command' tag in {:?}",
+                json_str
+            );
             assert_eq!(parsed["command"].as_str().unwrap(), cmd.name());
         }
     }
@@ -422,7 +493,10 @@ mod tests {
         assert_eq!(deserialized.name(), "trigger_event");
         // Verify payload survived roundtrip
         match deserialized {
-            EngineCommand::TriggerEvent { event_name, payload } => {
+            EngineCommand::TriggerEvent {
+                event_name,
+                payload,
+            } => {
                 assert_eq!(event_name, "test_event");
                 assert_eq!(payload.unwrap()["key"], "value");
             }
@@ -447,7 +521,9 @@ mod tests {
         let deserialized: EngineCapabilities = serde_json::from_str(&json_str).unwrap();
         assert_eq!(deserialized.engine_name, caps.engine_name);
         assert_eq!(deserialized.version, caps.version);
-        assert_eq!(deserialized.supported_commands.len(), caps.supported_commands.len());
+        assert_eq!(
+            deserialized.supported_commands.len(),
+            caps.supported_commands.len()
+        );
     }
-
 }

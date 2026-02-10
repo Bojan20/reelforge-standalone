@@ -506,12 +506,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_builder_auto_reconnect() {
-        let builder = ConnectorBuilder::websocket("ws://localhost:8080")
-            .auto_reconnect(true);
+        let builder = ConnectorBuilder::websocket("ws://localhost:8080").auto_reconnect(true);
         assert!(builder.auto_reconnect);
 
-        let builder2 = ConnectorBuilder::websocket("ws://localhost:8080")
-            .auto_reconnect(false);
+        let builder2 = ConnectorBuilder::websocket("ws://localhost:8080").auto_reconnect(false);
         assert!(!builder2.auto_reconnect);
     }
 
@@ -544,5 +542,4 @@ mod tests {
         }
         assert_eq!(connector.state().await, ConnectionState::Disconnected);
     }
-
 }

@@ -22,7 +22,10 @@ fn main() {
 
     eprintln!("=== DSP Performance Profile ===");
     eprintln!("Iterations: {iterations}, Block: {block_size} samples");
-    eprintln!("Total samples per phase: {:.0}M\n", total_samples / 1_000_000.0);
+    eprintln!(
+        "Total samples per phase: {:.0}M\n",
+        total_samples / 1_000_000.0
+    );
 
     // --- Phase 1: Biquad Lowpass (most common DSP op) ---
     let mut filter = BiquadTDF2::new(sample_rate);
@@ -35,10 +38,12 @@ fn main() {
         black_box(&buf);
     }
     let d1 = t.elapsed();
-    eprintln!("[1/5] Biquad Lowpass:   {:>8.2}ms  ({:.1} ns/sample, {:.0} Msamples/s)",
+    eprintln!(
+        "[1/5] Biquad Lowpass:   {:>8.2}ms  ({:.1} ns/sample, {:.0} Msamples/s)",
         d1.as_secs_f64() * 1000.0,
         d1.as_nanos() as f64 / total_samples,
-        total_samples / d1.as_secs_f64() / 1_000_000.0);
+        total_samples / d1.as_secs_f64() / 1_000_000.0
+    );
 
     // --- Phase 2: 4-Band EQ Cascade ---
     let mut filters: Vec<BiquadTDF2> = Vec::with_capacity(4);
@@ -67,10 +72,12 @@ fn main() {
         black_box(&buf);
     }
     let d2 = t.elapsed();
-    eprintln!("[2/5] 4-Band EQ:        {:>8.2}ms  ({:.1} ns/sample, {:.0} Msamples/s)",
+    eprintln!(
+        "[2/5] 4-Band EQ:        {:>8.2}ms  ({:.1} ns/sample, {:.0} Msamples/s)",
         d2.as_secs_f64() * 1000.0,
         d2.as_nanos() as f64 / total_samples,
-        total_samples / d2.as_secs_f64() / 1_000_000.0);
+        total_samples / d2.as_secs_f64() / 1_000_000.0
+    );
 
     // --- Phase 3: Compressor ---
     let mut comp = Compressor::new(sample_rate);
@@ -87,10 +94,12 @@ fn main() {
         black_box(&buf);
     }
     let d3 = t.elapsed();
-    eprintln!("[3/5] Compressor:       {:>8.2}ms  ({:.1} ns/sample, {:.0} Msamples/s)",
+    eprintln!(
+        "[3/5] Compressor:       {:>8.2}ms  ({:.1} ns/sample, {:.0} Msamples/s)",
         d3.as_secs_f64() * 1000.0,
         d3.as_nanos() as f64 / total_samples,
-        total_samples / d3.as_secs_f64() / 1_000_000.0);
+        total_samples / d3.as_secs_f64() / 1_000_000.0
+    );
 
     // --- Phase 4: Limiter ---
     let mut limiter = Limiter::new(sample_rate);
@@ -105,10 +114,12 @@ fn main() {
         black_box(&buf);
     }
     let d4 = t.elapsed();
-    eprintln!("[4/5] Limiter:          {:>8.2}ms  ({:.1} ns/sample, {:.0} Msamples/s)",
+    eprintln!(
+        "[4/5] Limiter:          {:>8.2}ms  ({:.1} ns/sample, {:.0} Msamples/s)",
         d4.as_secs_f64() * 1000.0,
         d4.as_nanos() as f64 / total_samples,
-        total_samples / d4.as_secs_f64() / 1_000_000.0);
+        total_samples / d4.as_secs_f64() / 1_000_000.0
+    );
 
     // --- Phase 5: Stereo Processing (Pan + Width) ---
     let mut panner = StereoPanner::new();
@@ -126,32 +137,55 @@ fn main() {
         black_box((&left, &right));
     }
     let d5 = t.elapsed();
-    eprintln!("[5/5] Stereo Pan+Width: {:>8.2}ms  ({:.1} ns/sample-pair, {:.0} Mpairs/s)",
+    eprintln!(
+        "[5/5] Stereo Pan+Width: {:>8.2}ms  ({:.1} ns/sample-pair, {:.0} Mpairs/s)",
         d5.as_secs_f64() * 1000.0,
         d5.as_nanos() as f64 / total_samples,
-        total_samples / d5.as_secs_f64() / 1_000_000.0);
+        total_samples / d5.as_secs_f64() / 1_000_000.0
+    );
 
     let total = d1 + d2 + d3 + d4 + d5;
     eprintln!("\n=== Summary ===");
     eprintln!("Total:     {:.2}ms", total.as_secs_f64() * 1000.0);
     eprintln!("Breakdown:");
-    eprintln!("  Biquad LP:   {:5.1}%", d1.as_secs_f64() / total.as_secs_f64() * 100.0);
-    eprintln!("  4-Band EQ:   {:5.1}%", d2.as_secs_f64() / total.as_secs_f64() * 100.0);
-    eprintln!("  Compressor:  {:5.1}%", d3.as_secs_f64() / total.as_secs_f64() * 100.0);
-    eprintln!("  Limiter:     {:5.1}%", d4.as_secs_f64() / total.as_secs_f64() * 100.0);
-    eprintln!("  Stereo:      {:5.1}%", d5.as_secs_f64() / total.as_secs_f64() * 100.0);
+    eprintln!(
+        "  Biquad LP:   {:5.1}%",
+        d1.as_secs_f64() / total.as_secs_f64() * 100.0
+    );
+    eprintln!(
+        "  4-Band EQ:   {:5.1}%",
+        d2.as_secs_f64() / total.as_secs_f64() * 100.0
+    );
+    eprintln!(
+        "  Compressor:  {:5.1}%",
+        d3.as_secs_f64() / total.as_secs_f64() * 100.0
+    );
+    eprintln!(
+        "  Limiter:     {:5.1}%",
+        d4.as_secs_f64() / total.as_secs_f64() * 100.0
+    );
+    eprintln!(
+        "  Stereo:      {:5.1}%",
+        d5.as_secs_f64() / total.as_secs_f64() * 100.0
+    );
 
     // Real-time safety check
     let audio_budget_ms = block_size as f64 / sample_rate * 1000.0;
     eprintln!("\n=== Real-Time Safety ===");
     eprintln!("Audio budget @ 48kHz/1024: {:.2}ms", audio_budget_ms);
-    eprintln!("Biquad LP per block:       {:.3}ms ({:.1}% budget)",
+    eprintln!(
+        "Biquad LP per block:       {:.3}ms ({:.1}% budget)",
         d1.as_secs_f64() * 1000.0 / iterations as f64,
-        d1.as_secs_f64() * 1000.0 / iterations as f64 / audio_budget_ms * 100.0);
-    eprintln!("4-Band EQ per block:       {:.3}ms ({:.1}% budget)",
+        d1.as_secs_f64() * 1000.0 / iterations as f64 / audio_budget_ms * 100.0
+    );
+    eprintln!(
+        "4-Band EQ per block:       {:.3}ms ({:.1}% budget)",
         d2.as_secs_f64() * 1000.0 / iterations as f64,
-        d2.as_secs_f64() * 1000.0 / iterations as f64 / audio_budget_ms * 100.0);
-    eprintln!("Full chain per block:      {:.3}ms ({:.1}% budget)",
+        d2.as_secs_f64() * 1000.0 / iterations as f64 / audio_budget_ms * 100.0
+    );
+    eprintln!(
+        "Full chain per block:      {:.3}ms ({:.1}% budget)",
         total.as_secs_f64() * 1000.0 / iterations as f64,
-        total.as_secs_f64() * 1000.0 / iterations as f64 / audio_budget_ms * 100.0);
+        total.as_secs_f64() * 1000.0 / iterations as f64 / audio_budget_ms * 100.0
+    );
 }
