@@ -39,6 +39,10 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
 
   Timer? _updateTimer;
 
+  // Cached provider reference — avoids context.read in Timer callbacks
+  // which crashes with "deactivated widget's ancestor" during unmount
+  RtpcSystemProvider? _providerRef;
+
   @override
   void initState() {
     super.initState();
@@ -48,18 +52,21 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _providerRef = context.read<RtpcSystemProvider>();
     _syncFromProvider();
   }
 
   @override
   void dispose() {
     _updateTimer?.cancel();
+    _providerRef = null;
     super.dispose();
   }
 
   /// Sync RTPC values from provider (real data, not demo)
   void _syncFromProvider() {
-    final provider = context.read<RtpcSystemProvider>();
+    final provider = _providerRef;
+    if (provider == null) return;
     for (final rtpc in provider.rtpcDefinitions) {
       // Initialize history if not exists
       if (!_valueHistory.containsKey(rtpc.id)) {
@@ -72,7 +79,7 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
 
   void _startUpdateTimer() {
     _updateTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      if (mounted && _isRecording) {
+      if (mounted && _isRecording && _providerRef != null) {
         _updateValuesFromProvider();
         setState(() {});
       }
@@ -80,7 +87,8 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
   }
 
   void _updateValuesFromProvider() {
-    final provider = context.read<RtpcSystemProvider>();
+    final provider = _providerRef;
+    if (provider == null) return;
     for (final rtpc in provider.rtpcDefinitions) {
       final currentValue = provider.getRtpcValue(rtpc.id);
       _liveValues[rtpc.id] = currentValue;
@@ -97,7 +105,8 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
 
   /// Set RTPC value via provider (syncs to FFI)
   void _setRtpcValue(int rtpcId, double value) {
-    final provider = context.read<RtpcSystemProvider>();
+    final provider = _providerRef;
+    if (provider == null) return;
     final rtpc = provider.getRtpc(rtpcId);
     if (rtpc == null) return;
 
@@ -122,13 +131,13 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
 
   /// Reset RTPC to default via provider (syncs to FFI)
   void _resetRtpc(int rtpcId) {
-    final provider = context.read<RtpcSystemProvider>();
-    provider.resetRtpc(rtpcId);
+    _providerRef?.resetRtpc(rtpcId);
   }
 
   /// Reset all RTPCs to defaults via provider (syncs to FFI)
   void _resetAllRtpcs() {
-    final provider = context.read<RtpcSystemProvider>();
+    final provider = _providerRef;
+    if (provider == null) return;
     for (final rtpc in provider.rtpcDefinitions) {
       provider.resetRtpc(rtpc.id);
       _liveValues[rtpc.id] = rtpc.defaultValue;
@@ -145,7 +154,8 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
   }
 
   List<RtpcBinding> _getBindingsForRtpc(int rtpcId) {
-    final provider = context.read<RtpcSystemProvider>();
+    final provider = _providerRef;
+    if (provider == null) return [];
     return provider.rtpcBindings.where((b) => b.rtpcId == rtpcId).toList();
   }
 

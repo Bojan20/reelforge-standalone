@@ -11,7 +11,6 @@
 library;
 
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxforge_ui/widgets/fabfilter/fabfilter_panel_base.dart';
 import 'package:fluxforge_ui/widgets/fabfilter/fabfilter_theme.dart';

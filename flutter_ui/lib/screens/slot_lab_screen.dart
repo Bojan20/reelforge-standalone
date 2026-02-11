@@ -323,6 +323,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   TimelineDragController? _dragController;
   TimelineDragController get dragController => _dragController!;
 
+  // Cached middleware reference — avoids Provider.of(context) in dispose()
+  // which crashes with "deactivated widget's ancestor" during unmount
+  MiddlewareProvider? _middlewareRef;
+
   // P14: Ultimate Timeline controller (new professional timeline)
   ultimate.TimelineController? _ultimateTimelineController;
 
@@ -633,9 +637,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     }.contains(stage);
   }
 
-  /// Get middleware provider (cached per frame for performance)
+  /// Get middleware provider — uses cached reference if available (safe in dispose)
   MiddlewareProvider get _middleware =>
-      Provider.of<MiddlewareProvider>(context, listen: false);
+      _middlewareRef ?? Provider.of<MiddlewareProvider>(context, listen: false);
 
   /// Get composite events directly from MiddlewareProvider
   /// This is the SINGLE SOURCE OF TRUTH for all events
@@ -890,11 +894,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // When layers are added in Middleware center panel, Slot Lab updates automatically
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        // Cache middleware reference for safe dispose()
+        _middlewareRef = _middleware;
+
         // Initialize drag controller with middleware reference
-        _dragController = TimelineDragController(middleware: _middleware);
+        _dragController = TimelineDragController(middleware: _middlewareRef!);
         _dragController!.addListener(_onDragControllerChanged);
 
-        _middleware.addListener(_onMiddlewareChanged);
+        _middlewareRef!.addListener(_onMiddlewareChanged);
         _focusNode.requestFocus();
       }
     });
@@ -2191,7 +2198,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     }
 
     // Remove middleware listener (bidirectional sync)
-    _middleware.removeListener(_onMiddlewareChanged);
+    // Use cached reference — Provider.of(context) is unsafe during dispose()
+    _middlewareRef?.removeListener(_onMiddlewareChanged);
 
     // Dispose drag controller
     _dragController?.removeListener(_onDragControllerChanged);

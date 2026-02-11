@@ -22,6 +22,7 @@
 #   8. COVERAGE    — cargo llvm-cov threshold enforcement
 #   9. LATENCY     — DSP latency budget enforcement (< 3ms @ 128 samples)
 #  10. FUZZ        — rf-fuzz FFI boundary fuzzing
+#  11. E2E         — Flutter integration tests (GUI automation, 76 tests)
 #
 # Exit codes:
 #   0 — All gates PASS
@@ -72,8 +73,8 @@ START_TIME=""
 # ci:     ALL 10 gates
 ALL_GATES_QUICK="ANALYZE UNIT"
 ALL_GATES_LOCAL="ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY"
-ALL_GATES_FULL="ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY COVERAGE LATENCY"
-ALL_GATES_CI="ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY COVERAGE LATENCY FUZZ"
+ALL_GATES_FULL="ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY COVERAGE LATENCY E2E"
+ALL_GATES_CI="ANALYZE UNIT REGRESSION DETERMINISM BENCH GOLDEN SECURITY COVERAGE LATENCY FUZZ E2E"
 
 # ── Parse Args ───────────────────────────────────────────────────────────────
 for arg in "$@"; do
@@ -804,6 +805,79 @@ gate_fuzz() {
   # rf-bridge FFI tests
   echo "  [2/2] rf-bridge FFI tests ..." | tee -a "$log"
   cargo test -p rf-bridge --release >> "$log" 2>&1 || ok=false
+
+  return $([[ "$ok" == "true" ]] && echo 0 || echo 1)
+}
+
+# ── Gate: E2E ────────────────────────────────────────────────────────────────
+gate_e2e() {
+  local log="$ARTIFACTS_DIR/gate-e2e.log"
+  local ok=true
+
+  echo "  Flutter E2E Integration Tests (GUI Automation) ..." | tee -a "$log"
+  cd "$FLUTTER_DIR"
+
+  # Clean AppleDouble files before running (ExFAT safety)
+  find . -name '._*' -type f -delete 2>/dev/null || true
+
+  # ExFAT symlink: redirect build/ to internal HFS+ disk to avoid codesign failures
+  local internal_build_dir="$HOME/Library/Developer/FluxForge-IntegrationTest/build/macos"
+  if [[ ! -L "build/macos" ]]; then
+    mkdir -p "$internal_build_dir"
+    mkdir -p build
+    rm -rf build/macos 2>/dev/null || true
+    ln -sf "$internal_build_dir" build/macos
+    echo "    Symlinked build/macos → $internal_build_dir (ExFAT workaround)" | tee -a "$log"
+  fi
+
+  # Run all 5 E2E test groups sequentially
+  local total_groups=5
+  local passed_groups=0
+  local failed_groups=""
+
+  local groups=(
+    "integration_test/tests/app_launch_test.dart"
+    "integration_test/tests/daw_section_test.dart"
+    "integration_test/tests/slotlab_section_test.dart"
+    "integration_test/tests/middleware_section_test.dart"
+    "integration_test/tests/cross_section_test.dart"
+  )
+  local group_names=(
+    "App Launch & Navigation (10 tests)"
+    "DAW Section (15 tests)"
+    "SlotLab Section (20 tests)"
+    "Middleware Section (16 tests)"
+    "Cross-Section Flows (15 tests)"
+  )
+
+  for i in "${!groups[@]}"; do
+    local group="${groups[$i]}"
+    local name="${group_names[$i]}"
+    local group_num=$((i + 1))
+
+    echo "  [$group_num/$total_groups] $name ..." | tee -a "$log"
+
+    if [[ -f "$group" ]]; then
+      if flutter test "$group" -d macos >> "$log" 2>&1; then
+        echo "    PASS: $name" | tee -a "$log"
+        passed_groups=$((passed_groups + 1))
+      else
+        echo "    FAIL: $name" | tee -a "$log"
+        failed_groups="${failed_groups:+$failed_groups, }$name"
+        ok=false
+      fi
+    else
+      echo "    SKIP: $group not found" | tee -a "$log"
+    fi
+  done
+
+  echo "" | tee -a "$log"
+  echo "  ── E2E Summary ──" | tee -a "$log"
+  echo "  Test groups: $passed_groups/$total_groups passed" | tee -a "$log"
+  if [[ -n "$failed_groups" ]]; then
+    echo "  Failed: $failed_groups" | tee -a "$log"
+  fi
+  echo "  Total: 76 E2E tests across 5 groups" | tee -a "$log"
 
   return $([[ "$ok" == "true" ]] && echo 0 || echo 1)
 }

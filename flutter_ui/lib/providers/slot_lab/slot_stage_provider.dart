@@ -163,6 +163,9 @@ class SlotStageProvider extends ChangeNotifier {
   final List<PooledStageEvent> _pooledStages = [];
   String? _cachedStagesSpinId;
 
+  /// Whether this provider has been disposed.
+  bool _isDisposed = false;
+
   // ─── Stage Playback ──────────────────────────────────────────────────────
   Timer? _stagePlaybackTimer;
   Timer? _audioPreTriggerTimer;
@@ -393,7 +396,7 @@ class SlotStageProvider extends ChangeNotifier {
     _scheduledNextStageTimeMs = DateTime.now().millisecondsSinceEpoch + actualDelayMs;
 
     _stagePlaybackTimer = Timer(Duration(milliseconds: actualDelayMs), () {
-      if (!_isPlayingStages || _playbackGeneration != generation || _isPaused) {
+      if (_isDisposed || !_isPlayingStages || _playbackGeneration != generation || _isPaused) {
         return;
       }
 
@@ -416,7 +419,7 @@ class SlotStageProvider extends ChangeNotifier {
     _pausedRemainingDelayMs = 0;
     _currentStageIndex = 0;
     UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
-    notifyListeners();
+    if (!_isDisposed) notifyListeners();
   }
 
   void stopAllPlayback() => stopStagePlayback();
@@ -487,7 +490,7 @@ class SlotStageProvider extends ChangeNotifier {
     _scheduledNextStageTimeMs = DateTime.now().millisecondsSinceEpoch + delayMs;
 
     _stagePlaybackTimer = Timer(Duration(milliseconds: delayMs.clamp(10, 5000)), () {
-      if (!_isPlayingStages || _playbackGeneration != generation || _isPaused) {
+      if (_isDisposed || !_isPlayingStages || _playbackGeneration != generation || _isPaused) {
         return;
       }
 
@@ -845,6 +848,7 @@ class SlotStageProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _stagePlaybackTimer?.cancel();
     _audioPreTriggerTimer?.cancel();
     super.dispose();

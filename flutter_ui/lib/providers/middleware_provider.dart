@@ -146,6 +146,9 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Whether a notification is already scheduled for this frame
   bool _notificationScheduled = false;
 
+  /// Whether this provider has been disposed
+  bool _isDisposed = false;
+
   /// Debounce timer for high-frequency updates (RTPC, etc.)
   Timer? _debounceTimer;
 
@@ -167,7 +170,7 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Batch notifications from subsystem providers into a single notifyListeners call
   /// Uses frame-aligned scheduling + minimum interval throttling
   void _scheduleNotification() {
-    if (_notificationScheduled) return;
+    if (_notificationScheduled || _isDisposed) return;
 
     final now = DateTime.now();
     final elapsed = now.difference(_lastNotifyTime);
@@ -191,7 +194,7 @@ class MiddlewareProvider extends ChangeNotifier {
 
   /// Execute the batched notification
   void _executeNotification() {
-    if (_pendingChanges == changeNone) {
+    if (_isDisposed || _pendingChanges == changeNone) {
       _notificationScheduled = false;
       return;
     }
@@ -222,6 +225,7 @@ class MiddlewareProvider extends ChangeNotifier {
 
   /// Force immediate notification (for critical updates that can't wait)
   void _notifyImmediate() {
+    if (_isDisposed) return;
     _debounceTimer?.cancel();
     _lastChanges = _pendingChanges | changeAll;
     _pendingChanges = changeNone;
@@ -3935,6 +3939,10 @@ class MiddlewareProvider extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     // P0.1 FIX: Proper resource cleanup to prevent 100-500 MB memory leak
     // ═══════════════════════════════════════════════════════════════════════════
+
+    // 0a. Mark as disposed FIRST — prevents scheduled callbacks from calling
+    // notifyListeners() after super.dispose() (causes "used after being disposed")
+    _isDisposed = true;
 
     // 0. Cancel debounce timer (P1.1/P1.2)
     _debounceTimer?.cancel();

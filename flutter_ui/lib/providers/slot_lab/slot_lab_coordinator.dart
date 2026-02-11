@@ -8,6 +8,7 @@
 library;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../models/stage_models.dart';
 import '../../models/win_tier_config.dart';
@@ -45,6 +46,14 @@ class SlotLabCoordinator extends ChangeNotifier {
   final SlotEngineProvider engineProvider;
   final SlotStageProvider stageProvider;
   final SlotAudioProvider audioProvider;
+
+  /// Whether this coordinator has been disposed.
+  /// Prevents notifyListeners() from being called after disposal.
+  bool _isDisposed = false;
+
+  /// Whether a post-frame notification is already scheduled.
+  /// Prevents scheduling multiple callbacks in the same frame.
+  bool _notifyScheduled = false;
 
   SlotLabCoordinator({
     SlotEngineProvider? engineProvider,
@@ -96,7 +105,19 @@ class SlotLabCoordinator extends ChangeNotifier {
   }
 
   void _onSubProviderChanged() {
-    notifyListeners();
+    if (_isDisposed) return;
+    // Defer notification to after the current frame to prevent
+    // "setState() or markNeedsBuild() called during build" errors
+    // when sub-providers notify during didChangeDependencies.
+    if (!_notifyScheduled) {
+      _notifyScheduled = true;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _notifyScheduled = false;
+        if (!_isDisposed) {
+          notifyListeners();
+        }
+      });
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -354,6 +375,8 @@ class SlotLabCoordinator extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
+
     engineProvider.removeListener(_onSubProviderChanged);
     stageProvider.removeListener(_onSubProviderChanged);
     audioProvider.removeListener(_onSubProviderChanged);
