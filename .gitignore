@@ -32,6 +32,11 @@ artifacts/
 *.dSYM/
 *.log
 
+# Profiling
+cargo-flamegraph.trace/
+flamegraph.svg
+perf.data*
+
 # Temporary
 *.tmp
 *.temp
