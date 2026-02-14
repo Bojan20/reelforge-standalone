@@ -953,6 +953,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Only handle KeyDown, not KeyUp or KeyRepeat
     if (event is! KeyDownEvent) return false;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL: If ANY text field has focus, let it handle ALL key events.
+    // This prevents global shortcuts (G, L, 0, Space, etc.) from firing
+    // while the user is typing in search bars or text fields.
+    // ═══════════════════════════════════════════════════════════════════════════
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus != null && focus.context != null) {
+      final editable = focus.context!.findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return false;
+    }
+
     // P14: Ultimate Timeline keyboard shortcuts
     if (_ultimateTimelineController != null) {
       if (_handleUltimateTimelineShortcut(event)) {
@@ -960,7 +971,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
     }
 
-    // Only handle Space key
+    // Only handle Space key below
     if (event.logicalKey != LogicalKeyboardKey.space) return false;
 
     // Don't handle if we're not mounted or visible
@@ -2814,8 +2825,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    final key = event.logicalKey;
+    // If a text field has focus, don't intercept ANY keys (let user type)
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus != null && primaryFocus.context != null) {
+      final editable = primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return KeyEventResult.ignored;
+    }
 
+    final key = event.logicalKey;
 
     // Keys that allow repeat (hold key for continuous adjustment)
     final isZoomKey = key == LogicalKeyboardKey.keyG || key == LogicalKeyboardKey.keyH;

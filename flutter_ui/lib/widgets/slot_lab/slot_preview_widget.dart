@@ -386,7 +386,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // ═══════════════════════════════════════════════════════════════════════════
   bool _sequentialAnticipationMode = false; // When true, reels stop sequentially
   final List<int> _sequentialAnticipationQueue = []; // Queue of reels waiting to stop
-  int? _currentSequentialReel; // Reel currently in anticipation sequence
+
 
   // P3.1: Camera zoom — zoom intensity escalates with number of reels in anticipation
   // Industry standard: subtle zoom (1.02-1.08) creates focus and tension
@@ -909,8 +909,19 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _triggerReelStopAudio(int reelIndex) {
     if (!mounted) return;
 
-    // Stop anticipation for this reel if active
-    _stopReelAnticipation(reelIndex);
+    // Stop anticipation for this reel if active (inline cleanup)
+    if (_anticipationReels.contains(reelIndex)) {
+      _anticipationTimers[reelIndex]?.cancel();
+      _anticipationTimers.remove(reelIndex);
+      setState(() {
+        _anticipationReels.remove(reelIndex);
+        _anticipationProgress.remove(reelIndex);
+        _anticipationTensionLevel.remove(reelIndex);
+        _anticipationReason.remove(reelIndex);
+        _isAnticipation = _anticipationReels.isNotEmpty;
+        _anticipationZoom = _calculateAnticipationZoom();
+      });
+    }
 
     // Get RUST PLANNED timestamp for correct Event Log ordering
     double timestampMs = 0.0;
@@ -1084,10 +1095,28 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               _sequentialAnticipationMode = true;
               _sequentialAnticipationQueue.clear();
               _sequentialAnticipationQueue.addAll(remainingReels..sort()); // Sort ascending
-              _currentSequentialReel = null;
               _isAnticipation = true;
             });
 
+            // CRITICAL: Extend ALL remaining reels to keep them spinning during anticipation.
+            // The isInAnticipation flag in ReelAnimationState prevents deceleration,
+            // so the extension value is just a safety net. forceStopReel() handles
+            // precise stopping after the anticipation timer completes.
+            for (int i = 0; i < _sequentialAnticipationQueue.length; i++) {
+              final queuedReel = _sequentialAnticipationQueue[i];
+              _reelAnimController.extendReelSpinTime(queuedReel, _anticipationDurationMs);
+
+              // If this reel already stopped (edge case: fast timing), remove from stopped flags
+              // so it can fire onReelStop callback again when it actually stops after anticipation
+              if (_reelStoppedFlags.contains(queuedReel)) {
+                _reelStoppedFlags.remove(queuedReel);
+                _pendingReelStops.remove(queuedReel);
+                // Adjust sequential buffer to allow this reel to fire callback again
+                if (_nextExpectedReelIndex > queuedReel) {
+                  _nextExpectedReelIndex = queuedReel;
+                }
+              }
+            }
 
             // Start first reel in sequence
             _startNextSequentialAnticipationReel();
@@ -1109,19 +1138,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _startNextSequentialAnticipationReel() {
     if (_sequentialAnticipationQueue.isEmpty) {
       _sequentialAnticipationMode = false;
-      _currentSequentialReel = null;
       return;
     }
 
     final nextReel = _sequentialAnticipationQueue.removeAt(0);
-    _currentSequentialReel = nextReel;
 
     // Calculate tension level based on position in queue (L1 → L2 → L3 → L4)
     // First anticipation reel = L1, second = L2, etc.
     final tensionLevel = (_anticipationReels.length + 1).clamp(1, 4);
 
-
-    // Extend spin time SIGNIFICANTLY for this reel (others stay spinning)
+    // Set anticipation flags on this reel. The isInAnticipation flag in
+    // ReelAnimationState holds the reel in spinning phase regardless of elapsed time.
+    // forceStopReel() clears anticipation and triggers deceleration after the timer.
     _reelAnimController.extendReelSpinTime(nextReel, _anticipationDurationMs);
 
     // Start visual anticipation with tension level
@@ -1215,7 +1243,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       } else {
         // All sequential reels processed
         _sequentialAnticipationMode = false;
-        _currentSequentialReel = null;
 
         // Stop global anticipation overlay if no more reels
         if (_anticipationReels.isEmpty) {
@@ -1487,7 +1514,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // P7.2.1: Reset sequential anticipation mode for new spin
       _sequentialAnticipationMode = false;
       _sequentialAnticipationQueue.clear();
-      _currentSequentialReel = null;
       // SPINNING→DECEL FIX: Clear last spinning offsets for new spin
       _lastSpinningOffset.clear();
     });
@@ -2940,98 +2966,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     widget.provider.setWinPresentationActive(false);
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // PER-REEL ANTICIPATION EFFECTS — 2 seconds per reel with visual overlay
-  // Industry standard: Anticipation slows down specific reels with visual cue
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// Start anticipation on a specific reel (2 second duration)
-  /// Called from stage processing when ANTICIPATION_ON_X is detected
-  void _startReelAnticipation(int reelIndex) {
-    if (_anticipationReels.contains(reelIndex)) return; // Already anticipating
-
-
-    setState(() {
-      _isAnticipation = true;
-      _anticipationReels.add(reelIndex);
-      _anticipationProgress[reelIndex] = 0.0;
-
-      // P3.1: Calculate zoom based on number of reels in anticipation
-      // More reels = more zoom (tension escalation)
-      _anticipationZoom = _calculateAnticipationZoom();
-    });
-
-    // Trigger audio stage
-    eventRegistry.triggerStage('ANTICIPATION_ON_$reelIndex', context: {'reel_index': reelIndex});
-
-    // Update progress periodically for smooth animation
-    const updateInterval = 50; // 50ms updates
-    int elapsed = 0;
-    _anticipationTimers[reelIndex]?.cancel();
-    _anticipationTimers[reelIndex] = Timer.periodic(
-      const Duration(milliseconds: updateInterval),
-      (timer) {
-        elapsed += updateInterval;
-        final progress = (elapsed / _anticipationDurationMs).clamp(0.0, 1.0);
-
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
-
-        setState(() {
-          _anticipationProgress[reelIndex] = progress;
-        });
-
-        // End anticipation after 2 seconds
-        if (elapsed >= _anticipationDurationMs) {
-          timer.cancel();
-          _endReelAnticipation(reelIndex);
-        }
-      },
-    );
-  }
-
-  /// End anticipation on a specific reel
-  void _endReelAnticipation(int reelIndex) {
-
-    _anticipationTimers[reelIndex]?.cancel();
-    _anticipationTimers.remove(reelIndex);
-
-    if (!mounted) return;
-
-    setState(() {
-      _anticipationReels.remove(reelIndex);
-      _anticipationProgress.remove(reelIndex);
-      // Update global flag
-      _isAnticipation = _anticipationReels.isNotEmpty;
-
-      // P3.1: Update zoom when reel leaves anticipation
-      _anticipationZoom = _calculateAnticipationZoom();
-    });
-
-    // Trigger audio stage
-    eventRegistry.triggerStage('ANTICIPATION_OFF_$reelIndex', context: {'reel_index': reelIndex});
-  }
-
-  /// Start anticipation effect - auto-starts on last reel(s) when potential big win
-  void _startAnticipation(SlotLabSpinResult? result) {
-    // Start anticipation on last 1-2 reels sequentially
-    final anticipationReels = [widget.reels - 2, widget.reels - 1];
-
-    for (int i = 0; i < anticipationReels.length; i++) {
-      final reelIndex = anticipationReels[i];
-      if (reelIndex >= 0) {
-        // Stagger start times slightly for more dramatic effect
-        Future.delayed(Duration(milliseconds: i * 200), () {
-          if (mounted && _isSpinning) {
-            _startReelAnticipation(reelIndex);
-          }
-        });
-      }
-    }
-  }
-
   /// Stop all anticipation effects
   void _stopAnticipation() {
     // Cancel all timers
@@ -3099,12 +3033,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final totalZoom = (reelZoom + tensionBonus).clamp(1.0, _anticipationZoomMax);
 
     return totalZoom;
-  }
-
-  /// Stop anticipation on a specific reel (e.g., when it lands)
-  void _stopReelAnticipation(int reelIndex) {
-    if (!_anticipationReels.contains(reelIndex)) return;
-    _endReelAnticipation(reelIndex);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

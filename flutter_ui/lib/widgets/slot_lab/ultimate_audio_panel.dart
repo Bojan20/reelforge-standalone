@@ -294,15 +294,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     // (typing, space, backspace, arrows, etc.) — only intercept Escape
     if (_searchFocusNode.hasFocus) {
       if (event.logicalKey == LogicalKeyboardKey.escape) {
-        if (_searchQuery.isNotEmpty) {
-          setState(() {
-            _searchQuery = '';
-            _searchController.clear();
-          });
-        } else {
-          _searchFocusNode.unfocus();
-          _panelFocusNode.requestFocus();
-        }
+        setState(() {
+          _searchQuery = '';
+          _searchController.clear();
+        });
+        _searchFocusNode.unfocus();
+        // Don't request _panelFocusNode — let focus return to slot machine
         return KeyEventResult.handled;
       }
       return KeyEventResult.ignored;
@@ -345,7 +342,6 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     return Focus(
       focusNode: _panelFocusNode,
       onKeyEvent: _handleKeyEvent,
-      autofocus: true,
       child: Container(
         color: const Color(0xFF0D0D10),
         child: Column(
@@ -701,7 +697,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   Widget _buildPhase(_PhaseConfig phase) {
-    final isExpanded = _expandedSections.contains(phase.id);
+    // Hide entire phase when filtering and no slots match
+    if (_isFiltering && !_phaseHasVisibleSlots(phase)) {
+      return const SizedBox.shrink();
+    }
+    // Auto-expand when filtering
+    final isExpanded = _isFiltering || _expandedSections.contains(phase.id);
     // Calculate totals across all sections in this phase
     int totalSlots = 0;
     int assignedSlots = 0;
@@ -853,7 +854,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   Widget _buildSection(_SectionConfig config) {
-    final isExpanded = _expandedSections.contains(config.id);
+    if (_isFiltering && !_sectionHasVisibleSlots(config)) {
+      return const SizedBox.shrink();
+    }
+    final isExpanded = _isFiltering || _expandedSections.contains(config.id);
     final assignedCount = _countAssignedInSection(config);
 
     return Column(
@@ -993,8 +997,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   Widget _buildGroup(_GroupConfig group, _SectionConfig section) {
+    if (_isFiltering && !_groupHasVisibleSlots(group)) {
+      return const SizedBox.shrink();
+    }
     final groupKey = '${section.id}_${group.id}';
-    final isExpanded = _expandedGroups.contains(groupKey);
+    final isExpanded = _isFiltering || _expandedGroups.contains(groupKey);
     final assignedCount = _countAssignedInGroup(group);
 
     return Column(
@@ -1445,6 +1452,41 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     if (percentage >= 50) return FluxForgeTheme.accentOrange;
     return FluxForgeTheme.accentRed;
   }
+
+  /// Check if a slot matches the current search/filter criteria
+  bool _slotMatchesFilter(_SlotConfig slot) {
+    final audioPath = widget.audioAssignments[slot.stage];
+    final hasAudio = audioPath != null;
+    if (_showUnassignedOnly && hasAudio) return false;
+    if (_searchQuery.isNotEmpty) {
+      final fileName = hasAudio ? audioPath.split('/').last.toLowerCase() : null;
+      return slot.stage.toLowerCase().contains(_searchQuery) ||
+             slot.label.toLowerCase().contains(_searchQuery) ||
+             (fileName != null && fileName.contains(_searchQuery));
+    }
+    return true;
+  }
+
+  /// Check if any slot in a group matches filter
+  bool _groupHasVisibleSlots(_GroupConfig group) {
+    if (_searchQuery.isEmpty && !_showUnassignedOnly) return true;
+    return group.slots.any(_slotMatchesFilter);
+  }
+
+  /// Check if any slot in a section matches filter
+  bool _sectionHasVisibleSlots(_SectionConfig section) {
+    if (_searchQuery.isEmpty && !_showUnassignedOnly) return true;
+    return section.groups.any(_groupHasVisibleSlots);
+  }
+
+  /// Check if any slot in a phase matches filter
+  bool _phaseHasVisibleSlots(_PhaseConfig phase) {
+    if (_searchQuery.isEmpty && !_showUnassignedOnly) return true;
+    return phase.sections.any(_sectionHasVisibleSlots);
+  }
+
+  /// Whether search/filter is active (auto-expand all)
+  bool get _isFiltering => _searchQuery.isNotEmpty || _showUnassignedOnly;
 
   int _countAssignedInGroup(_GroupConfig group) {
     int count = 0;

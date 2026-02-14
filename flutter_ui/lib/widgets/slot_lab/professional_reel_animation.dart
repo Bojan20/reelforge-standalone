@@ -148,12 +148,29 @@ class ReelAnimationState {
 
   /// Extend this reel's spin time (for anticipation)
   /// P7.2.2: Now accepts tension level and reason for escalation
+  /// FIX: If reel is already in deceleration/bouncing/stopped, push it back to spinning
   void extendSpinTime(int extensionMs, {int level = 1, String reason = 'scatter'}) {
     stopTimeExtensionMs = extensionMs;
     isInAnticipation = true;
     tensionLevel = level.clamp(1, 4);
     anticipationReason = reason;
     anticipationProgress = 0.0;
+
+    // CRITICAL: If reel already entered deceleration, bouncing, or stopped, push back to spinning
+    // This handles ALL cases:
+    // - Reel in deceleration: scatter detected while reel is slowing down
+    // - Reel in bouncing: scatter detected during bounce phase
+    // - Reel stopped: sequential anticipation — reel stopped naturally while waiting for its turn
+    if (phase == ReelPhase.decelerating || phase == ReelPhase.bouncing || phase == ReelPhase.stopped) {
+      phase = ReelPhase.spinning;
+      phaseProgress = 0.5; // Mid-spin
+      velocity = 1.0;
+      overshootAmount = 0.0;
+      _forceStopRequested = false;
+      // Reset audio callback so it fires again when reel actually stops later
+      _audioCallbackFired = false;
+      _audioShouldFireThisTick = false;
+    }
   }
 
   /// Clear anticipation extension
@@ -187,21 +204,25 @@ class ReelAnimationState {
   // ═══════════════════════════════════════════════════════════════════════════
   bool _forceStopRequested = false;
 
-  /// Force this reel to stop immediately (skips remaining spin time)
-  void forceStop() {
+  /// Force this reel to stop with smooth deceleration from current position.
+  /// [currentElapsedMs] is the current elapsed time since spin start — used to
+  /// calculate the correct stopTimeExtensionMs so deceleration starts NOW.
+  void forceStop({int? currentElapsedMs}) {
     _forceStopRequested = true;
-    // Clear any spin time extension
-    stopTimeExtensionMs = 0;
     isInAnticipation = false;
     speedMultiplier = 1.0;
-  }
 
-  /// Check if force stop was requested
-  bool get forceStopRequested => _forceStopRequested;
-
-  /// Clear force stop flag (called when reel actually stops)
-  void clearForceStop() {
-    _forceStopRequested = false;
+    if (currentElapsedMs != null) {
+      // Set stopTimeExtensionMs so that decelStart = currentElapsedMs
+      // decelStart = stopTime - decelerationMs = (baseStop + extension) - decelMs
+      // We want decelStart = currentElapsedMs
+      // → baseStop + extension - decelMs = currentElapsedMs
+      // → extension = currentElapsedMs + decelMs - baseStop
+      final baseStop = profile.getReelStopTime(reelIndex);
+      stopTimeExtensionMs = (currentElapsedMs + profile.decelerationMs - baseStop).clamp(0, 999999);
+    } else {
+      stopTimeExtensionMs = 0;
+    }
   }
 
   /// Update state based on elapsed time since spin start
@@ -226,8 +247,9 @@ class ReelAnimationState {
     final bounceStart = stopT;
     final bounceEnd = stopT + profile.bounceMs;
 
-    // P7.2.1: If force stop triggered, treat as if we're at decelStart
-    final effectiveElapsedMs = (_forceStopRequested || phase == ReelPhase.decelerating && phaseProgress < 0.1)
+    // Safety net: If deceleration just started (forceStop sets phase=decelerating, progress=0),
+    // clamp elapsed to decelStart to prevent skipping the deceleration animation.
+    final effectiveElapsedMs = (phase == ReelPhase.decelerating && phaseProgress < 0.1)
         ? decelStart
         : elapsedMs;
 
@@ -240,14 +262,18 @@ class ReelAnimationState {
       velocity = _easeOutQuad(t) * 1.0; // Max velocity = 1.0
       scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
       spinCycles = scrollOffset / 10.0; // Track spin cycles
-    } else if (effectiveElapsedMs < decelStart && phase != ReelPhase.decelerating && phase != ReelPhase.bouncing) {
+    } else if ((effectiveElapsedMs < decelStart || isInAnticipation) && phase != ReelPhase.decelerating && phase != ReelPhase.bouncing) {
       // PHASE: Full-speed spinning
+      // ANTICIPATION HOLD: While isInAnticipation is true, reel stays in spinning phase
+      // regardless of elapsed time. Only forceStop() can transition out of spinning.
+      // This guarantees equal anticipation duration on every reel.
       phase = ReelPhase.spinning;
       velocity = 1.0;
       scrollOffset += velocity * 0.1 * speedMultiplier; // P0.3: Apply speed multiplier
-      final spinDuration = decelStart - accelEnd;
-      // FIX: Clamp phaseProgress to 0.0-1.0 to prevent withOpacity assertion errors
-      phaseProgress = ((effectiveElapsedMs - accelEnd) / spinDuration.clamp(1, double.infinity)).clamp(0.0, 1.0);
+      final spinDuration = (decelStart - accelEnd).clamp(1, double.infinity);
+      phaseProgress = isInAnticipation
+          ? 0.5 // Hold at mid-spin during anticipation (stable visual)
+          : ((effectiveElapsedMs - accelEnd) / spinDuration).clamp(0.0, 1.0);
       spinCycles = scrollOffset / 10.0; // Track spin cycles for visual effect
     } else if (elapsedMs < bounceStart) {
       // PHASE: Deceleration (max → 0 velocity)
@@ -560,15 +586,15 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
   // Forces a specific reel to stop immediately (skips remaining spin time)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Force a specific reel to stop immediately
-  /// Used in sequential anticipation mode after anticipation completes
+  /// Force a specific reel to stop with smooth deceleration from current position.
+  /// Used in sequential anticipation mode after anticipation completes.
   void forceStopReel(int reelIndex) {
     if (reelIndex < 0 || reelIndex >= reelCount) return;
     if (_reelStates[reelIndex].phase == ReelPhase.stopped) return;
 
-
-    // Transition directly to decelerating phase with minimal remaining time
-    _reelStates[reelIndex].forceStop();
+    // Pass current elapsed time so forceStop can calculate correct deceleration timing
+    final elapsed = _isSpinning ? DateTime.now().millisecondsSinceEpoch - _startTime : 0;
+    _reelStates[reelIndex].forceStop(currentElapsedMs: elapsed);
     notifyListeners();
   }
 
