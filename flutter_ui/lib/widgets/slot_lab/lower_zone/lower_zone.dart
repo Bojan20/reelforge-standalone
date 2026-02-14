@@ -57,6 +57,12 @@ import '../../ale/stability_config_panel.dart';
 // Stage Ingest Panels
 import '../../stage_ingest/stage_ingest_panel.dart';
 
+// Bake Panels
+import 'bake/gdd_validator_panel.dart';
+
+// Audio Pool
+import '../audio_pool_manager_widget.dart';
+
 // Spatial Panels
 import '../../spatial/auto_spatial_panel.dart';
 
@@ -317,7 +323,7 @@ class _LowerZoneContent extends StatelessWidget {
           selectedEventIds: null, // TODO: Wire selected events
         );
       case 1: // Validation
-        return _buildPlaceholder('Validation Checks\n(Coming Soon)');
+        return const GddValidatorPanel();
       case 2: // Package
         return _buildPlaceholder('Package Builder\n(Coming Soon)');
       default:
@@ -338,6 +344,12 @@ class _LowerZoneContent extends StatelessWidget {
         return const ResourceDashboardPanel();
       case 2: // Stage Ingest
         return const StageIngestPanel();
+      case 3: // Git
+        return _buildPlaceholder('Version Control\n(Git Integration)');
+      case 4: // Analytics
+        return _buildPlaceholder('Usage Analytics\n(Metrics Dashboard)');
+      case 5: // Audio Pool
+        return const AudioPoolManagerWidget();
       default:
         return const DspProfilerPanel();
     }

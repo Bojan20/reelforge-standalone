@@ -22,3 +22,6 @@ export 'state_transition_history_panel.dart';
 export 'rtpc_debugger_panel.dart';
 export 'container_preset_browser.dart';
 export 'container_timeline_zoom.dart';
+export 'audio_signatures_panel.dart';
+export 'container_groups_panel.dart';
+export 'event_templates_panel.dart';

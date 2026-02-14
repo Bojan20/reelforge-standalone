@@ -408,6 +408,13 @@ const List<SubTabConfig> kEngineSubTabs = [
     shortcutKey: '5',
     description: 'Usage metrics dashboard (P3-07)',
   ),
+  SubTabConfig(
+    id: 'audioPool',
+    label: 'Audio Pool',
+    icon: Icons.graphic_eq,
+    shortcutKey: '6',
+    description: 'Voice pool monitor',
+  ),
 ];
 
 /// Menu items (shown in popup, not as tabs)

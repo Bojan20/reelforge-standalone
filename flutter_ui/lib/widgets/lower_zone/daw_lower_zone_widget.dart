@@ -42,6 +42,13 @@ import 'daw/edit/timeline_overview_panel.dart';
 import 'daw/edit/grid_settings_panel.dart';
 import 'daw/edit/piano_roll_panel.dart';
 import 'daw/edit/clip_properties_panel.dart';
+// ✅ P2: Advanced EDIT panels
+import 'daw/edit/punch_recording_panel.dart';
+import 'daw/edit/comping_panel.dart';
+import 'daw/edit/audio_warping_panel.dart';
+import 'daw/edit/elastic_audio_panel.dart';
+import 'daw/edit/beat_detective_panel.dart';
+import 'daw/edit/strip_silence_panel.dart';
 // ✅ P0.1: Extracted MIX panels
 import 'daw/mix/sends_panel.dart';
 import 'daw/mix/pan_panel.dart';
@@ -544,11 +551,17 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   Widget _getEditContentForIndex(int index) {
-    return switch (DawEditSubTab.values[index.clamp(0, 3)]) {
+    return switch (DawEditSubTab.values[index.clamp(0, DawEditSubTab.values.length - 1)]) {
       DawEditSubTab.timeline => _buildTimelinePanel(),
       DawEditSubTab.pianoRoll => _buildPianoRollPanel(),
       DawEditSubTab.fades => _buildFadesPanel(),
       DawEditSubTab.grid => _buildGridPanel(),
+      DawEditSubTab.punch => _buildPunchRecordingPanel(),
+      DawEditSubTab.comping => _buildCompingPanel(),
+      DawEditSubTab.warp => _buildAudioWarpingPanel(),
+      DawEditSubTab.elastic => _buildElasticAudioPanel(),
+      DawEditSubTab.beatDetect => _buildBeatDetectivePanel(),
+      DawEditSubTab.stripSilence => _buildStripSilencePanel(),
     };
   }
 
@@ -769,6 +782,12 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.pianoRoll => _buildPianoRollPanel(),
       DawEditSubTab.fades => _buildFadesPanel(),
       DawEditSubTab.grid => _buildGridPanel(),
+      DawEditSubTab.punch => _buildPunchRecordingPanel(),
+      DawEditSubTab.comping => _buildCompingPanel(),
+      DawEditSubTab.warp => _buildAudioWarpingPanel(),
+      DawEditSubTab.elastic => _buildElasticAudioPanel(),
+      DawEditSubTab.beatDetect => _buildBeatDetectivePanel(),
+      DawEditSubTab.stripSilence => _buildStripSilencePanel(),
     };
   }
 
@@ -795,6 +814,38 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     onSnapEnabledChanged: widget.onSnapEnabledChanged,
     onTripletGridChanged: widget.onTripletGridChanged,
     onSnapValueChanged: widget.onSnapValueChanged,
+  );
+
+  // ✅ P2: Advanced EDIT panels
+  Widget _buildPunchRecordingPanel() => PunchRecordingPanel(
+    selectedTrackId: widget.selectedTrackId,
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildCompingPanel() => CompingPanel(
+    selectedTrackId: widget.selectedTrackId,
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildAudioWarpingPanel() => AudioWarpingPanel(
+    selectedTrackId: widget.selectedTrackId,
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildElasticAudioPanel() => ElasticAudioPanel(
+    selectedTrackId: widget.selectedTrackId,
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildBeatDetectivePanel() => BeatDetectivePanel(
+    selectedTrackId: widget.selectedTrackId,
+    tempo: widget.tempo,
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildStripSilencePanel() => StripSilencePanel(
+    selectedTrackId: widget.selectedTrackId,
+    onAction: widget.onDspAction,
   );
 
   /// Compact Timeline Overview

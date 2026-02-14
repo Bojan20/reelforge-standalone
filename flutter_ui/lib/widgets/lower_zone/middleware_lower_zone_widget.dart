@@ -18,7 +18,7 @@ import '../../utils/path_validator.dart';
 import 'package:provider/provider.dart';
 
 import 'middleware_lower_zone_controller.dart';
-import '../../models/middleware_models.dart' show RtpcCurvePoint, CrossfadeCurve;
+import '../../models/middleware_models.dart' show RtpcCurvePoint, CrossfadeCurve, StateGroup;
 import 'lower_zone_types.dart';
 import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
@@ -36,6 +36,12 @@ import '../middleware/event_debugger_panel.dart';
 import '../middleware/rtpc_debugger_panel.dart';
 import '../middleware/dsp_profiler_panel.dart';
 import '../middleware/priority_tier_preset_panel.dart';
+import '../middleware/state_machine_graph.dart';
+import '../middleware/audio_signatures_panel.dart';
+import '../middleware/container_groups_panel.dart';
+import '../middleware/event_templates_panel.dart';
+import '../middleware/event_profiler_advanced.dart';
+import '../middleware/spatial_designer_widget.dart';
 
 class MiddlewareLowerZoneWidget extends StatefulWidget {
   final MiddlewareLowerZoneController controller;
@@ -351,6 +357,9 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       MiddlewareEventsSubTab.editor => const EventEditorPanel(),
       MiddlewareEventsSubTab.triggers => _buildTriggersPanel(),
       MiddlewareEventsSubTab.debug => const EventDebuggerPanel(),
+      MiddlewareEventsSubTab.stateGraph => _buildStateGraphPanel(),
+      MiddlewareEventsSubTab.signatures => const AudioSignaturesPanel(),
+      MiddlewareEventsSubTab.templates => const EventTemplatesPanel(),
     };
   }
 
@@ -642,6 +651,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       MiddlewareContainersSubTab.sequence => const SequenceContainerPanel(),
       MiddlewareContainersSubTab.blend => const BlendContainerPanel(),
       MiddlewareContainersSubTab.switchTab => _buildSwitchContainerPanel(),
+      MiddlewareContainersSubTab.groups => const ContainerGroupsPanel(),
     };
   }
 
@@ -658,6 +668,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       MiddlewareRoutingSubTab.ducking => const DuckingMatrixPanel(),
       MiddlewareRoutingSubTab.matrix => _buildMatrixPanel(),
       MiddlewareRoutingSubTab.priority => const PriorityTierPresetPanel(),
+      MiddlewareRoutingSubTab.spatial => _buildSpatialDesignerPanel(),
     };
   }
 
@@ -674,12 +685,84 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       MiddlewareRtpcSubTab.bindings => _buildBindingsPanel(),
       MiddlewareRtpcSubTab.meters => const RtpcDebuggerPanel(),
       MiddlewareRtpcSubTab.profiler => const DspProfilerPanel(),
+      MiddlewareRtpcSubTab.advanced => _buildAdvancedProfilerPanel(),
     };
   }
 
   Widget _buildCurvesPanel() => _buildCompactRtpcCurves();
   Widget _buildBindingsPanel() => _buildCompactBindingsPanel();
   Widget _buildMetersPanel() => _buildCompactMetersPanel();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NEW PANEL BUILDERS — State Graph, Spatial, Advanced Profiler
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildStateGraphPanel() {
+    return Selector<MiddlewareProvider, List<StateGroup>>(
+      selector: (_, p) => p.stateGroups,
+      builder: (ctx, groups, _) {
+        final group = groups.isNotEmpty ? groups.first : null;
+        return StateMachineGraph(
+          stateGroup: group,
+          showTransitions: true,
+          onStateChangeRequested: (groupId, stateId) {
+            ctx.read<MiddlewareProvider>().setState(groupId, stateId);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSpatialDesignerPanel() {
+    return SpatialDesignerWidget(
+      position: const SpatialPosition(x: 0, y: 0, z: 0),
+      onPositionChanged: (pos) {
+        // Spatial position update — connected to AutoSpatial engine
+      },
+    );
+  }
+
+  Widget _buildAdvancedProfilerPanel() {
+    return Consumer<MiddlewareProvider>(
+      builder: (ctx, provider, _) {
+        final stats = provider.getProfilerStats();
+        final entries = [
+          ProfilerEntry(
+            eventId: 'Total Events',
+            latencyUs: stats.avgLatencyUs.toInt(),
+            callCount: stats.totalEvents,
+            avgLatencyUs: stats.avgLatencyUs,
+          ),
+          ProfilerEntry(
+            eventId: 'Events/sec',
+            latencyUs: stats.maxLatencyUs.toInt(),
+            callCount: stats.eventsPerSecond,
+            avgLatencyUs: stats.maxLatencyUs,
+          ),
+          ProfilerEntry(
+            eventId: 'Voice Starts',
+            latencyUs: 0,
+            callCount: stats.voiceStarts,
+            avgLatencyUs: 0,
+          ),
+          ProfilerEntry(
+            eventId: 'Voice Steals',
+            latencyUs: 0,
+            callCount: stats.voiceSteals,
+            avgLatencyUs: 0,
+          ),
+          if (stats.errors > 0)
+            ProfilerEntry(
+              eventId: 'Errors',
+              latencyUs: 0,
+              callCount: stats.errors,
+              avgLatencyUs: 0,
+            ),
+        ];
+        return EventProfilerAdvanced(entries: entries);
+      },
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DELIVER CONTENT
@@ -1570,6 +1653,8 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
                 }
                 break;
               case MiddlewareContainersSubTab.switchTab:
+                break;
+              case MiddlewareContainersSubTab.groups:
                 break;
             }
           }

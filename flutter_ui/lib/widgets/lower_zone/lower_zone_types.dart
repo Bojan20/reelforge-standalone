@@ -194,7 +194,7 @@ extension DawSuperTabX on DawSuperTab {
 // --- DAW Sub-tabs ---
 
 enum DawBrowseSubTab { files, presets, plugins, history }
-enum DawEditSubTab { timeline, pianoRoll, fades, grid }
+enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, elastic, beatDetect, stripSilence }
 enum DawMixSubTab { mixer, sends, pan, automation }
 enum DawProcessSubTab { eq, comp, limiter, fxChain, sidechain }
 enum DawDeliverSubTab { export, stems, bounce, archive }
@@ -212,14 +212,20 @@ extension DawBrowseSubTabX on DawBrowseSubTab {
 }
 
 extension DawEditSubTabX on DawEditSubTab {
-  String get label => ['Timeline', 'Piano Roll', 'Fades', 'Grid'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
-  IconData get icon => [Icons.view_timeline, Icons.piano, Icons.gradient, Icons.grid_on][index];
+  String get label => ['Timeline', 'Piano Roll', 'Fades', 'Grid', 'Punch', 'Comping', 'Warp', 'Elastic', 'Beat Det.', 'Strip Sil.'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'][index];
+  IconData get icon => [Icons.view_timeline, Icons.piano, Icons.gradient, Icons.grid_on, Icons.fiber_manual_record, Icons.layers, Icons.timer, Icons.waves, Icons.music_note, Icons.content_cut][index];
   String get tooltip => [
     'Track arrangement view with clip positions and routing',
     'MIDI editor with 128 notes, velocity, and CC automation',
     'Crossfade curve editor (Equal Power, Linear, S-Curve)',
     'Snap-to-grid settings, tempo (40-240 BPM), time signature',
+    'Punch-in/out recording with pre-roll, count-in, and rehearsal',
+    'Take lanes and comp regions (Pro Tools/Cubase style)',
+    'Time-stretch and warp markers with algorithm selection',
+    'Elastic Audio pitch correction and time manipulation',
+    'Beat Detective transient detection and groove extraction',
+    'Automatic silence detection and removal with threshold control',
   ][index];
 }
 
@@ -325,7 +331,7 @@ class DawLowerZoneState {
       case DawSuperTab.browse:
         browseSubTab = DawBrowseSubTab.values[index.clamp(0, 3)];
       case DawSuperTab.edit:
-        editSubTab = DawEditSubTab.values[index.clamp(0, 3)];
+        editSubTab = DawEditSubTab.values[index.clamp(0, DawEditSubTab.values.length - 1)];
       case DawSuperTab.mix:
         mixSubTab = DawMixSubTab.values[index.clamp(0, 3)];
       case DawSuperTab.process:
@@ -363,7 +369,7 @@ class DawLowerZoneState {
       case DawSuperTab.browse:
         secondPaneBrowseSubTab = DawBrowseSubTab.values[index.clamp(0, 3)];
       case DawSuperTab.edit:
-        secondPaneEditSubTab = DawEditSubTab.values[index.clamp(0, 3)];
+        secondPaneEditSubTab = DawEditSubTab.values[index.clamp(0, DawEditSubTab.values.length - 1)];
       case DawSuperTab.mix:
         secondPaneMixSubTab = DawMixSubTab.values[index.clamp(0, 3)];
       case DawSuperTab.process:
@@ -454,7 +460,7 @@ class DawLowerZoneState {
     return DawLowerZoneState(
       superTab: DawSuperTab.values[json['superTab'] as int? ?? 1],
       browseSubTab: DawBrowseSubTab.values[json['browseSubTab'] as int? ?? 0],
-      editSubTab: DawEditSubTab.values[json['editSubTab'] as int? ?? 0],
+      editSubTab: DawEditSubTab.values[(json['editSubTab'] as int? ?? 0).clamp(0, DawEditSubTab.values.length - 1)],
       mixSubTab: DawMixSubTab.values[json['mixSubTab'] as int? ?? 0],
       processSubTab: DawProcessSubTab.values[json['processSubTab'] as int? ?? 0],
       deliverSubTab: DawDeliverSubTab.values[json['deliverSubTab'] as int? ?? 0],
@@ -467,7 +473,7 @@ class DawLowerZoneState {
       syncScrollEnabled: json['syncScrollEnabled'] as bool? ?? false,
       secondPaneSuperTab: DawSuperTab.values[json['secondPaneSuperTab'] as int? ?? 2],
       secondPaneBrowseSubTab: DawBrowseSubTab.values[json['secondPaneBrowseSubTab'] as int? ?? 0],
-      secondPaneEditSubTab: DawEditSubTab.values[json['secondPaneEditSubTab'] as int? ?? 0],
+      secondPaneEditSubTab: DawEditSubTab.values[(json['secondPaneEditSubTab'] as int? ?? 0).clamp(0, DawEditSubTab.values.length - 1)],
       secondPaneMixSubTab: DawMixSubTab.values[json['secondPaneMixSubTab'] as int? ?? 0],
       secondPaneProcessSubTab: DawProcessSubTab.values[json['secondPaneProcessSubTab'] as int? ?? 0],
       secondPaneDeliverSubTab: DawDeliverSubTab.values[json['secondPaneDeliverSubTab'] as int? ?? 0],
@@ -495,30 +501,30 @@ extension MiddlewareSuperTabX on MiddlewareSuperTab {
 
 // --- Middleware Sub-tabs ---
 
-enum MiddlewareEventsSubTab { browser, editor, triggers, debug }
-enum MiddlewareContainersSubTab { random, sequence, blend, switchTab }
-enum MiddlewareRoutingSubTab { buses, ducking, matrix, priority }
-enum MiddlewareRtpcSubTab { curves, bindings, meters, profiler }
+enum MiddlewareEventsSubTab { browser, editor, triggers, debug, stateGraph, signatures, templates }
+enum MiddlewareContainersSubTab { random, sequence, blend, switchTab, groups }
+enum MiddlewareRoutingSubTab { buses, ducking, matrix, priority, spatial }
+enum MiddlewareRtpcSubTab { curves, bindings, meters, profiler, advanced }
 enum MiddlewareDeliverSubTab { bake, soundbank, validate, package }
 
 extension MiddlewareEventsSubTabX on MiddlewareEventsSubTab {
-  String get label => ['Browser', 'Editor', 'Triggers', 'Debug'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  String get label => ['Browser', 'Editor', 'Triggers', 'Debug', 'State Graph', 'Signatures', 'Templates'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'][index];
 }
 
 extension MiddlewareContainersSubTabX on MiddlewareContainersSubTab {
-  String get label => ['Random', 'Sequence', 'Blend', 'Switch'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  String get label => ['Random', 'Sequence', 'Blend', 'Switch', 'Groups'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
 }
 
 extension MiddlewareRoutingSubTabX on MiddlewareRoutingSubTab {
-  String get label => ['Buses', 'Ducking', 'Matrix', 'Priority'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  String get label => ['Buses', 'Ducking', 'Matrix', 'Priority', 'Spatial'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
 }
 
 extension MiddlewareRtpcSubTabX on MiddlewareRtpcSubTab {
-  String get label => ['Curves', 'Bindings', 'Meters', 'Profiler'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  String get label => ['Curves', 'Bindings', 'Meters', 'Profiler', 'Advanced'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
 }
 
 extension MiddlewareDeliverSubTabX on MiddlewareDeliverSubTab {
@@ -559,15 +565,15 @@ class MiddlewareLowerZoneState {
   void setSubTabIndex(int index) {
     switch (superTab) {
       case MiddlewareSuperTab.events:
-        eventsSubTab = MiddlewareEventsSubTab.values[index.clamp(0, 3)];
+        eventsSubTab = MiddlewareEventsSubTab.values[index.clamp(0, MiddlewareEventsSubTab.values.length - 1)];
       case MiddlewareSuperTab.containers:
-        containersSubTab = MiddlewareContainersSubTab.values[index.clamp(0, 3)];
+        containersSubTab = MiddlewareContainersSubTab.values[index.clamp(0, MiddlewareContainersSubTab.values.length - 1)];
       case MiddlewareSuperTab.routing:
-        routingSubTab = MiddlewareRoutingSubTab.values[index.clamp(0, 3)];
+        routingSubTab = MiddlewareRoutingSubTab.values[index.clamp(0, MiddlewareRoutingSubTab.values.length - 1)];
       case MiddlewareSuperTab.rtpc:
-        rtpcSubTab = MiddlewareRtpcSubTab.values[index.clamp(0, 3)];
+        rtpcSubTab = MiddlewareRtpcSubTab.values[index.clamp(0, MiddlewareRtpcSubTab.values.length - 1)];
       case MiddlewareSuperTab.deliver:
-        deliverSubTab = MiddlewareDeliverSubTab.values[index.clamp(0, 3)];
+        deliverSubTab = MiddlewareDeliverSubTab.values[index.clamp(0, MiddlewareDeliverSubTab.values.length - 1)];
     }
   }
 
@@ -615,13 +621,19 @@ class MiddlewareLowerZoneState {
 
   /// Deserialize from JSON
   factory MiddlewareLowerZoneState.fromJson(Map<String, dynamic> json) {
+    final superIdx = (json['superTab'] as int? ?? 0).clamp(0, MiddlewareSuperTab.values.length - 1);
+    final eventsIdx = (json['eventsSubTab'] as int? ?? 0).clamp(0, MiddlewareEventsSubTab.values.length - 1);
+    final containersIdx = (json['containersSubTab'] as int? ?? 0).clamp(0, MiddlewareContainersSubTab.values.length - 1);
+    final routingIdx = (json['routingSubTab'] as int? ?? 0).clamp(0, MiddlewareRoutingSubTab.values.length - 1);
+    final rtpcIdx = (json['rtpcSubTab'] as int? ?? 0).clamp(0, MiddlewareRtpcSubTab.values.length - 1);
+    final deliverIdx = (json['deliverSubTab'] as int? ?? 0).clamp(0, MiddlewareDeliverSubTab.values.length - 1);
     return MiddlewareLowerZoneState(
-      superTab: MiddlewareSuperTab.values[json['superTab'] as int? ?? 0],
-      eventsSubTab: MiddlewareEventsSubTab.values[json['eventsSubTab'] as int? ?? 0],
-      containersSubTab: MiddlewareContainersSubTab.values[json['containersSubTab'] as int? ?? 0],
-      routingSubTab: MiddlewareRoutingSubTab.values[json['routingSubTab'] as int? ?? 0],
-      rtpcSubTab: MiddlewareRtpcSubTab.values[json['rtpcSubTab'] as int? ?? 0],
-      deliverSubTab: MiddlewareDeliverSubTab.values[json['deliverSubTab'] as int? ?? 0],
+      superTab: MiddlewareSuperTab.values[superIdx],
+      eventsSubTab: MiddlewareEventsSubTab.values[eventsIdx],
+      containersSubTab: MiddlewareContainersSubTab.values[containersIdx],
+      routingSubTab: MiddlewareRoutingSubTab.values[routingIdx],
+      rtpcSubTab: MiddlewareRtpcSubTab.values[rtpcIdx],
+      deliverSubTab: MiddlewareDeliverSubTab.values[deliverIdx],
       isExpanded: json['isExpanded'] as bool? ?? false,
       height: (json['height'] as num?)?.toDouble() ?? kLowerZoneDefaultHeight,
     );
