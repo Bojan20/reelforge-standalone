@@ -423,6 +423,95 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // This ensures GAME_START and all other assignments are registered
     _syncAudioAssignmentsToRegistry();
 
+    // CRITICAL: Also create/update composite event for timeline visibility
+    _ensureCompositeEventForStage(stage, audioPath);
+  }
+
+  /// CENTRAL BRIDGE: Ensure a composite event exists in MiddlewareProvider for a stage+audio assignment.
+  /// Called from: Quick Assign, onAudioAssign, mount sync — ALL paths converge here.
+  /// Creates new event or updates existing one. Auto-detects duration via FFI.
+  void _ensureCompositeEventForStage(String stage, String audioPath) {
+    final middleware = context.read<MiddlewareProvider>();
+    final eventId = 'audio_$stage';
+
+    // Check if already exists — update layer path if needed
+    final existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+
+    final stageConfig = StageConfigurationService.instance;
+    final busId = _getBusForStage(stage);
+    final shouldLoop = stageConfig.isLooping(stage);
+    final isMusicBus = busId == 1;
+    final shouldOverlap = !isMusicBus && !shouldLoop;
+    final crossfadeMs = isMusicBus ? 500 : 0;
+
+    // Auto-detect duration via FFI
+    double? durationSec;
+    try {
+      final dur = NativeFFI.instance.getAudioFileDuration(audioPath);
+      if (dur > 0) durationSec = dur;
+    } catch (_) {}
+
+    if (existing != null) {
+      // Update existing event — replace first layer or add new one
+      final updatedLayers = existing.layers.isEmpty
+          ? [
+              SlotEventLayer(
+                id: 'layer_$stage',
+                name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+                audioPath: audioPath,
+                volume: 1.0,
+                pan: _getPanForStage(stage),
+                busId: busId,
+                durationSeconds: durationSec,
+              ),
+            ]
+          : existing.layers.map((l) {
+              if (l.id == 'layer_$stage') {
+                return l.copyWith(
+                  audioPath: audioPath,
+                  name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+                  durationSeconds: durationSec ?? l.durationSeconds,
+                );
+              }
+              return l;
+            }).toList();
+      middleware.updateCompositeEvent(existing.copyWith(
+        layers: updatedLayers,
+        modifiedAt: DateTime.now(),
+      ));
+    } else {
+      // Create new composite event
+      final category = _getCategoryForStage(stage);
+      final color = _getColorForCategory(category);
+      final now = DateTime.now();
+
+      middleware.addCompositeEvent(SlotCompositeEvent(
+        id: eventId,
+        name: stage.replaceAll('_', ' ').split(' ').map((w) =>
+          w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
+        ).join(' '),
+        category: category,
+        color: color,
+        layers: [
+          SlotEventLayer(
+            id: 'layer_$stage',
+            name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+            audioPath: audioPath,
+            volume: 1.0,
+            pan: _getPanForStage(stage),
+            busId: busId,
+            durationSeconds: durationSec,
+          ),
+        ],
+        triggerStages: [stage],
+        targetBusId: busId,
+        looping: shouldLoop,
+        overlap: shouldOverlap,
+        crossfadeMs: crossfadeMs,
+        createdAt: now,
+        modifiedAt: now,
+      ), select: false);
+    }
   }
 
   /// Get stereo pan position for a stage (per-reel panning for REEL_STOP_*)
@@ -915,7 +1004,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     if (assignments.isEmpty) return;
 
-
     for (final entry in assignments.entries) {
       final stage = entry.key;
       final audioPath = entry.value;
@@ -925,6 +1013,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final shouldLoop = StageConfigurationService.instance.isLooping(stage);
       final busId = _getBusForStage(stage);
 
+      // Register in EventRegistry for runtime playback
       eventRegistry.registerEvent(AudioEvent(
         id: eventId,
         name: stage.replaceAll('_', ' '),
@@ -943,8 +1032,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         loop: shouldLoop,
         targetBusId: busId,
       ));
-    }
 
+      // CENTRAL BRIDGE: Ensure composite event exists for timeline visibility
+      _ensureCompositeEventForStage(stage, audioPath);
+    }
   }
 
   /// Global keyboard handler — handles Space + Timeline shortcuts
@@ -2460,18 +2551,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               // ═══════════════════════════════════════════════════════
                               final stageConfig = StageConfigurationService.instance;
                               final busId = _getBusForStage(stage);
-
-                              // Check if this stage should loop (music, ambient, attract, etc.)
                               final shouldLoop = stageConfig.isLooping(stage);
-
-                              // Music bus (1) should NOT overlap - only one music at a time
-                              // Also prevent overlap for stages like GAME_START when on music bus
                               final isMusicBus = busId == 1;
                               final shouldOverlap = !isMusicBus && !shouldLoop;
-
-                              // Crossfade duration for music transitions (500ms for smooth transition)
                               final crossfadeMs = isMusicBus ? 500 : 0;
-
 
                               // Register event to EventRegistry for instant playback
                               eventRegistry.registerEvent(AudioEvent(
@@ -2495,47 +2578,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 targetBusId: busId,
                               ));
 
-                              // ═══════════════════════════════════════════════════════
-                              // CREATE COMPOSITE EVENT FOR MIDDLEWARE EVENT FOLDER
-                              // ═══════════════════════════════════════════════════════
-                              final middleware = context.read<MiddlewareProvider>();
-                              final now = DateTime.now();
-                              final eventId = 'audio_$stage';
-
-                              // Determine category and color based on stage
-                              final category = _getCategoryForStage(stage);
-                              final color = _getColorForCategory(category);
-
-                              // Create SlotCompositeEvent
-                              // NOTE: overlap and crossfadeMs are CRITICAL for proper music behavior
-                              final compositeEvent = SlotCompositeEvent(
-                                id: eventId,
-                                name: stage.replaceAll('_', ' ').split(' ').map((w) =>
-                                  w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
-                                ).join(' '),
-                                category: category,
-                                color: color,
-                                layers: [
-                                  SlotEventLayer(
-                                    id: 'layer_$stage',
-                                    name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
-                                    audioPath: audioPath,
-                                    volume: 1.0,
-                                    pan: _getPanForStage(stage),
-                                    busId: busId,
-                                  ),
-                                ],
-                                triggerStages: [stage],
-                                targetBusId: busId,
-                                looping: shouldLoop,
-                                overlap: shouldOverlap,  // CRITICAL: prevent music overlap
-                                crossfadeMs: crossfadeMs,  // CRITICAL: smooth music transition
-                                createdAt: now,
-                                modifiedAt: now,
-                              );
-
-                              // Add to MiddlewareProvider (visible in Event Folder)
-                              middleware.addCompositeEvent(compositeEvent, select: false);
+                              // CENTRAL BRIDGE: Create/update composite event for timeline + event folder
+                              _ensureCompositeEventForStage(stage, audioPath);
 
 
                               // SL-INT-P1.1: Show SnackBar confirmation

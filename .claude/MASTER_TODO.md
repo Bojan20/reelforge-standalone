@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-14 (Win Skip Fixes)
+**Updated:** 2026-02-14 (Timeline Bridge Fix + Win Skip Fixes)
 **Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,512 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented
 
 ---
@@ -8,7 +8,7 @@
 ## 🎯 CURRENT STATE
 
 ```
-FEATURE PROGRESS: 100% COMPLETE (380/380 tasks)
+FEATURE PROGRESS: 100% COMPLETE (381/381 tasks)
 CODE QUALITY AUDIT: 11/11 FIXED ✅ (4 CRITICAL, 4 HIGH, 3 MEDIUM)
 ANALYZER WARNINGS: 0 errors, 0 warnings ✅
 
@@ -27,7 +27,7 @@ ANALYZER WARNINGS: 0 errors, 0 warnings ✅
 ✅ P2 REMAINING:        16/16 tasks    ✅ ALL IMPLEMENTED
 ```
 
-**All 380 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes). All 11 code quality issues fixed. 4,512 tests pass. Repo cleaned. SHIP READY.**
+**All 381 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge). All 11 code quality issues fixed. 4,512 tests pass. Repo cleaned. SHIP READY.**
 
 ---
 
@@ -244,7 +244,7 @@ Changed `continue` to `return` in event_registry.dart `_playLayer()` (async meth
 ## 📊 PROJECT METRICS
 
 **Features:**
-- Complete: 378/378 (100%)
+- Complete: 381/381 (100%)
 - **P1: 100% (41/41)** ✅
 - **P2: 100% (53/53)** ✅ (37 original + 16 remaining)
 
@@ -372,7 +372,7 @@ Changed `continue` to `return` in event_registry.dart `_playLayer()` (async meth
 ║                                                               ║
 ║  FluxForge Studio — PRODUCTION READY                          ║
 ║                                                               ║
-║  ✅ Features: 378/378 (100%)                                 ║
+║  ✅ Features: 381/381 (100%)                                 ║
 ║  ✅ Tests: 4,512 pass (2,675 Flutter + 1,837 Rust)           ║
 ║  ✅ E2E Device: 71 pass (5 suites on macOS)                 ║
 ║  ✅ Code Audit: 11/11 issues FIXED (4 CRIT + 4 HIGH + 3 MED)║
@@ -427,6 +427,32 @@ Changed `continue` to `return` in event_registry.dart `_playLayer()` (async meth
 
 ---
 
+## 🎰 TIMELINE BRIDGE FIX (2026-02-14) ✅
+
+### Problem: SlotLab Timeline Shows "No Events Yet"
+
+**Root Cause:** Three separate code paths for audio assignment in SlotLab, only one of which created composite events in `MiddlewareProvider` (and even that one lacked `durationSeconds` making bars 0px wide).
+
+| Path | Before Fix | After Fix |
+|------|------------|-----------|
+| **Quick Assign** (`_handleQuickAssign`) | Only `projectProvider.setAudioAssignment()` + EventRegistry | ✅ + `_ensureCompositeEventForStage()` |
+| **Drag-drop** (`onAudioAssign`) | Created event BUT without `durationSeconds` (0px bar) | ✅ Uses centralized bridge with auto-duration |
+| **Mount sync** (`_syncPersistedAudioAssignments`) | Only EventRegistry registration | ✅ + `_ensureCompositeEventForStage()` |
+
+### Solution: Centralized Bridge Method
+
+New method `_ensureCompositeEventForStage(stage, audioPath)` in `slot_lab_screen.dart`:
+- Auto-detects duration via `NativeFFI.getAudioFileDuration(audioPath)`
+- Creates new `SlotCompositeEvent` or updates existing one
+- Proper `SlotEventLayer.durationSeconds` for timeline bar rendering
+- Called from ALL three assignment paths — single source of truth
+
+**Files Modified:**
+- `flutter_ui/lib/screens/slot_lab_screen.dart` — Centralized bridge (~80 LOC)
+- `flutter_ui/lib/widgets/lower_zone/slotlab_lower_zone_widget.dart` — Dispose fix
+
+---
+
 ## 🎰 WIN SKIP FIXES (2026-02-14) ✅
 
 Two critical bugs fixed in SlotLab win presentation skip system.
@@ -458,4 +484,4 @@ Two critical bugs fixed in SlotLab win presentation skip system.
 
 ---
 
-*Last Updated: 2026-02-14 — Win skip fixes (P1.6 + P1.7). Total: 380/380 features, 4,512 tests, 0 errors. SHIP READY*
+*Last Updated: 2026-02-14 — Timeline bridge fix + Win skip fixes (P1.6 + P1.7). Total: 381/381 features, 4,512 tests, 0 errors. SHIP READY*

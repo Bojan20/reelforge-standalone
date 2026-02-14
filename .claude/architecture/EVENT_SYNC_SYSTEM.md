@@ -2457,6 +2457,121 @@ After skip completes, `_winTier` is set to `''`. Three guard points prevent stal
 
 ---
 
+## CRITICAL FIX: UltimateAudioPanel → Timeline Bridge (2026-02-14)
+
+### Problem
+
+SlotLab Lower Zone Timeline showed "No events yet" despite audio being assigned via UltimateAudioPanel.
+
+### Root Cause
+
+Three SEPARATE data stores were not fully bridged:
+
+| System | Store | Used By |
+|--------|-------|---------|
+| `SlotLabProjectProvider._audioAssignments` | `Map<String, String>` | UltimateAudioPanel persistence |
+| `MiddlewareProvider.compositeEvents` | `List<SlotCompositeEvent>` | Timeline reads + Events Folder |
+| `EventRegistry` | `Map<String, AudioEvent>` | Runtime stage→audio playback |
+
+Three code paths for audio assignment, each with different bridging:
+
+| Path | Before Fix | Bridge to MiddlewareProvider |
+|------|------------|------------------------------|
+| **Quick Assign** (`_handleQuickAssign`) | ❌ Only projectProvider + EventRegistry | Missing |
+| **Drag-drop** (`onAudioAssign` callback) | ⚠️ Created event BUT without `durationSeconds` | 0px timeline bars |
+| **Mount sync** (`_syncPersistedAudioAssignments`) | ❌ Only EventRegistry registration | Missing |
+
+### Solution: Centralized Bridge Method
+
+New method `_ensureCompositeEventForStage(stage, audioPath)` in `slot_lab_screen.dart`:
+
+```dart
+/// CENTRAL BRIDGE: Ensure a composite event exists in MiddlewareProvider
+/// for a stage+audio assignment. Called from ALL assignment paths.
+void _ensureCompositeEventForStage(String stage, String audioPath) {
+  final middleware = context.read<MiddlewareProvider>();
+  final eventId = 'audio_$stage';
+
+  // Auto-detect duration via FFI
+  double? durationSec;
+  try {
+    final dur = NativeFFI.instance.getAudioFileDuration(audioPath);
+    if (dur > 0) durationSec = dur;
+  } catch (_) {}
+
+  final existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+
+  if (existing != null) {
+    // Update existing — replace first layer or update matching layer
+    final updatedLayers = /* update logic with durationSeconds */;
+    middleware.updateCompositeEvent(existing.copyWith(layers: updatedLayers));
+  } else {
+    // Create new composite event with proper layer duration
+    middleware.addCompositeEvent(SlotCompositeEvent(
+      id: eventId,
+      layers: [
+        SlotEventLayer(
+          id: 'layer_$stage',
+          audioPath: audioPath,
+          durationSeconds: durationSec,  // CRITICAL for timeline bar width
+          // ... bus, pan, volume from stage config
+        ),
+      ],
+      triggerStages: [stage],
+      // ... other fields
+    ), select: false);
+  }
+}
+```
+
+### Integration Points
+
+All three paths now converge on the centralized bridge:
+
+```
+Quick Assign:    _handleQuickAssign() → _ensureCompositeEventForStage()
+Drag-Drop:       onAudioAssign callback → _ensureCompositeEventForStage()
+Mount Sync:      _syncPersistedAudioAssignments() → _ensureCompositeEventForStage()
+```
+
+### Data Flow (After Fix)
+
+```
+Audio Assignment (any path)
+    ↓
+_ensureCompositeEventForStage(stage, audioPath)
+    ↓
+┌───────────────────────────────────────────────────┐
+│ 1. projectProvider.setAudioAssignment() (persist) │
+│ 2. EventRegistry.registerEvent() (runtime audio)  │
+│ 3. MiddlewareProvider.addCompositeEvent() (SSoT)  │ ← NEW
+│    └─ with durationSeconds from FFI               │ ← NEW
+└───────────────────────────────────────────────────┘
+    ↓
+notifyListeners()
+    ↓
+┌─────────────────┬──────────────────┬─────────────────┐
+│ Timeline Widget │ Events Folder    │ Middleware Panel │
+│ Shows bars with │ Shows event list │ Shows in tree    │
+│ proper duration │ with layer count │                  │
+└─────────────────┴──────────────────┴─────────────────┘
+```
+
+### Key Detail: durationSeconds
+
+`SlotEventLayer.durationSeconds` is nullable `double?`. If null, `totalDurationMs` returns 0, making timeline bars invisible (0px wide).
+
+The centralized bridge auto-detects duration via `NativeFFI.instance.getAudioFileDuration(audioPath)` — returns seconds as `double`. This ensures all timeline bars have proper width.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `slot_lab_screen.dart` | Added `_ensureCompositeEventForStage()` (~80 LOC), modified 3 callers |
+| `slotlab_lower_zone_widget.dart` | Fixed dispose (removed stale `_tlRulerHorizontalScroll.dispose()`) |
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management

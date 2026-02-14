@@ -6781,7 +6781,19 @@ onAudioClicked: (audioPath) {
 
 **Persistence:** All expanded states and audio assignments saved via `SlotLabProjectProvider`
 
-**Dokumentacija:** `.claude/architecture/ULTIMATE_AUDIO_PANEL_V8_SPEC.md`
+**Timeline Bridge (2026-02-14) ✅:**
+
+All audio assignments from UltimateAudioPanel are now bridged to `MiddlewareProvider.compositeEvents` via centralized method `_ensureCompositeEventForStage(stage, audioPath)`. This ensures:
+- Timeline in Lower Zone shows events with proper duration bars
+- Events Folder reflects all assigned audio
+- Auto-detected `durationSeconds` via `NativeFFI.getAudioFileDuration()`
+
+Three assignment paths ALL converge on this bridge:
+1. Quick Assign (`_handleQuickAssign`) → `_ensureCompositeEventForStage()`
+2. Drag-drop (`onAudioAssign`) → `_ensureCompositeEventForStage()`
+3. Mount sync (`_syncPersistedAudioAssignments`) → `_ensureCompositeEventForStage()`
+
+**Dokumentacija:** `.claude/architecture/ULTIMATE_AUDIO_PANEL_V8_SPEC.md`, `.claude/architecture/EVENT_SYNC_SYSTEM.md`
 
 ### Anticipation Logic
 

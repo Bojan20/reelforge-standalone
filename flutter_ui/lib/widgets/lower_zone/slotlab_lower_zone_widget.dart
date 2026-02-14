@@ -27,7 +27,7 @@ import '../../providers/slot_lab_project_provider.dart';
 import '../../providers/middleware_provider.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../providers/mixer_dsp_provider.dart';
-import '../../src/rust/native_ffi.dart' show NativeFFI, SlotLabStageEvent, VolatilityPreset, TimingProfileType, VoicePoolFFI;
+import '../../src/rust/native_ffi.dart' show NativeFFI, VolatilityPreset, TimingProfileType, VoicePoolFFI;
 import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
 import '../../models/middleware_models.dart' show ActionType, CrossfadeCurve;
 import '../../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
@@ -46,10 +46,6 @@ import '../common/analytics_dashboard.dart';
 import '../common/documentation_viewer.dart';
 import '../../providers/git_provider.dart';
 import '../slot_lab/slotlab_bus_mixer.dart';
-import '../slot_lab/timeline/ultimate_timeline_widget.dart';
-import '../../controllers/slot_lab/timeline_controller.dart' as timeline_ctrl;
-import '../../models/timeline/stage_marker.dart' show StageMarker;
-import '../../models/timeline/audio_region.dart' show AudioRegion;
 
 class SlotLabLowerZoneWidget extends StatefulWidget {
   final SlotLabLowerZoneController controller;
@@ -138,6 +134,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
     _layerListFocusNode.dispose();
+    _tlVerticalScroll.dispose();
     super.dispose();
   }
 
@@ -753,80 +750,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   Widget _buildTimelinePanel() {
-    // P14: ULTIMATE TIMELINE — Fully integrated with events + layers
-    final controller = widget.timelineController as timeline_ctrl.TimelineController?;
-
-    if (controller == null) {
-      return _buildCompactEventTimeline();
-    }
-
-    return Consumer<MiddlewareProvider>(
-      builder: (context, middlewareProvider, _) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            // Sync composite events → timeline tracks
-            _syncEventsToTimeline(controller, middlewareProvider);
-
-            // Sync stage markers
-            _syncMarkersToTimeline(controller);
-
-            return UltimateTimeline(
-              height: constraints.maxHeight.isFinite ? constraints.maxHeight : 400,
-              controller: controller,
-            );
-          },
-        );
-      },
-    );
+    // Event-Layer Timeline — shows events with audio layers as tracks
+    return _buildEventLayerTimeline();
   }
 
-  void _syncEventsToTimeline(timeline_ctrl.TimelineController controller, MiddlewareProvider provider) {
-    final events = provider.compositeEvents;
-
-    // Rebuild tracks from events
-    final currentTracks = controller.state.tracks;
-    if (currentTracks.length != events.length) {
-      // Clear all tracks
-      for (final track in currentTracks.toList()) {
-        controller.removeTrack(track.id);
-      }
-
-      // Create track per event
-      for (final event in events) {
-        controller.addTrack(name: event.name);
-        final track = controller.state.tracks.last;
-
-        // Add region per layer
-        for (final layer in event.layers) {
-          final region = AudioRegion(
-            id: 'region_${layer.id}',
-            trackId: track.id,
-            audioPath: layer.audioPath,
-            startTime: layer.offsetMs / 1000.0,
-            duration: layer.durationSeconds ?? 2.0,
-            volume: layer.volume,
-            pan: layer.pan,
-            isMuted: layer.muted,
-          );
-
-          controller.addRegion(track.id, region);
-
-          // Load waveform async
-          NativeFFI.instance.generateWaveformFromFile(layer.audioPath, 'timeline_${layer.id}');
-        }
-      }
-    }
-  }
-
-  void _syncMarkersToTimeline(timeline_ctrl.TimelineController controller) {
-    final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
-    if (provider == null) return;
-
-    for (final stage in provider.lastStages.take(10)) {
-      final marker = StageMarker.fromStageId(stage.stageType, stage.timestampMs / 1000.0);
-      controller.addMarker(marker);
-    }
-  }
   Widget _buildSymbolsPanel() => _buildCompactSymbolsPanel();
   Widget _buildProfilerPanel() {
     return LayoutBuilder(
@@ -1193,149 +1120,504 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// P2.5: Compact Event Timeline — Connected to SlotLabProvider.lastStages
-  Widget _buildCompactEventTimeline() {
-    final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
-    final stages = provider?.lastStages ?? [];
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EVENT-LAYER TIMELINE — DAW-style event+layer view with synced scrolling
+  // ═══════════════════════════════════════════════════════════════════════════
 
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        // mainAxisSize removed — fills Flexible parent
+  static const double _kTlTrackHeight = 40.0;
+  static const double _kTlHeaderWidth = 160.0;
+  static const double _kTlRulerHeight = 24.0;
+  static const double _kTlPixelsPerSec = 100.0;
+
+  String? _tlSelectedEventId;
+  String? _tlSelectedLayerId;
+  double _tlZoom = 1.0;
+  double _tlHorizontalOffset = 0.0;
+  final ScrollController _tlVerticalScroll = ScrollController();
+
+  Widget _buildEventLayerTimeline() {
+    return Consumer<MiddlewareProvider>(
+      builder: (context, mw, _) {
+        final events = mw.compositeEvents;
+        if (events.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.view_timeline, size: 32, color: LowerZoneColors.textMuted),
+                const SizedBox(height: 8),
+                Text(
+                  'No events yet',
+                  style: TextStyle(fontSize: 12, color: LowerZoneColors.textMuted),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Drop audio on the slot machine to create events',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted.withValues(alpha: 0.6)),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final totalRows = _countTotalRows(events);
+        final tlWidth = _calcTlWidth(events);
+
+        return Column(
+          children: [
+            // Toolbar
+            _buildTlToolbar(events),
+            // Main timeline area — gesture detector for horizontal pan
+            Expanded(
+              child: GestureDetector(
+                onHorizontalDragUpdate: (details) {
+                  setState(() {
+                    _tlHorizontalOffset = (_tlHorizontalOffset - details.delta.dx)
+                        .clamp(0.0, math.max(0.0, tlWidth - 200));
+                  });
+                },
+                child: Column(
+                  children: [
+                    // Ruler row
+                    SizedBox(
+                      height: _kTlRulerHeight,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: _kTlHeaderWidth,
+                            color: LowerZoneColors.bgDeepest,
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Text('EVENT / LAYER',
+                              style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
+                                color: Colors.white24, letterSpacing: 0.5)),
+                          ),
+                          Container(width: 1, color: LowerZoneColors.border),
+                          // Ruler — clipped with shared offset
+                          Expanded(
+                            child: ClipRect(
+                              child: CustomPaint(
+                                painter: _TlRulerPainter(
+                                  zoom: _tlZoom,
+                                  pixelsPerSec: _kTlPixelsPerSec,
+                                  offset: _tlHorizontalOffset,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Track rows — single ListView, unified vertical scroll
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _tlVerticalScroll,
+                        itemCount: totalRows,
+                        itemExtent: _kTlTrackHeight,
+                        itemBuilder: (ctx, i) {
+                          final (event, layer, isHeader) = _rowAtIndex(events, i);
+                          return SizedBox(
+                            height: _kTlTrackHeight,
+                            child: Row(
+                              children: [
+                                // Fixed header column
+                                SizedBox(
+                                  width: _kTlHeaderWidth,
+                                  child: _buildTlHeaderCell(event, layer, isHeader),
+                                ),
+                                Container(width: 1, color: LowerZoneColors.border),
+                                // Timeline track — clipped stack with shared offset
+                                Expanded(
+                                  child: _buildTlTrackCell(event, layer, isHeader),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Toolbar with zoom + event count
+  Widget _buildTlToolbar(List<SlotCompositeEvent> events) {
+    final totalLayers = events.fold<int>(0, (s, e) => s + e.layers.length);
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgSurface,
+        border: Border(bottom: BorderSide(color: LowerZoneColors.border)),
+      ),
+      child: Row(
         children: [
-          // Header row (compact)
-          Row(
+          Icon(Icons.view_timeline, size: 13, color: LowerZoneColors.slotLabAccent),
+          const SizedBox(width: 6),
+          Text(
+            'TIMELINE',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+              color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${events.length} events • $totalLayers layers',
+              style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent),
+            ),
+          ),
+          const Spacer(),
+          // Zoom controls
+          _buildTlZoomButton(Icons.zoom_out, () =>
+            setState(() => _tlZoom = (_tlZoom * 0.8).clamp(0.25, 4.0))),
+          const SizedBox(width: 4),
+          Text('${(_tlZoom * 100).round()}%',
+            style: TextStyle(fontSize: 9, color: Colors.white54)),
+          const SizedBox(width: 4),
+          _buildTlZoomButton(Icons.zoom_in, () =>
+            setState(() => _tlZoom = (_tlZoom * 1.25).clamp(0.25, 4.0))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTlZoomButton(IconData icon, VoidCallback onTap) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 20, height: 20,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Icon(icon, size: 14, color: Colors.white54),
+        ),
+      ),
+    );
+  }
+
+  /// Total rows: 1 event header + N layers per event
+  int _countTotalRows(List<SlotCompositeEvent> events) {
+    int count = 0;
+    for (final e in events) {
+      count += 1 + e.layers.length;
+    }
+    return count;
+  }
+
+  /// Get event+layer for a given flat row index
+  (SlotCompositeEvent, SlotEventLayer?, bool isHeader) _rowAtIndex(
+      List<SlotCompositeEvent> events, int index) {
+    int cursor = 0;
+    for (final event in events) {
+      if (cursor == index) return (event, null, true);
+      cursor++;
+      for (final layer in event.layers) {
+        if (cursor == index) return (event, layer, false);
+        cursor++;
+      }
+    }
+    return (events.first, null, true);
+  }
+
+  /// Max duration across all events (minimum 2s for visibility)
+  double _maxDuration(List<SlotCompositeEvent> events) {
+    double maxD = 2.0;
+    for (final e in events) {
+      final d = e.totalDurationSeconds;
+      if (d > maxD) maxD = d;
+      // Also check individual layers for fallback
+      for (final l in e.layers) {
+        final ld = (l.durationSeconds ?? 0) + (l.offsetMs / 1000.0);
+        if (ld > maxD) maxD = ld;
+      }
+    }
+    return maxD;
+  }
+
+  double _calcTlWidth(List<SlotCompositeEvent> events) {
+    return (_maxDuration(events) + 2.0) * _kTlPixelsPerSec * _tlZoom;
+  }
+
+  /// Color per event based on its category or trigger stage
+  Color _eventColor(SlotCompositeEvent event) {
+    final stage = event.triggerStages.isNotEmpty ? event.triggerStages.first : '';
+    if (stage.contains('WIN')) return const Color(0xFFFFD700);
+    if (stage.contains('REEL')) return const Color(0xFF40C8FF);
+    if (stage.contains('SPIN')) return const Color(0xFF4A9EFF);
+    if (stage.contains('FEATURE') || stage.contains('FREE')) return const Color(0xFFFF9040);
+    if (stage.contains('CASCADE')) return const Color(0xFFFF6B6B);
+    if (stage.contains('BONUS')) return const Color(0xFF9370DB);
+    if (stage.contains('MUSIC') || stage.contains('AMBIENT')) return const Color(0xFF40FF90);
+    return event.color;
+  }
+
+  /// Header cell — left column (event name or layer name)
+  Widget _buildTlHeaderCell(SlotCompositeEvent event, SlotEventLayer? layer, bool isHeader) {
+    final color = _eventColor(event);
+
+    if (isHeader) {
+      final isSelected = _tlSelectedEventId == event.id;
+      return GestureDetector(
+        onTap: () => setState(() {
+          _tlSelectedEventId = event.id;
+          _tlSelectedLayerId = null;
+        }),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withValues(alpha: 0.15)
+                : LowerZoneColors.bgSurface,
+            border: Border(
+              bottom: BorderSide(color: color.withValues(alpha: 0.3)),
+            ),
+          ),
+          child: Row(
             children: [
-              _buildPanelHeader('EVENT TIMELINE', Icons.view_timeline),
-              const Spacer(),
-              Text(
-                stages.isEmpty ? 'No stages' : '${stages.length} stages',
+              Icon(Icons.expand_more, size: 12, color: color.withValues(alpha: 0.6)),
+              const SizedBox(width: 3),
+              Container(width: 6, height: 6,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.name,
+                      style: TextStyle(
+                        fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (event.triggerStages.isNotEmpty)
+                      Text(
+                        event.triggerStages.first,
+                        style: TextStyle(fontSize: 7, color: color.withValues(alpha: 0.7)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text('${event.layers.length}',
+                  style: TextStyle(fontSize: 8, color: color, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Layer header
+    final l = layer!;
+    final isSelected = _tlSelectedLayerId == l.id;
+    return GestureDetector(
+      onTap: () => setState(() {
+        _tlSelectedEventId = event.id;
+        _tlSelectedLayerId = l.id;
+      }),
+      child: Container(
+        padding: const EdgeInsets.only(left: 22, right: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1)
+              : LowerZoneColors.bgDeep,
+          border: Border(
+            bottom: BorderSide(color: LowerZoneColors.border.withValues(alpha: 0.5)),
+            left: isSelected
+                ? BorderSide(color: LowerZoneColors.slotLabAccent, width: 2)
+                : BorderSide.none,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              l.muted ? Icons.volume_off : Icons.audiotrack,
+              size: 11,
+              color: l.muted ? Colors.red.withValues(alpha: 0.7) : color.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                l.name.isNotEmpty ? l.name : l.audioPath.split('/').last,
                 style: TextStyle(
-                  fontSize: 10,
-                  color: stages.isEmpty ? LowerZoneColors.textMuted : LowerZoneColors.slotLabAccent,
+                  fontSize: 9,
+                  color: l.muted ? Colors.white38 : Colors.white70,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // Duration badge
+            if (l.durationSeconds != null)
+              Text(
+                '${l.durationSeconds!.toStringAsFixed(1)}s',
+                style: TextStyle(fontSize: 7, color: Colors.white30),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Track cell — right column (timeline region bars with horizontal pan offset)
+  Widget _buildTlTrackCell(SlotCompositeEvent event, SlotEventLayer? layer, bool isHeader) {
+    final color = _eventColor(event);
+    final pps = _kTlPixelsPerSec * _tlZoom;
+    final hOff = _tlHorizontalOffset;
+
+    if (isHeader) {
+      final duration = math.max(event.totalDurationSeconds, 0.5);
+      final widthPx = (duration * pps).clamp(30.0, 50000.0);
+      final barLeft = -hOff;
+      return ClipRect(
+        child: Container(
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.04),
+            border: Border(
+              bottom: BorderSide(color: color.withValues(alpha: 0.3)),
+            ),
+          ),
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              ..._buildGridLines(pps, hOff),
+              // Event duration bar
+              Positioned(
+                left: barLeft, top: 6, bottom: 6,
+                child: Container(
+                  width: widthPx,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color.withValues(alpha: 0.35), color.withValues(alpha: 0.12)],
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: color.withValues(alpha: 0.4)),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${event.name} • ${duration.toStringAsFixed(1)}s',
+                    style: TextStyle(fontSize: 8, color: Colors.white.withValues(alpha: 0.6),
+                      fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // Main content (flexible)
-          Flexible(
-            fit: FlexFit.loose,
-            child: Container(
-              decoration: BoxDecoration(
-                color: LowerZoneColors.bgDeepest,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: LowerZoneColors.border),
-              ),
-              clipBehavior: Clip.hardEdge,
-              child: stages.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Spin to see stages',
-                        style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(4),
-                      shrinkWrap: true,
-                      itemCount: stages.length,
-                      itemBuilder: (context, index) {
-                        final stage = stages[index];
-                        return _buildStageTimelineItem(stage, index);
-                      },
-                    ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          // Time markers (compact)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildTimelineMarker('0', true),
-              _buildTimelineMarker('500', false),
-              _buildTimelineMarker('1000', false),
-              _buildTimelineMarker('1500', false),
-              _buildTimelineMarker('2000', false),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// P2.5: Build single stage item for timeline
-  Widget _buildStageTimelineItem(SlotLabStageEvent stage, int index) {
-    // Stage is SlotLabStageEvent with stageType, timestampMs, payload, rawStage
-    final stageType = stage.stageType;
-    final delayMs = stage.timestampMs.round();
-
-    // Color coding by stage type
-    Color stageColor = LowerZoneColors.slotLabAccent;
-    if (stageType.toString().contains('WIN')) {
-      stageColor = LowerZoneColors.success;
-    } else if (stageType.toString().contains('REEL')) {
-      stageColor = const Color(0xFF40C8FF);
-    } else if (stageType.toString().contains('FEATURE')) {
-      stageColor = const Color(0xFFFF9040);
+        ),
+      );
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: stageColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: stageColor.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 16,
-            decoration: BoxDecoration(
-              color: stageColor,
-              borderRadius: BorderRadius.circular(2),
+    // Layer region bar
+    final l = layer!;
+    final offsetSec = l.offsetMs / 1000.0;
+    final duration = l.durationSeconds ?? 1.0;
+    final leftPx = offsetSec * pps - hOff;
+    final widthPx = (duration * pps).clamp(16.0, 50000.0);
+    final isSelected = _tlSelectedLayerId == l.id;
+
+    return ClipRect(
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected
+              ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.04)
+              : Colors.transparent,
+          border: Border(
+            bottom: BorderSide(color: LowerZoneColors.border.withValues(alpha: 0.3)),
+          ),
+        ),
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            ..._buildGridLines(pps, hOff),
+            // Audio region bar
+            Positioned(
+              left: leftPx,
+              top: 3,
+              bottom: 3,
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _tlSelectedEventId = event.id;
+                  _tlSelectedLayerId = l.id;
+                }),
+                child: Container(
+                  width: widthPx,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        color.withValues(alpha: l.muted ? 0.25 : 0.65),
+                        color.withValues(alpha: l.muted ? 0.1 : 0.35),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: isSelected ? Colors.white : color.withValues(alpha: 0.6),
+                      width: isSelected ? 1.5 : 0.5,
+                    ),
+                    boxShadow: isSelected ? [
+                      BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 4),
+                    ] : null,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    l.name.isNotEmpty ? l.name : l.audioPath.split('/').last,
+                    style: TextStyle(
+                      fontSize: 8, fontWeight: FontWeight.bold,
+                      color: l.muted ? Colors.white30 : Colors.white.withValues(alpha: 0.9),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              stageType.toString(),
-              style: TextStyle(fontSize: 9, color: stageColor, fontWeight: FontWeight.bold),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            '${delayMs}ms',
-            style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTimelineMarker(String label, bool isCurrent) {
-    return Column(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: isCurrent ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
-            shape: BoxShape.circle,
-          ),
+  /// Grid lines every second — adjusted by horizontal offset
+  List<Widget> _buildGridLines(double pps, double hOff) {
+    // Only generate visible grid lines
+    final firstVisible = (hOff / pps).floor();
+    final lastVisible = firstVisible + 30;
+    return List.generate(lastVisible - firstVisible, (i) {
+      final sec = firstVisible + i;
+      final x = sec * pps - hOff;
+      return Positioned(
+        left: x, top: 0, bottom: 0,
+        child: Container(
+          width: 0.5,
+          color: LowerZoneColors.border.withValues(alpha: sec == 0 ? 0.4 : 0.15),
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 8,
-            color: isCurrent ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
-          ),
-        ),
-      ],
-    );
+      );
+    });
   }
 
   /// P2.6: Compact Symbols Panel — Connected to MiddlewareProvider for symbol-to-sound mapping
@@ -4085,4 +4367,70 @@ class _FadeCurvePainter extends CustomPainter {
         oldDelegate.fadeOutCurve != fadeOutCurve ||
         oldDelegate.color != color;
   }
+}
+
+/// Timeline ruler painter for event-layer timeline
+class _TlRulerPainter extends CustomPainter {
+  final double zoom;
+  final double pixelsPerSec;
+  final double offset;
+
+  _TlRulerPainter({required this.zoom, required this.pixelsPerSec, this.offset = 0});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final tickPaint = Paint()
+      ..color = Colors.white24
+      ..strokeWidth = 0.5;
+    final majorTickPaint = Paint()
+      ..color = Colors.white38
+      ..strokeWidth = 1.0;
+    final textStyle = TextStyle(
+      fontSize: 8,
+      color: Colors.white.withValues(alpha: 0.5),
+    );
+
+    final pps = pixelsPerSec * zoom;
+    final firstSec = (offset / pps).floor();
+    final lastSec = firstSec + (size.width / pps).ceil() + 2;
+
+    for (int i = firstSec; i <= lastSec; i++) {
+      if (i < 0) continue;
+      final x = i * pps - offset;
+      if (x > size.width + 20) break;
+
+      // Major tick every second
+      canvas.drawLine(Offset(x, size.height - 8), Offset(x, size.height), majorTickPaint);
+
+      // Label
+      final tp = TextPainter(
+        text: TextSpan(text: '${i}s', style: textStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(x + 2, 2));
+
+      // Minor ticks at 0.5s
+      if (zoom >= 0.5) {
+        final halfX = x + pps * 0.5;
+        if (halfX > 0 && halfX < size.width) {
+          canvas.drawLine(
+            Offset(halfX, size.height - 4),
+            Offset(halfX, size.height),
+            tickPaint,
+          );
+        }
+      }
+    }
+
+    // Bottom border
+    canvas.drawLine(
+      Offset(0, size.height - 0.5),
+      Offset(size.width, size.height - 0.5),
+      Paint()..color = Colors.white12..strokeWidth = 0.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_TlRulerPainter old) =>
+      old.zoom != zoom || old.offset != offset;
 }

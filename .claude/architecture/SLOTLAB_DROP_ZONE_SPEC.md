@@ -110,7 +110,28 @@ DropTargetWrapper (StatefulWidget)
                                     → onEventCreated?.call(event)
 ```
 
-### 2.3 Multi-Select Drag-Drop Support (v1.2.0)
+### 2.3 Timeline Bridge (v2.1.0 — 2026-02-14)
+
+**STATUS: ✅ IMPLEMENTED**
+
+ALL audio assignment paths now bridge to `MiddlewareProvider.compositeEvents` via `_ensureCompositeEventForStage()`.
+
+```
+Audio Drop / Quick Assign / Mount Sync
+    ↓
+_ensureCompositeEventForStage(stage, audioPath)
+    ↓
+┌─────────────────────────────────────────────────────┐
+│  1. SlotLabProjectProvider (persistence)             │
+│  2. EventRegistry (runtime audio)                    │
+│  3. MiddlewareProvider.compositeEvents (SSoT) ← NEW  │
+│     └─ with durationSeconds from FFI                 │
+└─────────────────────────────────────────────────────┘
+    ↓
+Timeline + Events Folder + Middleware Panel all update
+```
+
+### 2.4 Multi-Select Drag-Drop Support (v1.2.0)
 
 **STATUS: ✅ IMPLEMENTED** (2026-01-26)
 
