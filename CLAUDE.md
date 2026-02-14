@@ -4084,6 +4084,11 @@ H. Audio/Visual — Volume slider, music/sfx toggles (persisted)       ✅ 100%
 - **Flow:** SPIN_START → `isReelsSpinning=true` → All reels stop → `isReelsSpinning=false` → Win presentation continues
 - **Analysis:** `.claude/analysis/SLOTLAB_EVENT_FLOW_ANALYSIS_2026_01_25.md`
 
+**Win Skip Fixes (2026-02-14) ✅:**
+- **P1.6: Win Line Guard** — Stale `.then()` callbacks on `_winAmountController.reverse()` from original win flow blocked via `_winTier.isEmpty` checks at 3 guard points
+- **P1.7: Skip END Stages** — `_executeSkipFadeOut()` now stops all win audio + triggers END stages (`ROLLUP_END`, `BIG_WIN_END`, `WIN_PRESENT_END`, `WIN_COLLECT`), matching fullscreen mode parity
+- **Files:** `slot_preview_widget.dart` — `_executeSkipFadeOut()`, `_startWinLinePresentation()`, rollup callbacks
+
 **6-Phase Reel Animation System (Industry Standard):**
 
 | Phase | Duration | Easing | Description |

@@ -2244,7 +2244,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (_lowerZoneRestoreComplete) {
       _lowerZoneController.removeListener(_onLowerZoneChanged);
     }
-    _lowerZoneController.dispose();  // Dispose lower zone controller
+    // NOTE: Do NOT dispose _lowerZoneController — it's a singleton that persists
+    // across screen rebuilds. Disposing it causes "used after disposed" crash
+    // when navigating back to SlotLab.
     super.dispose();
   }
 

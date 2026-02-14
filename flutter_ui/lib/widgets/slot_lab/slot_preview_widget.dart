@@ -1289,7 +1289,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   @override
-  @override
   void dispose() {
     widget.provider.removeListener(_onProviderUpdate);
     // P0.3: Clean up anticipation callbacks
@@ -1745,10 +1744,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // V9: Pass winPresentTier for tier 1 skip logic (≤ 1x wins skip animation)
             _startTierBasedRollupWithCallback(_winTier, () {
               if (!mounted) return;
+              // FIX: Don't proceed if skip already completed
+              if (widget.provider.skipRequested || _winTier.isEmpty) return;
 
               // Fade out plaque
               _winAmountController.reverse().then((_) {
                 if (!mounted) return;
+                // FIX: Don't start win lines if skip completed during fade-out
+                if (_winTier.isEmpty) return;
 
                 // Start win line presentation
                 if (lineWinsForPhase3.isNotEmpty) {
@@ -1802,6 +1805,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   /// Start cycling through winning lines one by one
   void _startWinLinePresentation(List<LineWin> lineWins) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FIX: Guard against stale .then() callbacks from _winAmountController.reverse()
+    // After skip, _spinFinalized is true and presentation state is cleared.
+    // The old .then() callback from the original flow can still fire — block it.
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (_spinFinalized && !_isShowingWinLines && _winTier.isEmpty) {
+      return; // Skip already completed — don't start win lines
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // CRITICAL FIX: Must use setState() to trigger rebuild and show win lines!
     // Without setState(), _isShowingWinLines and _currentLinePositions changes
@@ -1879,6 +1891,32 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _rollupTickTimer?.cancel();
     _rollupTickTimer = null;
 
+    // 2. Stop all win-related audio and trigger END stages
+    // (matching premium_slot_preview.dart behavior)
+    final savedWinTier = _winTier; // Save before reset
+
+    // Stop all win-related audio events
+    eventRegistry.stopEvent('BIG_WIN_LOOP');
+    eventRegistry.stopEvent('BIG_WIN_COINS');
+    eventRegistry.stopEvent('BIG_WIN_INTRO');
+    eventRegistry.stopEvent('ROLLUP');
+    eventRegistry.stopEvent('ROLLUP_TICK');
+    eventRegistry.stopEvent('WIN_SYMBOL_HIGHLIGHT');
+    eventRegistry.stopEvent('WIN_LINE_SHOW');
+    eventRegistry.stopEvent('WIN_PRESENT');
+    for (final tier in ['BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA']) {
+      eventRegistry.stopEvent('WIN_PRESENT_$tier');
+      eventRegistry.stopEvent('BIG_WIN_TIER_$tier');
+    }
+
+    // Trigger END stages so audio designers can have "win end" sounds
+    eventRegistry.triggerStage('ROLLUP_END');
+    if (savedWinTier.isNotEmpty) {
+      eventRegistry.triggerStage('BIG_WIN_END');
+      eventRegistry.triggerStage('WIN_PRESENT_END');
+    }
+    eventRegistry.triggerStage('WIN_COLLECT');
+
     // Helper to reset state and notify provider
     void completeSkip() {
       if (!mounted) return;
@@ -1906,7 +1944,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
       // ANALYTICS: Track skip completed
       WinAnalyticsService.instance.trackSkipCompleted(
-        _winTier,
+        savedWinTier,
         fadeOutDurationMs: 200, // Fade-out duration
       );
 
@@ -1914,13 +1952,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       widget.provider.onSkipComplete();
     }
 
-    // 2. Check if plaque is already hidden — if so, complete immediately
+    // 3. Check if plaque is already hidden — if so, complete immediately
     if (_winAmountController.value == 0 && !_winAmountController.isAnimating) {
       completeSkip();
       return;
     }
 
-    // 3. Trigger fade-out animation (300ms)
+    // 4. Trigger fade-out animation (300ms)
     _winAmountController.reverse().then((_) {
       completeSkip();
     });
@@ -2935,6 +2973,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // ═══════════════════════════════════════════════════════════════════════
       _winAmountController.reverse().then((_) {
         if (!mounted) return;
+        // FIX: Don't start win lines if skip completed during fade-out
+        if (_winTier.isEmpty) return;
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 5: Start win line presentation

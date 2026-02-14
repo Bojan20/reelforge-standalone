@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-14 (All P2 Remaining Tasks Complete)
+**Updated:** 2026-02-14 (Win Skip Fixes)
 **Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,512 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented
 
 ---
@@ -8,7 +8,7 @@
 ## 🎯 CURRENT STATE
 
 ```
-FEATURE PROGRESS: 100% COMPLETE (378/378 tasks)
+FEATURE PROGRESS: 100% COMPLETE (380/380 tasks)
 CODE QUALITY AUDIT: 11/11 FIXED ✅ (4 CRITICAL, 4 HIGH, 3 MEDIUM)
 ANALYZER WARNINGS: 0 errors, 0 warnings ✅
 
@@ -27,7 +27,7 @@ ANALYZER WARNINGS: 0 errors, 0 warnings ✅
 ✅ P2 REMAINING:        16/16 tasks    ✅ ALL IMPLEMENTED
 ```
 
-**All 378 feature tasks delivered (362 original + 16 P2 remaining). All 11 code quality issues fixed. 4,512 tests pass. Repo cleaned. SHIP READY.**
+**All 380 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes). All 11 code quality issues fixed. 4,512 tests pass. Repo cleaned. SHIP READY.**
 
 ---
 
@@ -427,4 +427,35 @@ Changed `continue` to `return` in event_registry.dart `_playLayer()` (async meth
 
 ---
 
-*Last Updated: 2026-02-14 — All 16 remaining P2 tasks implemented (6 DAW EDIT panels, 7 Middleware panels, 2 SlotLab panels + 1 RTPC already existed). Total: 378/378 features, 4,512 tests, 0 errors. SHIP READY*
+## 🎰 WIN SKIP FIXES (2026-02-14) ✅
+
+Two critical bugs fixed in SlotLab win presentation skip system.
+
+### P1.6: Skip Win Line Animation Guard ✅
+
+**Problem:** After pressing SKIP during win presentation, win line animations still appeared.
+**Root Cause:** Stale `.then()` callbacks on `_winAmountController.reverse()` from original win flow fired after skip completed.
+**Fix:** 3-point guard using `_winTier.isEmpty` as skip-completed sentinel:
+1. Guard at `_startWinLinePresentation()` entry
+2. Guard at regular win `.then()` callback
+3. Guard at big win `.then()` callback in `_finishTierProgression()`
+
+### P1.7: Skip END Stage Triggering (Embedded Mode) ✅
+
+**Problem:** Embedded slot mode skip didn't trigger END audio stages — audio designers couldn't have "win end" sounds.
+**Root Cause:** `_executeSkipFadeOut()` only cancelled timers and faded out, without stopping win audio or triggering END stages.
+**Fix:** Added full audio cleanup + END stage triggering:
+- Stop all win audio (BIG_WIN_LOOP, ROLLUP_TICK, WIN_PRESENT_*, etc.)
+- Trigger END stages: `ROLLUP_END`, `BIG_WIN_END`, `WIN_PRESENT_END`, `WIN_COLLECT`
+- Now matches fullscreen mode (`premium_slot_preview.dart`) behavior
+
+**Files Modified:**
+- `flutter_ui/lib/widgets/slot_lab/slot_preview_widget.dart` — Both fixes
+
+**Documentation Updated:**
+- `.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md` — P1.6, P1.7 entries + detailed specs
+- `.claude/architecture/SLOT_LAB_SYSTEM.md` — Skip Functionality section updated
+
+---
+
+*Last Updated: 2026-02-14 — Win skip fixes (P1.6 + P1.7). Total: 380/380 features, 4,512 tests, 0 errors. SHIP READY*

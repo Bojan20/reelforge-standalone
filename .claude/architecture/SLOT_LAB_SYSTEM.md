@@ -1968,15 +1968,32 @@ ALL TIERS: Starts AFTER Phase 2 ends (no overlapping!)
 Audio: WIN_LINE_SHOW per line (1500ms display per line)
 ```
 
-**Skip Functionality:**
+**Skip Functionality (Updated 2026-02-14):**
 ```
 Skip allowed after tier-specific delay:
 SMALL: 500ms, BIG: 1000ms, SUPER: 2000ms
 MEGA: 3000ms, EPIC: 5000ms, ULTRA: 8000ms
+
+On SKIP press:
+1. Stop ALL win audio (BIG_WIN_LOOP, ROLLUP_TICK, WIN_PRESENT_*, etc.)
+2. Trigger END stages: ROLLUP_END, BIG_WIN_END, WIN_PRESENT_END, WIN_COLLECT
+3. Fade out win plaque (300ms)
+4. Reset all presentation state
+5. Guard against stale .then() callbacks via _winTier.isEmpty check
 ```
 
+**Skip Guards (P1.6, 2026-02-14):**
+- `_startWinLinePresentation()` — blocks stale `.then()` callbacks after skip
+- Regular win `.then()` callback — checks `skipRequested` and `_winTier.isEmpty`
+- Big win `.then()` callback — checks `_winTier.isEmpty`
+
+**END Stage Parity (P1.7, 2026-02-14):**
+- Embedded mode (`_executeSkipFadeOut`) now matches fullscreen mode (`_handleSkipWinPresentation`)
+- Both trigger `ROLLUP_END`, `BIG_WIN_END`, `WIN_PRESENT_END`, `WIN_COLLECT`
+
 **Implementation Files:**
-- `slot_preview_widget.dart` — WinPresentationTiming class
+- `slot_preview_widget.dart` — `_executeSkipFadeOut()`, WinPresentationTiming class
+- `premium_slot_preview.dart` — `_handleSkipWinPresentation()` (fullscreen reference)
 - `stage_configuration_service.dart` — WIN_PRESENT_[TIER] stage definitions
 - Full spec: `.claude/analysis/WIN_PRESENTATION_INDUSTRY_STANDARD_2026_01_24.md`
 

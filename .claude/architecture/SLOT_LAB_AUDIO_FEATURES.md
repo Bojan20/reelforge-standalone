@@ -3,7 +3,7 @@
 > Detaljni tehnički pregled svih implementiranih P0/P1 audio poboljšanja.
 
 **Datum:** 2026-01-26 (Updated V15)
-**Status:** P0.1-P0.22, P1.1-P1.5 kompletni
+**Status:** P0.1-P0.22, P1.1-P1.5, P1.6-P1.7 kompletni
 
 ---
 
@@ -1403,6 +1403,8 @@ Text(..., fontSize: 12),
 | P1.1 | Symbol-Specific Audio | ✅ Kompletno |
 | P1.2 | Near Miss Audio Escalation | ✅ Kompletno |
 | P1.3 | Win Line Audio Panning | ✅ Kompletno |
+| P1.6 | Skip Win Line Animation Guard | ✅ Kompletno (2026-02-14) |
+| P1.7 | Skip END Stage Triggering (Embedded) | ✅ Kompletno (2026-02-14) |
 
 ---
 
@@ -2184,6 +2186,95 @@ Audio designer može kreirati tier-specific varijante:
 - `JACKPOT_PRESENT_GRAND` (extended 10s fanfare for Grand jackpot)
 
 EventRegistry koristi fallback: `JACKPOT_REVEAL_GRAND` → `JACKPOT_REVEAL` ako specifična varijanta ne postoji.
+
+---
+
+## P1.6: Skip Win Line Animation Guard (2026-02-14) ✅
+
+**Problem:** After pressing SKIP during win presentation, win line animations would still appear. Stale `.then()` callbacks on `_winAmountController.reverse()` from the original win flow fired after the skip's own reverse completed, calling `_startWinLinePresentation()`.
+
+**Root Cause:** AnimationController `.then()` callbacks are not cancellable — unlike Timers, they persist even after state is cleared by `_executeSkipFadeOut()`.
+
+**Fix — 3-point guard using `_winTier.isEmpty` as skip-completed sentinel:**
+
+1. **Guard at `_startWinLinePresentation()` entry:**
+```dart
+void _startWinLinePresentation(List<LineWin> lineWins) {
+  // Guard against stale .then() callbacks after skip
+  if (_spinFinalized && !_isShowingWinLines && _winTier.isEmpty) {
+    return; // Skip already completed — don't start win lines
+  }
+  // ...
+}
+```
+
+2. **Guard at regular win `.then()` callback (line ~1749):**
+```dart
+if (widget.provider.skipRequested || _winTier.isEmpty) return;
+```
+
+3. **Guard at big win `.then()` callback in `_finishTierProgression()` (line ~2948):**
+```dart
+if (_winTier.isEmpty) return;
+```
+
+**Key Insight:** `_executeSkipFadeOut()` sets `_winTier = ''` in `completeSkip()`, making it a reliable sentinel for detecting that skip already completed.
+
+---
+
+## P1.7: Skip END Stage Triggering — Embedded Mode (2026-02-14) ✅
+
+**Problem:** In embedded slot mode (non-fullscreen), pressing SKIP during win presentation only faded out visuals and reset state — it did NOT trigger any END audio stages. This meant audio designers couldn't have "win end" sounds.
+
+**Root Cause:** `_executeSkipFadeOut()` in `slot_preview_widget.dart` only cancelled timers and ran the fade-out animation without stopping win audio or triggering END stages. The fullscreen mode's `_handleSkipWinPresentation()` in `premium_slot_preview.dart` already had proper END stage handling.
+
+**Fix — Added full audio cleanup + END stage triggering to `_executeSkipFadeOut()`:**
+
+```dart
+void _executeSkipFadeOut() {
+  // ... cancel timers ...
+
+  // Save win tier before reset
+  final savedWinTier = _winTier;
+
+  // Stop all win-related audio events
+  eventRegistry.stopEvent('BIG_WIN_LOOP');
+  eventRegistry.stopEvent('BIG_WIN_COINS');
+  eventRegistry.stopEvent('BIG_WIN_INTRO');
+  eventRegistry.stopEvent('ROLLUP');
+  eventRegistry.stopEvent('ROLLUP_TICK');
+  eventRegistry.stopEvent('WIN_SYMBOL_HIGHLIGHT');
+  eventRegistry.stopEvent('WIN_LINE_SHOW');
+  eventRegistry.stopEvent('WIN_PRESENT');
+  for (final tier in ['BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA']) {
+    eventRegistry.stopEvent('WIN_PRESENT_$tier');
+    eventRegistry.stopEvent('BIG_WIN_TIER_$tier');
+  }
+
+  // Trigger END stages for audio designers
+  eventRegistry.triggerStage('ROLLUP_END');
+  if (savedWinTier.isNotEmpty) {
+    eventRegistry.triggerStage('BIG_WIN_END');
+    eventRegistry.triggerStage('WIN_PRESENT_END');
+  }
+  eventRegistry.triggerStage('WIN_COLLECT');
+
+  // ... fade-out + completeSkip() ...
+}
+```
+
+**Audio Stages Triggered on SKIP:**
+
+| Stage | Condition | Purpose |
+|-------|-----------|---------|
+| `ROLLUP_END` | Always | End rollup counter sound |
+| `BIG_WIN_END` | If win tier was active | End big win celebration |
+| `WIN_PRESENT_END` | If win tier was active | End win presentation |
+| `WIN_COLLECT` | Always | Coin collect / win finalize sound |
+
+**Bonus Fix:** `WinAnalyticsService.trackSkipCompleted()` now uses `savedWinTier` instead of the already-reset `_winTier` (was always sending empty string).
+
+**Parity:** Embedded mode (`slot_preview_widget.dart`) now matches fullscreen mode (`premium_slot_preview.dart`) skip behavior.
 
 ---
 

@@ -2415,6 +2415,48 @@ void _autoFadeOutMatchingStages(String stagePrefix, {int fadeMs = 100}) {
 
 ---
 
+## Win Presentation Skip — END Stage System (2026-02-14) ✅
+
+When user presses SKIP during win presentation, both embedded and fullscreen modes now trigger proper END stages.
+
+### Skip Audio Cleanup Sequence
+
+```
+1. STOP all active win audio:
+   - BIG_WIN_LOOP, BIG_WIN_COINS, BIG_WIN_INTRO
+   - ROLLUP, ROLLUP_TICK
+   - WIN_SYMBOL_HIGHLIGHT, WIN_LINE_SHOW, WIN_PRESENT
+   - WIN_PRESENT_BIG/SUPER/MEGA/EPIC/ULTRA
+   - BIG_WIN_TIER_BIG/SUPER/MEGA/EPIC/ULTRA
+
+2. TRIGGER END stages:
+   - ROLLUP_END (always)
+   - BIG_WIN_END (if win tier was active)
+   - WIN_PRESENT_END (if win tier was active)
+   - WIN_COLLECT (always)
+
+3. FADE OUT win plaque (300ms reverse animation)
+
+4. RESET all presentation state
+```
+
+### Implementation Parity
+
+| Mode | File | Method | END Stages |
+|------|------|--------|------------|
+| Fullscreen | `premium_slot_preview.dart` | `_handleSkipWinPresentation()` | ✅ Complete |
+| Embedded | `slot_preview_widget.dart` | `_executeSkipFadeOut()` | ✅ Complete (2026-02-14) |
+
+### Win Line Animation Guard
+
+After skip completes, `_winTier` is set to `''`. Three guard points prevent stale `.then()` callbacks from starting win line animations:
+
+1. `_startWinLinePresentation()` entry — returns early if `_spinFinalized && _winTier.isEmpty`
+2. Regular win rollup callback — checks `skipRequested || _winTier.isEmpty`
+3. Big win `_finishTierProgression()` callback — checks `_winTier.isEmpty`
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management
