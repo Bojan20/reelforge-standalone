@@ -46,6 +46,7 @@ import '../common/analytics_dashboard.dart';
 import '../common/documentation_viewer.dart';
 import '../../providers/git_provider.dart';
 import '../slot_lab/slotlab_bus_mixer.dart';
+import '../slot_lab/lower_zone/events/composite_editor_panel.dart';
 
 class SlotLabLowerZoneWidget extends StatefulWidget {
   final SlotLabLowerZoneController controller;
@@ -779,7 +780,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   Widget _buildFolderPanel() => _buildCompactEventFolder();
-  Widget _buildEditorPanel() => _buildCompactCompositeEditor();
+  Widget _buildEditorPanel() => const CompositeEditorPanel();
 
   Widget _buildEventLogPanel() {
     // Event Log requires both providers

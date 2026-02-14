@@ -501,15 +501,15 @@ extension MiddlewareSuperTabX on MiddlewareSuperTab {
 
 // --- Middleware Sub-tabs ---
 
-enum MiddlewareEventsSubTab { browser, debug, stateGraph }
+enum MiddlewareEventsSubTab { browser, editor, debug, stateGraph }
 enum MiddlewareContainersSubTab { random, sequence, blend, switchTab, groups }
 enum MiddlewareRoutingSubTab { buses, ducking, matrix, priority, spatial }
 enum MiddlewareRtpcSubTab { curves, bindings, meters, profiler, advanced }
 enum MiddlewareDeliverSubTab { bake, soundbank, validate, package }
 
 extension MiddlewareEventsSubTabX on MiddlewareEventsSubTab {
-  String get label => ['Browser', 'Debug', 'State Graph'][index];
-  String get shortcut => ['Q', 'W', 'E'][index];
+  String get label => ['Browser', 'Editor', 'Debug', 'State Graph'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R'][index];
 }
 
 extension MiddlewareContainersSubTabX on MiddlewareContainersSubTab {

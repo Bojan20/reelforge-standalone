@@ -1,14 +1,15 @@
 /// Composite Editor Panel
 ///
-/// Comprehensive event editor for Lower Zone EVENTS > Composite Editor sub-tab.
+/// DAW-style timeline editor for composite event layers.
+/// Features unified horizontal scroll for ruler + ALL waveform tracks.
 ///
 /// Features:
-/// - Event properties (name, category, color, priority, maxInstances)
-/// - Layer list with interactive controls (volume, pan, delay sliders)
-/// - Trigger stages editor (add/remove stages)
+/// - Event selection dropdown (self-contained)
+/// - DAW-style waveform tracks with horizontal drag-to-move
+/// - Time ruler synced with all waveform tracks (single scroll controller)
 /// - Add/delete layers
-/// - Preview playback per layer
-/// - Real-time sync with MiddlewareProvider
+/// - Mute/Solo/Preview per layer
+/// - Zoom in/out
 ///
 /// Task: SL-LZ-P0.3
 library;
@@ -16,8 +17,10 @@ library;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../models/slot_audio_events.dart';
+import '../../../../models/timeline_models.dart' show parseWaveformFromJson;
 import '../../../../providers/middleware_provider.dart';
 import '../../../../services/audio_playback_service.dart';
+import '../../../../src/rust/native_ffi.dart';
 import '../../../../theme/fluxforge_theme.dart';
 import '../../../common/audio_waveform_picker_dialog.dart';
 import '../../stage_editor_dialog.dart';
@@ -36,662 +39,896 @@ class CompositeEditorPanel extends StatefulWidget {
 }
 
 class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
-  // Track expanded layers for property controls
-  Set<String> _expandedLayerIds = {};
+  // Waveform cache: layerId → waveform peaks (absolute 0-1 values)
+  final Map<String, List<double>> _waveformCache = {};
+  // Duration cache: layerId → seconds
+  final Map<String, double> _durationCache = {};
+  // Pixels per second for timeline scale
+  double _pixelsPerSecond = 100.0;
+  // Single scroll controller for ruler + ALL tracks (unified horizontal scroll)
+  final ScrollController _timelineScrollController = ScrollController();
+  // Drag state
+  String? _draggingLayerId;
+  // Self-contained event selection (used when widget.selectedEventId is null)
+  String? _internalSelectedEventId;
+
+  // Layout constants
+  static const double _kLabelWidth = 70.0;
+  static const double _kRulerHeight = 20.0;
+  static const double _kTrackHeight = 56.0;
+
+  String? get _effectiveEventId => widget.selectedEventId ?? _internalSelectedEventId;
+
+  @override
+  void dispose() {
+    _timelineScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<MiddlewareProvider>(
       builder: (context, middleware, _) {
-        if (widget.selectedEventId == null) {
+        final events = middleware.compositeEvents;
+
+        if (events.isEmpty) {
           return _buildEmptyState(
-            'No event selected',
-            'Select an event from the Event List tab to edit its properties',
+            'No events',
+            'Create events by assigning audio in the Audio Panel',
           );
         }
 
-        final event = middleware.compositeEvents.where(
-          (e) => e.id == widget.selectedEventId,
-        ).firstOrNull;
+        // Auto-select first event if nothing selected
+        final effectiveId = _effectiveEventId;
+        final event = effectiveId != null
+            ? events.where((e) => e.id == effectiveId).firstOrNull
+            : null;
 
-        if (event == null) {
-          return _buildEmptyState(
-            'Event not found',
-            'The selected event may have been deleted',
-          );
+        // Load waveforms for layers
+        if (event != null) {
+          _ensureWaveforms(event);
         }
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildEventPropertiesSection(event, middleware),
-              const SizedBox(height: 16),
-              Divider(color: Colors.white.withOpacity(0.1)),
-              const SizedBox(height: 16),
-              _buildLayersSection(event, middleware),
-              const SizedBox(height: 16),
-              Divider(color: Colors.white.withOpacity(0.1)),
-              const SizedBox(height: 16),
-              _buildTriggerStagesSection(event, middleware),
-            ],
-          ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Event selector bar
+            _buildEventSelectorBar(events, event, middleware),
+            // Content
+            if (event == null)
+              Expanded(
+                child: _buildEmptyState(
+                  'Select an event',
+                  'Choose an event from the dropdown above',
+                ),
+              )
+            else
+              Expanded(
+                child: _buildEventContent(event, middleware),
+              ),
+          ],
         );
       },
     );
   }
 
-  Widget _buildEmptyState(String title, String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EVENT SELECTOR BAR
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildEventSelectorBar(
+    List<SlotCompositeEvent> events,
+    SlotCompositeEvent? selected,
+    MiddlewareProvider middleware,
+  ) {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14141A),
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+      ),
+      child: Row(
         children: [
-          Icon(Icons.edit_note, size: 64, color: Colors.white12),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.white38,
-              fontWeight: FontWeight.w500,
+          Icon(Icons.audiotrack, size: 14, color: FluxForgeTheme.accentBlue),
+          const SizedBox(width: 6),
+          const Text('Event:', style: TextStyle(fontSize: 10, color: Colors.white54)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: selected?.id,
+                isDense: true,
+                isExpanded: true,
+                dropdownColor: const Color(0xFF1A1A22),
+                style: const TextStyle(fontSize: 11, color: Colors.white),
+                hint: const Text('Select event...', style: TextStyle(fontSize: 11, color: Colors.white38)),
+                items: events.map((e) {
+                  final stageLabel = e.triggerStages.isNotEmpty ? e.triggerStages.first : '';
+                  return DropdownMenuItem<String>(
+                    value: e.id,
+                    child: Text(
+                      '${e.name}${stageLabel.isNotEmpty ? '  [$stageLabel]' : ''}  (${e.layers.length}L)',
+                      style: const TextStyle(fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (id) {
+                  setState(() {
+                    _internalSelectedEventId = id;
+                  });
+                },
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.white24,
+          if (selected != null) ...[
+            const SizedBox(width: 4),
+            Text(
+              '${selected.layers.length} layers',
+              style: const TextStyle(fontSize: 9, color: Colors.white38, fontFamily: 'monospace'),
             ),
-            textAlign: TextAlign.center,
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EVENT CONTENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildEventContent(SlotCompositeEvent event, MiddlewareProvider middleware) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Action bar
+        _buildActionBar(event, middleware),
+        // Timeline area (takes remaining space)
+        Expanded(
+          child: _buildTimelineArea(event, middleware),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionBar(SlotCompositeEvent event, MiddlewareProvider middleware) {
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF12121A),
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+      ),
+      child: Row(
+        children: [
+          // Add Layer
+          _buildActionBtn(
+            icon: Icons.add,
+            label: 'Add Layer',
+            color: FluxForgeTheme.accentGreen,
+            onTap: () async {
+              final audioPath = await AudioWaveformPickerDialog.show(
+                context,
+                title: 'Select Audio for Layer',
+              );
+              if (audioPath != null) {
+                middleware.addLayerToEvent(event.id, audioPath: audioPath, name: 'Layer ${event.layers.length + 1}');
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+          // Edit Stages
+          _buildActionBtn(
+            icon: Icons.tag,
+            label: 'Stages (${event.triggerStages.length})',
+            color: FluxForgeTheme.accentOrange,
+            onTap: () async {
+              final newStages = await StageEditorDialog.show(context, event: event);
+              if (newStages != null) {
+                middleware.updateCompositeEvent(event.copyWith(triggerStages: newStages));
+              }
+            },
+          ),
+          const Spacer(),
+          // Zoom controls
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => setState(() {
+                _pixelsPerSecond = (_pixelsPerSecond * 0.8).clamp(30.0, 500.0);
+              }),
+              child: const Icon(Icons.zoom_out, size: 14, color: Colors.white38),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${_pixelsPerSecond.toInt()}px/s',
+            style: const TextStyle(fontSize: 8, color: Colors.white24, fontFamily: 'monospace'),
+          ),
+          const SizedBox(width: 4),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => setState(() {
+                _pixelsPerSecond = (_pixelsPerSecond * 1.25).clamp(30.0, 500.0);
+              }),
+              child: const Icon(Icons.zoom_in, size: 14, color: Colors.white38),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEventPropertiesSection(SlotCompositeEvent event, MiddlewareProvider middleware) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader('EVENT PROPERTIES'),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF16161C),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+  Widget _buildActionBtn({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 9, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TIMELINE AREA — UNIFIED horizontal scroll for ruler + ALL tracks
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTimelineArea(SlotCompositeEvent event, MiddlewareProvider middleware) {
+    if (event.layers.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.layers_outlined, size: 32, color: Colors.white12),
+            const SizedBox(height: 8),
+            const Text('No layers', style: TextStyle(fontSize: 11, color: Colors.white24)),
+            const SizedBox(height: 4),
+            const Text('Click "Add Layer" to add audio', style: TextStyle(fontSize: 9, color: Colors.white12)),
+          ],
+        ),
+      );
+    }
+
+    // Calculate total timeline duration
+    double maxEndSeconds = 2.0;
+    for (final layer in event.layers) {
+      final offsetSec = layer.offsetMs / 1000.0;
+      final dur = _durationCache[layer.id] ?? (layer.durationSeconds ?? 1.0);
+      final endSec = offsetSec + dur;
+      if (endSec > maxEndSeconds) maxEndSeconds = endSec;
+    }
+    maxEndSeconds += 0.5;
+
+    final totalWidth = maxEndSeconds * _pixelsPerSecond;
+
+    // Layout: fixed label column on left + unified scrollable area on right.
+    // The scrollable area contains ruler (top) + waveform tracks (below).
+    // ONE scroll controller = perfect sync between ruler and all tracks.
+    return Container(
+      color: const Color(0xFF0D0D12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Fixed label column (left) ──
+          SizedBox(
+            width: _kLabelWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Empty area above labels (aligned with ruler)
+                Container(
+                  height: _kRulerHeight,
+                  color: const Color(0xFF14141A),
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.only(left: 4),
+                  child: const Text('', style: TextStyle(fontSize: 7, color: Colors.white24)),
+                ),
+                // Track labels (vertically scrollable if many tracks)
+                Expanded(
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: event.layers.length,
+                    itemBuilder: (context, index) {
+                      return _buildTrackLabel(event, event.layers[index], index, middleware);
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Column(
-            children: [
-              // Event name
-              _buildPropertyField(
-                label: 'Name',
-                child: TextField(
-                  controller: TextEditingController(text: event.name),
-                  style: const TextStyle(fontSize: 12, color: Colors.white),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    filled: true,
-                    fillColor: const Color(0xFF0D0D10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  ),
-                  onSubmitted: (value) {
-                    middleware.updateCompositeEvent(
-                      event.copyWith(name: value.trim()),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Category
-              _buildPropertyField(
-                label: 'Category',
-                child: TextField(
-                  controller: TextEditingController(text: event.category),
-                  style: const TextStyle(fontSize: 12, color: Colors.white),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    filled: true,
-                    fillColor: const Color(0xFF0D0D10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    hintText: 'spin, win, feature, ui...',
-                    hintStyle: TextStyle(color: Colors.white24, fontSize: 11),
-                  ),
-                  onSubmitted: (value) {
-                    middleware.updateCompositeEvent(
-                      event.copyWith(category: value.trim()),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Master volume
-              _buildPropertyField(
-                label: 'Master Volume',
-                child: Row(
+          // Divider between labels and waveforms
+          Container(width: 1, color: Colors.white.withValues(alpha: 0.08)),
+          // ── Unified scrollable area (right) ──
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _timelineScrollController,
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: totalWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Slider(
-                        value: event.masterVolume,
-                        min: 0.0,
-                        max: 2.0,
-                        divisions: 40,
-                        label: '${(event.masterVolume * 100).toInt()}%',
-                        onChanged: (v) {
-                          middleware.updateCompositeEvent(
-                            event.copyWith(masterVolume: v),
-                          );
-                        },
-                        activeColor: FluxForgeTheme.accentBlue,
+                    // Time ruler
+                    SizedBox(
+                      height: _kRulerHeight,
+                      width: totalWidth,
+                      child: CustomPaint(
+                        painter: _TimeRulerPainter(
+                          pixelsPerSecond: _pixelsPerSecond,
+                          maxSeconds: maxEndSeconds,
+                        ),
                       ),
                     ),
-                    SizedBox(
-                      width: 50,
-                      child: Text(
-                        '${(event.masterVolume * 100).toInt()}%',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.white70,
-                          fontFamily: 'monospace',
-                        ),
-                        textAlign: TextAlign.right,
+                    // Waveform tracks (vertically scrollable if many)
+                    Expanded(
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        itemCount: event.layers.length,
+                        itemBuilder: (context, index) {
+                          return _buildWaveformTrackContent(
+                            event, event.layers[index], index, middleware,
+                            maxEndSeconds, totalWidth,
+                          );
+                        },
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildLayersSection(SlotCompositeEvent event, MiddlewareProvider middleware) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            _buildSectionHeader('LAYERS (${event.layers.length})'),
-            const Spacer(),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Add Layer', style: TextStyle(fontSize: 11)),
-              onPressed: () async {
-                final audioPath = await AudioWaveformPickerDialog.show(
-                  context,
-                  title: 'Select Audio for Layer',
-                );
-                if (audioPath != null) {
-                  final newLayer = SlotEventLayer(
-                    id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
-                    name: 'Layer ${event.layers.length + 1}',
-                    audioPath: audioPath,
-                    volume: 1.0,
-                    pan: 0.0,
-                    offsetMs: 0.0,
-                    muted: false,
-                    solo: false,
-                  );
-                  middleware.addLayerToEvent(event.id, audioPath: audioPath, name: newLayer.name);
-                }
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: FluxForgeTheme.accentGreen,
-                side: BorderSide(color: FluxForgeTheme.accentGreen.withOpacity(0.3)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRACK LABEL (fixed left column)
+  // ═══════════════════════════════════════════════════════════════════════════
 
-        // Layers list
-        if (event.layers.isEmpty)
-          Container(
-            height: 100,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFF16161C),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.layers_outlined, size: 32, color: Colors.white12),
-                const SizedBox(height: 8),
-                Text(
-                  'No layers yet',
-                  style: TextStyle(fontSize: 12, color: Colors.white24),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Click "Add Layer" to add audio',
-                  style: TextStyle(fontSize: 10, color: Colors.white12, fontStyle: FontStyle.italic),
-                ),
-              ],
-            ),
-          )
-        else
-          ...event.layers.asMap().entries.map((entry) {
-            final index = entry.key;
-            final layer = entry.value;
-            return _buildLayerItem(event, layer, index, middleware);
-          }),
-      ],
-    );
-  }
-
-  Widget _buildLayerItem(
+  Widget _buildTrackLabel(
     SlotCompositeEvent event,
     SlotEventLayer layer,
     int index,
     MiddlewareProvider middleware,
   ) {
     final hasAudio = layer.audioPath.isNotEmpty;
-    final fileName = hasAudio ? layer.audioPath.split('/').last : 'No audio';
-    final isExpanded = _expandedLayerIds.contains(layer.id);
+    final trackColors = [
+      FluxForgeTheme.accentBlue,
+      FluxForgeTheme.accentGreen,
+      FluxForgeTheme.accentOrange,
+      FluxForgeTheme.accentCyan,
+      const Color(0xFF9370DB),
+      FluxForgeTheme.accentRed,
+    ];
+    final trackColor = layer.muted ? Colors.grey : trackColors[index % trackColors.length];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      height: _kTrackHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFF16161C),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        color: const Color(0xFF14141A),
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
-          InkWell(
-            onTap: () {
-              setState(() {
-                if (isExpanded) {
-                  _expandedLayerIds.remove(layer.id);
-                } else {
-                  _expandedLayerIds.add(layer.id);
-                }
-              });
-            },
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Row(
-                children: [
-                  // Expand icon
-                  Icon(
-                    isExpanded ? Icons.expand_more : Icons.chevron_right,
-                    size: 16,
-                    color: Colors.white38,
-                  ),
-                  const SizedBox(width: 8),
-                  // Layer index
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentBlue.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: FluxForgeTheme.accentBlue,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Name + filename
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          layer.name,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          fileName,
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: hasAudio ? Colors.white38 : Colors.white24,
-                            fontStyle: hasAudio ? FontStyle.normal : FontStyle.italic,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Mute
-                  IconButton(
-                    icon: Icon(
-                      layer.muted ? Icons.volume_off : Icons.volume_up,
-                      size: 16,
-                      color: layer.muted ? Colors.red : Colors.white54,
-                    ),
-                    onPressed: () {
-                      middleware.updateEventLayer(
-                        event.id,
-                        layer.copyWith(muted: !layer.muted),
-                      );
-                    },
-                    tooltip: layer.muted ? 'Unmute' : 'Mute',
-                  ),
-                  // Delete
-                  IconButton(
-                    icon: Icon(Icons.delete_outline, size: 16, color: Colors.white38),
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          backgroundColor: const Color(0xFF1A1A22),
-                          title: const Text('Delete Layer', style: TextStyle(color: Colors.white)),
-                          content: Text(
-                            'Delete "${layer.name}"?',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                          actions: [
-                            TextButton(
-                              child: const Text('Cancel'),
-                              onPressed: () => Navigator.pop(context, false),
-                            ),
-                            TextButton(
-                              child: Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
-                              onPressed: () => Navigator.pop(context, true),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        middleware.removeLayerFromEvent(event.id, layer.id);
-                      }
-                    },
-                    tooltip: 'Delete layer',
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Property controls (expandable)
-          if (isExpanded)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                border: Border(
-                  top: BorderSide(color: Colors.white.withOpacity(0.05)),
+          Row(
+            children: [
+              Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: trackColor.withValues(alpha: 0.3),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${index + 1}',
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: trackColor),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Volume slider
-                  _buildSlider(
-                    label: 'Volume',
-                    value: layer.volume,
-                    min: 0.0,
-                    max: 2.0,
-                    divisions: 40,
-                    valueDisplay: '${(layer.volume * 100).toInt()}%',
-                    onChanged: (v) {
-                      middleware.updateEventLayer(event.id, layer.copyWith(volume: v));
-                    },
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Pan slider
-                  _buildSlider(
-                    label: 'Pan',
-                    value: layer.pan,
-                    min: -1.0,
-                    max: 1.0,
-                    divisions: 20,
-                    valueDisplay: layer.pan == 0
-                        ? 'C'
-                        : layer.pan < 0
-                            ? 'L${(-layer.pan * 100).toInt()}'
-                            : 'R${(layer.pan * 100).toInt()}',
-                    onChanged: (v) {
-                      middleware.updateEventLayer(event.id, layer.copyWith(pan: v));
-                    },
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Delay slider
-                  _buildSlider(
-                    label: 'Delay',
-                    value: layer.offsetMs,
-                    min: 0.0,
-                    max: 2000.0,
-                    divisions: 200,
-                    valueDisplay: '${layer.offsetMs.toInt()}ms',
-                    onChanged: (v) {
-                      middleware.updateEventLayer(event.id, layer.copyWith(offsetMs: v));
-                    },
-                  ),
-
-                  // Preview button
-                  if (hasAudio) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.play_arrow, size: 16),
-                        label: const Text('Preview', style: TextStyle(fontSize: 11)),
-                        onPressed: () {
-                          // Stop any other browser preview before starting new one
-                          AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
-                          AudioPlaybackService.instance.previewFile(
-                            layer.audioPath,
-                            volume: layer.volume,
-                            source: PlaybackSource.browser,
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: FluxForgeTheme.accentGreen,
-                          side: BorderSide(color: FluxForgeTheme.accentGreen.withOpacity(0.3)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+              const SizedBox(width: 3),
+              Expanded(
+                child: Text(
+                  layer.name,
+                  style: const TextStyle(fontSize: 8, color: Colors.white70),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Mute
+              _buildTrackBtn(
+                'M',
+                layer.muted ? FluxForgeTheme.accentRed : Colors.white24,
+                () => middleware.updateEventLayer(event.id, layer.copyWith(muted: !layer.muted)),
+              ),
+              const SizedBox(width: 4),
+              // Solo
+              _buildTrackBtn(
+                'S',
+                layer.solo ? FluxForgeTheme.accentOrange : Colors.white24,
+                () => middleware.updateEventLayer(event.id, layer.copyWith(solo: !layer.solo)),
+              ),
+              const SizedBox(width: 4),
+              // Preview
+              if (hasAudio)
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () {
+                      AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
+                      AudioPlaybackService.instance.previewFile(
+                        layer.audioPath,
+                        volume: layer.volume,
+                        source: PlaybackSource.browser,
+                      );
+                    },
+                    child: Icon(Icons.play_arrow, size: 12, color: FluxForgeTheme.accentGreen),
+                  ),
+                ),
+              const Spacer(),
+              // Delete
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    _waveformCache.remove(layer.id);
+                    _durationCache.remove(layer.id);
+                    middleware.removeLayerFromEvent(event.id, layer.id);
+                  },
+                  child: const Icon(Icons.close, size: 10, color: Colors.white24),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTriggerStagesSection(SlotCompositeEvent event, MiddlewareProvider middleware) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            _buildSectionHeader('TRIGGER STAGES (${event.triggerStages.length})'),
-            const Spacer(),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.edit, size: 16),
-              label: const Text('Edit Stages', style: TextStyle(fontSize: 11)),
-              onPressed: () async {
-                final newStages = await StageEditorDialog.show(
-                  context,
-                  event: event,
-                );
-                if (newStages != null) {
-                  middleware.updateCompositeEvent(
-                    event.copyWith(triggerStages: newStages),
-                  );
-                }
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: FluxForgeTheme.accentOrange,
-                side: BorderSide(color: FluxForgeTheme.accentOrange.withOpacity(0.3)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WAVEFORM TRACK CONTENT (scrollable right area — NO individual scroll!)
+  // ═══════════════════════════════════════════════════════════════════════════
 
-        // Stages list
-        if (event.triggerStages.isEmpty)
-          Container(
-            height: 80,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFF16161C),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.tag, size: 28, color: Colors.white12),
-                const SizedBox(height: 8),
-                Text(
-                  'No trigger stages',
-                  style: TextStyle(fontSize: 11, color: Colors.white24),
-                ),
-              ],
-            ),
-          )
-        else
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: event.triggerStages.map((stage) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentGreen.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: FluxForgeTheme.accentGreen.withOpacity(0.3),
+  Widget _buildWaveformTrackContent(
+    SlotCompositeEvent event,
+    SlotEventLayer layer,
+    int index,
+    MiddlewareProvider middleware,
+    double maxSeconds,
+    double totalWidth,
+  ) {
+    final waveform = _waveformCache[layer.id];
+    final duration = _durationCache[layer.id] ?? (layer.durationSeconds ?? 1.0);
+    final offsetSec = layer.offsetMs / 1000.0;
+    final waveformWidth = duration * _pixelsPerSecond;
+    final offsetPixels = offsetSec * _pixelsPerSecond;
+    final isDragging = _draggingLayerId == layer.id;
+    final hasAudio = layer.audioPath.isNotEmpty;
+    final fileName = hasAudio ? layer.audioPath.split('/').last : 'No audio';
+
+    final trackColors = [
+      FluxForgeTheme.accentBlue,
+      FluxForgeTheme.accentGreen,
+      FluxForgeTheme.accentOrange,
+      FluxForgeTheme.accentCyan,
+      const Color(0xFF9370DB),
+      FluxForgeTheme.accentRed,
+    ];
+    final trackColor = layer.muted ? Colors.grey : trackColors[index % trackColors.length];
+
+    return Container(
+      height: _kTrackHeight,
+      width: totalWidth,
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+      ),
+      child: Stack(
+        children: [
+          // Grid lines (every second)
+          CustomPaint(
+            size: Size(totalWidth, _kTrackHeight),
+            painter: _GridLinePainter(pixelsPerSecond: _pixelsPerSecond, maxSeconds: maxSeconds),
+          ),
+          // Waveform block at offset position
+          Positioned(
+            left: offsetPixels,
+            top: 3,
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                final deltaMs = (details.delta.dx / _pixelsPerSecond) * 1000.0;
+                final newOffset = (layer.offsetMs + deltaMs).clamp(0.0, maxSeconds * 1000.0);
+                middleware.updateEventLayer(event.id, layer.copyWith(offsetMs: newOffset));
+              },
+              onHorizontalDragStart: (_) {
+                setState(() => _draggingLayerId = layer.id);
+              },
+              onHorizontalDragEnd: (_) {
+                setState(() => _draggingLayerId = null);
+              },
+              child: MouseRegion(
+                cursor: isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
+                child: Container(
+                  width: waveformWidth.clamp(10.0, totalWidth),
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: trackColor.withValues(alpha: isDragging ? 0.25 : 0.15),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: isDragging
+                          ? trackColor.withValues(alpha: 0.8)
+                          : trackColor.withValues(alpha: 0.4),
+                      width: isDragging ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: Stack(
+                      children: [
+                        // Waveform
+                        if (waveform != null && waveform.isNotEmpty)
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _WaveformPainter(
+                                data: waveform,
+                                color: trackColor,
+                                isMuted: layer.muted,
+                              ),
+                            ),
+                          )
+                        else
+                          Center(
+                            child: Text(
+                              hasAudio ? 'Loading...' : 'No audio',
+                              style: const TextStyle(fontSize: 8, color: Colors.white24),
+                            ),
+                          ),
+                        // File name label
+                        Positioned(
+                          left: 4,
+                          top: 2,
+                          child: Text(
+                            fileName,
+                            style: TextStyle(
+                              fontSize: 8,
+                              color: trackColor.withValues(alpha: 0.9),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        // Offset + duration label
+                        Positioned(
+                          right: 4,
+                          bottom: 2,
+                          child: Text(
+                            '${layer.offsetMs.toInt()}ms  ${duration.toStringAsFixed(1)}s',
+                            style: const TextStyle(
+                              fontSize: 7,
+                              color: Colors.white38,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.tag, size: 12, color: FluxForgeTheme.accentGreen),
-                    const SizedBox(width: 4),
-                    Text(
-                      stage,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: FluxForgeTheme.accentGreen,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+              ),
+            ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        color: Colors.white54,
-        letterSpacing: 1.0,
+        ],
       ),
     );
   }
 
-  Widget _buildPropertyField({required String label, required Widget child}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 90,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 10, color: Colors.white54),
-          ),
+  Widget _buildTrackBtn(String label, Color color, VoidCallback onTap) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Text(
+          label,
+          style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: color),
         ),
-        Expanded(child: child),
-      ],
+      ),
     );
   }
 
-  Widget _buildSlider({
-    required String label,
-    required double value,
-    required double min,
-    required double max,
-    required int divisions,
-    required String valueDisplay,
-    required ValueChanged<double> onChanged,
-  }) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 60,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 10, color: Colors.white54),
-          ),
-        ),
-        Expanded(
-          child: SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 3,
-              thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape: RoundSliderOverlayShape(overlayRadius: 14),
-            ),
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              divisions: divisions,
-              label: valueDisplay,
-              onChanged: onChanged,
-              activeColor: FluxForgeTheme.accentBlue,
-              inactiveColor: Colors.white.withOpacity(0.1),
-            ),
-          ),
-        ),
-        SizedBox(
-          width: 60,
-          child: Text(
-            valueDisplay,
-            style: const TextStyle(
-              fontSize: 10,
-              color: Colors.white70,
-              fontFamily: 'monospace',
-            ),
-            textAlign: TextAlign.right,
-          ),
-        ),
-      ],
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WAVEFORM LOADING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _ensureWaveforms(SlotCompositeEvent event) {
+    for (final layer in event.layers) {
+      if (layer.audioPath.isEmpty) continue;
+      if (_waveformCache.containsKey(layer.id)) continue;
+
+      // Use layer's own waveformData if available
+      if (layer.waveformData != null && layer.waveformData!.isNotEmpty) {
+        _waveformCache[layer.id] = layer.waveformData!;
+        _ensureDuration(layer);
+        continue;
+      }
+
+      // Generate via FFI
+      try {
+        final cacheKey = 'ce-${layer.id}';
+        final json = NativeFFI.instance.generateWaveformFromFile(layer.audioPath, cacheKey);
+        if (json != null) {
+          final (left, right) = parseWaveformFromJson(json, maxSamples: 2048);
+          if (left != null) {
+            final waveform = <double>[];
+            if (right != null && right.length == left.length) {
+              for (int i = 0; i < left.length; i++) {
+                waveform.add((left[i] + right[i]) / 2.0);
+              }
+            } else {
+              waveform.addAll(left);
+            }
+            _waveformCache[layer.id] = waveform;
+          }
+        }
+      } catch (_) {
+        // FFI may not be available
+      }
+
+      _ensureDuration(layer);
+    }
+  }
+
+  void _ensureDuration(SlotEventLayer layer) {
+    if (_durationCache.containsKey(layer.id)) return;
+    final dur = layer.durationSeconds;
+    if (dur != null && dur > 0) {
+      _durationCache[layer.id] = dur;
+    } else {
+      try {
+        final d = NativeFFI.instance.getAudioFileDuration(layer.audioPath);
+        if (d > 0) {
+          _durationCache[layer.id] = d;
+        }
+      } catch (_) {
+        // FFI may not be available
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EMPTY STATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildEmptyState(String title, String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.edit_note, size: 48, color: Colors.white12),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(fontSize: 14, color: Colors.white38, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 6),
+          Text(message, style: const TextStyle(fontSize: 11, color: Colors.white24), textAlign: TextAlign.center),
+        ],
+      ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PAINTERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Waveform painter — renders absolute peak values (0-1) as mirrored waveform
+class _WaveformPainter extends CustomPainter {
+  final List<double> data;
+  final Color color;
+  final bool isMuted;
+
+  const _WaveformPainter({
+    required this.data,
+    required this.color,
+    this.isMuted = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    final waveColor = isMuted ? Colors.grey.withValues(alpha: 0.4) : color.withValues(alpha: 0.7);
+    final fillColor = isMuted ? Colors.grey.withValues(alpha: 0.15) : color.withValues(alpha: 0.2);
+
+    final centerY = size.height / 2;
+    final scaleY = size.height / 2 * 0.85;
+    final samplesPerPixel = data.length / size.width;
+
+    // Fill path (mirrored)
+    final fillPath = Path();
+    fillPath.moveTo(0, centerY);
+
+    // Top half
+    for (int x = 0; x < size.width.toInt(); x++) {
+      final startSample = (x * samplesPerPixel).floor();
+      final endSample = ((x + 1) * samplesPerPixel).floor().clamp(0, data.length);
+      if (startSample >= data.length) break;
+
+      double peak = 0.0;
+      for (int i = startSample; i < endSample && i < data.length; i++) {
+        final s = data[i].abs().clamp(0.0, 1.0);
+        if (s > peak) peak = s;
+      }
+
+      fillPath.lineTo(x.toDouble(), centerY - peak * scaleY);
+    }
+
+    // Bottom half (mirror)
+    for (int x = size.width.toInt() - 1; x >= 0; x--) {
+      final startSample = (x * samplesPerPixel).floor();
+      final endSample = ((x + 1) * samplesPerPixel).floor().clamp(0, data.length);
+      if (startSample >= data.length) continue;
+
+      double peak = 0.0;
+      for (int i = startSample; i < endSample && i < data.length; i++) {
+        final s = data[i].abs().clamp(0.0, 1.0);
+        if (s > peak) peak = s;
+      }
+
+      fillPath.lineTo(x.toDouble(), centerY + peak * scaleY);
+    }
+
+    fillPath.close();
+    canvas.drawPath(fillPath, Paint()..color = fillColor..style = PaintingStyle.fill);
+
+    // Outline stroke
+    final strokePaint = Paint()
+      ..color = waveColor
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    final strokePath = Path();
+    for (int x = 0; x < size.width.toInt(); x++) {
+      final startSample = (x * samplesPerPixel).floor();
+      final endSample = ((x + 1) * samplesPerPixel).floor().clamp(0, data.length);
+      if (startSample >= data.length) break;
+
+      double peak = 0.0;
+      for (int i = startSample; i < endSample && i < data.length; i++) {
+        final s = data[i].abs().clamp(0.0, 1.0);
+        if (s > peak) peak = s;
+      }
+
+      final y1 = centerY - peak * scaleY;
+      final y2 = centerY + peak * scaleY;
+
+      if (x == 0) strokePath.moveTo(x.toDouble(), y1);
+      strokePath.lineTo(x.toDouble(), y1);
+      strokePath.lineTo(x.toDouble(), y2);
+    }
+
+    canvas.drawPath(strokePath, strokePaint);
+
+    // Center line
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()..color = waveColor.withValues(alpha: 0.15)..strokeWidth = 0.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_WaveformPainter oldDelegate) {
+    return oldDelegate.data != data ||
+        oldDelegate.color != color ||
+        oldDelegate.isMuted != isMuted;
+  }
+}
+
+/// Time ruler painter
+class _TimeRulerPainter extends CustomPainter {
+  final double pixelsPerSecond;
+  final double maxSeconds;
+
+  const _TimeRulerPainter({
+    required this.pixelsPerSecond,
+    required this.maxSeconds,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..strokeWidth = 1.0;
+
+    final textStyle = TextStyle(
+      fontSize: 8,
+      color: Colors.white38,
+      fontFamily: 'monospace',
+    );
+
+    double tickInterval;
+    if (pixelsPerSecond >= 200) {
+      tickInterval = 0.1;
+    } else if (pixelsPerSecond >= 80) {
+      tickInterval = 0.25;
+    } else {
+      tickInterval = 0.5;
+    }
+
+    for (double t = 0; t <= maxSeconds; t += tickInterval) {
+      final x = t * pixelsPerSecond;
+      if (x > size.width) break;
+
+      final isMajor = (t * 1000).round() % 1000 == 0;
+      final tickHeight = isMajor ? 12.0 : 6.0;
+
+      paint.color = Colors.white.withValues(alpha: isMajor ? 0.2 : 0.08);
+      canvas.drawLine(
+        Offset(x, size.height - tickHeight),
+        Offset(x, size.height),
+        paint,
+      );
+
+      if (isMajor) {
+        final tp = TextPainter(
+          text: TextSpan(text: '${t.toStringAsFixed(0)}s', style: textStyle),
+          textDirection: TextDirection.ltr,
+        );
+        tp.layout();
+        tp.paint(canvas, Offset(x + 2, 2));
+      }
+    }
+
+    // Bottom border
+    paint.color = Colors.white.withValues(alpha: 0.08);
+    canvas.drawLine(Offset(0, size.height - 0.5), Offset(size.width, size.height - 0.5), paint);
+  }
+
+  @override
+  bool shouldRepaint(_TimeRulerPainter oldDelegate) {
+    return oldDelegate.pixelsPerSecond != pixelsPerSecond ||
+        oldDelegate.maxSeconds != maxSeconds;
+  }
+}
+
+/// Grid line painter for track backgrounds
+class _GridLinePainter extends CustomPainter {
+  final double pixelsPerSecond;
+  final double maxSeconds;
+
+  const _GridLinePainter({required this.pixelsPerSecond, required this.maxSeconds});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.04)
+      ..strokeWidth = 0.5;
+
+    for (double t = 0; t <= maxSeconds; t += 1.0) {
+      final x = t * pixelsPerSecond;
+      if (x > size.width) break;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GridLinePainter oldDelegate) {
+    return oldDelegate.pixelsPerSecond != pixelsPerSecond;
   }
 }

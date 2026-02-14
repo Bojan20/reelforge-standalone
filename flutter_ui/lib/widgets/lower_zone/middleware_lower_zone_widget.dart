@@ -39,6 +39,7 @@ import '../middleware/state_machine_graph.dart';
 import '../middleware/container_groups_panel.dart';
 import '../middleware/event_profiler_advanced.dart';
 import '../middleware/spatial_designer_widget.dart';
+import '../slot_lab/lower_zone/events/composite_editor_panel.dart';
 
 class MiddlewareLowerZoneWidget extends StatefulWidget {
   final MiddlewareLowerZoneController controller;
@@ -351,6 +352,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
     final subTab = widget.controller.state.eventsSubTab;
     return switch (subTab) {
       MiddlewareEventsSubTab.browser => const EventsFolderPanel(),
+      MiddlewareEventsSubTab.editor => const CompositeEditorPanel(),
       MiddlewareEventsSubTab.debug => const EventDebuggerPanel(),
       MiddlewareEventsSubTab.stateGraph => _buildStateGraphPanel(),
     };
