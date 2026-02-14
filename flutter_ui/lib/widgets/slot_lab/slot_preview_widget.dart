@@ -1296,35 +1296,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════════
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SPIN START LOGIC — Guard against re-triggering after finalize
+    // RESET FLAGS — Prepare for spin detection
     // ═══════════════════════════════════════════════════════════════════════════
-    // Conditions to start spin:
-    // 1. Provider is playing stages
-    // 2. We have stages to process
-    // 3. We're not already spinning
-    // 4. We haven't just finalized this spin (prevents double-trigger)
-    // 5. This is a NEW spin result (different spinId)
-
-    final canStartSpin = isPlaying && stages.isNotEmpty && !_isSpinning && !_spinFinalized;
-
-    if (canStartSpin) {
-      final hasSpinStart = stages.any((s) => s.stageType == 'spin_start');
-
-      // DEBUG: Log stage types for verification
-      if (stages.isNotEmpty) {
-      }
-
-      // Only start if this is a genuinely new spin
-      if (hasSpinStart && spinId != null && spinId != _lastProcessedSpinId) {
-        _lastProcessedSpinId = spinId;
-        _startSpin(result);
-      } else if (!hasSpinStart) {
-      } else if (spinId == _lastProcessedSpinId) {
-      } else if (spinId == null) {
-      }
-    } else {
-      // Not starting spin — conditions not met
-    }
 
     // Reset finalized flag when provider stops playing (ready for next spin)
     if (!isPlaying && _spinFinalized) {
@@ -1332,6 +1305,26 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _spinFinalized = false;
         _isSpinning = false; // CRITICAL: Reset spinning state so STOP→SPIN button transition happens
       });
+    }
+    // FIX (2026-02-14): Rapid STOP→SPIN — _spinFinalized was true from previous STOP
+    // but new spin already started (isPlaying=true, new spinId). Clear it so animation starts.
+    if (isPlaying && _spinFinalized && spinId != null && spinId != _lastProcessedSpinId) {
+      _spinFinalized = false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SPIN START LOGIC — Guard against re-triggering after finalize
+    // ═══════════════════════════════════════════════════════════════════════════
+    final canStartSpin = isPlaying && stages.isNotEmpty && !_isSpinning && !_spinFinalized;
+
+    if (canStartSpin) {
+      final hasSpinStart = stages.any((s) => s.stageType == 'spin_start');
+
+      // Only start if this is a genuinely new spin
+      if (hasSpinStart && spinId != null && spinId != _lastProcessedSpinId) {
+        _lastProcessedSpinId = spinId;
+        _startSpin(result);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -1,27 +1,38 @@
-/// Ultimate Audio Panel V8 — Game Flow Organization
+/// Ultimate Audio Panel V9 — Phase-Based Game Flow Organization
 ///
 /// Complete left panel for SlotLab audio assignment.
 /// NO EDIT MODE REQUIRED — just drop audio directly.
 ///
-/// V8 CHANGES (2026-01-25):
-/// - 12 SECTIONS organized by GAME FLOW (not by type)
-/// - TIER SYSTEM: Primary, Secondary, Feature, Premium, Background, Utility
-/// - POOLED MARKERS: ⚡ for rapid-fire events (ROLLUP_TICK, CASCADE_STEP, etc.)
-/// - PREMIUM SECTION: 🏆 Jackpots isolated for validation
+/// V9 CHANGES (2026-02-14):
+/// - 7 PHASES of game flow (grouped from 12 sections)
+/// - Phase completion rings with per-phase progress
+/// - BUS ROUTING badges on every slot (🎵Music 🔊SFX 🔔Reels 🎤VO 🖥UI)
+/// - PRIORITY indicators (P0 Critical / P1 Important / P2 Optional)
+/// - Collapsible phases with smart defaults
 ///
-/// SECTIONS (Game Flow Order):
-/// 1. Base Game Loop [Primary] — Idle, Spin, Reel Animation, Stops, End
-/// 2. Symbols & Lands [Primary] — High/Low Pay, Wild, Scatter, Bonus
-/// 3. Win Presentation [Primary] — Eval, Lines, Tiers, Rollup, Celebration
-/// 4. Cascading Mechanics [Secondary] — Cascade/Tumble/Avalanche unified
-/// 5. Multipliers [Secondary] — Win, Progressive, Random multipliers
-/// 6. Free Spins [Feature] — Trigger, Loop, Retrigger, Summary
-/// 7. Bonus Games [Feature] — Pick, Wheel, Trail, Generic
-/// 8. Hold & Win [Feature] — Trigger, Respin, Grid Fill, Summary
-/// 9. Jackpots [Premium 🏆] — Trigger, Buildup, Reveal, Present, Celebration
-/// 10. Gamble [Optional] — Entry, Flip, Result, Collect
-/// 11. Music & Ambience [Background] — Base, Feature, Stingers, Tension, Ambient
-/// 12. UI & System [Utility] — Buttons, Nav, Notifications, System
+/// PHASES (Game Flow):
+/// ┌─ PHASE 1: CORE LOOP ──────────────────────────────────┐
+/// │  Base Game Loop + Symbols & Lands                      │
+/// │  [P0] Spin, Stops, Symbols — must-have for any slot   │
+/// ├─ PHASE 2: WINS ───────────────────────────────────────┤
+/// │  Win Presentation + Cascading + Multipliers            │
+/// │  [P0] Win eval, lines, rollup, cascade, multipliers   │
+/// ├─ PHASE 3: FEATURES ──────────────────────────────────┤
+/// │  Free Spins + Bonus Games + Hold & Win                 │
+/// │  [P1] Feature-specific audio (game-dependent)          │
+/// ├─ PHASE 4: JACKPOTS 🏆 ───────────────────────────────┤
+/// │  Jackpots (isolated for regulatory validation)         │
+/// │  [P1] Trigger, Reveal, Present, Celebrate              │
+/// ├─ PHASE 5: GAMBLE ────────────────────────────────────┤
+/// │  Gamble / Double-or-Nothing (optional)                 │
+/// │  [P2] Only if game supports gamble feature             │
+/// ├─ PHASE 6: MUSIC & AMBIENCE ──────────────────────────┤
+/// │  Dynamic music layers + ambient + stingers             │
+/// │  [P1] Background audio — always playing, ducked        │
+/// ├─ PHASE 7: UI & SYSTEM ───────────────────────────────┤
+/// │  Buttons, Navigation, Notifications, Feedback          │
+/// │  [P2] Non-blocking, instant feedback utility sounds    │
+/// └──────────────────────────────────────────────────────┘
 ///
 /// Auto-Distribution: Drop a folder on a GROUP, files are automatically
 /// matched to their correct stages using fuzzy filename matching.
@@ -40,6 +51,36 @@ import '../../services/audio_playback_service.dart';
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import '../../services/variant_manager.dart'; // SL-LP-P1.4
 import '../../theme/fluxforge_theme.dart';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// V9: Bus Routing + Priority enums for slot metadata
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Audio bus routing — matches engine bus IDs
+enum SlotBus {
+  sfx('SFX', '🔊', Color(0xFFFF9040)),
+  reels('Reels', '🔔', Color(0xFF40C8FF)),
+  music('Music', '🎵', Color(0xFF9370DB)),
+  voice('VO', '🎤', Color(0xFF40FF90)),
+  ui('UI', '🖥', Color(0xFF9E9E9E)),
+  ambience('Amb', '🌙', Color(0xFF607D8B));
+
+  const SlotBus(this.label, this.icon, this.color);
+  final String label;
+  final String icon;
+  final Color color;
+}
+
+/// Priority level — guides designers on which slots to fill first
+enum SlotPriority {
+  p0('P0', Color(0xFFFF4060)),   // Critical — must-have for any slot game
+  p1('P1', Color(0xFFFF9040)),   // Important — expected by players
+  p2('P2', Color(0xFF9E9E9E));   // Optional — nice-to-have polish
+
+  const SlotPriority(this.label, this.color);
+  final String label;
+  final Color color;
+}
 
 /// Audio assignment callback with stage and path
 typedef OnAudioAssign = void Function(String stage, String audioPath);
@@ -188,9 +229,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   void initState() {
     super.initState();
     // Initialize local state from external or defaults
-    // V8: 12 sections organized by Game Flow + P13.8.6 Feature Builder
+    // V9: Phase IDs + Section IDs for two-level expand state
     _localExpandedSections = Set.from(widget.expandedSections ?? {
       'feature_builder',    // 0. Feature Builder (P13.8.6) — top priority
+      // Phase IDs (outer level)
+      'core_loop',          // Phase 1: Core Loop — most critical
+      'wins',               // Phase 2: Wins — always needed
+      // Section IDs (inner level, expanded within phases)
       'base_game_loop',     // 1. Primary — most used
       'symbols',            // 2. Primary
       'win_presentation',   // 3. Primary
@@ -289,7 +334,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       }
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         setState(() {
-          if (_selectedSectionIndex < 11) _selectedSectionIndex++; // 12 sections (0-11)
+          if (_selectedSectionIndex < 6) _selectedSectionIndex++; // 7 phases (0-6)
         });
         return KeyEventResult.handled;
       }
@@ -355,26 +400,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   // P13.8.6: Feature Builder Generated Stages (FIRST - highest priority)
                   if (widget.generatedStages != null && widget.generatedStages!.isNotEmpty)
                     _buildSection(_FeatureBuilderSection(widget: widget)),
-                  // V8: 12 sections organized by Game Flow
-                  // PRIMARY (80% workflow)
-                  _buildSection(_BaseGameLoopSection(widget: widget)),     // 1. Base Game Loop
-                  _buildSection(_SymbolsSection(widget: widget)),          // 2. Symbols & Lands
-                  _buildSection(_WinPresentationSection(widget: widget)),  // 3. Win Presentation
-                  // SECONDARY (15% workflow)
-                  _buildSection(_CascadingSection(widget: widget)),        // 4. Cascading Mechanics
-                  _buildSection(_MultipliersSection(widget: widget)),      // 5. Multipliers
-                  // FEATURE (feature-specific)
-                  _buildSection(_FreeSpinsSection(widget: widget)),        // 6. Free Spins
-                  _buildSection(_BonusGamesSection(widget: widget)),       // 7. Bonus Games
-                  _buildSection(_HoldAndWinSection(widget: widget)),       // 8. Hold & Win
-                  // PREMIUM (regulatory)
-                  _buildSection(_JackpotsSection(widget: widget)),         // 9. Jackpots 🏆
-                  // OPTIONAL
-                  _buildSection(_GambleSection(widget: widget)),           // 10. Gamble
-                  // BACKGROUND
-                  _buildSection(_MusicSection(widget: widget)),            // 11. Music & Ambience
-                  // UTILITY
-                  _buildSection(_UISystemSection(widget: widget)),         // 12. UI & System
+                  // V9: 7 Phases organized by Game Flow
+                  ..._buildPhases().map((phase) => _buildPhase(phase)),
                 ],
               ),
             ),
@@ -581,6 +608,250 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             ),
         ],
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V9: Phase header with completion ring, priority badge, and sections
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Build 7 phases from widget data — called in build()
+  List<_PhaseConfig> _buildPhases() {
+    return [
+      _PhaseConfig(
+        id: 'core_loop',
+        title: 'CORE LOOP',
+        icon: '🎰',
+        color: const Color(0xFF4A9EFF),
+        priority: SlotPriority.p0,
+        description: 'Spin → Stops → Symbols — must-have',
+        sections: [
+          _BaseGameLoopSection(widget: widget),
+          _SymbolsSection(widget: widget),
+        ],
+      ),
+      _PhaseConfig(
+        id: 'wins',
+        title: 'WINS',
+        icon: '🏅',
+        color: const Color(0xFFFFD700),
+        priority: SlotPriority.p0,
+        description: 'Lines, rollup, cascade, multipliers',
+        sections: [
+          _WinPresentationSection(widget: widget),
+          _CascadingSection(widget: widget),
+          _MultipliersSection(widget: widget),
+        ],
+      ),
+      _PhaseConfig(
+        id: 'features',
+        title: 'FEATURES',
+        icon: '🎁',
+        color: const Color(0xFF40FF90),
+        priority: SlotPriority.p1,
+        description: 'Free Spins, Bonus, Hold & Win',
+        sections: [
+          _FreeSpinsSection(widget: widget),
+          _BonusGamesSection(widget: widget),
+          _HoldAndWinSection(widget: widget),
+        ],
+      ),
+      _PhaseConfig(
+        id: 'jackpots',
+        title: 'JACKPOTS',
+        icon: '🏆',
+        color: const Color(0xFFFFD700),
+        priority: SlotPriority.p1,
+        description: 'Trigger → Reveal → Celebrate',
+        sections: [
+          _JackpotsSection(widget: widget),
+        ],
+      ),
+      _PhaseConfig(
+        id: 'gamble',
+        title: 'GAMBLE',
+        icon: '🎲',
+        color: const Color(0xFFFF6B6B),
+        priority: SlotPriority.p2,
+        description: 'Double-or-nothing (optional)',
+        sections: [
+          _GambleSection(widget: widget),
+        ],
+      ),
+      _PhaseConfig(
+        id: 'music',
+        title: 'MUSIC & AMBIENCE',
+        icon: '🎵',
+        color: const Color(0xFF9370DB),
+        priority: SlotPriority.p1,
+        description: 'Background loops, stingers, ambient',
+        sections: [
+          _MusicSection(widget: widget),
+        ],
+      ),
+      _PhaseConfig(
+        id: 'ui_system',
+        title: 'UI & SYSTEM',
+        icon: '🖥️',
+        color: const Color(0xFF808080),
+        priority: SlotPriority.p2,
+        description: 'Buttons, menus, notifications',
+        sections: [
+          _UISystemSection(widget: widget),
+        ],
+      ),
+    ];
+  }
+
+  Widget _buildPhase(_PhaseConfig phase) {
+    final isExpanded = _expandedSections.contains(phase.id);
+    // Calculate totals across all sections in this phase
+    int totalSlots = 0;
+    int assignedSlots = 0;
+    for (final section in phase.sections) {
+      for (final group in section.groups) {
+        totalSlots += group.slots.length;
+        for (final slot in group.slots) {
+          if (widget.audioAssignments.containsKey(slot.stage)) {
+            assignedSlots++;
+          }
+        }
+      }
+    }
+    final percentage = totalSlots > 0 ? (assignedSlots / totalSlots * 100).toInt() : 0;
+    final isComplete = percentage == 100;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Phase header
+        InkWell(
+          onTap: () {
+            if (widget.onSectionToggle != null) {
+              widget.onSectionToggle!(phase.id);
+            } else {
+              setState(() {
+                if (isExpanded) {
+                  _localExpandedSections.remove(phase.id);
+                } else {
+                  _localExpandedSections.add(phase.id);
+                }
+              });
+            }
+          },
+          child: Container(
+            height: 34,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  phase.color.withOpacity(0.25),
+                  phase.color.withOpacity(0.08),
+                ],
+              ),
+              border: Border(
+                bottom: BorderSide(color: phase.color.withOpacity(0.3)),
+                left: BorderSide(color: phase.color, width: 3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isExpanded ? Icons.expand_more : Icons.chevron_right,
+                  size: 16,
+                  color: phase.color,
+                ),
+                const SizedBox(width: 4),
+                Text(phase.icon, style: const TextStyle(fontSize: 14)),
+                const SizedBox(width: 6),
+                Text(
+                  phase.title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: phase.color,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Priority badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: phase.priority.color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: phase.priority.color.withOpacity(0.5),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Text(
+                    phase.priority.label,
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: phase.priority.color,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                // Slot count
+                Text(
+                  '$assignedSlots/$totalSlots',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
+                    color: phase.color.withOpacity(0.7),
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Completion ring
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: percentage / 100,
+                        strokeWidth: 2.5,
+                        backgroundColor: Colors.white.withOpacity(0.1),
+                        color: isComplete
+                            ? FluxForgeTheme.accentGreen
+                            : _getPercentageColor(percentage),
+                      ),
+                      if (isComplete)
+                        Icon(Icons.check, size: 10, color: FluxForgeTheme.accentGreen)
+                      else
+                        Text(
+                          '$percentage',
+                          style: TextStyle(
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                            color: _getPercentageColor(percentage),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Phase content — render each section inside this phase
+        if (isExpanded)
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(color: phase.color.withOpacity(0.15), width: 3),
+              ),
+            ),
+            child: Column(
+              children: phase.sections.map((section) => _buildSection(section)).toList(),
+            ),
+          ),
+      ],
     );
   }
 
@@ -872,15 +1143,32 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             ),
             child: Row(
               children: [
-                // Stage label (reduced width to prevent overflow)
+                // Bus routing badge (V9)
+                Tooltip(
+                  message: '${slot.bus.label} bus',
+                  waitDuration: const Duration(milliseconds: 500),
+                  child: Container(
+                    width: 14,
+                    height: 26,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: slot.bus.color.withOpacity(0.15),
+                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(3)),
+                    ),
+                    child: Text(
+                      slot.bus.icon,
+                      style: const TextStyle(fontSize: 8),
+                    ),
+                  ),
+                ),
+                // Stage label
                 Container(
-                  width: 70,
+                  width: 62,
                   height: 26,
                   alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.only(left: 3),
                   decoration: BoxDecoration(
                     color: accentColor.withOpacity(0.1),
-                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(3)),
                   ),
                   child: Text(
                     slot.label,
@@ -1167,29 +1455,18 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   /// P3-17: Get total slot count and unassigned count for filter display
+  /// V9: Uses phases to aggregate across all sections
   (int total, int unassigned) _getUnassignedStats() {
     int total = 0;
     int unassigned = 0;
-    final sections = [
-      _BaseGameLoopSection(widget: widget),
-      _SymbolsSection(widget: widget),
-      _WinPresentationSection(widget: widget),
-      _CascadingSection(widget: widget),
-      _MultipliersSection(widget: widget),
-      _FreeSpinsSection(widget: widget),
-      _BonusGamesSection(widget: widget),
-      _HoldAndWinSection(widget: widget),
-      _JackpotsSection(widget: widget),
-      _GambleSection(widget: widget),
-      _MusicSection(widget: widget),
-      _UISystemSection(widget: widget),
-    ];
-    for (final section in sections) {
-      for (final group in section.groups) {
-        for (final slot in group.slots) {
-          total++;
-          if (!widget.audioAssignments.containsKey(slot.stage)) {
-            unassigned++;
+    for (final phase in _buildPhases()) {
+      for (final section in phase.sections) {
+        for (final group in section.groups) {
+          for (final slot in group.slots) {
+            total++;
+            if (!widget.audioAssignments.containsKey(slot.stage)) {
+              unassigned++;
+            }
           }
         }
       }
@@ -1588,6 +1865,111 @@ class _SlotConfig {
   final String label;
 
   const _SlotConfig({required this.stage, required this.label});
+
+  /// V9: Resolve bus routing from stage name pattern
+  SlotBus get bus => _resolveSlotBus(stage);
+
+  /// V9: Resolve priority from stage name pattern
+  SlotPriority get priority => _resolveSlotPriority(stage);
+}
+
+/// V9: Determine audio bus from stage name using pattern matching
+SlotBus _resolveSlotBus(String stage) {
+  final s = stage.toUpperCase();
+
+  // Music bus — looping, background, ambient, stingers
+  if (s.startsWith('MUSIC_') || s.startsWith('AMBIENT_') ||
+      s.startsWith('ATTRACT_') || s.startsWith('IDLE_') ||
+      s.contains('_MUSIC') || s.contains('_LOOP') && !s.contains('REEL') ||
+      s == 'BIG_WIN_LOOP' || s.startsWith('MUSIC_STINGER')) {
+    return SlotBus.music;
+  }
+
+  // Reels bus — reel mechanics
+  if (s.startsWith('REEL_') || s.startsWith('SPIN_') ||
+      s.startsWith('ANTICIPATION_') || s == 'QUICK_STOP' ||
+      s == 'SLAM_STOP' || s == 'SLAM_STOP_IMPACT' ||
+      s.startsWith('TURBO_SPIN')) {
+    return SlotBus.reels;
+  }
+
+  // UI bus — interface sounds
+  if (s.startsWith('UI_') || s.startsWith('AUTOPLAY_') ||
+      s.startsWith('GAME_') || s.startsWith('BUY_') ||
+      s.startsWith('ANTE_') || s.startsWith('SUPER_BET') ||
+      s.startsWith('TURBO_MODE')) {
+    return SlotBus.ui;
+  }
+
+  // Voice bus — voice-overs
+  if (s.contains('_VOICE') || s.contains('_VO') ||
+      s.startsWith('ANNOUNCE') || s.startsWith('NARRATOR')) {
+    return SlotBus.voice;
+  }
+
+  // Ambience bus — ambient sounds
+  if (s.startsWith('AMBIENT_')) {
+    return SlotBus.ambience;
+  }
+
+  // Default: SFX bus (wins, symbols, features, jackpots, etc.)
+  return SlotBus.sfx;
+}
+
+/// V9: Determine priority from stage name using pattern matching
+SlotPriority _resolveSlotPriority(String stage) {
+  final s = stage.toUpperCase();
+
+  // P0: Critical — core loop that EVERY slot game needs
+  if (s == 'SPIN_START' || s == 'SPIN_END' || s == 'NO_WIN' ||
+      s.startsWith('REEL_STOP') || s == 'REEL_SPIN_LOOP' ||
+      s == 'WIN_PRESENT' || s == 'ROLLUP_START' || s == 'ROLLUP_TICK' ||
+      s == 'ROLLUP_END' || s.startsWith('WIN_LINE_') ||
+      s == 'WIN_SYMBOL_HIGHLIGHT' || s == 'EVALUATE_WINS' ||
+      s == 'ANTICIPATION_ON' || s == 'ANTICIPATION_OFF' ||
+      s.startsWith('SYMBOL_LAND')) {
+    return SlotPriority.p0;
+  }
+
+  // P2: Optional — polish, edge cases, gamble, ambient variants
+  if (s.startsWith('GAMBLE_') || s.startsWith('AMBIENT_') ||
+      s.startsWith('UI_SLIDER') || s.startsWith('UI_TOGGLE') ||
+      s.startsWith('UI_POPUP') || s.startsWith('UI_LOADING') ||
+      s.startsWith('NEAR_MISS_REEL') || s.startsWith('BOSS_') ||
+      s.startsWith('TRAIL_') || s.startsWith('DICE_') ||
+      s.startsWith('BOARD_') || s.startsWith('LEVEL_') ||
+      s.startsWith('MUST_HIT') || s.startsWith('HOT_DROP') ||
+      s.startsWith('MUSIC_STING') || s.startsWith('MUSIC_DUCK') ||
+      s.startsWith('MUSIC_CROSSFADE') || s.startsWith('MUSIC_TRANSITION')) {
+    return SlotPriority.p2;
+  }
+
+  // Default: P1 — important but not critical
+  return SlotPriority.p1;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// V9: Phase — groups related sections into game flow phases
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _PhaseConfig {
+  final String id;
+  final String title;
+  final String icon;
+  final Color color;
+  final SlotPriority priority;
+  final String description;
+  final List<_SectionConfig> sections;
+
+  const _PhaseConfig({
+    required this.id,
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.priority,
+    required this.description,
+    required this.sections,
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

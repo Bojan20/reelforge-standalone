@@ -266,19 +266,14 @@ class ReelAnimationState {
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // AUDIO SYNC (2026-02-02): Fire audio when reel VISUALLY reaches target
+      // AUDIO SYNC (2026-02-14): Fire audio at t=0.6 — just before visual snap
       //
-      // Instead of using a fixed t threshold (which doesn't account for lerp),
-      // we check when scrollOffset is within 0.5 symbols of target.
-      // This ensures audio plays at the EXACT moment of visual landing.
-      //
-      // Previous bug: t >= 0.98 fired audio before visual reached target because
-      // the lerp from t=0.7 to t=1.0 only moves 28% of the way at t=0.98.
+      // Lerp to target begins at t=0.7. Audio needs a tiny head start (~25ms)
+      // to compensate for audio system latency, so the sound hits the ear
+      // at the same instant the reel visually snaps into place.
       // ═══════════════════════════════════════════════════════════════════════════
-      final distanceToTarget = (scrollOffset - targetSymbolOffset).abs();
-      if (distanceToTarget < 0.5 && !_audioCallbackFired) {
+      if (t >= 0.6 && !_audioCallbackFired) {
         _audioCallbackFired = true;
-        // NOTE: onReelStop callback will be invoked in tick() loop below
         _audioShouldFireThisTick = true;
       }
     } else if (elapsedMs < bounceEnd) {
@@ -625,18 +620,26 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
       state.update(elapsed, _targetGrid.length > i ? _targetGrid[i] : []);
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // AUDIO PRE-TRIGGER SYNC (2026-02-01): Fire audio during deceleration phase
+      // AUDIO SYNC (2026-02-14): Fire reel stop audio in sync with visual landing
       //
-      // Visual landing happens at t > 0.7 during deceleration (when lerp starts).
-      // At t = 0.95, reel is visually 95% settled at target position.
-      // This is when _audioShouldFireThisTick flag is set in update() method.
-      //
-      // Previous bug: Audio fired when entering BOUNCING phase (~100ms AFTER visual
-      // landing), causing noticeable audio lag.
+      // Primary: _audioShouldFireThisTick set at t=0.85 during deceleration
+      //          (reel velocity near zero, visually appears to have landed)
+      // Safety:  If reel transitions to stopped/bouncing without flag firing
+      //          (edge case: very short deceleration, force stop, etc.)
       // ═══════════════════════════════════════════════════════════════════════════
       if (state._audioShouldFireThisTick) {
-        state._audioShouldFireThisTick = false;  // Clear flag
-        onReelStop?.call(i);  // Audio triggers at visual landing (95% decel progress)
+        state._audioShouldFireThisTick = false;
+        onReelStop?.call(i);
+      } else if (!state._audioCallbackFired) {
+        final wasActive = previousPhase == ReelPhase.accelerating ||
+                          previousPhase == ReelPhase.spinning ||
+                          previousPhase == ReelPhase.decelerating;
+        final isNowLanded = state.phase == ReelPhase.stopped ||
+                            state.phase == ReelPhase.bouncing;
+        if (wasActive && isNowLanded) {
+          state._audioCallbackFired = true;
+          onReelStop?.call(i);
+        }
       }
 
       // ═══════════════════════════════════════════════════════════════════════════

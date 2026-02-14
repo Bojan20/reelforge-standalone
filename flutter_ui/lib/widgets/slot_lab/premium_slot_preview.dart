@@ -5871,29 +5871,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   void _handleSpin(SlotLabProvider provider) {
-    // ═══════════════════════════════════════════════════════════════════════════
-    // DEBUG LOGGING — Trace spin flow
-    // ═══════════════════════════════════════════════════════════════════════════
-    setState(() {
-      _debugMessage = '_handleSpin CALLED!';
-    });
-
     if (!provider.initialized) {
-      setState(() {
-        _debugMessage = 'BLOCKED: Provider not initialized!';
-      });
-      return;
-    }
-    if (provider.isPlayingStages) {
-      setState(() {
-        _debugMessage = 'BLOCKED: Already playing stages';
-      });
       return;
     }
     if (_balance < _totalBetAmount) {
-      setState(() {
-        _debugMessage = 'BLOCKED: Insufficient balance (${_balance.toStringAsFixed(2)} < ${_totalBetAmount.toStringAsFixed(2)})';
-      });
       return;
     }
 
@@ -5906,6 +5887,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         _executeSpinAfterSkip(provider);
       });
       return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FIX (2026-02-14): If previous stage playback is still running (timer-based
+    // stages like WIN_PRESENT, ROLLUP, SPIN_END), stop it before starting new spin.
+    // Previously this blocked with "Already playing stages" which prevented the
+    // user from starting a new spin after reels had visually stopped.
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (provider.isPlayingStages) {
+      provider.stopStagePlayback();
     }
 
     // No presentation active — proceed immediately with spin
@@ -5957,7 +5948,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   void _handleForcedSpin(SlotLabProvider provider, ForcedOutcome outcome) {
-    if (provider.isPlayingStages) return;
+    if (!provider.initialized) return;
     if (_balance < _totalBetAmount) return;
 
     // V13: Handle skip with fade-out for forced spin as well
@@ -5966,6 +5957,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         _executeForcedSpinAfterSkip(provider, outcome);
       });
       return;
+    }
+
+    // FIX (2026-02-14): If previous stage playback is still running (timer-based
+    // stages like WIN_PRESENT, ROLLUP, SPIN_END), stop it before starting new spin.
+    if (provider.isPlayingStages) {
+      provider.stopStagePlayback();
     }
 
     _executeForcedSpinAfterSkip(provider, outcome);
@@ -6703,12 +6700,14 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   Widget build(BuildContext context) {
     final provider = context.watch<SlotLabProvider>();
     final projectProvider = context.watch<SlotLabProjectProvider>();
-    // isSpinning: True during all stages (spin + win presentation) — for disabling Spin button
-    final isSpinning = provider.isPlayingStages;
     // isReelsSpinning: True ONLY while reels are visually spinning — for STOP button
     final isReelsActuallySpinning = provider.isReelsSpinning;
     final isInitialized = provider.initialized;
-    final canSpin = isInitialized && _balance >= _totalBetAmount && !isSpinning;
+    // FIX (2026-02-14): canSpin should only be blocked when reels are VISUALLY spinning.
+    // Previously used isPlayingStages which stayed true during win presentation timers,
+    // blocking the user from starting a new spin after reels had visually stopped.
+    // _handleSpin() internally calls stopStagePlayback() if stages are still running.
+    final canSpin = isInitialized && _balance >= _totalBetAmount && !isReelsActuallySpinning;
     final sessionRtp = _sessionTotalBet > 0 ? (_totalWin / _sessionTotalBet * 100) : 0.0;
     // Get GDD symbols from project provider (if imported)
     final gddSymbols = projectProvider.gddSymbols;
@@ -6795,8 +6794,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   // WAYS/PAYLINES from GDD (if available)
                   waysCount: projectProvider.gridConfig?.ways,
                   paylinesCount: projectProvider.gridConfig?.paylines ?? 20, // default 20 paylines
-                  // Spin controls
-                  isSpinning: isSpinning,
+                  // Spin controls — isSpinning disables bet controls during active spin/win
+                  isSpinning: provider.isPlayingStages || isReelsActuallySpinning,
                   showStopButton: isReelsActuallySpinning,
                   isAutoSpin: _isAutoSpin,
                   autoSpinCount: _autoSpinRemaining,
