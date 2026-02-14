@@ -343,7 +343,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       focusNode: _panelFocusNode,
       onKeyEvent: _handleKeyEvent,
       child: Container(
-        color: const Color(0xFF0D0D10),
+        clipBehavior: Clip.hardEdge,
+        decoration: const BoxDecoration(
+          color: Color(0xFF0D0D10),
+        ),
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -761,17 +764,21 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 ),
                 const SizedBox(width: 4),
                 Text(phase.icon, style: const TextStyle(fontSize: 14)),
-                const SizedBox(width: 6),
-                Text(
-                  phase.title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: phase.color,
-                    letterSpacing: 0.8,
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    phase.title,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: phase.color,
+                      letterSpacing: 0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 // Priority badge
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -895,14 +902,18 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   config.icon,
                   style: const TextStyle(fontSize: 14),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  config.title,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: config.color,
-                    letterSpacing: 0.5,
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    config.title,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: config.color,
+                      letterSpacing: 0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
                 const Spacer(),
@@ -2509,13 +2520,6 @@ class _WinPresentationSection extends _SectionConfig {
         _SlotConfig(stage: 'BIG_WIN_TIER_3', label: 'Big Win Tier 3 (100x-250x)'),
         _SlotConfig(stage: 'BIG_WIN_TIER_4', label: 'Big Win Tier 4 (250x-500x)'),
         _SlotConfig(stage: 'BIG_WIN_TIER_5', label: 'Big Win Tier 5 (500x+)'),
-        _SlotConfig(stage: 'BIG_WIN_INTRO', label: 'Big Win Intro'),
-        _SlotConfig(stage: 'BIG_WIN_LOOP', label: 'Big Win Loop'),
-        _SlotConfig(stage: 'BIG_WIN_COINS', label: 'Big Win Coins'),
-        _SlotConfig(stage: 'BIG_WIN_IMPACT', label: 'Big Win Impact'),
-        _SlotConfig(stage: 'BIG_WIN_UPGRADE', label: 'Big Win Upgrade'),
-        _SlotConfig(stage: 'BIG_WIN_END', label: 'Big Win End'),
-        _SlotConfig(stage: 'BIG_WIN_OUTRO', label: 'Big Win Outro'),
       ]);
     }
 
@@ -2529,7 +2533,6 @@ class _WinPresentationSection extends _SectionConfig {
           _SlotConfig(stage: 'WIN_EVAL', label: 'Win Evaluate'),
           _SlotConfig(stage: 'WIN_DETECTED', label: 'Win Detected'),
           _SlotConfig(stage: 'WIN_CALCULATE', label: 'Win Calculate'),
-          _SlotConfig(stage: 'NO_WIN', label: 'No Win'),
         ],
       ),
       // ─── WIN LINES ⚡ (pooled) ───
@@ -3014,8 +3017,6 @@ class _BonusGamesSection extends _SectionConfig {
         _SlotConfig(stage: 'ANTE_BET_DEACTIVATE', label: 'Ante Bet Off'),
         _SlotConfig(stage: 'SUPER_BET_ACTIVATE', label: 'Super Bet On'),
         _SlotConfig(stage: 'SUPER_BET_DEACTIVATE', label: 'Super Bet Off'),
-        _SlotConfig(stage: 'FEATURE_METER_INCREMENT', label: 'Meter +'),
-        _SlotConfig(stage: 'FEATURE_METER_FULL', label: 'Meter Full'),
         _SlotConfig(stage: 'TURBO_MODE_ACTIVATE', label: 'Turbo Activate'),
         _SlotConfig(stage: 'TURBO_MODE_DEACTIVATE', label: 'Turbo Deactivate'),
       ],

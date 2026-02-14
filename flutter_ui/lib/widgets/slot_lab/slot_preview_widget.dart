@@ -1281,6 +1281,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Notify provider: Reels no longer spinning (for STOP button visibility)
     widget.provider.onAllReelsVisualStop();
 
+    // Trigger SPIN_END immediately when last reel visually lands
+    // This is the "base end game" stage — signals spin completion
+    eventRegistry.triggerStage('SPIN_END');
+
     // Finalize with the result
     final result = widget.provider.lastResult;
     if (result != null) {

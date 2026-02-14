@@ -2416,8 +2416,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                         final stageResult = featureBuilderProvider.generateStages();
                         final generatedStages = stageResult.isValid ? stageResult.stages : null;
 
-                        return SizedBox(
+                        return Container(
                           width: 240,
+                          clipBehavior: Clip.hardEdge,
+                          decoration: const BoxDecoration(),
                           child: UltimateAudioPanel(
                             audioAssignments: projectProvider.audioAssignments,
                             symbols: projectProvider.symbols,
@@ -2688,13 +2690,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       },
                     ), // End of if (actualShowLeft) Consumer2 (P13.8.6)
 
-                        // CENTER: Premium Slot Preview (with min width constraint)
+                        // CENTER: Premium Slot Preview
                         Expanded(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minWidth: _minCenterWidth),
-                            child: Center(
-                              child: _buildMockSlot(),
-                            ),
+                          child: ClipRect(
+                            child: _buildMockSlot(),
                           ),
                         ),
 
@@ -8143,6 +8142,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   Widget _buildMockSlot() {
     return Container(
       margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(), // Required for clipBehavior
       child: PremiumSlotPreview(
         key: ValueKey('premium_slot_${_reelCount}x$_rowCount'),
         onExit: () {}, // Embedded mode - no fullscreen exit
