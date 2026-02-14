@@ -5337,6 +5337,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       return;
     }
 
+    final provider = context.read<SlotLabProvider>();
+
+    // Stop ALL stage playback timers immediately
+    if (provider.isPlayingStages) {
+      provider.stopStagePlayback();
+    }
 
     // Stop ALL win-related audio immediately
     final eventRegistry = EventRegistry.instance;
@@ -5355,20 +5361,24 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       eventRegistry.stopEvent('BIG_WIN_TIER_$tier');
     }
 
-    // Trigger WIN_COLLECT stage (short "collect" sound)
+    // Trigger END stages so designers can have "win end" sounds
+    eventRegistry.triggerStage('ROLLUP_END');
+    if (_currentWinTier.isNotEmpty) {
+      eventRegistry.triggerStage('BIG_WIN_END');
+      eventRegistry.triggerStage('WIN_PRESENT_END');
+    }
     eventRegistry.triggerStage('WIN_COLLECT');
 
-    // Show final total immediately in UI (update plaque to show TOTAL WIN)
+    // Collect win IMMEDIATELY — no delay, SPIN button appears right away
+    _stopBigWinProtection();
     setState(() {
-      _currentWinTier = 'TOTAL'; // This shows "TOTAL WIN" plaque
+      _balance += _pendingWinAmount;
+      _pendingWinAmount = 0.0;
+      _showWinPresenter = false;
+      _showGambleScreen = false;
+      _currentWinTier = '';
     });
-
-    // Short delay for collect sound, then finalize
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (mounted) {
-        _collectWin();
-      }
-    });
+    provider.setWinPresentationActive(false);
   }
 
   // === HANDLERS ===
@@ -6700,6 +6710,17 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   Widget build(BuildContext context) {
     final provider = context.watch<SlotLabProvider>();
     final projectProvider = context.watch<SlotLabProjectProvider>();
+
+    // FIX: React to external skipRequested (e.g. from global SPACE handler in embedded mode)
+    // The slot_preview_widget handles the fade-out via _executeSkipFadeOut(),
+    // but premium_slot_preview needs to clean up its local state too.
+    if (provider.skipRequested && _showWinPresenter) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _handleSkipWinPresentation();
+      });
+    }
+
     // isReelsSpinning: True ONLY while reels are visually spinning — for STOP button
     final isReelsActuallySpinning = provider.isReelsSpinning;
     final isInitialized = provider.initialized;

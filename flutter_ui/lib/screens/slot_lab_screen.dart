@@ -410,7 +410,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
   // QUICK ASSIGN MODE (P3-19)
   // ═══════════════════════════════════════════════════════════════════════════
-  bool _quickAssignMode = false;
+  bool _quickAssignMode = true;
   String? _quickAssignSelectedSlot;
 
   /// P3-19: Handle Quick Assign — reuses existing audio assignment logic
@@ -995,22 +995,33 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // SPACE KEY LOGIC (matches premium_slot_preview.dart):
     //
     // - isReelsSpinning = true ONLY while reels are visually spinning
-    // - isPlayingStages = true during BOTH spin AND win presentation
+    // - isWinPresentationActive = true ONLY during win presentation
     //
-    // Correct behavior:
+    // Correct behavior (IGT, NetEnt, Pragmatic Play standard):
     // - During reel spin → STOP (stop reels immediately)
-    // - During win presentation → SPIN (skip presentation, start new spin)
+    // - During win presentation → SKIP (skip to end, do NOT start new spin!)
     // - Idle → SPIN (start new spin)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    // STOP only when reels are actually spinning (not during win presentation)
-    if (_hasSlotLabProvider && _slotLabProvider.isReelsSpinning) {
+    if (!_hasSlotLabProvider) return false;
+
+    // STOP only when reels are actually spinning
+    if (_slotLabProvider.isReelsSpinning) {
       _slotLabProvider.stopStagePlayback();
       return true; // Handled
     }
 
-    // Either idle OR win presentation — start new spin
-    if (_hasSlotLabProvider && _slotLabProvider.initialized) {
+    // SKIP win presentation — do NOT start a new spin!
+    if (_slotLabProvider.isWinPresentationActive) {
+      // Request skip with empty callback — skip only, no spin after
+      _slotLabProvider.requestSkipPresentation(() {
+        // No-op: just skip, don't auto-spin
+      });
+      return true; // Handled — SPIN button appears, user must press again
+    }
+
+    // Idle → SPIN
+    if (_slotLabProvider.initialized) {
       _slotLabProvider.spin();
       return true; // Handled
     }
