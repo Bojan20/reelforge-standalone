@@ -290,54 +290,51 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
-    final isCtrlOrCmd = event.logicalKey == LogicalKeyboardKey.controlLeft ||
-        event.logicalKey == LogicalKeyboardKey.controlRight ||
-        event.logicalKey == LogicalKeyboardKey.metaLeft ||
-        event.logicalKey == LogicalKeyboardKey.metaRight;
+    // When search field has focus, let TextField handle ALL key events
+    // (typing, space, backspace, arrows, etc.) — only intercept Escape
+    if (_searchFocusNode.hasFocus) {
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        if (_searchQuery.isNotEmpty) {
+          setState(() {
+            _searchQuery = '';
+            _searchController.clear();
+          });
+        } else {
+          _searchFocusNode.unfocus();
+          _panelFocusNode.requestFocus();
+        }
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    // --- Below: search field does NOT have focus ---
 
     // Cmd/Ctrl+F: Focus search
-    if (isCtrlOrCmd && HardwareKeyboard.instance.isLogicalKeyPressed(LogicalKeyboardKey.keyF)) {
-      _searchFocusNode.requestFocus();
-      return KeyEventResult.handled;
+    if (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed) {
+      if (event.logicalKey == LogicalKeyboardKey.keyF) {
+        _searchFocusNode.requestFocus();
+        return KeyEventResult.handled;
+      }
     }
 
-    // Escape: Clear search and unfocus
+    // Escape: unfocus panel
     if (event.logicalKey == LogicalKeyboardKey.escape) {
-      if (_searchQuery.isNotEmpty) {
-        setState(() {
-          _searchQuery = '';
-          _searchController.clear();
-        });
-      } else {
-        _searchFocusNode.unfocus();
-        _panelFocusNode.requestFocus();
-      }
+      return KeyEventResult.ignored;
+    }
+
+    // Arrow keys: Navigate sections/groups
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      setState(() {
+        if (_selectedSectionIndex > 0) _selectedSectionIndex--;
+      });
       return KeyEventResult.handled;
     }
-
-    // Space: Play first assigned slot (if any)
-    if (event.logicalKey == LogicalKeyboardKey.space && !_searchFocusNode.hasFocus) {
-      final firstAssigned = widget.audioAssignments.entries.firstOrNull;
-      if (firstAssigned != null) {
-        _togglePreview(firstAssigned.key, firstAssigned.value);
-        return KeyEventResult.handled;
-      }
-    }
-
-    // Arrow keys: Navigate sections/groups (when not in search)
-    if (!_searchFocusNode.hasFocus) {
-      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        setState(() {
-          if (_selectedSectionIndex > 0) _selectedSectionIndex--;
-        });
-        return KeyEventResult.handled;
-      }
-      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-        setState(() {
-          if (_selectedSectionIndex < 6) _selectedSectionIndex++; // 7 phases (0-6)
-        });
-        return KeyEventResult.handled;
-      }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      setState(() {
+        if (_selectedSectionIndex < 6) _selectedSectionIndex++; // 7 phases (0-6)
+      });
+      return KeyEventResult.handled;
     }
 
     return KeyEventResult.ignored;
@@ -1299,14 +1296,19 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Status icon
-                        Icon(
-                          hasEvent ? Icons.check_circle : Icons.warning_amber,
-                          size: 12,
-                          color: hasEvent
-                              ? FluxForgeTheme.accentGreen.withOpacity(0.8)
-                              : Colors.orange.withOpacity(0.5),
-                        ),
+                        // Status icon — hide warning when audio is assigned
+                        if (hasAudio)
+                          Icon(
+                            Icons.check_circle,
+                            size: 12,
+                            color: FluxForgeTheme.accentGreen.withOpacity(0.8),
+                          )
+                        else if (!hasEvent)
+                          Icon(
+                            Icons.warning_amber,
+                            size: 12,
+                            color: Colors.orange.withOpacity(0.5),
+                          ),
                         const SizedBox(width: 4),
                         // Event count badge
                         if (eventCount > 0)
