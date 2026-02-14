@@ -3634,6 +3634,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     middleware.updateEventLayer(composite.id, updatedLayer);
     // Trigger setState so inspector (outside Consumer) sees updated data
     setState(() {});
+    // Sync header/layer row so all UI stays in sync
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncHeaderFromSelectedLayer();
+    });
   }
 
   /// Sync header controls from selected SlotEventLayer (for quick editing)
@@ -5941,7 +5945,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                           _CommandIconBtn(icon: Icons.add, tooltip: 'Add Layer', onTap: () => _showAddActionDialog(), color: FluxForgeTheme.accentGreen),
                           _CommandIconBtn(icon: Icons.play_arrow_rounded, tooltip: 'Preview', onTap: _previewEvent, color: FluxForgeTheme.accentCyan),
                           _CommandIconBtn(icon: Icons.copy_rounded, tooltip: 'Duplicate', onTap: _selectedActionIndex >= 0 ? () => _duplicateAction(_selectedActionIndex) : null),
-                          _CommandIconBtn(icon: Icons.delete_outline_rounded, tooltip: 'Delete', onTap: _selectedActionIndex >= 0 ? () => _deleteAction(_selectedActionIndex) : null, color: FluxForgeTheme.accentRed),
+                          _CommandIconBtn(icon: Icons.delete_outline_rounded, tooltip: 'Delete Layer', onTap: () {
+                            final comp = selectedComposite;
+                            final li = _selectedLayerIndex;
+                            if (comp == null || li < 0 || li >= comp.layers.length) return;
+                            _deleteLayer(comp, li);
+                          }, color: FluxForgeTheme.accentRed),
                         ],
                       ),
 
@@ -6541,74 +6550,76 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       children: [
                         // Index
                         SizedBox(width: 18, child: Center(child: Text('${idx + 1}', style: TextStyle(fontSize: 11, color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary, fontWeight: FontWeight.w700)))),
-                        // Type dropdown with label
-                        Column(mainAxisSize: MainAxisSize.min, children: [
+                        // Type dropdown with label — fixed width
+                        SizedBox(width: 72, child: Column(mainAxisSize: MainAxisSize.min, children: [
                           const Text('Type', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
                           const SizedBox(height: 2),
-                          _CellDropdown(value: layer.actionType, options: const ['Play', 'Stop', 'Pause', 'Resume', 'SetVolume', 'StopAll'], color: _getTypeColor(layer.actionType), onChanged: (val) => _updateLayer(event, idx, layer.copyWith(actionType: val), provider)),
-                        ]),
+                          _CellDropdown(value: layer.actionType, options: kActionTypes, color: _getTypeColor(layer.actionType), onChanged: (val) => _updateLayer(event, idx, layer.copyWith(actionType: val), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
+                        ])),
                         const SizedBox(width: 3),
-                        // Bus dropdown with label
-                        Column(mainAxisSize: MainAxisSize.min, children: [
+                        // Bus dropdown with label — fixed width
+                        SizedBox(width: 68, child: Column(mainAxisSize: MainAxisSize.min, children: [
                           const Text('Bus', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
                           const SizedBox(height: 2),
-                          _CellDropdown(value: _busIdToName(layer.busId), options: const ['Master', 'Music', 'SFX', 'Voice', 'UI', 'Ambience'], color: FluxForgeTheme.accentCyan, onChanged: (val) => _updateLayer(event, idx, layer.copyWith(busId: _busNameToId(val)), provider)),
-                        ]),
+                          _CellDropdown(value: _busIdToName(layer.busId), options: const ['Master', 'Music', 'SFX', 'Voice', 'UI', 'Ambience'], color: FluxForgeTheme.accentCyan, onChanged: (val) => _updateLayer(event, idx, layer.copyWith(busId: _busNameToId(val)), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
+                        ])),
                         const SizedBox(width: 3),
-                        // Asset dropdown with label
-                        Flexible(flex: 2, child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        // Asset dropdown with label — fixed width
+                        SizedBox(width: 120, child: Column(mainAxisSize: MainAxisSize.min, children: [
                           const Text('Asset', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
                           const SizedBox(height: 2),
                           _CellDropdown(value: assetName, options: assetOptions, color: FluxForgeTheme.accentCyan, onChanged: (val) {
                             final path = val.isEmpty ? '' : _audioPool.firstWhere((f) => f.name == val, orElse: () => _audioPool.first).path;
                             _updateLayer(event, idx, layer.copyWith(audioPath: path), provider);
-                          }),
+                          }, onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
                         ])),
                         const SizedBox(width: 4),
                         // All param boxes — expand to fill available space
-                        Expanded(flex: 5, child: Row(
+                        Expanded(flex: 5, child: Builder(builder: (context) {
+                          final durMs = (layer.durationSeconds ?? 60.0) * 1000.0;
+                          return Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Expanded(child: _ParamBox(label: 'Vol', value: layer.volume, min: 0, max: 2, color: FluxForgeTheme.accentGreen, format: (v) => '${(v * 100).toInt()}%', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(volume: v), provider), defaultValue: 1.0)),
+                            Expanded(child: _ParamBox(label: 'Vol', value: layer.volume, min: 0, max: 1, color: FluxForgeTheme.accentGreen, format: (v) => v >= 1.0 ? '1' : v.toStringAsFixed(2), onChanged: (v) => _updateLayer(event, idx, layer.copyWith(volume: v), provider), defaultValue: 1.0, onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); })),
                             const SizedBox(width: 2),
-                            Expanded(child: _ParamBox(label: 'Pan', value: layer.pan, min: -1, max: 1, color: FluxForgeTheme.accentCyan, format: (v) => v.abs() < 0.01 ? 'C' : (v < 0 ? 'L${(-v * 100).toInt()}' : 'R${(v * 100).toInt()}'), onChanged: (v) => _updateLayer(event, idx, layer.copyWith(pan: v), provider))),
+                            Expanded(child: _ParamBox(label: 'Pan', value: layer.pan, min: -1, max: 1, color: FluxForgeTheme.accentCyan, format: (v) => v.abs() < 0.01 ? 'C' : (v < 0 ? 'L${(-v * 100).toInt()}' : 'R${(v * 100).toInt()}'), onChanged: (v) => _updateLayer(event, idx, layer.copyWith(pan: v), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); })),
                             const SizedBox(width: 2),
-                            Expanded(child: _ParamBox(label: 'Dly', value: layer.offsetMs, min: 0, max: 5000, color: FluxForgeTheme.accentOrange, format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(offsetMs: v), provider))),
+                            Expanded(child: _ParamBox(label: 'Dly', value: layer.offsetMs, min: 0, max: durMs, color: FluxForgeTheme.accentOrange, format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(offsetMs: v), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); })),
                             const SizedBox(width: 2),
-                            Expanded(child: _ParamBox(label: 'FdIn', value: layer.fadeInMs, min: 0, max: 2000, color: const Color(0xFF845EF7), format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(fadeInMs: v), provider))),
+                            Expanded(child: _ParamBox(label: 'FdIn', value: layer.fadeInMs, min: 0, max: durMs, color: const Color(0xFF845EF7), format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(fadeInMs: v), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); })),
                             const SizedBox(width: 2),
-                            Expanded(child: _ParamBox(label: 'FdOut', value: layer.fadeOutMs, min: 0, max: 2000, color: const Color(0xFF845EF7), format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(fadeOutMs: v), provider))),
+                            Expanded(child: _ParamBox(label: 'FdOut', value: layer.fadeOutMs, min: 0, max: durMs, color: const Color(0xFF845EF7), format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(fadeOutMs: v), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); })),
                             const SizedBox(width: 2),
-                            Expanded(child: _ParamBox(label: 'TrS', value: layer.trimStartMs, min: 0, max: 10000, color: FluxForgeTheme.accentBlue, format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(trimStartMs: v), provider))),
+                            Expanded(child: _ParamBox(label: 'TrS', value: layer.trimStartMs, min: 0, max: durMs, color: FluxForgeTheme.accentBlue, format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(trimStartMs: v), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); })),
                             const SizedBox(width: 2),
-                            Expanded(child: _ParamBox(label: 'TrE', value: layer.trimEndMs, min: 0, max: 10000, color: FluxForgeTheme.accentBlue, format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(trimEndMs: v), provider))),
+                            Expanded(child: _ParamBox(label: 'TrE', value: layer.trimEndMs, min: 0, max: durMs, color: FluxForgeTheme.accentBlue, format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(trimEndMs: v), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); })),
                           ],
-                        )),
+                        ); })),
                         const SizedBox(width: 4),
                         // M/S/L — aligned with param boxes (label spacer + 2px + control)
                         Column(mainAxisSize: MainAxisSize.min, children: [
                           const SizedBox(height: 11), // match label height (9px text + 2px gap)
-                          _LayerToggle(label: 'M', value: layer.muted, activeColor: FluxForgeTheme.accentRed, onTap: () => _updateLayer(event, idx, layer.copyWith(muted: !layer.muted), provider)),
+                          _LayerToggle(label: 'M', value: layer.muted, activeColor: FluxForgeTheme.accentRed, onTap: () => _updateLayer(event, idx, layer.copyWith(muted: !layer.muted), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
                         ]),
                         const SizedBox(width: 2),
                         Column(mainAxisSize: MainAxisSize.min, children: [
                           const SizedBox(height: 11),
-                          _LayerToggle(label: 'S', value: layer.solo, activeColor: FluxForgeTheme.accentOrange, onTap: () => _updateLayer(event, idx, layer.copyWith(solo: !layer.solo), provider)),
+                          _LayerToggle(label: 'S', value: layer.solo, activeColor: FluxForgeTheme.accentOrange, onTap: () => _updateLayer(event, idx, layer.copyWith(solo: !layer.solo), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
                         ]),
                         const SizedBox(width: 2),
                         Column(mainAxisSize: MainAxisSize.min, children: [
                           const SizedBox(height: 11),
-                          _LayerToggle(label: 'L', value: event.looping, activeColor: FluxForgeTheme.accentGreen, onTap: () => provider.updateCompositeEvent(event.copyWith(looping: !event.looping))),
+                          _LayerToggle(label: 'L', value: event.looping, activeColor: FluxForgeTheme.accentGreen, onTap: () => provider.updateCompositeEvent(event.copyWith(looping: !event.looping)), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
                         ]),
                         const SizedBox(width: 4),
                         Column(mainAxisSize: MainAxisSize.min, children: [
                           const SizedBox(height: 11),
-                          GestureDetector(onTap: () => _duplicateLayer(event, idx), child: const Icon(Icons.copy, size: 13, color: FluxForgeTheme.textTertiary)),
+                          GestureDetector(onTap: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); _duplicateLayer(event, idx); }, child: const Icon(Icons.copy, size: 13, color: FluxForgeTheme.textTertiary)),
                         ]),
                         const SizedBox(width: 3),
                         Column(mainAxisSize: MainAxisSize.min, children: [
                           const SizedBox(height: 11),
-                          GestureDetector(onTap: () => _deleteLayer(event, idx), child: const Icon(Icons.delete_outline, size: 13, color: FluxForgeTheme.textTertiary)),
+                          GestureDetector(onTap: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); _deleteLayer(event, idx); }, child: const Icon(Icons.delete_outline, size: 13, color: FluxForgeTheme.textTertiary)),
                         ]),
                       ],
                     ),
@@ -9382,21 +9393,42 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             ),
           ),
 
-        // Layer section - connected to SlotEventLayer
+        // Layer section - matches command bar order: Type, Bus, Asset, Vol, Pan, Dly, FdIn, FdOut, TrS, TrE, M, S, L
         InspectorSection(
           id: 'layer',
           title: hasLayer ? 'Layer #${_selectedLayerIndex + 1}' : 'Layer',
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Layer name (editable)
+              // Name (editable)
               _InspectorTextFieldInteractive(
                 label: 'Name',
                 value: hasLayer ? layer.name : '',
                 enabled: hasLayer,
                 onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(name: v)),
               ),
-              // Asset dropdown - show filename only, map full path to name
+              // Action Type
+              _InspectorDropdownInteractive(
+                label: 'Type',
+                value: hasLayer ? layer.actionType : 'Play',
+                options: kActionTypes,
+                enabled: hasLayer,
+                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(actionType: v)),
+              ),
+              // Bus
+              _InspectorDropdownInteractive(
+                label: 'Bus',
+                value: hasLayer && layer.busId != null && layer.busId! < kAllBuses.length
+                    ? kAllBuses[layer.busId!]
+                    : 'SFX',
+                options: kAllBuses,
+                enabled: hasLayer,
+                onChanged: (v) {
+                  final busIndex = kAllBuses.indexOf(v);
+                  _updateSelectedLayer((l) => l.copyWith(busId: busIndex >= 0 ? busIndex : null));
+                },
+              ),
+              // Asset
               Builder(builder: (context) {
                 String displayValue = '';
                 if (hasLayer && layer.audioPath.isNotEmpty) {
@@ -9421,7 +9453,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         _updateSelectedLayer((l) => l.copyWith(audioPath: newPath));
                       },
                     ),
-                    // Browse button for selecting audio file
                     Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 8),
                       child: SizedBox(
@@ -9453,61 +9484,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                   ],
                 );
               }),
-              // Bus dropdown + restart preview (bus change needs voice restart)
-              _InspectorDropdownInteractive(
-                label: 'Bus',
-                value: hasLayer && layer.busId != null && layer.busId! < kAllBuses.length
-                    ? kAllBuses[layer.busId!]
-                    : 'SFX',
-                options: kAllBuses,
-                enabled: hasLayer,
-                onChanged: (v) {
-                  final busIndex = kAllBuses.indexOf(v);
-                  _updateSelectedLayer((l) => l.copyWith(busId: busIndex >= 0 ? busIndex : null));
-                },
-              ),
-            ],
-          ),
-        ),
-
-        // Playback section
-        InspectorSection(
-          id: 'playback',
-          title: 'Playback',
-          content: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Action Type dropdown - CONNECTED
-              _InspectorDropdownInteractive(
-                label: 'Action Type',
-                value: hasLayer ? layer.actionType : 'Play',
-                options: kActionTypes,
-                enabled: hasLayer,
-                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(actionType: v)),
-              ),
-              // Loop toggle (event-level) - CONNECTED + restart preview
-              _InspectorCheckboxInteractive(
-                label: 'Loop',
-                checked: _selectedComposite?.looping ?? false,
-                enabled: _selectedComposite != null,
-                onChanged: (v) {
-                  final composite = _selectedComposite;
-                  if (composite != null) {
-                    final mw = context.read<MiddlewareProvider>();
-                    mw.updateCompositeEvent(composite.copyWith(looping: v));
-                    setState(() {});
-                  }
-                },
-              ),
+              // Volume
               _InspectorSliderInteractive(
                 label: 'Volume',
                 value: hasLayer ? layer.volume : 1.0,
                 min: 0.0,
                 max: 2.0,
                 enabled: hasLayer,
-                formatValue: (v) => '${(v * 100).toInt()}%',
+                formatValue: (v) => v <= 0.001 ? '-∞ dB' : '${(20 * math.log(v) / math.ln10).toStringAsFixed(1)} dB',
                 onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(volume: v)),
+                defaultValue: 1.0,
               ),
+              // Pan
               _InspectorSliderInteractive(
                 label: 'Pan',
                 value: hasLayer ? layer.pan : 0.0,
@@ -9517,47 +9505,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 formatValue: (v) => v == 0 ? 'C' : (v < 0 ? 'L${(-v * 100).toInt()}' : 'R${(v * 100).toInt()}'),
                 onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(pan: v)),
               ),
-              _InspectorCheckboxInteractive(
-                label: 'Muted',
-                checked: hasLayer ? layer.muted : false,
-                enabled: hasLayer,
-                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(muted: v)),
-              ),
-              _InspectorCheckboxInteractive(
-                label: 'Solo',
-                checked: hasLayer ? layer.solo : false,
-                enabled: hasLayer,
-                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(solo: v)),
-              ),
-            ],
-          ),
-        ),
-
-        // Timing section
-        InspectorSection(
-          id: 'timing',
-          title: 'Timing',
-          content: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _InspectorSliderInteractive(
-                label: 'Delay',
-                value: hasLayer ? layer.offsetMs / 1000.0 : 0.0,
-                min: 0.0,
-                max: 10.0,
-                enabled: hasLayer,
-                formatValue: (v) => '${(v * 1000).toInt()} ms',
-                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(offsetMs: v * 1000.0)),
-              ),
-              _InspectorSliderInteractive(
-                label: 'Fade In',
-                value: hasLayer ? layer.fadeInMs / 1000.0 : 0.0,
-                min: 0.0,
-                max: 2.0,
-                enabled: hasLayer,
-                formatValue: (v) => '${(v * 1000).toInt()} ms',
-                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(fadeInMs: v * 1000.0)),
-              ),
+              // Delay
+              Builder(builder: (context) {
+                final durSec = layer?.durationSeconds ?? 60.0;
+                return _InspectorSliderInteractive(
+                  label: 'Delay',
+                  value: hasLayer ? layer.offsetMs / 1000.0 : 0.0,
+                  min: 0.0,
+                  max: durSec,
+                  enabled: hasLayer,
+                  formatValue: (v) => '${(v * 1000).toInt()} ms',
+                  onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(offsetMs: v * 1000.0)),
+                );
+              }),
+              // Fade In
+              Builder(builder: (context) {
+                final durSec = layer?.durationSeconds ?? 60.0;
+                return _InspectorSliderInteractive(
+                  label: 'Fade In',
+                  value: hasLayer ? layer.fadeInMs / 1000.0 : 0.0,
+                  min: 0.0,
+                  max: durSec,
+                  enabled: hasLayer,
+                  formatValue: (v) => '${(v * 1000).toInt()} ms',
+                  onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(fadeInMs: v * 1000.0)),
+                );
+              }),
               // Fade In Curve
               _InspectorDropdownInteractive(
                 label: 'Fade In Curve',
@@ -9572,15 +9545,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                   _updateSelectedLayer((l) => l.copyWith(fadeInCurve: curve));
                 },
               ),
-              _InspectorSliderInteractive(
-                label: 'Fade Out',
-                value: hasLayer ? layer.fadeOutMs / 1000.0 : 0.0,
-                min: 0.0,
-                max: 2.0,
-                enabled: hasLayer,
-                formatValue: (v) => '${(v * 1000).toInt()} ms',
-                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(fadeOutMs: v * 1000.0)),
-              ),
+              // Fade Out
+              Builder(builder: (context) {
+                final durSec = layer?.durationSeconds ?? 60.0;
+                return _InspectorSliderInteractive(
+                  label: 'Fade Out',
+                  value: hasLayer ? layer.fadeOutMs / 1000.0 : 0.0,
+                  min: 0.0,
+                  max: durSec,
+                  enabled: hasLayer,
+                  formatValue: (v) => '${(v * 1000).toInt()} ms',
+                  onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(fadeOutMs: v * 1000.0)),
+                );
+              }),
               // Fade Out Curve
               _InspectorDropdownInteractive(
                 label: 'Fade Out Curve',
@@ -9595,26 +9572,60 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                   _updateSelectedLayer((l) => l.copyWith(fadeOutCurve: curve));
                 },
               ),
-              const SizedBox(height: 8),
               // Trim Start
-              _InspectorSliderInteractive(
-                label: 'Trim Start',
-                value: hasLayer ? layer.trimStartMs / 1000.0 : 0.0,
-                min: 0.0,
-                max: 10.0,
-                enabled: hasLayer,
-                formatValue: (v) => '${(v * 1000).toInt()} ms',
-                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(trimStartMs: v * 1000.0)),
-              ),
+              Builder(builder: (context) {
+                final durSec = layer?.durationSeconds ?? 60.0;
+                return _InspectorSliderInteractive(
+                  label: 'Trim Start',
+                  value: hasLayer ? layer.trimStartMs / 1000.0 : 0.0,
+                  min: 0.0,
+                  max: durSec,
+                  enabled: hasLayer,
+                  formatValue: (v) => '${(v * 1000).toInt()} ms',
+                  onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(trimStartMs: v * 1000.0)),
+                );
+              }),
               // Trim End
-              _InspectorSliderInteractive(
-                label: 'Trim End',
-                value: hasLayer ? layer.trimEndMs / 1000.0 : 0.0,
-                min: 0.0,
-                max: 10.0,
+              Builder(builder: (context) {
+                final durSec = layer?.durationSeconds ?? 60.0;
+                return _InspectorSliderInteractive(
+                  label: 'Trim End',
+                  value: hasLayer ? layer.trimEndMs / 1000.0 : 0.0,
+                  min: 0.0,
+                  max: durSec,
+                  enabled: hasLayer,
+                  formatValue: (v) => '${(v * 1000).toInt()} ms',
+                  onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(trimEndMs: v * 1000.0)),
+                );
+              }),
+              const SizedBox(height: 8),
+              // Muted
+              _InspectorCheckboxInteractive(
+                label: 'Muted',
+                checked: hasLayer ? layer.muted : false,
                 enabled: hasLayer,
-                formatValue: (v) => '${(v * 1000).toInt()} ms',
-                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(trimEndMs: v * 1000.0)),
+                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(muted: v)),
+              ),
+              // Solo
+              _InspectorCheckboxInteractive(
+                label: 'Solo',
+                checked: hasLayer ? layer.solo : false,
+                enabled: hasLayer,
+                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(solo: v)),
+              ),
+              // Loop (event-level)
+              _InspectorCheckboxInteractive(
+                label: 'Loop',
+                checked: _selectedComposite?.looping ?? false,
+                enabled: _selectedComposite != null,
+                onChanged: (v) {
+                  final composite = _selectedComposite;
+                  if (composite != null) {
+                    final mw = context.read<MiddlewareProvider>();
+                    mw.updateCompositeEvent(composite.copyWith(looping: v));
+                    setState(() {});
+                  }
+                },
               ),
             ],
           ),
@@ -10490,6 +10501,7 @@ class _InspectorSliderInteractive extends StatefulWidget {
   final bool enabled;
   final String Function(double) formatValue;
   final ValueChanged<double> onChanged;
+  final double defaultValue;
 
   const _InspectorSliderInteractive({
     required this.label,
@@ -10499,6 +10511,7 @@ class _InspectorSliderInteractive extends StatefulWidget {
     required this.enabled,
     required this.formatValue,
     required this.onChanged,
+    this.defaultValue = 0.0,
   });
 
   @override
@@ -10537,22 +10550,32 @@ class _InspectorSliderInteractiveState extends State<_InspectorSliderInteractive
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
               ),
-              child: Slider(
-                value: _displayValue.clamp(widget.min, widget.max),
-                min: widget.min,
-                max: widget.max,
-                onChanged: widget.enabled ? (v) {
-                  setState(() {
-                    _isDragging = true;
-                    _localValue = v;
-                  });
-                } : null,
-                onChangeEnd: widget.enabled ? (v) {
+              child: GestureDetector(
+                onDoubleTap: widget.enabled ? () {
                   setState(() {
                     _isDragging = false;
+                    _localValue = widget.defaultValue;
                   });
-                  widget.onChanged(v);
+                  widget.onChanged(widget.defaultValue);
                 } : null,
+                child: Slider(
+                  value: _displayValue.clamp(widget.min, widget.max),
+                  min: widget.min,
+                  max: widget.max,
+                  onChanged: widget.enabled ? (v) {
+                    setState(() {
+                      _isDragging = true;
+                      _localValue = v;
+                    });
+                    widget.onChanged(v);
+                  } : null,
+                  onChangeEnd: widget.enabled ? (v) {
+                    setState(() {
+                      _isDragging = false;
+                    });
+                    widget.onChanged(v);
+                  } : null,
+                ),
               ),
             ),
           ),
@@ -11192,7 +11215,7 @@ class _CommandToggle extends StatelessWidget {
 
 /// Compact parameter box: label above, clickable value tile, popup slider on tap.
 /// Designed for single-row layer parameter display.
-class _ParamBox extends StatelessWidget {
+class _ParamBox extends StatefulWidget {
   final String label;
   final double value;
   final double min;
@@ -11202,6 +11225,7 @@ class _ParamBox extends StatelessWidget {
   final ValueChanged<double> onChanged;
   final double width;
   final double defaultValue;
+  final VoidCallback? onInteract;
 
   const _ParamBox({
     required this.label,
@@ -11213,16 +11237,73 @@ class _ParamBox extends StatelessWidget {
     required this.onChanged,
     this.width = 38,
     this.defaultValue = 0,
+    this.onInteract,
   });
 
-  void _showSliderPopup(BuildContext context, RenderBox box) {
+  @override
+  State<_ParamBox> createState() => _ParamBoxState();
+}
+
+class _ParamBoxState extends State<_ParamBox> {
+  bool _editing = false;
+  late TextEditingController _textController;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController();
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus && _editing) {
+        _commitEdit();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _startEditing() {
+    setState(() {
+      _editing = true;
+      _textController.text = widget.format(widget.value);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+      _textController.selection = TextSelection(baseOffset: 0, extentOffset: _textController.text.length);
+    });
+  }
+
+  void _commitEdit() {
+    final text = _textController.text.replaceAll(RegExp(r'[^0-9.\-]'), '');
+    final parsed = double.tryParse(text);
+    if (parsed != null) {
+      final isPan = widget.label == 'Pan' && widget.min == -1 && widget.max == 1;
+      final value = isPan ? (parsed / 100.0) : parsed;
+      widget.onChanged(value.clamp(widget.min, widget.max));
+    }
+    setState(() => _editing = false);
+  }
+
+  void _showSliderPopup(RenderBox box) {
     final overlay = Overlay.of(context);
     final pos = box.localToGlobal(Offset.zero);
     late OverlayEntry entry;
-    double current = value.clamp(min, max);
+    double current = widget.value.clamp(widget.min, widget.max);
+    final bool isVolume = widget.label == 'Vol' && widget.min == 0 && widget.max == 1;
+    // Volume fader curve: slider position (0-1 linear) ↔ volume (0-1 logarithmic)
+    // x² gives standard audio fader feel (more resolution at top)
+    double volToSlider(double v) => math.sqrt(v.clamp(0.0, 1.0));
+    double sliderToVol(double s) => s * s;
 
     entry = OverlayEntry(builder: (ctx) {
       return StatefulBuilder(builder: (ctx2, setPopup) {
+        final double sliderVal = isVolume ? volToSlider(current) : current;
         return Stack(
           children: [
             Positioned.fill(child: GestureDetector(onTap: () => entry.remove(), behavior: HitTestBehavior.opaque, child: const SizedBox.expand())),
@@ -11237,7 +11318,7 @@ class _ParamBox extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFF1A1A24),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: color.withAlpha(120), width: 1.2),
+                    border: Border.all(color: widget.color.withAlpha(120), width: 1.2),
                     boxShadow: [BoxShadow(color: Colors.black87, blurRadius: 16, offset: const Offset(0, 6))],
                   ),
                   child: Column(
@@ -11246,8 +11327,8 @@ class _ParamBox extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w700)),
-                          Text(format(current), style: TextStyle(fontSize: 12, color: color, fontFamily: 'monospace', fontWeight: FontWeight.w600)),
+                          Text(widget.label, style: TextStyle(fontSize: 11, color: widget.color, fontWeight: FontWeight.w700)),
+                          Text(widget.format(current), style: TextStyle(fontSize: 12, color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w600)),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -11258,19 +11339,26 @@ class _ParamBox extends StatelessWidget {
                             trackHeight: 3.5,
                             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                             overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                            activeTrackColor: color,
+                            activeTrackColor: widget.color,
                             inactiveTrackColor: FluxForgeTheme.borderSubtle,
-                            thumbColor: color,
-                            overlayColor: color.withAlpha(30),
+                            thumbColor: widget.color,
+                            overlayColor: widget.color.withAlpha(30),
                           ),
-                          child: Slider(
-                            value: current,
-                            min: min,
-                            max: max,
-                            onChanged: (v) {
-                              setPopup(() => current = v);
-                              onChanged(v);
+                          child: GestureDetector(
+                            onDoubleTap: () {
+                              setPopup(() => current = widget.defaultValue);
+                              widget.onChanged(widget.defaultValue);
                             },
+                            child: Slider(
+                              value: sliderVal,
+                              min: isVolume ? 0.0 : widget.min,
+                              max: isVolume ? 1.0 : widget.max,
+                              onChanged: (v) {
+                                final actual = isVolume ? sliderToVol(v) : v;
+                                setPopup(() => current = actual);
+                                widget.onChanged(actual);
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -11292,29 +11380,46 @@ class _ParamBox extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
+        Text(widget.label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
         const SizedBox(height: 2),
         GestureDetector(
           onTap: () {
+            widget.onInteract?.call();
+            if (_editing) return;
             final box = context.findRenderObject() as RenderBox?;
-            if (box != null) _showSliderPopup(context, box);
+            if (box != null) _showSliderPopup(box);
           },
-          onDoubleTap: () => onChanged(defaultValue),
+          onDoubleTap: () {
+            widget.onInteract?.call();
+            if (!_editing) _startEditing();
+          },
           child: Container(
-            constraints: BoxConstraints(minWidth: width),
+            constraints: BoxConstraints(minWidth: widget.width),
             height: 20,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: color.withAlpha(70), width: 0.8),
+              border: Border.all(color: widget.color.withAlpha(70), width: 0.8),
             ),
-            child: Text(
-              format(value),
-              style: TextStyle(fontSize: 10, color: color, fontFamily: 'monospace', fontWeight: FontWeight.w600),
-              overflow: TextOverflow.clip,
-              maxLines: 1,
-            ),
+            child: _editing
+              ? EditableText(
+                  controller: _textController,
+                  focusNode: _focusNode,
+                  style: TextStyle(fontSize: 10, color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                  cursorColor: widget.color,
+                  backgroundCursorColor: Colors.transparent,
+                  selectionColor: widget.color.withAlpha(80),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                  onSubmitted: (_) => _commitEdit(),
+                )
+              : Text(
+                  widget.format(widget.value),
+                  style: TextStyle(fontSize: 10, color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.clip,
+                  maxLines: 1,
+                ),
           ),
         ),
       ],
@@ -11327,12 +11432,13 @@ class _LayerToggle extends StatelessWidget {
   final bool value;
   final Color activeColor;
   final VoidCallback onTap;
-  const _LayerToggle({required this.label, required this.value, required this.activeColor, required this.onTap});
+  final VoidCallback? onInteract;
+  const _LayerToggle({required this.label, required this.value, required this.activeColor, required this.onTap, this.onInteract});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () { onInteract?.call(); onTap(); },
       child: Container(
         width: 22,
         height: 20,
@@ -11360,17 +11466,20 @@ class _CellDropdown extends StatelessWidget {
   final List<String> options;
   final Color? color;
   final ValueChanged<String> onChanged;
+  final VoidCallback? onInteract;
 
   const _CellDropdown({
     required this.value,
     required this.options,
     this.color,
     required this.onChanged,
+    this.onInteract,
   });
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
+      onOpened: () => onInteract?.call(),
       onSelected: onChanged,
       offset: const Offset(0, 24),
       color: FluxForgeTheme.bgElevated,

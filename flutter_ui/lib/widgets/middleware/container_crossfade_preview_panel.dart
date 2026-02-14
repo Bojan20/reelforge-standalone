@@ -8,6 +8,7 @@
 library;
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
@@ -108,12 +109,22 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
     switch (curve) {
       case CrossfadeCurve.linear:
         return t;
+      case CrossfadeCurve.log3:
       case CrossfadeCurve.equalPower:
         return t * t * (3 - 2 * t);
+      case CrossfadeCurve.log1:
+        return math.log(1 + t * (math.e - 1));
       case CrossfadeCurve.sCurve:
         return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      case CrossfadeCurve.invSCurve:
+        return t < 0.5 ? 4 * t * t * t : 1 - 4 * (1 - t) * (1 - t) * (1 - t);
+      case CrossfadeCurve.sine:
       case CrossfadeCurve.sinCos:
         return (1 - (t * 3.14159).cos()) / 2;
+      case CrossfadeCurve.exp1:
+        return (math.exp(t) - 1) / (math.e - 1);
+      case CrossfadeCurve.exp3:
+        return (math.exp(3 * t) - 1) / (math.exp(3) - 1);
     }
   }
 
@@ -850,12 +861,22 @@ class _CrossfadeVisualizationPainter extends CustomPainter {
     switch (crossfadeCurve) {
       case CrossfadeCurve.linear:
         return t;
+      case CrossfadeCurve.log3:
       case CrossfadeCurve.equalPower:
         return t * t * (3 - 2 * t);
+      case CrossfadeCurve.log1:
+        return math.log(1 + t * (math.e - 1));
       case CrossfadeCurve.sCurve:
         return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      case CrossfadeCurve.invSCurve:
+        return t < 0.5 ? 4 * t * t * t : 1 - 4 * (1 - t) * (1 - t) * (1 - t);
+      case CrossfadeCurve.sine:
       case CrossfadeCurve.sinCos:
         return (1 - (t * 3.14159).cos()) / 2;
+      case CrossfadeCurve.exp1:
+        return (math.exp(t) - 1) / (math.e - 1);
+      case CrossfadeCurve.exp3:
+        return (math.exp(3 * t) - 1) / (math.exp(3) - 1);
     }
   }
 

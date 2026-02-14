@@ -2052,8 +2052,14 @@ class DuckingRule {
 /// Crossfade curve type
 enum CrossfadeCurve {
   linear,
-  equalPower,
+  log3,
+  sine,
+  log1,
+  invSCurve,
   sCurve,
+  exp1,
+  exp3,
+  equalPower,
   sinCos,
 }
 
@@ -2061,8 +2067,14 @@ extension CrossfadeCurveExtension on CrossfadeCurve {
   String get displayName {
     switch (this) {
       case CrossfadeCurve.linear: return 'Linear';
-      case CrossfadeCurve.equalPower: return 'Equal Power';
+      case CrossfadeCurve.log3: return 'Log 3dB';
+      case CrossfadeCurve.sine: return 'Sine';
+      case CrossfadeCurve.log1: return 'Log 1dB';
+      case CrossfadeCurve.invSCurve: return 'Inv S-Curve';
       case CrossfadeCurve.sCurve: return 'S-Curve';
+      case CrossfadeCurve.exp1: return 'Exp 1dB';
+      case CrossfadeCurve.exp3: return 'Exp 3dB';
+      case CrossfadeCurve.equalPower: return 'Equal Power';
       case CrossfadeCurve.sinCos: return 'Sin/Cos';
     }
   }
@@ -2070,7 +2082,7 @@ extension CrossfadeCurveExtension on CrossfadeCurve {
   int get value => index;
 
   static CrossfadeCurve fromValue(int v) {
-    if (v < 0 || v >= CrossfadeCurve.values.length) return CrossfadeCurve.equalPower;
+    if (v < 0 || v >= CrossfadeCurve.values.length) return CrossfadeCurve.linear;
     return CrossfadeCurve.values[v];
   }
 }

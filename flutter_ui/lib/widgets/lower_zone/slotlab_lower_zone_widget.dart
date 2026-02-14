@@ -29,7 +29,7 @@ import '../../providers/dsp_chain_provider.dart';
 import '../../providers/mixer_dsp_provider.dart';
 import '../../src/rust/native_ffi.dart' show NativeFFI, VolatilityPreset, TimingProfileType, VoicePoolFFI;
 import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
-import '../../models/middleware_models.dart' show ActionType, CrossfadeCurve;
+import '../../models/middleware_models.dart' show ActionType, CrossfadeCurve, CrossfadeCurveExtension;
 import '../../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../../services/audio_playback_service.dart';
 import '../slot_lab/stage_trace_widget.dart';
@@ -2739,31 +2739,22 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   /// P2.8: Get short name for curve type (for compact display)
   String _getCurveShortName(CrossfadeCurve curve) {
-    switch (curve) {
-      case CrossfadeCurve.linear:
-        return 'Lin';
-      case CrossfadeCurve.equalPower:
-        return 'EP';
-      case CrossfadeCurve.sCurve:
-        return 'S';
-      case CrossfadeCurve.sinCos:
-        return 'SC';
-    }
+    return switch (curve) {
+      CrossfadeCurve.linear => 'Lin',
+      CrossfadeCurve.log3 => 'L3',
+      CrossfadeCurve.sine => 'Sin',
+      CrossfadeCurve.log1 => 'L1',
+      CrossfadeCurve.invSCurve => 'IS',
+      CrossfadeCurve.sCurve => 'S',
+      CrossfadeCurve.exp1 => 'E1',
+      CrossfadeCurve.exp3 => 'E3',
+      CrossfadeCurve.equalPower => 'EP',
+      CrossfadeCurve.sinCos => 'SC',
+    };
   }
 
   /// P2.8: Get display name for curve type
-  String _getCurveDisplayName(CrossfadeCurve curve) {
-    switch (curve) {
-      case CrossfadeCurve.linear:
-        return 'Linear';
-      case CrossfadeCurve.equalPower:
-        return 'Equal Power';
-      case CrossfadeCurve.sCurve:
-        return 'S-Curve';
-      case CrossfadeCurve.sinCos:
-        return 'Sin/Cos';
-    }
-  }
+  String _getCurveDisplayName(CrossfadeCurve curve) => curve.displayName;
 
   /// Compact parameter slider for layer editing
   Widget _buildParameterSlider({
@@ -4349,13 +4340,22 @@ class _FadeCurvePainter extends CustomPainter {
     switch (curve) {
       case CrossfadeCurve.linear:
         return t;
+      case CrossfadeCurve.log3:
       case CrossfadeCurve.equalPower:
         return math.sin(t * math.pi / 2);
+      case CrossfadeCurve.log1:
+        return math.log(1 + t * (math.e - 1));
       case CrossfadeCurve.sCurve:
         return (1 - math.cos(t * math.pi)) / 2;
+      case CrossfadeCurve.invSCurve:
+        return t < 0.5 ? 4 * t * t * t : 1 - 4 * (1 - t) * (1 - t) * (1 - t);
+      case CrossfadeCurve.sine:
       case CrossfadeCurve.sinCos:
-        // Smooth sine-based curve
         return 0.5 - 0.5 * math.cos(t * math.pi);
+      case CrossfadeCurve.exp1:
+        return (math.exp(t) - 1) / (math.e - 1);
+      case CrossfadeCurve.exp3:
+        return (math.exp(3 * t) - 1) / (math.exp(3) - 1);
     }
   }
 

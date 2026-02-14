@@ -1228,13 +1228,22 @@ class _BlendCurvePainter extends CustomPainter {
     switch (crossfadeCurve) {
       case CrossfadeCurve.linear:
         return t;
+      case CrossfadeCurve.log3:
       case CrossfadeCurve.equalPower:
         return t * t * (3 - 2 * t);
+      case CrossfadeCurve.log1:
+        return math.log(1 + t * (math.e - 1));
       case CrossfadeCurve.sCurve:
         return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      case CrossfadeCurve.invSCurve:
+        return t < 0.5 ? 4 * t * t * t : 1 - 4 * (1 - t) * (1 - t) * (1 - t);
+      case CrossfadeCurve.sine:
       case CrossfadeCurve.sinCos:
-        // P1.1 FIX: Use real math.cos for accurate sin/cos crossfade
         return 0.5 - 0.5 * math.cos(t * math.pi);
+      case CrossfadeCurve.exp1:
+        return (math.exp(t) - 1) / (math.e - 1);
+      case CrossfadeCurve.exp3:
+        return (math.exp(3 * t) - 1) / (math.exp(3) - 1);
     }
   }
 

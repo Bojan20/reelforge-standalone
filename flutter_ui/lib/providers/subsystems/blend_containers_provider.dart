@@ -275,15 +275,22 @@ class BlendContainersProvider extends ChangeNotifier {
     switch (curve) {
       case CrossfadeCurve.linear:
         return position;
+      case CrossfadeCurve.log3:
       case CrossfadeCurve.equalPower:
-        // Equal power crossfade: sin(x * pi/2)
         return math.sin(position * math.pi / 2);
+      case CrossfadeCurve.log1:
+        return math.log(1 + position * (math.e - 1)) / 1.0;
       case CrossfadeCurve.sCurve:
-        // S-curve (smooth transition)
         return position * position * (3 - 2 * position);
+      case CrossfadeCurve.invSCurve:
+        return position < 0.5 ? 4 * position * position * position : 1 - 4 * (1 - position) * (1 - position) * (1 - position);
+      case CrossfadeCurve.sine:
       case CrossfadeCurve.sinCos:
-        // Sin/cos transition
         return (1 - math.cos(position * math.pi)) / 2;
+      case CrossfadeCurve.exp1:
+        return (math.exp(position) - 1) / (math.e - 1);
+      case CrossfadeCurve.exp3:
+        return (math.exp(3 * position) - 1) / (math.exp(3) - 1);
     }
   }
 

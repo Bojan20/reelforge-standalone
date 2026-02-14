@@ -148,12 +148,22 @@ class ContainerService {
     switch (curve) {
       case CrossfadeCurve.linear:
         return t;
+      case CrossfadeCurve.log3:
       case CrossfadeCurve.equalPower:
         return math.sqrt(t);
+      case CrossfadeCurve.log1:
+        return math.log(1 + t * (math.e - 1));
       case CrossfadeCurve.sCurve:
         return t * t * (3.0 - 2.0 * t);
+      case CrossfadeCurve.invSCurve:
+        return t < 0.5 ? 4 * t * t * t : 1 - 4 * (1 - t) * (1 - t) * (1 - t);
+      case CrossfadeCurve.sine:
       case CrossfadeCurve.sinCos:
         return math.sin(t * math.pi / 2);
+      case CrossfadeCurve.exp1:
+        return (math.exp(t) - 1) / (math.e - 1);
+      case CrossfadeCurve.exp3:
+        return (math.exp(3 * t) - 1) / (math.exp(3) - 1);
     }
   }
 

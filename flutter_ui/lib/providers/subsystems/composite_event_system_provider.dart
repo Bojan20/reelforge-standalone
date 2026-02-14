@@ -82,9 +82,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   /// Validate audio path for security and format compliance
   /// Returns true if path is valid, false otherwise
   bool _validateAudioPath(String path) {
-    // Empty paths are invalid for actual audio
+    // Empty paths are allowed for placeholder layers (user assigns audio later)
     if (path.isEmpty) {
-      return false;
+      return true;
     }
 
     // Block path traversal attacks
@@ -578,30 +578,23 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final event = _compositeEvents[eventId];
     if (event == null) return;
 
-    final removedLayer = event.layers.firstWhere(
-      (l) => l.id == layerId,
-      orElse: () => SlotEventLayer(id: layerId, name: 'Unknown', audioPath: ''),
-    );
-
-    _pushUndoState();
-
-    // Stop any playing voices for this layer
-    AudioPlaybackService.instance.stopLayer(layerId);
+    try { _pushUndoState(); } catch (_) {}
+    try { AudioPlaybackService.instance.stopLayer(layerId); } catch (_) {}
 
     final updated = event.copyWith(
       layers: event.layers.where((l) => l.id != layerId).toList(),
       modifiedAt: DateTime.now(),
     );
     _compositeEvents[eventId] = updated;
-    _syncCompositeToMiddleware(updated);
-
-    // Record history
-    _recordHistory(
-      eventId: eventId,
-      eventName: event.name,
-      changeType: CompositeEventChangeType.updated,
-      description: 'Removed layer "${removedLayer.name}" from "${event.name}"',
-    );
+    try { _syncCompositeToMiddleware(updated); } catch (_) {}
+    try {
+      _recordHistory(
+        eventId: eventId,
+        eventName: event.name,
+        changeType: CompositeEventChangeType.updated,
+        description: 'Removed layer from "${event.name}"',
+      );
+    } catch (_) {}
 
     notifyListeners();
   }
