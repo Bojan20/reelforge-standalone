@@ -1,5 +1,6 @@
-@Tags(['screen'])
 // WelcomeScreen integration tests
+@Tags(['screen'])
+library;
 //
 // Tests the welcome/start screen UI rendering including
 // New Project button, Open Project button, recent projects section.

@@ -1,5 +1,6 @@
-@Tags(['screen'])
 // MainLayout integration tests
+@Tags(['screen'])
+library;
 //
 // Tests the main layout wrapper that combines ControlBar, LeftZone,
 // CenterZone, RightZone, and LowerZone.

@@ -1,5 +1,6 @@
-@Tags(['screen'])
 // AudioSettingsScreen integration tests
+@Tags(['screen'])
+library;
 //
 // Tests the audio settings screen UI rendering.
 // FFI calls to audioRefreshDevices, audioGetOutputDevices, etc.

@@ -315,7 +315,7 @@ class _PerBusLufsMeterState extends State<PerBusLufsMeter> {
   Widget _buildBusMeters() {
     return ListView.separated(
       itemCount: _buses.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final bus = _buses[index];
         final data = _busData[bus.id];

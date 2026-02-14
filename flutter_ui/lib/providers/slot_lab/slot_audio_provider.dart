@@ -336,12 +336,4 @@ class SlotAudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // DISPOSE
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

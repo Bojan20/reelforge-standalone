@@ -11,7 +11,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import '../../lib/utils/path_validator.dart';
+import 'package:fluxforge_ui/utils/path_validator.dart';
 
 void main() {
   group('PathValidator', () {
@@ -184,7 +184,7 @@ void main() {
 
     group('Length Limits', () {
       test('blocks excessive path length', () {
-        final longPath = projectRoot + '/' + ('a' * 5000) + '.wav';
+        final longPath = '$projectRoot/${'a' * 5000}.wav';
 
         final result = PathValidator.validate(longPath);
 

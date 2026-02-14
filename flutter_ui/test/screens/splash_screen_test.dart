@@ -1,5 +1,6 @@
-@Tags(['screen'])
 // SplashScreen integration tests
+@Tags(['screen'])
+library;
 //
 // Tests the splash screen UI rendering, animation states,
 // loading messages, progress bar, and error handling.

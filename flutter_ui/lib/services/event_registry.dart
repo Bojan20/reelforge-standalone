@@ -725,11 +725,7 @@ class EventRegistry extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// P1.10: Enable/disable crossfade system
-  bool _crossfadeEnabled = true;
-  bool get crossfadeEnabled => _crossfadeEnabled;
-  set crossfadeEnabled(bool value) {
-    _crossfadeEnabled = value;
-  }
+  bool crossfadeEnabled = true;
 
   /// P1.10: Default crossfade duration for stage groups
   static const int _defaultCrossfadeMs = 100;
@@ -822,7 +818,7 @@ class EventRegistry extends ChangeNotifier {
 
   /// P1.10: Start crossfade for a group - fade out existing voices, return fade-in duration
   int _startCrossfade(String stage, List<int> newVoiceIds) {
-    if (!_crossfadeEnabled) return 0;
+    if (!crossfadeEnabled) return 0;
 
     final group = _getCrossfadeGroup(stage);
     if (group == null) return 0;
@@ -845,7 +841,7 @@ class EventRegistry extends ChangeNotifier {
 
   /// P1.13: Check if stage should trigger crossfade (is it in a crossfade group?)
   bool _shouldCrossfade(String stage) {
-    return _crossfadeEnabled && _getCrossfadeGroup(stage) != null;
+    return crossfadeEnabled && _getCrossfadeGroup(stage) != null;
   }
 
   /// P1.10: Clear all crossfade tracking (call on stop/reset)

@@ -1031,8 +1031,4 @@ class AiMixingService extends ChangeNotifier {
     } catch (e) { /* ignored */ }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

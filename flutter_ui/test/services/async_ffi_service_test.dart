@@ -10,8 +10,8 @@
 /// - Error propagation
 
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/services/async_ffi_service.dart';
-import '../../lib/utils/ffi_error_handler.dart';
+import 'package:fluxforge_ui/services/async_ffi_service.dart';
+import 'package:fluxforge_ui/utils/ffi_error_handler.dart';
 
 void main() {
   group('AsyncFFIConfig', () {

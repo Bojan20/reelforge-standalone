@@ -9,7 +9,7 @@
 /// - Exception throwing
 
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/utils/ffi_error_handler.dart';
+import 'package:fluxforge_ui/utils/ffi_error_handler.dart';
 
 void main() {
   group('FFIErrorCategory', () {

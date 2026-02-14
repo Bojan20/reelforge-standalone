@@ -220,7 +220,7 @@ class DocumentationGenerator {
 
       // Collect doc comments
       if (line.startsWith('///')) {
-        currentDoc = (currentDoc ?? '') + line.substring(3).trim() + ' ';
+        currentDoc = '${currentDoc ?? ''}${line.substring(3).trim()} ';
         docStartLine ??= i + 1;
         continue;
       }

@@ -1575,6 +1575,8 @@ class SlotEventLayer {
   final double trimEndMs; // Non-destructive trim end (M3.2) - 0 means no trim
   final bool muted;
   final bool solo;
+  final bool loop;
+  final bool overlap; // Allow this layer to overlap with itself
   final List<double>? waveformData;
   final double? durationSeconds;
   final int? busId; // Target bus for routing
@@ -1597,6 +1599,8 @@ class SlotEventLayer {
     this.trimEndMs = 0.0,
     this.muted = false,
     this.solo = false,
+    this.loop = false,
+    this.overlap = false,
     this.waveformData,
     this.durationSeconds,
     this.busId,
@@ -1620,6 +1624,8 @@ class SlotEventLayer {
     double? trimEndMs,
     bool? muted,
     bool? solo,
+    bool? loop,
+    bool? overlap,
     List<double>? waveformData,
     double? durationSeconds,
     int? busId,
@@ -1642,6 +1648,8 @@ class SlotEventLayer {
       trimEndMs: trimEndMs ?? this.trimEndMs,
       muted: muted ?? this.muted,
       solo: solo ?? this.solo,
+      loop: loop ?? this.loop,
+      overlap: overlap ?? this.overlap,
       waveformData: waveformData ?? this.waveformData,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       busId: busId ?? this.busId,
@@ -1676,6 +1684,8 @@ class SlotEventLayer {
     'trimEndMs': trimEndMs,
     'muted': muted,
     'solo': solo,
+    'loop': loop,
+    'overlap': overlap,
     'durationSeconds': durationSeconds,
     'busId': busId,
     'actionType': actionType,
@@ -1707,6 +1717,8 @@ class SlotEventLayer {
       trimEndMs: (json['trimEndMs'] as num?)?.toDouble() ?? 0.0,
       muted: json['muted'] as bool? ?? false,
       solo: json['solo'] as bool? ?? false,
+      loop: json['loop'] as bool? ?? false,
+      overlap: json['overlap'] as bool? ?? false,
       durationSeconds: (json['durationSeconds'] as num?)?.toDouble(),
       busId: json['busId'] as int?,
       actionType: json['actionType'] as String? ?? 'Play',

@@ -329,7 +329,7 @@ class _ContainerPerformancePanelState extends State<ContainerPerformancePanel> {
           Expanded(
             child: ListView.separated(
               itemCount: containers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 4),
+              separatorBuilder: (_, _) => const SizedBox(height: 4),
               itemBuilder: (context, index) {
                 final containerId = containers[index];
                 final stats = _service.getStats(containerId);

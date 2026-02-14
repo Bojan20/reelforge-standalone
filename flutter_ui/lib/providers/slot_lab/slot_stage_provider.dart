@@ -182,7 +182,7 @@ class SlotStageProvider extends ChangeNotifier {
   bool _isWinPresentationActive = false;
   bool _baseMusicStarted = false;
   int _totalReels = 5;
-  bool _useVisualSyncForReelStop = true;
+  bool useVisualSyncForReelStop = true;
 
   // ─── Recording ──────────────────────────────────────────────────────────
   bool _isRecordingStages = false;
@@ -231,8 +231,6 @@ class SlotStageProvider extends ChangeNotifier {
 
   bool get isReelsSpinning => _isReelsSpinning;
   bool get isWinPresentationActive => _isWinPresentationActive;
-  bool get useVisualSyncForReelStop => _useVisualSyncForReelStop;
-  set useVisualSyncForReelStop(bool value) => _useVisualSyncForReelStop = value;
 
   bool get isRecordingStages => _isRecordingStages;
   bool get skipRequested => _skipRequested;
@@ -590,7 +588,7 @@ class SlotStageProvider extends ChangeNotifier {
     };
 
     // Skip REEL_STOP in visual-sync mode
-    if (_useVisualSyncForReelStop && stageType == 'REEL_STOP') {
+    if (useVisualSyncForReelStop && stageType == 'REEL_STOP') {
       return;
     }
 

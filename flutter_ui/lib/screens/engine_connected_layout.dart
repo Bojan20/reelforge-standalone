@@ -3650,8 +3650,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _headerGain = layer.volume;
       _headerPan = layer.pan;
       _headerDelay = layer.offsetMs;
-      // Loop is at event level, not layer level
-      _headerLoop = composite?.looping ?? false;
+      _headerLoop = layer.loop;
       _headerFadeInMs = layer.fadeInMs;
       _headerFadeOutMs = layer.fadeOutMs;
       _headerFadeInCurve = layer.fadeInCurve;
@@ -6609,7 +6608,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         const SizedBox(width: 2),
                         Column(mainAxisSize: MainAxisSize.min, children: [
                           const SizedBox(height: 11),
-                          _LayerToggle(label: 'L', value: event.looping, activeColor: FluxForgeTheme.accentGreen, onTap: () => provider.updateCompositeEvent(event.copyWith(looping: !event.looping)), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
+                          _LayerToggle(label: 'L', value: layer.loop, activeColor: FluxForgeTheme.accentGreen, onTap: () => _updateLayer(event, idx, layer.copyWith(loop: !layer.loop), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
+                        ]),
+                        const SizedBox(width: 2),
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          const SizedBox(height: 11),
+                          _LayerToggle(label: 'O', value: layer.overlap, activeColor: FluxForgeTheme.accentCyan, onTap: () => _updateLayer(event, idx, layer.copyWith(overlap: !layer.overlap), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
                         ]),
                         const SizedBox(width: 4),
                         Column(mainAxisSize: MainAxisSize.min, children: [
@@ -9613,19 +9617,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 enabled: hasLayer,
                 onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(solo: v)),
               ),
-              // Loop (event-level)
+              // Loop (per-layer)
               _InspectorCheckboxInteractive(
                 label: 'Loop',
-                checked: _selectedComposite?.looping ?? false,
-                enabled: _selectedComposite != null,
-                onChanged: (v) {
-                  final composite = _selectedComposite;
-                  if (composite != null) {
-                    final mw = context.read<MiddlewareProvider>();
-                    mw.updateCompositeEvent(composite.copyWith(looping: v));
-                    setState(() {});
-                  }
-                },
+                checked: hasLayer ? layer.loop : false,
+                enabled: hasLayer,
+                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(loop: v)),
+              ),
+              // Overlap (per-layer)
+              _InspectorCheckboxInteractive(
+                label: 'Overlap',
+                checked: hasLayer ? layer.overlap : false,
+                enabled: hasLayer,
+                onChanged: (v) => _updateSelectedLayer((l) => l.copyWith(overlap: v)),
               ),
             ],
           ),
@@ -11152,7 +11156,7 @@ class _CommandChip extends StatelessWidget {
 }
 
 /// Compact icon button for command bar
-class _CommandIconBtn extends StatelessWidget {
+class _CommandIconBtn extends StatefulWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback? onTap;
@@ -11160,18 +11164,32 @@ class _CommandIconBtn extends StatelessWidget {
   const _CommandIconBtn({required this.icon, required this.tooltip, this.onTap, this.color});
 
   @override
+  State<_CommandIconBtn> createState() => _CommandIconBtnState();
+}
+
+class _CommandIconBtnState extends State<_CommandIconBtn> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final c = onTap != null ? (color ?? FluxForgeTheme.textSecondary) : FluxForgeTheme.textTertiary;
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
+    final baseColor = widget.onTap != null ? (widget.color ?? FluxForgeTheme.textSecondary) : FluxForgeTheme.textTertiary;
+    final c = _hovered && widget.onTap != null ? (widget.color ?? FluxForgeTheme.accentBlue) : baseColor;
+    return MouseRegion(
+      cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Tooltip(
+        message: widget.tooltip,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              color: _hovered && widget.onTap != null ? c.withAlpha(20) : Colors.transparent,
+            ),
+            child: Icon(widget.icon, size: 14, color: c),
           ),
-          child: Icon(icon, size: 14, color: c),
         ),
       ),
     );
@@ -11179,7 +11197,7 @@ class _CommandIconBtn extends StatelessWidget {
 }
 
 /// Compact toggle for M/S/L buttons
-class _CommandToggle extends StatelessWidget {
+class _CommandToggle extends StatefulWidget {
   final String label;
   final bool value;
   final Color activeColor;
@@ -11187,24 +11205,36 @@ class _CommandToggle extends StatelessWidget {
   const _CommandToggle({required this.label, required this.value, required this.activeColor, required this.onTap});
 
   @override
+  State<_CommandToggle> createState() => _CommandToggleState();
+}
+
+class _CommandToggleState extends State<_CommandToggle> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 22,
-        height: 22,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: value ? activeColor.withAlpha(50) : Colors.transparent,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: value ? activeColor : FluxForgeTheme.borderSubtle, width: value ? 1.5 : 1),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: value ? activeColor : FluxForgeTheme.textTertiary,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: widget.value ? widget.activeColor.withAlpha(50) : (_hovered ? widget.activeColor.withAlpha(20) : Colors.transparent),
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: widget.value ? widget.activeColor : (_hovered ? widget.activeColor.withAlpha(120) : FluxForgeTheme.borderSubtle), width: widget.value ? 1.5 : 1),
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: widget.value ? widget.activeColor : (_hovered ? widget.activeColor : FluxForgeTheme.textTertiary),
+            ),
           ),
         ),
       ),
@@ -11246,6 +11276,7 @@ class _ParamBox extends StatefulWidget {
 
 class _ParamBoxState extends State<_ParamBox> {
   bool _editing = false;
+  bool _hovered = false;
   late TextEditingController _textController;
   late FocusNode _focusNode;
 
@@ -11376,58 +11407,63 @@ class _ParamBoxState extends State<_ParamBox> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(widget.label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
-        const SizedBox(height: 2),
-        GestureDetector(
-          onTap: () {
-            widget.onInteract?.call();
-            if (_editing) return;
-            final box = context.findRenderObject() as RenderBox?;
-            if (box != null) _showSliderPopup(box);
-          },
-          onDoubleTap: () {
-            widget.onInteract?.call();
-            if (!_editing) _startEditing();
-          },
-          child: Container(
-            constraints: BoxConstraints(minWidth: widget.width),
-            height: 20,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: FluxForgeTheme.bgDeepest,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: widget.color.withAlpha(70), width: 0.8),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(widget.label, textAlign: TextAlign.center, style: TextStyle(fontSize: 9, color: _hovered ? widget.color : FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
+          const SizedBox(height: 2),
+          GestureDetector(
+            onTap: () {
+              widget.onInteract?.call();
+              if (_editing) return;
+              final box = context.findRenderObject() as RenderBox?;
+              if (box != null) _showSliderPopup(box);
+            },
+            onDoubleTap: () {
+              widget.onInteract?.call();
+              if (!_editing) _startEditing();
+            },
+            child: Container(
+              constraints: BoxConstraints(minWidth: widget.width),
+              height: 20,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: _hovered ? widget.color.withAlpha(15) : FluxForgeTheme.bgDeepest,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: _hovered ? widget.color.withAlpha(140) : widget.color.withAlpha(70), width: 0.8),
+              ),
+              child: _editing
+                ? EditableText(
+                    controller: _textController,
+                    focusNode: _focusNode,
+                    style: TextStyle(fontSize: 10, color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center,
+                    cursorColor: widget.color,
+                    backgroundCursorColor: Colors.transparent,
+                    selectionColor: widget.color.withAlpha(80),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                    onSubmitted: (_) => _commitEdit(),
+                  )
+                : Text(
+                    widget.format(widget.value),
+                    style: TextStyle(fontSize: 10, color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.clip,
+                    maxLines: 1,
+                  ),
             ),
-            child: _editing
-              ? EditableText(
-                  controller: _textController,
-                  focusNode: _focusNode,
-                  style: TextStyle(fontSize: 10, color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center,
-                  cursorColor: widget.color,
-                  backgroundCursorColor: Colors.transparent,
-                  selectionColor: widget.color.withAlpha(80),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                  onSubmitted: (_) => _commitEdit(),
-                )
-              : Text(
-                  widget.format(widget.value),
-                  style: TextStyle(fontSize: 10, color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.clip,
-                  maxLines: 1,
-                ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _LayerToggle extends StatelessWidget {
+class _LayerToggle extends StatefulWidget {
   final String label;
   final bool value;
   final Color activeColor;
@@ -11436,24 +11472,37 @@ class _LayerToggle extends StatelessWidget {
   const _LayerToggle({required this.label, required this.value, required this.activeColor, required this.onTap, this.onInteract});
 
   @override
+  State<_LayerToggle> createState() => _LayerToggleState();
+}
+
+class _LayerToggleState extends State<_LayerToggle> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () { onInteract?.call(); onTap(); },
-      child: Container(
-        width: 22,
-        height: 20,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: value ? activeColor.withAlpha(50) : Colors.transparent,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: value ? activeColor : FluxForgeTheme.borderSubtle, width: value ? 1.5 : 1),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            color: value ? activeColor : FluxForgeTheme.textTertiary,
+    final hoverColor = widget.value ? widget.activeColor : widget.activeColor;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: () { widget.onInteract?.call(); widget.onTap(); },
+        child: Container(
+          width: 22,
+          height: 20,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: widget.value ? widget.activeColor.withAlpha(50) : (_hovered ? hoverColor.withAlpha(20) : Colors.transparent),
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: widget.value ? widget.activeColor : (_hovered ? hoverColor.withAlpha(120) : FluxForgeTheme.borderSubtle), width: widget.value ? 1.5 : 1),
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: widget.value ? widget.activeColor : (_hovered ? hoverColor : FluxForgeTheme.textTertiary),
+            ),
           ),
         ),
       ),
@@ -11461,7 +11510,7 @@ class _LayerToggle extends StatelessWidget {
   }
 }
 
-class _CellDropdown extends StatelessWidget {
+class _CellDropdown extends StatefulWidget {
   final String value;
   final List<String> options;
   final Color? color;
@@ -11477,63 +11526,76 @@ class _CellDropdown extends StatelessWidget {
   });
 
   @override
+  State<_CellDropdown> createState() => _CellDropdownState();
+}
+
+class _CellDropdownState extends State<_CellDropdown> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      onOpened: () => onInteract?.call(),
-      onSelected: onChanged,
-      offset: const Offset(0, 24),
-      color: FluxForgeTheme.bgElevated,
-      padding: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: FluxForgeTheme.borderSubtle),
-      ),
-      itemBuilder: (context) => options.map((option) {
-        final isSelected = option == value;
-        final displayText = option.isEmpty ? '(none)' : option;
-        return PopupMenuItem<String>(
-          value: option,
-          height: 28,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            displayText,
-            style: TextStyle(
-              fontSize: 11,
-              color: isSelected
-                  ? (color ?? FluxForgeTheme.accentBlue)
-                  : (option.isEmpty ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary),
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              fontStyle: option.isEmpty ? FontStyle.italic : FontStyle.normal,
-            ),
-          ),
-        );
-      }).toList(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        margin: const EdgeInsets.only(right: 4),
-        decoration: BoxDecoration(
-          color: FluxForgeTheme.bgDeepest,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: FluxForgeTheme.borderSubtle),
+    final accentColor = widget.color ?? FluxForgeTheme.accentBlue;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: PopupMenuButton<String>(
+        onOpened: () => widget.onInteract?.call(),
+        onSelected: widget.onChanged,
+        offset: const Offset(0, 24),
+        color: FluxForgeTheme.bgElevated,
+        padding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+          side: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                value.isEmpty ? '(select)' : value,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: value.isEmpty
-                      ? FluxForgeTheme.textTertiary
-                      : (color ?? FluxForgeTheme.textPrimary),
-                  fontStyle: value.isEmpty ? FontStyle.italic : FontStyle.normal,
-                ),
-                overflow: TextOverflow.ellipsis,
+        itemBuilder: (context) => widget.options.map((option) {
+          final isSelected = option == widget.value;
+          final displayText = option.isEmpty ? '(none)' : option;
+          return PopupMenuItem<String>(
+            value: option,
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              displayText,
+              style: TextStyle(
+                fontSize: 11,
+                color: isSelected
+                    ? accentColor
+                    : (option.isEmpty ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary),
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                fontStyle: option.isEmpty ? FontStyle.italic : FontStyle.normal,
               ),
             ),
-            Icon(Icons.arrow_drop_down, size: 12, color: FluxForgeTheme.textTertiary),
-          ],
+          );
+        }).toList(),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            color: _hovered ? accentColor.withAlpha(15) : FluxForgeTheme.bgDeepest,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: _hovered ? accentColor.withAlpha(120) : FluxForgeTheme.borderSubtle),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  widget.value.isEmpty ? '(select)' : widget.value,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: widget.value.isEmpty
+                        ? FluxForgeTheme.textTertiary
+                        : (_hovered ? accentColor : (widget.color ?? FluxForgeTheme.textPrimary)),
+                    fontStyle: widget.value.isEmpty ? FontStyle.italic : FontStyle.normal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(Icons.arrow_drop_down, size: 12, color: _hovered ? accentColor : FluxForgeTheme.textTertiary),
+            ],
+          ),
         ),
       ),
     );

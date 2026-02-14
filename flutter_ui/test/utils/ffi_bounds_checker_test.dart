@@ -10,7 +10,7 @@
 /// - Audio parameter validators (volume, pan, frequency, etc.)
 
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/utils/ffi_bounds_checker.dart';
+import 'package:fluxforge_ui/utils/ffi_bounds_checker.dart';
 
 void main() {
   group('FFIBoundsChecker', () {

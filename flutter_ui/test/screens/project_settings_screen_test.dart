@@ -1,5 +1,6 @@
-@Tags(['screen'])
 // ProjectSettingsScreen integration tests
+@Tags(['screen'])
+library;
 //
 // Tests the project settings screen UI rendering.
 // FFI calls in initState will fail gracefully (try/catch),
