@@ -1504,7 +1504,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Check if it's an event from Events folder (middleware mode)
     if (id.startsWith('evt-')) {
       final eventId = id.substring(4); // Remove 'evt-' prefix
-      _loadEventToTimeline(eventId);
+      if (_editorMode == EditorMode.middleware) {
+        _showRenameEventDialog(eventId);
+      } else {
+        _loadEventToTimeline(eventId);
+      }
     }
   }
 
@@ -3682,6 +3686,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     }
   }
 
+  /// Apply action type from toolbar dropdown to selected layer
+  void _applyHeaderActionType(String actionType) {
+    final composite = _selectedComposite;
+    if (composite == null || _selectedLayerIndex < 0) return;
+    if (_selectedLayerIndex >= composite.layers.length) return;
+    final layer = composite.layers[_selectedLayerIndex];
+    final mw = context.read<MiddlewareProvider>();
+    _updateLayer(composite, _selectedLayerIndex, layer.copyWith(actionType: actionType), mw);
+  }
+
+  /// Apply bus from toolbar dropdown to selected layer
+  void _applyHeaderBus(String busName) {
+    final composite = _selectedComposite;
+    if (composite == null || _selectedLayerIndex < 0) return;
+    if (_selectedLayerIndex >= composite.layers.length) return;
+    final layer = composite.layers[_selectedLayerIndex];
+    final mw = context.read<MiddlewareProvider>();
+    _updateLayer(composite, _selectedLayerIndex, layer.copyWith(busId: _busNameToId(busName)), mw);
+  }
+
   /// Select a layer and sync header values
   void _selectLayerAndSync(int index) {
     setState(() {
@@ -4082,6 +4106,70 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     // Reload timeline to show new action
     _loadEventToTimeline(eventId);
+  }
+
+  /// Show inline rename dialog for an event
+  void _showRenameEventDialog(String eventId) {
+    final middleware = context.read<MiddlewareProvider>();
+    final event = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+    if (event == null) return;
+    final controller = TextEditingController(text: event.name);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgElevated,
+        title: Text('Rename Event', style: TextStyle(fontSize: 13, color: FluxForgeTheme.textPrimary)),
+        content: SizedBox(
+          width: 280,
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary),
+            decoration: InputDecoration(
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              isDense: true,
+            ),
+            onSubmitted: (val) {
+              if (val.trim().isNotEmpty) {
+                middleware.updateCompositeEvent(event.copyWith(name: val.trim()));
+              }
+              Navigator.of(ctx).pop();
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              final val = controller.text.trim();
+              if (val.isNotEmpty) {
+                middleware.updateCompositeEvent(event.copyWith(name: val));
+              }
+              Navigator.of(ctx).pop();
+            },
+            child: Text('Rename', style: TextStyle(fontSize: 11, color: FluxForgeTheme.accentOrange)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Create a new empty event and select it
+  void _createNewEvent(MiddlewareProvider middleware) {
+    final event = middleware.createCompositeEvent(
+      name: 'New Event ${middleware.compositeEvents.length + 1}',
+    );
+    final middlewareId = 'mw_${event.id}';
+    setState(() {
+      _selectedEventId = middlewareId;
+      _selectedActionIndex = -1;
+      _selectedLayerIndex = -1;
+    });
+    middleware.selectCompositeEvent(event.id);
   }
 
   /// Show Add Action dialog with all options
@@ -5872,8 +5960,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         if (selectedComposite != null && _selectedEventId.isEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
-              _selectedEventId = 'mw_${selectedComposite!.id}';
-              _selectedLayerIndex = selectedComposite!.layers.isNotEmpty ? 0 : -1;
+              _selectedEventId = 'mw_${selectedComposite.id}';
+              _selectedLayerIndex = selectedComposite.layers.isNotEmpty ? 0 : -1;
             });
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _syncHeaderFromSelectedLayer();
@@ -5903,430 +5991,103 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       color: FluxForgeTheme.bgDeep,
       child: Column(
         children: [
-          // Middleware Toolbar - Full command bar with all options - CONNECTED
+          // Unified Layer Command Bar — responsive, grouped, all params
           Container(
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: FluxForgeTheme.bgMid,
               border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
             ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // Event selector dropdown - Connected to provider compositeEvents
-                  Builder(
-                    builder: (context) {
-                      final eventNames = compositeEvents.map((e) => e.name).toList();
-
-                      // If no events, show placeholder
-                      if (eventNames.isEmpty) {
-                        return _ToolbarDropdown(
-                          icon: Icons.api,
-                          label: 'Event',
-                          value: 'No Events',
-                          options: const ['Create in Slot Lab'],
-                          onChanged: (_) {},
-                          accentColor: FluxForgeTheme.accentOrange,
-                        );
-                      }
-
-                      return _ToolbarDropdown(
-                        icon: Icons.api,
-                        label: 'Event',
-                        value: eventName,
-                        options: eventNames,
-                        onChanged: (val) {
-                          // Find composite event by name
-                          final composite = compositeEvents.firstWhere((e) => e.name == val);
-                          final middlewareId = 'mw_${composite.id}';
-                          setState(() {
-                            _selectedEventId = middlewareId;
-                            _selectedActionIndex = -1;
-                            // Auto-select first layer so header/inspector controls work
-                            _selectedLayerIndex = composite.layers.isNotEmpty ? 0 : -1;
-                          });
-                          // Sync selection to provider
-                          middleware.selectCompositeEvent(composite.id);
-                          // Sync header values from the selected layer
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _syncHeaderFromSelectedLayer();
-                          });
-                        },
-                        accentColor: FluxForgeTheme.accentOrange,
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  // Stats chip showing action count
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.bgDeep,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '$actionCount actions',
-                      style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(width: 1, height: 20, color: FluxForgeTheme.borderSubtle),
-                  const SizedBox(width: 8),
-                  // Action buttons - simplified, Add opens dialog
-                  _ToolbarButton(icon: Icons.add, label: 'Add Action', onTap: () => _showAddActionDialog()),
-                  const SizedBox(width: 4),
-                  _ToolbarButton(icon: Icons.play_arrow, label: 'Preview', onTap: _previewEvent),
-                  const SizedBox(width: 4),
-                  _ToolbarButton(
-                    icon: Icons.copy,
-                    label: 'Duplicate',
-                    onTap: _selectedActionIndex >= 0 ? () => _duplicateAction(_selectedActionIndex) : () {},
-                  ),
-                  const SizedBox(width: 4),
-                  _ToolbarButton(
-                    icon: Icons.delete_outline,
-                    label: 'Delete',
-                    onTap: _selectedActionIndex >= 0 ? () => _deleteAction(_selectedActionIndex) : () {},
-                  ),
-                  const SizedBox(width: 12),
-                  Container(width: 1, height: 20, color: FluxForgeTheme.borderSubtle),
-                  const SizedBox(width: 8),
-                  // View mode toggles - CONNECTED
-                  _ToolbarIconButton(
-                    icon: Icons.grid_view,
-                    tooltip: 'Grid View',
-                    onTap: () => setState(() => _middlewareGridView = true),
-                  ),
-                  _ToolbarIconButton(
-                    icon: Icons.list,
-                    tooltip: 'List View',
-                    onTap: () => setState(() => _middlewareGridView = false),
-                  ),
-                  // Import/Export - CONNECTED
-                  PopupMenuButton<String>(
-                    onSelected: (val) {
-                      if (val == 'export') _exportEventsToJson();
-                      if (val == 'import') _importEventsFromJson();
-                    },
-                    offset: const Offset(0, 32),
-                    color: FluxForgeTheme.bgElevated,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      side: BorderSide(color: FluxForgeTheme.borderSubtle),
-                    ),
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'export',
-                        height: 32,
-                        child: Row(
-                          children: [
-                            Icon(Icons.upload, size: 14, color: FluxForgeTheme.textSecondary),
-                            const SizedBox(width: 8),
-                            Text('Export to Clipboard', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary)),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'import',
-                        height: 32,
-                        child: Row(
-                          children: [
-                            Icon(Icons.download, size: 14, color: FluxForgeTheme.textSecondary),
-                            const SizedBox(width: 8),
-                            Text('Import from Clipboard', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary)),
-                          ],
-                        ),
-                      ),
-                    ],
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Icon(Icons.import_export, size: 16, color: FluxForgeTheme.textSecondary),
-                    ),
-                  ),
-                  // Settings - CONNECTED
-                  _ToolbarIconButton(icon: Icons.settings, tooltip: 'Settings', onTap: _showSettingsDialog),
-                ],
-              ),
-            ),
-          ),
-          // Event header with all parameters - CONNECTED TO REAL DATA
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
-              border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // Event info - REAL DATA
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Row(
+                      // ── EVENT SELECTOR GROUP ──
+                      _CommandGroup(
                         children: [
-                          Icon(Icons.api, size: 16, color: FluxForgeTheme.accentOrange),
-                          const SizedBox(width: 8),
-                          Text('Event: $eventName', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: FluxForgeTheme.textPrimary)),
+                          Builder(
+                            builder: (context) {
+                              final eventNames = compositeEvents.map((e) => e.name).toList();
+                              if (eventNames.isEmpty) {
+                                return _CommandChip(
+                                  icon: Icons.api,
+                                  label: 'No Events',
+                                  color: FluxForgeTheme.textTertiary,
+                                );
+                              }
+                              return _ToolbarDropdown(
+                                icon: Icons.api,
+                                label: '',
+                                value: eventName,
+                                options: eventNames,
+                                onChanged: (val) {
+                                  final composite = compositeEvents.firstWhere((e) => e.name == val);
+                                  final middlewareId = 'mw_${composite.id}';
+                                  setState(() {
+                                    _selectedEventId = middlewareId;
+                                    _selectedActionIndex = -1;
+                                    _selectedLayerIndex = composite.layers.isNotEmpty ? 0 : -1;
+                                  });
+                                  middleware.selectCompositeEvent(composite.id);
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    _syncHeaderFromSelectedLayer();
+                                  });
+                                },
+                                accentColor: FluxForgeTheme.accentOrange,
+                              );
+                            },
+                          ),
+                          _CommandChip(
+                            label: '$actionCount',
+                            icon: Icons.layers,
+                            color: FluxForgeTheme.textSecondary,
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text('$actionCount action(s) • Category: ${event?.category ?? "—"}', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
-                    ],
-                  ),
-                  const SizedBox(width: 24),
-                  // Bus selector - CONNECTED
-                  _MiniDropdown(
-                    label: 'Bus',
-                    value: _headerBus,
-                    options: const ['Master', 'Music', 'SFX', 'Voice', 'UI', 'Ambience'],
-                    onChanged: (val) {
-                      setState(() => _headerBus = val);
-                      _updateSelectedLayer((l) => l.copyWith(busId: _busNameToId(val)));
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  // Mute toggle - CONNECTED
-                  _MiniToggle(
-                    label: 'Mute',
-                    value: _selectedLayer?.muted ?? false,
-                    onChanged: (val) {
-                      _updateSelectedLayer((l) => l.copyWith(muted: val));
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _syncHeaderFromSelectedLayer();
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  // Solo toggle - CONNECTED
-                  _MiniToggle(
-                    label: 'Solo',
-                    value: _selectedLayer?.solo ?? false,
-                    onChanged: (val) {
-                      _updateSelectedLayer((l) => l.copyWith(solo: val));
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _syncHeaderFromSelectedLayer();
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  // Gain slider - CONNECTED
-                  _MiniSlider(
-                    label: 'Vol',
-                    value: _headerGain,
-                    min: 0.0,
-                    max: 2.0,
-                    formatValue: (v) => '${(v * 100).toInt()}%',
-                    onChanged: (v) {
-                      setState(() => _headerGain = v);
-                      _updateSelectedLayer((l) => l.copyWith(volume: v));
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  // Pan slider - CONNECTED
-                  _MiniSlider(
-                    label: 'Pan',
-                    value: _headerPan,
-                    min: -1.0,
-                    max: 1.0,
-                    formatValue: (v) => v.abs() < 0.01 ? 'C' : (v < 0 ? 'L${(-v * 100).toInt()}' : 'R${(v * 100).toInt()}'),
-                    onChanged: (v) {
-                      setState(() => _headerPan = v);
-                      _updateSelectedLayer((l) => l.copyWith(pan: v));
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  // Delay control - CONNECTED (cycles 0 → 50 → 100 → 250 → 500 → 1000 → 2000ms → 0)
-                  _MiniInput(
-                    label: 'Delay',
-                    value: '${_headerDelay.toInt()}ms',
-                    onTap: () {
-                      double newDelay;
-                      if (_headerDelay < 50) newDelay = 50;
-                      else if (_headerDelay < 100) newDelay = 100;
-                      else if (_headerDelay < 250) newDelay = 250;
-                      else if (_headerDelay < 500) newDelay = 500;
-                      else if (_headerDelay < 1000) newDelay = 1000;
-                      else if (_headerDelay < 2000) newDelay = 2000;
-                      else newDelay = 0;
-                      setState(() => _headerDelay = newDelay);
-                      _updateSelectedLayer((l) => l.copyWith(offsetMs: newDelay));
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  // Loop toggle - CONNECTED (event-level, not layer-level)
-                  _MiniToggle(
-                    label: 'Loop',
-                    value: _headerLoop,
-                    onChanged: (val) {
-                      setState(() => _headerLoop = val);
-                      final composite = _selectedComposite;
-                      if (composite != null) {
-                        final mw = context.read<MiddlewareProvider>();
-                        mw.updateCompositeEvent(composite.copyWith(looping: val));
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 16),
-                  // Visual separator for advanced controls
-                  Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
-                  const SizedBox(width: 16),
-                  // === FADE IN CONTROLS ===
-                  _MiniInput(
-                    label: 'FadeIn',
-                    value: '${_headerFadeInMs.toInt()}ms',
-                    onTap: () {
-                      // Cycle through: 0 → 50 → 100 → 200 → 500 → 1000 → 0
-                      double newFadeIn;
-                      if (_headerFadeInMs < 50) newFadeIn = 50;
-                      else if (_headerFadeInMs < 100) newFadeIn = 100;
-                      else if (_headerFadeInMs < 200) newFadeIn = 200;
-                      else if (_headerFadeInMs < 500) newFadeIn = 500;
-                      else if (_headerFadeInMs < 1000) newFadeIn = 1000;
-                      else newFadeIn = 0;
-                      setState(() => _headerFadeInMs = newFadeIn);
-                      _updateSelectedLayer((l) => l.copyWith(fadeInMs: newFadeIn));
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _MiniDropdown(
-                    label: 'InCurve',
-                    value: _headerFadeInCurve.name,
-                    options: CrossfadeCurve.values.map((c) => c.name).toList(),
-                    onChanged: (val) {
-                      final curve = CrossfadeCurve.values.firstWhere(
-                        (c) => c.name == val,
-                        orElse: () => CrossfadeCurve.linear,
-                      );
-                      setState(() => _headerFadeInCurve = curve);
-                      _updateSelectedLayer((l) => l.copyWith(fadeInCurve: curve));
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  // === FADE OUT CONTROLS ===
-                  _MiniInput(
-                    label: 'FadeOut',
-                    value: '${_headerFadeOutMs.toInt()}ms',
-                    onTap: () {
-                      // Cycle through: 0 → 50 → 100 → 200 → 500 → 1000 → 0
-                      double newFadeOut;
-                      if (_headerFadeOutMs < 50) newFadeOut = 50;
-                      else if (_headerFadeOutMs < 100) newFadeOut = 100;
-                      else if (_headerFadeOutMs < 200) newFadeOut = 200;
-                      else if (_headerFadeOutMs < 500) newFadeOut = 500;
-                      else if (_headerFadeOutMs < 1000) newFadeOut = 1000;
-                      else newFadeOut = 0;
-                      setState(() => _headerFadeOutMs = newFadeOut);
-                      _updateSelectedLayer((l) => l.copyWith(fadeOutMs: newFadeOut));
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _MiniDropdown(
-                    label: 'OutCurve',
-                    value: _headerFadeOutCurve.name,
-                    options: CrossfadeCurve.values.map((c) => c.name).toList(),
-                    onChanged: (val) {
-                      final curve = CrossfadeCurve.values.firstWhere(
-                        (c) => c.name == val,
-                        orElse: () => CrossfadeCurve.linear,
-                      );
-                      setState(() => _headerFadeOutCurve = curve);
-                      _updateSelectedLayer((l) => l.copyWith(fadeOutCurve: curve));
-                    },
-                  ),
-                  const SizedBox(width: 16),
-                  // Visual separator for trim controls
-                  Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
-                  const SizedBox(width: 16),
-                  // === TRIM CONTROLS ===
-                  _MiniInput(
-                    label: 'TrimStart',
-                    value: '${_headerTrimStartMs.toInt()}ms',
-                    onTap: () {
-                      // Cycle through: 0 → 100 → 500 → 1000 → 2000 → 0
-                      double newTrimStart;
-                      if (_headerTrimStartMs < 100) newTrimStart = 100;
-                      else if (_headerTrimStartMs < 500) newTrimStart = 500;
-                      else if (_headerTrimStartMs < 1000) newTrimStart = 1000;
-                      else if (_headerTrimStartMs < 2000) newTrimStart = 2000;
-                      else newTrimStart = 0;
-                      setState(() => _headerTrimStartMs = newTrimStart);
-                      _updateSelectedLayer((l) => l.copyWith(trimStartMs: newTrimStart));
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _MiniInput(
-                    label: 'TrimEnd',
-                    value: '${_headerTrimEndMs.toInt()}ms',
-                    onTap: () {
-                      // Cycle through: 0 → 100 → 500 → 1000 → 2000 → 0
-                      double newTrimEnd;
-                      if (_headerTrimEndMs < 100) newTrimEnd = 100;
-                      else if (_headerTrimEndMs < 500) newTrimEnd = 500;
-                      else if (_headerTrimEndMs < 1000) newTrimEnd = 1000;
-                      else if (_headerTrimEndMs < 2000) newTrimEnd = 2000;
-                      else newTrimEnd = 0;
-                      setState(() => _headerTrimEndMs = newTrimEnd);
-                      _updateSelectedLayer((l) => l.copyWith(trimEndMs: newTrimEnd));
-                    },
-                  ),
-                  const SizedBox(width: 16),
-                  // Visual separator for audio path
-                  Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
-                  const SizedBox(width: 16),
-                  // === AUDIO PATH SELECTOR ===
-                  GestureDetector(
-                    onTap: () async {
-                      final path = await AudioWaveformPickerDialog.show(
-                        context,
-                        title: 'Select Audio File',
-                        initialDirectory: _headerAudioPath.isNotEmpty
-                            ? File(_headerAudioPath).parent.path
-                            : null,
-                      );
-                      if (path != null) {
-                        setState(() => _headerAudioPath = path);
-                        _updateSelectedLayer((l) => l.copyWith(audioPath: path));
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: FluxForgeTheme.bgSurface,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: FluxForgeTheme.borderSubtle),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+
+                      // ── ACTION BUTTONS ──
+                      _CommandGroup(
                         children: [
-                          Icon(Icons.audiotrack, size: 12, color: FluxForgeTheme.accentCyan),
-                          const SizedBox(width: 4),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 120),
-                            child: Text(
-                              _headerAudioPath.isEmpty
-                                  ? 'Select Audio'
-                                  : _headerAudioPath.split('/').last,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: _headerAudioPath.isEmpty
-                                    ? FluxForgeTheme.textTertiary
-                                    : FluxForgeTheme.textPrimary,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                          _CommandIconBtn(icon: Icons.note_add_rounded, tooltip: 'New Event', onTap: () => _createNewEvent(middleware), color: FluxForgeTheme.accentOrange),
+                          _CommandIconBtn(icon: Icons.add, tooltip: 'Add Layer', onTap: () => _showAddActionDialog(), color: FluxForgeTheme.accentGreen),
+                          _CommandIconBtn(icon: Icons.play_arrow_rounded, tooltip: 'Preview', onTap: _previewEvent, color: FluxForgeTheme.accentCyan),
+                          _CommandIconBtn(icon: Icons.copy_rounded, tooltip: 'Duplicate', onTap: _selectedActionIndex >= 0 ? () => _duplicateAction(_selectedActionIndex) : null),
+                          _CommandIconBtn(icon: Icons.delete_outline_rounded, tooltip: 'Delete', onTap: _selectedActionIndex >= 0 ? () => _deleteAction(_selectedActionIndex) : null, color: FluxForgeTheme.accentRed),
+                        ],
+                      ),
+
+                      // ── UTILITIES ──
+                      _CommandGroup(
+                        children: [
+                          _CommandIconBtn(icon: _middlewareGridView ? Icons.grid_view_rounded : Icons.view_list_rounded, tooltip: 'Toggle View', onTap: () => setState(() => _middlewareGridView = !_middlewareGridView)),
+                          PopupMenuButton<String>(
+                            onSelected: (val) {
+                              if (val == 'export') _exportEventsToJson();
+                              if (val == 'import') _importEventsFromJson();
+                            },
+                            offset: const Offset(0, 28),
+                            color: FluxForgeTheme.bgElevated,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: BorderSide(color: FluxForgeTheme.borderSubtle)),
+                            itemBuilder: (context) => [
+                              PopupMenuItem(value: 'export', height: 28, child: Row(children: [Icon(Icons.upload, size: 13, color: FluxForgeTheme.textSecondary), const SizedBox(width: 6), Text('Export', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary))])),
+                              PopupMenuItem(value: 'import', height: 28, child: Row(children: [Icon(Icons.download, size: 13, color: FluxForgeTheme.textSecondary), const SizedBox(width: 6), Text('Import', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary))])),
+                            ],
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(Icons.import_export, size: 14, color: FluxForgeTheme.textSecondary),
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.folder_open, size: 10, color: FluxForgeTheme.textSecondary),
+                          _CommandIconBtn(icon: Icons.settings, tooltip: 'Settings', onTap: _showSettingsDialog),
                         ],
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
           // Layers table styled as Actions - uses SlotCompositeEvent.layers but with original UI
@@ -6828,27 +6589,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Table header - core columns only (advanced in expandable row)
+          // Table header — single row layout
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: FluxForgeTheme.bgElevated,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
             ),
-            child: Row(
-              children: const [
-                SizedBox(width: 24, child: Text('#', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                Expanded(flex: 3, child: Text('Action', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                Expanded(flex: 4, child: Text('Asset', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                Expanded(flex: 2, child: Text('Bus', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                Expanded(flex: 2, child: Text('Gain', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                Expanded(flex: 2, child: Text('Pan', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                Expanded(flex: 2, child: Text('Delay', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 28, child: Text('M', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 28, child: Text('L', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 50, child: Text('Actions', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-              ],
-            ),
+            child: const SizedBox.shrink(),
           ),
           // Add layer button row
           Container(
@@ -6886,287 +6634,100 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               final layer = entry.value;
               final isSelected = idx == _selectedLayerIndex;
 
-              // Map layer to action-like display
               final assetName = layer.audioPath.isEmpty ? '' : layer.audioPath.split('/').last;
-              final gainPercent = (layer.volume * 100).toInt();
-              final delayMs = layer.offsetMs;
-              final fadeMs = layer.fadeInMs;
 
-              return Container(
-                decoration: BoxDecoration(
-                  color: isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15) : Colors.transparent,
-                  border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 0.5)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Core row — always visible
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: Row(
-                        children: [
-                          // # - clickable for row selection
-                          GestureDetector(
-                            onTap: () {
-                              setState(() => _selectedLayerIndex = idx);
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                _syncHeaderFromSelectedLayer();
-                              });
-                            },
-                            child: SizedBox(width: 24, child: Text('${idx + 1}', style: TextStyle(fontSize: 11, color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textPrimary, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal))),
-                          ),
-                          // Action Type dropdown
-                          Expanded(
-                            flex: 3,
-                            child: _CellDropdown(
-                              value: layer.actionType,
-                              options: kActionTypes,
-                              color: _getTypeColor(layer.actionType),
-                              onChanged: (val) {
-                                final updated = layer.copyWith(actionType: val);
-                                _updateLayer(event, idx, updated, provider);
-                              },
-                            ),
-                          ),
-                          // Asset ID - dropdown from audio pool
-                          Expanded(
-                            flex: 4,
-                            child: _CellDropdown(
-                              value: assetName,
-                              options: assetOptions,
-                              color: FluxForgeTheme.accentCyan,
-                              onChanged: (val) {
-                                final path = val.isEmpty ? '' : _audioPool.firstWhere((f) => f.name == val, orElse: () => _audioPool.first).path;
-                                final updated = layer.copyWith(audioPath: path);
-                                _updateLayer(event, idx, updated, provider);
-                              },
-                            ),
-                          ),
-                          // Bus dropdown
-                          Expanded(
-                            flex: 2,
-                            child: _CellDropdown(
-                              value: (layer.busId != null && layer.busId! < kAllBuses.length)
-                                  ? kAllBuses[layer.busId!]
-                                  : 'SFX',
-                              options: kAllBuses,
-                              color: FluxForgeTheme.accentBlue,
-                              onChanged: (val) {
-                                final busIndex = kAllBuses.indexOf(val);
-                                final updated = layer.copyWith(busId: busIndex >= 0 ? busIndex : null);
-                                _updateLayer(event, idx, updated, provider);
-                              },
-                            ),
-                          ),
-                          // Gain slider (volume)
-                          Expanded(
-                            flex: 2,
-                            child: _CellSlider(
-                              value: layer.volume,
-                              min: 0.0,
-                              max: 2.0,
-                              formatValue: (v) => '${(v * 100).toInt()}%',
-                              color: FluxForgeTheme.accentGreen,
-                              onChanged: (val) {
-                                final updated = layer.copyWith(volume: val);
-                                _updateLayer(event, idx, updated, provider);
-                              },
-                            ),
-                          ),
-                          // Pan — inline slider (no popup, direct control)
-                          Expanded(
-                            flex: 2,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                // Cycle pan: L → C → R → L
-                                double newPan;
-                                if (layer.pan < -0.01) newPan = 0.0;
-                                else if (layer.pan < 0.01) newPan = 1.0;
-                                else newPan = -1.0;
-                                final updated = layer.copyWith(pan: newPan);
-                                _updateLayer(event, idx, updated, provider);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Pan → ${newPan.toStringAsFixed(1)}'), duration: const Duration(seconds: 1)),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: FluxForgeTheme.bgDeepest,
-                                  borderRadius: BorderRadius.circular(3),
-                                  border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3)),
-                                ),
-                                child: Text(
-                                  layer.pan == 0 ? 'C' : (layer.pan < 0 ? 'L${(-layer.pan * 100).toInt()}' : 'R${(layer.pan * 100).toInt()}'),
-                                  style: TextStyle(fontSize: 9, color: FluxForgeTheme.accentCyan, fontFamily: 'monospace', fontWeight: FontWeight.w500),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ),
-                          // Delay slider (offsetMs)
-                          Expanded(
-                            flex: 2,
-                            child: _CellSlider(
-                              value: layer.offsetMs / 1000.0,
-                              min: 0.0,
-                              max: 10.0,
-                              formatValue: (v) => '${(v * 1000).toInt()}ms',
-                              color: FluxForgeTheme.accentOrange,
-                              onChanged: (val) {
-                                final updated = layer.copyWith(offsetMs: val * 1000.0);
-                                _updateLayer(event, idx, updated, provider);
-                              },
-                            ),
-                          ),
-                          // Mute toggle
-                          SizedBox(
-                            width: 28,
-                            child: Checkbox(
-                              value: layer.muted,
-                              onChanged: (val) {
-                                final updated = layer.copyWith(muted: val ?? false);
-                                _updateLayer(event, idx, updated, provider);
-                              },
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                          // Loop toggle (event-level) + restart preview
-                          SizedBox(
-                            width: 28,
-                            child: Checkbox(
-                              value: event.looping,
-                              onChanged: (val) {
-                                provider.updateCompositeEvent(event.copyWith(looping: val ?? false));
-                              },
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                          // Actions (duplicate/delete)
-                          SizedBox(
-                            width: 50,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                GestureDetector(
-                                  onTap: () => _duplicateLayer(event, idx),
-                                  child: Icon(Icons.copy, size: 14, color: FluxForgeTheme.textSecondary),
-                                ),
-                                const SizedBox(width: 8),
-                                GestureDetector(
-                                  onTap: () => _deleteLayer(event, idx),
-                                  child: Icon(Icons.delete_outline, size: 14, color: FluxForgeTheme.textSecondary),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Advanced row — shown when row is selected
-                    if (isSelected)
-                      Container(
-                        padding: const EdgeInsets.only(left: 36, right: 12, bottom: 6),
-                        child: Row(
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _selectedLayerIndex = idx);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _syncHeaderFromSelectedLayer();
+                  });
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.10) : Colors.transparent,
+                    border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 0.5)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Index
+                        SizedBox(width: 18, child: Center(child: Text('${idx + 1}', style: TextStyle(fontSize: 11, color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary, fontWeight: FontWeight.w700)))),
+                        // Type dropdown with label
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          const Text('Type', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
+                          const SizedBox(height: 2),
+                          _CellDropdown(value: layer.actionType, options: const ['Play', 'Stop', 'Pause', 'Resume', 'SetVolume', 'StopAll'], color: _getTypeColor(layer.actionType), onChanged: (val) => _updateLayer(event, idx, layer.copyWith(actionType: val), provider)),
+                        ]),
+                        const SizedBox(width: 3),
+                        // Bus dropdown with label
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          const Text('Bus', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
+                          const SizedBox(height: 2),
+                          _CellDropdown(value: _busIdToName(layer.busId), options: const ['Master', 'Music', 'SFX', 'Voice', 'UI', 'Ambience'], color: FluxForgeTheme.accentCyan, onChanged: (val) => _updateLayer(event, idx, layer.copyWith(busId: _busNameToId(val)), provider)),
+                        ]),
+                        const SizedBox(width: 3),
+                        // Asset dropdown with label
+                        Flexible(flex: 2, child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          const Text('Asset', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
+                          const SizedBox(height: 2),
+                          _CellDropdown(value: assetName, options: assetOptions, color: FluxForgeTheme.accentCyan, onChanged: (val) {
+                            final path = val.isEmpty ? '' : _audioPool.firstWhere((f) => f.name == val, orElse: () => _audioPool.first).path;
+                            _updateLayer(event, idx, layer.copyWith(audioPath: path), provider);
+                          }),
+                        ])),
+                        const SizedBox(width: 4),
+                        // All param boxes — expand to fill available space
+                        Expanded(flex: 5, child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // Fade In
-                            Expanded(
-                              child: _CellSlider(
-                                value: layer.fadeInMs / 1000.0,
-                                min: 0.0,
-                                max: 2.0,
-                                formatValue: (v) => 'FdIn ${(v * 1000).toInt()}ms',
-                                color: FluxForgeTheme.textSecondary,
-                                onChanged: (val) {
-                                  final updated = layer.copyWith(fadeInMs: val * 1000.0);
-                                  _updateLayer(event, idx, updated, provider);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            // Fade In Curve
-                            Expanded(
-                              child: _CellDropdown(
-                                value: layer.fadeInCurve.name,
-                                options: CrossfadeCurve.values.map((c) => c.name).toList(),
-                                onChanged: (val) {
-                                  final curve = CrossfadeCurve.values.firstWhere(
-                                    (c) => c.name == val,
-                                    orElse: () => CrossfadeCurve.linear,
-                                  );
-                                  final updated = layer.copyWith(fadeInCurve: curve);
-                                  _updateLayer(event, idx, updated, provider);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            // Fade Out
-                            Expanded(
-                              child: _CellSlider(
-                                value: layer.fadeOutMs / 1000.0,
-                                min: 0.0,
-                                max: 2.0,
-                                formatValue: (v) => 'FdOut ${(v * 1000).toInt()}ms',
-                                color: FluxForgeTheme.textSecondary,
-                                onChanged: (val) {
-                                  final updated = layer.copyWith(fadeOutMs: val * 1000.0);
-                                  _updateLayer(event, idx, updated, provider);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            // Fade Out Curve
-                            Expanded(
-                              child: _CellDropdown(
-                                value: layer.fadeOutCurve.name,
-                                options: CrossfadeCurve.values.map((c) => c.name).toList(),
-                                onChanged: (val) {
-                                  final curve = CrossfadeCurve.values.firstWhere(
-                                    (c) => c.name == val,
-                                    orElse: () => CrossfadeCurve.linear,
-                                  );
-                                  final updated = layer.copyWith(fadeOutCurve: curve);
-                                  _updateLayer(event, idx, updated, provider);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            // Trim Start
-                            Expanded(
-                              child: _CellSlider(
-                                value: layer.trimStartMs / 1000.0,
-                                min: 0.0,
-                                max: 10.0,
-                                formatValue: (v) => 'TrS ${(v * 1000).toInt()}ms',
-                                color: FluxForgeTheme.accentBlue,
-                                onChanged: (val) {
-                                  final updated = layer.copyWith(trimStartMs: val * 1000.0);
-                                  _updateLayer(event, idx, updated, provider);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            // Trim End
-                            Expanded(
-                              child: _CellSlider(
-                                value: layer.trimEndMs / 1000.0,
-                                min: 0.0,
-                                max: 10.0,
-                                formatValue: (v) => 'TrE ${(v * 1000).toInt()}ms',
-                                color: FluxForgeTheme.accentBlue,
-                                onChanged: (val) {
-                                  final updated = layer.copyWith(trimEndMs: val * 1000.0);
-                                  _updateLayer(event, idx, updated, provider);
-                                },
-                              ),
-                            ),
+                            Expanded(child: _ParamBox(label: 'Vol', value: layer.volume, min: 0, max: 2, color: FluxForgeTheme.accentGreen, format: (v) => '${(v * 100).toInt()}%', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(volume: v), provider))),
+                            const SizedBox(width: 2),
+                            Expanded(child: _ParamBox(label: 'Pan', value: layer.pan, min: -1, max: 1, color: FluxForgeTheme.accentCyan, format: (v) => v.abs() < 0.01 ? 'C' : (v < 0 ? 'L${(-v * 100).toInt()}' : 'R${(v * 100).toInt()}'), onChanged: (v) => _updateLayer(event, idx, layer.copyWith(pan: v), provider))),
+                            const SizedBox(width: 2),
+                            Expanded(child: _ParamBox(label: 'Dly', value: layer.offsetMs, min: 0, max: 5000, color: FluxForgeTheme.accentOrange, format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(offsetMs: v), provider))),
+                            const SizedBox(width: 2),
+                            Expanded(child: _ParamBox(label: 'FdIn', value: layer.fadeInMs, min: 0, max: 2000, color: const Color(0xFF845EF7), format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(fadeInMs: v), provider))),
+                            const SizedBox(width: 2),
+                            Expanded(child: _ParamBox(label: 'FdOut', value: layer.fadeOutMs, min: 0, max: 2000, color: const Color(0xFF845EF7), format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(fadeOutMs: v), provider))),
+                            const SizedBox(width: 2),
+                            Expanded(child: _ParamBox(label: 'TrS', value: layer.trimStartMs, min: 0, max: 10000, color: FluxForgeTheme.accentBlue, format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(trimStartMs: v), provider))),
+                            const SizedBox(width: 2),
+                            Expanded(child: _ParamBox(label: 'TrE', value: layer.trimEndMs, min: 0, max: 10000, color: FluxForgeTheme.accentBlue, format: (v) => '${v.toInt()}', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(trimEndMs: v), provider))),
                           ],
-                        ),
-                      ),
-                  ],
+                        )),
+                        const SizedBox(width: 4),
+                        // M/S/L — aligned with param boxes (label spacer + 2px + control)
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          const SizedBox(height: 11), // match label height (9px text + 2px gap)
+                          _LayerToggle(label: 'M', value: layer.muted, activeColor: FluxForgeTheme.accentRed, onTap: () => _updateLayer(event, idx, layer.copyWith(muted: !layer.muted), provider)),
+                        ]),
+                        const SizedBox(width: 2),
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          const SizedBox(height: 11),
+                          _LayerToggle(label: 'S', value: layer.solo, activeColor: FluxForgeTheme.accentOrange, onTap: () => _updateLayer(event, idx, layer.copyWith(solo: !layer.solo), provider)),
+                        ]),
+                        const SizedBox(width: 2),
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          const SizedBox(height: 11),
+                          _LayerToggle(label: 'L', value: event.looping, activeColor: FluxForgeTheme.accentGreen, onTap: () => provider.updateCompositeEvent(event.copyWith(looping: !event.looping))),
+                        ]),
+                        const SizedBox(width: 4),
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          const SizedBox(height: 11),
+                          GestureDetector(onTap: () => _duplicateLayer(event, idx), child: const Icon(Icons.copy, size: 13, color: FluxForgeTheme.textTertiary)),
+                        ]),
+                        const SizedBox(width: 3),
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          const SizedBox(height: 11),
+                          GestureDetector(onTap: () => _deleteLayer(event, idx), child: const Icon(Icons.delete_outline, size: 13, color: FluxForgeTheme.textTertiary)),
+                        ]),
+                      ],
+                    ),
+                  ),
                 ),
               );
             }),
@@ -11630,6 +11191,281 @@ class _MiniToggle extends StatelessWidget {
   }
 }
 
+/// Visually groups command bar controls with a subtle background
+class _CommandGroup extends StatelessWidget {
+  final List<Widget> children;
+  const _CommandGroup({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgDeepest.withAlpha(120),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(width: 2),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact info chip (non-interactive)
+class _CommandChip extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final Color? color;
+  const _CommandChip({required this.label, this.icon, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? FluxForgeTheme.textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 11, color: c),
+            const SizedBox(width: 3),
+          ],
+          Text(label, style: TextStyle(fontSize: 10, color: c)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact icon button for command bar
+class _CommandIconBtn extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final Color? color;
+  const _CommandIconBtn({required this.icon, required this.tooltip, this.onTap, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = onTap != null ? (color ?? FluxForgeTheme.textSecondary) : FluxForgeTheme.textTertiary;
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Icon(icon, size: 14, color: c),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact toggle for M/S/L buttons
+class _CommandToggle extends StatelessWidget {
+  final String label;
+  final bool value;
+  final Color activeColor;
+  final VoidCallback onTap;
+  const _CommandToggle({required this.label, required this.value, required this.activeColor, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 22,
+        height: 22,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: value ? activeColor.withAlpha(50) : Colors.transparent,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: value ? activeColor : FluxForgeTheme.borderSubtle, width: value ? 1.5 : 1),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: value ? activeColor : FluxForgeTheme.textTertiary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Compact parameter box: label above, clickable value tile, popup slider on tap.
+/// Designed for single-row layer parameter display.
+class _ParamBox extends StatelessWidget {
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final Color color;
+  final String Function(double) format;
+  final ValueChanged<double> onChanged;
+  final double width;
+
+  const _ParamBox({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.color,
+    required this.format,
+    required this.onChanged,
+    this.width = 38,
+  });
+
+  void _showSliderPopup(BuildContext context, RenderBox box) {
+    final overlay = Overlay.of(context);
+    final pos = box.localToGlobal(Offset.zero);
+    late OverlayEntry entry;
+    double current = value.clamp(min, max);
+
+    entry = OverlayEntry(builder: (ctx) {
+      return StatefulBuilder(builder: (ctx2, setPopup) {
+        return Stack(
+          children: [
+            Positioned.fill(child: GestureDetector(onTap: () => entry.remove(), behavior: HitTestBehavior.opaque, child: const SizedBox.expand())),
+            Positioned(
+              left: (pos.dx - 50).clamp(0, MediaQuery.of(ctx2).size.width - 200),
+              top: pos.dy + box.size.height + 6,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: 190,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A24),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: color.withAlpha(120), width: 1.2),
+                    boxShadow: [BoxShadow(color: Colors.black87, blurRadius: 16, offset: const Offset(0, 6))],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w700)),
+                          Text(format(current), style: TextStyle(fontSize: 12, color: color, fontFamily: 'monospace', fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        height: 24,
+                        child: SliderTheme(
+                          data: SliderThemeData(
+                            trackHeight: 3.5,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                            activeTrackColor: color,
+                            inactiveTrackColor: FluxForgeTheme.borderSubtle,
+                            thumbColor: color,
+                            overlayColor: color.withAlpha(30),
+                          ),
+                          child: Slider(
+                            value: current,
+                            min: min,
+                            max: max,
+                            onChanged: (v) {
+                              setPopup(() => current = v);
+                              onChanged(v);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      });
+    });
+    overlay.insert(entry);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
+        const SizedBox(height: 2),
+        GestureDetector(
+          onTap: () {
+            final box = context.findRenderObject() as RenderBox?;
+            if (box != null) _showSliderPopup(context, box);
+          },
+          child: Container(
+            constraints: BoxConstraints(minWidth: width),
+            height: 20,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgDeepest,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: color.withAlpha(70), width: 0.8),
+            ),
+            child: Text(
+              format(value),
+              style: TextStyle(fontSize: 10, color: color, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+              overflow: TextOverflow.clip,
+              maxLines: 1,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LayerToggle extends StatelessWidget {
+  final String label;
+  final bool value;
+  final Color activeColor;
+  final VoidCallback onTap;
+  const _LayerToggle({required this.label, required this.value, required this.activeColor, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 22,
+        height: 20,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: value ? activeColor.withAlpha(50) : Colors.transparent,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: value ? activeColor : FluxForgeTheme.borderSubtle, width: value ? 1.5 : 1),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: value ? activeColor : FluxForgeTheme.textTertiary,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _CellDropdown extends StatelessWidget {
   final String value;

@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/audio_playback_service.dart';
+import '../../services/event_registry.dart' show ContainerType;
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
 import '../common/fluxforge_search_field.dart';
@@ -57,6 +58,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   String _selectedCategory = 'All';
   double _zoom = 1.0;
   double _scrollOffset = 0.0;
+  String? _editingEventId; // For inline rename
+  final TextEditingController _renameController = TextEditingController();
 
   final ScrollController _folderScrollController = ScrollController();
   final ScrollController _timelineScrollController = ScrollController();
@@ -72,6 +75,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
     _timelineScrollController.dispose();
     _tracksScrollController.dispose();
     _searchController.dispose();
+    _renameController.dispose();
     super.dispose();
   }
 
@@ -117,9 +121,9 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           color: FluxforgeColors.deepBg,
           child: Column(
             children: [
-              // Header with count
+              // Header with count + create button
               Container(
-                height: 28,
+                height: 32,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: FluxforgeColors.surfaceBg,
@@ -130,7 +134,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                     const Icon(Icons.folder_special, size: 14, color: Colors.white70),
                     const SizedBox(width: 8),
                     Text(
-                      'EVENTS FOLDER',
+                      'EVENTS BROWSER',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -138,7 +142,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                         letterSpacing: 0.5,
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -146,10 +150,47 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        '${events.length} events',
+                        '${events.length}',
                         style: TextStyle(
                           fontSize: 9,
                           color: events.isEmpty ? Colors.orange : FluxforgeColors.accent,
+                        ),
+                      ),
+                    ),
+                    // Trigger conditions count
+                    if (events.any((e) => e.triggerConditions.isNotEmpty)) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF9040).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.bolt, size: 10, color: Color(0xFFFF9040)),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${events.where((e) => e.triggerConditions.isNotEmpty).length}',
+                              style: const TextStyle(fontSize: 9, color: Color(0xFFFF9040)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    // Create Event button
+                    SizedBox(
+                      height: 24,
+                      child: TextButton.icon(
+                        onPressed: () => _showCreateEventDialog(context),
+                        icon: const Icon(Icons.add, size: 14),
+                        label: const Text('New Event', style: TextStyle(fontSize: 10)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: FluxforgeColors.accent,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          visualDensity: VisualDensity.compact,
                         ),
                       ),
                     ),
@@ -411,71 +452,239 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   Widget _buildEventTile(BuildContext context, SlotCompositeEvent event) {
     final middleware = context.read<MiddlewareProvider>();
     final isSelected = middleware.selectedCompositeEventId == event.id;
+    final isEditing = _editingEventId == event.id;
 
     return InkWell(
       onTap: () {
         middleware.selectCompositeEvent(event.id);
         setState(() {
           _selectedLayerId = null;
+          _editingEventId = null;
+        });
+      },
+      onDoubleTap: () {
+        // Double-tap to rename
+        setState(() {
+          _editingEventId = event.id;
+          _renameController.text = event.name;
         });
       },
       onSecondaryTapDown: (details) {
         _showEventContextMenu(context, event, details.globalPosition);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         color: isSelected
             ? FluxforgeColors.accent.withValues(alpha: 0.2)
             : Colors.transparent,
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Color indicator
-            Container(
-              width: 4,
-              height: 32,
-              decoration: BoxDecoration(
-                color: event.color,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Event info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: Colors.white,
-                    ),
+            Row(
+              children: [
+                // Color indicator
+                Container(
+                  width: 4,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: event.color,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${event.layers.length} layer${event.layers.length != 1 ? 's' : ''}'
-                    ' • ${event.totalDurationSeconds.toStringAsFixed(1)}s',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.white.withValues(alpha: 0.5),
-                    ),
+                ),
+                const SizedBox(width: 10),
+                // Event info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Name (editable on double-tap)
+                      if (isEditing)
+                        SizedBox(
+                          height: 22,
+                          child: TextField(
+                            controller: _renameController,
+                            autofocus: true,
+                            style: const TextStyle(fontSize: 12, color: Colors.white),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              filled: true,
+                              fillColor: FluxforgeColors.deepBg,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(3),
+                                borderSide: BorderSide(color: FluxforgeColors.accent),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(3),
+                                borderSide: BorderSide(color: FluxforgeColors.accent),
+                              ),
+                            ),
+                            onSubmitted: (value) {
+                              if (value.trim().isNotEmpty) {
+                                middleware.updateCompositeEvent(
+                                  event.copyWith(name: value.trim()),
+                                );
+                              }
+                              setState(() => _editingEventId = null);
+                            },
+                            onEditingComplete: () {
+                              final value = _renameController.text.trim();
+                              if (value.isNotEmpty) {
+                                middleware.updateCompositeEvent(
+                                  event.copyWith(name: value),
+                                );
+                              }
+                              setState(() => _editingEventId = null);
+                            },
+                          ),
+                        )
+                      else
+                        Text(
+                          event.name,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: Colors.white,
+                          ),
+                        ),
+                      const SizedBox(height: 2),
+                      // Layer count + duration
+                      Row(
+                        children: [
+                          Text(
+                            '${event.layers.length} layer${event.layers.length != 1 ? 's' : ''}'
+                            ' • ${event.totalDurationSeconds.toStringAsFixed(1)}s',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.white.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          // Container type badge
+                          if (event.containerType != ContainerType.none) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: _containerColor(event.containerType).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                event.containerType.name.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color: _containerColor(event.containerType),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
-                ],
+                ),
+                // Play button
+                IconButton(
+                  icon: Icon(Icons.play_arrow, size: 18, color: FluxforgeColors.accent),
+                  onPressed: () => _playEvent(event),
+                  tooltip: 'Preview',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                ),
+              ],
+            ),
+            // Trigger stages (inline, removable)
+            if (event.triggerStages.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 14, top: 4),
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 2,
+                  children: event.triggerStages.map((stage) {
+                    return GestureDetector(
+                      onSecondaryTap: () {
+                        // Right-click to remove stage
+                        final updated = event.triggerStages.where((s) => s != stage).toList();
+                        middleware.updateCompositeEvent(
+                          event.copyWith(triggerStages: updated),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: FluxforgeColors.accent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(color: FluxforgeColors.accent.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.bolt, size: 9, color: FluxforgeColors.accent),
+                            const SizedBox(width: 3),
+                            Text(
+                              stage,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: FluxforgeColors.accent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-            // Play button
-            IconButton(
-              icon: Icon(Icons.play_arrow, size: 18, color: FluxforgeColors.accent),
-              onPressed: () => _playEvent(event),
-              tooltip: 'Preview',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            ),
+            // Trigger conditions (inline, removable)
+            if (event.triggerConditions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 14, top: 3),
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 2,
+                  children: event.triggerConditions.entries.map((entry) {
+                    return GestureDetector(
+                      onSecondaryTap: () {
+                        // Right-click to remove condition
+                        final updated = Map<String, String>.from(event.triggerConditions);
+                        updated.remove(entry.key);
+                        middleware.updateCompositeEvent(
+                          event.copyWith(triggerConditions: updated),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF9040).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(color: const Color(0xFFFF9040).withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          '${entry.key} ${entry.value}',
+                          style: const TextStyle(
+                            fontSize: 8,
+                            color: Color(0xFFFF9040),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Color _containerColor(ContainerType type) {
+    return switch (type) {
+      ContainerType.blend => const Color(0xFF9370DB),
+      ContainerType.random => const Color(0xFFFFBF00),
+      ContainerType.sequence => const Color(0xFF40C8FF),
+      ContainerType.none => Colors.grey,
+    };
   }
 
   Widget _buildTimelineView(BuildContext context, EventsFolderData data, SlotCompositeEvent event) {
@@ -1169,7 +1378,365 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   void _playEvent(SlotCompositeEvent event) {
-    // TODO: Integrate with PreviewEngine
+    AudioPlaybackService.instance.previewCompositeEvent(event);
+  }
+
+  /// Show create event dialog
+  void _showCreateEventDialog(BuildContext context) {
+    final middleware = context.read<MiddlewareProvider>();
+    final nameController = TextEditingController(text: 'New Event');
+    String selectedCategory = 'general';
+
+    final categories = [
+      'general', 'spin', 'reelstop', 'win', 'bigwin',
+      'feature', 'bonus', 'anticipation', 'cascade', 'music',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1a1a24),
+          title: const Row(
+            children: [
+              Icon(Icons.add_circle, color: FluxforgeColors.accent, size: 20),
+              SizedBox(width: 10),
+              Text('Create Event', style: TextStyle(fontSize: 15, color: Colors.white)),
+            ],
+          ),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: 'Event Name',
+                    labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                    filled: true,
+                    fillColor: const Color(0xFF0a0a0c),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide.none,
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Category',
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: categories.map((cat) {
+                    final isActive = selectedCategory == cat;
+                    return GestureDetector(
+                      onTap: () => setDialogState(() => selectedCategory = cat),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? _colorForCategory(cat).withValues(alpha: 0.3)
+                              : const Color(0xFF0a0a0c),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isActive ? _colorForCategory(cat) : Colors.white24,
+                          ),
+                        ),
+                        child: Text(
+                          cat.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isActive ? _colorForCategory(cat) : Colors.white54,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                if (name.isNotEmpty) {
+                  final event = middleware.createCompositeEvent(
+                    name: name,
+                    category: selectedCategory,
+                    color: _colorForCategory(selectedCategory),
+                  );
+                  middleware.selectCompositeEvent(event.id);
+                  Navigator.pop(ctx);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: FluxforgeColors.accent,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Show dialog to add a trigger stage to an event
+  void _showAddTriggerStageDialog(BuildContext context, SlotCompositeEvent event) {
+    final middleware = context.read<MiddlewareProvider>();
+    final stageController = TextEditingController();
+
+    final commonStages = [
+      'SPIN_START', 'SPIN_END', 'REEL_STOP', 'REEL_SPIN_LOOP',
+      'WIN_PRESENT', 'WIN_LINE_SHOW', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END',
+      'ANTICIPATION_ON', 'ANTICIPATION_OFF',
+      'CASCADE_START', 'CASCADE_STEP', 'CASCADE_END',
+      'FEATURE_ENTER', 'FEATURE_EXIT',
+      'FREESPIN_START', 'FREESPIN_END',
+      'BONUS_ENTER', 'BONUS_EXIT',
+      'JACKPOT_TRIGGER', 'JACKPOT_AWARD',
+    ];
+
+    // Filter out already-assigned stages
+    final available = commonStages
+        .where((s) => !event.triggerStages.contains(s))
+        .toList();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1a1a24),
+        title: const Row(
+          children: [
+            Icon(Icons.bolt, color: FluxforgeColors.accent, size: 18),
+            SizedBox(width: 8),
+            Text('Add Trigger Stage', style: TextStyle(fontSize: 14, color: Colors.white)),
+          ],
+        ),
+        content: SizedBox(
+          width: 340,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: stageController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: 'Type stage name or select below...',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+                  filled: true,
+                  fillColor: const Color(0xFF0a0a0c),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide.none,
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Common stages',
+                style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 160,
+                child: ListView(
+                  children: available.map((stage) {
+                    return InkWell(
+                      onTap: () {
+                        stageController.text = stage;
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
+                        child: Row(
+                          children: [
+                            Icon(Icons.bolt, size: 12, color: FluxforgeColors.accent.withValues(alpha: 0.6)),
+                            const SizedBox(width: 6),
+                            Text(stage, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final stage = stageController.text.trim().toUpperCase();
+              if (stage.isNotEmpty && !event.triggerStages.contains(stage)) {
+                final updatedStages = [...event.triggerStages, stage];
+                middleware.updateCompositeEvent(
+                  event.copyWith(triggerStages: updatedStages),
+                );
+                Navigator.pop(ctx);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: FluxforgeColors.accent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show dialog to add a trigger condition (RTPC threshold) to an event
+  void _showAddConditionDialog(BuildContext context, SlotCompositeEvent event) {
+    final middleware = context.read<MiddlewareProvider>();
+    final paramController = TextEditingController();
+    final valueController = TextEditingController();
+
+    final commonParams = [
+      'winXbet > ', 'winTier >= ', 'consecutiveWins >= ',
+      'balanceTrend > ', 'multiplier >= ', 'cascadeDepth >= ',
+      'nearMissIntensity > ', 'anticipationLevel >= ',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1a1a24),
+        title: const Row(
+          children: [
+            Icon(Icons.tune, color: Color(0xFFFF9040), size: 18),
+            SizedBox(width: 8),
+            Text('Add Trigger Condition', style: TextStyle(fontSize: 14, color: Colors.white)),
+          ],
+        ),
+        content: SizedBox(
+          width: 340,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: paramController,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+                decoration: InputDecoration(
+                  labelText: 'Parameter',
+                  labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                  hintText: 'e.g. winXbet',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+                  filled: true,
+                  fillColor: const Color(0xFF0a0a0c),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide.none,
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: valueController,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+                decoration: InputDecoration(
+                  labelText: 'Condition',
+                  labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                  hintText: 'e.g. >= 5.0',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+                  filled: true,
+                  fillColor: const Color(0xFF0a0a0c),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide.none,
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Quick presets',
+                style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: commonParams.map((preset) {
+                  return GestureDetector(
+                    onTap: () {
+                      // Parse preset — split on first space
+                      final parts = preset.trim().split(' ');
+                      paramController.text = parts.first;
+                      valueController.text = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0a0a0c),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Text(
+                        preset.trim(),
+                        style: const TextStyle(fontSize: 9, color: Colors.white54),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final param = paramController.text.trim();
+              final value = valueController.text.trim();
+              if (param.isNotEmpty && value.isNotEmpty) {
+                final updatedConditions = Map<String, String>.from(event.triggerConditions);
+                updatedConditions[param] = value;
+                middleware.updateCompositeEvent(
+                  event.copyWith(triggerConditions: updatedConditions),
+                );
+                Navigator.pop(ctx);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF9040),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _toggleLayerMute(
@@ -1360,6 +1927,16 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           ),
         ),
         PopupMenuItem(
+          value: 'rename',
+          child: Row(
+            children: [
+              const Icon(Icons.edit, size: 16, color: Colors.white70),
+              const SizedBox(width: 8),
+              const Text('Rename'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
           value: 'duplicate',
           child: Row(
             children: [
@@ -1369,6 +1946,40 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             ],
           ),
         ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'addTrigger',
+          child: Row(
+            children: [
+              Icon(Icons.bolt, size: 16, color: FluxforgeColors.accent),
+              const SizedBox(width: 8),
+              const Text('Add Trigger Stage'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'addCondition',
+          child: Row(
+            children: [
+              const Icon(Icons.tune, size: 16, color: Color(0xFFFF9040)),
+              const SizedBox(width: 8),
+              const Text('Add Condition'),
+            ],
+          ),
+        ),
+        if (event.triggerStages.isNotEmpty || event.triggerConditions.isNotEmpty) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: 'clearTriggers',
+            child: Row(
+              children: [
+                Icon(Icons.clear_all, size: 16, color: Colors.orange.withValues(alpha: 0.8)),
+                const SizedBox(width: 8),
+                const Text('Clear All Triggers'),
+              ],
+            ),
+          ),
+        ],
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
@@ -1387,13 +1998,26 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
       switch (value) {
         case 'preview':
           _previewEvent(event);
-          break;
+        case 'rename':
+          setState(() {
+            _editingEventId = event.id;
+            _renameController.text = event.name;
+          });
         case 'duplicate':
           middleware.duplicateCompositeEvent(event.id);
-          break;
+        case 'addTrigger':
+          _showAddTriggerStageDialog(context, event);
+        case 'addCondition':
+          _showAddConditionDialog(context, event);
+        case 'clearTriggers':
+          middleware.updateCompositeEvent(
+            event.copyWith(
+              triggerStages: const [],
+              triggerConditions: const {},
+            ),
+          );
         case 'delete':
           _deleteEvent(context, middleware, event);
-          break;
       }
     });
   }

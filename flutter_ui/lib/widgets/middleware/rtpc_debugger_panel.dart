@@ -11,9 +11,9 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/subsystems/rtpc_system_provider.dart';
+import '../../services/service_locator.dart';
 import '../../theme/fluxforge_theme.dart';
 
 class RtpcDebuggerPanel extends StatefulWidget {
@@ -52,7 +52,7 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _providerRef = context.read<RtpcSystemProvider>();
+    _providerRef ??= sl<RtpcSystemProvider>();
     _syncFromProvider();
   }
 
@@ -161,47 +161,44 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<RtpcSystemProvider, List<RtpcDefinition>>(
-      selector: (_, p) => p.rtpcDefinitions,
-      builder: (context, rtpcs, _) {
-        final filteredRtpcs = _getFilteredRtpcs(rtpcs);
-        final selectedRtpc = _selectedRtpcId != null
-            ? rtpcs.where((r) => r.id == _selectedRtpcId).firstOrNull
-            : null;
+    final provider = _providerRef ?? sl<RtpcSystemProvider>();
+    final rtpcs = provider.rtpcDefinitions;
+    final filteredRtpcs = _getFilteredRtpcs(rtpcs);
+    final selectedRtpc = _selectedRtpcId != null
+        ? rtpcs.where((r) => r.id == _selectedRtpcId).firstOrNull
+        : null;
 
-        return Container(
-          color: FluxForgeTheme.bgDeep,
-          child: Column(
-            children: [
-              // Toolbar
-              _buildToolbar(),
+    return Container(
+      color: FluxForgeTheme.bgDeep,
+      child: Column(
+        children: [
+          // Toolbar
+          _buildToolbar(),
 
-              // Main content
-              Expanded(
-                child: Row(
-                  children: [
-                    // RTPC list
-                    SizedBox(
-                      width: 280,
-                      child: _buildRtpcList(filteredRtpcs),
-                    ),
-
-                    // Divider
-                    Container(width: 1, color: FluxForgeTheme.borderSubtle),
-
-                    // Details panel
-                    Expanded(
-                      child: selectedRtpc != null
-                          ? _buildRtpcDetails(selectedRtpc)
-                          : _buildEmptyState(),
-                    ),
-                  ],
+          // Main content
+          Expanded(
+            child: Row(
+              children: [
+                // RTPC list
+                SizedBox(
+                  width: 280,
+                  child: _buildRtpcList(filteredRtpcs),
                 ),
-              ),
-            ],
+
+                // Divider
+                Container(width: 1, color: FluxForgeTheme.borderSubtle),
+
+                // Details panel
+                Expanded(
+                  child: selectedRtpc != null
+                      ? _buildRtpcDetails(selectedRtpc)
+                      : _buildEmptyState(),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -512,22 +509,26 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                   ),
                   const SizedBox(height: 2),
                   // Mini slider
-                  Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.bgDeep,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: normalized.clamp(0.0, 1.0),
-                      child: Container(
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final barWidth = constraints.maxWidth * normalized.clamp(0.0, 1.0);
+                      return Container(
+                        height: 4,
                         decoration: BoxDecoration(
-                          color: _getValueColor(normalized),
+                          color: FluxForgeTheme.bgDeep,
                           borderRadius: BorderRadius.circular(2),
                         ),
-                      ),
-                    ),
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          width: barWidth,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: _getValueColor(normalized),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -774,6 +775,7 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
           _buildSection('VALUE HISTORY', [
             SizedBox(
               height: 80,
+              width: double.infinity,
               child: CustomPaint(
                 painter: _HistoryGraphPainter(
                   values: history,
@@ -781,7 +783,6 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                   maxValue: rtpc.max,
                   color: _getValueColor(normalized),
                 ),
-                child: const SizedBox.expand(),
               ),
             ),
           ]),
@@ -926,22 +927,26 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                 ),
                 const SizedBox(height: 2),
                 // Mini output meter
-                Container(
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: FluxForgeTheme.bgDeep,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: outputNormalized.clamp(0.0, 1.0),
-                    child: Container(
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final meterWidth = constraints.maxWidth * outputNormalized.clamp(0.0, 1.0);
+                    return Container(
+                      height: 3,
                       decoration: BoxDecoration(
-                        color: FluxForgeTheme.accentCyan,
+                        color: FluxForgeTheme.bgDeep,
                         borderRadius: BorderRadius.circular(1),
                       ),
-                    ),
-                  ),
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        width: meterWidth,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.accentCyan,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

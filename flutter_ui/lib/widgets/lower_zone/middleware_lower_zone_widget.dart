@@ -30,16 +30,13 @@ import '../middleware/random_container_panel.dart';
 import '../middleware/sequence_container_panel.dart';
 import '../middleware/blend_container_panel.dart';
 import '../middleware/bus_hierarchy_panel.dart';
-import '../middleware/event_editor_panel.dart';
 import '../middleware/events_folder_panel.dart';
 import '../middleware/event_debugger_panel.dart';
 import '../middleware/rtpc_debugger_panel.dart';
 import '../middleware/dsp_profiler_panel.dart';
 import '../middleware/priority_tier_preset_panel.dart';
 import '../middleware/state_machine_graph.dart';
-import '../middleware/audio_signatures_panel.dart';
 import '../middleware/container_groups_panel.dart';
-import '../middleware/event_templates_panel.dart';
 import '../middleware/event_profiler_advanced.dart';
 import '../middleware/spatial_designer_widget.dart';
 
@@ -354,212 +351,21 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
     final subTab = widget.controller.state.eventsSubTab;
     return switch (subTab) {
       MiddlewareEventsSubTab.browser => const EventsFolderPanel(),
-      MiddlewareEventsSubTab.editor => const EventEditorPanel(),
-      MiddlewareEventsSubTab.triggers => _buildTriggersPanel(),
       MiddlewareEventsSubTab.debug => const EventDebuggerPanel(),
       MiddlewareEventsSubTab.stateGraph => _buildStateGraphPanel(),
-      MiddlewareEventsSubTab.signatures => const AudioSignaturesPanel(),
-      MiddlewareEventsSubTab.templates => const EventTemplatesPanel(),
     };
   }
 
-  Widget _buildTriggersPanel() => _buildCompactTriggersPanel();
-
-  /// Compact triggers panel
-  Widget _buildCompactTriggersPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('TRIGGER CONDITIONS', Icons.bolt),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              children: [
-                // Trigger list
-                Expanded(
-                  flex: 2,
-                  child: _buildTriggersList(),
-                ),
-                const SizedBox(width: 12),
-                // Trigger editor
-                Expanded(
-                  flex: 3,
-                  child: _buildTriggerEditor(),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTriggersList() {
-    return Container(
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: LowerZoneColors.border),
-      ),
-      child: ListView(
-        padding: const EdgeInsets.all(4),
-        children: [
-          _buildTriggerItem('OnSpinStart', 'Stage == SPIN_START', true),
-          _buildTriggerItem('OnBigWin', 'WinTier >= 3', false),
-          _buildTriggerItem('OnFeature', 'Feature != BASE', false),
-          _buildTriggerItem('OnJackpot', 'Jackpot == true', false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTriggerItem(String name, String condition, bool isSelected) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: isSelected ? LowerZoneColors.middlewareAccent.withValues(alpha: 0.1) : null,
-        border: Border(
-          left: BorderSide(
-            color: isSelected ? LowerZoneColors.middlewareAccent : Colors.transparent,
-            width: 2,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            name,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: isSelected ? LowerZoneColors.middlewareAccent : LowerZoneColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            condition,
-            style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTriggerEditor() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: LowerZoneColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'OnSpinStart',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: LowerZoneColors.middlewareAccent,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildConditionRow('Stage', '==', 'SPIN_START'),
-          const Spacer(),
-          Row(
-            children: [
-              _buildEditorButton(Icons.add, 'Add Condition'),
-              const Spacer(),
-              _buildEditorButton(Icons.check, 'Apply', isPrimary: true),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildConditionRow(String param, String op, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgMid,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        children: [
-          _buildConditionChip(param, LowerZoneColors.textPrimary),
-          const SizedBox(width: 8),
-          _buildConditionChip(op, LowerZoneColors.middlewareAccent),
-          const SizedBox(width: 8),
-          _buildConditionChip(value, LowerZoneColors.success),
-          const Spacer(),
-          Icon(Icons.delete_outline, size: 14, color: LowerZoneColors.textMuted),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildConditionChip(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
-      ),
-    );
-  }
-
-  Widget _buildEditorButton(IconData icon, String label, {bool isPrimary = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: isPrimary
-            ? LowerZoneColors.middlewareAccent.withValues(alpha: 0.2)
-            : LowerZoneColors.bgSurface,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: isPrimary ? LowerZoneColors.middlewareAccent : LowerZoneColors.border,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 12,
-            color: isPrimary ? LowerZoneColors.middlewareAccent : LowerZoneColors.textSecondary,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              color: isPrimary ? LowerZoneColors.middlewareAccent : LowerZoneColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// Compact actions panel
   Widget _buildCompactActionsPanel() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPanelHeader('EVENT ACTIONS', Icons.play_circle),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Expanded(
             child: GridView.builder(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -790,12 +596,12 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
   /// Compact Switch Container
   Widget _buildCompactSwitchContainer() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPanelHeader('SWITCH CONTAINER', Icons.swap_horiz),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Expanded(
             child: Row(
               children: [
@@ -933,12 +739,12 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
     final destinations = ['SFX', 'Music', 'Voice', 'Master'];
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPanelHeader('ROUTING MATRIX', Icons.grid_on),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -1047,12 +853,12 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
   /// Compact RTPC Curves
   Widget _buildCompactRtpcCurves() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPanelHeader('RTPC CURVES', Icons.show_chart),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Expanded(
             child: Row(
               children: [
@@ -1121,14 +927,15 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
   /// Compact Bindings Panel
   Widget _buildCompactBindingsPanel() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPanelHeader('PARAMETER BINDINGS', Icons.link),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Expanded(
-            child: ListView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildBindingRow('WinAmount', 'Volume', '0-1', 'Linear'),
                 _buildBindingRow('Distance', 'LPF Cutoff', '0-1000', 'Exp'),
@@ -1144,8 +951,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
 
   Widget _buildBindingRow(String source, String target, String range, String curve) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: LowerZoneColors.bgDeepest,
         borderRadius: BorderRadius.circular(4),
@@ -1190,12 +996,12 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
   /// Compact Meters Panel
   Widget _buildCompactMetersPanel() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPanelHeader('REAL-TIME METERS', Icons.bar_chart),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1266,72 +1072,102 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
 
   /// Compact Bake Panel
   Widget _buildCompactBakePanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('AUDIO BAKING', Icons.local_fire_department),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              children: [
-                // Bake settings
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: LowerZoneColors.bgDeepest,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: LowerZoneColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildBakeOption('Format', 'WAV 48kHz/24bit'),
-                        _buildBakeOption('Quality', 'High'),
-                        _buildBakeOption('Normalize', 'Peak -1dB'),
-                        _buildBakeOption('Dithering', 'None'),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Bake button
-                Container(
-                  width: 100,
-                  decoration: BoxDecoration(
-                    color: LowerZoneColors.middlewareAccent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: LowerZoneColors.middlewareAccent),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.local_fire_department, size: 32, color: LowerZoneColors.middlewareAccent),
-                      const SizedBox(height: 8),
-                      Text(
-                        'BAKE',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: LowerZoneColors.middlewareAccent,
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        final events = middleware.compositeEvents;
+        int totalLayers = 0;
+        int withAudio = 0;
+        for (final e in events) {
+          totalLayers += e.layers.length;
+          if (e.layers.isNotEmpty) withAudio++;
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPanelHeader('AUDIO BAKING', Icons.local_fire_department),
+              const SizedBox(height: 6),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: LowerZoneColors.bgDeepest,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: LowerZoneColors.border),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildBakeOption('Events', '${events.length}'),
+                            _buildBakeOption('Layers', '$totalLayers'),
+                            _buildBakeOption('With Audio', '$withAudio'),
+                            _buildBakeOption('Format', 'JSON'),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: events.isEmpty ? null : () async {
+                        final result = await FilePicker.platform.saveFile(
+                          dialogTitle: 'Export Events',
+                          fileName: 'events_export.json',
+                          type: FileType.custom,
+                          allowedExtensions: ['json'],
+                        );
+                        if (result != null && context.mounted) {
+                          final json = jsonEncode(middleware.exportEventsToJson());
+                          await File(result).writeAsString(json);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Exported to $result')),
+                            );
+                          }
+                        }
+                      },
+                      child: Container(
+                        width: 100,
+                        decoration: BoxDecoration(
+                          color: LowerZoneColors.middlewareAccent.withValues(alpha: events.isEmpty ? 0.05 : 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: events.isEmpty ? LowerZoneColors.border : LowerZoneColors.middlewareAccent),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.local_fire_department, size: 28, color: events.isEmpty ? LowerZoneColors.textMuted : LowerZoneColors.middlewareAccent),
+                            const SizedBox(height: 4),
+                            Text(
+                              'BAKE',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: events.isEmpty ? LowerZoneColors.textMuted : LowerZoneColors.middlewareAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildBakeOption(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.zero,
       child: Row(
         children: [
           Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted)),
@@ -1344,48 +1180,67 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
 
   /// Compact Soundbank Panel
   Widget _buildCompactSoundbankPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('SOUNDBANK GENERATOR', Icons.sd_storage),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView(
-              children: [
-                _buildSoundbankItem('Init.bnk', '2.4 MB', true),
-                _buildSoundbankItem('Base_Game.bnk', '12.8 MB', true),
-                _buildSoundbankItem('FreeSpins.bnk', '8.1 MB', false),
-                _buildSoundbankItem('Jackpot.bnk', '4.2 MB', false),
-                _buildSoundbankItem('UI_Sounds.bnk', '1.6 MB', true),
-              ],
-            ),
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        final events = middleware.compositeEvents;
+        // Group events by category
+        final categories = <String, int>{};
+        int totalLayers = 0;
+        for (final e in events) {
+          categories[e.category] = (categories[e.category] ?? 0) + 1;
+          totalLayers += e.layers.length;
+        }
+        final catEntries = categories.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _buildPanelHeader('SOUNDBANK', Icons.sd_storage),
+                  const Spacer(),
+                  Text('${events.length} events · $totalLayers layers', style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Expanded(
+                child: catEntries.isEmpty
+                    ? const Center(child: Text('No events — create events first', style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted)))
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: catEntries.take(6).map((entry) {
+                          final hasAudio = events.where((e) => e.category == entry.key).any((e) => e.layers.isNotEmpty);
+                          return _buildSoundbankItem(entry.key, '${entry.value} events', hasAudio);
+                        }).toList(),
+                      ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSoundbankItem(String name, String size, bool isLoaded) {
+  Widget _buildSoundbankItem(String name, String detail, bool hasAudio) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: LowerZoneColors.bgDeepest,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: isLoaded ? LowerZoneColors.success.withValues(alpha: 0.3) : LowerZoneColors.border),
+        border: Border.all(color: hasAudio ? LowerZoneColors.success.withValues(alpha: 0.3) : LowerZoneColors.border),
       ),
       child: Row(
         children: [
           Icon(
-            isLoaded ? Icons.check_circle : Icons.circle_outlined,
+            hasAudio ? Icons.check_circle : Icons.circle_outlined,
             size: 14,
-            color: isLoaded ? LowerZoneColors.success : LowerZoneColors.textMuted,
+            color: hasAudio ? LowerZoneColors.success : LowerZoneColors.textMuted,
           ),
           const SizedBox(width: 8),
           Expanded(child: Text(name, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary))),
-          Text(size, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+          Text(detail, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
         ],
       ),
     );
@@ -1393,47 +1248,97 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
 
   /// Compact Validate Panel
   Widget _buildCompactValidatePanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        final events = middleware.compositeEvents;
+        final results = <(String, bool)>[];
+
+        // Check: events with no audio layers
+        final emptyEvents = events.where((e) => e.layers.isEmpty).toList();
+        if (emptyEvents.isEmpty) {
+          results.add(('All events have audio layers', true));
+        } else {
+          for (final e in emptyEvents.take(3)) {
+            results.add(('Missing audio: ${e.name}', false));
+          }
+          if (emptyEvents.length > 3) {
+            results.add(('...and ${emptyEvents.length - 3} more without audio', false));
+          }
+        }
+
+        // Check: events with no trigger stages
+        final noStages = events.where((e) => e.triggerStages.isEmpty).toList();
+        if (noStages.isEmpty) {
+          results.add(('All events have trigger stages', true));
+        } else {
+          results.add(('${noStages.length} events missing trigger stages', false));
+        }
+
+        // Check: total event count
+        if (events.isNotEmpty) {
+          results.add(('${events.length} events registered', true));
+        } else {
+          results.add(('No events created', false));
+        }
+
+        // Check: layers with missing audio paths
+        int missingPaths = 0;
+        for (final e in events) {
+          for (final l in e.layers) {
+            if (l.audioPath.isEmpty) missingPaths++;
+          }
+        }
+        if (missingPaths == 0 && events.isNotEmpty) {
+          results.add(('All layers have audio files', true));
+        } else if (missingPaths > 0) {
+          results.add(('$missingPaths layers missing audio file', false));
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildPanelHeader('REFERENCE VALIDATOR', Icons.check_circle),
-              const Spacer(),
-              _buildEditorButton(Icons.refresh, 'Validate All', isPrimary: true),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: LowerZoneColors.bgDeepest,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: LowerZoneColors.border),
-              ),
-              child: ListView(
-                padding: const EdgeInsets.all(8),
+              Row(
                 children: [
-                  _buildValidationResult('All events have audio', true),
-                  _buildValidationResult('All switches have defaults', true),
-                  _buildValidationResult('No orphan RTPCs', true),
-                  _buildValidationResult('Missing audio: feature_win.wav', false),
-                  _buildValidationResult('Unused event: old_bonus_sound', false),
+                  _buildPanelHeader('VALIDATOR', Icons.check_circle),
+                  const Spacer(),
+                  Text(
+                    '${results.where((r) => !r.$2).length} issues',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: results.any((r) => !r.$2) ? LowerZoneColors.error : LowerZoneColors.success,
+                    ),
+                  ),
                 ],
               ),
-            ),
+              const SizedBox(height: 6),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: LowerZoneColors.bgDeepest,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: LowerZoneColors.border),
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: results.isEmpty
+                      ? const Center(child: Text('No data to validate', style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted)))
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: results.take(6).map((r) => _buildValidationResult(r.$1, r.$2)).toList(),
+                        ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildValidationResult(String message, bool isValid) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: (isValid ? LowerZoneColors.success : LowerZoneColors.error).withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(4),
@@ -1462,74 +1367,106 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
 
   /// Compact Package Panel
   Widget _buildCompactPackagePanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('EXPORT PACKAGE', Icons.inventory_2),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildPackageOption('Platform', 'All'),
-                      _buildPackageOption('Compression', 'Vorbis Q5'),
-                      _buildPackageOption('Banks', '5 selected'),
-                      _buildPackageOption('Size', '~28.5 MB'),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  width: 120,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        LowerZoneColors.middlewareAccent.withValues(alpha: 0.2),
-                        LowerZoneColors.middlewareAccent.withValues(alpha: 0.1),
-                      ],
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        final events = middleware.compositeEvents;
+        int totalLayers = 0;
+        int withAudio = 0;
+        final categories = <String>{};
+        for (final e in events) {
+          totalLayers += e.layers.length;
+          if (e.layers.isNotEmpty) withAudio++;
+          categories.add(e.category);
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPanelHeader('EXPORT PACKAGE', Icons.inventory_2),
+              const SizedBox(height: 6),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildPackageOption('Events', '${events.length}'),
+                          _buildPackageOption('Layers', '$totalLayers'),
+                          _buildPackageOption('With Audio', '$withAudio / ${events.length}'),
+                          _buildPackageOption('Categories', '${categories.length}'),
+                        ],
+                      ),
                     ),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: LowerZoneColors.middlewareAccent),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.download, size: 32, color: LowerZoneColors.middlewareAccent),
-                      const SizedBox(height: 8),
-                      Text(
-                        'EXPORT',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: LowerZoneColors.middlewareAccent,
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () async {
+                        final result = await FilePicker.platform.getDirectoryPath(
+                          dialogTitle: 'Select Output Directory',
+                        );
+                        if (result != null && context.mounted) {
+                          final packageDir = Directory('$result/FluxForge_Package');
+                          await packageDir.create(recursive: true);
+                          final eventsJson = jsonEncode(middleware.exportEventsToJson());
+                          await File('${packageDir.path}/events.json').writeAsString(eventsJson);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Package created: ${packageDir.path}')),
+                            );
+                          }
+                        }
+                      },
+                      child: Container(
+                        width: 100,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              LowerZoneColors.middlewareAccent.withValues(alpha: 0.2),
+                              LowerZoneColors.middlewareAccent.withValues(alpha: 0.1),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: LowerZoneColors.middlewareAccent),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.download, size: 28, color: LowerZoneColors.middlewareAccent),
+                            const SizedBox(height: 4),
+                            Text(
+                              'EXPORT',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: LowerZoneColors.middlewareAccent,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              events.isEmpty ? 'No data' : 'Ready',
+                              style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Ready',
-                        style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildPackageOption(String label, String value) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: LowerZoneColors.bgDeepest,
         borderRadius: BorderRadius.circular(4),

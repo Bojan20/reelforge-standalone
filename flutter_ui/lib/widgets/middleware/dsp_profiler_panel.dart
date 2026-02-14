@@ -242,10 +242,10 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Column(
         children: [
-          // Big load display
+          // Load display
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -254,103 +254,108 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
                 load.toStringAsFixed(1),
                 style: TextStyle(
                   color: meterColor,
-                  fontSize: 48,
+                  fontSize: 28,
                   fontWeight: FontWeight.w700,
                   fontFamily: 'monospace',
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   '%',
                   style: TextStyle(
                     color: meterColor.withValues(alpha: 0.7),
-                    fontSize: 24,
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           // Horizontal bar meter
-          Container(
-            height: 20,
-            decoration: BoxDecoration(
-              color: FluxForgeTheme.bgMid,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: FluxForgeTheme.borderSubtle),
-            ),
-            child: Stack(
-              children: [
-                // Background gradient zones
-                Row(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final meterWidth = constraints.maxWidth;
+              return Container(
+                height: 20,
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgMid,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: FluxForgeTheme.borderSubtle),
+                ),
+                child: Stack(
                   children: [
-                    Expanded(
-                      flex: 50,
+                    // Background gradient zones
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 50,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: FluxForgeTheme.accentGreen.withValues(alpha: 0.1),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(3),
+                                bottomLeft: Radius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 20,
+                          child: Container(
+                            color: FluxForgeTheme.accentYellow.withValues(alpha: 0.1),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 20,
+                          child: Container(
+                            color: FluxForgeTheme.accentOrange.withValues(alpha: 0.1),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 10,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: FluxForgeTheme.accentRed.withValues(alpha: 0.1),
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(3),
+                                bottomRight: Radius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Load bar
+                    FractionallySizedBox(
+                      widthFactor: (load / 100).clamp(0.0, 1.0),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: FluxForgeTheme.accentGreen.withValues(alpha: 0.1),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(3),
-                            bottomLeft: Radius.circular(3),
+                          gradient: LinearGradient(
+                            colors: [
+                              meterColor.withValues(alpha: 0.8),
+                              meterColor,
+                            ],
                           ),
+                          borderRadius: BorderRadius.circular(3),
                         ),
                       ),
                     ),
-                    Expanded(
-                      flex: 20,
+                    // Peak indicator
+                    Positioned(
+                      left: (stats.peakLoadPercent / 100 * meterWidth - 2).clamp(0, double.infinity),
+                      top: 0,
+                      bottom: 0,
                       child: Container(
-                        color: FluxForgeTheme.accentYellow.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 20,
-                      child: Container(
-                        color: FluxForgeTheme.accentOrange.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 10,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: FluxForgeTheme.accentRed.withValues(alpha: 0.1),
-                          borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(3),
-                            bottomRight: Radius.circular(3),
-                          ),
-                        ),
+                        width: 2,
+                        color: FluxForgeTheme.accentRed,
                       ),
                     ),
                   ],
                 ),
-                // Load bar
-                FractionallySizedBox(
-                  widthFactor: (load / 100).clamp(0.0, 1.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          meterColor.withValues(alpha: 0.8),
-                          meterColor,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                ),
-                // Peak indicator
-                Positioned(
-                  left: (stats.peakLoadPercent / 100 * (context.size?.width ?? 300) - 2).clamp(0, double.infinity),
-                  top: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 2,
-                    color: FluxForgeTheme.accentRed,
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
           const SizedBox(height: 4),
           // Labels
