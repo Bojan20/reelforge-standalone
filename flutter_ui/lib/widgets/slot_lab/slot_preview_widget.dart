@@ -1279,11 +1279,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // Notify provider: Reels no longer spinning (for STOP button visibility)
+    // SPIN_END audio is triggered by provider (from Rust timer pipeline), not here
     widget.provider.onAllReelsVisualStop();
-
-    // Trigger SPIN_END immediately when last reel visually lands
-    // This is the "base end game" stage — signals spin completion
-    eventRegistry.triggerStage('SPIN_END');
 
     // Finalize with the result
     final result = widget.provider.lastResult;
@@ -1556,8 +1553,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _reelAnimController.setTargetGrid(_targetGrid);
     _reelAnimController.startSpin();
 
-    // NOTE: SPIN_START audio is triggered by SlotLabProvider._playStage()
-    // DO NOT trigger here - causes double trigger!
+    // Trigger spin loop audio when reel animation starts — plain one-shot, no loop, no stop
+    eventRegistry.triggerStage('REEL_SPIN_LOOP', context: {'force_no_loop': true});
   }
 
   void _finalizeSpin(SlotLabSpinResult result) {

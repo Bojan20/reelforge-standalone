@@ -292,6 +292,7 @@ class SlotLabProvider extends ChangeNotifier {
   /// True ONLY while reels are visually spinning (SPIN_START → all REEL_STOP)
   /// Used by STOP button - should NOT include win presentation phase
   bool _isReelsSpinning = false;
+  bool _spinEndTriggered = false; // Guard: prevents double SPIN_END audio trigger
   int _playbackGeneration = 0; // Incremented on each new spin to invalidate old timers
 
   // ─── V13: Win Presentation State (for blocking next spin) ─────────────────
@@ -716,6 +717,7 @@ class SlotLabProvider extends ChangeNotifier {
   void onAllReelsVisualStop() {
     if (_isReelsSpinning) {
       _isReelsSpinning = false;
+      // Spin loop stops on SPIN_END, not here
       notifyListeners();
     }
   }
@@ -1399,46 +1401,6 @@ class SlotLabProvider extends ChangeNotifier {
     });
   }
 
-  /// P0.1: Handle REEL_STOP UI-only logic (when audio was pre-triggered)
-  /// This handles REEL_SPIN stop logic without re-triggering audio
-  void _handleReelStopUIOnly(SlotLabStageEvent stage) {
-    // CRITICAL: reel_index is in rawStage, not payload
-    final reelIndex = stage.rawStage['reel_index'];
-    // Cast to int properly (may be dynamic from JSON)
-    final int? reelIdx = reelIndex is int ? reelIndex : null;
-
-
-    // REEL_SPIN STOP LOGIC — Stop loop kad poslednji reel stane
-    final bool shouldStopReelSpin;
-    if (reelIdx != null) {
-      // Ako imamo specifičan reel index, stop kad je poslednji
-      shouldStopReelSpin = reelIdx >= _totalReels - 1;
-    } else {
-      // Ako nema reel indexa, ovo je generički REEL_STOP — proveri da li je poslednji
-      final currentIdx = _lastStages.indexWhere((s) =>
-        s.timestampMs == stage.timestampMs && s.stageType.toUpperCase() == 'REEL_STOP');
-      if (currentIdx >= 0 && currentIdx < _lastStages.length - 1) {
-        final nextStage = _lastStages[currentIdx + 1];
-        shouldStopReelSpin = nextStage.stageType.toUpperCase() != 'REEL_STOP';
-      } else {
-        // Poslednji stage u listi
-        shouldStopReelSpin = true;
-      }
-    }
-
-    if (shouldStopReelSpin) {
-      // Stop both spin loop variants
-      eventRegistry.stopEvent('REEL_SPIN_LOOP');
-      eventRegistry.stopEvent('REEL_SPIN');
-
-      // AUTO-TRIGGER SPIN_END immediately after last reel stop
-      if (eventRegistry.hasEventForStage('SPIN_END')) {
-        final context = {...stage.payload, ...stage.rawStage, 'timestamp_ms': stage.timestampMs};
-        eventRegistry.triggerStage('SPIN_END', context: context);
-      } else {
-      }
-    }
-  }
 
   /// Trigger only the audio for a stage (no UI state changes)
   /// Used for P0.6 anticipation pre-trigger
@@ -1815,36 +1777,28 @@ class SlotLabProvider extends ChangeNotifier {
           .toList();
     }
 
-    if (hasSpecific) {
-      eventRegistry.triggerStage(effectiveStage, context: context);
-    } else if (hasFallback) {
-      eventRegistry.triggerStage(stageType, context: context);
-    } else {
-      // STILL trigger so Event Log shows the stage (even without audio)
-      eventRegistry.triggerStage(stageType, context: context);
-    }
-
-    // Za SPIN_START, trigeruj spin loop audio (REEL_SPIN ili REEL_SPIN_LOOP)
-    // UI (UltimateAudioPanel) koristi REEL_SPIN_LOOP, legacy koristi REEL_SPIN
-    if (stageType == 'SPIN_START') {
-      if (eventRegistry.hasEventForStage('REEL_SPIN_LOOP')) {
-        eventRegistry.triggerStage('REEL_SPIN_LOOP', context: context);
-      } else if (eventRegistry.hasEventForStage('REEL_SPIN')) {
-        eventRegistry.triggerStage('REEL_SPIN', context: context);
+    // SPIN_END is handled below with guard — skip general trigger to prevent double audio
+    if (stageType != 'SPIN_END') {
+      if (hasSpecific) {
+        eventRegistry.triggerStage(effectiveStage, context: context);
+      } else if (hasFallback) {
+        eventRegistry.triggerStage(stageType, context: context);
+      } else {
+        // STILL trigger so Event Log shows the stage (even without audio)
+        eventRegistry.triggerStage(stageType, context: context);
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // REEL SPINNING STATE — For STOP button visibility
-    // Set true at SPIN_START, set false via onAllReelsVisualStop() callback
     // ═══════════════════════════════════════════════════════════════════════════
     if (stageType == 'SPIN_START') {
       _isReelsSpinning = true;
+      _spinEndTriggered = false; // Reset guard for new spin
       notifyListeners();
     }
 
     // MUSIC AUTO-TRIGGER: Start base music on first SPIN_START
-    // NOTE: _baseMusicStarted prevents re-triggering looping music on every spin
     if (stageType == 'SPIN_START' && !_baseMusicStarted) {
       if (eventRegistry.hasEventForStage('MUSIC_BASE')) {
         eventRegistry.triggerStage('MUSIC_BASE', context: context);
@@ -1852,47 +1806,16 @@ class SlotLabProvider extends ChangeNotifier {
       }
       if (eventRegistry.hasEventForStage('GAME_START')) {
         eventRegistry.triggerStage('GAME_START', context: context);
-        // CRITICAL: Set flag even if only GAME_START is used (not MUSIC_BASE)
-        // This prevents GAME_START from re-triggering on every spin
         _baseMusicStarted = true;
       }
     }
 
-    // REEL_SPIN STOP LOGIC — Stop loop kad poslednji reel stane
-    if (stageType == 'REEL_STOP') {
-      final bool shouldStopReelSpin;
-      // CRITICAL: reelIndex may be dynamic (int or null), cast properly
-      final int? reelIdx = reelIndex is int ? reelIndex : null;
-
-      if (reelIdx != null) {
-        shouldStopReelSpin = reelIdx >= _totalReels - 1;
-      } else {
-        // Generički REEL_STOP — proveri da li je poslednji
-        final currentIdx = _lastStages.indexWhere((s) =>
-          s.timestampMs == stage.timestampMs && s.stageType.toUpperCase() == 'REEL_STOP');
-        if (currentIdx >= 0 && currentIdx < _lastStages.length - 1) {
-          final nextStage = _lastStages[currentIdx + 1];
-          shouldStopReelSpin = nextStage.stageType.toUpperCase() != 'REEL_STOP';
-        } else {
-          shouldStopReelSpin = true;
-        }
-      }
-
-      if (shouldStopReelSpin) {
-        // Stop both spin loop variants
-        eventRegistry.stopEvent('REEL_SPIN_LOOP');
-        eventRegistry.stopEvent('REEL_SPIN');
-        if (eventRegistry.hasEventForStage('SPIN_END')) {
-          eventRegistry.triggerStage('SPIN_END', context: context);
-        }
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SPIN_END: Handle explicit SPIN_END stage from Rust (backup)
+    // SPIN_END: Single trigger point — stops spin loop via EventRegistry + plays SPIN_END audio
     if (stageType == 'SPIN_END') {
-      eventRegistry.stopEvent('REEL_SPIN_LOOP');
-      eventRegistry.stopEvent('REEL_SPIN');
+      if (!_spinEndTriggered) {
+        _spinEndTriggered = true;
+        eventRegistry.triggerStage('SPIN_END', context: context);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

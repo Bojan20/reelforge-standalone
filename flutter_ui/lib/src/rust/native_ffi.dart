@@ -570,6 +570,14 @@ typedef EnginePlaybackFadeOutOneShotDart = void Function(int voiceId, int fadeMs
 typedef EnginePlaybackSetVoicePitchNative = Int32 Function(Uint64 voiceId, Float semitones);
 typedef EnginePlaybackSetVoicePitchDart = int Function(int voiceId, double semitones);
 
+// Real-time voice volume/pan/mute
+typedef EnginePlaybackSetVoiceVolumeNative = Int32 Function(Uint64 voiceId, Float volume);
+typedef EnginePlaybackSetVoiceVolumeDart = int Function(int voiceId, double volume);
+typedef EnginePlaybackSetVoicePanNative = Int32 Function(Uint64 voiceId, Float pan);
+typedef EnginePlaybackSetVoicePanDart = int Function(int voiceId, double pan);
+typedef EnginePlaybackSetVoiceMuteNative = Int32 Function(Uint64 voiceId, Int32 muted);
+typedef EnginePlaybackSetVoiceMuteDart = int Function(int voiceId, int muted);
+
 // Section-based playback filtering
 typedef EngineSetActiveSectionNative = Void Function(Uint8 section);
 typedef EngineSetActiveSectionDart = void Function(int section);
@@ -2224,6 +2232,9 @@ class NativeFFI {
   late final EnginePlaybackStopAllOneShotsDart _playbackStopAllOneShots;
   late final EnginePlaybackFadeOutOneShotDart _playbackFadeOutOneShot; // P0
   late final EnginePlaybackSetVoicePitchDart _playbackSetVoicePitch; // P12.0.1
+  late final EnginePlaybackSetVoiceVolumeDart _playbackSetVoiceVolume;
+  late final EnginePlaybackSetVoicePanDart _playbackSetVoicePan;
+  late final EnginePlaybackSetVoiceMuteDart _playbackSetVoiceMute;
 
   // Section-based playback filtering
   late final EngineSetActiveSectionDart _setActiveSection;
@@ -2893,6 +2904,9 @@ class NativeFFI {
     _playbackStopAllOneShots = _lib.lookupFunction<EnginePlaybackStopAllOneShotsNative, EnginePlaybackStopAllOneShotsDart>('engine_playback_stop_all_one_shots');
     _playbackFadeOutOneShot = _lib.lookupFunction<EnginePlaybackFadeOutOneShotNative, EnginePlaybackFadeOutOneShotDart>('engine_playback_fade_out_one_shot'); // P0
     _playbackSetVoicePitch = _lib.lookupFunction<EnginePlaybackSetVoicePitchNative, EnginePlaybackSetVoicePitchDart>('engine_playback_set_voice_pitch'); // P12.0.1
+    _playbackSetVoiceVolume = _lib.lookupFunction<EnginePlaybackSetVoiceVolumeNative, EnginePlaybackSetVoiceVolumeDart>('engine_playback_set_voice_volume');
+    _playbackSetVoicePan = _lib.lookupFunction<EnginePlaybackSetVoicePanNative, EnginePlaybackSetVoicePanDart>('engine_playback_set_voice_pan');
+    _playbackSetVoiceMute = _lib.lookupFunction<EnginePlaybackSetVoiceMuteNative, EnginePlaybackSetVoiceMuteDart>('engine_playback_set_voice_mute');
 
     // Section-based playback filtering
     _setActiveSection = _lib.lookupFunction<EngineSetActiveSectionNative, EngineSetActiveSectionDart>('engine_set_active_section');
@@ -4762,6 +4776,24 @@ class NativeFFI {
   bool setVoicePitch(int voiceId, double semitones) {
     if (!_loaded) return false;
     return _playbackSetVoicePitch(voiceId, semitones) == 1;
+  }
+
+  /// Set volume for active voice in real-time (0.0 to 1.5)
+  bool setVoiceVolume(int voiceId, double volume) {
+    if (!_loaded) return false;
+    return _playbackSetVoiceVolume(voiceId, volume) == 1;
+  }
+
+  /// Set pan for active voice in real-time (-1.0 to 1.0)
+  bool setVoicePan(int voiceId, double pan) {
+    if (!_loaded) return false;
+    return _playbackSetVoicePan(voiceId, pan) == 1;
+  }
+
+  /// Set mute state for active voice in real-time
+  bool setVoiceMute(int voiceId, bool muted) {
+    if (!_loaded) return false;
+    return _playbackSetVoiceMute(voiceId, muted ? 1 : 0) == 1;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

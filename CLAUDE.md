@@ -2234,6 +2234,44 @@ void _syncEventsFromProviderList(List<MiddlewareEvent> events) {
 }
 ```
 
+### Middleware Preview Playback Fix (2026-02-14) ✅
+
+Complete rewrite of `_previewEvent()` in `engine_connected_layout.dart` — Pan, Loop, Bus now fully operational.
+
+**Root Cause:** `_previewEvent()` used `previewFile()` (PREVIEW ENGINE) which has NO pan, NO layerId, NO loop support.
+
+**Two Playback Engines (CRITICAL KNOWLEDGE):**
+
+| Engine | FFI | Filtering | Pan/Bus/Loop |
+|--------|-----|-----------|--------------|
+| PREVIEW ENGINE | `previewAudioFile()` | None (always plays) | ❌ No pan/bus/loop |
+| PLAYBACK ENGINE | `playbackPlayToBus()` | By `active_section` | ✅ Full support |
+
+**Fixes Applied:**
+1. Replaced `previewFile()` with `playFileToBus()` passing `pan`, `busId`, `layerId`, `eventId`
+2. Added `acquireSection(PlaybackSection.middleware)` + `ensureStreamRunning()` before playback
+3. Added `composite.looping` check — uses `playLoopingToBus()` for looping events
+4. Created `_restartPreviewIfActive()` for non-real-time param changes (loop, bus)
+
+**Real-Time vs Restart Parameters:**
+
+| Parameter | Real-Time? | Mechanism |
+|-----------|-----------|-----------|
+| Volume | ✅ Yes | `OneShotCommand::SetVolume` via `updateActiveLayerPan()` |
+| Pan | ✅ Yes | `OneShotCommand::SetPan` via `updateActiveLayerPan()` |
+| Mute | ✅ Yes | `OneShotCommand::SetMute` |
+| Loop | ❌ Restart | `_restartPreviewIfActive()` — stops + 50ms delay + restart |
+| Bus | ❌ Restart | `_restartPreviewIfActive()` — stops + 50ms delay + restart |
+
+**`_restartPreviewIfActive()` Integration Points (5 locations):**
+- Inspector loop checkbox (~line 10055)
+- Header loop mini-toggle (~line 6182)
+- Table row loop checkbox (~line 7060)
+- Header bus dropdown (~line 6098)
+- Inspector bus dropdown (~line 10031)
+
+**CRITICAL:** Without `acquireSection()`, the Rust engine's `active_section` atomic is NOT set to Middleware (value 2), causing `process_one_shot_voices()` at `playback.rs:3690` to silently filter out ALL middleware voices.
+
 ---
 
 ## 📊 IMPLEMENTED FEATURES STATUS

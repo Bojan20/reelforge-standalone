@@ -20,6 +20,10 @@ pub enum Stage {
     /// Spin button pressed, spin initiated
     SpinStart,
 
+    /// Shared spin loop audio — triggered once on spin start, loops until SPIN_END
+    /// This is the single looping reel spin audio (not per-reel)
+    ReelSpinLoop,
+
     /// Reel is spinning (not yet stopped)
     ReelSpinning {
         /// Which reel (0-indexed)
@@ -481,6 +485,7 @@ impl Stage {
     pub fn category(&self) -> StageCategory {
         match self {
             Stage::SpinStart
+            | Stage::ReelSpinLoop
             | Stage::ReelSpinning { .. }
             | Stage::ReelSpinningStart { .. }  // P0.1
             | Stage::ReelSpinningStop { .. }   // P0.1
@@ -550,6 +555,7 @@ impl Stage {
     pub fn type_name(&self) -> &'static str {
         match self {
             Stage::SpinStart => "spin_start",
+            Stage::ReelSpinLoop => "reel_spin_loop",
             Stage::ReelSpinning { .. } => "reel_spinning",
             Stage::ReelSpinningStart { .. } => "reel_spinning_start", // P0.1
             Stage::ReelSpinningStop { .. } => "reel_spinning_stop",   // P0.1
@@ -610,7 +616,8 @@ impl Stage {
     pub fn is_looping(&self) -> bool {
         matches!(
             self,
-            Stage::ReelSpinning { .. }
+            Stage::ReelSpinLoop  // Shared spin loop for all reels
+                | Stage::ReelSpinning { .. }
                 | Stage::ReelSpinningStart { .. } // P0.1: Per-reel spin loop
                 | Stage::AnticipationOn { .. }
                 | Stage::AnticipationTensionLayer { .. } // Per-reel tension layer loops
@@ -638,6 +645,7 @@ impl Stage {
     pub fn all_type_names() -> &'static [&'static str] {
         &[
             "spin_start",
+            "reel_spin_loop",
             "reel_spinning",
             "reel_spinning_start", // P0.1
             "reel_spinning_stop",  // P0.1
@@ -725,6 +733,7 @@ impl Stage {
 
         match name_lower.as_str() {
             "spin_start" => Some(Stage::SpinStart),
+            "reel_spin_loop" => Some(Stage::ReelSpinLoop),
             "reel_spinning" => Some(Stage::ReelSpinning {
                 reel_index: get_u8("reel_index"),
             }),

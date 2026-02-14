@@ -542,6 +542,11 @@ class SlotStageProvider extends ChangeNotifier {
   void onAllReelsVisualStop() {
     if (_isReelsSpinning) {
       _isReelsSpinning = false;
+
+      // CRITICAL: Stop spin loop audio EXACTLY when last reel visually stops
+      // This is more precise than waiting for SPIN_END stage from the timer pipeline
+      eventRegistry.stopAllSpinLoops();
+
       notifyListeners();
     }
   }

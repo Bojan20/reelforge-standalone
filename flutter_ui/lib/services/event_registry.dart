@@ -625,7 +625,7 @@ class EventRegistry extends ChangeNotifier {
   // P0: Per-reel spin loop voice tracking
   // Maps reel index (0-4) to voice ID for individual fade-out on REEL_STOP_N
   final Map<int, int> _reelSpinLoopVoices = {};
-  static const int _spinLoopFadeMs = 50; // Fade duration for smooth stop
+  static const int _spinLoopFadeMs = 15; // Short fade for tight audio-visual sync
 
   // P0-C3: Guard flag to serialize reel spin loop access and prevent concurrent modification
   bool _processingReelStop = false;
@@ -639,6 +639,12 @@ class EventRegistry extends ChangeNotifier {
       if (voiceId != null && voiceId > 0) {
         AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: _spinLoopFadeMs);
         _reelSpinLoopVoices.remove(reelIndex);
+
+        // Clean up _playingInstances containing this voice to allow re-trigger
+        _playingInstances.removeWhere((instance) {
+          if (!instance.isLooping) return false;
+          return instance.voiceIds.contains(voiceId);
+        });
       }
     } finally {
       _processingReelStop = false;
@@ -660,8 +666,22 @@ class EventRegistry extends ChangeNotifier {
     // P0-C3: Snapshot map to avoid concurrent modification
     final snapshot = Map<int, int>.from(_reelSpinLoopVoices);
     _reelSpinLoopVoices.clear();
+
+    // Collect all voice IDs being stopped
+    final stoppedVoiceIds = <int>{};
     for (final entry in snapshot.entries) {
+      stoppedVoiceIds.add(entry.value);
       AudioPlaybackService.instance.fadeOutVoice(entry.value, fadeMs: _spinLoopFadeMs);
+    }
+
+    // CRITICAL: Remove _playingInstances that contain these voice IDs
+    // Without this cleanup, looping event dedup logic (line ~2092) sees stale instances
+    // with voiceId > 0 and refuses to re-trigger on next spin
+    if (stoppedVoiceIds.isNotEmpty) {
+      _playingInstances.removeWhere((instance) {
+        if (!instance.isLooping) return false;
+        return instance.voiceIds.any((v) => stoppedVoiceIds.contains(v));
+      });
     }
   }
 
@@ -1776,67 +1796,10 @@ class EventRegistry extends ChangeNotifier {
       data: context ?? {},
     ));
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // P0: PER-REEL SPIN LOOP FADE-OUT — Fade out this reel's loop before playing stop sound
-    // ═══════════════════════════════════════════════════════════════════════════
-    final fadeOutReelIndex = context?['fade_out_spin_reel'];
-    if (fadeOutReelIndex != null && fadeOutReelIndex is int) {
-      _fadeOutReelSpinLoop(fadeOutReelIndex);
-    }
-
-    // P0: AUTO-DETECT REEL_STOP_X stages and fade out corresponding spin loop
-    // Supports: REEL_STOP_0, REEL_STOP_1, REEL_STOP_2, REEL_STOP_3, REEL_STOP_4
     final upperStage = stage.toUpperCase();
-    final reelStopMatch = RegExp(r'^REEL_STOP_(\d+)$').firstMatch(upperStage);
-    if (reelStopMatch != null) {
-      final reelIndex = int.tryParse(reelStopMatch.group(1) ?? '');
-      if (reelIndex != null) {
-        _fadeOutReelSpinLoop(reelIndex);
-      }
-    }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // P0.1: AUTO-DETECT REEL_SPINNING_STOP_X stages for early fade-out
-    // These fire BEFORE REEL_STOP_X to allow audio-visual overlap
-    // Supports: REEL_SPINNING_STOP_0, REEL_SPINNING_STOP_1, etc.
-    // ═══════════════════════════════════════════════════════════════════════════
-    final reelSpinStopMatch = RegExp(r'^REEL_SPINNING_STOP_(\d+)$').firstMatch(upperStage);
-    if (reelSpinStopMatch != null) {
-      final reelIndex = int.tryParse(reelSpinStopMatch.group(1) ?? '');
-      if (reelIndex != null) {
-        _fadeOutReelSpinLoop(reelIndex);
-        // Don't return - still process the stage for potential audio event
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // P0.1: AUTO-DETECT REEL_SPINNING_START_X stages for per-reel loop start
-    // These fire at spin start to trigger individual spin loops per reel
-    // Supports: REEL_SPINNING_START_0, REEL_SPINNING_START_1, etc.
-    // ═══════════════════════════════════════════════════════════════════════════
-    Map<String, dynamic> enhancedContext = context != null ? Map.from(context) : {};
-    final reelSpinStartMatch = RegExp(r'^REEL_SPINNING_START_(\d+)$').firstMatch(upperStage);
-    if (reelSpinStartMatch != null) {
-      final reelIndex = int.tryParse(reelSpinStartMatch.group(1) ?? '');
-      if (reelIndex != null) {
-        enhancedContext['is_reel_spin_loop'] = true;
-        enhancedContext['reel_index'] = reelIndex;
-      }
-    }
-    // Legacy support: REEL_SPINNING_X (backwards compatibility)
-    final reelSpinMatch = RegExp(r'^REEL_SPINNING_(\d+)$').firstMatch(upperStage);
-    if (reelSpinMatch != null && !upperStage.contains('START') && !upperStage.contains('STOP')) {
-      final reelIndex = int.tryParse(reelSpinMatch.group(1) ?? '');
-      if (reelIndex != null) {
-        enhancedContext['is_reel_spin_loop'] = true;
-        enhancedContext['reel_index'] = reelIndex;
-      }
-    } else if (upperStage == 'REEL_SPINNING' || upperStage == 'REEL_SPIN_LOOP') {
-      // Generic spin loop (reel index 0 for single shared loop)
-      enhancedContext['is_reel_spin_loop'] = true;
-      enhancedContext['reel_index'] = 0;
-    }
-    context = enhancedContext.isNotEmpty ? enhancedContext : context;
+    // force_no_loop: plain one-shot trigger, skip ALL spin loop machinery
+    final forceNoLoop = context != null && context['force_no_loop'] == true;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INPUT VALIDATION (P1.2 Security Fix)
@@ -2055,18 +2018,31 @@ class EventRegistry extends ChangeNotifier {
     _lastTriggerError = '';
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // LOOPING EVENTS: Clean stale instances before re-trigger
-    // If instance exists but voice is not actually playing (slot full, etc.),
-    // clean it up and allow re-trigger
+    // SPIN LOOP: ULTIMATE FIX — Context flag is AUTHORITATIVE, ignores event.loop
+    //
+    // Spin loops MUST restart on every spin. The is_reel_spin_loop context flag
+    // is the single source of truth — if set, we ALWAYS:
+    //   1. Stop + clean ALL existing instances for this eventId
+    //   2. Force loop=true for playback (playLoopingToBus)
+    //   3. Track voice in _reelSpinLoopVoices for per-reel fade-out
+    //
+    // This is independent of event.loop which may be false if the event was
+    // registered through composite event path without looping flag.
     // ═══════════════════════════════════════════════════════════════════════════
-    if (event.loop) {
+    // force_no_loop: bypass ALL loop/dedup machinery — plain one-shot trigger
+    final forceNoLoop = context != null && context['force_no_loop'] == true;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MUSIC/AMBIENT LOOPS: Dedup logic for persistent loops
+    // If already playing, let it continue (dedup). Only restart if stale.
+    // SKIP if force_no_loop — always allow re-trigger as one-shot
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (event.loop && !forceNoLoop) {
       final existingInstances = _playingInstances.where((i) => i.eventId == eventId).toList();
       if (existingInstances.isNotEmpty) {
-        // Check if voices are actually playing via FFI
         bool anyVoiceStillPlaying = false;
         for (final instance in existingInstances) {
           for (final voiceId in instance.voiceIds) {
-            // If voice ID > 0, assume it's playing (we don't have isVoicePlaying FFI)
             if (voiceId > 0) {
               anyVoiceStillPlaying = true;
               break;
@@ -2097,11 +2073,12 @@ class EventRegistry extends ChangeNotifier {
     // Kreiraj playing instance IMMEDIATELY (before async playback) to hold the slot
     // P0: Track isLooping so cleanup timer doesn't kill looping voices
     final voiceIds = <int>[];
+    final actualLoop = forceNoLoop ? false : event.loop;
     final instance = _PlayingInstance(
       eventId: eventId,
       voiceIds: voiceIds,
       startTime: DateTime.now(),
-      isLooping: event.loop,
+      isLooping: actualLoop,
     );
     // P0-C2: Evict oldest non-looping instances when at capacity to prevent memory leak
     while (_playingInstances.length >= _maxPlayingInstances) {
@@ -2166,7 +2143,8 @@ class EventRegistry extends ChangeNotifier {
         context,
         usePool: usePool,
         eventKey: event.stage,
-        loop: event.loop, // P0.2: Pass loop flag for seamless looping (REEL_SPIN)
+        loop: actualLoop,
+        eventId: event.id,
       );
     }
 
@@ -2201,7 +2179,7 @@ class EventRegistry extends ChangeNotifier {
     // Without this, voice slots accumulate and hit limit after ~8 spins
     // One-shot sounds typically finish in < 3 seconds, no need to hold for 30s
     // ═══════════════════════════════════════════════════════════════════════════
-    if (!event.loop) {
+    if (!actualLoop) {
       // Use event duration with 500ms buffer, or default 3 seconds if not specified
       final cleanupDelayMs = event.duration > 0
           ? ((event.duration * 1000) + 500).toInt()
@@ -2342,6 +2320,7 @@ class EventRegistry extends ChangeNotifier {
     bool usePool = false,
     String? eventKey,
     bool loop = false, // P0.2: Seamless loop support
+    String? eventId,
   }) async {
     if (layer.audioPath.isEmpty) {
       return;
@@ -2497,6 +2476,8 @@ class EventRegistry extends ChangeNotifier {
           pan: pan.clamp(-1.0, 1.0),
           busId: layer.busId,
           source: source,
+          eventId: eventId,
+          layerId: layer.id,
         );
       } else if (usePool && eventKey != null) {
         // Use AudioPool for rapid-fire events (CASCADE_STEP, ROLLUP_TICK, etc.)
@@ -2535,6 +2516,8 @@ class EventRegistry extends ChangeNotifier {
             pan: pan.clamp(-1.0, 1.0),
             busId: layer.busId,
             source: source,
+            eventId: eventId,
+            layerId: layer.id,
             fadeInMs: effectiveFadeInMs,  // P1.10: Use effective fade-in (max of layer and crossfade)
             fadeOutMs: layer.fadeOutMs,
             trimStartMs: layer.trimStartMs,
@@ -2549,6 +2532,8 @@ class EventRegistry extends ChangeNotifier {
             pan: pan.clamp(-1.0, 1.0),
             busId: layer.busId,
             source: source,
+            eventId: eventId,
+            layerId: layer.id,
           );
         }
       }
@@ -2863,6 +2848,112 @@ class EventRegistry extends ChangeNotifier {
   // ==========================================================================
   // CLEANUP
   // ==========================================================================
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REAL-TIME VOICE PARAMETER UPDATES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Update volume for all active voices of a layer in real-time
+  void updateActiveLayerVolume(String layerId, double volume) {
+    AudioPlaybackService.instance.updateLayerVolume(layerId, volume);
+  }
+
+  /// Update pan for all active voices of a layer in real-time
+  void updateActiveLayerPan(String layerId, double pan) {
+    AudioPlaybackService.instance.updateLayerPan(layerId, pan);
+  }
+
+  /// Update mute for all active voices of a layer in real-time
+  void updateActiveLayerMute(String layerId, bool muted) {
+    AudioPlaybackService.instance.updateLayerMute(layerId, muted);
+  }
+
+  /// Update volume for all active voices of an event in real-time
+  void updateActiveEventVolume(String eventId, double volume) {
+    AudioPlaybackService.instance.updateEventVolume(eventId, volume);
+  }
+
+  /// Update pan for all active voices of an event in real-time
+  void updateActiveEventPan(String eventId, double pan) {
+    AudioPlaybackService.instance.updateEventPan(eventId, pan);
+  }
+
+  /// Update mute for all active voices of an event in real-time
+  void updateActiveEventMute(String eventId, bool muted) {
+    AudioPlaybackService.instance.updateEventMute(eventId, muted);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CACHED EVENT LAYER UPDATE — Update AudioEvent layers in-place
+  // Without re-registration (which would stop audio)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Update a specific layer's parameters in the cached AudioEvent.
+  /// This ensures the NEXT trigger uses updated values (pan, volume, etc.)
+  /// without stopping any currently playing audio.
+  void updateCachedEventLayer(String eventId, String layerId, {
+    double? pan,
+    double? volume,
+    double? delay,
+    int? busId,
+    bool? muted,
+    double? fadeInMs,
+    double? fadeOutMs,
+    double? trimStartMs,
+    double? trimEndMs,
+  }) {
+    final existingEvent = _events[eventId];
+    if (existingEvent == null) return;
+
+    final updatedLayers = existingEvent.layers.map((layer) {
+      if (layer.id != layerId) return layer;
+      return AudioLayer(
+        id: layer.id,
+        audioPath: layer.audioPath,
+        name: layer.name,
+        volume: volume ?? layer.volume,
+        pan: pan ?? layer.pan,
+        delay: delay ?? layer.delay,
+        offset: layer.offset,
+        busId: busId ?? layer.busId,
+        fadeInMs: fadeInMs ?? layer.fadeInMs,
+        fadeOutMs: fadeOutMs ?? layer.fadeOutMs,
+        trimStartMs: trimStartMs ?? layer.trimStartMs,
+        trimEndMs: trimEndMs ?? layer.trimEndMs,
+      );
+    }).toList();
+
+    final updatedEvent = AudioEvent(
+      id: existingEvent.id,
+      name: existingEvent.name,
+      stage: existingEvent.stage,
+      layers: updatedLayers,
+      duration: existingEvent.duration,
+      loop: existingEvent.loop,
+      priority: existingEvent.priority,
+      containerType: existingEvent.containerType,
+      containerId: existingEvent.containerId,
+      overlap: existingEvent.overlap,
+      crossfadeMs: existingEvent.crossfadeMs,
+      targetBusId: existingEvent.targetBusId,
+    );
+
+    // Update both maps without stopping audio
+    _events[eventId] = updatedEvent;
+    _stageToEvent[existingEvent.stage] = updatedEvent;
+  }
+
+  /// Find all cached event IDs that contain a layer with the given layerId.
+  /// Used to update cached events when layer parameters change from any section.
+  List<String> findEventIdsForLayer(String layerId) {
+    final result = <String>[];
+    for (final entry in _events.entries) {
+      if (entry.value.layers.any((l) => l.id == layerId)) {
+        result.add(entry.key);
+      }
+    }
+    return result;
+  }
 
   @override
   void dispose() {

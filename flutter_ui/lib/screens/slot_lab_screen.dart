@@ -9847,7 +9847,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
         ],
         duration: audio.duration.inMilliseconds / 1000.0,
-        loop: normalizedStage == 'REEL_SPIN', // Loop for reel spin
+        loop: StageConfigurationService.instance.isLooping(normalizedStage),
         priority: _getPriorityForStage(normalizedStage),
       );
 

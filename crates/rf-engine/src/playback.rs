@@ -924,6 +924,8 @@ pub struct OneShotVoice {
     // ═══════════════════════════════════════════════════════════════════════════
     /// Pitch shift in semitones (-24 to +24, 0 = no shift)
     pitch_semitones: f32,
+    /// Real-time mute (voice continues but produces silence)
+    muted: bool,
 }
 
 impl OneShotVoice {
@@ -959,6 +961,8 @@ impl OneShotVoice {
             fade_out_samples_at_end: 0,
             // P12.0.1: Pitch shift
             pitch_semitones: 0.0,
+            // Real-time mute
+            muted: false,
         }
     }
 
@@ -990,6 +994,7 @@ impl OneShotVoice {
         self.trim_start_sample = 0;
         self.trim_end_sample = 0;
         self.fade_out_samples_at_end = 0;
+        self.muted = false;
     }
 
     /// Activate with looping enabled (P0.2: Seamless REEL_SPIN loop)
@@ -1061,6 +1066,10 @@ impl OneShotVoice {
 
         // Store fade-out duration for applying at end
         self.fade_out_samples_at_end = ((sample_rate * fade_out_ms as f64) / 1000.0) as u64;
+
+        // Reset pitch and mute
+        self.pitch_semitones = 0.0;
+        self.muted = false;
     }
 
     fn deactivate(&mut self) {
@@ -1186,7 +1195,7 @@ impl OneShotVoice {
                 break;
             }
 
-            let gain = self.volume * self.fade_gain;
+            let gain = if self.muted { 0.0 } else { self.volume * self.fade_gain };
 
             // P12.0.1: Linear interpolation for pitch shift
             // Read two consecutive samples and interpolate
@@ -1308,6 +1317,12 @@ pub enum OneShotCommand {
     FadeOut { id: u64, fade_samples: u64 },
     /// P12.0.1: Set pitch shift for specific voice (semitones, -24 to +24)
     SetPitch { id: u64, semitones: f32 },
+    /// Real-time volume update for active voice (0.0 to 1.5)
+    SetVolume { id: u64, volume: f32 },
+    /// Real-time pan update for active voice (-1.0 to 1.0)
+    SetPan { id: u64, pan: f32 },
+    /// Real-time mute toggle for active voice
+    SetMute { id: u64, muted: bool },
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3406,6 +3421,36 @@ impl PlaybackEngine {
         }
     }
 
+    /// Set volume for a specific active voice in real-time
+    pub fn set_voice_volume(&self, voice_id: u64, volume: f32) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::SetVolume {
+                id: voice_id,
+                volume: volume.clamp(0.0, 1.5),
+            });
+        }
+    }
+
+    /// Set pan for a specific active voice in real-time
+    pub fn set_voice_pan(&self, voice_id: u64, pan: f32) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::SetPan {
+                id: voice_id,
+                pan: pan.clamp(-1.0, 1.0),
+            });
+        }
+    }
+
+    /// Set mute state for a specific active voice in real-time
+    pub fn set_voice_mute(&self, voice_id: u64, muted: bool) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::SetMute {
+                id: voice_id,
+                muted,
+            });
+        }
+    }
+
     /// Stop all one-shot voices
     pub fn stop_all_one_shots(&self) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
@@ -3583,6 +3628,24 @@ impl PlaybackEngine {
                 OneShotCommand::SetPitch { id, semitones } => {
                     if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
                         voice.pitch_semitones = semitones.clamp(-24.0, 24.0);
+                    }
+                }
+                // Real-time volume update for active voice
+                OneShotCommand::SetVolume { id, volume } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.volume = volume.clamp(0.0, 1.5);
+                    }
+                }
+                // Real-time pan update for active voice
+                OneShotCommand::SetPan { id, pan } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.pan = pan.clamp(-1.0, 1.0);
+                    }
+                }
+                // Real-time mute toggle for active voice
+                OneShotCommand::SetMute { id, muted } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.muted = muted;
                     }
                 }
             }

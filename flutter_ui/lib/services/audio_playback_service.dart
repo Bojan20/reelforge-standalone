@@ -824,6 +824,60 @@ class AudioPlaybackService extends ChangeNotifier {
     return _eventVoices[eventId] ?? [];
   }
 
+  /// Update volume for all active voices of an event in real-time
+  void updateEventVolume(String eventId, double volume) {
+    final voices = _eventVoices[eventId];
+    if (voices == null) return;
+    for (final voiceId in voices) {
+      _ffi.setVoiceVolume(voiceId, volume);
+    }
+  }
+
+  /// Update pan for all active voices of an event in real-time
+  void updateEventPan(String eventId, double pan) {
+    final voices = _eventVoices[eventId];
+    if (voices == null) return;
+    for (final voiceId in voices) {
+      _ffi.setVoicePan(voiceId, pan);
+    }
+  }
+
+  /// Update mute state for all active voices of an event in real-time
+  void updateEventMute(String eventId, bool muted) {
+    final voices = _eventVoices[eventId];
+    if (voices == null) return;
+    for (final voiceId in voices) {
+      _ffi.setVoiceMute(voiceId, muted);
+    }
+  }
+
+  /// Update volume for a specific voice by layer ID
+  void updateLayerVolume(String layerId, double volume) {
+    for (final voice in _activeVoices) {
+      if (voice.layerId == layerId) {
+        _ffi.setVoiceVolume(voice.voiceId, volume);
+      }
+    }
+  }
+
+  /// Update pan for a specific voice by layer ID
+  void updateLayerPan(String layerId, double pan) {
+    for (final voice in _activeVoices) {
+      if (voice.layerId == layerId) {
+        _ffi.setVoicePan(voice.voiceId, pan);
+      }
+    }
+  }
+
+  /// Update mute for a specific voice by layer ID
+  void updateLayerMute(String layerId, bool muted) {
+    for (final voice in _activeVoices) {
+      if (voice.layerId == layerId) {
+        _ffi.setVoiceMute(voice.voiceId, muted);
+      }
+    }
+  }
+
   /// Preview composite event with respect to layer offsets (P0 WF-05)
   ///
   /// Plays all non-muted layers with correct timing (offsetMs)

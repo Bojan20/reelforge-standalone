@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import '../../models/middleware_models.dart';
 import '../../models/slot_audio_events.dart';
 import '../../services/audio_playback_service.dart';
+import '../../services/event_registry.dart';
 import '../../src/rust/native_ffi.dart';
 import 'event_system_provider.dart';
 
@@ -381,6 +382,46 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     _compositeEvents[event.id] = sanitizedEvent;
     _syncCompositeToMiddleware(sanitizedEvent);
 
+    // CRITICAL: Sync layer parameter changes to EventRegistry cached events
+    // so the next trigger uses updated values (pan, volume, bus, etc.)
+    if (oldEvent != null) {
+      final registry = EventRegistry.instance;
+      for (final layer in sanitizedEvent.layers) {
+        final oldLayer = oldEvent.layers.cast<SlotEventLayer?>().firstWhere(
+          (l) => l?.id == layer.id, orElse: () => null,
+        );
+        if (oldLayer == null) continue;
+        // Check if any playback parameter changed
+        if (oldLayer.pan != layer.pan || oldLayer.volume != layer.volume ||
+            oldLayer.offsetMs != layer.offsetMs || oldLayer.busId != layer.busId ||
+            oldLayer.fadeInMs != layer.fadeInMs || oldLayer.fadeOutMs != layer.fadeOutMs) {
+          // Update active voices in real-time
+          if (oldLayer.pan != layer.pan) {
+            registry.updateActiveLayerPan(layer.id, layer.pan);
+          }
+          if (oldLayer.volume != layer.volume) {
+            registry.updateActiveLayerVolume(layer.id, layer.volume);
+          }
+          // Update cached AudioEvent for next trigger
+          final cachedEventIds = registry.findEventIdsForLayer(layer.id);
+          for (final cachedId in cachedEventIds) {
+            registry.updateCachedEventLayer(
+              cachedId,
+              layer.id,
+              pan: layer.pan,
+              volume: layer.volume,
+              delay: layer.offsetMs,
+              busId: layer.busId,
+              fadeInMs: layer.fadeInMs,
+              fadeOutMs: layer.fadeOutMs,
+              trimStartMs: layer.trimStartMs,
+              trimEndMs: layer.trimEndMs,
+            );
+          }
+        }
+      }
+    }
+
     // Record history with change details
     String details = '';
     if (oldEvent != null) {
@@ -570,12 +611,51 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final event = _compositeEvents[eventId];
     if (event == null) return;
 
+    // Find old layer for real-time diff
+    final oldLayer = event.layers.cast<SlotEventLayer?>().firstWhere(
+      (l) => l?.id == layer.id,
+      orElse: () => null,
+    );
+
     final updated = event.copyWith(
       layers: event.layers.map((l) => l.id == layer.id ? layer : l).toList(),
       modifiedAt: DateTime.now(),
     );
     _compositeEvents[eventId] = updated;
     _syncCompositeToMiddleware(updated);
+
+    // Push real-time parameter changes to active voices AND cached events
+    final registry = EventRegistry.instance;
+    if (oldLayer != null) {
+      if (oldLayer.volume != layer.volume) {
+        registry.updateActiveLayerVolume(layer.id, layer.volume);
+      }
+      if (oldLayer.pan != layer.pan) {
+        registry.updateActiveLayerPan(layer.id, layer.pan);
+      }
+      if (oldLayer.muted != layer.muted) {
+        registry.updateActiveLayerMute(layer.id, layer.muted);
+      }
+    }
+
+    // CRITICAL: Update cached AudioEvent in EventRegistry so NEXT trigger
+    // uses the new parameter values (pan, volume, etc.)
+    final cachedEventIds = registry.findEventIdsForLayer(layer.id);
+    for (final cachedId in cachedEventIds) {
+      registry.updateCachedEventLayer(
+        cachedId,
+        layer.id,
+        pan: layer.pan,
+        volume: layer.volume,
+        delay: layer.offsetMs,
+        busId: layer.busId,
+        fadeInMs: layer.fadeInMs,
+        fadeOutMs: layer.fadeOutMs,
+        trimStartMs: layer.trimStartMs,
+        trimEndMs: layer.trimEndMs,
+      );
+    }
+
     notifyListeners();
   }
 

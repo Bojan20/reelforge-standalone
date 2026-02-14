@@ -20734,6 +20734,30 @@ pub extern "C" fn engine_playback_set_voice_pitch(voice_id: u64, semitones: f32)
     1 // Success
 }
 
+/// Set volume for a specific active voice in real-time
+/// voice_id: voice to update, volume: 0.0 to 1.5
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_set_voice_volume(voice_id: u64, volume: f32) -> i32 {
+    PLAYBACK_ENGINE.set_voice_volume(voice_id, volume);
+    1
+}
+
+/// Set pan for a specific active voice in real-time
+/// voice_id: voice to update, pan: -1.0 to 1.0
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_set_voice_pan(voice_id: u64, pan: f32) -> i32 {
+    PLAYBACK_ENGINE.set_voice_pan(voice_id, pan);
+    1
+}
+
+/// Set mute for a specific active voice in real-time
+/// voice_id: voice to update, muted: 1=muted 0=unmuted
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_set_voice_mute(voice_id: u64, muted: i32) -> i32 {
+    PLAYBACK_ENGINE.set_voice_mute(voice_id, muted != 0);
+    1
+}
+
 /// Set active playback section (for section-based voice filtering)
 /// section: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
 #[unsafe(no_mangle)]

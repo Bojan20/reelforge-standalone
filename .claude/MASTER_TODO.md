@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-14 (Timeline Bridge Fix + Win Skip Fixes)
+**Updated:** 2026-02-14 (Middleware Preview Fix + Timeline Bridge Fix + Win Skip Fixes)
 **Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,512 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented
 
 ---
@@ -427,6 +427,58 @@ Changed `continue` to `return` in event_registry.dart `_playLayer()` (async meth
 
 ---
 
+## 🎧 MIDDLEWARE PREVIEW FIX (2026-02-14) ✅
+
+### Problem: Pan, Loop, and Bus Controls Not Affecting Audio Preview
+
+**Root Cause:** `_previewEvent()` in `engine_connected_layout.dart` used `AudioPlaybackService.previewFile()` which goes through the PREVIEW ENGINE — has NO pan parameter, NO layerId tracking, NO loop support.
+
+| Issue | Root Cause | Fix |
+|-------|-----------|-----|
+| **Pan not working** | `previewFile()` has no `pan` parameter — always center (0.0) | Replaced with `playFileToBus()` passing `pan: layer.pan` |
+| **Play produces no sound** | `playFileToBus()` uses PLAYBACK ENGINE which filters voices by `active_section`. Without `acquireSection()`, middleware voices are silently filtered at `playback.rs:3690` | Added `acquireSection(PlaybackSection.middleware)` + `ensureStreamRunning()` before playback |
+| **Loop not working** | `_previewEvent()` always used `playFileToBus()` (one-shot), never `playLoopingToBus()` | Added `composite.looping` check — uses `playLoopingToBus()` for looping events |
+| **Real-time loop/bus changes** | Rust `OneShotCommand` has no `SetLooping` or `SetBus` — cannot change on active voice | Created `_restartPreviewIfActive()` — stops + restarts preview after 50ms |
+
+### Two Separate Playback Engines
+
+| Engine | FFI Method | Filtering | Pan/Bus/Loop |
+|--------|-----------|-----------|--------------|
+| **PREVIEW ENGINE** | `previewAudioFile()` | None (always plays) | No pan, no bus, no loop |
+| **PLAYBACK ENGINE** | `playbackPlayToBus()` | By `active_section` | Full pan, bus, loop support |
+
+### Solution: Rewritten `_previewEvent()`
+
+```
+_previewEvent()
+├── acquireSection(PlaybackSection.middleware)  ← CRITICAL
+├── ensureStreamRunning()
+├── For each layer:
+│   ├── if (composite.looping) → playLoopingToBus(pan, busId, layerId)
+│   └── else → playFileToBus(pan, busId, layerId)
+└── if (!looping) → auto-stop timer
+```
+
+### Real-Time Parameter Updates
+
+| Parameter | Method | Real-Time? |
+|-----------|--------|------------|
+| **Volume** | `OneShotCommand::SetVolume` | ✅ Yes |
+| **Pan** | `OneShotCommand::SetPan` | ✅ Yes |
+| **Mute** | `OneShotCommand::SetMute` | ✅ Yes |
+| **Loop** | No command — restart required | ✅ Via `_restartPreviewIfActive()` |
+| **Bus** | No command — restart required | ✅ Via `_restartPreviewIfActive()` |
+
+### Files Modified
+
+- `flutter_ui/lib/screens/engine_connected_layout.dart`:
+  - `_previewEvent()` — full rewrite with acquireSection + playFileToBus/playLoopingToBus
+  - `_restartPreviewIfActive()` — NEW helper for non-real-time param changes
+  - Loop toggle (3 locations) — added `_restartPreviewIfActive()`
+  - Bus change (2 locations) — added `_restartPreviewIfActive()`
+
+---
+
 ## 🎰 TIMELINE BRIDGE FIX (2026-02-14) ✅
 
 ### Problem: SlotLab Timeline Shows "No Events Yet"
@@ -484,4 +536,4 @@ Two critical bugs fixed in SlotLab win presentation skip system.
 
 ---
 
-*Last Updated: 2026-02-14 — Timeline bridge fix + Win skip fixes (P1.6 + P1.7). Total: 381/381 features, 4,512 tests, 0 errors. SHIP READY*
+*Last Updated: 2026-02-14 — Middleware Preview fix (Pan/Loop/Bus) + Timeline bridge fix + Win skip fixes (P1.6 + P1.7). Total: 381/381 features, 4,512 tests, 0 errors. SHIP READY*

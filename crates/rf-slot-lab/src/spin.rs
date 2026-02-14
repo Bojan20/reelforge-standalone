@@ -537,6 +537,10 @@ impl SpinResult {
         // 1. Spin Start
         events.push(StageEvent::new(Stage::SpinStart, timing.current()));
 
+        // 1b. Shared reel spin loop — single looping audio for ALL reels
+        // Triggered on every spin, loops until SPIN_END stops it
+        events.push(StageEvent::new(Stage::ReelSpinLoop, timing.current()));
+
         // 2. P0.1: Per-reel spinning START events (one loop per reel for independent fade-out)
         // Each reel starts at slightly staggered time for stereo spread effect
         // When REEL_SPINNING_STOP_N fires, only that reel's loop is faded out
