@@ -34,7 +34,6 @@ import '../../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../../services/audio_playback_service.dart';
 import '../slot_lab/stage_trace_widget.dart';
 import '../slot_lab/event_log_panel.dart';
-import '../slot_lab/bus_hierarchy_panel.dart';
 import '../slot_lab/profiler_panel.dart';
 import '../slot_lab/aux_sends_panel.dart';
 import '../slot_lab/slot_automation_panel.dart';
@@ -46,6 +45,7 @@ import '../common/git_panel.dart';
 import '../common/analytics_dashboard.dart';
 import '../common/documentation_viewer.dart';
 import '../../providers/git_provider.dart';
+import '../slot_lab/slotlab_bus_mixer.dart';
 import '../slot_lab/timeline/ultimate_timeline_widget.dart';
 import '../../controllers/slot_lab/timeline_controller.dart' as timeline_ctrl;
 import '../../models/timeline/stage_marker.dart' show StageMarker;
@@ -931,11 +931,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   Widget _buildMixContent() {
     final subTab = widget.controller.state.mixSubTab;
     return switch (subTab) {
-      SlotLabMixSubTab.buses => LayoutBuilder(
-        builder: (context, constraints) => BusHierarchyPanel(
-          height: constraints.maxHeight.isFinite ? constraints.maxHeight : 250,
-        ),
-      ),
+      SlotLabMixSubTab.buses => const SlotLabBusMixer(),
       SlotLabMixSubTab.sends => LayoutBuilder(
         builder: (context, constraints) => AuxSendsPanel(
           height: constraints.maxHeight.isFinite ? constraints.maxHeight : 250,
