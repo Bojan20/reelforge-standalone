@@ -6684,7 +6684,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         Expanded(flex: 5, child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Expanded(child: _ParamBox(label: 'Vol', value: layer.volume, min: 0, max: 2, color: FluxForgeTheme.accentGreen, format: (v) => '${(v * 100).toInt()}%', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(volume: v), provider))),
+                            Expanded(child: _ParamBox(label: 'Vol', value: layer.volume, min: 0, max: 2, color: FluxForgeTheme.accentGreen, format: (v) => '${(v * 100).toInt()}%', onChanged: (v) => _updateLayer(event, idx, layer.copyWith(volume: v), provider), defaultValue: 1.0)),
                             const SizedBox(width: 2),
                             Expanded(child: _ParamBox(label: 'Pan', value: layer.pan, min: -1, max: 1, color: FluxForgeTheme.accentCyan, format: (v) => v.abs() < 0.01 ? 'C' : (v < 0 ? 'L${(-v * 100).toInt()}' : 'R${(v * 100).toInt()}'), onChanged: (v) => _updateLayer(event, idx, layer.copyWith(pan: v), provider))),
                             const SizedBox(width: 2),
@@ -11316,6 +11316,7 @@ class _ParamBox extends StatelessWidget {
   final String Function(double) format;
   final ValueChanged<double> onChanged;
   final double width;
+  final double defaultValue;
 
   const _ParamBox({
     required this.label,
@@ -11326,6 +11327,7 @@ class _ParamBox extends StatelessWidget {
     required this.format,
     required this.onChanged,
     this.width = 38,
+    this.defaultValue = 0,
   });
 
   void _showSliderPopup(BuildContext context, RenderBox box) {
@@ -11412,6 +11414,7 @@ class _ParamBox extends StatelessWidget {
             final box = context.findRenderObject() as RenderBox?;
             if (box != null) _showSliderPopup(context, box);
           },
+          onDoubleTap: () => onChanged(defaultValue),
           child: Container(
             constraints: BoxConstraints(minWidth: width),
             height: 20,
