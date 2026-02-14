@@ -29,6 +29,7 @@ import '../../providers/dsp_chain_provider.dart';
 import '../../providers/mixer_dsp_provider.dart';
 import '../../src/rust/native_ffi.dart' show NativeFFI, VolatilityPreset, TimingProfileType, VoicePoolFFI;
 import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
+import '../../models/timeline_models.dart' show parseWaveformFromJson;
 import '../../models/middleware_models.dart' show ActionType, CrossfadeCurve, CrossfadeCurveExtension;
 import '../../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../../services/audio_playback_service.dart';
@@ -135,7 +136,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
     _layerListFocusNode.dispose();
-    _tlVerticalScroll.dispose();
+    _tlScrollController.dispose();
     super.dispose();
   }
 
@@ -1122,19 +1123,23 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // EVENT-LAYER TIMELINE — DAW-style event+layer view with synced scrolling
+  // EVENT-LAYER TIMELINE — DAW-style waveform view with unified scroll
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static const double _kTlTrackHeight = 40.0;
-  static const double _kTlHeaderWidth = 160.0;
-  static const double _kTlRulerHeight = 24.0;
-  static const double _kTlPixelsPerSec = 100.0;
+  static const double _kTlTrackHeight = 56.0;
+  static const double _kTlHeaderHeight = 32.0;
+  static const double _kTlLabelWidth = 120.0;
+  static const double _kTlRulerHeight = 20.0;
 
   String? _tlSelectedEventId;
   String? _tlSelectedLayerId;
-  double _tlZoom = 1.0;
-  double _tlHorizontalOffset = 0.0;
-  final ScrollController _tlVerticalScroll = ScrollController();
+  double _tlPixelsPerSecond = 100.0;
+  String? _tlDraggingLayerId;
+  final ScrollController _tlScrollController = ScrollController();
+  // Waveform cache: layerId → waveform peaks (absolute 0-1 values)
+  final Map<String, List<double>> _tlWaveformCache = {};
+  // Duration cache: layerId → seconds
+  final Map<String, double> _tlDurationCache = {};
 
   Widget _buildEventLayerTimeline() {
     return Consumer<MiddlewareProvider>(
@@ -1147,94 +1152,117 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               children: [
                 Icon(Icons.view_timeline, size: 32, color: LowerZoneColors.textMuted),
                 const SizedBox(height: 8),
-                Text(
-                  'No events yet',
-                  style: TextStyle(fontSize: 12, color: LowerZoneColors.textMuted),
-                ),
+                Text('No events yet',
+                  style: TextStyle(fontSize: 12, color: LowerZoneColors.textMuted)),
                 const SizedBox(height: 4),
-                Text(
-                  'Drop audio on the slot machine to create events',
-                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted.withValues(alpha: 0.6)),
-                ),
+                Text('Drop audio on the slot machine to create events',
+                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted.withValues(alpha: 0.6))),
               ],
             ),
           );
         }
 
+        // Ensure waveforms are loaded for all layers
+        _ensureTlWaveforms(events);
+
         final totalRows = _countTotalRows(events);
-        final tlWidth = _calcTlWidth(events);
+
+        // Calculate total timeline duration across all events
+        double maxEndSeconds = 2.0;
+        for (final event in events) {
+          for (final layer in event.layers) {
+            final offsetSec = layer.offsetMs / 1000.0;
+            final dur = _tlDurationCache[layer.id] ?? (layer.durationSeconds ?? 1.0);
+            final endSec = offsetSec + dur;
+            if (endSec > maxEndSeconds) maxEndSeconds = endSec;
+          }
+          final eventDur = event.totalDurationSeconds;
+          if (eventDur > maxEndSeconds) maxEndSeconds = eventDur;
+        }
+        maxEndSeconds += 0.5;
+
+        final totalWidth = maxEndSeconds * _tlPixelsPerSecond;
 
         return Column(
           children: [
             // Toolbar
             _buildTlToolbar(events),
-            // Main timeline area — gesture detector for horizontal pan
+            // Timeline area: fixed labels (left) + unified scroll (right)
             Expanded(
-              child: GestureDetector(
-                onHorizontalDragUpdate: (details) {
-                  setState(() {
-                    _tlHorizontalOffset = (_tlHorizontalOffset - details.delta.dx)
-                        .clamp(0.0, math.max(0.0, tlWidth - 200));
-                  });
-                },
-                child: Column(
+              child: Container(
+                color: const Color(0xFF0D0D12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Ruler row
+                    // ── Fixed label column (left) ──
                     SizedBox(
-                      height: _kTlRulerHeight,
-                      child: Row(
+                      width: _kTlLabelWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // Empty header aligned with ruler
                           Container(
-                            width: _kTlHeaderWidth,
-                            color: LowerZoneColors.bgDeepest,
+                            height: _kTlRulerHeight,
+                            color: const Color(0xFF14141A),
                             alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.only(left: 8),
+                            padding: const EdgeInsets.only(left: 6),
                             child: Text('EVENT / LAYER',
-                              style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
+                              style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold,
                                 color: Colors.white24, letterSpacing: 0.5)),
                           ),
-                          Container(width: 1, color: LowerZoneColors.border),
-                          // Ruler — clipped with shared offset
+                          // Track labels
                           Expanded(
-                            child: ClipRect(
-                              child: CustomPaint(
-                                painter: _TlRulerPainter(
-                                  zoom: _tlZoom,
-                                  pixelsPerSec: _kTlPixelsPerSec,
-                                  offset: _tlHorizontalOffset,
-                                ),
-                              ),
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: totalRows,
+                              itemBuilder: (ctx, i) {
+                                final (event, layer, isHeader) = _rowAtIndex(events, i);
+                                return _buildTlLabel(event, layer, isHeader, mw);
+                              },
                             ),
                           ),
                         ],
                       ),
                     ),
-                    // Track rows — single ListView, unified vertical scroll
+                    // Divider
+                    Container(width: 1, color: Colors.white.withValues(alpha: 0.08)),
+                    // ── Unified scrollable area (right) ──
                     Expanded(
-                      child: ListView.builder(
-                        controller: _tlVerticalScroll,
-                        itemCount: totalRows,
-                        itemExtent: _kTlTrackHeight,
-                        itemBuilder: (ctx, i) {
-                          final (event, layer, isHeader) = _rowAtIndex(events, i);
-                          return SizedBox(
-                            height: _kTlTrackHeight,
-                            child: Row(
-                              children: [
-                                // Fixed header column
-                                SizedBox(
-                                  width: _kTlHeaderWidth,
-                                  child: _buildTlHeaderCell(event, layer, isHeader),
+                      child: SingleChildScrollView(
+                        controller: _tlScrollController,
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: totalWidth,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Time ruler
+                              SizedBox(
+                                height: _kTlRulerHeight,
+                                width: totalWidth,
+                                child: CustomPaint(
+                                  painter: _TlRulerPainter(
+                                    pixelsPerSecond: _tlPixelsPerSecond,
+                                    maxSeconds: maxEndSeconds,
+                                  ),
                                 ),
-                                Container(width: 1, color: LowerZoneColors.border),
-                                // Timeline track — clipped stack with shared offset
-                                Expanded(
-                                  child: _buildTlTrackCell(event, layer, isHeader),
+                              ),
+                              // Waveform tracks
+                              Expanded(
+                                child: ListView.builder(
+                                  padding: EdgeInsets.zero,
+                                  itemCount: totalRows,
+                                  itemBuilder: (ctx, i) {
+                                    final (event, layer, isHeader) = _rowAtIndex(events, i);
+                                    return _buildTlTrackContent(
+                                      event, layer, isHeader, mw, maxEndSeconds, totalWidth,
+                                    );
+                                  },
                                 ),
-                              ],
-                            ),
-                          );
-                        },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -1261,11 +1289,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         children: [
           Icon(Icons.view_timeline, size: 13, color: LowerZoneColors.slotLabAccent),
           const SizedBox(width: 6),
-          Text(
-            'TIMELINE',
+          Text('TIMELINE',
             style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-              color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5),
-          ),
+              color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1281,13 +1307,13 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           const Spacer(),
           // Zoom controls
           _buildTlZoomButton(Icons.zoom_out, () =>
-            setState(() => _tlZoom = (_tlZoom * 0.8).clamp(0.25, 4.0))),
+            setState(() => _tlPixelsPerSecond = (_tlPixelsPerSecond * 0.8).clamp(30.0, 500.0))),
           const SizedBox(width: 4),
-          Text('${(_tlZoom * 100).round()}%',
-            style: TextStyle(fontSize: 9, color: Colors.white54)),
+          Text('${_tlPixelsPerSecond.toInt()}px/s',
+            style: const TextStyle(fontSize: 8, color: Colors.white24, fontFamily: 'monospace')),
           const SizedBox(width: 4),
           _buildTlZoomButton(Icons.zoom_in, () =>
-            setState(() => _tlZoom = (_tlZoom * 1.25).clamp(0.25, 4.0))),
+            setState(() => _tlPixelsPerSecond = (_tlPixelsPerSecond * 1.25).clamp(30.0, 500.0))),
         ],
       ),
     );
@@ -1334,25 +1360,6 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     return (events.first, null, true);
   }
 
-  /// Max duration across all events (minimum 2s for visibility)
-  double _maxDuration(List<SlotCompositeEvent> events) {
-    double maxD = 2.0;
-    for (final e in events) {
-      final d = e.totalDurationSeconds;
-      if (d > maxD) maxD = d;
-      // Also check individual layers for fallback
-      for (final l in e.layers) {
-        final ld = (l.durationSeconds ?? 0) + (l.offsetMs / 1000.0);
-        if (ld > maxD) maxD = ld;
-      }
-    }
-    return maxD;
-  }
-
-  double _calcTlWidth(List<SlotCompositeEvent> events) {
-    return (_maxDuration(events) + 2.0) * _kTlPixelsPerSec * _tlZoom;
-  }
-
   /// Color per event based on its category or trigger stage
   Color _eventColor(SlotCompositeEvent event) {
     final stage = event.triggerStages.isNotEmpty ? event.triggerStages.first : '';
@@ -1366,11 +1373,18 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     return event.color;
   }
 
-  /// Header cell — left column (event name or layer name)
-  Widget _buildTlHeaderCell(SlotCompositeEvent event, SlotEventLayer? layer, bool isHeader) {
+  // ── Track label (fixed left column) ──
+
+  Widget _buildTlLabel(
+    SlotCompositeEvent event,
+    SlotEventLayer? layer,
+    bool isHeader,
+    MiddlewareProvider mw,
+  ) {
     final color = _eventColor(event);
 
     if (isHeader) {
+      // Event header row
       final isSelected = _tlSelectedEventId == event.id;
       return GestureDetector(
         onTap: () => setState(() {
@@ -1378,19 +1392,14 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           _tlSelectedLayerId = null;
         }),
         child: Container(
+          height: _kTlHeaderHeight,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
-            color: isSelected
-                ? color.withValues(alpha: 0.15)
-                : LowerZoneColors.bgSurface,
-            border: Border(
-              bottom: BorderSide(color: color.withValues(alpha: 0.3)),
-            ),
+            color: isSelected ? color.withValues(alpha: 0.15) : LowerZoneColors.bgSurface,
+            border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.3))),
           ),
           child: Row(
             children: [
-              Icon(Icons.expand_more, size: 12, color: color.withValues(alpha: 0.6)),
-              const SizedBox(width: 3),
               Container(width: 6, height: 6,
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
               const SizedBox(width: 5),
@@ -1399,19 +1408,13 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      event.name,
-                      style: TextStyle(
-                        fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    Text(event.name,
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                      overflow: TextOverflow.ellipsis),
                     if (event.triggerStages.isNotEmpty)
-                      Text(
-                        event.triggerStages.first,
+                      Text(event.triggerStages.first,
                         style: TextStyle(fontSize: 7, color: color.withValues(alpha: 0.7)),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -1430,195 +1433,338 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       );
     }
 
-    // Layer header
+    // Layer label row
     final l = layer!;
     final isSelected = _tlSelectedLayerId == l.id;
+    final hasAudio = l.audioPath.isNotEmpty;
+    final trackColors = [
+      const Color(0xFF4A9EFF), const Color(0xFF40FF90), const Color(0xFFFF9040),
+      const Color(0xFF40C8FF), const Color(0xFF9370DB), const Color(0xFFFF4060),
+    ];
+    final layerIndex = event.layers.indexOf(l);
+    final trackColor = l.muted ? Colors.grey : trackColors[layerIndex % trackColors.length];
+
     return GestureDetector(
       onTap: () => setState(() {
         _tlSelectedEventId = event.id;
         _tlSelectedLayerId = l.id;
       }),
       child: Container(
-        padding: const EdgeInsets.only(left: 22, right: 6),
+        height: _kTlTrackHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
           color: isSelected
               ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1)
-              : LowerZoneColors.bgDeep,
-          border: Border(
-            bottom: BorderSide(color: LowerZoneColors.border.withValues(alpha: 0.5)),
-            left: isSelected
-                ? BorderSide(color: LowerZoneColors.slotLabAccent, width: 2)
-                : BorderSide.none,
-          ),
+              : const Color(0xFF14141A),
+          border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
         ),
-        child: Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              l.muted ? Icons.volume_off : Icons.audiotrack,
-              size: 11,
-              color: l.muted ? Colors.red.withValues(alpha: 0.7) : color.withValues(alpha: 0.5),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                l.name.isNotEmpty ? l.name : l.audioPath.split('/').last,
-                style: TextStyle(
-                  fontSize: 9,
-                  color: l.muted ? Colors.white38 : Colors.white70,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            Row(
+              children: [
+                Container(
+                  width: 14, height: 14,
+                  decoration: BoxDecoration(
+                    color: trackColor.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text('${layerIndex + 1}',
+                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: trackColor)),
                 ),
-                overflow: TextOverflow.ellipsis,
-              ),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: Text(
+                    l.name.isNotEmpty ? l.name : l.audioPath.split('/').last,
+                    style: const TextStyle(fontSize: 8, color: Colors.white70),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-            // Duration badge
-            if (l.durationSeconds != null)
-              Text(
-                '${l.durationSeconds!.toStringAsFixed(1)}s',
-                style: TextStyle(fontSize: 7, color: Colors.white30),
-              ),
+            const SizedBox(height: 3),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Mute
+                _buildTlTrackBtn('M',
+                  l.muted ? const Color(0xFFFF4060) : Colors.white24,
+                  () => mw.updateEventLayer(event.id, l.copyWith(muted: !l.muted))),
+                const SizedBox(width: 4),
+                // Solo
+                _buildTlTrackBtn('S',
+                  l.solo ? const Color(0xFFFF9040) : Colors.white24,
+                  () => mw.updateEventLayer(event.id, l.copyWith(solo: !l.solo))),
+                const SizedBox(width: 4),
+                // Preview
+                if (hasAudio)
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
+                        AudioPlaybackService.instance.previewFile(
+                          l.audioPath, volume: l.volume, source: PlaybackSource.browser);
+                      },
+                      child: const Icon(Icons.play_arrow, size: 12, color: Color(0xFF40FF90)),
+                    ),
+                  ),
+                const Spacer(),
+                // Delete
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () {
+                      _tlWaveformCache.remove(l.id);
+                      _tlDurationCache.remove(l.id);
+                      mw.removeLayerFromEvent(event.id, l.id);
+                    },
+                    child: const Icon(Icons.close, size: 10, color: Colors.white24),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  /// Track cell — right column (timeline region bars with horizontal pan offset)
-  Widget _buildTlTrackCell(SlotCompositeEvent event, SlotEventLayer? layer, bool isHeader) {
+  Widget _buildTlTrackBtn(String label, Color color, VoidCallback onTap) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Text(label,
+          style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: color)),
+      ),
+    );
+  }
+
+  // ── Waveform track content (scrollable right area — unified scroll) ──
+
+  Widget _buildTlTrackContent(
+    SlotCompositeEvent event,
+    SlotEventLayer? layer,
+    bool isHeader,
+    MiddlewareProvider mw,
+    double maxSeconds,
+    double totalWidth,
+  ) {
     final color = _eventColor(event);
-    final pps = _kTlPixelsPerSec * _tlZoom;
-    final hOff = _tlHorizontalOffset;
 
     if (isHeader) {
+      // Event header track — duration bar
       final duration = math.max(event.totalDurationSeconds, 0.5);
-      final widthPx = (duration * pps).clamp(30.0, 50000.0);
-      final barLeft = -hOff;
-      return ClipRect(
-        child: Container(
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.04),
-            border: Border(
-              bottom: BorderSide(color: color.withValues(alpha: 0.3)),
+      final widthPx = (duration * _tlPixelsPerSecond).clamp(30.0, totalWidth);
+
+      return Container(
+        height: _kTlHeaderHeight,
+        width: totalWidth,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.04),
+          border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.3))),
+        ),
+        child: Stack(
+          children: [
+            // Grid lines
+            CustomPaint(
+              size: Size(totalWidth, _kTlHeaderHeight),
+              painter: _TlGridPainter(pixelsPerSecond: _tlPixelsPerSecond, maxSeconds: maxSeconds),
             ),
-          ),
-          child: Stack(
-            clipBehavior: Clip.hardEdge,
-            children: [
-              ..._buildGridLines(pps, hOff),
-              // Event duration bar
-              Positioned(
-                left: barLeft, top: 6, bottom: 6,
-                child: Container(
-                  width: widthPx,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [color.withValues(alpha: 0.35), color.withValues(alpha: 0.12)],
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: color.withValues(alpha: 0.4)),
+            // Event duration bar
+            Positioned(
+              left: 0, top: 6, bottom: 6,
+              child: Container(
+                width: widthPx,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [color.withValues(alpha: 0.35), color.withValues(alpha: 0.12)],
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '${event.name} • ${duration.toStringAsFixed(1)}s',
-                    style: TextStyle(fontSize: 8, color: Colors.white.withValues(alpha: 0.6),
-                      fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: color.withValues(alpha: 0.4)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${event.name} • ${duration.toStringAsFixed(1)}s',
+                  style: TextStyle(fontSize: 8, color: Colors.white.withValues(alpha: 0.6),
+                    fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
 
-    // Layer region bar
+    // Layer waveform track
     final l = layer!;
+    final layerIndex = event.layers.indexOf(l);
+    final waveform = _tlWaveformCache[l.id];
+    final duration = _tlDurationCache[l.id] ?? (l.durationSeconds ?? 1.0);
     final offsetSec = l.offsetMs / 1000.0;
-    final duration = l.durationSeconds ?? 1.0;
-    final leftPx = offsetSec * pps - hOff;
-    final widthPx = (duration * pps).clamp(16.0, 50000.0);
-    final isSelected = _tlSelectedLayerId == l.id;
+    final waveformWidth = duration * _tlPixelsPerSecond;
+    final offsetPixels = offsetSec * _tlPixelsPerSecond;
+    final isDragging = _tlDraggingLayerId == l.id;
+    final hasAudio = l.audioPath.isNotEmpty;
+    final fileName = hasAudio ? l.audioPath.split('/').last : 'No audio';
 
-    return ClipRect(
-      child: Container(
-        decoration: BoxDecoration(
-          color: isSelected
-              ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.04)
-              : Colors.transparent,
-          border: Border(
-            bottom: BorderSide(color: LowerZoneColors.border.withValues(alpha: 0.3)),
+    final trackColors = [
+      const Color(0xFF4A9EFF), const Color(0xFF40FF90), const Color(0xFFFF9040),
+      const Color(0xFF40C8FF), const Color(0xFF9370DB), const Color(0xFFFF4060),
+    ];
+    final trackColor = l.muted ? Colors.grey : trackColors[layerIndex % trackColors.length];
+
+    return Container(
+      height: _kTlTrackHeight,
+      width: totalWidth,
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+      ),
+      child: Stack(
+        children: [
+          // Grid lines
+          CustomPaint(
+            size: Size(totalWidth, _kTlTrackHeight),
+            painter: _TlGridPainter(pixelsPerSecond: _tlPixelsPerSecond, maxSeconds: maxSeconds),
           ),
-        ),
-        child: Stack(
-          clipBehavior: Clip.hardEdge,
-          children: [
-            ..._buildGridLines(pps, hOff),
-            // Audio region bar
-            Positioned(
-              left: leftPx,
-              top: 3,
-              bottom: 3,
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  _tlSelectedEventId = event.id;
-                  _tlSelectedLayerId = l.id;
-                }),
+          // Waveform block at offset position
+          Positioned(
+            left: offsetPixels,
+            top: 3,
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                final deltaMs = (details.delta.dx / _tlPixelsPerSecond) * 1000.0;
+                final newOffset = (l.offsetMs + deltaMs).clamp(0.0, maxSeconds * 1000.0);
+                mw.updateEventLayer(event.id, l.copyWith(offsetMs: newOffset));
+              },
+              onHorizontalDragStart: (_) => setState(() => _tlDraggingLayerId = l.id),
+              onHorizontalDragEnd: (_) => setState(() => _tlDraggingLayerId = null),
+              child: MouseRegion(
+                cursor: isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
                 child: Container(
-                  width: widthPx,
+                  width: waveformWidth.clamp(10.0, totalWidth),
+                  height: 50,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        color.withValues(alpha: l.muted ? 0.25 : 0.65),
-                        color.withValues(alpha: l.muted ? 0.1 : 0.35),
-                      ],
-                    ),
+                    color: trackColor.withValues(alpha: isDragging ? 0.25 : 0.15),
                     borderRadius: BorderRadius.circular(3),
                     border: Border.all(
-                      color: isSelected ? Colors.white : color.withValues(alpha: 0.6),
-                      width: isSelected ? 1.5 : 0.5,
+                      color: isDragging
+                          ? trackColor.withValues(alpha: 0.8)
+                          : trackColor.withValues(alpha: 0.4),
+                      width: isDragging ? 1.5 : 1.0,
                     ),
-                    boxShadow: isSelected ? [
-                      BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 4),
-                    ] : null,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    l.name.isNotEmpty ? l.name : l.audioPath.split('/').last,
-                    style: TextStyle(
-                      fontSize: 8, fontWeight: FontWeight.bold,
-                      color: l.muted ? Colors.white30 : Colors.white.withValues(alpha: 0.9),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: Stack(
+                      children: [
+                        // Waveform
+                        if (waveform != null && waveform.isNotEmpty)
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _TlWaveformPainter(
+                                data: waveform,
+                                color: trackColor,
+                                isMuted: l.muted,
+                              ),
+                            ),
+                          )
+                        else
+                          Center(
+                            child: Text(
+                              hasAudio ? 'Loading...' : 'No audio',
+                              style: const TextStyle(fontSize: 8, color: Colors.white24),
+                            ),
+                          ),
+                        // File name label
+                        Positioned(
+                          left: 4, top: 2,
+                          child: Text(fileName,
+                            style: TextStyle(fontSize: 8, color: trackColor.withValues(alpha: 0.9),
+                              fontWeight: FontWeight.w500)),
+                        ),
+                        // Offset + duration
+                        Positioned(
+                          right: 4, bottom: 2,
+                          child: Text(
+                            '${l.offsetMs.toInt()}ms  ${duration.toStringAsFixed(1)}s',
+                            style: const TextStyle(fontSize: 7, color: Colors.white38, fontFamily: 'monospace'),
+                          ),
+                        ),
+                      ],
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  /// Grid lines every second — adjusted by horizontal offset
-  List<Widget> _buildGridLines(double pps, double hOff) {
-    // Only generate visible grid lines
-    final firstVisible = (hOff / pps).floor();
-    final lastVisible = firstVisible + 30;
-    return List.generate(lastVisible - firstVisible, (i) {
-      final sec = firstVisible + i;
-      final x = sec * pps - hOff;
-      return Positioned(
-        left: x, top: 0, bottom: 0,
-        child: Container(
-          width: 0.5,
-          color: LowerZoneColors.border.withValues(alpha: sec == 0 ? 0.4 : 0.15),
-        ),
-      );
-    });
+  // ── Waveform loading for timeline ──
+
+  void _ensureTlWaveforms(List<SlotCompositeEvent> events) {
+    for (final event in events) {
+      for (final layer in event.layers) {
+        if (layer.audioPath.isEmpty) continue;
+        if (_tlWaveformCache.containsKey(layer.id)) continue;
+
+        // Use layer's own waveformData if available
+        if (layer.waveformData != null && layer.waveformData!.isNotEmpty) {
+          _tlWaveformCache[layer.id] = layer.waveformData!;
+          _ensureTlDuration(layer);
+          continue;
+        }
+
+        // Generate via FFI
+        try {
+          final cacheKey = 'tl-${layer.id}';
+          final json = NativeFFI.instance.generateWaveformFromFile(layer.audioPath, cacheKey);
+          if (json != null) {
+            final (left, right) = parseWaveformFromJson(json, maxSamples: 2048);
+            if (left != null) {
+              final waveform = <double>[];
+              if (right != null && right.length == left.length) {
+                for (int i = 0; i < left.length; i++) {
+                  waveform.add((left[i] + right[i]) / 2.0);
+                }
+              } else {
+                waveform.addAll(left);
+              }
+              _tlWaveformCache[layer.id] = waveform;
+            }
+          }
+        } catch (_) {
+          // FFI may not be available
+        }
+
+        _ensureTlDuration(layer);
+      }
+    }
+  }
+
+  void _ensureTlDuration(SlotEventLayer layer) {
+    if (_tlDurationCache.containsKey(layer.id)) return;
+    final dur = layer.durationSeconds;
+    if (dur != null && dur > 0) {
+      _tlDurationCache[layer.id] = dur;
+    } else {
+      try {
+        final d = NativeFFI.instance.getAudioFileDuration(layer.audioPath);
+        if (d > 0) {
+          _tlDurationCache[layer.id] = d;
+        }
+      } catch (_) {
+        // FFI may not be available
+      }
+    }
   }
 
   /// P2.6: Compact Symbols Panel — Connected to MiddlewareProvider for symbol-to-sound mapping
@@ -4370,68 +4516,157 @@ class _FadeCurvePainter extends CustomPainter {
   }
 }
 
-/// Timeline ruler painter for event-layer timeline
+/// Time ruler painter for timeline
 class _TlRulerPainter extends CustomPainter {
-  final double zoom;
-  final double pixelsPerSec;
-  final double offset;
+  final double pixelsPerSecond;
+  final double maxSeconds;
 
-  _TlRulerPainter({required this.zoom, required this.pixelsPerSec, this.offset = 0});
+  const _TlRulerPainter({required this.pixelsPerSecond, required this.maxSeconds});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final tickPaint = Paint()
-      ..color = Colors.white24
-      ..strokeWidth = 0.5;
-    final majorTickPaint = Paint()
-      ..color = Colors.white38
-      ..strokeWidth = 1.0;
-    final textStyle = TextStyle(
-      fontSize: 8,
-      color: Colors.white.withValues(alpha: 0.5),
-    );
+    final paint = Paint()..strokeWidth = 1.0;
+    final textStyle = TextStyle(fontSize: 8, color: Colors.white38, fontFamily: 'monospace');
 
-    final pps = pixelsPerSec * zoom;
-    final firstSec = (offset / pps).floor();
-    final lastSec = firstSec + (size.width / pps).ceil() + 2;
+    double tickInterval;
+    if (pixelsPerSecond >= 200) {
+      tickInterval = 0.1;
+    } else if (pixelsPerSecond >= 80) {
+      tickInterval = 0.25;
+    } else {
+      tickInterval = 0.5;
+    }
 
-    for (int i = firstSec; i <= lastSec; i++) {
-      if (i < 0) continue;
-      final x = i * pps - offset;
-      if (x > size.width + 20) break;
+    for (double t = 0; t <= maxSeconds; t += tickInterval) {
+      final x = t * pixelsPerSecond;
+      if (x > size.width) break;
 
-      // Major tick every second
-      canvas.drawLine(Offset(x, size.height - 8), Offset(x, size.height), majorTickPaint);
+      final isMajor = (t * 1000).round() % 1000 == 0;
+      final tickHeight = isMajor ? 12.0 : 6.0;
 
-      // Label
-      final tp = TextPainter(
-        text: TextSpan(text: '${i}s', style: textStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(x + 2, 2));
+      paint.color = Colors.white.withValues(alpha: isMajor ? 0.2 : 0.08);
+      canvas.drawLine(Offset(x, size.height - tickHeight), Offset(x, size.height), paint);
 
-      // Minor ticks at 0.5s
-      if (zoom >= 0.5) {
-        final halfX = x + pps * 0.5;
-        if (halfX > 0 && halfX < size.width) {
-          canvas.drawLine(
-            Offset(halfX, size.height - 4),
-            Offset(halfX, size.height),
-            tickPaint,
-          );
-        }
+      if (isMajor) {
+        final tp = TextPainter(
+          text: TextSpan(text: '${t.toStringAsFixed(0)}s', style: textStyle),
+          textDirection: TextDirection.ltr,
+        );
+        tp.layout();
+        tp.paint(canvas, Offset(x + 2, 2));
       }
     }
 
     // Bottom border
-    canvas.drawLine(
-      Offset(0, size.height - 0.5),
-      Offset(size.width, size.height - 0.5),
-      Paint()..color = Colors.white12..strokeWidth = 0.5,
-    );
+    paint.color = Colors.white.withValues(alpha: 0.08);
+    canvas.drawLine(Offset(0, size.height - 0.5), Offset(size.width, size.height - 0.5), paint);
   }
 
   @override
-  bool shouldRepaint(_TlRulerPainter old) =>
-      old.zoom != zoom || old.offset != offset;
+  bool shouldRepaint(_TlRulerPainter oldDelegate) =>
+      oldDelegate.pixelsPerSecond != pixelsPerSecond || oldDelegate.maxSeconds != maxSeconds;
+}
+
+/// Waveform painter — renders absolute peak values (0-1) as mirrored waveform
+class _TlWaveformPainter extends CustomPainter {
+  final List<double> data;
+  final Color color;
+  final bool isMuted;
+
+  const _TlWaveformPainter({required this.data, required this.color, this.isMuted = false});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    final waveColor = isMuted ? Colors.grey.withValues(alpha: 0.4) : color.withValues(alpha: 0.7);
+    final fillColor = isMuted ? Colors.grey.withValues(alpha: 0.15) : color.withValues(alpha: 0.2);
+    final centerY = size.height / 2;
+    final scaleY = size.height / 2 * 0.85;
+    final samplesPerPixel = data.length / size.width;
+
+    // Fill path (mirrored)
+    final fillPath = Path();
+    fillPath.moveTo(0, centerY);
+
+    for (int x = 0; x < size.width.toInt(); x++) {
+      final startSample = (x * samplesPerPixel).floor();
+      final endSample = ((x + 1) * samplesPerPixel).floor().clamp(0, data.length);
+      if (startSample >= data.length) break;
+      double peak = 0.0;
+      for (int i = startSample; i < endSample && i < data.length; i++) {
+        final s = data[i].abs().clamp(0.0, 1.0);
+        if (s > peak) peak = s;
+      }
+      fillPath.lineTo(x.toDouble(), centerY - peak * scaleY);
+    }
+
+    for (int x = size.width.toInt() - 1; x >= 0; x--) {
+      final startSample = (x * samplesPerPixel).floor();
+      final endSample = ((x + 1) * samplesPerPixel).floor().clamp(0, data.length);
+      if (startSample >= data.length) continue;
+      double peak = 0.0;
+      for (int i = startSample; i < endSample && i < data.length; i++) {
+        final s = data[i].abs().clamp(0.0, 1.0);
+        if (s > peak) peak = s;
+      }
+      fillPath.lineTo(x.toDouble(), centerY + peak * scaleY);
+    }
+
+    fillPath.close();
+    canvas.drawPath(fillPath, Paint()..color = fillColor..style = PaintingStyle.fill);
+
+    // Outline stroke
+    final strokePaint = Paint()..color = waveColor..strokeWidth = 1.0..style = PaintingStyle.stroke;
+    final strokePath = Path();
+    for (int x = 0; x < size.width.toInt(); x++) {
+      final startSample = (x * samplesPerPixel).floor();
+      final endSample = ((x + 1) * samplesPerPixel).floor().clamp(0, data.length);
+      if (startSample >= data.length) break;
+      double peak = 0.0;
+      for (int i = startSample; i < endSample && i < data.length; i++) {
+        final s = data[i].abs().clamp(0.0, 1.0);
+        if (s > peak) peak = s;
+      }
+      final y1 = centerY - peak * scaleY;
+      final y2 = centerY + peak * scaleY;
+      if (x == 0) strokePath.moveTo(x.toDouble(), y1);
+      strokePath.lineTo(x.toDouble(), y1);
+      strokePath.lineTo(x.toDouble(), y2);
+    }
+    canvas.drawPath(strokePath, strokePaint);
+
+    // Center line
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY),
+      Paint()..color = waveColor.withValues(alpha: 0.15)..strokeWidth = 0.5);
+  }
+
+  @override
+  bool shouldRepaint(_TlWaveformPainter oldDelegate) =>
+      oldDelegate.data != data || oldDelegate.color != color || oldDelegate.isMuted != isMuted;
+}
+
+/// Grid line painter for track backgrounds
+class _TlGridPainter extends CustomPainter {
+  final double pixelsPerSecond;
+  final double maxSeconds;
+
+  const _TlGridPainter({required this.pixelsPerSecond, required this.maxSeconds});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.04)
+      ..strokeWidth = 0.5;
+
+    for (double t = 0; t <= maxSeconds; t += 1.0) {
+      final x = t * pixelsPerSecond;
+      if (x > size.width) break;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TlGridPainter oldDelegate) =>
+      oldDelegate.pixelsPerSecond != pixelsPerSecond;
 }
