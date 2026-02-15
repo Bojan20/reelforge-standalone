@@ -181,6 +181,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
 
     // Find existing limiter node or add one
     DspNode? limiterNode;
+    bool isNewNode = false;
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.limiter) {
         limiterNode = node;
@@ -194,6 +195,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       final updatedChain = dsp.getChain(widget.trackId);
       if (updatedChain.nodes.isNotEmpty) {
         limiterNode = updatedChain.nodes.last;
+        isNewNode = true;
       }
     }
 
@@ -201,9 +203,25 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       _nodeId = limiterNode.id;
       _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       _initialized = true;
-      _applyAllParameters();
+      if (isNewNode) {
+        _applyAllParameters();
+      } else {
+        _readParamsFromEngine();
+      }
     } else {
     }
+  }
+
+  /// Read current parameter values from engine (preserves live state on tab switch)
+  void _readParamsFromEngine() {
+    if (!_initialized || _slotIndex < 0) return;
+    setState(() {
+      _threshold = _ffi.insertGetParam(widget.trackId, _slotIndex, 0);
+      _output = _ffi.insertGetParam(widget.trackId, _slotIndex, 1);
+      _release = _ffi.insertGetParam(widget.trackId, _slotIndex, 2);
+      final oversampleVal = _ffi.insertGetParam(widget.trackId, _slotIndex, 3);
+      _truePeakEnabled = oversampleVal >= 2.0;
+    });
   }
 
   /// Apply all parameters to the insert chain limiter (FIX: Uses insertSetParam)

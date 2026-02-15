@@ -624,6 +624,16 @@ impl AlgorithmicReverb {
     pub fn set_distance(&mut self, distance: f64) {
         self.distance = distance.clamp(0.0, 1.0);
     }
+
+    // Getters for InsertProcessor::get_param()
+    pub fn room_size(&self) -> f64 { self.room_size }
+    pub fn damping(&self) -> f64 { self.damping }
+    pub fn width(&self) -> f64 { self.width }
+    pub fn dry_wet(&self) -> f64 { self.dry_wet }
+    pub fn predelay_ms(&self) -> f64 { self.predelay_ms }
+    pub fn reverb_type(&self) -> ReverbType { self.reverb_type }
+    pub fn diffusion(&self) -> f64 { self.diffusion }
+    pub fn distance(&self) -> f64 { self.distance }
 }
 
 impl Processor for AlgorithmicReverb {

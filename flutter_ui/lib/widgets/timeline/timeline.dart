@@ -2042,8 +2042,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                           // Ghost clip preview during drag
                           if (_draggingClip != null && _ghostPosition != null)
                             Positioned(
-                              // Position ghost so grab point stays under cursor
-                              left: _ghostPosition!.dx - _grabOffset.dx,
+                              // Cubase-style: ghost snaps to grid position
+                              left: _snapPreviewTime != null
+                                  ? (_snapPreviewTime! - widget.scrollOffset) * _effectiveZoom
+                                  : _ghostPosition!.dx - _grabOffset.dx,
                               top: _ghostPosition!.dy - _rulerHeight - _grabOffset.dy,
                               child: IgnorePointer(
                                 child: Opacity(

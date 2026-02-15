@@ -6725,6 +6725,17 @@ class NativeFFI {
       Int32 Function(Uint32),
       int Function(int)>('elastic_reset');
 
+  late final _elasticApplyToClip = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('elastic_apply_to_clip');
+
+  /// Apply time stretch to clip audio in engine
+  /// Processes audio through elastic processor and replaces original
+  bool elasticApplyToClip(int clipId) {
+    if (!_loaded) return false;
+    return _elasticApplyToClip(clipId) == 1;
+  }
+
   late final _elasticProcess = _lib.lookupFunction<
       Uint32 Function(Uint32, Pointer<Double>, Uint32, Pointer<Double>, Uint32),
       int Function(int, Pointer<Double>, int, Pointer<Double>, int)>('elastic_process');

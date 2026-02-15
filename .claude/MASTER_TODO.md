@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-14 (Middleware Preview Fix + Timeline Bridge Fix + Win Skip Fixes)
+**Updated:** 2026-02-15 (DSP Panel Fixes + Grid Snap + Reverb Algorithm Fix + Time Stretch Apply)
 **Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,512 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented
 
 ---
@@ -282,6 +282,24 @@ Changed `continue` to `return` in event_registry.dart `_playLayer()` (async meth
 ---
 
 ## 🏆 SESSION HISTORY
+
+### Session 2026-02-15 — DSP & Timeline Fixes
+
+**Tasks Delivered:** 4 bug fixes
+**Files Changed:** 13
+
+**Fixes:**
+1. **DSP Tab Persistence** — FabFilter EQ, Compressor, Limiter, Gate, Reverb panels now preserve parameters when switching tabs (`isNewNode` + `_readParamsFromEngine()` pattern)
+2. **Time Stretch Apply** — Added Apply button to TimeStretchPanel header, triggers `elastic_apply_to_clip()` FFI
+3. **Grid Snap Fix** — Ghost clip now snaps to grid during drag (Cubase-style), GridLines widget draws snap-value-driven lines instead of hardcoded zoom-based levels
+4. **Reverb Algorithm Fix** — Dropdown options (Room, Hall, Plate, Chamber, Spring) now produce distinct sounds:
+   - Reduced 8 fake UI types to 5 real Rust types (eliminated duplicates)
+   - Fixed `_applyAllParameters()` order: type FIRST, then size/damping (Rust `set_type()` was overriding user values)
+   - Implemented `get_param()` for ReverbWrapper (was returning 0.0)
+   - Added 8 getter methods to `AlgorithmicReverb`
+   - Dropdown `onChanged` reads back size/damping after type change
+
+---
 
 ### Session 2026-02-02 FINALE — LEGENDARY
 

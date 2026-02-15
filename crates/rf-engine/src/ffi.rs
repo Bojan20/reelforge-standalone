@@ -7854,6 +7854,109 @@ pub extern "C" fn elastic_reset(clip_id: u32) -> i32 {
     }
 }
 
+/// Apply time stretch to clip audio in IMPORTED_AUDIO
+///
+/// Reads audio from IMPORTED_AUDIO, processes through elastic processor,
+/// and replaces the audio with the stretched result.
+///
+/// Returns 1 on success, 0 on error
+#[unsafe(no_mangle)]
+pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
+    // Get elastic processor
+    let mut procs = ELASTIC_PROCESSORS.write();
+    let proc = match procs.get_mut(&clip_id) {
+        Some(p) => p,
+        None => {
+            eprintln!("[elastic_apply] No processor for clip {}", clip_id);
+            return 0;
+        }
+    };
+
+    // Read audio from IMPORTED_AUDIO
+    let audio = {
+        let audio_map = IMPORTED_AUDIO.read();
+        match audio_map.get(&ClipId(clip_id as u64)) {
+            Some(a) => a.clone(),
+            None => {
+                eprintln!("[elastic_apply] No audio for clip {}", clip_id);
+                return 0;
+            }
+        }
+    };
+
+    let channels = audio.channels as usize;
+    let sample_rate = audio.sample_rate;
+    let total_frames = audio.sample_count;
+
+    if total_frames == 0 || channels == 0 {
+        return 0;
+    }
+
+    // Convert f32 interleaved to f64 per-channel
+    let mut left_f64 = Vec::with_capacity(total_frames);
+    let mut right_f64 = Vec::with_capacity(total_frames);
+
+    for frame in 0..total_frames {
+        let idx = frame * channels;
+        if idx >= audio.samples.len() {
+            break;
+        }
+        left_f64.push(audio.samples[idx] as f64);
+        if channels > 1 && idx + 1 < audio.samples.len() {
+            right_f64.push(audio.samples[idx + 1] as f64);
+        }
+    }
+
+    // Process through elastic
+    proc.reset();
+    let (stretched_l, stretched_r) = if channels > 1 {
+        proc.process_stereo(&left_f64, &right_f64)
+    } else {
+        let stretched = proc.process(&left_f64);
+        (stretched.clone(), stretched)
+    };
+
+    let new_frames = stretched_l.len();
+    if new_frames == 0 {
+        eprintln!("[elastic_apply] Stretch produced 0 samples");
+        return 0;
+    }
+
+    // Convert back to f32 interleaved
+    let mut new_samples = Vec::with_capacity(new_frames * channels);
+    for i in 0..new_frames {
+        new_samples.push(stretched_l[i].clamp(-1.0, 1.0) as f32);
+        if channels > 1 {
+            let r = if i < stretched_r.len() { stretched_r[i] } else { 0.0 };
+            new_samples.push(r.clamp(-1.0, 1.0) as f32);
+        }
+    }
+
+    let new_duration = new_frames as f64 / sample_rate as f64;
+
+    // Replace audio in IMPORTED_AUDIO
+    let new_audio = Arc::new(ImportedAudio {
+        samples: new_samples,
+        sample_rate,
+        channels: audio.channels,
+        duration_secs: new_duration,
+        sample_count: new_frames,
+        source_path: audio.source_path.clone(),
+        name: audio.name.clone(),
+        bit_depth: audio.bit_depth,
+        format: audio.format.clone(),
+    });
+
+    IMPORTED_AUDIO.write().insert(ClipId(clip_id as u64), new_audio);
+
+    eprintln!(
+        "[elastic_apply] clip {} stretched: {} → {} frames ({:.2}s → {:.2}s)",
+        clip_id, total_frames, new_frames, audio.duration_secs, new_duration
+    );
+
+    1
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PIANO ROLL FFI
 // ═══════════════════════════════════════════════════════════════════════════

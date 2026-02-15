@@ -225,6 +225,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
 
     // Find existing EQ node or add one
     DspNode? eqNode;
+    bool isNewNode = false;
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.eq) {
         eqNode = node;
@@ -238,6 +239,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       final updatedChain = dsp.getChain(widget.trackId);
       if (updatedChain.nodes.isNotEmpty) {
         eqNode = updatedChain.nodes.last;
+        isNewNode = true;
       }
     }
 
@@ -245,9 +247,85 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       _nodeId = eqNode.id;
       _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       setState(() => _initialized = true);
+      if (!isNewNode) {
+        _readBandsFromEngine();
+      }
       _startSpectrumUpdate();
     } else {
     }
+  }
+
+  /// Read active EQ bands from engine (preserves live state on tab switch)
+  void _readBandsFromEngine() {
+    if (!_initialized || _slotIndex < 0) return;
+    final List<EqBand> restoredBands = [];
+    // Scan all 64 possible band slots for enabled bands
+    for (int i = 0; i < 64; i++) {
+      final enabled = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 3);
+      if (enabled >= 0.5) {
+        final freq = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 0);
+        final gain = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 1);
+        final q = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 2);
+        final shapeVal = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 4);
+        final dynEnabled = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 5);
+        final dynThreshold = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 6);
+        final dynRatio = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 7);
+        final dynAttack = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 8);
+        final dynRelease = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 9);
+        final placementVal = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _paramsPerBand + 11);
+        restoredBands.add(EqBand(
+          index: i,
+          freq: freq,
+          gain: gain,
+          q: q,
+          shape: _paramToShape(shapeVal),
+          placement: _paramToPlacement(placementVal),
+          enabled: true,
+          dynamicEnabled: dynEnabled >= 0.5,
+          dynamicThreshold: dynThreshold,
+          dynamicRatio: dynRatio,
+          dynamicAttack: dynAttack,
+          dynamicRelease: dynRelease,
+        ));
+      }
+    }
+    // Read output gain (global param at index 64 * _paramsPerBand)
+    final outGain = _ffi.insertGetParam(widget.trackId, _slotIndex, 64 * _paramsPerBand);
+    setState(() {
+      _bands.clear();
+      _bands.addAll(restoredBands);
+      _outputGain = outGain;
+      _selectedBandIndex = _bands.isNotEmpty ? 0 : null;
+    });
+  }
+
+  EqFilterShape _paramToShape(double val) {
+    final intVal = val.round();
+    return switch (intVal) {
+      0 => EqFilterShape.bell,
+      1 => EqFilterShape.lowShelf,
+      2 => EqFilterShape.highShelf,
+      3 => EqFilterShape.lowCut,
+      4 => EqFilterShape.highCut,
+      5 => EqFilterShape.notch,
+      6 => EqFilterShape.bandPass,
+      7 => EqFilterShape.tiltShelf,
+      8 => EqFilterShape.allPass,
+      9 => EqFilterShape.brickwall,
+      _ => EqFilterShape.bell,
+    };
+  }
+
+  EqPlacement _paramToPlacement(double val) {
+    final intVal = val.round();
+    return switch (intVal) {
+      0 => EqPlacement.stereo,
+      1 => EqPlacement.left,
+      2 => EqPlacement.right,
+      3 => EqPlacement.mid,
+      4 => EqPlacement.side,
+      _ => EqPlacement.stereo,
+    };
   }
 
   void _startSpectrumUpdate() {

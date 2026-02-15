@@ -64,6 +64,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
   // State
   bool _initialized = false;
   bool _showAdvanced = false;
+  bool _processing = false;
 
   @override
   void initState() {
@@ -99,6 +100,24 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
     NativeFFI.instance.elasticSetTransientThreshold(widget.clipId, _transientThreshold);
 
     widget.onSettingsChanged?.call();
+  }
+
+  void _applyStretch() {
+    if (!_initialized || _processing) return;
+
+    setState(() => _processing = true);
+
+    // Ensure all params are synced before processing
+    _applyAllSettings();
+
+    // Apply stretch to clip audio in engine
+    final success = NativeFFI.instance.elasticApplyToClip(widget.clipId);
+
+    setState(() => _processing = false);
+
+    if (success) {
+      widget.onSettingsChanged?.call();
+    }
   }
 
   @override
@@ -153,6 +172,47 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           ),
         ),
         const Spacer(),
+        // Apply button
+        GestureDetector(
+          onTap: _applyStretch,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: _processing
+                  ? Colors.orange.withOpacity(0.3)
+                  : FluxForgeTheme.accentBlue.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: _processing
+                    ? Colors.orange.withOpacity(0.5)
+                    : FluxForgeTheme.accentBlue.withOpacity(0.4),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_processing)
+                  const SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.orange),
+                  )
+                else
+                  Icon(Icons.check, size: 12, color: FluxForgeTheme.accentBlue),
+                const SizedBox(width: 4),
+                Text(
+                  _processing ? 'Processing...' : 'Apply',
+                  style: TextStyle(
+                    color: _processing ? Colors.orange : FluxForgeTheme.accentBlue,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
         // Status indicator
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

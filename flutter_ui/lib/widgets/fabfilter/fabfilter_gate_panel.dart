@@ -149,6 +149,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
 
     // Find existing gate node or add one
     DspNode? gateNode;
+    bool isNewNode = false;
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.gate) {
         gateNode = node;
@@ -162,6 +163,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       final updatedChain = dsp.getChain(widget.trackId);
       if (updatedChain.nodes.isNotEmpty) {
         gateNode = updatedChain.nodes.last;
+        isNewNode = true;
       }
     }
 
@@ -169,8 +171,24 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       _nodeId = gateNode.id;
       _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       _initialized = true;
-      _applyAllParameters();
+      if (isNewNode) {
+        _applyAllParameters();
+      } else {
+        _readParamsFromEngine();
+      }
     }
+  }
+
+  /// Read current parameter values from engine (preserves live state on tab switch)
+  void _readParamsFromEngine() {
+    if (!_initialized || _slotIndex < 0) return;
+    setState(() {
+      _threshold = _ffi.insertGetParam(widget.trackId, _slotIndex, 0);
+      _range = _ffi.insertGetParam(widget.trackId, _slotIndex, 1);
+      _attack = _ffi.insertGetParam(widget.trackId, _slotIndex, 2);
+      _hold = _ffi.insertGetParam(widget.trackId, _slotIndex, 3);
+      _release = _ffi.insertGetParam(widget.trackId, _slotIndex, 4);
+    });
   }
 
   void _applyAllParameters() {

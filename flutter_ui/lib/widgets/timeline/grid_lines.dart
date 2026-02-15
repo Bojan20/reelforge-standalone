@@ -15,14 +15,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
 
-/// Grid detail level based on zoom
-enum GridDetailLevel {
-  bars,        // zoom < 15: only bars visible
-  beats,       // zoom 15-50: bars + beats
-  subdivisions, // zoom 50-150: + half beats
-  fine,        // zoom > 150: + quarter beats
-}
-
 class GridLines extends StatelessWidget {
   final double width;
   final double height;
@@ -32,6 +24,9 @@ class GridLines extends StatelessWidget {
   final int timeSignatureNum;
   final int timeSignatureDenom;
   final bool showBeatNumbers;
+  /// Snap value in beats (0.25 = 1/16, 0.5 = 1/8, 1 = 1/4, etc.)
+  /// Grid lines are drawn to match this value.
+  final double snapValue;
 
   const GridLines({
     super.key,
@@ -43,6 +38,7 @@ class GridLines extends StatelessWidget {
     this.timeSignatureNum = 4,
     this.timeSignatureDenom = 4,
     this.showBeatNumbers = false,
+    this.snapValue = 1,
   });
 
   @override
@@ -59,6 +55,7 @@ class GridLines extends StatelessWidget {
           timeSignatureNum: timeSignatureNum,
           timeSignatureDenom: timeSignatureDenom,
           showBeatNumbers: showBeatNumbers,
+          snapValue: snapValue,
         ),
         size: Size(width, height),
       ),
@@ -73,6 +70,7 @@ class _GridLinesPainter extends CustomPainter {
   final int timeSignatureNum;
   final int timeSignatureDenom;
   final bool showBeatNumbers;
+  final double snapValue;
 
   // Cached paints for performance
   static final Paint _barPaint = Paint()
@@ -95,6 +93,11 @@ class _GridLinesPainter extends CustomPainter {
     ..color = const Color(0x08FFFFFF)
     ..strokeWidth = 1;
 
+  /// Snap grid lines — matches the selected snap resolution
+  static final Paint _snapPaint = Paint()
+    ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.15)
+    ..strokeWidth = 1;
+
   _GridLinesPainter({
     required this.zoom,
     required this.scrollOffset,
@@ -102,14 +105,8 @@ class _GridLinesPainter extends CustomPainter {
     required this.timeSignatureNum,
     required this.timeSignatureDenom,
     required this.showBeatNumbers,
+    required this.snapValue,
   });
-
-  GridDetailLevel _getDetailLevel() {
-    if (zoom < 15) return GridDetailLevel.bars;
-    if (zoom < 50) return GridDetailLevel.beats;
-    if (zoom < 150) return GridDetailLevel.subdivisions;
-    return GridDetailLevel.fine;
-  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -125,37 +122,31 @@ class _GridLinesPainter extends CustomPainter {
     final startTime = scrollOffset;
     final endTime = scrollOffset + visibleDuration;
 
-    final detailLevel = _getDetailLevel();
+    // Cubase-style: grid density driven by snap value
+    // snapValue is in beats: 0.0625=1/64, 0.125=1/32, 0.25=1/16, 0.5=1/8, 1=1/4, 2=1/2, 4=bar
+    final snapInterval = snapValue * beatDuration; // Convert beats to seconds
 
-    // Draw from back to front (subdivisions → beats → bars)
-
-    // 1. Fine subdivisions (1/16 notes) - only at high zoom
-    if (detailLevel == GridDetailLevel.fine) {
-      final fineInterval = beatDuration / 4;
+    // Draw snap grid lines (finest visible level)
+    // Only draw if lines won't be too dense (min ~4px apart)
+    final snapPixelGap = snapInterval * zoom;
+    if (snapPixelGap >= 4 && snapValue < timeSignatureNum) {
+      // skipInterval = next coarser grid level to avoid double-drawing
+      final skipInterval = snapValue < 1 ? beatDuration : barDuration;
       _drawGridLines(
         canvas, size, startTime, endTime,
-        fineInterval, beatDuration / 2, _finePaint,
+        snapInterval, skipInterval, _snapPaint,
       );
     }
 
-    // 2. Subdivisions (1/8 notes)
-    if (detailLevel.index >= GridDetailLevel.subdivisions.index) {
-      final subdivisionInterval = beatDuration / 2;
-      _drawGridLines(
-        canvas, size, startTime, endTime,
-        subdivisionInterval, beatDuration, _subdivisionPaint,
-      );
-    }
-
-    // 3. Beat lines
-    if (detailLevel.index >= GridDetailLevel.beats.index) {
+    // Draw beat lines (if snap is finer than beats)
+    if (snapValue < 1) {
       _drawGridLines(
         canvas, size, startTime, endTime,
         beatDuration, barDuration, _beatPaint,
       );
     }
 
-    // 4. Bar lines (always visible) - with glow effect
+    // Bar lines — always visible with glow
     _drawBarLines(canvas, size, startTime, endTime, barDuration);
   }
 
@@ -224,5 +215,6 @@ class _GridLinesPainter extends CustomPainter {
       tempo != oldDelegate.tempo ||
       timeSignatureNum != oldDelegate.timeSignatureNum ||
       timeSignatureDenom != oldDelegate.timeSignatureDenom ||
-      showBeatNumbers != oldDelegate.showBeatNumbers;
+      showBeatNumbers != oldDelegate.showBeatNumbers ||
+      snapValue != oldDelegate.snapValue;
 }

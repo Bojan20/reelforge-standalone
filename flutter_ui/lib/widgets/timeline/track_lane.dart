@@ -146,6 +146,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                     scrollOffset: widget.scrollOffset,
                     tempo: widget.tempo,
                     timeSignatureNum: widget.timeSignatureNum,
+                    snapValue: widget.snapValue,
                   ),
                 ),
               ),

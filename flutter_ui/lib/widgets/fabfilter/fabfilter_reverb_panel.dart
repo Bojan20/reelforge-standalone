@@ -24,13 +24,10 @@ import 'fabfilter_panel_base.dart';
 /// Reverb space type (inspired by Pro-R)
 enum ReverbSpace {
   room('Room', 'Small intimate room'),
-  studio('Studio', 'Recording studio ambience'),
   hall('Hall', 'Concert hall'),
-  chamber('Chamber', 'Reverb chamber'),
   plate('Plate', 'Classic plate reverb'),
-  cathedral('Cathedral', 'Large cathedral space'),
-  vintage('Vintage', 'Vintage hardware emulation'),
-  shimmer('Shimmer', 'Shimmering pitch-shifted tails');
+  chamber('Chamber', 'Reverb chamber'),
+  spring('Spring', 'Spring reverb emulation');
 
   final String label;
   final String description;
@@ -163,6 +160,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
 
     // Find existing reverb node or add one
     DspNode? reverbNode;
+    bool isNewNode = false;
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.reverb) {
         reverbNode = node;
@@ -176,6 +174,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       final updatedChain = dsp.getChain(widget.trackId);
       if (updatedChain.nodes.isNotEmpty) {
         reverbNode = updatedChain.nodes.last;
+        isNewNode = true;
       }
     }
 
@@ -183,34 +182,63 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _nodeId = reverbNode.id;
       _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       _initialized = true;
-      _applyAllParameters();
+      if (isNewNode) {
+        _applyAllParameters();
+      } else {
+        _readParamsFromEngine();
+      }
     }
+  }
+
+  /// Read current parameter values from engine (preserves live state on tab switch)
+  void _readParamsFromEngine() {
+    if (!_initialized || _slotIndex < 0) return;
+    setState(() {
+      _size = _ffi.insertGetParam(widget.trackId, _slotIndex, 0);
+      _dampingHigh = _ffi.insertGetParam(widget.trackId, _slotIndex, 1);
+      _width = _ffi.insertGetParam(widget.trackId, _slotIndex, 2) * 100.0;
+      _mix = _ffi.insertGetParam(widget.trackId, _slotIndex, 3) * 100.0;
+      _predelay = _ffi.insertGetParam(widget.trackId, _slotIndex, 4);
+      final typeIdx = _ffi.insertGetParam(widget.trackId, _slotIndex, 5).round();
+      _space = _typeIndexToSpace(typeIdx);
+      _diffusion = _ffi.insertGetParam(widget.trackId, _slotIndex, 6) * 100.0;
+      _distance = _ffi.insertGetParam(widget.trackId, _slotIndex, 7) * 100.0;
+    });
+  }
+
+  ReverbSpace _typeIndexToSpace(int typeIndex) {
+    return switch (typeIndex) {
+      0 => ReverbSpace.room,
+      1 => ReverbSpace.hall,
+      2 => ReverbSpace.plate,
+      3 => ReverbSpace.chamber,
+      4 => ReverbSpace.spring,
+      _ => ReverbSpace.room,
+    };
   }
 
   void _applyAllParameters() {
     if (!_initialized || _slotIndex < 0) return;
-    // ReverbWrapper param indices: 0=RoomSize, 1=Damping, 2=Width, 3=DryWet, 4=Predelay, 5=Type, 6=Diffusion, 7=Distance
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _size);                        // Room Size
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _dampingHigh);                 // Damping
+    // CRITICAL: Type MUST be set FIRST because Rust set_type() overrides room_size and damping.
+    // By sending size/damping AFTER type, the user's values override the type presets.
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _spaceToTypeIndex(_space).toDouble()); // Type (sets preset size/damping)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _size);                        // Room Size (overrides type preset)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _dampingHigh);                 // Damping (overrides type preset)
     _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _width / 100.0);               // Width
     _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _mix / 100.0);                 // Dry/Wet
     _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _predelay);                    // Predelay (ms)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _spaceToTypeIndex(_space).toDouble()); // Type
     _ffi.insertSetParam(widget.trackId, _slotIndex, 6, _diffusion / 100.0);           // Diffusion
     _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _distance / 100.0);            // Distance
   }
 
   int _spaceToTypeIndex(ReverbSpace space) {
-    // Maps ReverbSpace to ReverbType index: 0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring
+    // 1:1 mapping to Rust ReverbType: 0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring
     return switch (space) {
-      ReverbSpace.room => 0,      // Room
-      ReverbSpace.studio => 0,    // Room
-      ReverbSpace.hall => 1,      // Hall
-      ReverbSpace.chamber => 3,   // Chamber
-      ReverbSpace.plate => 2,     // Plate
-      ReverbSpace.cathedral => 1, // Hall
-      ReverbSpace.vintage => 3,   // Chamber
-      ReverbSpace.shimmer => 1,   // Hall
+      ReverbSpace.room => 0,
+      ReverbSpace.hall => 1,
+      ReverbSpace.plate => 2,
+      ReverbSpace.chamber => 3,
+      ReverbSpace.spring => 4,
     };
   }
 
@@ -312,7 +340,14 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           onChanged: (v) {
             if (v != null) {
               setState(() => _space = v);
-              if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _spaceToTypeIndex(v).toDouble());
+              if (_slotIndex >= 0) {
+                _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _spaceToTypeIndex(v).toDouble());
+                // Read back size/damping because set_type() overrides them with preset values
+                setState(() {
+                  _size = _ffi.insertGetParam(widget.trackId, _slotIndex, 0);
+                  _dampingHigh = _ffi.insertGetParam(widget.trackId, _slotIndex, 1);
+                });
+              }
             }
           },
         ),

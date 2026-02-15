@@ -1635,9 +1635,24 @@ impl InsertProcessor for ReverbWrapper {
         }
     }
 
-    fn get_param(&self, _param_index: usize) -> f64 {
-        // Not implemented for now
-        0.0
+    fn get_param(&self, param_index: usize) -> f64 {
+        match param_index {
+            0 => self.reverb.room_size(),
+            1 => self.reverb.damping(),
+            2 => self.reverb.width(),
+            3 => self.reverb.dry_wet(),
+            4 => self.reverb.predelay_ms(),
+            5 => match self.reverb.reverb_type() {
+                ReverbType::Room => 0.0,
+                ReverbType::Hall => 1.0,
+                ReverbType::Plate => 2.0,
+                ReverbType::Chamber => 3.0,
+                ReverbType::Spring => 4.0,
+            },
+            6 => self.reverb.diffusion(),
+            7 => self.reverb.distance(),
+            _ => 0.0,
+        }
     }
 
     fn param_name(&self, param_index: usize) -> &str {

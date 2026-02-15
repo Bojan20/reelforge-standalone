@@ -283,6 +283,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
     // Find existing compressor node or add one
     DspNode? compNode;
+    bool isNewNode = false;
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.compressor) {
         compNode = node;
@@ -296,6 +297,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
       final updatedChain = dsp.getChain(widget.trackId);
       if (updatedChain.nodes.isNotEmpty) {
         compNode = updatedChain.nodes.last;
+        isNewNode = true;
       }
     }
 
@@ -303,8 +305,11 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
       _nodeId = compNode.id;
       _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
       _initialized = true;
-      _applyAllParameters();
-    } else {
+      if (isNewNode) {
+        _applyAllParameters();
+      } else {
+        _readParamsFromEngine();
+      }
     }
   }
 
@@ -331,6 +336,20 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _mix / 100.0);   // Mix (0-1)
     _ffi.insertSetParam(widget.trackId, _slotIndex, 6, 1.0);           // Link (fully linked stereo)
     _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _styleToTypeIndex(_style).toDouble()); // Type
+  }
+
+  /// Read current parameters from engine (when re-opening existing processor)
+  void _readParamsFromEngine() {
+    if (!_initialized || _slotIndex < 0) return;
+    setState(() {
+      _threshold = _ffi.insertGetParam(widget.trackId, _slotIndex, 0);
+      _ratio = _ffi.insertGetParam(widget.trackId, _slotIndex, 1);
+      _attack = _ffi.insertGetParam(widget.trackId, _slotIndex, 2);
+      _release = _ffi.insertGetParam(widget.trackId, _slotIndex, 3);
+      _output = _ffi.insertGetParam(widget.trackId, _slotIndex, 4);
+      final mixVal = _ffi.insertGetParam(widget.trackId, _slotIndex, 5);
+      _mix = mixVal * 100.0;
+    });
   }
 
   /// Map FabFilter style to insert chain compressor type index
