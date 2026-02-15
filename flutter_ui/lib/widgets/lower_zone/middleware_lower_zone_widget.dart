@@ -18,7 +18,7 @@ import '../../utils/path_validator.dart';
 import 'package:provider/provider.dart';
 
 import 'middleware_lower_zone_controller.dart';
-import '../../models/middleware_models.dart' show RtpcCurvePoint, CrossfadeCurve, StateGroup;
+import '../../models/middleware_models.dart';
 import 'lower_zone_types.dart';
 import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
@@ -852,58 +852,146 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
     );
   }
 
-  /// Compact RTPC Curves
+  /// Compact RTPC Curves — reads from provider
+  int _selectedCurveRtpcId = -1;
+
   Widget _buildCompactRtpcCurves() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('RTPC CURVES', Icons.show_chart),
-          const SizedBox(height: 6),
-          Expanded(
-            child: Row(
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        final rtpcDefs = middleware.rtpcDefinitions;
+
+        if (rtpcDefs.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Curve list
-                SizedBox(
-                  width: 120,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: LowerZoneColors.bgDeepest,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: LowerZoneColors.border),
-                    ),
-                    child: ListView(
-                      padding: const EdgeInsets.all(4),
-                      children: [
-                        _buildCurveListItem('Volume → Distance', true),
-                        _buildCurveListItem('Pitch → Speed', false),
-                        _buildCurveListItem('LPF → Distance', false),
-                        _buildCurveListItem('Reverb → Room', false),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Curve editor
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: LowerZoneColors.bgDeepest,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: LowerZoneColors.border),
-                    ),
-                    child: CustomPaint(
-                      painter: _RtpcCurvePainter(color: LowerZoneColors.middlewareAccent),
-                      size: Size.infinite,
+                _buildPanelHeader('RTPC CURVES', Icons.show_chart),
+                const SizedBox(height: 6),
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      'No RTPC parameters defined.\nCreate RTPCs in the Meters tab.',
+                      style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),
               ],
             ),
+          );
+        }
+
+        // Auto-select first if none selected
+        if (_selectedCurveRtpcId < 0 || !rtpcDefs.any((r) => r.id == _selectedCurveRtpcId)) {
+          _selectedCurveRtpcId = rtpcDefs.first.id;
+        }
+
+        final selectedRtpc = rtpcDefs.firstWhere(
+          (r) => r.id == _selectedCurveRtpcId,
+          orElse: () => rtpcDefs.first,
+        );
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPanelHeader('RTPC CURVES', Icons.show_chart),
+              const SizedBox(height: 6),
+              Expanded(
+                child: Row(
+                  children: [
+                    // RTPC list — real from provider
+                    SizedBox(
+                      width: 120,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: LowerZoneColors.bgDeepest,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: LowerZoneColors.border),
+                        ),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(4),
+                          itemCount: rtpcDefs.length,
+                          itemBuilder: (ctx, i) {
+                            final rtpc = rtpcDefs[i];
+                            final isSelected = rtpc.id == _selectedCurveRtpcId;
+                            return GestureDetector(
+                              onTap: () => setState(() => _selectedCurveRtpcId = rtpc.id),
+                              child: _buildCurveListItem(rtpc.name, isSelected),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Curve display — renders the real RtpcCurve
+                    Expanded(
+                      child: Column(
+                        children: [
+                          // RTPC info header
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: LowerZoneColors.bgDeepest,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                              border: Border.all(color: LowerZoneColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  selectedRtpc.name,
+                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: LowerZoneColors.textPrimary),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${selectedRtpc.currentValue.toStringAsFixed(1)} / ${selectedRtpc.min.toStringAsFixed(0)}-${selectedRtpc.max.toStringAsFixed(0)}',
+                                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: LowerZoneColors.middlewareAccent.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                  child: Text(
+                                    '${(selectedRtpc.normalizedValue * 100).toStringAsFixed(0)}%',
+                                    style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: LowerZoneColors.middlewareAccent),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Curve canvas
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: LowerZoneColors.bgDeepest,
+                                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4)),
+                                border: Border.all(color: LowerZoneColors.border),
+                              ),
+                              child: CustomPaint(
+                                painter: _RtpcCurvePainter(
+                                  color: LowerZoneColors.middlewareAccent,
+                                  curve: selectedRtpc.curve,
+                                  currentValue: selectedRtpc.normalizedValue,
+                                ),
+                                size: Size.infinite,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -926,56 +1014,115 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
     );
   }
 
-  /// Compact Bindings Panel
+  /// Compact Bindings Panel — reads from provider
   Widget _buildCompactBindingsPanel() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('PARAMETER BINDINGS', Icons.link),
-          const SizedBox(height: 6),
-          Expanded(
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        final audioBindings = middleware.rtpcBindings;
+        final dspBindings = middleware.dspBindingsList;
+        final rtpcDefs = middleware.rtpcDefs;
+
+        final hasBindings = audioBindings.isNotEmpty || dspBindings.isNotEmpty;
+
+        if (!hasBindings) {
+          return Container(
+            padding: const EdgeInsets.all(8),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildBindingRow('WinAmount', 'Volume', '0-1', 'Linear'),
-                _buildBindingRow('Distance', 'LPF Cutoff', '0-1000', 'Exp'),
-                _buildBindingRow('Speed', 'Pitch', '0.5-2.0', 'Linear'),
-                _buildBindingRow('Health', 'Reverb Send', '0-100', 'S-Curve'),
+                _buildPanelHeader('PARAMETER BINDINGS', Icons.link),
+                const SizedBox(height: 6),
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      'No parameter bindings.\nCreate RTPC bindings to connect parameters.',
+                      style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
               ],
             ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPanelHeader('PARAMETER BINDINGS', Icons.link),
+              const SizedBox(height: 6),
+              Expanded(
+                child: ListView(
+                  children: [
+                    // Audio bindings (volume, pan, sends)
+                    for (final binding in audioBindings)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: _buildBindingRow(
+                          rtpcDefs[binding.rtpcId]?.name ?? 'RTPC #${binding.rtpcId}',
+                          binding.target.displayName,
+                          '${binding.target.defaultRange.$1.toStringAsFixed(1)}-${binding.target.defaultRange.$2.toStringAsFixed(1)}',
+                          binding.curve.points.isEmpty ? 'Linear' : '${binding.curve.points.length}pt',
+                          binding.enabled,
+                        ),
+                      ),
+                    // DSP bindings (filter, compressor, etc.)
+                    for (final binding in dspBindings)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: _buildBindingRow(
+                          rtpcDefs[binding.rtpcId]?.name ?? 'RTPC #${binding.rtpcId}',
+                          binding.label ?? 'DSP T${binding.trackId}:S${binding.slotIndex}:P${binding.paramIndex}',
+                          '${binding.target.defaultRange.$1.toStringAsFixed(1)}-${binding.target.defaultRange.$2.toStringAsFixed(1)}',
+                          binding.curve.points.isEmpty ? 'Linear' : '${binding.curve.points.length}pt',
+                          binding.enabled,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildBindingRow(String source, String target, String range, String curve) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: LowerZoneColors.border),
-      ),
-      child: Row(
-        children: [
-          _buildBindingChip(source, LowerZoneColors.middlewareAccent),
-          Icon(Icons.arrow_right_alt, size: 16, color: LowerZoneColors.textMuted),
-          _buildBindingChip(target, const Color(0xFF40C8FF)),
-          const Spacer(),
-          Text(range, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: LowerZoneColors.bgMid,
-              borderRadius: BorderRadius.circular(2),
+  Widget _buildBindingRow(String source, String target, String range, String curve, bool enabled) {
+    final opacity = enabled ? 1.0 : 0.4;
+    return Opacity(
+      opacity: opacity,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: enabled ? LowerZoneColors.border : LowerZoneColors.border.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            _buildBindingChip(source, LowerZoneColors.middlewareAccent),
+            const Icon(Icons.arrow_right_alt, size: 16, color: LowerZoneColors.textMuted),
+            Flexible(child: _buildBindingChip(target, const Color(0xFF40C8FF))),
+            const SizedBox(width: 4),
+            Text(range, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: LowerZoneColors.bgMid,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Text(curve, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary)),
             ),
-            child: Text(curve, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary)),
-          ),
-        ],
+            if (!enabled) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.visibility_off, size: 10, color: LowerZoneColors.textMuted),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -991,34 +1138,61 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       child: Text(
         text,
         style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
 
-  /// Compact Meters Panel
+  /// Compact Meters Panel — reads live RTPC values from provider
   Widget _buildCompactMetersPanel() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('REAL-TIME METERS', Icons.bar_chart),
-          const SizedBox(height: 6),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        final rtpcDefs = middleware.rtpcDefinitions;
+
+        if (rtpcDefs.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildMeterColumn('WinAmount', 0.7),
-                _buildMeterColumn('Distance', 0.3),
-                _buildMeterColumn('Speed', 0.5),
-                _buildMeterColumn('Health', 0.9),
-                _buildMeterColumn('Tension', 0.4),
-                _buildMeterColumn('Progress', 0.6),
+                _buildPanelHeader('REAL-TIME METERS', Icons.bar_chart),
+                const SizedBox(height: 6),
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      'No RTPC parameters defined.',
+                      style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                    ),
+                  ),
+                ),
               ],
             ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPanelHeader('REAL-TIME METERS', Icons.bar_chart),
+              const SizedBox(height: 6),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    for (final rtpc in rtpcDefs.take(8))
+                      _buildMeterColumn(
+                        rtpc.name.length > 8 ? rtpc.name.substring(0, 8) : rtpc.name,
+                        rtpc.normalizedValue,
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -2584,8 +2758,10 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
 
 class _RtpcCurvePainter extends CustomPainter {
   final Color color;
+  final RtpcCurve? curve;
+  final double currentValue; // normalized 0-1
 
-  _RtpcCurvePainter({required this.color});
+  _RtpcCurvePainter({required this.color, this.curve, this.currentValue = -1});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2612,22 +2788,24 @@ class _RtpcCurvePainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
     }
 
-    // Draw an exponential decay curve
+    // Evaluate the real curve at multiple points
+    final curveObj = curve ?? const RtpcCurve();
     final path = Path();
     final fillPath = Path();
 
-    path.moveTo(0, size.height * 0.9);
-    fillPath.moveTo(0, size.height);
-    fillPath.lineTo(0, size.height * 0.9);
-
     const steps = 50;
-    for (int i = 1; i <= steps; i++) {
+    for (int i = 0; i <= steps; i++) {
       final t = i / steps;
       final x = t * size.width;
-      // Exponential decay: y = start * e^(-k*x)
-      final y = size.height * (0.9 - 0.8 * (1 - (1 / (1 + 3 * t))));
-      path.lineTo(x, y);
-      fillPath.lineTo(x, y);
+      final y = size.height * (1.0 - curveObj.evaluate(t));
+      if (i == 0) {
+        path.moveTo(x, y);
+        fillPath.moveTo(0, size.height);
+        fillPath.lineTo(x, y);
+      } else {
+        path.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
     }
 
     fillPath.lineTo(size.width, size.height);
@@ -2636,23 +2814,38 @@ class _RtpcCurvePainter extends CustomPainter {
     canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
 
-    // Draw control points
+    // Draw curve control points
     final pointPaint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
 
-    final points = [
-      Offset(0, size.height * 0.9),
-      Offset(size.width * 0.3, size.height * 0.5),
-      Offset(size.width * 0.7, size.height * 0.2),
-      Offset(size.width, size.height * 0.15),
-    ];
+    if (curve != null) {
+      for (final pt in curve!.points) {
+        final px = pt.x * size.width;
+        final py = size.height * (1.0 - pt.y);
+        canvas.drawCircle(Offset(px, py), 4, pointPaint);
+      }
+    }
 
-    for (final point in points) {
-      canvas.drawCircle(point, 4, pointPaint);
+    // Draw current value indicator
+    if (currentValue >= 0 && currentValue <= 1) {
+      final cx = currentValue * size.width;
+      final cy = size.height * (1.0 - curveObj.evaluate(currentValue));
+      final indicatorPaint = Paint()
+        ..color = const Color(0xFFFFD700)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(cx, cy), 5, indicatorPaint);
+      // Vertical line at current position
+      final linePaint = Paint()
+        ..color = const Color(0xFFFFD700).withValues(alpha: 0.4)
+        ..strokeWidth = 1;
+      canvas.drawLine(Offset(cx, 0), Offset(cx, size.height), linePaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _RtpcCurvePainter oldDelegate) =>
+      curve != oldDelegate.curve ||
+      currentValue != oldDelegate.currentValue ||
+      color != oldDelegate.color;
 }

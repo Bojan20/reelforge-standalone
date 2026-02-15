@@ -488,10 +488,59 @@ class RtpcSystemProvider extends ChangeNotifier {
     // Send to Rust
     _ffi.middlewareSetRtpc(rtpcId, clampedValue, interpolationMs: interpolationMs);
 
+    // Apply audio bindings (bus volume, pan, sends)
+    _applyAudioBindingsForRtpc(rtpcId);
+
     // P11.1.2: Apply DSP bindings for this RTPC
     _applyDspBindingsForRtpc(rtpcId);
 
     notifyListeners();
+  }
+
+  /// Apply audio bindings (volume, pan, sends) for a specific RTPC
+  void _applyAudioBindingsForRtpc(int rtpcId) {
+    final rtpcDef = _rtpcDefs[rtpcId];
+    if (rtpcDef == null) return;
+
+    final normalized = rtpcDef.normalizedValue;
+
+    for (final binding in _rtpcBindings.values) {
+      if (binding.rtpcId != rtpcId || !binding.enabled) continue;
+
+      final outputValue = binding.evaluate(normalized);
+      _applyAudioParameter(binding, outputValue);
+    }
+  }
+
+  /// Apply a single audio binding result to the engine via FFI
+  void _applyAudioParameter(RtpcBinding binding, double value) {
+    final busId = binding.targetBusId ?? 0; // master=0
+
+    switch (binding.target) {
+      case RtpcTargetParameter.volume:
+      case RtpcTargetParameter.busVolume:
+        _ffi.setBusVolume(busId, value.clamp(0.0, 2.0));
+
+      case RtpcTargetParameter.pan:
+        _ffi.setBusPan(busId, value.clamp(-1.0, 1.0));
+
+      case RtpcTargetParameter.reverbSend:
+        // Aux send level (reverb bus = typically aux index 0)
+        if (binding.targetBusId != null) {
+          _ffi.setBusVolume(binding.targetBusId!, value.clamp(0.0, 1.0));
+        }
+
+      case RtpcTargetParameter.delaySend:
+        // Aux send level (delay bus)
+        if (binding.targetBusId != null) {
+          _ffi.setBusVolume(binding.targetBusId!, value.clamp(0.0, 1.0));
+        }
+
+      default:
+        // Non-audio targets (pitch, width, playbackRate, DSP params)
+        // DSP params handled separately by _applyDspBindingsForRtpc
+        break;
+    }
   }
 
   /// P11.1.2: Internal - apply all DSP bindings for a specific RTPC
@@ -879,6 +928,9 @@ class RtpcSystemProvider extends ChangeNotifier {
     );
 
     if (result != 0) {
+      debugPrint('[RTPC] DSP param failed: track=${binding.trackId} '
+          'slot=${binding.slotIndex} param=${binding.paramIndex} '
+          'value=$value result=$result');
     }
   }
 

@@ -479,7 +479,9 @@ class MiddlewareProvider extends ChangeNotifier {
   List<StateGroup> get stateGroups => _stateGroupsProvider.stateGroups.values.toList();
   List<SwitchGroup> get switchGroups => _switchGroupsProvider.switchGroups.values.toList();
   List<RtpcDefinition> get rtpcDefinitions => _rtpcSystemProvider.rtpcDefinitions;
+  Map<int, RtpcDefinition> get rtpcDefs => _rtpcSystemProvider.rtpcDefs;
   List<RtpcBinding> get rtpcBindings => _rtpcSystemProvider.rtpcBindings;
+  List<RtpcDspBinding> get dspBindingsList => _rtpcSystemProvider.dspBindingsList;
 
   // Advanced features getters (delegating to extracted providers)
   List<DuckingRule> get duckingRules => _duckingSystemProvider.duckingRules;
