@@ -1,6 +1,6 @@
 /// DAW Reverb Panel
 ///
-/// Pro-R style reverb wrapper.
+/// FF-R reverb wrapper.
 /// Displays FabFilterReverbPanel for selected track.
 library;
 

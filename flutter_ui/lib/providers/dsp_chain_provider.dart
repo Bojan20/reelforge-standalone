@@ -23,15 +23,15 @@ import '../src/rust/native_ffi.dart';
 
 /// Available DSP processor types
 enum DspNodeType {
-  eq('EQ', 'Parametric EQ'),
-  compressor('Comp', 'Compressor'),
-  limiter('Limiter', 'Limiter'),
-  gate('Gate', 'Noise Gate'),
-  expander('Exp', 'Expander'),
-  reverb('Reverb', 'Reverb'),
-  delay('Delay', 'Delay'),
-  saturation('Sat', 'Saturation'),
-  deEsser('De-Ess', 'De-Esser');
+  eq('FF-Q', 'Parametric EQ'),
+  compressor('FF-C', 'Compressor'),
+  limiter('FF-L', 'Limiter'),
+  gate('FF-G', 'Noise Gate'),
+  expander('FF-X', 'Expander'),
+  reverb('FF-R', 'Reverb'),
+  delay('FF-D', 'Delay'),
+  saturation('FF-S', 'Saturation'),
+  deEsser('FF-E', 'De-Esser');
 
   final String shortName;
   final String fullName;

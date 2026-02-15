@@ -892,17 +892,17 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   Widget _buildChainPanel() => _buildCompactDspChain();
 
-  /// FabFilter Pro-Q style EQ Panel
+  /// FF-Q EQ Panel
   Widget _buildFabFilterEqPanel() {
     return const FabFilterEqPanel(trackId: 0);
   }
 
-  /// FabFilter Pro-C style Compressor Panel
+  /// FF-C Compressor Panel
   Widget _buildFabFilterCompressorPanel() {
     return const FabFilterCompressorPanel(trackId: 0);
   }
 
-  /// FabFilter Pro-R style Reverb Panel
+  /// FF-R Reverb Panel
   Widget _buildFabFilterReverbPanel() {
     return const FabFilterReverbPanel(trackId: 0);
   }

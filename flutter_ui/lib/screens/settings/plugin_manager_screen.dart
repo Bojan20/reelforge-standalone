@@ -112,21 +112,21 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
 
     _plugins = [
       _PluginInfo(
-        id: 'fabfilter-pro-q3',
-        name: 'Pro-Q 3',
-        vendor: 'FabFilter',
-        version: '3.24',
+        id: 'ff-q-64',
+        name: 'FF-Q 64',
+        vendor: 'FluxForge',
+        version: '1.0',
         format: _PluginFormat.vst3,
-        path: '/Library/Audio/Plug-Ins/VST3/FabFilter Pro-Q 3.vst3',
+        path: '/Library/Audio/Plug-Ins/VST3/FF-Q 64.vst3',
         isInstrument: false,
       ),
       _PluginInfo(
-        id: 'fabfilter-pro-c2',
-        name: 'Pro-C 2',
-        vendor: 'FabFilter',
-        version: '2.16',
+        id: 'ff-c',
+        name: 'FF-C',
+        vendor: 'FluxForge',
+        version: '1.0',
         format: _PluginFormat.vst3,
-        path: '/Library/Audio/Plug-Ins/VST3/FabFilter Pro-C 2.vst3',
+        path: '/Library/Audio/Plug-Ins/VST3/FF-C.vst3',
         isInstrument: false,
       ),
       _PluginInfo(

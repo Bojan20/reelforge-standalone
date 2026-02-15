@@ -1101,20 +1101,20 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     };
   }
 
-  /// FabFilter Pro-Q Style 64-band Parametric EQ
+  /// FF-Q 64-band Parametric EQ
   /// ✅ P0.1: Extracted PROCESS panels
   Widget _buildEqPanel() => EqPanel(selectedTrackId: widget.selectedTrackId);
 
-  /// FabFilter Pro-C Style Compressor
+  /// FF-C Compressor
   Widget _buildCompPanel() => CompPanel(selectedTrackId: widget.selectedTrackId);
 
-  /// FabFilter Pro-L Style Limiter
+  /// FF-L Limiter
   Widget _buildLimiterPanel() => LimiterPanel(selectedTrackId: widget.selectedTrackId);
 
-  /// FabFilter Pro-R Style Reverb
+  /// FF-R Reverb
   Widget _buildReverbPanel() => ReverbPanel(selectedTrackId: widget.selectedTrackId);
 
-  /// FabFilter Pro-G Style Gate
+  /// FF-G Gate
   Widget _buildGatePanel() => GatePanel(selectedTrackId: widget.selectedTrackId);
 
   /// P0.4: FX Chain — Shows all processors in chain with reorder support

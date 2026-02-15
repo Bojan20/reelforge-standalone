@@ -1,4 +1,4 @@
-/// FabFilter-Style Preset Browser
+/// FF Preset Browser
 ///
 /// Professional preset management with:
 /// - Categorized preset list

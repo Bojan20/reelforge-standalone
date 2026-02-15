@@ -8620,7 +8620,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // vs proEqSetBand* which goes to PRO_EQS HashMap (never processed!)
     final ffi = NativeFFI.instance;
 
-    // Use RF-EQ 64 - the professional FabFilter-style EQ with Pro EQ DSP
+    // Use FF-Q 64 - the professional parametric EQ with Pro EQ DSP
     return LayoutBuilder(
       builder: (context, constraints) {
         return rf_eq.ProEqEditor(
@@ -9801,39 +9801,39 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       ),
 
       // ══════════════════════════════════════════════════════════════════════
-      // FABFILTER-STYLE PANELS — Premium DSP interfaces
+      // FF DSP PANELS — Premium DSP interfaces
       // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
-        id: 'fabfilter-eq',
-        label: 'Pro-Q EQ',
+        id: 'ff-eq',
+        label: 'FF-Q',
         icon: Icons.equalizer,
         content: FabFilterEqPanel(trackId: 0),
         groupId: 'process',
       ),
       LowerZoneTab(
-        id: 'fabfilter-comp',
-        label: 'Pro-C Comp',
+        id: 'ff-comp',
+        label: 'FF-C',
         icon: Icons.compress,
         content: FabFilterCompressorPanel(trackId: 0),
         groupId: 'process',
       ),
       LowerZoneTab(
-        id: 'fabfilter-limiter',
-        label: 'Pro-L Limiter',
+        id: 'ff-limiter',
+        label: 'FF-L',
         icon: Icons.trending_flat,
         content: FabFilterLimiterPanel(trackId: 0),
         groupId: 'process',
       ),
       LowerZoneTab(
-        id: 'fabfilter-reverb',
-        label: 'Pro-R Reverb',
+        id: 'ff-reverb',
+        label: 'FF-R',
         icon: Icons.waves,
         content: FabFilterReverbPanel(trackId: 0),
         groupId: 'process',
       ),
       LowerZoneTab(
-        id: 'fabfilter-gate',
-        label: 'Pro-G Gate',
+        id: 'ff-gate',
+        label: 'FF-G',
         icon: Icons.door_sliding,
         content: FabFilterGatePanel(trackId: 0),
         groupId: 'process',
@@ -9998,14 +9998,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         label: 'Analyze',
         tabs: ['meters', 'loudness', 'spectrum'],
       ),
-      // GROUP 4: PROCESS — DSP processors (consolidated + FabFilter premium)
+      // GROUP 4: PROCESS — DSP processors (consolidated + FF premium)
       const TabGroup(
         id: 'process',
         label: 'Process',
         tabs: [
           'eq', 'dynamics', 'spatial', 'reverb', 'delay', 'pitch', 'spectral', 'saturation', 'transient',
-          // FabFilter-style premium panels
-          'fabfilter-eq', 'fabfilter-comp', 'fabfilter-limiter', 'fabfilter-reverb', 'fabfilter-gate',
+          // FF premium DSP panels
+          'ff-eq', 'ff-comp', 'ff-limiter', 'ff-reverb', 'ff-gate',
         ],
       ),
       // GROUP 5: MEDIA — Browser, pool, plugins, templates

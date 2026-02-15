@@ -1,6 +1,6 @@
-/// FabFilter Pro-G Style Gate Panel
+/// FF-G Gate Panel
 ///
-/// Inspired by Pro-G's interface:
+/// Professional gate interface:
 /// - Real-time gate state visualization
 /// - Sidechain filtering
 /// - Expert timing controls
@@ -64,7 +64,7 @@ class FabFilterGatePanel extends FabFilterPanelBase {
     super.key,
     required super.trackId,
   }) : super(
-          title: 'Gate',
+          title: 'FF-G',
           icon: Icons.door_sliding,
           accentColor: FabFilterColors.green,
           nodeType: DspNodeType.gate,

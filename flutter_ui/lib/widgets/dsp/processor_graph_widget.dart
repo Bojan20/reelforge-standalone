@@ -1,6 +1,6 @@
 /// Processor Frequency Graph Widget (P10.1.6)
 ///
-/// FabFilter Pro-Q style frequency response visualization for all DSP processors:
+/// FF-Q style frequency response visualization for all DSP processors:
 /// - EQ curves with multiple filter types (bell, shelf, cut, notch)
 /// - Compressor transfer curve and knee display
 /// - Limiter ceiling and gain reduction
@@ -125,7 +125,7 @@ class GraphReverbSettings {
 // MAIN WIDGET
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// FabFilter Pro-Q style processor frequency graph
+/// FF-Q style processor frequency graph
 class ProcessorGraphWidget extends StatelessWidget {
   /// Display mode
   final ProcessorGraphMode mode;

@@ -1,6 +1,6 @@
 /// DAW Compressor Panel (P0.1 Extracted)
 ///
-/// Pro-C style compressor wrapper.
+/// FF-C compressor wrapper.
 /// Displays FabFilterCompressorPanel for selected track.
 ///
 /// Extracted from daw_lower_zone_widget.dart (2026-01-26)

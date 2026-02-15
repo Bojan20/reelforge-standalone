@@ -166,7 +166,7 @@ class PluginReference {
   /// Unique identifier
   final PluginUid uid;
 
-  /// Display name (e.g., "FabFilter Pro-Q 3")
+  /// Display name (e.g., "FF-Q 64")
   final String name;
 
   /// Vendor/manufacturer name

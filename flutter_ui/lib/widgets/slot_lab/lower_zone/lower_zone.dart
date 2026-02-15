@@ -297,7 +297,7 @@ class _LowerZoneContent extends StatelessWidget {
     switch (subIndex) {
       case 0: // EQ
         // TODO: Add FabFilterEQPanel when available
-        return _buildPlaceholder('Pro-Q Style EQ\n(Coming Soon)');
+        return _buildPlaceholder('FF-Q EQ\n(Coming Soon)');
       case 1: // Compressor
         return const FabFilterCompressorPanel(trackId: 0);
       case 2: // Limiter

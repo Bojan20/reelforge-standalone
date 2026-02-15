@@ -101,18 +101,18 @@ class PluginAlternativesRegistry {
 
   /// Built-in alternatives for common plugins
   void initBuiltInAlternatives() {
-    // FabFilter Pro-Q alternatives
+    // FF-Q alternatives
     _registerAlternatives(
-      PluginUid.vst3('58E595CC2C1242FB8E32F4C9D39C5F42'), // Pro-Q 3
+      PluginUid.vst3('58E595CC2C1242FB8E32F4C9D39C5F42'), // FF-Q 64
       [
         PluginUid.clap('com.toneboosters.equalizer4'),
         PluginUid.vst3('00000000000000000000000000000001'), // Example: TDR Nova
       ],
     );
 
-    // FabFilter Pro-C alternatives
+    // FF-C alternatives
     _registerAlternatives(
-      PluginUid.vst3('58E595CC2C1242FB8E32F4C9D39C5F43'), // Pro-C 2
+      PluginUid.vst3('58E595CC2C1242FB8E32F4C9D39C5F43'), // FF-C
       [
         PluginUid.clap('com.toneboosters.compressor4'),
         PluginUid.vst3('00000000000000000000000000000002'), // Example: TDR Kotelnikov

@@ -61,11 +61,11 @@ enum MusicAleSubTab {
 
 /// Sub-tabs for DSP super-tab
 enum DspSubTab {
-  eq,         // Pro-Q style EQ (placeholder for now)
-  compressor, // Pro-C style compressor
-  limiter,    // Pro-L style limiter
-  gate,       // Pro-G style gate
-  reverb,     // Pro-R style reverb
+  eq,         // FF-Q EQ (placeholder for now)
+  compressor, // FF-C compressor
+  limiter,    // FF-L limiter
+  gate,       // FF-G gate
+  reverb,     // FF-R reverb
 }
 
 /// Sub-tabs for BAKE super-tab
@@ -314,35 +314,35 @@ const List<SubTabConfig> kDspSubTabs = [
     label: 'EQ',
     icon: Icons.graphic_eq,
     shortcutKey: '1',
-    description: 'Pro-Q style EQ',
+    description: 'FF-Q EQ',
   ),
   SubTabConfig(
     id: 'compressor',
     label: 'Comp',
     icon: Icons.compress,
     shortcutKey: '2',
-    description: 'Pro-C style compressor',
+    description: 'FF-C Compressor',
   ),
   SubTabConfig(
     id: 'limiter',
     label: 'Limiter',
     icon: Icons.vertical_align_top,
     shortcutKey: '3',
-    description: 'Pro-L style limiter',
+    description: 'FF-L Limiter',
   ),
   SubTabConfig(
     id: 'gate',
     label: 'Gate',
     icon: Icons.door_front_door_outlined,
     shortcutKey: '4',
-    description: 'Pro-G style gate',
+    description: 'FF-G Gate',
   ),
   SubTabConfig(
     id: 'reverb',
     label: 'Reverb',
     icon: Icons.waves,
     shortcutKey: '5',
-    description: 'Pro-R style reverb',
+    description: 'FF-R Reverb',
   ),
 ];
 

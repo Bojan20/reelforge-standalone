@@ -1,4 +1,4 @@
-/// Spectrum Analyzer Widget - Pro-Q 4 Level and Beyond
+/// Spectrum Analyzer Widget - FF-Q Level and Beyond
 ///
 /// Real-time FFT spectrum display with:
 /// - GPU-accelerated rendering at 60fps

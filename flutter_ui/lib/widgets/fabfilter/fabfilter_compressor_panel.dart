@@ -1,6 +1,6 @@
-/// FabFilter Pro-C Style Compressor Panel
+/// FF-C Compressor Panel
 ///
-/// Inspired by Pro-C 3's interface:
+/// Professional compressor interface:
 /// - Animated level/knee display
 /// - 14 compression styles
 /// - Character modes (Tube, Diode, Bright)
@@ -23,7 +23,7 @@ import 'fabfilter_panel_base.dart';
 // ENUMS & DATA CLASSES
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Compression style (Pro-C 3 has 14 styles)
+/// Compression style (14 styles)
 enum CompressionStyle {
   clean('Clean', 'Transparent digital compression'),
   classic('Classic', 'Classic VCA-style compression'),
@@ -170,7 +170,7 @@ class FabFilterCompressorPanel extends FabFilterPanelBase {
     super.key,
     required super.trackId,
   }) : super(
-          title: 'Compressor',
+          title: 'FF-C',
           icon: Icons.compress,
           accentColor: FabFilterColors.orange,
           nodeType: DspNodeType.compressor,

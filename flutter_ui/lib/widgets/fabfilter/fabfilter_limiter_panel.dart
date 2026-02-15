@@ -1,6 +1,6 @@
-/// FabFilter Pro-L Style Limiter Panel
+/// FF-L Limiter Panel
 ///
-/// Inspired by Pro-L 2's interface:
+/// Professional limiter interface:
 /// - Real-time scrolling waveform display
 /// - True Peak limiting/metering
 /// - Loudness metering (LUFS - Integrated, Short-term, Momentary)
@@ -22,7 +22,7 @@ import 'fabfilter_panel_base.dart';
 // ENUMS & DATA CLASSES
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Limiting style (Pro-L 2 has 8 styles)
+/// Limiting style (8 styles)
 enum LimitingStyle {
   transparent('Transparent', 'Clean and transparent limiting'),
   punchy('Punchy', 'Preserves transients and punch'),
@@ -88,7 +88,7 @@ class FabFilterLimiterPanel extends FabFilterPanelBase {
     super.key,
     required super.trackId,
   }) : super(
-          title: 'Limiter',
+          title: 'FF-L',
           icon: Icons.graphic_eq,
           accentColor: FabFilterColors.red,
           nodeType: DspNodeType.limiter,

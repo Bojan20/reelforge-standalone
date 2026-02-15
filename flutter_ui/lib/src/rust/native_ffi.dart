@@ -9791,7 +9791,7 @@ extension DeClickAPI on NativeFFI {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ULTRA EQ API - Beyond Pro-Q 4
+// ULTRA EQ API - FF-Q Ultra
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Ultra EQ filter types

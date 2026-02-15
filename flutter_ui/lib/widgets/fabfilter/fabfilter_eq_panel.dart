@@ -1,4 +1,4 @@
-/// FabFilter Pro-Q Style EQ Panel
+/// FF-Q EQ Panel
 ///
 /// Professional 64-band parametric EQ with:
 /// - Interactive spectrum analyzer with EQ nodes
@@ -138,7 +138,7 @@ class EqBand {
 // MAIN WIDGET
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// FabFilter Pro-Q style EQ panel
+/// FF-Q EQ panel
 class FabFilterEqPanel extends FabFilterPanelBase {
   const FabFilterEqPanel({
     super.key,
@@ -146,7 +146,7 @@ class FabFilterEqPanel extends FabFilterPanelBase {
     super.sampleRate,
     super.onSettingsChanged,
   }) : super(
-          title: 'PRO-Q 64',
+          title: 'FF-Q 64',
           icon: Icons.equalizer,
           accentColor: FabFilterColors.blue,
           nodeType: DspNodeType.eq,

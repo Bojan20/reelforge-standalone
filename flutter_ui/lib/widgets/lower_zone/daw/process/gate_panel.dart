@@ -1,6 +1,6 @@
 /// DAW Gate Panel
 ///
-/// Pro-G style gate wrapper.
+/// FF-G gate wrapper.
 /// Displays FabFilterGatePanel for selected track.
 library;
 

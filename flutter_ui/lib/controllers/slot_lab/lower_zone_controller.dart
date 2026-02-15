@@ -72,11 +72,11 @@ enum LowerZoneTab {
   commandBuilder, // Auto Event Builder command panel
   eventList,      // Event list browser
   meters,         // Audio bus meters
-  // DSP Panels (FabFilter-style)
-  dspCompressor,  // Pro-C style compressor
-  dspLimiter,     // Pro-L style limiter
-  dspGate,        // Pro-G style gate
-  dspReverb,      // Pro-R style reverb
+  // DSP Panels
+  dspCompressor,  // FF-C compressor
+  dspLimiter,     // FF-L limiter
+  dspGate,        // FF-G gate
+  dspReverb,      // FF-R reverb
 }
 
 /// Configuration for each lower zone tab
@@ -133,37 +133,37 @@ const Map<LowerZoneTab, LowerZoneTabConfig> kLowerZoneTabConfigs = {
     description: 'Audio bus meters',
     category: LowerZoneCategory.audio,
   ),
-  // DSP Panels (FabFilter-style)
+  // DSP Panels
   LowerZoneTab.dspCompressor: LowerZoneTabConfig(
     tab: LowerZoneTab.dspCompressor,
-    label: 'Compressor',
+    label: 'FF-C',
     icon: '🎚',
     shortcutKey: '5',
-    description: 'Pro-C style compressor',
+    description: 'FF-C Compressor',
     category: LowerZoneCategory.audio,
   ),
   LowerZoneTab.dspLimiter: LowerZoneTabConfig(
     tab: LowerZoneTab.dspLimiter,
-    label: 'Limiter',
+    label: 'FF-L',
     icon: '🔊',
     shortcutKey: '6',
-    description: 'Pro-L style limiter',
+    description: 'FF-L Limiter',
     category: LowerZoneCategory.audio,
   ),
   LowerZoneTab.dspGate: LowerZoneTabConfig(
     tab: LowerZoneTab.dspGate,
-    label: 'Gate',
+    label: 'FF-G',
     icon: '🚪',
     shortcutKey: '7',
-    description: 'Pro-G style gate',
+    description: 'FF-G Gate',
     category: LowerZoneCategory.audio,
   ),
   LowerZoneTab.dspReverb: LowerZoneTabConfig(
     tab: LowerZoneTab.dspReverb,
-    label: 'Reverb',
+    label: 'FF-R',
     icon: '🌊',
     shortcutKey: '8',
-    description: 'Pro-R style reverb',
+    description: 'FF-R Reverb',
     category: LowerZoneCategory.audio,
   ),
 };

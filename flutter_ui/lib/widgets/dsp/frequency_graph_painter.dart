@@ -8,7 +8,7 @@
 /// - Labels (frequency, dB)
 /// - Interactive elements (threshold markers, current position)
 ///
-/// Visual style: FabFilter Pro-Q 3 inspired
+/// Visual style: FF-Q inspired
 /// - Anti-aliased curves
 /// - Smooth gradients
 /// - Color-coded by processor type

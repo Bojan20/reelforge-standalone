@@ -8,7 +8,7 @@
 /// - Gate/Expander transfer curve
 /// - Filter response
 ///
-/// Visual style: FabFilter Pro-Q 3 inspired
+/// Visual style: FF-Q inspired
 
 import 'package:flutter/material.dart';
 

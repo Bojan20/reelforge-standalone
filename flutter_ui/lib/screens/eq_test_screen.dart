@@ -347,7 +347,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           ),
           const SizedBox(height: 8),
           Text(
-            'XY pad for blending between 4 presets • Smooth interpolation • Pro-Q 4 doesn\'t have this!',
+            'XY pad for blending between 4 presets • Smooth interpolation • Exclusive to FF-Q!',
             style: TextStyle(
               color: FluxForgeTheme.textTertiary,
               fontSize: 14,

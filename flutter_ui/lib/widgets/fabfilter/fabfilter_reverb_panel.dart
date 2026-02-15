@@ -1,6 +1,6 @@
-/// FabFilter Pro-R Style Reverb Panel
+/// FF-R Reverb Panel
 ///
-/// Inspired by Pro-R 2's interface:
+/// Professional reverb interface:
 /// - Real-time decay visualization
 /// - Space-based parameter control
 /// - Distance/Character/Stereo sections
@@ -71,7 +71,7 @@ class FabFilterReverbPanel extends FabFilterPanelBase {
     super.key,
     required super.trackId,
   }) : super(
-          title: 'Reverb',
+          title: 'FF-R',
           icon: Icons.waves,
           accentColor: FabFilterColors.purple,
           nodeType: DspNodeType.reverb,

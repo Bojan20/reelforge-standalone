@@ -242,15 +242,15 @@ extension DawMixSubTabX on DawMixSubTab {
 }
 
 extension DawProcessSubTabX on DawProcessSubTab {
-  String get label => ['EQ', 'Comp', 'Limiter', 'Reverb', 'Gate', 'FX Chain', 'Sidechain'][index];
+  String get label => ['FF-Q', 'FF-C', 'FF-L', 'FF-R', 'FF-G', 'FX Chain', 'Sidechain'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'][index];
   IconData get icon => [Icons.equalizer, Icons.compress, Icons.volume_up, Icons.waves, Icons.door_front_door, Icons.link, Icons.call_split][index];
   String get tooltip => [
-    '64-band parametric EQ with GPU spectrum analyzer (60fps)',
-    'Pro-C style compressor with 14 styles and sidechain',
-    'Pro-L style limiter with True Peak and LUFS metering',
-    'Pro-R style reverb with decay display and space types',
-    'Pro-G style gate with threshold visualization and sidechain',
+    'FF-Q — 64-band parametric EQ with GPU spectrum analyzer (60fps)',
+    'FF-C — Compressor with 14 styles and sidechain',
+    'FF-L — Limiter with True Peak and LUFS metering',
+    'FF-R — Reverb with decay display and space types',
+    'FF-G — Gate with threshold visualization and sidechain',
     'Visual DSP chain with drag-drop reorder and bypass',
     'Sidechain routing with key input source selection',
   ][index];
@@ -684,7 +684,7 @@ extension SlotLabMixSubTabX on SlotLabMixSubTab {
 }
 
 extension SlotLabDspSubTabX on SlotLabDspSubTab {
-  String get label => ['Chain', 'EQ', 'Comp', 'Reverb'][index];
+  String get label => ['Chain', 'FF-Q', 'FF-C', 'FF-R'][index];
   String get shortcut => ['Q', 'W', 'E', 'R'][index];
 }
 

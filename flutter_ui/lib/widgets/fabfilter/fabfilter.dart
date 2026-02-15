@@ -1,9 +1,9 @@
 /// FabFilter-Style Widgets
 ///
 /// Professional DSP panel widgets inspired by FabFilter's design language:
-/// - Pro-Q style EQ panel with interactive spectrum
-/// - Pro-C style Compressor panel with knee visualization
-/// - Pro-L style Limiter panel with LUFS metering
+/// - FF-Q EQ panel with interactive spectrum
+/// - FF-C Compressor panel with knee visualization
+/// - FF-L Limiter panel with LUFS metering
 ///
 /// Usage:
 /// ```dart

@@ -1,6 +1,6 @@
 /// DAW Limiter Panel (P0.1 Extracted)
 ///
-/// Pro-L style limiter wrapper.
+/// FF-L limiter wrapper.
 /// Displays FabFilterLimiterPanel for selected track.
 ///
 /// Extracted from daw_lower_zone_widget.dart (2026-01-26)
