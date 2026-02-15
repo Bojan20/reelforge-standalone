@@ -222,7 +222,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);  // Threshold
     _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _output);     // Ceiling
     _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _release);    // Release
-
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _truePeakEnabled ? 3.0 : 0.0); // Oversampling (8x when true peak, 1x otherwise)
   }
 
   @override
@@ -348,7 +348,10 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           _buildCompactStyleDropdown(),
           const Spacer(),
           // True peak toggle
-          _buildCompactToggle('TP', _truePeakEnabled, FabFilterColors.green, (v) => setState(() => _truePeakEnabled = v)),
+          _buildCompactToggle('TP', _truePeakEnabled, FabFilterColors.green, (v) {
+            setState(() => _truePeakEnabled = v);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 3, v ? 3.0 : 0.0);
+          }),
           const SizedBox(width: 6),
           // A/B
           _buildCompactAB(),

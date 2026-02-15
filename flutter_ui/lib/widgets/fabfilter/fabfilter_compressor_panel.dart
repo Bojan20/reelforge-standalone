@@ -329,10 +329,8 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _release);       // Release
     _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _output);        // Makeup/Output
     _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _mix / 100.0);   // Mix (0-1)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 6, 1.0);           // Link (fully linked stereo)
     _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _styleToTypeIndex(_style).toDouble()); // Type
-
-    // NOTE: Knee parameter is not supported in the insert chain compressor
-    // It's kept for UI display only
   }
 
   /// Map FabFilter style to insert chain compressor type index

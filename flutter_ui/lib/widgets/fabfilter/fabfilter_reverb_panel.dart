@@ -392,7 +392,11 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           display: '${(_size * 100).toStringAsFixed(0)}%',
           color: FabFilterColors.purple,
           onChanged: (v) {
-            setState(() => _size = v);
+            setState(() {
+              _size = v;
+              // Keep decay in sync with size — larger room = longer decay
+              _decay = 0.1 * math.pow(20 / 0.1, v).toDouble();
+            });
             if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 0, v);
           },
         ),
@@ -401,7 +405,16 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           label: 'DECAY',
           display: _decay >= 1 ? '${_decay.toStringAsFixed(1)}s' : '${(_decay * 1000).toStringAsFixed(0)}ms',
           color: FabFilterColors.purple,
-          onChanged: (v) => setState(() => _decay = 0.1 * math.pow(20 / 0.1, v).toDouble()),
+          onChanged: (v) {
+            setState(() => _decay = 0.1 * math.pow(20 / 0.1, v).toDouble());
+            // Decay maps to RoomSize (param 0) — larger room = longer decay
+            if (_slotIndex >= 0) {
+              // Normalize decay 0.1-20s to 0-1 range for room size
+              final normalized = (math.log(_decay / 0.1) / math.log(20 / 0.1)).clamp(0.0, 1.0);
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 0, normalized);
+              _size = normalized; // Keep size in sync with decay
+            }
+          },
         ),
         _buildSmallKnob(
           value: _brightness,
@@ -464,15 +477,36 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Character controls compact
-          _buildMiniSlider('Dist', _distance / 100, '${_distance.toStringAsFixed(0)}%', (v) => setState(() => _distance = v * 100)),
+          _buildMiniSlider('Dist', _distance / 100, '${_distance.toStringAsFixed(0)}%', (v) {
+            setState(() => _distance = v * 100);
+            // Distance affects Mix (param 3) — farther = more wet
+            if (_slotIndex >= 0) {
+              _mix = v * 100;
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 3, v);
+            }
+          }),
           const SizedBox(height: 4),
-          _buildMiniSlider('Diff', _diffusion / 100, '${_diffusion.toStringAsFixed(0)}%', (v) => setState(() => _diffusion = v * 100)),
+          _buildMiniSlider('Diff', _diffusion / 100, '${_diffusion.toStringAsFixed(0)}%', (v) {
+            setState(() => _diffusion = v * 100);
+            // Diffusion affects Width (param 2) — higher diffusion = wider stereo
+            if (_slotIndex >= 0) {
+              _width = v * 200;
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 2, v * 2);
+            }
+          }),
           const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0
           // Damping (expert)
           if (showExpertMode) ...[
             Text('DAMPING', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
             const SizedBox(height: 2),
-            _buildMiniSlider('Lo', _dampingLow, '${(_dampingLow * 100).toStringAsFixed(0)}%', (v) => setState(() => _dampingLow = v)),
+            _buildMiniSlider('Lo', _dampingLow, '${(_dampingLow * 100).toStringAsFixed(0)}%', (v) {
+              setState(() => _dampingLow = v);
+              // Combined damping: average of low and high damping → param 1
+              if (_slotIndex >= 0) {
+                final combined = (_dampingLow + _dampingHigh) / 2.0;
+                _ffi.insertSetParam(widget.trackId, _slotIndex, 1, combined);
+              }
+            }),
             _buildMiniSlider('Hi', _dampingHigh, '${(_dampingHigh * 100).toStringAsFixed(0)}%', (v) {
               setState(() => _dampingHigh = v);
               if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 1, v);

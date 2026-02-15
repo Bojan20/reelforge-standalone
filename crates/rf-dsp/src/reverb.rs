@@ -340,9 +340,13 @@ impl StereoProcessor for ConvolutionReverb {
             self.buffer_pos = PARTITION_SIZE;
         }
 
-        // Mix dry and wet
-        let out_l = left * (1.0 - self.dry_wet) + wet_l * self.dry_wet;
-        let out_r = right * (1.0 - self.dry_wet) + wet_r * self.dry_wet;
+        // Equal-power crossfade (FabFilter Pro-R style) — prevents phase cancellation
+        // and -3dB volume dip at 50% mix that linear crossfade causes
+        let mix_angle = self.dry_wet * std::f64::consts::FRAC_PI_2;
+        let dry_gain = mix_angle.cos();
+        let wet_gain = mix_angle.sin();
+        let out_l = left * dry_gain + wet_l * wet_gain;
+        let out_r = right * dry_gain + wet_r * wet_gain;
 
         (out_l, out_r)
     }
@@ -672,9 +676,13 @@ impl StereoProcessor for AlgorithmicReverb {
         let wet_l = ap_out_l * self.width + ap_out_r * (1.0 - self.width);
         let wet_r = ap_out_r * self.width + ap_out_l * (1.0 - self.width);
 
-        // Mix dry and wet
-        let out_l = left * (1.0 - self.dry_wet) + wet_l * self.dry_wet;
-        let out_r = right * (1.0 - self.dry_wet) + wet_r * self.dry_wet;
+        // Equal-power crossfade (FabFilter Pro-R style) — prevents phase cancellation
+        // and -3dB volume dip at 50% mix that linear crossfade causes
+        let mix_angle = self.dry_wet * std::f64::consts::FRAC_PI_2;
+        let dry_gain = mix_angle.cos();
+        let wet_gain = mix_angle.sin();
+        let out_l = left * dry_gain + wet_l * wet_gain;
+        let out_r = right * dry_gain + wet_r * wet_gain;
 
         (out_l, out_r)
     }
