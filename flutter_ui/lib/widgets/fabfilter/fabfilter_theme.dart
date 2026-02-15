@@ -278,3 +278,136 @@ class FabFilterCurves {
   /// Bouncy (for selection rings)
   static const Curve bouncy = Curves.elasticOut;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROCESSOR-SPECIFIC COLOR MAPS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Per-processor accent + display colors (matching real FabFilter products)
+class FabFilterProcessorColors {
+  FabFilterProcessorColors._();
+
+  // ─── Pro-Q (EQ) ────────────────────────────────────────────────────────
+  static const Color eqAccent = FabFilterColors.blue;
+  static const Color eqBoost = FabFilterColors.orange;
+  static const Color eqCut = FabFilterColors.cyan;
+  static const Color eqSpectrumFill = Color(0xFF1A4060);
+  static const Color eqAnalyzerLine = Color(0xFF40D0FF);
+  static const Color eqCurveLine = Color(0xFFFFFFFF);
+
+  // ─── Pro-C (Compressor) ────────────────────────────────────────────────
+  static const Color compAccent = FabFilterColors.orange;
+  static const Color compGainReduction = Color(0xFFFF6030);
+  static const Color compThreshold = FabFilterColors.yellow;
+  static const Color compEnvelope = Color(0xFF80FF60);
+  static const Color compKnee = Color(0xFFFFB060);
+
+  // ─── Pro-L (Limiter) ──────────────────────────────────────────────────
+  static const Color limAccent = FabFilterColors.red;
+  static const Color limGainReduction = Color(0xFFFF3040);
+  static const Color limCeiling = Color(0xFFFF6040);
+  static const Color limTruePeak = FabFilterColors.cyan;
+  static const Color limLufs = FabFilterColors.green;
+
+  // ─── Pro-G (Gate) ─────────────────────────────────────────────────────
+  static const Color gateAccent = FabFilterColors.green;
+  static const Color gateOpen = FabFilterColors.green;
+  static const Color gateClosed = FabFilterColors.red;
+  static const Color gateThreshold = FabFilterColors.yellow;
+  static const Color gateRange = FabFilterColors.orange;
+
+  // ─── Pro-R (Reverb) ───────────────────────────────────────────────────
+  static const Color reverbAccent = FabFilterColors.purple;
+  static const Color reverbDecay = Color(0xFF9060FF);
+  static const Color reverbPredelay = FabFilterColors.blue;
+  static const Color reverbEarlyRef = FabFilterColors.cyan;
+  static const Color reverbFreeze = Color(0xFF40FFFF);
+
+  // ─── Saturn (Saturator) ───────────────────────────────────────────────
+  static const Color satAccent = FabFilterColors.orange;
+  static const Color satDrive = Color(0xFFFF8020);
+  static const Color satWarmth = Color(0xFFFF6040);
+}
+
+/// Metering gradient stops (bottom→top: green→yellow→orange→red)
+class FabFilterGradients {
+  FabFilterGradients._();
+
+  /// Standard peak/RMS meter gradient
+  static const LinearGradient meterVertical = LinearGradient(
+    begin: Alignment.bottomCenter, end: Alignment.topCenter,
+    colors: [
+      Color(0xFF40FF60), // Green — safe
+      Color(0xFF80FF40), // Yellow-green — normal
+      Color(0xFFFFE040), // Yellow — caution
+      Color(0xFFFF9040), // Orange — hot
+      Color(0xFFFF4040), // Red — clip
+    ],
+    stops: [0.0, 0.4, 0.7, 0.85, 1.0],
+  );
+
+  /// GR meter gradient (inverted: red=lots of GR)
+  static const LinearGradient grVertical = LinearGradient(
+    begin: Alignment.topCenter, end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFF40FF60), // Green — little GR
+      Color(0xFFFFE040), // Yellow — moderate
+      Color(0xFFFF6030), // Orange — heavy
+      Color(0xFFFF3040), // Red — severe
+    ],
+    stops: [0.0, 0.3, 0.7, 1.0],
+  );
+
+  /// Horizontal GR bar gradient
+  static const LinearGradient grHorizontal = LinearGradient(
+    begin: Alignment.centerRight, end: Alignment.centerLeft,
+    colors: [
+      Color(0xFF40FF60),
+      Color(0xFFFFE040),
+      Color(0xFFFF6030),
+      Color(0xFFFF3040),
+    ],
+    stops: [0.0, 0.3, 0.7, 1.0],
+  );
+
+  /// Spectrum analyzer fill
+  static LinearGradient spectrumFill(Color accent) => LinearGradient(
+    begin: Alignment.bottomCenter, end: Alignment.topCenter,
+    colors: [
+      accent.withValues(alpha: 0.05),
+      accent.withValues(alpha: 0.2),
+      accent.withValues(alpha: 0.4),
+    ],
+  );
+
+  /// Display background glow
+  static RadialGradient displayGlow(Color accent) => RadialGradient(
+    center: Alignment.center,
+    radius: 0.8,
+    colors: [
+      accent.withValues(alpha: 0.08),
+      accent.withValues(alpha: 0.02),
+      Colors.transparent,
+    ],
+  );
+}
+
+/// Responsive breakpoints for panel layouts
+class FabFilterBreakpoints {
+  FabFilterBreakpoints._();
+
+  /// Compact mode (Lower Zone, small panels)
+  static const double compact = 280;
+
+  /// Standard panel width
+  static const double standard = 400;
+
+  /// Wide panel (dual display)
+  static const double wide = 600;
+
+  /// Minimum usable height
+  static const double minHeight = 180;
+
+  /// Standard panel height
+  static const double standardHeight = 300;
+}

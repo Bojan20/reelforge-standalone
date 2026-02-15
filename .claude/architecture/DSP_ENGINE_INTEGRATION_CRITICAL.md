@@ -426,9 +426,9 @@ if let Some(processor) = create_processor_extended(&processor_name, sample_rate)
 
 All FabFilter panels now use `insertSetParam(trackId, slotIndex, paramIndex, value)`. The parameter indices per processor:
 
-### ProEqWrapper (`dsp_wrappers.rs`) — 11 params per band
+### ProEqWrapper (`dsp_wrappers.rs`) — 12 params per band + 3 global = 771 total
 
-**Index Formula:** `index = band_index * 11 + param_index`
+**Index Formula:** `index = band_index * 12 + param_index` (bands 0-63)
 
 | Param Index | Parameter | Range | Unit |
 |-------------|-----------|-------|------|
@@ -443,10 +443,23 @@ All FabFilter panels now use `insertSetParam(trackId, slotIndex, paramIndex, val
 | 8 | DynAttack | 0.1..100 | ms |
 | 9 | DynRelease | 10..1000 | ms |
 | 10 | DynRange | 0..24 | dB |
+| 11 | Placement | 0..2 | Stereo/Mid/Side |
+
+**Global params (idx 768-770):**
+
+| Index | Parameter | Range | Notes |
+|-------|-----------|-------|-------|
+| 768 | Output Gain | -24..24 dB | Post-EQ gain |
+| 769 | Auto-Gain | 0/1 | RMS compensation (±12dB clamp) |
+| 770 | Solo Band | -1..63 | -1=off, 0-63=solo that band |
+
+**Solo band logic:** On set, saves all band `enabled` states, disables all except soloed band. On un-solo (-1), restores saved states.
+
+**Auto-gain logic:** Block-level RMS measured before and after EQ processing. Compensation = `in_rms / out_rms`, clamped to 0.25x-4.0x (±12dB).
 
 **EqFilterShape enum:** 0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut, 5=Notch, 6=BandPass, 7=TiltShelf, 8=AllPass, 9=Brickwall
 
-**Example:** Band 2, set frequency to 1000Hz → `insertSetParam(trackId, slot, 2*11+0, 1000.0)`
+**Example:** Band 2, set frequency to 1000Hz → `insertSetParam(trackId, slot, 2*12+0, 1000.0)`
 
 ### CompressorWrapper (`dsp_wrappers.rs`)
 
@@ -470,7 +483,7 @@ All FabFilter panels now use `insertSetParam(trackId, slotIndex, paramIndex, val
 | 2 | Release | 10..1000 | ms |
 | 3 | Oversampling | 0..3 | 1x/2x/4x/8x |
 
-### GateWrapper (`dsp_wrappers.rs`)
+### GateWrapper (`dsp_wrappers.rs`) — 10 params, 3 meters
 
 | Index | Parameter | Range | Unit |
 |-------|-----------|-------|------|
@@ -479,6 +492,18 @@ All FabFilter panels now use `insertSetParam(trackId, slotIndex, paramIndex, val
 | 2 | Attack | 0.01..30 | ms |
 | 3 | Hold | 0..500 | ms |
 | 4 | Release | 5..4000 | ms |
+| 5 | Mode | 0/1/2 | 0=Gate, 1=Duck, 2=Expand |
+| 6 | SC Enable | 0/1 | Sidechain filter on/off |
+| 7 | SC HP Freq | 20..2000 | Hz (highpass filter) |
+| 8 | SC LP Freq | 200..20000 | Hz (lowpass filter) |
+| 9 | Lookahead | 0..20 | ms |
+
+**Meters:** 0=Input Level (dB), 1=Output Level (dB), 2=Gate Gain (0-1 linear)
+
+**Mode behavior:**
+- Gate (0): Attenuates below threshold by `range` dB
+- Duck (1): Attenuates above threshold (inverted gate for ducking)
+- Expand (2): Downward expansion below threshold
 
 ### ReverbWrapper (`dsp_wrappers.rs`) — NEW
 
@@ -558,6 +583,38 @@ Vintage EQs (Pultec, API 550A, Neve 1073) were already supported in Rust backend
 - [x] Updated exhaustive switches in: `fx_chain_panel.dart`, `rtpc_system_provider.dart`, `processor_graph_widget.dart`, `signal_analyzer_widget.dart`, `slotlab_lower_zone_widget.dart`, `processor_cpu_meter.dart`
 
 **Naming convention:** `FF EQP1A`, `FF 550A`, `FF 1073` (FluxForge-branded)
+
+### P1.9: Gate & EQ FFI Completion (2026-02-15) — ✅ COMPLETE
+
+DSP Plugin Audit revealed Gate had 5 unwired UI controls and EQ had 2 dead buttons. All fixed.
+
+**Gate — Extended from 5→10 params:**
+
+- [x] GateWrapper Rust: Added `mode`, `sc_enabled`, `sc_hpf_freq`, `sc_lpf_freq`, `lookahead` fields
+- [x] GateWrapper Rust: `set_param()` indices 5-9 wired with clamped ranges
+- [x] GateWrapper Rust: `get_param()` indices 5-9 return actual values
+- [x] GateWrapper Rust: `param_name()` returns "Mode", "SC Enable", "SC HP Freq", "SC LP Freq", "Lookahead"
+- [x] GateWrapper Rust: `num_params()` returns 10
+- [x] Dart UI: `_readParamsFromEngine()` reads params 5-9 from FFI
+- [x] Dart UI: `_applyAllParameters()` writes params 5-9 to FFI
+- [x] Dart UI: Mode chip selector wired (Gate/Duck/Expand → param 5)
+- [x] Dart UI: SC toggle, HP/LP sliders, Lookahead slider all wired via `insertSetParam`
+- [x] 10 new Rust tests (factory, num_params, param_names, roundtrip, mode, sidechain, process, meters, duck, invalid)
+
+**EQ — Auto-Gain & Solo Band wired:**
+
+- [x] ProEqWrapper Rust: Constructor initializes `auto_gain`, `solo_band`, `solo_saved_enabled`, `solo_applied`
+- [x] ProEqWrapper Rust: `get_param(769)` returns auto-gain state, `get_param(770)` returns solo band index
+- [x] ProEqWrapper Rust: `set_param(769, v)` toggles auto-gain (RMS compensation in `process_stereo`)
+- [x] ProEqWrapper Rust: `set_param(770, v)` saves enabled states → solos band → restores on un-solo
+- [x] ProEqWrapper Rust: `process_stereo()` auto-gain: pre/post RMS measurement, clamped compensation (0.25-4.0x)
+- [x] Dart UI: `_P.autoGainIndex = 769`, `_P.soloBandIndex = 770` constants
+- [x] Dart UI: Auto-Gain button wired to `insertSetParam(trackId, slot, 769, value)`
+- [x] Dart UI: Solo button wired with exclusive logic (un-solo others, toggle, send band index or -1)
+- [x] Dart UI: `_readBandsFromEngine()` reads auto-gain state from FFI
+- [x] 5 new Rust tests (auto_gain_param, solo_band_param, solo_restores, auto_gain_processing, output_gain)
+
+**Result:** All 6 FabFilter panels are now 100% FFI connected. No dead UI controls remain.
 
 ---
 

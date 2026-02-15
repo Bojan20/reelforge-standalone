@@ -985,12 +985,12 @@ impl OneShotVoice {
         self.active = true;
         self.fade_samples_remaining = 0;
         self.fade_increment = 0.0;
-        self.fade_gain = 1.0;
+        // Anti-click: 10ms fade-in on all voices (480 samples @ 48kHz)
+        self.fade_in_samples_total = 480;
+        self.fade_in_samples_elapsed = 0;
+        self.fade_gain = 0.0;
         self.pitch_semitones = 0.0; // P12.0.1: Reset pitch on activate
         self.looping = false;
-        // Reset extended parameters
-        self.fade_in_samples_total = 0;
-        self.fade_in_samples_elapsed = 0;
         self.trim_start_sample = 0;
         self.trim_end_sample = 0;
         self.fade_out_samples_at_end = 0;
@@ -1045,13 +1045,11 @@ impl OneShotVoice {
         self.fade_increment = 0.0;
 
         // Fade-in: start at 0 gain, ramp up to 1.0
-        self.fade_in_samples_total = ((sample_rate * fade_in_ms as f64) / 1000.0) as u64;
+        // Minimum 480 samples (~10ms) anti-click fade even if fade_in_ms=0
+        let fade_in_samples = ((sample_rate * fade_in_ms as f64) / 1000.0) as u64;
+        self.fade_in_samples_total = fade_in_samples.max(480);
         self.fade_in_samples_elapsed = 0;
-        self.fade_gain = if self.fade_in_samples_total > 0 {
-            0.0
-        } else {
-            1.0
-        };
+        self.fade_gain = 0.0;
 
         // Trim: convert ms to samples
         self.trim_start_sample = ((sample_rate * trim_start_ms as f64) / 1000.0) as u64;
@@ -1145,7 +1143,9 @@ impl OneShotVoice {
                 self.fade_gain += self.fade_increment;
                 self.fade_samples_remaining -= 1;
                 if self.fade_gain <= 0.0 {
+                    self.fade_gain = 0.0;
                     self.active = false;
+                    // Fade completed cleanly at zero — no click
                     return false;
                 }
             }
@@ -1744,9 +1744,9 @@ impl PlaybackEngine {
             graph_pdc_result: RwLock::new(None),
             graph_pdc_enabled: AtomicBool::new(true),
             graph_pdc_delays: RwLock::new(HashMap::new()),
-            // 3 seconds of tail at current sample rate
+            // 1 second of tail at current sample rate (reverb/delay ring-out)
             tail_remaining_samples: AtomicU64::new(0),
-            tail_duration_samples: AtomicU64::new(sample_rate as u64 * 3),
+            tail_duration_samples: AtomicU64::new(sample_rate as u64),
         }
     }
 
@@ -3643,20 +3643,20 @@ impl PlaybackEngine {
                 OneShotCommand::Stop { id } => {
                     if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
                         // Fade out over ~5ms at 48kHz
-                        voice.start_fade_out(240);
+                        voice.start_fade_out(480);
                     }
                 }
                 OneShotCommand::StopAll => {
                     for voice in voices.iter_mut() {
                         if voice.active {
-                            voice.start_fade_out(240);
+                            voice.start_fade_out(480);
                         }
                     }
                 }
                 OneShotCommand::StopSource { source } => {
                     for voice in voices.iter_mut() {
                         if voice.active && voice.source == source {
-                            voice.start_fade_out(240);
+                            voice.start_fade_out(480);
                         }
                     }
                 }
@@ -3859,6 +3859,9 @@ impl PlaybackEngine {
                 let new_remaining = tail_remaining.saturating_sub(frames as u64);
                 self.tail_remaining_samples.store(new_remaining, Ordering::Relaxed);
 
+                // Anti-click: fade-out the last 480 samples (~10ms) of tail
+                let tail_fade_samples: u64 = 480;
+
                 // Process insert chain tails using thread-local scratch buffers
                 // (no heap allocation in audio thread)
                 SCRATCH_BUFFER_L.with(|buf_l| {
@@ -3921,6 +3924,22 @@ impl PlaybackEngine {
 
                 if let Some(mut master_insert) = self.master_insert.try_write() {
                     master_insert.process_post_fader(output_l, output_r);
+                }
+
+                // Anti-click: apply fade-out ramp during the last 480 samples of tail
+                if new_remaining < tail_fade_samples {
+                    let fade_start_in_block = if tail_remaining > tail_fade_samples {
+                        // Tail just entered the fade zone during this block
+                        (tail_remaining - tail_fade_samples) as usize
+                    } else {
+                        0 // Entire block is within fade zone
+                    };
+                    for i in fade_start_in_block..frames {
+                        let samples_left = new_remaining.saturating_sub((frames - 1 - i) as u64);
+                        let fade = samples_left as f64 / tail_fade_samples as f64;
+                        output_l[i] *= fade;
+                        output_r[i] *= fade;
+                    }
                 }
             }
             return;

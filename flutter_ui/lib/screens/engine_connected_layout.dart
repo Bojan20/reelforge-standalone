@@ -4892,9 +4892,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     }
   }
 
-  /// Static lower tabs that don't depend on metering
+  /// Lower tabs with live metering — watches EngineProvider so meters
+  /// zero when transport stops (isPlaying → false triggers rebuild)
   List<LowerZoneTab> _buildLowerTabsStatic() {
-    final engine = context.read<EngineProvider>();
+    final engine = context.watch<EngineProvider>();
     final metering = engine.metering;
     final isPlaying = engine.transport.isPlaying;
     return _buildLowerTabs(metering, isPlaying);
@@ -7222,13 +7223,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Get channels from MixerProvider and check which tracks have clips
     final mixerProvider = context.watch<MixerProvider>();
     final channelStrips = mixerProvider.channels.map((ch) {
-      // Extract track ID from channel ID (ch_trackId format)
+      // Use native engine track ID (set by createTrack FFI) for metering calls
       final trackId = ch.id.startsWith('ch_') ? ch.id.substring(3) : ch.id;
       final trackIdInt = int.tryParse(trackId) ?? 0;
+      final engineTrackId = ch.trackIndex ?? trackIdInt;
 
       // Get real per-track metering from engine — no fakes
       final (peakL, peakR) = isPlaying
-          ? EngineApi.instance.getTrackPeakStereo(trackIdInt)
+          ? EngineApi.instance.getTrackPeakStereo(engineTrackId)
           : (0.0, 0.0);
 
       return ProMixerStripData(
@@ -7316,18 +7318,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final channels = <ultimate.UltimateMixerChannel>[];
 
     for (final ch in mixerProvider.channels) {
+      // Use native engine track ID (set by createTrack FFI) for metering calls
       final trackId = ch.id.startsWith('ch_') ? ch.id.substring(3) : ch.id;
       final trackIdInt = int.tryParse(trackId) ?? 0;
+      final engineTrackId = ch.trackIndex ?? trackIdInt;
 
       // Get real stereo metering from engine (per-track) — no fallbacks
       final (peakL, peakR) = isPlaying
-          ? EngineApi.instance.getTrackPeakStereo(trackIdInt)
+          ? EngineApi.instance.getTrackPeakStereo(engineTrackId)
           : (0.0, 0.0);
       final (rmsL, rmsR) = isPlaying
-          ? EngineApi.instance.getTrackRmsStereo(trackIdInt)
+          ? EngineApi.instance.getTrackRmsStereo(engineTrackId)
           : (0.0, 0.0);
       final correlation = isPlaying
-          ? EngineApi.instance.getTrackCorrelation(trackIdInt)
+          ? EngineApi.instance.getTrackCorrelation(engineTrackId)
           : 1.0;
 
       // Get inserts for this channel
@@ -7353,7 +7357,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         armed: ch.armed,
         input: ultimate.InputSection(phaseInvert: ch.phaseInverted),
         inserts: inserts,
-        trackIndex: trackIdInt, // PDC indicator needs numeric track ID
+        trackIndex: engineTrackId, // Native engine track ID for FFI + PDC
         peakL: peakL,
         peakR: peakR,
         rmsL: rmsL,

@@ -1,208 +1,148 @@
 /// FF-C Compressor Panel
 ///
 /// Professional compressor interface:
-/// - Animated level/knee display
-/// - 14 compression styles
-/// - Character modes (Tube, Diode, Bright)
-/// - 6-band sidechain EQ
-/// - Transfer curve visualization
+/// - Animated transfer curve + GR history display
+/// - 14 compression style chips
+/// - Character mode selector
+/// - Sidechain EQ visualization
 /// - Real-time gain reduction metering
 
-import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../providers/dsp_chain_provider.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
+import 'fabfilter_widgets.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ENUMS & DATA CLASSES
+// ENUMS & CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
+
+/// Insert chain parameter indices
+class _P {
+  static const threshold = 0;
+  static const ratio = 1;
+  static const attack = 2;
+  static const release = 3;
+  static const output = 4;
+  static const mix = 5;
+  static const link = 6;
+  static const type = 7;
+  static const character = 8;
+  static const drive = 9;
+  static const range = 10;
+  static const scHpf = 11;
+  static const scLpf = 12;
+  static const scAudition = 13;
+  static const lookahead = 14;
+  static const scMidFreq = 15;
+  static const scMidGain = 16;
+  static const autoThreshold = 17;
+  static const autoMakeup = 18;
+  static const detection = 19;
+  static const adaptiveRelease = 20;
+  static const hostSync = 21;
+  static const hostBpm = 22;
+  static const midSide = 23;
+  static const knee = 24;
+}
 
 /// Compression style (14 styles)
 enum CompressionStyle {
-  clean('Clean', 'Transparent digital compression'),
-  classic('Classic', 'Classic VCA-style compression'),
-  opto('Opto', 'Optical compressor emulation'),
-  vocal('Vocal', 'Optimized for vocals'),
-  mastering('Mastering', 'Gentle mastering compression'),
-  bus('Bus', 'Glue compression for buses'),
-  punch('Punch', 'Punchy transient preservation'),
-  pumping('Pumping', 'Deliberate pumping effect'),
-  versatile('Versatile', 'General purpose - NEW'),
-  smooth('Smooth', 'Super smooth gluing - NEW'),
-  upward('Upward', 'Upward compression - NEW'),
-  ttm('TTM', 'To The Max - multiband - NEW'),
-  variMu('Vari-Mu', 'Tube variable-mu - NEW'),
-  elOp('El-Op', 'Optical emulation - NEW');
+  clean('Clean', Icons.lens_blur),
+  classic('Classic', Icons.album),
+  opto('Opto', Icons.lightbulb_outline),
+  vocal('Vocal', Icons.mic),
+  mastering('Master', Icons.tune),
+  bus('Bus', Icons.route),
+  punch('Punch', Icons.flash_on),
+  pumping('Pump', Icons.waves),
+  versatile('Versa', Icons.auto_awesome),
+  smooth('Smooth', Icons.blur_on),
+  upward('Up', Icons.arrow_upward),
+  ttm('TTM', Icons.bolt),
+  variMu('Vari', Icons.radio),
+  elOp('El-Op', Icons.wb_incandescent);
 
   final String label;
-  final String description;
-  const CompressionStyle(this.label, this.description);
+  final IconData icon;
+  const CompressionStyle(this.label, this.icon);
+
+  /// Map to insert chain type (0=VCA, 1=Opto, 2=FET)
+  int get engineType => switch (this) {
+    clean || classic || mastering || bus || versatile || upward => 0,
+    opto || vocal || smooth || variMu || elOp => 1,
+    punch || pumping || ttm => 2,
+  };
 }
 
 /// Character mode for saturation
 enum CharacterMode {
-  off('Off', Colors.grey),
-  tube('Tube', FabFilterColors.orange),
-  diode('Diode', FabFilterColors.yellow),
-  bright('Bright', FabFilterColors.cyan);
+  off('Off', Icons.remove_circle_outline, Colors.grey),
+  tube('Tube', Icons.local_fire_department, FabFilterColors.orange),
+  diode('Diode', Icons.electrical_services, FabFilterColors.yellow),
+  bright('Brt', Icons.wb_sunny, FabFilterColors.cyan);
 
   final String label;
+  final IconData icon;
   final Color color;
-  const CharacterMode(this.label, this.color);
+  const CharacterMode(this.label, this.icon, this.color);
 }
 
-/// Sidechain EQ band
-class SidechainBand {
-  int index;
-  double freq;
-  double gain;
-  double q;
-  bool enabled;
-
-  SidechainBand({
-    required this.index,
-    this.freq = 1000,
-    this.gain = 0,
-    this.q = 1.0,
-    this.enabled = true,
-  });
-}
-
-/// Level history sample for scrolling display
-class LevelSample {
+/// GR history sample
+class _GrSample {
   final double input;
   final double output;
-  final double gainReduction;
-  final DateTime timestamp;
-
-  LevelSample({
-    required this.input,
-    required this.output,
-    required this.gainReduction,
-    required this.timestamp,
-  });
+  final double gr;
+  const _GrSample(this.input, this.output, this.gr);
 }
 
-/// Snapshot of compressor parameters for A/B comparison
+/// Snapshot for A/B comparison
 class CompressorSnapshot implements DspParameterSnapshot {
-  final double threshold;
-  final double ratio;
-  final double knee;
-  final double attack;
-  final double release;
-  final double range;
-  final double mix;
-  final double output;
+  final double threshold, ratio, knee, attack, release, range, mix, output;
   final CompressionStyle style;
   final CharacterMode character;
-  final double drive;
-  final bool sidechainEnabled;
-  final double sidechainHpf;
-  final double sidechainLpf;
-  final double lookahead;
-  final double scMidFreq;
-  final double scMidGain;
-  final bool autoThreshold;
-  final bool autoMakeup;
-  final int detectionMode;
-  final bool adaptiveRelease;
-  final bool hostSync;
-  final double hostBpm;
-  final bool midSide;
+  final double drive, lookahead, scHpf, scLpf, scMidFreq, scMidGain, hostBpm;
+  final bool autoThreshold, autoMakeup, adaptiveRelease, hostSync, midSide;
+  final int detection;
 
   const CompressorSnapshot({
-    required this.threshold,
-    required this.ratio,
-    required this.knee,
-    required this.attack,
-    required this.release,
-    required this.range,
-    required this.mix,
-    required this.output,
-    required this.style,
-    required this.character,
-    required this.drive,
-    required this.sidechainEnabled,
-    required this.sidechainHpf,
-    required this.sidechainLpf,
-    required this.lookahead,
-    required this.scMidFreq,
-    required this.scMidGain,
-    required this.autoThreshold,
-    required this.autoMakeup,
-    required this.detectionMode,
-    required this.adaptiveRelease,
-    required this.hostSync,
-    required this.hostBpm,
-    required this.midSide,
+    required this.threshold, required this.ratio, required this.knee,
+    required this.attack, required this.release, required this.range,
+    required this.mix, required this.output, required this.style,
+    required this.character, required this.drive, required this.lookahead,
+    required this.scHpf, required this.scLpf, required this.scMidFreq,
+    required this.scMidGain, required this.hostBpm, required this.autoThreshold,
+    required this.autoMakeup, required this.adaptiveRelease,
+    required this.hostSync, required this.midSide, required this.detection,
   });
 
   @override
   CompressorSnapshot copy() => CompressorSnapshot(
-    threshold: threshold,
-    ratio: ratio,
-    knee: knee,
-    attack: attack,
-    release: release,
-    range: range,
-    mix: mix,
-    output: output,
-    style: style,
-    character: character,
-    drive: drive,
-    sidechainEnabled: sidechainEnabled,
-    sidechainHpf: sidechainHpf,
-    sidechainLpf: sidechainLpf,
-    lookahead: lookahead,
-    scMidFreq: scMidFreq,
-    scMidGain: scMidGain,
-    autoThreshold: autoThreshold,
-    autoMakeup: autoMakeup,
-    detectionMode: detectionMode,
-    adaptiveRelease: adaptiveRelease,
-    hostSync: hostSync,
-    hostBpm: hostBpm,
-    midSide: midSide,
+    threshold: threshold, ratio: ratio, knee: knee, attack: attack,
+    release: release, range: range, mix: mix, output: output, style: style,
+    character: character, drive: drive, lookahead: lookahead, scHpf: scHpf,
+    scLpf: scLpf, scMidFreq: scMidFreq, scMidGain: scMidGain,
+    hostBpm: hostBpm, autoThreshold: autoThreshold, autoMakeup: autoMakeup,
+    adaptiveRelease: adaptiveRelease, hostSync: hostSync, midSide: midSide,
+    detection: detection,
   );
 
   @override
   bool equals(DspParameterSnapshot other) {
     if (other is! CompressorSnapshot) return false;
-    return threshold == other.threshold &&
-        ratio == other.ratio &&
-        knee == other.knee &&
-        attack == other.attack &&
-        release == other.release &&
-        range == other.range &&
-        mix == other.mix &&
-        output == other.output &&
-        style == other.style &&
-        character == other.character &&
-        drive == other.drive &&
-        sidechainEnabled == other.sidechainEnabled &&
-        sidechainHpf == other.sidechainHpf &&
-        sidechainLpf == other.sidechainLpf &&
-        lookahead == other.lookahead &&
-        scMidFreq == other.scMidFreq &&
-        scMidGain == other.scMidGain &&
-        autoThreshold == other.autoThreshold &&
-        autoMakeup == other.autoMakeup &&
-        detectionMode == other.detectionMode &&
-        adaptiveRelease == other.adaptiveRelease &&
-        hostSync == other.hostSync &&
-        hostBpm == other.hostBpm &&
-        midSide == other.midSide;
+    return threshold == other.threshold && ratio == other.ratio &&
+        knee == other.knee && attack == other.attack &&
+        release == other.release && style == other.style &&
+        character == other.character && detection == other.detection;
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MAIN PANEL WIDGET
+// MAIN PANEL
 // ═══════════════════════════════════════════════════════════════════════════
 
 class FabFilterCompressorPanel extends FabFilterPanelBase {
@@ -223,412 +163,240 @@ class FabFilterCompressorPanel extends FabFilterPanelBase {
 
 class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     with FabFilterPanelMixin, TickerProviderStateMixin {
-  // ─────────────────────────────────────────────────────────────────────────
-  // STATE
-  // ─────────────────────────────────────────────────────────────────────────
 
-  // Main parameters
-  double _threshold = -18.0; // dB
-  double _ratio = 4.0; // :1
-  double _knee = 12.0; // dB (NOTE: Not supported in insert chain, UI-only)
-  double _attack = 10.0; // ms
-  double _release = 100.0; // ms
-  double _range = -40.0; // dB
-  double _mix = 100.0; // %
-  double _output = 0.0; // dB
+  // ─── PARAMETERS ─────────────────────────────────────────────────────
+  double _threshold = -18.0;
+  double _ratio = 4.0;
+  double _knee = 12.0;
+  double _attack = 10.0;
+  double _release = 100.0;
+  double _range = -40.0;
+  double _mix = 100.0;
+  double _output = 0.0;
 
-  // Style & character
   CompressionStyle _style = CompressionStyle.clean;
   CharacterMode _character = CharacterMode.off;
-  double _drive = 0.0; // dB
+  double _drive = 0.0;
 
   // Sidechain
-  bool _sidechainEnabled = false;
-  double _sidechainHpf = 80.0; // Hz
-  double _sidechainLpf = 12000.0; // Hz
-  bool _sidechainEqVisible = false;
-  List<SidechainBand> _sidechainBands = [];
-  bool _sidechainAudition = false;
+  bool _scEnabled = false;
+  double _scHpf = 80.0;
+  double _scLpf = 12000.0;
+  bool _scAudition = false;
+  double _scMidFreq = 1000.0;
+  double _scMidGain = 0.0;
 
-  // Display
-  bool _compactView = false;
-  final List<LevelSample> _levelHistory = [];
-  static const int _maxHistorySamples = 200;
-
-  // Animation
-  late AnimationController _meterController;
-  double _currentInputLevel = -60.0;
-  double _currentOutputLevel = -60.0;
-  double _currentGainReduction = 0.0;
-  double _peakGainReduction = 0.0;
-
-  // Auto threshold
+  // Advanced
+  double _lookahead = 0.0;
   bool _autoThreshold = false;
-
-  // A/B comparison snapshots
-  CompressorSnapshot? _snapshotA;
-  CompressorSnapshot? _snapshotB;
-
-  // Host sync
-  bool _hostSync = false;
-
-  // Pro-C 2 advanced parameters (F4)
-  double _lookahead = 0.0; // ms (0-20)
-  double _scMidFreq = 1000.0; // Hz (200-5000)
-  double _scMidGain = 0.0; // dB (-12 to +12)
   bool _autoMakeup = false;
-  int _detectionMode = 0; // 0=Peak, 1=RMS, 2=Hybrid
+  int _detection = 0; // 0=Peak, 1=RMS, 2=Hybrid
   bool _adaptiveRelease = false;
-  double _hostBpm = 120.0; // BPM (20-300)
+  bool _hostSync = false;
+  double _hostBpm = 120.0;
   bool _midSide = false;
 
-  // FFI & DspChainProvider integration
+  // ─── METERING ───────────────────────────────────────────────────────
+  double _inputLevel = -60.0;
+  double _outputLevel = -60.0;
+  double _grCurrent = 0.0;
+  double _grPeakHold = 0.0;
+  final List<_GrSample> _grHistory = [];
+  static const _maxHistory = 200;
+
+  // ─── ENGINE ─────────────────────────────────────────────────────────
   final _ffi = NativeFFI.instance;
   bool _initialized = false;
-  Timer? _meterTimer;
-
-  // DspChainProvider tracking (FIX: Use insert chain, not ghost DYNAMICS_COMPRESSORS)
   String? _nodeId;
   int _slotIndex = -1;
+  late AnimationController _meterController;
+
+  // ─── A/B ────────────────────────────────────────────────────────────
+  CompressorSnapshot? _snapshotA;
+  CompressorSnapshot? _snapshotB;
 
   @override
   int get processorSlotIndex => _slotIndex;
 
+  // ─── LIFECYCLE ──────────────────────────────────────────────────────
+
   @override
   void initState() {
     super.initState();
-
-    // Initialize FFI compressor
     _initializeProcessor();
-
-    // Initialize sidechain EQ bands
-    _sidechainBands = List.generate(
-      6,
-      (i) => SidechainBand(
-        index: i,
-        freq: 100 * math.pow(2, i).toDouble(),
-        gain: 0,
-        q: 1.0,
-        enabled: true,
-      ),
-    );
-
-    // Meter animation controller
+    initBypassFromProvider();
     _meterController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 16),
     )..addListener(_updateMeters);
-
     _meterController.repeat();
   }
 
-  /// Initialize processor via DspChainProvider (FIX: Uses insert chain, not ghost HashMap)
-  ///
-  /// This ensures the compressor is in the actual audio signal path.
-  /// Previous implementation used compressorCreate() which created a ghost
-  /// instance that was NEVER processed by the audio thread.
+  @override
+  void dispose() {
+    _meterController.dispose();
+    super.dispose();
+  }
+
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
     var chain = dsp.getChain(widget.trackId);
-
-    // Auto-add compressor to chain if not present
     if (!chain.nodes.any((n) => n.type == DspNodeType.compressor)) {
       dsp.addNode(widget.trackId, DspNodeType.compressor);
       chain = dsp.getChain(widget.trackId);
     }
-
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.compressor) {
         _nodeId = node.id;
         _slotIndex = chain.nodes.indexWhere((n) => n.id == _nodeId);
         _initialized = true;
-        _readParamsFromEngine();
+        _readParams();
         break;
       }
     }
   }
 
-  /// Apply all parameters to the insert chain compressor (Pro-C 2 class — 25 params)
-  ///
-  /// Parameter indices for CompressorWrapper in insert chain:
-  ///   0: Threshold (dB)        8: Character (enum)      16: SC Mid Gain (dB)
-  ///   1: Ratio (:1)            9: Drive (dB)            17: Auto-Threshold (bool)
-  ///   2: Attack (ms)          10: Range (dB)            18: Auto-Makeup (bool)
-  ///   3: Release (ms)         11: SC HP Freq (Hz)       19: Detection Mode (enum)
-  ///   4: Makeup/Output (dB)   12: SC LP Freq (Hz)       20: Adaptive Release (bool)
-  ///   5: Mix (0-1)            13: SC Audition (bool)    21: Host Sync (bool)
-  ///   6: Link (0-1)           14: Lookahead (ms)        22: Host BPM
-  ///   7: Type (enum)          15: SC Mid Freq (Hz)      23: Mid/Side (bool)
-  ///                                                      24: Knee (dB)
-  void _applyAllParameters() {
+  void _readParams() {
     if (!_initialized || _slotIndex < 0) return;
-    final t = widget.trackId;
-    final s = _slotIndex;
-
-    _ffi.insertSetParam(t, s, 0, _threshold);
-    _ffi.insertSetParam(t, s, 1, _ratio);
-    _ffi.insertSetParam(t, s, 2, _attack);
-    _ffi.insertSetParam(t, s, 3, _release);
-    _ffi.insertSetParam(t, s, 4, _output);
-    _ffi.insertSetParam(t, s, 5, _mix / 100.0);
-    _ffi.insertSetParam(t, s, 6, 1.0); // Link (fully linked stereo)
-    _ffi.insertSetParam(t, s, 7, _styleToTypeIndex(_style).toDouble());
-    _ffi.insertSetParam(t, s, 8, _characterToIndex(_character).toDouble());
-    _ffi.insertSetParam(t, s, 9, _drive);
-    _ffi.insertSetParam(t, s, 10, _range);
-    _ffi.insertSetParam(t, s, 11, _sidechainHpf);
-    _ffi.insertSetParam(t, s, 12, _sidechainLpf);
-    _ffi.insertSetParam(t, s, 13, _sidechainAudition ? 1.0 : 0.0);
-    _ffi.insertSetParam(t, s, 14, _lookahead);
-    _ffi.insertSetParam(t, s, 15, _scMidFreq);
-    _ffi.insertSetParam(t, s, 16, _scMidGain);
-    _ffi.insertSetParam(t, s, 17, _autoThreshold ? 1.0 : 0.0);
-    _ffi.insertSetParam(t, s, 18, _autoMakeup ? 1.0 : 0.0);
-    _ffi.insertSetParam(t, s, 19, _detectionMode.toDouble());
-    _ffi.insertSetParam(t, s, 20, _adaptiveRelease ? 1.0 : 0.0);
-    _ffi.insertSetParam(t, s, 21, _hostSync ? 1.0 : 0.0);
-    _ffi.insertSetParam(t, s, 22, _hostBpm);
-    _ffi.insertSetParam(t, s, 23, _midSide ? 1.0 : 0.0);
-    _ffi.insertSetParam(t, s, 24, _knee);
-  }
-
-  /// Map CharacterMode to insert param index (0=Off, 1=Tube, 2=Diode, 3=Bright)
-  int _characterToIndex(CharacterMode mode) {
-    return switch (mode) {
-      CharacterMode.off => 0,
-      CharacterMode.tube => 1,
-      CharacterMode.diode => 2,
-      CharacterMode.bright => 3,
-    };
-  }
-
-  /// Map insert param value back to CharacterMode
-  CharacterMode _indexToCharacter(double value) {
-    return switch (value.round()) {
-      1 => CharacterMode.tube,
-      2 => CharacterMode.diode,
-      3 => CharacterMode.bright,
-      _ => CharacterMode.off,
-    };
-  }
-
-  /// Read current parameters from engine (when re-opening existing processor)
-  void _readParamsFromEngine() {
-    if (!_initialized || _slotIndex < 0) return;
-    final t = widget.trackId;
-    final s = _slotIndex;
+    final t = widget.trackId, s = _slotIndex;
     setState(() {
-      _threshold = _ffi.insertGetParam(t, s, 0);
-      _ratio = _ffi.insertGetParam(t, s, 1);
-      _attack = _ffi.insertGetParam(t, s, 2);
-      _release = _ffi.insertGetParam(t, s, 3);
-      _output = _ffi.insertGetParam(t, s, 4);
-      _mix = _ffi.insertGetParam(t, s, 5) * 100.0;
-      // 7: Type — read back and map to style
-      _character = _indexToCharacter(_ffi.insertGetParam(t, s, 8));
-      _drive = _ffi.insertGetParam(t, s, 9);
-      _range = _ffi.insertGetParam(t, s, 10);
-      _sidechainHpf = _ffi.insertGetParam(t, s, 11);
-      _sidechainLpf = _ffi.insertGetParam(t, s, 12);
-      _sidechainAudition = _ffi.insertGetParam(t, s, 13) > 0.5;
-      _lookahead = _ffi.insertGetParam(t, s, 14);
-      _scMidFreq = _ffi.insertGetParam(t, s, 15);
-      _scMidGain = _ffi.insertGetParam(t, s, 16);
-      _autoThreshold = _ffi.insertGetParam(t, s, 17) > 0.5;
-      _autoMakeup = _ffi.insertGetParam(t, s, 18) > 0.5;
-      _detectionMode = _ffi.insertGetParam(t, s, 19).round();
-      _adaptiveRelease = _ffi.insertGetParam(t, s, 20) > 0.5;
-      _hostSync = _ffi.insertGetParam(t, s, 21) > 0.5;
-      _hostBpm = _ffi.insertGetParam(t, s, 22);
-      _midSide = _ffi.insertGetParam(t, s, 23) > 0.5;
-      _knee = _ffi.insertGetParam(t, s, 24);
+      _threshold = _ffi.insertGetParam(t, s, _P.threshold);
+      _ratio = _ffi.insertGetParam(t, s, _P.ratio);
+      _attack = _ffi.insertGetParam(t, s, _P.attack);
+      _release = _ffi.insertGetParam(t, s, _P.release);
+      _output = _ffi.insertGetParam(t, s, _P.output);
+      _mix = _ffi.insertGetParam(t, s, _P.mix) * 100.0;
+      _character = _indexToCharacter(_ffi.insertGetParam(t, s, _P.character));
+      _drive = _ffi.insertGetParam(t, s, _P.drive);
+      _range = _ffi.insertGetParam(t, s, _P.range);
+      _scHpf = _ffi.insertGetParam(t, s, _P.scHpf);
+      _scLpf = _ffi.insertGetParam(t, s, _P.scLpf);
+      _scAudition = _ffi.insertGetParam(t, s, _P.scAudition) > 0.5;
+      _lookahead = _ffi.insertGetParam(t, s, _P.lookahead);
+      _scMidFreq = _ffi.insertGetParam(t, s, _P.scMidFreq);
+      _scMidGain = _ffi.insertGetParam(t, s, _P.scMidGain);
+      _autoThreshold = _ffi.insertGetParam(t, s, _P.autoThreshold) > 0.5;
+      _autoMakeup = _ffi.insertGetParam(t, s, _P.autoMakeup) > 0.5;
+      _detection = _ffi.insertGetParam(t, s, _P.detection).round();
+      _adaptiveRelease = _ffi.insertGetParam(t, s, _P.adaptiveRelease) > 0.5;
+      _hostSync = _ffi.insertGetParam(t, s, _P.hostSync) > 0.5;
+      _hostBpm = _ffi.insertGetParam(t, s, _P.hostBpm);
+      _midSide = _ffi.insertGetParam(t, s, _P.midSide) > 0.5;
+      _knee = _ffi.insertGetParam(t, s, _P.knee);
     });
   }
 
-  /// Map FabFilter style to insert chain compressor type index
-  /// 0 = VCA, 1 = Opto, 2 = FET
-  int _styleToTypeIndex(CompressionStyle style) {
-    return switch (style) {
-      CompressionStyle.clean => 0,       // VCA - Transparent
-      CompressionStyle.classic => 0,     // VCA - Classic VCA
-      CompressionStyle.opto => 1,        // Opto - Optical
-      CompressionStyle.vocal => 1,       // Opto - Smooth for vocals
-      CompressionStyle.mastering => 0,   // VCA - Clean mastering
-      CompressionStyle.bus => 0,         // VCA - Glue
-      CompressionStyle.punch => 2,       // FET - Punchy
-      CompressionStyle.pumping => 2,     // FET - Aggressive
-      CompressionStyle.versatile => 0,   // VCA - General
-      CompressionStyle.smooth => 1,      // Opto - Smooth optical
-      CompressionStyle.upward => 0,      // VCA - Upward
-      CompressionStyle.ttm => 2,         // FET - Aggressive multiband
-      CompressionStyle.variMu => 1,      // Opto - Tube-like
-      CompressionStyle.elOp => 1,        // Opto - Optical
-    };
+  CharacterMode _indexToCharacter(double v) => switch (v.round()) {
+    1 => CharacterMode.tube, 2 => CharacterMode.diode,
+    3 => CharacterMode.bright, _ => CharacterMode.off,
+  };
+
+  void _setParam(int idx, double value) {
+    if (_initialized && _slotIndex >= 0) {
+      _ffi.insertSetParam(widget.trackId, _slotIndex, idx, value);
+    }
   }
 
-  @override
-  void dispose() {
-    _meterTimer?.cancel();
-    _meterController.dispose();
-    // NOTE: Don't remove the compressor from DspChainProvider on dispose
-    // The node lifecycle is managed by DspChainProvider, not by this panel.
-    // The panel is just a UI for an existing insert chain processor.
-    super.dispose();
-  }
+  // ─── A/B ────────────────────────────────────────────────────────────
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // A/B COMPARISON — State capture and restoration
-  // ─────────────────────────────────────────────────────────────────────────
+  CompressorSnapshot _snap() => CompressorSnapshot(
+    threshold: _threshold, ratio: _ratio, knee: _knee, attack: _attack,
+    release: _release, range: _range, mix: _mix, output: _output,
+    style: _style, character: _character, drive: _drive, lookahead: _lookahead,
+    scHpf: _scHpf, scLpf: _scLpf, scMidFreq: _scMidFreq,
+    scMidGain: _scMidGain, hostBpm: _hostBpm, autoThreshold: _autoThreshold,
+    autoMakeup: _autoMakeup, adaptiveRelease: _adaptiveRelease,
+    hostSync: _hostSync, midSide: _midSide, detection: _detection,
+  );
 
-  /// Create a snapshot of current parameters
-  CompressorSnapshot _createSnapshot() {
-    return CompressorSnapshot(
-      threshold: _threshold,
-      ratio: _ratio,
-      knee: _knee,
-      attack: _attack,
-      release: _release,
-      range: _range,
-      mix: _mix,
-      output: _output,
-      style: _style,
-      character: _character,
-      drive: _drive,
-      sidechainEnabled: _sidechainEnabled,
-      sidechainHpf: _sidechainHpf,
-      sidechainLpf: _sidechainLpf,
-      lookahead: _lookahead,
-      scMidFreq: _scMidFreq,
-      scMidGain: _scMidGain,
-      autoThreshold: _autoThreshold,
-      autoMakeup: _autoMakeup,
-      detectionMode: _detectionMode,
-      adaptiveRelease: _adaptiveRelease,
-      hostSync: _hostSync,
-      hostBpm: _hostBpm,
-      midSide: _midSide,
-    );
-  }
-
-  /// Restore parameters from a snapshot
-  void _restoreSnapshot(CompressorSnapshot snapshot) {
+  void _restore(CompressorSnapshot s) {
     setState(() {
-      _threshold = snapshot.threshold;
-      _ratio = snapshot.ratio;
-      _knee = snapshot.knee;
-      _attack = snapshot.attack;
-      _release = snapshot.release;
-      _range = snapshot.range;
-      _mix = snapshot.mix;
-      _output = snapshot.output;
-      _style = snapshot.style;
-      _character = snapshot.character;
-      _drive = snapshot.drive;
-      _sidechainEnabled = snapshot.sidechainEnabled;
-      _sidechainHpf = snapshot.sidechainHpf;
-      _sidechainLpf = snapshot.sidechainLpf;
-      _lookahead = snapshot.lookahead;
-      _scMidFreq = snapshot.scMidFreq;
-      _scMidGain = snapshot.scMidGain;
-      _autoThreshold = snapshot.autoThreshold;
-      _autoMakeup = snapshot.autoMakeup;
-      _detectionMode = snapshot.detectionMode;
-      _adaptiveRelease = snapshot.adaptiveRelease;
-      _hostSync = snapshot.hostSync;
-      _hostBpm = snapshot.hostBpm;
-      _midSide = snapshot.midSide;
+      _threshold = s.threshold; _ratio = s.ratio; _knee = s.knee;
+      _attack = s.attack; _release = s.release; _range = s.range;
+      _mix = s.mix; _output = s.output; _style = s.style;
+      _character = s.character; _drive = s.drive; _lookahead = s.lookahead;
+      _scHpf = s.scHpf; _scLpf = s.scLpf; _scMidFreq = s.scMidFreq;
+      _scMidGain = s.scMidGain; _hostBpm = s.hostBpm;
+      _autoThreshold = s.autoThreshold; _autoMakeup = s.autoMakeup;
+      _adaptiveRelease = s.adaptiveRelease; _hostSync = s.hostSync;
+      _midSide = s.midSide; _detection = s.detection;
     });
-    _applyAllParameters();
+    _applyAll();
+  }
+
+  void _applyAll() {
+    if (!_initialized || _slotIndex < 0) return;
+    _setParam(_P.threshold, _threshold);
+    _setParam(_P.ratio, _ratio);
+    _setParam(_P.attack, _attack);
+    _setParam(_P.release, _release);
+    _setParam(_P.output, _output);
+    _setParam(_P.mix, _mix / 100.0);
+    _setParam(_P.link, 1.0);
+    _setParam(_P.type, _style.engineType.toDouble());
+    _setParam(_P.character, _character.index.toDouble());
+    _setParam(_P.drive, _drive);
+    _setParam(_P.range, _range);
+    _setParam(_P.scHpf, _scHpf);
+    _setParam(_P.scLpf, _scLpf);
+    _setParam(_P.scAudition, _scAudition ? 1 : 0);
+    _setParam(_P.lookahead, _lookahead);
+    _setParam(_P.scMidFreq, _scMidFreq);
+    _setParam(_P.scMidGain, _scMidGain);
+    _setParam(_P.autoThreshold, _autoThreshold ? 1 : 0);
+    _setParam(_P.autoMakeup, _autoMakeup ? 1 : 0);
+    _setParam(_P.detection, _detection.toDouble());
+    _setParam(_P.adaptiveRelease, _adaptiveRelease ? 1 : 0);
+    _setParam(_P.hostSync, _hostSync ? 1 : 0);
+    _setParam(_P.hostBpm, _hostBpm);
+    _setParam(_P.midSide, _midSide ? 1 : 0);
+    _setParam(_P.knee, _knee);
   }
 
   @override
-  void storeStateA() {
-    _snapshotA = _createSnapshot();
-    super.storeStateA();
-  }
-
+  void storeStateA() { _snapshotA = _snap(); super.storeStateA(); }
   @override
-  void storeStateB() {
-    _snapshotB = _createSnapshot();
-    super.storeStateB();
-  }
-
+  void storeStateB() { _snapshotB = _snap(); super.storeStateB(); }
   @override
-  void restoreStateA() {
-    if (_snapshotA != null) {
-      _restoreSnapshot(_snapshotA!);
-    }
-  }
-
+  void restoreStateA() { if (_snapshotA != null) _restore(_snapshotA!); }
   @override
-  void restoreStateB() {
-    if (_snapshotB != null) {
-      _restoreSnapshot(_snapshotB!);
-    }
-  }
-
+  void restoreStateB() { if (_snapshotB != null) _restore(_snapshotB!); }
   @override
-  void copyAToB() {
-    _snapshotB = _snapshotA?.copy();
-    super.copyAToB();
-  }
-
+  void copyAToB() { _snapshotB = _snapshotA?.copy(); super.copyAToB(); }
   @override
-  void copyBToA() {
-    _snapshotA = _snapshotB?.copy();
-    super.copyBToA();
-  }
+  void copyBToA() { _snapshotA = _snapshotB?.copy(); super.copyBToA(); }
+
+  // ─── METERING ───────────────────────────────────────────────────────
 
   void _updateMeters() {
-    setState(() {
-      // Get gain reduction from insert processor
-      if (_slotIndex >= 0) {
-        try {
-          final grL = _ffi.insertGetMeter(widget.trackId, _slotIndex, 0);
-          final grR = _ffi.insertGetMeter(widget.trackId, _slotIndex, 1);
-          _currentGainReduction = (grL + grR) / 2.0;
-        } catch (_) {
-          _currentGainReduction = 0.0;
-        }
-      }
+    if (!_initialized || _slotIndex < 0) return;
+    final t = widget.trackId, s = _slotIndex;
 
-      // Get input/output levels from peak meters
+    setState(() {
+      try {
+        final grL = _ffi.insertGetMeter(t, s, 0);
+        final grR = _ffi.insertGetMeter(t, s, 1);
+        _grCurrent = (grL + grR) / 2.0;
+      } catch (_) { _grCurrent = 0.0; }
+
       try {
         final peaks = _ffi.getPeakMeters();
-        if (peaks.$1 > 0 || peaks.$2 > 0) {
-          final peakLinear = math.max(peaks.$1, peaks.$2);
-          _currentInputLevel = peakLinear > 1e-10 ? 20.0 * math.log(peakLinear) / math.ln10 : -60.0;
-          _currentOutputLevel = _currentInputLevel + _currentGainReduction;
-        }
-      } catch (_) {
-        _currentInputLevel = -60.0;
-        _currentOutputLevel = -60.0;
-      }
+        final peakLin = math.max(peaks.$1, peaks.$2);
+        _inputLevel = peakLin > 1e-10 ? 20.0 * math.log(peakLin) / math.ln10 : -60.0;
+        _outputLevel = _inputLevel + _grCurrent;
+      } catch (_) {}
 
-      // Track peak GR only if real data present
-      if (_currentGainReduction.abs() > 0.01 && _currentGainReduction.abs() > _peakGainReduction.abs()) {
-        _peakGainReduction = _currentGainReduction;
-      }
+      if (_grCurrent.abs() > _grPeakHold.abs()) _grPeakHold = _grCurrent;
 
-      // Add to history only with real activity
-      if (_currentGainReduction.abs() > 0.01) {
-        _levelHistory.add(LevelSample(
-          input: _currentInputLevel,
-          output: _currentOutputLevel,
-          gainReduction: _currentGainReduction,
-          timestamp: DateTime.now(),
-        ));
-
-        while (_levelHistory.length > _maxHistorySamples) {
-          _levelHistory.removeAt(0);
-        }
-      }
+      // Build GR history
+      _grHistory.add(_GrSample(_inputLevel, _outputLevel, _grCurrent));
+      while (_grHistory.length > _maxHistory) _grHistory.removeAt(0);
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // BUILD — Compact horizontal layout, NO scrolling
-  // ─────────────────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════
+  // BUILD
+  // ═══════════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
@@ -636,26 +404,35 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
-          // Compact header
-          _buildCompactHeader(),
-          // Main content — horizontal layout, no scroll
+          buildCompactHeader(),
+          // Display: transfer curve + GR history
+          SizedBox(
+            height: 100,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: _buildDisplay(),
+            ),
+          ),
+          // Controls
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Column(
                 children: [
-                  // LEFT: Transfer curve + GR meter
-                  _buildCompactDisplay(),
-                  const SizedBox(width: 12),
-                  // CENTER: Main knobs
-                  Expanded(
-                    flex: 3,
-                    child: _buildCompactControls(),
+                  // Style chips
+                  SizedBox(
+                    height: 28,
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildStyleChips()),
+                        const SizedBox(width: 4),
+                        _buildCharacterChip(),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  // RIGHT: Style + options
-                  _buildCompactOptions(),
+                  const SizedBox(height: 6),
+                  // Main controls
+                  Expanded(child: _buildMainRow()),
                 ],
               ),
             ),
@@ -665,103 +442,98 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     ));
   }
 
-  Widget _buildCompactHeader() {
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: FabFilterColors.borderSubtle),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(widget.icon, color: widget.accentColor, size: 14),
-          const SizedBox(width: 6),
-          Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11)),
-          const SizedBox(width: 12),
-          // Style dropdown (compact)
-          _buildCompactStyleDropdown(),
-          const Spacer(),
-          // A/B
-          _buildCompactAB(),
-          const SizedBox(width: 8),
-          // Bypass
-          _buildCompactBypass(),
-        ],
-      ),
-    );
-  }
+  // ─── DISPLAY ────────────────────────────────────────────────────────
 
-  Widget _buildCompactStyleDropdown() {
-    return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: FabFilterColors.bgMid,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: FabFilterColors.border),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<CompressionStyle>(
-          value: _style,
-          dropdownColor: FabFilterColors.bgDeep,
-          style: FabFilterText.paramLabel.copyWith(fontSize: 10),
-          icon: Icon(Icons.arrow_drop_down, size: 14, color: FabFilterColors.textMuted),
-          isDense: true,
-          items: CompressionStyle.values.map((s) => DropdownMenuItem(
-            value: s,
-            child: Text(s.label, style: const TextStyle(fontSize: 10)),
-          )).toList(),
-          onChanged: (v) {
-            if (v != null) {
-              setState(() => _style = v);
-              if (_slotIndex >= 0) {
-                _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _styleToTypeIndex(v).toDouble());
-              }
-            }
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCompactAB() {
+  Widget _buildDisplay() {
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        _buildMiniABButton('A', !isStateB, hasStoredA, () {
-          if (isStateB) toggleAB();
-        }, () {
-          storeStateA();
-          setState(() {});
-        }),
-        const SizedBox(width: 2),
-        _buildMiniABButton('B', isStateB, hasStoredB, () {
-          if (!isStateB) toggleAB();
-        }, () {
-          storeStateB();
-          setState(() {});
-        }),
+        // Transfer curve (left half)
+        Expanded(
+          child: Container(
+            decoration: FabFilterDecorations.display(),
+            clipBehavior: Clip.hardEdge,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _KneeCurvePainter(
+                      threshold: _threshold,
+                      ratio: _ratio,
+                      knee: _knee,
+                      currentInput: _inputLevel,
+                    ),
+                  ),
+                ),
+                // Ratio badge (top-right)
+                Positioned(
+                  right: 4, top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      '${_ratio.toStringAsFixed(1)}:1',
+                      style: TextStyle(
+                        color: FabFilterProcessorColors.compAccent,
+                        fontSize: 9, fontWeight: FontWeight.bold,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(width: 4),
-        // Copy button
-        Tooltip(
-          message: isStateB ? 'Copy B → A' : 'Copy A → B',
-          child: GestureDetector(
-            onTap: copyCurrentToOther,
-            child: Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: FabFilterColors.bgMid,
-                borderRadius: BorderRadius.circular(3),
-                border: Border.all(color: FabFilterColors.border),
-              ),
-              child: const Icon(
-                Icons.content_copy,
-                size: 10,
-                color: FabFilterColors.textTertiary,
-              ),
+        // GR history (right half)
+        Expanded(
+          child: Container(
+            decoration: FabFilterDecorations.display(),
+            clipBehavior: Clip.hardEdge,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _GrHistoryPainter(
+                      history: _grHistory,
+                      threshold: _threshold,
+                    ),
+                  ),
+                ),
+                // GR badge (bottom-right)
+                Positioned(
+                  right: 4, bottom: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      'GR ${_grCurrent.toStringAsFixed(1)} dB  pk ${_grPeakHold.toStringAsFixed(1)}',
+                      style: TextStyle(
+                        color: FabFilterProcessorColors.compGainReduction,
+                        fontSize: 8, fontWeight: FontWeight.bold,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+                // Detection badge (top-left)
+                Positioned(
+                  left: 4, top: 4,
+                  child: Text(
+                    ['PEAK', 'RMS', 'HYB'][_detection],
+                    style: TextStyle(
+                      color: FabFilterColors.textTertiary,
+                      fontSize: 8, fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -769,319 +541,238 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     );
   }
 
-  Widget _buildMiniABButton(
-    String label,
-    bool active,
-    bool hasStored,
-    VoidCallback onTap,
-    VoidCallback onLongPress,
-  ) {
-    return Tooltip(
-      message: hasStored
-          ? '$label: Stored (long-press to overwrite)'
-          : '$label: Empty (long-press to store)',
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Container(
-          width: 20,
-          height: 20,
-          decoration: BoxDecoration(
-            color: active ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(
-              color: active ? widget.accentColor : FabFilterColors.border,
+  // ─── STYLE CHIPS ────────────────────────────────────────────────────
+
+  Widget _buildStyleChips() {
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: CompressionStyle.values.length,
+      separatorBuilder: (_, _) => const SizedBox(width: 4),
+      itemBuilder: (ctx, i) {
+        final s = CompressionStyle.values[i];
+        final active = _style == s;
+        return GestureDetector(
+          onTap: () {
+            setState(() => _style = s);
+            _setParam(_P.type, s.engineType.toDouble());
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: active
+                  ? FabFilterProcessorColors.compAccent.withValues(alpha: 0.25)
+                  : FabFilterColors.bgSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: active ? FabFilterProcessorColors.compAccent : FabFilterColors.borderMedium,
+                width: active ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(s.icon, size: 12, color: active ? FabFilterProcessorColors.compAccent : FabFilterColors.textTertiary),
+                const SizedBox(width: 3),
+                Text(s.label, style: TextStyle(
+                  color: active ? FabFilterProcessorColors.compAccent : FabFilterColors.textSecondary,
+                  fontSize: 9, fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                )),
+              ],
             ),
           ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: active ? widget.accentColor : FabFilterColors.textTertiary,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              // Stored indicator dot
-              if (hasStored)
-                Positioned(
-                  right: 2,
-                  top: 2,
-                  child: Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: active
-                          ? widget.accentColor
-                          : FabFilterColors.textTertiary.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildCompactBypass() {
+  Widget _buildCharacterChip() {
     return GestureDetector(
-      onTap: toggleBypass,
+      onTap: () {
+        final next = CharacterMode.values[(_character.index + 1) % CharacterMode.values.length];
+        setState(() => _character = next);
+        _setParam(_P.character, next.index.toDouble());
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
-          color: bypassed ? FabFilterColors.orange.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
+          color: _character != CharacterMode.off
+              ? _character.color.withValues(alpha: 0.2)
+              : FabFilterColors.bgSurface,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: bypassed ? FabFilterColors.orange : FabFilterColors.border,
+            color: _character != CharacterMode.off ? _character.color : FabFilterColors.borderMedium,
           ),
         ),
-        child: Text(
-          'BYP',
-          style: TextStyle(
-            color: bypassed ? FabFilterColors.orange : FabFilterColors.textTertiary,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(_character.icon, size: 12, color: _character.color),
+            const SizedBox(width: 3),
+            Text(_character.label, style: TextStyle(
+              color: _character.color, fontSize: 9, fontWeight: FontWeight.bold,
+            )),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildCompactDisplay() {
+  // ─── MAIN ROW ───────────────────────────────────────────────────────
+
+  Widget _buildMainRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // LEFT: Meters (In/Out/GR)
+        _buildMeters(),
+        const SizedBox(width: 8),
+        // CENTER: Knobs
+        Expanded(flex: 3, child: _buildKnobs()),
+        const SizedBox(width: 8),
+        // RIGHT: Options
+        SizedBox(width: 100, child: _buildOptions()),
+      ],
+    );
+  }
+
+  Widget _buildMeters() {
     return SizedBox(
-      width: 140,
-      child: Column(
+      width: 44,
+      child: Row(
         children: [
-          // Transfer curve (knee display)
-          Expanded(
-            child: Container(
-              decoration: FabFilterDecorations.display(),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: CustomPaint(
-                  painter: _KneeCurvePainter(
-                    threshold: _threshold,
-                    ratio: _ratio,
-                    knee: _knee,
-                    currentInput: _currentInputLevel,
-                  ),
-                  size: Size.infinite,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          // GR meter (horizontal bar)
-          _buildHorizontalGRMeter(),
+          _buildVerticalMeter('IN', _inputLevel, FabFilterColors.textSecondary),
+          const SizedBox(width: 2),
+          _buildVerticalMeter('OUT', _outputLevel, FabFilterColors.blue),
+          const SizedBox(width: 2),
+          _buildVerticalMeter('GR', _grCurrent, FabFilterProcessorColors.compGainReduction, fromTop: true),
         ],
       ),
     );
   }
 
-  Widget _buildHorizontalGRMeter() {
-    final grNorm = (_currentGainReduction.abs() / 40).clamp(0.0, 1.0);
-    return Container(
-      height: 18,
-      decoration: FabFilterDecorations.display(),
-      padding: const EdgeInsets.all(3),
-      child: Row(
+  Widget _buildVerticalMeter(String label, double dB, Color color, {bool fromTop = false}) {
+    final norm = fromTop
+        ? (dB.abs() / 40).clamp(0.0, 1.0)
+        : ((dB + 60) / 60).clamp(0.0, 1.0);
+
+    return Expanded(
+      child: Column(
         children: [
-          Text('GR', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
-          const SizedBox(width: 4),
           Expanded(
-            child: Stack(
-              children: [
-                Container(
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: FabFilterColors.bgVoid,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                FractionallySizedBox(
-                  widthFactor: grNorm,
+            child: Container(
+              width: 10,
+              decoration: BoxDecoration(
+                color: FabFilterColors.bgVoid,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Align(
+                alignment: fromTop ? Alignment.topCenter : Alignment.bottomCenter,
+                child: FractionallySizedBox(
+                  heightFactor: norm,
                   child: Container(
-                    height: 10,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [FabFilterColors.orange, FabFilterColors.red],
-                      ),
+                      color: color,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
           ),
-          const SizedBox(width: 4),
-          SizedBox(
-            width: 32,
-            child: Text(
-              '${_currentGainReduction.toStringAsFixed(1)}',
-              style: FabFilterText.paramValue(FabFilterColors.orange).copyWith(fontSize: 9),
-              textAlign: TextAlign.right,
-            ),
-          ),
+          const SizedBox(height: 2),
+          Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 7)),
         ],
       ),
     );
   }
 
-  Widget _buildCompactControls() {
+  Widget _buildKnobs() {
     return Column(
       children: [
-        // Row 1: Main compression knobs
+        // Row 1: Main knobs
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildSmallKnob(
-                value: (_threshold + 60) / 60,
-                label: 'THRESH',
-                display: '${_threshold.toStringAsFixed(0)} dB',
-                color: FabFilterColors.orange,
-                onChanged: (v) {
+              _knob('THRESH', (_threshold + 60) / 60, '${_threshold.toStringAsFixed(0)} dB',
+                FabFilterProcessorColors.compThreshold, (v) {
                   setState(() => _threshold = v * 60 - 60);
-                  if (_slotIndex >= 0) {
-                    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);
-                  }
-                },
-              ),
-              _buildSmallKnob(
-                value: (_ratio - 1) / 19,
-                label: 'RATIO',
-                display: '${_ratio.toStringAsFixed(1)}:1',
-                color: FabFilterColors.orange,
-                onChanged: (v) {
+                  _setParam(_P.threshold, _threshold);
+                }),
+              _knob('RATIO', (_ratio - 1) / 19, '${_ratio.toStringAsFixed(1)}:1',
+                FabFilterProcessorColors.compAccent, (v) {
                   setState(() => _ratio = v * 19 + 1);
-                  if (_slotIndex >= 0) {
-                    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _ratio);
-                  }
-                },
-              ),
-              _buildSmallKnob(
-                value: _knee / 24,
-                label: 'KNEE',
-                display: '${_knee.toStringAsFixed(0)} dB',
-                color: FabFilterColors.blue,
-                onChanged: (v) {
+                  _setParam(_P.ratio, _ratio);
+                }),
+              _knob('KNEE', _knee / 24, '${_knee.toStringAsFixed(0)} dB',
+                FabFilterColors.blue, (v) {
                   setState(() => _knee = v * 24);
-                  if (_slotIndex >= 0) {
-                    _ffi.insertSetParam(widget.trackId, _slotIndex, 24, _knee);
-                  }
-                },
-              ),
-              _buildSmallKnob(
-                value: math.log(_attack / 0.01) / math.log(500 / 0.01),
-                label: 'ATT',
-                display: _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µ' : '${_attack.toStringAsFixed(0)}ms',
-                color: FabFilterColors.cyan,
-                onChanged: (v) {
-                  setState(() => _attack = 0.01 * math.pow(500 / 0.01, v).toDouble());
-                  if (_slotIndex >= 0) {
-                    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _attack);
-                  }
-                },
-              ),
-              _buildSmallKnob(
-                value: math.log(_release / 5) / math.log(5000 / 5),
-                label: 'REL',
-                display: _release >= 1000 ? '${(_release / 1000).toStringAsFixed(1)}s' : '${_release.toStringAsFixed(0)}ms',
-                color: FabFilterColors.cyan,
-                onChanged: (v) {
-                  setState(() => _release = 5 * math.pow(5000 / 5, v).toDouble());
-                  if (_slotIndex >= 0) {
-                    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _release);
-                  }
-                },
-              ),
-              _buildSmallKnob(
-                value: _mix / 100,
-                label: 'MIX',
-                display: '${_mix.toStringAsFixed(0)}%',
-                color: FabFilterColors.blue,
-                onChanged: (v) {
+                  _setParam(_P.knee, _knee);
+                }),
+              _knob('ATT', math.log(_attack / 0.01) / math.log(500 / 0.01),
+                _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µ' : '${_attack.toStringAsFixed(0)}ms',
+                FabFilterColors.cyan, (v) {
+                  setState(() => _attack = 0.01 * math.pow(500 / 0.01, v));
+                  _setParam(_P.attack, _attack);
+                }),
+              _knob('REL', math.log(_release / 5) / math.log(5000 / 5),
+                _release >= 1000 ? '${(_release / 1000).toStringAsFixed(1)}s' : '${_release.toStringAsFixed(0)}ms',
+                FabFilterColors.cyan, (v) {
+                  setState(() => _release = (5 * math.pow(5000 / 5, v)).toDouble());
+                  _setParam(_P.release, _release);
+                }),
+              _knob('MIX', _mix / 100, '${_mix.toStringAsFixed(0)}%',
+                FabFilterColors.blue, (v) {
                   setState(() => _mix = v * 100);
-                  if (_slotIndex >= 0) {
-                    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _mix / 100.0);
-                  }
-                },
-              ),
-              _buildSmallKnob(
-                value: (_output + 24) / 48,
-                label: 'OUT',
-                display: '${_output >= 0 ? '+' : ''}${_output.toStringAsFixed(0)}dB',
-                color: FabFilterColors.green,
-                onChanged: (v) {
+                  _setParam(_P.mix, _mix / 100.0);
+                }),
+              _knob('OUT', (_output + 24) / 48,
+                '${_output >= 0 ? '+' : ''}${_output.toStringAsFixed(0)}dB',
+                FabFilterColors.green, (v) {
                   setState(() => _output = v * 48 - 24);
-                  if (_slotIndex >= 0) {
-                    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _output);
-                  }
-                },
-              ),
+                  _setParam(_P.output, _output);
+                }),
             ],
           ),
         ),
         const SizedBox(height: 4),
-        // Row 2: Advanced params — Lookahead, Drive, Range + Detection mode + toggles
+        // Row 2: Advanced params + toggles
         SizedBox(
-          height: 28,
+          height: 24,
           child: Row(
             children: [
-              // Lookahead knob
-              _buildMiniKnob('LOOK', _lookahead / 20.0,
-                '${_lookahead.toStringAsFixed(1)}ms', FabFilterColors.purple, (v) {
-                setState(() => _lookahead = v * 20.0);
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 14, _lookahead);
-                }
+              _miniParam('LOOK', _lookahead / 20, '${_lookahead.toStringAsFixed(1)}', FabFilterColors.purple, (v) {
+                setState(() => _lookahead = v * 20);
+                _setParam(_P.lookahead, _lookahead);
+              }),
+              const SizedBox(width: 4),
+              _miniParam('DRV', _drive / 24, '${_drive.toStringAsFixed(0)}', FabFilterProcessorColors.compAccent, (v) {
+                setState(() => _drive = v * 24);
+                _setParam(_P.drive, _drive);
+              }),
+              const SizedBox(width: 4),
+              _miniParam('RNG', (_range + 60) / 60, '${_range.toStringAsFixed(0)}', FabFilterColors.cyan, (v) {
+                setState(() => _range = v * 60 - 60);
+                _setParam(_P.range, _range);
               }),
               const SizedBox(width: 6),
-              // Drive knob
-              _buildMiniKnob('DRV', _drive / 24.0,
-                '${_drive.toStringAsFixed(0)}dB', FabFilterColors.orange, (v) {
-                setState(() => _drive = v * 24.0);
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 9, _drive);
-                }
-              }),
+              // Detection mode
+              ..._detectionButtons(),
               const SizedBox(width: 6),
-              // Range knob
-              _buildMiniKnob('RNG', (_range + 60) / 60.0,
-                '${_range.toStringAsFixed(0)}dB', FabFilterColors.cyan, (v) {
-                setState(() => _range = v * 60.0 - 60.0);
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 10, _range);
-                }
-              }),
-              const SizedBox(width: 8),
-              // Detection mode buttons (Peak / RMS / Hybrid)
-              ..._buildDetectionModeButtons(),
-              const SizedBox(width: 8),
-              // Toggle buttons
-              _buildMiniToggle('M/S', _midSide, FabFilterColors.purple, () {
+              _toggle('M/S', _midSide, FabFilterColors.purple, () {
                 setState(() => _midSide = !_midSide);
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 23, _midSide ? 1.0 : 0.0);
-                }
+                _setParam(_P.midSide, _midSide ? 1 : 0);
               }),
-              const SizedBox(width: 3),
-              _buildMiniToggle('AR', _adaptiveRelease, FabFilterColors.cyan, () {
+              const SizedBox(width: 2),
+              _toggle('AR', _adaptiveRelease, FabFilterColors.cyan, () {
                 setState(() => _adaptiveRelease = !_adaptiveRelease);
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 20, _adaptiveRelease ? 1.0 : 0.0);
-                }
+                _setParam(_P.adaptiveRelease, _adaptiveRelease ? 1 : 0);
               }),
-              const SizedBox(width: 3),
-              _buildMiniToggle('AM', _autoMakeup, FabFilterColors.green, () {
+              const SizedBox(width: 2),
+              _toggle('AM', _autoMakeup, FabFilterColors.green, () {
                 setState(() => _autoMakeup = !_autoMakeup);
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 18, _autoMakeup ? 1.0 : 0.0);
-                }
+                _setParam(_P.autoMakeup, _autoMakeup ? 1 : 0);
               }),
             ],
           ),
@@ -1090,90 +781,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     );
   }
 
-  /// Mini knob for the advanced params row (28px height)
-  Widget _buildMiniKnob(String label, double value, String display, Color color, ValueChanged<double> onChanged) {
-    return SizedBox(
-      width: 48,
-      child: Row(
-        children: [
-          FabFilterKnob(
-            value: value.clamp(0.0, 1.0),
-            label: '',
-            display: '',
-            color: color,
-            size: 24,
-            onChanged: onChanged,
-          ),
-          const SizedBox(width: 2),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 7)),
-                Text(display, style: TextStyle(color: color, fontSize: 7)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Detection mode toggle buttons (Peak / RMS / Hybrid)
-  List<Widget> _buildDetectionModeButtons() {
-    const modes = ['P', 'R', 'H'];
-    const labels = ['Peak', 'RMS', 'Hybrid'];
-    return List.generate(3, (i) {
-      final active = _detectionMode == i;
-      return Padding(
-        padding: const EdgeInsets.only(right: 2),
-        child: Tooltip(
-          message: labels[i],
-          child: _buildTinyButton(modes[i], active, FabFilterColors.cyan, () {
-            setState(() => _detectionMode = i);
-            if (_slotIndex >= 0) {
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 19, i.toDouble());
-            }
-          }),
-        ),
-      );
-    });
-  }
-
-  /// Mini toggle button for advanced params row
-  Widget _buildMiniToggle(String label, bool active, Color color, VoidCallback onTap) {
-    return Tooltip(
-      message: label == 'M/S' ? 'Mid/Side' : label == 'AR' ? 'Adaptive Release' : 'Auto Makeup',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 22,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            color: active ? color.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: active ? color : FabFilterColors.border),
-          ),
-          child: Center(
-            child: Text(label, style: TextStyle(
-              color: active ? color : FabFilterColors.textTertiary,
-              fontSize: 8,
-              fontWeight: FontWeight.bold,
-            )),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSmallKnob({
-    required double value,
-    required String label,
-    required String display,
-    required Color color,
-    required ValueChanged<double> onChanged,
-  }) {
+  Widget _knob(String label, double value, String display, Color color, ValueChanged<double> onChanged) {
     return FabFilterKnob(
       value: value.clamp(0.0, 1.0),
       label: label,
@@ -1184,656 +792,323 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     );
   }
 
-  Widget _buildCompactOptions() {
+  Widget _miniParam(String label, double value, String display, Color color, ValueChanged<double> onChanged) {
     return SizedBox(
-      width: 110,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Sidechain toggle
-          _buildOptionRow('SC', _sidechainEnabled, (v) => setState(() => _sidechainEnabled = v)),
-          const SizedBox(height: 4),
-          // Sidechain HP/LP
-          if (_sidechainEnabled) ...[
-            _buildMiniSlider('HP', math.log(_sidechainHpf / 20) / math.log(500 / 20),
-              '${_sidechainHpf.toStringAsFixed(0)}', (v) {
-                setState(() => _sidechainHpf = 20 * math.pow(500 / 20, v).toDouble());
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 11, _sidechainHpf);
-                }
-              }),
-            const SizedBox(height: 2),
-            _buildMiniSlider('LP', math.log(_sidechainLpf / 1000) / math.log(20000 / 1000),
-              '${(_sidechainLpf / 1000).toStringAsFixed(0)}k', (v) {
-                setState(() => _sidechainLpf = 1000 * math.pow(20000 / 1000, v).toDouble());
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 12, _sidechainLpf);
-                }
-              }),
-            const SizedBox(height: 2),
-            // SC Mid Freq/Gain
-            _buildMiniSlider('MF', math.log(_scMidFreq / 200) / math.log(5000 / 200),
-              '${_scMidFreq.toStringAsFixed(0)}', (v) {
-                setState(() => _scMidFreq = 200 * math.pow(5000 / 200, v).toDouble());
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 15, _scMidFreq);
-                }
-              }),
-            const SizedBox(height: 2),
-            _buildMiniSlider('MG', (_scMidGain + 12) / 24,
-              '${_scMidGain >= 0 ? '+' : ''}${_scMidGain.toStringAsFixed(0)}', (v) {
-                setState(() => _scMidGain = v * 24 - 12);
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 16, _scMidGain);
-                }
-              }),
-            const SizedBox(height: 2),
-            _buildOptionRow('AUD', _sidechainAudition, (v) {
-              setState(() => _sidechainAudition = v);
-              if (_slotIndex >= 0) {
-                _ffi.insertSetParam(widget.trackId, _slotIndex, 13, v ? 1.0 : 0.0);
-              }
-            }),
-          ],
-          const Flexible(child: SizedBox(height: 4)),
-          // Auto-Threshold toggle
-          _buildOptionRow('A-THR', _autoThreshold, (v) {
-            setState(() => _autoThreshold = v);
-            if (_slotIndex >= 0) {
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 17, v ? 1.0 : 0.0);
-            }
-          }),
-          const SizedBox(height: 2),
-          // Host Sync + BPM
-          _buildOptionRow('SYNC', _hostSync, (v) {
-            setState(() => _hostSync = v);
-            if (_slotIndex >= 0) {
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 21, v ? 1.0 : 0.0);
-            }
-          }),
-          if (_hostSync) ...[
-            const SizedBox(height: 2),
-            _buildMiniSlider('BPM', (_hostBpm - 20) / 280,
-              '${_hostBpm.toStringAsFixed(0)}', (v) {
-                setState(() => _hostBpm = v * 280 + 20);
-                if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, 22, _hostBpm);
-                }
-              }),
-          ],
-          const Flexible(child: SizedBox(height: 4)),
-          // Character
-          if (showExpertMode) ...[
-            Text('CHARACTER', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
-            const SizedBox(height: 2),
-            Wrap(
-              spacing: 2,
-              runSpacing: 2,
-              children: CharacterMode.values.map((m) => _buildTinyButton(
-                m.label.substring(0, m == CharacterMode.off ? 3 : 1),
-                _character == m,
-                m.color,
-                () {
-                  setState(() => _character = m);
-                  if (_slotIndex >= 0) {
-                    _ffi.insertSetParam(widget.trackId, _slotIndex, 8, _characterToIndex(m).toDouble());
-                  }
-                },
-              )).toList(),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOptionRow(String label, bool value, ValueChanged<bool> onChanged) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: Container(
-        height: 22,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: value ? widget.accentColor.withValues(alpha: 0.15) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: value ? widget.accentColor.withValues(alpha: 0.5) : FabFilterColors.border,
-          ),
-        ),
-        child: Row(
-          children: [
-            Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 9)),
-            const Spacer(),
-            Icon(
-              value ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 14,
-              color: value ? widget.accentColor : FabFilterColors.textTertiary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMiniSlider(String label, double value, String display, ValueChanged<double> onChanged) {
-    return SizedBox(
-      height: 18,
+      width: 48,
       child: Row(
         children: [
-          SizedBox(width: 18, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
-          Expanded(
-            child: SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-                overlayShape: SliderComponentShape.noOverlay,
-                activeTrackColor: FabFilterColors.cyan,
-                inactiveTrackColor: FabFilterColors.bgVoid,
-                thumbColor: FabFilterColors.cyan,
-              ),
-              child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
-            ),
+          FabFilterKnob(
+            value: value.clamp(0.0, 1.0), label: '', display: '',
+            color: color, size: 20, onChanged: onChanged,
           ),
-          SizedBox(width: 24, child: Text(display, style: FabFilterText.paramLabel.copyWith(fontSize: 8), textAlign: TextAlign.right)),
+          const SizedBox(width: 2),
+          Expanded(child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 7)),
+              Text(display, style: TextStyle(color: color, fontSize: 7)),
+            ],
+          )),
         ],
       ),
     );
   }
 
-  Widget _buildTinyButton(String label, bool active, Color color, VoidCallback onTap) {
+  List<Widget> _detectionButtons() {
+    const labels = ['P', 'R', 'H'];
+    const tips = ['Peak', 'RMS', 'Hybrid'];
+    return List.generate(3, (i) => Padding(
+      padding: const EdgeInsets.only(right: 2),
+      child: Tooltip(
+        message: tips[i],
+        child: _tinyBtn(labels[i], _detection == i, FabFilterColors.cyan, () {
+          setState(() => _detection = i);
+          _setParam(_P.detection, i.toDouble());
+        }),
+      ),
+    ));
+  }
+
+  Widget _toggle(String label, bool active, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 22,
-        height: 18,
+        height: 20, padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: active ? color.withValues(alpha: 0.2) : FabFilterColors.bgMid,
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: active ? color : FabFilterColors.border),
+          border: Border.all(color: active ? color : FabFilterColors.borderMedium),
         ),
-        child: Center(
-          child: Text(label, style: TextStyle(color: active ? color : FabFilterColors.textTertiary, fontSize: 8, fontWeight: FontWeight.bold)),
-        ),
+        child: Center(child: Text(label, style: TextStyle(
+          color: active ? color : FabFilterColors.textTertiary,
+          fontSize: 8, fontWeight: FontWeight.bold,
+        ))),
       ),
     );
   }
 
+  Widget _tinyBtn(String label, bool active, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 20, height: 18,
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: active ? color : FabFilterColors.borderMedium),
+        ),
+        child: Center(child: Text(label, style: TextStyle(
+          color: active ? color : FabFilterColors.textTertiary,
+          fontSize: 8, fontWeight: FontWeight.bold,
+        ))),
+      ),
+    );
+  }
+
+  // ─── OPTIONS ────────────────────────────────────────────────────────
+
+  Widget _buildOptions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FabOptionRow(label: 'SC', value: _scEnabled, accentColor: widget.accentColor,
+          onChanged: (v) => setState(() => _scEnabled = v)),
+        if (_scEnabled) ...[
+          const SizedBox(height: 2),
+          FabMiniSlider(label: 'HP', labelWidth: 18,
+            value: (math.log(_scHpf / 20) / math.log(500 / 20)).clamp(0.0, 1.0),
+            display: '${_scHpf.toStringAsFixed(0)}',
+            onChanged: (v) {
+              setState(() => _scHpf = (20 * math.pow(500 / 20, v)).toDouble());
+              _setParam(_P.scHpf, _scHpf);
+            }),
+          const SizedBox(height: 2),
+          FabMiniSlider(label: 'LP', labelWidth: 18,
+            value: (math.log(_scLpf / 1000) / math.log(20000 / 1000)).clamp(0.0, 1.0),
+            display: '${(_scLpf / 1000).toStringAsFixed(0)}k',
+            onChanged: (v) {
+              setState(() => _scLpf = (1000 * math.pow(20000 / 1000, v)).toDouble());
+              _setParam(_P.scLpf, _scLpf);
+            }),
+          const SizedBox(height: 2),
+          FabMiniSlider(label: 'MF', labelWidth: 18,
+            value: (math.log(_scMidFreq / 200) / math.log(5000 / 200)).clamp(0.0, 1.0),
+            display: '${_scMidFreq.toStringAsFixed(0)}',
+            onChanged: (v) {
+              setState(() => _scMidFreq = (200 * math.pow(5000 / 200, v)).toDouble());
+              _setParam(_P.scMidFreq, _scMidFreq);
+            }),
+          const SizedBox(height: 2),
+          FabMiniSlider(label: 'MG', labelWidth: 18,
+            value: ((_scMidGain + 12) / 24).clamp(0.0, 1.0),
+            display: '${_scMidGain >= 0 ? '+' : ''}${_scMidGain.toStringAsFixed(0)}',
+            onChanged: (v) {
+              setState(() => _scMidGain = v * 24 - 12);
+              _setParam(_P.scMidGain, _scMidGain);
+            }),
+          const SizedBox(height: 2),
+          FabOptionRow(label: 'AUD', value: _scAudition, accentColor: widget.accentColor,
+            onChanged: (v) {
+              setState(() => _scAudition = v);
+              _setParam(_P.scAudition, v ? 1 : 0);
+            }),
+        ],
+        const Flexible(child: SizedBox(height: 4)),
+        FabOptionRow(label: 'A-THR', value: _autoThreshold, accentColor: widget.accentColor,
+          onChanged: (v) {
+            setState(() => _autoThreshold = v);
+            _setParam(_P.autoThreshold, v ? 1 : 0);
+          }),
+        const SizedBox(height: 2),
+        FabOptionRow(label: 'SYNC', value: _hostSync, accentColor: widget.accentColor,
+          onChanged: (v) {
+            setState(() => _hostSync = v);
+            _setParam(_P.hostSync, v ? 1 : 0);
+          }),
+        if (_hostSync) ...[
+          const SizedBox(height: 2),
+          FabMiniSlider(label: 'BPM', labelWidth: 22,
+            value: ((_hostBpm - 20) / 280).clamp(0.0, 1.0),
+            display: '${_hostBpm.toStringAsFixed(0)}',
+            onChanged: (v) {
+              setState(() => _hostBpm = v * 280 + 20);
+              _setParam(_P.hostBpm, _hostBpm);
+            }),
+        ],
+      ],
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// LEVEL DISPLAY PAINTER (Scrolling waveform)
+// GR HISTORY PAINTER (scrolling waveform)
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _LevelDisplayPainter extends CustomPainter {
-  final List<LevelSample> history;
+class _GrHistoryPainter extends CustomPainter {
+  final List<_GrSample> history;
   final double threshold;
 
-  _LevelDisplayPainter({
-    required this.history,
-    required this.threshold,
-  });
+  _GrHistoryPainter({required this.history, required this.threshold});
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (history.isEmpty) return;
-
-    final rect = Offset.zero & size;
-
     // Background gradient
-    final bgPaint = Paint()
-      ..shader = ui.Gradient.linear(
-        Offset(0, 0),
-        Offset(0, size.height),
-        [
-          FabFilterColors.bgVoid,
-          FabFilterColors.bgDeep,
-        ],
-      );
-    canvas.drawRect(rect, bgPaint);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..shader = ui.Gradient.linear(
+        Offset.zero, Offset(0, size.height),
+        [FabFilterColors.bgVoid, FabFilterColors.bgDeep],
+      ),
+    );
 
-    // Grid lines
-    final gridPaint = Paint()
-      ..color = FabFilterColors.grid
-      ..strokeWidth = 0.5;
-
-    // Horizontal grid (dB levels)
+    // Grid
+    final gridPaint = Paint()..color = FabFilterColors.grid..strokeWidth = 0.5;
     for (var db = -60; db <= 0; db += 12) {
       final y = size.height * (1 - (db + 60) / 60);
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        gridPaint,
-      );
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
     // Threshold line
-    final thresholdY = size.height * (1 - (threshold + 60) / 60);
-    final thresholdPaint = Paint()
-      ..color = FabFilterColors.orange
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(
-      Offset(0, thresholdY),
-      Offset(size.width, thresholdY),
-      thresholdPaint,
-    );
+    final thY = size.height * (1 - (threshold + 60) / 60);
+    canvas.drawLine(Offset(0, thY), Offset(size.width, thY), Paint()
+      ..color = FabFilterProcessorColors.compThreshold
+      ..strokeWidth = 1);
 
-    // Draw level history
     if (history.length < 2) return;
+    final sw = size.width / history.length;
+    final startX = size.width - history.length * sw;
 
-    final sampleWidth = size.width / history.length;
-
-    // Input level (gray)
-    final inputPath = Path();
-    final inputPaint = Paint()
-      ..color = FabFilterColors.textMuted.withValues(alpha: 0.5)
-      ..style = PaintingStyle.fill;
-
+    // Input level (gray fill)
+    final inPath = Path()..moveTo(startX, size.height);
     for (var i = 0; i < history.length; i++) {
-      final x = i * sampleWidth;
-      final level = history[i].input;
-      final normalizedLevel = ((level + 60) / 60).clamp(0.0, 1.0);
-      final barHeight = size.height * normalizedLevel;
-
-      if (i == 0) {
-        inputPath.moveTo(x, size.height);
-      }
-      inputPath.lineTo(x, size.height - barHeight);
+      final x = startX + i * sw;
+      final h = size.height * ((history[i].input + 60) / 60).clamp(0.0, 1.0);
+      inPath.lineTo(x, size.height - h);
     }
-    inputPath.lineTo(size.width, size.height);
-    inputPath.close();
-    canvas.drawPath(inputPath, inputPaint);
+    inPath.lineTo(startX + history.length * sw, size.height);
+    inPath.close();
+    canvas.drawPath(inPath, Paint()..color = FabFilterColors.textMuted.withValues(alpha: 0.3));
 
-    // Output level (blue)
-    final outputPath = Path();
-    final outputPaint = Paint()
-      ..color = FabFilterColors.blue.withValues(alpha: 0.7)
-      ..style = PaintingStyle.fill;
-
+    // Output level (blue fill)
+    final outPath = Path()..moveTo(startX, size.height);
     for (var i = 0; i < history.length; i++) {
-      final x = i * sampleWidth;
-      final level = history[i].output;
-      final normalizedLevel = ((level + 60) / 60).clamp(0.0, 1.0);
-      final barHeight = size.height * normalizedLevel;
-
-      if (i == 0) {
-        outputPath.moveTo(x, size.height);
-      }
-      outputPath.lineTo(x, size.height - barHeight);
+      final x = startX + i * sw;
+      final h = size.height * ((history[i].output + 60) / 60).clamp(0.0, 1.0);
+      outPath.lineTo(x, size.height - h);
     }
-    outputPath.lineTo(size.width, size.height);
-    outputPath.close();
-    canvas.drawPath(outputPath, outputPaint);
+    outPath.lineTo(startX + history.length * sw, size.height);
+    outPath.close();
+    canvas.drawPath(outPath, Paint()..color = FabFilterColors.blue.withValues(alpha: 0.5));
 
-    // Gain reduction overlay (red, from top)
-    final grPaint = Paint()
-      ..color = FabFilterColors.red.withValues(alpha: 0.4)
-      ..style = PaintingStyle.fill;
-
+    // GR bars from top
     for (var i = 0; i < history.length; i++) {
-      final x = i * sampleWidth;
-      final gr = history[i].gainReduction.abs();
-      final grHeight = size.height * (gr / 40).clamp(0.0, 1.0);
-
+      final x = startX + i * sw;
+      final grH = size.height * (history[i].gr.abs() / 40).clamp(0.0, 1.0);
       canvas.drawRect(
-        Rect.fromLTWH(x, 0, sampleWidth + 1, grHeight),
-        grPaint,
+        Rect.fromLTWH(x, 0, sw + 1, grH),
+        Paint()..color = FabFilterProcessorColors.compGainReduction.withValues(alpha: 0.35),
       );
     }
-
-    // Labels
-    final labelPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-    );
-
-    // Threshold label
-    labelPainter.text = TextSpan(
-      text: '${threshold.toStringAsFixed(0)} dB',
-      style: TextStyle(
-        color: FabFilterColors.orange,
-        fontSize: 9,
-      ),
-    );
-    labelPainter.layout();
-    labelPainter.paint(canvas, Offset(4, thresholdY - 12));
   }
 
   @override
-  bool shouldRepaint(covariant _LevelDisplayPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _GrHistoryPainter old) => true;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// KNEE CURVE PAINTER (Transfer function)
+// KNEE CURVE PAINTER (transfer function)
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _KneeCurvePainter extends CustomPainter {
-  final double threshold;
-  final double ratio;
-  final double knee;
-  final double currentInput;
+  final double threshold, ratio, knee, currentInput;
 
   _KneeCurvePainter({
-    required this.threshold,
-    required this.ratio,
-    required this.knee,
-    required this.currentInput,
+    required this.threshold, required this.ratio,
+    required this.knee, required this.currentInput,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-
     // Background
-    final bgPaint = Paint()
+    canvas.drawRect(Offset.zero & size, Paint()
       ..shader = ui.Gradient.linear(
-        Offset(0, 0),
-        Offset(0, size.height),
-        [
-          FabFilterColors.bgVoid,
-          FabFilterColors.bgDeep,
-        ],
-      );
-    canvas.drawRect(rect, bgPaint);
+        Offset.zero, Offset(0, size.height),
+        [FabFilterColors.bgVoid, FabFilterColors.bgDeep],
+      ));
+
+    final gridPaint = Paint()..color = FabFilterColors.grid..strokeWidth = 0.5;
+
+    // 1:1 diagonal
+    canvas.drawLine(Offset(0, size.height), Offset(size.width, 0), gridPaint);
 
     // Grid
-    final gridPaint = Paint()
-      ..color = FabFilterColors.grid
-      ..strokeWidth = 0.5;
-
-    // Diagonal 1:1 line
-    canvas.drawLine(
-      Offset(0, size.height),
-      Offset(size.width, 0),
-      gridPaint,
-    );
-
-    // Grid squares
-    final gridSize = size.width / 4;
+    final gs = size.width / 4;
     for (var i = 1; i < 4; i++) {
-      canvas.drawLine(
-        Offset(i * gridSize, 0),
-        Offset(i * gridSize, size.height),
-        gridPaint,
-      );
-      canvas.drawLine(
-        Offset(0, i * gridSize),
-        Offset(size.width, i * gridSize),
-        gridPaint,
-      );
+      canvas.drawLine(Offset(i * gs, 0), Offset(i * gs, size.height), gridPaint);
+      canvas.drawLine(Offset(0, i * gs), Offset(size.width, i * gs), gridPaint);
     }
 
-    // Draw compression curve
-    final curvePaint = Paint()
-      ..color = FabFilterColors.orange
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-
+    // Transfer curve
+    const minDb = -60.0, maxDb = 0.0, dbRange = maxDb - minDb;
     final curvePath = Path();
+    final halfKnee = knee / 2;
+    final kneeStart = threshold - halfKnee;
+    final kneeEnd = threshold + halfKnee;
 
-    // Input range: -60 to 0 dB
-    // Output range: -60 to 0 dB
-    const minDb = -60.0;
-    const maxDb = 0.0;
-    const dbRange = maxDb - minDb;
-
-    for (var i = 0; i <= size.width; i++) {
-      final inputDb = minDb + (i / size.width) * dbRange;
-      double outputDb;
-
-      // Calculate output with knee
-      final halfKnee = knee / 2;
-      final kneeStart = threshold - halfKnee;
-      final kneeEnd = threshold + halfKnee;
-
-      if (inputDb < kneeStart) {
-        // Below knee - 1:1 ratio
-        outputDb = inputDb;
-      } else if (inputDb > kneeEnd) {
-        // Above knee - full compression
-        outputDb = threshold + (inputDb - threshold) / ratio;
+    for (var i = 0; i <= size.width.toInt(); i++) {
+      final inDb = minDb + (i / size.width) * dbRange;
+      double outDb;
+      if (inDb < kneeStart) {
+        outDb = inDb;
+      } else if (inDb > kneeEnd) {
+        outDb = threshold + (inDb - threshold) / ratio;
       } else {
-        // In knee region - smooth transition
-        final kneePosition = (inputDb - kneeStart) / knee;
-        final compressionAmount =
-            1 + (1 / ratio - 1) * kneePosition * kneePosition;
-        outputDb =
-            kneeStart + (inputDb - kneeStart) * (1 + compressionAmount) / 2;
+        final kp = (inDb - kneeStart) / knee;
+        final ca = 1 + (1 / ratio - 1) * kp * kp;
+        outDb = kneeStart + (inDb - kneeStart) * (1 + ca) / 2;
       }
-
-      // Convert to screen coordinates
       final x = i.toDouble();
-      final y = size.height * (1 - (outputDb - minDb) / dbRange);
-
-      if (i == 0) {
-        curvePath.moveTo(x, y);
-      } else {
-        curvePath.lineTo(x, y);
-      }
+      final y = size.height * (1 - (outDb - minDb) / dbRange);
+      i == 0 ? curvePath.moveTo(x, y) : curvePath.lineTo(x, y);
     }
 
-    canvas.drawPath(curvePath, curvePaint);
+    canvas.drawPath(curvePath, Paint()
+      ..color = FabFilterProcessorColors.compAccent
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke);
 
-    // Current input indicator (animated dot)
+    // Current input dot
     if (currentInput > minDb) {
-      final inputX = size.width * ((currentInput - minDb) / dbRange);
-
-      // Calculate output for current input
-      double outputDb;
-      final halfKnee = knee / 2;
-      final kneeStart = threshold - halfKnee;
-      final kneeEnd = threshold + halfKnee;
-
+      final inX = size.width * ((currentInput - minDb) / dbRange);
+      double outDb;
       if (currentInput < kneeStart) {
-        outputDb = currentInput;
+        outDb = currentInput;
       } else if (currentInput > kneeEnd) {
-        outputDb = threshold + (currentInput - threshold) / ratio;
+        outDb = threshold + (currentInput - threshold) / ratio;
       } else {
-        final kneePosition = (currentInput - kneeStart) / knee;
-        final compressionAmount =
-            1 + (1 / ratio - 1) * kneePosition * kneePosition;
-        outputDb =
-            kneeStart + (currentInput - kneeStart) * (1 + compressionAmount) / 2;
+        final kp = (currentInput - kneeStart) / knee;
+        final ca = 1 + (1 / ratio - 1) * kp * kp;
+        outDb = kneeStart + (currentInput - kneeStart) * (1 + ca) / 2;
       }
-
-      final outputY = size.height * (1 - (outputDb - minDb) / dbRange);
-
-      // Draw indicator
-      final dotPaint = Paint()
-        ..color = FabFilterColors.yellow
-        ..style = PaintingStyle.fill;
-
-      canvas.drawCircle(Offset(inputX, outputY), 5, dotPaint);
-
-      // Draw lines to axes
-      final linePaint = Paint()
-        ..color = FabFilterColors.yellow.withValues(alpha: 0.3)
-        ..strokeWidth = 1
-        ..style = PaintingStyle.stroke;
-
-      canvas.drawLine(
-        Offset(inputX, outputY),
-        Offset(inputX, size.height),
-        linePaint,
-      );
-      canvas.drawLine(
-        Offset(inputX, outputY),
-        Offset(0, outputY),
-        linePaint,
-      );
+      final outY = size.height * (1 - (outDb - minDb) / dbRange);
+      canvas.drawCircle(Offset(inX, outY), 4, Paint()..color = FabFilterProcessorColors.compThreshold);
+      final lp = Paint()
+        ..color = FabFilterProcessorColors.compThreshold.withValues(alpha: 0.3)
+        ..strokeWidth = 1;
+      canvas.drawLine(Offset(inX, outY), Offset(inX, size.height), lp);
+      canvas.drawLine(Offset(inX, outY), Offset(0, outY), lp);
     }
 
     // Threshold marker
-    final thresholdX = size.width * ((threshold - minDb) / dbRange);
-    final thresholdPaint = Paint()
-      ..color = FabFilterColors.orange.withValues(alpha: 0.5)
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawLine(
-      Offset(thresholdX, 0),
-      Offset(thresholdX, size.height),
-      thresholdPaint,
-    );
-
-    // Labels
-    _drawLabel(canvas, 'IN', Offset(size.width - 16, size.height - 12));
-    _drawLabel(canvas, 'OUT', Offset(4, 4));
-  }
-
-  void _drawLabel(Canvas canvas, String text, Offset offset) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: FabFilterColors.textMuted,
-          fontSize: 9,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    painter.layout();
-    painter.paint(canvas, offset);
+    final thX = size.width * ((threshold - minDb) / dbRange);
+    canvas.drawLine(Offset(thX, 0), Offset(thX, size.height), Paint()
+      ..color = FabFilterProcessorColors.compThreshold.withValues(alpha: 0.4)
+      ..strokeWidth = 1);
   }
 
   @override
-  bool shouldRepaint(covariant _KneeCurvePainter oldDelegate) =>
-      oldDelegate.threshold != threshold ||
-      oldDelegate.ratio != ratio ||
-      oldDelegate.knee != knee ||
-      oldDelegate.currentInput != currentInput;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SIDECHAIN EQ PAINTER
-// ═══════════════════════════════════════════════════════════════════════════
-
-class _SidechainEqPainter extends CustomPainter {
-  final List<SidechainBand> bands;
-  final double hpf;
-  final double lpf;
-
-  _SidechainEqPainter({
-    required this.bands,
-    required this.hpf,
-    required this.lpf,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-
-    // Background
-    canvas.drawRect(
-      rect,
-      Paint()..color = FabFilterColors.bgVoid,
-    );
-
-    // Grid
-    final gridPaint = Paint()
-      ..color = FabFilterColors.grid
-      ..strokeWidth = 0.5;
-
-    // Frequency grid (log scale)
-    for (final freq in [100, 1000, 10000]) {
-      final x = _freqToX(freq.toDouble(), size.width);
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-
-    // 0dB line
-    canvas.drawLine(
-      Offset(0, size.height / 2),
-      Offset(size.width, size.height / 2),
-      gridPaint,
-    );
-
-    // HPF/LPF shading
-    final filterPaint = Paint()
-      ..color = FabFilterColors.cyan.withValues(alpha: 0.1);
-
-    // HPF shade (left side)
-    final hpfX = _freqToX(hpf, size.width);
-    canvas.drawRect(
-      Rect.fromLTRB(0, 0, hpfX, size.height),
-      filterPaint,
-    );
-
-    // LPF shade (right side)
-    final lpfX = _freqToX(lpf, size.width);
-    canvas.drawRect(
-      Rect.fromLTRB(lpfX, 0, size.width, size.height),
-      filterPaint,
-    );
-
-    // HPF/LPF lines
-    final filterLinePaint = Paint()
-      ..color = FabFilterColors.cyan
-      ..strokeWidth = 1.5;
-
-    canvas.drawLine(Offset(hpfX, 0), Offset(hpfX, size.height), filterLinePaint);
-    canvas.drawLine(Offset(lpfX, 0), Offset(lpfX, size.height), filterLinePaint);
-
-    // Draw EQ curve (simplified)
-    final curvePaint = Paint()
-      ..color = FabFilterColors.blue
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    final curvePath = Path();
-    curvePath.moveTo(0, size.height / 2);
-
-    // Build approximate curve through bands
-    for (var i = 0; i < size.width; i += 2) {
-      final freq = _xToFreq(i.toDouble(), size.width);
-      var totalGain = 0.0;
-
-      for (final band in bands) {
-        if (!band.enabled) continue;
-
-        // Simple bell response approximation
-        final octaves = (math.log(freq / band.freq) / math.ln2).abs();
-        final response = band.gain * math.exp(-octaves * octaves * band.q);
-        totalGain += response;
-      }
-
-      final y = size.height / 2 - (totalGain / 24) * (size.height / 2);
-      curvePath.lineTo(i.toDouble(), y.clamp(0, size.height));
-    }
-
-    canvas.drawPath(curvePath, curvePaint);
-
-    // Draw band markers
-    final markerPaint = Paint()
-      ..color = FabFilterColors.blue
-      ..style = PaintingStyle.fill;
-
-    for (final band in bands) {
-      if (!band.enabled) continue;
-
-      final x = _freqToX(band.freq, size.width);
-      final y = size.height / 2 - (band.gain / 24) * (size.height / 2);
-
-      canvas.drawCircle(
-        Offset(x, y.clamp(4, size.height - 4)),
-        4,
-        markerPaint,
-      );
-    }
-  }
-
-  double _freqToX(double freq, double width) {
-    // Log scale: 20Hz to 20kHz
-    const minFreq = 20.0;
-    const maxFreq = 20000.0;
-    return width *
-        (math.log(freq / minFreq) / math.log(maxFreq / minFreq)).clamp(0, 1);
-  }
-
-  double _xToFreq(double x, double width) {
-    const minFreq = 20.0;
-    const maxFreq = 20000.0;
-    return minFreq * math.pow(maxFreq / minFreq, x / width);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SidechainEqPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _KneeCurvePainter old) =>
+      old.threshold != threshold || old.ratio != ratio ||
+      old.knee != knee || old.currentInput != currentInput;
 }

@@ -69,6 +69,10 @@ class _FabFilterKnobState extends State<FabFilterKnob>
   late AnimationController _glowController;
   late Animation<double> _glowAnimation;
 
+  // Floating value tooltip overlay
+  OverlayEntry? _tooltipOverlay;
+  final GlobalKey _knobKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -83,8 +87,63 @@ class _FabFilterKnobState extends State<FabFilterKnob>
 
   @override
   void dispose() {
+    _removeTooltip();
     _glowController.dispose();
     super.dispose();
+  }
+
+  void _showTooltip() {
+    _removeTooltip();
+    final overlay = Overlay.of(context);
+    _tooltipOverlay = OverlayEntry(builder: (_) => _buildTooltip());
+    overlay.insert(_tooltipOverlay!);
+  }
+
+  void _updateTooltip() {
+    _tooltipOverlay?.markNeedsBuild();
+  }
+
+  void _removeTooltip() {
+    _tooltipOverlay?.remove();
+    _tooltipOverlay = null;
+  }
+
+  Widget _buildTooltip() {
+    final box = _knobKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return const SizedBox.shrink();
+    final pos = box.localToGlobal(Offset(box.size.width / 2, 0));
+
+    return Positioned(
+      left: pos.dx - 36,
+      top: pos.dy - 28,
+      child: IgnorePointer(
+        child: Container(
+          width: 72,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: FabFilterColors.bgElevated,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: widget.color.withValues(alpha: 0.6)),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: 0.2),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+          child: Text(
+            widget.display,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: widget.color,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _handleDragStart(DragStartDetails details) {
@@ -95,6 +154,7 @@ class _FabFilterKnobState extends State<FabFilterKnob>
       _dragStartValue = widget.value;
     });
     _glowController.forward();
+    _showTooltip();
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -109,11 +169,13 @@ class _FabFilterKnobState extends State<FabFilterKnob>
     final newValue = (_dragStartValue + delta).clamp(0.0, 1.0);
 
     widget.onChanged(newValue);
+    _updateTooltip();
   }
 
   void _handleDragEnd(DragEndDetails details) {
     setState(() => _isDragging = false);
     _glowController.reverse();
+    _removeTooltip();
   }
 
   void _handleDoubleTap() {
@@ -165,6 +227,7 @@ class _FabFilterKnobState extends State<FabFilterKnob>
       animation: _glowAnimation,
       builder: (context, child) {
         return Container(
+          key: _knobKey,
           width: widget.size,
           height: widget.size,
           decoration: BoxDecoration(

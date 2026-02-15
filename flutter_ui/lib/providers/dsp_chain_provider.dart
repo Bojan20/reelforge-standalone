@@ -65,7 +65,7 @@ class DspNode {
     required this.id,
     required this.type,
     this.name = '',
-    this.bypass = false,
+    this.bypass = true,
     this.solo = false,
     this.order = 0,
     this.wetDry = 1.0,
@@ -393,7 +393,10 @@ class DspChainProvider extends ChangeNotifier {
       return;
     }
 
-    // 2. UI state — Only update on successful FFI call
+    // 2. Set bypass in engine (nodes default to bypassed)
+    _ffi.insertSetBypass(trackId, slotIndex, true);
+
+    // 3. UI state — Only update on successful FFI call
     final order = chain.nodes.isEmpty ? 0 : chain.nodes.map((n) => n.order).reduce((a, b) => a > b ? a : b) + 1;
     final node = DspNode.create(type, order: order);
     _chains[trackId] = chain.copyWith(nodes: [...chain.nodes, node]);

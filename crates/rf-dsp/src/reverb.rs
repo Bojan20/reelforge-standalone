@@ -569,9 +569,10 @@ impl DiffusionStage {
     }
 
     fn update_diffusion(&mut self, diffusion: f64) {
-        // diffusion 0.0-1.0 → active_count 2-6, feedback 0.4-0.75
+        // diffusion 0.0-1.0 → active_count 2-6, feedback 0.35-0.60
+        // Reduced feedback ceiling from 0.75 to 0.60 to prevent metallic ringing
         self.active_count = (2.0 + diffusion * 4.0) as usize;
-        let feedback = 0.4 + diffusion * 0.35;
+        let feedback = 0.35 + diffusion * 0.25;
         for ap in &mut self.allpasses_l {
             ap.feedback = feedback;
         }
@@ -601,7 +602,7 @@ impl DiffusionStage {
     }
 }
 
-/// Single FDN delay line with multi-band decay
+/// Single FDN delay line with multi-band decay + DC blocker
 #[derive(Debug, Clone)]
 struct FDNDelayLine {
     buffer: Vec<f64>,
@@ -610,6 +611,9 @@ struct FDNDelayLine {
     // One-pole LP/HP for multi-band decay
     lp_state: f64,
     hp_state: f64,
+    // DC blocker to prevent sub-bass buildup (rumble prevention)
+    dc_prev_in: f64,
+    dc_prev_out: f64,
 }
 
 impl FDNDelayLine {
@@ -622,6 +626,8 @@ impl FDNDelayLine {
             base_delay,
             lp_state: 0.0,
             hp_state: 0.0,
+            dc_prev_in: 0.0,
+            dc_prev_out: 0.0,
         }
     }
 
@@ -655,6 +661,7 @@ impl FDNDelayLine {
         high_mult: f64,
         lp_coeff: f64,
         hp_coeff: f64,
+        freeze: bool,
     ) -> f64 {
         // Band split using one-pole filters
         // LP: extract low frequencies
@@ -673,7 +680,17 @@ impl FDNDelayLine {
             + mid * base_feedback
             + high * base_feedback * high_mult;
 
-        shaped
+        // DC blocker (first-order high-pass @ ~5 Hz) — prevents sub-bass rumble buildup
+        // Bypassed in freeze mode to maintain energy
+        if freeze {
+            return shaped;
+        }
+        // y[n] = x[n] - x[n-1] + R * y[n-1], R = 0.9995 (~5 Hz @ 48kHz)
+        let dc_out = shaped - self.dc_prev_in + 0.9995 * self.dc_prev_out;
+        self.dc_prev_in = shaped;
+        self.dc_prev_out = dc_out;
+
+        dc_out
     }
 
     fn reset(&mut self) {
@@ -681,6 +698,8 @@ impl FDNDelayLine {
         self.write_pos = 0;
         self.lp_state = 0.0;
         self.hp_state = 0.0;
+        self.dc_prev_in = 0.0;
+        self.dc_prev_out = 0.0;
     }
 }
 
@@ -755,9 +774,9 @@ impl FDNCore {
     }
 
     fn update_decay(&mut self, decay: f64) {
-        // decay 0.0-1.0 → feedback gain 0.40-0.965
-        // Low floor for short, tight decays. High ceiling for long lush tails.
-        let gain = 0.40 + decay * 0.565;
+        // decay 0.0-1.0 → feedback gain 0.40-0.94
+        // Reduced ceiling from 0.965 to 0.94 for cleaner tails without runaway energy
+        let gain = 0.40 + decay * 0.54;
         for g in &mut self.feedback_gains {
             *g = gain;
         }
@@ -821,8 +840,9 @@ impl FDNCore {
         ];
 
         // Thickness: low_boost for warm bass, saturation for density
-        let low_boost = 1.0 + thickness * 0.5;
-        let saturation = thickness * 0.15; // Gentle soft-clipping for density
+        // Reduced from 0.5/0.15 to prevent LF buildup and runaway energy in feedback
+        let low_boost = 1.0 + thickness * 0.2;   // Max 1.2× bass (was 1.5×)
+        let saturation = thickness * 0.06;        // Gentler soft-clip (was 0.15)
 
         for i in 0..8 {
             // In freeze mode, override feedback to near-unity for infinite sustain
@@ -834,11 +854,13 @@ impl FDNCore {
                 high_mult,
                 self.lp_coeff,
                 self.hp_coeff,
+                self.freeze,
             );
 
             // Thickness saturation: tanh-style soft-clip for density
+            // Drive reduced to max 1.12 (was 1.45) to prevent energy buildup in feedback
             let with_thickness = if saturation > 0.001 {
-                let drive = 1.0 + saturation * 3.0;
+                let drive = 1.0 + saturation * 2.0;
                 (shaped * drive).tanh() / drive.tanh()
             } else {
                 shaped
@@ -971,7 +993,7 @@ impl AlgorithmicReverb {
         let max_predelay = (sample_rate * 0.5) as usize; // 500ms max predelay
 
         let mut reverb = Self {
-            style: ReverbType::Room,
+            style: ReverbType::Hall,
             er_engine: EarlyReflectionEngine::new(sample_rate),
             diffusion: DiffusionStage::new(sample_rate),
             fdn: FDNCore::new(sample_rate),
@@ -982,13 +1004,13 @@ impl AlgorithmicReverb {
             width: 1.0,
             mix: 0.33,
             predelay_ms: 0.0,
-            diffusion_param: 0.7,
-            distance: 0.5,
+            diffusion_param: 0.0,
+            distance: 0.0,
             decay: 0.5,
             low_decay_mult: 1.0,
             high_decay_mult: 1.0,
-            character: 0.3,
-            thickness: 0.3,
+            character: 0.0,
+            thickness: 0.0,
             ducking: 0.0,
             freeze_param: false,
 
@@ -1027,8 +1049,8 @@ impl AlgorithmicReverb {
         let effective_diffusion = self.diffusion_param * scaling.diffusion;
         self.diffusion.update_diffusion(effective_diffusion.clamp(0.0, 1.0));
 
-        // Character affects mod depth (chorus) + diffusion density
-        let effective_mod = 0.0005 + self.character * 0.01; // 0.0005-0.0105
+        // Character affects mod depth (chorus) — subtle range to avoid metallic artifacts
+        let effective_mod = 0.0001 + self.character * 0.003; // 0.0001-0.0031 (was 0.0005-0.0105)
         self.fdn.mod_depth = effective_mod * scaling.modulation;
 
         // Ducking amount

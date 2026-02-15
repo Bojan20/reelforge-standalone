@@ -43,10 +43,23 @@ impl Default for AtomicF64 {
 // ============ ProEQ Wrapper ============
 
 /// Professional 64-band EQ wrapper
+///
+/// Global params (after band params at index 768+):
+///   768: Output Gain (dB)
+///   769: Auto-Gain (0=off, 1=on)
+///   770: Solo Band (-1=none, 0-63=band index)
 pub struct ProEqWrapper {
     eq: ProEq,
     sample_rate: f64,
     bypassed: bool,
+    /// Auto-gain compensation: measure input/output loudness, adjust output to match
+    auto_gain: bool,
+    /// Solo band index: -1 = none, 0-63 = solo that band (mute others in processing)
+    solo_band: i32,
+    /// Saved enabled states for un-solo restore
+    solo_saved_enabled: [bool; 64],
+    /// Whether solo state was applied (to avoid re-applying)
+    solo_applied: bool,
 }
 
 impl ProEqWrapper {
@@ -55,6 +68,10 @@ impl ProEqWrapper {
             eq: ProEq::new(sample_rate),
             sample_rate,
             bypassed: false,
+            auto_gain: false,
+            solo_band: -1,
+            solo_saved_enabled: [false; 64],
+            solo_applied: false,
         }
     }
 
@@ -121,7 +138,38 @@ impl InsertProcessor for ProEqWrapper {
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
-        if !self.bypassed {
+        if self.bypassed {
+            return;
+        }
+        if self.auto_gain {
+            // Measure input RMS
+            let len = left.len() as f64;
+            let in_rms = if len > 0.0 {
+                let sum: f64 = left.iter().chain(right.iter()).map(|s| s * s).sum();
+                (sum / (len * 2.0)).sqrt()
+            } else {
+                0.0
+            };
+            self.eq.process_block(left, right);
+            // Measure output RMS and apply compensation gain
+            let out_rms = if len > 0.0 {
+                let sum: f64 = left.iter().chain(right.iter()).map(|s| s * s).sum();
+                (sum / (len * 2.0)).sqrt()
+            } else {
+                0.0
+            };
+            if out_rms > 1e-10 && in_rms > 1e-10 {
+                let compensation = in_rms / out_rms;
+                // Clamp compensation to ±12dB range to avoid extreme corrections
+                let comp_clamped = compensation.clamp(0.25, 4.0);
+                for s in left.iter_mut() {
+                    *s *= comp_clamped;
+                }
+                for s in right.iter_mut() {
+                    *s *= comp_clamped;
+                }
+            }
+        } else {
             self.eq.process_block(left, right);
         }
     }
@@ -191,7 +239,14 @@ impl InsertProcessor for ProEqWrapper {
                 0.0
             }
         } else {
-            0.0
+            // Global params
+            let global_idx = index - max_bands * per_band;
+            match global_idx {
+                0 => self.eq.output_gain_db,
+                1 => if self.auto_gain { 1.0 } else { 0.0 },
+                2 => self.solo_band as f64,
+                _ => 0.0,
+            }
         }
     }
 
@@ -260,6 +315,32 @@ impl InsertProcessor for ProEqWrapper {
             let global_idx = index - max_bands * per_band;
             match global_idx {
                 0 => self.eq.output_gain_db = value.clamp(-24.0, 24.0),
+                1 => self.auto_gain = value > 0.5,
+                2 => {
+                    let new_solo = (value as i32).clamp(-1, 63);
+                    if new_solo != self.solo_band {
+                        // Restore previously saved enabled states
+                        if self.solo_applied {
+                            for i in 0..rf_dsp::PRO_EQ_MAX_BANDS {
+                                self.eq.enable_band(i, self.solo_saved_enabled[i]);
+                            }
+                            self.solo_applied = false;
+                        }
+                        self.solo_band = new_solo;
+                        // Apply new solo: save states, then mute all except solo band
+                        if new_solo >= 0 {
+                            for i in 0..rf_dsp::PRO_EQ_MAX_BANDS {
+                                if let Some(band) = self.eq.band(i) {
+                                    self.solo_saved_enabled[i] = band.enabled;
+                                }
+                            }
+                            for i in 0..rf_dsp::PRO_EQ_MAX_BANDS {
+                                self.eq.enable_band(i, i == new_solo as usize);
+                            }
+                            self.solo_applied = true;
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -272,6 +353,8 @@ impl InsertProcessor for ProEqWrapper {
             let global_idx = index - max_bands * per_band;
             return match global_idx {
                 0 => "Output Gain",
+                1 => "Auto-Gain",
+                2 => "Solo Band",
                 _ => "",
             };
         }
@@ -1177,10 +1260,36 @@ impl InsertProcessor for TruePeakLimiterWrapper {
 }
 
 /// Gate wrapper for insert chain
+/// Gate Parameter Map (10 params total):
+///   0: Threshold (dB)      5: Mode (0=Gate, 1=Duck, 2=Expand)
+///   1: Range (dB)           6: SC Enable (bool)
+///   2: Attack (ms)          7: SC HP Freq (Hz)
+///   3: Hold (ms)            8: SC LP Freq (Hz)
+///   4: Release (ms)         9: Lookahead (ms)
+///
+/// Meters:
+///   0: Input Level (dB)
+///   1: Output Level (dB)
+///   2: Gate Gain (0.0-1.0, 0=closed, 1=open)
 pub struct GateWrapper {
     left: Gate,
     right: Gate,
     sample_rate: f64,
+    /// 0=Gate, 1=Duck, 2=Expand
+    mode: u8,
+    /// Sidechain HP filter frequency (Hz)
+    sc_hp_freq: f64,
+    /// Sidechain LP filter frequency (Hz)
+    sc_lp_freq: f64,
+    /// Lookahead in ms (stored but not yet applied in DSP)
+    lookahead_ms: f64,
+    /// Stored params for get_param
+    params: [f64; 10],
+    /// Metering: input peak L, input peak R, output peak L, output peak R, gate gain
+    input_peak_l: f64,
+    input_peak_r: f64,
+    output_peak_l: f64,
+    output_peak_r: f64,
 }
 
 impl GateWrapper {
@@ -1189,32 +1298,72 @@ impl GateWrapper {
             left: Gate::new(sample_rate),
             right: Gate::new(sample_rate),
             sample_rate,
+            mode: 0,
+            sc_hp_freq: 20.0,
+            sc_lp_freq: 20000.0,
+            lookahead_ms: 0.0,
+            params: [-40.0, -80.0, 1.0, 50.0, 100.0, 0.0, 0.0, 20.0, 20000.0, 0.0],
+            input_peak_l: 0.0,
+            input_peak_r: 0.0,
+            output_peak_l: 0.0,
+            output_peak_r: 0.0,
         }
     }
 
     pub fn set_threshold(&mut self, db: f64) {
+        self.params[0] = db;
         self.left.set_threshold(db);
         self.right.set_threshold(db);
     }
 
     pub fn set_range(&mut self, db: f64) {
+        self.params[1] = db;
         self.left.set_range(db);
         self.right.set_range(db);
     }
 
     pub fn set_attack(&mut self, ms: f64) {
+        self.params[2] = ms;
         self.left.set_attack(ms);
         self.right.set_attack(ms);
     }
 
     pub fn set_hold(&mut self, ms: f64) {
+        self.params[3] = ms;
         self.left.set_hold(ms);
         self.right.set_hold(ms);
     }
 
     pub fn set_release(&mut self, ms: f64) {
+        self.params[4] = ms;
         self.left.set_release(ms);
         self.right.set_release(ms);
+    }
+
+    pub fn set_mode(&mut self, mode: f64) {
+        self.mode = (mode as u8).min(2);
+        self.params[5] = self.mode as f64;
+    }
+
+    pub fn set_sidechain_enabled(&mut self, enabled: bool) {
+        self.params[6] = if enabled { 1.0 } else { 0.0 };
+        self.left.set_sidechain_enabled(enabled);
+        self.right.set_sidechain_enabled(enabled);
+    }
+
+    pub fn set_sc_hp_freq(&mut self, freq: f64) {
+        self.sc_hp_freq = freq.clamp(20.0, 500.0);
+        self.params[7] = self.sc_hp_freq;
+    }
+
+    pub fn set_sc_lp_freq(&mut self, freq: f64) {
+        self.sc_lp_freq = freq.clamp(1000.0, 20000.0);
+        self.params[8] = self.sc_lp_freq;
+    }
+
+    pub fn set_lookahead(&mut self, ms: f64) {
+        self.lookahead_ms = ms.clamp(0.0, 100.0);
+        self.params[9] = self.lookahead_ms;
     }
 }
 
@@ -1224,25 +1373,83 @@ impl InsertProcessor for GateWrapper {
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
-        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
-            *l = self.left.process_sample(*l);
-            *r = self.right.process_sample(*r);
+        // Update input peak metering
+        let mut in_peak_l: f64 = 0.0;
+        let mut in_peak_r: f64 = 0.0;
+        for (l, r) in left.iter().zip(right.iter()) {
+            in_peak_l = in_peak_l.max(l.abs());
+            in_peak_r = in_peak_r.max(r.abs());
         }
+        self.input_peak_l = in_peak_l;
+        self.input_peak_r = in_peak_r;
+
+        // Process based on mode
+        match self.mode {
+            1 => {
+                // Duck mode: attenuate when signal EXCEEDS threshold (inverse gate)
+                for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+                    let gate_l = self.left.process_sample(*l);
+                    let gate_r = self.right.process_sample(*r);
+                    // Invert: where gate would open, we duck; where gate closes, we pass
+                    let duck_gain_l = if in_peak_l > 1e-10 { 1.0 - (gate_l / *l).abs().min(1.0) } else { 1.0 };
+                    let duck_gain_r = if in_peak_r > 1e-10 { 1.0 - (gate_r / *r).abs().min(1.0) } else { 1.0 };
+                    *l *= duck_gain_l.max(0.0);
+                    *r *= duck_gain_r.max(0.0);
+                }
+            }
+            _ => {
+                // Gate mode (0) and Expand mode (2) use standard gate processing
+                for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+                    *l = self.left.process_sample(*l);
+                    *r = self.right.process_sample(*r);
+                }
+            }
+        }
+
+        // Update output peak metering
+        let mut out_peak_l: f64 = 0.0;
+        let mut out_peak_r: f64 = 0.0;
+        for (l, r) in left.iter().zip(right.iter()) {
+            out_peak_l = out_peak_l.max(l.abs());
+            out_peak_r = out_peak_r.max(r.abs());
+        }
+        self.output_peak_l = out_peak_l;
+        self.output_peak_r = out_peak_r;
     }
 
     fn reset(&mut self) {
         self.left.reset();
         self.right.reset();
+        self.input_peak_l = 0.0;
+        self.input_peak_r = 0.0;
+        self.output_peak_l = 0.0;
+        self.output_peak_r = 0.0;
     }
 
     fn set_sample_rate(&mut self, sample_rate: f64) {
         self.sample_rate = sample_rate;
+        let mode = self.mode;
+        let sc_en = self.params[6] > 0.5;
         self.left = Gate::new(sample_rate);
         self.right = Gate::new(sample_rate);
+        // Restore state after recreating gates
+        self.left.set_threshold(self.params[0]);
+        self.right.set_threshold(self.params[0]);
+        self.left.set_range(self.params[1]);
+        self.right.set_range(self.params[1]);
+        self.left.set_attack(self.params[2]);
+        self.right.set_attack(self.params[2]);
+        self.left.set_hold(self.params[3]);
+        self.right.set_hold(self.params[3]);
+        self.left.set_release(self.params[4]);
+        self.right.set_release(self.params[4]);
+        self.left.set_sidechain_enabled(sc_en);
+        self.right.set_sidechain_enabled(sc_en);
+        self.mode = mode;
     }
 
     fn num_params(&self) -> usize {
-        5
+        10
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
@@ -1252,7 +1459,19 @@ impl InsertProcessor for GateWrapper {
             2 => self.set_attack(value),
             3 => self.set_hold(value),
             4 => self.set_release(value),
+            5 => self.set_mode(value),
+            6 => self.set_sidechain_enabled(value > 0.5),
+            7 => self.set_sc_hp_freq(value),
+            8 => self.set_sc_lp_freq(value),
+            9 => self.set_lookahead(value),
             _ => {}
+        }
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        match index {
+            0..=9 => self.params[index],
+            _ => 0.0,
         }
     }
 
@@ -1263,7 +1482,34 @@ impl InsertProcessor for GateWrapper {
             2 => "Attack",
             3 => "Hold",
             4 => "Release",
+            5 => "Mode",
+            6 => "SC Enable",
+            7 => "SC HP Freq",
+            8 => "SC LP Freq",
+            9 => "Lookahead",
             _ => "",
+        }
+    }
+
+    fn get_meter(&self, index: usize) -> f64 {
+        match index {
+            0 => {
+                // Input level (dB) — max of L/R
+                let peak = self.input_peak_l.max(self.input_peak_r);
+                if peak > 1e-10 { 20.0 * peak.log10() } else { -100.0 }
+            }
+            1 => {
+                // Output level (dB) — max of L/R
+                let peak = self.output_peak_l.max(self.output_peak_r);
+                if peak > 1e-10 { 20.0 * peak.log10() } else { -100.0 }
+            }
+            2 => {
+                // Gate gain (0.0-1.0) — derived from input/output ratio
+                let input = self.input_peak_l.max(self.input_peak_r);
+                let output = self.output_peak_l.max(self.output_peak_r);
+                if input > 1e-10 { (output / input).min(1.0) } else { 1.0 }
+            }
+            _ => 0.0,
         }
     }
 }
@@ -3347,5 +3593,239 @@ mod tests {
             let peak = left.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
             assert!(peak > 0.0, "Type {} should produce non-zero output, got {}", type_idx, peak);
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Gate Wrapper Tests
+    // ═══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_gate_wrapper_factory() {
+        let proc = create_processor_extended("gate", 48000.0);
+        assert!(proc.is_some());
+        assert_eq!(proc.unwrap().name(), "FluxForge Studio Gate");
+    }
+
+    #[test]
+    fn test_gate_wrapper_num_params() {
+        let proc = create_processor_extended("gate", 48000.0).unwrap();
+        assert_eq!(proc.num_params(), 10);
+    }
+
+    #[test]
+    fn test_gate_wrapper_param_names() {
+        let proc = create_processor_extended("gate", 48000.0).unwrap();
+        assert_eq!(proc.param_name(0), "Threshold");
+        assert_eq!(proc.param_name(1), "Range");
+        assert_eq!(proc.param_name(2), "Attack");
+        assert_eq!(proc.param_name(3), "Hold");
+        assert_eq!(proc.param_name(4), "Release");
+        assert_eq!(proc.param_name(5), "Mode");
+        assert_eq!(proc.param_name(6), "SC Enable");
+        assert_eq!(proc.param_name(7), "SC HP Freq");
+        assert_eq!(proc.param_name(8), "SC LP Freq");
+        assert_eq!(proc.param_name(9), "Lookahead");
+    }
+
+    #[test]
+    fn test_gate_wrapper_set_get_roundtrip() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        // Core params
+        proc.set_param(0, -30.0); // threshold
+        assert!((proc.get_param(0) - (-30.0)).abs() < 0.01);
+        proc.set_param(1, -40.0); // range
+        assert!((proc.get_param(1) - (-40.0)).abs() < 0.01);
+        proc.set_param(2, 2.0); // attack
+        assert!((proc.get_param(2) - 2.0).abs() < 0.01);
+        proc.set_param(3, 50.0); // hold
+        assert!((proc.get_param(3) - 50.0).abs() < 0.01);
+        proc.set_param(4, 100.0); // release
+        assert!((proc.get_param(4) - 100.0).abs() < 0.01);
+        // Extended params
+        proc.set_param(5, 1.0); // mode = duck
+        assert!((proc.get_param(5) - 1.0).abs() < 0.01);
+        proc.set_param(6, 1.0); // SC enabled
+        assert!((proc.get_param(6) - 1.0).abs() < 0.01);
+        proc.set_param(7, 200.0); // SC HPF
+        assert!((proc.get_param(7) - 200.0).abs() < 0.01);
+        proc.set_param(8, 8000.0); // SC LPF
+        assert!((proc.get_param(8) - 8000.0).abs() < 0.01);
+        proc.set_param(9, 5.0); // lookahead
+        assert!((proc.get_param(9) - 5.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_gate_wrapper_mode_switching() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        // Gate mode (default)
+        assert!((proc.get_param(5) - 0.0).abs() < 0.01);
+        // Duck mode
+        proc.set_param(5, 1.0);
+        assert!((proc.get_param(5) - 1.0).abs() < 0.01);
+        // Expand mode
+        proc.set_param(5, 2.0);
+        assert!((proc.get_param(5) - 2.0).abs() < 0.01);
+        // Clamp invalid
+        proc.set_param(5, 99.0);
+        assert!(proc.get_param(5) <= 2.0);
+    }
+
+    #[test]
+    fn test_gate_wrapper_sidechain_params() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        // SC disabled by default
+        assert!(proc.get_param(6) < 0.5);
+        // Enable SC
+        proc.set_param(6, 1.0);
+        assert!(proc.get_param(6) > 0.5);
+        // HPF clamp
+        proc.set_param(7, 5.0); // below min 20
+        assert!(proc.get_param(7) >= 20.0);
+        proc.set_param(7, 500.0);
+        assert!((proc.get_param(7) - 500.0).abs() < 0.01);
+        // LPF clamp
+        proc.set_param(8, 25000.0); // above max 20000
+        assert!(proc.get_param(8) <= 20000.0);
+        proc.set_param(8, 5000.0);
+        assert!((proc.get_param(8) - 5000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_gate_wrapper_process_stereo() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        proc.set_param(0, -60.0); // very low threshold => gate open
+        let mut left = vec![0.5; 512];
+        let mut right = vec![0.5; 512];
+        proc.process_stereo(&mut left, &mut right);
+        assert!(left.iter().all(|s| s.is_finite()));
+        assert!(right.iter().all(|s| s.is_finite()));
+    }
+
+    #[test]
+    fn test_gate_wrapper_meters() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        let mut left = vec![0.3; 512];
+        let mut right = vec![0.3; 512];
+        proc.process_stereo(&mut left, &mut right);
+        // Meter 0: input level (dB), 1: output level (dB), 2: gate gain (0-1)
+        let in_db = proc.get_meter(0);
+        let out_db = proc.get_meter(1);
+        let gate_gain = proc.get_meter(2);
+        assert!(in_db.is_finite(), "Input dB should be finite, got {}", in_db);
+        assert!(in_db > -100.0, "Input dB should be above -100, got {}", in_db);
+        assert!(out_db.is_finite(), "Output dB should be finite, got {}", out_db);
+        assert!(gate_gain >= 0.0 && gate_gain <= 1.0, "Gate gain should be 0-1, got {}", gate_gain);
+    }
+
+    #[test]
+    fn test_gate_wrapper_duck_mode_processing() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        proc.set_param(5, 1.0); // Duck mode
+        proc.set_param(0, -60.0); // Low threshold => gate open => duck should attenuate
+        let mut left = vec![0.5; 512];
+        let mut right = vec![0.5; 512];
+        proc.process_stereo(&mut left, &mut right);
+        // In duck mode, output should still be finite
+        assert!(left.iter().all(|s| s.is_finite()));
+    }
+
+    #[test]
+    fn test_gate_wrapper_invalid_param_index() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        // Out of range should return 0.0 / do nothing
+        assert_eq!(proc.get_param(99), 0.0);
+        proc.set_param(99, 42.0); // Should not panic
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // EQ Auto-Gain & Solo Tests
+    // ═══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_eq_auto_gain_param() {
+        let mut proc = create_processor_extended("pro-eq", 48000.0).unwrap();
+        let ag_idx = 64 * 12 + 1; // global param 1 = auto-gain
+        // Default: off
+        assert!(proc.get_param(ag_idx) < 0.5);
+        // Enable
+        proc.set_param(ag_idx, 1.0);
+        assert!(proc.get_param(ag_idx) > 0.5);
+        // Disable
+        proc.set_param(ag_idx, 0.0);
+        assert!(proc.get_param(ag_idx) < 0.5);
+    }
+
+    #[test]
+    fn test_eq_solo_band_param() {
+        let mut proc = create_processor_extended("pro-eq", 48000.0).unwrap();
+        let solo_idx = 64 * 12 + 2; // global param 2 = solo band
+        // Default: -1 (no solo)
+        assert!((proc.get_param(solo_idx) - (-1.0)).abs() < 0.01);
+        // Solo band 0
+        proc.set_param(solo_idx, 0.0);
+        assert!((proc.get_param(solo_idx) - 0.0).abs() < 0.01);
+        // Solo band 5
+        proc.set_param(solo_idx, 5.0);
+        assert!((proc.get_param(solo_idx) - 5.0).abs() < 0.01);
+        // Un-solo
+        proc.set_param(solo_idx, -1.0);
+        assert!((proc.get_param(solo_idx) - (-1.0)).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_eq_solo_band_restores_enabled() {
+        let mut proc = create_processor_extended("pro-eq", 48000.0).unwrap();
+        let solo_idx = 64 * 12 + 2;
+        // Enable bands 0 and 1
+        proc.set_param(0 * 12 + 3, 1.0); // band 0 enabled
+        proc.set_param(1 * 12 + 3, 1.0); // band 1 enabled
+        assert!(proc.get_param(0 * 12 + 3) > 0.5);
+        assert!(proc.get_param(1 * 12 + 3) > 0.5);
+        // Solo band 0 — band 1 should become disabled
+        proc.set_param(solo_idx, 0.0);
+        assert!(proc.get_param(0 * 12 + 3) > 0.5); // band 0 still enabled (soloed)
+        assert!(proc.get_param(1 * 12 + 3) < 0.5); // band 1 disabled
+        // Un-solo — band 1 should be restored
+        proc.set_param(solo_idx, -1.0);
+        assert!(proc.get_param(0 * 12 + 3) > 0.5);
+        assert!(proc.get_param(1 * 12 + 3) > 0.5);
+    }
+
+    #[test]
+    fn test_eq_auto_gain_processing() {
+        let mut proc = create_processor_extended("pro-eq", 48000.0).unwrap();
+        let ag_idx = 64 * 12 + 1;
+        // Enable a high-gain band to make a measurable level difference
+        proc.set_param(0 * 12 + 0, 1000.0); // freq
+        proc.set_param(0 * 12 + 1, 12.0);   // +12dB gain
+        proc.set_param(0 * 12 + 2, 1.0);    // Q
+        proc.set_param(0 * 12 + 3, 1.0);    // enabled
+        // Process without auto-gain
+        let mut left = vec![0.3; 1024];
+        let mut right = vec![0.3; 1024];
+        proc.process_stereo(&mut left, &mut right);
+        let peak_no_ag = left.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        // Reset and process with auto-gain
+        proc.reset();
+        proc.set_param(ag_idx, 1.0);
+        let mut left2 = vec![0.3; 1024];
+        let mut right2 = vec![0.3; 1024];
+        proc.process_stereo(&mut left2, &mut right2);
+        let peak_ag = left2.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        // Auto-gain should compensate — output peak should be closer to input (0.3) than without AG
+        // With +12dB boost and no AG, peak should be much higher
+        assert!(peak_no_ag > 0.3, "No-AG peak should be above input level");
+        assert!(peak_ag < peak_no_ag, "Auto-gain peak ({:.3}) should be lower than no-AG ({:.3})", peak_ag, peak_no_ag);
+    }
+
+    #[test]
+    fn test_eq_output_gain_get_param() {
+        let mut proc = create_processor_extended("pro-eq", 48000.0).unwrap();
+        let out_idx = 64 * 12; // global param 0 = output gain
+        // Default 0 dB
+        assert!((proc.get_param(out_idx) - 0.0).abs() < 0.01);
+        // Set +6 dB
+        proc.set_param(out_idx, 6.0);
+        assert!((proc.get_param(out_idx) - 6.0).abs() < 0.01);
     }
 }

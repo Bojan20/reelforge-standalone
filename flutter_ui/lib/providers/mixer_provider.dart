@@ -602,6 +602,11 @@ class MixerProvider extends ChangeNotifier {
   }
 
   void _updateMeters(MeteringState metering) {
+    // Skip meter updates when transport is stopped — let decay timer drain them
+    // Rust engine still produces audio (one-shot voices, insert tails) after stop,
+    // which would keep meters alive indefinitely if we kept reading them.
+    if (!_isPlaying) return;
+
     // Update master meters (from master peak/rms)
     _master = _master.copyWith(
       peakL: _dbToLinear(metering.masterPeakL),

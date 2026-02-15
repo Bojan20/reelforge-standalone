@@ -16,6 +16,7 @@ import '../../providers/dsp_chain_provider.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
+import 'fabfilter_widgets.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENUMS & DATA CLASSES
@@ -133,6 +134,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
 
     // Initialize FFI gate
     _initializeProcessor();
+    initBypassFromProvider();
 
     _meterController = AnimationController(
       vsync: this,
@@ -172,17 +174,32 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       _attack = _ffi.insertGetParam(widget.trackId, _slotIndex, 2);
       _hold = _ffi.insertGetParam(widget.trackId, _slotIndex, 3);
       _release = _ffi.insertGetParam(widget.trackId, _slotIndex, 4);
+      // Extended params (5-9)
+      final modeVal = _ffi.insertGetParam(widget.trackId, _slotIndex, 5).round();
+      _mode = modeVal == 1 ? GateMode.duck : (modeVal == 2 ? GateMode.expand : GateMode.gate);
+      _sidechainEnabled = _ffi.insertGetParam(widget.trackId, _slotIndex, 6) > 0.5;
+      _sidechainHpf = _ffi.insertGetParam(widget.trackId, _slotIndex, 7);
+      _sidechainLpf = _ffi.insertGetParam(widget.trackId, _slotIndex, 8);
+      _lookahead = _ffi.insertGetParam(widget.trackId, _slotIndex, 9);
+      // Clamp restored values to valid ranges
+      if (_sidechainHpf < 20) _sidechainHpf = 80.0;
+      if (_sidechainLpf < 1000) _sidechainLpf = 12000.0;
     });
   }
 
   void _applyAllParameters() {
     if (!_initialized || _slotIndex < 0) return;
-    // GateWrapper param indices: 0=Threshold, 1=Range, 2=Attack, 3=Hold, 4=Release
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);  // Threshold (dB)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _range);      // Range (dB)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _attack);     // Attack (ms)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _hold);       // Hold (ms)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _release);    // Release (ms)
+    // GateWrapper param indices: 0-4=Core, 5-9=Extended
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);      // Threshold (dB)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _range);          // Range (dB)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _attack);         // Attack (ms)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _hold);           // Hold (ms)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _release);        // Release (ms)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _mode.index.toDouble());  // Mode
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 6, _sidechainEnabled ? 1.0 : 0.0);  // SC Enable
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _sidechainHpf);   // SC HP Freq
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 8, _sidechainLpf);   // SC LP Freq
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 9, _lookahead);      // Lookahead
   }
 
   @override
@@ -195,39 +212,49 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   }
 
   void _updateMeters() {
+    if (!mounted) return;
     setState(() {
-      // Simulate input level (would come from metering FFI)
-      final random = math.Random();
-      _currentInputLevel = -50 + random.nextDouble() * 30 + (random.nextDouble() > 0.7 ? 20 : 0);
+      // Read real meters from FFI insert chain
+      if (_initialized && _slotIndex >= 0) {
+        // insertGetMeter returns: 0=inputLevel, 1=outputLevel, 2=gateGain (0-1)
+        _currentInputLevel = _ffi.insertGetMeter(widget.trackId, _slotIndex, 0);
+        _currentOutputLevel = _ffi.insertGetMeter(widget.trackId, _slotIndex, 1);
+        final gateGain = _ffi.insertGetMeter(widget.trackId, _slotIndex, 2);
 
-      // Calculate gate state
-      final isAboveThreshold = _currentInputLevel > _threshold;
-      final isAboveHysteresis = _currentInputLevel > (_threshold - _hysteresis);
+        // Derive gate open from gain (0=closed, 1=open)
+        final targetOpen = gateGain.clamp(0.0, 1.0);
+        // Smooth transition for visual
+        _gateOpen += (targetOpen - _gateOpen) * 0.3;
 
-      // Simple gate state machine
-      if (_currentState == GateState.closed) {
-        if (isAboveThreshold) {
-          _currentState = GateState.opening;
-        }
-      } else if (_currentState == GateState.opening) {
-        _gateOpen = (_gateOpen + 0.1).clamp(0.0, 1.0);
-        if (_gateOpen >= 1.0) {
+        // Derive state from gate open
+        if (_gateOpen > 0.95) {
           _currentState = GateState.open;
-        }
-      } else if (_currentState == GateState.open) {
-        if (!isAboveHysteresis) {
+        } else if (_gateOpen < 0.05) {
+          _currentState = GateState.closed;
+        } else if (targetOpen > _gateOpen) {
+          _currentState = GateState.opening;
+        } else {
           _currentState = GateState.closing;
         }
-      } else if (_currentState == GateState.closing) {
-        _gateOpen = (_gateOpen - 0.05).clamp(0.0, 1.0);
-        if (_gateOpen <= 0.0) {
-          _currentState = GateState.closed;
-        }
-      }
+      } else {
+        // Fallback: simple state machine when FFI not available
+        final isAboveThreshold = _currentInputLevel > _threshold;
+        final isAboveHysteresis = _currentInputLevel > (_threshold - _hysteresis);
 
-      // Calculate output
-      final attenuation = _range * (1 - _gateOpen);
-      _currentOutputLevel = _currentInputLevel + attenuation;
+        if (_currentState == GateState.closed && isAboveThreshold) {
+          _currentState = GateState.opening;
+        } else if (_currentState == GateState.opening) {
+          _gateOpen = (_gateOpen + 0.1).clamp(0.0, 1.0);
+          if (_gateOpen >= 1.0) _currentState = GateState.open;
+        } else if (_currentState == GateState.open && !isAboveHysteresis) {
+          _currentState = GateState.closing;
+        } else if (_currentState == GateState.closing) {
+          _gateOpen = (_gateOpen - 0.05).clamp(0.0, 1.0);
+          if (_gateOpen <= 0.0) _currentState = GateState.closed;
+        }
+        final attenuation = _range * (1 - _gateOpen);
+        _currentOutputLevel = _currentInputLevel + attenuation;
+      }
 
       // Add to history
       _levelHistory.add(GateLevelSample(
@@ -236,8 +263,6 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
         state: _currentState,
         timestamp: DateTime.now(),
       ));
-
-      // Trim history
       while (_levelHistory.length > _maxHistorySamples) {
         _levelHistory.removeAt(0);
       }
@@ -256,21 +281,81 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
         children: [
           // Compact header
           _buildCompactHeader(),
-          // Main content — horizontal layout, no scroll
+          // Main content — three zones
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+              child: Column(
                 children: [
-                  // LEFT: Gate state indicator
-                  _buildCompactGateState(),
-                  const SizedBox(width: 12),
-                  // CENTER: Main knobs
-                  Expanded(flex: 3, child: _buildCompactControls()),
-                  const SizedBox(width: 12),
-                  // RIGHT: Sidechain + options
-                  _buildCompactOptions(),
+                  // TOP: Display area (scrolling waveform + transfer curve)
+                  Expanded(
+                    flex: 3,
+                    child: Row(
+                      children: [
+                        // Scrolling level display
+                        Expanded(
+                          flex: 3,
+                          child: Container(
+                            decoration: FabFilterDecorations.display(),
+                            clipBehavior: Clip.hardEdge,
+                            child: CustomPaint(
+                              painter: _GateDisplayPainter(
+                                history: _levelHistory,
+                                threshold: _threshold,
+                                hysteresis: _hysteresis,
+                              ),
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // Transfer curve + gate state
+                        SizedBox(
+                          width: 90,
+                          child: Column(
+                            children: [
+                              // Transfer curve
+                              Expanded(
+                                child: Container(
+                                  decoration: FabFilterDecorations.display(),
+                                  clipBehavior: Clip.hardEdge,
+                                  child: CustomPaint(
+                                    painter: _TransferCurvePainter(
+                                      threshold: _threshold,
+                                      range: _range,
+                                      ratio: _ratio,
+                                      hysteresis: _hysteresis,
+                                      mode: _mode,
+                                      inputLevel: _currentInputLevel,
+                                    ),
+                                    child: const SizedBox.expand(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              // Compact gate state badge
+                              _buildGateStateBadge(),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // BOTTOM: Knobs row + sidechain options
+                  Expanded(
+                    flex: 2,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Main knobs
+                        Expanded(flex: 3, child: _buildCompactControls()),
+                        const SizedBox(width: 8),
+                        // Sidechain + options
+                        _buildCompactOptions(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -308,7 +393,10 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   Widget _buildModeChip(GateMode mode) {
     final isSelected = _mode == mode;
     return GestureDetector(
-      onTap: () => setState(() => _mode = mode),
+      onTap: () {
+        setState(() => _mode = mode);
+        if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 5, mode.index.toDouble());
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
@@ -321,48 +409,11 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
     );
   }
 
-  Widget _buildCompactAB() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildMiniButton('A', !isStateB, () { if (isStateB) toggleAB(); }),
-        const SizedBox(width: 2),
-        _buildMiniButton('B', isStateB, () { if (!isStateB) toggleAB(); }),
-      ],
-    );
-  }
+  Widget _buildCompactAB() => FabCompactAB(isStateB: isStateB, onToggle: toggleAB, accentColor: widget.accentColor);
 
-  Widget _buildMiniButton(String label, bool active, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 20, height: 20,
-        decoration: BoxDecoration(
-          color: active ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: active ? widget.accentColor : FabFilterColors.border),
-        ),
-        child: Center(child: Text(label, style: TextStyle(color: active ? widget.accentColor : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold))),
-      ),
-    );
-  }
+  Widget _buildCompactBypass() => FabCompactBypass(bypassed: bypassed, onToggle: toggleBypass);
 
-  Widget _buildCompactBypass() {
-    return GestureDetector(
-      onTap: toggleBypass,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: bypassed ? FabFilterColors.orange.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: bypassed ? FabFilterColors.orange : FabFilterColors.border),
-        ),
-        child: Text('BYP', style: TextStyle(color: bypassed ? FabFilterColors.orange : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-
-  Widget _buildCompactGateState() {
+  Widget _buildGateStateBadge() {
     final stateColor = switch (_currentState) {
       GateState.open => FabFilterColors.green,
       GateState.opening => FabFilterColors.yellow,
@@ -376,35 +427,27 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       GateState.closed => 'CLOSED',
     };
 
-    return SizedBox(
-      width: 70,
-      child: Container(
-        decoration: FabFilterDecorations.display(),
-        padding: const EdgeInsets.all(6),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Gate indicator
-            Container(
-              width: 40, height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: stateColor.withValues(alpha: 0.2),
-                border: Border.all(color: stateColor, width: 2),
-              ),
-              child: Center(
-                child: Container(
-                  width: 24 * _gateOpen,
-                  height: 24 * _gateOpen,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: stateColor),
-                ),
-              ),
+    return Container(
+      height: 22,
+      decoration: BoxDecoration(
+        color: stateColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: stateColor.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 8, height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: stateColor,
+              boxShadow: [BoxShadow(color: stateColor.withValues(alpha: 0.5), blurRadius: 4)],
             ),
-            const SizedBox(height: 6),
-            Text(stateLabel, style: TextStyle(color: stateColor, fontSize: 8, fontWeight: FontWeight.bold)),
-            Text('${(_gateOpen * 100).toStringAsFixed(0)}%', style: FabFilterText.paramValue(FabFilterColors.textSecondary).copyWith(fontSize: 10)),
-          ],
-        ),
+          ),
+          const SizedBox(width: 4),
+          Text(stateLabel, style: TextStyle(color: stateColor, fontSize: 8, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
@@ -491,69 +534,40 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildOptionRow('SC', _sidechainEnabled, (v) => setState(() => _sidechainEnabled = v)),
+          _buildOptionRow('SC', _sidechainEnabled, (v) {
+            setState(() => _sidechainEnabled = v);
+            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 6, v ? 1.0 : 0.0);
+          }),
           const SizedBox(height: 4),
           if (_sidechainEnabled) ...[
-            _buildMiniSlider('HP', math.log(_sidechainHpf / 20) / math.log(500 / 20), '${_sidechainHpf.toStringAsFixed(0)}', (v) => setState(() => _sidechainHpf = 20 * math.pow(500 / 20, v).toDouble())),
+            _buildMiniSlider('HP', math.log(_sidechainHpf / 20) / math.log(500 / 20), '${_sidechainHpf.toStringAsFixed(0)}', (v) {
+              setState(() => _sidechainHpf = 20 * math.pow(500 / 20, v).toDouble());
+              if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _sidechainHpf);
+            }),
             const SizedBox(height: 2),
-            _buildMiniSlider('LP', math.log(_sidechainLpf / 1000) / math.log(20000 / 1000), '${(_sidechainLpf / 1000).toStringAsFixed(0)}k', (v) => setState(() => _sidechainLpf = 1000 * math.pow(20000 / 1000, v).toDouble())),
+            _buildMiniSlider('LP', math.log(_sidechainLpf / 1000) / math.log(20000 / 1000), '${(_sidechainLpf / 1000).toStringAsFixed(0)}k', (v) {
+              setState(() => _sidechainLpf = 1000 * math.pow(20000 / 1000, v).toDouble());
+              if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 8, _sidechainLpf);
+            }),
             const SizedBox(height: 4),
             _buildOptionRow('Aud', _sidechainAudition, (v) => setState(() => _sidechainAudition = v)),
           ],
           const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0
           if (showExpertMode)
-            _buildMiniSlider('Look', _lookahead / 10, '${_lookahead.toStringAsFixed(0)}ms', (v) => setState(() => _lookahead = v * 10)),
+            _buildMiniSlider('Look', _lookahead / 10, '${_lookahead.toStringAsFixed(0)}ms', (v) {
+              setState(() => _lookahead = v * 10);
+              if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 9, _lookahead);
+            }),
         ],
       ),
     );
   }
 
-  Widget _buildOptionRow(String label, bool value, ValueChanged<bool> onChanged) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: Container(
-        height: 22,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: value ? widget.accentColor.withValues(alpha: 0.15) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: value ? widget.accentColor.withValues(alpha: 0.5) : FabFilterColors.border),
-        ),
-        child: Row(
-          children: [
-            Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 9)),
-            const Spacer(),
-            Icon(value ? Icons.check_box : Icons.check_box_outline_blank, size: 14, color: value ? widget.accentColor : FabFilterColors.textTertiary),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildOptionRow(String label, bool value, ValueChanged<bool> onChanged) =>
+    FabOptionRow(label: label, value: value, onChanged: onChanged, accentColor: widget.accentColor);
 
-  Widget _buildMiniSlider(String label, double value, String display, ValueChanged<double> onChanged) {
-    return SizedBox(
-      height: 18,
-      child: Row(
-        children: [
-          SizedBox(width: 24, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
-          Expanded(
-            child: SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-                overlayShape: SliderComponentShape.noOverlay,
-                activeTrackColor: FabFilterColors.cyan,
-                inactiveTrackColor: FabFilterColors.bgVoid,
-                thumbColor: FabFilterColors.cyan,
-              ),
-              child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
-            ),
-          ),
-          SizedBox(width: 24, child: Text(display, style: FabFilterText.paramLabel.copyWith(fontSize: 8), textAlign: TextAlign.right)),
-        ],
-      ),
-    );
-  }
+  Widget _buildMiniSlider(String label, double value, String display, ValueChanged<double> onChanged) =>
+    FabMiniSlider(label: label, value: value, display: display, onChanged: onChanged);
 
 }
 
@@ -697,4 +711,125 @@ class _GateDisplayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GateDisplayPainter oldDelegate) => true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRANSFER CURVE PAINTER — Input vs Output characteristic
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _TransferCurvePainter extends CustomPainter {
+  final double threshold;
+  final double range;
+  final double ratio;
+  final double hysteresis;
+  final GateMode mode;
+  final double inputLevel;
+
+  _TransferCurvePainter({
+    required this.threshold,
+    required this.range,
+    required this.ratio,
+    required this.hysteresis,
+    required this.mode,
+    required this.inputLevel,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Background
+    canvas.drawRect(Offset.zero & size, Paint()..color = FabFilterColors.bgVoid);
+
+    // Unity line (diagonal — input=output)
+    canvas.drawLine(
+      Offset(0, h),
+      Offset(w, 0),
+      Paint()
+        ..color = FabFilterColors.grid
+        ..strokeWidth = 0.5,
+    );
+
+    // Transfer curve
+    final curvePath = Path();
+    const dbMin = -80.0;
+    const dbMax = 0.0;
+    const dbRange = dbMax - dbMin;
+
+    for (var i = 0; i <= w.toInt(); i++) {
+      final inputDb = dbMin + (i / w) * dbRange;
+      double outputDb;
+
+      if (inputDb >= threshold) {
+        outputDb = inputDb; // Above threshold — pass through
+      } else {
+        // Below threshold — apply range
+        final belowDb = threshold - inputDb;
+        final attenuation = (range / 80.0) * belowDb * (ratio / 100.0);
+        outputDb = inputDb + attenuation;
+      }
+
+      final x = i.toDouble();
+      final y = h - ((outputDb - dbMin) / dbRange) * h;
+
+      if (i == 0) {
+        curvePath.moveTo(x, y.clamp(0.0, h));
+      } else {
+        curvePath.lineTo(x, y.clamp(0.0, h));
+      }
+    }
+
+    canvas.drawPath(
+      curvePath,
+      Paint()
+        ..color = FabFilterColors.green
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Threshold marker
+    final threshX = ((threshold - dbMin) / dbRange) * w;
+    canvas.drawLine(
+      Offset(threshX, 0),
+      Offset(threshX, h),
+      Paint()
+        ..color = FabFilterColors.green.withValues(alpha: 0.3)
+        ..strokeWidth = 1,
+    );
+
+    // Input level dot on curve
+    final inputNorm = ((inputLevel - dbMin) / dbRange).clamp(0.0, 1.0);
+    double outDb;
+    if (inputLevel >= threshold) {
+      outDb = inputLevel;
+    } else {
+      final belowDb = threshold - inputLevel;
+      outDb = inputLevel + (range / 80.0) * belowDb * (ratio / 100.0);
+    }
+    final outNorm = ((outDb - dbMin) / dbRange).clamp(0.0, 1.0);
+
+    final dotX = inputNorm * w;
+    final dotY = h - outNorm * h;
+    canvas.drawCircle(
+      Offset(dotX, dotY),
+      4,
+      Paint()..color = FabFilterColors.green,
+    );
+    canvas.drawCircle(
+      Offset(dotX, dotY),
+      4,
+      Paint()
+        ..color = FabFilterColors.green.withValues(alpha: 0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TransferCurvePainter old) {
+    return threshold != old.threshold || range != old.range ||
+        ratio != old.ratio || inputLevel != old.inputLevel ||
+        mode != old.mode;
+  }
 }

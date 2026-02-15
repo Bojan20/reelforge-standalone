@@ -1,14 +1,13 @@
 /// FF-L Limiter Panel
 ///
 /// Professional limiter interface:
-/// - Real-time scrolling waveform display
-/// - True Peak limiting/metering
-/// - Loudness metering (LUFS - Integrated, Short-term, Momentary)
-/// - 8 limiting styles
+/// - Real-time scrolling waveform display with GR history
+/// - True Peak limiting/metering via FFI
+/// - LUFS metering (Integrated, Short-term, Momentary)
+/// - 8 limiting styles as visual chips
 /// - Multiple meter scales (K-12, K-14, K-20)
-/// - Compact view mode
+/// - Compact layout with activated display painter
 
-import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -17,25 +16,26 @@ import '../../providers/dsp_chain_provider.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
+import 'fabfilter_widgets.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENUMS & DATA CLASSES
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Limiting style (8 styles)
+/// Limiting style (8 styles) with icons for chip selector
 enum LimitingStyle {
-  transparent('Transparent', 'Clean and transparent limiting'),
-  punchy('Punchy', 'Preserves transients and punch'),
-  dynamic('Dynamic', 'Dynamic and musical limiting'),
-  aggressive('Aggressive', 'Aggressive limiting for EDM'),
-  bus('Bus', 'Bus/subgroup limiting'),
-  safe('Safe', 'Safe mode for delicate material'),
-  modern('Modern', 'Modern sound for contemporary music'),
-  allround('Allround', 'Versatile general-purpose mode');
+  transparent('Trans', Icons.lens_blur),
+  punchy('Punch', Icons.flash_on),
+  dynamic('Dynamic', Icons.equalizer),
+  aggressive('Aggro', Icons.bolt),
+  bus('Bus', Icons.route),
+  safe('Safe', Icons.shield),
+  modern('Modern', Icons.auto_awesome),
+  allround('All', Icons.circle);
 
   final String label;
-  final String description;
-  const LimitingStyle(this.label, this.description);
+  final IconData icon;
+  const LimitingStyle(this.label, this.icon);
 }
 
 /// Meter scale options
@@ -43,23 +43,11 @@ enum MeterScale {
   normal('0 dB', 0),
   k12('K-12', -12),
   k14('K-14', -14),
-  k20('K-20', -20),
-  loudness('LUFS', 0);
+  k20('K-20', -20);
 
   final String label;
   final int offset;
   const MeterScale(this.label, this.offset);
-}
-
-/// LUFS reading types
-enum LufsType {
-  integrated('Int', 'Integrated loudness (program)'),
-  shortTerm('Short', 'Short-term loudness (3s)'),
-  momentary('Mom', 'Momentary loudness (400ms)');
-
-  final String label;
-  final String description;
-  const LufsType(this.label, this.description);
 }
 
 /// Level sample for scrolling display
@@ -68,15 +56,34 @@ class LimiterLevelSample {
   final double outputPeak;
   final double gainReduction;
   final double truePeak;
-  final DateTime timestamp;
 
-  LimiterLevelSample({
+  const LimiterLevelSample({
     required this.inputPeak,
     required this.outputPeak,
     required this.gainReduction,
     required this.truePeak,
-    required this.timestamp,
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PARAM INDEX CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _P {
+  static const inputTrim = 0;
+  static const threshold = 1;
+  static const ceiling = 2;
+  static const release = 3;
+  static const attack = 4;
+  static const lookahead = 5;
+  static const style = 6;
+  static const oversampling = 7;
+  static const stereoLink = 8;
+  static const msMode = 9;
+  static const mix = 10;
+  static const ditherBits = 11;
+  static const latencyProfile = 12;
+  static const channelConfig = 13;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -100,64 +107,47 @@ class FabFilterLimiterPanel extends FabFilterPanelBase {
 
 class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     with FabFilterPanelMixin, TickerProviderStateMixin {
-  // ─────────────────────────────────────────────────────────────────────────
-  // STATE — 14 DSP parameters (TruePeakLimiterWrapper indices)
-  // ─────────────────────────────────────────────────────────────────────────
 
-  // Param 0: Input Trim (-12..+12 dB)
+  // ─── DSP PARAMETERS ──────────────────────────────────────────────────
   double _inputTrim = 0.0;
-  // Param 1: Threshold (-30..0 dB)
   double _threshold = 0.0;
-  // Param 2: Ceiling (-3..0 dBTP)
   double _output = -0.3;
-  // Param 3: Release (1..1000 ms)
   double _release = 100.0;
-  // Param 4: Attack (0.01..10 ms)
   double _attack = 0.1;
-  // Param 5: Lookahead (0..20 ms)
   double _lookahead = 5.0;
-  // Param 6: Style (0..7 enum)
   LimitingStyle _style = LimitingStyle.allround;
-  // Param 7: Oversampling (0..5 enum)
-  int _oversampling = 1; // 0=X1,1=X2,2=X4,3=X8
-  // Param 8: Stereo Link (0..100 %)
+  int _oversampling = 1;
   double _stereoLink = 100.0;
-  // Param 9: M/S Mode (bool)
   bool _msMode = false;
-  // Param 10: Mix (0..100 %)
   double _mix = 100.0;
-  // Param 11: Dither Bits (0..4 enum)
-  int _ditherBits = 0; // 0=Off,1=8,2=12,3=16,4=24
-  // Param 12: Latency Profile (0..2 enum)
-  int _latencyProfile = 1; // 0=ZeroLat,1=HQ,2=Offline
-  // Param 13: Channel Config (0..2 enum)
-  int _channelConfig = 0; // 0=Stereo,1=DualMono,2=MidSide
+  int _ditherBits = 0;
+  int _latencyProfile = 1;
+  int _channelConfig = 0;
 
-  // Metering
+  // ─── METERING STATE ──────────────────────────────────────────────────
   MeterScale _meterScale = MeterScale.normal;
-
-  // Display
-  final List<LimiterLevelSample> _levelHistory = [];
-  static const int _maxHistorySamples = 300;
-
-  // Real-time meters (7 meters from TruePeakLimiterWrapper)
-  double _grLeft = 0.0;        // Meter 0: GR Left (dB, positive when limiting)
-  double _grRight = 0.0;       // Meter 1: GR Right (dB)
-  double _inputPeakL = -60.0;  // Meter 2: Input Peak L (dB)
-  double _inputPeakR = -60.0;  // Meter 3: Input Peak R (dB)
-  double _outputTpL = -60.0;   // Meter 4: Output True Peak L (dBTP)
-  double _outputTpR = -60.0;   // Meter 5: Output True Peak R (dBTP)
-  double _grMaxHold = 0.0;     // Meter 6: GR Max Hold (dB)
+  double _grLeft = 0.0;
+  double _grRight = 0.0;
+  double _inputPeakL = -60.0;
+  double _inputPeakR = -60.0;
+  double _outputTpL = -60.0;
+  double _outputTpR = -60.0;
+  double _grMaxHold = 0.0;
   bool _truePeakClipping = false;
 
-  // Animation
-  late AnimationController _meterController;
+  // LUFS readings (from FFI advanced metering)
+  double _lufsIntegrated = -24.0;
+  double _lufsShortTerm = -24.0;
+  double _lufsMomentary = -24.0;
 
-  // FFI & DspChainProvider integration
+  // ─── DISPLAY HISTORY ─────────────────────────────────────────────────
+  final List<LimiterLevelSample> _levelHistory = [];
+  static const int _maxHistorySamples = 200;
+
+  // ─── ANIMATION & FFI ─────────────────────────────────────────────────
+  late AnimationController _meterController;
   final _ffi = NativeFFI.instance;
   bool _initialized = false;
-  Timer? _meterTimer;
-
   String? _nodeId;
   int _slotIndex = -1;
 
@@ -168,25 +158,21 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
   void initState() {
     super.initState();
     _initializeProcessor();
-
+    initBypassFromProvider();
     _meterController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 16),
     )..addListener(_updateMeters);
-
     _meterController.repeat();
   }
 
-  /// Initialize processor via DspChainProvider
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
     var chain = dsp.getChain(widget.trackId);
-
     if (!chain.nodes.any((n) => n.type == DspNodeType.limiter)) {
       dsp.addNode(widget.trackId, DspNodeType.limiter);
       chain = dsp.getChain(widget.trackId);
     }
-
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.limiter) {
         _nodeId = node.id;
@@ -198,31 +184,29 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     }
   }
 
-  /// Read ALL 14 parameters from engine
   void _readParamsFromEngine() {
     if (!_initialized || _slotIndex < 0) return;
     final t = widget.trackId;
     final s = _slotIndex;
     setState(() {
-      _inputTrim = _ffi.insertGetParam(t, s, 0);
-      _threshold = _ffi.insertGetParam(t, s, 1);
-      _output = _ffi.insertGetParam(t, s, 2);
-      _release = _ffi.insertGetParam(t, s, 3);
-      _attack = _ffi.insertGetParam(t, s, 4);
-      _lookahead = _ffi.insertGetParam(t, s, 5);
-      final styleIdx = _ffi.insertGetParam(t, s, 6).toInt().clamp(0, 7);
+      _inputTrim = _ffi.insertGetParam(t, s, _P.inputTrim);
+      _threshold = _ffi.insertGetParam(t, s, _P.threshold);
+      _output = _ffi.insertGetParam(t, s, _P.ceiling);
+      _release = _ffi.insertGetParam(t, s, _P.release);
+      _attack = _ffi.insertGetParam(t, s, _P.attack);
+      _lookahead = _ffi.insertGetParam(t, s, _P.lookahead);
+      final styleIdx = _ffi.insertGetParam(t, s, _P.style).toInt().clamp(0, 7);
       _style = LimitingStyle.values[styleIdx];
-      _oversampling = _ffi.insertGetParam(t, s, 7).toInt().clamp(0, 3);
-      _stereoLink = _ffi.insertGetParam(t, s, 8);
-      _msMode = _ffi.insertGetParam(t, s, 9) > 0.5;
-      _mix = _ffi.insertGetParam(t, s, 10);
-      _ditherBits = _ffi.insertGetParam(t, s, 11).toInt().clamp(0, 4);
-      _latencyProfile = _ffi.insertGetParam(t, s, 12).toInt().clamp(0, 2);
-      _channelConfig = _ffi.insertGetParam(t, s, 13).toInt().clamp(0, 2);
+      _oversampling = _ffi.insertGetParam(t, s, _P.oversampling).toInt().clamp(0, 3);
+      _stereoLink = _ffi.insertGetParam(t, s, _P.stereoLink);
+      _msMode = _ffi.insertGetParam(t, s, _P.msMode) > 0.5;
+      _mix = _ffi.insertGetParam(t, s, _P.mix);
+      _ditherBits = _ffi.insertGetParam(t, s, _P.ditherBits).toInt().clamp(0, 4);
+      _latencyProfile = _ffi.insertGetParam(t, s, _P.latencyProfile).toInt().clamp(0, 2);
+      _channelConfig = _ffi.insertGetParam(t, s, _P.channelConfig).toInt().clamp(0, 2);
     });
   }
 
-  /// Send a single parameter to engine
   void _setParam(int index, double value) {
     if (!_initialized || _slotIndex < 0) return;
     _ffi.insertSetParam(widget.trackId, _slotIndex, index, value);
@@ -230,14 +214,12 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
 
   @override
   void dispose() {
-    _meterTimer?.cancel();
     _meterController.dispose();
     super.dispose();
   }
 
-  /// Read all 7 meters from the insert processor
   void _updateMeters() {
-    if (!_initialized || _slotIndex < 0) return;
+    if (!mounted || !_initialized || _slotIndex < 0) return;
     setState(() {
       final t = widget.trackId;
       final s = _slotIndex;
@@ -249,38 +231,35 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         _outputTpL = _ffi.insertGetMeter(t, s, 4);
         _outputTpR = _ffi.insertGetMeter(t, s, 5);
         _grMaxHold = _ffi.insertGetMeter(t, s, 6);
-      } catch (_) {
-        // Meter read failed, keep previous values
-      }
+      } catch (_) {}
 
-      // True peak clipping: output exceeds ceiling
-      final outTpMax = _outputTpL > _outputTpR ? _outputTpL : _outputTpR;
+      // LUFS from engine metering API
+      try {
+        final (mom, st, integ) = _ffi.getLufsMeters();
+        _lufsMomentary = mom;
+        _lufsShortTerm = st;
+        _lufsIntegrated = integ;
+      } catch (_) {}
+
+      final outTpMax = math.max(_outputTpL, _outputTpR);
       _truePeakClipping = outTpMax > _output + 0.1;
 
-      // GR for display: use max of L/R
-      final grDisplay = _grLeft > _grRight ? _grLeft : _grRight;
-
-      // Add to history for GR graph
-      if (grDisplay > 0.01 || _levelHistory.isNotEmpty) {
-        final inPeakMax = _inputPeakL > _inputPeakR ? _inputPeakL : _inputPeakR;
-        _levelHistory.add(LimiterLevelSample(
-          inputPeak: inPeakMax,
-          outputPeak: outTpMax,
-          gainReduction: grDisplay,
-          truePeak: outTpMax,
-          timestamp: DateTime.now(),
-        ));
-
-        while (_levelHistory.length > _maxHistorySamples) {
-          _levelHistory.removeAt(0);
-        }
+      // Build scrolling history
+      final grDisplay = math.max(_grLeft, _grRight);
+      final inPeakMax = math.max(_inputPeakL, _inputPeakR);
+      _levelHistory.add(LimiterLevelSample(
+        inputPeak: inPeakMax,
+        outputPeak: outTpMax,
+        gainReduction: grDisplay,
+        truePeak: outTpMax,
+      ));
+      while (_levelHistory.length > _maxHistorySamples) {
+        _levelHistory.removeAt(0);
       }
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // BUILD — Compact horizontal layout, NO scrolling
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─── BUILD ───────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -288,26 +267,35 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
-          // Compact header
-          _buildCompactHeader(),
-          // Main content — horizontal layout, no scroll
+          buildCompactHeader(),
+          // Scrolling waveform display
+          SizedBox(
+            height: 100,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: _buildDisplay(),
+            ),
+          ),
+          // Controls
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Column(
                 children: [
-                  // LEFT: GR meter + LUFS display
-                  _buildCompactMeters(),
-                  const SizedBox(width: 12),
-                  // CENTER: Main knobs
-                  Expanded(
-                    flex: 3,
-                    child: _buildCompactControls(),
+                  // Style chips + oversampling
+                  SizedBox(
+                    height: 28,
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildStyleChips()),
+                        const SizedBox(width: 4),
+                        _buildOversamplingChip(),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  // RIGHT: Style + options
-                  _buildCompactOptions(),
+                  const SizedBox(height: 6),
+                  // Main knobs + meters + options
+                  Expanded(child: _buildMainRow()),
                 ],
               ),
             ),
@@ -317,326 +305,472 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     ));
   }
 
-  Widget _buildCompactHeader() {
+  // ─── DISPLAY (scrolling waveform + GR history) ───────────────────────
+
+  Widget _buildDisplay() {
     return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: FabFilterColors.borderSubtle)),
-      ),
-      child: Row(
+      decoration: FabFilterDecorations.display(),
+      clipBehavior: Clip.hardEdge,
+      child: Stack(
         children: [
-          Icon(widget.icon, color: widget.accentColor, size: 14),
-          const SizedBox(width: 6),
-          Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11)),
-          const SizedBox(width: 12),
-          // Style dropdown
-          _buildCompactStyleDropdown(),
-          const Spacer(),
-          // Oversampling indicator
-          _buildCompactToggle('${_oversamplingLabel()}', _oversampling > 0, FabFilterColors.green, (_) {
-            setState(() => _oversampling = (_oversampling + 1) % 4); // Cycle 0-3
-            _setParam(7, _oversampling.toDouble());
-          }),
-          const SizedBox(width: 6),
-          // A/B
-          _buildCompactAB(),
-          const SizedBox(width: 8),
-          // Bypass
-          _buildCompactBypass(),
+          // Scrolling waveform painter
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _LimiterDisplayPainter(
+                history: _levelHistory,
+                ceiling: _output,
+                threshold: _threshold,
+                meterScale: _meterScale,
+              ),
+            ),
+          ),
+          // LUFS overlay (top-left)
+          Positioned(
+            left: 6,
+            top: 4,
+            child: _buildLufsOverlay(),
+          ),
+          // True peak indicator (top-right)
+          Positioned(
+            right: 6,
+            top: 4,
+            child: _buildTruePeakBadge(),
+          ),
+          // GR value (bottom-right)
+          Positioned(
+            right: 6,
+            bottom: 4,
+            child: _buildGrBadge(),
+          ),
+          // Meter scale (bottom-left)
+          Positioned(
+            left: 6,
+            bottom: 4,
+            child: _buildScaleSelector(),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCompactStyleDropdown() {
+  Widget _buildLufsOverlay() {
     return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: FabFilterColors.bgMid,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: FabFilterColors.border),
+        color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(3),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<LimitingStyle>(
-          value: _style,
-          dropdownColor: FabFilterColors.bgDeep,
-          style: FabFilterText.paramLabel.copyWith(fontSize: 10),
-          icon: Icon(Icons.arrow_drop_down, size: 14, color: FabFilterColors.textMuted),
-          isDense: true,
-          items: LimitingStyle.values.map((s) => DropdownMenuItem(
-            value: s,
-            child: Text(s.label, style: const TextStyle(fontSize: 10)),
-          )).toList(),
-          onChanged: (v) {
-            if (v != null) {
-              setState(() => _style = v);
-              _setParam(6, v.index.toDouble());
-            }
-          },
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _lufsLine('INT', _lufsIntegrated, FabFilterColors.green),
+          _lufsLine('S-T', _lufsShortTerm, FabFilterColors.cyan),
+          _lufsLine('MOM', _lufsMomentary, FabFilterColors.blue),
+        ],
       ),
     );
   }
 
-  Widget _buildCompactToggle(String label, bool value, Color color, ValueChanged<bool> onChanged) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        decoration: BoxDecoration(
-          color: value ? color.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: value ? color : FabFilterColors.border),
-        ),
-        child: Text(label, style: TextStyle(color: value ? color : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-
-  Widget _buildCompactAB() {
+  Widget _lufsLine(String label, double value, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildMiniButton('A', !isStateB, () { if (isStateB) toggleAB(); }),
-        const SizedBox(width: 2),
-        _buildMiniButton('B', isStateB, () { if (!isStateB) toggleAB(); }),
+        Text(label, style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 8, fontWeight: FontWeight.w600)),
+        const SizedBox(width: 4),
+        Text(
+          value > -100 ? '${value.toStringAsFixed(1)}' : '-∞',
+          style: TextStyle(
+            color: color,
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildMiniButton(String label, bool active, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 20, height: 20,
-        decoration: BoxDecoration(
-          color: active ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: active ? widget.accentColor : FabFilterColors.border),
-        ),
-        child: Center(child: Text(label, style: TextStyle(color: active ? widget.accentColor : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold))),
+  Widget _buildTruePeakBadge() {
+    final outTpMax = math.max(_outputTpL, _outputTpR);
+    final tpColor = _truePeakClipping
+        ? FabFilterColors.red
+        : (outTpMax > _output - 0.5 ? FabFilterColors.orange : FabFilterColors.green);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(3),
+        border: _truePeakClipping ? Border.all(color: FabFilterColors.red, width: 1) : null,
       ),
-    );
-  }
-
-  Widget _buildCompactBypass() {
-    return GestureDetector(
-      onTap: toggleBypass,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: bypassed ? FabFilterColors.orange.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: bypassed ? FabFilterColors.orange : FabFilterColors.border),
-        ),
-        child: Text('BYP', style: TextStyle(color: bypassed ? FabFilterColors.orange : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-
-  Widget _buildCompactMeters() {
-    return SizedBox(
-      width: 120,
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // GR meter horizontal
-          _buildHorizontalGRMeter(),
-          const SizedBox(height: 6),
-          // Input/Output peak meters
-          Expanded(child: _buildCompactInputOutput()),
-          const SizedBox(height: 6),
-          // True peak indicator
-          _buildCompactTruePeak(),
+          Container(
+            width: 6, height: 6,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: tpColor),
+          ),
+          const SizedBox(width: 3),
+          Text(
+            'TP ${outTpMax > -100 ? '${outTpMax.toStringAsFixed(1)}' : '-∞'}',
+            style: TextStyle(color: tpColor, fontSize: 9, fontWeight: FontWeight.bold,
+                fontFeatures: const [FontFeature.tabularFigures()]),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildHorizontalGRMeter() {
-    final grMax = _grLeft > _grRight ? _grLeft : _grRight;
-    final grNorm = (grMax / 24).clamp(0.0, 1.0);
+  Widget _buildGrBadge() {
+    final grMax = math.max(_grLeft, _grRight);
     return Container(
-      height: 20,
-      decoration: FabFilterDecorations.display(),
-      padding: const EdgeInsets.all(3),
-      child: Row(
-        children: [
-          Text('GR', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Stack(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        'GR -${grMax.toStringAsFixed(1)}dB  max -${_grMaxHold.toStringAsFixed(1)}dB',
+        style: TextStyle(
+          color: FabFilterProcessorColors.limGainReduction,
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScaleSelector() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: MeterScale.values.map((s) {
+        final isActive = _meterScale == s;
+        return GestureDetector(
+          onTap: () => setState(() => _meterScale = s),
+          child: Container(
+            margin: const EdgeInsets.only(right: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: isActive ? FabFilterColors.blue.withValues(alpha: 0.3) : Colors.transparent,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              s.label,
+              style: TextStyle(
+                color: isActive ? FabFilterColors.blue : FabFilterColors.textTertiary,
+                fontSize: 8,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ─── STYLE CHIPS ─────────────────────────────────────────────────────
+
+  Widget _buildStyleChips() {
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: LimitingStyle.values.length,
+      separatorBuilder: (_, _) => const SizedBox(width: 4),
+      itemBuilder: (ctx, i) {
+        final s = LimitingStyle.values[i];
+        final isActive = _style == s;
+        return GestureDetector(
+          onTap: () {
+            setState(() => _style = s);
+            _setParam(_P.style, s.index.toDouble());
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? FabFilterProcessorColors.limAccent.withValues(alpha: 0.25)
+                  : FabFilterColors.bgSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isActive ? FabFilterProcessorColors.limAccent : FabFilterColors.borderMedium,
+                width: isActive ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(height: 12, decoration: BoxDecoration(color: FabFilterColors.bgVoid, borderRadius: BorderRadius.circular(2))),
-                FractionallySizedBox(
-                  widthFactor: grNorm,
-                  child: Container(height: 12, decoration: BoxDecoration(color: FabFilterColors.red, borderRadius: BorderRadius.circular(2))),
+                Icon(s.icon, size: 12, color: isActive ? FabFilterProcessorColors.limAccent : FabFilterColors.textTertiary),
+                const SizedBox(width: 4),
+                Text(
+                  s.label,
+                  style: TextStyle(
+                    color: isActive ? FabFilterProcessorColors.limAccent : FabFilterColors.textSecondary,
+                    fontSize: 9,
+                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 4),
-          SizedBox(width: 28, child: Text('-${grMax.toStringAsFixed(1)}', style: FabFilterText.paramValue(FabFilterColors.red).copyWith(fontSize: 9), textAlign: TextAlign.right)),
-        ],
+        );
+      },
+    );
+  }
+
+  // ─── OVERSAMPLING CHIP ───────────────────────────────────────────────
+
+  Widget _buildOversamplingChip() {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _oversampling = (_oversampling + 1) % 4);
+        _setParam(_P.oversampling, _oversampling.toDouble());
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: _oversampling > 0
+              ? FabFilterColors.green.withValues(alpha: 0.2)
+              : FabFilterColors.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _oversampling > 0 ? FabFilterColors.green : FabFilterColors.borderMedium),
+        ),
+        child: Text(
+          _oversamplingLabel(),
+          style: TextStyle(
+            color: _oversampling > 0 ? FabFilterColors.green : FabFilterColors.textTertiary,
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildCompactInputOutput() {
-    // Real input/output meters from DSP
-    final inPeak = _inputPeakL > _inputPeakR ? _inputPeakL : _inputPeakR;
-    final outTp = _outputTpL > _outputTpR ? _outputTpL : _outputTpR;
+  String _oversamplingLabel() => ['1×', '2×', '4×', '8×'][_oversampling.clamp(0, 3)];
+
+  // ─── MAIN ROW: Meters | Knobs | Options ──────────────────────────────
+
+  Widget _buildMainRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // LEFT: Vertical meters
+        SizedBox(width: 80, child: _buildVerticalMeters()),
+        const SizedBox(width: 8),
+        // CENTER: Main knobs
+        Expanded(flex: 3, child: _buildKnobs()),
+        const SizedBox(width: 8),
+        // RIGHT: Options
+        SizedBox(width: 100, child: _buildOptions()),
+      ],
+    );
+  }
+
+  // ─── VERTICAL INPUT/OUTPUT METERS ────────────────────────────────────
+
+  Widget _buildVerticalMeters() {
     return Container(
       decoration: FabFilterDecorations.display(),
-      padding: const EdgeInsets.all(6),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      padding: const EdgeInsets.all(4),
+      child: Row(
         children: [
-          _buildMeterRow('In L', _inputPeakL, FabFilterColors.blue),
-          _buildMeterRow('In R', _inputPeakR, FabFilterColors.blue),
-          const SizedBox(height: 2),
-          _buildMeterRow('Out L', _outputTpL, FabFilterColors.cyan),
-          _buildMeterRow('Out R', _outputTpR, FabFilterColors.cyan),
-          const SizedBox(height: 2),
-          _buildMeterRow('GR Max', -_grMaxHold, FabFilterColors.red, suffix: 'dB'),
+          // In L/R
+          Expanded(child: _buildMeterBar('In', _inputPeakL, _inputPeakR, FabFilterColors.blue)),
+          const SizedBox(width: 2),
+          // Out L/R
+          Expanded(child: _buildMeterBar('Out', _outputTpL, _outputTpR, FabFilterProcessorColors.limTruePeak)),
+          const SizedBox(width: 2),
+          // GR
+          Expanded(child: _buildGrBar()),
         ],
       ),
     );
   }
 
-  Widget _buildMeterRow(String label, double value, Color color, {String suffix = 'dB'}) {
-    return Row(
+  Widget _buildMeterBar(String label, double left, double right, Color color) {
+    return Column(
       children: [
-        SizedBox(width: 32, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
+        Text(label, style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 2),
         Expanded(
-          child: Text(
-            value > -100 ? '${value.toStringAsFixed(1)} $suffix' : '-∞',
-            style: FabFilterText.paramValue(color).copyWith(fontSize: 10),
-            textAlign: TextAlign.right,
+          child: Row(
+            children: [
+              Expanded(child: _singleBar(left, color)),
+              const SizedBox(width: 1),
+              Expanded(child: _singleBar(right, color)),
+            ],
           ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          math.max(left, right) > -100 ? '${math.max(left, right).toStringAsFixed(0)}' : '-∞',
+          style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.bold,
+              fontFeatures: const [FontFeature.tabularFigures()]),
         ),
       ],
     );
   }
 
-  Widget _buildCompactTruePeak() {
-    final outTpMax = _outputTpL > _outputTpR ? _outputTpL : _outputTpR;
-    return Container(
-      height: 22,
-      decoration: FabFilterDecorations.display(),
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Row(
-        children: [
-          Container(
-            width: 10, height: 10,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _truePeakClipping ? FabFilterColors.red : (outTpMax > _output - 0.5 ? FabFilterColors.orange : FabFilterColors.green),
+  Widget _singleBar(double dbValue, Color color) {
+    final norm = ((dbValue + 60) / 60).clamp(0.0, 1.0);
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final h = constraints.maxHeight;
+        final barH = h * norm;
+        return Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            Container(
+              width: double.infinity,
+              height: h,
+              decoration: BoxDecoration(
+                color: FabFilterColors.bgVoid,
+                borderRadius: BorderRadius.circular(1),
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
-          Text('TP', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
-          const Spacer(),
-          Text(
-            outTpMax > -100 ? '${outTpMax.toStringAsFixed(1)} dBTP' : '-∞',
-            style: FabFilterText.paramValue(_truePeakClipping ? FabFilterColors.red : FabFilterColors.textSecondary).copyWith(fontSize: 9),
-          ),
-        ],
-      ),
+            Container(
+              width: double.infinity,
+              height: barH,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [color.withValues(alpha: 0.5), color],
+                ),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  String _oversamplingLabel() {
-    switch (_oversampling) {
-      case 0: return '1x';
-      case 1: return '2x';
-      case 2: return '4x';
-      case 3: return '8x';
-      default: return '${_oversampling}x';
-    }
+  Widget _buildGrBar() {
+    final grMax = math.max(_grLeft, _grRight);
+    final grNorm = (grMax / 24).clamp(0.0, 1.0);
+    return Column(
+      children: [
+        Text('GR', style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 2),
+        Expanded(
+          child: LayoutBuilder(builder: (ctx, constraints) {
+            final h = constraints.maxHeight;
+            final barH = h * grNorm;
+            return Stack(
+              alignment: Alignment.topCenter,
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: h,
+                  decoration: BoxDecoration(
+                    color: FabFilterColors.bgVoid,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+                Container(
+                  width: double.infinity,
+                  height: barH,
+                  decoration: BoxDecoration(
+                    gradient: FabFilterGradients.grVertical,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '-${grMax.toStringAsFixed(0)}',
+          style: TextStyle(color: FabFilterProcessorColors.limGainReduction, fontSize: 7,
+              fontWeight: FontWeight.bold, fontFeatures: const [FontFeature.tabularFigures()]),
+        ),
+      ],
+    );
   }
 
-  Widget _buildCompactControls() {
+  // ─── KNOBS ───────────────────────────────────────────────────────────
+
+  Widget _buildKnobs() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Param 0: Input Trim (-12..+12 dB)
-        _buildSmallKnob(
+        _knob(
           value: (_inputTrim + 12) / 24,
           label: 'TRIM',
           display: '${_inputTrim >= 0 ? '+' : ''}${_inputTrim.toStringAsFixed(1)}dB',
           color: FabFilterColors.orange,
           onChanged: (v) {
             setState(() => _inputTrim = v * 24 - 12);
-            _setParam(0, _inputTrim);
+            _setParam(_P.inputTrim, _inputTrim);
           },
         ),
-        // Param 1: Threshold (-30..0 dB)
-        _buildSmallKnob(
+        _knob(
           value: (_threshold + 30) / 30,
           label: 'THRESH',
           display: '${_threshold.toStringAsFixed(1)}dB',
-          color: FabFilterColors.red,
+          color: FabFilterProcessorColors.limAccent,
           onChanged: (v) {
             setState(() => _threshold = v * 30 - 30);
-            _setParam(1, _threshold);
+            _setParam(_P.threshold, _threshold);
           },
         ),
-        // Param 2: Ceiling (-3..0 dBTP)
-        _buildSmallKnob(
+        _knob(
           value: (_output + 3) / 3,
           label: 'CEILING',
           display: '${_output.toStringAsFixed(1)}dBTP',
-          color: FabFilterColors.blue,
+          color: FabFilterProcessorColors.limCeiling,
           onChanged: (v) {
             setState(() => _output = v * 3 - 3);
-            _setParam(2, _output);
+            _setParam(_P.ceiling, _output);
           },
         ),
-        // Param 3: Release (1..1000 ms, logarithmic)
-        _buildSmallKnob(
+        _knob(
           value: math.log(_release.clamp(1, 1000) / 1) / math.log(1000),
           label: 'RELEASE',
-          display: _release >= 100 ? '${(_release / 1000).toStringAsFixed(2)}s' : '${_release.toStringAsFixed(0)}ms',
+          display: _release >= 100
+              ? '${(_release / 1000).toStringAsFixed(2)}s'
+              : '${_release.toStringAsFixed(0)}ms',
           color: FabFilterColors.cyan,
           onChanged: (v) {
             setState(() => _release = math.pow(1000, v).toDouble().clamp(1, 1000));
-            _setParam(3, _release);
+            _setParam(_P.release, _release);
           },
         ),
         if (showExpertMode) ...[
-          // Param 4: Attack (0.01..10 ms, logarithmic)
-          _buildSmallKnob(
+          _knob(
             value: math.log(_attack.clamp(0.01, 10) / 0.01) / math.log(10 / 0.01),
             label: 'ATTACK',
-            display: _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µs' : '${_attack.toStringAsFixed(1)}ms',
+            display: _attack < 1
+                ? '${(_attack * 1000).toStringAsFixed(0)}µs'
+                : '${_attack.toStringAsFixed(1)}ms',
             color: FabFilterColors.cyan,
             onChanged: (v) {
               setState(() => _attack = (0.01 * math.pow(10 / 0.01, v)).clamp(0.01, 10));
-              _setParam(4, _attack);
+              _setParam(_P.attack, _attack);
             },
           ),
-          // Param 5: Lookahead (0..20 ms)
-          _buildSmallKnob(
+          _knob(
             value: _lookahead / 20,
             label: 'LOOK',
             display: '${_lookahead.toStringAsFixed(1)}ms',
             color: FabFilterColors.purple,
             onChanged: (v) {
               setState(() => _lookahead = v * 20);
-              _setParam(5, _lookahead);
+              _setParam(_P.lookahead, _lookahead);
             },
           ),
-          // Param 10: Mix (0..100 %)
-          _buildSmallKnob(
+          _knob(
             value: _mix / 100,
             label: 'MIX',
             display: '${_mix.toStringAsFixed(0)}%',
             color: FabFilterColors.green,
             onChanged: (v) {
               setState(() => _mix = v * 100);
-              _setParam(10, _mix);
+              _setParam(_P.mix, _mix);
             },
           ),
         ],
@@ -644,7 +778,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     );
   }
 
-  Widget _buildSmallKnob({
+  Widget _knob({
     required double value,
     required String label,
     required String display,
@@ -661,192 +795,69 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     );
   }
 
-  Widget _buildCompactOptions() {
-    return SizedBox(
-      width: 110,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Param 8: Stereo Link (0-100%)
-          _buildLinkSlider(),
+  // ─── OPTIONS ─────────────────────────────────────────────────────────
+
+  Widget _buildOptions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Stereo link slider
+        _buildLinkSlider(),
+        const SizedBox(height: 4),
+        FabOptionRow(label: 'M/S', value: _msMode, onChanged: (v) {
+          setState(() => _msMode = v);
+          _setParam(_P.msMode, v ? 1.0 : 0.0);
+        }, accentColor: widget.accentColor),
+        if (showExpertMode) ...[
           const SizedBox(height: 4),
-          // Param 9: M/S Mode
-          _buildOptionRow('M/S', _msMode, (v) {
-            setState(() => _msMode = v);
-            _setParam(9, v ? 1.0 : 0.0);
+          FabEnumSelector(label: 'CH', value: _channelConfig, options: const ['St', 'Dual', 'M/S'], onChanged: (v) {
+            setState(() => _channelConfig = v);
+            _setParam(_P.channelConfig, v.toDouble());
           }),
-          if (showExpertMode) ...[
-            const SizedBox(height: 4),
-            // Param 13: Channel Config (Stereo/Dual Mono/Mid-Side)
-            _buildEnumSelector('CH', _channelConfig, const ['St', 'Dual', 'M/S'], (v) {
-              setState(() => _channelConfig = v);
-              _setParam(13, v.toDouble());
-            }),
-            const SizedBox(height: 4),
-            // Param 12: Latency Profile (Zero-Lat/HQ/Offline)
-            _buildEnumSelector('LAT', _latencyProfile, const ['Zero', 'HQ', 'Off'], (v) {
-              setState(() => _latencyProfile = v);
-              _setParam(12, v.toDouble());
-            }),
-            const SizedBox(height: 4),
-            // Param 11: Dither Bits (Off/8/12/16/24)
-            _buildEnumSelector('DTH', _ditherBits, const ['Off', '8', '12', '16', '24'], (v) {
-              setState(() => _ditherBits = v);
-              _setParam(11, v.toDouble());
-            }),
-          ],
-          const Flexible(child: SizedBox(height: 8)),
-          // Meter scale
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: FabFilterDecorations.display(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('SCALE', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
-                const SizedBox(height: 2),
-                Wrap(
-                  spacing: 2,
-                  runSpacing: 2,
-                  children: MeterScale.values.take(4).map((s) => _buildTinyButton(
-                    s.label.replaceAll(' dB', '').replaceAll('K-', ''),
-                    _meterScale == s,
-                    FabFilterColors.blue,
-                    () => setState(() => _meterScale = s),
-                  )).toList(),
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 4),
+          FabEnumSelector(label: 'LAT', value: _latencyProfile, options: const ['Zero', 'HQ', 'Off'], onChanged: (v) {
+            setState(() => _latencyProfile = v);
+            _setParam(_P.latencyProfile, v.toDouble());
+          }),
+          const SizedBox(height: 4),
+          FabEnumSelector(label: 'DTH', value: _ditherBits, options: const ['Off', '8', '12', '16', '24'], onChanged: (v) {
+            setState(() => _ditherBits = v);
+            _setParam(_P.ditherBits, v.toDouble());
+          }),
         ],
-      ),
+        const Flexible(child: SizedBox(height: 8)),
+      ],
     );
   }
 
-  /// Stereo link slider (param 8: 0-100%)
   Widget _buildLinkSlider() {
-    return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: FabFilterColors.bgMid,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: FabFilterColors.border),
-      ),
-      child: Row(
-        children: [
-          Text('LNK', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
-          Expanded(
-            child: SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-                activeTrackColor: FabFilterColors.purple,
-                inactiveTrackColor: FabFilterColors.bgVoid,
-                thumbColor: FabFilterColors.purple,
-                overlayShape: SliderComponentShape.noOverlay,
-              ),
-              child: Slider(
-                value: _stereoLink,
-                min: 0,
-                max: 100,
-                onChanged: (v) {
-                  setState(() => _stereoLink = v);
-                  _setParam(8, v);
-                },
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 22,
-            child: Text('${_stereoLink.toStringAsFixed(0)}', style: FabFilterText.paramValue(FabFilterColors.purple).copyWith(fontSize: 8), textAlign: TextAlign.right),
-          ),
-        ],
-      ),
+    return FabMiniSlider(
+      label: 'LNK',
+      value: _stereoLink / 100,
+      display: '${_stereoLink.toStringAsFixed(0)}%',
+      activeColor: FabFilterColors.purple,
+      onChanged: (v) {
+        setState(() => _stereoLink = v * 100);
+        _setParam(_P.stereoLink, _stereoLink);
+      },
     );
   }
-
-  /// Enum selector (tiny button row)
-  Widget _buildEnumSelector(String label, int value, List<String> options, ValueChanged<int> onChanged) {
-    return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: FabFilterColors.bgMid,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: FabFilterColors.border),
-      ),
-      child: Row(
-        children: [
-          SizedBox(width: 22, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
-          const SizedBox(width: 2),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(options.length, (i) => _buildTinyButton(
-                options[i],
-                value == i,
-                FabFilterColors.cyan,
-                () => onChanged(i),
-              )),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOptionRow(String label, bool value, ValueChanged<bool> onChanged) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: Container(
-        height: 22,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: value ? widget.accentColor.withValues(alpha: 0.15) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: value ? widget.accentColor.withValues(alpha: 0.5) : FabFilterColors.border),
-        ),
-        child: Row(
-          children: [
-            Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 9)),
-            const Spacer(),
-            Icon(value ? Icons.check_box : Icons.check_box_outline_blank, size: 14, color: value ? widget.accentColor : FabFilterColors.textTertiary),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTinyButton(String label, bool active, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 20, height: 16,
-        decoration: BoxDecoration(
-          color: active ? color.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: active ? color : FabFilterColors.border),
-        ),
-        child: Center(child: Text(label, style: TextStyle(color: active ? color : FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.bold))),
-      ),
-    );
-  }
-
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// LIMITER DISPLAY PAINTER (Scrolling waveform)
+// LIMITER DISPLAY PAINTER — Scrolling waveform + GR bars + ceiling/threshold
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _LimiterDisplayPainter extends CustomPainter {
   final List<LimiterLevelSample> history;
   final double ceiling;
+  final double threshold;
   final MeterScale meterScale;
 
   _LimiterDisplayPainter({
     required this.history,
     required this.ceiling,
+    required this.threshold,
     required this.meterScale,
   });
 
@@ -855,153 +866,118 @@ class _LimiterDisplayPainter extends CustomPainter {
     final rect = Offset.zero & size;
 
     // Background gradient
-    final bgPaint = Paint()
+    canvas.drawRect(rect, Paint()
       ..shader = ui.Gradient.linear(
-        Offset(0, 0),
+        Offset.zero,
         Offset(0, size.height),
-        [
-          FabFilterColors.bgVoid,
-          FabFilterColors.bgDeep,
-        ],
-      );
-    canvas.drawRect(rect, bgPaint);
+        [FabFilterColors.bgVoid, FabFilterColors.bgDeep],
+      ));
 
-    // Grid
+    // Grid lines & labels
     final gridPaint = Paint()
       ..color = FabFilterColors.grid
       ..strokeWidth = 0.5;
-
-    // Horizontal grid lines
     final dbOffset = meterScale.offset.toDouble();
+    final totalRange = 48.0 + dbOffset.abs();
+
     for (var db = -48; db <= 0; db += 6) {
-      final y = size.height * (1 - (db + 48 + dbOffset) / (48 + dbOffset));
+      final y = _dbToY(db.toDouble(), size.height, dbOffset, totalRange);
       if (y >= 0 && y <= size.height) {
         canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+      }
+    }
 
-        // Label
-        _drawLabel(
-          canvas,
-          '${db}dB',
-          Offset(4, y - 6),
-          FabFilterColors.textMuted,
+    // Threshold line (yellow dashed)
+    final threshY = _dbToY(threshold, size.height, dbOffset, totalRange);
+    if (threshY >= 0 && threshY <= size.height) {
+      final threshPaint = Paint()
+        ..color = FabFilterProcessorColors.limCeiling.withValues(alpha: 0.5)
+        ..strokeWidth = 1.0;
+      _drawDashedLine(canvas, Offset(0, threshY), Offset(size.width, threshY), threshPaint);
+    }
+
+    // Ceiling line (red solid)
+    final ceilingY = _dbToY(ceiling, size.height, dbOffset, totalRange);
+    if (ceilingY >= 0 && ceilingY <= size.height) {
+      canvas.drawLine(
+        Offset(0, ceilingY), Offset(size.width, ceilingY),
+        Paint()..color = FabFilterProcessorColors.limAccent..strokeWidth = 1.5,
+      );
+    }
+
+    if (history.isEmpty) return;
+
+    final sampleWidth = size.width / _maxSamples;
+    final startX = size.width - history.length * sampleWidth;
+
+    // GR bars (from top, red gradient)
+    for (var i = 0; i < history.length; i++) {
+      final x = startX + i * sampleWidth;
+      if (x < 0) continue;
+      final gr = history[i].gainReduction.abs();
+      final grHeight = (gr / 24).clamp(0.0, 1.0) * size.height * 0.4;
+      if (grHeight > 0.5) {
+        canvas.drawRect(
+          Rect.fromLTWH(x, 0, sampleWidth + 0.5, grHeight),
+          Paint()..color = FabFilterProcessorColors.limGainReduction.withValues(alpha: 0.3),
         );
       }
     }
 
-    // Ceiling line
-    final ceilingY = size.height * (1 - (ceiling + 48 + dbOffset) / (48 + dbOffset));
-    final ceilingPaint = Paint()
-      ..color = FabFilterColors.red
-      ..strokeWidth = 1.5;
-    canvas.drawLine(
-      Offset(0, ceilingY),
-      Offset(size.width, ceilingY),
-      ceilingPaint,
-    );
+    // Input waveform (muted, background)
+    _drawWaveform(canvas, size, history.map((s) => s.inputPeak).toList(),
+        FabFilterColors.textMuted.withValues(alpha: 0.2), dbOffset, totalRange, startX, sampleWidth);
 
-    if (history.isEmpty) return;
+    // Output waveform (blue, foreground)
+    _drawWaveform(canvas, size, history.map((s) => s.outputPeak).toList(),
+        FabFilterProcessorColors.limTruePeak.withValues(alpha: 0.5), dbOffset, totalRange, startX, sampleWidth);
 
-    final sampleWidth = size.width / history.length;
-
-    // Input level (gray, background)
-    _drawLevelPath(
-      canvas,
-      size,
-      history.map((s) => s.inputPeak).toList(),
-      FabFilterColors.textMuted.withValues(alpha: 0.3),
-      dbOffset,
-    );
-
-    // Output level (blue, foreground)
-    _drawLevelPath(
-      canvas,
-      size,
-      history.map((s) => s.outputPeak).toList(),
-      FabFilterColors.blue.withValues(alpha: 0.6),
-      dbOffset,
-    );
-
-    // Gain reduction (red, from top)
-    final grPaint = Paint()
-      ..color = FabFilterColors.red.withValues(alpha: 0.4)
-      ..style = PaintingStyle.fill;
-
+    // True peak clip markers
     for (var i = 0; i < history.length; i++) {
-      final x = i * sampleWidth;
-      final gr = history[i].gainReduction.abs();
-      final grHeight = (gr / 24).clamp(0.0, 1.0) * size.height * 0.5;
-
-      canvas.drawRect(
-        Rect.fromLTWH(x, 0, sampleWidth + 1, grHeight),
-        grPaint,
-      );
-    }
-
-    // True peak clipping indicators
-    for (var i = 0; i < history.length; i++) {
-      if (history[i].truePeak > ceiling) {
-        final x = i * sampleWidth;
+      if (history[i].truePeak > ceiling + 0.1) {
+        final x = startX + i * sampleWidth;
+        if (x < 0) continue;
         canvas.drawRect(
-          Rect.fromLTWH(x, ceilingY - 2, sampleWidth + 1, 4),
+          Rect.fromLTWH(x, ceilingY.clamp(0, size.height) - 2, sampleWidth + 0.5, 4),
           Paint()..color = FabFilterColors.red,
         );
       }
     }
-
-    // Ceiling label
-    _drawLabel(
-      canvas,
-      '${ceiling.toStringAsFixed(1)}dB',
-      Offset(size.width - 50, ceilingY - 12),
-      FabFilterColors.red,
-    );
   }
 
-  void _drawLevelPath(
-    Canvas canvas,
-    Size size,
-    List<double> levels,
-    Color color,
-    double dbOffset,
-  ) {
+  static const int _maxSamples = 200;
+
+  double _dbToY(double db, double height, double dbOffset, double totalRange) {
+    return height * (1 - (db + 48 + dbOffset) / totalRange);
+  }
+
+  void _drawWaveform(Canvas canvas, Size size, List<double> levels,
+      Color color, double dbOffset, double totalRange, double startX, double sampleWidth) {
+    if (levels.isEmpty) return;
     final path = Path();
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final sampleWidth = size.width / levels.length;
-
-    path.moveTo(0, size.height);
-
+    path.moveTo(startX, size.height);
     for (var i = 0; i < levels.length; i++) {
-      final x = i * sampleWidth;
-      final level = levels[i];
-      final normalizedLevel =
-          ((level + 48 + dbOffset) / (48 + dbOffset)).clamp(0.0, 1.0);
-      final y = size.height * (1 - normalizedLevel);
-
+      final x = startX + i * sampleWidth;
+      if (x < 0) continue;
+      final y = _dbToY(levels[i], size.height, dbOffset, totalRange).clamp(0.0, size.height);
       path.lineTo(x, y);
     }
-
-    path.lineTo(size.width, size.height);
+    path.lineTo(startX + levels.length * sampleWidth, size.height);
     path.close();
-
-    canvas.drawPath(path, paint);
+    canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.fill);
   }
 
-  void _drawLabel(Canvas canvas, String text, Offset offset, Color color) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: 9,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    painter.layout();
-    painter.paint(canvas, offset);
+  void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint) {
+    const dashWidth = 6.0;
+    const dashSpace = 4.0;
+    final totalLength = (end - start).distance;
+    final dir = (end - start) / totalLength;
+    var d = 0.0;
+    while (d < totalLength) {
+      final segEnd = math.min(d + dashWidth, totalLength);
+      canvas.drawLine(start + dir * d, start + dir * segEnd, paint);
+      d += dashWidth + dashSpace;
+    }
   }
 
   @override

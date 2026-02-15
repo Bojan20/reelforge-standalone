@@ -102,6 +102,9 @@ abstract class FabFilterPanelBase extends StatefulWidget {
   /// Callback when settings change
   final VoidCallback? onSettingsChanged;
 
+  /// Callback when panel requests close
+  final VoidCallback? onClose;
+
   const FabFilterPanelBase({
     super.key,
     required this.title,
@@ -111,12 +114,13 @@ abstract class FabFilterPanelBase extends StatefulWidget {
     this.sampleRate = 48000.0,
     this.nodeType,
     this.onSettingsChanged,
+    this.onClose,
   });
 }
 
 /// State mixin for FabFilter panels
 mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
-  bool _bypassed = false;
+  bool _bypassed = true;
   bool _isFullScreen = false;
   bool _showExpertMode = false;
 
@@ -131,6 +135,21 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
   bool get isStateB => _isStateB;
   bool get hasStoredA => _hasStoredA;
   bool get hasStoredB => _hasStoredB;
+
+  /// Read bypass state from DspChainProvider.
+  /// Call this in initState() of your panel subclass.
+  void initBypassFromProvider() {
+    final nodeType = widget.nodeType;
+    if (nodeType == null) return;
+    final chain = DspChainProvider.instance.getChain(widget.trackId);
+    final node = chain.nodes.cast<DspNode?>().firstWhere(
+          (n) => n?.type == nodeType,
+          orElse: () => null,
+        );
+    if (node != null) {
+      _bypassed = node.bypass;
+    }
+  }
 
   /// Override in subclass to return the insert chain slot index.
   /// Used for direct FFI bypass calls (more reliable than DspChainProvider lookup).
@@ -294,6 +313,107 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
         ],
       ),
     );
+  }
+
+  /// Compact header for Lower Zone / embedded use.
+  /// Single row: icon + title + A/B + BYP + Expert + Close.
+  Widget buildCompactHeader() {
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: const BoxDecoration(
+        color: FabFilterColors.bgMid,
+        border: Border(
+          bottom: BorderSide(color: FabFilterColors.borderSubtle),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(widget.icon, color: widget.accentColor, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            widget.title,
+            style: TextStyle(
+              color: FabFilterColors.textPrimary,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildCompactHeaderToggle('EXP', _showExpertMode, toggleExpertMode),
+          const Spacer(),
+          _buildCompactHeaderToggle(
+            'A',
+            !_isStateB,
+            () { if (_isStateB) toggleAB(); },
+          ),
+          const SizedBox(width: 2),
+          _buildCompactHeaderToggle(
+            'B',
+            _isStateB,
+            () { if (!_isStateB) toggleAB(); },
+          ),
+          const SizedBox(width: 6),
+          _buildCompactHeaderToggle(
+            'BYP',
+            _bypassed,
+            toggleBypass,
+            activeColor: FabFilterColors.orange,
+          ),
+          if (widget.onClose != null) ...[
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: widget.onClose,
+              child: const Icon(
+                Icons.close,
+                size: 14,
+                color: FabFilterColors.textTertiary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactHeaderToggle(
+    String label,
+    bool active,
+    VoidCallback onTap, {
+    Color? activeColor,
+  }) {
+    final color = activeColor ?? widget.accentColor;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(3),
+          border: active ? Border.all(color: color, width: 0.5) : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? color : FabFilterColors.textDisabled,
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Whether the panel should use compact layout (Lower Zone, small panels).
+  /// Check the available height via LayoutBuilder and call this.
+  bool isCompactLayout(double availableHeight) {
+    return availableHeight < FabFilterBreakpoints.minHeight;
+  }
+
+  /// Whether the panel has enough width for dual-column layout.
+  bool isWideLayout(double availableWidth) {
+    return availableWidth >= FabFilterBreakpoints.wide;
   }
 
   Widget _buildExpertToggle() {

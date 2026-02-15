@@ -60,6 +60,9 @@ enum PreviewCommand {
 // PREVIEW VOICE — Single playing audio (RT-safe)
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// Anti-click fade ramp length in frames (~10ms @ 48kHz)
+const PREVIEW_FADE_FRAMES: u64 = 480;
+
 struct PreviewVoice {
     /// Audio data (interleaved stereo f32)
     audio: Arc<ImportedAudio>,
@@ -71,6 +74,12 @@ struct PreviewVoice {
     id: u64,
     /// Is this voice active
     active: bool,
+    /// Fade-in: frames remaining in fade-in ramp
+    fade_in_remaining: u64,
+    /// Fade-out: true when fading out
+    fading_out: bool,
+    /// Fade-out: frames remaining
+    fade_out_remaining: u64,
 }
 
 impl PreviewVoice {
@@ -91,6 +100,9 @@ impl PreviewVoice {
             volume: 1.0,
             id: 0,
             active: false,
+            fade_in_remaining: 0,
+            fading_out: false,
+            fade_out_remaining: 0,
         }
     }
 
@@ -100,11 +112,26 @@ impl PreviewVoice {
         self.volume = volume;
         self.id = id;
         self.active = true;
+        // Anti-click: 10ms fade-in
+        self.fade_in_remaining = PREVIEW_FADE_FRAMES;
+        self.fading_out = false;
+        self.fade_out_remaining = 0;
     }
 
     fn deactivate(&mut self) {
         self.active = false;
         self.position = 0;
+        self.fading_out = false;
+        self.fade_out_remaining = 0;
+        self.fade_in_remaining = 0;
+    }
+
+    /// Start a fade-out (anti-click stop)
+    fn start_fade_out(&mut self) {
+        if self.active && !self.fading_out {
+            self.fading_out = true;
+            self.fade_out_remaining = PREVIEW_FADE_FRAMES;
+        }
     }
 
     /// Fill buffer with audio, returns true if still playing
@@ -133,10 +160,44 @@ impl PreviewVoice {
                 continue;
             }
 
-            // Read source (mono or stereo)
-            let left = self.audio.samples[src_frame * channels_src] * self.volume;
+            // Calculate fade envelope
+            let mut fade: f32 = 1.0;
+
+            // Fade-in ramp
+            if self.fade_in_remaining > 0 {
+                let elapsed = PREVIEW_FADE_FRAMES - self.fade_in_remaining;
+                fade = elapsed as f32 / PREVIEW_FADE_FRAMES as f32;
+                self.fade_in_remaining -= 1;
+            }
+
+            // Natural end-of-file fade-out (last 480 frames)
+            let frames_until_end = total_frames as u64 - (self.position + frame as u64);
+            if frames_until_end < PREVIEW_FADE_FRAMES && !self.fading_out {
+                fade *= frames_until_end as f32 / PREVIEW_FADE_FRAMES as f32;
+            }
+
+            // Fade-out ramp (overrides fade-in if both active)
+            if self.fading_out {
+                if self.fade_out_remaining > 0 {
+                    fade = self.fade_out_remaining as f32 / PREVIEW_FADE_FRAMES as f32;
+                    self.fade_out_remaining -= 1;
+                } else {
+                    // Fade-out complete — deactivate cleanly
+                    self.active = false;
+                    // Zero remaining output
+                    for remaining_frame in frame..frames_needed {
+                        for ch in 0..channels {
+                            output[remaining_frame * channels + ch] = 0.0;
+                        }
+                    }
+                    return false;
+                }
+            }
+
+            // Read source (mono or stereo) with fade applied
+            let left = self.audio.samples[src_frame * channels_src] * self.volume * fade;
             let right = if channels_src > 1 {
-                self.audio.samples[src_frame * channels_src + 1] * self.volume
+                self.audio.samples[src_frame * channels_src + 1] * self.volume * fade
             } else {
                 left // Mono to stereo
             };
@@ -206,13 +267,15 @@ impl RtState {
                     // If no slot available, voice is dropped (graceful degradation)
                 }
                 PreviewCommand::StopVoice { voice_id } => {
-                    if let Some(voice) = self.voices.iter_mut().find(|v| v.id == voice_id) {
-                        voice.deactivate();
+                    if let Some(voice) = self.voices.iter_mut().find(|v| v.id == voice_id && v.active) {
+                        voice.start_fade_out();
                     }
                 }
                 PreviewCommand::StopAll => {
                     for voice in &mut self.voices {
-                        voice.deactivate();
+                        if voice.active {
+                            voice.start_fade_out();
+                        }
                     }
                 }
                 PreviewCommand::SetVolume { volume } => {

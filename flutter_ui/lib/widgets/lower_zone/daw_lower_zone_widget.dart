@@ -199,7 +199,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         ),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
           // Resize handle
           _buildResizeHandle(),
