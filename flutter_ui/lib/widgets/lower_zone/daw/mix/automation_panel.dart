@@ -1,17 +1,16 @@
-/// DAW Automation Panel (P0.1 Extracted)
+/// DAW Automation Panel — Connected to AutomationProvider + FFI
 ///
 /// Interactive automation curve editor:
-/// - Mode selection (Read, Write, Touch)
+/// - Mode selection (Read, Write, Touch, Latch, Trim)
 /// - Parameter selection (Volume, Pan, Send, EQ, Comp)
-/// - Point-based curve editing with gestures
+/// - Point-based curve editing with gestures → FFI sync
 /// - Cubic bezier interpolation for smooth curves
 /// - Visual grid and value labels
-///
-/// Extracted from daw_lower_zone_widget.dart (2026-01-26)
-/// Lines 1764-2017 + 3226-3379 (~407 LOC total)
 library;
 
 import 'package:flutter/material.dart';
+import '../../../../providers/automation_provider.dart';
+import '../../../../services/service_locator.dart';
 import '../../lower_zone_types.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -29,16 +28,95 @@ class AutomationPanel extends StatefulWidget {
 }
 
 class _AutomationPanelState extends State<AutomationPanel> {
-  String _automationMode = 'Read';
+  final AutomationProvider _provider = sl<AutomationProvider>();
   String _automationParameter = 'Volume';
-  List<Offset> _automationPoints = [];
-  int? _selectedAutomationPointIndex;
+  int? _selectedPointIndex;
+
+  // Duration of visible timeline in samples (default 10 seconds at 48kHz)
+  int get _visibleDurationSamples => (_provider.sampleRate * 10).round();
+
+  @override
+  void initState() {
+    super.initState();
+    _provider.addListener(_onProviderChanged);
+  }
+
+  @override
+  void dispose() {
+    _provider.removeListener(_onProviderChanged);
+    super.dispose();
+  }
+
+  void _onProviderChanged() {
+    if (mounted) setState(() {});
+  }
+
+  // ─── Coordinate Conversion ─────────────────────────────────────────────
+
+  /// Convert pixel X to time in samples
+  int _xToTimeSamples(double x, double width) {
+    return (x / width * _visibleDurationSamples).round().clamp(0, _visibleDurationSamples);
+  }
+
+  /// Convert pixel Y to automation value (0.0-1.0, top=1.0, bottom=0.0)
+  double _yToValue(double y, double height) {
+    return (1.0 - (y / height)).clamp(0.0, 1.0);
+  }
+
+  /// Convert time in samples to pixel X
+  double _timeSamplesToX(int timeSamples, double width) {
+    return timeSamples / _visibleDurationSamples * width;
+  }
+
+  /// Convert automation value to pixel Y
+  double _valueToY(double value, double height) {
+    return (1.0 - value) * height;
+  }
+
+  /// Convert provider points to pixel Offsets for the painter
+  List<Offset> _pointsToOffsets(List<AutomationPoint> points, Size size) {
+    return points.map((p) => Offset(
+      _timeSamplesToX(p.timeSamples, size.width),
+      _valueToY(p.value, size.height),
+    )).toList();
+  }
+
+  // ─── Provider Mode Mapping ─────────────────────────────────────────────
+
+  AutomationMode _labelToMode(String label) {
+    return switch (label) {
+      'Read' => AutomationMode.read,
+      'Write' => AutomationMode.write,
+      'Touch' => AutomationMode.touch,
+      'Latch' => AutomationMode.latch,
+      'Trim' => AutomationMode.trim,
+      _ => AutomationMode.read,
+    };
+  }
+
+  String _modeToLabel(AutomationMode mode) {
+    return switch (mode) {
+      AutomationMode.read => 'Read',
+      AutomationMode.write => 'Write',
+      AutomationMode.touch => 'Touch',
+      AutomationMode.latch => 'Latch',
+      AutomationMode.trim => 'Trim',
+    };
+  }
+
+  bool get _isEditable => _provider.mode != AutomationMode.read;
 
   @override
   Widget build(BuildContext context) {
-    final selectedTrackName = widget.selectedTrackId != null
-        ? 'Track ${widget.selectedTrackId}'
+    final trackId = widget.selectedTrackId;
+    final selectedTrackName = trackId != null
+        ? 'Track $trackId'
         : 'No Track Selected';
+
+    final lane = trackId != null
+        ? _provider.getLane(trackId, _automationParameter)
+        : null;
+    final pointCount = lane?.points.length ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -71,16 +149,16 @@ class _AutomationPanelState extends State<AutomationPanel> {
                   selectedTrackName,
                   style: TextStyle(
                     fontSize: 9,
-                    color: widget.selectedTrackId != null
+                    color: trackId != null
                         ? LowerZoneColors.textPrimary
                         : LowerZoneColors.textMuted,
                   ),
                 ),
               ),
               const Spacer(),
-              _buildAutomationModeChip('Read', _automationMode == 'Read'),
-              _buildAutomationModeChip('Write', _automationMode == 'Write'),
-              _buildAutomationModeChip('Touch', _automationMode == 'Touch'),
+              _buildAutomationModeChip('Read'),
+              _buildAutomationModeChip('Write'),
+              _buildAutomationModeChip('Touch'),
             ],
           ),
           const SizedBox(height: 8),
@@ -131,8 +209,8 @@ class _AutomationPanelState extends State<AutomationPanel> {
               const SizedBox(width: 16),
               // Clear button
               TextButton.icon(
-                onPressed: widget.selectedTrackId != null
-                    ? () => setState(() => _automationPoints.clear())
+                onPressed: trackId != null
+                    ? () => _provider.clearLane(trackId, _automationParameter)
                     : null,
                 icon: const Icon(Icons.clear, size: 14, color: LowerZoneColors.textMuted),
                 label: const Text(
@@ -142,9 +220,9 @@ class _AutomationPanelState extends State<AutomationPanel> {
               ),
               const Spacer(),
               // Point count
-              if (_automationPoints.isNotEmpty)
+              if (pointCount > 0)
                 Text(
-                  '${_automationPoints.length} points',
+                  '$pointCount points',
                   style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
                 ),
             ],
@@ -152,9 +230,9 @@ class _AutomationPanelState extends State<AutomationPanel> {
           const SizedBox(height: 8),
           // Automation curve editor
           Expanded(
-            child: widget.selectedTrackId == null
+            child: trackId == null
                 ? _buildNoTrackAutomationPlaceholder()
-                : _buildInteractiveAutomationEditor(),
+                : _buildInteractiveAutomationEditor(trackId, lane),
           ),
         ],
       ),
@@ -192,66 +270,87 @@ class _AutomationPanelState extends State<AutomationPanel> {
     );
   }
 
-  Widget _buildInteractiveAutomationEditor() {
-    return GestureDetector(
-      onTapDown: (details) {
-        if (_automationMode != 'Read') {
-          setState(() {
-            _automationPoints.add(details.localPosition);
-            _automationPoints.sort((a, b) => a.dx.compareTo(b.dx));
-          });
-        }
-      },
-      onPanStart: (details) {
-        // Find if we're near a point
-        for (int i = 0; i < _automationPoints.length; i++) {
-          if ((details.localPosition - _automationPoints[i]).distance < 12) {
-            setState(() => _selectedAutomationPointIndex = i);
-            break;
-          }
-        }
-      },
-      onPanUpdate: (details) {
-        if (_selectedAutomationPointIndex != null && _automationMode != 'Read') {
-          setState(() {
-            _automationPoints[_selectedAutomationPointIndex!] = details.localPosition;
-          });
-        }
-      },
-      onPanEnd: (_) {
-        if (_selectedAutomationPointIndex != null) {
-          setState(() {
-            _automationPoints.sort((a, b) => a.dx.compareTo(b.dx));
-            _selectedAutomationPointIndex = null;
-          });
-        }
-      },
-      onDoubleTap: () {
-        // Delete last point on double tap
-        if (_automationPoints.isNotEmpty && _automationMode != 'Read') {
-          setState(() => _automationPoints.removeLast());
-        }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: LowerZoneColors.bgDeepest,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: CustomPaint(
-          painter: AutomationCurvePainter(
-            color: LowerZoneColors.dawAccent,
-            points: _automationPoints,
-            selectedIndex: _selectedAutomationPointIndex,
-            isEditable: _automationMode != 'Read',
+  Widget _buildInteractiveAutomationEditor(int trackId, AutomationLane? lane) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        final points = lane?.points ?? [];
+        final offsets = _pointsToOffsets(points, size);
+
+        return GestureDetector(
+          onTapDown: (details) {
+            if (_isEditable) {
+              final timeSamples = _xToTimeSamples(details.localPosition.dx, size.width);
+              final value = _yToValue(details.localPosition.dy, size.height);
+              _provider.addPoint(trackId, _automationParameter, timeSamples, value);
+            }
+          },
+          onPanStart: (details) {
+            // Find if we're near a point
+            for (int i = 0; i < offsets.length; i++) {
+              if ((details.localPosition - offsets[i]).distance < 12) {
+                setState(() => _selectedPointIndex = i);
+                break;
+              }
+            }
+          },
+          onPanUpdate: (details) {
+            if (_selectedPointIndex != null && _isEditable && _selectedPointIndex! < points.length) {
+              final timeSamples = _xToTimeSamples(details.localPosition.dx, size.width);
+              final value = _yToValue(details.localPosition.dy, size.height);
+              _provider.movePoint(
+                trackId,
+                _automationParameter,
+                _selectedPointIndex!,
+                timeSamples,
+                value,
+              );
+            }
+          },
+          onPanEnd: (_) {
+            setState(() => _selectedPointIndex = null);
+          },
+          onDoubleTapDown: (details) {
+            if (_isEditable && points.isNotEmpty) {
+              // Find nearest point to double-tap and remove it
+              int? nearestIdx;
+              double nearestDist = double.infinity;
+              for (int i = 0; i < offsets.length; i++) {
+                final dist = (details.localPosition - offsets[i]).distance;
+                if (dist < 20 && dist < nearestDist) {
+                  nearestDist = dist;
+                  nearestIdx = i;
+                }
+              }
+              if (nearestIdx != null) {
+                _provider.removePoint(trackId, _automationParameter, nearestIdx);
+              }
+            }
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: LowerZoneColors.bgDeepest,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: CustomPaint(
+              size: size,
+              painter: AutomationCurvePainter(
+                color: LowerZoneColors.dawAccent,
+                points: offsets,
+                selectedIndex: _selectedPointIndex,
+                isEditable: _isEditable,
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildAutomationModeChip(String label, bool isActive) {
+  Widget _buildAutomationModeChip(String label) {
+    final isActive = _modeToLabel(_provider.mode) == label;
     return GestureDetector(
-      onTap: () => setState(() => _automationMode = label),
+      onTap: () => _provider.setMode(_labelToMode(label)),
       child: Container(
         margin: const EdgeInsets.only(left: 4),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -307,7 +406,7 @@ class AutomationCurvePainter extends CustomPainter {
       final textPainter = TextPainter(
         text: TextSpan(
           text: isEditable
-              ? 'Click to add automation points\nDouble-click to delete last point'
+              ? 'Click to add automation points\nDouble-click point to delete'
               : 'Switch to Write or Touch mode to edit',
           style: TextStyle(
             color: LowerZoneColors.textMuted.withValues(alpha: 0.5),

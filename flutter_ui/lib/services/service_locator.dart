@@ -46,6 +46,7 @@ import '../providers/subsystems/event_profiler_provider.dart';
 import '../providers/slot_lab_project_provider.dart';
 import '../providers/git_provider.dart';
 import '../providers/ale_provider.dart';
+import '../providers/automation_provider.dart';
 import '../providers/feature_builder_provider.dart';
 import '../providers/stem_routing_provider.dart';
 import 'audio_pool.dart';
@@ -198,6 +199,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<AleProvider>(
       () => AleProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.5.2: Automation Provider (DAW parameter automation)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AutomationProvider>(
+      () => AutomationProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
