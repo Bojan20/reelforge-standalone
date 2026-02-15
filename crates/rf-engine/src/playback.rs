@@ -4174,17 +4174,20 @@ impl PlaybackEngine {
                 // For stereo tracks, use dual-pan (Pro Tools style)
                 if track.is_stereo() {
                     // Stereo dual-pan: L channel has own pan, R channel has own pan
-                    let pan_l_angle = (track.pan + 1.0) * std::f64::consts::FRAC_PI_4;
-                    let pan_l_l = pan_l_angle.cos();
-                    let pan_l_r = pan_l_angle.sin();
-
-                    let pan_r_angle = (track.pan_right + 1.0) * std::f64::consts::FRAC_PI_4;
-                    let pan_r_l = pan_r_angle.cos();
-                    let pan_r_r = pan_r_angle.sin();
+                    let pan_r_val = track.pan_right.clamp(-1.0, 1.0);
 
                     for i in 0..frames {
-                        let (volume, _pan) = self.param_smoother.advance_track(track.id.0);
+                        let (volume, pan) = self.param_smoother.advance_track(track.id.0);
                         let final_volume = volume * vca_gain;
+                        let pan_l_val = pan.clamp(-1.0, 1.0);
+
+                        let pan_l_angle = (pan_l_val + 1.0) * std::f64::consts::FRAC_PI_4;
+                        let pan_l_l = pan_l_angle.cos();
+                        let pan_l_r = pan_l_angle.sin();
+
+                        let pan_r_angle = (pan_r_val + 1.0) * std::f64::consts::FRAC_PI_4;
+                        let pan_r_l = pan_r_angle.cos();
+                        let pan_r_r = pan_r_angle.sin();
 
                         let l_sample = track_l[i];
                         let r_sample = track_r[i];
