@@ -4540,19 +4540,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               final mixerProvider = context.read<MixerProvider>();
               // dB to linear: linear = 10^(dB/20)
               final linear = volume <= -60 ? 0.0 : math.pow(10.0, volume / 20.0).toDouble().clamp(0.0, 1.5);
-              mixerProvider.setVolume(channelId, linear);
+              mixerProvider.setChannelVolumeWithUndo(channelId, linear);
             },
             onChannelPanChange: (channelId, pan) {
               final mixerProvider = context.read<MixerProvider>();
-              mixerProvider.setChannelPan(channelId, pan);
+              mixerProvider.setChannelPanWithUndo(channelId, pan);
             },
             onChannelPanRightChange: (channelId, pan) {
               final mixerProvider = context.read<MixerProvider>();
-              mixerProvider.setChannelPanRight(channelId, pan);
+              mixerProvider.setChannelPanRightWithUndo(channelId, pan);
             },
             onChannelMuteToggle: (channelId) {
               final mixerProvider = context.read<MixerProvider>();
-              mixerProvider.toggleMute(channelId);
+              mixerProvider.toggleChannelMuteWithUndo(channelId);
               // Sync back to _tracks for track header
               final trackId = channelId.replaceFirst('ch_', '');
               final channel = mixerProvider.getChannel(channelId);
@@ -4567,7 +4567,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             },
             onChannelSoloToggle: (channelId) {
               final mixerProvider = context.read<MixerProvider>();
-              mixerProvider.toggleSolo(channelId);
+              mixerProvider.toggleChannelSoloWithUndo(channelId);
               // Sync back to _tracks for track header
               final trackId = channelId.replaceFirst('ch_', '');
               final channel = mixerProvider.getChannel(channelId);
@@ -7321,10 +7321,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             child: ProMixerStrip(
               data: strip,
               compact: true,
-              onVolumeChange: (v) => mixerProvider.setVolume(strip.id, v),
-              onPanChange: (p) => mixerProvider.setChannelPan(strip.id, p),
-              onMuteToggle: () => mixerProvider.toggleMute(strip.id),
-              onSoloToggle: () => mixerProvider.toggleSolo(strip.id),
+              onVolumeChange: (v) => mixerProvider.setChannelVolumeWithUndo(strip.id, v),
+              onPanChange: (p) => mixerProvider.setChannelPanWithUndo(strip.id, p),
+              onMuteToggle: () => mixerProvider.toggleChannelMuteWithUndo(strip.id),
+              onSoloToggle: () => mixerProvider.toggleChannelSoloWithUndo(strip.id),
               onOutputClick: () => _onOutputClick(strip.id),
               onInsertClick: (idx) => _onInsertClick(strip.id, idx),
               onSlotDestinationChange: (slotIndex, type, targetId) =>
@@ -7444,31 +7444,31 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         if (id == 'master') {
           _onBusVolumeChange(id, vol);
         } else {
-          mixerProvider.setVolume(id, vol);
+          mixerProvider.setChannelVolumeWithUndo(id, vol);
         }
       },
       onPanChange: (id, pan) {
         if (id != 'master') {
-          mixerProvider.setChannelPan(id, pan);
+          mixerProvider.setChannelPanWithUndo(id, pan);
         }
       },
       onPanRightChange: (id, pan) {
         if (id != 'master') {
-          mixerProvider.setChannelPanRight(id, pan);
+          mixerProvider.setChannelPanRightWithUndo(id, pan);
         }
       },
       onMuteToggle: (id) {
         if (id == 'master') {
           _onBusMuteToggle(id);
         } else {
-          mixerProvider.toggleMute(id);
+          mixerProvider.toggleChannelMuteWithUndo(id);
         }
       },
       onSoloToggle: (id) {
         if (id == 'master') {
           _onBusSoloToggle(id);
         } else {
-          mixerProvider.toggleSolo(id);
+          mixerProvider.toggleChannelSoloWithUndo(id);
         }
       },
       onArmToggle: (id) {

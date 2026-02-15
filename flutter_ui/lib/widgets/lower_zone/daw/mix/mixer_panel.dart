@@ -155,23 +155,23 @@ class MixerPanel extends StatelessWidget {
             onVolumeChange: (id, volume) {
               // Check if it's a VCA
               if (mixerProvider.vcas.any((v) => v.id == id)) {
-                mixerProvider.setVcaLevel(id, volume);
+                mixerProvider.setVcaLevelWithUndo(id, volume);
               } else if (id == mixerProvider.master.id) {
-                mixerProvider.setMasterVolume(volume);
+                mixerProvider.setMasterVolumeWithUndo(volume);
               } else {
-                mixerProvider.setChannelVolume(id, volume);
+                mixerProvider.setChannelVolumeWithUndo(id, volume);
               }
             },
-            onPanChange: (id, pan) => mixerProvider.setChannelPan(id, pan),
-            onPanRightChange: (id, pan) => mixerProvider.setChannelPanRight(id, pan),
+            onPanChange: (id, pan) => mixerProvider.setChannelPanWithUndo(id, pan),
+            onPanRightChange: (id, pan) => mixerProvider.setChannelPanRightWithUndo(id, pan),
             onMuteToggle: (id) {
               if (mixerProvider.vcas.any((v) => v.id == id)) {
                 mixerProvider.toggleVcaMute(id);
               } else {
-                mixerProvider.toggleChannelMute(id);
+                mixerProvider.toggleChannelMuteWithUndo(id);
               }
             },
-            onSoloToggle: (id) => mixerProvider.toggleChannelSolo(id),
+            onSoloToggle: (id) => mixerProvider.toggleChannelSoloWithUndo(id),
             onArmToggle: (id) => mixerProvider.toggleChannelArm(id),
             // === SENDS ===
             onSendLevelChange: (channelId, sendIndex, level) {
@@ -181,7 +181,7 @@ class MixerPanel extends StatelessWidget {
               );
               if (sendIndex < ch.sends.length) {
                 final auxId = ch.sends[sendIndex].auxId;
-                mixerProvider.setAuxSendLevel(channelId, auxId, level);
+                mixerProvider.setAuxSendLevelWithUndo(channelId, auxId, level);
               }
             },
             onSendMuteToggle: (channelId, sendIndex, muted) {

@@ -1577,6 +1577,41 @@ class MixerProvider extends ChangeNotifier {
     setInputGain(channelId, gain);
   }
 
+  /// Set master volume WITH undo recording
+  void setMasterVolumeWithUndo(double volume) {
+    final oldVolume = _master.volume;
+    if ((oldVolume - volume).abs() < 0.001) return;
+
+    _undoManager.record(VolumeChangeAction(
+      channelId: _master.id,
+      channelName: 'Master',
+      oldVolume: oldVolume,
+      newVolume: volume,
+      applyVolume: (_, vol) => setMasterVolume(vol),
+    ));
+
+    setMasterVolume(volume);
+  }
+
+  /// Set VCA level WITH undo recording
+  void setVcaLevelWithUndo(String id, double level) {
+    final vca = _vcas[id];
+    if (vca == null) return;
+
+    final oldLevel = vca.level;
+    if ((oldLevel - level).abs() < 0.001) return;
+
+    _undoManager.record(VolumeChangeAction(
+      channelId: id,
+      channelName: vca.name,
+      oldVolume: oldLevel,
+      newVolume: level,
+      applyVolume: (cId, vol) => setVcaLevel(cId, vol),
+    ));
+
+    setVcaLevel(id, level);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // CHANNEL CONTROLS
   // ═══════════════════════════════════════════════════════════════════════════
