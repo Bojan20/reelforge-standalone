@@ -143,38 +143,22 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   }
 
   void _initializeProcessor() {
-    // Use DspChainProvider instead of ghost gateCreate()
     final dsp = DspChainProvider.instance;
-    final chain = dsp.getChain(widget.trackId);
+    var chain = dsp.getChain(widget.trackId);
 
-    // Find existing gate node or add one
-    DspNode? gateNode;
-    bool isNewNode = false;
+    // Auto-add gate to chain if not present
+    if (!chain.nodes.any((n) => n.type == DspNodeType.gate)) {
+      dsp.addNode(widget.trackId, DspNodeType.gate);
+      chain = dsp.getChain(widget.trackId);
+    }
+
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.gate) {
-        gateNode = node;
-        break;
-      }
-    }
-
-    if (gateNode == null) {
-      // Add gate to insert chain (this calls insertLoadProcessor FFI)
-      dsp.addNode(widget.trackId, DspNodeType.gate);
-      final updatedChain = dsp.getChain(widget.trackId);
-      if (updatedChain.nodes.isNotEmpty) {
-        gateNode = updatedChain.nodes.last;
-        isNewNode = true;
-      }
-    }
-
-    if (gateNode != null) {
-      _nodeId = gateNode.id;
-      _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
-      _initialized = true;
-      if (isNewNode) {
-        _applyAllParameters();
-      } else {
+        _nodeId = node.id;
+        _slotIndex = chain.nodes.indexWhere((n) => n.id == _nodeId);
+        _initialized = true;
         _readParamsFromEngine();
+        break;
       }
     }
   }

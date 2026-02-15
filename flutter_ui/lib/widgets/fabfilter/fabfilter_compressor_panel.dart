@@ -279,36 +279,21 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   /// instance that was NEVER processed by the audio thread.
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
-    final chain = dsp.getChain(widget.trackId);
+    var chain = dsp.getChain(widget.trackId);
 
-    // Find existing compressor node or add one
-    DspNode? compNode;
-    bool isNewNode = false;
+    // Auto-add compressor to chain if not present
+    if (!chain.nodes.any((n) => n.type == DspNodeType.compressor)) {
+      dsp.addNode(widget.trackId, DspNodeType.compressor);
+      chain = dsp.getChain(widget.trackId);
+    }
+
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.compressor) {
-        compNode = node;
-        break;
-      }
-    }
-
-    if (compNode == null) {
-      // Add compressor via DspChainProvider (this calls insertLoadProcessor → insert chain)
-      dsp.addNode(widget.trackId, DspNodeType.compressor);
-      final updatedChain = dsp.getChain(widget.trackId);
-      if (updatedChain.nodes.isNotEmpty) {
-        compNode = updatedChain.nodes.last;
-        isNewNode = true;
-      }
-    }
-
-    if (compNode != null) {
-      _nodeId = compNode.id;
-      _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
-      _initialized = true;
-      if (isNewNode) {
-        _applyAllParameters();
-      } else {
+        _nodeId = node.id;
+        _slotIndex = chain.nodes.indexWhere((n) => n.id == _nodeId);
+        _initialized = true;
         _readParamsFromEngine();
+        break;
       }
     }
   }

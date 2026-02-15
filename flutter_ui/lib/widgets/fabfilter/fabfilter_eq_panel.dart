@@ -218,40 +218,26 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     super.dispose();
   }
 
-  /// Initialize EQ processor via DspChainProvider (FIX: Uses real insert chain)
+  /// Initialize EQ processor via DspChainProvider
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
-    final chain = dsp.getChain(widget.trackId);
+    var chain = dsp.getChain(widget.trackId);
 
-    // Find existing EQ node or add one
-    DspNode? eqNode;
-    bool isNewNode = false;
+    // Auto-add EQ to chain if not present
+    if (!chain.nodes.any((n) => n.type == DspNodeType.eq)) {
+      dsp.addNode(widget.trackId, DspNodeType.eq);
+      chain = dsp.getChain(widget.trackId);
+    }
+
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.eq) {
-        eqNode = node;
+        _nodeId = node.id;
+        _slotIndex = chain.nodes.indexWhere((n) => n.id == _nodeId);
+        setState(() => _initialized = true);
+        _readBandsFromEngine();
+        _startSpectrumUpdate();
         break;
       }
-    }
-
-    if (eqNode == null) {
-      // Add EQ via DspChainProvider (calls insertLoadProcessor FFI)
-      dsp.addNode(widget.trackId, DspNodeType.eq);
-      final updatedChain = dsp.getChain(widget.trackId);
-      if (updatedChain.nodes.isNotEmpty) {
-        eqNode = updatedChain.nodes.last;
-        isNewNode = true;
-      }
-    }
-
-    if (eqNode != null) {
-      _nodeId = eqNode.id;
-      _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
-      setState(() => _initialized = true);
-      if (!isNewNode) {
-        _readBandsFromEngine();
-      }
-      _startSpectrumUpdate();
-    } else {
     }
   }
 

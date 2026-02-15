@@ -174,41 +174,25 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     _meterController.repeat();
   }
 
-  /// Initialize processor via DspChainProvider (FIX: Uses insert chain, not ghost HashMap)
+  /// Initialize processor via DspChainProvider
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
-    final chain = dsp.getChain(widget.trackId);
+    var chain = dsp.getChain(widget.trackId);
 
-    // Find existing limiter node or add one
-    DspNode? limiterNode;
-    bool isNewNode = false;
+    // Auto-add limiter to chain if not present
+    if (!chain.nodes.any((n) => n.type == DspNodeType.limiter)) {
+      dsp.addNode(widget.trackId, DspNodeType.limiter);
+      chain = dsp.getChain(widget.trackId);
+    }
+
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.limiter) {
-        limiterNode = node;
+        _nodeId = node.id;
+        _slotIndex = chain.nodes.indexWhere((n) => n.id == _nodeId);
+        _initialized = true;
+        _readParamsFromEngine();
         break;
       }
-    }
-
-    if (limiterNode == null) {
-      // Add limiter via DspChainProvider (this calls insertLoadProcessor → insert chain)
-      dsp.addNode(widget.trackId, DspNodeType.limiter);
-      final updatedChain = dsp.getChain(widget.trackId);
-      if (updatedChain.nodes.isNotEmpty) {
-        limiterNode = updatedChain.nodes.last;
-        isNewNode = true;
-      }
-    }
-
-    if (limiterNode != null) {
-      _nodeId = limiterNode.id;
-      _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
-      _initialized = true;
-      if (isNewNode) {
-        _applyAllParameters();
-      } else {
-        _readParamsFromEngine();
-      }
-    } else {
     }
   }
 

@@ -1,13 +1,12 @@
-/// FF-R Reverb Panel
+/// FF-R Reverb Panel (FDN 8×8 — 2026 Upgrade)
 ///
-/// Professional reverb interface:
+/// Mastering-grade reverb interface with 15 parameters:
+/// - Space, Brightness, Width, Mix, PreDelay, Style
+/// - Diffusion, Distance, Decay, Low/High Decay Mult
+/// - Character, Thickness, Ducking, Freeze
 /// - Real-time decay visualization
-/// - Space-based parameter control
-/// - Distance/Character/Stereo sections
-/// - Pre-delay with tempo sync
-/// - EQ and damping controls
+/// - Equal-power crossfade mix control
 
-import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -18,10 +17,10 @@ import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ENUMS & DATA CLASSES
+// ENUMS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Reverb space type (inspired by Pro-R)
+/// Reverb space type
 enum ReverbSpace {
   room('Room', 'Small intimate room'),
   hall('Hall', 'Concert hall'),
@@ -34,29 +33,26 @@ enum ReverbSpace {
   const ReverbSpace(this.label, this.description);
 }
 
-/// Decay rate mode
-enum DecayMode {
-  linear('Linear'),
-  exponential('Exponential'),
-  inverse('Inverse');
+// ═══════════════════════════════════════════════════════════════════════════
+// PARAM INDICES — must match ReverbWrapper in dsp_wrappers.rs
+// ═══════════════════════════════════════════════════════════════════════════
 
-  final String label;
-  const DecayMode(this.label);
-}
-
-/// EQ band for reverb coloring
-class ReverbEqBand {
-  final int index;
-  double freq;
-  double gain;
-  bool enabled;
-
-  ReverbEqBand({
-    required this.index,
-    this.freq = 1000,
-    this.gain = 0,
-    this.enabled = true,
-  });
+class _P {
+  static const space = 0;
+  static const brightness = 1;
+  static const width = 2;
+  static const mix = 3;
+  static const predelay = 4;
+  static const style = 5;
+  static const diffusion = 6;
+  static const distance = 7;
+  static const decay = 8;
+  static const lowDecay = 9;
+  static const highDecay = 10;
+  static const character = 11;
+  static const thickness = 12;
+  static const ducking = 13;
+  static const freeze = 14;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -81,37 +77,34 @@ class FabFilterReverbPanel extends FabFilterPanelBase {
 class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     with FabFilterPanelMixin, TickerProviderStateMixin {
   // ─────────────────────────────────────────────────────────────────────────
-  // STATE
+  // STATE — All 15 parameters
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Main parameters
-  double _brightness = 0.5; // 0-1 (dark to bright)
-  double _size = 0.5; // 0-1 (room size)
-  double _decay = 2.0; // seconds
-  double _mix = 30.0; // %
-  double _predelay = 20.0; // ms
+  // Primary controls (row 1)
+  double _space = 0.5;       // 0-1 (room size)
+  double _brightness = 0.5;  // 0-1 (high freq damping inverted)
+  double _decay = 0.5;       // 0-1 (mapped to feedback gain)
+  double _mix = 0.3;         // 0-1 (equal-power crossfade)
+  double _predelay = 20.0;   // ms (0-500)
+  double _width = 1.0;       // 0-2 (M/S stereo width)
+  ReverbSpace _spaceType = ReverbSpace.hall;
 
-  // Character
-  double _distance = 50.0; // % (near to far)
-  double _width = 100.0; // %
-  double _modulation = 0.0; // %
-  double _diffusion = 80.0; // %
+  // Character controls (row 2)
+  double _diffusion = 0.7;   // 0-1
+  double _distance = 0.3;    // 0-1 (ER level)
+  double _character = 0.0;   // 0-1 (modulation depth)
+  double _thickness = 0.0;   // 0-1 (tanh saturation)
 
-  // Damping
-  double _dampingHigh = 0.5; // 0-1
-  double _dampingLow = 0.2; // 0-1
-  double _dampingFreq = 4000.0; // Hz
+  // Tonal shaping
+  double _lowDecay = 1.0;    // 0.5-2.0 (low freq decay multiplier)
+  double _highDecay = 0.5;   // 0.1-1.0 (high freq decay multiplier)
 
-  // Space
-  ReverbSpace _space = ReverbSpace.hall;
-  DecayMode _decayMode = DecayMode.exponential;
-
-  // EQ bands
-  List<ReverbEqBand> _eqBands = [];
-  bool _eqVisible = false;
+  // Special
+  double _ducking = 0.0;     // 0-1 (self-ducking amount)
+  bool _freeze = false;      // infinite sustain
 
   // Display
-  bool _compactView = false;
+  bool _showAdvanced = false;
 
   // Animation
   late AnimationController _decayController;
@@ -120,7 +113,6 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   // FFI
   final _ffi = NativeFFI.instance;
   bool _initialized = false;
-  Timer? _meterTimer;
 
   // DspChainProvider integration
   String? _nodeId;
@@ -132,77 +124,55 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   @override
   void initState() {
     super.initState();
-
-    // Initialize FFI reverb
     _initializeProcessor();
 
-    // Initialize EQ bands
-    _eqBands = [
-      ReverbEqBand(index: 0, freq: 80, gain: 0),
-      ReverbEqBand(index: 1, freq: 500, gain: 0),
-      ReverbEqBand(index: 2, freq: 2000, gain: 0),
-      ReverbEqBand(index: 3, freq: 8000, gain: 0),
-    ];
-
-    // Decay animation
     _decayController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 50),
     )..addListener(_updateDecayAnimation);
-
     _decayController.repeat();
   }
 
   void _initializeProcessor() {
-    // Use DspChainProvider instead of ghost algorithmicReverbCreate()
     final dsp = DspChainProvider.instance;
-    final chain = dsp.getChain(widget.trackId);
+    var chain = dsp.getChain(widget.trackId);
 
-    // Find existing reverb node or add one
-    DspNode? reverbNode;
-    bool isNewNode = false;
+    // Auto-add reverb to chain if not present
+    if (!chain.nodes.any((n) => n.type == DspNodeType.reverb)) {
+      dsp.addNode(widget.trackId, DspNodeType.reverb);
+      chain = dsp.getChain(widget.trackId);
+    }
+
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.reverb) {
-        reverbNode = node;
-        break;
-      }
-    }
-
-    if (reverbNode == null) {
-      // Add reverb to insert chain (this calls insertLoadProcessor FFI)
-      dsp.addNode(widget.trackId, DspNodeType.reverb);
-      final updatedChain = dsp.getChain(widget.trackId);
-      if (updatedChain.nodes.isNotEmpty) {
-        reverbNode = updatedChain.nodes.last;
-        isNewNode = true;
-      }
-    }
-
-    if (reverbNode != null) {
-      _nodeId = reverbNode.id;
-      _slotIndex = dsp.getChain(widget.trackId).nodes.indexWhere((n) => n.id == _nodeId);
-      _initialized = true;
-      if (isNewNode) {
-        _applyAllParameters();
-      } else {
+        _nodeId = node.id;
+        _slotIndex = chain.nodes.indexWhere((n) => n.id == _nodeId);
+        _initialized = true;
         _readParamsFromEngine();
+        break;
       }
     }
   }
 
-  /// Read current parameter values from engine (preserves live state on tab switch)
   void _readParamsFromEngine() {
     if (!_initialized || _slotIndex < 0) return;
     setState(() {
-      _size = _ffi.insertGetParam(widget.trackId, _slotIndex, 0);
-      _dampingHigh = _ffi.insertGetParam(widget.trackId, _slotIndex, 1);
-      _width = _ffi.insertGetParam(widget.trackId, _slotIndex, 2) * 100.0;
-      _mix = _ffi.insertGetParam(widget.trackId, _slotIndex, 3) * 100.0;
-      _predelay = _ffi.insertGetParam(widget.trackId, _slotIndex, 4);
-      final typeIdx = _ffi.insertGetParam(widget.trackId, _slotIndex, 5).round();
-      _space = _typeIndexToSpace(typeIdx);
-      _diffusion = _ffi.insertGetParam(widget.trackId, _slotIndex, 6) * 100.0;
-      _distance = _ffi.insertGetParam(widget.trackId, _slotIndex, 7) * 100.0;
+      _space = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.space);
+      _brightness = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.brightness);
+      _width = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.width);
+      _mix = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.mix);
+      _predelay = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.predelay);
+      final typeIdx = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.style).round();
+      _spaceType = _typeIndexToSpace(typeIdx);
+      _diffusion = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.diffusion);
+      _distance = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.distance);
+      _decay = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.decay);
+      _lowDecay = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.lowDecay);
+      _highDecay = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.highDecay);
+      _character = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.character);
+      _thickness = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.thickness);
+      _ducking = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.ducking);
+      _freeze = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.freeze) > 0.5;
     });
   }
 
@@ -217,22 +187,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     };
   }
 
-  void _applyAllParameters() {
-    if (!_initialized || _slotIndex < 0) return;
-    // CRITICAL: Type MUST be set FIRST because Rust set_type() overrides room_size and damping.
-    // By sending size/damping AFTER type, the user's values override the type presets.
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _spaceToTypeIndex(_space).toDouble()); // Type (sets preset size/damping)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _size);                        // Room Size (overrides type preset)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _dampingHigh);                 // Damping (overrides type preset)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _width / 100.0);               // Width
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _mix / 100.0);                 // Dry/Wet
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _predelay);                    // Predelay (ms)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 6, _diffusion / 100.0);           // Diffusion
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _distance / 100.0);            // Distance
-  }
-
   int _spaceToTypeIndex(ReverbSpace space) {
-    // 1:1 mapping to Rust ReverbType: 0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring
     return switch (space) {
       ReverbSpace.room => 0,
       ReverbSpace.hall => 1,
@@ -242,25 +197,28 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     };
   }
 
+  void _setParam(int index, double value) {
+    if (_initialized && _slotIndex >= 0) {
+      _ffi.insertSetParam(widget.trackId, _slotIndex, index, value);
+    }
+  }
+
   @override
   void dispose() {
-    _meterTimer?.cancel();
     _decayController.dispose();
-    // Don't remove from insert chain - node persists
-    // Ghost algorithmicReverbRemove() was here, now removed
     super.dispose();
   }
 
   void _updateDecayAnimation() {
+    final decayTime = 0.1 * math.pow(20 / 0.1, _decay).toDouble();
     setState(() {
-      // Simulate decay envelope animation
-      final t = (_decayController.value * 10) % _decay;
-      _animatedDecay = math.exp(-t / (_decay * 0.3));
+      final t = (_decayController.value * 10) % decayTime;
+      _animatedDecay = math.exp(-t / (decayTime * 0.3));
     });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // BUILD — Compact horizontal layout, NO scrolling
+  // BUILD
   // ─────────────────────────────────────────────────────────────────────────
 
   @override
@@ -269,23 +227,20 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
-          // Compact header
-          _buildCompactHeader(),
-          // Main content — horizontal layout, no scroll
+          _buildHeader(),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Column(
                 children: [
-                  // LEFT: Decay visualization (compact)
-                  _buildCompactDisplay(),
-                  const SizedBox(width: 12),
-                  // CENTER: Main knobs
-                  Expanded(flex: 3, child: _buildCompactControls()),
-                  const SizedBox(width: 12),
-                  // RIGHT: Space + options
-                  _buildCompactOptions(),
+                  // TOP: Decay visualization
+                  SizedBox(height: 80, child: _buildDecayDisplay()),
+                  const SizedBox(height: 6),
+                  // MIDDLE: Primary knobs
+                  Expanded(flex: 3, child: _buildPrimaryKnobs()),
+                  const SizedBox(height: 4),
+                  // BOTTOM: Character + Advanced
+                  Expanded(flex: 2, child: _buildCharacterSection()),
                 ],
               ),
             ),
@@ -295,29 +250,40 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     ));
   }
 
-  Widget _buildCompactHeader() {
+  // ─── Header ─────────────────────────────────────────────────────────────
+
+  Widget _buildHeader() {
     return Container(
       height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: FabFilterColors.borderSubtle))),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: FabFilterColors.borderSubtle)),
+      ),
       child: Row(
         children: [
           Icon(widget.icon, color: widget.accentColor, size: 14),
           const SizedBox(width: 6),
           Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11)),
-          const SizedBox(width: 12),
-          // Space selector dropdown
-          _buildCompactSpaceDropdown(),
-          const Spacer(),
-          _buildCompactAB(),
+          const SizedBox(width: 10),
+          _buildSpaceDropdown(),
           const SizedBox(width: 8),
-          _buildCompactBypass(),
+          // Freeze toggle
+          _buildFreezeButton(),
+          const Spacer(),
+          // Advanced toggle
+          _buildToggleButton('ADV', _showAdvanced, () {
+            setState(() => _showAdvanced = !_showAdvanced);
+          }),
+          const SizedBox(width: 6),
+          _buildABButtons(),
+          const SizedBox(width: 6),
+          _buildBypassButton(),
         ],
       ),
     );
   }
 
-  Widget _buildCompactSpaceDropdown() {
+  Widget _buildSpaceDropdown() {
     return Container(
       height: 22,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -328,7 +294,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<ReverbSpace>(
-          value: _space,
+          value: _spaceType,
           dropdownColor: FabFilterColors.bgDeep,
           style: FabFilterText.paramLabel.copyWith(fontSize: 10),
           icon: Icon(Icons.arrow_drop_down, size: 14, color: FabFilterColors.textMuted),
@@ -339,15 +305,13 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           )).toList(),
           onChanged: (v) {
             if (v != null) {
-              setState(() => _space = v);
-              if (_slotIndex >= 0) {
-                _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _spaceToTypeIndex(v).toDouble());
-                // Read back size/damping because set_type() overrides them with preset values
-                setState(() {
-                  _size = _ffi.insertGetParam(widget.trackId, _slotIndex, 0);
-                  _dampingHigh = _ffi.insertGetParam(widget.trackId, _slotIndex, 1);
-                });
-              }
+              setState(() => _spaceType = v);
+              _setParam(_P.style, _spaceToTypeIndex(v).toDouble());
+              // Read back space/brightness because set_style() may override them
+              setState(() {
+                _space = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.space);
+                _brightness = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.brightness);
+              });
             }
           },
         ),
@@ -355,7 +319,53 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     );
   }
 
-  Widget _buildCompactAB() {
+  Widget _buildFreezeButton() {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _freeze = !_freeze);
+        _setParam(_P.freeze, _freeze ? 1.0 : 0.0);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: _freeze ? FabFilterColors.cyan.withValues(alpha: 0.3) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: _freeze ? FabFilterColors.cyan : FabFilterColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.ac_unit, size: 10, color: _freeze ? FabFilterColors.cyan : FabFilterColors.textTertiary),
+            const SizedBox(width: 3),
+            Text('FRZ', style: TextStyle(
+              color: _freeze ? FabFilterColors.cyan : FabFilterColors.textTertiary,
+              fontSize: 9, fontWeight: FontWeight.bold,
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleButton(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: active ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: active ? widget.accentColor : FabFilterColors.border),
+        ),
+        child: Text(label, style: TextStyle(
+          color: active ? widget.accentColor : FabFilterColors.textTertiary,
+          fontSize: 9, fontWeight: FontWeight.bold,
+        )),
+      ),
+    );
+  }
+
+  Widget _buildABButtons() {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -376,12 +386,15 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: active ? widget.accentColor : FabFilterColors.border),
         ),
-        child: Center(child: Text(label, style: TextStyle(color: active ? widget.accentColor : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold))),
+        child: Center(child: Text(label, style: TextStyle(
+          color: active ? widget.accentColor : FabFilterColors.textTertiary,
+          fontSize: 9, fontWeight: FontWeight.bold,
+        ))),
       ),
     );
   }
 
-  Widget _buildCompactBypass() {
+  Widget _buildBypassButton() {
     return GestureDetector(
       onTap: toggleBypass,
       child: Container(
@@ -391,173 +404,197 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: bypassed ? FabFilterColors.orange : FabFilterColors.border),
         ),
-        child: Text('BYP', style: TextStyle(color: bypassed ? FabFilterColors.orange : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
+        child: Text('BYP', style: TextStyle(
+          color: bypassed ? FabFilterColors.orange : FabFilterColors.textTertiary,
+          fontSize: 9, fontWeight: FontWeight.bold,
+        )),
       ),
     );
   }
 
-  Widget _buildCompactDisplay() {
-    return SizedBox(
-      width: 120,
-      child: Container(
-        decoration: FabFilterDecorations.display(),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: CustomPaint(
-            painter: _ReverbDisplayPainter(
-              decay: _decay,
-              predelay: _predelay,
-              size: _size,
-              dampingHigh: _dampingHigh,
-              animatedDecay: _animatedDecay,
-              brightness: _brightness,
-            ),
-            size: Size.infinite,
+  // ─── Decay Display ──────────────────────────────────────────────────────
+
+  Widget _buildDecayDisplay() {
+    return Container(
+      decoration: FabFilterDecorations.display(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: CustomPaint(
+          painter: _ReverbDisplayPainter(
+            decay: _decay,
+            predelay: _predelay,
+            space: _space,
+            brightness: _brightness,
+            lowDecayMult: _lowDecay,
+            highDecayMult: _highDecay,
+            animatedDecay: _animatedDecay,
+            freeze: _freeze,
           ),
+          size: Size.infinite,
         ),
       ),
     );
   }
 
-  Widget _buildCompactControls() {
+  // ─── Primary Knobs ──────────────────────────────────────────────────────
+
+  Widget _buildPrimaryKnobs() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _buildSmallKnob(
-          value: _size,
-          label: 'SIZE',
-          display: '${(_size * 100).toStringAsFixed(0)}%',
+        _knob(
+          value: _space, label: 'SPACE',
+          display: '${(_space * 100).toStringAsFixed(0)}%',
           color: FabFilterColors.purple,
           onChanged: (v) {
-            setState(() {
-              _size = v;
-              // Keep decay in sync with size — larger room = longer decay
-              _decay = 0.1 * math.pow(20 / 0.1, v).toDouble();
-            });
-            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 0, v);
+            setState(() => _space = v);
+            _setParam(_P.space, v);
           },
         ),
-        _buildSmallKnob(
-          value: math.log(_decay / 0.1) / math.log(20 / 0.1),
-          label: 'DECAY',
-          display: _decay >= 1 ? '${_decay.toStringAsFixed(1)}s' : '${(_decay * 1000).toStringAsFixed(0)}ms',
+        _knob(
+          value: _decay, label: 'DECAY',
+          display: _formatDecay(_decay),
           color: FabFilterColors.purple,
           onChanged: (v) {
-            setState(() => _decay = 0.1 * math.pow(20 / 0.1, v).toDouble());
-            // Decay maps to RoomSize (param 0) — larger room = longer decay
-            if (_slotIndex >= 0) {
-              // Normalize decay 0.1-20s to 0-1 range for room size
-              final normalized = (math.log(_decay / 0.1) / math.log(20 / 0.1)).clamp(0.0, 1.0);
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 0, normalized);
-              _size = normalized; // Keep size in sync with decay
-            }
+            setState(() => _decay = v);
+            _setParam(_P.decay, v);
           },
         ),
-        _buildSmallKnob(
-          value: _brightness,
-          label: 'BRIGHT',
+        _knob(
+          value: _brightness, label: 'BRIGHT',
           display: '${(_brightness * 100).toStringAsFixed(0)}%',
           color: FabFilterColors.cyan,
           onChanged: (v) {
             setState(() => _brightness = v);
-            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 1, 1 - v);
+            _setParam(_P.brightness, v);
           },
         ),
-        _buildSmallKnob(
-          value: math.log(_predelay / 1) / math.log(200 / 1),
-          label: 'PRE',
+        _knob(
+          value: _predelay / 500.0, label: 'PRE',
           display: '${_predelay.toStringAsFixed(0)}ms',
           color: FabFilterColors.blue,
           onChanged: (v) {
-            setState(() => _predelay = 1 * math.pow(200 / 1, v).toDouble());
-            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _predelay);
+            setState(() => _predelay = v * 500.0);
+            _setParam(_P.predelay, _predelay);
           },
         ),
-        _buildSmallKnob(
-          value: _mix / 100,
-          label: 'MIX',
-          display: '${_mix.toStringAsFixed(0)}%',
+        _knob(
+          value: _mix, label: 'MIX',
+          display: '${(_mix * 100).toStringAsFixed(0)}%',
           color: FabFilterColors.green,
           onChanged: (v) {
-            setState(() => _mix = v * 100);
-            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 3, v);
+            setState(() => _mix = v);
+            _setParam(_P.mix, v);
           },
         ),
-        _buildSmallKnob(
-          value: _width / 200,
-          label: 'WIDTH',
-          display: '${_width.toStringAsFixed(0)}%',
+        _knob(
+          value: _width / 2.0, label: 'WIDTH',
+          display: '${(_width * 100).toStringAsFixed(0)}%',
           color: FabFilterColors.cyan,
           onChanged: (v) {
-            setState(() => _width = v * 200);
-            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 2, v * 2);
+            setState(() => _width = v * 2.0);
+            _setParam(_P.width, _width);
           },
         ),
       ],
     );
   }
 
-  Widget _buildSmallKnob({
+  String _formatDecay(double d) {
+    // Map 0-1 to a display time for reference
+    final seconds = 0.1 * math.pow(20 / 0.1, d);
+    return seconds >= 1 ? '${seconds.toStringAsFixed(1)}s' : '${(seconds * 1000).toStringAsFixed(0)}ms';
+  }
+
+  Widget _knob({
     required double value,
     required String label,
     required String display,
     required Color color,
     required ValueChanged<double> onChanged,
   }) {
-    return FabFilterKnob(value: value.clamp(0.0, 1.0), label: label, display: display, color: color, size: 48, onChanged: onChanged);
-  }
-
-  Widget _buildCompactOptions() {
-    return SizedBox(
-      width: 100,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Character controls compact
-          _buildMiniSlider('Dist', _distance / 100, '${_distance.toStringAsFixed(0)}%', (v) {
-            setState(() => _distance = v * 100);
-            // Distance (param 7) — early reflections attenuation (0=close/loud, 1=far/quiet)
-            if (_slotIndex >= 0) {
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 7, v);
-            }
-          }),
-          const SizedBox(height: 4),
-          _buildMiniSlider('Diff', _diffusion / 100, '${_diffusion.toStringAsFixed(0)}%', (v) {
-            setState(() => _diffusion = v * 100);
-            // Diffusion (param 6) — allpass feedback, controls echo density
-            if (_slotIndex >= 0) {
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 6, v);
-            }
-          }),
-          const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0
-          // Damping (expert)
-          if (showExpertMode) ...[
-            Text('DAMPING', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
-            const SizedBox(height: 2),
-            _buildMiniSlider('Lo', _dampingLow, '${(_dampingLow * 100).toStringAsFixed(0)}%', (v) {
-              setState(() => _dampingLow = v);
-              // Combined damping: average of low and high damping → param 1
-              if (_slotIndex >= 0) {
-                final combined = (_dampingLow + _dampingHigh) / 2.0;
-                _ffi.insertSetParam(widget.trackId, _slotIndex, 1, combined);
-              }
-            }),
-            _buildMiniSlider('Hi', _dampingHigh, '${(_dampingHigh * 100).toStringAsFixed(0)}%', (v) {
-              setState(() => _dampingHigh = v);
-              if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 1, v);
-            }),
-          ],
-        ],
-      ),
+    return FabFilterKnob(
+      value: value.clamp(0.0, 1.0),
+      label: label,
+      display: display,
+      color: color,
+      size: 44,
+      onChanged: onChanged,
     );
   }
 
-  Widget _buildMiniSlider(String label, double value, String display, ValueChanged<double> onChanged) {
+  // ─── Character + Advanced Section ───────────────────────────────────────
+
+  Widget _buildCharacterSection() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // LEFT: Diffusion + Distance
+        Expanded(
+          flex: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _miniSlider('Diff', _diffusion, '${(_diffusion * 100).toStringAsFixed(0)}%', (v) {
+                setState(() => _diffusion = v);
+                _setParam(_P.diffusion, v);
+              }),
+              _miniSlider('Dist', _distance, '${(_distance * 100).toStringAsFixed(0)}%', (v) {
+                setState(() => _distance = v);
+                _setParam(_P.distance, v);
+              }),
+              _miniSlider('Char', _character, '${(_character * 100).toStringAsFixed(0)}%', (v) {
+                setState(() => _character = v);
+                _setParam(_P.character, v);
+              }),
+              _miniSlider('Thick', _thickness, '${(_thickness * 100).toStringAsFixed(0)}%', (v) {
+                setState(() => _thickness = v);
+                _setParam(_P.thickness, v);
+              }),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        // RIGHT: Ducking + Advanced
+        Expanded(
+          flex: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _miniSlider('Duck', _ducking, '${(_ducking * 100).toStringAsFixed(0)}%', (v) {
+                setState(() => _ducking = v);
+                _setParam(_P.ducking, v);
+              }),
+              if (_showAdvanced) ...[
+                const SizedBox(height: 2),
+                Text('TONAL DECAY', style: FabFilterText.paramLabel.copyWith(fontSize: 8, color: FabFilterColors.textMuted)),
+                const SizedBox(height: 2),
+                _miniSlider('Lo×', (_lowDecay - 0.5) / 1.5,
+                  '${_lowDecay.toStringAsFixed(2)}×', (v) {
+                  setState(() => _lowDecay = 0.5 + v * 1.5);
+                  _setParam(_P.lowDecay, _lowDecay);
+                }),
+                _miniSlider('Hi×', (_highDecay - 0.1) / 0.9,
+                  '${_highDecay.toStringAsFixed(2)}×', (v) {
+                  setState(() => _highDecay = 0.1 + v * 0.9);
+                  _setParam(_P.highDecay, _highDecay);
+                }),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _miniSlider(String label, double value, String display, ValueChanged<double> onChanged) {
     return SizedBox(
       height: 18,
       child: Row(
         children: [
-          SizedBox(width: 22, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
+          SizedBox(width: 28, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
           Expanded(
             child: SliderTheme(
               data: SliderThemeData(
@@ -571,12 +608,11 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
               child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
             ),
           ),
-          SizedBox(width: 28, child: Text(display, style: FabFilterText.paramLabel.copyWith(fontSize: 8), textAlign: TextAlign.right)),
+          SizedBox(width: 34, child: Text(display, style: FabFilterText.paramLabel.copyWith(fontSize: 8), textAlign: TextAlign.right)),
         ],
       ),
     );
   }
-
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -586,33 +622,35 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
 class _ReverbDisplayPainter extends CustomPainter {
   final double decay;
   final double predelay;
-  final double size;
-  final double dampingHigh;
-  final double animatedDecay;
+  final double space;
   final double brightness;
+  final double lowDecayMult;
+  final double highDecayMult;
+  final double animatedDecay;
+  final bool freeze;
 
   _ReverbDisplayPainter({
     required this.decay,
     required this.predelay,
-    required this.size,
-    required this.dampingHigh,
-    required this.animatedDecay,
+    required this.space,
     required this.brightness,
+    required this.lowDecayMult,
+    required this.highDecayMult,
+    required this.animatedDecay,
+    required this.freeze,
   });
 
   @override
   void paint(Canvas canvas, Size canvasSize) {
     final rect = Offset.zero & canvasSize;
+    final decayTime = 0.1 * math.pow(20 / 0.1, decay);
 
     // Background gradient
     final bgPaint = Paint()
       ..shader = ui.Gradient.linear(
         Offset(0, 0),
         Offset(0, canvasSize.height),
-        [
-          FabFilterColors.bgVoid,
-          FabFilterColors.bgDeep,
-        ],
+        [FabFilterColors.bgVoid, FabFilterColors.bgDeep],
       );
     canvas.drawRect(rect, bgPaint);
 
@@ -621,101 +659,89 @@ class _ReverbDisplayPainter extends CustomPainter {
       ..color = FabFilterColors.grid
       ..strokeWidth = 0.5;
 
-    // Time grid
-    final maxTime = decay * 1.5;
     for (var i = 1; i <= 4; i++) {
       final x = (i / 5) * canvasSize.width;
       canvas.drawLine(Offset(x, 0), Offset(x, canvasSize.height), gridPaint);
     }
-
-    // Amplitude grid
     for (var i = 1; i < 4; i++) {
       final y = (i / 4) * canvasSize.height;
       canvas.drawLine(Offset(0, y), Offset(canvasSize.width, y), gridPaint);
     }
 
     // Pre-delay region
+    final maxTime = decayTime * 1.5;
     final predelayX = (predelay / 1000) / maxTime * canvasSize.width;
-    final predelayPaint = Paint()
-      ..color = FabFilterColors.blue.withValues(alpha: 0.2);
+
     canvas.drawRect(
       Rect.fromLTWH(0, 0, predelayX, canvasSize.height),
-      predelayPaint,
+      Paint()..color = FabFilterColors.blue.withValues(alpha: 0.2),
     );
-
-    // Pre-delay line
     canvas.drawLine(
       Offset(predelayX, 0),
       Offset(predelayX, canvasSize.height),
-      Paint()
-        ..color = FabFilterColors.blue
-        ..strokeWidth = 1,
+      Paint()..color = FabFilterColors.blue..strokeWidth = 1,
     );
 
-    // Decay envelope
-    final decayPath = Path();
-    final decayPaint = Paint()
-      ..shader = ui.Gradient.linear(
-        Offset(0, 0),
-        Offset(0, canvasSize.height),
-        [
-          FabFilterColors.purple.withValues(alpha: 0.8),
-          FabFilterColors.purple.withValues(alpha: 0.1),
-        ],
-      );
+    // Freeze indicator
+    if (freeze) {
+      canvas.drawRect(rect, Paint()..color = FabFilterColors.cyan.withValues(alpha: 0.08));
+      _drawLabel(canvas, 'FREEZE', Offset(canvasSize.width / 2 - 20, canvasSize.height / 2 - 6),
+        color: FabFilterColors.cyan);
+    }
 
+    // Decay envelope (with low/high decay tint)
+    final decayPath = Path();
     decayPath.moveTo(predelayX, canvasSize.height);
 
-    // Draw exponential decay curve
     for (var x = predelayX; x <= canvasSize.width; x += 2) {
       final t = ((x - predelayX) / canvasSize.width) * maxTime;
-      final amplitude = math.exp(-t / (decay * 0.3 * (1 + size)));
+      final amplitude = freeze ? 0.8 : math.exp(-t / (decayTime * 0.3 * (1 + space)));
       final y = canvasSize.height * (1 - amplitude);
-
       decayPath.lineTo(x, y);
     }
-
     decayPath.lineTo(canvasSize.width, canvasSize.height);
     decayPath.close();
-    canvas.drawPath(decayPath, decayPaint);
 
-    // Decay curve outline
+    canvas.drawPath(decayPath, Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(0, 0), Offset(0, canvasSize.height),
+        [FabFilterColors.purple.withValues(alpha: 0.8), FabFilterColors.purple.withValues(alpha: 0.1)],
+      ));
+
+    // Decay outline
     final outlinePath = Path();
     outlinePath.moveTo(predelayX, canvasSize.height * 0.1);
-
     for (var x = predelayX; x <= canvasSize.width; x += 2) {
       final t = ((x - predelayX) / canvasSize.width) * maxTime;
-      final amplitude = math.exp(-t / (decay * 0.3 * (1 + size)));
-      final y = canvasSize.height * (1 - amplitude * 0.9);
+      final amplitude = freeze ? 0.8 : math.exp(-t / (decayTime * 0.3 * (1 + space)));
+      outlinePath.lineTo(x, canvasSize.height * (1 - amplitude * 0.9));
+    }
+    canvas.drawPath(outlinePath, Paint()
+      ..color = FabFilterColors.purple..strokeWidth = 2..style = PaintingStyle.stroke);
 
-      outlinePath.lineTo(x, y);
+    // Low/High decay bands (subtle coloring)
+    if (lowDecayMult > 1.1) {
+      // Show low freq sustain boost
+      _drawLabel(canvas, 'Lo×${lowDecayMult.toStringAsFixed(1)}',
+        Offset(predelayX + 4, 4), color: FabFilterColors.orange.withValues(alpha: 0.7));
+    }
+    if (highDecayMult < 0.8) {
+      _drawLabel(canvas, 'Hi×${highDecayMult.toStringAsFixed(1)}',
+        Offset(predelayX + 4, 16), color: FabFilterColors.cyan.withValues(alpha: 0.7));
     }
 
-    canvas.drawPath(
-      outlinePath,
-      Paint()
-        ..color = FabFilterColors.purple
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke,
-    );
-
-    // Early reflections (small spikes)
-    final erPaint = Paint()
-      ..color = FabFilterColors.cyan
-      ..strokeWidth = 1;
-
-    final random = math.Random(42); // Deterministic
-    final erCount = (size * 10 + 5).toInt();
+    // Early reflections
+    final erPaint = Paint()..color = FabFilterColors.cyan..strokeWidth = 1;
+    final random = math.Random(42);
+    final erCount = (space * 10 + 5).toInt();
     for (var i = 0; i < erCount; i++) {
-      final t = predelay / 1000 + random.nextDouble() * size * 0.1;
+      final t = predelay / 1000 + random.nextDouble() * space * 0.1;
       final x = (t / maxTime) * canvasSize.width;
       final amplitude = 0.3 + random.nextDouble() * 0.4;
-      final y = canvasSize.height * (1 - amplitude);
-
       if (x > predelayX && x < canvasSize.width) {
         canvas.drawLine(
           Offset(x, canvasSize.height),
-          Offset(x, y),
+          Offset(x, canvasSize.height * (1 - amplitude)),
           erPaint,
         );
       }
@@ -724,27 +750,17 @@ class _ReverbDisplayPainter extends CustomPainter {
     // Animated level indicator
     final indicatorX = predelayX + (canvasSize.width - predelayX) * 0.05;
     final indicatorY = canvasSize.height * (1 - animatedDecay * 0.8);
-
-    canvas.drawCircle(
-      Offset(indicatorX, indicatorY),
-      4,
-      Paint()..color = FabFilterColors.green,
-    );
+    canvas.drawCircle(Offset(indicatorX, indicatorY), 4, Paint()..color = FabFilterColors.green);
 
     // Labels
-    _drawLabel(canvas, 'Pre-delay', Offset(4, canvasSize.height - 14));
-    _drawLabel(
-        canvas, '${decay.toStringAsFixed(1)}s', Offset(canvasSize.width - 40, 4));
+    _drawLabel(canvas, '${decayTime.toStringAsFixed(1)}s', Offset(canvasSize.width - 40, 4));
   }
 
-  void _drawLabel(Canvas canvas, String text, Offset offset) {
+  void _drawLabel(Canvas canvas, String text, Offset offset, {Color? color}) {
     final painter = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(
-          color: FabFilterColors.textMuted,
-          fontSize: 9,
-        ),
+        style: TextStyle(color: color ?? FabFilterColors.textMuted, fontSize: 9),
       ),
       textDirection: TextDirection.ltr,
     );
@@ -756,101 +772,9 @@ class _ReverbDisplayPainter extends CustomPainter {
   bool shouldRepaint(covariant _ReverbDisplayPainter oldDelegate) =>
       oldDelegate.decay != decay ||
       oldDelegate.predelay != predelay ||
-      oldDelegate.size != size ||
-      oldDelegate.animatedDecay != animatedDecay;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// REVERB EQ PAINTER
-// ═══════════════════════════════════════════════════════════════════════════
-
-class _ReverbEqPainter extends CustomPainter {
-  final List<ReverbEqBand> bands;
-
-  _ReverbEqPainter({required this.bands});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-
-    // Background
-    canvas.drawRect(rect, Paint()..color = FabFilterColors.bgVoid);
-
-    // Grid
-    final gridPaint = Paint()
-      ..color = FabFilterColors.grid
-      ..strokeWidth = 0.5;
-
-    // Frequency grid
-    for (final freq in [100, 1000, 10000]) {
-      final x = _freqToX(freq.toDouble(), size.width);
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-
-    // 0dB line
-    canvas.drawLine(
-      Offset(0, size.height / 2),
-      Offset(size.width, size.height / 2),
-      gridPaint,
-    );
-
-    // Draw EQ curve
-    final curvePaint = Paint()
-      ..color = FabFilterColors.purple
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    final curvePath = Path();
-    curvePath.moveTo(0, size.height / 2);
-
-    for (var i = 0; i < size.width; i += 2) {
-      final freq = _xToFreq(i.toDouble(), size.width);
-      var totalGain = 0.0;
-
-      for (final band in bands) {
-        if (!band.enabled) continue;
-        final octaves = (math.log(freq / band.freq) / math.ln2).abs();
-        final response = band.gain * math.exp(-octaves * octaves * 2);
-        totalGain += response;
-      }
-
-      final y = size.height / 2 - (totalGain / 12) * (size.height / 2);
-      curvePath.lineTo(i.toDouble(), y.clamp(0, size.height));
-    }
-
-    canvas.drawPath(curvePath, curvePaint);
-
-    // Band markers
-    final markerPaint = Paint()
-      ..color = FabFilterColors.purple
-      ..style = PaintingStyle.fill;
-
-    for (final band in bands) {
-      if (!band.enabled) continue;
-      final x = _freqToX(band.freq, size.width);
-      final y = size.height / 2 - (band.gain / 12) * (size.height / 2);
-
-      canvas.drawCircle(
-        Offset(x, y.clamp(4, size.height - 4)),
-        4,
-        markerPaint,
-      );
-    }
-  }
-
-  double _freqToX(double freq, double width) {
-    const minFreq = 20.0;
-    const maxFreq = 20000.0;
-    return width *
-        (math.log(freq / minFreq) / math.log(maxFreq / minFreq)).clamp(0, 1);
-  }
-
-  double _xToFreq(double x, double width) {
-    const minFreq = 20.0;
-    const maxFreq = 20000.0;
-    return minFreq * math.pow(maxFreq / minFreq, x / width);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ReverbEqPainter oldDelegate) => true;
+      oldDelegate.space != space ||
+      oldDelegate.animatedDecay != animatedDecay ||
+      oldDelegate.freeze != freeze ||
+      oldDelegate.lowDecayMult != lowDecayMult ||
+      oldDelegate.highDecayMult != highDecayMult;
 }
