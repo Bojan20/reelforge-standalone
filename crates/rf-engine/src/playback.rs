@@ -1653,6 +1653,15 @@ pub struct PlaybackEngine {
     /// This is separate from delay_comp which uses simple max-latency approach.
     /// graph_pdc uses topological graph analysis for phase-coherent compensation.
     graph_pdc_delays: RwLock<HashMap<u64, u64>>,
+
+    // === INSERT TAIL PROCESSING ===
+    /// Remaining samples for insert chain tail processing after transport stop.
+    /// When transport stops, this is set to tail_duration_samples so that
+    /// insert chains (reverb, delay) continue processing their tails.
+    /// Decremented each block until 0.
+    tail_remaining_samples: AtomicU64,
+    /// Duration in samples for insert tail processing (default: 3s at 48kHz = 144000)
+    tail_duration_samples: AtomicU64,
 }
 
 impl PlaybackEngine {
@@ -1735,6 +1744,9 @@ impl PlaybackEngine {
             graph_pdc_result: RwLock::new(None),
             graph_pdc_enabled: AtomicBool::new(true),
             graph_pdc_delays: RwLock::new(HashMap::new()),
+            // 3 seconds of tail at current sample rate
+            tail_remaining_samples: AtomicU64::new(0),
+            tail_duration_samples: AtomicU64::new(sample_rate as u64 * 3),
         }
     }
 
@@ -2128,8 +2140,11 @@ impl PlaybackEngine {
 
     /// Set bypass for master insert slot
     pub fn set_master_insert_bypass(&self, slot_index: usize, bypass: bool) {
-        if let Some(slot) = self.master_insert.read().slot(slot_index) {
+        let chain = self.master_insert.read();
+        if let Some(slot) = chain.slot(slot_index) {
             slot.set_bypass(bypass);
+        } else {
+            log::warn!("master insert slot {} NOT FOUND", slot_index);
         }
     }
 
@@ -2986,6 +3001,9 @@ impl PlaybackEngine {
     }
 
     pub fn pause(&self) {
+        // Start insert chain tail processing (reverb/delay tails ring out)
+        let tail_dur = self.tail_duration_samples.load(Ordering::Relaxed);
+        self.tail_remaining_samples.store(tail_dur, Ordering::Relaxed);
         self.position.set_state(PlaybackState::Paused);
     }
 
@@ -2995,6 +3013,9 @@ impl PlaybackEngine {
         for (track_id, path) in recordings {
             log::info!("Recording stopped for track {:?}: {:?}", track_id, path);
         }
+        // Start insert chain tail processing (reverb/delay tails ring out)
+        let tail_dur = self.tail_duration_samples.load(Ordering::Relaxed);
+        self.tail_remaining_samples.store(tail_dur, Ordering::Relaxed);
         self.position.set_state(PlaybackState::Stopped);
         self.position.set_samples(0);
     }
@@ -3808,8 +3829,84 @@ impl PlaybackEngine {
         // Check if playing (for DAW timeline tracks)
         // One-shot voices already processed above, so transport-stopped still outputs them
         if !self.position.is_playing() {
+            // === INSERT TAIL PROCESSING ===
+            // When transport stops, continue processing insert chains (reverb/delay tails)
+            // with silence input so tails ring out naturally.
+            let tail_remaining = self.tail_remaining_samples.load(Ordering::Relaxed);
+            if tail_remaining > 0 {
+                // Decrement tail counter
+                let new_remaining = tail_remaining.saturating_sub(frames as u64);
+                self.tail_remaining_samples.store(new_remaining, Ordering::Relaxed);
+
+                // Process insert chain tails using thread-local scratch buffers
+                // (no heap allocation in audio thread)
+                SCRATCH_BUFFER_L.with(|buf_l| {
+                    SCRATCH_BUFFER_R.with(|buf_r| {
+                        let mut sl = buf_l.borrow_mut();
+                        let mut sr = buf_r.borrow_mut();
+                        if sl.len() < frames { sl.resize(frames, 0.0); }
+                        if sr.len() < frames { sr.resize(frames, 0.0); }
+
+                        // Process track insert chains with silence (per-track reverb tails)
+                        if let Some(mut chains) = self.insert_chains.try_write() {
+                            for (_track_id, chain) in chains.iter_mut() {
+                                sl[..frames].fill(0.0);
+                                sr[..frames].fill(0.0);
+                                chain.process_pre_fader(&mut sl[..frames], &mut sr[..frames]);
+                                for i in 0..frames {
+                                    output_l[i] += sl[i];
+                                    output_r[i] += sr[i];
+                                }
+                            }
+                        }
+
+                        // Process bus insert chains with silence (bus-level reverb tails)
+                        if let Some(mut bus_inserts) = self.bus_inserts.try_write() {
+                            let bus_states = self.bus_states.read();
+                            for bus_idx in 0..6 {
+                                if bus_states[bus_idx].muted { continue; }
+                                sl[..frames].fill(0.0);
+                                sr[..frames].fill(0.0);
+
+                                bus_inserts[bus_idx].process_pre_fader(&mut sl[..frames], &mut sr[..frames]);
+
+                                let volume = bus_states[bus_idx].volume;
+                                for i in 0..frames {
+                                    sl[i] *= volume;
+                                    sr[i] *= volume;
+                                }
+
+                                bus_inserts[bus_idx].process_post_fader(&mut sl[..frames], &mut sr[..frames]);
+
+                                for i in 0..frames {
+                                    output_l[i] += sl[i];
+                                    output_r[i] += sr[i];
+                                }
+                            }
+                        }
+                    });
+                });
+
+                // Process master insert chain
+                if let Some(mut master_insert) = self.master_insert.try_write() {
+                    master_insert.process_pre_fader(output_l, output_r);
+                }
+
+                let master = self.master_volume();
+                for i in 0..frames {
+                    output_l[i] *= master;
+                    output_r[i] *= master;
+                }
+
+                if let Some(mut master_insert) = self.master_insert.try_write() {
+                    master_insert.process_post_fader(output_l, output_r);
+                }
+            }
             return;
         }
+
+        // Cancel any tail processing when playback resumes
+        self.tail_remaining_samples.store(0, Ordering::Relaxed);
 
         let sample_rate = self.position.sample_rate() as f64;
         let start_sample = self.position.samples();
@@ -4424,14 +4521,23 @@ impl PlaybackEngine {
                     let freq_ratio = i as f64 / (output_bins - 1) as f64;
                     let freq = 20.0 * (1000.0_f64).powf(freq_ratio); // 20Hz to 20kHz
 
-                    // For bass frequencies, average multiple FFT bins for smoother result
-                    // This is similar to 1/3 octave smoothing
+                    // 1/3 octave smoothing: averaging width proportional to frequency
+                    // This matches FabFilter Pro-Q behavior — smooth at all frequencies
                     let center_bin = analyzer.freq_to_bin(freq, sample_rate).min(bin_count - 1);
 
-                    let db = if freq < 200.0 {
-                        // Bass: average 3 neighboring bins for smoother response
-                        let low_bin = center_bin.saturating_sub(1);
-                        let high_bin = (center_bin + 1).min(bin_count - 1);
+                    // Calculate 1/3 octave bandwidth around center frequency
+                    // 1/3 octave factor: 2^(1/6) ≈ 1.122
+                    let octave_factor = 1.122_f64; // 2^(1/6)
+                    let freq_low = freq / octave_factor;
+                    let freq_high = freq * octave_factor;
+                    let bin_low = analyzer.freq_to_bin(freq_low, sample_rate);
+                    let bin_high = analyzer.freq_to_bin(freq_high, sample_rate).min(bin_count - 1);
+
+                    // Ensure at least 1 bin width, use wider range for bass
+                    let low_bin = if bin_low < center_bin { bin_low } else { center_bin.saturating_sub(1) };
+                    let high_bin = if bin_high > center_bin { bin_high } else { (center_bin + 1).min(bin_count - 1) };
+
+                    let db = if high_bin > low_bin {
                         let sum: f64 = (low_bin..=high_bin).map(|b| analyzer.magnitude(b)).sum();
                         sum / (high_bin - low_bin + 1) as f64
                     } else {

@@ -130,6 +130,9 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   int _slotIndex = -1;
 
   @override
+  int get processorSlotIndex => _slotIndex;
+
+  @override
   void initState() {
     super.initState();
 
@@ -232,7 +235,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return wrapWithBypassOverlay(Container(
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
@@ -259,7 +262,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildCompactHeader() {

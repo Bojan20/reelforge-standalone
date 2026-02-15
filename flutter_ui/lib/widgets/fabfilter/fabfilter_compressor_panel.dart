@@ -242,6 +242,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   int _slotIndex = -1;
 
   @override
+  int get processorSlotIndex => _slotIndex;
+
+  @override
   void initState() {
     super.initState();
 
@@ -446,12 +449,6 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     super.copyBToA();
   }
 
-  @override
-  void onBypassChanged(bool bypassed) {
-    // Bypass is handled visually - actual bypass would be at routing level
-    // TODO: Connect to DSP chain bypass when insert chain is implemented
-  }
-
   void _updateMeters() {
     setState(() {
       // Get gain reduction from channel strip compressor
@@ -503,7 +500,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return wrapWithBypassOverlay(Container(
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
@@ -533,7 +530,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildCompactHeader() {

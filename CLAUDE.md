@@ -1263,7 +1263,7 @@ cargo xtask bundle rf-plugin --release  # VST3/AU/CLAP
 | Phase modes  | Minimum, Linear, Hybrid (blend)                       |
 | Precision    | 64-bit double internal                                |
 | Oversampling | 1x, 2x, 4x, 8x, 16x                                   |
-| Spectrum     | GPU FFT, 60fps, 8192-point                            |
+| Spectrum     | 512-bin FFT, 60fps, 1/3 octave smoothing, Catmull-Rom spline |
 | Dynamic EQ   | Per-band threshold, ratio, attack, release            |
 | Mid/Side     | Full M/S processing                                   |
 | Auto-gain    | ITU-R BS.1770-4 loudness matching                     |
@@ -2323,7 +2323,7 @@ Professional DSP panel suite inspired by FabFilter's design language.
 - `lower_zone_controller.dart` — Tab enums + keyboard shortcuts
 - `lower_zone.dart` — Panel instances in IndexedStack
 
-### 🟢 FabFilter Panels → DspChainProvider Integration (2026-01-23) ✅
+### 🟢 FabFilter Panels → DspChainProvider Integration (2026-01-23, Updated 2026-02-15) ✅
 
 **Status:** FIXED — All DSP panels now use DspChainProvider + InsertProcessor chain.
 
@@ -2331,7 +2331,44 @@ Professional DSP panel suite inspired by FabFilter's design language.
 ```
 UI Panel → DspChainProvider.addNode() → insertLoadProcessor() → track_inserts → Audio Thread ✅
          → insertSetParam(trackId, slotIndex, paramIndex, value) → Real-time parameter updates ✅
+         → insertSetBypass(trackId, slotIndex, bypass) → Direct FFI bypass ✅ (Fixed 2026-02-15)
 ```
+
+**Bypass FFI Fix (2026-02-15) — CRITICAL:**
+
+**Problem:** Bypass toggle had no audible effect even with EQ bands engaged.
+
+**Root Cause:** TWO SEPARATE ENGINE GLOBALS exist in the codebase:
+1. `PLAYBACK_ENGINE` (rf-engine/ffi.rs) — `lazy_static`, **always initialized** ✅
+2. `ENGINE` (rf-bridge/lib.rs) — `Option<EngineBridge>`, starts as **None** ❌
+
+`insertLoadProcessor` and `insertSetParam` correctly used `PLAYBACK_ENGINE`, but `insertSetBypass` was calling `ffi_insert_set_bypass` in rf-bridge which used the uninitialized `ENGINE`.
+
+**Fix:** Redirected Dart FFI binding to `track_insert_set_bypass` in rf-engine/ffi.rs:
+```dart
+// BEFORE (wrong — rf-bridge ENGINE, never initialized):
+_insertSetBypass = _lib.lookupFunction<...>('ffi_insert_set_bypass');
+typedef InsertSetBypassNative = Void Function(Uint64 trackId, Uint32 slot, Int32 bypass);
+
+// AFTER (correct — rf-engine PLAYBACK_ENGINE, always initialized):
+_insertSetBypass = _lib.lookupFunction<...>('track_insert_set_bypass');
+typedef InsertSetBypassNative = Int32 Function(Uint32 trackId, Uint32 slot, Int32 bypass);
+```
+
+**Direct FFI Bypass Path (All Panels):**
+All FabFilter panels now override `processorSlotIndex` and use direct FFI bypass via `FabFilterPanelMixin.onBypassChanged()`:
+```
+Panel.toggleBypass() → onBypassChanged(bypassed)
+  → insertSetBypass(trackId, slotIndex, bypass) [Direct FFI to PLAYBACK_ENGINE]
+  → setNodeBypassUiOnly(trackId, nodeType, bypass) [UI state sync only]
+```
+
+**Visual Bypass Overlay:**
+`wrapWithBypassOverlay()` mixin method dims panel + shows "BYPASSED" label when active.
+
+**WARNING:** Other rf-bridge FFI functions also use wrong `ENGINE`:
+- `ffi_insert_set_mix`, `ffi_insert_get_mix`, `ffi_insert_bypass_all`, `ffi_insert_get_total_latency`
+- These are lower priority but should be migrated to rf-engine equivalents.
 
 **Converted Panels:**
 | Panel | Wrapper | Status |

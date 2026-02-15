@@ -167,6 +167,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   String _nodeId = '';
   int _slotIndex = -1;
 
+  @override
+  int get processorSlotIndex => _slotIndex;
+
   /// Parameter index formula for ProEqWrapper:
   /// index = band_index * 11 + param_index
   /// Params per band:
@@ -249,15 +252,56 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   void _startSpectrumUpdate() {
     _spectrumTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
       if (mounted && _initialized && _analyzerMode != AnalyzerMode.off) {
-        final spectrum = _ffi.proEqGetSpectrum(widget.trackId);
-        final curve = _ffi.proEqGetFrequencyResponse(widget.trackId);
-        if (spectrum != null || curve != null) {
-          setState(() {
-            if (spectrum != null) {
-              _spectrumPost = spectrum.toList().cast<double>();
+        // Use master spectrum from PlaybackEngine — real FFT data from audio stream
+        // Data is already log-scaled (20Hz-20kHz) and normalized 0-1 (-80dB to 0dB)
+        final rawSpectrum = _ffi.getMasterSpectrum();
+        bool hasData = false;
+        for (int i = 0; i < rawSpectrum.length; i++) {
+          if (rawSpectrum[i] > 0.001) {
+            hasData = true;
+            break;
+          }
+        }
+
+        // Convert normalized 0-1 to dB: 0.0 = -80dB, 1.0 = 0dB
+        final spectrumDb = List<double>.filled(rawSpectrum.length, -80.0);
+        for (int i = 0; i < rawSpectrum.length; i++) {
+          final v = rawSpectrum[i].clamp(0.0, 1.0);
+          spectrumDb[i] = v * 80.0 - 80.0;
+        }
+
+        // Smooth spectrum with decay (FabFilter-style ballistics)
+        // Rise fast (0.6), fall slow (0.15) — creates smooth decay effect
+        final prevLen = _spectrumPost.length;
+        final newLen = spectrumDb.length;
+        if (hasData || prevLen > 0) {
+          final smoothed = List<double>.filled(newLen, -80.0);
+          for (int i = 0; i < newLen; i++) {
+            final target = spectrumDb[i];
+            final prev = i < prevLen ? _spectrumPost[i] : -80.0;
+            if (target > prev) {
+              // Rise fast
+              smoothed[i] = prev + (target - prev) * 0.6;
+            } else {
+              // Decay slow
+              smoothed[i] = prev + (target - prev) * 0.15;
             }
-            if (curve != null) _eqCurve = curve;
-          });
+          }
+          // Only update if there's visible change
+          bool changed = prevLen != newLen;
+          if (!changed) {
+            for (int i = 0; i < newLen; i++) {
+              if ((smoothed[i] - _spectrumPost[i]).abs() > 0.1) {
+                changed = true;
+                break;
+              }
+            }
+          }
+          if (changed) {
+            setState(() {
+              _spectrumPost = smoothed;
+            });
+          }
         }
       }
     });
@@ -265,7 +309,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return wrapWithBypassOverlay(Container(
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
@@ -290,7 +334,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           buildBottomBar(),
         ],
       ),
-    );
+    ));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1201,22 +1245,92 @@ class _EqGraphPainter extends CustomPainter {
   }
 
   void _drawSpectrum(Canvas canvas, Size size, List<double> spectrum, Color color) {
-    if (spectrum.isEmpty) return;
+    if (spectrum.length < 2) return;
 
-    final path = Path();
-    path.moveTo(0, size.height);
-
-    for (int i = 0; i < spectrum.length; i++) {
-      final x = (i / (spectrum.length - 1)) * size.width;
-      final db = spectrum[i].clamp(-60.0, 6.0);
-      final y = size.height - ((db + 60) / 66) * size.height;
-      path.lineTo(x, y);
+    // Frequency-proportional smoothing (FabFilter Pro-Q style)
+    // Low frequencies get more smoothing to eliminate FFT bin stepping
+    final smoothed = List<double>.from(spectrum);
+    for (int pass = 0; pass < 3; pass++) {
+      final prev = List<double>.from(smoothed);
+      for (int i = 1; i < smoothed.length - 1; i++) {
+        // Bins 0-128 are 20Hz-500Hz range (log-scaled), need most smoothing
+        // Bins 128-512 are 500Hz-20kHz, need less smoothing
+        final ratio = i / smoothed.length;
+        final radius = ratio < 0.25
+            ? 6  // Heavy smoothing for sub-500Hz
+            : ratio < 0.5
+                ? 3  // Medium smoothing for 500Hz-2kHz
+                : 1; // Light smoothing for 2kHz+
+        double sum = 0;
+        int count = 0;
+        for (int j = -radius; j <= radius; j++) {
+          final idx = (i + j).clamp(0, prev.length - 1);
+          sum += prev[idx];
+          count++;
+        }
+        smoothed[i] = sum / count;
+      }
     }
 
-    path.lineTo(size.width, size.height);
-    path.close();
+    // Pre-compute points for Catmull-Rom spline interpolation
+    final points = <Offset>[];
+    for (int i = 0; i < smoothed.length; i++) {
+      final x = (i / (smoothed.length - 1)) * size.width;
+      final db = smoothed[i].clamp(-80.0, 0.0);
+      final y = size.height - ((db + 80) / 80) * size.height;
+      points.add(Offset(x, y));
+    }
 
-    canvas.drawPath(path, Paint()..color = color);
+    // Build smooth curve path using Catmull-Rom to cubic bezier conversion
+    final curvePath = Path();
+    curvePath.moveTo(points[0].dx, points[0].dy);
+
+    for (int i = 0; i < points.length - 1; i++) {
+      // Catmull-Rom control points: p0, p1, p2, p3
+      final p0 = i > 0 ? points[i - 1] : points[i];
+      final p1 = points[i];
+      final p2 = points[i + 1];
+      final p3 = i + 2 < points.length ? points[i + 2] : points[i + 1];
+
+      // Convert Catmull-Rom to cubic bezier control points
+      final cp1 = Offset(
+        p1.dx + (p2.dx - p0.dx) / 6.0,
+        p1.dy + (p2.dy - p0.dy) / 6.0,
+      );
+      final cp2 = Offset(
+        p2.dx - (p3.dx - p1.dx) / 6.0,
+        p2.dy - (p3.dy - p1.dy) / 6.0,
+      );
+
+      curvePath.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
+    }
+
+    // Fill path: close to bottom
+    final fillPath = Path()..addPath(curvePath, Offset.zero);
+    fillPath.lineTo(size.width, size.height);
+    fillPath.lineTo(0, size.height);
+    fillPath.close();
+
+    // Filled area with gradient for depth
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color,
+          color.withValues(alpha: 0.05),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawPath(fillPath, fillPaint);
+
+    // Stroke line on top for definition
+    canvas.drawPath(
+      curvePath,
+      Paint()
+        ..color = color.withValues(alpha: 0.6)
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke,
+    );
   }
 
   void _drawEqCurve(Canvas canvas, Size size) {

@@ -1,11 +1,12 @@
 # DSP → Engine Integration — CRITICAL ARCHITECTURAL ISSUE
 
-**Status:** 🟢 FIXED (P0 + P1 Complete)
+**Status:** 🟢 FIXED (P0 + P1 + Bypass Fix Complete)
 **Priority:** P2 (Testing remaining)
 **Date:** 2026-01-23
-**Updated:** 2026-01-23
-**Impact:** FabFilter panels NOW affect audio output via DspChainProvider
+**Updated:** 2026-02-15
+**Impact:** FabFilter panels NOW affect audio output via DspChainProvider + Direct FFI Bypass
 **Ghost Code:** ✅ DELETED from ffi.rs and native_ffi.dart
+**Bypass Fix:** ✅ FFI redirected from `ffi_insert_set_bypass` (broken ENGINE) to `track_insert_set_bypass` (PLAYBACK_ENGINE)
 
 ---
 
@@ -29,8 +30,10 @@
 │  Lower Zone UI ────┼──→ DspChainProvider ──→ insertLoadProcessor│
 │                    │              ↓                             │
 │  Mixer Strip ──────┘     insertSetParam(trackId, slot, idx, val)│
+│                          insertSetBypass(trackId, slot, bypass) │
 │                                  ↓                              │
-│                    Rust: track_inserts[trackId][slot].set_param │
+│                    Rust: PLAYBACK_ENGINE (rf-engine/ffi.rs)     │
+│                    ⚠️ NOT ffi_* (rf-bridge/api.rs — ENGINE=None)│
 │                                  ↓                              │
 │                    Audio Thread → PROCESSES AUDIO ✅             │
 │                                                                 │

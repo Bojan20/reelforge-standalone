@@ -5492,8 +5492,13 @@ pub extern "C" fn insert_remove_chain(track_id: u64) {
 pub extern "C" fn ffi_insert_set_bypass(track_id: u64, slot: u32, bypass: i32) {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.playback_engine()
-            .set_track_insert_bypass(track_id, slot as usize, bypass != 0);
+        if track_id == 0 {
+            e.playback_engine()
+                .set_master_insert_bypass(slot as usize, bypass != 0);
+        } else {
+            e.playback_engine()
+                .set_track_insert_bypass(track_id, slot as usize, bypass != 0);
+        }
     }
 }
 

@@ -10,6 +10,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'fabfilter_theme.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../src/rust/native_ffi.dart';
 
 // Re-export DspNodeType for convenience in panel implementations
 export '../../providers/dsp_chain_provider.dart' show DspNodeType;
@@ -131,6 +132,10 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
   bool get hasStoredA => _hasStoredA;
   bool get hasStoredB => _hasStoredB;
 
+  /// Override in subclass to return the insert chain slot index.
+  /// Used for direct FFI bypass calls (more reliable than DspChainProvider lookup).
+  int get processorSlotIndex => -1;
+
   void toggleBypass() {
     setState(() => _bypassed = !_bypassed);
     onBypassChanged(_bypassed);
@@ -177,15 +182,30 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
   }
 
   /// Override to handle bypass change
-  /// Default implementation syncs with DspChainProvider if nodeType is set
+  /// Uses direct FFI call when processorSlotIndex is available (most reliable),
+  /// falls back to DspChainProvider lookup otherwise.
   void onBypassChanged(bool bypassed) {
-    // Sync with central DSP state if nodeType is configured
-    if (widget.nodeType != null) {
+    final slotIdx = processorSlotIndex;
+    if (slotIdx >= 0) {
+      // Direct FFI — bypasses DspChainProvider indirection entirely
+      NativeFFI.instance.insertSetBypass(widget.trackId, slotIdx, bypassed);
+      // Keep DspChainProvider UI state in sync
+      _syncBypassUiState(bypassed);
+    } else if (widget.nodeType != null) {
+      // Fallback: DspChainProvider lookup
       _syncBypassToDspChain(bypassed);
     }
   }
 
-  /// Sync bypass state with DspChainProvider
+  /// Update DspChainProvider UI state without triggering another FFI call
+  void _syncBypassUiState(bool bypassed) {
+    final nodeType = widget.nodeType;
+    if (nodeType == null) return;
+    DspChainProvider.instance.setNodeBypassUiOnly(
+        widget.trackId, nodeType, bypassed);
+  }
+
+  /// Sync bypass state with DspChainProvider (fallback path)
   void _syncBypassToDspChain(bool bypassed) {
     final nodeType = widget.nodeType;
     if (nodeType == null) return;
@@ -424,6 +444,45 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Wrap panel content with FabFilter-style bypass overlay.
+  /// When bypassed, dims the entire GUI and shows a centered "BYPASSED" label.
+  /// Call this in your build() method: `return wrapWithBypassOverlay(yourContent);`
+  Widget wrapWithBypassOverlay(Widget child) {
+    if (!_bypassed) return child;
+    return Stack(
+      children: [
+        child,
+        // Dim overlay
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Container(
+              color: const Color(0xA0000000),
+              alignment: Alignment.center,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xCC1A1A20),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: FabFilterColors.orange, width: 1),
+                ),
+                child: const Text(
+                  'BYPASSED',
+                  style: TextStyle(
+                    color: FabFilterColors.orange,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

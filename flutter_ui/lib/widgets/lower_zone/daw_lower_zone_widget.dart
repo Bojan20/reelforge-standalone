@@ -57,6 +57,8 @@ import 'daw/mix/automation_panel.dart';
 import 'daw/process/eq_panel.dart';
 import 'daw/process/comp_panel.dart';
 import 'daw/process/limiter_panel.dart';
+import 'daw/process/reverb_panel.dart';
+import 'daw/process/gate_panel.dart';
 import 'daw/process/fx_chain_panel.dart';
 import 'daw/process/sidechain_panel.dart'; // ✅ P0.5: Sidechain UI
 // ✅ P0.1: Extracted DELIVER panels
@@ -575,10 +577,12 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   Widget _getProcessContentForIndex(int index) {
-    return switch (DawProcessSubTab.values[index.clamp(0, 4)]) {
+    return switch (DawProcessSubTab.values[index.clamp(0, 6)]) {
       DawProcessSubTab.eq => _buildEqPanel(),
       DawProcessSubTab.comp => _buildCompPanel(),
       DawProcessSubTab.limiter => _buildLimiterPanel(),
+      DawProcessSubTab.reverb => _buildReverbPanel(),
+      DawProcessSubTab.gate => _buildGatePanel(),
       DawProcessSubTab.fxChain => _buildFxChainPanel(),
       DawProcessSubTab.sidechain => _buildSidechainPanel(),
     };
@@ -1090,6 +1094,8 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawProcessSubTab.eq => _buildEqPanel(),
       DawProcessSubTab.comp => _buildCompPanel(),
       DawProcessSubTab.limiter => _buildLimiterPanel(),
+      DawProcessSubTab.reverb => _buildReverbPanel(),
+      DawProcessSubTab.gate => _buildGatePanel(),
       DawProcessSubTab.fxChain => _buildFxChainPanel(),
       DawProcessSubTab.sidechain => _buildSidechainPanel(),
     };
@@ -1104,6 +1110,12 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
   /// FabFilter Pro-L Style Limiter
   Widget _buildLimiterPanel() => LimiterPanel(selectedTrackId: widget.selectedTrackId);
+
+  /// FabFilter Pro-R Style Reverb
+  Widget _buildReverbPanel() => ReverbPanel(selectedTrackId: widget.selectedTrackId);
+
+  /// FabFilter Pro-G Style Gate
+  Widget _buildGatePanel() => GatePanel(selectedTrackId: widget.selectedTrackId);
 
   /// P0.4: FX Chain — Shows all processors in chain with reorder support
   Widget _buildFxChainPanel() => FxChainPanel(

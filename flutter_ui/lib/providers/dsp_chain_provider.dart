@@ -147,10 +147,11 @@ class DspNode {
           'knee': 3.0,
         },
       DspNodeType.reverb => {
-          'decay': 2.0,
-          'preDelay': 20.0,
-          'damping': 0.5,
           'size': 0.7,
+          'damping': 0.5,
+          'width': 1.0,
+          'mix': 0.5,
+          'preDelay': 20.0,
         },
       DspNodeType.delay => {
           'time': 250.0,
@@ -424,6 +425,23 @@ class DspChainProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set node bypass UI state only (no FFI call).
+  /// Used when bypass was already sent via direct FFI.
+  void setNodeBypassUiOnly(int trackId, DspNodeType nodeType, bool bypassed) {
+    final chain = _chains[trackId];
+    if (chain == null) return;
+    final nodeIndex = chain.nodes.indexWhere((n) => n.type == nodeType);
+    if (nodeIndex == -1) return;
+    final node = chain.nodes[nodeIndex];
+    if (node.bypass == bypassed) return;
+    final newNodes = chain.nodes.map((n) {
+      if (n.type == nodeType) return n.copyWith(bypass: bypassed);
+      return n;
+    }).toList();
+    _chains[trackId] = chain.copyWith(nodes: newNodes);
+    notifyListeners();
+  }
+
   /// Update node parameters
   /// FFI SYNC: Calls insertSetParam() for each updated parameter
   void updateNodeParams(int trackId, String nodeId, Map<String, dynamic> params) {
@@ -619,15 +637,18 @@ class DspChainProvider extends ChangeNotifier {
         break;
 
       case DspNodeType.reverb:
-        // Restore reverb parameters
-        final decay = (node.params['decay'] as num?)?.toDouble() ?? 2.0;
-        final preDelay = (node.params['preDelay'] as num?)?.toDouble() ?? 20.0;
-        final damping = (node.params['damping'] as num?)?.toDouble() ?? 0.5;
+        // Restore reverb parameters — indices match Rust ReverbWrapper:
+        // 0=Room Size, 1=Damping, 2=Width, 3=Mix, 4=Predelay, 5=Type
         final size = (node.params['size'] as num?)?.toDouble() ?? 0.7;
-        _ffi.insertSetParam(trackId, slotIndex, 0, decay);
-        _ffi.insertSetParam(trackId, slotIndex, 1, preDelay);
-        _ffi.insertSetParam(trackId, slotIndex, 2, damping);
-        _ffi.insertSetParam(trackId, slotIndex, 3, size);
+        final damping = (node.params['damping'] as num?)?.toDouble() ?? 0.5;
+        final width = (node.params['width'] as num?)?.toDouble() ?? 1.0;
+        final mix = (node.params['mix'] as num?)?.toDouble() ?? 0.5;
+        final preDelay = (node.params['preDelay'] as num?)?.toDouble() ?? 20.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, size);
+        _ffi.insertSetParam(trackId, slotIndex, 1, damping);
+        _ffi.insertSetParam(trackId, slotIndex, 2, width);
+        _ffi.insertSetParam(trackId, slotIndex, 3, mix);
+        _ffi.insertSetParam(trackId, slotIndex, 4, preDelay);
         break;
 
       case DspNodeType.delay:

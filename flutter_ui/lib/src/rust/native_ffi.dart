@@ -986,8 +986,8 @@ typedef InsertCreateChainDart = void Function(int trackId);
 typedef InsertRemoveChainNative = Void Function(Uint64 trackId);
 typedef InsertRemoveChainDart = void Function(int trackId);
 
-typedef InsertSetBypassNative = Void Function(Uint64 trackId, Uint32 slot, Int32 bypass);
-typedef InsertSetBypassDart = void Function(int trackId, int slot, int bypass);
+typedef InsertSetBypassNative = Int32 Function(Uint32 trackId, Uint32 slot, Int32 bypass);
+typedef InsertSetBypassDart = int Function(int trackId, int slot, int bypass);
 
 typedef InsertSetMixNative = Void Function(Uint64 trackId, Uint32 slot, Double mix);
 typedef InsertSetMixDart = void Function(int trackId, int slot, double mix);
@@ -3075,7 +3075,7 @@ class NativeFFI {
     // Insert Effects
     _insertCreateChain = _lib.lookupFunction<InsertCreateChainNative, InsertCreateChainDart>('insert_create_chain');
     _insertRemoveChain = _lib.lookupFunction<InsertRemoveChainNative, InsertRemoveChainDart>('insert_remove_chain');
-    _insertSetBypass = _lib.lookupFunction<InsertSetBypassNative, InsertSetBypassDart>('ffi_insert_set_bypass');
+    _insertSetBypass = _lib.lookupFunction<InsertSetBypassNative, InsertSetBypassDart>('track_insert_set_bypass');
     _insertSetMix = _lib.lookupFunction<InsertSetMixNative, InsertSetMixDart>('ffi_insert_set_mix');
     _insertGetMix = _lib.lookupFunction<InsertGetMixNative, InsertGetMixDart>('ffi_insert_get_mix');
     _insertBypassAll = _lib.lookupFunction<InsertBypassAllNative, InsertBypassAllDart>('ffi_insert_bypass_all');
@@ -4883,13 +4883,13 @@ class NativeFFI {
     return _getDynamicRange();
   }
 
-  /// Get master spectrum data (256 bins, normalized 0-1, log-scaled 20Hz-20kHz)
+  /// Get master spectrum data (512 bins, normalized 0-1, log-scaled 20Hz-20kHz)
   Float32List getMasterSpectrum() {
-    if (!_loaded) return Float32List(256);
-    final outData = calloc<Float>(256);
+    if (!_loaded) return Float32List(512);
+    final outData = calloc<Float>(512);
     try {
-      final count = _getMasterSpectrum(outData, 256);
-      if (count <= 0) return Float32List(256);
+      final count = _getMasterSpectrum(outData, 512);
+      if (count <= 0) return Float32List(512);
       return Float32List.fromList(outData.asTypedList(count));
     } finally {
       calloc.free(outData);

@@ -23,9 +23,17 @@ class LowerZonePersistenceService {
 
   SharedPreferences? _prefs;
 
+  static const String _migrationKey = 'lower_zone_defaults_v2';
+
   /// Initialize the service (call once at app startup)
   Future<void> init() async {
     _prefs ??= await SharedPreferences.getInstance();
+    // One-time migration: clear old DAW/Middleware defaults so new defaults apply
+    if (_prefs!.getBool(_migrationKey) != true) {
+      await _prefs!.remove(_dawKey);
+      await _prefs!.remove(_middlewareKey);
+      await _prefs!.setBool(_migrationKey, true);
+    }
   }
 
   /// Ensure preferences are loaded

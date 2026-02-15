@@ -196,7 +196,7 @@ extension DawSuperTabX on DawSuperTab {
 enum DawBrowseSubTab { files, presets, plugins, history }
 enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, elastic, beatDetect, stripSilence }
 enum DawMixSubTab { mixer, sends, pan, automation }
-enum DawProcessSubTab { eq, comp, limiter, fxChain, sidechain }
+enum DawProcessSubTab { eq, comp, limiter, reverb, gate, fxChain, sidechain }
 enum DawDeliverSubTab { export, stems, bounce, archive }
 
 extension DawBrowseSubTabX on DawBrowseSubTab {
@@ -242,13 +242,15 @@ extension DawMixSubTabX on DawMixSubTab {
 }
 
 extension DawProcessSubTabX on DawProcessSubTab {
-  String get label => ['EQ', 'Comp', 'Limiter', 'FX Chain', 'Sidechain'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
-  IconData get icon => [Icons.equalizer, Icons.compress, Icons.volume_up, Icons.link, Icons.call_split][index];
+  String get label => ['EQ', 'Comp', 'Limiter', 'Reverb', 'Gate', 'FX Chain', 'Sidechain'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'][index];
+  IconData get icon => [Icons.equalizer, Icons.compress, Icons.volume_up, Icons.waves, Icons.door_front_door, Icons.link, Icons.call_split][index];
   String get tooltip => [
     '64-band parametric EQ with GPU spectrum analyzer (60fps)',
     'Pro-C style compressor with 14 styles and sidechain',
     'Pro-L style limiter with True Peak and LUFS metering',
+    'Pro-R style reverb with decay display and space types',
+    'Pro-G style gate with threshold visualization and sidechain',
     'Visual DSP chain with drag-drop reorder and bypass',
     'Sidechain routing with key input source selection',
   ][index];
@@ -294,14 +296,14 @@ class DawLowerZoneState {
   DawDeliverSubTab secondPaneDeliverSubTab;
 
   DawLowerZoneState({
-    this.superTab = DawSuperTab.edit,
+    this.superTab = DawSuperTab.browse,
     this.browseSubTab = DawBrowseSubTab.files,
     this.editSubTab = DawEditSubTab.timeline,
     this.mixSubTab = DawMixSubTab.mixer,
     this.processSubTab = DawProcessSubTab.eq,
     this.deliverSubTab = DawDeliverSubTab.export,
-    this.isExpanded = false,
-    this.height = kLowerZoneDefaultHeight,
+    this.isExpanded = true,
+    this.height = kLowerZoneMaxHeight,
     // Split view defaults
     this.splitEnabled = false,
     this.splitDirection = SplitDirection.horizontal,
@@ -335,7 +337,7 @@ class DawLowerZoneState {
       case DawSuperTab.mix:
         mixSubTab = DawMixSubTab.values[index.clamp(0, 3)];
       case DawSuperTab.process:
-        processSubTab = DawProcessSubTab.values[index.clamp(0, 4)];
+        processSubTab = DawProcessSubTab.values[index.clamp(0, 6)];
       case DawSuperTab.deliver:
         deliverSubTab = DawDeliverSubTab.values[index.clamp(0, 3)];
     }
@@ -373,7 +375,7 @@ class DawLowerZoneState {
       case DawSuperTab.mix:
         secondPaneMixSubTab = DawMixSubTab.values[index.clamp(0, 3)];
       case DawSuperTab.process:
-        secondPaneProcessSubTab = DawProcessSubTab.values[index.clamp(0, 4)];
+        secondPaneProcessSubTab = DawProcessSubTab.values[index.clamp(0, 6)];
       case DawSuperTab.deliver:
         secondPaneDeliverSubTab = DawDeliverSubTab.values[index.clamp(0, 3)];
     }
@@ -458,14 +460,14 @@ class DawLowerZoneState {
   /// Deserialize from JSON
   factory DawLowerZoneState.fromJson(Map<String, dynamic> json) {
     return DawLowerZoneState(
-      superTab: DawSuperTab.values[json['superTab'] as int? ?? 1],
+      superTab: DawSuperTab.values[json['superTab'] as int? ?? 0],
       browseSubTab: DawBrowseSubTab.values[json['browseSubTab'] as int? ?? 0],
       editSubTab: DawEditSubTab.values[(json['editSubTab'] as int? ?? 0).clamp(0, DawEditSubTab.values.length - 1)],
       mixSubTab: DawMixSubTab.values[json['mixSubTab'] as int? ?? 0],
       processSubTab: DawProcessSubTab.values[json['processSubTab'] as int? ?? 0],
       deliverSubTab: DawDeliverSubTab.values[json['deliverSubTab'] as int? ?? 0],
-      isExpanded: json['isExpanded'] as bool? ?? false,
-      height: (json['height'] as num?)?.toDouble() ?? kLowerZoneDefaultHeight,
+      isExpanded: json['isExpanded'] as bool? ?? true,
+      height: (json['height'] as num?)?.toDouble() ?? kLowerZoneMaxHeight,
       // Split view
       splitEnabled: json['splitEnabled'] as bool? ?? false,
       splitDirection: SplitDirection.values[json['splitDirection'] as int? ?? 0],
@@ -550,8 +552,8 @@ class MiddlewareLowerZoneState {
     this.routingSubTab = MiddlewareRoutingSubTab.buses,
     this.rtpcSubTab = MiddlewareRtpcSubTab.curves,
     this.deliverSubTab = MiddlewareDeliverSubTab.bake,
-    this.isExpanded = false,
-    this.height = kLowerZoneDefaultHeight,
+    this.isExpanded = true,
+    this.height = kLowerZoneMaxHeight,
   });
 
   int get currentSubTabIndex => switch (superTab) {
@@ -634,8 +636,8 @@ class MiddlewareLowerZoneState {
       routingSubTab: MiddlewareRoutingSubTab.values[routingIdx],
       rtpcSubTab: MiddlewareRtpcSubTab.values[rtpcIdx],
       deliverSubTab: MiddlewareDeliverSubTab.values[deliverIdx],
-      isExpanded: json['isExpanded'] as bool? ?? false,
-      height: (json['height'] as num?)?.toDouble() ?? kLowerZoneDefaultHeight,
+      isExpanded: json['isExpanded'] as bool? ?? true,
+      height: (json['height'] as num?)?.toDouble() ?? kLowerZoneMaxHeight,
     );
   }
 }
