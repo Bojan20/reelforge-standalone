@@ -309,10 +309,10 @@ Tri vintage EQ emulacije sa potpunom FFI integracijom kroz InsertProcessor siste
 Input → HP Filter (Neve only) → Low Band → Mid Band → High Band → Tube/Transformer Saturation → Output
 ```
 
-### UI Widget ↔ MixerDSPProvider ↔ Rust Engine Flow
+### UI Widget ↔ MixerDSPProvider ↔ Rust Engine Flow (Middleware/SlotLab Path)
 
 ```
-UI Widget (pultec_eq.dart)
+UI Widget (vintage_eq_inserts.dart)
     │
     ▼ onParamsChanged(params)
 MixerDSPProvider.updateInsertParams(busId, insertId, params)
@@ -324,6 +324,26 @@ Rust InsertProcessor.set_param(index, value)
     ▼ PultecWrapper/Api550Wrapper/Neve1073Wrapper
 DSP Processing (eq_analog.rs)
 ```
+
+### DspChainProvider ↔ Rust Engine Flow (DAW Insert Chain Path — Added 2026-02-15)
+
+```
+DspNodeType.pultec/api550/neve1073 (DspChainProvider enum)
+    │
+    ▼ addNode(trackId, DspNodeType.pultec)
+_typeToProcessorName() → 'pultec'/'api550'/'neve1073'
+    │
+    ▼ insertLoadProcessor(trackId, slotIndex, processorName)
+Rust: create_processor_extended(processorName) → PultecWrapper/Api550Wrapper/Neve1073Wrapper
+    │
+    ▼ InternalProcessorEditorWindow._buildPultecParams/Api550Params/Neve1073Params()
+insertSetParam(trackId, slotIndex, paramIndex, value)
+    │
+    ▼ Audio thread processes via InsertProcessor trait
+```
+
+**DspNodeType enum (12 types, updated 2026-02-15):**
+`eq`, `compressor`, `limiter`, `gate`, `expander`, `reverb`, `delay`, `saturation`, `deEsser`, `pultec` (FF EQP1A), `api550` (FF 550A), `neve1073` (FF 1073)
 
 ---
 

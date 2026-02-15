@@ -79,11 +79,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
   }
 
   void _initializeProcessor() {
-    final success = NativeFFI.instance.elasticCreate(widget.clipId, widget.sampleRate);
-    if (success) {
-      setState(() => _initialized = true);
-      _applyAllSettings();
-    }
+    // Do NOT auto-create elastic processor — must be created externally
   }
 
   void _applyAllSettings() {

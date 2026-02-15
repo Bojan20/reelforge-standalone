@@ -19,7 +19,7 @@ import '../../lower_zone_types.dart';
 // GRID SETTINGS PANEL (CONTROLLED COMPONENT)
 // ═══════════════════════════════════════════════════════════════════════════
 
-class GridSettingsPanel extends StatelessWidget {
+class GridSettingsPanel extends StatefulWidget {
   // Timeline settings (from parent)
   final double tempo;
   final int timeSignatureNumerator;
@@ -49,6 +49,79 @@ class GridSettingsPanel extends StatelessWidget {
     this.onTripletGridChanged,
     this.onSnapValueChanged,
   });
+
+  @override
+  State<GridSettingsPanel> createState() => _GridSettingsPanelState();
+}
+
+class _GridSettingsPanelState extends State<GridSettingsPanel>
+    with SingleTickerProviderStateMixin {
+  // Tap tempo state (Cubase-style: track last 8 taps, 2s reset gap)
+  final List<DateTime> _tapTimes = [];
+  static const int _maxTaps = 8;
+  static const int _resetGapMs = 2000;
+
+  // Pulse animation on each tap
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _pulseAnim = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
+    );
+    _pulseController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _pulseController.reverse();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  void _handleTapTempo() {
+    final now = DateTime.now();
+
+    // Reset if gap > 2 seconds since last tap
+    if (_tapTimes.isNotEmpty &&
+        now.difference(_tapTimes.last).inMilliseconds > _resetGapMs) {
+      _tapTimes.clear();
+    }
+
+    _tapTimes.add(now);
+
+    // Keep only last N taps
+    while (_tapTimes.length > _maxTaps) {
+      _tapTimes.removeAt(0);
+    }
+
+    // Pulse animation on every tap
+    _pulseController.forward(from: 0);
+
+    // Need at least 2 taps to calculate BPM
+    if (_tapTimes.length >= 2) {
+      double totalMs = 0;
+      for (int i = 1; i < _tapTimes.length; i++) {
+        totalMs += _tapTimes[i].difference(_tapTimes[i - 1]).inMilliseconds;
+      }
+      final avgMs = totalMs / (_tapTimes.length - 1);
+      final bpm = 60000.0 / avgMs;
+      if (bpm >= 20 && bpm <= 999) {
+        widget.onTempoChanged?.call(double.parse(bpm.toStringAsFixed(1)));
+      }
+    }
+
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,9 +165,9 @@ class GridSettingsPanel extends StatelessWidget {
                         // Snap Enable Toggle
                         _buildGridToggle(
                           label: 'Snap to Grid',
-                          value: snapEnabled,
+                          value: widget.snapEnabled,
                           icon: Icons.grid_on,
-                          onChanged: onSnapEnabledChanged,
+                          onChanged: widget.onSnapEnabledChanged,
                         ),
                         const SizedBox(height: 8),
                         // Grid Resolution Selector
@@ -103,9 +176,9 @@ class GridSettingsPanel extends StatelessWidget {
                         // Triplet Grid Toggle
                         _buildGridToggle(
                           label: 'Triplet Grid',
-                          value: tripletGrid,
+                          value: widget.tripletGrid,
                           icon: Icons.grid_3x3,
-                          onChanged: onTripletGridChanged,
+                          onChanged: widget.onTripletGridChanged,
                         ),
                         const SizedBox(height: 12),
                         // Visual indicator of current snap
@@ -178,7 +251,7 @@ class GridSettingsPanel extends StatelessWidget {
                       const Icon(Icons.speed, size: 14, color: LowerZoneColors.dawAccent),
                       const SizedBox(width: 6),
                       Text(
-                        '${tempo.toStringAsFixed(1)} BPM',
+                        '${widget.tempo.toStringAsFixed(1)} BPM',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -199,30 +272,37 @@ class GridSettingsPanel extends StatelessWidget {
               ),
             ),
           ),
-          // Tap tempo button
-          GestureDetector(
-            onTap: () {
-              // Tap tempo feature - could track tap intervals
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Tap Tempo - keep tapping to set BPM'),
-                  duration: Duration(seconds: 1),
+          // Tap tempo button (Cubase-style: tap repeatedly to set BPM)
+          AnimatedBuilder(
+            animation: _pulseAnim,
+            builder: (context, child) => Transform.scale(
+              scale: _pulseAnim.value,
+              child: child,
+            ),
+            child: GestureDetector(
+              onTap: _handleTapTempo,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _tapTimes.length >= 2
+                      ? LowerZoneColors.dawAccent.withValues(alpha: 0.15)
+                      : LowerZoneColors.bgMid,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: _tapTimes.length >= 2
+                        ? LowerZoneColors.dawAccent
+                        : LowerZoneColors.border,
+                  ),
                 ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: LowerZoneColors.bgMid,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: LowerZoneColors.border),
-              ),
-              child: const Text(
-                'TAP',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: LowerZoneColors.textSecondary,
+                child: Text(
+                  'TAP',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: _tapTimes.length >= 2
+                        ? LowerZoneColors.dawAccent
+                        : LowerZoneColors.textSecondary,
+                  ),
                 ),
               ),
             ),
@@ -234,7 +314,7 @@ class GridSettingsPanel extends StatelessWidget {
 
   void _showTempoEditDialog(BuildContext context) {
     final controller = TextEditingController(
-      text: tempo.toStringAsFixed(1),
+      text: widget.tempo.toStringAsFixed(1),
     );
 
     showDialog(
@@ -257,7 +337,7 @@ class GridSettingsPanel extends StatelessWidget {
           onSubmitted: (value) {
             final newTempo = double.tryParse(value);
             if (newTempo != null && newTempo >= 20 && newTempo <= 999) {
-              onTempoChanged?.call(newTempo);
+              widget.onTempoChanged?.call(newTempo);
             }
             Navigator.pop(ctx);
           },
@@ -271,7 +351,7 @@ class GridSettingsPanel extends StatelessWidget {
             onPressed: () {
               final newTempo = double.tryParse(controller.text);
               if (newTempo != null && newTempo >= 20 && newTempo <= 999) {
-                onTempoChanged?.call(newTempo);
+                widget.onTempoChanged?.call(newTempo);
               }
               Navigator.pop(ctx);
             },
@@ -298,9 +378,9 @@ class GridSettingsPanel extends StatelessWidget {
           const SizedBox(width: 8),
           // Numerator dropdown
           _buildTimeSignatureDropdown(
-            value: timeSignatureNumerator,
+            value: widget.timeSignatureNumerator,
             items: const [2, 3, 4, 5, 6, 7, 8, 9, 12],
-            onChanged: (v) => onTimeSignatureChanged?.call(v, timeSignatureDenominator),
+            onChanged: (v) => widget.onTimeSignatureChanged?.call(v, widget.timeSignatureDenominator),
           ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 8),
@@ -315,9 +395,9 @@ class GridSettingsPanel extends StatelessWidget {
           ),
           // Denominator dropdown
           _buildTimeSignatureDropdown(
-            value: timeSignatureDenominator,
+            value: widget.timeSignatureDenominator,
             items: const [2, 4, 8, 16],
-            onChanged: (v) => onTimeSignatureChanged?.call(timeSignatureNumerator, v),
+            onChanged: (v) => widget.onTimeSignatureChanged?.call(widget.timeSignatureNumerator, v),
           ),
           const Spacer(),
           // Common presets
@@ -361,9 +441,9 @@ class GridSettingsPanel extends StatelessWidget {
   }
 
   Widget _buildTimeSignaturePreset(String label, int num, int denom) {
-    final isActive = timeSignatureNumerator == num && timeSignatureDenominator == denom;
+    final isActive = widget.timeSignatureNumerator == num && widget.timeSignatureDenominator == denom;
     return GestureDetector(
-      onTap: () => onTimeSignatureChanged?.call(num, denom),
+      onTap: () => widget.onTimeSignatureChanged?.call(num, denom),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
@@ -486,7 +566,7 @@ class GridSettingsPanel extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                _snapValueToLabel(snapValue),
+                _snapValueToLabel(widget.snapValue),
                 style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
@@ -502,9 +582,9 @@ class GridSettingsPanel extends StatelessWidget {
             runSpacing: 4,
             children: resolutions.map((r) {
               final (value, label) = r;
-              final isSelected = (snapValue - value).abs() < 0.001;
+              final isSelected = (widget.snapValue - value).abs() < 0.001;
               return GestureDetector(
-                onTap: onSnapValueChanged != null ? () => onSnapValueChanged!(value) : null,
+                onTap: widget.onSnapValueChanged != null ? () => widget.onSnapValueChanged!(value) : null,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -532,8 +612,8 @@ class GridSettingsPanel extends StatelessWidget {
   }
 
   Widget _buildSnapIndicator() {
-    final snapLabel = _snapValueToLabel(snapValue);
-    final isActive = snapEnabled;
+    final snapLabel = _snapValueToLabel(widget.snapValue);
+    final isActive = widget.snapEnabled;
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -560,7 +640,7 @@ class GridSettingsPanel extends StatelessWidget {
             ),
             child: CustomPaint(
               painter: GridPreviewPainter(
-                snapValue: snapValue,
+                snapValue: widget.snapValue,
                 isActive: isActive,
                 accentColor: LowerZoneColors.dawAccent,
               ),
@@ -581,7 +661,7 @@ class GridSettingsPanel extends StatelessWidget {
                 ),
                 Text(
                   isActive
-                      ? 'Grid: $snapLabel${tripletGrid ? ' (Triplet)' : ''}'
+                      ? 'Grid: $snapLabel${widget.tripletGrid ? ' (Triplet)' : ''}'
                       : 'Free positioning enabled',
                   style: const TextStyle(
                     fontSize: 9,

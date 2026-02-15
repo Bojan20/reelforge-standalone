@@ -60,15 +60,7 @@ class _TransientPanelState extends State<TransientPanel> {
   }
 
   void _initializeProcessor() {
-    final success = NativeFFI.instance.transientShaperCreate(
-      widget.trackId,
-      sampleRate: widget.sampleRate,
-    );
-
-    if (success) {
-      setState(() => _initialized = true);
-      _applyAllSettings();
-    }
+    // Do NOT auto-create transient shaper — must be created externally
   }
 
   void _applyAllSettings() {

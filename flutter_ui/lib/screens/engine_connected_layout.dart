@@ -104,7 +104,6 @@ import '../widgets/timeline/automation_lane.dart';
 import 'slot_lab_screen.dart';
 import '../widgets/dsp/time_stretch_panel.dart';
 import '../widgets/dsp/delay_panel.dart';
-import '../widgets/dsp/reverb_panel.dart';
 import '../widgets/dsp/dynamics_panel.dart';
 import '../widgets/dsp/spatial_panel.dart';
 import '../widgets/dsp/spectral_panel.dart';
@@ -162,6 +161,7 @@ import '../widgets/common/crdt_sync_panel.dart';
 // SlotLab uses its own fullscreen layout with dedicated bottom panel
 import '../widgets/lower_zone/daw_lower_zone_widget.dart';
 import '../widgets/lower_zone/daw_lower_zone_controller.dart';
+import '../widgets/lower_zone/lower_zone_types.dart';
 import '../widgets/lower_zone/middleware_lower_zone_widget.dart';
 import '../widgets/lower_zone/middleware_lower_zone_controller.dart';
 
@@ -326,13 +326,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   // Track action count for auto-sync (when event changes externally)
   int _lastSyncedActionCount = 0;
-
-  // Meter decay state - Cubase-style: meters decay to 0 when playback stops
-  bool _wasPlaying = false;
-  Timer? _meterDecayTimer;
-  double _decayMasterL = 0.0;
-  double _decayMasterR = 0.0;
-  double _decayMasterPeak = 0.0;
 
   // Floating EQ windows - key is channel/bus ID
   final Map<String, bool> _openEqWindows = {};
@@ -869,7 +862,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   @override
   void dispose() {
-    _meterDecayTimer?.cancel();
     // Remove StageProvider listener
     try {
       final stageProvider = context.read<StageProvider>();
@@ -895,30 +887,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     _dawLowerZoneController.dispose();
     _middlewareLowerZoneController.dispose();
     super.dispose();
-  }
-
-  /// Start meter decay animation when playback stops
-  void _startMeterDecay() {
-    _meterDecayTimer?.cancel();
-    _meterDecayTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      // Decay factor: 0.85 gives smooth ~300ms decay
-      const decay = 0.85;
-      setState(() {
-        _decayMasterL *= decay;
-        _decayMasterR *= decay;
-        _decayMasterPeak *= decay;
-      });
-      // Stop when meters reach near-zero
-      if (_decayMasterL < 0.001 && _decayMasterR < 0.001) {
-        _meterDecayTimer?.cancel();
-        _meterDecayTimer = null;
-        setState(() {
-          _decayMasterL = 0;
-          _decayMasterR = 0;
-          _decayMasterPeak = 0;
-        });
-      }
-    });
   }
 
   void _initEmptyTimeline() {
@@ -4494,7 +4462,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               }),
               snapEnabled: _snapEnabled,
               snapValue: _snapValue,
-              onSnapToggle: () => setState(() => _snapEnabled = !_snapEnabled),
+              onSnapToggle: () {
+                setState(() => _snapEnabled = !_snapEnabled);
+                _dawLowerZoneController.setEditSubTab(DawEditSubTab.grid);
+              },
               onSnapValueChange: (v) => setState(() => _snapValue = v),
               metronomeEnabled: _metronomeEnabled,
               onMetronomeToggle: () {
@@ -7228,16 +7199,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   Widget _buildMixerContent(dynamic metering, bool isPlaying) {
-    // Cubase-style meter decay: when playback stops, meters decay to 0
-    if (_wasPlaying && !isPlaying) {
-      // Just stopped - start decay from current values
-      _decayMasterL = _dbToLinear(metering.masterPeakL);
-      _decayMasterR = _dbToLinear(metering.masterPeakR);
-      _decayMasterPeak = _dbToLinear(metering.masterTruePeak);
-      _startMeterDecay();
-    }
-    _wasPlaying = isPlaying;
-
     // Convert InsertChain to ProInsertSlot list
     List<ProInsertSlot> _getInserts(String channelId) {
       // Auto-create insert chain for any channel
@@ -7253,26 +7214,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       )).toList();
     }
 
-    // Determine meter values: live during playback, decay values when stopped
-    double meterL, meterR, meterPeak;
-    if (isPlaying) {
-      meterL = _dbToLinear(metering.masterPeakL);
-      meterR = _dbToLinear(metering.masterPeakR);
-      meterPeak = _dbToLinear(metering.masterTruePeak);
-    } else {
-      // Use decay values when stopped
-      meterL = _decayMasterL;
-      meterR = _decayMasterR;
-      meterPeak = _decayMasterPeak;
-    }
+    // Real meter values: 0 when not playing, real when playing
+    final meterL = isPlaying ? _dbToLinear(metering.masterPeakL) : 0.0;
+    final meterR = isPlaying ? _dbToLinear(metering.masterPeakR) : 0.0;
+    final meterPeak = isPlaying ? _dbToLinear(metering.masterTruePeak) : 0.0;
 
     // Get channels from MixerProvider and check which tracks have clips
     final mixerProvider = context.watch<MixerProvider>();
     final channelStrips = mixerProvider.channels.map((ch) {
       // Extract track ID from channel ID (ch_trackId format)
       final trackId = ch.id.startsWith('ch_') ? ch.id.substring(3) : ch.id;
-      // Check if this track has any clips
-      final hasClips = _clips.any((clip) => clip.trackId == trackId);
+      final trackIdInt = int.tryParse(trackId) ?? 0;
+
+      // Get real per-track metering from engine — no fakes
+      final (peakL, peakR) = isPlaying
+          ? EngineApi.instance.getTrackPeakStereo(trackIdInt)
+          : (0.0, 0.0);
 
       return ProMixerStripData(
         id: ch.id,
@@ -7282,18 +7239,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         volume: ch.volume,
         muted: ch.muted,
         soloed: ch.soloed,
-        // Show metering only if track has clips, scale by volume
         meters: MeterData.fromLinear(
-          peakL: hasClips ? meterL * ch.volume : 0.0,
-          peakR: hasClips ? meterR * ch.volume : 0.0,
-          peakHoldL: hasClips ? meterPeak * ch.volume : 0.0,
-          peakHoldR: hasClips ? meterPeak * ch.volume : 0.0,
+          peakL: peakL,
+          peakR: peakR,
+          peakHoldL: 0,
+          peakHoldR: 0,
         ),
         inserts: _getInserts(ch.id),
       );
     }).toList();
 
-    // Master strip - always present
+    // Master strip - always present, real metering only
     final masterStrip = ProMixerStripData(
       id: 'master',
       name: 'Stereo Out',
@@ -7362,12 +7318,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     for (final ch in mixerProvider.channels) {
       final trackId = ch.id.startsWith('ch_') ? ch.id.substring(3) : ch.id;
       final trackIdInt = int.tryParse(trackId) ?? 0;
-      final hasClips = _clips.any((clip) => clip.trackId == trackId);
 
-      // Get stereo metering from engine
-      final (peakL, peakR) = EngineApi.instance.getTrackPeakStereo(trackIdInt);
-      final (rmsL, rmsR) = EngineApi.instance.getTrackRmsStereo(trackIdInt);
-      final correlation = EngineApi.instance.getTrackCorrelation(trackIdInt);
+      // Get real stereo metering from engine (per-track) — no fallbacks
+      final (peakL, peakR) = isPlaying
+          ? EngineApi.instance.getTrackPeakStereo(trackIdInt)
+          : (0.0, 0.0);
+      final (rmsL, rmsR) = isPlaying
+          ? EngineApi.instance.getTrackRmsStereo(trackIdInt)
+          : (0.0, 0.0);
+      final correlation = isPlaying
+          ? EngineApi.instance.getTrackCorrelation(trackIdInt)
+          : 1.0;
 
       // Get inserts for this channel
       final channelInserts = _busInserts[ch.id]?.slots ?? [];
@@ -7393,11 +7354,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         input: ultimate.InputSection(phaseInvert: ch.phaseInverted),
         inserts: inserts,
         trackIndex: trackIdInt, // PDC indicator needs numeric track ID
-        peakL: hasClips && isPlaying ? peakL : 0,
-        peakR: hasClips && isPlaying ? peakR : 0,
-        rmsL: hasClips && isPlaying ? rmsL : 0,
-        rmsR: hasClips && isPlaying ? rmsR : 0,
-        correlation: hasClips && isPlaying ? correlation : 1.0,
+        peakL: peakL,
+        peakR: peakR,
+        rmsL: rmsL,
+        rmsR: rmsR,
+        correlation: correlation,
       ));
     }
 
@@ -7424,13 +7385,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       muted: _busMuted['master'] ?? false,
       soloed: false,
       inserts: masterInserts,
-      peakL: isPlaying ? _dbToLinear(metering.masterPeakL) : _decayMasterL,
-      peakR: isPlaying ? _dbToLinear(metering.masterPeakR) : _decayMasterR,
+      peakL: isPlaying ? _dbToLinear(metering.masterPeakL) : 0,
+      peakR: isPlaying ? _dbToLinear(metering.masterPeakR) : 0,
       rmsL: isPlaying ? _dbToLinear(metering.masterRmsL) : 0,
       rmsR: isPlaying ? _dbToLinear(metering.masterRmsR) : 0,
-      correlation: metering.correlation,
-      lufsShort: metering.masterLufsS,
-      lufsIntegrated: metering.masterLufsI,
+      correlation: isPlaying ? metering.correlation : 1.0,
+      lufsShort: isPlaying ? metering.masterLufsS : -70,
+      lufsIntegrated: isPlaying ? metering.masterLufsI : -70,
     );
 
     // All channels are audio tracks (no hardcoded buses)
@@ -7548,11 +7509,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         muted: _busMuted[busId] ?? false,
         soloed: _busSoloed[busId] ?? false,
         inserts: busInserts,
-        // Buses show simulated/aggregate metering based on routed events
-        peakL: isPlaying ? 0.3 : 0,
-        peakR: isPlaying ? 0.3 : 0,
-        rmsL: isPlaying ? 0.2 : 0,
-        rmsR: isPlaying ? 0.2 : 0,
+        // No fake metering — only show real signal when available
+        peakL: 0,
+        peakR: 0,
+        rmsL: 0,
+        rmsR: 0,
         correlation: 1.0,
       ));
     }
@@ -7577,13 +7538,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       muted: _busMuted['master'] ?? false,
       soloed: false,
       inserts: masterInserts,
-      peakL: isPlaying ? _dbToLinear(metering.masterPeakL) : _decayMasterL,
-      peakR: isPlaying ? _dbToLinear(metering.masterPeakR) : _decayMasterR,
+      peakL: isPlaying ? _dbToLinear(metering.masterPeakL) : 0,
+      peakR: isPlaying ? _dbToLinear(metering.masterPeakR) : 0,
       rmsL: isPlaying ? _dbToLinear(metering.masterRmsL) : 0,
       rmsR: isPlaying ? _dbToLinear(metering.masterRmsR) : 0,
-      correlation: metering.correlation,
-      lufsShort: metering.masterLufsS,
-      lufsIntegrated: metering.masterLufsI,
+      correlation: isPlaying ? metering.correlation : 1.0,
+      lufsShort: isPlaying ? metering.masterLufsS : -70,
+      lufsIntegrated: isPlaying ? metering.masterLufsI : -70,
     );
 
     // Middleware mixer: buses only (in channels), no aux/VCA
@@ -7753,8 +7714,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   /// Build Metering Bridge content with K-System and Goniometer
   Widget _buildMeteringBridgeContent(dynamic metering, bool isPlaying) {
     // Get real metering data
-    final peakL = isPlaying ? _dbToLinear(metering.masterPeakL) : _decayMasterL;
-    final peakR = isPlaying ? _dbToLinear(metering.masterPeakR) : _decayMasterR;
+    final peakL = isPlaying ? _dbToLinear(metering.masterPeakL) : 0.0;
+    final peakR = isPlaying ? _dbToLinear(metering.masterPeakR) : 0.0;
     final rmsL = isPlaying ? _dbToLinear(metering.masterRmsL) : 0.0;
     final rmsR = isPlaying ? _dbToLinear(metering.masterRmsR) : 0.0;
     final truePeakL = isPlaying ? _dbToLinear(metering.masterTruePeak) : 0.0;
@@ -9762,7 +9723,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         id: 'reverb',
         label: 'Reverb',
         icon: Icons.blur_on,
-        content: ReverbPanel(trackId: 0, sampleRate: 48000.0),
+        content: FabFilterReverbPanel(trackId: 0),
         groupId: 'process',
       ),
       LowerZoneTab(

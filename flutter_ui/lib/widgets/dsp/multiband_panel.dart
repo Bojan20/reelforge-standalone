@@ -107,16 +107,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
   }
 
   void _initializeProcessor() {
-    final success = NativeFFI.instance.multibandCompCreate(
-      widget.trackId,
-      sampleRate: widget.sampleRate,
-      numBands: _numBands,
-    );
-
-    if (success) {
-      setState(() => _initialized = true);
-      _applyAllSettings();
-    }
+    // Do NOT auto-create multiband compressor — must be created externally
   }
 
   void _applyAllSettings() {

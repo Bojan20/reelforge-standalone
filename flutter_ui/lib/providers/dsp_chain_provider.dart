@@ -31,7 +31,10 @@ enum DspNodeType {
   reverb('FF-R', 'Reverb'),
   delay('FF-D', 'Delay'),
   saturation('FF-S', 'Saturation'),
-  deEsser('FF-E', 'De-Esser');
+  deEsser('FF-E', 'De-Esser'),
+  pultec('FF-PT', 'FF EQP1A'),
+  api550('FF-API', 'FF 550A'),
+  neve1073('FF-NEV', 'FF 1073');
 
   final String shortName;
   final String fullName;
@@ -160,14 +163,37 @@ class DspNode {
           'lowCut': 80,
         },
       DspNodeType.saturation => {
-          'drive': 0.3,
-          'mix': 0.5,
-          'type': 'tape',
+          'drive': 0.0,
+          'satType': 0.0,
+          'tone': 0.0,
+          'mix': 100.0,
+          'output': 0.0,
+          'tapeBias': 50.0,
+          'oversampling': 1.0,
+          'inputTrim': 0.0,
+          'msMode': 0.0,
+          'stereoLink': 1.0,
         },
       DspNodeType.deEsser => {
           'frequency': 6000,
           'threshold': -20.0,
           'range': -10.0,
+        },
+      DspNodeType.pultec => {
+          'lowBoost': 0.0,
+          'lowAtten': 0.0,
+          'highBoost': 0.0,
+          'highAtten': 0.0,
+        },
+      DspNodeType.api550 => {
+          'lowGain': 0.0,
+          'midGain': 0.0,
+          'highGain': 0.0,
+        },
+      DspNodeType.neve1073 => {
+          'hpEnabled': 0.0,
+          'lowGain': 0.0,
+          'highGain': 0.0,
         },
     };
   }
@@ -284,6 +310,9 @@ class DspChainProvider extends ChangeNotifier {
       DspNodeType.delay => 'delay',
       DspNodeType.saturation => 'saturator',
       DspNodeType.deEsser => 'deesser',
+      DspNodeType.pultec => 'pultec',
+      DspNodeType.api550 => 'api550',
+      DspNodeType.neve1073 => 'neve1073',
     };
   }
 
@@ -664,11 +693,27 @@ class DspChainProvider extends ChangeNotifier {
         break;
 
       case DspNodeType.saturation:
-        // Restore saturation parameters
-        final drive = (node.params['drive'] as num?)?.toDouble() ?? 0.3;
-        final mix = (node.params['mix'] as num?)?.toDouble() ?? 0.5;
+        // Restore all 10 Saturn-class saturation parameters
+        final drive = (node.params['drive'] as num?)?.toDouble() ?? 0.0;
+        final satType = (node.params['satType'] as num?)?.toDouble() ?? 0.0;
+        final tone = (node.params['tone'] as num?)?.toDouble() ?? 0.0;
+        final mix = (node.params['mix'] as num?)?.toDouble() ?? 100.0;
+        final output = (node.params['output'] as num?)?.toDouble() ?? 0.0;
+        final tapeBias = (node.params['tapeBias'] as num?)?.toDouble() ?? 50.0;
+        final oversampling = (node.params['oversampling'] as num?)?.toDouble() ?? 1.0;
+        final inputTrim = (node.params['inputTrim'] as num?)?.toDouble() ?? 0.0;
+        final msMode = (node.params['msMode'] as num?)?.toDouble() ?? 0.0;
+        final stereoLink = (node.params['stereoLink'] as num?)?.toDouble() ?? 1.0;
         _ffi.insertSetParam(trackId, slotIndex, 0, drive);
-        _ffi.insertSetParam(trackId, slotIndex, 1, mix);
+        _ffi.insertSetParam(trackId, slotIndex, 1, satType);
+        _ffi.insertSetParam(trackId, slotIndex, 2, tone);
+        _ffi.insertSetParam(trackId, slotIndex, 3, mix);
+        _ffi.insertSetParam(trackId, slotIndex, 4, output);
+        _ffi.insertSetParam(trackId, slotIndex, 5, tapeBias);
+        _ffi.insertSetParam(trackId, slotIndex, 6, oversampling);
+        _ffi.insertSetParam(trackId, slotIndex, 7, inputTrim);
+        _ffi.insertSetParam(trackId, slotIndex, 8, msMode);
+        _ffi.insertSetParam(trackId, slotIndex, 9, stereoLink);
         break;
 
       case DspNodeType.deEsser:
@@ -679,6 +724,38 @@ class DspChainProvider extends ChangeNotifier {
         _ffi.insertSetParam(trackId, slotIndex, 0, frequency);
         _ffi.insertSetParam(trackId, slotIndex, 1, threshold);
         _ffi.insertSetParam(trackId, slotIndex, 2, range);
+        break;
+
+      case DspNodeType.pultec:
+        // Restore Pultec EQP-1A parameters (Rust: 0=Low Boost, 1=Low Atten, 2=High Boost, 3=High Atten)
+        final lowBoost = (node.params['lowBoost'] as num?)?.toDouble() ?? 0.0;
+        final lowAtten = (node.params['lowAtten'] as num?)?.toDouble() ?? 0.0;
+        final highBoost = (node.params['highBoost'] as num?)?.toDouble() ?? 0.0;
+        final highAtten = (node.params['highAtten'] as num?)?.toDouble() ?? 0.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, lowBoost);
+        _ffi.insertSetParam(trackId, slotIndex, 1, lowAtten);
+        _ffi.insertSetParam(trackId, slotIndex, 2, highBoost);
+        _ffi.insertSetParam(trackId, slotIndex, 3, highAtten);
+        break;
+
+      case DspNodeType.api550:
+        // Restore API 550A parameters (Rust: 0=Low Gain, 1=Mid Gain, 2=High Gain)
+        final lowGain = (node.params['lowGain'] as num?)?.toDouble() ?? 0.0;
+        final midGain = (node.params['midGain'] as num?)?.toDouble() ?? 0.0;
+        final highGain = (node.params['highGain'] as num?)?.toDouble() ?? 0.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, lowGain);
+        _ffi.insertSetParam(trackId, slotIndex, 1, midGain);
+        _ffi.insertSetParam(trackId, slotIndex, 2, highGain);
+        break;
+
+      case DspNodeType.neve1073:
+        // Restore Neve 1073 parameters (Rust: 0=HP Enabled, 1=Low Gain, 2=High Gain)
+        final hpEnabled = (node.params['hpEnabled'] as num?)?.toDouble() ?? 0.0;
+        final lowGain = (node.params['lowGain'] as num?)?.toDouble() ?? 0.0;
+        final highGain = (node.params['highGain'] as num?)?.toDouble() ?? 0.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, hpEnabled);
+        _ffi.insertSetParam(trackId, slotIndex, 1, lowGain);
+        _ffi.insertSetParam(trackId, slotIndex, 2, highGain);
         break;
     }
 

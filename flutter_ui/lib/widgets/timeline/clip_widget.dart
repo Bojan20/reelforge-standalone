@@ -18,6 +18,7 @@ import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../../models/middleware_models.dart' show FadeCurve;
 import '../../providers/editor_mode_provider.dart';
+import '../../providers/smart_tool_provider.dart';
 import '../editors/clip_fx_editor.dart';
 import '../../src/rust/native_ffi.dart';
 
@@ -115,6 +116,9 @@ class _ClipWidgetState extends State<ClipWidget> {
   bool _isDraggingMove = false;
   bool _isSlipEditing = false;
   bool _isEditing = false;
+
+  // Smart Tool — last hit test result for cursor + drag routing
+  SmartToolHitResult? _smartToolHitResult;
 
   // Trackpad two-finger gesture detection
   // Two-finger pan on trackpad should scroll, not drag clips
@@ -354,6 +358,35 @@ class _ClipWidgetState extends State<ClipWidget> {
       top: 2,
       width: clampedWidth,
       height: clipHeight,
+      // Smart Tool — dynamic cursor based on hover position
+      child: Consumer<SmartToolProvider>(
+        builder: (context, smartTool, child) {
+          final smartEnabled = smartTool.enabled;
+          return MouseRegion(
+            cursor: smartEnabled && _smartToolHitResult != null
+                ? _smartToolHitResult!.cursor
+                : MouseCursor.defer,
+            onHover: smartEnabled
+                ? (event) {
+                    final localPos = event.localPosition;
+                    final clipBounds = Rect.fromLTWH(0, 0, clampedWidth, clipHeight);
+                    final result = smartTool.hitTest(
+                      position: localPos,
+                      clipBounds: clipBounds,
+                      clipId: clip.id,
+                    );
+                    if (_smartToolHitResult?.mode != result.mode) {
+                      setState(() => _smartToolHitResult = result);
+                    }
+                  }
+                : null,
+            onExit: smartEnabled
+                ? (_) {
+                    if (_smartToolHitResult != null) {
+                      setState(() => _smartToolHitResult = null);
+                    }
+                  }
+                : null,
       // Listener detects trackpad two-finger pan (scroll gesture)
       // to prevent it from being interpreted as clip drag
       child: Listener(
@@ -401,7 +434,43 @@ class _ClipWidgetState extends State<ClipWidget> {
               return;
             }
 
-            // Check for modifier keys for slip edit
+            // Smart Tool routing — when enabled, use hit test to determine operation
+            if (smartEnabled && _smartToolHitResult != null) {
+              final mode = _smartToolHitResult!.mode;
+              switch (mode) {
+                case SmartToolMode.trimLeft:
+                  // Start left edge trim
+                  _dragStartTime = clip.startTime;
+                  _dragStartDuration = clip.duration;
+                  _dragStartSourceOffset = clip.sourceOffset;
+                  _dragStartMouseX = details.globalPosition.dx;
+                  setState(() => _isDraggingLeftEdge = true);
+                  return;
+                case SmartToolMode.trimRight:
+                  // Start right edge trim
+                  _dragStartDuration = clip.duration;
+                  _dragStartMouseX = details.globalPosition.dx;
+                  setState(() => _isDraggingRightEdge = true);
+                  return;
+                case SmartToolMode.fadeIn:
+                  // Start fade in drag
+                  setState(() => _isDraggingFadeIn = true);
+                  fadeHandleActiveGlobal = true;
+                  return;
+                case SmartToolMode.fadeOut:
+                  // Start fade out drag
+                  setState(() => _isDraggingFadeOut = true);
+                  fadeHandleActiveGlobal = true;
+                  return;
+                case SmartToolMode.select:
+                  // Move mode — fall through to normal move logic below
+                  break;
+                default:
+                  break;
+              }
+            }
+
+            // Check for modifier keys for slip edit (works with or without smart tool)
             if (HardwareKeyboard.instance.isMetaPressed ||
                 HardwareKeyboard.instance.isControlPressed) {
               _dragStartSourceOffset = clip.sourceOffset;
@@ -422,7 +491,81 @@ class _ClipWidgetState extends State<ClipWidget> {
             }
           },
         onPanUpdate: (details) {
-          // IGNORE if fade handle is being dragged
+          // Smart Tool — handle trim drags via pan gesture
+          if (_isDraggingLeftEdge && smartEnabled) {
+            double rawNewStartTime = _dragStartTime + (details.globalPosition.dx - _dragStartMouseX) / widget.zoom;
+            final snappedStartTime = applySnap(
+              rawNewStartTime,
+              widget.snapEnabled,
+              widget.snapValue,
+              widget.tempo,
+              widget.allClips,
+            );
+
+            double newStartTime = snappedStartTime;
+            double newOffset = _dragStartSourceOffset;
+
+            if (snappedStartTime < _dragStartTime) {
+              final extensionAmount = _dragStartTime - snappedStartTime;
+              final maxExtension = _dragStartSourceOffset;
+              final actualExtension = extensionAmount.clamp(0.0, maxExtension);
+              newStartTime = _dragStartTime - actualExtension;
+              newOffset = _dragStartSourceOffset - actualExtension;
+            } else {
+              final trimAmount = snappedStartTime - _dragStartTime;
+              final maxTrim = _dragStartDuration - 0.1;
+              final actualTrim = trimAmount.clamp(0.0, maxTrim);
+              newStartTime = _dragStartTime + actualTrim;
+              newOffset = _dragStartSourceOffset + actualTrim;
+              if (clip.sourceDuration != null) {
+                final maxOffset = clip.sourceDuration! - 0.1;
+                if (newOffset > maxOffset) {
+                  newOffset = maxOffset;
+                  newStartTime = _dragStartTime + (newOffset - _dragStartSourceOffset);
+                }
+              }
+            }
+            newStartTime = newStartTime.clamp(0.0, double.infinity);
+            newOffset = newOffset.clamp(0.0, double.infinity);
+            final newDuration = _dragStartDuration - (newStartTime - _dragStartTime);
+            widget.onResize?.call(newStartTime, newDuration.clamp(0.1, double.infinity), newOffset);
+            return;
+          }
+
+          if (_isDraggingRightEdge && smartEnabled) {
+            final deltaTime = (details.globalPosition.dx - _dragStartMouseX) / widget.zoom;
+            final rawEndTime = clip.startTime + _dragStartDuration + deltaTime;
+            final snappedEndTime = applySnap(
+              rawEndTime,
+              widget.snapEnabled,
+              widget.snapValue,
+              widget.tempo,
+              widget.allClips,
+            );
+            double newDuration = (snappedEndTime - clip.startTime).clamp(0.1, double.infinity);
+            if (clip.sourceDuration != null) {
+              final maxDuration = clip.sourceDuration! - clip.sourceOffset;
+              newDuration = newDuration.clamp(0.1, maxDuration);
+            }
+            widget.onResize?.call(clip.startTime, newDuration, null);
+            return;
+          }
+
+          if ((_isDraggingFadeIn || _isDraggingFadeOut) && smartEnabled) {
+            final deltaPixels = details.delta.dx;
+            if (_isDraggingFadeIn) {
+              final deltaSeconds = deltaPixels / widget.zoom;
+              final newFadeIn = (clip.fadeIn + deltaSeconds).clamp(0.0, clip.duration * 0.5);
+              widget.onFadeChange?.call(newFadeIn, clip.fadeOut);
+            } else {
+              final deltaSeconds = -deltaPixels / widget.zoom;
+              final newFadeOut = (clip.fadeOut + deltaSeconds).clamp(0.0, clip.duration * 0.5);
+              widget.onFadeChange?.call(clip.fadeIn, newFadeOut);
+            }
+            return;
+          }
+
+          // IGNORE if fade handle is being dragged (non-smart-tool path)
           if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal) {
             return;
           }
@@ -462,6 +605,15 @@ class _ClipWidgetState extends State<ClipWidget> {
           }
         },
         onPanEnd: (details) {
+          // Smart Tool trim/fade end — commit resize
+          if ((_isDraggingLeftEdge || _isDraggingRightEdge) && smartEnabled) {
+            widget.onResizeEnd?.call();
+          }
+          // Smart Tool fade end — release global flag
+          if ((_isDraggingFadeIn || _isDraggingFadeOut) && smartEnabled) {
+            fadeHandleActiveGlobal = false;
+          }
+
           if (_isDraggingMove) {
             // Use _wasCrossTrackDrag to ensure cleanup even if user moved back
             if (_isCrossTrackDrag || _wasCrossTrackDrag) {
@@ -481,9 +633,17 @@ class _ClipWidgetState extends State<ClipWidget> {
             _isSlipEditing = false;
             _isCrossTrackDrag = false;
             _wasCrossTrackDrag = false;
+            _isDraggingLeftEdge = false;
+            _isDraggingRightEdge = false;
+            _isDraggingFadeIn = false;
+            _isDraggingFadeOut = false;
           });
         },
         onPanCancel: () {
+          // Smart Tool fade cancel — release global flag
+          if (_isDraggingFadeIn || _isDraggingFadeOut) {
+            fadeHandleActiveGlobal = false;
+          }
           // ALWAYS call onDragEnd to clear ghost - no conditions
           widget.onDragEnd?.call(_lastDragPosition);
           setState(() {
@@ -491,6 +651,10 @@ class _ClipWidgetState extends State<ClipWidget> {
             _isSlipEditing = false;
             _isCrossTrackDrag = false;
             _wasCrossTrackDrag = false;
+            _isDraggingLeftEdge = false;
+            _isDraggingRightEdge = false;
+            _isDraggingFadeIn = false;
+            _isDraggingFadeOut = false;
           });
         },
         child: Container(
@@ -827,6 +991,9 @@ class _ClipWidgetState extends State<ClipWidget> {
         ),
       ), // Close GestureDetector
       ), // Close Listener
+      ); // Close MouseRegion
+        }, // Close Consumer builder
+      ), // Close Consumer
     );
   }
 }

@@ -85,15 +85,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
   }
 
   void _initializeProcessor() {
-    final success = NativeFFI.instance.stereoImagerCreate(
-      widget.trackId,
-      sampleRate: widget.sampleRate,
-    );
-
-    if (success) {
-      setState(() => _initialized = true);
-      _applyAllSettings();
-    }
+    // Do NOT auto-create stereo imager — must be created externally
   }
 
   void _applyAllSettings() {

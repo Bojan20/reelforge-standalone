@@ -3248,6 +3248,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       DspNodeType.delay => Icons.timer,
       DspNodeType.saturation => Icons.whatshot,
       DspNodeType.deEsser => Icons.speaker_notes_off,
+      DspNodeType.pultec => Icons.tune,
+      DspNodeType.api550 => Icons.graphic_eq,
+      DspNodeType.neve1073 => Icons.surround_sound,
     };
   }
 
@@ -3858,6 +3861,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       DspNodeType.delay => Icons.timer,
       DspNodeType.saturation => Icons.whatshot,
       DspNodeType.deEsser => Icons.record_voice_over,
+      DspNodeType.pultec => Icons.tune,
+      DspNodeType.api550 => Icons.graphic_eq,
+      DspNodeType.neve1073 => Icons.surround_sound,
     };
   }
 

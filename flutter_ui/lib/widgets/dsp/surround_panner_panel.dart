@@ -55,10 +55,7 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
   }
 
   void _initializeProcessor() {
-    final success = _ffi.surroundPannerCreate(widget.trackId, _layout);
-    if (success) {
-      setState(() => _initialized = true);
-    }
+    // Do NOT auto-create surround panner — must be created externally
   }
 
   void _updatePosition() {

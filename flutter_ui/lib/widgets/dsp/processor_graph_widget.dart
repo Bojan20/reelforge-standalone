@@ -1082,6 +1082,9 @@ class _ProcessorGraphPanelState extends State<ProcessorGraphPanel> {
       DspNodeType.delay => Icons.timer,
       DspNodeType.saturation => Icons.whatshot,
       DspNodeType.deEsser => Icons.speaker_notes_off,
+      DspNodeType.pultec => Icons.tune,
+      DspNodeType.api550 => Icons.graphic_eq,
+      DspNodeType.neve1073 => Icons.surround_sound,
     };
   }
 
@@ -1096,6 +1099,9 @@ class _ProcessorGraphPanelState extends State<ProcessorGraphPanel> {
       DspNodeType.delay => FabFilterColors.cyan,
       DspNodeType.saturation => FabFilterColors.orange,
       DspNodeType.deEsser => FabFilterColors.pink,
+      DspNodeType.pultec => const Color(0xFFD4A574),
+      DspNodeType.api550 => FabFilterColors.blue,
+      DspNodeType.neve1073 => const Color(0xFF8B4513),
     };
   }
 

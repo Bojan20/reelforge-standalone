@@ -114,32 +114,24 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
   }
 
   void _initializeProcessors() {
-    // Use DspChainProvider to add processors to the insert chain
     final dsp = DspChainProvider.instance;
-    var chain = dsp.getChain(widget.trackId);
+    final chain = dsp.getChain(widget.trackId);
 
-    // Helper to find or add a processor and return its slot index
-    int findOrAddProcessor(DspNodeType type) {
-      // Check if processor of this type already exists
-      for (int i = 0; i < chain.nodes.length; i++) {
-        if (chain.nodes[i].type == type) {
-          return i;
-        }
+    // Only find existing processors — do NOT auto-add
+    for (int i = 0; i < chain.nodes.length; i++) {
+      switch (chain.nodes[i].type) {
+        case DspNodeType.compressor:
+          _compressorSlot = i;
+        case DspNodeType.limiter:
+          _limiterSlot = i;
+        case DspNodeType.gate:
+          _gateSlot = i;
+        case DspNodeType.expander:
+          _expanderSlot = i;
+        default:
+          break;
       }
-      // Not found, add it
-      dsp.addNode(widget.trackId, type);
-      chain = dsp.getChain(widget.trackId); // Refresh chain
-      return chain.nodes.length - 1;
     }
-
-    // Add all processor types
-    _compressorSlot = findOrAddProcessor(DspNodeType.compressor);
-    chain = dsp.getChain(widget.trackId); // Refresh after each add
-    _limiterSlot = findOrAddProcessor(DspNodeType.limiter);
-    chain = dsp.getChain(widget.trackId);
-    _gateSlot = findOrAddProcessor(DspNodeType.gate);
-    chain = dsp.getChain(widget.trackId);
-    _expanderSlot = findOrAddProcessor(DspNodeType.expander);
 
     final success = _compressorSlot >= 0 || _limiterSlot >= 0 || _gateSlot >= 0 || _expanderSlot >= 0;
     if (success) {

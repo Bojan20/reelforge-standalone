@@ -832,11 +832,28 @@ pub fn create_processor(name: &str, sample_rate: f64) -> Option<Box<dyn InsertPr
 
 use rf_dsp::MonoProcessor;
 use rf_dsp::dynamics::{
-    CompressorType, DeEsser, DeEsserMode, Expander, Gate, Oversampling, StereoCompressor,
-    TruePeakLimiter,
+    CompressorCharacter, CompressorType, DeEsser, DeEsserMode, DetectionMode, Expander, Gate,
+    Oversampling, StereoCompressor, TruePeakLimiter,
+    DitherBits, LimiterChannelConfig, LimiterLatencyProfile, LimiterStyle,
 };
 
-/// Compressor wrapper for insert chain
+/// Compressor wrapper for insert chain (Pro-C 2 class — 25 params, 5 meters)
+///
+/// Parameter layout:
+///   0: Threshold (dB)      8: Character (enum)     16: SC Mid Gain (dB)
+///   1: Ratio               9: Drive (dB)           17: Auto-Threshold (bool)
+///   2: Attack (ms)        10: Range (dB)           18: Auto-Makeup (bool)
+///   3: Release (ms)       11: SC HP Freq (Hz)      19: Detection Mode (enum)
+///   4: Makeup (dB)        12: SC LP Freq (Hz)      20: Adaptive Release (bool)
+///   5: Mix                13: SC Audition (bool)    21: Host Sync (bool)
+///   6: Link               14: Lookahead (ms)        22: Host BPM
+///   7: Type (enum)        15: SC Mid Freq (Hz)      23: Mid/Side (bool)
+///                                                    24: Knee (dB)
+///
+/// Meter layout:
+///   0: GR Left (dB)       3: Input Peak (linear)
+///   1: GR Right (dB)      4: Latency (samples)
+///   2: Output Peak (linear)
 pub struct CompressorWrapper {
     comp: StereoCompressor,
     sample_rate: f64,
@@ -848,38 +865,6 @@ impl CompressorWrapper {
             comp: StereoCompressor::new(sample_rate),
             sample_rate,
         }
-    }
-
-    pub fn set_threshold(&mut self, db: f64) {
-        self.comp.set_both(|c| c.set_threshold(db));
-    }
-
-    pub fn set_ratio(&mut self, ratio: f64) {
-        self.comp.set_both(|c| c.set_ratio(ratio));
-    }
-
-    pub fn set_attack(&mut self, ms: f64) {
-        self.comp.set_both(|c| c.set_attack(ms));
-    }
-
-    pub fn set_release(&mut self, ms: f64) {
-        self.comp.set_both(|c| c.set_release(ms));
-    }
-
-    pub fn set_makeup(&mut self, db: f64) {
-        self.comp.set_both(|c| c.set_makeup(db));
-    }
-
-    pub fn set_mix(&mut self, mix: f64) {
-        self.comp.set_both(|c| c.set_mix(mix));
-    }
-
-    pub fn set_type(&mut self, comp_type: CompressorType) {
-        self.comp.set_both(|c| c.set_type(comp_type));
-    }
-
-    pub fn set_link(&mut self, link: f64) {
-        self.comp.set_link(link);
     }
 
     pub fn gain_reduction_db(&self) -> (f64, f64) {
@@ -906,34 +891,107 @@ impl InsertProcessor for CompressorWrapper {
 
     fn set_sample_rate(&mut self, sample_rate: f64) {
         self.sample_rate = sample_rate;
-        self.comp = StereoCompressor::new(sample_rate);
+        self.comp.set_sample_rate(sample_rate);
     }
 
     fn num_params(&self) -> usize {
-        8
+        25
     }
 
-    fn get_param(&self, _index: usize) -> f64 {
-        0.0 // Would need to store params separately for get
+    fn get_param(&self, index: usize) -> f64 {
+        let left = self.comp.left_ref();
+        match index {
+            0 => left.threshold_db(),
+            1 => left.ratio(),
+            2 => left.attack_ms(),
+            3 => left.release_ms(),
+            4 => left.makeup_gain_db(),
+            5 => left.mix(),
+            6 => 1.0, // Link stored on StereoCompressor, default linked
+            7 => match left.comp_type() {
+                CompressorType::Vca => 0.0,
+                CompressorType::Opto => 1.0,
+                CompressorType::Fet => 2.0,
+            },
+            8 => match left.character() {
+                CompressorCharacter::Off => 0.0,
+                CompressorCharacter::Tube => 1.0,
+                CompressorCharacter::Diode => 2.0,
+                CompressorCharacter::Bright => 3.0,
+            },
+            9 => left.drive_db(),
+            10 => left.range_db(),
+            11 => left.sc_hp_freq(),
+            12 => left.sc_lp_freq(),
+            13 => if left.sc_audition() { 1.0 } else { 0.0 },
+            14 => left.lookahead_ms(),
+            15 => left.sc_eq_mid_freq(),
+            16 => left.sc_eq_mid_gain(),
+            17 => if left.auto_threshold_enabled() { 1.0 } else { 0.0 },
+            18 => if left.auto_makeup_enabled() { 1.0 } else { 0.0 },
+            19 => match left.detection_mode() {
+                DetectionMode::Peak => 0.0,
+                DetectionMode::Rms => 1.0,
+                DetectionMode::Hybrid => 2.0,
+            },
+            20 => if left.adaptive_release_enabled() { 1.0 } else { 0.0 },
+            21 => if left.host_sync_enabled() { 1.0 } else { 0.0 },
+            22 => left.host_bpm(),
+            23 => if left.mid_side_enabled() { 1.0 } else { 0.0 },
+            24 => left.knee_db(),
+            _ => 0.0,
+        }
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
         match index {
-            0 => self.set_threshold(value),
-            1 => self.set_ratio(value),
-            2 => self.set_attack(value),
-            3 => self.set_release(value),
-            4 => self.set_makeup(value),
-            5 => self.set_mix(value),
-            6 => self.set_link(value),
+            0 => self.comp.set_threshold(value),
+            1 => self.comp.set_ratio(value),
+            2 => self.comp.set_attack(value),
+            3 => self.comp.set_release(value),
+            4 => self.comp.set_makeup(value),
+            5 => self.comp.set_mix(value),
+            6 => self.comp.set_link(value),
             7 => {
                 let comp_type = match value as u8 {
                     0 => CompressorType::Vca,
                     1 => CompressorType::Opto,
                     _ => CompressorType::Fet,
                 };
-                self.set_type(comp_type);
+                self.comp.set_type(comp_type);
             }
+            8 => {
+                let character = match value as u8 {
+                    0 => CompressorCharacter::Off,
+                    1 => CompressorCharacter::Tube,
+                    2 => CompressorCharacter::Diode,
+                    _ => CompressorCharacter::Bright,
+                };
+                self.comp.set_character(character);
+            }
+            9 => self.comp.set_drive(value),
+            10 => self.comp.set_range(value),
+            11 => self.comp.set_sc_hp_freq(value),
+            12 => self.comp.set_sc_lp_freq(value),
+            13 => self.comp.set_sc_audition(value > 0.5),
+            14 => self.comp.set_lookahead(value),
+            15 => self.comp.set_sc_eq_mid_freq(value),
+            16 => self.comp.set_sc_eq_mid_gain(value),
+            17 => self.comp.set_auto_threshold(value > 0.5),
+            18 => self.comp.set_auto_makeup(value > 0.5),
+            19 => {
+                let mode = match value as u8 {
+                    0 => DetectionMode::Peak,
+                    1 => DetectionMode::Rms,
+                    _ => DetectionMode::Hybrid,
+                };
+                self.comp.set_detection_mode(mode);
+            }
+            20 => self.comp.set_adaptive_release(value > 0.5),
+            21 => self.comp.set_host_sync(value > 0.5),
+            22 => self.comp.set_host_bpm(value),
+            23 => self.comp.set_mid_side(value > 0.5),
+            24 => self.comp.set_both(|c| c.set_knee(value)),
             _ => {}
         }
     }
@@ -948,56 +1006,74 @@ impl InsertProcessor for CompressorWrapper {
             5 => "Mix",
             6 => "Link",
             7 => "Type",
+            8 => "Character",
+            9 => "Drive",
+            10 => "Range",
+            11 => "SC HP Freq",
+            12 => "SC LP Freq",
+            13 => "SC Audition",
+            14 => "Lookahead",
+            15 => "SC Mid Freq",
+            16 => "SC Mid Gain",
+            17 => "Auto-Threshold",
+            18 => "Auto-Makeup",
+            19 => "Detection",
+            20 => "Adaptive Rel",
+            21 => "Host Sync",
+            22 => "Host BPM",
+            23 => "Mid/Side",
+            24 => "Knee",
             _ => "",
         }
     }
 
     fn get_meter(&self, index: usize) -> f64 {
         let (gr_l, gr_r) = self.comp.gain_reduction_db();
+        let (out_l, out_r) = self.comp.output_peak();
+        let (in_l, in_r) = self.comp.input_peak();
         match index {
             0 => gr_l,
             1 => gr_r,
+            2 => out_l.max(out_r),
+            3 => in_l.max(in_r),
+            4 => self.comp.latency_samples() as f64,
             _ => 0.0,
         }
     }
+
+    fn latency(&self) -> LatencySamples {
+        self.comp.latency_samples() as LatencySamples
+    }
 }
 
-/// True Peak Limiter wrapper
+/// True Peak Limiter wrapper — Pro-L 2 class (14 params, 7 meters)
 pub struct TruePeakLimiterWrapper {
     limiter: TruePeakLimiter,
+    params: [f64; 14],
     sample_rate: f64,
 }
 
 impl TruePeakLimiterWrapper {
     pub fn new(sample_rate: f64) -> Self {
-        Self {
-            limiter: TruePeakLimiter::new(sample_rate),
-            sample_rate,
-        }
-    }
-
-    pub fn set_threshold(&mut self, db: f64) {
-        self.limiter.set_threshold(db);
-    }
-
-    pub fn set_ceiling(&mut self, db: f64) {
-        self.limiter.set_ceiling(db);
-    }
-
-    pub fn set_release(&mut self, ms: f64) {
-        self.limiter.set_release(ms);
-    }
-
-    pub fn set_oversampling(&mut self, os: Oversampling) {
-        self.limiter.set_oversampling(os);
-    }
-
-    pub fn true_peak_db(&self) -> f64 {
-        self.limiter.true_peak_db()
-    }
-
-    pub fn gain_reduction_db(&self) -> f64 {
-        self.limiter.gain_reduction_db()
+        let limiter = TruePeakLimiter::new(sample_rate);
+        // Default param values match TruePeakLimiter::new() defaults
+        let params = [
+            0.0,    // 0: Input Trim (dB)
+            0.0,    // 1: Threshold (dB)
+            -0.3,   // 2: Ceiling (dBTP)
+            100.0,  // 3: Release (ms)
+            0.1,    // 4: Attack (ms)
+            5.0,    // 5: Lookahead (ms)
+            7.0,    // 6: Style (enum: Allround)
+            1.0,    // 7: Oversampling (enum: 2x)
+            100.0,  // 8: Stereo Link (%)
+            0.0,    // 9: M/S Mode (bool)
+            100.0,  // 10: Mix (%)
+            0.0,    // 11: Dither Bits (enum: Off)
+            1.0,    // 12: Latency Profile (enum: HQ)
+            0.0,    // 13: Channel Config (enum: Stereo)
+        ];
+        Self { limiter, params, sample_rate }
     }
 }
 
@@ -1015,7 +1091,7 @@ impl InsertProcessor for TruePeakLimiterWrapper {
     }
 
     fn latency(&self) -> LatencySamples {
-        self.limiter.latency()
+        self.limiter.latency_samples()
     }
 
     fn reset(&mut self) {
@@ -1024,44 +1100,77 @@ impl InsertProcessor for TruePeakLimiterWrapper {
 
     fn set_sample_rate(&mut self, sample_rate: f64) {
         self.sample_rate = sample_rate;
-        self.limiter = TruePeakLimiter::new(sample_rate);
+        self.limiter.set_sample_rate(sample_rate);
     }
 
-    fn num_params(&self) -> usize {
-        4
-    }
+    fn num_params(&self) -> usize { 14 }
 
     fn set_param(&mut self, index: usize, value: f64) {
+        if index < 14 {
+            self.params[index] = value;
+        }
         match index {
-            0 => self.set_threshold(value),
-            1 => self.set_ceiling(value),
-            2 => self.set_release(value),
-            3 => {
+            0 => self.limiter.set_input_trim(value),
+            1 => self.limiter.set_threshold(value),
+            2 => self.limiter.set_ceiling(value),
+            3 => self.limiter.set_release(value),
+            4 => self.limiter.set_attack(value),
+            5 => self.limiter.set_lookahead(value),
+            6 => self.limiter.set_style(LimiterStyle::from_index(value as u8)),
+            7 => {
                 let os = match value as u8 {
                     0 => Oversampling::X1,
                     1 => Oversampling::X2,
                     2 => Oversampling::X4,
+                    3 => Oversampling::X8,
+                    // X16 and X32 would need new enum variants
                     _ => Oversampling::X8,
                 };
-                self.set_oversampling(os);
+                self.limiter.set_oversampling(os);
             }
+            8 => self.limiter.set_stereo_link(value),
+            9 => self.limiter.set_ms_mode(value > 0.5),
+            10 => self.limiter.set_mix(value),
+            11 => self.limiter.set_dither_bits(DitherBits::from_index(value as u8)),
+            12 => self.limiter.set_latency_profile(LimiterLatencyProfile::from_index(value as u8)),
+            13 => self.limiter.set_channel_config(LimiterChannelConfig::from_index(value as u8)),
             _ => {}
         }
     }
 
+    fn get_param(&self, index: usize) -> f64 {
+        if index < 14 { self.params[index] } else { 0.0 }
+    }
+
     fn param_name(&self, index: usize) -> &str {
         match index {
-            0 => "Threshold",
-            1 => "Ceiling",
-            2 => "Release",
-            3 => "Oversampling",
+            0 => "Input Trim",
+            1 => "Threshold",
+            2 => "Ceiling",
+            3 => "Release",
+            4 => "Attack",
+            5 => "Lookahead",
+            6 => "Style",
+            7 => "Oversampling",
+            8 => "Stereo Link",
+            9 => "M/S Mode",
+            10 => "Mix",
+            11 => "Dither Bits",
+            12 => "Latency Profile",
+            13 => "Channel Config",
             _ => "",
         }
     }
 
     fn get_meter(&self, index: usize) -> f64 {
         match index {
-            0 | 1 => self.limiter.gain_reduction_db(),
+            0 => self.limiter.gr_left_db(),
+            1 => self.limiter.gr_right_db(),
+            2 => self.limiter.input_peak_l_db(),
+            3 => self.limiter.input_peak_r_db(),
+            4 => self.limiter.output_true_peak_l_db(),
+            5 => self.limiter.output_true_peak_r_db(),
+            6 => self.limiter.gr_max_hold_db(),
             _ => 0.0,
         }
     }
@@ -1525,7 +1634,24 @@ impl InsertProcessor for LinearPhaseEqWrapper {
 
 use rf_dsp::reverb::{AlgorithmicReverb, ReverbType};
 
-/// Algorithmic Reverb wrapper for insert chain
+/// Algorithmic Reverb wrapper for insert chain — FDN 8×8 (2026 Upgrade)
+///
+/// 15 parameters (backward-compatible: indices 0-7 unchanged):
+///   0: Space       (0.0-1.0) — room size [alias: Room Size]
+///   1: Brightness   (0.0-1.0) — HF decay [alias: inverted Damping]
+///   2: Width        (0.0-2.0) — M/S stereo width
+///   3: Mix          (0.0-1.0) — dry/wet equal-power crossfade
+///   4: PreDelay     (0-500 ms)
+///   5: Style        (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring)
+///   6: Diffusion    (0.0-1.0) — allpass density
+///   7: Distance     (0.0-1.0) — ER attenuation
+///   8: Decay        (0.0-1.0) — FDN feedback tail length
+///   9: Low Decay Mult  (0.5-2.0) — bass decay multiplier
+///  10: High Decay Mult (0.5-2.0) — treble decay multiplier
+///  11: Character    (0.0-1.0) — LFO modulation depth (chorus/shimmer)
+///  12: Thickness    (0.0-1.0) — saturation + bass boost density
+///  13: Ducking      (0.0-1.0) — self-ducking amount
+///  14: Freeze       (0.0/1.0) — infinite sustain toggle
 pub struct ReverbWrapper {
     reverb: AlgorithmicReverb,
     sample_rate: f64,
@@ -1538,43 +1664,11 @@ impl ReverbWrapper {
             sample_rate,
         }
     }
-
-    pub fn set_room_size(&mut self, size: f64) {
-        self.reverb.set_room_size(size);
-    }
-
-    pub fn set_damping(&mut self, damping: f64) {
-        self.reverb.set_damping(damping);
-    }
-
-    pub fn set_width(&mut self, width: f64) {
-        self.reverb.set_width(width);
-    }
-
-    pub fn set_dry_wet(&mut self, mix: f64) {
-        self.reverb.set_dry_wet(mix);
-    }
-
-    pub fn set_predelay(&mut self, ms: f64) {
-        self.reverb.set_predelay(ms);
-    }
-
-    pub fn set_type(&mut self, reverb_type: ReverbType) {
-        self.reverb.set_type(reverb_type);
-    }
-
-    pub fn set_diffusion(&mut self, diffusion: f64) {
-        self.reverb.set_diffusion(diffusion);
-    }
-
-    pub fn set_distance(&mut self, distance: f64) {
-        self.reverb.set_distance(distance);
-    }
 }
 
 impl InsertProcessor for ReverbWrapper {
     fn name(&self) -> &str {
-        "FluxForge Algorithmic Reverb"
+        "FluxForge Reverb"
     }
 
     fn process_stereo(&mut self, left: &mut [f64], right: &mut [f64]) {
@@ -1588,9 +1682,9 @@ impl InsertProcessor for ReverbWrapper {
     }
 
     fn set_sample_rate(&mut self, sample_rate: f64) {
-        // AlgorithmicReverb doesn't have set_sample_rate, so recreate
+        use rf_dsp::ProcessorConfig;
         self.sample_rate = sample_rate;
-        self.reverb = AlgorithmicReverb::new(sample_rate);
+        self.reverb.set_sample_rate(sample_rate);
     }
 
     fn latency(&self) -> LatencySamples {
@@ -1599,25 +1693,16 @@ impl InsertProcessor for ReverbWrapper {
     }
 
     fn num_params(&self) -> usize {
-        8
+        15
     }
 
     fn set_param(&mut self, param_index: usize, value: f64) {
-        // Reverb param indices:
-        // 0 = Room Size (0.0-1.0)
-        // 1 = Damping (0.0-1.0)
-        // 2 = Width (0.0-1.0)
-        // 3 = Dry/Wet mix (0.0-1.0)
-        // 4 = Predelay (0-200 ms)
-        // 5 = Type (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring)
-        // 6 = Diffusion (0.0-1.0) — allpass feedback, echo density
-        // 7 = Distance (0.0-1.0) — early reflections attenuation
         match param_index {
-            0 => self.set_room_size(value),
-            1 => self.set_damping(value),
-            2 => self.set_width(value),
-            3 => self.set_dry_wet(value),
-            4 => self.set_predelay(value),
+            0 => self.reverb.set_space(value),
+            1 => self.reverb.set_brightness(value),
+            2 => self.reverb.set_width(value),
+            3 => self.reverb.set_mix(value),
+            4 => self.reverb.set_predelay(value),
             5 => {
                 let rt = match value as u32 {
                     0 => ReverbType::Room,
@@ -1627,22 +1712,29 @@ impl InsertProcessor for ReverbWrapper {
                     4 => ReverbType::Spring,
                     _ => ReverbType::Room,
                 };
-                self.set_type(rt);
+                self.reverb.set_style(rt);
             }
-            6 => self.set_diffusion(value),
-            7 => self.set_distance(value),
+            6 => self.reverb.set_diffusion(value),
+            7 => self.reverb.set_distance(value),
+            8 => self.reverb.set_decay(value),
+            9 => self.reverb.set_low_decay_mult(value),
+            10 => self.reverb.set_high_decay_mult(value),
+            11 => self.reverb.set_character(value),
+            12 => self.reverb.set_thickness(value),
+            13 => self.reverb.set_ducking(value),
+            14 => self.reverb.set_freeze(value > 0.5),
             _ => {}
         }
     }
 
     fn get_param(&self, param_index: usize) -> f64 {
         match param_index {
-            0 => self.reverb.room_size(),
-            1 => self.reverb.damping(),
+            0 => self.reverb.space(),
+            1 => self.reverb.brightness(),
             2 => self.reverb.width(),
-            3 => self.reverb.dry_wet(),
+            3 => self.reverb.mix(),
             4 => self.reverb.predelay_ms(),
-            5 => match self.reverb.reverb_type() {
+            5 => match self.reverb.style() {
                 ReverbType::Room => 0.0,
                 ReverbType::Hall => 1.0,
                 ReverbType::Plate => 2.0,
@@ -1651,21 +1743,314 @@ impl InsertProcessor for ReverbWrapper {
             },
             6 => self.reverb.diffusion(),
             7 => self.reverb.distance(),
+            8 => self.reverb.decay(),
+            9 => self.reverb.low_decay_mult(),
+            10 => self.reverb.high_decay_mult(),
+            11 => self.reverb.character(),
+            12 => self.reverb.thickness(),
+            13 => self.reverb.ducking(),
+            14 => if self.reverb.freeze() { 1.0 } else { 0.0 },
             _ => 0.0,
         }
     }
 
     fn param_name(&self, param_index: usize) -> &str {
         match param_index {
-            0 => "Room Size",
-            1 => "Damping",
+            0 => "Space",
+            1 => "Brightness",
             2 => "Width",
             3 => "Mix",
-            4 => "Predelay",
-            5 => "Type",
+            4 => "PreDelay",
+            5 => "Style",
             6 => "Diffusion",
             7 => "Distance",
+            8 => "Decay",
+            9 => "Low Decay",
+            10 => "High Decay",
+            11 => "Character",
+            12 => "Thickness",
+            13 => "Ducking",
+            14 => "Freeze",
             _ => "Unknown",
+        }
+    }
+}
+
+// ============ Saturation (Saturn 2 class) ============
+
+use rf_dsp::saturation::{OversampledSaturator, SaturationType as SatType};
+use rf_dsp::oversampling::OversampleFactor;
+
+/// Saturator wrapper for insert chain (Saturn 2 class — 10 params, 4 meters)
+///
+/// Parameter layout:
+///   0: Drive (dB)         [-24..+40]     def 0.0
+///   1: Type/Style (enum)  [0..5]         def 0 (Tape)
+///   2: Tone               [-100..+100]   def 0.0 (no tone shift)
+///   3: Mix (%)            [0..100]       def 100.0
+///   4: Output (dB)        [-24..+24]     def 0.0
+///   5: Tape Bias (%)      [0..100]       def 50.0
+///   6: Oversampling (enum)[0..3]         def 1 (2x)
+///   7: Input Trim (dB)    [-12..+12]     def 0.0
+///   8: M/S Mode (bool)    [0/1]          def 0
+///   9: Stereo Link (bool) [0/1]          def 1
+///
+/// Meter layout:
+///   0: Input Peak L
+///   1: Input Peak R
+///   2: Output Peak L
+///   3: Output Peak R
+pub struct SaturatorWrapper {
+    saturator: OversampledSaturator,
+    params: [f64; 10],
+    sample_rate: f64,
+    input_peak_l: f64,
+    input_peak_r: f64,
+    output_peak_l: f64,
+    output_peak_r: f64,
+}
+
+impl SaturatorWrapper {
+    pub fn new(sample_rate: f64) -> Self {
+        let mut sat = OversampledSaturator::new(sample_rate, OversampleFactor::X2);
+        sat.set_drive_db(0.0);
+        sat.set_mix(1.0);
+        sat.set_output_db(0.0);
+        sat.set_tape_bias(0.5);
+        Self {
+            saturator: sat,
+            params: [
+                0.0,   // 0: Drive dB
+                0.0,   // 1: Type (Tape=0)
+                0.0,   // 2: Tone
+                100.0, // 3: Mix %
+                0.0,   // 4: Output dB
+                50.0,  // 5: Tape Bias %
+                1.0,   // 6: Oversampling (X2)
+                0.0,   // 7: Input Trim dB
+                0.0,   // 8: M/S Mode off
+                1.0,   // 9: Stereo Link on
+            ],
+            sample_rate,
+            input_peak_l: 0.0,
+            input_peak_r: 0.0,
+            output_peak_l: 0.0,
+            output_peak_r: 0.0,
+        }
+    }
+
+    fn db_to_linear(db: f64) -> f64 {
+        10.0_f64.powf(db / 20.0)
+    }
+}
+
+impl InsertProcessor for SaturatorWrapper {
+    fn name(&self) -> &str {
+        "FluxForge Studio Saturator"
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        let len = left.len().min(right.len());
+        if len == 0 {
+            return;
+        }
+
+        // Input trim
+        let input_trim = Self::db_to_linear(self.params[7]);
+
+        // M/S encode
+        let ms_mode = self.params[8] > 0.5;
+        if ms_mode {
+            for i in 0..len {
+                let mid = (left[i] + right[i]) * 0.5;
+                let side = (left[i] - right[i]) * 0.5;
+                left[i] = mid;
+                right[i] = side;
+            }
+        }
+
+        // Input trim + input peak metering
+        let mut in_peak_l: f64 = 0.0;
+        let mut in_peak_r: f64 = 0.0;
+        for i in 0..len {
+            left[i] *= input_trim;
+            right[i] *= input_trim;
+            in_peak_l = in_peak_l.max(left[i].abs());
+            in_peak_r = in_peak_r.max(right[i].abs());
+        }
+        self.input_peak_l = in_peak_l;
+        self.input_peak_r = in_peak_r;
+
+        // Process through oversampled saturator
+        self.saturator.process(left, right);
+
+        // Output peak metering
+        let mut out_peak_l: f64 = 0.0;
+        let mut out_peak_r: f64 = 0.0;
+        for i in 0..len {
+            out_peak_l = out_peak_l.max(left[i].abs());
+            out_peak_r = out_peak_r.max(right[i].abs());
+        }
+        self.output_peak_l = out_peak_l;
+        self.output_peak_r = out_peak_r;
+
+        // M/S decode
+        if ms_mode {
+            for i in 0..len {
+                let l = left[i] + right[i];
+                let r = left[i] - right[i];
+                left[i] = l;
+                right[i] = r;
+            }
+        }
+    }
+
+    fn latency(&self) -> LatencySamples {
+        self.saturator.latency()
+    }
+
+    fn reset(&mut self) {
+        self.saturator.reset();
+        self.input_peak_l = 0.0;
+        self.input_peak_r = 0.0;
+        self.output_peak_l = 0.0;
+        self.output_peak_r = 0.0;
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.saturator.set_sample_rate(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        10
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        if index < 10 {
+            self.params[index]
+        } else {
+            0.0
+        }
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        if index >= 10 {
+            return;
+        }
+        self.params[index] = value;
+        match index {
+            0 => {
+                // Drive dB [-24..+40]
+                let v = value.clamp(-24.0, 40.0);
+                self.params[0] = v;
+                self.saturator.set_drive_db(v);
+            }
+            1 => {
+                // Type (0=Tape, 1=Tube, 2=Transistor, 3=SoftClip, 4=HardClip, 5=Foldback)
+                let idx = (value as usize).min(5);
+                self.params[1] = idx as f64;
+                let sat_type = match idx {
+                    0 => SatType::Tape,
+                    1 => SatType::Tube,
+                    2 => SatType::Transistor,
+                    3 => SatType::SoftClip,
+                    4 => SatType::HardClip,
+                    5 => SatType::Foldback,
+                    _ => SatType::Tape,
+                };
+                self.saturator.set_type(sat_type);
+            }
+            2 => {
+                // Tone [-100..+100] — adjust via inner saturator's left/right bias
+                // Positive = brighter (more high-frequency harmonics)
+                // Negative = warmer (less high-frequency harmonics)
+                let v = value.clamp(-100.0, 100.0);
+                self.params[2] = v;
+                // Map tone to tape_bias offset for tonal character
+                // Base tape_bias from param 5, tone shifts it +/- 0.3
+                let base_bias = self.params[5] / 100.0;
+                let tone_offset = v / 100.0 * 0.3;
+                let effective_bias = (base_bias + tone_offset).clamp(0.0, 1.0);
+                self.saturator.set_tape_bias(effective_bias);
+            }
+            3 => {
+                // Mix % [0..100]
+                let v = value.clamp(0.0, 100.0);
+                self.params[3] = v;
+                self.saturator.set_mix(v / 100.0);
+            }
+            4 => {
+                // Output dB [-24..+24]
+                let v = value.clamp(-24.0, 24.0);
+                self.params[4] = v;
+                self.saturator.set_output_db(v);
+            }
+            5 => {
+                // Tape Bias % [0..100]
+                let v = value.clamp(0.0, 100.0);
+                self.params[5] = v;
+                // Re-apply with tone offset
+                let tone_offset = self.params[2] / 100.0 * 0.3;
+                let effective_bias = (v / 100.0 + tone_offset).clamp(0.0, 1.0);
+                self.saturator.set_tape_bias(effective_bias);
+            }
+            6 => {
+                // Oversampling (0=1x, 1=2x, 2=4x, 3=8x)
+                let idx = (value as usize).min(3);
+                self.params[6] = idx as f64;
+                let factor = match idx {
+                    0 => OversampleFactor::X1,
+                    1 => OversampleFactor::X2,
+                    2 => OversampleFactor::X4,
+                    3 => OversampleFactor::X8,
+                    _ => OversampleFactor::X2,
+                };
+                self.saturator.set_oversample_factor(factor);
+            }
+            7 => {
+                // Input Trim dB [-12..+12]
+                let v = value.clamp(-12.0, 12.0);
+                self.params[7] = v;
+                // Applied in process_stereo
+            }
+            8 => {
+                // M/S Mode (0=stereo, 1=mid-side)
+                self.params[8] = if value > 0.5 { 1.0 } else { 0.0 };
+            }
+            9 => {
+                // Stereo Link (0=independent, 1=linked)
+                let linked = value > 0.5;
+                self.params[9] = if linked { 1.0 } else { 0.0 };
+                self.saturator.inner_mut().set_link(linked);
+            }
+            _ => {}
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        match index {
+            0 => "Drive",
+            1 => "Type",
+            2 => "Tone",
+            3 => "Mix",
+            4 => "Output",
+            5 => "Tape Bias",
+            6 => "Oversampling",
+            7 => "Input Trim",
+            8 => "M/S Mode",
+            9 => "Stereo Link",
+            _ => "Unknown",
+        }
+    }
+
+    fn get_meter(&self, index: usize) -> f64 {
+        match index {
+            0 => self.input_peak_l,
+            1 => self.input_peak_r,
+            2 => self.output_peak_l,
+            3 => self.output_peak_r,
+            _ => 0.0,
         }
     }
 }
@@ -1696,6 +2081,9 @@ pub fn create_processor_extended(name: &str, sample_rate: f64) -> Option<Box<dyn
         "reverb" | "algorithmic-reverb" | "algo-reverb" => {
             Some(Box::new(ReverbWrapper::new(sample_rate)))
         }
+        "saturation" | "saturator" | "saturn" => {
+            Some(Box::new(SaturatorWrapper::new(sample_rate)))
+        }
         _ => None,
     }
 }
@@ -1719,6 +2107,7 @@ pub fn available_processors() -> Vec<&'static str> {
         "deesser",
         // Effects
         "reverb",
+        "saturation",
     ]
 }
 
@@ -1756,5 +2145,1207 @@ mod tests {
         let processor = create_processor("pro-eq", 48000.0);
         assert!(processor.is_some());
         assert_eq!(processor.unwrap().name(), "FluxForge Studio Pro-EQ 64");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // REVERB WRAPPER TESTS — InsertProcessor chain integration
+    // ═══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_reverb_wrapper_factory() {
+        // All three name variants should create ReverbWrapper
+        for name in &["reverb", "algorithmic-reverb", "algo-reverb"] {
+            let proc = create_processor_extended(name, 48000.0);
+            assert!(proc.is_some(), "Factory failed for '{}'", name);
+            assert_eq!(proc.unwrap().name(), "FluxForge Reverb");
+        }
+    }
+
+    #[test]
+    fn test_reverb_wrapper_num_params() {
+        let proc = create_processor_extended("reverb", 48000.0).unwrap();
+        assert_eq!(proc.num_params(), 15);
+    }
+
+    #[test]
+    fn test_reverb_wrapper_param_names() {
+        let proc = create_processor_extended("reverb", 48000.0).unwrap();
+        assert_eq!(proc.param_name(0), "Space");
+        assert_eq!(proc.param_name(1), "Brightness");
+        assert_eq!(proc.param_name(2), "Width");
+        assert_eq!(proc.param_name(3), "Mix");
+        assert_eq!(proc.param_name(4), "PreDelay");
+        assert_eq!(proc.param_name(5), "Style");
+        assert_eq!(proc.param_name(6), "Diffusion");
+        assert_eq!(proc.param_name(7), "Distance");
+        assert_eq!(proc.param_name(8), "Decay");
+        assert_eq!(proc.param_name(9), "Low Decay");
+        assert_eq!(proc.param_name(10), "High Decay");
+        assert_eq!(proc.param_name(11), "Character");
+        assert_eq!(proc.param_name(12), "Thickness");
+        assert_eq!(proc.param_name(13), "Ducking");
+        assert_eq!(proc.param_name(14), "Freeze");
+        assert_eq!(proc.param_name(15), "Unknown");
+    }
+
+    #[test]
+    fn test_reverb_wrapper_set_get_param_roundtrip() {
+        let mut proc = create_processor_extended("reverb", 48000.0).unwrap();
+        // Set each param and verify via get_param
+        let test_values = [
+            (0, 0.8),   // space
+            (1, 0.3),   // brightness
+            (2, 1.5),   // width (0-2 range)
+            (3, 0.6),   // mix
+            (4, 100.0),  // predelay ms
+            (6, 0.9),   // diffusion
+            (7, 0.4),   // distance
+            (8, 0.7),   // decay
+            (9, 1.5),   // low_decay_mult
+            (10, 0.5),  // high_decay_mult
+            (11, 0.6),  // character
+            (12, 0.8),  // thickness
+            (13, 0.4),  // ducking
+        ];
+        for (idx, val) in &test_values {
+            proc.set_param(*idx, *val);
+            let got = proc.get_param(*idx);
+            assert!((got - val).abs() < 0.01,
+                "Param {} roundtrip failed: set={}, got={}", idx, val, got);
+        }
+    }
+
+    #[test]
+    fn test_reverb_wrapper_freeze_boolean() {
+        let mut proc = create_processor_extended("reverb", 48000.0).unwrap();
+        // Freeze uses threshold > 0.5
+        proc.set_param(14, 1.0);
+        assert!(proc.get_param(14) > 0.5, "Freeze should be on");
+        proc.set_param(14, 0.0);
+        assert!(proc.get_param(14) < 0.5, "Freeze should be off");
+    }
+
+    #[test]
+    fn test_reverb_wrapper_process_stereo() {
+        // Test 1: Direct process_sample comparison
+        use rf_dsp::reverb::AlgorithmicReverb;
+        use rf_dsp::StereoProcessor;
+
+        let mut reverb_direct = AlgorithmicReverb::new(48000.0);
+        reverb_direct.set_mix(1.0);
+        reverb_direct.set_space(0.5);
+        reverb_direct.set_decay(0.5);
+
+        let mut direct_energy = 0.0f64;
+        for _ in 0..5120 {
+            let (l, r) = reverb_direct.process_sample(0.3, 0.3);
+            direct_energy += l * l + r * r;
+        }
+        assert!(direct_energy > 0.1,
+            "Direct process_sample should produce output, energy={}", direct_energy);
+
+        // Test 2: process_block on same AlgorithmicReverb type
+        let mut reverb_block = AlgorithmicReverb::new(48000.0);
+        reverb_block.set_mix(1.0);
+        reverb_block.set_space(0.5);
+        reverb_block.set_decay(0.5);
+
+        let mut block_energy = 0.0f64;
+        for _ in 0..20 {
+            let mut left = vec![0.3f64; 256];
+            let mut right = vec![0.3f64; 256];
+            reverb_block.process_block(&mut left, &mut right);
+            block_energy += left.iter().chain(right.iter())
+                .map(|s| s * s).sum::<f64>();
+        }
+        assert!(block_energy > 0.1,
+            "process_block should produce output, energy={}", block_energy);
+
+        // Test 3: Through wrapper InsertProcessor interface
+        let mut proc = create_processor_extended("reverb", 48000.0).unwrap();
+        proc.set_param(3, 1.0);  // 100% wet
+        proc.set_param(0, 0.5);  // medium space
+        proc.set_param(8, 0.5);  // medium decay
+
+        let mut wrapper_energy = 0.0f64;
+        for _ in 0..20 {
+            let mut left = vec![0.3f64; 256];
+            let mut right = vec![0.3f64; 256];
+            proc.process_stereo(&mut left, &mut right);
+            wrapper_energy += left.iter().chain(right.iter())
+                .map(|s| s * s).sum::<f64>();
+        }
+        assert!(wrapper_energy > 0.1,
+            "Wrapper process_stereo should produce output, energy={}", wrapper_energy);
+    }
+
+    #[test]
+    fn test_reverb_wrapper_dry_only() {
+        let mut proc = create_processor_extended("reverb", 48000.0).unwrap();
+        proc.set_param(3, 0.0);  // 0% wet = dry only
+
+        let mut left = vec![0.5f64; 64];
+        let mut right = vec![0.5f64; 64];
+        let original_l = left.clone();
+
+        proc.process_stereo(&mut left, &mut right);
+
+        // With 0% mix, output should be equal-power dry (cos(0) = 1.0 × input)
+        for i in 0..64 {
+            assert!((left[i] - original_l[i]).abs() < 0.01,
+                "Dry-only: sample {} diverged: expected {}, got {}", i, original_l[i], left[i]);
+        }
+    }
+
+    #[test]
+    fn test_reverb_wrapper_reset() {
+        let mut proc = create_processor_extended("reverb", 48000.0).unwrap();
+        proc.set_param(3, 1.0);  // 100% wet
+
+        // Feed impulse to build reverb tail
+        let mut left = vec![0.0f64; 128];
+        let mut right = vec![0.0f64; 128];
+        left[0] = 1.0;
+        right[0] = 1.0;
+        proc.process_stereo(&mut left, &mut right);
+
+        // Reset should clear internal state
+        proc.reset();
+
+        // Process silence — should output silence (no residual tail)
+        let mut left2 = vec![0.0f64; 128];
+        let mut right2 = vec![0.0f64; 128];
+        proc.process_stereo(&mut left2, &mut right2);
+
+        let energy: f64 = left2.iter().chain(right2.iter())
+            .map(|s| s * s).sum();
+        assert!(energy < 0.001, "After reset, reverb tail should be gone, energy={}", energy);
+    }
+
+    #[test]
+    fn test_reverb_wrapper_set_sample_rate() {
+        let mut proc = create_processor_extended("reverb", 44100.0).unwrap();
+        proc.set_sample_rate(96000.0);
+
+        // Should still process without crash
+        let mut left = vec![0.5f64; 64];
+        let mut right = vec![0.5f64; 64];
+        proc.process_stereo(&mut left, &mut right);
+    }
+
+    #[test]
+    fn test_reverb_wrapper_latency_zero() {
+        let proc = create_processor_extended("reverb", 48000.0).unwrap();
+        assert_eq!(proc.latency(), 0, "Algorithmic reverb should have zero latency");
+    }
+
+    #[test]
+    fn test_reverb_wrapper_style_param() {
+        let mut proc = create_processor_extended("reverb", 48000.0).unwrap();
+        // Style param 5: 0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring
+        for style in 0..5 {
+            proc.set_param(5, style as f64);
+            let got = proc.get_param(5);
+            assert!((got - style as f64).abs() < 0.01,
+                "Style {} roundtrip failed, got={}", style, got);
+        }
+    }
+
+    #[test]
+    fn test_reverb_wrapper_invalid_param_index() {
+        let mut proc = create_processor_extended("reverb", 48000.0).unwrap();
+        // Setting/getting out-of-range param should not crash
+        proc.set_param(99, 0.5);
+        let val = proc.get_param(99);
+        assert_eq!(val, 0.0, "Invalid param index should return 0.0");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // COMPRESSOR WRAPPER TESTS — Pro-C 2 class (25 params, 5 meters)
+    // ═══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_compressor_wrapper_factory() {
+        let proc = create_processor_extended("compressor", 48000.0);
+        assert!(proc.is_some(), "compressor factory should return Some");
+        assert_eq!(proc.unwrap().name(), "FluxForge Studio Compressor");
+
+        let proc2 = create_processor_extended("comp", 48000.0);
+        assert!(proc2.is_some(), "comp alias should also work");
+    }
+
+    #[test]
+    fn test_compressor_wrapper_num_params() {
+        let proc = create_processor_extended("compressor", 48000.0).unwrap();
+        assert_eq!(proc.num_params(), 25, "Pro-C 2 class should have 25 params");
+    }
+
+    #[test]
+    fn test_compressor_wrapper_param_names() {
+        let proc = create_processor_extended("compressor", 48000.0).unwrap();
+        let expected = [
+            "Threshold", "Ratio", "Attack", "Release", "Makeup",
+            "Mix", "Link", "Type", "Character", "Drive",
+            "Range", "SC HP Freq", "SC LP Freq", "SC Audition", "Lookahead",
+            "SC Mid Freq", "SC Mid Gain", "Auto-Threshold", "Auto-Makeup", "Detection",
+            "Adaptive Rel", "Host Sync", "Host BPM", "Mid/Side", "Knee",
+        ];
+        for (i, name) in expected.iter().enumerate() {
+            assert_eq!(proc.param_name(i), *name, "Param {} name mismatch", i);
+        }
+    }
+
+    #[test]
+    fn test_compressor_wrapper_set_get_roundtrip() {
+        let mut proc = create_processor_extended("compressor", 48000.0).unwrap();
+
+        // Test each param set/get roundtrip
+        // Note: Link (6) always returns 1.0 (hardcoded, stored on StereoCompressor level)
+        let test_values: [(usize, f64, f64); 16] = [
+            (0, -24.0, 0.1),  // Threshold
+            (1, 8.0, 0.1),    // Ratio
+            (2, 15.0, 0.5),   // Attack
+            (3, 200.0, 1.0),  // Release
+            (4, 6.0, 0.1),    // Makeup
+            (5, 0.75, 0.01),  // Mix
+            (7, 1.0, 0.01),   // Type (Opto)
+            (8, 2.0, 0.01),   // Character (Diode)
+            (9, 3.0, 0.1),    // Drive
+            (10, -30.0, 0.1), // Range
+            (11, 150.0, 1.0), // SC HP Freq
+            (12, 8000.0, 1.0),// SC LP Freq
+            (13, 1.0, 0.01),  // SC Audition (bool)
+            (17, 1.0, 0.01),  // Auto Threshold (bool)
+            (21, 1.0, 0.01),  // Host Sync (bool)
+            (24, 12.0, 0.1),  // Knee
+        ];
+
+        for (idx, value, tolerance) in test_values {
+            proc.set_param(idx, value);
+            let got = proc.get_param(idx);
+            assert!(
+                (got - value).abs() < tolerance,
+                "Param {} roundtrip: set {}, got {} (tol {})",
+                idx, value, got, tolerance,
+            );
+        }
+    }
+
+    #[test]
+    fn test_compressor_wrapper_process_stereo() {
+        let mut proc = create_processor_extended("compressor", 48000.0).unwrap();
+
+        // Set aggressive compression
+        proc.set_param(0, -20.0); // threshold
+        proc.set_param(1, 10.0);  // ratio 10:1
+        proc.set_param(2, 0.1);   // fast attack
+        proc.set_param(3, 50.0);  // medium release
+
+        // Process loud signal for several blocks
+        let mut left = vec![0.5; 512];
+        let mut right = vec![0.5; 512];
+        for _ in 0..10 {
+            proc.process_stereo(&mut left, &mut right);
+            left.fill(0.5);
+            right.fill(0.5);
+        }
+        proc.process_stereo(&mut left, &mut right);
+
+        // Output should be reduced (gain reduction applied)
+        let peak = left.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        assert!(
+            peak < 0.5,
+            "Compressed output should be lower than input 0.5, got {}",
+            peak,
+        );
+    }
+
+    #[test]
+    fn test_compressor_wrapper_meters() {
+        let mut proc = create_processor_extended("compressor", 48000.0).unwrap();
+
+        proc.set_param(0, -20.0); // threshold
+        proc.set_param(1, 4.0);   // ratio
+
+        // Process signal to generate metering data
+        let mut left = vec![0.5; 256];
+        let mut right = vec![0.5; 256];
+        for _ in 0..20 {
+            proc.process_stereo(&mut left, &mut right);
+            left.fill(0.5);
+            right.fill(0.5);
+        }
+
+        // Meter 0: GR Left (positive dB convention — amount of gain reduction)
+        let gr_l = proc.get_meter(0);
+        assert!(gr_l > 0.0, "GR Left should be > 0 dB with compression, got {}", gr_l);
+
+        // Meter 1: GR Right
+        let gr_r = proc.get_meter(1);
+        assert!(gr_r > 0.0, "GR Right should be > 0 dB with compression, got {}", gr_r);
+
+        // Meter 2: Output Peak (should be > 0 with signal)
+        let out_peak = proc.get_meter(2);
+        assert!(out_peak >= 0.0, "Output peak should be >= 0");
+
+        // Meter 3: Input Peak
+        let in_peak = proc.get_meter(3);
+        assert!(in_peak >= 0.0, "Input peak should be >= 0");
+
+        // Meter 4: Latency
+        let lat = proc.get_meter(4);
+        assert!(lat >= 0.0, "Latency should be >= 0");
+    }
+
+    #[test]
+    fn test_compressor_wrapper_character_modes() {
+        let mut proc = create_processor_extended("compressor", 48000.0).unwrap();
+
+        // Test all character modes: 0=Off, 1=Tube, 2=Diode, 3=Bright
+        for char_idx in 0..4 {
+            proc.set_param(8, char_idx as f64);
+            assert_eq!(
+                proc.get_param(8) as i32, char_idx,
+                "Character {} roundtrip failed", char_idx,
+            );
+        }
+    }
+
+    #[test]
+    fn test_compressor_wrapper_compressor_types() {
+        let mut proc = create_processor_extended("compressor", 48000.0).unwrap();
+
+        // Test all compressor types: 0=VCA, 1=Opto, 2=FET
+        for type_idx in 0..3 {
+            proc.set_param(7, type_idx as f64);
+            assert_eq!(
+                proc.get_param(7) as i32, type_idx,
+                "Type {} roundtrip failed", type_idx,
+            );
+        }
+    }
+
+    #[test]
+    fn test_compressor_wrapper_reset() {
+        let mut proc = create_processor_extended("compressor", 48000.0).unwrap();
+
+        // Process some signal
+        let mut left = vec![0.5; 256];
+        let mut right = vec![0.5; 256];
+        proc.process_stereo(&mut left, &mut right);
+
+        // Reset should not crash and should clear state
+        proc.reset();
+
+        // Process again — should work cleanly
+        left.fill(0.0);
+        right.fill(0.0);
+        proc.process_stereo(&mut left, &mut right);
+
+        // Silent input after reset should produce near-zero output
+        let peak = left.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        assert!(peak < 0.01, "After reset + silent input, output should be near zero");
+    }
+
+    #[test]
+    fn test_compressor_wrapper_set_sample_rate() {
+        let mut proc = create_processor_extended("compressor", 44100.0).unwrap();
+
+        // Change sample rate
+        proc.set_sample_rate(96000.0);
+
+        // Should still process without crash
+        let mut left = vec![0.5; 256];
+        let mut right = vec![0.5; 256];
+        proc.process_stereo(&mut left, &mut right);
+    }
+
+    #[test]
+    fn test_compressor_wrapper_mix_dry_wet() {
+        let mut proc_wet = create_processor_extended("compressor", 48000.0).unwrap();
+        let mut proc_dry = create_processor_extended("compressor", 48000.0).unwrap();
+
+        // Same settings but different mix
+        for p in [&mut proc_wet, &mut proc_dry] {
+            p.set_param(0, -20.0); // threshold
+            p.set_param(1, 10.0);  // ratio 10:1
+            p.set_param(2, 0.1);   // fast attack
+        }
+        proc_wet.set_param(5, 1.0); // 100% wet
+        proc_dry.set_param(5, 0.0); // 0% wet (dry)
+
+        // Process same signal
+        let mut wet_l = vec![0.5; 512];
+        let mut wet_r = vec![0.5; 512];
+        let mut dry_l = vec![0.5; 512];
+        let mut dry_r = vec![0.5; 512];
+
+        for _ in 0..10 {
+            proc_wet.process_stereo(&mut wet_l, &mut wet_r);
+            proc_dry.process_stereo(&mut dry_l, &mut dry_r);
+            wet_l.fill(0.5); wet_r.fill(0.5);
+            dry_l.fill(0.5); dry_r.fill(0.5);
+        }
+        proc_wet.process_stereo(&mut wet_l, &mut wet_r);
+        proc_dry.process_stereo(&mut dry_l, &mut dry_r);
+
+        let wet_peak = wet_l.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        let dry_peak = dry_l.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+
+        // Dry should be closer to input level, wet should be compressed
+        assert!(
+            dry_peak > wet_peak,
+            "Dry ({}) should be louder than wet ({})",
+            dry_peak, wet_peak,
+        );
+    }
+
+    #[test]
+    fn test_compressor_wrapper_invalid_param_index() {
+        let mut proc = create_processor_extended("compressor", 48000.0).unwrap();
+        // Out of range should not crash
+        proc.set_param(99, 0.5);
+        let val = proc.get_param(99);
+        assert_eq!(val, 0.0, "Invalid param index should return 0.0");
+    }
+
+    #[test]
+    fn test_compressor_wrapper_latency() {
+        let proc = create_processor_extended("compressor", 48000.0).unwrap();
+        // Compressor latency should be 0 (no lookahead by default)
+        assert_eq!(proc.latency(), 0, "Default compressor latency should be 0");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // TRUE PEAK LIMITER WRAPPER TESTS — Pro-L 2 class (14 params, 7 meters)
+    // ═══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_limiter_wrapper_factory() {
+        let proc = create_processor_extended("limiter", 48000.0);
+        assert!(proc.is_some(), "limiter factory should return Some");
+        assert_eq!(proc.unwrap().name(), "FluxForge Studio True Peak Limiter");
+
+        let proc2 = create_processor_extended("true-peak", 48000.0);
+        assert!(proc2.is_some(), "true-peak alias should also work");
+
+        let proc3 = create_processor_extended("truepeak", 48000.0);
+        assert!(proc3.is_some(), "truepeak alias should also work");
+    }
+
+    #[test]
+    fn test_limiter_wrapper_num_params() {
+        let proc = create_processor_extended("limiter", 48000.0).unwrap();
+        assert_eq!(proc.num_params(), 14, "Limiter should have 14 parameters");
+    }
+
+    #[test]
+    fn test_limiter_wrapper_param_names() {
+        let proc = create_processor_extended("limiter", 48000.0).unwrap();
+        assert_eq!(proc.param_name(0), "Input Trim");
+        assert_eq!(proc.param_name(1), "Threshold");
+        assert_eq!(proc.param_name(2), "Ceiling");
+        assert_eq!(proc.param_name(3), "Release");
+        assert_eq!(proc.param_name(4), "Attack");
+        assert_eq!(proc.param_name(5), "Lookahead");
+        assert_eq!(proc.param_name(6), "Style");
+        assert_eq!(proc.param_name(7), "Oversampling");
+        assert_eq!(proc.param_name(8), "Stereo Link");
+        assert_eq!(proc.param_name(9), "M/S Mode");
+        assert_eq!(proc.param_name(10), "Mix");
+        assert_eq!(proc.param_name(11), "Dither Bits");
+        assert_eq!(proc.param_name(12), "Latency Profile");
+        assert_eq!(proc.param_name(13), "Channel Config");
+        assert_eq!(proc.param_name(14), "", "Out of range should return empty");
+    }
+
+    #[test]
+    fn test_limiter_wrapper_defaults() {
+        let proc = create_processor_extended("limiter", 48000.0).unwrap();
+        assert_eq!(proc.get_param(0), 0.0, "Input Trim default");
+        assert_eq!(proc.get_param(1), 0.0, "Threshold default");
+        assert_eq!(proc.get_param(2), -0.3, "Ceiling default");
+        assert_eq!(proc.get_param(3), 100.0, "Release default");
+        assert_eq!(proc.get_param(4), 0.1, "Attack default");
+        assert_eq!(proc.get_param(5), 5.0, "Lookahead default");
+        assert_eq!(proc.get_param(6), 7.0, "Style default (Allround)");
+        assert_eq!(proc.get_param(7), 1.0, "Oversampling default (2x)");
+        assert_eq!(proc.get_param(8), 100.0, "Stereo Link default");
+        assert_eq!(proc.get_param(9), 0.0, "M/S Mode default (off)");
+        assert_eq!(proc.get_param(10), 100.0, "Mix default");
+        assert_eq!(proc.get_param(11), 0.0, "Dither Bits default (off)");
+        assert_eq!(proc.get_param(12), 1.0, "Latency Profile default (HQ)");
+        assert_eq!(proc.get_param(13), 0.0, "Channel Config default (Stereo)");
+    }
+
+    #[test]
+    fn test_limiter_wrapper_set_get_roundtrip() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+
+        // Set all params and verify roundtrip
+        let values = [
+            (0, 3.0),    // Input Trim +3dB
+            (1, -6.0),   // Threshold -6dB
+            (2, -1.0),   // Ceiling -1dBTP
+            (3, 50.0),   // Release 50ms
+            (4, 1.0),    // Attack 1ms
+            (5, 10.0),   // Lookahead 10ms
+            (6, 3.0),    // Style (Aggressive)
+            (7, 2.0),    // Oversampling 4x
+            (8, 50.0),   // Stereo Link 50%
+            (9, 1.0),    // M/S Mode on
+            (10, 75.0),  // Mix 75%
+            (11, 2.0),   // Dither 16-bit
+            (12, 0.0),   // Latency Profile (Low)
+            (13, 1.0),   // Channel Config (Mono)
+        ];
+
+        for (idx, val) in &values {
+            proc.set_param(*idx, *val);
+        }
+
+        for (idx, val) in &values {
+            let got = proc.get_param(*idx);
+            assert_eq!(got, *val, "Param {} roundtrip failed: expected {}, got {}", idx, val, got);
+        }
+    }
+
+    #[test]
+    fn test_limiter_wrapper_process_stereo() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+        // Set threshold low to trigger limiting
+        proc.set_param(1, -10.0); // Threshold -10dB
+        proc.set_param(2, -1.0);  // Ceiling -1dBTP
+
+        // Create loud signal (0dBFS)
+        let mut left = vec![0.9_f64; 512];
+        let mut right = vec![0.9_f64; 512];
+
+        // Process multiple blocks to let limiter settle
+        for _ in 0..5 {
+            proc.process_stereo(&mut left, &mut right);
+        }
+
+        // Output should be finite and limited
+        assert!(left.iter().all(|x| x.is_finite()), "Left output should be finite");
+        assert!(right.iter().all(|x| x.is_finite()), "Right output should be finite");
+
+        let peak_l = left.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        let peak_r = right.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        // Peak should not exceed ceiling (some overshoot allowed for ISP)
+        assert!(peak_l < 1.5, "Left peak {} should be limited", peak_l);
+        assert!(peak_r < 1.5, "Right peak {} should be limited", peak_r);
+    }
+
+    #[test]
+    fn test_limiter_wrapper_meters() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+        proc.set_param(1, -12.0); // Low threshold to trigger GR
+
+        let mut left = vec![0.8_f64; 1024];
+        let mut right = vec![0.8_f64; 1024];
+
+        for _ in 0..10 {
+            proc.process_stereo(&mut left, &mut right);
+        }
+
+        // All 7 meters should return finite values
+        for m in 0..7 {
+            let val = proc.get_meter(m);
+            assert!(val.is_finite(), "Meter {} should be finite, got {}", m, val);
+        }
+
+        // Invalid meter returns 0
+        assert_eq!(proc.get_meter(99), 0.0, "Invalid meter index should return 0.0");
+    }
+
+    #[test]
+    fn test_limiter_wrapper_silence_passthrough() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+        // Default settings, silence in
+        let mut left = vec![0.0_f64; 512];
+        let mut right = vec![0.0_f64; 512];
+
+        for _ in 0..5 {
+            proc.process_stereo(&mut left, &mut right);
+        }
+
+        let peak_l = left.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        let peak_r = right.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        assert!(peak_l < 0.001, "Silence in should give near-silence out (L={})", peak_l);
+        assert!(peak_r < 0.001, "Silence in should give near-silence out (R={})", peak_r);
+    }
+
+    #[test]
+    fn test_limiter_wrapper_style_switching() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+        proc.set_param(1, -6.0); // Threshold
+
+        // All 8 styles should produce valid output
+        for style_idx in 0..=7 {
+            proc.set_param(6, style_idx as f64);
+
+            let mut left = vec![0.5_f64; 512];
+            let mut right = vec![0.5_f64; 512];
+            proc.process_stereo(&mut left, &mut right);
+
+            assert!(
+                left.iter().all(|x| x.is_finite()),
+                "Style {} should produce finite output",
+                style_idx,
+            );
+        }
+    }
+
+    #[test]
+    fn test_limiter_wrapper_mix_dry_wet() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+        proc.set_param(1, -12.0); // Low threshold
+        proc.set_param(2, -1.0);  // Ceiling
+
+        // Mix = 0 (dry only) — output should be similar to input
+        proc.set_param(10, 0.0);
+        let mut dry_left = vec![0.5_f64; 512];
+        let mut dry_right = vec![0.5_f64; 512];
+        for _ in 0..5 {
+            proc.process_stereo(&mut dry_left, &mut dry_right);
+        }
+
+        // Mix = 100 (wet only) — output should be limited
+        proc.set_param(10, 100.0);
+        let mut wet_left = vec![0.5_f64; 512];
+        let mut wet_right = vec![0.5_f64; 512];
+        for _ in 0..5 {
+            proc.process_stereo(&mut wet_left, &mut wet_right);
+        }
+
+        // Both should be finite
+        assert!(dry_left.iter().all(|x| x.is_finite()), "Dry output should be finite");
+        assert!(wet_left.iter().all(|x| x.is_finite()), "Wet output should be finite");
+    }
+
+    #[test]
+    fn test_limiter_wrapper_reset() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+        proc.set_param(1, -12.0);
+
+        let mut left = vec![0.8_f64; 512];
+        let mut right = vec![0.8_f64; 512];
+        proc.process_stereo(&mut left, &mut right);
+
+        // Reset should not crash and should clear internal state
+        proc.reset();
+
+        let mut left2 = vec![0.0_f64; 512];
+        let mut right2 = vec![0.0_f64; 512];
+        proc.process_stereo(&mut left2, &mut right2);
+        // After reset with silence, output should be near-silent
+        let peak = left2.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        assert!(peak < 0.01, "After reset + silence, output should be near-zero (got {})", peak);
+    }
+
+    #[test]
+    fn test_limiter_wrapper_set_sample_rate() {
+        let mut proc = create_processor_extended("limiter", 44100.0).unwrap();
+
+        // Change sample rate should not crash
+        proc.set_sample_rate(96000.0);
+
+        // Should still produce valid output
+        let mut left = vec![0.5_f64; 512];
+        let mut right = vec![0.5_f64; 512];
+        proc.process_stereo(&mut left, &mut right);
+        assert!(left.iter().all(|x| x.is_finite()), "Output should be finite after SR change");
+    }
+
+    #[test]
+    fn test_limiter_wrapper_latency() {
+        let proc = create_processor_extended("limiter", 48000.0).unwrap();
+        // Limiter with lookahead should report some latency
+        let lat = proc.latency();
+        // Don't assert exact value — depends on lookahead setting
+        assert!(lat < 48000, "Latency should be reasonable (got {} samples)", lat);
+    }
+
+    #[test]
+    fn test_limiter_wrapper_invalid_param_index() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+        proc.set_param(99, 0.5); // Should not crash
+        let val = proc.get_param(99);
+        assert_eq!(val, 0.0, "Invalid param index should return 0.0");
+    }
+
+    #[test]
+    fn test_limiter_wrapper_oversampling_modes() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+        proc.set_param(1, -6.0); // Threshold
+
+        // All oversampling modes should produce valid output
+        for os in 0..=3 {
+            proc.set_param(7, os as f64);
+            let mut left = vec![0.5_f64; 512];
+            let mut right = vec![0.5_f64; 512];
+            proc.process_stereo(&mut left, &mut right);
+            assert!(
+                left.iter().all(|x| x.is_finite()),
+                "Oversampling mode {} should produce finite output",
+                os,
+            );
+        }
+    }
+
+    #[test]
+    fn test_limiter_wrapper_ms_mode() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+        proc.set_param(1, -6.0);
+
+        // M/S mode on
+        proc.set_param(9, 1.0);
+        let mut left = vec![0.5_f64; 512];
+        let mut right = vec![0.3_f64; 512];
+        proc.process_stereo(&mut left, &mut right);
+        assert!(left.iter().all(|x| x.is_finite()), "M/S mode should produce finite L");
+        assert!(right.iter().all(|x| x.is_finite()), "M/S mode should produce finite R");
+
+        // M/S mode off
+        proc.set_param(9, 0.0);
+        let mut left2 = vec![0.5_f64; 512];
+        let mut right2 = vec![0.3_f64; 512];
+        proc.process_stereo(&mut left2, &mut right2);
+        assert!(left2.iter().all(|x| x.is_finite()), "Stereo mode should produce finite L");
+    }
+
+    #[test]
+    fn test_limiter_wrapper_input_trim() {
+        let mut proc = create_processor_extended("limiter", 48000.0).unwrap();
+
+        // Positive trim should boost input
+        proc.set_param(0, 6.0); // +6dB
+        let mut left = vec![0.3_f64; 512];
+        let mut right = vec![0.3_f64; 512];
+        for _ in 0..3 {
+            proc.process_stereo(&mut left, &mut right);
+        }
+        assert!(left.iter().all(|x| x.is_finite()), "+6dB trim should produce finite output");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SaturatorWrapper Tests
+    // ═══════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_saturator_wrapper_factory() {
+        // All name aliases should create a SaturatorWrapper
+        let p1 = create_processor_extended("saturation", 48000.0);
+        assert!(p1.is_some(), "Factory should create from 'saturation'");
+        assert_eq!(p1.unwrap().name(), "FluxForge Studio Saturator");
+
+        let p2 = create_processor_extended("saturator", 48000.0);
+        assert!(p2.is_some(), "Factory should create from 'saturator'");
+
+        let p3 = create_processor_extended("saturn", 48000.0);
+        assert!(p3.is_some(), "Factory should create from 'saturn'");
+    }
+
+    #[test]
+    fn test_saturator_wrapper_num_params() {
+        let proc = create_processor_extended("saturation", 48000.0).unwrap();
+        assert_eq!(proc.num_params(), 10, "Saturator should have 10 parameters");
+    }
+
+    #[test]
+    fn test_saturator_wrapper_param_names() {
+        let proc = create_processor_extended("saturation", 48000.0).unwrap();
+        assert_eq!(proc.param_name(0), "Drive");
+        assert_eq!(proc.param_name(1), "Type");
+        assert_eq!(proc.param_name(2), "Tone");
+        assert_eq!(proc.param_name(3), "Mix");
+        assert_eq!(proc.param_name(4), "Output");
+        assert_eq!(proc.param_name(5), "Tape Bias");
+        assert_eq!(proc.param_name(6), "Oversampling");
+        assert_eq!(proc.param_name(7), "Input Trim");
+        assert_eq!(proc.param_name(8), "M/S Mode");
+        assert_eq!(proc.param_name(9), "Stereo Link");
+        assert_eq!(proc.param_name(99), "Unknown");
+    }
+
+    #[test]
+    fn test_saturator_wrapper_set_get_roundtrip() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+
+        // Drive dB
+        proc.set_param(0, 12.0);
+        assert!((proc.get_param(0) - 12.0).abs() < 0.001);
+
+        // Type (integer enum 0-5)
+        proc.set_param(1, 3.0); // SoftClip
+        assert!((proc.get_param(1) - 3.0).abs() < 0.001);
+
+        // Tone
+        proc.set_param(2, -50.0);
+        assert!((proc.get_param(2) - (-50.0)).abs() < 0.001);
+
+        // Mix %
+        proc.set_param(3, 75.0);
+        assert!((proc.get_param(3) - 75.0).abs() < 0.001);
+
+        // Output dB
+        proc.set_param(4, -6.0);
+        assert!((proc.get_param(4) - (-6.0)).abs() < 0.001);
+
+        // Tape Bias %
+        proc.set_param(5, 80.0);
+        assert!((proc.get_param(5) - 80.0).abs() < 0.001);
+
+        // Oversampling
+        proc.set_param(6, 2.0); // X4
+        assert!((proc.get_param(6) - 2.0).abs() < 0.001);
+
+        // Input Trim dB
+        proc.set_param(7, 6.0);
+        assert!((proc.get_param(7) - 6.0).abs() < 0.001);
+
+        // M/S Mode
+        proc.set_param(8, 1.0);
+        assert!((proc.get_param(8) - 1.0).abs() < 0.001);
+
+        // Stereo Link
+        proc.set_param(9, 0.0);
+        assert!((proc.get_param(9) - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_saturator_wrapper_param_clamping() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+
+        // Drive clamps to -24..+40
+        proc.set_param(0, 100.0);
+        assert!((proc.get_param(0) - 40.0).abs() < 0.001, "Drive should clamp at 40 dB");
+        proc.set_param(0, -50.0);
+        assert!((proc.get_param(0) - (-24.0)).abs() < 0.001, "Drive should clamp at -24 dB");
+
+        // Type clamps to 0..5
+        proc.set_param(1, 10.0);
+        assert!((proc.get_param(1) - 5.0).abs() < 0.001, "Type should clamp at 5");
+        proc.set_param(1, -1.0);
+        assert!((proc.get_param(1) - 0.0).abs() < 0.001, "Type should clamp at 0");
+
+        // Mix clamps to 0..100
+        proc.set_param(3, 150.0);
+        assert!((proc.get_param(3) - 100.0).abs() < 0.001, "Mix should clamp at 100%");
+
+        // Output clamps to -24..+24
+        proc.set_param(4, 50.0);
+        assert!((proc.get_param(4) - 24.0).abs() < 0.001, "Output should clamp at +24 dB");
+
+        // Tape Bias clamps to 0..100
+        proc.set_param(5, -10.0);
+        assert!((proc.get_param(5) - 0.0).abs() < 0.001, "Tape Bias should clamp at 0%");
+
+        // Input Trim clamps to -12..+12
+        proc.set_param(7, 20.0);
+        assert!((proc.get_param(7) - 12.0).abs() < 0.001, "Input Trim should clamp at +12 dB");
+    }
+
+    #[test]
+    fn test_saturator_wrapper_defaults() {
+        let proc = create_processor_extended("saturation", 48000.0).unwrap();
+        assert!((proc.get_param(0) - 0.0).abs() < 0.001, "Default drive = 0 dB");
+        assert!((proc.get_param(1) - 0.0).abs() < 0.001, "Default type = 0 (Tape)");
+        assert!((proc.get_param(2) - 0.0).abs() < 0.001, "Default tone = 0");
+        assert!((proc.get_param(3) - 100.0).abs() < 0.001, "Default mix = 100%");
+        assert!((proc.get_param(4) - 0.0).abs() < 0.001, "Default output = 0 dB");
+        assert!((proc.get_param(5) - 50.0).abs() < 0.001, "Default tape bias = 50%");
+        assert!((proc.get_param(6) - 1.0).abs() < 0.001, "Default oversampling = 1 (X2)");
+        assert!((proc.get_param(7) - 0.0).abs() < 0.001, "Default input trim = 0 dB");
+        assert!((proc.get_param(8) - 0.0).abs() < 0.001, "Default M/S = 0 (off)");
+        assert!((proc.get_param(9) - 1.0).abs() < 0.001, "Default stereo link = 1 (on)");
+    }
+
+    #[test]
+    fn test_saturator_wrapper_process_stereo() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+        // Apply heavy drive to generate saturation
+        proc.set_param(0, 24.0); // +24 dB drive
+
+        let mut left = vec![0.3_f64; 512];
+        let mut right = vec![0.3_f64; 512];
+
+        proc.process_stereo(&mut left, &mut right);
+
+        // Output should differ from input due to saturation
+        let any_changed_l = left.iter().any(|&x| (x - 0.3).abs() > 0.001);
+        let any_changed_r = right.iter().any(|&x| (x - 0.3).abs() > 0.001);
+        assert!(any_changed_l, "Left channel should be saturated");
+        assert!(any_changed_r, "Right channel should be saturated");
+
+        // Output should not contain NaN or Inf
+        assert!(left.iter().all(|x| x.is_finite()), "No NaN/Inf in left");
+        assert!(right.iter().all(|x| x.is_finite()), "No NaN/Inf in right");
+    }
+
+    #[test]
+    fn test_saturator_wrapper_dry_only() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+        // Mix = 0% → full dry (bypass)
+        proc.set_param(3, 0.0);
+        proc.set_param(0, 24.0); // Heavy drive, but should be bypassed by dry mix
+
+        let input_val = 0.4_f64;
+        let mut left = vec![input_val; 512];
+        let mut right = vec![input_val; 512];
+
+        // Process several blocks to stabilize oversampling filters
+        for _ in 0..5 {
+            left.fill(input_val);
+            right.fill(input_val);
+            proc.process_stereo(&mut left, &mut right);
+        }
+
+        // With mix=0%, output should be very close to input
+        let max_deviation_l = left.iter().map(|x| (x - input_val).abs()).fold(0.0_f64, f64::max);
+        let max_deviation_r = right.iter().map(|x| (x - input_val).abs()).fold(0.0_f64, f64::max);
+        assert!(
+            max_deviation_l < 0.05,
+            "Dry mix should preserve input (L dev={})",
+            max_deviation_l
+        );
+        assert!(
+            max_deviation_r < 0.05,
+            "Dry mix should preserve input (R dev={})",
+            max_deviation_r
+        );
+    }
+
+    #[test]
+    fn test_saturator_wrapper_reset() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+        proc.set_param(0, 20.0);
+
+        // Process some audio to build up state
+        let mut left = vec![0.5; 512];
+        let mut right = vec![0.5; 512];
+        proc.process_stereo(&mut left, &mut right);
+
+        // Meters should have values
+        let meter_before = proc.get_meter(2); // Output Peak L
+        assert!(meter_before > 0.0, "Meters should have values after processing");
+
+        // Reset clears meters
+        proc.reset();
+        assert_eq!(proc.get_meter(0), 0.0, "Input Peak L should be 0 after reset");
+        assert_eq!(proc.get_meter(1), 0.0, "Input Peak R should be 0 after reset");
+        assert_eq!(proc.get_meter(2), 0.0, "Output Peak L should be 0 after reset");
+        assert_eq!(proc.get_meter(3), 0.0, "Output Peak R should be 0 after reset");
+    }
+
+    #[test]
+    fn test_saturator_wrapper_set_sample_rate() {
+        let mut proc = create_processor_extended("saturation", 44100.0).unwrap();
+        proc.set_sample_rate(96000.0);
+        // Should not crash, processor should still work
+        let mut left = vec![0.3; 512];
+        let mut right = vec![0.3; 512];
+        proc.process_stereo(&mut left, &mut right);
+        assert!(left.iter().all(|x| x.is_finite()), "Should produce valid output at 96kHz");
+    }
+
+    #[test]
+    fn test_saturator_wrapper_latency() {
+        let proc = create_processor_extended("saturation", 48000.0).unwrap();
+        // Default oversampling = X2, should have filter latency > 0
+        let lat = proc.latency();
+        assert!(lat > 0, "Saturator with 2x oversampling should have latency > 0, got {}", lat);
+    }
+
+    #[test]
+    fn test_saturator_wrapper_type_switching() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+        proc.set_param(0, 12.0); // Moderate drive
+
+        // Process with Tape (default type=0)
+        let mut tape_l = vec![0.3; 512];
+        let mut tape_r = vec![0.3; 512];
+        for _ in 0..5 { proc.process_stereo(&mut tape_l, &mut tape_r); tape_l.fill(0.3); tape_r.fill(0.3); }
+        proc.process_stereo(&mut tape_l, &mut tape_r);
+        let tape_peak = tape_l.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+
+        // Switch to HardClip (type=4) — more aggressive
+        proc.set_param(1, 4.0);
+        let mut hard_l = vec![0.3; 512];
+        let mut hard_r = vec![0.3; 512];
+        for _ in 0..5 { proc.process_stereo(&mut hard_l, &mut hard_r); hard_l.fill(0.3); hard_r.fill(0.3); }
+        proc.process_stereo(&mut hard_l, &mut hard_r);
+        let hard_peak = hard_l.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+
+        // Both should produce valid output
+        assert!(tape_peak > 0.0, "Tape type should produce output");
+        assert!(hard_peak > 0.0, "HardClip type should produce output");
+        // They should produce different results
+        assert!(
+            (tape_peak - hard_peak).abs() > 0.001,
+            "Different saturation types should produce different output (tape={}, hard={})",
+            tape_peak, hard_peak,
+        );
+    }
+
+    #[test]
+    fn test_saturator_wrapper_ms_mode() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+        proc.set_param(0, 12.0); // Drive
+        proc.set_param(8, 1.0);  // M/S mode ON
+
+        // Asymmetric input — L loud, R quiet → strong mid + strong side
+        let mut left = vec![0.8; 512];
+        let mut right = vec![0.1; 512];
+
+        proc.process_stereo(&mut left, &mut right);
+
+        // Should produce valid output
+        assert!(left.iter().all(|x| x.is_finite()), "M/S: no NaN/Inf in left");
+        assert!(right.iter().all(|x| x.is_finite()), "M/S: no NaN/Inf in right");
+        // Output should differ between channels (asymmetric input)
+        let l_peak = left.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        let r_peak = right.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        assert!(
+            (l_peak - r_peak).abs() > 0.01,
+            "M/S mode with asymmetric input should produce different L/R peaks (l={}, r={})",
+            l_peak, r_peak,
+        );
+    }
+
+    #[test]
+    fn test_saturator_wrapper_input_trim() {
+        let mut proc_no_trim = create_processor_extended("saturation", 48000.0).unwrap();
+        let mut proc_with_trim = create_processor_extended("saturation", 48000.0).unwrap();
+
+        proc_no_trim.set_param(0, 6.0);  // Same drive
+        proc_with_trim.set_param(0, 6.0);
+        proc_with_trim.set_param(7, 12.0); // +12 dB input trim
+
+        let mut no_l = vec![0.2; 512];
+        let mut no_r = vec![0.2; 512];
+        let mut tr_l = vec![0.2; 512];
+        let mut tr_r = vec![0.2; 512];
+
+        for _ in 0..5 {
+            no_l.fill(0.2); no_r.fill(0.2);
+            tr_l.fill(0.2); tr_r.fill(0.2);
+            proc_no_trim.process_stereo(&mut no_l, &mut no_r);
+            proc_with_trim.process_stereo(&mut tr_l, &mut tr_r);
+        }
+
+        let no_peak = no_l.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        let tr_peak = tr_l.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+
+        // With +12dB input trim, the saturator should see hotter signal → more saturation
+        assert!(
+            (no_peak - tr_peak).abs() > 0.01,
+            "Input trim should affect output (no_trim={}, with_trim={})",
+            no_peak, tr_peak,
+        );
+    }
+
+    #[test]
+    fn test_saturator_wrapper_meters() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+        proc.set_param(0, 6.0);
+
+        let mut left = vec![0.5; 512];
+        let mut right = vec![0.3; 512];
+        proc.process_stereo(&mut left, &mut right);
+
+        // All 4 meters should have values after processing
+        let in_l = proc.get_meter(0);
+        let in_r = proc.get_meter(1);
+        let out_l = proc.get_meter(2);
+        let out_r = proc.get_meter(3);
+
+        assert!(in_l > 0.0, "Input Peak L should be > 0, got {}", in_l);
+        assert!(in_r > 0.0, "Input Peak R should be > 0, got {}", in_r);
+        assert!(out_l > 0.0, "Output Peak L should be > 0, got {}", out_l);
+        assert!(out_r > 0.0, "Output Peak R should be > 0, got {}", out_r);
+
+        // Invalid meter index returns 0
+        assert_eq!(proc.get_meter(99), 0.0, "Invalid meter index should return 0.0");
+    }
+
+    #[test]
+    fn test_saturator_wrapper_oversampling_switch() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+
+        // X1 (no oversampling) — latency should be 0
+        proc.set_param(6, 0.0);
+        let lat_x1 = proc.latency();
+        assert_eq!(lat_x1, 0, "X1 (no oversampling) should have 0 latency");
+
+        // X2 — should have some latency from halfband filter
+        proc.set_param(6, 1.0);
+        let lat_x2 = proc.latency();
+        assert!(lat_x2 > 0, "X2 should have latency > 0, got {}", lat_x2);
+
+        // X4 and X8 — should produce valid output at each setting
+        for os_idx in 0..=3 {
+            proc.set_param(6, os_idx as f64);
+            proc.set_param(0, 6.0); // Moderate drive
+            let mut left = vec![0.3; 512];
+            let mut right = vec![0.3; 512];
+            proc.process_stereo(&mut left, &mut right);
+            assert!(
+                left.iter().all(|x| x.is_finite()),
+                "Oversampling {} should produce valid output",
+                os_idx,
+            );
+        }
+    }
+
+    #[test]
+    fn test_saturator_wrapper_invalid_param_index() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+        // Out of range should not crash
+        proc.set_param(99, 0.5);
+        let val = proc.get_param(99);
+        assert_eq!(val, 0.0, "Invalid param index should return 0.0");
+    }
+
+    #[test]
+    fn test_saturator_wrapper_silence_passthrough() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+        // With 0 drive and default settings, silence in should give silence out
+        proc.set_param(0, 0.0);
+
+        let mut left = vec![0.0_f64; 512];
+        let mut right = vec![0.0_f64; 512];
+
+        for _ in 0..5 {
+            proc.process_stereo(&mut left, &mut right);
+        }
+
+        let peak_l = left.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        let peak_r = right.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        assert!(peak_l < 0.001, "Silence in should give near-silence out (L={})", peak_l);
+        assert!(peak_r < 0.001, "Silence in should give near-silence out (R={})", peak_r);
+    }
+
+    #[test]
+    fn test_saturator_wrapper_all_types_valid() {
+        let mut proc = create_processor_extended("saturation", 48000.0).unwrap();
+        proc.set_param(0, 12.0); // Moderate drive
+
+        // Test all 6 saturation types produce valid output
+        for type_idx in 0..6 {
+            proc.set_param(1, type_idx as f64);
+            let mut left = vec![0.4; 512];
+            let mut right = vec![0.4; 512];
+            proc.process_stereo(&mut left, &mut right);
+
+            assert!(
+                left.iter().all(|x| x.is_finite()),
+                "Type {} should produce finite output",
+                type_idx,
+            );
+            let peak = left.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+            assert!(peak > 0.0, "Type {} should produce non-zero output, got {}", type_idx, peak);
+        }
     }
 }

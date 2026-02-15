@@ -13,6 +13,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../providers/dsp_chain_provider.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 
@@ -101,10 +102,16 @@ class _ProEqPanelState extends State<ProEqPanel> {
   }
 
   void _initializeProcessor() {
-    final success = _ffi.proEqCreate(widget.trackId, sampleRate: widget.sampleRate);
-    if (success) {
-      setState(() => _initialized = true);
-      _startSpectrumUpdate();
+    final dsp = DspChainProvider.instance;
+    final chain = dsp.getChain(widget.trackId);
+
+    // Only connect to existing EQ node — do NOT auto-add
+    for (final n in chain.nodes) {
+      if (n.type == DspNodeType.eq) {
+        setState(() => _initialized = true);
+        _startSpectrumUpdate();
+        return;
+      }
     }
   }
 

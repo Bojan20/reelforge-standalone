@@ -233,6 +233,12 @@ class _InternalProcessorEditorWindowState
         return _buildSaturationParams();
       case DspNodeType.deEsser:
         return _buildDeEsserParams();
+      case DspNodeType.pultec:
+        return _buildPultecParams();
+      case DspNodeType.api550:
+        return _buildApi550Params();
+      case DspNodeType.neve1073:
+        return _buildNeve1073Params();
     }
   }
 
@@ -447,43 +453,81 @@ class _InternalProcessorEditorWindowState
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildReverbParams() {
+    // Param indices match ReverbWrapper.set_param() in dsp_wrappers.rs:
+    // 0=Space, 1=Brightness, 2=Width, 3=Mix, 4=PreDelay, 5=Style,
+    // 6=Diffusion, 7=Distance, 8=Decay, 9=LowDecayMult, 10=HighDecayMult,
+    // 11=Character, 12=Thickness, 13=Ducking, 14=Freeze
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _ParamSlider(
-          label: 'Decay',
-          value: (_params['decay'] as num?)?.toDouble() ?? 2.0,
-          min: 0.1,
-          max: 10,
-          unit: 's',
-          onChanged: (v) => _updateParam('decay', v, 0),
+          label: 'Space',
+          value: (_params['space'] as num?)?.toDouble() ?? 0.5,
+          min: 0, max: 1, unit: '',
+          onChanged: (v) => _updateParam('space', v, 0),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        _ParamSlider(
+          label: 'Decay',
+          value: (_params['decay'] as num?)?.toDouble() ?? 0.5,
+          min: 0, max: 1, unit: '',
+          onChanged: (v) => _updateParam('decay', v, 8),
+        ),
+        const SizedBox(height: 8),
+        _ParamSlider(
+          label: 'Brightness',
+          value: (_params['brightness'] as num?)?.toDouble() ?? 0.5,
+          min: 0, max: 1, unit: '',
+          onChanged: (v) => _updateParam('brightness', v, 1),
+        ),
+        const SizedBox(height: 8),
         _ParamSlider(
           label: 'Pre-Delay',
-          value: (_params['preDelay'] as num?)?.toDouble() ?? 20.0,
-          min: 0,
-          max: 200,
-          unit: 'ms',
-          onChanged: (v) => _updateParam('preDelay', v, 1),
+          value: (_params['predelay'] as num?)?.toDouble() ?? 0.0,
+          min: 0, max: 500, unit: 'ms',
+          onChanged: (v) => _updateParam('predelay', v, 4),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _ParamSlider(
-          label: 'Damping',
-          value: (_params['damping'] as num?)?.toDouble() ?? 0.5,
-          min: 0,
-          max: 1,
-          unit: '',
-          onChanged: (v) => _updateParam('damping', v, 2),
+          label: 'Mix',
+          value: (_params['mix'] as num?)?.toDouble() ?? 0.3,
+          min: 0, max: 1, unit: '',
+          onChanged: (v) => _updateParam('mix', v, 3),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _ParamSlider(
-          label: 'Size',
-          value: (_params['size'] as num?)?.toDouble() ?? 0.7,
-          min: 0,
-          max: 1,
-          unit: '',
-          onChanged: (v) => _updateParam('size', v, 3),
+          label: 'Width',
+          value: (_params['width'] as num?)?.toDouble() ?? 1.0,
+          min: 0, max: 2, unit: '',
+          onChanged: (v) => _updateParam('width', v, 2),
+        ),
+        const SizedBox(height: 8),
+        _ParamSlider(
+          label: 'Diffusion',
+          value: (_params['diffusion'] as num?)?.toDouble() ?? 0.7,
+          min: 0, max: 1, unit: '',
+          onChanged: (v) => _updateParam('diffusion', v, 6),
+        ),
+        const SizedBox(height: 8),
+        _ParamSlider(
+          label: 'Character',
+          value: (_params['character'] as num?)?.toDouble() ?? 0.3,
+          min: 0, max: 1, unit: '',
+          onChanged: (v) => _updateParam('character', v, 11),
+        ),
+        const SizedBox(height: 8),
+        _ParamSlider(
+          label: 'Thickness',
+          value: (_params['thickness'] as num?)?.toDouble() ?? 0.5,
+          min: 0, max: 1, unit: '',
+          onChanged: (v) => _updateParam('thickness', v, 12),
+        ),
+        const SizedBox(height: 8),
+        _ParamSlider(
+          label: 'Ducking',
+          value: (_params['ducking'] as num?)?.toDouble() ?? 0.0,
+          min: 0, max: 1, unit: '',
+          onChanged: (v) => _updateParam('ducking', v, 13),
         ),
       ],
     );
@@ -546,20 +590,38 @@ class _InternalProcessorEditorWindowState
       children: [
         _ParamSlider(
           label: 'Drive',
-          value: (_params['drive'] as num?)?.toDouble() ?? 0.3,
-          min: 0,
-          max: 1,
-          unit: '',
+          value: (_params['drive'] as num?)?.toDouble() ?? 0.0,
+          min: -24,
+          max: 40,
+          unit: 'dB',
           onChanged: (v) => _updateParam('drive', v, 0),
         ),
         const SizedBox(height: 12),
         _ParamSlider(
-          label: 'Mix',
-          value: (_params['mix'] as num?)?.toDouble() ?? 0.5,
-          min: 0,
-          max: 1,
+          label: 'Tone',
+          value: (_params['tone'] as num?)?.toDouble() ?? 0.0,
+          min: -100,
+          max: 100,
           unit: '',
-          onChanged: (v) => _updateParam('mix', v, 1),
+          onChanged: (v) => _updateParam('tone', v, 2),
+        ),
+        const SizedBox(height: 12),
+        _ParamSlider(
+          label: 'Mix',
+          value: (_params['mix'] as num?)?.toDouble() ?? 100.0,
+          min: 0,
+          max: 100,
+          unit: '%',
+          onChanged: (v) => _updateParam('mix', v, 3),
+        ),
+        const SizedBox(height: 12),
+        _ParamSlider(
+          label: 'Output',
+          value: (_params['output'] as num?)?.toDouble() ?? 0.0,
+          min: -24,
+          max: 24,
+          unit: 'dB',
+          onChanged: (v) => _updateParam('output', v, 4),
         ),
       ],
     );
@@ -598,6 +660,139 @@ class _InternalProcessorEditorWindowState
           max: 0,
           unit: 'dB',
           onChanged: (v) => _updateParam('range', v, 2),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VINTAGE EQs
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildPultecParams() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ParamSlider(
+          label: 'Low Boost',
+          value: (_params['lowBoost'] as num?)?.toDouble() ?? 0.0,
+          min: 0, max: 10, unit: '',
+          onChanged: (v) {
+            setState(() => _params['lowBoost'] = v);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, v);
+          },
+        ),
+        _ParamSlider(
+          label: 'Low Atten',
+          value: (_params['lowAtten'] as num?)?.toDouble() ?? 0.0,
+          min: 0, max: 10, unit: '',
+          onChanged: (v) {
+            setState(() => _params['lowAtten'] = v);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, v);
+          },
+        ),
+        _ParamSlider(
+          label: 'High Boost',
+          value: (_params['highBoost'] as num?)?.toDouble() ?? 0.0,
+          min: 0, max: 10, unit: '',
+          onChanged: (v) {
+            setState(() => _params['highBoost'] = v);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, v);
+          },
+        ),
+        _ParamSlider(
+          label: 'High Atten',
+          value: (_params['highAtten'] as num?)?.toDouble() ?? 0.0,
+          min: 0, max: 10, unit: '',
+          onChanged: (v) {
+            setState(() => _params['highAtten'] = v);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 3, v);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildApi550Params() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ParamSlider(
+          label: 'Low',
+          value: (_params['lowGain'] as num?)?.toDouble() ?? 0.0,
+          min: -12, max: 12,
+          unit: 'dB',
+          onChanged: (v) {
+            setState(() => _params['lowGain'] = v);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, v);
+          },
+        ),
+        _ParamSlider(
+          label: 'Mid',
+          value: (_params['midGain'] as num?)?.toDouble() ?? 0.0,
+          min: -12, max: 12,
+          unit: 'dB',
+          onChanged: (v) {
+            setState(() => _params['midGain'] = v);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, v);
+          },
+        ),
+        _ParamSlider(
+          label: 'High',
+          value: (_params['highGain'] as num?)?.toDouble() ?? 0.0,
+          min: -12, max: 12,
+          unit: 'dB',
+          onChanged: (v) {
+            setState(() => _params['highGain'] = v);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, v);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNeve1073Params() {
+    final hpEnabled = ((_params['hpEnabled'] as num?)?.toDouble() ?? 0.0) > 0.5;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // HP toggle
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            children: [
+              const Text('HP Filter', style: TextStyle(color: Color(0xFFB0B0B0), fontSize: 12)),
+              const Spacer(),
+              Switch(
+                value: hpEnabled,
+                onChanged: (v) {
+                  setState(() => _params['hpEnabled'] = v ? 1.0 : 0.0);
+                  NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, v ? 1.0 : 0.0);
+                },
+                activeColor: const Color(0xFF8B4513),
+              ),
+            ],
+          ),
+        ),
+        _ParamSlider(
+          label: 'Low Gain',
+          value: (_params['lowGain'] as num?)?.toDouble() ?? 0.0,
+          min: -16, max: 16,
+          unit: 'dB',
+          onChanged: (v) {
+            setState(() => _params['lowGain'] = v);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, v);
+          },
+        ),
+        _ParamSlider(
+          label: 'High Gain',
+          value: (_params['highGain'] as num?)?.toDouble() ?? 0.0,
+          min: -16, max: 16,
+          unit: 'dB',
+          onChanged: (v) {
+            setState(() => _params['highGain'] = v);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, v);
+          },
         ),
       ],
     );
@@ -736,6 +931,12 @@ class _InternalProcessorEditorWindowState
         return FluxForgeTheme.accentPink;
       case DspNodeType.deEsser:
         return FluxForgeTheme.accentCyan;
+      case DspNodeType.pultec:
+        return const Color(0xFFD4A574); // Warm vintage brown
+      case DspNodeType.api550:
+        return const Color(0xFF4A9EFF); // API blue
+      case DspNodeType.neve1073:
+        return const Color(0xFF8B4513); // Neve dark brown
     }
   }
 }

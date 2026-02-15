@@ -517,6 +517,48 @@ All FabFilter panels now use `insertSetParam(trackId, slotIndex, paramIndex, val
 | 7 | Listen | 0..1 | bool (sidechain monitor) |
 | 8 | Bypass | 0..1 | bool |
 
+### PultecWrapper (`dsp_wrappers.rs`) — FF EQP1A
+
+| Index | Parameter | Range | Unit |
+|-------|-----------|-------|------|
+| 0 | Low Boost | 0..10 | — |
+| 1 | Low Atten | 0..10 | — |
+| 2 | High Boost | 0..10 | — |
+| 3 | High Atten | 0..10 | — |
+
+### Api550Wrapper (`dsp_wrappers.rs`) — FF 550A
+
+| Index | Parameter | Range | Unit |
+|-------|-----------|-------|------|
+| 0 | Low Gain | -12..12 | dB |
+| 1 | Mid Gain | -12..12 | dB |
+| 2 | High Gain | -12..12 | dB |
+
+### Neve1073Wrapper (`dsp_wrappers.rs`) — FF 1073
+
+| Index | Parameter | Range | Unit |
+|-------|-----------|-------|------|
+| 0 | HP Enabled | 0/1 | bool |
+| 1 | Low Gain | -16..16 | dB |
+| 2 | High Gain | -16..16 | dB |
+
+---
+
+### P1.8: Vintage EQ DspChainProvider Integration (2026-02-15) — ✅ COMPLETE
+
+Vintage EQs (Pultec, API 550A, Neve 1073) were already supported in Rust backend (`create_processor_extended()`) but had NO exposure in the DAW insert chain UI.
+
+**Changes (8 files):**
+
+- [x] Added `DspNodeType.pultec`, `DspNodeType.api550`, `DspNodeType.neve1073` to enum
+- [x] Added `_typeToProcessorName()` mappings: pultec→'pultec', api550→'api550', neve1073→'neve1073'
+- [x] Added `_defaultParams()` for all 3 vintage EQ types
+- [x] Added `_restoreNodeParameters()` for drag-drop reorder preservation
+- [x] Added editor panels in `internal_processor_editor_window.dart` (`_buildPultecParams`, `_buildApi550Params`, `_buildNeve1073Params`)
+- [x] Updated exhaustive switches in: `fx_chain_panel.dart`, `rtpc_system_provider.dart`, `processor_graph_widget.dart`, `signal_analyzer_widget.dart`, `slotlab_lower_zone_widget.dart`, `processor_cpu_meter.dart`
+
+**Naming convention:** `FF EQP1A`, `FF 550A`, `FF 1073` (FluxForge-branded)
+
 ---
 
 ## Notes
@@ -524,6 +566,8 @@ All FabFilter panels now use `insertSetParam(trackId, slotIndex, paramIndex, val
 This issue was discovered during comprehensive DAW Lower Zone audit (2026-01-23). The ghost processor pattern appears to have been an early prototype approach that was never properly integrated with the main insert chain system.
 
 **FIXED (2026-01-23):** All FabFilter panels now use `DspChainProvider` as single source of truth. The `ReverbWrapper` was added to `dsp_wrappers.rs` since it was missing from the processor factory.
+
+**FIXED (2026-02-15):** Vintage EQs (Pultec EQP-1A, API 550A, Neve 1073) added to DspChainProvider insert chain with full editor panels and exhaustive switch coverage across 8 files.
 
 **P1 COMPLETE (2026-01-23):** Ghost code has been deleted:
 - ~650 lines removed from `crates/rf-engine/src/ffi.rs` (DYNAMICS_* HashMaps + all functions)

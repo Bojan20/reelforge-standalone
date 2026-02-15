@@ -2042,63 +2042,92 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                           // Ghost clip preview during drag
                           if (_draggingClip != null && _ghostPosition != null)
                             Positioned(
-                              // Cubase-style: ghost snaps to grid position
+                              // Ghost left edge = clip start position
                               left: _snapPreviewTime != null
                                   ? (_snapPreviewTime! - widget.scrollOffset) * _effectiveZoom
                                   : _ghostPosition!.dx - _grabOffset.dx,
                               top: _ghostPosition!.dy - _rulerHeight - _grabOffset.dy,
                               child: IgnorePointer(
-                                child: Opacity(
-                                  opacity: 0.6,
-                                  child: Container(
-                                    width: _draggingClip!.duration * _effectiveZoom,
-                                    height: _defaultTrackHeight - 4,
-                                    decoration: BoxDecoration(
-                                      color: (_draggingClip!.color ?? FluxForgeTheme.accentBlue).withValues(alpha: 0.7),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: FluxForgeTheme.textPrimary,
-                                        width: 2,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
-                                          blurRadius: 8,
-                                          offset: const Offset(2, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(2),
-                                      child: Stack(
-                                        children: [
-                                          // Waveform preview
-                                          if (_draggingClip!.waveform != null)
-                                            Positioned.fill(
-                                              child: Padding(
-                                                padding: const EdgeInsets.all(2),
-                                                child: CustomPaint(
-                                                  painter: _GhostWaveformPainter(
-                                                    waveform: _draggingClip!.waveform!,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          // Name
-                                          Positioned(
-                                            left: 4,
-                                            top: 2,
-                                            child: Text(
-                                              _draggingClip!.name,
-                                              style: FluxForgeTheme.bodySmall.copyWith(
+                                child: SizedBox(
+                                  width: _draggingClip!.duration * _effectiveZoom,
+                                  height: _defaultTrackHeight - 4,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      // Ghost clip body
+                                      Positioned.fill(
+                                        child: Opacity(
+                                          opacity: 0.6,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: (_draggingClip!.color ?? FluxForgeTheme.accentBlue).withValues(alpha: 0.7),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
                                                 color: FluxForgeTheme.textPrimary,
-                                                fontWeight: FontWeight.w500,
+                                                width: 2,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(2, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(2),
+                                              child: Stack(
+                                                children: [
+                                                  // Waveform preview
+                                                  if (_draggingClip!.waveform != null)
+                                                    Positioned.fill(
+                                                      child: Padding(
+                                                        padding: const EdgeInsets.all(2),
+                                                        child: CustomPaint(
+                                                          painter: _GhostWaveformPainter(
+                                                            waveform: _draggingClip!.waveform!,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  // Name
+                                                  Positioned(
+                                                    left: 4,
+                                                    top: 2,
+                                                    child: Text(
+                                                      _draggingClip!.name,
+                                                      style: FluxForgeTheme.bodySmall.copyWith(
+                                                        color: FluxForgeTheme.textPrimary,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
-                                        ],
+                                        ),
                                       ),
-                                    ),
+                                      // Head indicator — vertical line at clip start (outside ClipRRect)
+                                      Positioned(
+                                        left: 0,
+                                        top: -6,
+                                        bottom: -6,
+                                        child: Container(
+                                          width: 2,
+                                          decoration: BoxDecoration(
+                                            color: FluxForgeTheme.textPrimary,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: FluxForgeTheme.textPrimary.withValues(alpha: 0.8),
+                                                blurRadius: 4,
+                                                spreadRadius: 1,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -2224,9 +2253,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                   ),
                                 ),
 
-                              // Ghost clip
+                              // Ghost clip — left edge aligned to drop position
                               Positioned(
-                                left: _dropPosition!.dx - ghostWidth / 2,
+                                left: _dropPosition!.dx,
                                 top: targetTrackY,
                                 child: Container(
                                   width: ghostWidth,

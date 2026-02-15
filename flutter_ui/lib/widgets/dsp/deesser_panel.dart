@@ -69,21 +69,16 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
   }
 
   void _initialize() {
-    // Use DspChainProvider to add de-esser to insert chain
     final dsp = DspChainProvider.instance;
-    var chain = dsp.getChain(widget.trackId);
+    final chain = dsp.getChain(widget.trackId);
 
-    // Find existing or add new de-esser
-    int findOrAddProcessor(DspNodeType type) {
-      for (int i = 0; i < chain.nodes.length; i++) {
-        if (chain.nodes[i].type == type) return i;
+    // Only find existing de-esser — do NOT auto-add
+    for (int i = 0; i < chain.nodes.length; i++) {
+      if (chain.nodes[i].type == DspNodeType.deEsser) {
+        _deesserSlot = i;
+        break;
       }
-      dsp.addNode(widget.trackId, type);
-      chain = dsp.getChain(widget.trackId);
-      return chain.nodes.length - 1;
     }
-
-    _deesserSlot = findOrAddProcessor(DspNodeType.deEsser);
 
     if (_deesserSlot >= 0) {
       setState(() => _initialized = true);

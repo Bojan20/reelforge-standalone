@@ -8578,7 +8578,9 @@ pub extern "C" fn convolution_reverb_get_latency(track_id: u32) -> u32 {
     }
 }
 
-// --- Algorithmic Reverb ---
+// --- Algorithmic Reverb (FDN 8×8 — 2026 Upgrade) ---
+// 15 parameters: Space, Brightness, Width, Mix, PreDelay, Style, Diffusion,
+//   Distance, Decay, Low Decay, High Decay, Character, Thickness, Ducking, Freeze
 
 /// Create algorithmic reverb for track
 #[unsafe(no_mangle)]
@@ -8598,7 +8600,7 @@ pub extern "C" fn algorithmic_reverb_remove(track_id: u32) -> i32 {
     1
 }
 
-/// Set reverb type (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring)
+/// Set reverb style (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_set_type(track_id: u32, reverb_type: u32) -> i32 {
     use rf_dsp::reverb::ReverbType;
@@ -8612,38 +8614,38 @@ pub extern "C" fn algorithmic_reverb_set_type(track_id: u32, reverb_type: u32) -
             4 => ReverbType::Spring,
             _ => ReverbType::Room,
         };
-        reverb.set_type(rt);
+        reverb.set_style(rt);
         1
     } else {
         0
     }
 }
 
-/// Set room size (0.0-1.0)
+/// Set space / room size (0.0-1.0)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_set_room_size(track_id: u32, size: f64) -> i32 {
     let mut reverbs = ALGORITHMIC_REVERBS.write();
     if let Some(reverb) = reverbs.get_mut(&track_id) {
-        reverb.set_room_size(size);
+        reverb.set_space(size);
         1
     } else {
         0
     }
 }
 
-/// Set damping (0.0-1.0)
+/// Set brightness (0.0-1.0, replaces damping — inverted: brightness=1 = damping=0)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_set_damping(track_id: u32, damping: f64) -> i32 {
     let mut reverbs = ALGORITHMIC_REVERBS.write();
     if let Some(reverb) = reverbs.get_mut(&track_id) {
-        reverb.set_damping(damping);
+        reverb.set_brightness(damping);
         1
     } else {
         0
     }
 }
 
-/// Set stereo width (0.0-1.0)
+/// Set stereo width (0.0-2.0)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_set_width(track_id: u32, width: f64) -> i32 {
     let mut reverbs = ALGORITHMIC_REVERBS.write();
@@ -8655,19 +8657,19 @@ pub extern "C" fn algorithmic_reverb_set_width(track_id: u32, width: f64) -> i32
     }
 }
 
-/// Set dry/wet mix (0.0-1.0)
+/// Set dry/wet mix (0.0-1.0, equal-power crossfade)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_set_dry_wet(track_id: u32, mix: f64) -> i32 {
     let mut reverbs = ALGORITHMIC_REVERBS.write();
     if let Some(reverb) = reverbs.get_mut(&track_id) {
-        reverb.set_dry_wet(mix);
+        reverb.set_mix(mix);
         1
     } else {
         0
     }
 }
 
-/// Set predelay in ms (0-200ms)
+/// Set predelay in ms (0-500ms)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_set_predelay(track_id: u32, predelay_ms: f64) -> i32 {
     let mut reverbs = ALGORITHMIC_REVERBS.write();
@@ -8676,6 +8678,189 @@ pub extern "C" fn algorithmic_reverb_set_predelay(track_id: u32, predelay_ms: f6
         1
     } else {
         0
+    }
+}
+
+/// Set diffusion (0.0-1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_set_diffusion(track_id: u32, diffusion: f64) -> i32 {
+    let mut reverbs = ALGORITHMIC_REVERBS.write();
+    if let Some(reverb) = reverbs.get_mut(&track_id) {
+        reverb.set_diffusion(diffusion);
+        1
+    } else {
+        0
+    }
+}
+
+/// Set distance / ER level (0.0-1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_set_distance(track_id: u32, distance: f64) -> i32 {
+    let mut reverbs = ALGORITHMIC_REVERBS.write();
+    if let Some(reverb) = reverbs.get_mut(&track_id) {
+        reverb.set_distance(distance);
+        1
+    } else {
+        0
+    }
+}
+
+/// Set decay time (0.0-1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_set_decay(track_id: u32, decay: f64) -> i32 {
+    let mut reverbs = ALGORITHMIC_REVERBS.write();
+    if let Some(reverb) = reverbs.get_mut(&track_id) {
+        reverb.set_decay(decay);
+        1
+    } else {
+        0
+    }
+}
+
+/// Set low frequency decay multiplier (0.5-2.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_set_low_decay_mult(track_id: u32, mult: f64) -> i32 {
+    let mut reverbs = ALGORITHMIC_REVERBS.write();
+    if let Some(reverb) = reverbs.get_mut(&track_id) {
+        reverb.set_low_decay_mult(mult);
+        1
+    } else {
+        0
+    }
+}
+
+/// Set high frequency decay multiplier (0.1-1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_set_high_decay_mult(track_id: u32, mult: f64) -> i32 {
+    let mut reverbs = ALGORITHMIC_REVERBS.write();
+    if let Some(reverb) = reverbs.get_mut(&track_id) {
+        reverb.set_high_decay_mult(mult);
+        1
+    } else {
+        0
+    }
+}
+
+/// Set character / modulation depth (0.0-1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_set_character(track_id: u32, character: f64) -> i32 {
+    let mut reverbs = ALGORITHMIC_REVERBS.write();
+    if let Some(reverb) = reverbs.get_mut(&track_id) {
+        reverb.set_character(character);
+        1
+    } else {
+        0
+    }
+}
+
+/// Set thickness / saturation (0.0-1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_set_thickness(track_id: u32, thickness: f64) -> i32 {
+    let mut reverbs = ALGORITHMIC_REVERBS.write();
+    if let Some(reverb) = reverbs.get_mut(&track_id) {
+        reverb.set_thickness(thickness);
+        1
+    } else {
+        0
+    }
+}
+
+/// Set self-ducking amount (0.0-1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_set_ducking(track_id: u32, ducking: f64) -> i32 {
+    let mut reverbs = ALGORITHMIC_REVERBS.write();
+    if let Some(reverb) = reverbs.get_mut(&track_id) {
+        reverb.set_ducking(ducking);
+        1
+    } else {
+        0
+    }
+}
+
+/// Set freeze mode (0=off, 1=on — infinite sustain)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_set_freeze(track_id: u32, freeze: i32) -> i32 {
+    let mut reverbs = ALGORITHMIC_REVERBS.write();
+    if let Some(reverb) = reverbs.get_mut(&track_id) {
+        reverb.set_freeze(freeze != 0);
+        1
+    } else {
+        0
+    }
+}
+
+/// Set reverb parameter by index (0-14, matches InsertProcessor param indices)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_set_param(track_id: u32, param_index: u32, value: f64) -> i32 {
+    use rf_dsp::reverb::ReverbType;
+    let mut reverbs = ALGORITHMIC_REVERBS.write();
+    if let Some(reverb) = reverbs.get_mut(&track_id) {
+        match param_index {
+            0 => reverb.set_space(value),
+            1 => reverb.set_brightness(value),
+            2 => reverb.set_width(value),
+            3 => reverb.set_mix(value),
+            4 => reverb.set_predelay(value),
+            5 => {
+                let rt = match value as u32 {
+                    0 => ReverbType::Room,
+                    1 => ReverbType::Hall,
+                    2 => ReverbType::Plate,
+                    3 => ReverbType::Chamber,
+                    4 => ReverbType::Spring,
+                    _ => ReverbType::Room,
+                };
+                reverb.set_style(rt);
+            }
+            6 => reverb.set_diffusion(value),
+            7 => reverb.set_distance(value),
+            8 => reverb.set_decay(value),
+            9 => reverb.set_low_decay_mult(value),
+            10 => reverb.set_high_decay_mult(value),
+            11 => reverb.set_character(value),
+            12 => reverb.set_thickness(value),
+            13 => reverb.set_ducking(value),
+            14 => reverb.set_freeze(value > 0.5),
+            _ => {}
+        }
+        1
+    } else {
+        0
+    }
+}
+
+/// Get reverb parameter by index (0-14)
+#[unsafe(no_mangle)]
+pub extern "C" fn algorithmic_reverb_get_param(track_id: u32, param_index: u32) -> f64 {
+    use rf_dsp::reverb::ReverbType;
+    let reverbs = ALGORITHMIC_REVERBS.read();
+    if let Some(reverb) = reverbs.get(&track_id) {
+        match param_index {
+            0 => reverb.space(),
+            1 => reverb.brightness(),
+            2 => reverb.width(),
+            3 => reverb.mix(),
+            4 => reverb.predelay_ms(),
+            5 => match reverb.style() {
+                ReverbType::Room => 0.0,
+                ReverbType::Hall => 1.0,
+                ReverbType::Plate => 2.0,
+                ReverbType::Chamber => 3.0,
+                ReverbType::Spring => 4.0,
+            },
+            6 => reverb.diffusion(),
+            7 => reverb.distance(),
+            8 => reverb.decay(),
+            9 => reverb.low_decay_mult(),
+            10 => reverb.high_decay_mult(),
+            11 => reverb.character(),
+            12 => reverb.thickness(),
+            13 => reverb.ducking(),
+            14 => if reverb.freeze() { 1.0 } else { 0.0 },
+            _ => 0.0,
+        }
+    } else {
+        0.0
     }
 }
 

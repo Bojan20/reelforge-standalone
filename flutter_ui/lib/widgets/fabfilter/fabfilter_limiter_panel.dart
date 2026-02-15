@@ -101,58 +101,63 @@ class FabFilterLimiterPanel extends FabFilterPanelBase {
 class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     with FabFilterPanelMixin, TickerProviderStateMixin {
   // ─────────────────────────────────────────────────────────────────────────
-  // STATE
+  // STATE — 14 DSP parameters (TruePeakLimiterWrapper indices)
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Main parameters
-  double _gain = 0.0; // dB (input gain/drive) - boosts signal into limiter
-  double _output = -0.3; // dB (output ceiling)
-  double _threshold = -10.0; // dB (limiting threshold, separate from ceiling)
-  double _attack = 1.0; // ms (0.01 - 10)
-  double _release = 100.0; // ms (1 - 1000)
-  double _lookahead = 2.0; // ms (0 - 10)
-
-  // Style
-  LimitingStyle _style = LimitingStyle.transparent;
+  // Param 0: Input Trim (-12..+12 dB)
+  double _inputTrim = 0.0;
+  // Param 1: Threshold (-30..0 dB)
+  double _threshold = 0.0;
+  // Param 2: Ceiling (-3..0 dBTP)
+  double _output = -0.3;
+  // Param 3: Release (1..1000 ms)
+  double _release = 100.0;
+  // Param 4: Attack (0.01..10 ms)
+  double _attack = 0.1;
+  // Param 5: Lookahead (0..20 ms)
+  double _lookahead = 5.0;
+  // Param 6: Style (0..7 enum)
+  LimitingStyle _style = LimitingStyle.allround;
+  // Param 7: Oversampling (0..5 enum)
+  int _oversampling = 1; // 0=X1,1=X2,2=X4,3=X8
+  // Param 8: Stereo Link (0..100 %)
+  double _stereoLink = 100.0;
+  // Param 9: M/S Mode (bool)
+  bool _msMode = false;
+  // Param 10: Mix (0..100 %)
+  double _mix = 100.0;
+  // Param 11: Dither Bits (0..4 enum)
+  int _ditherBits = 0; // 0=Off,1=8,2=12,3=16,4=24
+  // Param 12: Latency Profile (0..2 enum)
+  int _latencyProfile = 1; // 0=ZeroLat,1=HQ,2=Offline
+  // Param 13: Channel Config (0..2 enum)
+  int _channelConfig = 0; // 0=Stereo,1=DualMono,2=MidSide
 
   // Metering
   MeterScale _meterScale = MeterScale.normal;
-  bool _truePeakEnabled = true;
 
   // Display
-  bool _compactView = false;
   final List<LimiterLevelSample> _levelHistory = [];
   static const int _maxHistorySamples = 300;
 
-  // Real-time meters
-  double _currentInputPeak = -60.0;
-  double _currentOutputPeak = -60.0;
-  double _currentGainReduction = 0.0;
-  double _peakGainReduction = 0.0;
-  double _currentTruePeak = -60.0;
+  // Real-time meters (7 meters from TruePeakLimiterWrapper)
+  double _grLeft = 0.0;        // Meter 0: GR Left (dB, positive when limiting)
+  double _grRight = 0.0;       // Meter 1: GR Right (dB)
+  double _inputPeakL = -60.0;  // Meter 2: Input Peak L (dB)
+  double _inputPeakR = -60.0;  // Meter 3: Input Peak R (dB)
+  double _outputTpL = -60.0;   // Meter 4: Output True Peak L (dBTP)
+  double _outputTpR = -60.0;   // Meter 5: Output True Peak R (dBTP)
+  double _grMaxHold = 0.0;     // Meter 6: GR Max Hold (dB)
   bool _truePeakClipping = false;
-
-  // LUFS
-  double _lufsIntegrated = -14.0;
-  double _lufsShortTerm = -14.0;
-  double _lufsMomentary = -12.0;
-  double _lufsRange = 6.0; // LRA
 
   // Animation
   late AnimationController _meterController;
-
-  // Link channels (L/R)
-  bool _channelLink = true;
-
-  // Unity gain (auto)
-  bool _unityGain = false;
 
   // FFI & DspChainProvider integration
   final _ffi = NativeFFI.instance;
   bool _initialized = false;
   Timer? _meterTimer;
 
-  // DspChainProvider tracking (FIX: Use insert chain, not ghost DYNAMICS_LIMITERS)
   String? _nodeId;
   int _slotIndex = -1;
 
@@ -162,8 +167,6 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
   @override
   void initState() {
     super.initState();
-
-    // Initialize FFI limiter
     _initializeProcessor();
 
     _meterController = AnimationController(
@@ -179,7 +182,6 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     final dsp = DspChainProvider.instance;
     var chain = dsp.getChain(widget.trackId);
 
-    // Auto-add limiter to chain if not present
     if (!chain.nodes.any((n) => n.type == DspNodeType.limiter)) {
       dsp.addNode(widget.trackId, DspNodeType.limiter);
       chain = dsp.getChain(widget.trackId);
@@ -196,95 +198,76 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     }
   }
 
-  /// Read current parameter values from engine (preserves live state on tab switch)
+  /// Read ALL 14 parameters from engine
   void _readParamsFromEngine() {
     if (!_initialized || _slotIndex < 0) return;
+    final t = widget.trackId;
+    final s = _slotIndex;
     setState(() {
-      _threshold = _ffi.insertGetParam(widget.trackId, _slotIndex, 0);
-      _output = _ffi.insertGetParam(widget.trackId, _slotIndex, 1);
-      _release = _ffi.insertGetParam(widget.trackId, _slotIndex, 2);
-      final oversampleVal = _ffi.insertGetParam(widget.trackId, _slotIndex, 3);
-      _truePeakEnabled = oversampleVal >= 2.0;
+      _inputTrim = _ffi.insertGetParam(t, s, 0);
+      _threshold = _ffi.insertGetParam(t, s, 1);
+      _output = _ffi.insertGetParam(t, s, 2);
+      _release = _ffi.insertGetParam(t, s, 3);
+      _attack = _ffi.insertGetParam(t, s, 4);
+      _lookahead = _ffi.insertGetParam(t, s, 5);
+      final styleIdx = _ffi.insertGetParam(t, s, 6).toInt().clamp(0, 7);
+      _style = LimitingStyle.values[styleIdx];
+      _oversampling = _ffi.insertGetParam(t, s, 7).toInt().clamp(0, 3);
+      _stereoLink = _ffi.insertGetParam(t, s, 8);
+      _msMode = _ffi.insertGetParam(t, s, 9) > 0.5;
+      _mix = _ffi.insertGetParam(t, s, 10);
+      _ditherBits = _ffi.insertGetParam(t, s, 11).toInt().clamp(0, 4);
+      _latencyProfile = _ffi.insertGetParam(t, s, 12).toInt().clamp(0, 2);
+      _channelConfig = _ffi.insertGetParam(t, s, 13).toInt().clamp(0, 2);
     });
   }
 
-  /// Apply all parameters to the insert chain limiter (FIX: Uses insertSetParam)
-  ///
-  /// Parameter indices for TruePeakLimiterWrapper in insert chain:
-  /// 0: Threshold (dB) - level at which limiting begins
-  /// 1: Ceiling (dB) - maximum output level
-  /// 2: Release (ms)
-  /// 3: Oversampling (0=X1, 1=X2, 2=X4, 3+=X8)
-  void _applyAllParameters() {
+  /// Send a single parameter to engine
+  void _setParam(int index, double value) {
     if (!_initialized || _slotIndex < 0) return;
-
-    // Use insertSetParam to set parameters on the REAL insert chain processor
-    // FIX: Use separate threshold and ceiling values
-    // Threshold should be lower than ceiling for limiting to engage
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);  // Threshold
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _output);     // Ceiling
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _release);    // Release
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _truePeakEnabled ? 3.0 : 0.0); // Oversampling (8x when true peak, 1x otherwise)
+    _ffi.insertSetParam(widget.trackId, _slotIndex, index, value);
   }
 
   @override
   void dispose() {
     _meterTimer?.cancel();
     _meterController.dispose();
-    // NOTE: Don't remove the limiter from DspChainProvider on dispose
-    // The node lifecycle is managed by DspChainProvider, not by this panel.
     super.dispose();
   }
 
+  /// Read all 7 meters from the insert processor
   void _updateMeters() {
+    if (!_initialized || _slotIndex < 0) return;
     setState(() {
-      // Get gain reduction from insert processor
-      if (_slotIndex >= 0) {
-        try {
-          _currentGainReduction = _ffi.insertGetMeter(widget.trackId, _slotIndex, 0);
-        } catch (_) {
-          _currentGainReduction = 0.0;
-        }
-      }
-
-      // Get true peak from advanced meters (8x oversampled)
+      final t = widget.trackId;
+      final s = _slotIndex;
       try {
-        final truePeakData = _ffi.advancedGetTruePeak8x();
-        _currentTruePeak = truePeakData.maxDbtp;
+        _grLeft = _ffi.insertGetMeter(t, s, 0);
+        _grRight = _ffi.insertGetMeter(t, s, 1);
+        _inputPeakL = _ffi.insertGetMeter(t, s, 2);
+        _inputPeakR = _ffi.insertGetMeter(t, s, 3);
+        _outputTpL = _ffi.insertGetMeter(t, s, 4);
+        _outputTpR = _ffi.insertGetMeter(t, s, 5);
+        _grMaxHold = _ffi.insertGetMeter(t, s, 6);
       } catch (_) {
-        _currentTruePeak = -60.0;
+        // Meter read failed, keep previous values
       }
 
-      // Get peak levels from engine (master bus)
-      // NOTE: For insert chain processors, we'd need per-slot metering
-      // For now, use master bus peak levels as proxy
-      try {
-        final (peakL, peakR) = _ffi.getPeakMeters();
-        // Convert linear to dB
-        final peakMax = peakL > peakR ? peakL : peakR;
-        _currentOutputPeak = peakMax > 1e-10 ? 20.0 * math.log(peakMax) / math.ln10 : -60.0;
-        // Input is approximated as output + GR (inverse of limiting)
-        _currentInputPeak = _currentOutputPeak - _currentGainReduction;
-      } catch (_) {
-        _currentInputPeak = -60.0;
-        _currentOutputPeak = -60.0;
-      }
+      // True peak clipping: output exceeds ceiling
+      final outTpMax = _outputTpL > _outputTpR ? _outputTpL : _outputTpR;
+      _truePeakClipping = outTpMax > _output + 0.1;
 
-      // True peak clipping detection (-0.1 dBTP threshold)
-      _truePeakClipping = _currentTruePeak > -0.1;
-
-      // Track peak GR (most negative value)
-      if (_currentGainReduction.abs() > 0.01 && _currentGainReduction.abs() > _peakGainReduction.abs()) {
-        _peakGainReduction = _currentGainReduction;
-      }
+      // GR for display: use max of L/R
+      final grDisplay = _grLeft > _grRight ? _grLeft : _grRight;
 
       // Add to history for GR graph
-      if (_currentGainReduction.abs() > 0.01 || _levelHistory.isNotEmpty) {
+      if (grDisplay > 0.01 || _levelHistory.isNotEmpty) {
+        final inPeakMax = _inputPeakL > _inputPeakR ? _inputPeakL : _inputPeakR;
         _levelHistory.add(LimiterLevelSample(
-          inputPeak: _currentInputPeak,
-          outputPeak: _currentOutputPeak,
-          gainReduction: _currentGainReduction,
-          truePeak: _currentTruePeak,
+          inputPeak: inPeakMax,
+          outputPeak: outTpMax,
+          gainReduction: grDisplay,
+          truePeak: outTpMax,
           timestamp: DateTime.now(),
         ));
 
@@ -350,10 +333,10 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           // Style dropdown
           _buildCompactStyleDropdown(),
           const Spacer(),
-          // True peak toggle
-          _buildCompactToggle('TP', _truePeakEnabled, FabFilterColors.green, (v) {
-            setState(() => _truePeakEnabled = v);
-            if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 3, v ? 3.0 : 0.0);
+          // Oversampling indicator
+          _buildCompactToggle('${_oversamplingLabel()}', _oversampling > 0, FabFilterColors.green, (_) {
+            setState(() => _oversampling = (_oversampling + 1) % 4); // Cycle 0-3
+            _setParam(7, _oversampling.toDouble());
           }),
           const SizedBox(width: 6),
           // A/B
@@ -386,7 +369,12 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             value: s,
             child: Text(s.label, style: const TextStyle(fontSize: 10)),
           )).toList(),
-          onChanged: (v) => v != null ? setState(() => _style = v) : null,
+          onChanged: (v) {
+            if (v != null) {
+              setState(() => _style = v);
+              _setParam(6, v.index.toDouble());
+            }
+          },
         ),
       ),
     );
@@ -456,8 +444,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           // GR meter horizontal
           _buildHorizontalGRMeter(),
           const SizedBox(height: 6),
-          // LUFS display compact
-          Expanded(child: _buildCompactLufs()),
+          // Input/Output peak meters
+          Expanded(child: _buildCompactInputOutput()),
           const SizedBox(height: 6),
           // True peak indicator
           _buildCompactTruePeak(),
@@ -467,7 +455,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
   }
 
   Widget _buildHorizontalGRMeter() {
-    final grNorm = (_currentGainReduction.abs() / 24).clamp(0.0, 1.0);
+    final grMax = _grLeft > _grRight ? _grLeft : _grRight;
+    final grNorm = (grMax / 24).clamp(0.0, 1.0);
     return Container(
       height: 20,
       decoration: FabFilterDecorations.display(),
@@ -488,35 +477,41 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             ),
           ),
           const SizedBox(width: 4),
-          SizedBox(width: 28, child: Text('${_currentGainReduction.toStringAsFixed(1)}', style: FabFilterText.paramValue(FabFilterColors.red).copyWith(fontSize: 9), textAlign: TextAlign.right)),
+          SizedBox(width: 28, child: Text('-${grMax.toStringAsFixed(1)}', style: FabFilterText.paramValue(FabFilterColors.red).copyWith(fontSize: 9), textAlign: TextAlign.right)),
         ],
       ),
     );
   }
 
-  Widget _buildCompactLufs() {
+  Widget _buildCompactInputOutput() {
+    // Real input/output meters from DSP
+    final inPeak = _inputPeakL > _inputPeakR ? _inputPeakL : _inputPeakR;
+    final outTp = _outputTpL > _outputTpR ? _outputTpL : _outputTpR;
     return Container(
       decoration: FabFilterDecorations.display(),
       padding: const EdgeInsets.all(6),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildLufsRow('Int', _lufsIntegrated, FabFilterColors.blue),
-          _buildLufsRow('Short', _lufsShortTerm, FabFilterColors.cyan),
-          _buildLufsRow('Mom', _lufsMomentary, FabFilterColors.green),
-          _buildLufsRow('LRA', _lufsRange, FabFilterColors.purple, suffix: 'LU'),
+          _buildMeterRow('In L', _inputPeakL, FabFilterColors.blue),
+          _buildMeterRow('In R', _inputPeakR, FabFilterColors.blue),
+          const SizedBox(height: 2),
+          _buildMeterRow('Out L', _outputTpL, FabFilterColors.cyan),
+          _buildMeterRow('Out R', _outputTpR, FabFilterColors.cyan),
+          const SizedBox(height: 2),
+          _buildMeterRow('GR Max', -_grMaxHold, FabFilterColors.red, suffix: 'dB'),
         ],
       ),
     );
   }
 
-  Widget _buildLufsRow(String label, double value, Color color, {String suffix = 'LUFS'}) {
+  Widget _buildMeterRow(String label, double value, Color color, {String suffix = 'dB'}) {
     return Row(
       children: [
         SizedBox(width: 32, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
         Expanded(
           child: Text(
-            '${value.toStringAsFixed(1)} $suffix',
+            value > -100 ? '${value.toStringAsFixed(1)} $suffix' : '-∞',
             style: FabFilterText.paramValue(color).copyWith(fontSize: 10),
             textAlign: TextAlign.right,
           ),
@@ -526,6 +521,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
   }
 
   Widget _buildCompactTruePeak() {
+    final outTpMax = _outputTpL > _outputTpR ? _outputTpL : _outputTpR;
     return Container(
       height: 22,
       decoration: FabFilterDecorations.display(),
@@ -536,14 +532,14 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             width: 10, height: 10,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _truePeakClipping ? FabFilterColors.red : (_currentTruePeak > _output - 0.5 ? FabFilterColors.orange : FabFilterColors.green),
+              color: _truePeakClipping ? FabFilterColors.red : (outTpMax > _output - 0.5 ? FabFilterColors.orange : FabFilterColors.green),
             ),
           ),
           const SizedBox(width: 4),
           Text('TP', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
           const Spacer(),
           Text(
-            _currentTruePeak > -60 ? '${_currentTruePeak.toStringAsFixed(1)} dB' : '-∞',
+            outTpMax > -100 ? '${outTpMax.toStringAsFixed(1)} dBTP' : '-∞',
             style: FabFilterText.paramValue(_truePeakClipping ? FabFilterColors.red : FabFilterColors.textSecondary).copyWith(fontSize: 9),
           ),
         ],
@@ -551,72 +547,97 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     );
   }
 
+  String _oversamplingLabel() {
+    switch (_oversampling) {
+      case 0: return '1x';
+      case 1: return '2x';
+      case 2: return '4x';
+      case 3: return '8x';
+      default: return '${_oversampling}x';
+    }
+  }
+
   Widget _buildCompactControls() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
+        // Param 0: Input Trim (-12..+12 dB)
         _buildSmallKnob(
-          value: (_gain + 24) / 48,
-          label: 'GAIN',
-          display: '${_gain >= 0 ? '+' : ''}${_gain.toStringAsFixed(0)}dB',
+          value: (_inputTrim + 12) / 24,
+          label: 'TRIM',
+          display: '${_inputTrim >= 0 ? '+' : ''}${_inputTrim.toStringAsFixed(1)}dB',
           color: FabFilterColors.orange,
-          onChanged: (v) => setState(() => _gain = v * 48 - 24),
-          // NOTE: Gain/drive is UI-only for now, doesn't map to insert chain limiter
+          onChanged: (v) {
+            setState(() => _inputTrim = v * 24 - 12);
+            _setParam(0, _inputTrim);
+          },
         ),
-        // THRESHOLD: Level at which limiting begins (FIX: separate from ceiling)
+        // Param 1: Threshold (-30..0 dB)
         _buildSmallKnob(
-          value: (_threshold + 24) / 24, // Range: -24 to 0 dB
+          value: (_threshold + 30) / 30,
           label: 'THRESH',
           display: '${_threshold.toStringAsFixed(1)}dB',
           color: FabFilterColors.red,
           onChanged: (v) {
-            setState(() => _threshold = v * 24 - 24);
-            if (_slotIndex >= 0) {
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold); // Threshold
-            }
+            setState(() => _threshold = v * 30 - 30);
+            _setParam(1, _threshold);
           },
         ),
-        // OUTPUT/CEILING: Maximum output level
+        // Param 2: Ceiling (-3..0 dBTP)
         _buildSmallKnob(
-          value: (_output + 12) / 12, // Range: -12 to 0 dB
+          value: (_output + 3) / 3,
           label: 'CEILING',
-          display: '${_output.toStringAsFixed(1)}dB',
+          display: '${_output.toStringAsFixed(1)}dBTP',
           color: FabFilterColors.blue,
           onChanged: (v) {
-            setState(() => _output = v * 12 - 12);
-            if (_slotIndex >= 0) {
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _output); // Ceiling only
-            }
+            setState(() => _output = v * 3 - 3);
+            _setParam(2, _output);
           },
         ),
+        // Param 3: Release (1..1000 ms, logarithmic)
         _buildSmallKnob(
-          value: math.log(_release / 1) / math.log(1000 / 1),
+          value: math.log(_release.clamp(1, 1000) / 1) / math.log(1000),
           label: 'RELEASE',
-          display: _release >= 100 ? '${(_release / 1000).toStringAsFixed(1)}s' : '${_release.toStringAsFixed(0)}ms',
+          display: _release >= 100 ? '${(_release / 1000).toStringAsFixed(2)}s' : '${_release.toStringAsFixed(0)}ms',
           color: FabFilterColors.cyan,
           onChanged: (v) {
-            setState(() => _release = 1 * math.pow(1000 / 1, v).toDouble());
-            if (_slotIndex >= 0) {
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _release); // Release
-            }
+            setState(() => _release = math.pow(1000, v).toDouble().clamp(1, 1000));
+            _setParam(3, _release);
           },
         ),
         if (showExpertMode) ...[
+          // Param 4: Attack (0.01..10 ms, logarithmic)
           _buildSmallKnob(
-            value: math.log(_attack / 0.01) / math.log(10 / 0.01),
+            value: math.log(_attack.clamp(0.01, 10) / 0.01) / math.log(10 / 0.01),
             label: 'ATTACK',
-            display: _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µ' : '${_attack.toStringAsFixed(1)}ms',
+            display: _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µs' : '${_attack.toStringAsFixed(1)}ms',
             color: FabFilterColors.cyan,
-            onChanged: (v) => setState(() => _attack = 0.01 * math.pow(10 / 0.01, v).toDouble()),
-            // NOTE: Attack is UI-only, insert chain limiter doesn't expose attack
+            onChanged: (v) {
+              setState(() => _attack = (0.01 * math.pow(10 / 0.01, v)).clamp(0.01, 10));
+              _setParam(4, _attack);
+            },
           ),
+          // Param 5: Lookahead (0..20 ms)
           _buildSmallKnob(
-            value: _lookahead / 10,
+            value: _lookahead / 20,
             label: 'LOOK',
             display: '${_lookahead.toStringAsFixed(1)}ms',
             color: FabFilterColors.purple,
-            onChanged: (v) => setState(() => _lookahead = v * 10),
-            // NOTE: Lookahead is UI-only for now
+            onChanged: (v) {
+              setState(() => _lookahead = v * 20);
+              _setParam(5, _lookahead);
+            },
+          ),
+          // Param 10: Mix (0..100 %)
+          _buildSmallKnob(
+            value: _mix / 100,
+            label: 'MIX',
+            display: '${_mix.toStringAsFixed(0)}%',
+            color: FabFilterColors.green,
+            onChanged: (v) {
+              setState(() => _mix = v * 100);
+              _setParam(10, _mix);
+            },
           ),
         ],
       ],
@@ -642,14 +663,39 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
 
   Widget _buildCompactOptions() {
     return SizedBox(
-      width: 90,
+      width: 110,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildOptionRow('Link', _channelLink, (v) => setState(() => _channelLink = v)),
+          // Param 8: Stereo Link (0-100%)
+          _buildLinkSlider(),
           const SizedBox(height: 4),
-          _buildOptionRow('Unity', _unityGain, (v) => setState(() => _unityGain = v)),
-          const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0
+          // Param 9: M/S Mode
+          _buildOptionRow('M/S', _msMode, (v) {
+            setState(() => _msMode = v);
+            _setParam(9, v ? 1.0 : 0.0);
+          }),
+          if (showExpertMode) ...[
+            const SizedBox(height: 4),
+            // Param 13: Channel Config (Stereo/Dual Mono/Mid-Side)
+            _buildEnumSelector('CH', _channelConfig, const ['St', 'Dual', 'M/S'], (v) {
+              setState(() => _channelConfig = v);
+              _setParam(13, v.toDouble());
+            }),
+            const SizedBox(height: 4),
+            // Param 12: Latency Profile (Zero-Lat/HQ/Offline)
+            _buildEnumSelector('LAT', _latencyProfile, const ['Zero', 'HQ', 'Off'], (v) {
+              setState(() => _latencyProfile = v);
+              _setParam(12, v.toDouble());
+            }),
+            const SizedBox(height: 4),
+            // Param 11: Dither Bits (Off/8/12/16/24)
+            _buildEnumSelector('DTH', _ditherBits, const ['Off', '8', '12', '16', '24'], (v) {
+              setState(() => _ditherBits = v);
+              _setParam(11, v.toDouble());
+            }),
+          ],
+          const Flexible(child: SizedBox(height: 8)),
           // Meter scale
           Container(
             padding: const EdgeInsets.all(4),
@@ -670,6 +716,79 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
                   )).toList(),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Stereo link slider (param 8: 0-100%)
+  Widget _buildLinkSlider() {
+    return Container(
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: FabFilterColors.bgMid,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: FabFilterColors.border),
+      ),
+      child: Row(
+        children: [
+          Text('LNK', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
+          Expanded(
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                activeTrackColor: FabFilterColors.purple,
+                inactiveTrackColor: FabFilterColors.bgVoid,
+                thumbColor: FabFilterColors.purple,
+                overlayShape: SliderComponentShape.noOverlay,
+              ),
+              child: Slider(
+                value: _stereoLink,
+                min: 0,
+                max: 100,
+                onChanged: (v) {
+                  setState(() => _stereoLink = v);
+                  _setParam(8, v);
+                },
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 22,
+            child: Text('${_stereoLink.toStringAsFixed(0)}', style: FabFilterText.paramValue(FabFilterColors.purple).copyWith(fontSize: 8), textAlign: TextAlign.right),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Enum selector (tiny button row)
+  Widget _buildEnumSelector(String label, int value, List<String> options, ValueChanged<int> onChanged) {
+    return Container(
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: FabFilterColors.bgMid,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: FabFilterColors.border),
+      ),
+      child: Row(
+        children: [
+          SizedBox(width: 22, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(options.length, (i) => _buildTinyButton(
+                options[i],
+                value == i,
+                FabFilterColors.cyan,
+                () => onChanged(i),
+              )),
             ),
           ),
         ],

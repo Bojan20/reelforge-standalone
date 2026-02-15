@@ -76,11 +76,7 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
   }
 
   void _initializeProcessor() {
-    final success = _ffi.stereoImagerCreate(widget.trackId, sampleRate: widget.sampleRate);
-    if (success) {
-      setState(() => _initialized = true);
-      _startMetering();
-    }
+    // Do NOT auto-create stereo imager — must be created externally
   }
 
   void _startMetering() {

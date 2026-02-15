@@ -599,7 +599,7 @@ pub extern "C" fn slot_lab_spin_forced_p5(outcome: i32) -> u64 {
     };
 
     // Execute spin (uses legacy win tier internally)
-    let (mut result, mut stages) = engine.spin_forced_with_stages(forced);
+    let (mut result, stages) = engine.spin_forced_with_stages(forced);
 
     // Reevaluate with P5 Win Tier config
     let win_config = WIN_TIER_CONFIG.read();

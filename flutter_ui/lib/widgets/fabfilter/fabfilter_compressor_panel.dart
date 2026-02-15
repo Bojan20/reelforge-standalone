@@ -105,6 +105,16 @@ class CompressorSnapshot implements DspParameterSnapshot {
   final bool sidechainEnabled;
   final double sidechainHpf;
   final double sidechainLpf;
+  final double lookahead;
+  final double scMidFreq;
+  final double scMidGain;
+  final bool autoThreshold;
+  final bool autoMakeup;
+  final int detectionMode;
+  final bool adaptiveRelease;
+  final bool hostSync;
+  final double hostBpm;
+  final bool midSide;
 
   const CompressorSnapshot({
     required this.threshold,
@@ -121,6 +131,16 @@ class CompressorSnapshot implements DspParameterSnapshot {
     required this.sidechainEnabled,
     required this.sidechainHpf,
     required this.sidechainLpf,
+    required this.lookahead,
+    required this.scMidFreq,
+    required this.scMidGain,
+    required this.autoThreshold,
+    required this.autoMakeup,
+    required this.detectionMode,
+    required this.adaptiveRelease,
+    required this.hostSync,
+    required this.hostBpm,
+    required this.midSide,
   });
 
   @override
@@ -139,6 +159,16 @@ class CompressorSnapshot implements DspParameterSnapshot {
     sidechainEnabled: sidechainEnabled,
     sidechainHpf: sidechainHpf,
     sidechainLpf: sidechainLpf,
+    lookahead: lookahead,
+    scMidFreq: scMidFreq,
+    scMidGain: scMidGain,
+    autoThreshold: autoThreshold,
+    autoMakeup: autoMakeup,
+    detectionMode: detectionMode,
+    adaptiveRelease: adaptiveRelease,
+    hostSync: hostSync,
+    hostBpm: hostBpm,
+    midSide: midSide,
   );
 
   @override
@@ -157,7 +187,17 @@ class CompressorSnapshot implements DspParameterSnapshot {
         drive == other.drive &&
         sidechainEnabled == other.sidechainEnabled &&
         sidechainHpf == other.sidechainHpf &&
-        sidechainLpf == other.sidechainLpf;
+        sidechainLpf == other.sidechainLpf &&
+        lookahead == other.lookahead &&
+        scMidFreq == other.scMidFreq &&
+        scMidGain == other.scMidGain &&
+        autoThreshold == other.autoThreshold &&
+        autoMakeup == other.autoMakeup &&
+        detectionMode == other.detectionMode &&
+        adaptiveRelease == other.adaptiveRelease &&
+        hostSync == other.hostSync &&
+        hostBpm == other.hostBpm &&
+        midSide == other.midSide;
   }
 }
 
@@ -232,6 +272,16 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   // Host sync
   bool _hostSync = false;
 
+  // Pro-C 2 advanced parameters (F4)
+  double _lookahead = 0.0; // ms (0-20)
+  double _scMidFreq = 1000.0; // Hz (200-5000)
+  double _scMidGain = 0.0; // dB (-12 to +12)
+  bool _autoMakeup = false;
+  int _detectionMode = 0; // 0=Peak, 1=RMS, 2=Hybrid
+  bool _adaptiveRelease = false;
+  double _hostBpm = 120.0; // BPM (20-300)
+  bool _midSide = false;
+
   // FFI & DspChainProvider integration
   final _ffi = NativeFFI.instance;
   bool _initialized = false;
@@ -298,42 +348,100 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     }
   }
 
-  /// Apply all parameters to the insert chain compressor (FIX: Uses insertSetParam)
+  /// Apply all parameters to the insert chain compressor (Pro-C 2 class — 25 params)
   ///
   /// Parameter indices for CompressorWrapper in insert chain:
-  /// 0: Threshold (dB)
-  /// 1: Ratio (:1)
-  /// 2: Attack (ms)
-  /// 3: Release (ms)
-  /// 4: Makeup/Output (dB)
-  /// 5: Mix (0-1)
-  /// 6: Link (0-1)
-  /// 7: Type (0=VCA, 1=Opto, 2=FET)
+  ///   0: Threshold (dB)        8: Character (enum)      16: SC Mid Gain (dB)
+  ///   1: Ratio (:1)            9: Drive (dB)            17: Auto-Threshold (bool)
+  ///   2: Attack (ms)          10: Range (dB)            18: Auto-Makeup (bool)
+  ///   3: Release (ms)         11: SC HP Freq (Hz)       19: Detection Mode (enum)
+  ///   4: Makeup/Output (dB)   12: SC LP Freq (Hz)       20: Adaptive Release (bool)
+  ///   5: Mix (0-1)            13: SC Audition (bool)    21: Host Sync (bool)
+  ///   6: Link (0-1)           14: Lookahead (ms)        22: Host BPM
+  ///   7: Type (enum)          15: SC Mid Freq (Hz)      23: Mid/Side (bool)
+  ///                                                      24: Knee (dB)
   void _applyAllParameters() {
     if (!_initialized || _slotIndex < 0) return;
+    final t = widget.trackId;
+    final s = _slotIndex;
 
-    // Use insertSetParam to set parameters on the REAL insert chain processor
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);     // Threshold
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _ratio);         // Ratio
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _attack);        // Attack
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _release);       // Release
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _output);        // Makeup/Output
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _mix / 100.0);   // Mix (0-1)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 6, 1.0);           // Link (fully linked stereo)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _styleToTypeIndex(_style).toDouble()); // Type
+    _ffi.insertSetParam(t, s, 0, _threshold);
+    _ffi.insertSetParam(t, s, 1, _ratio);
+    _ffi.insertSetParam(t, s, 2, _attack);
+    _ffi.insertSetParam(t, s, 3, _release);
+    _ffi.insertSetParam(t, s, 4, _output);
+    _ffi.insertSetParam(t, s, 5, _mix / 100.0);
+    _ffi.insertSetParam(t, s, 6, 1.0); // Link (fully linked stereo)
+    _ffi.insertSetParam(t, s, 7, _styleToTypeIndex(_style).toDouble());
+    _ffi.insertSetParam(t, s, 8, _characterToIndex(_character).toDouble());
+    _ffi.insertSetParam(t, s, 9, _drive);
+    _ffi.insertSetParam(t, s, 10, _range);
+    _ffi.insertSetParam(t, s, 11, _sidechainHpf);
+    _ffi.insertSetParam(t, s, 12, _sidechainLpf);
+    _ffi.insertSetParam(t, s, 13, _sidechainAudition ? 1.0 : 0.0);
+    _ffi.insertSetParam(t, s, 14, _lookahead);
+    _ffi.insertSetParam(t, s, 15, _scMidFreq);
+    _ffi.insertSetParam(t, s, 16, _scMidGain);
+    _ffi.insertSetParam(t, s, 17, _autoThreshold ? 1.0 : 0.0);
+    _ffi.insertSetParam(t, s, 18, _autoMakeup ? 1.0 : 0.0);
+    _ffi.insertSetParam(t, s, 19, _detectionMode.toDouble());
+    _ffi.insertSetParam(t, s, 20, _adaptiveRelease ? 1.0 : 0.0);
+    _ffi.insertSetParam(t, s, 21, _hostSync ? 1.0 : 0.0);
+    _ffi.insertSetParam(t, s, 22, _hostBpm);
+    _ffi.insertSetParam(t, s, 23, _midSide ? 1.0 : 0.0);
+    _ffi.insertSetParam(t, s, 24, _knee);
+  }
+
+  /// Map CharacterMode to insert param index (0=Off, 1=Tube, 2=Diode, 3=Bright)
+  int _characterToIndex(CharacterMode mode) {
+    return switch (mode) {
+      CharacterMode.off => 0,
+      CharacterMode.tube => 1,
+      CharacterMode.diode => 2,
+      CharacterMode.bright => 3,
+    };
+  }
+
+  /// Map insert param value back to CharacterMode
+  CharacterMode _indexToCharacter(double value) {
+    return switch (value.round()) {
+      1 => CharacterMode.tube,
+      2 => CharacterMode.diode,
+      3 => CharacterMode.bright,
+      _ => CharacterMode.off,
+    };
   }
 
   /// Read current parameters from engine (when re-opening existing processor)
   void _readParamsFromEngine() {
     if (!_initialized || _slotIndex < 0) return;
+    final t = widget.trackId;
+    final s = _slotIndex;
     setState(() {
-      _threshold = _ffi.insertGetParam(widget.trackId, _slotIndex, 0);
-      _ratio = _ffi.insertGetParam(widget.trackId, _slotIndex, 1);
-      _attack = _ffi.insertGetParam(widget.trackId, _slotIndex, 2);
-      _release = _ffi.insertGetParam(widget.trackId, _slotIndex, 3);
-      _output = _ffi.insertGetParam(widget.trackId, _slotIndex, 4);
-      final mixVal = _ffi.insertGetParam(widget.trackId, _slotIndex, 5);
-      _mix = mixVal * 100.0;
+      _threshold = _ffi.insertGetParam(t, s, 0);
+      _ratio = _ffi.insertGetParam(t, s, 1);
+      _attack = _ffi.insertGetParam(t, s, 2);
+      _release = _ffi.insertGetParam(t, s, 3);
+      _output = _ffi.insertGetParam(t, s, 4);
+      _mix = _ffi.insertGetParam(t, s, 5) * 100.0;
+      // 7: Type — read back and map to style
+      _character = _indexToCharacter(_ffi.insertGetParam(t, s, 8));
+      _drive = _ffi.insertGetParam(t, s, 9);
+      _range = _ffi.insertGetParam(t, s, 10);
+      _sidechainHpf = _ffi.insertGetParam(t, s, 11);
+      _sidechainLpf = _ffi.insertGetParam(t, s, 12);
+      _sidechainAudition = _ffi.insertGetParam(t, s, 13) > 0.5;
+      _lookahead = _ffi.insertGetParam(t, s, 14);
+      _scMidFreq = _ffi.insertGetParam(t, s, 15);
+      _scMidGain = _ffi.insertGetParam(t, s, 16);
+      _autoThreshold = _ffi.insertGetParam(t, s, 17) > 0.5;
+      _autoMakeup = _ffi.insertGetParam(t, s, 18) > 0.5;
+      _detectionMode = _ffi.insertGetParam(t, s, 19).round();
+      _adaptiveRelease = _ffi.insertGetParam(t, s, 20) > 0.5;
+      _hostSync = _ffi.insertGetParam(t, s, 21) > 0.5;
+      _hostBpm = _ffi.insertGetParam(t, s, 22);
+      _midSide = _ffi.insertGetParam(t, s, 23) > 0.5;
+      _knee = _ffi.insertGetParam(t, s, 24);
     });
   }
 
@@ -389,6 +497,16 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
       sidechainEnabled: _sidechainEnabled,
       sidechainHpf: _sidechainHpf,
       sidechainLpf: _sidechainLpf,
+      lookahead: _lookahead,
+      scMidFreq: _scMidFreq,
+      scMidGain: _scMidGain,
+      autoThreshold: _autoThreshold,
+      autoMakeup: _autoMakeup,
+      detectionMode: _detectionMode,
+      adaptiveRelease: _adaptiveRelease,
+      hostSync: _hostSync,
+      hostBpm: _hostBpm,
+      midSide: _midSide,
     );
   }
 
@@ -409,6 +527,16 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
       _sidechainEnabled = snapshot.sidechainEnabled;
       _sidechainHpf = snapshot.sidechainHpf;
       _sidechainLpf = snapshot.sidechainLpf;
+      _lookahead = snapshot.lookahead;
+      _scMidFreq = snapshot.scMidFreq;
+      _scMidGain = snapshot.scMidGain;
+      _autoThreshold = snapshot.autoThreshold;
+      _autoMakeup = snapshot.autoMakeup;
+      _detectionMode = snapshot.detectionMode;
+      _adaptiveRelease = snapshot.adaptiveRelease;
+      _hostSync = snapshot.hostSync;
+      _hostBpm = snapshot.hostBpm;
+      _midSide = snapshot.midSide;
     });
     _applyAllParameters();
   }
@@ -806,7 +934,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   Widget _buildCompactControls() {
     return Column(
       children: [
-        // Row 1: Main compression knobs (smaller)
+        // Row 1: Main compression knobs
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -841,8 +969,10 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 display: '${_knee.toStringAsFixed(0)} dB',
                 color: FabFilterColors.blue,
                 onChanged: (v) {
-                  // NOTE: Knee is UI-only, not supported in insert chain compressor
                   setState(() => _knee = v * 24);
+                  if (_slotIndex >= 0) {
+                    _ffi.insertSetParam(widget.trackId, _slotIndex, 24, _knee);
+                  }
                 },
               ),
               _buildSmallKnob(
@@ -896,7 +1026,144 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
             ],
           ),
         ),
+        const SizedBox(height: 4),
+        // Row 2: Advanced params — Lookahead, Drive, Range + Detection mode + toggles
+        SizedBox(
+          height: 28,
+          child: Row(
+            children: [
+              // Lookahead knob
+              _buildMiniKnob('LOOK', _lookahead / 20.0,
+                '${_lookahead.toStringAsFixed(1)}ms', FabFilterColors.purple, (v) {
+                setState(() => _lookahead = v * 20.0);
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 14, _lookahead);
+                }
+              }),
+              const SizedBox(width: 6),
+              // Drive knob
+              _buildMiniKnob('DRV', _drive / 24.0,
+                '${_drive.toStringAsFixed(0)}dB', FabFilterColors.orange, (v) {
+                setState(() => _drive = v * 24.0);
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 9, _drive);
+                }
+              }),
+              const SizedBox(width: 6),
+              // Range knob
+              _buildMiniKnob('RNG', (_range + 60) / 60.0,
+                '${_range.toStringAsFixed(0)}dB', FabFilterColors.cyan, (v) {
+                setState(() => _range = v * 60.0 - 60.0);
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 10, _range);
+                }
+              }),
+              const SizedBox(width: 8),
+              // Detection mode buttons (Peak / RMS / Hybrid)
+              ..._buildDetectionModeButtons(),
+              const SizedBox(width: 8),
+              // Toggle buttons
+              _buildMiniToggle('M/S', _midSide, FabFilterColors.purple, () {
+                setState(() => _midSide = !_midSide);
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 23, _midSide ? 1.0 : 0.0);
+                }
+              }),
+              const SizedBox(width: 3),
+              _buildMiniToggle('AR', _adaptiveRelease, FabFilterColors.cyan, () {
+                setState(() => _adaptiveRelease = !_adaptiveRelease);
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 20, _adaptiveRelease ? 1.0 : 0.0);
+                }
+              }),
+              const SizedBox(width: 3),
+              _buildMiniToggle('AM', _autoMakeup, FabFilterColors.green, () {
+                setState(() => _autoMakeup = !_autoMakeup);
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 18, _autoMakeup ? 1.0 : 0.0);
+                }
+              }),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  /// Mini knob for the advanced params row (28px height)
+  Widget _buildMiniKnob(String label, double value, String display, Color color, ValueChanged<double> onChanged) {
+    return SizedBox(
+      width: 48,
+      child: Row(
+        children: [
+          FabFilterKnob(
+            value: value.clamp(0.0, 1.0),
+            label: '',
+            display: '',
+            color: color,
+            size: 24,
+            onChanged: onChanged,
+          ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 7)),
+                Text(display, style: TextStyle(color: color, fontSize: 7)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Detection mode toggle buttons (Peak / RMS / Hybrid)
+  List<Widget> _buildDetectionModeButtons() {
+    const modes = ['P', 'R', 'H'];
+    const labels = ['Peak', 'RMS', 'Hybrid'];
+    return List.generate(3, (i) {
+      final active = _detectionMode == i;
+      return Padding(
+        padding: const EdgeInsets.only(right: 2),
+        child: Tooltip(
+          message: labels[i],
+          child: _buildTinyButton(modes[i], active, FabFilterColors.cyan, () {
+            setState(() => _detectionMode = i);
+            if (_slotIndex >= 0) {
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 19, i.toDouble());
+            }
+          }),
+        ),
+      );
+    });
+  }
+
+  /// Mini toggle button for advanced params row
+  Widget _buildMiniToggle(String label, bool active, Color color, VoidCallback onTap) {
+    return Tooltip(
+      message: label == 'M/S' ? 'Mid/Side' : label == 'AR' ? 'Adaptive Release' : 'Auto Makeup',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 22,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: active ? color.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: active ? color : FabFilterColors.border),
+          ),
+          child: Center(
+            child: Text(label, style: TextStyle(
+              color: active ? color : FabFilterColors.textTertiary,
+              fontSize: 8,
+              fontWeight: FontWeight.bold,
+            )),
+          ),
+        ),
+      ),
     );
   }
 
@@ -919,22 +1186,82 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
   Widget _buildCompactOptions() {
     return SizedBox(
-      width: 100,
+      width: 110,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Sidechain toggle
           _buildOptionRow('SC', _sidechainEnabled, (v) => setState(() => _sidechainEnabled = v)),
           const SizedBox(height: 4),
-          // Sidechain HP
+          // Sidechain HP/LP
           if (_sidechainEnabled) ...[
             _buildMiniSlider('HP', math.log(_sidechainHpf / 20) / math.log(500 / 20),
-              '${_sidechainHpf.toStringAsFixed(0)}', (v) => setState(() => _sidechainHpf = 20 * math.pow(500 / 20, v).toDouble())),
+              '${_sidechainHpf.toStringAsFixed(0)}', (v) {
+                setState(() => _sidechainHpf = 20 * math.pow(500 / 20, v).toDouble());
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 11, _sidechainHpf);
+                }
+              }),
             const SizedBox(height: 2),
             _buildMiniSlider('LP', math.log(_sidechainLpf / 1000) / math.log(20000 / 1000),
-              '${(_sidechainLpf / 1000).toStringAsFixed(0)}k', (v) => setState(() => _sidechainLpf = 1000 * math.pow(20000 / 1000, v).toDouble())),
+              '${(_sidechainLpf / 1000).toStringAsFixed(0)}k', (v) {
+                setState(() => _sidechainLpf = 1000 * math.pow(20000 / 1000, v).toDouble());
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 12, _sidechainLpf);
+                }
+              }),
+            const SizedBox(height: 2),
+            // SC Mid Freq/Gain
+            _buildMiniSlider('MF', math.log(_scMidFreq / 200) / math.log(5000 / 200),
+              '${_scMidFreq.toStringAsFixed(0)}', (v) {
+                setState(() => _scMidFreq = 200 * math.pow(5000 / 200, v).toDouble());
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 15, _scMidFreq);
+                }
+              }),
+            const SizedBox(height: 2),
+            _buildMiniSlider('MG', (_scMidGain + 12) / 24,
+              '${_scMidGain >= 0 ? '+' : ''}${_scMidGain.toStringAsFixed(0)}', (v) {
+                setState(() => _scMidGain = v * 24 - 12);
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 16, _scMidGain);
+                }
+              }),
+            const SizedBox(height: 2),
+            _buildOptionRow('AUD', _sidechainAudition, (v) {
+              setState(() => _sidechainAudition = v);
+              if (_slotIndex >= 0) {
+                _ffi.insertSetParam(widget.trackId, _slotIndex, 13, v ? 1.0 : 0.0);
+              }
+            }),
           ],
-          const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0
+          const Flexible(child: SizedBox(height: 4)),
+          // Auto-Threshold toggle
+          _buildOptionRow('A-THR', _autoThreshold, (v) {
+            setState(() => _autoThreshold = v);
+            if (_slotIndex >= 0) {
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 17, v ? 1.0 : 0.0);
+            }
+          }),
+          const SizedBox(height: 2),
+          // Host Sync + BPM
+          _buildOptionRow('SYNC', _hostSync, (v) {
+            setState(() => _hostSync = v);
+            if (_slotIndex >= 0) {
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 21, v ? 1.0 : 0.0);
+            }
+          }),
+          if (_hostSync) ...[
+            const SizedBox(height: 2),
+            _buildMiniSlider('BPM', (_hostBpm - 20) / 280,
+              '${_hostBpm.toStringAsFixed(0)}', (v) {
+                setState(() => _hostBpm = v * 280 + 20);
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 22, _hostBpm);
+                }
+              }),
+          ],
+          const Flexible(child: SizedBox(height: 4)),
           // Character
           if (showExpertMode) ...[
             Text('CHARACTER', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
@@ -946,7 +1273,12 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 m.label.substring(0, m == CharacterMode.off ? 3 : 1),
                 _character == m,
                 m.color,
-                () => setState(() => _character = m),
+                () {
+                  setState(() => _character = m);
+                  if (_slotIndex >= 0) {
+                    _ffi.insertSetParam(widget.trackId, _slotIndex, 8, _characterToIndex(m).toDouble());
+                  }
+                },
               )).toList(),
             ),
           ],

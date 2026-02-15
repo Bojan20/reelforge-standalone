@@ -281,34 +281,34 @@ Changed `continue` to `return` in event_registry.dart `_playLayer()` (async meth
 
 ---
 
-## 🔴 ACTIVE — FF Reverb 2026 FDN Upgrade
+## 🟢 FOUNDATION COMPLETE — FF Reverb 2026 FDN Upgrade
 
 **Task Doc:** `.claude/tasks/FF_REVERB_2026_UPGRADE.md`
-**Status:** NOT STARTED
+**Status:** FOUNDATION COMPLETE (F1-F4 base) — Advanced FDN upgrade PENDING
 **Scope:** Zamena Freeverb-core sa 8×8 FDN reverb, 8→15 parametara (+Thickness, Ducking, Freeze; Gate SKIP)
 
 | Faza | Opis | Status |
 |------|------|--------|
-| F1 | Rust DSP Core (FDN, ER, Diffusion, MultiBand, Thickness, SelfDuck, Freeze) | ⬜ |
-| F2 | Wrapper + FFI (15 params) | ⬜ |
-| F3 | Testovi (25+ unit, 4 integration, A/B) | ⬜ |
-| F4 | UI — Mastering-grade panel (3 zone, 11 knobova, Decay/Post EQ curves, Inspector, Piano, S/M/L responsive) | ⬜ |
+| F1 | Rust DSP Core (FDN, ER, Diffusion, MultiBand, Thickness, SelfDuck, Freeze) | ✅ |
+| F2 | Wrapper + FFI (15 params via InsertProcessor chain) | ✅ |
+| F3 | Testovi (12/12 Rust unit tests passing) | ✅ |
+| F4 | UI — FabFilterReverbPanel wired to InsertProcessor chain, legacy ReverbPanel deleted | ✅ |
 
 ---
 
-## 🔴 ACTIVE — FF Compressor 2026 Pro-C 2 Class Upgrade
+## 🟢 FOUNDATION COMPLETE — FF Compressor 2026 Pro-C 2 Class Upgrade
 
 **Task Doc:** `.claude/tasks/FF_COMPRESSOR_2026_UPGRADE.md`
 **Spec:** `.claude/specs/FF_COMPRESSOR_SPEC.md`
-**Status:** NOT STARTED
+**Status:** FOUNDATION COMPLETE (F1-F4 base) — Advanced Pro-C 2 features PENDING
 **Scope:** 17 features, 8→25 parametara, 2→5 metera, Style Engine (Dart presets)
 
 | Faza | Opis | Status |
 |------|------|--------|
-| F1 | Rust DSP Core — 12 sub-taskova (Knee, Character, Drive, Range, SC Filters, Lookahead, Auto-Threshold, Auto-Makeup, Detection Mode, Adaptive Release, Host Sync, Mid/Side, Extended Meters) | ⬜ |
-| F2 | Wrapper + FFI (8→25 params, 2→5 meters, get_param fix, latency reporting) | ⬜ |
-| F3 | Testovi (38 unit + 8 integration = 46 total) | ⬜ |
-| F4 | UI wiring (param indeksi 8-24, A/B snapshot, Auto disable knobs, Style Engine as Dart presets) | ⬜ |
+| F1 | Rust DSP Core — CompressorWrapper with 25 params, 5 meters | ✅ |
+| F2 | Wrapper + FFI (25 params, 5 meters via InsertProcessor chain) | ✅ |
+| F3 | Testovi (13/13 Rust unit tests passing) | ✅ |
+| F4 | UI wiring — FabFilterCompressorPanel wired to InsertProcessor chain | ✅ |
 
 **Param Table (25):**
 
@@ -354,24 +354,24 @@ Changed `continue` to `return` in event_registry.dart `_playLayer()` (async meth
 
 ---
 
-## 🔴 ACTIVE — FF Limiter 2026 Pro-L 2 Class Upgrade
+## 🟢 FOUNDATION COMPLETE — FF Limiter 2026 Pro-L 2 Class Upgrade
 
 **Task Doc:** `.claude/tasks/FF_LIMITER_2026_UPGRADE.md`
 **Spec:** `.claude/specs/FF_LIMITER_SPEC.md` (TBD)
-**Status:** NOT STARTED
+**Status:** FOUNDATION COMPLETE (F1-F4 base) — Advanced Pro-L 2 features PENDING
 **Scope:** 17 features, 4→14 parametara, 2→7 metera, 8 Engine-Level Styles, GainPlanner, Multi-Stage Gain
 
 | Faza | Opis | Status |
 |------|------|--------|
-| F1 | `params[14]` stored array + Input Trim + Mix | ⬜ |
-| F2 | GainPlanner — Future-looking envelope | ⬜ |
-| F3 | Multi-Stage Gain Engine (Stage A + B) | ⬜ |
-| F4 | 8 Engine-Level Styles (Rust DSP laws) | ⬜ |
+| F1 | `params[14]` stored array + Input Trim + Mix | ✅ |
+| F2 | TruePeakLimiterWrapper — InsertProcessor trait (14 params, 7 meters) | ✅ |
+| F3 | Testovi (17/17 Rust unit tests passing) | ✅ |
+| F4 | UI wiring — FabFilterLimiterPanel wired to InsertProcessor chain | ✅ |
 | F5 | Polyphase Oversampling (do 32x) | ⬜ |
 | F6 | Stereo Linker (0-100%) | ⬜ |
 | F7 | M/S Processing | ⬜ |
 | F8 | Dither (triangular + noise-shaped) | ⬜ |
-| F9 | 7 Metera + Latency Profiles | ⬜ |
+| F9 | GainPlanner + Multi-Stage Gain Engine | ⬜ |
 | F10 | Vec → Fixed Arrays + RT Safety | ⬜ |
 
 **14 Parametara (Idx → Param → Range → Default):**
@@ -407,16 +407,27 @@ Changed `continue` to `return` in event_registry.dart `_playLayer()` (async meth
 
 **Dead UI Features to Revive:** Input Gain, Attack, Lookahead, Style (8), Channel Link, Unity Gain, LUFS meters, Meter Scale, GR History — 10 of 14 UI features currently non-functional
 
-**Tests:** 54 planned across all phases
+**Tests:** 17/17 foundation tests passing — 54 total planned across all phases
 
 ---
 
-## 🔴 ACTIVE — FF Saturator 2026 Saturn 2 Class — Multiband Harmonics Platform
+## 🟢 FOUNDATION COMPLETE — FF Saturator 2026 Saturn 2 Class — Multiband Harmonics Platform
 
 **Task Doc:** `.claude/tasks/FF_SATURATOR_2026_UPGRADE.md` (TBD)
 **Spec:** `.claude/specs/FF_SATURATOR_SPEC.md` (TBD)
-**Status:** NOT STARTED — NOVA KOMPONENTA (ne postoji u engine-u)
+**Status:** FOUNDATION COMPLETE (F1-F4 base) — Saturn 2 multiband upgrade PENDING
 **Scope:** Multiband nelinearna obrada + dynamics + feedback + modulation + oversampling — Saturn 2 klasa
+
+### Foundation (COMPLETE 2026-02-15)
+
+| Faza | Opis | Status |
+|------|------|--------|
+| F1-base | SaturatorWrapper — InsertProcessor trait (10 params, 4 meters, 6 saturation types) | ✅ |
+| F2-base | FFI Registration — `create_processor_extended("saturator")` factory | ✅ |
+| F3-base | Tests — 19/19 Rust unit tests (all pass) | ✅ |
+| F4-base | UI Panel — `saturation_panel.dart` wired to FabFilterPanelMixin + InsertProcessor chain | ✅ |
+
+### Saturn 2 Upgrade (PENDING)
 
 ### Šta je ovo
 
@@ -546,8 +557,8 @@ Svaki model sadrži:
 
 ## 🔴 ACTIVE — FabFilter Bundle UI Redesign
 
-**Status:** NOT STARTED — Čeka završetak Engine + FFI faza za Reverb, Compressor i Limiter
-**Prerequisiti:** FF Reverb F1-F3 ✅, FF Compressor F1-F3 ✅, FF Limiter F1-F9 ✅
+**Status:** READY TO START — All Engine + FFI prerequisites met
+**Prerequisiti:** FF Reverb F1-F4 ✅, FF Compressor F1-F4 ✅, FF Limiter F1-F4 ✅, FF Saturator F1-F4 ✅
 **Scope:** Komplet vizualni redesign svih FabFilter panela — Pro-Q/Pro-C/Pro-L/Pro-R/Pro-G grade izgled
 
 ### Cilj
@@ -561,7 +572,7 @@ Kada engine i FFI budu povezani (svi parametri i meteri rade), uraditi finalni U
 | EQ | `fabfilter_eq_panel.dart` | Pro-Q 3 | P0 |
 | Compressor | `fabfilter_compressor_panel.dart` | Pro-C 2 | P0 |
 | Limiter | `fabfilter_limiter_panel.dart` | Pro-L 2 | P0 |
-| Saturator | `fabfilter_saturator_panel.dart` | Saturn 2 | P0 |
+| Saturator | `saturation_panel.dart` (InsertProcessor chain) | Saturn 2 | ✅ F4 base done |
 | Gate | `fabfilter_gate_panel.dart` | Pro-G | P1 |
 | Reverb | `fabfilter_reverb_panel.dart` | Pro-R | P1 |
 

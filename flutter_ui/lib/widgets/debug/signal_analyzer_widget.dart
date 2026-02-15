@@ -484,6 +484,9 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
       DspNodeType.delay => const Color(0xFF40AAFF),
       DspNodeType.saturation => const Color(0xFFFFAA40),
       DspNodeType.deEsser => const Color(0xFFFF40AA),
+      DspNodeType.pultec => const Color(0xFFD4A574),
+      DspNodeType.api550 => const Color(0xFF4A9EFF),
+      DspNodeType.neve1073 => const Color(0xFF8B4513),
     };
   }
 
@@ -498,6 +501,9 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
       DspNodeType.delay => Icons.access_time,
       DspNodeType.saturation => Icons.waves,
       DspNodeType.deEsser => Icons.record_voice_over,
+      DspNodeType.pultec => Icons.tune,
+      DspNodeType.api550 => Icons.graphic_eq,
+      DspNodeType.neve1073 => Icons.surround_sound,
     };
   }
 }

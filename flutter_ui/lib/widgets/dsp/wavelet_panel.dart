@@ -70,11 +70,7 @@ class _WaveletPanelState extends State<WaveletPanel> {
   }
 
   void _initializeProcessor() {
-    final success = _ffi.waveletDwtCreate(widget.trackId, _waveletType);
-    if (success) {
-      _ffi.waveletDwtSetMaxLevel(widget.trackId, _decompositionLevels);
-      setState(() => _initialized = true);
-    }
+    // Do NOT auto-create wavelet processor — must be created externally
   }
 
   void _changeWaveletType(WaveletType type) {

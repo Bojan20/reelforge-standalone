@@ -4,6 +4,7 @@
 /// processing options with tempo sync support.
 
 import 'package:flutter/material.dart';
+import '../../providers/dsp_chain_provider.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 
@@ -94,27 +95,16 @@ class _DelayPanelState extends State<DelayPanel> {
   }
 
   void _initializeProcessor() {
-    _removeCurrentDelay();
+    final dsp = DspChainProvider.instance;
+    final chain = dsp.getChain(widget.trackId);
 
-    bool success = false;
-    switch (_delayType) {
-      case DelayType.simple:
-        success = NativeFFI.instance.simpleDelayCreate(widget.trackId, sampleRate: widget.sampleRate);
-        break;
-      case DelayType.pingPong:
-        success = NativeFFI.instance.pingPongDelayCreate(widget.trackId, sampleRate: widget.sampleRate);
-        break;
-      case DelayType.multiTap:
-        success = NativeFFI.instance.multiTapDelayCreate(widget.trackId, sampleRate: widget.sampleRate, numTaps: _numTaps);
-        break;
-      case DelayType.modulated:
-        success = NativeFFI.instance.modulatedDelayCreate(widget.trackId, sampleRate: widget.sampleRate, preset: _modPreset);
-        break;
-    }
-
-    if (success) {
-      setState(() => _initialized = true);
-      _applyAllSettings();
+    // Only connect to existing delay node — do NOT auto-add
+    for (final n in chain.nodes) {
+      if (n.type == DspNodeType.delay) {
+        setState(() => _initialized = true);
+        _applyAllSettings();
+        return;
+      }
     }
   }
 

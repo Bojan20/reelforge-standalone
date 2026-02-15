@@ -107,11 +107,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
   }
 
   void _initializeProcessor() {
-    final success = _ffi.channelStripCreate(widget.trackId);
-    if (success) {
-      setState(() => _initialized = true);
-      _startMetering();
-    }
+    // Do NOT auto-create channel strip — must be created externally
   }
 
   void _startMetering() {

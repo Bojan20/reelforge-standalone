@@ -8520,7 +8520,7 @@ extension ReverbAPI on NativeFFI {
   }
 
   // ============================================================
-  // ALGORITHMIC REVERB
+  // ALGORITHMIC REVERB (FDN 8×8 — 2026 Upgrade, 15 params)
   // ============================================================
 
   static late final _algorithmicReverbCreate = _loadNativeLibrary().lookupFunction<
@@ -8555,6 +8555,50 @@ extension ReverbAPI on NativeFFI {
       Int32 Function(Uint32, Double),
       int Function(int, double)>('algorithmic_reverb_set_predelay');
 
+  static late final _algorithmicReverbSetDiffusion = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('algorithmic_reverb_set_diffusion');
+
+  static late final _algorithmicReverbSetDistance = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('algorithmic_reverb_set_distance');
+
+  static late final _algorithmicReverbSetDecay = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('algorithmic_reverb_set_decay');
+
+  static late final _algorithmicReverbSetLowDecayMult = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('algorithmic_reverb_set_low_decay_mult');
+
+  static late final _algorithmicReverbSetHighDecayMult = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('algorithmic_reverb_set_high_decay_mult');
+
+  static late final _algorithmicReverbSetCharacter = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('algorithmic_reverb_set_character');
+
+  static late final _algorithmicReverbSetThickness = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('algorithmic_reverb_set_thickness');
+
+  static late final _algorithmicReverbSetDucking = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('algorithmic_reverb_set_ducking');
+
+  static late final _algorithmicReverbSetFreeze = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Int32),
+      int Function(int, int)>('algorithmic_reverb_set_freeze');
+
+  static late final _algorithmicReverbSetParam = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Uint32, Double),
+      int Function(int, int, double)>('algorithmic_reverb_set_param');
+
+  static late final _algorithmicReverbGetParam = _loadNativeLibrary().lookupFunction<
+      Double Function(Uint32, Uint32),
+      double Function(int, int)>('algorithmic_reverb_get_param');
+
   static late final _algorithmicReverbReset = _loadNativeLibrary().lookupFunction<
       Int32 Function(Uint32),
       int Function(int)>('algorithmic_reverb_reset');
@@ -8573,34 +8617,89 @@ extension ReverbAPI on NativeFFI {
     return _algorithmicReverbRemove(trackId) == 1;
   }
 
-  /// Set reverb type
+  /// Set reverb style (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring)
   bool algorithmicReverbSetType(int trackId, ReverbType type) {
     return _algorithmicReverbSetType(trackId, type.index) == 1;
   }
 
-  /// Set room size (0.0-1.0)
+  /// Set space / room size (0.0-1.0)
   bool algorithmicReverbSetRoomSize(int trackId, double size) {
     return _algorithmicReverbSetRoomSize(trackId, size.clamp(0.0, 1.0)) == 1;
   }
 
-  /// Set damping (0.0-1.0)
-  bool algorithmicReverbSetDamping(int trackId, double damping) {
-    return _algorithmicReverbSetDamping(trackId, damping.clamp(0.0, 1.0)) == 1;
+  /// Set brightness (0.0-1.0)
+  bool algorithmicReverbSetDamping(int trackId, double brightness) {
+    return _algorithmicReverbSetDamping(trackId, brightness.clamp(0.0, 1.0)) == 1;
   }
 
-  /// Set stereo width (0.0-1.0)
+  /// Set stereo width (0.0-2.0)
   bool algorithmicReverbSetWidth(int trackId, double width) {
-    return _algorithmicReverbSetWidth(trackId, width.clamp(0.0, 1.0)) == 1;
+    return _algorithmicReverbSetWidth(trackId, width.clamp(0.0, 2.0)) == 1;
   }
 
-  /// Set dry/wet mix (0.0-1.0)
+  /// Set dry/wet mix (0.0-1.0, equal-power crossfade)
   bool algorithmicReverbSetDryWet(int trackId, double mix) {
     return _algorithmicReverbSetDryWet(trackId, mix.clamp(0.0, 1.0)) == 1;
   }
 
-  /// Set predelay in ms (0-200ms)
+  /// Set predelay in ms (0-500ms)
   bool algorithmicReverbSetPredelay(int trackId, double predelayMs) {
-    return _algorithmicReverbSetPredelay(trackId, predelayMs.clamp(0.0, 200.0)) == 1;
+    return _algorithmicReverbSetPredelay(trackId, predelayMs.clamp(0.0, 500.0)) == 1;
+  }
+
+  /// Set diffusion (0.0-1.0)
+  bool algorithmicReverbSetDiffusion(int trackId, double diffusion) {
+    return _algorithmicReverbSetDiffusion(trackId, diffusion.clamp(0.0, 1.0)) == 1;
+  }
+
+  /// Set distance / ER level (0.0-1.0)
+  bool algorithmicReverbSetDistance(int trackId, double distance) {
+    return _algorithmicReverbSetDistance(trackId, distance.clamp(0.0, 1.0)) == 1;
+  }
+
+  /// Set decay time (0.0-1.0)
+  bool algorithmicReverbSetDecay(int trackId, double decay) {
+    return _algorithmicReverbSetDecay(trackId, decay.clamp(0.0, 1.0)) == 1;
+  }
+
+  /// Set low frequency decay multiplier (0.5-2.0)
+  bool algorithmicReverbSetLowDecayMult(int trackId, double mult) {
+    return _algorithmicReverbSetLowDecayMult(trackId, mult.clamp(0.5, 2.0)) == 1;
+  }
+
+  /// Set high frequency decay multiplier (0.1-1.0)
+  bool algorithmicReverbSetHighDecayMult(int trackId, double mult) {
+    return _algorithmicReverbSetHighDecayMult(trackId, mult.clamp(0.1, 1.0)) == 1;
+  }
+
+  /// Set character / modulation depth (0.0-1.0)
+  bool algorithmicReverbSetCharacter(int trackId, double character) {
+    return _algorithmicReverbSetCharacter(trackId, character.clamp(0.0, 1.0)) == 1;
+  }
+
+  /// Set thickness / saturation (0.0-1.0)
+  bool algorithmicReverbSetThickness(int trackId, double thickness) {
+    return _algorithmicReverbSetThickness(trackId, thickness.clamp(0.0, 1.0)) == 1;
+  }
+
+  /// Set self-ducking amount (0.0-1.0)
+  bool algorithmicReverbSetDucking(int trackId, double ducking) {
+    return _algorithmicReverbSetDucking(trackId, ducking.clamp(0.0, 1.0)) == 1;
+  }
+
+  /// Set freeze mode (infinite sustain)
+  bool algorithmicReverbSetFreeze(int trackId, bool freeze) {
+    return _algorithmicReverbSetFreeze(trackId, freeze ? 1 : 0) == 1;
+  }
+
+  /// Set reverb parameter by index (0-14)
+  bool algorithmicReverbSetParam(int trackId, int paramIndex, double value) {
+    return _algorithmicReverbSetParam(trackId, paramIndex, value) == 1;
+  }
+
+  /// Get reverb parameter by index (0-14)
+  double algorithmicReverbGetParam(int trackId, int paramIndex) {
+    return _algorithmicReverbGetParam(trackId, paramIndex);
   }
 
   /// Reset algorithmic reverb state

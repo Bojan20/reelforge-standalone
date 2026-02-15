@@ -152,8 +152,15 @@ pub use wavelet::{
     WaveletDecomposition, WaveletFilter, WaveletType,
 };
 
-// Re-export De-Esser
-pub use dynamics::{DeEsser, DeEsserMode};
+// Re-export De-Esser and Compressor types
+pub use dynamics::{
+    CompressorCharacter, CompressorType, DeEsser, DeEsserMode, DetectionMode,
+};
+
+// Re-export Limiter types (Pro-L 2 class)
+pub use dynamics::{
+    DitherBits, LimiterChannelConfig, LimiterLatencyProfile, LimiterStyle, TruePeakLimiter,
+};
 
 // Re-export Elastic Pro (Ultimate Time Stretching)
 pub use elastic_pro::{

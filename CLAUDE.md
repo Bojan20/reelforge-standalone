@@ -1557,7 +1557,7 @@ provider.swapNodes(trackId, nodeIdA, nodeIdB);
 provider.toggleNodeBypass(trackId, nodeId);
 ```
 
-**DspNodeType Enum:** `eq`, `compressor`, `limiter`, `gate`, `reverb`, `delay`, `saturation`, `deEsser`
+**DspNodeType Enum:** `eq`, `compressor`, `limiter`, `gate`, `expander`, `reverb`, `delay`, `saturation`, `deEsser`, `pultec` (FF EQP1A), `api550` (FF 550A), `neve1073` (FF 1073)
 
 **LowerZonePersistenceService** (Singleton):
 ```dart

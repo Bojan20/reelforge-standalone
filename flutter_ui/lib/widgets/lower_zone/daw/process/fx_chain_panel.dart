@@ -303,6 +303,9 @@ class FxChainPanel extends StatelessWidget {
       DspNodeType.delay => Icons.timer,
       DspNodeType.saturation => Icons.whatshot,
       DspNodeType.deEsser => Icons.record_voice_over,
+      DspNodeType.pultec => Icons.tune,
+      DspNodeType.api550 => Icons.graphic_eq,
+      DspNodeType.neve1073 => Icons.surround_sound,
     };
   }
 

@@ -132,6 +132,10 @@ class DspParamMapping {
         return _getDeEsserParamIndex(target);
       case DspNodeType.expander:
         return _getExpanderParamIndex(target);
+      case DspNodeType.pultec:
+      case DspNodeType.api550:
+      case DspNodeType.neve1073:
+        return null; // Vintage EQs — no RTPC mapping yet
     }
   }
 
@@ -297,6 +301,10 @@ class DspParamMapping {
           RtpcTargetParameter.deEsserThreshold,
           RtpcTargetParameter.deEsserRange,
         ];
+      case DspNodeType.pultec:
+      case DspNodeType.api550:
+      case DspNodeType.neve1073:
+        return []; // Vintage EQs — no RTPC targets yet
     }
   }
 }

@@ -206,10 +206,13 @@ final ValueChanged<bool>? onTripletGridChanged;
 
 **New File:** `flutter_ui/lib/providers/dsp_chain_provider.dart` (~400 LOC)
 
-**DspNodeType Enum:**
+**DspNodeType Enum (12 types, updated 2026-02-15):**
 ```dart
 enum DspNodeType {
-  eq, compressor, limiter, gate, reverb, delay, saturation, deEsser
+  eq, compressor, limiter, gate, expander, reverb, delay, saturation, deEsser,
+  pultec,    // FF EQP1A — vintage tube EQ (4 params)
+  api550,    // FF 550A — 3-band discrete EQ (3 params)
+  neve1073,  // FF 1073 — inductor channel EQ (3 params)
 }
 ```
 

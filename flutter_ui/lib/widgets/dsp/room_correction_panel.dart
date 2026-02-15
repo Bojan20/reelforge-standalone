@@ -49,10 +49,7 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
   }
 
   void _initializeProcessor() {
-    final success = _ffi.roomEqCreate(widget.trackId, sampleRate: widget.sampleRate);
-    if (success) {
-      setState(() => _initialized = true);
-    }
+    // Do NOT auto-create room EQ processor — must be created externally
   }
 
   @override
