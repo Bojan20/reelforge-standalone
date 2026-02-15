@@ -189,13 +189,15 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
 
   void _applyAllParameters() {
     if (!_initialized || _slotIndex < 0) return;
-    // ReverbWrapper param indices: 0=RoomSize, 1=Damping, 2=Width, 3=DryWet, 4=Predelay, 5=Type
+    // ReverbWrapper param indices: 0=RoomSize, 1=Damping, 2=Width, 3=DryWet, 4=Predelay, 5=Type, 6=Diffusion, 7=Distance
     _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _size);                        // Room Size
     _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _dampingHigh);                 // Damping
     _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _width / 100.0);               // Width
     _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _mix / 100.0);                 // Dry/Wet
     _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _predelay);                    // Predelay (ms)
     _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _spaceToTypeIndex(_space).toDouble()); // Type
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 6, _diffusion / 100.0);           // Diffusion
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _distance / 100.0);            // Distance
   }
 
   int _spaceToTypeIndex(ReverbSpace space) {
@@ -479,19 +481,17 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           // Character controls compact
           _buildMiniSlider('Dist', _distance / 100, '${_distance.toStringAsFixed(0)}%', (v) {
             setState(() => _distance = v * 100);
-            // Distance affects Mix (param 3) — farther = more wet
+            // Distance (param 7) — early reflections attenuation (0=close/loud, 1=far/quiet)
             if (_slotIndex >= 0) {
-              _mix = v * 100;
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 3, v);
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 7, v);
             }
           }),
           const SizedBox(height: 4),
           _buildMiniSlider('Diff', _diffusion / 100, '${_diffusion.toStringAsFixed(0)}%', (v) {
             setState(() => _diffusion = v * 100);
-            // Diffusion affects Width (param 2) — higher diffusion = wider stereo
+            // Diffusion (param 6) — allpass feedback, controls echo density
             if (_slotIndex >= 0) {
-              _width = v * 200;
-              _ffi.insertSetParam(widget.trackId, _slotIndex, 2, v * 2);
+              _ffi.insertSetParam(widget.trackId, _slotIndex, 6, v);
             }
           }),
           const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0

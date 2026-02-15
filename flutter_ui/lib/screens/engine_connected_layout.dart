@@ -7217,6 +7217,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         name: slot.plugin?.displayName ?? '',
         type: slot.plugin?.category.name ?? 'empty',
         bypassed: slot.bypassed,
+        isPreFader: slot.isPreFader,
       )).toList(),
       sends: sends,
       eqEnabled: _openEqWindows.containsKey(channelId),

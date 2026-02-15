@@ -471,6 +471,8 @@ pub struct AlgorithmicReverb {
     width: f64,
     dry_wet: f64,
     predelay_ms: f64,
+    diffusion: f64,  // Allpass feedback coefficient (0.0-1.0) → maps to 0.5-0.95
+    distance: f64,   // Early reflections attenuation (0.0=close/loud, 1.0=far/quiet)
 
     // Predelay
     predelay_buffer_l: Vec<Sample>,
@@ -529,6 +531,8 @@ impl AlgorithmicReverb {
             width: 1.0,
             dry_wet: 0.3,
             predelay_ms: 0.0,
+            diffusion: 0.5,
+            distance: 0.0,
             predelay_buffer_l: vec![0.0; max_predelay],
             predelay_buffer_r: vec![0.0; max_predelay],
             predelay_pos: 0,
@@ -603,6 +607,23 @@ impl AlgorithmicReverb {
         self.predelay_samples =
             ((ms * 0.001 * self.sample_rate) as usize).min(self.predelay_buffer_l.len() - 1);
     }
+
+    pub fn set_diffusion(&mut self, diffusion: f64) {
+        self.diffusion = diffusion.clamp(0.0, 1.0);
+        // Map 0.0-1.0 → 0.5-0.95 allpass feedback coefficient
+        // Higher feedback = denser echo tail, smoother reverb
+        let coeff = 0.5 + self.diffusion * 0.45;
+        for ap in &mut self.allpasses_l {
+            ap.feedback = coeff;
+        }
+        for ap in &mut self.allpasses_r {
+            ap.feedback = coeff;
+        }
+    }
+
+    pub fn set_distance(&mut self, distance: f64) {
+        self.distance = distance.clamp(0.0, 1.0);
+    }
 }
 
 impl Processor for AlgorithmicReverb {
@@ -657,9 +678,11 @@ impl StereoProcessor for AlgorithmicReverb {
             comb_out_r += comb.process(input);
         }
 
-        // Scale comb output
-        comb_out_l /= self.combs_l.len() as f64;
-        comb_out_r /= self.combs_r.len() as f64;
+        // Scale comb output with distance attenuation
+        // Distance 0.0 (close) = full early reflections, 1.0 (far) = attenuated by -18dB
+        let distance_gain = 10.0_f64.powf((-18.0 * self.distance) / 20.0);
+        comb_out_l = comb_out_l / self.combs_l.len() as f64 * distance_gain;
+        comb_out_r = comb_out_r / self.combs_r.len() as f64 * distance_gain;
 
         // Series allpass filters for diffusion
         let mut ap_out_l = comb_out_l;

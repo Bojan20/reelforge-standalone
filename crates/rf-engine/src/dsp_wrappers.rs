@@ -1513,6 +1513,14 @@ impl ReverbWrapper {
     pub fn set_type(&mut self, reverb_type: ReverbType) {
         self.reverb.set_type(reverb_type);
     }
+
+    pub fn set_diffusion(&mut self, diffusion: f64) {
+        self.reverb.set_diffusion(diffusion);
+    }
+
+    pub fn set_distance(&mut self, distance: f64) {
+        self.reverb.set_distance(distance);
+    }
 }
 
 impl InsertProcessor for ReverbWrapper {
@@ -1542,7 +1550,7 @@ impl InsertProcessor for ReverbWrapper {
     }
 
     fn num_params(&self) -> usize {
-        6
+        8
     }
 
     fn set_param(&mut self, param_index: usize, value: f64) {
@@ -1553,6 +1561,8 @@ impl InsertProcessor for ReverbWrapper {
         // 3 = Dry/Wet mix (0.0-1.0)
         // 4 = Predelay (0-200 ms)
         // 5 = Type (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring)
+        // 6 = Diffusion (0.0-1.0) — allpass feedback, echo density
+        // 7 = Distance (0.0-1.0) — early reflections attenuation
         match param_index {
             0 => self.set_room_size(value),
             1 => self.set_damping(value),
@@ -1570,6 +1580,8 @@ impl InsertProcessor for ReverbWrapper {
                 };
                 self.set_type(rt);
             }
+            6 => self.set_diffusion(value),
+            7 => self.set_distance(value),
             _ => {}
         }
     }
@@ -1587,6 +1599,8 @@ impl InsertProcessor for ReverbWrapper {
             3 => "Mix",
             4 => "Predelay",
             5 => "Type",
+            6 => "Diffusion",
+            7 => "Distance",
             _ => "Unknown",
         }
     }
