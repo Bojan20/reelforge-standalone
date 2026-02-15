@@ -625,6 +625,20 @@ class MixerProvider extends ChangeNotifier {
       }
     }
 
+    // Update bus meters (buses use engine ID from _getBusEngineId)
+    for (final bus in _buses.values) {
+      final engineId = _getBusEngineId(bus.id);
+      if (engineId < metering.buses.length) {
+        final busMeter = metering.buses[engineId];
+        _buses[bus.id] = bus.copyWith(
+          peakL: _dbToLinear(busMeter.peakL),
+          peakR: _dbToLinear(busMeter.peakR),
+          rmsL: _dbToLinear(busMeter.rmsL),
+          rmsR: _dbToLinear(busMeter.rmsR),
+        );
+      }
+    }
+
     notifyListeners();
   }
 
