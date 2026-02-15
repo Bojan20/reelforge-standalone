@@ -449,25 +449,27 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
   void _updateMeters() {
     setState(() {
-      // Get gain reduction from channel strip compressor
-      try {
-        _currentGainReduction = _ffi.channelStripGetCompGr(widget.trackId);
-      } catch (_) {
-        _currentGainReduction = 0.0;
+      // Get gain reduction from insert processor
+      if (_slotIndex >= 0) {
+        try {
+          final grL = _ffi.insertGetMeter(widget.trackId, _slotIndex, 0);
+          final grR = _ffi.insertGetMeter(widget.trackId, _slotIndex, 1);
+          _currentGainReduction = (grL + grR) / 2.0;
+        } catch (_) {
+          _currentGainReduction = 0.0;
+        }
       }
 
-      // Get input/output levels from channel strip
+      // Get input/output levels from peak meters
       try {
-        final inputLinear = _ffi.channelStripGetInputLevel(widget.trackId);
-        _currentInputLevel = inputLinear > 1e-10 ? 20.0 * math.log(inputLinear) / math.ln10 : -60.0;
+        final peaks = _ffi.getPeakMeters();
+        if (peaks.$1 > 0 || peaks.$2 > 0) {
+          final peakLinear = math.max(peaks.$1, peaks.$2);
+          _currentInputLevel = peakLinear > 1e-10 ? 20.0 * math.log(peakLinear) / math.ln10 : -60.0;
+          _currentOutputLevel = _currentInputLevel + _currentGainReduction;
+        }
       } catch (_) {
         _currentInputLevel = -60.0;
-      }
-
-      try {
-        final outputLinear = _ffi.channelStripGetOutputLevel(widget.trackId);
-        _currentOutputLevel = outputLinear > 1e-10 ? 20.0 * math.log(outputLinear) / math.ln10 : -60.0;
-      } catch (_) {
         _currentOutputLevel = -60.0;
       }
 

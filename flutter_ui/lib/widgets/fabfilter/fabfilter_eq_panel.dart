@@ -179,7 +179,8 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   ///   3: Enabled (0 or 1)
   ///   4: Shape (0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut, 5=Notch, 6=Bandpass, 7=TiltShelf, 8=Allpass, 9=Brickwall)
   ///   5-10: Dynamic EQ params (enabled, threshold, ratio, attack, release, knee)
-  static const int _paramsPerBand = 11;
+  ///   11: Placement (0=Stereo, 1=Left, 2=Right, 3=Mid, 4=Side)
+  static const int _paramsPerBand = 12;
 
   // EQ Bands
   final List<EqBand> _bands = [];
@@ -551,7 +552,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
               value: (_outputGain + 24) / 48,
               onChanged: (v) {
                 setState(() => _outputGain = v * 48 - 24);
-                _ffi.proEqSetOutputGain(widget.trackId, _outputGain);
+                if (_slotIndex >= 0) {
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, 64 * _paramsPerBand, _outputGain);
+                }
                 widget.onSettingsChanged?.call();
               },
             ),
@@ -982,7 +985,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     _setBandParam(band.index, 7, band.dynamicRatio);      // Ratio
     _setBandParam(band.index, 8, band.dynamicAttack);     // Attack
     _setBandParam(band.index, 9, band.dynamicRelease);    // Release
-    // Note: Placement and Slope not exposed via InsertProcessor API
+
+    // Stereo placement
+    _setBandParam(band.index, 11, _placementToValue(band.placement));
 
     widget.onSettingsChanged?.call();
   }
@@ -1135,6 +1140,16 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       EqPlacement.right => ProEqPlacement.right,
       EqPlacement.mid => ProEqPlacement.mid,
       EqPlacement.side => ProEqPlacement.side,
+    };
+  }
+
+  double _placementToValue(EqPlacement placement) {
+    return switch (placement) {
+      EqPlacement.stereo => 0.0,
+      EqPlacement.left => 1.0,
+      EqPlacement.right => 2.0,
+      EqPlacement.mid => 3.0,
+      EqPlacement.side => 4.0,
     };
   }
 

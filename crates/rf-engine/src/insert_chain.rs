@@ -349,6 +349,15 @@ impl InsertSlot {
         self.metering.reset();
     }
 
+    /// Get processor-specific meter value (e.g. gain reduction from compressor)
+    pub fn get_processor_meter(&self, index: usize) -> f64 {
+        if let Some(ref processor) = self.processor {
+            processor.get_meter(index)
+        } else {
+            0.0
+        }
+    }
+
     /// Reset processor state
     pub fn reset(&mut self) {
         if let Some(ref mut processor) = self.processor {
@@ -457,6 +466,13 @@ pub trait InsertProcessor: Send + Sync {
     /// Get parameter name
     fn param_name(&self, _index: usize) -> &str {
         ""
+    }
+
+    /// Get metering value by index
+    /// 0 = gain reduction L (dB), 1 = gain reduction R (dB)
+    /// Default returns 0.0 (no metering)
+    fn get_meter(&self, _index: usize) -> f64 {
+        0.0
     }
 }
 
@@ -630,6 +646,14 @@ impl InsertChain {
     pub fn get_slot_param(&self, slot_index: usize, param_index: usize) -> f64 {
         self.slot(slot_index)
             .map(|s| s.get_processor_param(param_index))
+            .unwrap_or(0.0)
+    }
+
+    /// Get meter value from processor in specific slot
+    /// meter_index: 0=GR left, 1=GR right (for dynamics processors)
+    pub fn get_slot_meter(&self, slot_index: usize, meter_index: usize) -> f64 {
+        self.slot(slot_index)
+            .map(|s| s.get_processor_meter(meter_index))
             .unwrap_or(0.0)
     }
 }

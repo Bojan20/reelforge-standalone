@@ -236,12 +236,13 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
 
   void _updateMeters() {
     setState(() {
-      // Get gain reduction from channel strip limiter (track 0 = master)
-      // This returns GR in dB (negative values when limiting)
-      try {
-        _currentGainReduction = _ffi.channelStripGetLimiterGr(widget.trackId);
-      } catch (_) {
-        _currentGainReduction = 0.0;
+      // Get gain reduction from insert processor
+      if (_slotIndex >= 0) {
+        try {
+          _currentGainReduction = _ffi.insertGetMeter(widget.trackId, _slotIndex, 0);
+        } catch (_) {
+          _currentGainReduction = 0.0;
+        }
       }
 
       // Get true peak from advanced meters (8x oversampled)

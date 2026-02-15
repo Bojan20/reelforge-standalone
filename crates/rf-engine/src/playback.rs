@@ -2175,6 +2175,13 @@ impl PlaybackEngine {
             .get_slot_param(slot_index, param_index)
     }
 
+    /// Get meter value from master insert processor (GR, levels)
+    pub fn get_master_insert_meter(&self, slot_index: usize, meter_index: usize) -> f64 {
+        self.master_insert
+            .read()
+            .get_slot_meter(slot_index, meter_index)
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // BUS INSERT CHAINS (Music, Sfx, Voice, Ambience, Aux)
     // ═══════════════════════════════════════════════════════════════════════
@@ -2702,6 +2709,20 @@ impl PlaybackEngine {
             .read()
             .get(&track_id)
             .map(|chain| chain.get_slot_param(slot_index, param_index))
+            .unwrap_or(0.0)
+    }
+
+    /// Get meter value from track insert processor (GR, levels)
+    pub fn get_track_insert_meter(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        meter_index: usize,
+    ) -> f64 {
+        self.insert_chains
+            .read()
+            .get(&track_id)
+            .map(|chain| chain.get_slot_meter(slot_index, meter_index))
             .unwrap_or(0.0)
     }
 

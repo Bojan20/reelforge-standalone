@@ -1013,6 +1013,9 @@ typedef InsertSetParamDart = int Function(int trackId, int slotIndex, int paramI
 typedef InsertGetParamNative = Double Function(Uint32 trackId, Uint32 slotIndex, Uint32 paramIndex);
 typedef InsertGetParamDart = double Function(int trackId, int slotIndex, int paramIndex);
 
+typedef InsertGetMeterNative = Double Function(Uint32 trackId, Uint32 slotIndex, Uint32 meterIndex);
+typedef InsertGetMeterDart = double Function(int trackId, int slotIndex, int meterIndex);
+
 typedef InsertIsLoadedNative = Int32 Function(Uint32 trackId, Uint32 slotIndex);
 typedef InsertIsLoadedDart = int Function(int trackId, int slotIndex);
 
@@ -2412,6 +2415,7 @@ class NativeFFI {
   late final InsertUnloadSlotDart _insertUnloadSlot;
   late final InsertSetParamDart _insertSetParam;
   late final InsertGetParamDart _insertGetParam;
+  late final InsertGetMeterDart _insertGetMeter;
   late final InsertIsLoadedDart _insertIsLoaded;
   late final InsertGetMeteringJsonDart _insertGetMeteringJson; // P10.0.1
   late final InsertOpenEditorDart _insertOpenEditor;
@@ -3084,6 +3088,7 @@ class NativeFFI {
     _insertUnloadSlot = _lib.lookupFunction<InsertUnloadSlotNative, InsertUnloadSlotDart>('insert_unload_slot');
     _insertSetParam = _lib.lookupFunction<InsertSetParamNative, InsertSetParamDart>('insert_set_param');
     _insertGetParam = _lib.lookupFunction<InsertGetParamNative, InsertGetParamDart>('insert_get_param');
+    _insertGetMeter = _lib.lookupFunction<InsertGetMeterNative, InsertGetMeterDart>('insert_get_meter');
     _insertIsLoaded = _lib.lookupFunction<InsertIsLoadedNative, InsertIsLoadedDart>('insert_is_loaded');
     _insertGetMeteringJson = _lib.lookupFunction<InsertGetMeteringJsonNative, InsertGetMeteringJsonDart>('insert_get_metering_json'); // P10.0.1
     _insertOpenEditor = _lib.lookupFunction<InsertOpenEditorNative, InsertOpenEditorDart>('insert_open_editor');
@@ -5916,6 +5921,13 @@ class NativeFFI {
   double insertGetParam(int trackId, int slotIndex, int paramIndex) {
     if (!_loaded) return 0.0;
     return _insertGetParam(trackId, slotIndex, paramIndex);
+  }
+
+  /// Get meter value from insert slot processor (gain reduction, levels)
+  /// meterIndex: 0=GR left, 1=GR right
+  double insertGetMeter(int trackId, int slotIndex, int meterIndex) {
+    if (!_loaded) return 0.0;
+    return _insertGetMeter(trackId, slotIndex, meterIndex);
   }
 
   /// Check if insert slot has a processor loaded

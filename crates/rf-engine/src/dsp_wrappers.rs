@@ -140,13 +140,13 @@ impl InsertProcessor for ProEqWrapper {
     }
 
     fn num_params(&self) -> usize {
-        // 11 params per band: freq, gain, q, enabled, shape, dynEnabled, dynThreshold, dynRatio, dynAttack, dynRelease, dynKnee
+        // 12 params per band: freq, gain, q, enabled, shape, dynEnabled, dynThreshold, dynRatio, dynAttack, dynRelease, dynKnee, placement
         // + 3 global params
-        rf_dsp::PRO_EQ_MAX_BANDS * 11 + 3
+        rf_dsp::PRO_EQ_MAX_BANDS * 12 + 3
     }
 
     fn get_param(&self, index: usize) -> f64 {
-        let per_band = 11;
+        let per_band = 12;
         let max_bands = rf_dsp::PRO_EQ_MAX_BANDS;
 
         if index < max_bands * per_band {
@@ -178,6 +178,13 @@ impl InsertProcessor for ProEqWrapper {
                     8 => band.dynamic.attack_ms,
                     9 => band.dynamic.release_ms,
                     10 => band.dynamic.knee_db,
+                    11 => match band.placement {
+                        rf_dsp::StereoPlacement::Stereo => 0.0,
+                        rf_dsp::StereoPlacement::Left => 1.0,
+                        rf_dsp::StereoPlacement::Right => 2.0,
+                        rf_dsp::StereoPlacement::Mid => 3.0,
+                        rf_dsp::StereoPlacement::Side => 4.0,
+                    },
                     _ => 0.0,
                 }
             } else {
@@ -189,7 +196,7 @@ impl InsertProcessor for ProEqWrapper {
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
-        let per_band = 11;
+        let per_band = 12;
         let max_bands = rf_dsp::PRO_EQ_MAX_BANDS;
 
         if index < max_bands * per_band {
@@ -225,7 +232,7 @@ impl InsertProcessor for ProEqWrapper {
                     _ => {}
                 }
             } else {
-                // Dynamic EQ params - can use mutable borrow
+                // Dynamic EQ params + placement - can use mutable borrow
                 if let Some(band) = self.eq.band_mut(band_idx) {
                     match param_idx {
                         5 => band.dynamic.enabled = value > 0.5,
@@ -234,15 +241,40 @@ impl InsertProcessor for ProEqWrapper {
                         8 => band.dynamic.attack_ms = value.clamp(0.1, 500.0),
                         9 => band.dynamic.release_ms = value.clamp(1.0, 5000.0),
                         10 => band.dynamic.knee_db = value.clamp(0.0, 24.0),
+                        11 => {
+                            // Stereo placement: 0=Stereo, 1=Left, 2=Right, 3=Mid, 4=Side
+                            band.placement = match value as u32 {
+                                1 => rf_dsp::StereoPlacement::Left,
+                                2 => rf_dsp::StereoPlacement::Right,
+                                3 => rf_dsp::StereoPlacement::Mid,
+                                4 => rf_dsp::StereoPlacement::Side,
+                                _ => rf_dsp::StereoPlacement::Stereo,
+                            };
+                        }
                         _ => {}
                     }
                 }
+            }
+        } else {
+            // Global params start at max_bands * per_band
+            let global_idx = index - max_bands * per_band;
+            match global_idx {
+                0 => self.eq.output_gain_db = value.clamp(-24.0, 24.0),
+                _ => {}
             }
         }
     }
 
     fn param_name(&self, index: usize) -> &str {
-        let per_band = 11;
+        let per_band = 12;
+        let max_bands = rf_dsp::PRO_EQ_MAX_BANDS;
+        if index >= max_bands * per_band {
+            let global_idx = index - max_bands * per_band;
+            return match global_idx {
+                0 => "Output Gain",
+                _ => "",
+            };
+        }
         let param_idx = index % per_band;
         match param_idx {
             0 => "Frequency",
@@ -256,6 +288,7 @@ impl InsertProcessor for ProEqWrapper {
             8 => "Dynamic Attack",
             9 => "Dynamic Release",
             10 => "Dynamic Knee",
+            11 => "Placement",
             _ => "",
         }
     }
@@ -918,6 +951,15 @@ impl InsertProcessor for CompressorWrapper {
             _ => "",
         }
     }
+
+    fn get_meter(&self, index: usize) -> f64 {
+        let (gr_l, gr_r) = self.comp.gain_reduction_db();
+        match index {
+            0 => gr_l,
+            1 => gr_r,
+            _ => 0.0,
+        }
+    }
 }
 
 /// True Peak Limiter wrapper
@@ -1014,6 +1056,13 @@ impl InsertProcessor for TruePeakLimiterWrapper {
             2 => "Release",
             3 => "Oversampling",
             _ => "",
+        }
+    }
+
+    fn get_meter(&self, index: usize) -> f64 {
+        match index {
+            0 | 1 => self.limiter.gain_reduction_db(),
+            _ => 0.0,
         }
     }
 }

@@ -6098,6 +6098,26 @@ pub extern "C" fn insert_get_param(track_id: u32, slot_index: u32, param_index: 
     })
 }
 
+/// Get meter value from insert processor (gain reduction, etc.)
+/// track_id=0 means master bus, others are audio track IDs
+/// meter_index: 0=GR left, 1=GR right
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_get_meter(track_id: u32, slot_index: u32, meter_index: u32) -> f64 {
+    ffi_panic_guard!(0.0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0.0,
+        };
+        let meter_index = meter_index as usize;
+
+        if track_id == 0 {
+            PLAYBACK_ENGINE.get_master_insert_meter(slot_index, meter_index)
+        } else {
+            PLAYBACK_ENGINE.get_track_insert_meter(track_id as u64, slot_index, meter_index)
+        }
+    })
+}
+
 /// Set bypass on any insert slot
 /// track_id=0 means master bus, others are audio track IDs
 #[unsafe(no_mangle)]
