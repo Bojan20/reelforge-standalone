@@ -72,6 +72,8 @@ class EventsPanelWidget extends StatefulWidget {
   final Function(String audioPath)? onAudioClicked;
   /// External control for showing/hiding audio browser section
   final bool showAudioBrowser;
+  /// Callback for inline toast messages (replaces SnackBar)
+  final void Function(String message, {bool isWarning})? onToast;
 
   const EventsPanelWidget({
     super.key,
@@ -81,6 +83,7 @@ class EventsPanelWidget extends StatefulWidget {
     this.onSelectionChanged,
     this.onAudioClicked,
     this.showAudioBrowser = true,
+    this.onToast,
   });
 
   @override
@@ -258,12 +261,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           ),
           onTap: () {
             // TODO: Export single event to JSON
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Export "${event.name}" to JSON'),
-                backgroundColor: FluxForgeTheme.accentOrange,
-              ),
-            );
+            widget.onToast?.call('Export "${event.name}" to JSON', isWarning: false);
           },
         ),
         const PopupMenuDivider(),
@@ -444,13 +442,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         setState(() => _isPoolMode = true);
 
         // Show confirmation
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Imported $importedCount audio file${importedCount > 1 ? 's' : ''}'),
-            backgroundColor: FluxForgeTheme.accentGreen,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        widget.onToast?.call('Imported $importedCount audio file${importedCount > 1 ? 's' : ''}', isWarning: false);
       }
     }
   }
@@ -481,15 +473,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             .compareTo(b.path.split('/').last.toLowerCase()));
 
       if (audioFiles.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No audio files found in folder'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+        widget.onToast?.call('No audio files found in folder', isWarning: true);
         return;
       }
 
@@ -509,13 +493,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         setState(() => _isPoolMode = true);
 
         // Show confirmation
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Imported $importedCount audio file${importedCount > 1 ? 's' : ''} from "$folderName"'),
-            backgroundColor: FluxForgeTheme.accentGreen,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        widget.onToast?.call('Imported $importedCount audio file${importedCount > 1 ? 's' : ''} from "$folderName"', isWarning: false);
       }
     }
   }

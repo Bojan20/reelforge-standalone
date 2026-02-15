@@ -63,6 +63,7 @@ import '../models/stage_models.dart';
 import '../models/middleware_models.dart';
 import '../models/slot_audio_events.dart';
 import '../theme/fluxforge_theme.dart';
+import '../widgets/common/inline_toast.dart';
 import '../widgets/slot_lab/rtpc_editor_panel.dart';
 import '../widgets/slot_lab/bus_hierarchy_panel.dart';
 import '../widgets/slot_lab/profiler_panel.dart';
@@ -311,7 +312,7 @@ class SlotLabScreen extends StatefulWidget {
 }
 
 class _SlotLabScreenState extends State<SlotLabScreen>
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin {
 
   @override
   bool get wantKeepAlive => true;
@@ -2098,7 +2099,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       });
 
       // ⚡ INSTANT: Show feedback immediately
-      _showImportSnackBar(newEntries.length);
+      _showImportToast(newEntries.length);
 
       // 🔄 BACKGROUND: Persist state without blocking UI
       Future.microtask(() => _persistState());
@@ -2162,7 +2163,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       });
 
       // ⚡ INSTANT: Show feedback immediately
-      _showImportSnackBar(newEntries.length);
+      _showImportToast(newEntries.length);
 
       // 🔄 BACKGROUND: Persist state without blocking UI
       Future.microtask(() => _persistState());
@@ -2197,18 +2198,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     };
   }
 
-  /// Show snackbar for import feedback
-  void _showImportSnackBar(int count) {
+  /// Show inline toast for import feedback
+  void _showImportToast(int count) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Added $count file${count > 1 ? 's' : ''} to Pool'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: const Color(0xFF40FF90),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+    showToast('Added $count file${count > 1 ? 's' : ''} to Pool');
   }
 
   /// Load metadata in background (duration, sampleRate, channels)
@@ -2331,6 +2324,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _dragCurrentOffsetNotifier.dispose();  // Dispose drag notifier
     _draggingLayerIdNotifier.dispose();    // Dispose drag ID notifier
     _disposeLayerPlayers(); // Dispose audio players
+    disposeToast(); // InlineToastMixin cleanup
     // Only remove listener if it was added (after restore)
     if (_lowerZoneRestoreComplete) {
       _lowerZoneController.removeListener(_onLowerZoneChanged);
@@ -2582,29 +2576,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               _ensureCompositeEventForStage(stage, audioPath);
 
 
-                              // SL-INT-P1.1: Show SnackBar confirmation
+                              // SL-INT-P1.1: Show inline toast confirmation
                               if (mounted) {
                                 final fileName = audioPath.split('/').last;
-                                ScaffoldMessenger.of(this.context).showSnackBar(
-                                  SnackBar(
-                                    content: Row(
-                                      children: [
-                                        const Icon(Icons.audiotrack, color: Color(0xFF40FF90), size: 16),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Assigned "$fileName" → ${stage.replaceAll("_", " ")}',
-                                            style: const TextStyle(fontSize: 11),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    backgroundColor: FluxForgeTheme.bgMid,
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: const Duration(milliseconds: 1500),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
-                                );
+                                showToast('Assigned "$fileName" → ${stage.replaceAll("_", " ")}', icon: Icons.audiotrack);
                               }
                             },
                             onAudioClear: (stage) {
@@ -2640,41 +2615,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                             onUndo: () {
                               final success = projectProvider.undoAudioAssignment();
                               if (success && mounted) {
-                                ScaffoldMessenger.of(this.context).showSnackBar(
-                                  SnackBar(
-                                    content: const Row(
-                                      children: [
-                                        Icon(Icons.undo, color: Color(0xFF40C8FF), size: 16),
-                                        SizedBox(width: 8),
-                                        Text('Undo successful', style: TextStyle(fontSize: 11)),
-                                      ],
-                                    ),
-                                    backgroundColor: FluxForgeTheme.bgMid,
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: const Duration(milliseconds: 1200),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
-                                );
+                                showToast('Undo successful', type: ToastType.info, icon: Icons.undo);
                               }
                             },
                             onRedo: () {
                               final success = projectProvider.redoAudioAssignment();
                               if (success && mounted) {
-                                ScaffoldMessenger.of(this.context).showSnackBar(
-                                  SnackBar(
-                                    content: const Row(
-                                      children: [
-                                        Icon(Icons.redo, color: Color(0xFF40C8FF), size: 16),
-                                        SizedBox(width: 8),
-                                        Text('Redo successful', style: TextStyle(fontSize: 11)),
-                                      ],
-                                    ),
-                                    backgroundColor: FluxForgeTheme.bgMid,
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: const Duration(milliseconds: 1200),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
-                                );
+                                showToast('Redo successful', type: ToastType.info, icon: Icons.redo);
                               }
                             },
                             onBulkAssign: (baseStage, audioPath) {
@@ -2707,26 +2654,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                     targetBusId: busId,
                                   ));
                                 }
-                                ScaffoldMessenger.of(this.context).showSnackBar(
-                                  SnackBar(
-                                    content: Row(
-                                      children: [
-                                        const Icon(Icons.copy_all, color: Color(0xFF40FF90), size: 16),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Bulk assigned to ${expandedStages.length} stages: ${expandedStages.join(", ")}',
-                                            style: const TextStyle(fontSize: 11),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    backgroundColor: FluxForgeTheme.bgMid,
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: const Duration(milliseconds: 2500),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
-                                );
+                                showToast('Bulk assigned to ${expandedStages.length} stages', icon: Icons.copy_all);
                               }
                             },
                           ),
@@ -2769,6 +2697,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               },
                               // Connect header toggle to audio browser visibility
                               showAudioBrowser: _showAudioBrowser,
+                              onToast: (message, {isWarning = false}) {
+                                showToast(message, type: isWarning ? ToastType.warning : ToastType.success);
+                              },
                             ),
                           ),
                       ],
@@ -3341,6 +3272,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
           const Spacer(),
 
+          // Inline toast — compact, non-intrusive feedback
+          buildToastWidget(),
+
           // Status indicators - wrapped to prevent overflow
           Flexible(
             child: Row(
@@ -3551,13 +3485,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Show success
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Applied template "${template.name}" — ${template.symbols.length} symbols, ${template.coreStages.length} stages'),
-          backgroundColor: const Color(0xFF40FF90),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      showToast('Applied template "${template.name}" — ${template.symbols.length} symbols, ${template.coreStages.length} stages');
     }
   }
 
@@ -3820,15 +3748,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Show success message
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Slot machine built: ${result.reelCount}×${result.rowCount} grid with ${result.symbolCount} symbols',
-          ),
-          backgroundColor: const Color(0xFF40FF90),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      showToast('Slot machine built: ${result.reelCount}×${result.rowCount} grid with ${result.symbolCount} symbols');
     }
   }
 
@@ -3938,13 +3858,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (result == null) {
       // User canceled or error
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('GDD import canceled'),
-            backgroundColor: Color(0xFF666666),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        showToast('GDD import canceled', type: ToastType.info);
       }
       return;
     }
@@ -3986,16 +3900,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
         // Show success message with grid info
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Applied GDD "${result.gdd.name}" — '
-                'Grid: ${result.gdd.grid.columns}×${result.gdd.grid.rows}, '
-                '${result.generatedStages.length} stages',
-              ),
-              backgroundColor: const Color(0xFF40FF90),
-              duration: const Duration(seconds: 4),
-            ),
+          showToast(
+            'Applied GDD "${result.gdd.name}" — Grid: ${result.gdd.grid.columns}×${result.gdd.grid.rows}, ${result.generatedStages.length} stages',
+            durationMs: 3000,
           );
         }
       }
@@ -5962,12 +5869,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 // Check for duplicate ID
                 final provider = Provider.of<SlotLabProjectProvider>(this.context, listen: false);
                 if (provider.getSymbolById(id) != null) {
-                  ScaffoldMessenger.of(this.context).showSnackBar(
-                    SnackBar(
-                      content: Text('Symbol with ID "$id" already exists'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
+                  showToast('Symbol with ID "$id" already exists', type: ToastType.warning);
                   return;
                 }
                 final symbol = SymbolDefinition(
@@ -5983,13 +5885,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 Navigator.pop(ctx);
 
                 // Show confirmation
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(
-                    content: Text('Added symbol: ${symbol.emoji} ${symbol.name}'),
-                    backgroundColor: const Color(0xFF40FF90),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
+                showToast('Added symbol: ${symbol.emoji} ${symbol.name}');
               },
               child: const Text('Add Symbol', style: TextStyle(color: Color(0xFF4A9EFF))),
             ),
@@ -9859,27 +9755,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Show confirmation
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: FluxForgeTheme.accentGreen, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  existingEvent != null
-                      ? 'Added "${audio.name}" to ${_formatEventName(normalizedStage)}'
-                      : 'Created event for $normalizedStage with "${audio.name}"',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: FluxForgeTheme.bgMid,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+      showToast(
+        existingEvent != null
+            ? 'Added "${audio.name}" to ${_formatEventName(normalizedStage)}'
+            : 'Created event for $normalizedStage with "${audio.name}"',
+        icon: Icons.check_circle,
       );
     }
   }
@@ -10918,12 +10798,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return GddImportPanel(
       onModelImported: (model) {
         // Model is already imported via FFI in the panel
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('GDD imported: ${model['info']?['name'] ?? 'Unknown'}'),
-            backgroundColor: Colors.green.shade700,
-          ),
-        );
+        showToast('GDD imported: ${model['info']?['name'] ?? 'Unknown'}');
       },
       onClose: () => _lowerZoneController.setSuperTab(SlotLabSuperTab.stages),
     );
