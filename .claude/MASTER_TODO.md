@@ -620,6 +620,280 @@ Svaki model sadrži:
 
 ---
 
+## ⬜ PENDING — FF Delay 2026 Timeless 3 Class — Dual-Line Tempo-Synced Delay Platform
+
+**Task Doc:** `.claude/tasks/FF_DELAY_2026_UPGRADE.md` (TBD)
+**Spec:** `.claude/specs/FF_DELAY_SPEC.md` (TBD)
+**Status:** ARCHITECTURE DEFINED — Implementation PENDING
+**Scope:** Dual A/B delay lines + routing matrix + per-line filter rack + modulation engine + ducking + drive + reverse + tempo sync — Timeless 3 klasa
+
+### Existing Infrastructure (~2,773 LOC reusable)
+
+| Component | File | LOC | Reuse |
+|-----------|------|-----|-------|
+| SimpleDelay | `rf-dsp/src/delay.rs` | 90 | ✅ Core circular buffer — upgrade to cubic interpolation |
+| PingPongDelay | `rf-dsp/src/delay.rs` | 110 | ✅ L/R crossfeed foundation — extend to full routing matrix |
+| MultiTapDelay | `rf-dsp/src/delay.rs` | 117 | ✅ Per-tap pan/level — integrate into A/B line taps |
+| ModulatedDelay | `rf-dsp/src/delay.rs` | 153 | ✅ LFO + fractional delay — upgrade to XLFO + cubic interp |
+| DelayCompensation | `rf-dsp/src/delay_compensation.rs` | 476 | ✅ PDC (65K samples) — reuse for lookahead + latency reporting |
+| Reverb ER Taps | `rf-dsp/src/reverb.rs` | ~200 | ✅ Allpass diffusers, multitap patterns — reuse for diffusion |
+| FDN Delay Lines | `rf-dsp/src/reverb.rs` | ~300 | ✅ Feedback delay network — foundation for cross-feedback |
+| Oversampling | `rf-dsp/src/oversampling.rs` | 632 | ✅ Polyphase FIR 2x–16x — wrap A/B processing in HQ mode |
+| Saturation | `rf-dsp/src/saturation.rs` | 727 | ✅ 6 types (tube, tape, warm, etc.) — use in drive stage |
+| Param Smoothing | `rf-dsp/src/smoothing.rs` | ~100 | ✅ Anti-zipper — use for all real-time params |
+
+**Total reusable:** ~2,773 LOC (foundation, not copy — extend & wrap)
+
+### Signal Flow
+
+```
+Input (L/R)
+  → Input Level + Pan
+  → Routing Matrix (selects how A/B are fed):
+  │   ├── Parallel:     L→A, R→B (independent)
+  │   ├── Serial:       Input→A→B→Output
+  │   ├── Ping-Pong:    A↔B alternating with crossfeed
+  │   └── Cross-Feed:   A→B feedback, B→A feedback (matrix coefficients)
+  │
+  ├── Delay Line A:
+  │   → Tempo Sync / Free Time (1ms–4000ms or 1/64–4 bars)
+  │   → Delay Buffer (cubic Hermite interpolation, up to 4s @ 192kHz)
+  │   → Filter Rack (6 slots: LP, HP, BP, Notch, Comb, Allpass — series/parallel)
+  │   → Drive / Saturation (in feedback loop — 6+ models from rf-dsp)
+  │   → Diffusion (allpass network — smear control)
+  │   → Feedback (0–110% with soft limiter for safety)
+  │   → Ducking (envelope follower on dry → sidechain compress wet)
+  │   → Modulation (LFO/XLFO → time, filter freq, feedback, pan, level)
+  │   → Pan + Level
+  │
+  ├── Delay Line B:
+  │   → (identical processing chain to A)
+  │
+  → Cross-Feedback Matrix:
+  │   A_out * fb_A→B → B_input
+  │   B_out * fb_B→A → A_input
+  │
+  → Oversampling Downsample (HQ mode: 2x/4x)
+  → Freeze Mode (infinite feedback, input muted)
+  → Global Mix (dry/wet)
+  → Output Level
+```
+
+### Build Phases
+
+| Faza | Opis | Status |
+|------|------|--------|
+| F1 | Delay Buffer — Cubic Hermite interpolation, up to 4s @ 192kHz, modulation input | ⬜ |
+| F2 | Tempo Sync Engine — BPM lock, note values (1/64–4 bars), dotted/triplet, free ms | ⬜ |
+| F3 | Dual A/B Lines — Independent delay time, feedback, level, pan per line | ⬜ |
+| F4 | Routing Matrix — Parallel, Serial, Ping-Pong, Cross-Feedback modes + matrix coefficients | ⬜ |
+| F5 | Per-Line Filter Rack — 6 slots (LP/HP/BP/Notch/Comb/Allpass), series or parallel, resonance | ⬜ |
+| F6 | Drive in Feedback Loop — Saturation stage using rf-dsp models, pre/post filter, gain compensation | ⬜ |
+| F7 | Diffusion — Allpass diffuser network per line, smear control (0–100%) | ⬜ |
+| F8 | Ducking — Envelope follower on dry signal → sidechain compressor on wet signal | ⬜ |
+| F9 | Modulation Engine — XLFO (LFO + step sequencer), Envelope Follower, ADSR, MIDI sources | ⬜ |
+| F10 | Modulation Router — Source → Target mapping, bipolar/unipolar, smoothing, depth per slot | ⬜ |
+| F11 | Reverse Mode — Reverse buffer playback per line, crossfade at boundaries | ⬜ |
+| F12 | Freeze Mode — Infinite feedback, input muted, decay control | ⬜ |
+| F13 | Oversampling Wrapper — HQ mode (2x/4x) wrapping entire A/B processing | ⬜ |
+| F14 | Stereo Engine — M/S processing, stereo offset, width control, Haas effect | ⬜ |
+| F15 | DelayWrapper — InsertProcessor trait, all params + meters, FFI registration | ⬜ |
+| F16 | Tests — Delay accuracy, feedback stability, tempo sync, modulation, reverse, freeze | ⬜ |
+| F17 | UI Panel — `fabfilter_delay_panel.dart` — Timeless 3 visual style, tap tempo, mod matrix | ⬜ |
+
+### Core Architecture
+
+**1. Dual Delay Lines (A/B)**
+
+Dve potpuno nezavisne delay linije, svaka sa sopstvenim:
+- Delay time (free ms ili tempo-synced note value)
+- Feedback amount (0–110%, soft-limited)
+- Filter rack (6 slots per line)
+- Drive/saturation stage
+- Diffusion network
+- Ducking amount
+- Pan position
+- Output level
+
+**2. Routing Matrix**
+
+4 preset moda + potpuna custom matrica:
+
+| Mode | Opis | Use Case |
+|------|------|----------|
+| **Parallel** | L→A, R→B, nezavisni | Stereo delay, dual mono |
+| **Serial** | Input→A→B→Output | Degrading repeats, dub delay |
+| **Ping-Pong** | A↔B alternating | Classic ping-pong |
+| **Cross-Feedback** | Custom A→B, B→A coefficients | Complex rhythmic patterns |
+
+Custom matrica: 4 koeficijenta (A→A, A→B, B→A, B→B) za potpunu kontrolu.
+
+**3. Tempo Sync Engine**
+
+| Note Value | Multiplier | Dotted (×1.5) | Triplet (×2/3) |
+|------------|------------|----------------|-----------------|
+| 1/64 | 1/64 bar | ✓ | ✓ |
+| 1/32 | 1/32 bar | ✓ | ✓ |
+| 1/16 | 1/16 bar | ✓ | ✓ |
+| 1/8 | 1/8 bar | ✓ | ✓ |
+| 1/4 | 1/4 bar | ✓ | ✓ |
+| 1/2 | 1/2 bar | ✓ | ✓ |
+| 1 bar | 1 bar | ✓ | ✓ |
+| 2 bars | 2 bars | — | — |
+| 4 bars | 4 bars | — | — |
+
+Formula: `delay_samples = (60.0 / bpm) * note_multiplier * sample_rate`
+Free mode: 1ms–4000ms sa cubic interpolation za smooth time changes.
+
+**4. Per-Line Filter Rack (6 Slots)**
+
+Svaka linija ima 6 filter slotova u feedback loop:
+
+| Filter Type | Parameters | Use Case |
+|-------------|-----------|----------|
+| Low Pass | Cutoff, Resonance | Warming repeats, tape emulation |
+| High Pass | Cutoff, Resonance | Thinning repeats, telephone effect |
+| Band Pass | Center, Width | Focused frequency band |
+| Notch | Frequency, Width | Remove specific frequencies |
+| Comb | Delay, Feedback | Metallic/flanging character |
+| Allpass | Frequency, Q | Phase manipulation, diffusion |
+
+Routing: Series (each filter feeds next) ili Parallel (all filters mixed).
+
+**5. Drive / Saturation in Feedback**
+
+Saturation stage UNUTAR feedback loop — svaki repeat prolazi kroz drive:
+- Koristi postojeće rf-dsp saturation modele (tube, tape, warm, etc.)
+- Gain compensation pre/post za konzistentan level
+- Drive amount kontrola (0–48 dB)
+- Model selection (6+ tipova)
+- Rezultat: Repeats postepeno postaju grittier (kao analogni delay)
+
+**6. Ducking System**
+
+Envelope follower na DRY signalu → sidechain kompresija WET signala:
+- Kada je dry signal prisutan (sviranje), wet signal se utišava
+- Kada dry signal prestane (pauza), wet signal se vraća na full level
+- Attack/Release kontrole za envelope follower
+- Amount kontrola (0–100%)
+- Rezultat: Delay ne maskira direktan zvuk, čuje se samo u pauzama
+
+**7. Reverse Mode**
+
+Per-line reverse playback:
+- Buffer se puni normalno, čita unazad
+- Crossfade na granicama segmenta (sprečava klikove)
+- Crossfade length konfigurabilan (1–50ms)
+- Kombinacija sa feedback → reverse echoes sa degradacijom
+
+**8. Modulation Engine**
+
+4 izvora modulacije:
+
+| Source | Opis | Targets |
+|--------|------|---------|
+| **XLFO** | LFO + 16-step sequencer hybrid, 10+ wave shapes | Delay time, filter freq, feedback, pan, level |
+| **Envelope Follower** | Audio-driven, attack/release, sidechain input | Filter freq, drive, feedback, level |
+| **ADSR** | MIDI-triggered envelope | Any parameter |
+| **MIDI** | Note, velocity, CC mapping | Any parameter |
+
+XLFO wave shapes: Sine, Triangle, Saw Up, Saw Down, Square, S&H, Random, Ramp, Steps (16), Custom.
+
+**Modulation Router:**
+- Svaki parametar može primiti više mod izvora
+- Per-mapping: depth, offset, bipolar/unipolar
+- Block-smoothed za CPU efikasnost
+- Anti-zipper obavezan na svim moduliranim parametrima
+
+### DelayWrapper Parameters
+
+**Per-Line Parameters (×2 za A i B):**
+
+| Idx | Param | Range | Default | Opis |
+|-----|-------|-------|---------|------|
+| 0/20 | Time (ms) | 1..4000 | 375 | Delay time (free mode) |
+| 1/21 | Sync | 0/1 | 1 | Tempo sync on/off |
+| 2/22 | Note Value | 0..8 | 4 (1/4) | Tempo sync note |
+| 3/23 | Note Modifier | 0/1/2 | 0 | Straight/Dotted/Triplet |
+| 4/24 | Feedback (%) | 0..110 | 35 | Feedback amount |
+| 5/25 | Filter LP (Hz) | 200..20000 | 8000 | Filter rack LP cutoff |
+| 6/26 | Filter HP (Hz) | 20..5000 | 60 | Filter rack HP cutoff |
+| 7/27 | Filter Resonance | 0..100 | 0 | Filter resonance |
+| 8/28 | Drive (dB) | 0..48 | 0 | Saturation amount |
+| 9/29 | Drive Model | 0..5 | 0 | Saturation type |
+| 10/30 | Diffusion (%) | 0..100 | 0 | Allpass smear |
+| 11/31 | Ducking (%) | 0..100 | 0 | Dry→wet duck amount |
+| 12/32 | Duck Attack (ms) | 0.1..100 | 5 | Ducking attack |
+| 13/33 | Duck Release (ms) | 10..2000 | 200 | Ducking release |
+| 14/34 | Pan | -1..+1 | 0.0 (A:-0.5, B:+0.5) | Line pan position |
+| 15/35 | Level (dB) | -inf..+6 | 0 | Line output level |
+| 16/36 | Reverse | 0/1 | 0 | Reverse mode |
+| 17/37 | Mod Depth | 0..100 | 0 | LFO→time depth |
+| 18/38 | Mod Rate (Hz) | 0.01..20 | 1.0 | LFO rate |
+| 19/39 | Mute | 0/1 | 0 | Line mute |
+
+**Global Parameters:**
+
+| Idx | Param | Range | Default | Opis |
+|-----|-------|-------|---------|------|
+| 40 | Routing Mode | 0..3 | 0 | Parallel/Serial/PingPong/CrossFB |
+| 41 | Cross FB A→B | 0..100 | 0 | Cross-feedback amount |
+| 42 | Cross FB B→A | 0..100 | 0 | Cross-feedback amount |
+| 43 | BPM | 20..300 | 120 | Tempo (from host or manual) |
+| 44 | Freeze | 0/1 | 0 | Freeze mode |
+| 45 | HQ Mode | 0/1 | 0 | Oversampling (2x) |
+| 46 | Stereo Width | 0..200 | 100 | Stereo spread |
+| 47 | Stereo Offset (ms) | -50..+50 | 0 | L/R time offset (Haas) |
+| 48 | M/S Mode | 0/1 | 0 | Mid/Side processing |
+| 49 | Global Mix (%) | 0..100 | 50 | Dry/Wet |
+| 50 | Output (dB) | -24..+12 | 0 | Global output level |
+| 51 | Input (dB) | -24..+12 | 0 | Global input level |
+
+**Total: 52 params**
+
+### Meters
+
+| Idx | Meter | Opis |
+|-----|-------|------|
+| 0 | Input Peak L | Pre-processing peak (dBFS) |
+| 1 | Input Peak R | Pre-processing peak (dBFS) |
+| 2 | Line A Level L | Post-A processing level |
+| 3 | Line A Level R | Post-A processing level |
+| 4 | Line A Feedback | Current feedback amount (with mod) |
+| 5 | Line B Level L | Post-B processing level |
+| 6 | Line B Level R | Post-B processing level |
+| 7 | Line B Feedback | Current feedback amount (with mod) |
+| 8 | Output Peak L | Post-mix peak (dBFS) |
+| 9 | Output Peak R | Post-mix peak (dBFS) |
+| 10 | Ducking GR A | Ducking gain reduction line A (dB) |
+| 11 | Ducking GR B | Ducking gain reduction line B (dB) |
+| 12 | Mod LFO Phase | Current XLFO position (0–1) |
+
+**Total: 13 meters**
+
+### Najteži Delovi
+
+1. **Cubic Hermite interpolation za smooth time changes** — Kritično za modulirani delay (chorus/flanger efekti). Linearni interp = zipper noise pri time sweep.
+2. **Stabilan feedback na 110%** — Soft limiter u feedback path, ali ne sme da uništi transiente. Lookahead limiter sa 0.5ms attack.
+3. **Routing matrix bez phase issues** — Serial mode ima inherentan phase shift. Cross-feedback mora biti deadlock-free (delay-free loop).
+4. **Tempo sync sa smooth transitions** — Promene BPM-a moraju glatko crossfadovati delay time, ne smeju da klikaju.
+5. **Drive u feedback loop — gain staging** — Svaki repeat prolazi kroz saturation, mora da ostane stabilan bez runaway gain.
+6. **Reverse mode crossfade** — Segment boundaries moraju biti seamless. Dual-buffer sa crossfade overlap.
+7. **XLFO step sequencer sync** — 16 koraka moraju biti tempo-sync sa BPM, phase reset na bar boundary.
+
+### Estimated LOC
+
+| Layer | LOC |
+|-------|-----|
+| Rust DSP (buffer, tempo, routing, filters, drive, ducking, mod, reverse, freeze, stereo) | ~2,400 |
+| Rust FFI Wrapper (52 params, 13 meters) | ~400 |
+| Dart FFI Bindings | ~250 |
+| Flutter UI Panel (Timeless 3 visual style) | ~1,200 |
+| Tests (accuracy, stability, tempo sync, modulation, reverse) | ~600 |
+| **Total** | **~4,850** |
+
+---
+
 ## 🔬 DSP PLUGIN AUDIT (2026-02-15) — COMPLETE ✅
 
 ### Audit Summary
