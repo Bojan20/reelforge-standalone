@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-16 (Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
+**Updated:** 2026-02-16 (P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
 **Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational, all 7 DSP panels 100% FFI connected
 
 ---
@@ -92,6 +92,29 @@ Third-party plugin hosting (VST3/AU/CLAP/LV2) — 6 critical gaps identified and
 - Compressor panel: Sidechain EQ filter, style selector improvements
 - Knob widget: Fine control mode, modulation ring
 - Sidechain panel: Complete rewrite with monitor, filter, M/S support
+
+### P0 Click Blocking Fix — desktop_drop DropTarget Overlay (2026-02-16) ✅
+
+**Problem:** Mouse clicks stopped working EVERYWHERE in the app after a few interactions.
+
+**Root Cause:** `desktop_drop` Flutter plugin adds a fullscreen `DropTarget` NSView overlay on macOS that intercepts ALL mouse events via `hitTest()`. The plugin **re-adds** this overlay whenever Flutter widgets rebuild (not just once at startup).
+
+**Previous Attempt (FAILED):** One-time removal with 5 delayed retries (0.1s, 0.5s, 1.0s, 2.0s, 5.0s) — insufficient because the plugin re-adds DropTarget dynamically at any time.
+
+**Fix:** Continuous `Timer` monitoring every 2 seconds that checks for and removes any non-Flutter subviews from the FlutterView:
+- `MainFlutterWindow.swift` — `fixDesktopDropOverlay()` with `Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true)`
+- `removeNonFlutterSubviews()` iterates subviews, removes any whose class name does NOT contain "Flutter"
+- Logs removals: `[FluxForge] [monitor] ✅ Removed 1 re-added overlay(s): DropTarget`
+
+**Files:** `flutter_ui/macos/Runner/MainFlutterWindow.swift`
+
+### Split View Default Disabled (2026-02-16) ✅
+
+**Problem:** Lower Zone showed "double window" (split view) because `splitEnabled: true` was persisted in SharedPreferences from a previous session.
+
+**Fix:** `DawLowerZoneController.loadFromStorage()` now forces `splitEnabled = false` on every startup — split view is an explicit user action, not a persisted default.
+
+**Files:** `flutter_ui/lib/widgets/lower_zone/daw_lower_zone_controller.dart`
 
 ---
 

@@ -570,6 +570,28 @@ open "$HOME/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/D
 
 **NIKADA ne koristi `flutter run` direktno na eksternom disku** — koristiti samo xcodebuild pristup.
 
+### 9. desktop_drop Plugin — DropTarget Overlay Fix (KRITIČNO)
+
+`desktop_drop` Flutter plugin dodaje fullscreen `DropTarget` NSView koji presreće SVE mouse evente na macOS-u. Plugin **ponovo dodaje** ovaj overlay kad god se Flutter widgeti rebuildu-ju.
+
+**Simptomi:** Klikovi prestaju da rade nakon nekoliko interakcija sa UI-jem.
+
+**Rešenje:** `MainFlutterWindow.swift` koristi **kontinualni Timer** (svake 2s) koji pronalazi i uklanja non-Flutter subview-ove:
+
+```swift
+// U awakeFromNib(), POSLE RegisterGeneratedPlugins():
+fixDesktopDropOverlay(flutterViewController: flutterViewController)
+
+// Metoda koristi Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true)
+// koji uklanja sve subview-ove čije ime klase NE sadrži "Flutter"
+```
+
+**NIKADA** ne koristiti jednokratno uklanjanje (delayed retry) — plugin ponovo dodaje overlay dinamički.
+
+### 10. Split View u Lower Zone — Default OFF
+
+`DawLowerZoneController.loadFromStorage()` forsira `splitEnabled = false` pri svakom startu aplikacije. Split view je eksplicitna korisnička akcija (toggle), ne persistirani default.
+
 ---
 
 ## Jezik
