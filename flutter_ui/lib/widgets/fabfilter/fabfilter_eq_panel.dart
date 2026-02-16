@@ -168,7 +168,7 @@ class FabFilterEqPanel extends FabFilterPanelBase {
 }
 
 class _FabFilterEqPanelState extends State<FabFilterEqPanel>
-    with FabFilterPanelMixin<FabFilterEqPanel> {
+    with FabFilterPanelMixin<FabFilterEqPanel>, TickerProviderStateMixin {
   final _ffi = NativeFFI.instance;
   bool _initialized = false;
 
@@ -198,13 +198,24 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   bool _isDragging = false;
   Offset? _previewPos;
 
+  // Metering (~30fps via AnimationController)
+  double _inPeakL = 0.0;
+  double _inPeakR = 0.0;
+  double _outPeakL = 0.0;
+  double _outPeakR = 0.0;
+  late AnimationController _meterController;
+
+  // A/B snapshots
+  EqSnapshot? _snapshotA;
+  EqSnapshot? _snapshotB;
+
   // ═══════════════════════════════════════════════════════════════════════════
-  // A/B COMPARISON
+  // A/B COMPARISON — mixin overrides
   // ═══════════════════════════════════════════════════════════════════════════
 
-  EqSnapshot captureSnapshot() {
+  EqSnapshot _captureSnapshot() {
     return EqSnapshot(
-      bandData: _bands.map((b) => {
+      bandData: _bands.map((b) => <String, dynamic>{
         'index': b.index, 'freq': b.freq, 'gain': b.gain, 'q': b.q,
         'shape': b.shape.index, 'placement': b.placement.index,
         'enabled': b.enabled, 'solo': b.solo,
@@ -220,8 +231,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     );
   }
 
-  void restoreSnapshot(DspParameterSnapshot snapshot) {
-    if (snapshot is! EqSnapshot) return;
+  void _restoreSnapshot(EqSnapshot snapshot) {
     setState(() {
       _bands.clear();
       for (final d in snapshot.bandData) {
@@ -246,7 +256,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       _globalPlacement = EqPlacement.values[snapshot.globalPlacementIdx.clamp(0, EqPlacement.values.length - 1)];
       _selectedBandIndex = _bands.isNotEmpty ? 0 : null;
     });
-    // Push all params to engine
+    // Push all params to engine — disable all first, then sync active bands
     for (int i = 0; i < 64; i++) {
       _setP(i, _P.enabled, 0.0);
     }
@@ -255,6 +265,36 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     }
     _ffi.insertSetParam(widget.trackId, _slotIndex, _P.outputGainIndex, _outputGain);
     _ffi.insertSetParam(widget.trackId, _slotIndex, _P.autoGainIndex, _autoGain ? 1.0 : 0.0);
+  }
+
+  @override
+  void storeStateA() { _snapshotA = _captureSnapshot(); super.storeStateA(); }
+  @override
+  void storeStateB() { _snapshotB = _captureSnapshot(); super.storeStateB(); }
+  @override
+  void restoreStateA() { if (_snapshotA != null) _restoreSnapshot(_snapshotA!); }
+  @override
+  void restoreStateB() { if (_snapshotB != null) _restoreSnapshot(_snapshotB!); }
+  @override
+  void copyAToB() { _snapshotB = _snapshotA?.copy() as EqSnapshot?; super.copyAToB(); }
+  @override
+  void copyBToA() { _snapshotA = _snapshotB?.copy() as EqSnapshot?; super.copyBToA(); }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // METERING — ~30fps I/O peak levels
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _updateMeters() {
+    if (!mounted || !_initialized || _slotIndex < 0) return;
+    setState(() {
+      final t = widget.trackId, s = _slotIndex;
+      try {
+        _inPeakL = _ffi.insertGetMeter(t, s, 0);
+        _inPeakR = _ffi.insertGetMeter(t, s, 1);
+        _outPeakL = _ffi.insertGetMeter(t, s, 2);
+        _outPeakR = _ffi.insertGetMeter(t, s, 3);
+      } catch (_) {}
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -266,10 +306,16 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     super.initState();
     _initProcessor();
     initBypassFromProvider();
+    _meterController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 33),
+    )..addListener(_updateMeters);
+    _meterController.repeat();
   }
 
   @override
   void dispose() {
+    _meterController.dispose();
     _spectrumTimer?.cancel();
     super.dispose();
   }
@@ -436,6 +482,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           },
           color: FabFilterColors.green),
         const SizedBox(width: 8),
+        // I/O level meters (compact vertical bars)
+        _buildCompactIOMeter(),
+        const SizedBox(width: 8),
         // Output gain knob
         SizedBox(
           width: 52,
@@ -476,6 +525,80 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           ),
         ),
       ]),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // I/O METERING — compact stereo bars in top bar
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildCompactIOMeter() {
+    return SizedBox(
+      width: 40,
+      height: 26,
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        // IN label + bars
+        Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text('IN', style: TextStyle(
+            color: FabFilterColors.textDisabled, fontSize: 6,
+            fontWeight: FontWeight.bold, letterSpacing: 0.5,
+          )),
+          const SizedBox(height: 1),
+          Row(children: [
+            _meterBar(_inPeakL, 14),
+            const SizedBox(width: 1),
+            _meterBar(_inPeakR, 14),
+          ]),
+        ]),
+        const SizedBox(width: 4),
+        // OUT label + bars
+        Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text('OUT', style: TextStyle(
+            color: FabFilterColors.textDisabled, fontSize: 6,
+            fontWeight: FontWeight.bold, letterSpacing: 0.5,
+          )),
+          const SizedBox(height: 1),
+          Row(children: [
+            _meterBar(_outPeakL, 14),
+            const SizedBox(width: 1),
+            _meterBar(_outPeakR, 14),
+          ]),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _meterBar(double linear, double height) {
+    // Convert linear to dB, then to 0..1 range (-60dB..0dB)
+    final dB = linear > 1e-10 ? 20.0 * math.log(linear) / math.ln10 : -60.0;
+    final norm = ((dB + 60.0) / 60.0).clamp(0.0, 1.0);
+    final isHot = dB > -3.0;
+    final isClip = dB > -0.5;
+    return Container(
+      width: 3,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A0E),
+        borderRadius: BorderRadius.circular(1),
+      ),
+      alignment: Alignment.bottomCenter,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 50),
+        width: 3,
+        height: norm * height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(1),
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: isClip
+                ? [FabFilterColors.red, FabFilterColors.red]
+                : isHot
+                    ? [FabFilterColors.green, FabFilterColors.yellow]
+                    : [FabFilterColors.green, FabFilterColors.cyan],
+          ),
+        ),
+      ),
     );
   }
 

@@ -60,6 +60,46 @@ class _P {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// A/B SNAPSHOT
+// ═══════════════════════════════════════════════════════════════════════════
+
+class ReverbSnapshot implements DspParameterSnapshot {
+  final double space, brightness, width, mix, predelay;
+  final int style;
+  final double diffusion, distance, decay;
+  final double lowDecayMult, highDecayMult;
+  final double character, thickness, ducking;
+  final bool freeze;
+
+  const ReverbSnapshot({
+    required this.space, required this.brightness, required this.width,
+    required this.mix, required this.predelay, required this.style,
+    required this.diffusion, required this.distance, required this.decay,
+    required this.lowDecayMult, required this.highDecayMult,
+    required this.character, required this.thickness, required this.ducking,
+    required this.freeze,
+  });
+
+  @override
+  ReverbSnapshot copy() => ReverbSnapshot(
+    space: space, brightness: brightness, width: width, mix: mix,
+    predelay: predelay, style: style, diffusion: diffusion,
+    distance: distance, decay: decay, lowDecayMult: lowDecayMult,
+    highDecayMult: highDecayMult, character: character,
+    thickness: thickness, ducking: ducking, freeze: freeze,
+  );
+
+  @override
+  bool equals(DspParameterSnapshot other) {
+    if (other is! ReverbSnapshot) return false;
+    return space == other.space && brightness == other.brightness &&
+        width == other.width && mix == other.mix &&
+        predelay == other.predelay && style == other.style &&
+        decay == other.decay && freeze == other.freeze;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN PANEL WIDGET
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -124,6 +164,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   bool _initialized = false;
   String? _nodeId;
   int _slotIndex = -1;
+
+  // A/B snapshots
+  ReverbSnapshot? _snapshotA;
+  ReverbSnapshot? _snapshotB;
 
   @override
   int get processorSlotIndex => _slotIndex;
@@ -218,6 +262,65 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _ffi.insertSetParam(widget.trackId, _slotIndex, index, value);
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // A/B STATE
+  // ─────────────────────────────────────────────────────────────────────────
+
+  ReverbSnapshot _snap() => ReverbSnapshot(
+    space: _space, brightness: _brightness, width: _width, mix: _mix,
+    predelay: _predelay, style: _spaceToTypeIndex(_spaceType),
+    diffusion: _diffusion, distance: _distance, decay: _decay,
+    lowDecayMult: _lowDecay, highDecayMult: _highDecay,
+    character: _character, thickness: _thickness, ducking: _ducking,
+    freeze: _freeze,
+  );
+
+  void _restore(ReverbSnapshot s) {
+    setState(() {
+      _space = s.space; _brightness = s.brightness; _width = s.width;
+      _mix = s.mix; _predelay = s.predelay;
+      _spaceType = _typeIndexToSpace(s.style);
+      _diffusion = s.diffusion; _distance = s.distance; _decay = s.decay;
+      _lowDecay = s.lowDecayMult; _highDecay = s.highDecayMult;
+      _character = s.character; _thickness = s.thickness;
+      _ducking = s.ducking; _freeze = s.freeze;
+    });
+    if (_freeze) { _freezeController.forward(); } else { _freezeController.reverse(); }
+    _applyAll();
+  }
+
+  void _applyAll() {
+    if (!_initialized || _slotIndex < 0) return;
+    _setParam(_P.space, _space);
+    _setParam(_P.brightness, _brightness);
+    _setParam(_P.width, _width);
+    _setParam(_P.mix, _mix);
+    _setParam(_P.predelay, _predelay);
+    _setParam(_P.style, _spaceToTypeIndex(_spaceType).toDouble());
+    _setParam(_P.diffusion, _diffusion);
+    _setParam(_P.distance, _distance);
+    _setParam(_P.decay, _decay);
+    _setParam(_P.lowDecay, _lowDecay);
+    _setParam(_P.highDecay, _highDecay);
+    _setParam(_P.character, _character);
+    _setParam(_P.thickness, _thickness);
+    _setParam(_P.ducking, _ducking);
+    _setParam(_P.freeze, _freeze ? 1.0 : 0.0);
+  }
+
+  @override
+  void storeStateA() { _snapshotA = _snap(); super.storeStateA(); }
+  @override
+  void storeStateB() { _snapshotB = _snap(); super.storeStateB(); }
+  @override
+  void restoreStateA() { if (_snapshotA != null) _restore(_snapshotA!); }
+  @override
+  void restoreStateB() { if (_snapshotB != null) _restore(_snapshotB!); }
+  @override
+  void copyAToB() { _snapshotB = _snapshotA?.copy(); super.copyAToB(); }
+  @override
+  void copyBToA() { _snapshotA = _snapshotB?.copy(); super.copyBToA(); }
 
   @override
   void dispose() {

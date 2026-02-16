@@ -22,4 +22,6 @@ export 'fabfilter_compressor_panel.dart';
 export 'fabfilter_limiter_panel.dart';
 export 'fabfilter_reverb_panel.dart';
 export 'fabfilter_gate_panel.dart';
+export 'fabfilter_delay_panel.dart';
+export 'fabfilter_saturation_panel.dart';
 export 'fabfilter_preset_browser.dart';

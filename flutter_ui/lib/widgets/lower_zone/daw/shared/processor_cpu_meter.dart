@@ -547,6 +547,7 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
       DspNodeType.pultec => Icons.tune,
       DspNodeType.api550 => Icons.graphic_eq,
       DspNodeType.neve1073 => Icons.surround_sound,
+      DspNodeType.multibandSaturation => Icons.whatshot,
     };
   }
 

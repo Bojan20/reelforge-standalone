@@ -132,6 +132,8 @@ class DspParamMapping {
         return _getDeEsserParamIndex(target);
       case DspNodeType.expander:
         return _getExpanderParamIndex(target);
+      case DspNodeType.multibandSaturation:
+        return _getSaturationParamIndex(target); // Same targets as saturation
       case DspNodeType.pultec:
       case DspNodeType.api550:
       case DspNodeType.neve1073:
@@ -291,6 +293,7 @@ class DspParamMapping {
           RtpcTargetParameter.delayMix,
         ];
       case DspNodeType.saturation:
+      case DspNodeType.multibandSaturation:
         return [
           RtpcTargetParameter.saturationDrive,
           RtpcTargetParameter.saturationMix,

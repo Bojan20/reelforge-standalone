@@ -9826,6 +9826,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         content: FabFilterGatePanel(trackId: 0),
         groupId: 'process',
       ),
+      LowerZoneTab(
+        id: 'ff-delay',
+        label: 'FF-D',
+        icon: Icons.timer,
+        content: FabFilterDelayPanel(trackId: 0),
+        groupId: 'process',
+      ),
+      LowerZoneTab(
+        id: 'ff-sat',
+        label: 'FF-SAT',
+        icon: Icons.whatshot,
+        content: FabFilterSaturationPanel(trackId: 0),
+        groupId: 'process',
+      ),
 
       // ══════════════════════════════════════════════════════════════════════
       // GROUP 5: MEDIA — Browser, pool, templates
@@ -9993,7 +10007,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         tabs: [
           'eq', 'dynamics', 'spatial', 'reverb', 'delay', 'pitch', 'spectral', 'saturation', 'transient',
           // FF premium DSP panels
-          'ff-eq', 'ff-comp', 'ff-limiter', 'ff-reverb', 'ff-gate',
+          'ff-eq', 'ff-comp', 'ff-limiter', 'ff-reverb', 'ff-gate', 'ff-delay', 'ff-sat',
         ],
       ),
       // GROUP 5: MEDIA — Browser, pool, plugins, templates

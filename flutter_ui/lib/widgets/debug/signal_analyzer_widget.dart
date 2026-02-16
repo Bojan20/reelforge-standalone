@@ -487,6 +487,7 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
       DspNodeType.pultec => const Color(0xFFD4A574),
       DspNodeType.api550 => const Color(0xFF4A9EFF),
       DspNodeType.neve1073 => const Color(0xFF8B4513),
+      DspNodeType.multibandSaturation => const Color(0xFFFFAA40),
     };
   }
 
@@ -504,6 +505,7 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
       DspNodeType.pultec => Icons.tune,
       DspNodeType.api550 => Icons.graphic_eq,
       DspNodeType.neve1073 => Icons.surround_sound,
+      DspNodeType.multibandSaturation => Icons.whatshot,
     };
   }
 }

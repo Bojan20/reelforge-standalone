@@ -60,6 +60,48 @@ class GateLevelSample {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// A/B SNAPSHOT
+// ═══════════════════════════════════════════════════════════════════════════
+
+class GateSnapshot implements DspParameterSnapshot {
+  final double threshold, range, attack, hold, release, hysteresis;
+  final GateMode mode;
+  final bool sidechainEnabled, sidechainAudition;
+  final double sidechainHpf, sidechainLpf;
+  final double lookahead, ratio;
+
+  const GateSnapshot({
+    required this.threshold, required this.range, required this.attack,
+    required this.hold, required this.release, required this.hysteresis,
+    required this.mode, required this.sidechainEnabled,
+    required this.sidechainHpf, required this.sidechainLpf,
+    required this.sidechainAudition, required this.lookahead,
+    required this.ratio,
+  });
+
+  @override
+  GateSnapshot copy() => GateSnapshot(
+    threshold: threshold, range: range, attack: attack, hold: hold,
+    release: release, hysteresis: hysteresis, mode: mode,
+    sidechainEnabled: sidechainEnabled, sidechainHpf: sidechainHpf,
+    sidechainLpf: sidechainLpf, sidechainAudition: sidechainAudition,
+    lookahead: lookahead, ratio: ratio,
+  );
+
+  @override
+  bool equals(DspParameterSnapshot other) {
+    if (other is! GateSnapshot) return false;
+    return threshold == other.threshold && range == other.range &&
+        attack == other.attack && hold == other.hold &&
+        release == other.release && hysteresis == other.hysteresis &&
+        mode == other.mode && sidechainEnabled == other.sidechainEnabled &&
+        sidechainHpf == other.sidechainHpf && sidechainLpf == other.sidechainLpf &&
+        sidechainAudition == other.sidechainAudition &&
+        lookahead == other.lookahead && ratio == other.ratio;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN PANEL WIDGET
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -131,6 +173,10 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   String? _nodeId;
   int _slotIndex = -1;
 
+  // A/B snapshots
+  GateSnapshot? _snapshotA;
+  GateSnapshot? _snapshotB;
+
   @override
   int get processorSlotIndex => _slotIndex;
 
@@ -196,6 +242,58 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       if (_sidechainLpf < 1000) _sidechainLpf = 12000.0;
     });
   }
+
+  // ─── A/B STATE ───────────────────────────────────────────────────────
+
+  GateSnapshot _snap() => GateSnapshot(
+    threshold: _threshold, range: _range, attack: _attack, hold: _hold,
+    release: _release, hysteresis: _hysteresis, mode: _mode,
+    sidechainEnabled: _sidechainEnabled, sidechainHpf: _sidechainHpf,
+    sidechainLpf: _sidechainLpf, sidechainAudition: _sidechainAudition,
+    lookahead: _lookahead, ratio: _ratio,
+  );
+
+  void _restore(GateSnapshot s) {
+    setState(() {
+      _threshold = s.threshold; _range = s.range; _attack = s.attack;
+      _hold = s.hold; _release = s.release; _hysteresis = s.hysteresis;
+      _mode = s.mode; _sidechainEnabled = s.sidechainEnabled;
+      _sidechainHpf = s.sidechainHpf; _sidechainLpf = s.sidechainLpf;
+      _sidechainAudition = s.sidechainAudition; _lookahead = s.lookahead;
+      _ratio = s.ratio;
+    });
+    _applyAll();
+  }
+
+  void _applyAll() {
+    if (!_initialized || _slotIndex < 0) return;
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _range);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _attack);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _hold);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _release);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _mode.index.toDouble());
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 6, _sidechainEnabled ? 1.0 : 0.0);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _sidechainHpf);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 8, _sidechainLpf);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 9, _lookahead);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 10, _hysteresis);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 11, _ratio);
+    _ffi.insertSetParam(widget.trackId, _slotIndex, 12, _sidechainAudition ? 1.0 : 0.0);
+  }
+
+  @override
+  void storeStateA() { _snapshotA = _snap(); super.storeStateA(); }
+  @override
+  void storeStateB() { _snapshotB = _snap(); super.storeStateB(); }
+  @override
+  void restoreStateA() { if (_snapshotA != null) _restore(_snapshotA!); }
+  @override
+  void restoreStateB() { if (_snapshotB != null) _restore(_snapshotB!); }
+  @override
+  void copyAToB() { _snapshotB = _snapshotA?.copy(); super.copyAToB(); }
+  @override
+  void copyBToA() { _snapshotA = _snapshotB?.copy(); super.copyBToA(); }
 
   @override
   void dispose() {

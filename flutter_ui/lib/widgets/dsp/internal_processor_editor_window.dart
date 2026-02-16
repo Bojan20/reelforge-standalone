@@ -239,6 +239,8 @@ class _InternalProcessorEditorWindowState
         return _buildApi550Params();
       case DspNodeType.neve1073:
         return _buildNeve1073Params();
+      case DspNodeType.multibandSaturation:
+        return _buildSaturationParams(); // Same base params
     }
   }
 
@@ -937,6 +939,8 @@ class _InternalProcessorEditorWindowState
         return const Color(0xFF4A9EFF); // API blue
       case DspNodeType.neve1073:
         return const Color(0xFF8B4513); // Neve dark brown
+      case DspNodeType.multibandSaturation:
+        return FluxForgeTheme.accentOrange; // Saturn 2 warm orange
     }
   }
 }

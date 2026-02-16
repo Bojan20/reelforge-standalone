@@ -34,7 +34,7 @@ pub enum CrossoverType {
 }
 
 impl CrossoverType {
-    fn order(&self) -> usize {
+    pub fn order(&self) -> usize {
         match self {
             Self::Butterworth12 => 2,
             Self::LinkwitzRiley24 => 4,

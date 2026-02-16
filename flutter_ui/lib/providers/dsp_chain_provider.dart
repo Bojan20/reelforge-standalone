@@ -34,7 +34,8 @@ enum DspNodeType {
   deEsser('FF-E', 'De-Esser'),
   pultec('FF-PT', 'FF EQP1A'),
   api550('FF-API', 'FF 550A'),
-  neve1073('FF-NEV', 'FF 1073');
+  neve1073('FF-NEV', 'FF 1073'),
+  multibandSaturation('FF-SAT', 'Saturn 2');
 
   final String shortName;
   final String fullName;
@@ -158,10 +159,20 @@ class DspNode {
           'preDelay': 20.0,
         },
       DspNodeType.delay => {
-          'time': 250.0,
-          'feedback': 0.3,
-          'highCut': 8000,
-          'lowCut': 80,
+          'delayL': 500.0,
+          'delayR': 500.0,
+          'feedback': 50.0,
+          'mix': 50.0,
+          'pingPong': 0.0,
+          'hpFilter': 80.0,
+          'lpFilter': 8000.0,
+          'modRate': 0.0,
+          'modDepth': 0.0,
+          'width': 100.0,
+          'ducking': 0.0,
+          'link': 1.0,
+          'freeze': 0.0,
+          'tempoSync': 0.0,
         },
       DspNodeType.saturation => {
           'drive': 0.0,
@@ -195,6 +206,14 @@ class DspNode {
           'hpEnabled': 0.0,
           'lowGain': 0.0,
           'highGain': 0.0,
+        },
+      DspNodeType.multibandSaturation => {
+          'inputGain': 0.0,
+          'outputGain': 0.0,
+          'globalMix': 100.0,
+          'msMode': 0.0,
+          'numBands': 4.0,
+          'crossoverType': 1.0,
         },
     };
   }
@@ -314,6 +333,7 @@ class DspChainProvider extends ChangeNotifier {
       DspNodeType.pultec => 'pultec',
       DspNodeType.api550 => 'api550',
       DspNodeType.neve1073 => 'neve1073',
+      DspNodeType.multibandSaturation => 'multiband-saturator',
     };
   }
 
@@ -685,15 +705,35 @@ class DspChainProvider extends ChangeNotifier {
         break;
 
       case DspNodeType.delay:
-        // Restore delay parameters
-        final time = (node.params['time'] as num?)?.toDouble() ?? 250.0;
-        final feedback = (node.params['feedback'] as num?)?.toDouble() ?? 0.3;
-        final highCut = (node.params['highCut'] as num?)?.toDouble() ?? 8000.0;
-        final lowCut = (node.params['lowCut'] as num?)?.toDouble() ?? 80.0;
-        _ffi.insertSetParam(trackId, slotIndex, 0, time);
-        _ffi.insertSetParam(trackId, slotIndex, 1, feedback);
-        _ffi.insertSetParam(trackId, slotIndex, 2, highCut);
-        _ffi.insertSetParam(trackId, slotIndex, 3, lowCut);
+        // Restore Timeless 3 delay parameters (14 params)
+        final delayL = (node.params['delayL'] as num?)?.toDouble() ?? 500.0;
+        final delayR = (node.params['delayR'] as num?)?.toDouble() ?? 500.0;
+        final feedback = (node.params['feedback'] as num?)?.toDouble() ?? 50.0;
+        final mix = (node.params['mix'] as num?)?.toDouble() ?? 50.0;
+        final pingPong = (node.params['pingPong'] as num?)?.toDouble() ?? 0.0;
+        final hpFilter = (node.params['hpFilter'] as num?)?.toDouble() ?? 80.0;
+        final lpFilter = (node.params['lpFilter'] as num?)?.toDouble() ?? 8000.0;
+        final modRate = (node.params['modRate'] as num?)?.toDouble() ?? 0.0;
+        final modDepth = (node.params['modDepth'] as num?)?.toDouble() ?? 0.0;
+        final width = (node.params['width'] as num?)?.toDouble() ?? 100.0;
+        final ducking = (node.params['ducking'] as num?)?.toDouble() ?? 0.0;
+        final link = (node.params['link'] as num?)?.toDouble() ?? 1.0;
+        final freeze = (node.params['freeze'] as num?)?.toDouble() ?? 0.0;
+        final tempoSync = (node.params['tempoSync'] as num?)?.toDouble() ?? 0.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, delayL);
+        _ffi.insertSetParam(trackId, slotIndex, 1, delayR);
+        _ffi.insertSetParam(trackId, slotIndex, 2, feedback);
+        _ffi.insertSetParam(trackId, slotIndex, 3, mix);
+        _ffi.insertSetParam(trackId, slotIndex, 4, pingPong);
+        _ffi.insertSetParam(trackId, slotIndex, 5, hpFilter);
+        _ffi.insertSetParam(trackId, slotIndex, 6, lpFilter);
+        _ffi.insertSetParam(trackId, slotIndex, 7, modRate);
+        _ffi.insertSetParam(trackId, slotIndex, 8, modDepth);
+        _ffi.insertSetParam(trackId, slotIndex, 9, width);
+        _ffi.insertSetParam(trackId, slotIndex, 10, ducking);
+        _ffi.insertSetParam(trackId, slotIndex, 11, link);
+        _ffi.insertSetParam(trackId, slotIndex, 12, freeze);
+        _ffi.insertSetParam(trackId, slotIndex, 13, tempoSync);
         break;
 
       case DspNodeType.saturation:
@@ -760,6 +800,22 @@ class DspChainProvider extends ChangeNotifier {
         _ffi.insertSetParam(trackId, slotIndex, 0, hpEnabled);
         _ffi.insertSetParam(trackId, slotIndex, 1, lowGain);
         _ffi.insertSetParam(trackId, slotIndex, 2, highGain);
+        break;
+
+      case DspNodeType.multibandSaturation:
+        // Restore Saturn 2 global params
+        final inputGain = (node.params['inputGain'] as num?)?.toDouble() ?? 0.0;
+        final outputGain = (node.params['outputGain'] as num?)?.toDouble() ?? 0.0;
+        final globalMix = (node.params['globalMix'] as num?)?.toDouble() ?? 100.0;
+        final msMode = (node.params['msMode'] as num?)?.toDouble() ?? 0.0;
+        final numBands = (node.params['numBands'] as num?)?.toDouble() ?? 4.0;
+        final crossoverType = (node.params['crossoverType'] as num?)?.toDouble() ?? 1.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, inputGain);
+        _ffi.insertSetParam(trackId, slotIndex, 1, outputGain);
+        _ffi.insertSetParam(trackId, slotIndex, 2, globalMix);
+        _ffi.insertSetParam(trackId, slotIndex, 3, msMode);
+        _ffi.insertSetParam(trackId, slotIndex, 4, numBands);
+        _ffi.insertSetParam(trackId, slotIndex, 5, crossoverType);
         break;
     }
 

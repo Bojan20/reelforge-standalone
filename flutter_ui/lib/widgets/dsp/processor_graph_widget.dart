@@ -1085,6 +1085,7 @@ class _ProcessorGraphPanelState extends State<ProcessorGraphPanel> {
       DspNodeType.pultec => Icons.tune,
       DspNodeType.api550 => Icons.graphic_eq,
       DspNodeType.neve1073 => Icons.surround_sound,
+      DspNodeType.multibandSaturation => Icons.whatshot,
     };
   }
 
@@ -1102,6 +1103,7 @@ class _ProcessorGraphPanelState extends State<ProcessorGraphPanel> {
       DspNodeType.pultec => const Color(0xFFD4A574),
       DspNodeType.api550 => FabFilterColors.blue,
       DspNodeType.neve1073 => const Color(0xFF8B4513),
+      DspNodeType.multibandSaturation => FabFilterColors.orange,
     };
   }
 
