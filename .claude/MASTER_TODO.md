@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-16 (Plugin Hosting Fix + DAW Panel Rewrites + FabFilter Polish)
+**Updated:** 2026-02-16 (DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
 **Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,512 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational
 
 ---
@@ -28,6 +28,35 @@ ANALYZER WARNINGS: 0 errors, 0 warnings ✅
 ```
 
 **All 381 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge). All 11 code quality issues fixed. 4,527 tests pass. All 6 DSP panels 100% FFI connected. Repo cleaned. SHIP READY.**
+
+### DSP Processors + Cubase Fader Law + Meter Decay (2026-02-16) ✅
+
+Three critical audio UX fixes:
+
+**1. DSP Processors Start Enabled (not bypassed):**
+- Root Cause: `DspNode` constructor defaulted `bypass = true`, `FabFilterPanelBase` started `_bypassed = true`
+- Fix: Changed defaults to `false` — processors now audible immediately when added to chain
+- Files: `dsp_chain_provider.dart`, `fabfilter_panel_base.dart`
+
+**2. Broken FFI Bindings Rebind (4 functions):**
+- Root Cause: `insertSetMix`, `insertGetMix`, `insertBypassAll`, `insertGetTotalLatency` pointed to `ffi_*` functions in rf-bridge which use uninitialized `ENGINE` global
+- Fix: Created 4 new functions in `rf-engine/ffi.rs` using `PLAYBACK_ENGINE` (always initialized), rebound Dart FFI
+- Files: `ffi.rs`, `playback.rs`, `native_ffi.dart`
+
+**3. Cubase-Style Logarithmic Fader Law:**
+- Root Cause: Mixer fader used linear amplitude mapping (0.0-1.5), channel strip used linear dB mapping — both unnatural
+- Fix: Segmented logarithmic curve across all 3 fader widgets:
+  - -∞ to -60 dB → 0-5% travel (silence zone)
+  - -60 to -20 dB → 5-25% travel (low range)
+  - -20 to -6 dB → 25-55% travel (build-up zone)
+  - -6 to 0 dB → 55-75% travel (mix sweet spot)
+  - 0 to +max dB → 75-100% travel (boost zone)
+  - Unity gain (0 dB) at ~75% — identical to Cubase
+- Files: `ultimate_mixer.dart`, `channel_strip.dart`, `channel_inspector_panel.dart`
+
+**4. Cubase-Style Meter Decay:**
+- Meters smoothly decay to complete invisibility with noise floor gate at -80dB
+- Files: `gpu_meter_widget.dart`, `meter_provider.dart`, `ultimate_mixer.dart`
 
 ### Plugin Hosting Fix (2026-02-16) ✅
 

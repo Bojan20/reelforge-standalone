@@ -409,6 +409,53 @@ class _VerticalFader extends StatelessWidget {
     this.onChanged,
   });
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // Cubase-style logarithmic fader law for dB-domain fader
+  // Maps fader position (0.0 = bottom, 1.0 = top) ↔ dB value (min..max)
+  // Unity gain (0 dB) sits at ~75% of fader travel
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Convert dB value to fader position (0.0–1.0)
+  static double dbToPosition(double db, double minDb, double maxDb) {
+    // Cubase-style segmented curve:
+    // -∞ to -60 dB → 0.0–0.05
+    // -60 to -20 dB → 0.05–0.25
+    // -20 to -6 dB → 0.25–0.55
+    // -6 to 0 dB → 0.55–0.75
+    // 0 to maxDb → 0.75–1.0
+    if (db <= minDb) return 0.0;
+    if (db >= maxDb) return 1.0;
+    if (db <= -60.0) {
+      return 0.05 * ((db - minDb) / (-60.0 - minDb)).clamp(0.0, 1.0);
+    } else if (db <= -20.0) {
+      return 0.05 + 0.20 * ((db + 60.0) / 40.0);
+    } else if (db <= -6.0) {
+      return 0.25 + 0.30 * ((db + 20.0) / 14.0);
+    } else if (db <= 0.0) {
+      return 0.55 + 0.20 * ((db + 6.0) / 6.0);
+    } else {
+      return 0.75 + 0.25 * (db / maxDb).clamp(0.0, 1.0);
+    }
+  }
+
+  /// Convert fader position (0.0–1.0) to dB value
+  static double positionToDb(double position, double minDb, double maxDb) {
+    final p = position.clamp(0.0, 1.0);
+    if (p <= 0.0) return minDb;
+    if (p >= 1.0) return maxDb;
+    if (p <= 0.05) {
+      return minDb + (p / 0.05) * (-60.0 - minDb);
+    } else if (p <= 0.25) {
+      return -60.0 + ((p - 0.05) / 0.20) * 40.0;
+    } else if (p <= 0.55) {
+      return -20.0 + ((p - 0.25) / 0.30) * 14.0;
+    } else if (p <= 0.75) {
+      return -6.0 + ((p - 0.55) / 0.20) * 6.0;
+    } else {
+      return ((p - 0.75) / 0.25) * maxDb;
+    }
+  }
+
   // ignore: unused_element
   String get _displayValue {
     if (value <= -60) return '-∞';
@@ -431,8 +478,9 @@ class _VerticalFader extends StatelessWidget {
           Expanded(
             child: GestureDetector(
               onVerticalDragUpdate: (details) {
-                final percent = 1 - (details.localPosition.dy / 200).clamp(0.0, 1.0);
-                final newValue = min + (max - min) * percent;
+                // Cubase-style: drag in position space, convert through log curve
+                final position = 1 - (details.localPosition.dy / 200).clamp(0.0, 1.0);
+                final newValue = positionToDb(position, min, max);
                 onChanged?.call(newValue);
               },
               onDoubleTap: () => onChanged?.call(0),
@@ -512,9 +560,9 @@ class _FaderPainter extends CustomPainter {
       Paint()..color = FluxForgeTheme.bgDeep,
     );
 
-    // Thumb position
-    final percent = (value - min) / (max - min);
-    final thumbY = size.height * (1 - percent.clamp(0.0, 1.0));
+    // Thumb position — Cubase-style logarithmic curve
+    final position = _VerticalFader.dbToPosition(value, min, max);
+    final thumbY = size.height * (1 - position.clamp(0.0, 1.0));
 
     // Thumb
     final thumbRect = RRect.fromRectAndRadius(

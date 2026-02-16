@@ -2289,6 +2289,58 @@ Complete rewrite of `_previewEvent()` in `engine_connected_layout.dart` — Pan,
 - ✅ Spatial (Panner, Width, M/S)
 - ✅ Analysis (FFT, LUFS, True Peak)
 
+### Cubase-Style Fader Law (2026-02-16) ✅
+
+All mixer/channel faders use segmented logarithmic curve matching Cubase/Nuendo behavior.
+
+**Principle:** Unity gain (0 dB) at **75% of fader travel** — more resolution in mixing sweet spot.
+
+**5-Segment Curve:**
+
+| Segment | dB Range | Fader Travel | Resolution |
+|---------|----------|--------------|------------|
+| Silence | -∞ to -60 dB | 0-5% | Low (inaudible) |
+| Low | -60 to -20 dB | 5-25% | Compressed |
+| Build-up | -20 to -6 dB | 25-55% | 30% travel for 14 dB |
+| Sweet spot | -6 to 0 dB | 55-75% | 20% travel for 6 dB |
+| Boost | 0 to +max dB | 75-100% | Post-unity boost |
+
+**Widgets Updated:**
+
+| Widget | File | Space | Notes |
+|--------|------|-------|-------|
+| `_FaderWithMeter` | `ultimate_mixer.dart` | Amplitude (0.0-1.5) | `_volumeToPosition()` / `_positionToVolume()` |
+| `_VerticalFader` | `channel_strip.dart` | dB (-60 to +12) | `dbToPosition()` / `positionToDb()` (static) |
+| `_FaderRow` | `channel_inspector_panel.dart` | dB (parameterized) | Cubase curve for Volume only, linear for Pan/other |
+
+### Meter Decay & Noise Floor Gate (2026-02-16) ✅
+
+Meters smoothly decay to complete invisibility (Cubase behavior).
+
+**Implementation:** `_FaderWithMeter` in `ultimate_mixer.dart`
+- Noise floor gate at **-80 dB** — below this, meter bar width = 0
+- Smooth decay via existing animation (no visual jump at gate threshold)
+- Applies to both peak meters in mixer channel strips
+
+### DSP Processor Defaults Fix (2026-02-16) ✅
+
+Processors now start **enabled** (audible) when loaded into insert chain.
+
+**Root Cause:** `DspChainProvider.addNode()` created nodes with `bypass: true` (silent by default).
+
+**Fix:** Changed defaults in two locations:
+- `dsp_chain_provider.dart` — `DspNode()` constructor: `bypass: false`
+- `fabfilter_panel_base.dart` — `_isBypassed` initial value: `false`
+
+**4 FFI Functions Rebound (2026-02-16):**
+
+| Old (rf-bridge, BROKEN) | New (rf-engine, WORKS) |
+|-------------------------|------------------------|
+| `ffi_insert_set_mix` | `track_insert_set_mix` |
+| `ffi_insert_get_mix` | `track_insert_get_mix` |
+| `ffi_insert_bypass_all` | `track_insert_bypass_all` |
+| `ffi_insert_get_total_latency` | `track_insert_get_total_latency` |
+
 ### FabFilter-Style Premium DSP Panels (2026-01-22) ✅
 
 Professional DSP panel suite inspired by FabFilter's design language.
@@ -2373,9 +2425,9 @@ Panel.toggleBypass() → onBypassChanged(bypassed)
 **Visual Bypass Overlay:**
 `wrapWithBypassOverlay()` mixin method dims panel + shows "BYPASSED" label when active.
 
-**WARNING:** Other rf-bridge FFI functions also use wrong `ENGINE`:
-- `ffi_insert_set_mix`, `ffi_insert_get_mix`, `ffi_insert_bypass_all`, `ffi_insert_get_total_latency`
-- These are lower priority but should be migrated to rf-engine equivalents.
+**FIXED (2026-02-16):** 4 remaining rf-bridge FFI functions migrated to rf-engine PLAYBACK_ENGINE:
+- `track_insert_set_mix`, `track_insert_get_mix`, `track_insert_bypass_all`, `track_insert_get_total_latency`
+- New functions created in `rf-engine/ffi.rs`, Dart FFI rebound from `ffi_insert_*` → `track_insert_*`
 
 **Converted Panels:**
 | Panel | Wrapper | Status |

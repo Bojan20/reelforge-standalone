@@ -1085,18 +1085,62 @@ class _FaderRowState extends State<_FaderRow> {
   // Check if this is a Volume fader
   bool get _isVolumeFader => widget.label == 'Volume';
 
-  // Logic Pro style: linear mapping for all faders
-  // dB is already logarithmic, so linear slider = linear dB change
+  // ═══════════════════════════════════════════════════════════════════════
+  // Cubase-style logarithmic fader law for Volume faders
+  // Linear mapping for all other faders (Pan, etc.)
+  // ═══════════════════════════════════════════════════════════════════════
+
   double _valueToNormalized(double value) {
     if (value <= widget.min) return 0.0;
     if (value >= widget.max) return 1.0;
+    if (_isVolumeFader) {
+      return _dbToPosition(value);
+    }
     return (value - widget.min) / (widget.max - widget.min);
   }
 
   double _normalizedToValue(double normalized) {
     if (normalized <= 0.0) return widget.min;
     if (normalized >= 1.0) return widget.max;
+    if (_isVolumeFader) {
+      return _positionToDb(normalized);
+    }
     return widget.min + (normalized * (widget.max - widget.min));
+  }
+
+  /// Cubase-style dB to fader position (0.0–1.0)
+  double _dbToPosition(double db) {
+    if (db <= widget.min) return 0.0;
+    if (db >= widget.max) return 1.0;
+    if (db <= -60.0) {
+      return 0.05 * ((db - widget.min) / (-60.0 - widget.min)).clamp(0.0, 1.0);
+    } else if (db <= -20.0) {
+      return 0.05 + 0.20 * ((db + 60.0) / 40.0);
+    } else if (db <= -6.0) {
+      return 0.25 + 0.30 * ((db + 20.0) / 14.0);
+    } else if (db <= 0.0) {
+      return 0.55 + 0.20 * ((db + 6.0) / 6.0);
+    } else {
+      return 0.75 + 0.25 * (db / widget.max).clamp(0.0, 1.0);
+    }
+  }
+
+  /// Cubase-style fader position (0.0–1.0) to dB
+  double _positionToDb(double position) {
+    final p = position.clamp(0.0, 1.0);
+    if (p <= 0.0) return widget.min;
+    if (p >= 1.0) return widget.max;
+    if (p <= 0.05) {
+      return widget.min + (p / 0.05) * (-60.0 - widget.min);
+    } else if (p <= 0.25) {
+      return -60.0 + ((p - 0.05) / 0.20) * 40.0;
+    } else if (p <= 0.55) {
+      return -20.0 + ((p - 0.25) / 0.30) * 14.0;
+    } else if (p <= 0.75) {
+      return -6.0 + ((p - 0.55) / 0.20) * 6.0;
+    } else {
+      return ((p - 0.75) / 0.25) * widget.max;
+    }
   }
 
   void _handleDragStart(DragStartDetails details, double width) {

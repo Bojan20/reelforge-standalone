@@ -867,6 +867,57 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
   bool _isDragging = false;
   bool _fineMode = false;
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // Cubase-style logarithmic fader law
+  // Maps fader position (0.0 = bottom, 1.0 = top) ↔ linear volume (0.0–1.5)
+  // Unity gain (0 dB / volume=1.0) sits at ~75% of fader travel
+  // More resolution in the mixing sweet spot (-10 to +6 dB)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Convert linear volume (0.0–1.5) to fader position (0.0–1.0)
+  static double _volumeToPosition(double volume) {
+    if (volume <= 0.0001) return 0.0;
+    final db = 20.0 * math.log(volume) / math.ln10; // +3.52 dB max at 1.5
+    // Cubase-style segmented curve:
+    // -∞ to -60 dB → 0.0–0.05 (5% travel for silence zone)
+    // -60 to -20 dB → 0.05–0.25 (20% travel for low range)
+    // -20 to -6 dB → 0.25–0.55 (30% travel for build-up zone)
+    // -6 to 0 dB → 0.55–0.75 (20% travel for mix sweet spot)
+    // 0 to +3.52 dB → 0.75–1.0 (25% travel for boost zone)
+    if (db <= -60.0) {
+      return 0.05 * ((db + 80.0) / 20.0).clamp(0.0, 1.0); // -80→-60 mapped to 0→0.05
+    } else if (db <= -20.0) {
+      return 0.05 + 0.20 * ((db + 60.0) / 40.0); // -60→-20 mapped to 0.05→0.25
+    } else if (db <= -6.0) {
+      return 0.25 + 0.30 * ((db + 20.0) / 14.0); // -20→-6 mapped to 0.25→0.55
+    } else if (db <= 0.0) {
+      return 0.55 + 0.20 * ((db + 6.0) / 6.0); // -6→0 mapped to 0.55→0.75
+    } else {
+      return 0.75 + 0.25 * (db / 3.52).clamp(0.0, 1.0); // 0→+3.52 mapped to 0.75→1.0
+    }
+  }
+
+  /// Convert fader position (0.0–1.0) to linear volume (0.0–1.5)
+  static double _positionToVolume(double position) {
+    final p = position.clamp(0.0, 1.0);
+    double db;
+    if (p <= 0.0) {
+      return 0.0;
+    } else if (p <= 0.05) {
+      db = -80.0 + (p / 0.05) * 20.0; // 0→0.05 maps to -80→-60 dB
+    } else if (p <= 0.25) {
+      db = -60.0 + ((p - 0.05) / 0.20) * 40.0; // 0.05→0.25 maps to -60→-20 dB
+    } else if (p <= 0.55) {
+      db = -20.0 + ((p - 0.25) / 0.30) * 14.0; // 0.25→0.55 maps to -20→-6 dB
+    } else if (p <= 0.75) {
+      db = -6.0 + ((p - 0.55) / 0.20) * 6.0; // 0.55→0.75 maps to -6→0 dB
+    } else {
+      db = ((p - 0.75) / 0.25) * 3.52; // 0.75→1.0 maps to 0→+3.52 dB
+    }
+    if (db <= -80.0) return 0.0;
+    return math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 1.5);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -882,9 +933,12 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
           onVerticalDragEnd: (_) => setState(() => _isDragging = false),
           onVerticalDragUpdate: (details) {
             if (widget.onChanged != null) {
-              final delta = -details.delta.dy / height;
+              // Cubase-style: drag in position space, convert through log curve
+              final currentPos = _volumeToPosition(widget.volume);
+              final positionDelta = -details.delta.dy / (height - 40);
               final sensitivity = _fineMode ? 0.1 : 1.0;
-              final newVolume = (widget.volume + delta * sensitivity * 1.5).clamp(0.0, 1.5);
+              final newPos = (currentPos + positionDelta * sensitivity).clamp(0.0, 1.0);
+              final newVolume = _positionToVolume(newPos);
               widget.onChanged!(newVolume);
             }
           },
@@ -941,7 +995,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                 Positioned(
                   left: meterWidth - 4,
                   right: meterWidth - 4,
-                  top: 4 + (1.0 - widget.volume / 1.5) * (height - 40),
+                  top: 4 + (1.0 - _volumeToPosition(widget.volume)) * (height - 40),
                   child: Container(
                     height: 32,
                     decoration: BoxDecoration(
