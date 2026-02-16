@@ -221,4 +221,3 @@ class MainFlutterWindow: NSWindow {
     }
   }
 }
-

@@ -465,11 +465,6 @@ class _Logo extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [FluxForgeTheme.accentBlue, FluxForgeTheme.accentCyan],
-            ),
             borderRadius: BorderRadius.circular(6),
             boxShadow: [
               BoxShadow(
@@ -479,14 +474,13 @@ class _Logo extends StatelessWidget {
               ),
             ],
           ),
-          child: const Center(
-            child: Text(
-              'F',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.asset(
+              'assets/branding/fluxforge_icon_256.png',
+              width: 28,
+              height: 28,
+              fit: BoxFit.contain,
             ),
           ),
         ),

@@ -187,8 +187,8 @@ class _SplashScreenState extends State<SplashScreen>
                       child: Transform.scale(
                         scale: _logoScale.value,
                         child: Container(
-                          width: 140,
-                          height: 140,
+                          width: 200,
+                          height: 200,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             boxShadow: [
@@ -315,81 +315,13 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Widget _buildLogo() {
-    return Container(
-      width: 140,
-      height: 140,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            FluxForgeTheme.bgSurface,
-            FluxForgeTheme.bgMid,
-          ],
-        ),
-        border: Border.all(
-          color: FluxForgeTheme.accentBlue.withAlpha(128),
-          width: 2,
-        ),
-      ),
-      child: Center(
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Outer ring
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: FluxForgeTheme.accentBlue.withAlpha(77),
-                  width: 1,
-                ),
-              ),
-            ),
-            // Inner symbol - stylized R
-            ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  FluxForgeTheme.accentBlue,
-                  FluxForgeTheme.accentCyan,
-                ],
-              ).createShader(bounds),
-              child: Text(
-                'R',
-                style: TextStyle(
-                  fontSize: 56,
-                  fontWeight: FontWeight.w200,
-                  color: FluxForgeTheme.textPrimary,
-                  letterSpacing: -2,
-                ),
-              ),
-            ),
-            // Audio waveform decoration
-            Positioned(
-              bottom: 24,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(7, (i) {
-                  final heights = [4.0, 8.0, 14.0, 18.0, 14.0, 8.0, 4.0];
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                    width: 3,
-                    height: heights[i],
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentBlue.withAlpha(179),
-                      borderRadius: BorderRadius.circular(1.5),
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ],
-        ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: Image.asset(
+        'assets/branding/fluxforge_icon_256.png',
+        width: 200,
+        height: 200,
+        fit: BoxFit.contain,
       ),
     );
   }

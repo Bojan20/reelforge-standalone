@@ -381,24 +381,13 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
     return Row(
       children: [
         // Mini logo
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFF9040), Color(0xFFFFD700)],
-            ),
-          ),
-          child: const Center(
-            child: Text(
-              'F',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w300,
-                color: Colors.white,
-              ),
-            ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            'assets/branding/fluxforge_icon_256.png',
+            width: 36,
+            height: 36,
+            fit: BoxFit.contain,
           ),
         ),
         const SizedBox(width: 12),

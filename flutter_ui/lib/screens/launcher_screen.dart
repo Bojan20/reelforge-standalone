@@ -15,10 +15,16 @@ enum AppMode {
 
 class LauncherScreen extends StatefulWidget {
   final void Function(AppMode mode) onModeSelected;
+  final bool isReady;
+  final String? errorMessage;
+  final VoidCallback? onRetry;
 
   const LauncherScreen({
     super.key,
     required this.onModeSelected,
+    this.isReady = true,
+    this.errorMessage,
+    this.onRetry,
   });
 
   @override
@@ -228,7 +234,7 @@ class _LauncherScreenState extends State<LauncherScreen>
   }
 
   void _onModeSelected(AppMode mode) {
-    if (_isExiting) return;
+    if (_isExiting || !widget.isReady) return;
 
     setState(() {
       _isExiting = true;
@@ -507,8 +513,8 @@ class _LauncherScreenState extends State<LauncherScreen>
       builder: (context, child) {
         final glow = 0.3 + 0.2 * _pulseController.value;
         return Container(
-          width: 80,
-          height: 80,
+          width: 120,
+          height: 120,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             boxShadow: [
@@ -527,35 +533,13 @@ class _LauncherScreenState extends State<LauncherScreen>
           child: child,
         );
       },
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF1A1A22), Color(0xFF0E0E12)],
-          ),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-            width: 1.5,
-          ),
-        ),
-        child: Center(
-          child: ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF4A9EFF), Color(0xFFFF9040)],
-            ).createShader(bounds),
-            child: const Text(
-              'F',
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.w200,
-                color: Colors.white,
-              ),
-            ),
-          ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Image.asset(
+          'assets/branding/fluxforge_icon_256.png',
+          width: 120,
+          height: 120,
+          fit: BoxFit.contain,
         ),
       ),
     );
@@ -642,11 +626,13 @@ class _LauncherScreenState extends State<LauncherScreen>
           ),
         );
       },
-      child: MouseRegion(
-        onEnter: (_) => _isExiting ? null : _onModeHover(mode),
-        onExit: (_) => _isExiting ? null : _onModeHover(null),
-        child: GestureDetector(
-          onTap: () => _onModeSelected(mode),
+      child: Opacity(
+        opacity: widget.isReady ? 1.0 : 0.5,
+        child: MouseRegion(
+          onEnter: (_) => _isExiting ? null : _onModeHover(mode),
+          onExit: (_) => _isExiting ? null : _onModeHover(null),
+          child: GestureDetector(
+            onTap: () => _onModeSelected(mode),
           child: Container(
             margin: EdgeInsets.all(24 - (8 * hoverIntensity) - (isSelected ? 8 : 0)),
             decoration: BoxDecoration(
@@ -819,7 +805,8 @@ class _LauncherScreenState extends State<LauncherScreen>
           ),
         ),
       ),
-      ),
+      ),  // end Opacity
+      ),  // end AnimatedBuilder
     );
   }
 
@@ -914,6 +901,46 @@ class _LauncherScreenState extends State<LauncherScreen>
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Column(
         children: [
+          // Loading / Error indicator
+          if (widget.errorMessage != null) ...[
+            Text(
+              widget.errorMessage!,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFFFF4060),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (widget.onRetry != null)
+              GestureDetector(
+                onTap: widget.onRetry,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFFF4060).withValues(alpha: 0.5)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Retry',
+                    style: TextStyle(fontSize: 11, color: Color(0xFFFF4060)),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
+          ] else if (!widget.isReady) ...[
+            SizedBox(
+              width: 120,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: const LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Color(0xFF1A1A20),
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A9EFF)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Text(
             'v0.1.0',
             style: TextStyle(

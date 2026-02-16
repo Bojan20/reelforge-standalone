@@ -199,39 +199,66 @@ class InsertChain {
 // BUILT-IN PLUGINS - FluxForge Studio Native
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// All available plugins (built-in + scanned)
+/// All available plugins — ONLY those with Rust engine backend
+///
+/// Each plugin here has a corresponding InsertProcessor in
+/// crates/rf-engine/src/dsp_wrappers.rs (create_processor / create_processor_extended)
 class PluginRegistry {
   static const List<PluginInfo> builtIn = [
-    // EQ
+    // ═══ EQ ═══
     PluginInfo(
       id: 'rf-pro-eq',
-      name: 'Pro EQ',
+      name: 'FF Pro EQ',
       shortName: 'EQ',
       category: PluginCategory.eq,
       vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
-      id: 'rf-channel-eq',
-      name: 'Channel EQ',
-      shortName: 'Ch EQ',
+      id: 'rf-ultra-eq',
+      name: 'FF Ultra EQ',
+      shortName: 'Ultra EQ',
       category: PluginCategory.eq,
       vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
       id: 'rf-linear-eq',
-      name: 'Linear Phase EQ',
+      name: 'FF Linear Phase EQ',
       shortName: 'Lin EQ',
       category: PluginCategory.eq,
       vendor: 'FluxForge Studio',
       version: '1.0',
     ),
+    PluginInfo(
+      id: 'rf-pultec',
+      name: 'FF Pultec EQP-1A',
+      shortName: 'Pultec',
+      category: PluginCategory.eq,
+      vendor: 'FluxForge Studio',
+      version: '1.0',
+    ),
+    PluginInfo(
+      id: 'rf-api550',
+      name: 'FF API 550A',
+      shortName: 'API 550',
+      category: PluginCategory.eq,
+      vendor: 'FluxForge Studio',
+      version: '1.0',
+    ),
+    PluginInfo(
+      id: 'rf-neve1073',
+      name: 'FF Neve 1073',
+      shortName: '1073',
+      category: PluginCategory.eq,
+      vendor: 'FluxForge Studio',
+      version: '1.0',
+    ),
 
-    // Dynamics
+    // ═══ Dynamics ═══
     PluginInfo(
       id: 'rf-compressor',
-      name: 'Compressor',
+      name: 'FF Compressor',
       shortName: 'Comp',
       category: PluginCategory.dynamics,
       vendor: 'FluxForge Studio',
@@ -239,7 +266,7 @@ class PluginRegistry {
     ),
     PluginInfo(
       id: 'rf-limiter',
-      name: 'Limiter',
+      name: 'FF Limiter',
       shortName: 'Limit',
       category: PluginCategory.dynamics,
       vendor: 'FluxForge Studio',
@@ -247,241 +274,54 @@ class PluginRegistry {
     ),
     PluginInfo(
       id: 'rf-gate',
-      name: 'Gate',
+      name: 'FF Gate',
       category: PluginCategory.dynamics,
       vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
       id: 'rf-expander',
-      name: 'Expander',
+      name: 'FF Expander',
       shortName: 'Exp',
       category: PluginCategory.dynamics,
       vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
-      id: 'rf-multiband-comp',
-      name: 'Multiband Compressor',
-      shortName: 'MB Comp',
-      category: PluginCategory.dynamics,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
       id: 'rf-deesser',
-      name: 'De-Esser',
+      name: 'FF De-Esser',
       shortName: 'DeEss',
       category: PluginCategory.dynamics,
       vendor: 'FluxForge Studio',
       version: '1.0',
     ),
 
-    // Reverb
+    // ═══ Reverb ═══
     PluginInfo(
-      id: 'rf-plate-reverb',
-      name: 'Plate Reverb',
-      shortName: 'Plate',
-      category: PluginCategory.reverb,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-hall-reverb',
-      name: 'Hall Reverb',
-      shortName: 'Hall',
-      category: PluginCategory.reverb,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-room-reverb',
-      name: 'Room Reverb',
-      shortName: 'Room',
-      category: PluginCategory.reverb,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-convolution-reverb',
-      name: 'Convolution Reverb',
-      shortName: 'Convo',
+      id: 'rf-reverb',
+      name: 'FF Reverb',
+      shortName: 'Reverb',
       category: PluginCategory.reverb,
       vendor: 'FluxForge Studio',
       version: '1.0',
     ),
 
-    // Delay
+    // ═══ Delay ═══
     PluginInfo(
-      id: 'rf-stereo-delay',
-      name: 'Stereo Delay',
+      id: 'rf-delay',
+      name: 'FF Delay',
       shortName: 'Delay',
       category: PluginCategory.delay,
       vendor: 'FluxForge Studio',
       version: '1.0',
     ),
-    PluginInfo(
-      id: 'rf-ping-pong-delay',
-      name: 'Ping Pong Delay',
-      shortName: 'PingPong',
-      category: PluginCategory.delay,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-tape-delay',
-      name: 'Tape Delay',
-      shortName: 'Tape',
-      category: PluginCategory.delay,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
 
-    // Modulation
+    // ═══ Saturation ═══
     PluginInfo(
-      id: 'rf-chorus',
-      name: 'Chorus',
-      category: PluginCategory.modulation,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-flanger',
-      name: 'Flanger',
-      category: PluginCategory.modulation,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-phaser',
-      name: 'Phaser',
-      category: PluginCategory.modulation,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-tremolo',
-      name: 'Tremolo',
-      category: PluginCategory.modulation,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-
-    // Saturation
-    PluginInfo(
-      id: 'rf-tape-saturation',
-      name: 'Tape Saturation',
-      shortName: 'Tape Sat',
+      id: 'rf-saturation',
+      name: 'FF Saturator',
+      shortName: 'Saturn',
       category: PluginCategory.saturation,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-tube-saturation',
-      name: 'Tube Saturation',
-      shortName: 'Tube',
-      category: PluginCategory.saturation,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-distortion',
-      name: 'Distortion',
-      shortName: 'Dist',
-      category: PluginCategory.saturation,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-
-    // Filter
-    PluginInfo(
-      id: 'rf-lowpass',
-      name: 'Low Pass Filter',
-      shortName: 'LPF',
-      category: PluginCategory.filter,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-highpass',
-      name: 'High Pass Filter',
-      shortName: 'HPF',
-      category: PluginCategory.filter,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-bandpass',
-      name: 'Band Pass Filter',
-      shortName: 'BPF',
-      category: PluginCategory.filter,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-
-    // Utility
-    PluginInfo(
-      id: 'rf-gain',
-      name: 'Gain',
-      category: PluginCategory.utility,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-stereo-width',
-      name: 'Stereo Width',
-      shortName: 'Width',
-      category: PluginCategory.utility,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-mid-side',
-      name: 'Mid/Side',
-      shortName: 'M/S',
-      category: PluginCategory.utility,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-mono-maker',
-      name: 'Mono Maker',
-      shortName: 'Mono',
-      category: PluginCategory.utility,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-
-    // Analyzer
-    PluginInfo(
-      id: 'rf-spectrum',
-      name: 'Spectrum Analyzer',
-      shortName: 'Spectrum',
-      category: PluginCategory.analyzer,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-loudness',
-      name: 'Loudness Meter',
-      shortName: 'LUFS',
-      category: PluginCategory.analyzer,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-correlation',
-      name: 'Correlation Meter',
-      shortName: 'Corr',
-      category: PluginCategory.analyzer,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-oscilloscope',
-      name: 'Oscilloscope',
-      shortName: 'Scope',
-      category: PluginCategory.analyzer,
       vendor: 'FluxForge Studio',
       version: '1.0',
     ),

@@ -8339,20 +8339,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   }
 
   /// Map plugin ID to Rust processor name
+  /// Only plugins listed here have working Rust engine backends
   String? _pluginIdToProcessorName(String pluginId) {
     const mapping = {
+      // EQ
       'rf-pro-eq': 'pro-eq',
-      'rf-channel-eq': 'pro-eq',  // Use pro-eq as fallback
-      'rf-linear-eq': 'pro-eq',   // Use pro-eq as fallback
+      'rf-ultra-eq': 'ultra-eq',
+      'rf-linear-eq': 'linear-phase-eq',
+      'rf-pultec': 'pultec',
+      'rf-api550': 'api550',
+      'rf-neve1073': 'neve1073',
+      // Dynamics
       'rf-compressor': 'compressor',
       'rf-limiter': 'limiter',
       'rf-gate': 'gate',
       'rf-expander': 'expander',
-      'rf-pultec': 'pultec',
-      'rf-api550': 'api550',
-      'rf-neve1073': 'neve1073',
-      'rf-ultra-eq': 'ultra-eq',
-      'rf-room-correction': 'room-correction',
+      'rf-deesser': 'deesser',
+      // Effects
+      'rf-reverb': 'reverb',
+      'rf-delay': 'delay',
+      'rf-saturation': 'saturation',
     };
     return mapping[pluginId];
   }

@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-16 (EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
+**Updated:** 2026-02-16 (Independent Floating Editor Windows + EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
 **Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational, all 9 FabFilter DSP panels 100% FFI connected with A/B snapshots, ~1,200 LOC dead EQ code removed
 
 ---
@@ -29,7 +29,89 @@ DEAD CODE CLEANUP: ~1,200 LOC removed (4 legacy EQ panels)
 ✅ DEAD CODE CLEANUP:   ~1,200 LOC     ✅ 4 legacy EQ panels removed
 ```
 
-**All 385 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades + 1 DeEsser PROCESS tab). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). 10 PROCESS subtabs. Repo cleaned. ~1,200 LOC dead EQ code removed. SHIP READY.**
+**All 385 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades + 1 DeEsser PROCESS tab). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). 10 PROCESS subtabs. Repo cleaned. ~1,200 LOC dead EQ code removed. Independent floating editor windows for all processors. SHIP READY.**
+
+### Independent Floating Processor Editor Windows (2026-02-16) ✅
+
+Every DSP processor now has its own independent floating editor window with full FabFilter panels — openable from 3 entry points, independent of the Lower Zone.
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ProcessorEditorRegistry (Singleton)                             │
+│  ├── Map<String, OverlayEntry>  key = "trackId:slotIndex"       │
+│  ├── isOpen(trackId, slotIndex) — prevent duplicates            │
+│  ├── register/unregister/close/closeAll                          │
+│  └── Staggered positioning: baseOffset + count * 30px           │
+├─────────────────────────────────────────────────────────────────┤
+│  InternalProcessorEditorWindow (OverlayEntry)                    │
+│  ├── Draggable title bar (GestureDetector.onPanUpdate)          │
+│  ├── Collapse/Bypass/Close buttons                               │
+│  ├── FabFilter panel routing (9 premium types)                  │
+│  └── Generic slider fallback (4 vintage types)                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**3 Entry Points:**
+
+| Entry Point | Gesture | File |
+|-------------|---------|------|
+| Mixer insert slot click | Single click | `engine_connected_layout.dart:4656` |
+| FX Chain processor card | Double-tap | `fx_chain_panel.dart:198` |
+| Signal Analyzer node | Single click | `signal_analyzer_widget.dart:397` |
+
+**FabFilter Panel Routing (9 premium types):**
+
+| DspNodeType | Panel | Window Size |
+|-------------|-------|-------------|
+| `eq` | FabFilterEqPanel | 700×520 |
+| `compressor` | FabFilterCompressorPanel | 660×500 |
+| `limiter` | FabFilterLimiterPanel | 620×480 |
+| `gate` | FabFilterGatePanel | 620×480 |
+| `reverb` | FabFilterReverbPanel | 620×480 |
+| `delay` | FabFilterDelayPanel | 620×480 |
+| `saturation` | FabFilterSaturationPanel | 600×460 |
+| `multibandSaturation` | FabFilterSaturationPanel | 600×460 |
+| `deEsser` | FabFilterDeEsserPanel | 560×440 |
+
+**Generic Slider Fallback (4 vintage types):**
+
+| DspNodeType | Params | Window Size |
+|-------------|--------|-------------|
+| `expander` | 10 sliders | 400×350 |
+| `pultec` | 4 sliders | 400×350 |
+| `api550` | 3 sliders | 400×350 |
+| `neve1073` | 3 sliders | 400×350 |
+
+**Key Features:**
+- **No duplicate windows** — clicking an already-open processor toggles it closed
+- **Staggered positioning** — each new window offset by 30px to avoid overlap
+- **Draggable** — title bar supports drag to reposition
+- **Collapse toggle** — minimize to title bar only
+- **Bypass toggle** — direct FFI bypass from window header
+- **Full FabFilter panels** — knobs, A/B snapshots, undo/redo, preset browser
+
+**Static API:**
+```dart
+InternalProcessorEditorWindow.show(
+  context: context,
+  trackId: trackId,
+  slotIndex: slotIndex,
+  node: node,
+  position: Offset(200, 100),  // optional
+);
+```
+
+**Files Changed:**
+
+| File | LOC | Changes |
+|------|-----|---------|
+| `internal_processor_editor_window.dart` | 751 | Full rewrite — ProcessorEditorRegistry + FabFilter panels |
+| `fx_chain_panel.dart` | +20 | Double-tap to open editor, slot index tracking, visual hint |
+| `signal_analyzer_widget.dart` | +10 | Click-to-open editor on processor nodes |
+
+---
 
 ### PROCESS Subtab Default Visibility Fix (2026-02-16) ✅
 
@@ -74,7 +156,7 @@ Removed 4 legacy EQ panel files (~1,200 LOC) that were never instantiated anywhe
 | `api550_eq.dart` | ~200 | Vintage API 550A character |
 | `neve1073_eq.dart` | ~250 | Vintage Neve 1073 character |
 | `analog_eq_panel.dart` | ~600 | Vintage EQ tab switcher (Pultec/API/Neve) |
-| `internal_processor_editor_window.dart` | ~530 | Generic floating parameter editor |
+| `internal_processor_editor_window.dart` | ~751 | Floating FabFilter editor windows (9 panel types + 4 vintage fallback) |
 
 **Verification:** `flutter analyze` — No issues found!
 

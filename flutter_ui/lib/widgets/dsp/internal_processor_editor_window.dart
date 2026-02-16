@@ -1,19 +1,134 @@
 // Internal Processor Editor Window
 //
-// Floating window for editing internal DSP processor parameters
-// Used for EQ, Compressor, Limiter, Gate, etc.
+// Floating window for editing internal DSP processor parameters.
+// Uses premium FabFilter panels (EQ, Comp, Limiter, Gate, Reverb,
+// Delay, Saturation, DeEsser) when available.
+// Falls back to generic parameter sliders for vintage EQs and expander.
 
 import 'package:flutter/material.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/native_ffi.dart';
+import '../fabfilter/fabfilter_eq_panel.dart';
+import '../fabfilter/fabfilter_compressor_panel.dart';
+import '../fabfilter/fabfilter_limiter_panel.dart';
+import '../fabfilter/fabfilter_gate_panel.dart';
+import '../fabfilter/fabfilter_reverb_panel.dart';
+import '../fabfilter/fabfilter_delay_panel.dart';
+import '../fabfilter/fabfilter_saturation_panel.dart';
+import '../fabfilter/fabfilter_deesser_panel.dart';
 
-/// Floating editor window for internal DSP processors
+// ═══════════════════════════════════════════════════════════════════════════════
+// OPEN EDITOR REGISTRY — tracks all open floating editor windows
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Global registry of open processor editor windows.
+/// Prevents duplicate windows for the same track+slot.
+class ProcessorEditorRegistry {
+  ProcessorEditorRegistry._();
+  static final instance = ProcessorEditorRegistry._();
+
+  /// Key = "trackId:slotIndex", Value = OverlayEntry
+  final Map<String, OverlayEntry> _openEditors = {};
+
+  /// Check if an editor is already open for this track+slot
+  bool isOpen(int trackId, int slotIndex) =>
+      _openEditors.containsKey('$trackId:$slotIndex');
+
+  /// Register an open editor
+  void register(int trackId, int slotIndex, OverlayEntry entry) =>
+      _openEditors['$trackId:$slotIndex'] = entry;
+
+  /// Unregister (on close)
+  void unregister(int trackId, int slotIndex) =>
+      _openEditors.remove('$trackId:$slotIndex');
+
+  /// Close a specific editor
+  void close(int trackId, int slotIndex) {
+    final entry = _openEditors.remove('$trackId:$slotIndex');
+    entry?.remove();
+  }
+
+  /// Close all open editors
+  void closeAll() {
+    for (final entry in _openEditors.values) {
+      entry.remove();
+    }
+    _openEditors.clear();
+  }
+
+  /// Number of open editors
+  int get count => _openEditors.length;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FABFILTER PANEL SUPPORT CHECK
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Node types that have premium FabFilter panels
+bool _hasFabFilterPanel(DspNodeType type) {
+  switch (type) {
+    case DspNodeType.eq:
+    case DspNodeType.compressor:
+    case DspNodeType.limiter:
+    case DspNodeType.gate:
+    case DspNodeType.reverb:
+    case DspNodeType.delay:
+    case DspNodeType.saturation:
+    case DspNodeType.deEsser:
+    case DspNodeType.multibandSaturation:
+      return true;
+    case DspNodeType.expander:
+    case DspNodeType.pultec:
+    case DspNodeType.api550:
+    case DspNodeType.neve1073:
+      return false;
+  }
+}
+
+/// Window dimensions based on panel type
+Size _windowSizeForType(DspNodeType type) {
+  if (_hasFabFilterPanel(type)) {
+    switch (type) {
+      case DspNodeType.eq:
+        return const Size(700, 520);
+      case DspNodeType.compressor:
+        return const Size(660, 500);
+      case DspNodeType.limiter:
+        return const Size(620, 480);
+      case DspNodeType.gate:
+        return const Size(620, 480);
+      case DspNodeType.reverb:
+        return const Size(660, 500);
+      case DspNodeType.delay:
+        return const Size(620, 480);
+      case DspNodeType.saturation:
+      case DspNodeType.multibandSaturation:
+        return const Size(600, 460);
+      case DspNodeType.deEsser:
+        return const Size(560, 440);
+      default:
+        return const Size(600, 480);
+    }
+  }
+  return const Size(400, 350); // Generic slider fallback
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN WIDGET
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Floating editor window for internal DSP processors.
+///
+/// Opens as an [OverlayEntry] that can be dragged, resized, and closed
+/// independently of the Lower Zone. Uses premium FabFilter panels when
+/// available, falls back to generic parameter sliders otherwise.
 class InternalProcessorEditorWindow extends StatefulWidget {
   final int trackId;
   final int slotIndex;
   final DspNode node;
   final VoidCallback? onClose;
+  final Offset initialPosition;
 
   const InternalProcessorEditorWindow({
     super.key,
@@ -21,27 +136,48 @@ class InternalProcessorEditorWindow extends StatefulWidget {
     required this.slotIndex,
     required this.node,
     this.onClose,
+    this.initialPosition = const Offset(100, 100),
   });
 
-  /// Show the editor as a floating overlay
+  /// Show the editor as a floating overlay.
+  ///
+  /// If an editor for this track+slot is already open, it is brought
+  /// to the front instead of opening a duplicate.
   static OverlayEntry? show({
     required BuildContext context,
     required int trackId,
     required int slotIndex,
     required DspNode node,
+    Offset? position,
   }) {
+    final registry = ProcessorEditorRegistry.instance;
+
+    // Already open — close and reopen to bring to front
+    if (registry.isOpen(trackId, slotIndex)) {
+      registry.close(trackId, slotIndex);
+    }
+
     final overlay = Overlay.of(context);
     OverlayEntry? entry;
+
+    // Stagger position based on open editor count
+    final basePos = position ?? Offset(120.0 + registry.count * 30.0,
+                                        80.0 + registry.count * 30.0);
 
     entry = OverlayEntry(
       builder: (context) => InternalProcessorEditorWindow(
         trackId: trackId,
         slotIndex: slotIndex,
         node: node,
-        onClose: () => entry?.remove(),
+        initialPosition: basePos,
+        onClose: () {
+          entry?.remove();
+          registry.unregister(trackId, slotIndex);
+        },
       ),
     );
 
+    registry.register(trackId, slotIndex, entry);
     overlay.insert(entry);
     return entry;
   }
@@ -53,13 +189,15 @@ class InternalProcessorEditorWindow extends StatefulWidget {
 
 class _InternalProcessorEditorWindowState
     extends State<InternalProcessorEditorWindow> {
-  Offset _position = const Offset(100, 100);
+  late Offset _position;
   bool _isDragging = false;
   late Map<String, dynamic> _params;
+  bool _isCollapsed = false;
 
   @override
   void initState() {
     super.initState();
+    _position = widget.initialPosition;
     _params = Map<String, dynamic>.from(widget.node.params);
   }
 
@@ -67,8 +205,6 @@ class _InternalProcessorEditorWindowState
     setState(() {
       _params[key] = value;
     });
-
-    // Send to FFI
     if (value is num) {
       NativeFFI.instance.insertSetParam(
         widget.trackId,
@@ -81,32 +217,55 @@ class _InternalProcessorEditorWindowState
 
   @override
   Widget build(BuildContext context) {
+    final size = _windowSizeForType(widget.node.type);
+    final hasFab = _hasFabFilterPanel(widget.node.type);
+
     return Positioned(
       left: _position.dx,
       top: _position.dy,
       child: Material(
-        elevation: 16,
+        elevation: 24,
         borderRadius: BorderRadius.circular(8),
-        color: FluxForgeTheme.bgDeep,
+        color: hasFab
+            ? const Color(0xFF0D0D11) // FabFilter dark bg
+            : FluxForgeTheme.bgDeep,
         child: Container(
-          width: 400,
+          width: size.width,
+          constraints: BoxConstraints(
+            maxHeight: _isCollapsed ? 36 : size.height,
+          ),
           decoration: BoxDecoration(
-            border: Border.all(color: FluxForgeTheme.bgSurface, width: 1),
+            border: Border.all(
+              color: hasFab
+                  ? _getTypeColor(widget.node.type).withValues(alpha: 0.3)
+                  : FluxForgeTheme.bgSurface,
+              width: hasFab ? 1.5 : 1,
+            ),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildTitleBar(),
-              _buildContent(),
-            ],
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(7),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTitleBar(),
+                if (!_isCollapsed) _buildContent(),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TITLE BAR (draggable)
+  // ═════════════════════════════════════════════════════════════════════════════
+
   Widget _buildTitleBar() {
+    final typeColor = _getTypeColor(widget.node.type);
+    final hasFab = _hasFabFilterPanel(widget.node.type);
+
     return GestureDetector(
       onPanStart: (_) => setState(() => _isDragging = true),
       onPanUpdate: (details) {
@@ -122,13 +281,17 @@ class _InternalProcessorEditorWindowState
       onPanEnd: (_) => setState(() => _isDragging = false),
       child: Container(
         height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: FluxForgeTheme.bgMid,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(7),
-            topRight: Radius.circular(7),
-          ),
+          gradient: hasFab
+              ? LinearGradient(
+                  colors: [
+                    typeColor.withValues(alpha: 0.15),
+                    const Color(0xFF161620),
+                  ],
+                )
+              : null,
+          color: hasFab ? null : FluxForgeTheme.bgMid,
         ),
         child: Row(
           children: [
@@ -136,15 +299,17 @@ class _InternalProcessorEditorWindowState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: _getTypeColor(widget.node.type).withValues(alpha: 0.2),
+                color: typeColor.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: typeColor.withValues(alpha: 0.4)),
               ),
               child: Text(
                 widget.node.type.shortName,
                 style: TextStyle(
-                  color: _getTypeColor(widget.node.type),
+                  color: typeColor,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
@@ -156,42 +321,59 @@ class _InternalProcessorEditorWindowState
                 widget.node.name,
                 style: const TextStyle(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
 
-            // Bypass toggle
-            IconButton(
-              icon: Icon(
-                Icons.power_settings_new,
-                size: 18,
-                color: widget.node.bypass
-                    ? FluxForgeTheme.textDisabled
-                    : FluxForgeTheme.accentGreen,
+            // Track badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(3),
               ),
+              child: Text(
+                'T${widget.trackId}:${widget.slotIndex}',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 9,
+                  fontFamily: 'JetBrains Mono',
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+
+            // Collapse toggle
+            _buildTitleButton(
+              icon: _isCollapsed ? Icons.unfold_more : Icons.unfold_less,
+              tooltip: _isCollapsed ? 'Expand' : 'Collapse',
+              onPressed: () => setState(() => _isCollapsed = !_isCollapsed),
+            ),
+
+            // Bypass toggle
+            _buildTitleButton(
+              icon: Icons.power_settings_new,
               tooltip: widget.node.bypass ? 'Enable' : 'Bypass',
+              color: widget.node.bypass
+                  ? FluxForgeTheme.textDisabled
+                  : FluxForgeTheme.accentGreen,
               onPressed: () {
-                // Toggle bypass via provider
                 DspChainProvider.instance.toggleNodeBypass(
                   widget.trackId,
                   widget.node.id,
                 );
               },
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
 
             // Close button
-            IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              color: FluxForgeTheme.textSecondary,
+            _buildTitleButton(
+              icon: Icons.close,
               tooltip: 'Close',
+              color: FluxForgeTheme.textSecondary,
               onPressed: widget.onClose,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
           ],
         ),
@@ -199,204 +381,87 @@ class _InternalProcessorEditorWindowState
     );
   }
 
+  Widget _buildTitleButton({
+    required IconData icon,
+    required String tooltip,
+    Color? color,
+    VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      icon: Icon(icon, size: 16, color: color ?? FluxForgeTheme.textTertiary),
+      tooltip: tooltip,
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // CONTENT — FabFilter panel or generic sliders
+  // ═════════════════════════════════════════════════════════════════════════════
+
   Widget _buildContent() {
+    if (_hasFabFilterPanel(widget.node.type)) {
+      return Flexible(
+        child: _buildFabFilterPanel(),
+      );
+    }
+    // Generic slider fallback
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         color: FluxForgeTheme.bgDeep,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(7),
-          bottomRight: Radius.circular(7),
-        ),
       ),
-      child: _buildParamsForType(),
+      child: _buildGenericParamsForType(),
     );
   }
 
-  Widget _buildParamsForType() {
+  /// Build the premium FabFilter panel for this processor type
+  Widget _buildFabFilterPanel() {
     switch (widget.node.type) {
       case DspNodeType.eq:
-        return _buildEqParams();
+        return FabFilterEqPanel(trackId: widget.trackId);
       case DspNodeType.compressor:
-        return _buildCompressorParams();
+        return FabFilterCompressorPanel(trackId: widget.trackId);
       case DspNodeType.limiter:
-        return _buildLimiterParams();
+        return FabFilterLimiterPanel(trackId: widget.trackId);
       case DspNodeType.gate:
-        return _buildGateParams();
+        return FabFilterGatePanel(trackId: widget.trackId);
+      case DspNodeType.reverb:
+        return FabFilterReverbPanel(trackId: widget.trackId);
+      case DspNodeType.delay:
+        return FabFilterDelayPanel(trackId: widget.trackId);
+      case DspNodeType.saturation:
+      case DspNodeType.multibandSaturation:
+        return FabFilterSaturationPanel(trackId: widget.trackId);
+      case DspNodeType.deEsser:
+        return FabFilterDeEsserPanel(trackId: widget.trackId);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // GENERIC PARAM SLIDERS — fallback for types without FabFilter panels
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildGenericParamsForType() {
+    switch (widget.node.type) {
       case DspNodeType.expander:
         return _buildExpanderParams();
-      case DspNodeType.reverb:
-        return _buildReverbParams();
-      case DspNodeType.delay:
-        return _buildDelayParams();
-      case DspNodeType.saturation:
-        return _buildSaturationParams();
-      case DspNodeType.deEsser:
-        return _buildDeEsserParams();
       case DspNodeType.pultec:
         return _buildPultecParams();
       case DspNodeType.api550:
         return _buildApi550Params();
       case DspNodeType.neve1073:
         return _buildNeve1073Params();
-      case DspNodeType.multibandSaturation:
-        return _buildSaturationParams(); // Same base params
+      default:
+        return const Text(
+          'No editor available',
+          style: TextStyle(color: FluxForgeTheme.textDisabled),
+        );
     }
   }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // COMPRESSOR
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildCompressorParams() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ParamSlider(
-          label: 'Threshold',
-          value: (_params['threshold'] as num?)?.toDouble() ?? -20.0,
-          min: -60,
-          max: 0,
-          unit: 'dB',
-          onChanged: (v) => _updateParam('threshold', v, 0),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Ratio',
-          value: (_params['ratio'] as num?)?.toDouble() ?? 4.0,
-          min: 1,
-          max: 20,
-          unit: ':1',
-          onChanged: (v) => _updateParam('ratio', v, 1),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Attack',
-          value: (_params['attack'] as num?)?.toDouble() ?? 10.0,
-          min: 0.1,
-          max: 100,
-          unit: 'ms',
-          onChanged: (v) => _updateParam('attack', v, 2),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Release',
-          value: (_params['release'] as num?)?.toDouble() ?? 100.0,
-          min: 10,
-          max: 1000,
-          unit: 'ms',
-          onChanged: (v) => _updateParam('release', v, 3),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Knee',
-          value: (_params['knee'] as num?)?.toDouble() ?? 6.0,
-          min: 0,
-          max: 24,
-          unit: 'dB',
-          onChanged: (v) => _updateParam('knee', v, 4),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Makeup Gain',
-          value: (_params['makeupGain'] as num?)?.toDouble() ?? 0.0,
-          min: 0,
-          max: 24,
-          unit: 'dB',
-          onChanged: (v) => _updateParam('makeupGain', v, 5),
-        ),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LIMITER
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildLimiterParams() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ParamSlider(
-          label: 'Ceiling',
-          value: (_params['ceiling'] as num?)?.toDouble() ?? -0.3,
-          min: -12,
-          max: 0,
-          unit: 'dB',
-          onChanged: (v) => _updateParam('ceiling', v, 0),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Release',
-          value: (_params['release'] as num?)?.toDouble() ?? 50.0,
-          min: 1,
-          max: 500,
-          unit: 'ms',
-          onChanged: (v) => _updateParam('release', v, 1),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Lookahead',
-          value: (_params['lookahead'] as num?)?.toDouble() ?? 5.0,
-          min: 0,
-          max: 10,
-          unit: 'ms',
-          onChanged: (v) => _updateParam('lookahead', v, 2),
-        ),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // GATE
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildGateParams() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ParamSlider(
-          label: 'Threshold',
-          value: (_params['threshold'] as num?)?.toDouble() ?? -40.0,
-          min: -80,
-          max: 0,
-          unit: 'dB',
-          onChanged: (v) => _updateParam('threshold', v, 0),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Attack',
-          value: (_params['attack'] as num?)?.toDouble() ?? 0.5,
-          min: 0.01,
-          max: 50,
-          unit: 'ms',
-          onChanged: (v) => _updateParam('attack', v, 1),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Release',
-          value: (_params['release'] as num?)?.toDouble() ?? 50.0,
-          min: 5,
-          max: 500,
-          unit: 'ms',
-          onChanged: (v) => _updateParam('release', v, 2),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Range',
-          value: (_params['range'] as num?)?.toDouble() ?? -80.0,
-          min: -80,
-          max: 0,
-          unit: 'dB',
-          onChanged: (v) => _updateParam('range', v, 3),
-        ),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // EXPANDER
-  // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildExpanderParams() {
     return Column(
@@ -405,271 +470,40 @@ class _InternalProcessorEditorWindowState
         _ParamSlider(
           label: 'Threshold',
           value: (_params['threshold'] as num?)?.toDouble() ?? -30.0,
-          min: -60,
-          max: 0,
-          unit: 'dB',
+          min: -60, max: 0, unit: 'dB',
           onChanged: (v) => _updateParam('threshold', v, 0),
         ),
         const SizedBox(height: 12),
         _ParamSlider(
           label: 'Ratio',
           value: (_params['ratio'] as num?)?.toDouble() ?? 2.0,
-          min: 1,
-          max: 10,
-          unit: ':1',
+          min: 1, max: 10, unit: ':1',
           onChanged: (v) => _updateParam('ratio', v, 1),
         ),
         const SizedBox(height: 12),
         _ParamSlider(
           label: 'Attack',
           value: (_params['attack'] as num?)?.toDouble() ?? 5.0,
-          min: 0.1,
-          max: 100,
-          unit: 'ms',
+          min: 0.1, max: 100, unit: 'ms',
           onChanged: (v) => _updateParam('attack', v, 2),
         ),
         const SizedBox(height: 12),
         _ParamSlider(
           label: 'Release',
           value: (_params['release'] as num?)?.toDouble() ?? 50.0,
-          min: 5,
-          max: 500,
-          unit: 'ms',
+          min: 5, max: 500, unit: 'ms',
           onChanged: (v) => _updateParam('release', v, 3),
         ),
         const SizedBox(height: 12),
         _ParamSlider(
           label: 'Knee',
           value: (_params['knee'] as num?)?.toDouble() ?? 3.0,
-          min: 0,
-          max: 12,
-          unit: 'dB',
+          min: 0, max: 12, unit: 'dB',
           onChanged: (v) => _updateParam('knee', v, 4),
         ),
       ],
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // REVERB
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildReverbParams() {
-    // Param indices match ReverbWrapper.set_param() in dsp_wrappers.rs:
-    // 0=Space, 1=Brightness, 2=Width, 3=Mix, 4=PreDelay, 5=Style,
-    // 6=Diffusion, 7=Distance, 8=Decay, 9=LowDecayMult, 10=HighDecayMult,
-    // 11=Character, 12=Thickness, 13=Ducking, 14=Freeze
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ParamSlider(
-          label: 'Space',
-          value: (_params['space'] as num?)?.toDouble() ?? 0.5,
-          min: 0, max: 1, unit: '',
-          onChanged: (v) => _updateParam('space', v, 0),
-        ),
-        const SizedBox(height: 8),
-        _ParamSlider(
-          label: 'Decay',
-          value: (_params['decay'] as num?)?.toDouble() ?? 0.5,
-          min: 0, max: 1, unit: '',
-          onChanged: (v) => _updateParam('decay', v, 8),
-        ),
-        const SizedBox(height: 8),
-        _ParamSlider(
-          label: 'Brightness',
-          value: (_params['brightness'] as num?)?.toDouble() ?? 0.5,
-          min: 0, max: 1, unit: '',
-          onChanged: (v) => _updateParam('brightness', v, 1),
-        ),
-        const SizedBox(height: 8),
-        _ParamSlider(
-          label: 'Pre-Delay',
-          value: (_params['predelay'] as num?)?.toDouble() ?? 0.0,
-          min: 0, max: 500, unit: 'ms',
-          onChanged: (v) => _updateParam('predelay', v, 4),
-        ),
-        const SizedBox(height: 8),
-        _ParamSlider(
-          label: 'Mix',
-          value: (_params['mix'] as num?)?.toDouble() ?? 0.3,
-          min: 0, max: 1, unit: '',
-          onChanged: (v) => _updateParam('mix', v, 3),
-        ),
-        const SizedBox(height: 8),
-        _ParamSlider(
-          label: 'Width',
-          value: (_params['width'] as num?)?.toDouble() ?? 1.0,
-          min: 0, max: 2, unit: '',
-          onChanged: (v) => _updateParam('width', v, 2),
-        ),
-        const SizedBox(height: 8),
-        _ParamSlider(
-          label: 'Diffusion',
-          value: (_params['diffusion'] as num?)?.toDouble() ?? 0.7,
-          min: 0, max: 1, unit: '',
-          onChanged: (v) => _updateParam('diffusion', v, 6),
-        ),
-        const SizedBox(height: 8),
-        _ParamSlider(
-          label: 'Character',
-          value: (_params['character'] as num?)?.toDouble() ?? 0.3,
-          min: 0, max: 1, unit: '',
-          onChanged: (v) => _updateParam('character', v, 11),
-        ),
-        const SizedBox(height: 8),
-        _ParamSlider(
-          label: 'Thickness',
-          value: (_params['thickness'] as num?)?.toDouble() ?? 0.5,
-          min: 0, max: 1, unit: '',
-          onChanged: (v) => _updateParam('thickness', v, 12),
-        ),
-        const SizedBox(height: 8),
-        _ParamSlider(
-          label: 'Ducking',
-          value: (_params['ducking'] as num?)?.toDouble() ?? 0.0,
-          min: 0, max: 1, unit: '',
-          onChanged: (v) => _updateParam('ducking', v, 13),
-        ),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // DELAY
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildDelayParams() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ParamSlider(
-          label: 'Time',
-          value: (_params['time'] as num?)?.toDouble() ?? 250.0,
-          min: 1,
-          max: 2000,
-          unit: 'ms',
-          onChanged: (v) => _updateParam('time', v, 0),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Feedback',
-          value: (_params['feedback'] as num?)?.toDouble() ?? 0.3,
-          min: 0,
-          max: 0.95,
-          unit: '',
-          onChanged: (v) => _updateParam('feedback', v, 1),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'High Cut',
-          value: (_params['highCut'] as num?)?.toDouble() ?? 8000.0,
-          min: 500,
-          max: 20000,
-          unit: 'Hz',
-          onChanged: (v) => _updateParam('highCut', v, 2),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Low Cut',
-          value: (_params['lowCut'] as num?)?.toDouble() ?? 80.0,
-          min: 20,
-          max: 500,
-          unit: 'Hz',
-          onChanged: (v) => _updateParam('lowCut', v, 3),
-        ),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SATURATION
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildSaturationParams() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ParamSlider(
-          label: 'Drive',
-          value: (_params['drive'] as num?)?.toDouble() ?? 0.0,
-          min: -24,
-          max: 40,
-          unit: 'dB',
-          onChanged: (v) => _updateParam('drive', v, 0),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Tone',
-          value: (_params['tone'] as num?)?.toDouble() ?? 0.0,
-          min: -100,
-          max: 100,
-          unit: '',
-          onChanged: (v) => _updateParam('tone', v, 2),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Mix',
-          value: (_params['mix'] as num?)?.toDouble() ?? 100.0,
-          min: 0,
-          max: 100,
-          unit: '%',
-          onChanged: (v) => _updateParam('mix', v, 3),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Output',
-          value: (_params['output'] as num?)?.toDouble() ?? 0.0,
-          min: -24,
-          max: 24,
-          unit: 'dB',
-          onChanged: (v) => _updateParam('output', v, 4),
-        ),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // DE-ESSER
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildDeEsserParams() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ParamSlider(
-          label: 'Frequency',
-          value: (_params['frequency'] as num?)?.toDouble() ?? 6000.0,
-          min: 2000,
-          max: 12000,
-          unit: 'Hz',
-          onChanged: (v) => _updateParam('frequency', v, 0),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Threshold',
-          value: (_params['threshold'] as num?)?.toDouble() ?? -20.0,
-          min: -40,
-          max: 0,
-          unit: 'dB',
-          onChanged: (v) => _updateParam('threshold', v, 1),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Range',
-          value: (_params['range'] as num?)?.toDouble() ?? -10.0,
-          min: -24,
-          max: 0,
-          unit: 'dB',
-          onChanged: (v) => _updateParam('range', v, 2),
-        ),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // VINTAGE EQs
-  // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildPultecParams() {
     return Column(
@@ -722,8 +556,7 @@ class _InternalProcessorEditorWindowState
         _ParamSlider(
           label: 'Low',
           value: (_params['lowGain'] as num?)?.toDouble() ?? 0.0,
-          min: -12, max: 12,
-          unit: 'dB',
+          min: -12, max: 12, unit: 'dB',
           onChanged: (v) {
             setState(() => _params['lowGain'] = v);
             NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, v);
@@ -732,8 +565,7 @@ class _InternalProcessorEditorWindowState
         _ParamSlider(
           label: 'Mid',
           value: (_params['midGain'] as num?)?.toDouble() ?? 0.0,
-          min: -12, max: 12,
-          unit: 'dB',
+          min: -12, max: 12, unit: 'dB',
           onChanged: (v) {
             setState(() => _params['midGain'] = v);
             NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, v);
@@ -742,8 +574,7 @@ class _InternalProcessorEditorWindowState
         _ParamSlider(
           label: 'High',
           value: (_params['highGain'] as num?)?.toDouble() ?? 0.0,
-          min: -12, max: 12,
-          unit: 'dB',
+          min: -12, max: 12, unit: 'dB',
           onChanged: (v) {
             setState(() => _params['highGain'] = v);
             NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, v);
@@ -758,7 +589,6 @@ class _InternalProcessorEditorWindowState
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // HP toggle
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(
@@ -779,8 +609,7 @@ class _InternalProcessorEditorWindowState
         _ParamSlider(
           label: 'Low Gain',
           value: (_params['lowGain'] as num?)?.toDouble() ?? 0.0,
-          min: -16, max: 16,
-          unit: 'dB',
+          min: -16, max: 16, unit: 'dB',
           onChanged: (v) {
             setState(() => _params['lowGain'] = v);
             NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, v);
@@ -789,127 +618,13 @@ class _InternalProcessorEditorWindowState
         _ParamSlider(
           label: 'High Gain',
           value: (_params['highGain'] as num?)?.toDouble() ?? 0.0,
-          min: -16, max: 16,
-          unit: 'dB',
+          min: -16, max: 16, unit: 'dB',
           onChanged: (v) {
             setState(() => _params['highGain'] = v);
             NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, v);
           },
         ),
       ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // EQ (simplified - 5 bands)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildEqParams() {
-    final bands = _params['bands'] as List<dynamic>? ?? [];
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text(
-          'Parametric EQ',
-          style: TextStyle(
-            color: FluxForgeTheme.textSecondary,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...bands.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final band = entry.value as Map<String, dynamic>;
-          return _buildEqBand(idx, band);
-        }),
-      ],
-    );
-  }
-
-  Widget _buildEqBand(int index, Map<String, dynamic> band) {
-    final freq = (band['freq'] as num?)?.toDouble() ?? 1000.0;
-    final gain = (band['gain'] as num?)?.toDouble() ?? 0.0;
-    final type = band['type'] as String? ?? 'bell';
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          // Band type indicator
-          Container(
-            width: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: FluxForgeTheme.bgMid,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              type,
-              style: const TextStyle(
-                color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Frequency
-          Expanded(
-            child: Text(
-              '${freq.toStringAsFixed(0)} Hz',
-              style: const TextStyle(
-                color: FluxForgeTheme.textPrimary,
-                fontSize: 11,
-                fontFamily: 'JetBrains Mono',
-              ),
-            ),
-          ),
-          // Gain slider
-          SizedBox(
-            width: 120,
-            child: Slider(
-              value: gain.clamp(-12.0, 12.0),
-              min: -12,
-              max: 12,
-              onChanged: (v) {
-                // Update band gain
-                final bands =
-                    List<Map<String, dynamic>>.from(_params['bands'] as List);
-                bands[index] = {...bands[index], 'gain': v};
-                setState(() {
-                  _params['bands'] = bands;
-                });
-                // EQ band params sent as packed index
-                // paramIndex = band_index * 4 + param_offset (gain=1)
-                NativeFFI.instance.insertSetParam(
-                  widget.trackId,
-                  widget.slotIndex,
-                  index * 4 + 1,
-                  v,
-                );
-              },
-              activeColor: FluxForgeTheme.accentCyan,
-              inactiveColor: FluxForgeTheme.bgMid,
-            ),
-          ),
-          // Gain value
-          SizedBox(
-            width: 50,
-            child: Text(
-              '${gain >= 0 ? '+' : ''}${gain.toStringAsFixed(1)}',
-              style: TextStyle(
-                color: gain.abs() > 0.5
-                    ? FluxForgeTheme.accentCyan
-                    : FluxForgeTheme.textSecondary,
-                fontSize: 11,
-                fontFamily: 'JetBrains Mono',
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -934,20 +649,20 @@ class _InternalProcessorEditorWindowState
       case DspNodeType.deEsser:
         return FluxForgeTheme.accentCyan;
       case DspNodeType.pultec:
-        return const Color(0xFFD4A574); // Warm vintage brown
+        return const Color(0xFFD4A574);
       case DspNodeType.api550:
-        return const Color(0xFF4A9EFF); // API blue
+        return const Color(0xFF4A9EFF);
       case DspNodeType.neve1073:
-        return const Color(0xFF8B4513); // Neve dark brown
+        return const Color(0xFF8B4513);
       case DspNodeType.multibandSaturation:
-        return FluxForgeTheme.accentOrange; // Saturn 2 warm orange
+        return FluxForgeTheme.accentOrange;
     }
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PARAM SLIDER WIDGET
-// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// PARAM SLIDER WIDGET (generic fallback)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 class _ParamSlider extends StatelessWidget {
   final String label;

@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme/fluxforge_theme.dart';
 import 'screens/engine_connected_layout.dart';
-import 'screens/splash_screen.dart';
 import 'screens/launcher_screen.dart';
 import 'screens/daw_hub_screen.dart';
 import 'screens/middleware_hub_screen.dart';
@@ -339,12 +338,12 @@ class _AppInitializer extends StatefulWidget {
   State<_AppInitializer> createState() => _AppInitializerState();
 }
 
-enum _AppState { splash, launcher, dawHub, middlewareHub, main, middleware }
+enum _AppState { launcher, dawHub, middlewareHub, main, middleware }
 
 class _AppInitializerState extends State<_AppInitializer> {
-  _AppState _appState = _AppState.splash;
+  _AppState _appState = _AppState.launcher;
+  bool _engineReady = false;
   String? _error;
-  String _loadingMessage = 'Starting...';
   String? _projectName;
   AppMode? _selectedMode;
 
@@ -359,24 +358,19 @@ class _AppInitializerState extends State<_AppInitializer> {
   Future<void> _initializeApp() async {
     try {
       // Phase 1: Initialize Rust engine
-      _updateLoading('Initializing audio engine...');
       final engine = context.read<EngineProvider>();
       await engine.initialize();
 
       // Phase 2: Initialize providers
-      _updateLoading('Setting up providers...');
-
       if (!mounted) return;
       final shortcuts = context.read<GlobalShortcutsProvider>();
       final history = context.read<ProjectHistoryProvider>();
 
       // Phase 2.5: Initialize plugin host
-      _updateLoading('Initializing plugin host...');
       final pluginProvider = context.read<PluginProvider>();
       await pluginProvider.init();
 
       // Phase 3: Wire up shortcuts
-      _updateLoading('Configuring shortcuts...');
       final actions = ShortcutAction();
       actions.onPlayPause = () {
         if (engine.transport.isPlaying) {
@@ -399,23 +393,14 @@ class _AppInitializerState extends State<_AppInitializer> {
       // Phase 3.5: Register keyboard focus handlers (Pro Tools-style commands)
       _registerKeyboardHandlers(context, engine, history);
 
-      // Phase 4: Show launcher screen (mode selection)
-      _updateLoading('Ready');
-      await Future.delayed(const Duration(milliseconds: 500));
-
+      // Phase 4: Engine ready — enable launcher buttons
       if (mounted) {
-        setState(() => _appState = _AppState.launcher);
+        setState(() => _engineReady = true);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _error = e.toString());
       }
-    }
-  }
-
-  void _updateLoading(String message) {
-    if (mounted) {
-      setState(() => _loadingMessage = message);
     }
   }
 
@@ -534,8 +519,8 @@ class _AppInitializerState extends State<_AppInitializer> {
   void _retry() {
     setState(() {
       _error = null;
-      _appState = _AppState.splash;
-      _loadingMessage = 'Starting...';
+      _engineReady = false;
+      _appState = _AppState.launcher;
     });
     _initializeApp();
   }
@@ -581,18 +566,12 @@ class _AppInitializerState extends State<_AppInitializer> {
   @override
   Widget build(BuildContext context) {
     switch (_appState) {
-      case _AppState.splash:
-        return SplashScreen(
-          onComplete: () {},
-          loadingMessage: _loadingMessage,
-          hasError: _error != null,
-          errorMessage: _error,
-          onRetry: _retry,
-        );
-
       case _AppState.launcher:
         return LauncherScreen(
           onModeSelected: _handleModeSelected,
+          isReady: _engineReady,
+          errorMessage: _error,
+          onRetry: _error != null ? _retry : null,
         );
 
       case _AppState.dawHub:

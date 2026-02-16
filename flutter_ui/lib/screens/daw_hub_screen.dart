@@ -365,27 +365,13 @@ class _DawHubScreenState extends State<DawHubScreen>
     return Row(
       children: [
         // Mini logo
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                FluxForgeTheme.accentBlue,
-                FluxForgeTheme.accentCyan,
-              ],
-            ),
-          ),
-          child: const Center(
-            child: Text(
-              'F',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w300,
-                color: Colors.white,
-              ),
-            ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            'assets/branding/fluxforge_icon_256.png',
+            width: 36,
+            height: 36,
+            fit: BoxFit.contain,
           ),
         ),
         const SizedBox(width: 12),

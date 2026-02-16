@@ -3467,11 +3467,22 @@ track_set_input_monitor(track_id: u64, enabled: i32)
 track_get_input_monitor(track_id: u64) -> i32
 ```
 
-#### P0.4: Internal Processor Editor Window ✅
-- Created [internal_processor_editor_window.dart](flutter_ui/lib/widgets/dsp/internal_processor_editor_window.dart) (~530 LOC)
-- Floating Overlay window with parameter sliders
-- Supports all DspNodeTypes: EQ, Compressor, Limiter, Gate, Expander, Reverb, Delay, Saturation, DeEsser
-- FFI integration via `insertSetParam(trackId, slotIndex, paramIndex, value)`
+#### P0.4: Independent Floating Processor Editor Windows ✅ (Updated 2026-02-16)
+- Rewritten [internal_processor_editor_window.dart](flutter_ui/lib/widgets/dsp/internal_processor_editor_window.dart) (~751 LOC)
+- **Full FabFilter panels** embedded in floating OverlayEntry windows (9 premium panel types)
+- **Generic slider fallback** for 4 vintage types (Expander, Pultec, API550, Neve1073)
+- **ProcessorEditorRegistry** singleton — tracks open windows, prevents duplicates, staggered positioning
+- Draggable title bar, collapse toggle, bypass button, close button
+
+**3 Entry Points:**
+| Entry Point | Gesture | File |
+|-------------|---------|------|
+| Mixer insert slot click | Single click | `engine_connected_layout.dart:4656` |
+| FX Chain processor card | Double-tap | `fx_chain_panel.dart:198` |
+| Signal Analyzer node | Single click | `signal_analyzer_widget.dart:397` |
+
+**FabFilter Panels (9 types):** EQ (700×520), Compressor (660×500), Limiter/Gate/Reverb/Delay (620×480), Saturation (600×460), DeEsser (560×440)
+**Generic Sliders (4 types):** Expander, Pultec, API550, Neve1073 (400×350)
 
 **Usage:**
 ```dart
@@ -3480,6 +3491,7 @@ InternalProcessorEditorWindow.show(
   trackId: 0,
   slotIndex: 0,
   node: dspNode,
+  position: Offset(200, 100),  // optional
 );
 ```
 

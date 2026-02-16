@@ -155,12 +155,15 @@ class _PunchRecordingPanelState extends State<PunchRecordingPanel> {
   }
 
   Widget _buildModeSelector() {
-    return FabEnumSelector(
-      label: '',
-      value: _mode.index,
-      options: const ['MAN', 'AUTO', 'RHR'],
-      color: _modeAccent(_mode),
-      onChanged: (i) => setState(() => _mode = PunchMode.values[i]),
+    return SizedBox(
+      width: 120,
+      child: FabEnumSelector(
+        label: '',
+        value: _mode.index,
+        options: const ['MAN', 'AUTO', 'RHR'],
+        color: _modeAccent(_mode),
+        onChanged: (i) => setState(() => _mode = PunchMode.values[i]),
+      ),
     );
   }
 
@@ -436,12 +439,14 @@ class _PunchRecordingPanelState extends State<PunchRecordingPanel> {
               padding: const EdgeInsets.only(right: 6),
               child: _PulsingDot(color: color),
             ),
-          FabHorizontalMeter(
-            label: '',
-            value: _stateProgress(state),
-            color: color,
-            height: 10,
-            showLabel: false,
+          Expanded(
+            child: FabHorizontalMeter(
+              label: '',
+              value: _stateProgress(state),
+              color: color,
+              height: 10,
+              showLabel: false,
+            ),
           ),
           const SizedBox(width: 8),
           Text(label, style: FabFilterText.paramLabel.copyWith(

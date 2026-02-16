@@ -69,6 +69,7 @@ flutter:
   # Assets
   assets:
     - assets/templates/
+    - assets/branding/
 
   # Custom fonts for professional look
   # fonts:

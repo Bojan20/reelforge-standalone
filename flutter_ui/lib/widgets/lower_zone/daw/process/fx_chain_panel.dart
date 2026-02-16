@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
 import '../../../../providers/dsp_chain_provider.dart';
+import '../../../../widgets/dsp/internal_processor_editor_window.dart';
 import '../shared/processor_cpu_meter.dart';
 
 class FxChainPanel extends StatelessWidget {
@@ -70,8 +71,8 @@ class FxChainPanel extends StatelessWidget {
                       if (sortedNodes.isEmpty)
                         _buildEmptyChainPlaceholder(trackId, provider)
                       else
-                        ...sortedNodes.expand((node) => [
-                          _buildDraggableProcessor(trackId, node, provider),
+                        ...sortedNodes.asMap().entries.expand((entry) => [
+                          _buildDraggableProcessor(trackId, entry.value, provider, slotIndex: entry.key, context: context),
                           _buildChainConnector(),
                         ]),
                       _buildChainNode('OUTPUT', Icons.output, isEndpoint: true),
@@ -172,7 +173,7 @@ class FxChainPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildDraggableProcessor(int trackId, DspNode node, DspChainProvider provider) {
+  Widget _buildDraggableProcessor(int trackId, DspNode node, DspChainProvider provider, {required int slotIndex, required BuildContext context}) {
     return Draggable<String>(
       data: node.id,
       feedback: Material(color: Colors.transparent, child: _buildProcessorCard(node, isDragging: true)),
@@ -183,17 +184,25 @@ class FxChainPanel extends StatelessWidget {
             provider.swapNodes(trackId, details.data, node.id);
           }
         },
-        builder: (context, candidateData, rejectedData) {
-          return _buildProcessorCard(node, isDropTarget: candidateData.isNotEmpty, trackId: trackId);
+        builder: (ctx, candidateData, rejectedData) {
+          return _buildProcessorCard(node, isDropTarget: candidateData.isNotEmpty, trackId: trackId, slotIndex: slotIndex, context: context);
         },
       ),
     );
   }
 
-  Widget _buildProcessorCard(DspNode node, {bool isDragging = false, bool isDropTarget = false, int? trackId}) {
+  Widget _buildProcessorCard(DspNode node, {bool isDragging = false, bool isDropTarget = false, int? trackId, int? slotIndex, BuildContext? context}) {
     final isActive = !node.bypass;
     return GestureDetector(
       onTap: trackId != null ? () => _navigateToProcessor(node.type) : null,
+      onDoubleTap: (trackId != null && slotIndex != null && context != null) ? () {
+        InternalProcessorEditorWindow.show(
+          context: context,
+          trackId: trackId,
+          slotIndex: slotIndex,
+          node: node,
+        );
+      } : null,
       child: Container(
         width: 100, height: 85, // Increased height to accommodate CPU meter
         decoration: BoxDecoration(
@@ -256,9 +265,16 @@ class FxChainPanel extends StatelessWidget {
                 ),
               ),
             ),
-            const Positioned(
+            Positioned(
               bottom: 3, left: 0, right: 0,
-              child: Center(child: Icon(Icons.drag_indicator, size: 10, color: LowerZoneColors.textTertiary)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (trackId != null) const Icon(Icons.open_in_new, size: 8, color: LowerZoneColors.textTertiary),
+                  if (trackId != null) const SizedBox(width: 2),
+                  const Icon(Icons.drag_indicator, size: 10, color: LowerZoneColors.textTertiary),
+                ],
+              ),
             ),
           ],
         ),

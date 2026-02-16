@@ -297,41 +297,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       mainAxisSize: MainAxisSize.min,
       children: [
         // Logo icon
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                FluxForgeTheme.accentBlue.withAlpha(77),
-                FluxForgeTheme.accentCyan.withAlpha(51),
-              ],
-            ),
-            border: Border.all(
-              color: FluxForgeTheme.accentBlue.withAlpha(128),
-              width: 1.5,
-            ),
-          ),
-          child: Center(
-            child: ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: [
-                  FluxForgeTheme.accentBlue,
-                  FluxForgeTheme.accentCyan,
-                ],
-              ).createShader(bounds),
-              child: Text(
-                'R',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w200,
-                  color: FluxForgeTheme.textPrimary,
-                ),
-              ),
-            ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Image.asset(
+            'assets/branding/fluxforge_icon_256.png',
+            width: 80,
+            height: 80,
+            fit: BoxFit.contain,
           ),
         ),
         const SizedBox(width: 20),

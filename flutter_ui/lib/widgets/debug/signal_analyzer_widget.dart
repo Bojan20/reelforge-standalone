@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../src/rust/native_ffi.dart';
+import '../dsp/internal_processor_editor_window.dart';
 
 class SignalAnalyzerWidget extends StatefulWidget {
   final int trackId;
@@ -391,7 +392,16 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
     final color = _getProcessorColor(node.type);
     final isActive = !node.bypass;
 
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        InternalProcessorEditorWindow.show(
+          context: context,
+          trackId: widget.trackId,
+          slotIndex: slotIndex,
+          node: node,
+        );
+      },
+      child: Container(
       width: 90,
       decoration: BoxDecoration(
         color: isActive
@@ -469,6 +479,7 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
