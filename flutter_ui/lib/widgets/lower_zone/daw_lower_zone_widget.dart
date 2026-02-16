@@ -61,7 +61,9 @@ import 'daw/process/reverb_panel.dart';
 import 'daw/process/gate_panel.dart';
 import 'daw/process/fx_chain_panel.dart';
 import 'daw/process/sidechain_panel.dart'; // ✅ P0.5: Sidechain UI
+import 'daw/process/delay_panel.dart'; // ✅ FF-D Delay
 import 'daw/process/saturation_panel_wrapper.dart'; // ✅ FF-SAT Saturator
+import 'daw/process/deesser_panel.dart'; // ✅ FF-E DeEsser
 // ✅ P0.1: Extracted DELIVER panels
 import 'daw/deliver/export_panel.dart';
 import 'daw/deliver/stems_panel.dart';
@@ -577,13 +579,15 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   Widget _getProcessContentForIndex(int index) {
-    return switch (DawProcessSubTab.values[index.clamp(0, 7)]) {
+    return switch (DawProcessSubTab.values[index.clamp(0, 9)]) {
       DawProcessSubTab.eq => _buildEqPanel(),
       DawProcessSubTab.comp => _buildCompPanel(),
       DawProcessSubTab.limiter => _buildLimiterPanel(),
       DawProcessSubTab.reverb => _buildReverbPanel(),
       DawProcessSubTab.gate => _buildGatePanel(),
+      DawProcessSubTab.delay => _buildDelayPanel(),
       DawProcessSubTab.saturation => _buildSaturationPanel(),
+      DawProcessSubTab.deEsser => _buildDeEsserPanel(),
       DawProcessSubTab.fxChain => _buildFxChainPanel(),
       DawProcessSubTab.sidechain => _buildSidechainPanel(),
     };
@@ -1096,7 +1100,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawProcessSubTab.limiter => _buildLimiterPanel(),
       DawProcessSubTab.reverb => _buildReverbPanel(),
       DawProcessSubTab.gate => _buildGatePanel(),
+      DawProcessSubTab.delay => _buildDelayPanel(),
       DawProcessSubTab.saturation => _buildSaturationPanel(),
+      DawProcessSubTab.deEsser => _buildDeEsserPanel(),
       DawProcessSubTab.fxChain => _buildFxChainPanel(),
       DawProcessSubTab.sidechain => _buildSidechainPanel(),
     };
@@ -1118,8 +1124,14 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   /// FF-G Gate
   Widget _buildGatePanel() => GatePanel(selectedTrackId: widget.selectedTrackId);
 
+  /// FF-D Delay (Timeless 3 Style)
+  Widget _buildDelayPanel() => DelayPanel(selectedTrackId: widget.selectedTrackId);
+
   /// FF-SAT Saturator (Saturn 2)
   Widget _buildSaturationPanel() => SaturationPanelWrapper(selectedTrackId: widget.selectedTrackId);
+
+  /// FF-E De-Esser
+  Widget _buildDeEsserPanel() => DeEsserPanel(selectedTrackId: widget.selectedTrackId);
 
   /// P0.4: FX Chain — Shows all processors in chain with reorder support
   Widget _buildFxChainPanel() => FxChainPanel(

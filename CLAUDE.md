@@ -2469,7 +2469,7 @@ Panel.toggleBypass() → onBypassChanged(bypassed)
 | FabFilterLimiterPanel | LimiterWrapper | 6 | ✅ Done |
 | FabFilterGatePanel | GateWrapper | 13 | ✅ Done |
 | FabFilterReverbPanel | ReverbWrapper | 11 | ✅ Done |
-| FabFilterDeEsserPanel | DeEsserWrapper | 8 | ✅ Done |
+| FabFilterDeEsserPanel | DeEsserWrapper | 9 | ✅ Done |
 | FabFilterSaturationPanel | MultibandSaturatorWrapper | 65 (11 global + 6×9 per-band) | ✅ Done |
 | FabFilterDelayPanel | DelayWrapper | 14 | ✅ Done |
 | DynamicsPanel | CompressorWrapper | 15 | ✅ Done |

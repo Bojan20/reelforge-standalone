@@ -196,7 +196,7 @@ extension DawSuperTabX on DawSuperTab {
 enum DawBrowseSubTab { files, presets, plugins, history }
 enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, elastic, beatDetect, stripSilence }
 enum DawMixSubTab { mixer, sends, pan, automation }
-enum DawProcessSubTab { eq, comp, limiter, reverb, gate, saturation, fxChain, sidechain }
+enum DawProcessSubTab { eq, comp, limiter, reverb, gate, delay, saturation, deEsser, fxChain, sidechain }
 enum DawDeliverSubTab { export, stems, bounce, archive }
 
 extension DawBrowseSubTabX on DawBrowseSubTab {
@@ -242,16 +242,18 @@ extension DawMixSubTabX on DawMixSubTab {
 }
 
 extension DawProcessSubTabX on DawProcessSubTab {
-  String get label => ['FF-Q', 'FF-C', 'FF-L', 'FF-R', 'FF-G', 'FF-SAT', 'FX Chain', 'Sidechain'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I'][index];
-  IconData get icon => [Icons.equalizer, Icons.compress, Icons.volume_up, Icons.waves, Icons.door_front_door, Icons.whatshot, Icons.link, Icons.call_split][index];
+  String get label => ['FF-Q', 'FF-C', 'FF-L', 'FF-R', 'FF-G', 'FF-D', 'FF-SAT', 'FF-E', 'FX Chain', 'Sidechain'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'][index];
+  IconData get icon => [Icons.equalizer, Icons.compress, Icons.volume_up, Icons.waves, Icons.door_front_door, Icons.timer, Icons.whatshot, Icons.mic_off, Icons.link, Icons.call_split][index];
   String get tooltip => [
     'FF-Q — 64-band parametric EQ with GPU spectrum analyzer (60fps)',
     'FF-C — Compressor with 14 styles and sidechain',
     'FF-L — Limiter with True Peak and LUFS metering',
     'FF-R — Reverb with decay display and space types',
     'FF-G — Gate with threshold visualization and sidechain',
+    'FF-D — Stereo delay with ping-pong, ducking, and tempo sync',
     'FF-SAT — Saturn 2 multi-mode saturation (Tape, Tube, Transistor)',
+    'FF-E — De-Esser with split-band mode and listen function',
     'Visual DSP chain with drag-drop reorder and bypass',
     'Sidechain routing with key input source selection',
   ][index];
@@ -338,7 +340,7 @@ class DawLowerZoneState {
       case DawSuperTab.mix:
         mixSubTab = DawMixSubTab.values[index.clamp(0, 3)];
       case DawSuperTab.process:
-        processSubTab = DawProcessSubTab.values[index.clamp(0, 7)];
+        processSubTab = DawProcessSubTab.values[index.clamp(0, DawProcessSubTab.values.length - 1)];
       case DawSuperTab.deliver:
         deliverSubTab = DawDeliverSubTab.values[index.clamp(0, 3)];
     }
@@ -376,7 +378,7 @@ class DawLowerZoneState {
       case DawSuperTab.mix:
         secondPaneMixSubTab = DawMixSubTab.values[index.clamp(0, 3)];
       case DawSuperTab.process:
-        secondPaneProcessSubTab = DawProcessSubTab.values[index.clamp(0, 7)];
+        secondPaneProcessSubTab = DawProcessSubTab.values[index.clamp(0, DawProcessSubTab.values.length - 1)];
       case DawSuperTab.deliver:
         secondPaneDeliverSubTab = DawDeliverSubTab.values[index.clamp(0, 3)];
     }

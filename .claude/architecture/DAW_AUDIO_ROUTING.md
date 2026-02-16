@@ -1060,17 +1060,21 @@ bool trackGetPhaseInvert(int trackId) {
 - Phase Invert (Ø) button: `engine_connected_layout.dart` → `_buildChannelControls()`
 - Input Monitor button: `engine_connected_layout.dart` → `_buildChannelControls()`
 
-### 12.5 FabFilter Paneli — ✅ ALL CONNECTED (Fixed 2026-01-23)
+### 12.5 FabFilter Paneli — ✅ ALL 9 CONNECTED (Updated 2026-02-16)
 
-Svih 5 FabFilter panela sada koriste DspChainProvider:
+Svih 9 FabFilter panela koriste DspChainProvider + InsertProcessor chain:
 
 | Panel | Processor | Status |
 |-------|-----------|--------|
+| `fabfilter_eq_panel.dart` | `pro-eq` | ✅ Via insertSetParam |
 | `fabfilter_compressor_panel.dart` | `compressor` | ✅ Via insertSetParam |
 | `fabfilter_limiter_panel.dart` | `limiter` | ✅ Via insertSetParam |
 | `fabfilter_gate_panel.dart` | `gate` | ✅ Via insertSetParam |
 | `fabfilter_reverb_panel.dart` | `reverb` | ✅ Via insertSetParam |
-| `fabfilter_eq_panel.dart` | `pro-eq` | ✅ Via insertSetParam |
+| `fabfilter_deesser_panel.dart` | `deesser` | ✅ Via insertSetParam |
+| `fabfilter_delay_panel.dart` | `delay` | ✅ Via insertSetParam |
+| `fabfilter_saturation_panel.dart` | `saturation` | ✅ Via insertSetParam |
+| `sidechain_panel.dart` | sidechain routing | ✅ Via sidechainSet* FFI |
 
 **Ghost Code:** ✅ OBRISAN (~900 LOC uklonjeno iz ffi.rs i native_ffi.dart)
 

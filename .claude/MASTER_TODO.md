@@ -29,13 +29,13 @@ DEAD CODE CLEANUP: ~1,200 LOC removed (4 legacy EQ panels)
 ✅ DEAD CODE CLEANUP:   ~1,200 LOC     ✅ 4 legacy EQ panels removed
 ```
 
-**All 384 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). Repo cleaned. ~1,200 LOC dead EQ code removed. SHIP READY.**
+**All 385 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades + 1 DeEsser PROCESS tab). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). 10 PROCESS subtabs. Repo cleaned. ~1,200 LOC dead EQ code removed. SHIP READY.**
 
 ### PROCESS Subtab Default Visibility Fix (2026-02-16) ✅
 
-All 8 PROCESS subtab panels now show by default without requiring a track in the timeline. Previously, each panel checked `if (selectedTrackId == null)` and showed "No Track Selected" empty state. Now they default to `trackId = 0` (master bus) when no track is selected.
+All 9 PROCESS subtab panels now show by default without requiring a track in the timeline. Previously, each panel checked `if (selectedTrackId == null)` and showed "No Track Selected" empty state. Now they default to `trackId = 0` (master bus) when no track is selected.
 
-**Panels fixed (8 total):**
+**Panels fixed (9 total):**
 | Panel | File | Before | After |
 |-------|------|--------|-------|
 | EQ (FF-Q) | `process/eq_panel.dart` | Empty state | `FabFilterEqPanel(trackId: 0)` |
@@ -43,6 +43,7 @@ All 8 PROCESS subtab panels now show by default without requiring a track in the
 | Limiter (FF-L) | `process/limiter_panel.dart` | Empty state | `FabFilterLimiterPanel(trackId: 0)` |
 | Reverb (FF-R) | `process/reverb_panel.dart` | Empty state | `FabFilterReverbPanel(trackId: 0)` |
 | Gate (FF-G) | `process/gate_panel.dart` | Empty state | `FabFilterGatePanel(trackId: 0)` |
+| DeEsser (FF-E) | `process/deesser_panel.dart` | Empty state | `FabFilterDeEsserPanel(trackId: 0)` |
 | Saturation (FF-SAT) | `process/saturation_panel_wrapper.dart` | Empty state | `FabFilterSaturationPanel(trackId: 0)` |
 | FX Chain | `process/fx_chain_panel.dart` | Empty state | `FxChain(trackId: 0)` |
 | Sidechain | `process/sidechain_panel.dart` | Empty state | `SidechainPanel(processorId: 0)` |
@@ -1246,6 +1247,39 @@ Kada engine i FFI budu povezani (svi parametri i meteri rade), uraditi finalni U
 
 ## 🏆 SESSION HISTORY
 
+### Session 2026-02-16e — FF-E DeEsser Panel + PROCESS Subtab Connection
+
+**Tasks Delivered:** FF-E DeEsser FabFilter panel created and fully connected in DAW PROCESS tab
+**Files Changed:** 7 (5 modified + 2 new)
+**LOC Delivered:** ~350
+**flutter analyze:** 0 errors, 0 warnings ✅
+
+**New Files:**
+- `widgets/fabfilter/fabfilter_deesser_panel.dart` (~330 LOC) — Full FabFilter-style DeEsser with 9 FFI params, GR metering, A/B snapshots
+- `widgets/lower_zone/daw/process/deesser_panel.dart` — Wrapper panel
+
+**Modified Files:**
+- `lower_zone_types.dart` — Added `deEsser` to `DawProcessSubTab` enum + extension (10 subtabs total)
+- `daw_lower_zone_widget.dart` — Import, `_buildDeEsserPanel()`, both switch statements updated
+- `fx_chain_panel.dart` — `DspNodeType.deEsser => DawProcessSubTab.deEsser` navigation mapping
+
+**DeEsser Parameters (9 total, matching DeEsserWrapper in dsp_wrappers.rs):**
+| Index | Param | Range | Default |
+|-------|-------|-------|---------|
+| 0 | Frequency | 500-20000 Hz | 6000 |
+| 1 | Bandwidth | 0.1-2.0 oct | 0.5 |
+| 2 | Threshold | -60 to 0 dB | -20 |
+| 3 | Range | 0-40 dB | 12 |
+| 4 | Mode | 0=Wideband, 1=SplitBand | 0 |
+| 5 | Attack | 0.5-100 ms | 5 |
+| 6 | Release | 10-1000 ms | 50 |
+| 7 | Listen | 0/1 | 0 |
+| 8 | Bypass | 0/1 | 0 |
+
+**PROCESS tab now has 10 subtabs:** FF-Q, FF-C, FF-L, FF-R, FF-G, FF-D, FF-SAT, FF-E, FX Chain, Sidechain
+
+---
+
 ### Session 2026-02-16c — Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots
 
 **Tasks Delivered:** 3 major DSP upgrades + 3 panel A/B snapshot upgrades
@@ -1393,16 +1427,17 @@ Kada engine i FFI budu povezani (svi parametri i meteri rade), uraditi finalni U
 
 ### Session 2026-02-16d — PROCESS Subtab Default Visibility Fix
 
-**Tasks Delivered:** 8 PROCESS wrapper panels updated to show by default
-**Files Changed:** 8 (all `flutter_ui/lib/widgets/lower_zone/daw/process/` wrappers)
+**Tasks Delivered:** 9 PROCESS wrapper panels updated to show by default
+**Files Changed:** 9 (all `flutter_ui/lib/widgets/lower_zone/daw/process/` wrappers)
 **flutter analyze:** 0 errors, 0 warnings ✅
 
-**Problem:** All 8 PROCESS subtab panels (EQ, Comp, Limiter, Reverb, Gate, Saturation, FX Chain, Sidechain) showed "No Track Selected" empty state when no audio track existed in timeline. User expectation: panels should always be visible.
+**Problem:** All 9 PROCESS subtab panels (EQ, Comp, Limiter, Reverb, Gate, DeEsser, Saturation, FX Chain, Sidechain) showed "No Track Selected" empty state when no audio track existed in timeline. User expectation: panels should always be visible.
 
 **Fix:** Replaced `if (selectedTrackId == null) → buildEmptyState(...)` with `selectedTrackId ?? 0` — defaults to master bus (trackId 0) when no track is selected. Removed unused `panel_helpers.dart` imports from 7 panels.
 
 **Files:**
 - `process/eq_panel.dart`, `comp_panel.dart`, `limiter_panel.dart`, `reverb_panel.dart`, `gate_panel.dart` — removed null check + empty state
+- `process/deesser_panel.dart` — FF-E DeEsser with 9 FFI params + GR metering
 - `process/saturation_panel_wrapper.dart` — removed null check + empty state
 - `process/fx_chain_panel.dart` — removed null check + 10-line empty state Column
 - `process/sidechain_panel.dart` — removed null check + empty state, updated all `selectedTrackId!` to `trackId`
