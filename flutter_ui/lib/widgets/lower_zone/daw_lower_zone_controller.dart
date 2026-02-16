@@ -465,6 +465,10 @@ class DawLowerZoneController extends ChangeNotifier {
   /// Returns true if state was loaded from storage, false if using defaults
   Future<bool> loadFromStorage() async {
     _state = await LowerZonePersistenceService.instance.loadDawState();
+    // Always start with split view disabled — it's an explicit user action
+    if (_state.splitEnabled) {
+      _state = _state.copyWith(splitEnabled: false);
+    }
     notifyListeners();
     // If height is still default, it means no persisted state was found
     return _state.height != kLowerZoneDefaultHeight;

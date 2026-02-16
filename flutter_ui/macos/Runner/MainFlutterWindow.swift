@@ -20,6 +20,11 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
+    // FIX: desktop_drop plugin adds a fullscreen NSView overlay (DropTarget) that
+    // intercepts ALL mouse events. The plugin re-adds DropTarget when Flutter widgets
+    // rebuild, so we use continuous monitoring instead of one-time removal.
+    fixDesktopDropOverlay(flutterViewController: flutterViewController)
+
     // Register native file picker channel
     let channel = FlutterMethodChannel(
       name: "fluxforge/file_picker",
@@ -151,6 +156,42 @@ class MainFlutterWindow: NSWindow {
     }
   }
 
+  /// Continuous monitor timer for DropTarget re-addition
+  private var dropTargetMonitorTimer: Timer?
+
+  /// Fix desktop_drop plugin's DropTarget overlay that blocks mouse events.
+  /// Uses CONTINUOUS monitoring because the plugin can re-add DropTarget at any time
+  /// (e.g., when Flutter widgets rebuild and re-initialize desktop_drop).
+  private func fixDesktopDropOverlay(flutterViewController: FlutterViewController) {
+    // Remove any existing non-Flutter subviews right now
+    removeNonFlutterSubviews(flutterViewController: flutterViewController, context: "initial")
+
+    // Start continuous monitoring — check every 2 seconds forever
+    if dropTargetMonitorTimer == nil {
+      dropTargetMonitorTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+        self?.removeNonFlutterSubviews(flutterViewController: flutterViewController, context: "monitor")
+      }
+    }
+  }
+
+  private func removeNonFlutterSubviews(flutterViewController: FlutterViewController, context: String) {
+    let flutterView = flutterViewController.view
+    let subviews = flutterView.subviews
+
+    var removed: [String] = []
+    for subview in subviews.reversed() {
+      let className = String(describing: type(of: subview))
+      if className.contains("Flutter") { continue }
+
+      subview.removeFromSuperview()
+      removed.append(className)
+    }
+
+    if !removed.isEmpty {
+      print("[FluxForge] [\(context)] ✅ Removed \(removed.count) re-added overlay(s): \(removed.joined(separator: ", "))")
+    }
+  }
+
   private func pickIrFile(result: @escaping FlutterResult) {
     DispatchQueue.main.async {
       let panel = NSOpenPanel()
@@ -180,3 +221,4 @@ class MainFlutterWindow: NSWindow {
     }
   }
 }
+
