@@ -378,6 +378,10 @@ class _GpuMeterState extends State<GpuMeter>
     final targetR =
         widget.muted ? 0.0 : (widget.levels.peakR ?? widget.levels.peak);
 
+    // Cubase-style noise floor gate threshold (~-80dB linear ≈ 0.0001)
+    // Below this, meter is completely invisible — no residual flicker
+    const double kNoiseFloorGate = 0.0001;
+
     // Apply ballistics (attack/release smoothing)
     if (targetL > _smoothedL) {
       _smoothedL += (targetL - _smoothedL) * attackCoef;
@@ -390,6 +394,10 @@ class _GpuMeterState extends State<GpuMeter>
     } else {
       _smoothedR += (targetR - _smoothedR) * releaseCoef;
     }
+
+    // Snap to zero when below noise floor — prevents asymptotic decay residue
+    if (_smoothedL < kNoiseFloorGate) _smoothedL = 0;
+    if (_smoothedR < kNoiseFloorGate) _smoothedR = 0;
 
     // Update peak hold
     final now = DateTime.now();
@@ -636,7 +644,8 @@ class _GpuMeterPainter extends CustomPainter {
     double rms,
     bool isVertical,
   ) {
-    if (level <= 0) return;
+    // Cubase-style: completely invisible below noise floor (~-80dB)
+    if (level < 0.0001) return;
 
     final normalizedLevel = _linearToNormalized(level);
     final gradient = _getGradient(isVertical);

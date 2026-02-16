@@ -509,9 +509,20 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
   @override
   void didUpdateWidget(_UltimateChannelStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update peak hold
-    if (widget.channel.peakL > _peakHoldL) _peakHoldL = widget.channel.peakL;
-    if (widget.channel.peakR > _peakHoldR) _peakHoldR = widget.channel.peakR;
+    // Update peak hold — track new peaks, decay toward zero when signal drops
+    if (widget.channel.peakL > _peakHoldL) {
+      _peakHoldL = widget.channel.peakL;
+    } else {
+      // Cubase-style decay: multiplicative release with snap-to-zero
+      _peakHoldL *= 0.92;
+      if (_peakHoldL < 0.0001) _peakHoldL = 0;
+    }
+    if (widget.channel.peakR > _peakHoldR) {
+      _peakHoldR = widget.channel.peakR;
+    } else {
+      _peakHoldR *= 0.92;
+      if (_peakHoldR < 0.0001) _peakHoldR = 0;
+    }
   }
 
   @override

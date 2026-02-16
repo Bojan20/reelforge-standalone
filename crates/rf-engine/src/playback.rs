@@ -2157,6 +2157,28 @@ impl PlaybackEngine {
             .unwrap_or(0)
     }
 
+    /// Set master insert slot wet/dry mix (0.0 = dry, 1.0 = wet)
+    pub fn set_master_insert_mix(&self, slot_index: usize, mix: f64) {
+        let chain = self.master_insert.read();
+        if let Some(slot) = chain.slot(slot_index) {
+            slot.set_mix(mix);
+        }
+    }
+
+    /// Get master insert slot wet/dry mix
+    pub fn get_master_insert_mix(&self, slot_index: usize) -> f64 {
+        let chain = self.master_insert.read();
+        if let Some(slot) = chain.slot(slot_index) {
+            return slot.mix();
+        }
+        1.0
+    }
+
+    /// Bypass all master insert slots
+    pub fn bypass_all_master_inserts(&self, bypass: bool) {
+        self.master_insert.read().bypass_all(bypass);
+    }
+
     /// Get total master insert latency
     pub fn get_master_insert_latency(&self) -> usize {
         self.master_insert.read().total_latency()

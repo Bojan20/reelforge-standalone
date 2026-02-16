@@ -120,7 +120,7 @@ abstract class FabFilterPanelBase extends StatefulWidget {
 
 /// State mixin for FabFilter panels
 mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
-  bool _bypassed = true;
+  bool _bypassed = false;
   bool _isFullScreen = false;
   bool _showExpertMode = false;
 

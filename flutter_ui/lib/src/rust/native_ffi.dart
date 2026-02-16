@@ -989,16 +989,16 @@ typedef InsertRemoveChainDart = void Function(int trackId);
 typedef InsertSetBypassNative = Int32 Function(Uint32 trackId, Uint32 slot, Int32 bypass);
 typedef InsertSetBypassDart = int Function(int trackId, int slot, int bypass);
 
-typedef InsertSetMixNative = Void Function(Uint64 trackId, Uint32 slot, Double mix);
-typedef InsertSetMixDart = void Function(int trackId, int slot, double mix);
+typedef InsertSetMixNative = Int32 Function(Uint32 trackId, Uint32 slot, Double mix);
+typedef InsertSetMixDart = int Function(int trackId, int slot, double mix);
 
-typedef InsertGetMixNative = Double Function(Uint64 trackId, Uint32 slot);
+typedef InsertGetMixNative = Double Function(Uint32 trackId, Uint32 slot);
 typedef InsertGetMixDart = double Function(int trackId, int slot);
 
-typedef InsertBypassAllNative = Void Function(Uint64 trackId, Int32 bypass);
-typedef InsertBypassAllDart = void Function(int trackId, int bypass);
+typedef InsertBypassAllNative = Int32 Function(Uint32 trackId, Int32 bypass);
+typedef InsertBypassAllDart = int Function(int trackId, int bypass);
 
-typedef InsertGetTotalLatencyNative = Uint32 Function(Uint64 trackId);
+typedef InsertGetTotalLatencyNative = Uint32 Function(Uint32 trackId);
 typedef InsertGetTotalLatencyDart = int Function(int trackId);
 
 typedef InsertLoadProcessorNative = Int32 Function(Uint32 trackId, Uint32 slotIndex, Pointer<Utf8> processorName);
@@ -3080,10 +3080,10 @@ class NativeFFI {
     _insertCreateChain = _lib.lookupFunction<InsertCreateChainNative, InsertCreateChainDart>('insert_create_chain');
     _insertRemoveChain = _lib.lookupFunction<InsertRemoveChainNative, InsertRemoveChainDart>('insert_remove_chain');
     _insertSetBypass = _lib.lookupFunction<InsertSetBypassNative, InsertSetBypassDart>('track_insert_set_bypass');
-    _insertSetMix = _lib.lookupFunction<InsertSetMixNative, InsertSetMixDart>('ffi_insert_set_mix');
-    _insertGetMix = _lib.lookupFunction<InsertGetMixNative, InsertGetMixDart>('ffi_insert_get_mix');
-    _insertBypassAll = _lib.lookupFunction<InsertBypassAllNative, InsertBypassAllDart>('ffi_insert_bypass_all');
-    _insertGetTotalLatency = _lib.lookupFunction<InsertGetTotalLatencyNative, InsertGetTotalLatencyDart>('ffi_insert_get_total_latency');
+    _insertSetMix = _lib.lookupFunction<InsertSetMixNative, InsertSetMixDart>('track_insert_set_mix');
+    _insertGetMix = _lib.lookupFunction<InsertGetMixNative, InsertGetMixDart>('track_insert_get_mix');
+    _insertBypassAll = _lib.lookupFunction<InsertBypassAllNative, InsertBypassAllDart>('track_insert_bypass_all');
+    _insertGetTotalLatency = _lib.lookupFunction<InsertGetTotalLatencyNative, InsertGetTotalLatencyDart>('track_insert_get_total_latency');
     _insertLoadProcessor = _lib.lookupFunction<InsertLoadProcessorNative, InsertLoadProcessorDart>('insert_load_processor');
     _insertUnloadSlot = _lib.lookupFunction<InsertUnloadSlotNative, InsertUnloadSlotDart>('insert_unload_slot');
     _insertSetParam = _lib.lookupFunction<InsertSetParamNative, InsertSetParamDart>('insert_set_param');
@@ -5866,9 +5866,9 @@ class NativeFFI {
   }
 
   /// Set insert slot wet/dry mix
-  void insertSetMix(int trackId, int slot, double mix) {
-    if (!_loaded) return;
-    _insertSetMix(trackId, slot, mix);
+  int insertSetMix(int trackId, int slot, double mix) {
+    if (!_loaded) return 0;
+    return _insertSetMix(trackId, slot, mix);
   }
 
   /// Get insert slot wet/dry mix (0.0 = dry, 1.0 = wet)
@@ -5878,9 +5878,9 @@ class NativeFFI {
   }
 
   /// Bypass all inserts on track
-  void insertBypassAll(int trackId, bool bypass) {
-    if (!_loaded) return;
-    _insertBypassAll(trackId, bypass ? 1 : 0);
+  int insertBypassAll(int trackId, bool bypass) {
+    if (!_loaded) return 0;
+    return _insertBypassAll(trackId, bypass ? 1 : 0);
   }
 
   /// Get total latency of insert chain (samples)

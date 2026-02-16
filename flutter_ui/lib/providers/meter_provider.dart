@@ -407,12 +407,12 @@ class MeterProvider extends ChangeNotifier {
     if (_masterState.hasActivity) {
       hasActivity = true;
       _masterState = _masterState.copyWith(
-        peak: _masterState.peak * kMeterDecay,
-        peakR: _masterState.peakR * kMeterDecay,
-        rms: _masterState.rms * kMeterDecay,
-        rmsR: _masterState.rmsR * kMeterDecay,
-        peakHold: _masterState.peakHold * kPeakHoldDecay,
-        peakHoldR: _masterState.peakHoldR * kPeakHoldDecay,
+        peak: _snapToZero(_masterState.peak * kMeterDecay),
+        peakR: _snapToZero(_masterState.peakR * kMeterDecay),
+        rms: _snapToZero(_masterState.rms * kMeterDecay),
+        rmsR: _snapToZero(_masterState.rmsR * kMeterDecay),
+        peakHold: _snapToZero(_masterState.peakHold * kPeakHoldDecay),
+        peakHoldR: _snapToZero(_masterState.peakHoldR * kPeakHoldDecay),
         isClipping: false,
       );
     }
@@ -423,12 +423,12 @@ class MeterProvider extends ChangeNotifier {
       if (state.hasActivity) {
         hasActivity = true;
         _busStates[i] = state.copyWith(
-          peak: state.peak * kMeterDecay,
-          peakR: state.peakR * kMeterDecay,
-          rms: state.rms * kMeterDecay,
-          rmsR: state.rmsR * kMeterDecay,
-          peakHold: state.peakHold * kPeakHoldDecay,
-          peakHoldR: state.peakHoldR * kPeakHoldDecay,
+          peak: _snapToZero(state.peak * kMeterDecay),
+          peakR: _snapToZero(state.peakR * kMeterDecay),
+          rms: _snapToZero(state.rms * kMeterDecay),
+          rmsR: _snapToZero(state.rmsR * kMeterDecay),
+          peakHold: _snapToZero(state.peakHold * kPeakHoldDecay),
+          peakHoldR: _snapToZero(state.peakHoldR * kPeakHoldDecay),
           isClipping: false,
         );
       }
@@ -439,12 +439,12 @@ class MeterProvider extends ChangeNotifier {
       if (state.hasActivity) {
         hasActivity = true;
         _meterStates[meterId] = state.copyWith(
-          peak: state.peak * kMeterDecay,
-          peakR: state.peakR * kMeterDecay,
-          rms: state.rms * kMeterDecay,
-          rmsR: state.rmsR * kMeterDecay,
-          peakHold: state.peakHold * kPeakHoldDecay,
-          peakHoldR: state.peakHoldR * kPeakHoldDecay,
+          peak: _snapToZero(state.peak * kMeterDecay),
+          peakR: _snapToZero(state.peakR * kMeterDecay),
+          rms: _snapToZero(state.rms * kMeterDecay),
+          rmsR: _snapToZero(state.rmsR * kMeterDecay),
+          peakHold: _snapToZero(state.peakHold * kPeakHoldDecay),
+          peakHoldR: _snapToZero(state.peakHoldR * kPeakHoldDecay),
           isClipping: false,
         );
       }
@@ -457,6 +457,10 @@ class MeterProvider extends ChangeNotifier {
       _stopDecayLoop();
     }
   }
+
+  /// Snap values below noise floor to exactly zero — prevents asymptotic decay
+  /// from leaving residual meter display (Cubase-style clean cutoff at ~-80dB)
+  static double _snapToZero(double value) => value < kActivityThreshold ? 0.0 : value;
 
   void registerMeter(String meterId) {
     if (!_meterStates.containsKey(meterId)) {

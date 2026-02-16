@@ -6137,6 +6137,71 @@ pub extern "C" fn track_insert_set_bypass(track_id: u32, slot_index: u32, bypass
     })
 }
 
+/// Set wet/dry mix on track insert slot
+/// track_id=0 means master bus, others are audio track IDs
+/// mix: 0.0 = fully dry, 1.0 = fully wet
+#[unsafe(no_mangle)]
+pub extern "C" fn track_insert_set_mix(track_id: u32, slot_index: u32, mix: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        if track_id == 0 {
+            PLAYBACK_ENGINE.set_master_insert_mix(slot_index, mix.clamp(0.0, 1.0));
+        } else {
+            PLAYBACK_ENGINE.set_track_insert_mix(track_id as u64, slot_index, mix.clamp(0.0, 1.0));
+        }
+        1
+    })
+}
+
+/// Get wet/dry mix on track insert slot
+/// track_id=0 means master bus, others are audio track IDs
+#[unsafe(no_mangle)]
+pub extern "C" fn track_insert_get_mix(track_id: u32, slot_index: u32) -> f64 {
+    ffi_panic_guard!(1.0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 1.0,
+        };
+
+        if track_id == 0 {
+            PLAYBACK_ENGINE.get_master_insert_mix(slot_index)
+        } else {
+            PLAYBACK_ENGINE.get_track_insert_mix(track_id as u64, slot_index)
+        }
+    })
+}
+
+/// Bypass all insert slots on a track
+/// track_id=0 means master bus, others are audio track IDs
+#[unsafe(no_mangle)]
+pub extern "C" fn track_insert_bypass_all(track_id: u32, bypass: i32) -> i32 {
+    ffi_panic_guard!(0, {
+        if track_id == 0 {
+            PLAYBACK_ENGINE.bypass_all_master_inserts(bypass != 0);
+        } else {
+            PLAYBACK_ENGINE.bypass_all_track_inserts(track_id as u64, bypass != 0);
+        }
+        1
+    })
+}
+
+/// Get total latency of all insert processors on a track (in samples)
+/// track_id=0 means master bus, others are audio track IDs
+#[unsafe(no_mangle)]
+pub extern "C" fn track_insert_get_total_latency(track_id: u32) -> u32 {
+    ffi_panic_guard!(0, {
+        if track_id == 0 {
+            PLAYBACK_ENGINE.get_master_insert_latency() as u32
+        } else {
+            PLAYBACK_ENGINE.get_track_insert_latency(track_id as u64) as u32
+        }
+    })
+}
+
 /// Check if slot has a processor loaded
 /// track_id=0 means master bus, others are audio track IDs
 #[unsafe(no_mangle)]

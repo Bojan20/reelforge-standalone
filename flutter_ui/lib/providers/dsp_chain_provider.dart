@@ -65,7 +65,7 @@ class DspNode {
     required this.id,
     required this.type,
     this.name = '',
-    this.bypass = true,
+    this.bypass = false,
     this.solo = false,
     this.order = 0,
     this.wetDry = 1.0,
@@ -101,13 +101,14 @@ class DspNode {
   }
 
   /// Create a new node with default parameters for the type
-  factory DspNode.create(DspNodeType type, {int order = 0}) {
+  factory DspNode.create(DspNodeType type, {int order = 0, bool bypass = false}) {
     final id = 'dsp-${DateTime.now().millisecondsSinceEpoch}-${type.name}';
     return DspNode(
       id: id,
       type: type,
       name: type.fullName,
       order: order,
+      bypass: bypass,
       params: _defaultParams(type),
     );
   }
@@ -393,12 +394,12 @@ class DspChainProvider extends ChangeNotifier {
       return;
     }
 
-    // 2. Set bypass in engine (nodes default to bypassed)
-    _ffi.insertSetBypass(trackId, slotIndex, true);
+    // 2. Set bypass OFF — processor starts ENABLED so audio passes through
+    _ffi.insertSetBypass(trackId, slotIndex, false);
 
     // 3. UI state — Only update on successful FFI call
     final order = chain.nodes.isEmpty ? 0 : chain.nodes.map((n) => n.order).reduce((a, b) => a > b ? a : b) + 1;
-    final node = DspNode.create(type, order: order);
+    final node = DspNode.create(type, order: order, bypass: false);
     _chains[trackId] = chain.copyWith(nodes: [...chain.nodes, node]);
 
     notifyListeners();
