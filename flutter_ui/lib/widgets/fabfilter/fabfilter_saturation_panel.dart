@@ -193,11 +193,7 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
 
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
-    var chain = dsp.getChain(widget.trackId);
-    if (!chain.nodes.any((n) => n.type == DspNodeType.multibandSaturation)) {
-      dsp.addNode(widget.trackId, DspNodeType.multibandSaturation);
-      chain = dsp.getChain(widget.trackId);
-    }
+    final chain = dsp.getChain(widget.trackId);
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.multibandSaturation) {
         _nodeId = node.id;
@@ -348,6 +344,12 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return buildNotLoadedState('Saturation', DspNodeType.multibandSaturation, widget.trackId, () {
+        _initializeProcessor();
+        setState(() {});
+      });
+    }
     return wrapWithBypassOverlay(Container(
       decoration: FabFilterDecorations.panel(),
       child: Column(

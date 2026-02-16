@@ -8,11 +8,6 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../fabfilter/fabfilter_limiter_panel.dart';
-import '../shared/panel_helpers.dart';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// LIMITER PANEL
-// ═══════════════════════════════════════════════════════════════════════════
 
 class LimiterPanel extends StatelessWidget {
   final int? selectedTrackId;
@@ -21,14 +16,6 @@ class LimiterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (selectedTrackId == null) {
-      return buildEmptyState(
-        icon: Icons.policy,
-        title: 'No Track Selected',
-        subtitle: 'Select a track to open Limiter',
-      );
-    }
-
-    return FabFilterLimiterPanel(trackId: selectedTrackId!);
+    return FabFilterLimiterPanel(trackId: selectedTrackId ?? 0);
   }
 }

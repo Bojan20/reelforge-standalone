@@ -1,12 +1,13 @@
 # DSP → Engine Integration — CRITICAL ARCHITECTURAL ISSUE
 
-**Status:** 🟢 FIXED (P0 + P1 + Bypass Fix Complete)
+**Status:** 🟢 FIXED (P0 + P1 + Bypass Fix + EDIT Subtab Fix Complete)
 **Priority:** P2 (Testing remaining)
 **Date:** 2026-01-23
-**Updated:** 2026-02-15
+**Updated:** 2026-02-16
 **Impact:** FabFilter panels NOW affect audio output via DspChainProvider + Direct FFI Bypass
 **Ghost Code:** ✅ DELETED from ffi.rs and native_ffi.dart
 **Bypass Fix:** ✅ FFI redirected from `ffi_insert_set_bypass` (broken ENGINE) to `track_insert_set_bypass` (PLAYBACK_ENGINE)
+**EDIT Fix:** ✅ ElasticPro dual-HashMap + Track→Clip ID resolution for Beat Detective/Strip Silence
 
 ---
 
@@ -408,6 +409,78 @@ if let Some(processor) = create_processor_extended(&processor_name, sample_rate)
 
 ---
 
+## ElasticPro + IMPORTED_AUDIO — Track→Clip ID Resolution (2026-02-16) ✅
+
+### Two ElasticPro HashMaps (CRITICAL)
+
+```rust
+// crates/rf-engine/src/ffi.rs
+
+// NEW API (line ~11698) — used by elastic_pro_create/set_*/apply
+lazy_static! {
+    static ref ELASTIC_PROS: RwLock<HashMap<u32, ElasticPro>> = RwLock::new(HashMap::new());
+}
+
+// OLD API (line ~7625) — used by elastic_create/set_*/apply
+lazy_static! {
+    static ref ELASTIC_PROCESSORS: RwLock<HashMap<u32, ElasticPro>> = RwLock::new(HashMap::new());
+}
+```
+
+**Rule:** `elastic_apply_to_clip()` MUST check BOTH HashMaps (ELASTIC_PROS first, then ELASTIC_PROCESSORS as fallback).
+
+### IMPORTED_AUDIO Keyed by ClipId (NOT track index)
+
+```rust
+// crates/rf-engine/src/ffi.rs line 123
+lazy_static! {
+    static ref IMPORTED_AUDIO: RwLock<HashMap<ClipId, Arc<ImportedAudio>>> = ...;
+}
+```
+
+**Problem:** Dart EDIT panels pass `_trackId` (e.g., 0), but `IMPORTED_AUDIO` is keyed by `ClipId` (assigned during audio import, could be any number like 42, 1001, etc.).
+
+**Solution:** `engine_get_first_clip_id(track_id)` resolves track index → first clip's ClipId via `TRACK_MANAGER.get_clips_for_track()`.
+
+```rust
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_first_clip_id(track_id: u64) -> u64 {
+    let clips = TRACK_MANAGER.get_clips_for_track(TrackId(track_id));
+    clips.first().map(|c| c.id.0).unwrap_or(0)
+}
+```
+
+**Dart Usage Pattern:**
+```dart
+// BEFORE (BROKEN):
+final sampleRate = ffi.getClipSampleRate(widget.selectedTrackId!);  // ❌ trackId != clipId
+
+// AFTER (CORRECT):
+final clipId = ffi.getFirstClipId(widget.selectedTrackId!);
+if (clipId == 0) return;  // No clip on this track
+final sampleRate = ffi.getClipSampleRate(clipId);  // ✅ Uses resolved ClipId
+```
+
+### elastic_apply_to_clip() — Dual Resolution
+
+`elastic_apply_to_clip(clip_id)` now handles both HashMap lookup AND IMPORTED_AUDIO resolution:
+
+1. Try `ELASTIC_PROS[clip_id]` first, then `ELASTIC_PROCESSORS[clip_id]` as fallback
+2. Try `IMPORTED_AUDIO[ClipId(clip_id)]` first
+3. If not found, resolve `TRACK_MANAGER.get_clips_for_track(TrackId(clip_id))` → first clip
+4. Use `resolved_clip_id` for storing the result back in `IMPORTED_AUDIO`
+
+### Affected EDIT Subtab Panels
+
+| Panel | FFI Functions Used | ClipId Resolution |
+|-------|-------------------|-------------------|
+| Audio Warping | `elasticProCreate`, `elasticProSet*`, `elasticApplyToClip` | Rust-side fallback |
+| Elastic Audio | `elasticProCreate`, `elasticProSet*`, `elasticApplyToClip` | Rust-side fallback |
+| Beat Detective | `getClipSampleRate`, `detectClipTransients` | Dart-side via `getFirstClipId()` |
+| Strip Silence | `getClipSampleRate`, `getClipTotalFrames`, `detectClipTransients` | Dart-side via `getFirstClipId()` |
+
+---
+
 ## References
 
 - `flutter_ui/lib/providers/dsp_chain_provider.dart` — Single source of truth for insert chains
@@ -419,6 +492,9 @@ if let Some(processor) = create_processor_extended(&processor_name, sample_rate)
 - `crates/rf-engine/src/insert_chain.rs` — Insert chain processing
 - `crates/rf-bridge/src/api.rs` — FFI bridge (`insert_load()` uses `create_processor_extended`)
 - `flutter_ui/lib/src/rust/native_ffi.dart` — Dart FFI bindings
+- `crates/rf-engine/src/track_manager.rs` — Track→Clip management (`get_clips_for_track`)
+- `flutter_ui/lib/widgets/lower_zone/daw/edit/beat_detective_panel.dart` — Beat Detective with ClipId resolution
+- `flutter_ui/lib/widgets/lower_zone/daw/edit/strip_silence_panel.dart` — Strip Silence with ClipId resolution
 
 ---
 

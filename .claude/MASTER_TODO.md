@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-16 (Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
-**Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational, all 9 FabFilter DSP panels 100% FFI connected with A/B snapshots
+**Updated:** 2026-02-16 (EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
+**Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational, all 9 FabFilter DSP panels 100% FFI connected with A/B snapshots, ~1,200 LOC dead EQ code removed
 
 ---
 
@@ -11,6 +11,7 @@
 FEATURE PROGRESS: 100% COMPLETE (384/384 tasks)
 CODE QUALITY AUDIT: 11/11 FIXED ✅ (4 CRITICAL, 4 HIGH, 3 MEDIUM)
 ANALYZER WARNINGS: 0 errors, 0 warnings ✅
+DEAD CODE CLEANUP: ~1,200 LOC removed (4 legacy EQ panels)
 
 ✅ P0-P9 Legacy:        100% (171/171) ✅ FEATURES DONE
 ✅ Phase A (P0):        100% (10/10)   ✅ MVP FEATURES DONE
@@ -25,9 +26,140 @@ ANALYZER WARNINGS: 0 errors, 0 warnings ✅
 ✅ REPO CLEANUP:        1 branch only  ✅ CLEAN
 ✅ PERF PROFILING:      10-section report ✅ BENCHMARKED
 ✅ P2 REMAINING:        16/16 tasks    ✅ ALL IMPLEMENTED
+✅ DEAD CODE CLEANUP:   ~1,200 LOC     ✅ 4 legacy EQ panels removed
 ```
 
-**All 384 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). Repo cleaned. SHIP READY.**
+**All 384 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). Repo cleaned. ~1,200 LOC dead EQ code removed. SHIP READY.**
+
+### PROCESS Subtab Default Visibility Fix (2026-02-16) ✅
+
+All 8 PROCESS subtab panels now show by default without requiring a track in the timeline. Previously, each panel checked `if (selectedTrackId == null)` and showed "No Track Selected" empty state. Now they default to `trackId = 0` (master bus) when no track is selected.
+
+**Panels fixed (8 total):**
+| Panel | File | Before | After |
+|-------|------|--------|-------|
+| EQ (FF-Q) | `process/eq_panel.dart` | Empty state | `FabFilterEqPanel(trackId: 0)` |
+| Compressor (FF-C) | `process/comp_panel.dart` | Empty state | `FabFilterCompressorPanel(trackId: 0)` |
+| Limiter (FF-L) | `process/limiter_panel.dart` | Empty state | `FabFilterLimiterPanel(trackId: 0)` |
+| Reverb (FF-R) | `process/reverb_panel.dart` | Empty state | `FabFilterReverbPanel(trackId: 0)` |
+| Gate (FF-G) | `process/gate_panel.dart` | Empty state | `FabFilterGatePanel(trackId: 0)` |
+| Saturation (FF-SAT) | `process/saturation_panel_wrapper.dart` | Empty state | `FabFilterSaturationPanel(trackId: 0)` |
+| FX Chain | `process/fx_chain_panel.dart` | Empty state | `FxChain(trackId: 0)` |
+| Sidechain | `process/sidechain_panel.dart` | Empty state | `SidechainPanel(processorId: 0)` |
+
+**Pattern:** `selectedTrackId ?? 0` — uses selected track when available, defaults to master bus (0)
+
+---
+
+### EQ Dead Code Cleanup (2026-02-16) ✅
+
+Removed 4 legacy EQ panel files (~1,200 LOC) that were never instantiated anywhere in the codebase. Zero imports, zero class references confirmed via comprehensive grep.
+
+**Deleted Files:**
+
+| File | LOC | Reason |
+|------|-----|--------|
+| `widgets/dsp/pro_eq_panel.dart` | ~400 | 100% duplicate of FabFilterEqPanel functionality |
+| `widgets/dsp/ultra_eq_panel.dart` | ~300 | 256-band EQ, never instantiated, overkill |
+| `widgets/dsp/linear_phase_eq_panel.dart` | ~200 | FIR-based, can be added as mode to FabFilterEqPanel |
+| `widgets/dsp/stereo_eq_panel.dart` | ~300 | FabFilterEqPanel already has M/S placement |
+
+**Kept (Active EQ System):**
+
+| Panel | LOC | Purpose |
+|-------|-----|---------|
+| `fabfilter_eq_panel.dart` | ~4,100 | Primary production EQ (Pro-Q 3 style) |
+| `pultec_eq.dart` | ~250 | Vintage Pultec EQP-1A character |
+| `api550_eq.dart` | ~200 | Vintage API 550A character |
+| `neve1073_eq.dart` | ~250 | Vintage Neve 1073 character |
+| `analog_eq_panel.dart` | ~600 | Vintage EQ tab switcher (Pultec/API/Neve) |
+| `internal_processor_editor_window.dart` | ~530 | Generic floating parameter editor |
+
+**Verification:** `flutter analyze` — No issues found!
+
+---
+
+### Master Bus Plugin Chain — Design (2026-02-16) 📋 IN PROGRESS
+
+**Problem:** No UI to insert processors on master bus. Rust engine already has full master insert chain (`track_id = 0`), but UI has no dedicated panel.
+
+**Rust Backend (ALREADY EXISTS):**
+- `master_insert: RwLock<InsertChain>` in `playback.rs:1581`
+- Signal flow: pre-fader inserts → master volume → post-fader inserts (`playback.rs:3936-3949`)
+- 13 master-specific FFI functions in `ffi.rs:5981-6205`
+- All `insertLoadProcessor`, `insertSetParam`, `insertSetBypass` work with `trackId = 0`
+
+**Proposed Architecture (Studio One / Cubase hybrid):**
+- 12 insert slots: 8 pre-fader + 4 post-fader (explicit sections)
+- Built-in LUFS + True Peak metering
+- Same FabFilter panels for master inserts
+
+**UI Locations (3 access points):**
+1. **DAW Lower Zone → PROCESS tab** (primary) — when master is selected in mixer
+2. **Master Strip in Mixer** — expanded insert slots with pre/post sections
+3. **Channel Strip Inspector** — master overview with inserts + LUFS metering
+
+**Signal Flow:**
+```
+Input Sum → PRE-FADER INSERTS (8 slots) → MASTER FADER → POST-FADER INSERTS (4 slots) → OUTPUT
+```
+
+**Competitive DAW Reference:**
+| DAW | Slots | Pre/Post |
+|-----|-------|----------|
+| Cubase | 16 | Adjustable divider |
+| Pro Tools | 10 | All post-fader on master |
+| Logic Pro | 15 | Pre-fader + Post-fader |
+| Studio One | Unlimited | Dedicated Post section |
+
+**Status:** Design complete, awaiting implementation.
+
+---
+
+### EDIT Subtab Track→Clip ID Resolution Fix (2026-02-16) ✅
+
+Three critical FFI bugs in DAW Lower Zone EDIT tab panels — Time Stretch, Beat Detective, and Strip Silence were non-functional because of incorrect ID resolution between track indices and clip IDs.
+
+**Bug 1: `elastic_apply_to_clip()` reads wrong HashMap**
+- `elastic_pro_create(track_id)` stores processor in `ELASTIC_PROS` HashMap
+- `elastic_apply_to_clip()` was reading from `ELASTIC_PROCESSORS` (old API) — processor never found
+- **Fix:** Modified to check `ELASTIC_PROS` first, then `ELASTIC_PROCESSORS` as fallback
+- File: `crates/rf-engine/src/ffi.rs`
+
+**Bug 2: `elastic_apply_to_clip()` uses trackId for IMPORTED_AUDIO lookup**
+- `IMPORTED_AUDIO` HashMap is keyed by `ClipId` (assigned during audio import), NOT track index
+- Dart panels passed `_trackId` (e.g., 0), but `ClipId` could be any number
+- **Fix:** Added fallback in Rust: tries direct clip_id first, then resolves track→first clip via `TRACK_MANAGER.get_clips_for_track()`, stores result with `resolved_clip_id`
+- File: `crates/rf-engine/src/ffi.rs`
+
+**Bug 3: Beat Detective & Strip Silence pass trackId as clipId**
+- `detectClipTransients()`, `getClipSampleRate()`, `getClipTotalFrames()` all read from `IMPORTED_AUDIO` (keyed by ClipId)
+- Panels were passing `widget.selectedTrackId!` (track index) instead of resolved ClipId
+- **Fix:** New Rust FFI function `engine_get_first_clip_id(track_id)` resolves track→first clip via `TRACK_MANAGER.get_clips_for_track()`
+- Dart FFI binding added: `NativeFFI.getFirstClipId(trackId)`
+- Both panels updated to resolve clipId before any FFI calls
+- Files: `crates/rf-engine/src/ffi.rs`, `native_ffi.dart`, `beat_detective_panel.dart`, `strip_silence_panel.dart`
+
+**New FFI Function:**
+```rust
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_first_clip_id(track_id: u64) -> u64 {
+    let clips = TRACK_MANAGER.get_clips_for_track(TrackId(track_id));
+    clips.first().map(|c| c.id.0).unwrap_or(0)
+}
+```
+
+**Key Pattern — Two ElasticPro HashMaps:**
+- `ELASTIC_PROS` (line ~11698 in ffi.rs) — new API, used by `elastic_pro_create/set_*/apply`
+- `ELASTIC_PROCESSORS` (line ~7625 in ffi.rs) — old API, used by `elastic_create/set_*/apply`
+- `elastic_apply_to_clip()` now checks BOTH
+
+**Key Pattern — IMPORTED_AUDIO keyed by ClipId:**
+- `IMPORTED_AUDIO: RwLock<HashMap<ClipId, Arc<ImportedAudio>>>` — NOT keyed by track index
+- `TRACK_MANAGER.create_clip()` generates ClipIds during audio import
+- Always use `engine_get_first_clip_id(trackId)` to resolve before any IMPORTED_AUDIO access from Dart
+
+---
 
 ### DSP Processors + Cubase Fader Law + Meter Decay (2026-02-16) ✅
 
@@ -335,8 +467,11 @@ Changed `continue` to `return` in event_registry.dart `_playLayer()` (async meth
 - **P1: 100% (41/41)** ✅
 - **P2: 100% (53/53)** ✅ (37 original + 16 remaining)
 
+**Dead Code Removed:**
+- 4 legacy EQ panels: ~1,200 LOC (pro_eq, ultra_eq, linear_phase_eq, stereo_eq)
+
 **LOC:**
-- Delivered: ~186,000+
+- Delivered: ~186,000+ (net ~184,800+ after dead code cleanup)
 
 **Tests:**
 - Rust: 1,857 pass (123 new in QA overhaul + 17 in Next Level QA + 15 DSP audit fix tests + 5 Gate wrapper tests)
@@ -1253,6 +1388,48 @@ Kada engine i FFI budu povezani (svi parametri i meteri rade), uraditi finalni U
 - Logarithmic normalization for FREQ (20Hz-20kHz) and Q (0.1-10)
 - ALL FFI integration preserved identically (sidechainSet* functions)
 - Accent: Cyan (main) + Orange (filter section)
+
+---
+
+### Session 2026-02-16d — PROCESS Subtab Default Visibility Fix
+
+**Tasks Delivered:** 8 PROCESS wrapper panels updated to show by default
+**Files Changed:** 8 (all `flutter_ui/lib/widgets/lower_zone/daw/process/` wrappers)
+**flutter analyze:** 0 errors, 0 warnings ✅
+
+**Problem:** All 8 PROCESS subtab panels (EQ, Comp, Limiter, Reverb, Gate, Saturation, FX Chain, Sidechain) showed "No Track Selected" empty state when no audio track existed in timeline. User expectation: panels should always be visible.
+
+**Fix:** Replaced `if (selectedTrackId == null) → buildEmptyState(...)` with `selectedTrackId ?? 0` — defaults to master bus (trackId 0) when no track is selected. Removed unused `panel_helpers.dart` imports from 7 panels.
+
+**Files:**
+- `process/eq_panel.dart`, `comp_panel.dart`, `limiter_panel.dart`, `reverb_panel.dart`, `gate_panel.dart` — removed null check + empty state
+- `process/saturation_panel_wrapper.dart` — removed null check + empty state
+- `process/fx_chain_panel.dart` — removed null check + 10-line empty state Column
+- `process/sidechain_panel.dart` — removed null check + empty state, updated all `selectedTrackId!` to `trackId`
+
+---
+
+### Session 2026-02-16c — EDIT Subtab Track→Clip ID Resolution Fix
+
+**Tasks Delivered:** 3 critical FFI bug fixes for EDIT subtab panels
+**Files Changed:** 5 (1 Rust FFI + 1 Dart FFI + 2 Dart panels + Rust elastic_apply fix)
+**flutter analyze:** 0 errors, 0 warnings ✅
+
+**Problem:** Time Stretch, Beat Detective, and Strip Silence panels in DAW Lower Zone EDIT tab were non-functional. Three separate root causes:
+
+1. **`elastic_apply_to_clip()` HashMap mismatch** — `elastic_pro_create()` stored in `ELASTIC_PROS`, but `elastic_apply_to_clip()` read from `ELASTIC_PROCESSORS` (old API). Fix: Check both HashMaps.
+
+2. **`elastic_apply_to_clip()` IMPORTED_AUDIO lookup by trackId** — `IMPORTED_AUDIO` keyed by `ClipId` (not track index). Fix: Added track→first clip resolution via `TRACK_MANAGER.get_clips_for_track()` as fallback in Rust.
+
+3. **Beat Detective & Strip Silence pass trackId instead of clipId** — `detectClipTransients()`, `getClipSampleRate()`, `getClipTotalFrames()` all need ClipId. Fix: New FFI function `engine_get_first_clip_id(track_id)` + Dart binding + panels updated.
+
+**New FFI:** `engine_get_first_clip_id(track_id: u64) -> u64` — resolves track index to first clip's ClipId
+
+**Files:**
+- `crates/rf-engine/src/ffi.rs` — New function + elastic_apply dual-HashMap + track→clip fallback
+- `flutter_ui/lib/src/rust/native_ffi.dart` — `getFirstClipId()` binding
+- `flutter_ui/lib/widgets/lower_zone/daw/edit/beat_detective_panel.dart` — clipId resolution before FFI
+- `flutter_ui/lib/widgets/lower_zone/daw/edit/strip_silence_panel.dart` — clipId resolution before FFI
 
 ---
 

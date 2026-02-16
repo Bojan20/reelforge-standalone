@@ -8,11 +8,6 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../dsp/sidechain_panel.dart' as dsp;
-import '../shared/panel_helpers.dart';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SIDECHAIN PANEL (LOWER ZONE WRAPPER)
-// ═══════════════════════════════════════════════════════════════════════════
 
 class SidechainPanel extends StatelessWidget {
   final int? selectedTrackId;
@@ -32,13 +27,7 @@ class SidechainPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (selectedTrackId == null) {
-      return buildEmptyState(
-        icon: Icons.call_split,
-        title: 'No Track Selected',
-        subtitle: 'Select a track to configure sidechain',
-      );
-    }
+    final trackId = selectedTrackId ?? 0;
 
     // Convert available sources to DSP panel format
     final sources = availableSources
@@ -48,10 +37,10 @@ class SidechainPanel extends StatelessWidget {
                   type: _convertSourceType(s.type),
                 ))
             .toList() ??
-        _buildDefaultSources(selectedTrackId!);
+        _buildDefaultSources(trackId);
 
     return dsp.SidechainPanel(
-      processorId: selectedTrackId!,
+      processorId: trackId,
       availableSources: sources,
       onSettingsChanged: onSettingsChanged,
     );

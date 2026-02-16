@@ -427,10 +427,17 @@ class _BeatDetectivePanelState extends State<BeatDetectivePanel> {
 
     try {
       final ffi = NativeFFI.instance;
-      final sampleRate = ffi.getClipSampleRate(widget.selectedTrackId!);
+      // Resolve track index → clip ID (IMPORTED_AUDIO is keyed by ClipId, not track index)
+      final clipId = ffi.getFirstClipId(widget.selectedTrackId!);
+      if (clipId == 0) {
+        debugPrint('[BeatDetective] No clip found for track ${widget.selectedTrackId}');
+        setState(() => _isAnalyzing = false);
+        return;
+      }
+      final sampleRate = ffi.getClipSampleRate(clipId);
 
       final results = ffi.detectClipTransients(
-        widget.selectedTrackId!,
+        clipId,
         sensitivity: _sensitivity,
         algorithm: _algorithmIndex,
         maxCount: 500,

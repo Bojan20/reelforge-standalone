@@ -6,7 +6,6 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../fabfilter/fabfilter_saturation_panel.dart';
-import '../shared/panel_helpers.dart';
 
 class SaturationPanelWrapper extends StatelessWidget {
   final int? selectedTrackId;
@@ -15,14 +14,6 @@ class SaturationPanelWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (selectedTrackId == null) {
-      return buildEmptyState(
-        icon: Icons.whatshot,
-        title: 'No Track Selected',
-        subtitle: 'Select a track to open Saturator',
-      );
-    }
-
-    return FabFilterSaturationPanel(trackId: selectedTrackId!);
+    return FabFilterSaturationPanel(trackId: selectedTrackId ?? 0);
   }
 }

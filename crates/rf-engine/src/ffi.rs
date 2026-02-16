@@ -1709,6 +1709,14 @@ pub extern "C" fn engine_get_track_clips(
     count
 }
 
+/// Get the first clip ID for a track (0 if no clips)
+/// Used by Beat Detective / Strip Silence / Elastic panels to resolve track → clip
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_first_clip_id(track_id: u64) -> u64 {
+    let clips = TRACK_MANAGER.get_clips_for_track(TrackId(track_id));
+    clips.first().map(|c| c.id.0).unwrap_or(0)
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // WAVEFORM FFI
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7927,23 +7935,37 @@ pub extern "C" fn elastic_reset(clip_id: u32) -> i32 {
 /// Returns 1 on success, 0 on error
 #[unsafe(no_mangle)]
 pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
-    // Get elastic processor
-    let mut procs = ELASTIC_PROCESSORS.write();
-    let proc = match procs.get_mut(&clip_id) {
-        Some(p) => p,
-        None => {
-            eprintln!("[elastic_apply] No processor for clip {}", clip_id);
-            return 0;
-        }
+    // clip_id here is typically a track_id passed from Dart panels.
+    // Try ELASTIC_PROS first (used by elastic_pro_* API), then ELASTIC_PROCESSORS (old API)
+    let mut pros = ELASTIC_PROS.write();
+    let mut old_procs = ELASTIC_PROCESSORS.write();
+    let proc = if let Some(p) = pros.get_mut(&clip_id) {
+        p
+    } else if let Some(p) = old_procs.get_mut(&clip_id) {
+        p
+    } else {
+        eprintln!("[elastic_apply] No processor for clip {} (checked ELASTIC_PROS and ELASTIC_PROCESSORS)", clip_id);
+        return 0;
     };
 
-    // Read audio from IMPORTED_AUDIO
-    let audio = {
+    // Read audio from IMPORTED_AUDIO.
+    // Try direct clip_id first, then resolve track→first clip if not found.
+    let (audio, resolved_clip_id) = {
         let audio_map = IMPORTED_AUDIO.read();
-        match audio_map.get(&ClipId(clip_id as u64)) {
-            Some(a) => a.clone(),
-            None => {
-                eprintln!("[elastic_apply] No audio for clip {}", clip_id);
+        if let Some(a) = audio_map.get(&ClipId(clip_id as u64)) {
+            (a.clone(), ClipId(clip_id as u64))
+        } else {
+            // clip_id might actually be a track_id — resolve to first clip
+            let clips = TRACK_MANAGER.get_clips_for_track(TrackId(clip_id as u64));
+            if let Some(first_clip) = clips.first() {
+                if let Some(a) = audio_map.get(&first_clip.id) {
+                    (a.clone(), first_clip.id)
+                } else {
+                    eprintln!("[elastic_apply] No audio for clip {} (track {} has clip {} but no audio)", clip_id, clip_id, first_clip.id.0);
+                    return 0;
+                }
+            } else {
+                eprintln!("[elastic_apply] No audio for clip {} and no clips on track {}", clip_id, clip_id);
                 return 0;
             }
         }
@@ -8012,7 +8034,7 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
         format: audio.format.clone(),
     });
 
-    IMPORTED_AUDIO.write().insert(ClipId(clip_id as u64), new_audio);
+    IMPORTED_AUDIO.write().insert(resolved_clip_id, new_audio);
 
     eprintln!(
         "[elastic_apply] clip {} stretched: {} → {} frames ({:.2}s → {:.2}s)",

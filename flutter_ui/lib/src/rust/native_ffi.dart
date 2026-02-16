@@ -1091,6 +1091,9 @@ typedef EngineGetClipSampleRateDart = int Function(int clipId);
 typedef EngineGetClipTotalFramesNative = Uint64 Function(Uint64 clipId);
 typedef EngineGetClipTotalFramesDart = int Function(int clipId);
 
+typedef EngineGetFirstClipIdNative = Uint64 Function(Uint64 trackId);
+typedef EngineGetFirstClipIdDart = int Function(int trackId);
+
 // P10.0.2: Graph-Level PDC
 typedef EngineRecalculateGraphPdcNative = Int32 Function();
 typedef EngineRecalculateGraphPdcDart = int Function();
@@ -2440,6 +2443,7 @@ class NativeFFI {
   late final EngineDetectClipTransientsDart _detectClipTransients;
   late final EngineGetClipSampleRateDart _getClipSampleRate;
   late final EngineGetClipTotalFramesDart _getClipTotalFrames;
+  late final EngineGetFirstClipIdDart _getFirstClipId;
 
   // P10.0.2: Graph-Level PDC
   late final EngineRecalculateGraphPdcDart _engineRecalculateGraphPdc;
@@ -3107,6 +3111,7 @@ class NativeFFI {
     _detectClipTransients = _lib.lookupFunction<EngineDetectClipTransientsNative, EngineDetectClipTransientsDart>('engine_detect_clip_transients');
     _getClipSampleRate = _lib.lookupFunction<EngineGetClipSampleRateNative, EngineGetClipSampleRateDart>('engine_get_clip_sample_rate');
     _getClipTotalFrames = _lib.lookupFunction<EngineGetClipTotalFramesNative, EngineGetClipTotalFramesDart>('engine_get_clip_total_frames');
+    _getFirstClipId = _lib.lookupFunction<EngineGetFirstClipIdNative, EngineGetFirstClipIdDart>('engine_get_first_clip_id');
 
     // P10.0.2: Graph-Level PDC
     _engineRecalculateGraphPdc = _lib.lookupFunction<EngineRecalculateGraphPdcNative, EngineRecalculateGraphPdcDart>('engine_recalculate_graph_pdc');
@@ -6199,6 +6204,12 @@ class NativeFFI {
   int getClipTotalFrames(int clipId) {
     if (!_loaded) return 0;
     return _getClipTotalFrames(clipId);
+  }
+
+  /// Get first clip ID for a track (resolves track index → clip ID for IMPORTED_AUDIO)
+  int getFirstClipId(int trackId) {
+    if (!_loaded) return 0;
+    return _getFirstClipId(trackId);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

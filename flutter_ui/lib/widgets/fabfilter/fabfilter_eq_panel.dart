@@ -323,11 +323,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
 
   void _initProcessor() {
     final dsp = DspChainProvider.instance;
-    var chain = dsp.getChain(widget.trackId);
-    if (!chain.nodes.any((n) => n.type == DspNodeType.eq)) {
-      dsp.addNode(widget.trackId, DspNodeType.eq);
-      chain = dsp.getChain(widget.trackId);
-    }
+    final chain = dsp.getChain(widget.trackId);
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.eq) {
         _nodeId = node.id;
@@ -414,6 +410,12 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return buildNotLoadedState('EQ', DspNodeType.eq, widget.trackId, () {
+        _initProcessor();
+        setState(() {});
+      });
+    }
     return wrapWithBypassOverlay(Container(
       decoration: FabFilterDecorations.panel(),
       child: Column(children: [

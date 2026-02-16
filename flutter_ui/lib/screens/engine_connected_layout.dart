@@ -7464,6 +7464,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.toggleChannelArm(id);
         }
       },
+      onChannelSelect: (id) {
+        setState(() {
+          if (id == 'master') {
+            _selectedTrackId = '0';
+          } else {
+            _selectedTrackId = id;
+          }
+        });
+      },
       onInsertClick: (channelId, insertIndex) {
         _handleUltimateMixerInsertClick(channelId, insertIndex);
       },
@@ -7624,8 +7633,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       _busInserts[channelId] = InsertChain(channelId: channelId);
     }
     final chain = _busInserts[channelId]!;
+    if (insertIndex >= chain.slots.length) return;
     final currentSlot = chain.slots[insertIndex];
-    final isPreFader = insertIndex < 4;
+    final isPreFader = currentSlot.isPreFader;
 
     // Get friendly channel name
     final mixerProv = context.read<MixerProvider>();
@@ -7786,7 +7796,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     'voice': InsertChain(channelId: 'voice'),
     'amb': InsertChain(channelId: 'amb'),
     'ui': InsertChain(channelId: 'ui'),
-    'master': InsertChain(channelId: 'master'),
+    'master': InsertChain(
+      channelId: 'master',
+      slots: List.generate(12, (i) => InsertState(
+        index: i,
+        isPreFader: i < 8, // 8 pre-fader + 4 post-fader
+      )),
+    ),
   };
 
   void _onBusVolumeChange(String busId, double volume) {

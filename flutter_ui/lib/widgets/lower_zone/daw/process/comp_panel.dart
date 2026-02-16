@@ -8,11 +8,6 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../fabfilter/fabfilter_compressor_panel.dart';
-import '../shared/panel_helpers.dart';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// COMPRESSOR PANEL
-// ═══════════════════════════════════════════════════════════════════════════
 
 class CompPanel extends StatelessWidget {
   final int? selectedTrackId;
@@ -21,14 +16,6 @@ class CompPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (selectedTrackId == null) {
-      return buildEmptyState(
-        icon: Icons.compress,
-        title: 'No Track Selected',
-        subtitle: 'Select a track to open Compressor',
-      );
-    }
-
-    return FabFilterCompressorPanel(trackId: selectedTrackId!);
+    return FabFilterCompressorPanel(trackId: selectedTrackId ?? 0);
   }
 }

@@ -202,14 +202,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
 
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
-    var chain = dsp.getChain(widget.trackId);
-
-    // Auto-add gate to chain if not present
-    if (!chain.nodes.any((n) => n.type == DspNodeType.gate)) {
-      dsp.addNode(widget.trackId, DspNodeType.gate);
-      chain = dsp.getChain(widget.trackId);
-    }
-
+    final chain = dsp.getChain(widget.trackId);
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.gate) {
         _nodeId = node.id;
@@ -360,6 +353,12 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return buildNotLoadedState('Gate', DspNodeType.gate, widget.trackId, () {
+        _initializeProcessor();
+        setState(() {});
+      });
+    }
     return wrapWithBypassOverlay(Container(
       decoration: FabFilterDecorations.panel(),
       child: Column(

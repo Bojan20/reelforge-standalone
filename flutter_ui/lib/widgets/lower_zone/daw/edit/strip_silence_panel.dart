@@ -67,8 +67,11 @@ class _StripSilencePanelState extends State<StripSilencePanel> {
     if (widget.selectedTrackId == null) return;
     try {
       final ffi = NativeFFI.instance;
-      _clipSampleRate = ffi.getClipSampleRate(widget.selectedTrackId!);
-      _clipTotalFrames = ffi.getClipTotalFrames(widget.selectedTrackId!);
+      // Resolve track index → clip ID (IMPORTED_AUDIO is keyed by ClipId, not track index)
+      final clipId = ffi.getFirstClipId(widget.selectedTrackId!);
+      if (clipId == 0) return;
+      _clipSampleRate = ffi.getClipSampleRate(clipId);
+      _clipTotalFrames = ffi.getClipTotalFrames(clipId);
     } catch (_) {
       _clipSampleRate = 0;
       _clipTotalFrames = 0;
@@ -604,8 +607,15 @@ class _StripSilencePanelState extends State<StripSilencePanel> {
 
     try {
       final ffi = NativeFFI.instance;
-      final sampleRate = ffi.getClipSampleRate(widget.selectedTrackId!);
-      final totalFrames = ffi.getClipTotalFrames(widget.selectedTrackId!);
+      // Resolve track index → clip ID (IMPORTED_AUDIO is keyed by ClipId, not track index)
+      final clipId = ffi.getFirstClipId(widget.selectedTrackId!);
+      if (clipId == 0) {
+        debugPrint('[StripSilence] No clip found for track ${widget.selectedTrackId}');
+        setState(() => _isAnalyzing = false);
+        return;
+      }
+      final sampleRate = ffi.getClipSampleRate(clipId);
+      final totalFrames = ffi.getClipTotalFrames(clipId);
 
       if (sampleRate > 0 && totalFrames > 0) {
         _clipSampleRate = sampleRate;
@@ -614,7 +624,7 @@ class _StripSilencePanelState extends State<StripSilencePanel> {
         // Use transient detection as a proxy: areas WITHOUT transients are likely silent.
         // Very low sensitivity catches only significant energy bursts.
         final transients = ffi.detectClipTransients(
-          widget.selectedTrackId!,
+          clipId,
           sensitivity: 0.1,
           algorithm: 0,
           minGapMs: _minDurationMs * 0.5,

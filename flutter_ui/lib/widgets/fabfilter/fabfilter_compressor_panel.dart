@@ -241,11 +241,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
-    var chain = dsp.getChain(widget.trackId);
-    if (!chain.nodes.any((n) => n.type == DspNodeType.compressor)) {
-      dsp.addNode(widget.trackId, DspNodeType.compressor);
-      chain = dsp.getChain(widget.trackId);
-    }
+    final chain = dsp.getChain(widget.trackId);
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.compressor) {
         _nodeId = node.id;
@@ -400,6 +396,12 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return buildNotLoadedState('Compressor', DspNodeType.compressor, widget.trackId, () {
+        _initializeProcessor();
+        setState(() {});
+      });
+    }
     return wrapWithBypassOverlay(Container(
       decoration: FabFilterDecorations.panel(),
       child: Column(

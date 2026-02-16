@@ -8,11 +8,6 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../fabfilter/fabfilter_eq_panel.dart';
-import '../shared/panel_helpers.dart';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// EQ PANEL
-// ═══════════════════════════════════════════════════════════════════════════
 
 class EqPanel extends StatelessWidget {
   final int? selectedTrackId;
@@ -21,14 +16,6 @@ class EqPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (selectedTrackId == null) {
-      return buildEmptyState(
-        icon: Icons.equalizer,
-        title: 'No Track Selected',
-        subtitle: 'Select a track to open EQ',
-      );
-    }
-
-    return FabFilterEqPanel(trackId: selectedTrackId!);
+    return FabFilterEqPanel(trackId: selectedTrackId ?? 0);
   }
 }

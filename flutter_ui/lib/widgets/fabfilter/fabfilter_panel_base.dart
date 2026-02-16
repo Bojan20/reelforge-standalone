@@ -791,6 +791,64 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
     );
   }
 
+  /// Build "not loaded" empty state when processor is not in the DSP chain.
+  /// Shows processor name and an "Add to Chain" button.
+  Widget buildNotLoadedState(String processorName, DspNodeType nodeType, int trackId, VoidCallback onAdded) {
+    return Container(
+      decoration: FabFilterDecorations.panel(),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add_circle_outline, size: 36, color: FabFilterColors.textDisabled),
+            const SizedBox(height: 12),
+            Text(
+              processorName.toUpperCase(),
+              style: TextStyle(
+                color: FabFilterColors.textDisabled,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Not in chain',
+              style: TextStyle(
+                color: FabFilterColors.textDisabled.withValues(alpha: 0.5),
+                fontSize: 10,
+              ),
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () {
+                DspChainProvider.instance.addNode(trackId, nodeType);
+                onAdded();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: FabFilterColors.bgSurface,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: FabFilterColors.textDisabled, width: 0.5),
+                ),
+                child: Text(
+                  'ADD TO CHAIN',
+                  style: TextStyle(
+                    color: FabFilterColors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Build a parameter slider row
   Widget buildSliderRow(
     String label,

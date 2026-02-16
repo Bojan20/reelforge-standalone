@@ -213,11 +213,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
 
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
-    var chain = dsp.getChain(widget.trackId);
-    if (!chain.nodes.any((n) => n.type == DspNodeType.limiter)) {
-      dsp.addNode(widget.trackId, DspNodeType.limiter);
-      chain = dsp.getChain(widget.trackId);
-    }
+    final chain = dsp.getChain(widget.trackId);
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.limiter) {
         _nodeId = node.id;
@@ -366,6 +362,12 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return buildNotLoadedState('Limiter', DspNodeType.limiter, widget.trackId, () {
+        _initializeProcessor();
+        setState(() {});
+      });
+    }
     return wrapWithBypassOverlay(Container(
       decoration: FabFilterDecorations.panel(),
       child: Column(

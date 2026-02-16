@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../lower_zone/daw/mix/pdc_indicator.dart';
-import '../lower_zone/daw/mix/lufs_meter_widget.dart';
+
 import '../metering/gpu_meter_widget.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -399,6 +399,9 @@ class _UltimateMixerState extends State<UltimateMixer> {
                       compact: widget.compact,
                       onVolumeChange: (v) => widget.onVolumeChange?.call(widget.master.id, v),
                       onInsertClick: (idx) => widget.onInsertClick?.call(widget.master.id, idx),
+                      onSelect: () => widget.onChannelSelect?.call(widget.master.id),
+                      lufsShortTerm: widget.master.lufsShort,
+                      lufsIntegrated: widget.master.lufsIntegrated,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1906,6 +1909,10 @@ class _MasterStrip extends StatelessWidget {
   final bool compact;
   final ValueChanged<double>? onVolumeChange;
   final void Function(int index)? onInsertClick;
+  final VoidCallback? onSelect;
+  /// Real-time LUFS values from engine metering
+  final double lufsShortTerm;
+  final double lufsIntegrated;
 
   const _MasterStrip({
     required this.channel,
@@ -1913,6 +1920,9 @@ class _MasterStrip extends StatelessWidget {
     this.compact = false,
     this.onVolumeChange,
     this.onInsertClick,
+    this.onSelect,
+    this.lufsShortTerm = -70.0,
+    this.lufsIntegrated = -70.0,
   });
 
   @override
@@ -1935,29 +1945,69 @@ class _MasterStrip extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Container(
-            height: 4,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFF9040), Color(0xFFFFD040)],
+          // Top bar — tappable to select master for Lower Zone PROCESS
+          GestureDetector(
+            onTap: onSelect,
+            child: Container(
+              height: 4,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF9040), Color(0xFFFFD040)],
+                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
             ),
           ),
-          // Insert section
+          // Insert section — 12 slots: 8 pre-fader + 4 post-fader
           if (!compact)
             Padding(
               padding: const EdgeInsets.all(2),
               child: Column(
-                children: List.generate(4, (i) {
-                  final insert = i < channel.inserts.length
-                      ? channel.inserts[i]
-                      : InsertData(index: i);
-                  return _InsertSlot(
-                    insert: insert,
-                    onTap: () => onInsertClick?.call(i),
-                  );
-                }),
+                children: [
+                  // PRE-FADER label
+                  Container(
+                    height: 12,
+                    alignment: Alignment.center,
+                    child: const Text('PRE', style: TextStyle(
+                      color: FluxForgeTheme.textTertiary, fontSize: 7,
+                      fontWeight: FontWeight.w600, letterSpacing: 1)),
+                  ),
+                  // 8 pre-fader insert slots (0-7)
+                  ...List.generate(8, (i) {
+                    final insert = i < channel.inserts.length
+                        ? channel.inserts[i]
+                        : InsertData(index: i);
+                    return _InsertSlot(
+                      insert: insert,
+                      onTap: () => onInsertClick?.call(i),
+                    );
+                  }),
+                  // Divider between pre/post
+                  Container(
+                    height: 1,
+                    margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                    color: FluxForgeTheme.warningOrange.withOpacity(0.3),
+                  ),
+                  // POST-FADER label
+                  Container(
+                    height: 12,
+                    alignment: Alignment.center,
+                    child: const Text('POST', style: TextStyle(
+                      color: FluxForgeTheme.textTertiary, fontSize: 7,
+                      fontWeight: FontWeight.w600, letterSpacing: 1)),
+                  ),
+                  // 4 post-fader insert slots (8-11)
+                  ...List.generate(4, (i) {
+                    final idx = 8 + i;
+                    final insert = idx < channel.inserts.length
+                        ? channel.inserts[idx]
+                        : InsertData(index: idx);
+                    return _InsertSlot(
+                      insert: insert,
+                      onTap: () => onInsertClick?.call(idx),
+                    );
+                  }),
+                ],
               ),
             ),
           // Stereo meter + fader
@@ -1975,27 +2025,39 @@ class _MasterStrip extends StatelessWidget {
               ),
             ),
           ),
-          // LUFS display - real-time metering (P0.2)
-          Container(
-            height: 22,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            child: const Center(
-              child: LufsBadge(
-                target: LufsTarget.streaming,
+          // Real-time LUFS display from engine metering
+          GestureDetector(
+            onTap: onSelect,
+            child: Container(
+              height: 22,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              child: Center(
+                child: Text(
+                  _formatMasterLufs(lufsShortTerm),
+                  style: TextStyle(
+                    color: _lufsColor(lufsShortTerm),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
               ),
             ),
           ),
-          // Master label
-          Container(
-            height: 24,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: const Center(
-              child: Text(
-                'STEREO OUT',
-                style: TextStyle(
-                  color: FluxForgeTheme.warningOrange,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+          // Master label — also tappable
+          GestureDetector(
+            onTap: onSelect,
+            child: Container(
+              height: 24,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: const Center(
+                child: Text(
+                  'STEREO OUT',
+                  style: TextStyle(
+                    color: FluxForgeTheme.warningOrange,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -2003,6 +2065,19 @@ class _MasterStrip extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatMasterLufs(double lufs) {
+    if (lufs <= -70.0) return '-∞ LUFS';
+    return '${lufs.toStringAsFixed(1)} LUFS';
+  }
+
+  Color _lufsColor(double lufs) {
+    if (lufs <= -70.0) return FluxForgeTheme.textTertiary;
+    if (lufs > -8.0) return FluxForgeTheme.errorRed;
+    if (lufs > -11.0) return FluxForgeTheme.warningOrange;
+    if (lufs > -16.0) return FluxForgeTheme.accentGreen;
+    return FluxForgeTheme.accentCyan;
   }
 }
 

@@ -347,19 +347,11 @@ class DspChainProvider extends ChangeNotifier {
 
   // ─── Chain Operations ──────────────────────────────────────────────────────
 
-  /// Initialize default chain for track (EQ + Comp)
-  /// FFI SYNC: Loads default processors in Rust engine
+  /// Initialize empty chain for track.
+  /// FFI SYNC: No processors are loaded by default — user adds them explicitly.
   void initializeChain(int trackId) {
     if (_chains.containsKey(trackId)) return;
-
-    // Create empty chain first
     _chains[trackId] = DspChain(trackId: trackId, nodes: []);
-
-    // Add EQ via FFI
-    addNode(trackId, DspNodeType.eq);
-    // Add Compressor via FFI
-    addNode(trackId, DspNodeType.compressor);
-
   }
 
   /// Clear chain for track

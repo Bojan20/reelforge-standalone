@@ -15,21 +15,7 @@ class FxChainPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trackId = selectedTrackId;
-    if (trackId == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.link, size: 48, color: LowerZoneColors.textMuted),
-            SizedBox(height: 12),
-            Text('No Track Selected', style: TextStyle(fontSize: 14, color: LowerZoneColors.textPrimary)),
-            SizedBox(height: 4),
-            Text('Select a track to view FX chain', style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted)),
-          ],
-        ),
-      );
-    }
+    final trackId = selectedTrackId ?? 0;
 
     return ListenableBuilder(
       listenable: DspChainProvider.instance,

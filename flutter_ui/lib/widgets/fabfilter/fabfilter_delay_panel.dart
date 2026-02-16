@@ -156,11 +156,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
 
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
-    var chain = dsp.getChain(widget.trackId);
-    if (!chain.nodes.any((n) => n.type == DspNodeType.delay)) {
-      dsp.addNode(widget.trackId, DspNodeType.delay);
-      chain = dsp.getChain(widget.trackId);
-    }
+    final chain = dsp.getChain(widget.trackId);
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.delay) {
         _nodeId = node.id;
@@ -296,6 +292,12 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return buildNotLoadedState('Delay', DspNodeType.delay, widget.trackId, () {
+        _initializeProcessor();
+        setState(() {});
+      });
+    }
     return wrapWithBypassOverlay(Container(
       decoration: FabFilterDecorations.panel(),
       child: Column(
