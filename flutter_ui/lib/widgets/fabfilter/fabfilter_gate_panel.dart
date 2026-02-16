@@ -189,6 +189,9 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       _sidechainHpf = _ffi.insertGetParam(widget.trackId, _slotIndex, 7);
       _sidechainLpf = _ffi.insertGetParam(widget.trackId, _slotIndex, 8);
       _lookahead = _ffi.insertGetParam(widget.trackId, _slotIndex, 9);
+      _hysteresis = _ffi.insertGetParam(widget.trackId, _slotIndex, 10);
+      _ratio = _ffi.insertGetParam(widget.trackId, _slotIndex, 11);
+      _sidechainAudition = _ffi.insertGetParam(widget.trackId, _slotIndex, 12) > 0.5;
       if (_sidechainHpf < 20) _sidechainHpf = 80.0;
       if (_sidechainLpf < 1000) _sidechainLpf = 12000.0;
     });
@@ -596,7 +599,10 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
             label: 'HYST',
             display: '${_hysteresis.toStringAsFixed(0)}dB',
             color: FabFilterColors.purple,
-            onChanged: (v) => setState(() => _hysteresis = v * 12),
+            onChanged: (v) {
+              setState(() => _hysteresis = v * 12);
+              if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 10, _hysteresis);
+            },
           ),
       ],
     );
@@ -655,7 +661,10 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
               if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 8, _sidechainLpf);
             }),
             const SizedBox(height: 4),
-            _buildOptionRow('AUD', _sidechainAudition, (v) => setState(() => _sidechainAudition = v)),
+            _buildOptionRow('AUD', _sidechainAudition, (v) {
+              setState(() => _sidechainAudition = v);
+              if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 12, v ? 1.0 : 0.0);
+            }),
           ],
           const Flexible(child: SizedBox(height: 8)),
           if (showExpertMode) ...[
@@ -665,6 +674,13 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
               setState(() => _lookahead = v * 10);
               if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 9, _lookahead);
             }),
+            if (_mode == GateMode.expand) ...[
+              const SizedBox(height: 2),
+              _buildMiniSlider('RAT', (_ratio - 1) / 99, '${_ratio.toStringAsFixed(0)}%', (v) {
+                setState(() => _ratio = 1 + v * 99);
+                if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 11, _ratio);
+              }),
+            ],
           ],
         ],
       ),

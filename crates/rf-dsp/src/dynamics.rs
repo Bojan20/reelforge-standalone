@@ -2696,6 +2696,10 @@ pub struct Gate {
     sidechain_enabled: bool,
     /// Current sidechain key sample (set per-sample from external source)
     sidechain_key_sample: Sample,
+    /// Hysteresis in dB — gate closes at (threshold - hysteresis) instead of threshold
+    hysteresis_db: f64,
+    /// Whether gate is currently in "open" state (for hysteresis logic)
+    is_open: bool,
 }
 
 impl Gate {
@@ -2712,9 +2716,16 @@ impl Gate {
             sample_rate,
             sidechain_enabled: false,
             sidechain_key_sample: 0.0,
+            hysteresis_db: 0.0,
+            is_open: false,
         };
         gate.envelope.set_times(1.0, 50.0);
         gate
+    }
+
+    /// Set hysteresis in dB (0-12). Gate closes at (threshold - hysteresis).
+    pub fn set_hysteresis(&mut self, db: f64) {
+        self.hysteresis_db = db.clamp(0.0, 12.0);
     }
 
     /// Enable/disable external sidechain input
@@ -2780,6 +2791,7 @@ impl Processor for Gate {
         self.envelope.reset();
         self.gain = 0.0;
         self.hold_counter = 0;
+        self.is_open = false;
     }
 }
 
@@ -2792,16 +2804,36 @@ impl MonoProcessor for Gate {
         let threshold = self.threshold_linear();
         let range = self.range_linear();
 
+        // Hysteresis: gate opens at threshold, closes at (threshold - hysteresis_db)
+        let close_threshold = if self.hysteresis_db > 0.01 {
+            db_to_linear_fast(self.threshold_db - self.hysteresis_db)
+        } else {
+            threshold
+        };
+
         let hold_samples = (self.hold_ms * 0.001 * self.sample_rate) as usize;
 
-        let target_gain = if envelope >= threshold {
-            self.hold_counter = hold_samples;
-            1.0
-        } else if self.hold_counter > 0 {
-            self.hold_counter -= 1;
-            1.0
+        let target_gain = if self.is_open {
+            // Gate is open — stays open until signal drops below close_threshold
+            if envelope >= close_threshold {
+                self.hold_counter = hold_samples;
+                1.0
+            } else if self.hold_counter > 0 {
+                self.hold_counter -= 1;
+                1.0
+            } else {
+                self.is_open = false;
+                range
+            }
         } else {
-            range
+            // Gate is closed — opens when signal exceeds threshold
+            if envelope >= threshold {
+                self.is_open = true;
+                self.hold_counter = hold_samples;
+                1.0
+            } else {
+                range
+            }
         };
 
         // Smooth gain transition

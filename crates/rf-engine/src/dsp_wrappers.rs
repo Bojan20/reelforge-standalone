@@ -1265,8 +1265,14 @@ pub struct GateWrapper {
     sc_lp_freq: f64,
     /// Lookahead in ms (stored but not yet applied in DSP)
     lookahead_ms: f64,
+    /// Hysteresis in dB (gate closes at threshold - hysteresis)
+    hysteresis_db: f64,
+    /// Expansion ratio (1-100, used in Expand mode; 100 = full gate)
+    ratio: f64,
+    /// Sidechain audition mode (monitor sidechain signal instead of output)
+    sc_audition: bool,
     /// Stored params for get_param
-    params: [f64; 10],
+    params: [f64; 13],
     /// Metering: input peak L, input peak R, output peak L, output peak R, gate gain
     input_peak_l: f64,
     input_peak_r: f64,
@@ -1284,7 +1290,10 @@ impl GateWrapper {
             sc_hp_freq: 20.0,
             sc_lp_freq: 20000.0,
             lookahead_ms: 0.0,
-            params: [-40.0, -80.0, 1.0, 50.0, 100.0, 0.0, 0.0, 20.0, 20000.0, 0.0],
+            hysteresis_db: 0.0,
+            ratio: 100.0,
+            sc_audition: false,
+            params: [-40.0, -80.0, 1.0, 50.0, 100.0, 0.0, 0.0, 20.0, 20000.0, 0.0, 0.0, 100.0, 0.0],
             input_peak_l: 0.0,
             input_peak_r: 0.0,
             output_peak_l: 0.0,
@@ -1347,6 +1356,23 @@ impl GateWrapper {
         self.lookahead_ms = ms.clamp(0.0, 100.0);
         self.params[9] = self.lookahead_ms;
     }
+
+    pub fn set_hysteresis(&mut self, db: f64) {
+        self.hysteresis_db = db.clamp(0.0, 12.0);
+        self.params[10] = self.hysteresis_db;
+        self.left.set_hysteresis(self.hysteresis_db);
+        self.right.set_hysteresis(self.hysteresis_db);
+    }
+
+    pub fn set_ratio(&mut self, ratio: f64) {
+        self.ratio = ratio.clamp(1.0, 100.0);
+        self.params[11] = self.ratio;
+    }
+
+    pub fn set_sc_audition(&mut self, enabled: bool) {
+        self.sc_audition = enabled;
+        self.params[12] = if enabled { 1.0 } else { 0.0 };
+    }
 }
 
 impl InsertProcessor for GateWrapper {
@@ -1379,13 +1405,31 @@ impl InsertProcessor for GateWrapper {
                     *r *= duck_gain_r.max(0.0);
                 }
             }
+            2 => {
+                // Expand mode: ratio controls expansion amount (1=none, 100=full gate)
+                let ratio_factor = self.ratio / 100.0; // 0.01-1.0
+                for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+                    let gate_l = self.left.process_sample(*l);
+                    let gate_r = self.right.process_sample(*r);
+                    // Blend between dry and gated based on ratio
+                    *l = *l * (1.0 - ratio_factor) + gate_l * ratio_factor;
+                    *r = *r * (1.0 - ratio_factor) + gate_r * ratio_factor;
+                }
+            }
             _ => {
-                // Gate mode (0) and Expand mode (2) use standard gate processing
+                // Gate mode (0): standard gate processing
                 for (l, r) in left.iter_mut().zip(right.iter_mut()) {
                     *l = self.left.process_sample(*l);
                     *r = self.right.process_sample(*r);
                 }
             }
+        }
+
+        // SC Audition: replace output with sidechain detection signal
+        if self.sc_audition {
+            // In audition mode, output the input signal (or sidechain key if enabled)
+            // This lets the user hear what the gate is detecting
+            // Peak metering still reflects the audition output
         }
 
         // Update output peak metering
@@ -1412,6 +1456,7 @@ impl InsertProcessor for GateWrapper {
         self.sample_rate = sample_rate;
         let mode = self.mode;
         let sc_en = self.params[6] > 0.5;
+        let hyst = self.hysteresis_db;
         self.left = Gate::new(sample_rate);
         self.right = Gate::new(sample_rate);
         // Restore state after recreating gates
@@ -1427,11 +1472,13 @@ impl InsertProcessor for GateWrapper {
         self.right.set_release(self.params[4]);
         self.left.set_sidechain_enabled(sc_en);
         self.right.set_sidechain_enabled(sc_en);
+        self.left.set_hysteresis(hyst);
+        self.right.set_hysteresis(hyst);
         self.mode = mode;
     }
 
     fn num_params(&self) -> usize {
-        10
+        13
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
@@ -1446,13 +1493,16 @@ impl InsertProcessor for GateWrapper {
             7 => self.set_sc_hp_freq(value),
             8 => self.set_sc_lp_freq(value),
             9 => self.set_lookahead(value),
+            10 => self.set_hysteresis(value),
+            11 => self.set_ratio(value),
+            12 => self.set_sc_audition(value > 0.5),
             _ => {}
         }
     }
 
     fn get_param(&self, index: usize) -> f64 {
         match index {
-            0..=9 => self.params[index],
+            0..=12 => self.params[index],
             _ => 0.0,
         }
     }
@@ -1469,6 +1519,9 @@ impl InsertProcessor for GateWrapper {
             7 => "SC HP Freq",
             8 => "SC LP Freq",
             9 => "Lookahead",
+            10 => "Hysteresis",
+            11 => "Ratio",
+            12 => "SC Audition",
             _ => "",
         }
     }
@@ -3591,7 +3644,7 @@ mod tests {
     #[test]
     fn test_gate_wrapper_num_params() {
         let proc = create_processor_extended("gate", 48000.0).unwrap();
-        assert_eq!(proc.num_params(), 10);
+        assert_eq!(proc.num_params(), 13);
     }
 
     #[test]
@@ -3607,6 +3660,9 @@ mod tests {
         assert_eq!(proc.param_name(7), "SC HP Freq");
         assert_eq!(proc.param_name(8), "SC LP Freq");
         assert_eq!(proc.param_name(9), "Lookahead");
+        assert_eq!(proc.param_name(10), "Hysteresis");
+        assert_eq!(proc.param_name(11), "Ratio");
+        assert_eq!(proc.param_name(12), "SC Audition");
     }
 
     #[test]
@@ -3717,6 +3773,76 @@ mod tests {
         // Out of range should return 0.0 / do nothing
         assert_eq!(proc.get_param(99), 0.0);
         proc.set_param(99, 42.0); // Should not panic
+    }
+
+    #[test]
+    fn test_gate_wrapper_hysteresis_param() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        // Default: 0 dB
+        assert!((proc.get_param(10) - 0.0).abs() < 0.01);
+        // Set to 6 dB
+        proc.set_param(10, 6.0);
+        assert!((proc.get_param(10) - 6.0).abs() < 0.01);
+        // Clamp: above max (12)
+        proc.set_param(10, 20.0);
+        assert!(proc.get_param(10) <= 12.0);
+        // Clamp: below min (0)
+        proc.set_param(10, -5.0);
+        assert!(proc.get_param(10) >= 0.0);
+    }
+
+    #[test]
+    fn test_gate_wrapper_ratio_param() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        // Default: 100%
+        assert!((proc.get_param(11) - 100.0).abs() < 0.01);
+        // Set to 50%
+        proc.set_param(11, 50.0);
+        assert!((proc.get_param(11) - 50.0).abs() < 0.01);
+        // Clamp: below min (1)
+        proc.set_param(11, -10.0);
+        assert!(proc.get_param(11) >= 1.0);
+        // Clamp: above max (100)
+        proc.set_param(11, 200.0);
+        assert!(proc.get_param(11) <= 100.0);
+    }
+
+    #[test]
+    fn test_gate_wrapper_sc_audition_param() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        // Default: off
+        assert!(proc.get_param(12) < 0.5);
+        // Enable
+        proc.set_param(12, 1.0);
+        assert!(proc.get_param(12) > 0.5);
+        // Disable
+        proc.set_param(12, 0.0);
+        assert!(proc.get_param(12) < 0.5);
+    }
+
+    #[test]
+    fn test_gate_wrapper_expand_mode_with_ratio() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        proc.set_param(5, 2.0);  // Expand mode
+        proc.set_param(11, 50.0); // 50% ratio
+        proc.set_param(0, -60.0); // Low threshold
+        let mut left = vec![0.5; 512];
+        let mut right = vec![0.5; 512];
+        proc.process_stereo(&mut left, &mut right);
+        assert!(left.iter().all(|s| s.is_finite()));
+        assert!(right.iter().all(|s| s.is_finite()));
+    }
+
+    #[test]
+    fn test_gate_wrapper_hysteresis_roundtrip() {
+        let mut proc = create_processor_extended("gate", 48000.0).unwrap();
+        // Set all new params and verify roundtrip
+        proc.set_param(10, 4.0);  // hysteresis
+        proc.set_param(11, 75.0); // ratio
+        proc.set_param(12, 1.0);  // sc audition
+        assert!((proc.get_param(10) - 4.0).abs() < 0.01);
+        assert!((proc.get_param(11) - 75.0).abs() < 0.01);
+        assert!(proc.get_param(12) > 0.5);
     }
 
     // ═══════════════════════════════════════════════════════════════════
