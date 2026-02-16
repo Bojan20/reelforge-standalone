@@ -827,7 +827,7 @@ impl FDNCore {
 
         // Feed input signal into FDN — distribute stereo ASYMMETRICALLY
         // Lines 0-3 lean LEFT, lines 4-7 lean RIGHT — with cross-feed offsets
-        let input_gain = 0.15 * input_scale; // Conservative gain for stability
+        let input_gain = 0.35 * input_scale; // FDN input gain (0.35 for audible reverb)
         let inputs = [
             left * input_gain,
             (left * 0.8 + right * 0.2) * input_gain,

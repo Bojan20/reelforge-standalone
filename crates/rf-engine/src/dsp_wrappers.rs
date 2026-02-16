@@ -4639,4 +4639,88 @@ mod tests {
         proc.set_param(out_idx, 6.0);
         assert!((proc.get_param(out_idx) - 6.0).abs() < 0.01);
     }
+
+    #[test]
+    fn test_reverb_in_insert_chain_slot2() {
+        use crate::insert_chain::InsertChain;
+
+        let mut chain = InsertChain::new(48000.0);
+
+        // Load EQ in slot 0 (like initializeChain does)
+        let eq = create_processor_extended("pro-eq", 48000.0).unwrap();
+        chain.load(0, eq);
+
+        // Load Compressor in slot 1 (like initializeChain does)
+        let comp = create_processor_extended("compressor", 48000.0).unwrap();
+        chain.load(1, comp);
+
+        // Load Reverb in slot 2 (like the FabFilter panel does)
+        let mut reverb = create_processor_extended("reverb", 48000.0).unwrap();
+        // Set mix to 100% wet so we definitely hear reverb
+        reverb.set_param(3, 1.0);
+        chain.load(2, reverb);
+
+        // Set reverb params after loading via chain
+        chain.set_slot_param(2, 3, 1.0); // mix = 100% wet
+        chain.set_slot_param(2, 0, 0.5); // space = 0.5
+        chain.set_slot_param(2, 8, 0.8); // decay = 0.8
+
+        // Process several blocks of audio to build up reverb tail
+        let mut total_energy = 0.0f64;
+        for block in 0..30 {
+            let mut left = vec![if block < 3 { 0.5 } else { 0.0 }; 256];
+            let mut right = vec![if block < 3 { 0.5 } else { 0.0 }; 256];
+            chain.process_pre_fader(&mut left, &mut right);
+
+            // After the impulse blocks, we should still have reverb tail energy
+            if block >= 5 {
+                let block_energy: f64 = left.iter().chain(right.iter())
+                    .map(|s| s * s).sum();
+                total_energy += block_energy;
+            }
+        }
+
+        assert!(total_energy > 0.01,
+            "Reverb in slot 2 should produce tail energy after impulse, got {}", total_energy);
+    }
+
+    #[test]
+    fn test_saturator_in_insert_chain_slot3() {
+        use crate::insert_chain::InsertChain;
+
+        let mut chain = InsertChain::new(48000.0);
+
+        // Load EQ in slot 0, Comp in slot 1, Reverb in slot 2
+        chain.load(0, create_processor_extended("pro-eq", 48000.0).unwrap());
+        chain.load(1, create_processor_extended("compressor", 48000.0).unwrap());
+        chain.load(2, create_processor_extended("reverb", 48000.0).unwrap());
+
+        // Load Saturator in slot 3 with heavy drive
+        let mut sat = create_processor_extended("saturator", 48000.0).unwrap();
+        sat.set_param(0, 20.0); // Drive = +20 dB
+        sat.set_param(3, 100.0); // Mix = 100%
+        chain.load(3, sat);
+
+        // Also set via chain path (like FFI does)
+        chain.set_slot_param(3, 0, 20.0); // Drive = +20 dB
+        chain.set_slot_param(3, 3, 100.0); // Mix = 100%
+
+        // Process audio — saturator should distort signal
+        let mut left = vec![0.3f64; 512];
+        let mut right = vec![0.3f64; 512];
+        let original = left.clone();
+
+        chain.process_pre_fader(&mut left, &mut right);
+
+        // Signal should be modified by saturator
+        let mut diff_count = 0;
+        for i in 0..512 {
+            if (left[i] - original[i]).abs() > 0.001 {
+                diff_count += 1;
+            }
+        }
+
+        assert!(diff_count > 100,
+            "Saturator in slot 3 with +20dB drive should modify most samples, only {} changed", diff_count);
+    }
 }

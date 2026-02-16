@@ -5,7 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../../../dsp/saturation_panel.dart';
+import '../../../fabfilter/fabfilter_saturation_panel.dart';
 import '../shared/panel_helpers.dart';
 
 class SaturationPanelWrapper extends StatelessWidget {
@@ -23,6 +23,6 @@ class SaturationPanelWrapper extends StatelessWidget {
       );
     }
 
-    return SaturationPanel(trackId: selectedTrackId!);
+    return FabFilterSaturationPanel(trackId: selectedTrackId!);
   }
 }

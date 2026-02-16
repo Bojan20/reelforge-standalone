@@ -197,6 +197,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   // Interaction
   bool _isDragging = false;
   Offset? _previewPos;
+  Offset? _doubleTapPos;
 
   // Metering (~30fps via AnimationController)
   double _inPeakL = 0.0;
@@ -617,7 +618,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           child: Listener(
             onPointerSignal: (e) { if (e is PointerScrollEvent) _onScroll(e, box.biggest); },
             child: GestureDetector(
-              onTapDown: (d) => _onTap(d.localPosition, box.biggest),
+              onTapDown: (d) => _onTapSelect(d.localPosition, box.biggest),
+              onDoubleTapDown: (d) => _doubleTapPos = d.localPosition,
+              onDoubleTap: () { if (_doubleTapPos != null) _onDoubleTap(_doubleTapPos!, box.biggest); },
               onPanStart: (d) => _onDragStart(d.localPosition, box.biggest),
               onPanUpdate: (d) => _onDragUpdate(d.localPosition, box.biggest),
               onPanEnd: (_) => setState(() => _isDragging = false),
@@ -964,7 +967,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     _syncBand(idx);
   }
 
-  void _onTap(Offset pos, Size size) {
+  void _onTapSelect(Offset pos, Size size) {
     for (int i = 0; i < _bands.length; i++) {
       if (!_bands[i].enabled) continue;
       final bx = _freqToX(_bands[i].freq, size.width);
@@ -974,6 +977,22 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         return;
       }
     }
+    // Single click on empty space — deselect
+    setState(() => _selectedBandIndex = null);
+  }
+
+  void _onDoubleTap(Offset pos, Size size) {
+    // Double-click on existing band — toggle enabled
+    for (int i = 0; i < _bands.length; i++) {
+      final bx = _freqToX(_bands[i].freq, size.width);
+      final by = _gainToY(_bands[i].gain, size.height);
+      if ((Offset(bx, by) - pos).distance < 15) {
+        setState(() => _bands[i].enabled = !_bands[i].enabled);
+        _setP(_bands[i].index, _P.enabled, _bands[i].enabled ? 1.0 : 0.0);
+        return;
+      }
+    }
+    // Double-click on empty space — add new band at position
     _addBand(_xToFreq(pos.dx, size.width), EqFilterShape.bell);
   }
 

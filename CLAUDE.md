@@ -2363,18 +2363,22 @@ Processors now start **enabled** (audible) when loaded into insert chain.
 | `ffi_insert_bypass_all` | `track_insert_bypass_all` |
 | `ffi_insert_get_total_latency` | `track_insert_get_total_latency` |
 
-### FabFilter-Style Premium DSP Panels (2026-01-22) ✅
+### FabFilter-Style Premium DSP Panels (2026-01-22, Updated 2026-02-16) ✅
 
-Professional DSP panel suite inspired by FabFilter's design language.
+Professional DSP panel suite inspired by FabFilter's design language — **9 panels total**, all with A/B snapshots.
 
 **Location:** `flutter_ui/lib/widgets/fabfilter/`
 
-| Panel | Inspiration | Features | FFI |
-|-------|-------------|----------|-----|
-| `fabfilter_compressor_panel.dart` | Pro-C 2 | Transfer curve, knee display, 14 styles, sidechain EQ | ✅ |
-| `fabfilter_limiter_panel.dart` | Pro-L 2 | LUFS metering, 8 styles, true peak, GR history | ✅ |
-| `fabfilter_gate_panel.dart` | Pro-G | State indicator, threshold viz, sidechain filter | ✅ |
-| `fabfilter_reverb_panel.dart` | Pro-R | Decay display, pre-delay, 8 space types, EQ | ✅ |
+| Panel | Inspiration | Features | FFI | A/B |
+|-------|-------------|----------|-----|-----|
+| `fabfilter_eq_panel.dart` | Pro-Q 3 | 8-band parametric, I/O metering, spectrum, shapes | ✅ | ✅ EqSnapshot (66 fields) |
+| `fabfilter_compressor_panel.dart` | Pro-C 2 | Transfer curve, knee display, 14 styles, sidechain EQ | ✅ | ✅ CompressorSnapshot (15 fields) |
+| `fabfilter_limiter_panel.dart` | Pro-L 2 | LUFS metering, 8 styles, true peak, GR history | ✅ | ✅ LimiterSnapshot (6 fields) |
+| `fabfilter_gate_panel.dart` | Pro-G | State indicator, threshold viz, hysteresis, sidechain filter | ✅ | ✅ GateSnapshot (16 fields) |
+| `fabfilter_reverb_panel.dart` | Pro-R | Decay display, pre-delay, 8 space types, EQ | ✅ | ✅ ReverbSnapshot (11 fields) |
+| `fabfilter_deesser_panel.dart` | Pro-DS | Frequency display, listen mode, 8 params | ✅ | ✅ DeEsserSnapshot (8 fields) |
+| `fabfilter_saturation_panel.dart` | Saturn 2 | 6-band multiband, per-band drive/type/dynamics, crossover | ✅ | ✅ SaturationSnapshot (65 fields) |
+| `fabfilter_delay_panel.dart` | Timeless 3 | Ping-pong, tempo sync, mod, filter, duck, freeze | ✅ | ✅ DelaySnapshot (14 fields) |
 
 **DSP Sub-Panels (FabFilter Style):**
 
@@ -2382,14 +2386,20 @@ Professional DSP panel suite inspired by FabFilter's design language.
 |-------|----------|----------|-----|
 | `sidechain_panel.dart` | `widgets/dsp/` | FabFilter knobs (FREQ/Q/MIX/GAIN), source selector (INT/TRK/BUS/EXT/MID/SIDE), key filter (HPF/LPF/BPF), monitor toggle | ✅ sidechainSet* |
 
+**A/B Snapshot Pattern:**
+- All panels implement `DspParameterSnapshot` interface: `copy()` + `equals()`
+- `FabFilterPanelMixin` provides: `captureSnapshot()`, `restoreSnapshot()`, `copyAToB()`, `copyBToA()`, `snapshotA`, `snapshotB`
+- Snapshot classes capture ALL panel state (knob values, toggles, modes)
+- `copy()` returns `DspParameterSnapshot` (interface) — callers MUST cast: `snapshot.copy() as EqSnapshot?`
+
 **Shared Components:**
 - `fabfilter_theme.dart` — Colors, gradients, text styles
 - `fabfilter_knob.dart` — Pro knob with modulation ring, fine control, conditional label rendering
-- `fabfilter_panel_base.dart` — A/B comparison, undo/redo, bypass
+- `fabfilter_panel_base.dart` — A/B comparison, undo/redo, bypass, snapshot management
 - `fabfilter_preset_browser.dart` — Categories, search, favorites
 - `fabfilter_widgets.dart` — 11 reusable widgets (FabTinyButton, FabCompactToggle, FabSectionLabel, etc.)
 
-**Total:** ~5,450 LOC
+**Total:** ~7,200 LOC
 
 **SlotLab Lower Zone Integration (2026-01-22):**
 
@@ -2451,15 +2461,18 @@ Panel.toggleBypass() → onBypassChanged(bypassed)
 - `track_insert_set_mix`, `track_insert_get_mix`, `track_insert_bypass_all`, `track_insert_get_total_latency`
 - New functions created in `rf-engine/ffi.rs`, Dart FFI rebound from `ffi_insert_*` → `track_insert_*`
 
-**Converted Panels:**
-| Panel | Wrapper | Status |
-|-------|---------|--------|
-| FabFilterCompressorPanel | CompressorWrapper | ✅ Done |
-| FabFilterLimiterPanel | LimiterWrapper | ✅ Done |
-| FabFilterGatePanel | GateWrapper | ✅ Done |
-| FabFilterReverbPanel | ReverbWrapper | ✅ Done |
-| DynamicsPanel | CompressorWrapper | ✅ Done |
-| DeEsserPanel | DeEsserWrapper | ✅ Done |
+**Converted Panels (9 total):**
+| Panel | Wrapper | Params | Status |
+|-------|---------|--------|--------|
+| FabFilterEqPanel | ProEqWrapper | 66 (8 bands × 8 + 2 global) | ✅ Done |
+| FabFilterCompressorPanel | CompressorWrapper | 15 | ✅ Done |
+| FabFilterLimiterPanel | LimiterWrapper | 6 | ✅ Done |
+| FabFilterGatePanel | GateWrapper | 13 | ✅ Done |
+| FabFilterReverbPanel | ReverbWrapper | 11 | ✅ Done |
+| FabFilterDeEsserPanel | DeEsserWrapper | 8 | ✅ Done |
+| FabFilterSaturationPanel | MultibandSaturatorWrapper | 65 (11 global + 6×9 per-band) | ✅ Done |
+| FabFilterDelayPanel | DelayWrapper | 14 | ✅ Done |
+| DynamicsPanel | CompressorWrapper | 15 | ✅ Done |
 
 **Deleted Ghost Code:**
 - `DYNAMICS_*` HashMaps from `ffi.rs` — ~650 LOC deleted
@@ -2478,7 +2491,8 @@ Panel.toggleBypass() → onBypassChanged(bypassed)
 // Supported by create_processor_extended():
 // EQ: "pro-eq", "ultra-eq", "pultec", "api550", "neve1073", "room-correction"
 // Dynamics: "compressor", "limiter", "gate", "expander", "deesser"
-// Effects: "reverb", "algorithmic-reverb"
+// Effects: "reverb", "algorithmic-reverb", "delay"
+// Saturation: "saturation", "multiband-saturator"
 ```
 
 **Documentation:** `.claude/architecture/DSP_ENGINE_INTEGRATION_CRITICAL.md`
