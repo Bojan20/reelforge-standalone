@@ -1,11 +1,14 @@
-/// FF-R Reverb Panel (FDN 8×8 — 2026 Upgrade)
+/// FF-R Reverb Panel — Pro-R 2 Ultimate
 ///
 /// Mastering-grade reverb interface with 15 parameters:
 /// - Space, Brightness, Width, Mix, PreDelay, Style
 /// - Diffusion, Distance, Decay, Low/High Decay Mult
 /// - Character, Thickness, Ducking, Freeze
-/// - Real-time decay visualization with tonal EQ
-/// - Equal-power crossfade mix control
+/// - Glass decay visualization with tonal EQ bands
+/// - Real-time wet tail sparkle + early reflection plot
+/// - Decay history waveform with gradient fills
+/// - Pre-delay region with glow marker
+/// - Freeze state overlay with ice crystallization effect
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -107,11 +110,13 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   // Metering
   double _wetLevel = 0.0;
   double _inputLevel = 0.0;
-  final List<double> _decayHistory = List.filled(60, 0.0);
+  final List<double> _decayHistory = List.filled(80, 0.0);
   int _historyIndex = 0;
 
   // Animation
-  late AnimationController _decayController;
+  late AnimationController _meterController;
+  late AnimationController _freezeController;
+  late Animation<double> _freezeAnim;
   double _animatedDecay = 0.0;
 
   // FFI
@@ -129,11 +134,19 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     _initializeProcessor();
     initBypassFromProvider();
 
-    _decayController = AnimationController(
+    _meterController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 50),
     )..addListener(_updateMeters);
-    _decayController.repeat();
+    _meterController.repeat();
+
+    _freezeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _freezeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _freezeController, curve: Curves.easeInOut),
+    );
   }
 
   void _initializeProcessor() {
@@ -175,6 +188,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _thickness = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.thickness);
       _ducking = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.ducking);
       _freeze = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.freeze) > 0.5;
+      if (_freeze) _freezeController.forward();
     });
   }
 
@@ -207,7 +221,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
 
   @override
   void dispose() {
-    _decayController.dispose();
+    _meterController.dispose();
+    _freezeController.dispose();
     super.dispose();
   }
 
@@ -215,18 +230,15 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     if (!mounted) return;
     setState(() {
       if (_initialized && _slotIndex >= 0) {
-        // Read real-time levels from FFI
         _inputLevel = _ffi.insertGetMeter(widget.trackId, _slotIndex, 0);
         _wetLevel = _ffi.insertGetMeter(widget.trackId, _slotIndex, 1);
 
-        // Store wet level history for tail visualization
         _decayHistory[_historyIndex % _decayHistory.length] = _wetLevel;
         _historyIndex++;
       }
 
-      // Calculate animated decay envelope for display
       final decayTime = 0.1 * math.pow(20 / 0.1, _decay).toDouble();
-      final t = (_decayController.value * 10) % decayTime;
+      final t = (_meterController.value * 10) % decayTime;
       _animatedDecay = _freeze ? 0.8 : math.exp(-t / (decayTime * 0.3));
     });
   }
@@ -241,7 +253,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
-          buildCompactHeader(),
+          _buildPremiumHeader(),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -267,6 +279,130 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     ));
   }
 
+  // ─── Premium Header with meters ─────────────────────────────────────────
+
+  Widget _buildPremiumHeader() {
+    final decayTime = 0.1 * math.pow(20 / 0.1, _decay);
+    final decayLabel = decayTime >= 1
+        ? '${decayTime.toStringAsFixed(1)}s'
+        : '${(decayTime * 1000).toStringAsFixed(0)}ms';
+
+    return Container(
+      height: 32,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            FabFilterColors.bgSurface,
+            FabFilterColors.bgMid.withValues(alpha: 0.8),
+          ],
+        ),
+        border: Border(
+          bottom: BorderSide(color: FabFilterColors.borderSubtle, width: 0.5),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: [
+            // Title
+            Icon(Icons.waves, size: 13, color: FabFilterColors.purple),
+            const SizedBox(width: 4),
+            Text('FF-R', style: TextStyle(
+              color: FabFilterColors.textPrimary,
+              fontSize: 11, fontWeight: FontWeight.bold,
+            )),
+            const SizedBox(width: 8),
+            // Space type badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: FabFilterColors.purple.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(_spaceType.label.toUpperCase(), style: TextStyle(
+                color: FabFilterColors.purple,
+                fontSize: 8, fontWeight: FontWeight.bold,
+              )),
+            ),
+            const SizedBox(width: 6),
+            // Decay readout
+            Text(decayLabel, style: TextStyle(
+              color: FabFilterProcessorColors.reverbDecay,
+              fontSize: 9, fontWeight: FontWeight.bold,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            )),
+            const Spacer(),
+            // Mini I/O meters
+            _buildMiniMeter('IN', _inputLevel, FabFilterColors.cyan),
+            const SizedBox(width: 6),
+            _buildMiniMeter('WET', _wetLevel, FabFilterColors.green),
+            const SizedBox(width: 6),
+            // Mix %
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: FabFilterColors.green.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text('${(_mix * 100).toStringAsFixed(0)}%', style: TextStyle(
+                color: FabFilterColors.green,
+                fontSize: 8, fontWeight: FontWeight.bold,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              )),
+            ),
+            const SizedBox(width: 6),
+            // Freeze indicator
+            if (_freeze)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: FabFilterColors.cyan.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: FabFilterColors.cyan.withValues(alpha: 0.5), width: 0.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.ac_unit, size: 8, color: FabFilterColors.cyan),
+                    const SizedBox(width: 2),
+                    Text('FRZ', style: TextStyle(
+                      color: FabFilterColors.cyan,
+                      fontSize: 7, fontWeight: FontWeight.bold,
+                    )),
+                  ],
+                ),
+              ),
+            const SizedBox(width: 4),
+            FabCompactAB(isStateB: isStateB, onToggle: toggleAB, accentColor: FabFilterColors.purple),
+            const SizedBox(width: 4),
+            FabCompactBypass(bypassed: bypassed, onToggle: toggleBypass),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniMeter(String label, double level, Color color) {
+    final dB = level > 1e-10 ? 20.0 * math.log(level) / math.ln10 : -60.0;
+    final norm = ((dB + 60) / 60).clamp(0.0, 1.0);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: TextStyle(
+          color: FabFilterColors.textTertiary,
+          fontSize: 7, fontWeight: FontWeight.bold,
+        )),
+        const SizedBox(width: 2),
+        SizedBox(
+          width: 24, height: 5,
+          child: CustomPaint(
+            painter: _MiniMeterPainter(value: norm, color: color),
+          ),
+        ),
+      ],
+    );
+  }
+
   // ─── Space Selector (chip bar) ────────────────────────────────────────
 
   Widget _buildSpaceSelector() {
@@ -280,7 +416,6 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
               onTap: () {
                 setState(() => _spaceType = s);
                 _setParam(_P.style, _spaceToTypeIndex(s).toDouble());
-                // Style may adjust space/brightness presets
                 setState(() {
                   _space = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.space);
                   _brightness = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.brightness);
@@ -298,6 +433,12 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                     color: _spaceType == s ? FabFilterColors.purple : FabFilterColors.borderSubtle,
                     width: _spaceType == s ? 1.5 : 1,
                   ),
+                  boxShadow: _spaceType == s ? [
+                    BoxShadow(
+                      color: FabFilterColors.purple.withValues(alpha: 0.2),
+                      blurRadius: 6,
+                    ),
+                  ] : null,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -326,30 +467,47 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       onTap: () {
         setState(() => _freeze = !_freeze);
         _setParam(_P.freeze, _freeze ? 1.0 : 0.0);
+        if (_freeze) {
+          _freezeController.forward();
+        } else {
+          _freezeController.reverse();
+        }
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: _freeze ? FabFilterColors.cyan.withValues(alpha: 0.3) : FabFilterColors.bgSurface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _freeze ? FabFilterColors.cyan : FabFilterColors.borderSubtle,
-            width: _freeze ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.ac_unit, size: 11,
-              color: _freeze ? FabFilterColors.cyan : FabFilterColors.textTertiary),
-            const SizedBox(width: 3),
-            Text('FREEZE', style: TextStyle(
-              color: _freeze ? FabFilterColors.cyan : FabFilterColors.textTertiary,
-              fontSize: 9, fontWeight: FontWeight.bold,
-            )),
-          ],
-        ),
+      child: AnimatedBuilder(
+        animation: _freezeAnim,
+        builder: (context, child) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: _freeze
+                  ? FabFilterColors.cyan.withValues(alpha: 0.15 + _freezeAnim.value * 0.15)
+                  : FabFilterColors.bgSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _freeze ? FabFilterColors.cyan : FabFilterColors.borderSubtle,
+                width: _freeze ? 1.5 : 1,
+              ),
+              boxShadow: _freeze ? [
+                BoxShadow(
+                  color: FabFilterColors.cyan.withValues(alpha: 0.15 + _freezeAnim.value * 0.1),
+                  blurRadius: 8 + _freezeAnim.value * 4,
+                ),
+              ] : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.ac_unit, size: 12,
+                  color: _freeze ? FabFilterColors.cyan : FabFilterColors.textTertiary),
+                const SizedBox(width: 4),
+                Text('FREEZE', style: TextStyle(
+                  color: _freeze ? FabFilterColors.cyan : FabFilterColors.textTertiary,
+                  fontSize: 9, fontWeight: FontWeight.bold,
+                )),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -363,7 +521,6 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
         borderRadius: BorderRadius.circular(6),
         child: Stack(
           children: [
-            // Main decay visualization
             CustomPaint(
               painter: _ReverbDisplayPainter(
                 decay: _decay,
@@ -374,25 +531,34 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                 highDecayMult: _highDecay,
                 animatedDecay: _animatedDecay,
                 freeze: _freeze,
+                freezeAnim: _freezeAnim.value,
                 distance: _distance,
                 wetLevel: _wetLevel,
                 inputLevel: _inputLevel,
                 decayHistory: List.from(_decayHistory),
                 historyIndex: _historyIndex,
+                diffusion: _diffusion,
+                mix: _mix,
               ),
               size: Size.infinite,
             ),
-            // Tonal EQ overlay (low/high decay)
+            // Tonal indicator (top-right)
             Positioned(
               right: 4,
               top: 4,
               child: _buildTonalIndicator(),
             ),
-            // Mix meter
+            // Mix indicator (bottom-left)
             Positioned(
               left: 4,
               bottom: 4,
               child: _buildMixIndicator(),
+            ),
+            // Width indicator (bottom-right)
+            Positioned(
+              right: 4,
+              bottom: 4,
+              child: _buildWidthBadge(),
             ),
           ],
         ),
@@ -404,19 +570,29 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: FabFilterColors.bgVoid.withValues(alpha: 0.8),
+        color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: FabFilterColors.borderSubtle.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Low decay indicator
+          // Low decay indicator bar
           Container(
-            width: 4, height: 14,
+            width: 3, height: 14,
             decoration: BoxDecoration(
-              color: _lowDecay > 1.0
-                  ? FabFilterColors.orange.withValues(alpha: (_lowDecay - 1.0).clamp(0.0, 1.0))
-                  : FabFilterColors.cyan.withValues(alpha: (1.0 - _lowDecay).clamp(0.0, 1.0) * 2),
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  _lowDecay > 1.0
+                      ? FabFilterColors.orange.withValues(alpha: 0.2)
+                      : FabFilterColors.cyan.withValues(alpha: 0.2),
+                  _lowDecay > 1.0
+                      ? FabFilterColors.orange.withValues(alpha: (_lowDecay - 1.0).clamp(0.0, 1.0))
+                      : FabFilterColors.cyan.withValues(alpha: (1.0 - _lowDecay).clamp(0.0, 1.0) * 2),
+                ],
+              ),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -429,9 +605,16 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
             )),
           const SizedBox(width: 6),
           Container(
-            width: 4, height: 14,
+            width: 3, height: 14,
             decoration: BoxDecoration(
-              color: FabFilterColors.cyan.withValues(alpha: (1.0 - _highDecay).clamp(0.0, 1.0)),
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  FabFilterColors.cyan.withValues(alpha: 0.2),
+                  FabFilterColors.cyan.withValues(alpha: (1.0 - _highDecay).clamp(0.0, 1.0)),
+                ],
+              ),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -451,13 +634,13 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: FabFilterColors.bgVoid.withValues(alpha: 0.8),
+        color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: FabFilterColors.borderSubtle.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Dry/Wet bar
           SizedBox(
             width: 40, height: 6,
             child: CustomPaint(
@@ -473,6 +656,22 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
             )),
         ],
       ),
+    );
+  }
+
+  Widget _buildWidthBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: FabFilterColors.borderSubtle.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Text('W ${(_width * 100).toStringAsFixed(0)}%', style: TextStyle(
+        color: FabFilterColors.cyan.withValues(alpha: 0.7),
+        fontSize: 8, fontWeight: FontWeight.bold,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      )),
     );
   }
 
@@ -571,7 +770,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // LEFT: Diffusion, Distance, Character, Thickness — FabFilter knobs
+        // LEFT: Diffusion, Distance, Character, Thickness
         Expanded(
           flex: 3,
           child: Column(
@@ -628,7 +827,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           ),
         ),
         const SizedBox(width: 8),
-        // RIGHT: Ducking + Tonal Decay — FabFilter knobs
+        // RIGHT: Ducking + Tonal Decay
         Expanded(
           flex: 3,
           child: Column(
@@ -682,6 +881,44 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// MINI METER PAINTER
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _MiniMeterPainter extends CustomPainter {
+  final double value;
+  final Color color;
+  _MiniMeterPainter({required this.value, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Background track
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(2)),
+      Paint()..color = FabFilterColors.bgVoid,
+    );
+    // Fill with gradient
+    if (value > 0.001) {
+      final fillWidth = size.width * value.clamp(0.0, 1.0);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, fillWidth, size.height),
+          const Radius.circular(2),
+        ),
+        Paint()
+          ..shader = ui.Gradient.linear(
+            Offset.zero, Offset(size.width, 0),
+            [color.withValues(alpha: 0.6), color],
+          ),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MiniMeterPainter old) =>
+      old.value != value || old.color != color;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MIX BAR PAINTER (dry/wet indicator)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -691,11 +928,9 @@ class _MixBarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final rr = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(3));
     // Background
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(3)),
-      Paint()..color = FabFilterColors.borderSubtle,
-    );
+    canvas.drawRRect(rr, Paint()..color = FabFilterColors.borderSubtle);
     // Dry portion (left)
     final dryWidth = size.width * (1 - mix);
     if (dryWidth > 0) {
@@ -707,7 +942,7 @@ class _MixBarPainter extends CustomPainter {
         Paint()..color = FabFilterColors.textTertiary.withValues(alpha: 0.5),
       );
     }
-    // Wet portion (right)
+    // Wet portion (right) — gradient fill
     final wetWidth = size.width * mix;
     if (wetWidth > 0) {
       canvas.drawRRect(
@@ -715,7 +950,11 @@ class _MixBarPainter extends CustomPainter {
           Rect.fromLTWH(size.width - wetWidth, 0, wetWidth, size.height),
           const Radius.circular(3),
         ),
-        Paint()..color = FabFilterColors.green.withValues(alpha: 0.7),
+        Paint()
+          ..shader = ui.Gradient.linear(
+            Offset(size.width - wetWidth, 0), Offset(size.width, 0),
+            [FabFilterColors.green.withValues(alpha: 0.5), FabFilterColors.green.withValues(alpha: 0.8)],
+          ),
       );
     }
   }
@@ -725,7 +964,7 @@ class _MixBarPainter extends CustomPainter {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// REVERB DISPLAY PAINTER (Enhanced decay visualization)
+// REVERB DISPLAY PAINTER — Pro-R 2 Ultimate
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _ReverbDisplayPainter extends CustomPainter {
@@ -737,11 +976,14 @@ class _ReverbDisplayPainter extends CustomPainter {
   final double highDecayMult;
   final double animatedDecay;
   final bool freeze;
+  final double freezeAnim;
   final double distance;
   final double wetLevel;
   final double inputLevel;
   final List<double> decayHistory;
   final int historyIndex;
+  final double diffusion;
+  final double mix;
 
   _ReverbDisplayPainter({
     required this.decay,
@@ -752,11 +994,14 @@ class _ReverbDisplayPainter extends CustomPainter {
     required this.highDecayMult,
     required this.animatedDecay,
     required this.freeze,
+    required this.freezeAnim,
     required this.distance,
     required this.wetLevel,
     required this.inputLevel,
     required this.decayHistory,
     required this.historyIndex,
+    required this.diffusion,
+    required this.mix,
   });
 
   @override
@@ -767,14 +1012,34 @@ class _ReverbDisplayPainter extends CustomPainter {
     final predelayNorm = (predelay / 1000) / maxTime;
     final predelayX = predelayNorm * s.width;
 
-    // ─── Background gradient ───────────────────────────────────────────
+    // ─── Glass background gradient ─────────────────────────────────────
     canvas.drawRect(rect, Paint()
       ..shader = ui.Gradient.linear(
         Offset.zero, Offset(0, s.height),
-        [FabFilterColors.bgVoid, FabFilterColors.bgDeep],
+        [
+          const Color(0xFF0D0D14),
+          const Color(0xFF0A0A10),
+          const Color(0xFF080810),
+        ],
+        [0.0, 0.5, 1.0],
       ));
 
-    // ─── Grid ──────────────────────────────────────────────────────────
+    // Subtle radial ambience glow centered at decay peak
+    canvas.drawCircle(
+      Offset(predelayX + 20, s.height * 0.3),
+      s.width * 0.4,
+      Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(predelayX + 20, s.height * 0.3),
+          s.width * 0.4,
+          [
+            FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.04),
+            Colors.transparent,
+          ],
+        ),
+    );
+
+    // ─── Grid with subtle cross lines ──────────────────────────────────
     final gridPaint = Paint()..color = FabFilterColors.grid..strokeWidth = 0.5;
     for (var i = 1; i <= 4; i++) {
       final x = (i / 5) * s.width;
@@ -785,34 +1050,87 @@ class _ReverbDisplayPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(s.width, y), gridPaint);
     }
 
-    // ─── Pre-delay region ──────────────────────────────────────────────
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, predelayX, s.height),
-      Paint()..color = FabFilterProcessorColors.reverbPredelay.withValues(alpha: 0.12),
-    );
-    canvas.drawLine(
-      Offset(predelayX, 0), Offset(predelayX, s.height),
-      Paint()
-        ..color = FabFilterProcessorColors.reverbPredelay
-        ..strokeWidth = 1.5,
-    );
+    // ─── Time axis labels ──────────────────────────────────────────────
+    for (var i = 1; i <= 4; i++) {
+      final t = (i / 5) * maxTime;
+      final label = t >= 1.0 ? '${t.toStringAsFixed(1)}s' : '${(t * 1000).toStringAsFixed(0)}ms';
+      _drawLabel(canvas, label, Offset((i / 5) * s.width - 10, s.height - 12),
+        color: FabFilterColors.textTertiary.withValues(alpha: 0.4));
+    }
+
+    // ─── dB axis labels (left) ─────────────────────────────────────────
+    for (var i = 0; i < 4; i++) {
+      final db = -(i * 20);
+      final y = (i / 4) * s.height;
+      _drawLabel(canvas, '${db}dB', Offset(2, y + 1),
+        color: FabFilterColors.textTertiary.withValues(alpha: 0.35));
+    }
+
+    // ─── Pre-delay region with glass effect ────────────────────────────
+    if (predelayX > 2) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, predelayX, s.height),
+        Paint()
+          ..shader = ui.Gradient.linear(
+            Offset.zero, Offset(predelayX, 0),
+            [
+              FabFilterProcessorColors.reverbPredelay.withValues(alpha: 0.08),
+              FabFilterProcessorColors.reverbPredelay.withValues(alpha: 0.15),
+            ],
+          ),
+      );
+      // Pre-delay marker line with glow
+      canvas.drawLine(
+        Offset(predelayX, 0), Offset(predelayX, s.height),
+        Paint()
+          ..color = FabFilterProcessorColors.reverbPredelay
+          ..strokeWidth = 1.5,
+      );
+      canvas.drawLine(
+        Offset(predelayX, 0), Offset(predelayX, s.height),
+        Paint()
+          ..color = FabFilterProcessorColors.reverbPredelay.withValues(alpha: 0.3)
+          ..strokeWidth = 6
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+      );
+    }
 
     // ─── Freeze overlay ────────────────────────────────────────────────
-    if (freeze) {
+    if (freeze || freezeAnim > 0.01) {
+      final fA = freezeAnim.clamp(0.0, 1.0);
+      // Ice tint
       canvas.drawRect(rect,
-        Paint()..color = FabFilterProcessorColors.reverbFreeze.withValues(alpha: 0.06));
+        Paint()..color = FabFilterProcessorColors.reverbFreeze.withValues(alpha: 0.05 * fA));
       // Freeze horizon line
       final freezeY = s.height * 0.2;
       canvas.drawLine(
         Offset(predelayX, freezeY), Offset(s.width, freezeY),
         Paint()
-          ..color = FabFilterProcessorColors.reverbFreeze.withValues(alpha: 0.4)
-          ..strokeWidth = 1
+          ..color = FabFilterProcessorColors.reverbFreeze.withValues(alpha: 0.4 * fA)
+          ..strokeWidth = 1.5
           ..style = PaintingStyle.stroke,
       );
+      // Glow on freeze line
+      canvas.drawLine(
+        Offset(predelayX, freezeY), Offset(s.width, freezeY),
+        Paint()
+          ..color = FabFilterProcessorColors.reverbFreeze.withValues(alpha: 0.15 * fA)
+          ..strokeWidth = 8
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+      // Ice crystal dots
+      final rng = math.Random(77);
+      for (var i = 0; i < (20 * fA).toInt(); i++) {
+        final cx = predelayX + rng.nextDouble() * (s.width - predelayX);
+        final cy = rng.nextDouble() * s.height;
+        canvas.drawCircle(
+          Offset(cx, cy), 1.0 + rng.nextDouble() * 1.5,
+          Paint()..color = FabFilterProcessorColors.reverbFreeze.withValues(alpha: 0.15 * fA),
+        );
+      }
     }
 
-    // ─── Low-frequency decay band (warm tint) ──────────────────────────
+    // ─── Low-frequency decay band (warm tint fill) ─────────────────────
     if (lowDecayMult > 1.05) {
       final loPath = Path();
       loPath.moveTo(predelayX, s.height);
@@ -824,10 +1142,16 @@ class _ReverbDisplayPainter extends CustomPainter {
       loPath.lineTo(s.width, s.height);
       loPath.close();
       canvas.drawPath(loPath, Paint()
-        ..color = FabFilterColors.orange.withValues(alpha: 0.08 * (lowDecayMult - 1.0).clamp(0.0, 1.0)));
+        ..shader = ui.Gradient.linear(
+          Offset(0, s.height * 0.1), Offset(0, s.height),
+          [
+            FabFilterColors.orange.withValues(alpha: 0.12 * (lowDecayMult - 1.0).clamp(0.0, 1.0)),
+            FabFilterColors.orange.withValues(alpha: 0.02),
+          ],
+        ));
     }
 
-    // ─── Main decay envelope fill ──────────────────────────────────────
+    // ─── Main decay envelope fill (glass gradient) ─────────────────────
     final decayPath = Path();
     decayPath.moveTo(predelayX, s.height);
     for (var x = predelayX; x <= s.width; x += 2) {
@@ -840,14 +1164,16 @@ class _ReverbDisplayPainter extends CustomPainter {
 
     canvas.drawPath(decayPath, Paint()
       ..shader = ui.Gradient.linear(
-        Offset.zero, Offset(0, s.height),
+        Offset(0, 0), Offset(0, s.height),
         [
-          FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.5),
-          FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.05),
+          FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.45),
+          FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.12),
+          FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.03),
         ],
+        [0.0, 0.5, 1.0],
       ));
 
-    // ─── Decay outline ─────────────────────────────────────────────────
+    // ─── Decay outline with glow ─────────────────────────────────────
     final outlinePath = Path();
     bool first = true;
     for (var x = predelayX; x <= s.width; x += 2) {
@@ -856,13 +1182,20 @@ class _ReverbDisplayPainter extends CustomPainter {
       final y = s.height * (1 - amp * 0.9);
       if (first) { outlinePath.moveTo(x, y); first = false; } else { outlinePath.lineTo(x, y); }
     }
+    // Glow behind main curve
+    canvas.drawPath(outlinePath, Paint()
+      ..color = FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.25)
+      ..strokeWidth = 6
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+    // Main curve
     canvas.drawPath(outlinePath, Paint()
       ..color = FabFilterProcessorColors.reverbAccent
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke);
 
-    // ─── High-frequency decay envelope (dimmer, shorter) ───────────────
-    if (highDecayMult < 0.9) {
+    // ─── High-frequency decay envelope (shorter, cyan) ─────────────────
+    if (highDecayMult < 0.95) {
       final hiPath = Path();
       bool hiFirst = true;
       for (var x = predelayX; x <= s.width; x += 2) {
@@ -871,69 +1204,150 @@ class _ReverbDisplayPainter extends CustomPainter {
         final y = s.height * (1 - amp * 0.9);
         if (hiFirst) { hiPath.moveTo(x, y); hiFirst = false; } else { hiPath.lineTo(x, y); }
       }
+      // Glow
       canvas.drawPath(hiPath, Paint()
-        ..color = FabFilterColors.cyan.withValues(alpha: 0.5)
+        ..color = FabFilterColors.cyan.withValues(alpha: 0.15)
+        ..strokeWidth = 4
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      canvas.drawPath(hiPath, Paint()
+        ..color = FabFilterColors.cyan.withValues(alpha: 0.6)
         ..strokeWidth = 1
         ..style = PaintingStyle.stroke);
     }
 
-    // ─── Early reflections ─────────────────────────────────────────────
-    final erPaint = Paint()
-      ..color = FabFilterProcessorColors.reverbEarlyRef
-      ..strokeWidth = 1.5;
-    final random = math.Random(42);
+    // ─── Early reflections (glass impulse lines) ─────────────────────
+    final erRng = math.Random(42);
     final erCount = (space * 12 + 4).toInt();
     final erSpread = distance.clamp(0.05, 1.0) * 0.15;
     for (var i = 0; i < erCount; i++) {
-      final t = predelay / 1000 + random.nextDouble() * erSpread;
+      final t = predelay / 1000 + erRng.nextDouble() * erSpread;
       final x = (t / maxTime) * s.width;
-      final amp = 0.3 + random.nextDouble() * 0.5;
+      final amp = 0.3 + erRng.nextDouble() * 0.5;
       if (x > predelayX && x < s.width * 0.4) {
+        final alpha = 0.3 + erRng.nextDouble() * 0.4;
+        final erY = s.height * (1 - amp);
+        // Glass glow behind each ER line
         canvas.drawLine(
           Offset(x, s.height),
-          Offset(x, s.height * (1 - amp)),
-          erPaint..color = FabFilterProcessorColors.reverbEarlyRef.withValues(
-            alpha: 0.4 + random.nextDouble() * 0.4),
+          Offset(x, erY),
+          Paint()
+            ..color = FabFilterProcessorColors.reverbEarlyRef.withValues(alpha: alpha * 0.15)
+            ..strokeWidth = 4
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+        );
+        // ER line
+        canvas.drawLine(
+          Offset(x, s.height),
+          Offset(x, erY),
+          Paint()
+            ..color = FabFilterProcessorColors.reverbEarlyRef.withValues(alpha: alpha)
+            ..strokeWidth = 1.5,
+        );
+        // Top dot
+        canvas.drawCircle(
+          Offset(x, erY), 2,
+          Paint()..color = FabFilterProcessorColors.reverbEarlyRef.withValues(alpha: alpha * 0.8),
         );
       }
     }
 
-    // ─── Real-time wet level indicator ─────────────────────────────────
+    // ─── Real-time wet level indicator (glass node) ───────────────────
     if (wetLevel > 0.001) {
       final levelY = s.height * (1 - wetLevel.clamp(0.0, 1.0) * 0.85);
-      final indicatorX = predelayX + 6;
+      final indicatorX = predelayX + 8;
+      // Outer glow
       canvas.drawCircle(
-        Offset(indicatorX, levelY), 4,
-        Paint()..color = FabFilterColors.green,
-      );
-      canvas.drawCircle(
-        Offset(indicatorX, levelY), 6,
+        Offset(indicatorX, levelY), 8,
         Paint()
-          ..color = FabFilterColors.green.withValues(alpha: 0.3)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+          ..color = FabFilterColors.green.withValues(alpha: 0.2)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+      // Glass circle
+      canvas.drawCircle(
+        Offset(indicatorX, levelY), 5,
+        Paint()
+          ..shader = ui.Gradient.radial(
+            Offset(indicatorX - 1, levelY - 1), 5,
+            [
+              FabFilterColors.green.withValues(alpha: 0.9),
+              FabFilterColors.green.withValues(alpha: 0.4),
+            ],
+          ),
+      );
+      // Highlight
+      canvas.drawCircle(
+        Offset(indicatorX - 1.5, levelY - 1.5), 2,
+        Paint()..color = Colors.white.withValues(alpha: 0.4),
       );
     }
 
-    // ─── Decay tail sparkle (history) ──────────────────────────────────
+    // ─── Input level indicator ────────────────────────────────────────
+    if (inputLevel > 0.001) {
+      final inY = s.height * (1 - inputLevel.clamp(0.0, 1.0) * 0.85);
+      // Small cyan diamond at left edge
+      final diamondPath = Path();
+      diamondPath.moveTo(3, inY);
+      diamondPath.lineTo(6, inY - 3);
+      diamondPath.lineTo(9, inY);
+      diamondPath.lineTo(6, inY + 3);
+      diamondPath.close();
+      canvas.drawPath(diamondPath, Paint()..color = FabFilterColors.cyan.withValues(alpha: 0.6));
+    }
+
+    // ─── Decay tail sparkle (history waveform) ────────────────────────
     final histLen = decayHistory.length;
     if (histLen > 0) {
-      final sparkPaint = Paint()..strokeWidth = 1;
+      final sparkPath = Path();
+      bool sparkFirst = true;
       for (var i = 0; i < histLen; i++) {
         final idx = (historyIndex - histLen + i) % histLen;
         final val = decayHistory[idx < 0 ? idx + histLen : idx];
-        if (val > 0.01) {
+        if (val > 0.005) {
           final age = i / histLen;
           final x = predelayX + (s.width - predelayX) * (i / histLen);
           final y = s.height * (1 - val.clamp(0.0, 1.0) * 0.7);
-          sparkPaint.color = FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.15 * age);
-          canvas.drawCircle(Offset(x, y), 1.5, sparkPaint);
+          if (sparkFirst) { sparkPath.moveTo(x, y); sparkFirst = false; } else { sparkPath.lineTo(x, y); }
         }
       }
+      if (!sparkFirst) {
+        // Glow trail
+        canvas.drawPath(sparkPath, Paint()
+          ..color = FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.1)
+          ..strokeWidth = 4
+          ..style = PaintingStyle.stroke
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+        // Sparkle trail line
+        canvas.drawPath(sparkPath, Paint()
+          ..color = FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.3)
+          ..strokeWidth = 1
+          ..style = PaintingStyle.stroke);
+      }
+    }
+
+    // ─── Diffusion indicator (top-left) ────────────────────────────────
+    if (diffusion > 0.05) {
+      final diffW = s.width * 0.15 * diffusion;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(predelayX + 2, 3, diffW, 4),
+          const Radius.circular(2),
+        ),
+        Paint()
+          ..shader = ui.Gradient.linear(
+            Offset(predelayX + 2, 0), Offset(predelayX + 2 + diffW, 0),
+            [
+              FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.4),
+              FabFilterProcessorColors.reverbAccent.withValues(alpha: 0.1),
+            ],
+          ),
+      );
     }
 
     // ─── Decay time label ──────────────────────────────────────────────
     _drawLabel(canvas, '${decayTime.toStringAsFixed(1)}s',
-      Offset(s.width - 36, 4));
+      Offset(s.width - 36, 4),
+      color: FabFilterProcessorColors.reverbDecay);
 
     // Pre-delay label
     if (predelay > 5) {
@@ -967,11 +1381,14 @@ class _ReverbDisplayPainter extends CustomPainter {
       old.space != space ||
       old.animatedDecay != animatedDecay ||
       old.freeze != freeze ||
+      old.freezeAnim != freezeAnim ||
       old.lowDecayMult != lowDecayMult ||
       old.highDecayMult != highDecayMult ||
       old.brightness != brightness ||
       old.distance != distance ||
       old.wetLevel != wetLevel ||
       old.inputLevel != inputLevel ||
-      old.historyIndex != historyIndex;
+      old.historyIndex != historyIndex ||
+      old.diffusion != diffusion ||
+      old.mix != mix;
 }

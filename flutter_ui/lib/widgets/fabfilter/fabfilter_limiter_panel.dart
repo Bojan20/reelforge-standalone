@@ -1,12 +1,13 @@
-/// FF-L Limiter Panel
+/// FF-L Limiter Panel — Pro-L 2 Ultimate
 ///
-/// Professional limiter interface:
-/// - Real-time scrolling waveform display with GR history
-/// - True Peak limiting/metering via FFI
+/// Professional brickwall limiter:
+/// - Glass scrolling waveform display with GR history
+/// - True Peak limiting/metering via FFI (ISP-safe)
 /// - LUFS metering (Integrated, Short-term, Momentary)
-/// - 8 limiting styles as visual chips
+/// - 8 limiting styles with smooth switching
 /// - Multiple meter scales (K-12, K-14, K-20)
-/// - Compact layout with activated display painter
+/// - A/B comparison with full state snapshots
+/// - Real-time I/O + GR metering at 60fps
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -87,6 +88,46 @@ class _P {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// A/B SNAPSHOT
+// ═══════════════════════════════════════════════════════════════════════════
+
+class LimiterSnapshot implements DspParameterSnapshot {
+  final double inputTrim, threshold, output, release, attack, lookahead;
+  final double stereoLink, mix;
+  final LimitingStyle style;
+  final int oversampling, ditherBits, latencyProfile, channelConfig;
+  final bool msMode;
+
+  const LimiterSnapshot({
+    required this.inputTrim, required this.threshold, required this.output,
+    required this.release, required this.attack, required this.lookahead,
+    required this.stereoLink, required this.mix, required this.style,
+    required this.oversampling, required this.ditherBits,
+    required this.latencyProfile, required this.channelConfig,
+    required this.msMode,
+  });
+
+  @override
+  LimiterSnapshot copy() => LimiterSnapshot(
+    inputTrim: inputTrim, threshold: threshold, output: output,
+    release: release, attack: attack, lookahead: lookahead,
+    stereoLink: stereoLink, mix: mix, style: style,
+    oversampling: oversampling, ditherBits: ditherBits,
+    latencyProfile: latencyProfile, channelConfig: channelConfig,
+    msMode: msMode,
+  );
+
+  @override
+  bool equals(DspParameterSnapshot other) {
+    if (other is! LimiterSnapshot) return false;
+    return inputTrim == other.inputTrim && threshold == other.threshold &&
+        output == other.output && release == other.release &&
+        attack == other.attack && style == other.style &&
+        oversampling == other.oversampling && msMode == other.msMode;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN PANEL WIDGET
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -150,6 +191,10 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
   bool _initialized = false;
   String? _nodeId;
   int _slotIndex = -1;
+
+  // ─── A/B ─────────────────────────────────────────────────────────────
+  LimiterSnapshot? _snapshotA;
+  LimiterSnapshot? _snapshotB;
 
   @override
   int get processorSlotIndex => _slotIndex;
@@ -218,6 +263,62 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     super.dispose();
   }
 
+  // ─── A/B STATE MANAGEMENT ─────────────────────────────────────────────
+
+  LimiterSnapshot _snap() => LimiterSnapshot(
+    inputTrim: _inputTrim, threshold: _threshold, output: _output,
+    release: _release, attack: _attack, lookahead: _lookahead,
+    stereoLink: _stereoLink, mix: _mix, style: _style,
+    oversampling: _oversampling, ditherBits: _ditherBits,
+    latencyProfile: _latencyProfile, channelConfig: _channelConfig,
+    msMode: _msMode,
+  );
+
+  void _restore(LimiterSnapshot s) {
+    setState(() {
+      _inputTrim = s.inputTrim; _threshold = s.threshold; _output = s.output;
+      _release = s.release; _attack = s.attack; _lookahead = s.lookahead;
+      _stereoLink = s.stereoLink; _mix = s.mix; _style = s.style;
+      _oversampling = s.oversampling; _ditherBits = s.ditherBits;
+      _latencyProfile = s.latencyProfile; _channelConfig = s.channelConfig;
+      _msMode = s.msMode;
+    });
+    _applyAll();
+  }
+
+  void _applyAll() {
+    if (!_initialized || _slotIndex < 0) return;
+    _setParam(_P.inputTrim, _inputTrim);
+    _setParam(_P.threshold, _threshold);
+    _setParam(_P.ceiling, _output);
+    _setParam(_P.release, _release);
+    _setParam(_P.attack, _attack);
+    _setParam(_P.lookahead, _lookahead);
+    _setParam(_P.style, _style.index.toDouble());
+    _setParam(_P.oversampling, _oversampling.toDouble());
+    _setParam(_P.stereoLink, _stereoLink);
+    _setParam(_P.msMode, _msMode ? 1.0 : 0.0);
+    _setParam(_P.mix, _mix);
+    _setParam(_P.ditherBits, _ditherBits.toDouble());
+    _setParam(_P.latencyProfile, _latencyProfile.toDouble());
+    _setParam(_P.channelConfig, _channelConfig.toDouble());
+  }
+
+  @override
+  void storeStateA() { _snapshotA = _snap(); super.storeStateA(); }
+  @override
+  void storeStateB() { _snapshotB = _snap(); super.storeStateB(); }
+  @override
+  void restoreStateA() { if (_snapshotA != null) _restore(_snapshotA!); }
+  @override
+  void restoreStateB() { if (_snapshotB != null) _restore(_snapshotB!); }
+  @override
+  void copyAToB() { _snapshotB = _snapshotA?.copy(); super.copyAToB(); }
+  @override
+  void copyBToA() { _snapshotA = _snapshotB?.copy(); super.copyBToA(); }
+
+  // ─── METERING ─────────────────────────────────────────────────────────
+
   void _updateMeters() {
     if (!mounted || !_initialized || _slotIndex < 0) return;
     setState(() {
@@ -259,7 +360,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     });
   }
 
-  // ─── BUILD ───────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════
+  // BUILD
+  // ═══════════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
@@ -270,7 +373,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           buildCompactHeader(),
           // Scrolling waveform display
           SizedBox(
-            height: 100,
+            height: 110,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: _buildDisplay(),
@@ -305,7 +408,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     ));
   }
 
-  // ─── DISPLAY (scrolling waveform + GR history) ───────────────────────
+  // ─── DISPLAY (scrolling waveform + GR history) ────────────────────────
 
   Widget _buildDisplay() {
     return Container(
@@ -313,7 +416,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       clipBehavior: Clip.hardEdge,
       child: Stack(
         children: [
-          // Scrolling waveform painter
+          // Glass scrolling waveform painter
           Positioned.fill(
             child: CustomPaint(
               painter: _LimiterDisplayPainter(
@@ -326,29 +429,48 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           ),
           // LUFS overlay (top-left)
           Positioned(
-            left: 6,
-            top: 4,
+            left: 6, top: 4,
             child: _buildLufsOverlay(),
           ),
           // True peak indicator (top-right)
           Positioned(
-            right: 6,
-            top: 4,
+            right: 6, top: 4,
             child: _buildTruePeakBadge(),
           ),
           // GR value (bottom-right)
           Positioned(
-            right: 6,
-            bottom: 4,
+            right: 6, bottom: 4,
             child: _buildGrBadge(),
           ),
           // Meter scale (bottom-left)
           Positioned(
-            left: 6,
-            bottom: 4,
+            left: 6, bottom: 4,
             child: _buildScaleSelector(),
           ),
+          // Style badge (top-center)
+          Positioned(
+            left: 0, right: 0, top: 4,
+            child: Center(child: _buildStyleBadge()),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStyleBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        _style.label.toUpperCase(),
+        style: TextStyle(
+          color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.5),
+          fontSize: 7, fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -357,8 +479,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(3),
+        color: const Color(0xDD0A0A10),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: FabFilterProcessorColors.limLufs.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,7 +502,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         Text(label, style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 8, fontWeight: FontWeight.w600)),
         const SizedBox(width: 4),
         Text(
-          value > -100 ? '${value.toStringAsFixed(1)}' : '-∞',
+          value > -100 ? value.toStringAsFixed(1) : '-∞',
           style: TextStyle(
             color: color,
             fontSize: 9,
@@ -399,20 +522,30 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(3),
-        border: _truePeakClipping ? Border.all(color: FabFilterColors.red, width: 1) : null,
+        color: const Color(0xDD0A0A10),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: _truePeakClipping
+              ? FabFilterColors.red.withValues(alpha: 0.6)
+              : FabFilterProcessorColors.limTruePeak.withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 6, height: 6,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: tpColor),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: tpColor,
+              boxShadow: _truePeakClipping ? [
+                BoxShadow(color: FabFilterColors.red.withValues(alpha: 0.5), blurRadius: 4),
+              ] : null,
+            ),
           ),
           const SizedBox(width: 3),
           Text(
-            'TP ${outTpMax > -100 ? '${outTpMax.toStringAsFixed(1)}' : '-∞'}',
+            'TP ${outTpMax > -100 ? outTpMax.toStringAsFixed(1) : '-∞'}',
             style: TextStyle(color: tpColor, fontSize: 9, fontWeight: FontWeight.bold,
                 fontFeatures: const [FontFeature.tabularFigures()]),
           ),
@@ -426,18 +559,24 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(3),
+        color: const Color(0xDD0A0A10),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: FabFilterProcessorColors.limGainReduction.withValues(alpha: 0.3)),
       ),
-      child: Text(
-        'GR -${grMax.toStringAsFixed(1)}dB  max -${_grMaxHold.toStringAsFixed(1)}dB',
-        style: TextStyle(
-          color: FabFilterProcessorColors.limGainReduction,
-          fontSize: 9,
-          fontWeight: FontWeight.bold,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
+      child: RichText(text: TextSpan(
+        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+          fontFeatures: [FontFeature.tabularFigures()]),
+        children: [
+          TextSpan(
+            text: 'GR -${grMax.toStringAsFixed(1)}',
+            style: TextStyle(color: FabFilterProcessorColors.limGainReduction),
+          ),
+          TextSpan(
+            text: '  pk -${_grMaxHold.toStringAsFixed(1)}',
+            style: TextStyle(color: FabFilterColors.textTertiary),
+          ),
+        ],
+      )),
     );
   }
 
@@ -454,6 +593,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             decoration: BoxDecoration(
               color: isActive ? FabFilterColors.blue.withValues(alpha: 0.3) : Colors.transparent,
               borderRadius: BorderRadius.circular(2),
+              border: isActive ? Border.all(color: FabFilterColors.blue.withValues(alpha: 0.3)) : null,
             ),
             child: Text(
               s.label,
@@ -469,16 +609,16 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     );
   }
 
-  // ─── STYLE CHIPS ─────────────────────────────────────────────────────
+  // ─── STYLE CHIPS ──────────────────────────────────────────────────────
 
   Widget _buildStyleChips() {
     return ListView.separated(
       scrollDirection: Axis.horizontal,
       itemCount: LimitingStyle.values.length,
-      separatorBuilder: (_, _) => const SizedBox(width: 4),
+      separatorBuilder: (_, _a) => const SizedBox(width: 4),
       itemBuilder: (ctx, i) {
         final s = LimitingStyle.values[i];
-        final isActive = _style == s;
+        final active = _style == s;
         return GestureDetector(
           onTap: () {
             setState(() => _style = s);
@@ -488,28 +628,31 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: isActive
+              color: active
                   ? FabFilterProcessorColors.limAccent.withValues(alpha: 0.25)
                   : FabFilterColors.bgSurface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isActive ? FabFilterProcessorColors.limAccent : FabFilterColors.borderMedium,
-                width: isActive ? 1.5 : 1,
+                color: active ? FabFilterProcessorColors.limAccent : FabFilterColors.borderMedium,
+                width: active ? 1.5 : 1,
               ),
+              boxShadow: active ? [
+                BoxShadow(
+                  color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.15),
+                  blurRadius: 6,
+                ),
+              ] : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(s.icon, size: 12, color: isActive ? FabFilterProcessorColors.limAccent : FabFilterColors.textTertiary),
-                const SizedBox(width: 4),
-                Text(
-                  s.label,
-                  style: TextStyle(
-                    color: isActive ? FabFilterProcessorColors.limAccent : FabFilterColors.textSecondary,
-                    fontSize: 9,
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                  ),
-                ),
+                Icon(s.icon, size: 12,
+                  color: active ? FabFilterProcessorColors.limAccent : FabFilterColors.textTertiary),
+                const SizedBox(width: 3),
+                Text(s.label, style: TextStyle(
+                  color: active ? FabFilterProcessorColors.limAccent : FabFilterColors.textSecondary,
+                  fontSize: 9, fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                )),
               ],
             ),
           ),
@@ -518,27 +661,35 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     );
   }
 
-  // ─── OVERSAMPLING CHIP ───────────────────────────────────────────────
+  // ─── OVERSAMPLING CHIP ────────────────────────────────────────────────
 
   Widget _buildOversamplingChip() {
+    final active = _oversampling > 0;
     return GestureDetector(
       onTap: () {
         setState(() => _oversampling = (_oversampling + 1) % 4);
         _setParam(_P.oversampling, _oversampling.toDouble());
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: _oversampling > 0
+          color: active
               ? FabFilterColors.green.withValues(alpha: 0.2)
               : FabFilterColors.bgSurface,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: _oversampling > 0 ? FabFilterColors.green : FabFilterColors.borderMedium),
+          border: Border.all(color: active ? FabFilterColors.green : FabFilterColors.borderMedium),
+          boxShadow: active ? [
+            BoxShadow(
+              color: FabFilterColors.green.withValues(alpha: 0.1),
+              blurRadius: 4,
+            ),
+          ] : null,
         ),
         child: Text(
           _oversamplingLabel(),
           style: TextStyle(
-            color: _oversampling > 0 ? FabFilterColors.green : FabFilterColors.textTertiary,
+            color: active ? FabFilterColors.green : FabFilterColors.textTertiary,
             fontSize: 9,
             fontWeight: FontWeight.bold,
           ),
@@ -556,7 +707,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // LEFT: Vertical meters
-        SizedBox(width: 80, child: _buildVerticalMeters()),
+        _buildMeters(),
         const SizedBox(width: 8),
         // CENTER: Main knobs
         Expanded(flex: 3, child: _buildKnobs()),
@@ -567,131 +718,112 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     );
   }
 
-  // ─── VERTICAL INPUT/OUTPUT METERS ────────────────────────────────────
+  // ─── VERTICAL METERS (CustomPainter) ──────────────────────────────────
 
-  Widget _buildVerticalMeters() {
-    return Container(
-      decoration: FabFilterDecorations.display(),
-      padding: const EdgeInsets.all(4),
-      child: Row(
+  Widget _buildMeters() {
+    return SizedBox(
+      width: 60,
+      child: Container(
+        decoration: FabFilterDecorations.display(),
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          children: [
+            _buildVerticalMeter('IN', _inputPeakL, _inputPeakR, FabFilterColors.blue),
+            const SizedBox(width: 2),
+            _buildVerticalMeter('OUT', _outputTpL, _outputTpR, FabFilterProcessorColors.limTruePeak),
+            const SizedBox(width: 2),
+            _buildGrMeter(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerticalMeter(String label, double left, double right, Color color) {
+    final maxDb = math.max(left, right);
+    final normL = ((left + 60) / 60).clamp(0.0, 1.0);
+    final normR = ((right + 60) / 60).clamp(0.0, 1.0);
+
+    return Expanded(
+      child: Column(
         children: [
-          // In L/R
-          Expanded(child: _buildMeterBar('In', _inputPeakL, _inputPeakR, FabFilterColors.blue)),
-          const SizedBox(width: 2),
-          // Out L/R
-          Expanded(child: _buildMeterBar('Out', _outputTpL, _outputTpR, FabFilterProcessorColors.limTruePeak)),
-          const SizedBox(width: 2),
-          // GR
-          Expanded(child: _buildGrBar()),
+          Text(label, style: TextStyle(
+            color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: Container(
+                  decoration: BoxDecoration(
+                    color: FabFilterColors.bgVoid,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: CustomPaint(
+                    painter: _VerticalMeterPainter(value: normL, color: color),
+                  ),
+                )),
+                const SizedBox(width: 1),
+                Expanded(child: Container(
+                  decoration: BoxDecoration(
+                    color: FabFilterColors.bgVoid,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: CustomPaint(
+                    painter: _VerticalMeterPainter(value: normR, color: color),
+                  ),
+                )),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            maxDb > -100 ? maxDb.toStringAsFixed(0) : '-∞',
+            style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.bold,
+                fontFeatures: const [FontFeature.tabularFigures()]),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMeterBar(String label, double left, double right, Color color) {
-    return Column(
-      children: [
-        Text(label, style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 2),
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(child: _singleBar(left, color)),
-              const SizedBox(width: 1),
-              Expanded(child: _singleBar(right, color)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          math.max(left, right) > -100 ? '${math.max(left, right).toStringAsFixed(0)}' : '-∞',
-          style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.bold,
-              fontFeatures: const [FontFeature.tabularFigures()]),
-        ),
-      ],
-    );
-  }
-
-  Widget _singleBar(double dbValue, Color color) {
-    final norm = ((dbValue + 60) / 60).clamp(0.0, 1.0);
-    return LayoutBuilder(
-      builder: (ctx, constraints) {
-        final h = constraints.maxHeight;
-        final barH = h * norm;
-        return Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            Container(
-              width: double.infinity,
-              height: h,
-              decoration: BoxDecoration(
-                color: FabFilterColors.bgVoid,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-            Container(
-              width: double.infinity,
-              height: barH,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [color.withValues(alpha: 0.5), color],
-                ),
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildGrBar() {
+  Widget _buildGrMeter() {
     final grMax = math.max(_grLeft, _grRight);
     final grNorm = (grMax / 24).clamp(0.0, 1.0);
-    return Column(
-      children: [
-        Text('GR', style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 2),
-        Expanded(
-          child: LayoutBuilder(builder: (ctx, constraints) {
-            final h = constraints.maxHeight;
-            final barH = h * grNorm;
-            return Stack(
-              alignment: Alignment.topCenter,
-              children: [
-                Container(
-                  width: double.infinity,
-                  height: h,
-                  decoration: BoxDecoration(
-                    color: FabFilterColors.bgVoid,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
+
+    return Expanded(
+      child: Column(
+        children: [
+          Text('GR', style: TextStyle(
+            color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: FabFilterColors.bgVoid,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: CustomPaint(
+                painter: _VerticalMeterPainter(
+                  value: grNorm,
+                  color: FabFilterProcessorColors.limGainReduction,
+                  fromTop: true,
                 ),
-                Container(
-                  width: double.infinity,
-                  height: barH,
-                  decoration: BoxDecoration(
-                    gradient: FabFilterGradients.grVertical,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                ),
-              ],
-            );
-          }),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          '-${grMax.toStringAsFixed(0)}',
-          style: TextStyle(color: FabFilterProcessorColors.limGainReduction, fontSize: 7,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '-${grMax.toStringAsFixed(0)}',
+            style: TextStyle(
+              color: FabFilterProcessorColors.limGainReduction, fontSize: 7,
               fontWeight: FontWeight.bold, fontFeatures: const [FontFeature.tabularFigures()]),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
-  // ─── KNOBS ───────────────────────────────────────────────────────────
+  // ─── KNOBS ────────────────────────────────────────────────────────────
 
   Widget _buildKnobs() {
     return Row(
@@ -795,14 +927,23 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     );
   }
 
-  // ─── OPTIONS ─────────────────────────────────────────────────────────
+  // ─── OPTIONS ──────────────────────────────────────────────────────────
 
   Widget _buildOptions() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Stereo link slider
-        _buildLinkSlider(),
+        FabMiniSlider(
+          label: 'LNK',
+          value: _stereoLink / 100,
+          display: '${_stereoLink.toStringAsFixed(0)}%',
+          activeColor: FabFilterColors.purple,
+          onChanged: (v) {
+            setState(() => _stereoLink = v * 100);
+            _setParam(_P.stereoLink, _stereoLink);
+          },
+        ),
         const SizedBox(height: 4),
         FabOptionRow(label: 'M/S', value: _msMode, onChanged: (v) {
           setState(() => _msMode = v);
@@ -829,23 +970,79 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       ],
     );
   }
-
-  Widget _buildLinkSlider() {
-    return FabMiniSlider(
-      label: 'LNK',
-      value: _stereoLink / 100,
-      display: '${_stereoLink.toStringAsFixed(0)}%',
-      activeColor: FabFilterColors.purple,
-      onChanged: (v) {
-        setState(() => _stereoLink = v * 100);
-        _setParam(_P.stereoLink, _stereoLink);
-      },
-    );
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// LIMITER DISPLAY PAINTER — Scrolling waveform + GR bars + ceiling/threshold
+// VERTICAL METER PAINTER — gradient fills with glow edge line
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _VerticalMeterPainter extends CustomPainter {
+  final double value;
+  final Color color;
+  final bool fromTop;
+
+  _VerticalMeterPainter({
+    required this.value, required this.color, this.fromTop = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (value <= 0.001) return;
+
+    final barH = size.height * value;
+
+    if (fromTop) {
+      // GR meter — from top, warm gradient
+      final rect = Rect.fromLTWH(0, 0, size.width, barH);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+        Paint()..shader = ui.Gradient.linear(
+          Offset.zero, Offset(0, barH),
+          [
+            color.withValues(alpha: 0.5),
+            color,
+          ],
+        ),
+      );
+      // Glow line at bottom edge
+      canvas.drawLine(
+        Offset(0, barH), Offset(size.width, barH),
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+      );
+    } else {
+      // Level meter — from bottom, colored gradient
+      final rect = Rect.fromLTWH(0, size.height - barH, size.width, barH);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+        Paint()..shader = ui.Gradient.linear(
+          Offset(0, size.height), Offset(0, size.height - barH),
+          [
+            color.withValues(alpha: 0.4),
+            color,
+          ],
+        ),
+      );
+      // Glow line at top edge
+      canvas.drawLine(
+        Offset(0, size.height - barH), Offset(size.width, size.height - barH),
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _VerticalMeterPainter old) =>
+      old.value != value || old.color != color;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LIMITER DISPLAY PAINTER — Glass scrolling waveform + GR bars
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _LimiterDisplayPainter extends CustomPainter {
@@ -865,43 +1062,77 @@ class _LimiterDisplayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
 
-    // Background gradient
+    // ── Glass background gradient ──
     canvas.drawRect(rect, Paint()
       ..shader = ui.Gradient.linear(
         Offset.zero,
         Offset(0, size.height),
-        [FabFilterColors.bgVoid, FabFilterColors.bgDeep],
+        [const Color(0xFF0D0D12), const Color(0xFF08080C)],
       ));
 
-    // Grid lines & labels
-    final gridPaint = Paint()
-      ..color = FabFilterColors.grid
-      ..strokeWidth = 0.5;
+    // ── Grid lines ──
+    final thinPaint = Paint()..color = const Color(0xFF1A1A22)..strokeWidth = 0.5;
+    final medPaint = Paint()..color = const Color(0xFF222230)..strokeWidth = 0.5;
     final dbOffset = meterScale.offset.toDouble();
     final totalRange = 48.0 + dbOffset.abs();
 
     for (var db = -48; db <= 0; db += 6) {
       final y = _dbToY(db.toDouble(), size.height, dbOffset, totalRange);
       if (y >= 0 && y <= size.height) {
-        canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+        canvas.drawLine(
+          Offset(0, y), Offset(size.width, y),
+          db % 12 == 0 ? medPaint : thinPaint,
+        );
       }
     }
 
-    // Threshold line (yellow dashed)
-    final threshY = _dbToY(threshold, size.height, dbOffset, totalRange);
-    if (threshY >= 0 && threshY <= size.height) {
-      final threshPaint = Paint()
-        ..color = FabFilterProcessorColors.limCeiling.withValues(alpha: 0.5)
-        ..strokeWidth = 1.0;
-      _drawDashedLine(canvas, Offset(0, threshY), Offset(size.width, threshY), threshPaint);
+    // 0dB line
+    final zeroY = _dbToY(0, size.height, dbOffset, totalRange);
+    if (zeroY >= 0 && zeroY <= size.height) {
+      canvas.drawLine(
+        Offset(0, zeroY), Offset(size.width, zeroY),
+        Paint()..color = const Color(0xFF2A2A38)..strokeWidth = 1,
+      );
     }
 
-    // Ceiling line (red solid)
+    // ── Ceiling line — 2-layer glow ──
     final ceilingY = _dbToY(ceiling, size.height, dbOffset, totalRange);
     if (ceilingY >= 0 && ceilingY <= size.height) {
+      // Outer glow
       canvas.drawLine(
         Offset(0, ceilingY), Offset(size.width, ceilingY),
-        Paint()..color = FabFilterProcessorColors.limAccent..strokeWidth = 1.5,
+        Paint()
+          ..color = FabFilterProcessorColors.limAccent.withValues(alpha: 0.15)
+          ..strokeWidth = 4
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+      // Core line
+      canvas.drawLine(
+        Offset(0, ceilingY), Offset(size.width, ceilingY),
+        Paint()
+          ..color = FabFilterProcessorColors.limAccent.withValues(alpha: 0.6)
+          ..strokeWidth = 1.5,
+      );
+    }
+
+    // ── Threshold line — dashed with glow ──
+    final threshY = _dbToY(threshold, size.height, dbOffset, totalRange);
+    if (threshY >= 0 && threshY <= size.height) {
+      // Glow
+      canvas.drawLine(
+        Offset(0, threshY), Offset(size.width, threshY),
+        Paint()
+          ..color = FabFilterProcessorColors.limCeiling.withValues(alpha: 0.12)
+          ..strokeWidth = 3
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+      );
+      // Core dashed
+      _drawDashedLine(
+        canvas,
+        Offset(0, threshY), Offset(size.width, threshY),
+        Paint()
+          ..color = FabFilterProcessorColors.limCeiling.withValues(alpha: 0.4)
+          ..strokeWidth = 1.0,
       );
     }
 
@@ -910,35 +1141,125 @@ class _LimiterDisplayPainter extends CustomPainter {
     final sampleWidth = size.width / _maxSamples;
     final startX = size.width - history.length * sampleWidth;
 
-    // GR bars (from top, red gradient)
+    // ── GR bars from top — per-bar gradient ──
     for (var i = 0; i < history.length; i++) {
       final x = startX + i * sampleWidth;
       if (x < 0) continue;
       final gr = history[i].gainReduction.abs();
       final grHeight = (gr / 24).clamp(0.0, 1.0) * size.height * 0.4;
       if (grHeight > 0.5) {
-        canvas.drawRect(
-          Rect.fromLTWH(x, 0, sampleWidth + 0.5, grHeight),
-          Paint()..color = FabFilterProcessorColors.limGainReduction.withValues(alpha: 0.3),
-        );
+        final barRect = Rect.fromLTWH(x, 0, sampleWidth + 0.5, grHeight);
+        canvas.drawRect(barRect, Paint()
+          ..shader = ui.Gradient.linear(
+            Offset(x, 0), Offset(x, grHeight),
+            [
+              FabFilterProcessorColors.limGainReduction.withValues(alpha: 0.5),
+              FabFilterProcessorColors.limGainReduction.withValues(alpha: 0.12),
+            ],
+          ));
       }
     }
 
-    // Input waveform (muted, background)
-    _drawWaveform(canvas, size, history.map((s) => s.inputPeak).toList(),
-        FabFilterColors.textMuted.withValues(alpha: 0.2), dbOffset, totalRange, startX, sampleWidth);
+    // ── GR edge glow (2-layer: blur + core) ──
+    final grEdge = Path();
+    for (var i = 0; i < history.length; i++) {
+      final x = startX + i * sampleWidth;
+      if (x < 0) continue;
+      final grH = (history[i].gainReduction.abs() / 24).clamp(0.0, 1.0) * size.height * 0.4;
+      i == 0 || x - sampleWidth < 0
+          ? grEdge.moveTo(x, grH)
+          : grEdge.lineTo(x, grH);
+    }
+    canvas.drawPath(grEdge, Paint()
+      ..color = FabFilterProcessorColors.limGainReduction.withValues(alpha: 0.6)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5));
+    canvas.drawPath(grEdge, Paint()
+      ..color = FabFilterProcessorColors.limGainReduction
+      ..strokeWidth = 0.8
+      ..style = PaintingStyle.stroke);
 
-    // Output waveform (blue, foreground)
-    _drawWaveform(canvas, size, history.map((s) => s.outputPeak).toList(),
-        FabFilterProcessorColors.limTruePeak.withValues(alpha: 0.5), dbOffset, totalRange, startX, sampleWidth);
+    // ── Input waveform fill (subtle gray gradient) ──
+    final inPath = Path()..moveTo(
+      math.max(startX, 0), size.height);
+    for (var i = 0; i < history.length; i++) {
+      final x = startX + i * sampleWidth;
+      if (x < 0) continue;
+      final y = _dbToY(history[i].inputPeak, size.height, dbOffset, totalRange)
+          .clamp(0.0, size.height);
+      inPath.lineTo(x, y);
+    }
+    inPath.lineTo(startX + history.length * sampleWidth, size.height);
+    inPath.close();
+    canvas.drawPath(inPath, Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(0, size.height), Offset.zero,
+        [
+          const Color(0x08808088),
+          const Color(0x20808088),
+        ],
+      ));
 
-    // True peak clip markers
+    // ── Output waveform fill (limiter accent gradient) ──
+    final outPath = Path()..moveTo(
+      math.max(startX, 0), size.height);
+    for (var i = 0; i < history.length; i++) {
+      final x = startX + i * sampleWidth;
+      if (x < 0) continue;
+      final y = _dbToY(history[i].outputPeak, size.height, dbOffset, totalRange)
+          .clamp(0.0, size.height);
+      outPath.lineTo(x, y);
+    }
+    outPath.lineTo(startX + history.length * sampleWidth, size.height);
+    outPath.close();
+    canvas.drawPath(outPath, Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(0, size.height), Offset.zero,
+        [
+          FabFilterProcessorColors.limTruePeak.withValues(alpha: 0.05),
+          FabFilterProcessorColors.limTruePeak.withValues(alpha: 0.3),
+        ],
+      ));
+
+    // ── Output stroke line (thin colored) ──
+    final outLine = Path();
+    bool outStarted = false;
+    for (var i = 0; i < history.length; i++) {
+      final x = startX + i * sampleWidth;
+      if (x < 0) continue;
+      final y = _dbToY(history[i].outputPeak, size.height, dbOffset, totalRange)
+          .clamp(0.0, size.height);
+      if (!outStarted) {
+        outLine.moveTo(x, y);
+        outStarted = true;
+      } else {
+        outLine.lineTo(x, y);
+      }
+    }
+    if (outStarted) {
+      canvas.drawPath(outLine, Paint()
+        ..color = FabFilterProcessorColors.limTruePeak.withValues(alpha: 0.5)
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke);
+    }
+
+    // ── True peak clip markers (red rectangles) ──
     for (var i = 0; i < history.length; i++) {
       if (history[i].truePeak > ceiling + 0.1) {
         final x = startX + i * sampleWidth;
         if (x < 0) continue;
+        final clipY = ceilingY.clamp(0.0, size.height);
+        // Glow
         canvas.drawRect(
-          Rect.fromLTWH(x, ceilingY.clamp(0, size.height) - 2, sampleWidth + 0.5, 4),
+          Rect.fromLTWH(x - 0.5, clipY - 3, sampleWidth + 1, 6),
+          Paint()
+            ..color = FabFilterColors.red.withValues(alpha: 0.3)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+        );
+        // Core marker
+        canvas.drawRect(
+          Rect.fromLTWH(x, clipY - 2, sampleWidth + 0.5, 4),
           Paint()..color = FabFilterColors.red,
         );
       }
@@ -949,22 +1270,6 @@ class _LimiterDisplayPainter extends CustomPainter {
 
   double _dbToY(double db, double height, double dbOffset, double totalRange) {
     return height * (1 - (db + 48 + dbOffset) / totalRange);
-  }
-
-  void _drawWaveform(Canvas canvas, Size size, List<double> levels,
-      Color color, double dbOffset, double totalRange, double startX, double sampleWidth) {
-    if (levels.isEmpty) return;
-    final path = Path();
-    path.moveTo(startX, size.height);
-    for (var i = 0; i < levels.length; i++) {
-      final x = startX + i * sampleWidth;
-      if (x < 0) continue;
-      final y = _dbToY(levels[i], size.height, dbOffset, totalRange).clamp(0.0, size.height);
-      path.lineTo(x, y);
-    }
-    path.lineTo(startX + levels.length * sampleWidth, size.height);
-    path.close();
-    canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.fill);
   }
 
   void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint) {

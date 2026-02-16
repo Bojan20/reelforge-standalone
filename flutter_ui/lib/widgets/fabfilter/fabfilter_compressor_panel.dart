@@ -1,11 +1,12 @@
-/// FF-C Compressor Panel
+/// FF-C Compressor Panel — Pro-C 2 Ultimate
 ///
-/// Professional compressor interface:
-/// - Animated transfer curve + GR history display
-/// - 14 compression style chips
-/// - Character mode selector
-/// - Sidechain EQ visualization
-/// - Real-time gain reduction metering
+/// Professional dynamics processor:
+/// - Glass transfer curve with animated knee region
+/// - Scrolling GR history with gradient waveforms
+/// - 14 compression styles with smooth switching
+/// - Character saturation (Tube / Diode / Bright)
+/// - Sidechain EQ with HP/LP/Mid controls
+/// - Real-time I/O + GR metering at 60fps
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -388,7 +389,6 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
       if (_grCurrent.abs() > _grPeakHold.abs()) _grPeakHold = _grCurrent;
 
-      // Build GR history
       _grHistory.add(_GrSample(_inputLevel, _outputLevel, _grCurrent));
       while (_grHistory.length > _maxHistory) _grHistory.removeAt(0);
     });
@@ -407,7 +407,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           buildCompactHeader(),
           // Display: transfer curve + GR history
           SizedBox(
-            height: 100,
+            height: 110,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: _buildDisplay(),
@@ -419,7 +419,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Column(
                 children: [
-                  // Style chips
+                  // Style chips + character
                   SizedBox(
                     height: 28,
                     child: Row(
@@ -447,7 +447,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   Widget _buildDisplay() {
     return Row(
       children: [
-        // Transfer curve (left half)
+        // Transfer curve
         Expanded(
           child: Container(
             decoration: FabFilterDecorations.display(),
@@ -461,34 +461,50 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                       ratio: _ratio,
                       knee: _knee,
                       currentInput: _inputLevel,
+                      grAmount: _grCurrent,
                     ),
                   ),
                 ),
-                // Ratio badge (top-right)
+                // Ratio + threshold badge
                 Positioned(
-                  right: 4, top: 4,
+                  right: 4, top: 3,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(
-                      color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(3),
+                      color: const Color(0xDD0A0A10),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: FabFilterProcessorColors.compAccent.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Text(
-                      '${_ratio.toStringAsFixed(1)}:1',
+                      '${_ratio.toStringAsFixed(1)}:1  ${_threshold.toStringAsFixed(0)}dB',
                       style: TextStyle(
                         color: FabFilterProcessorColors.compAccent,
-                        fontSize: 9, fontWeight: FontWeight.bold,
+                        fontSize: 8, fontWeight: FontWeight.bold,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                   ),
                 ),
+                // Knee badge (bottom-left)
+                if (_knee > 0.5)
+                  Positioned(
+                    left: 4, bottom: 3,
+                    child: Text(
+                      'K ${_knee.toStringAsFixed(0)}dB',
+                      style: TextStyle(
+                        color: FabFilterProcessorColors.compKnee.withValues(alpha: 0.6),
+                        fontSize: 7, fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
         ),
         const SizedBox(width: 4),
-        // GR history (right half)
+        // GR history
         Expanded(
           child: Container(
             decoration: FabFilterDecorations.display(),
@@ -503,34 +519,62 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                     ),
                   ),
                 ),
-                // GR badge (bottom-right)
+                // GR readout (bottom-right)
                 Positioned(
-                  right: 4, bottom: 4,
+                  right: 4, bottom: 3,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(
-                      color: FabFilterColors.bgVoid.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: Text(
-                      'GR ${_grCurrent.toStringAsFixed(1)} dB  pk ${_grPeakHold.toStringAsFixed(1)}',
-                      style: TextStyle(
-                        color: FabFilterProcessorColors.compGainReduction,
-                        fontSize: 8, fontWeight: FontWeight.bold,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                      color: const Color(0xDD0A0A10),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: FabFilterProcessorColors.compGainReduction.withValues(alpha: 0.3),
                       ),
                     ),
+                    child: RichText(text: TextSpan(
+                      style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
+                        fontFeatures: [FontFeature.tabularFigures()]),
+                      children: [
+                        TextSpan(
+                          text: 'GR ${_grCurrent.toStringAsFixed(1)}',
+                          style: TextStyle(color: FabFilterProcessorColors.compGainReduction),
+                        ),
+                        TextSpan(
+                          text: '  pk ${_grPeakHold.toStringAsFixed(1)}',
+                          style: TextStyle(color: FabFilterColors.textTertiary),
+                        ),
+                      ],
+                    )),
                   ),
                 ),
-                // Detection badge (top-left)
+                // Detection + style badge (top-left)
                 Positioned(
-                  left: 4, top: 4,
-                  child: Text(
-                    ['PEAK', 'RMS', 'HYB'][_detection],
-                    style: TextStyle(
-                      color: FabFilterColors.textTertiary,
-                      fontSize: 8, fontWeight: FontWeight.bold,
-                    ),
+                  left: 4, top: 3,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: FabFilterColors.cyan.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(color: FabFilterColors.cyan.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          ['PEAK', 'RMS', 'HYB'][_detection],
+                          style: TextStyle(
+                            color: FabFilterColors.cyan, fontSize: 7, fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        _style.label.toUpperCase(),
+                        style: TextStyle(
+                          color: FabFilterProcessorColors.compAccent.withValues(alpha: 0.5),
+                          fontSize: 7, fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -547,7 +591,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     return ListView.separated(
       scrollDirection: Axis.horizontal,
       itemCount: CompressionStyle.values.length,
-      separatorBuilder: (_, _) => const SizedBox(width: 4),
+      separatorBuilder: (_, _a) => const SizedBox(width: 4),
       itemBuilder: (ctx, i) {
         final s = CompressionStyle.values[i];
         final active = _style == s;
@@ -568,11 +612,18 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 color: active ? FabFilterProcessorColors.compAccent : FabFilterColors.borderMedium,
                 width: active ? 1.5 : 1,
               ),
+              boxShadow: active ? [
+                BoxShadow(
+                  color: FabFilterProcessorColors.compAccent.withValues(alpha: 0.15),
+                  blurRadius: 6,
+                ),
+              ] : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(s.icon, size: 12, color: active ? FabFilterProcessorColors.compAccent : FabFilterColors.textTertiary),
+                Icon(s.icon, size: 12,
+                  color: active ? FabFilterProcessorColors.compAccent : FabFilterColors.textTertiary),
                 const SizedBox(width: 3),
                 Text(s.label, style: TextStyle(
                   color: active ? FabFilterProcessorColors.compAccent : FabFilterColors.textSecondary,
@@ -587,32 +638,34 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   }
 
   Widget _buildCharacterChip() {
+    final active = _character != CharacterMode.off;
     return GestureDetector(
       onTap: () {
         final next = CharacterMode.values[(_character.index + 1) % CharacterMode.values.length];
         setState(() {
           _character = next;
-          // Auto-set drive to 6 dB when enabling character saturation
-          // Rust guard: character != Off && drive_db > 0.01
-          if (next != CharacterMode.off && _drive < 0.1) {
-            _drive = 6.0;
-          }
+          if (next != CharacterMode.off && _drive < 0.1) _drive = 6.0;
         });
         _setParam(_P.character, next.index.toDouble());
         if (next != CharacterMode.off && _drive >= 0.1) {
           _setParam(_P.drive, _drive);
         }
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
-          color: _character != CharacterMode.off
-              ? _character.color.withValues(alpha: 0.2)
-              : FabFilterColors.bgSurface,
+          color: active ? _character.color.withValues(alpha: 0.2) : FabFilterColors.bgSurface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: _character != CharacterMode.off ? _character.color : FabFilterColors.borderMedium,
+            color: active ? _character.color : FabFilterColors.borderMedium,
           ),
+          boxShadow: active ? [
+            BoxShadow(
+              color: _character.color.withValues(alpha: 0.15),
+              blurRadius: 6,
+            ),
+          ] : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -655,13 +708,15 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           const SizedBox(width: 2),
           _buildVerticalMeter('OUT', _outputLevel, FabFilterColors.blue),
           const SizedBox(width: 2),
-          _buildVerticalMeter('GR', _grCurrent, FabFilterProcessorColors.compGainReduction, fromTop: true),
+          _buildVerticalMeter('GR', _grCurrent,
+            FabFilterProcessorColors.compGainReduction, fromTop: true),
         ],
       ),
     );
   }
 
-  Widget _buildVerticalMeter(String label, double dB, Color color, {bool fromTop = false}) {
+  Widget _buildVerticalMeter(String label, double dB, Color color,
+      {bool fromTop = false}) {
     final norm = fromTop
         ? (dB.abs() / 40).clamp(0.0, 1.0)
         : ((dB + 60) / 60).clamp(0.0, 1.0);
@@ -676,16 +731,11 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 color: FabFilterColors.bgVoid,
                 borderRadius: BorderRadius.circular(2),
               ),
-              child: Align(
-                alignment: fromTop ? Alignment.topCenter : Alignment.bottomCenter,
-                child: FractionallySizedBox(
-                  heightFactor: norm,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+              child: CustomPaint(
+                painter: _VerticalMeterPainter(
+                  value: norm,
+                  color: color,
+                  fromTop: fromTop,
                 ),
               ),
             ),
@@ -705,34 +755,42 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _knob('THRESH', (_threshold + 60) / 60, '${_threshold.toStringAsFixed(0)} dB',
+              _knob('THRESH', (_threshold + 60) / 60,
+                '${_threshold.toStringAsFixed(0)} dB',
                 FabFilterProcessorColors.compThreshold, (v) {
                   setState(() => _threshold = v * 60 - 60);
                   _setParam(_P.threshold, _threshold);
                 }),
-              _knob('RATIO', (_ratio - 1) / 19, '${_ratio.toStringAsFixed(1)}:1',
+              _knob('RATIO', (_ratio - 1) / 19,
+                '${_ratio.toStringAsFixed(1)}:1',
                 FabFilterProcessorColors.compAccent, (v) {
                   setState(() => _ratio = v * 19 + 1);
                   _setParam(_P.ratio, _ratio);
                 }),
-              _knob('KNEE', _knee / 24, '${_knee.toStringAsFixed(0)} dB',
-                FabFilterColors.blue, (v) {
+              _knob('KNEE', _knee / 24,
+                '${_knee.toStringAsFixed(0)} dB',
+                FabFilterProcessorColors.compKnee, (v) {
                   setState(() => _knee = v * 24);
                   _setParam(_P.knee, _knee);
                 }),
               _knob('ATT', math.log(_attack / 0.01) / math.log(500 / 0.01),
-                _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µ' : '${_attack.toStringAsFixed(0)}ms',
+                _attack < 1
+                  ? '${(_attack * 1000).toStringAsFixed(0)}µ'
+                  : '${_attack.toStringAsFixed(0)}ms',
                 FabFilterColors.cyan, (v) {
                   setState(() => _attack = 0.01 * math.pow(500 / 0.01, v));
                   _setParam(_P.attack, _attack);
                 }),
               _knob('REL', math.log(_release / 5) / math.log(5000 / 5),
-                _release >= 1000 ? '${(_release / 1000).toStringAsFixed(1)}s' : '${_release.toStringAsFixed(0)}ms',
+                _release >= 1000
+                  ? '${(_release / 1000).toStringAsFixed(1)}s'
+                  : '${_release.toStringAsFixed(0)}ms',
                 FabFilterColors.cyan, (v) {
                   setState(() => _release = (5 * math.pow(5000 / 5, v)).toDouble());
                   _setParam(_P.release, _release);
                 }),
-              _knob('MIX', _mix / 100, '${_mix.toStringAsFixed(0)}%',
+              _knob('MIX', _mix / 100,
+                '${_mix.toStringAsFixed(0)}%',
                 FabFilterColors.blue, (v) {
                   setState(() => _mix = v * 100);
                   _setParam(_P.mix, _mix / 100.0);
@@ -747,25 +805,31 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           ),
         ),
         const SizedBox(height: 4),
-        // Row 2: Advanced params + toggles
+        // Row 2: Secondary knobs + toggles
         SizedBox(
           height: 24,
           child: Row(
             children: [
-              _miniParam('LOOK', _lookahead / 20, '${_lookahead.toStringAsFixed(1)}', FabFilterColors.purple, (v) {
-                setState(() => _lookahead = v * 20);
-                _setParam(_P.lookahead, _lookahead);
-              }),
+              _miniParam('LOOK', _lookahead / 20,
+                '${_lookahead.toStringAsFixed(1)}',
+                FabFilterColors.purple, (v) {
+                  setState(() => _lookahead = v * 20);
+                  _setParam(_P.lookahead, _lookahead);
+                }),
               const SizedBox(width: 4),
-              _miniParam('DRV', _drive / 24, '${_drive.toStringAsFixed(0)}', FabFilterProcessorColors.compAccent, (v) {
-                setState(() => _drive = v * 24);
-                _setParam(_P.drive, _drive);
-              }),
+              _miniParam('DRV', _drive / 24,
+                '${_drive.toStringAsFixed(0)}',
+                FabFilterProcessorColors.compAccent, (v) {
+                  setState(() => _drive = v * 24);
+                  _setParam(_P.drive, _drive);
+                }),
               const SizedBox(width: 4),
-              _miniParam('RNG', (_range + 60) / 60, '${_range.toStringAsFixed(0)}', FabFilterColors.cyan, (v) {
-                setState(() => _range = v * 60 - 60);
-                _setParam(_P.range, _range);
-              }),
+              _miniParam('RNG', (_range + 60) / 60,
+                '${_range.toStringAsFixed(0)}',
+                FabFilterColors.cyan, (v) {
+                  setState(() => _range = v * 60 - 60);
+                  _setParam(_P.range, _range);
+                }),
               const SizedBox(width: 6),
               // Detection mode
               ..._detectionButtons(),
@@ -791,7 +855,8 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     );
   }
 
-  Widget _knob(String label, double value, String display, Color color, ValueChanged<double> onChanged) {
+  Widget _knob(String label, double value, String display, Color color,
+      ValueChanged<double> onChanged) {
     return FabFilterKnob(
       value: value.clamp(0.0, 1.0),
       label: label,
@@ -802,7 +867,8 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     );
   }
 
-  Widget _miniParam(String label, double value, String display, Color color, ValueChanged<double> onChanged) {
+  Widget _miniParam(String label, double value, String display, Color color,
+      ValueChanged<double> onChanged) {
     return SizedBox(
       width: 48,
       child: Row(
@@ -832,47 +898,25 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
       padding: const EdgeInsets.only(right: 2),
       child: Tooltip(
         message: tips[i],
-        child: _tinyBtn(labels[i], _detection == i, FabFilterColors.cyan, () {
-          setState(() => _detection = i);
-          _setParam(_P.detection, i.toDouble());
-        }),
+        child: FabTinyButton(
+          label: labels[i],
+          active: _detection == i,
+          color: FabFilterColors.cyan,
+          onTap: () {
+            setState(() => _detection = i);
+            _setParam(_P.detection, i.toDouble());
+          },
+        ),
       ),
     ));
   }
 
   Widget _toggle(String label, bool active, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 20, padding: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          color: active ? color.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: active ? color : FabFilterColors.borderMedium),
-        ),
-        child: Center(child: Text(label, style: TextStyle(
-          color: active ? color : FabFilterColors.textTertiary,
-          fontSize: 8, fontWeight: FontWeight.bold,
-        ))),
-      ),
-    );
-  }
-
-  Widget _tinyBtn(String label, bool active, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 20, height: 18,
-        decoration: BoxDecoration(
-          color: active ? color.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: active ? color : FabFilterColors.borderMedium),
-        ),
-        child: Center(child: Text(label, style: TextStyle(
-          color: active ? color : FabFilterColors.textTertiary,
-          fontSize: 8, fontWeight: FontWeight.bold,
-        ))),
-      ),
+    return FabCompactToggle(
+      label: label,
+      active: active,
+      onToggle: onTap,
+      color: color,
     );
   }
 
@@ -889,6 +933,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           FabMiniSlider(label: 'HP', labelWidth: 18,
             value: (math.log(_scHpf / 20) / math.log(500 / 20)).clamp(0.0, 1.0),
             display: '${_scHpf.toStringAsFixed(0)}',
+            activeColor: widget.accentColor,
             onChanged: (v) {
               setState(() => _scHpf = (20 * math.pow(500 / 20, v)).toDouble());
               _setParam(_P.scHpf, _scHpf);
@@ -897,6 +942,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           FabMiniSlider(label: 'LP', labelWidth: 18,
             value: (math.log(_scLpf / 1000) / math.log(20000 / 1000)).clamp(0.0, 1.0),
             display: '${(_scLpf / 1000).toStringAsFixed(0)}k',
+            activeColor: widget.accentColor,
             onChanged: (v) {
               setState(() => _scLpf = (1000 * math.pow(20000 / 1000, v)).toDouble());
               _setParam(_P.scLpf, _scLpf);
@@ -905,6 +951,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           FabMiniSlider(label: 'MF', labelWidth: 18,
             value: (math.log(_scMidFreq / 200) / math.log(5000 / 200)).clamp(0.0, 1.0),
             display: '${_scMidFreq.toStringAsFixed(0)}',
+            activeColor: widget.accentColor,
             onChanged: (v) {
               setState(() => _scMidFreq = (200 * math.pow(5000 / 200, v)).toDouble());
               _setParam(_P.scMidFreq, _scMidFreq);
@@ -913,6 +960,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           FabMiniSlider(label: 'MG', labelWidth: 18,
             value: ((_scMidGain + 12) / 24).clamp(0.0, 1.0),
             display: '${_scMidGain >= 0 ? '+' : ''}${_scMidGain.toStringAsFixed(0)}',
+            activeColor: widget.accentColor,
             onChanged: (v) {
               setState(() => _scMidGain = v * 24 - 12);
               _setParam(_P.scMidGain, _scMidGain);
@@ -941,6 +989,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           FabMiniSlider(label: 'BPM', labelWidth: 22,
             value: ((_hostBpm - 20) / 280).clamp(0.0, 1.0),
             display: '${_hostBpm.toStringAsFixed(0)}',
+            activeColor: widget.accentColor,
             onChanged: (v) {
               setState(() => _hostBpm = v * 280 + 20);
               _setParam(_P.hostBpm, _hostBpm);
@@ -952,7 +1001,76 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GR HISTORY PAINTER (scrolling waveform)
+// VERTICAL METER PAINTER — gradient fills with peak line
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _VerticalMeterPainter extends CustomPainter {
+  final double value;
+  final Color color;
+  final bool fromTop;
+
+  _VerticalMeterPainter({
+    required this.value, required this.color, this.fromTop = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (value <= 0.001) return;
+
+    final barH = size.height * value;
+
+    if (fromTop) {
+      // GR meter — from top, warm gradient
+      final rect = Rect.fromLTWH(0, 0, size.width, barH);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+        Paint()..shader = ui.Gradient.linear(
+          Offset.zero, Offset(0, barH),
+          [
+            color.withValues(alpha: 0.5),
+            color,
+          ],
+        ),
+      );
+      // Glow line at bottom edge
+      canvas.drawLine(
+        Offset(0, barH), Offset(size.width, barH),
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+      );
+    } else {
+      // Level meter — from bottom, colored gradient
+      final rect = Rect.fromLTWH(0, size.height - barH, size.width, barH);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+        Paint()..shader = ui.Gradient.linear(
+          Offset(0, size.height), Offset(0, size.height - barH),
+          [
+            color.withValues(alpha: 0.4),
+            color,
+          ],
+        ),
+      );
+      // Glow line at top edge
+      canvas.drawLine(
+        Offset(0, size.height - barH), Offset(size.width, size.height - barH),
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.5
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _VerticalMeterPainter old) =>
+      old.value != value || old.color != color;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GR HISTORY PAINTER — glass waveform with gradient fills
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _GrHistoryPainter extends CustomPainter {
@@ -963,33 +1081,48 @@ class _GrHistoryPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Background gradient
+    // ── Background gradient ──
     canvas.drawRect(
       Offset.zero & size,
       Paint()..shader = ui.Gradient.linear(
         Offset.zero, Offset(0, size.height),
-        [FabFilterColors.bgVoid, FabFilterColors.bgDeep],
+        [const Color(0xFF0D0D12), const Color(0xFF08080C)],
       ),
     );
 
-    // Grid
-    final gridPaint = Paint()..color = FabFilterColors.grid..strokeWidth = 0.5;
-    for (var db = -60; db <= 0; db += 12) {
+    // ── Grid ──
+    final thinPaint = Paint()..color = const Color(0xFF1A1A22)..strokeWidth = 0.5;
+    final medPaint = Paint()..color = const Color(0xFF222230)..strokeWidth = 0.5;
+    for (var db = -60; db <= 0; db += 6) {
       final y = size.height * (1 - (db + 60) / 60);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+      canvas.drawLine(
+        Offset(0, y), Offset(size.width, y),
+        db % 12 == 0 ? medPaint : thinPaint,
+      );
     }
 
-    // Threshold line
+    // 0dB line
+    canvas.drawLine(
+      Offset(0, 0), Offset(size.width, 0),
+      Paint()..color = const Color(0xFF2A2A38)..strokeWidth = 1,
+    );
+
+    // ── Threshold line ──
     final thY = size.height * (1 - (threshold + 60) / 60);
     canvas.drawLine(Offset(0, thY), Offset(size.width, thY), Paint()
-      ..color = FabFilterProcessorColors.compThreshold
+      ..color = FabFilterProcessorColors.compThreshold.withValues(alpha: 0.35)
       ..strokeWidth = 1);
+    // Threshold glow
+    canvas.drawLine(Offset(0, thY), Offset(size.width, thY), Paint()
+      ..color = FabFilterProcessorColors.compThreshold.withValues(alpha: 0.15)
+      ..strokeWidth = 3
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
 
     if (history.length < 2) return;
     final sw = size.width / history.length;
     final startX = size.width - history.length * sw;
 
-    // Input level (gray fill)
+    // ── Input level fill (subtle gray gradient) ──
     final inPath = Path()..moveTo(startX, size.height);
     for (var i = 0; i < history.length; i++) {
       final x = startX + i * sw;
@@ -998,9 +1131,16 @@ class _GrHistoryPainter extends CustomPainter {
     }
     inPath.lineTo(startX + history.length * sw, size.height);
     inPath.close();
-    canvas.drawPath(inPath, Paint()..color = FabFilterColors.textMuted.withValues(alpha: 0.3));
+    canvas.drawPath(inPath, Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(0, size.height), Offset.zero,
+        [
+          const Color(0x08808088),
+          const Color(0x20808088),
+        ],
+      ));
 
-    // Output level (blue fill)
+    // ── Output level fill (blue gradient) ──
     final outPath = Path()..moveTo(startX, size.height);
     for (var i = 0; i < history.length; i++) {
       final x = startX + i * sw;
@@ -1009,17 +1149,61 @@ class _GrHistoryPainter extends CustomPainter {
     }
     outPath.lineTo(startX + history.length * sw, size.height);
     outPath.close();
-    canvas.drawPath(outPath, Paint()..color = FabFilterColors.blue.withValues(alpha: 0.5));
+    canvas.drawPath(outPath, Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(0, size.height), Offset.zero,
+        [
+          FabFilterColors.blue.withValues(alpha: 0.05),
+          FabFilterColors.blue.withValues(alpha: 0.3),
+        ],
+      ));
 
-    // GR bars from top
+    // ── Output level stroke (thin blue line) ──
+    final outLine = Path();
+    for (var i = 0; i < history.length; i++) {
+      final x = startX + i * sw;
+      final h = size.height * ((history[i].output + 60) / 60).clamp(0.0, 1.0);
+      final y = size.height - h;
+      i == 0 ? outLine.moveTo(x, y) : outLine.lineTo(x, y);
+    }
+    canvas.drawPath(outLine, Paint()
+      ..color = FabFilterColors.blue.withValues(alpha: 0.5)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke);
+
+    // ── GR bars from top — gradient bars ──
+    for (var i = 0; i < history.length; i++) {
+      final x = startX + i * sw;
+      final grNorm = (history[i].gr.abs() / 40).clamp(0.0, 1.0);
+      if (grNorm < 0.001) continue;
+      final grH = size.height * grNorm;
+      final barRect = Rect.fromLTWH(x, 0, sw + 0.5, grH);
+      canvas.drawRect(barRect, Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(x, 0), Offset(x, grH),
+          [
+            FabFilterProcessorColors.compGainReduction.withValues(alpha: 0.5),
+            FabFilterProcessorColors.compGainReduction.withValues(alpha: 0.15),
+          ],
+        ));
+    }
+
+    // ── GR edge glow ──
+    final grEdge = Path();
     for (var i = 0; i < history.length; i++) {
       final x = startX + i * sw;
       final grH = size.height * (history[i].gr.abs() / 40).clamp(0.0, 1.0);
-      canvas.drawRect(
-        Rect.fromLTWH(x, 0, sw + 1, grH),
-        Paint()..color = FabFilterProcessorColors.compGainReduction.withValues(alpha: 0.35),
-      );
+      i == 0 ? grEdge.moveTo(x, grH) : grEdge.lineTo(x, grH);
     }
+    canvas.drawPath(grEdge, Paint()
+      ..color = FabFilterProcessorColors.compGainReduction.withValues(alpha: 0.6)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5));
+    canvas.drawPath(grEdge, Paint()
+      ..color = FabFilterProcessorColors.compGainReduction
+      ..strokeWidth = 0.8
+      ..style = PaintingStyle.stroke);
   }
 
   @override
@@ -1027,98 +1211,226 @@ class _GrHistoryPainter extends CustomPainter {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// KNEE CURVE PAINTER (transfer function)
+// KNEE CURVE PAINTER — glass transfer function with animated zone
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _KneeCurvePainter extends CustomPainter {
-  final double threshold, ratio, knee, currentInput;
+  final double threshold, ratio, knee, currentInput, grAmount;
 
   _KneeCurvePainter({
     required this.threshold, required this.ratio,
     required this.knee, required this.currentInput,
+    this.grAmount = 0.0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Background
+    const minDb = -60.0, maxDb = 0.0, dbRange = maxDb - minDb;
+
+    // ── Background gradient ──
     canvas.drawRect(Offset.zero & size, Paint()
       ..shader = ui.Gradient.linear(
         Offset.zero, Offset(0, size.height),
-        [FabFilterColors.bgVoid, FabFilterColors.bgDeep],
+        [const Color(0xFF0D0D12), const Color(0xFF08080C)],
       ));
 
-    final gridPaint = Paint()..color = FabFilterColors.grid..strokeWidth = 0.5;
+    // ── Grid ──
+    final thinPaint = Paint()..color = const Color(0xFF1A1A22)..strokeWidth = 0.5;
+    final medPaint = Paint()..color = const Color(0xFF222230)..strokeWidth = 0.5;
 
-    // 1:1 diagonal
-    canvas.drawLine(Offset(0, size.height), Offset(size.width, 0), gridPaint);
-
-    // Grid
-    final gs = size.width / 4;
-    for (var i = 1; i < 4; i++) {
-      canvas.drawLine(Offset(i * gs, 0), Offset(i * gs, size.height), gridPaint);
-      canvas.drawLine(Offset(0, i * gs), Offset(size.width, i * gs), gridPaint);
+    for (var i = 1; i < 6; i++) {
+      final t = i / 6;
+      final x = t * size.width;
+      final y = t * size.height;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height),
+        i % 2 == 0 ? medPaint : thinPaint);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y),
+        i % 2 == 0 ? medPaint : thinPaint);
     }
 
-    // Transfer curve
-    const minDb = -60.0, maxDb = 0.0, dbRange = maxDb - minDb;
-    final curvePath = Path();
+    // ── 1:1 diagonal (unity gain) ──
+    canvas.drawLine(
+      Offset(0, size.height), Offset(size.width, 0),
+      Paint()..color = const Color(0xFF2A2A38)..strokeWidth = 0.8,
+    );
+
+    // ── Knee region highlight ──
     final halfKnee = knee / 2;
     final kneeStart = threshold - halfKnee;
     final kneeEnd = threshold + halfKnee;
 
+    if (knee > 0.5) {
+      final ksX = size.width * ((kneeStart - minDb) / dbRange);
+      final keX = size.width * ((kneeEnd - minDb) / dbRange);
+      canvas.drawRect(
+        Rect.fromLTRB(ksX, 0, keX, size.height),
+        Paint()..color = FabFilterProcessorColors.compKnee.withValues(alpha: 0.06),
+      );
+    }
+
+    // ── Compression zone fill ──
+    // Area between 1:1 line and transfer curve (where gain reduction happens)
+    final zonePath = Path();
+    final curvePath = Path();
+    bool zoneStarted = false;
+
     for (var i = 0; i <= size.width.toInt(); i++) {
       final inDb = minDb + (i / size.width) * dbRange;
-      double outDb;
-      if (inDb < kneeStart) {
-        outDb = inDb;
-      } else if (inDb > kneeEnd) {
-        outDb = threshold + (inDb - threshold) / ratio;
-      } else {
-        final kp = (inDb - kneeStart) / knee;
-        final ca = 1 + (1 / ratio - 1) * kp * kp;
-        outDb = kneeStart + (inDb - kneeStart) * (1 + ca) / 2;
-      }
+      final outDb = _transferFunction(inDb);
       final x = i.toDouble();
       final y = size.height * (1 - (outDb - minDb) / dbRange);
+
       i == 0 ? curvePath.moveTo(x, y) : curvePath.lineTo(x, y);
+
+      // 1:1 reference Y
+      final unityY = size.height * (1 - (inDb - minDb) / dbRange);
+
+      if (outDb < inDb - 0.1) {
+        if (!zoneStarted) {
+          zonePath.moveTo(x, unityY);
+          zoneStarted = true;
+        }
+        zonePath.lineTo(x, y);
+      } else if (zoneStarted) {
+        // Close the zone back along 1:1
+        zonePath.lineTo(x, unityY);
+      }
     }
+
+    if (zoneStarted) {
+      // Walk back along 1:1 to close
+      final finalX = size.width;
+      final finalInDb = maxDb;
+      final finalUnityY = size.height * (1 - (finalInDb - minDb) / dbRange);
+      zonePath.lineTo(finalX, finalUnityY);
+
+      for (var i = size.width.toInt(); i >= 0; i--) {
+        final inDb = minDb + (i / size.width) * dbRange;
+        final outDb = _transferFunction(inDb);
+        if (outDb < inDb - 0.1) {
+          final unityY = size.height * (1 - (inDb - minDb) / dbRange);
+          zonePath.lineTo(i.toDouble(), unityY);
+        }
+      }
+      zonePath.close();
+
+      canvas.drawPath(zonePath, Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(0, 0), Offset(0, size.height),
+          [
+            FabFilterProcessorColors.compGainReduction.withValues(alpha: 0.12),
+            FabFilterProcessorColors.compGainReduction.withValues(alpha: 0.04),
+          ],
+        ));
+    }
+
+    // ── Transfer curve — glow + core ──
+    canvas.drawPath(curvePath, Paint()
+      ..color = FabFilterProcessorColors.compAccent.withValues(alpha: 0.3)
+      ..strokeWidth = 5
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
 
     canvas.drawPath(curvePath, Paint()
       ..color = FabFilterProcessorColors.compAccent
       ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round);
+
+    // Bright highlight core
+    canvas.drawPath(curvePath, Paint()
+      ..color = Colors.white.withValues(alpha: 0.15)
+      ..strokeWidth = 1
       ..style = PaintingStyle.stroke);
 
-    // Current input dot
+    // ── Threshold marker ──
+    final thX = size.width * ((threshold - minDb) / dbRange);
+    // Dashed-style: subtle vertical line
+    canvas.drawLine(Offset(thX, 0), Offset(thX, size.height), Paint()
+      ..color = FabFilterProcessorColors.compThreshold.withValues(alpha: 0.25)
+      ..strokeWidth = 1);
+    // Glow at intersection
+    final thOutDb = _transferFunction(threshold);
+    final thY = size.height * (1 - (thOutDb - minDb) / dbRange);
+    canvas.drawCircle(Offset(thX, thY), 6, Paint()
+      ..color = FabFilterProcessorColors.compThreshold.withValues(alpha: 0.1)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+
+    // ── Current input dot ──
     if (currentInput > minDb) {
       final inX = size.width * ((currentInput - minDb) / dbRange);
-      double outDb;
-      if (currentInput < kneeStart) {
-        outDb = currentInput;
-      } else if (currentInput > kneeEnd) {
-        outDb = threshold + (currentInput - threshold) / ratio;
-      } else {
-        final kp = (currentInput - kneeStart) / knee;
-        final ca = 1 + (1 / ratio - 1) * kp * kp;
-        outDb = kneeStart + (currentInput - kneeStart) * (1 + ca) / 2;
-      }
+      final outDb = _transferFunction(currentInput);
       final outY = size.height * (1 - (outDb - minDb) / dbRange);
-      canvas.drawCircle(Offset(inX, outY), 4, Paint()..color = FabFilterProcessorColors.compThreshold);
-      final lp = Paint()
-        ..color = FabFilterProcessorColors.compThreshold.withValues(alpha: 0.3)
-        ..strokeWidth = 1;
-      canvas.drawLine(Offset(inX, outY), Offset(inX, size.height), lp);
-      canvas.drawLine(Offset(inX, outY), Offset(0, outY), lp);
+
+      // Crosshair guides
+      final guidePaint = Paint()
+        ..color = FabFilterProcessorColors.compThreshold.withValues(alpha: 0.2)
+        ..strokeWidth = 0.5;
+      canvas.drawLine(Offset(inX, outY), Offset(inX, size.height), guidePaint);
+      canvas.drawLine(Offset(inX, outY), Offset(0, outY), guidePaint);
+
+      // Outer glow
+      canvas.drawCircle(Offset(inX, outY), 8, Paint()
+        ..color = FabFilterProcessorColors.compThreshold.withValues(alpha: 0.15)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+
+      // Glass dot with radial gradient
+      canvas.drawCircle(Offset(inX, outY), 5, Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(inX - 1, outY - 1), 5,
+          [
+            Colors.white.withValues(alpha: 0.5),
+            FabFilterProcessorColors.compThreshold,
+            FabFilterProcessorColors.compThreshold.withValues(alpha: 0.6),
+          ],
+          [0.0, 0.5, 1.0],
+        ));
+
+      // Highlight dot
+      canvas.drawCircle(
+        Offset(inX - 1.5, outY - 1.5), 1.5,
+        Paint()..color = Colors.white.withValues(alpha: 0.4),
+      );
     }
 
-    // Threshold marker
-    final thX = size.width * ((threshold - minDb) / dbRange);
-    canvas.drawLine(Offset(thX, 0), Offset(thX, size.height), Paint()
-      ..color = FabFilterProcessorColors.compThreshold.withValues(alpha: 0.4)
-      ..strokeWidth = 1);
+    // ── dB labels ──
+    final labelStyle = ui.TextStyle(
+      color: const Color(0xFF505060),
+      fontSize: 7,
+    );
+    for (var db in [-48, -36, -24, -12, 0]) {
+      final x = size.width * ((db - minDb) / dbRange);
+      _drawText(canvas, '${db}', Offset(x + 2, size.height - 10), labelStyle);
+    }
+  }
+
+  double _transferFunction(double inDb) {
+    final halfKnee = knee / 2;
+    final kneeStart = threshold - halfKnee;
+    final kneeEnd = threshold + halfKnee;
+
+    if (inDb < kneeStart) {
+      return inDb;
+    } else if (inDb > kneeEnd) {
+      return threshold + (inDb - threshold) / ratio;
+    } else {
+      final kp = (inDb - kneeStart) / knee;
+      final ca = 1 + (1 / ratio - 1) * kp * kp;
+      return kneeStart + (inDb - kneeStart) * (1 + ca) / 2;
+    }
+  }
+
+  void _drawText(Canvas canvas, String text, Offset pos, ui.TextStyle style) {
+    final builder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.left))
+      ..pushStyle(style)
+      ..addText(text);
+    final para = builder.build()..layout(const ui.ParagraphConstraints(width: 30));
+    canvas.drawParagraph(para, pos);
   }
 
   @override
   bool shouldRepaint(covariant _KneeCurvePainter old) =>
       old.threshold != threshold || old.ratio != ratio ||
-      old.knee != knee || old.currentInput != currentInput;
+      old.knee != knee || old.currentInput != currentInput ||
+      old.grAmount != grAmount;
 }

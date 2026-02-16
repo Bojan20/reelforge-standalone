@@ -1,11 +1,14 @@
-/// FF-G Gate Panel
+/// FF-G Gate Panel — Pro-G 2026 Premium Upgrade
 ///
-/// Professional gate interface:
-/// - Real-time gate state visualization
-/// - Sidechain filtering
-/// - Expert timing controls
-/// - Multiple gate modes (gate, duck, expand)
-/// - Lookahead and hysteresis
+/// Professional gate interface with FabFilter-authentic visuals:
+/// - Scrolling I/O waveform with state-colored output fills
+/// - Glass transfer curve with animated input dot + glow
+/// - Envelope visualization (ATT → HOLD → REL shape overlay)
+/// - Animated gate state badge with pulse glow
+/// - Range indicator (attenuation zone fill on display)
+/// - Sidechain filter response mini-curve
+/// - Hysteresis zone with gradient tint
+/// - dB axis labels + time grid on scrolling display
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -45,14 +48,14 @@ enum GateState {
 class GateLevelSample {
   final double input;
   final double output;
+  final double gateGain; // 0-1 (closed to open)
   final GateState state;
-  final DateTime timestamp;
 
   GateLevelSample({
     required this.input,
     required this.output,
+    required this.gateGain,
     required this.state,
-    required this.timestamp,
   });
 }
 
@@ -103,7 +106,6 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   double _ratio = 100.0; // % (for expander mode)
 
   // Display
-  bool _compactView = false;
   final List<GateLevelSample> _levelHistory = [];
   static const int _maxHistorySamples = 200;
 
@@ -112,6 +114,10 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   double _currentOutputLevel = -60.0;
   GateState _currentState = GateState.closed;
   double _gateOpen = 0.0; // 0-1 (closed to open)
+
+  // Envelope animation
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnim;
 
   // Animation
   late AnimationController _meterController;
@@ -132,7 +138,6 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   void initState() {
     super.initState();
 
-    // Initialize FFI gate
     _initializeProcessor();
     initBypassFromProvider();
 
@@ -140,8 +145,13 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       vsync: this,
       duration: const Duration(milliseconds: 16),
     )..addListener(_updateMeters);
-
     _meterController.repeat();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+    _pulseAnim = CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut);
   }
 
   void _initializeProcessor() {
@@ -165,7 +175,6 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
     }
   }
 
-  /// Read current parameter values from engine (preserves live state on tab switch)
   void _readParamsFromEngine() {
     if (!_initialized || _slotIndex < 0) return;
     setState(() {
@@ -174,59 +183,36 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       _attack = _ffi.insertGetParam(widget.trackId, _slotIndex, 2);
       _hold = _ffi.insertGetParam(widget.trackId, _slotIndex, 3);
       _release = _ffi.insertGetParam(widget.trackId, _slotIndex, 4);
-      // Extended params (5-9)
       final modeVal = _ffi.insertGetParam(widget.trackId, _slotIndex, 5).round();
       _mode = modeVal == 1 ? GateMode.duck : (modeVal == 2 ? GateMode.expand : GateMode.gate);
       _sidechainEnabled = _ffi.insertGetParam(widget.trackId, _slotIndex, 6) > 0.5;
       _sidechainHpf = _ffi.insertGetParam(widget.trackId, _slotIndex, 7);
       _sidechainLpf = _ffi.insertGetParam(widget.trackId, _slotIndex, 8);
       _lookahead = _ffi.insertGetParam(widget.trackId, _slotIndex, 9);
-      // Clamp restored values to valid ranges
       if (_sidechainHpf < 20) _sidechainHpf = 80.0;
       if (_sidechainLpf < 1000) _sidechainLpf = 12000.0;
     });
-  }
-
-  void _applyAllParameters() {
-    if (!_initialized || _slotIndex < 0) return;
-    // GateWrapper param indices: 0-4=Core, 5-9=Extended
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 0, _threshold);      // Threshold (dB)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 1, _range);          // Range (dB)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 2, _attack);         // Attack (ms)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 3, _hold);           // Hold (ms)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 4, _release);        // Release (ms)
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 5, _mode.index.toDouble());  // Mode
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 6, _sidechainEnabled ? 1.0 : 0.0);  // SC Enable
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _sidechainHpf);   // SC HP Freq
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 8, _sidechainLpf);   // SC LP Freq
-    _ffi.insertSetParam(widget.trackId, _slotIndex, 9, _lookahead);      // Lookahead
   }
 
   @override
   void dispose() {
     _meterTimer?.cancel();
     _meterController.dispose();
-    // Don't remove from insert chain - node persists
-    // Ghost gateRemove() was here, now removed
+    _pulseController.dispose();
     super.dispose();
   }
 
   void _updateMeters() {
     if (!mounted) return;
     setState(() {
-      // Read real meters from FFI insert chain
       if (_initialized && _slotIndex >= 0) {
-        // insertGetMeter returns: 0=inputLevel, 1=outputLevel, 2=gateGain (0-1)
         _currentInputLevel = _ffi.insertGetMeter(widget.trackId, _slotIndex, 0);
         _currentOutputLevel = _ffi.insertGetMeter(widget.trackId, _slotIndex, 1);
         final gateGain = _ffi.insertGetMeter(widget.trackId, _slotIndex, 2);
 
-        // Derive gate open from gain (0=closed, 1=open)
         final targetOpen = gateGain.clamp(0.0, 1.0);
-        // Smooth transition for visual
         _gateOpen += (targetOpen - _gateOpen) * 0.3;
 
-        // Derive state from gate open
         if (_gateOpen > 0.95) {
           _currentState = GateState.open;
         } else if (_gateOpen < 0.05) {
@@ -237,7 +223,6 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
           _currentState = GateState.closing;
         }
       } else {
-        // Fallback: simple state machine when FFI not available
         final isAboveThreshold = _currentInputLevel > _threshold;
         final isAboveHysteresis = _currentInputLevel > (_threshold - _hysteresis);
 
@@ -256,12 +241,11 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
         _currentOutputLevel = _currentInputLevel + attenuation;
       }
 
-      // Add to history
       _levelHistory.add(GateLevelSample(
         input: _currentInputLevel,
         output: _currentOutputLevel,
+        gateGain: _gateOpen,
         state: _currentState,
-        timestamp: DateTime.now(),
       ));
       while (_levelHistory.length > _maxHistorySamples) {
         _levelHistory.removeAt(0);
@@ -270,7 +254,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // BUILD — Compact horizontal layout, NO scrolling
+  // BUILD
   // ─────────────────────────────────────────────────────────────────────────
 
   @override
@@ -279,20 +263,18 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
-          // Compact header
           _buildCompactHeader(),
-          // Main content — three zones
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
               child: Column(
                 children: [
-                  // TOP: Display area (scrolling waveform + transfer curve)
+                  // TOP: Scrolling display + transfer curve
                   Expanded(
                     flex: 3,
                     child: Row(
                       children: [
-                        // Scrolling level display
+                        // Scrolling level display with envelope overlay
                         Expanded(
                           flex: 3,
                           child: Container(
@@ -303,19 +285,25 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
                                 history: _levelHistory,
                                 threshold: _threshold,
                                 hysteresis: _hysteresis,
+                                range: _range,
+                                attack: _attack,
+                                hold: _hold,
+                                release: _release,
+                                gateOpen: _gateOpen,
                               ),
                               child: const SizedBox.expand(),
                             ),
                           ),
                         ),
                         const SizedBox(width: 6),
-                        // Transfer curve + gate state
+                        // Transfer curve + state indicator + meters
                         SizedBox(
-                          width: 90,
+                          width: 110,
                           child: Column(
                             children: [
-                              // Transfer curve
+                              // Transfer curve (glass style)
                               Expanded(
+                                flex: 3,
                                 child: Container(
                                   decoration: FabFilterDecorations.display(),
                                   clipBehavior: Clip.hardEdge,
@@ -327,14 +315,29 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
                                       hysteresis: _hysteresis,
                                       mode: _mode,
                                       inputLevel: _currentInputLevel,
+                                      gateOpen: _gateOpen,
                                     ),
                                     child: const SizedBox.expand(),
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              // Compact gate state badge
+                              // Gate state badge with pulse
                               _buildGateStateBadge(),
+                              const SizedBox(height: 4),
+                              // Mini I/O meters
+                              SizedBox(
+                                height: 22,
+                                child: Row(
+                                  children: [
+                                    Expanded(child: _buildMiniMeter('IN', _currentInputLevel, FabFilterColors.textMuted)),
+                                    const SizedBox(width: 3),
+                                    Expanded(child: _buildMiniMeter('OUT', _currentOutputLevel, FabFilterColors.green)),
+                                    const SizedBox(width: 3),
+                                    Expanded(child: _buildMiniMeter('GR', -(_range * (1 - _gateOpen)).abs(), FabFilterColors.orange)),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -342,16 +345,14 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
                     ),
                   ),
                   const SizedBox(height: 6),
-                  // BOTTOM: Knobs row + sidechain options
+                  // BOTTOM: Knobs + options
                   Expanded(
                     flex: 2,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Main knobs
                         Expanded(flex: 3, child: _buildCompactControls()),
                         const SizedBox(width: 8),
-                        // Sidechain + options
                         _buildCompactOptions(),
                       ],
                     ),
@@ -365,6 +366,8 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
     ));
   }
 
+  // ─── Header ─────────────────────────────────────────────────────────────
+
   Widget _buildCompactHeader() {
     return Container(
       height: 32,
@@ -376,12 +379,30 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
           const SizedBox(width: 6),
           Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11)),
           const SizedBox(width: 12),
-          // Mode selector
+          // Mode selector with animated chips
           ...GateMode.values.map((m) => Padding(
             padding: const EdgeInsets.only(right: 4),
             child: _buildModeChip(m),
           )),
           const Spacer(),
+          // Gate open % indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: FabFilterColors.bgMid,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              '${(_gateOpen * 100).toStringAsFixed(0)}%',
+              style: TextStyle(
+                color: _gateOpen > 0.5 ? FabFilterColors.green : FabFilterColors.red,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           _buildCompactAB(),
           const SizedBox(width: 8),
           _buildCompactBypass(),
@@ -397,21 +418,36 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
         setState(() => _mode = mode);
         if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 5, mode.index.toDouble());
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
           color: isSelected ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: isSelected ? widget.accentColor : FabFilterColors.border),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? widget.accentColor : FabFilterColors.border,
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: isSelected ? [
+            BoxShadow(color: widget.accentColor.withValues(alpha: 0.2), blurRadius: 4),
+          ] : null,
         ),
-        child: Text(mode.label, style: TextStyle(color: isSelected ? widget.accentColor : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
+        child: Text(
+          mode.label,
+          style: TextStyle(
+            color: isSelected ? widget.accentColor : FabFilterColors.textTertiary,
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildCompactAB() => FabCompactAB(isStateB: isStateB, onToggle: toggleAB, accentColor: widget.accentColor);
-
   Widget _buildCompactBypass() => FabCompactBypass(bypassed: bypassed, onToggle: toggleBypass);
+
+  // ─── Gate State Badge ───────────────────────────────────────────────────
 
   Widget _buildGateStateBadge() {
     final stateColor = switch (_currentState) {
@@ -427,30 +463,78 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       GateState.closed => 'CLOSED',
     };
 
-    return Container(
-      height: 22,
-      decoration: BoxDecoration(
-        color: stateColor.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: stateColor.withValues(alpha: 0.6)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 8, height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: stateColor,
-              boxShadow: [BoxShadow(color: stateColor.withValues(alpha: 0.5), blurRadius: 4)],
-            ),
+    return AnimatedBuilder(
+      animation: _pulseAnim,
+      builder: (context, child) {
+        final glowIntensity = (_currentState == GateState.opening || _currentState == GateState.closing)
+            ? _pulseAnim.value * 0.5
+            : 0.0;
+        return Container(
+          height: 24,
+          decoration: BoxDecoration(
+            color: stateColor.withValues(alpha: 0.15 + glowIntensity * 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: stateColor.withValues(alpha: 0.6 + glowIntensity * 0.4)),
+            boxShadow: [
+              BoxShadow(
+                color: stateColor.withValues(alpha: 0.2 + glowIntensity * 0.3),
+                blurRadius: 6 + glowIntensity * 4,
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          Text(stateLabel, style: TextStyle(color: stateColor, fontSize: 8, fontWeight: FontWeight.bold)),
-        ],
-      ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 8, height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: stateColor,
+                  boxShadow: [BoxShadow(color: stateColor.withValues(alpha: 0.6), blurRadius: 4)],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(stateLabel, style: TextStyle(color: stateColor, fontSize: 8, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        );
+      },
     );
   }
+
+  // ─── Mini Meter ─────────────────────────────────────────────────────────
+
+  Widget _buildMiniMeter(String label, double levelDb, Color color) {
+    final norm = ((levelDb + 60) / 60).clamp(0.0, 1.0);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Container(
+          height: 10,
+          decoration: BoxDecoration(
+            color: FabFilterColors.bgVoid,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: norm,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(2),
+                gradient: LinearGradient(
+                  colors: [color.withValues(alpha: 0.6), color],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── Controls ───────────────────────────────────────────────────────────
 
   Widget _buildCompactControls() {
     return Row(
@@ -469,7 +553,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
         _buildSmallKnob(
           value: (_range + 80) / 80,
           label: 'RANGE',
-          display: '${_range.toStringAsFixed(0)}dB',
+          display: _range <= -79 ? '-∞dB' : '${_range.toStringAsFixed(0)}dB',
           color: FabFilterColors.orange,
           onChanged: (v) {
             setState(() => _range = v * 80 - 80);
@@ -479,7 +563,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
         _buildSmallKnob(
           value: math.log(_attack / 0.01) / math.log(100 / 0.01),
           label: 'ATT',
-          display: _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µ' : '${_attack.toStringAsFixed(0)}ms',
+          display: _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µs' : '${_attack.toStringAsFixed(1)}ms',
           color: FabFilterColors.cyan,
           onChanged: (v) {
             setState(() => _attack = 0.01 * math.pow(100 / 0.01, v).toDouble());
@@ -528,18 +612,39 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
     return FabFilterKnob(value: value.clamp(0.0, 1.0), label: label, display: display, color: color, size: 48, onChanged: onChanged);
   }
 
+  // ─── Options Panel ──────────────────────────────────────────────────────
+
   Widget _buildCompactOptions() {
     return SizedBox(
-      width: 100,
+      width: 110,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          FabSectionLabel('SIDECHAIN'),
+          const SizedBox(height: 4),
           _buildOptionRow('SC', _sidechainEnabled, (v) {
             setState(() => _sidechainEnabled = v);
             if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 6, v ? 1.0 : 0.0);
           }),
-          const SizedBox(height: 4),
           if (_sidechainEnabled) ...[
+            const SizedBox(height: 4),
+            // SC filter mini-response curve
+            Container(
+              height: 30,
+              decoration: BoxDecoration(
+                color: FabFilterColors.bgVoid,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: CustomPaint(
+                painter: _SidechainFilterPainter(
+                  hpf: _sidechainHpf,
+                  lpf: _sidechainLpf,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            const SizedBox(height: 4),
             _buildMiniSlider('HP', math.log(_sidechainHpf / 20) / math.log(500 / 20), '${_sidechainHpf.toStringAsFixed(0)}', (v) {
               setState(() => _sidechainHpf = 20 * math.pow(500 / 20, v).toDouble());
               if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 7, _sidechainHpf);
@@ -550,14 +655,17 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
               if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 8, _sidechainLpf);
             }),
             const SizedBox(height: 4),
-            _buildOptionRow('Aud', _sidechainAudition, (v) => setState(() => _sidechainAudition = v)),
+            _buildOptionRow('AUD', _sidechainAudition, (v) => setState(() => _sidechainAudition = v)),
           ],
-          const Flexible(child: SizedBox(height: 8)), // Flexible gap - can shrink to 0
-          if (showExpertMode)
-            _buildMiniSlider('Look', _lookahead / 10, '${_lookahead.toStringAsFixed(0)}ms', (v) {
+          const Flexible(child: SizedBox(height: 8)),
+          if (showExpertMode) ...[
+            FabSectionLabel('EXPERT'),
+            const SizedBox(height: 4),
+            _buildMiniSlider('LA', _lookahead / 10, '${_lookahead.toStringAsFixed(0)}ms', (v) {
               setState(() => _lookahead = v * 10);
               if (_slotIndex >= 0) _ffi.insertSetParam(widget.trackId, _slotIndex, 9, _lookahead);
             }),
+          ],
         ],
       ),
     );
@@ -568,141 +676,254 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
 
   Widget _buildMiniSlider(String label, double value, String display, ValueChanged<double> onChanged) =>
     FabMiniSlider(label: label, value: value, display: display, onChanged: onChanged);
-
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GATE DISPLAY PAINTER
+// GATE DISPLAY PAINTER — Premium Pro-G scrolling visualization
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _GateDisplayPainter extends CustomPainter {
   final List<GateLevelSample> history;
   final double threshold;
   final double hysteresis;
+  final double range;
+  final double attack;
+  final double hold;
+  final double release;
+  final double gateOpen;
 
   _GateDisplayPainter({
     required this.history,
     required this.threshold,
     required this.hysteresis,
+    required this.range,
+    required this.attack,
+    required this.hold,
+    required this.release,
+    required this.gateOpen,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
+    final w = size.width;
+    final h = size.height;
 
-    // Background gradient
-    final bgPaint = Paint()
+    // ─── Background gradient ─────────────────────────────────────────
+    canvas.drawRect(Offset.zero & size, Paint()
       ..shader = ui.Gradient.linear(
-        Offset(0, 0),
-        Offset(0, size.height),
-        [
-          FabFilterColors.bgVoid,
-          FabFilterColors.bgDeep,
-        ],
+        Offset.zero, Offset(0, h),
+        [FabFilterColors.bgVoid, FabFilterColors.bgDeep],
+      ));
+
+    // ─── Range zone (attenuation area — bottom fill) ─────────────────
+    final rangeNorm = (range.abs() / 80).clamp(0.0, 1.0);
+    if (rangeNorm > 0.01) {
+      final rangeTop = h * (1 - rangeNorm * 0.95);
+      canvas.drawRect(
+        Rect.fromLTRB(0, rangeTop, w, h),
+        Paint()..color = FabFilterColors.red.withValues(alpha: 0.05),
       );
-    canvas.drawRect(rect, bgPaint);
-
-    // Grid
-    final gridPaint = Paint()
-      ..color = FabFilterColors.grid
-      ..strokeWidth = 0.5;
-
-    for (var db = -60; db <= 0; db += 12) {
-      final y = size.height * (1 - (db + 60) / 60);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
-    // Threshold zone
-    final thresholdY = size.height * (1 - (threshold + 60) / 60);
-    final hysteresisY = size.height * (1 - (threshold - hysteresis + 60) / 60);
+    // ─── dB Grid ─────────────────────────────────────────────────────
+    final gridPaint = Paint()..color = FabFilterColors.grid..strokeWidth = 0.5;
+    final labelStyle = TextStyle(
+      color: FabFilterColors.textMuted.withValues(alpha: 0.5),
+      fontSize: 8,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
 
-    // Hysteresis zone
-    final zonePaint = Paint()
-      ..color = FabFilterColors.green.withValues(alpha: 0.1);
+    for (var db = -60; db <= 0; db += 12) {
+      final y = h * (1 - (db + 60) / 60);
+      canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
+      // dB axis label
+      final tp = TextPainter(
+        text: TextSpan(text: '${db}dB', style: labelStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(2, y - tp.height - 1));
+    }
+
+    // ─── Threshold zone with gradient ────────────────────────────────
+    final thresholdY = h * (1 - (threshold + 60) / 60);
+    final hysteresisY = h * (1 - (threshold - hysteresis + 60) / 60);
+
+    // Hysteresis zone gradient fill
     canvas.drawRect(
-      Rect.fromLTRB(0, thresholdY, size.width, hysteresisY),
-      zonePaint,
+      Rect.fromLTRB(0, thresholdY, w, hysteresisY),
+      Paint()..shader = ui.Gradient.linear(
+        Offset(0, thresholdY), Offset(0, hysteresisY),
+        [
+          FabFilterColors.green.withValues(alpha: 0.12),
+          FabFilterColors.green.withValues(alpha: 0.03),
+        ],
+      ),
     );
 
-    // Threshold line
-    final thresholdPaint = Paint()
+    // Threshold line with glow
+    final threshGlow = Paint()
+      ..color = FabFilterColors.green.withValues(alpha: 0.3)
+      ..strokeWidth = 6
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawLine(Offset(0, thresholdY), Offset(w, thresholdY), threshGlow);
+
+    final threshLine = Paint()
       ..color = FabFilterColors.green
-      ..strokeWidth = 2;
-    canvas.drawLine(
-      Offset(0, thresholdY),
-      Offset(size.width, thresholdY),
-      thresholdPaint,
-    );
+      ..strokeWidth = 1.5;
+    canvas.drawLine(Offset(0, thresholdY), Offset(w, thresholdY), threshLine);
 
     // Hysteresis line (dashed)
     final hystPaint = Paint()
-      ..color = FabFilterColors.green.withValues(alpha: 0.5)
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    for (var x = 0.0; x < size.width; x += 10) {
-      canvas.drawLine(
-        Offset(x, hysteresisY),
-        Offset(x + 5, hysteresisY),
-        hystPaint,
-      );
+      ..color = FabFilterColors.green.withValues(alpha: 0.4)
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < w; x += 8) {
+      canvas.drawLine(Offset(x, hysteresisY), Offset(x + 4, hysteresisY), hystPaint);
     }
 
     if (history.isEmpty) return;
+    final sampleWidth = w / history.length;
 
-    final sampleWidth = size.width / history.length;
-
-    // Input level (gray)
+    // ─── Input level fill (dim) ──────────────────────────────────────
     final inputPath = Path();
-    inputPath.moveTo(0, size.height);
-
+    inputPath.moveTo(0, h);
     for (var i = 0; i < history.length; i++) {
       final x = i * sampleWidth;
       final level = history[i].input;
       final normalizedLevel = ((level + 60) / 60).clamp(0.0, 1.0);
-      final y = size.height * (1 - normalizedLevel);
-
-      inputPath.lineTo(x, y);
+      inputPath.lineTo(x, h * (1 - normalizedLevel));
     }
-    inputPath.lineTo(size.width, size.height);
+    inputPath.lineTo(w, h);
     inputPath.close();
 
-    canvas.drawPath(
-      inputPath,
-      Paint()..color = FabFilterColors.textMuted.withValues(alpha: 0.3),
-    );
+    canvas.drawPath(inputPath, Paint()
+      ..shader = ui.Gradient.linear(
+        Offset.zero, Offset(0, h),
+        [FabFilterColors.textMuted.withValues(alpha: 0.15), FabFilterColors.textMuted.withValues(alpha: 0.03)],
+      ));
 
-    // Output level with state coloring
+    // ─── Output level with state-colored gradient fills ──────────────
+    // Build separate paths per state for gradient coloring
     for (var i = 0; i < history.length; i++) {
       final x = i * sampleWidth;
       final sample = history[i];
       final normalizedLevel = ((sample.output + 60) / 60).clamp(0.0, 1.0);
-      final barHeight = size.height * normalizedLevel;
+      final barHeight = h * normalizedLevel;
 
       final color = switch (sample.state) {
         GateState.open => FabFilterColors.green,
         GateState.opening => FabFilterColors.yellow,
         GateState.closing => FabFilterColors.orange,
-        GateState.closed => FabFilterColors.red.withValues(alpha: 0.5),
+        GateState.closed => FabFilterColors.red.withValues(alpha: 0.4),
       };
 
-      canvas.drawRect(
-        Rect.fromLTWH(x, size.height - barHeight, sampleWidth + 1, barHeight),
-        Paint()..color = color.withValues(alpha: 0.7),
-      );
+      // Gradient fill bar
+      final barRect = Rect.fromLTWH(x, h - barHeight, sampleWidth + 1, barHeight);
+      canvas.drawRect(barRect, Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(x, h - barHeight), Offset(x, h),
+          [color.withValues(alpha: 0.8), color.withValues(alpha: 0.2)],
+        ));
     }
 
-    // Labels
+    // ─── Output level outline ────────────────────────────────────────
+    final outlinePath = Path();
+    for (var i = 0; i < history.length; i++) {
+      final x = i * sampleWidth;
+      final level = history[i].output;
+      final normalizedLevel = ((level + 60) / 60).clamp(0.0, 1.0);
+      final y = h * (1 - normalizedLevel);
+      if (i == 0) {
+        outlinePath.moveTo(x, y);
+      } else {
+        outlinePath.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(outlinePath, Paint()
+      ..color = FabFilterColors.green
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5);
+
+    // ─── Envelope shape overlay (ATT-HOLD-REL) ──────────────────────
+    _drawEnvelopeOverlay(canvas, size);
+
+    // ─── Threshold label ─────────────────────────────────────────────
     _drawLabel(canvas, 'Threshold: ${threshold.toStringAsFixed(0)} dB',
-        Offset(4, thresholdY - 12), FabFilterColors.green);
+        Offset(w - 120, thresholdY - 12), FabFilterColors.green);
+
+    // ─── Range label ─────────────────────────────────────────────────
+    if (range > -79) {
+      _drawLabel(canvas, 'Range: ${range.toStringAsFixed(0)} dB',
+          Offset(w - 120, h - 14), FabFilterColors.orange);
+    }
+  }
+
+  void _drawEnvelopeOverlay(Canvas canvas, Size size) {
+    // Draw gate envelope shape in bottom-right corner
+    final envW = 60.0;
+    final envH = 24.0;
+    final envX = size.width - envW - 4;
+    final envY = 4.0;
+
+    // Background
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(envX, envY, envW, envH), const Radius.circular(3)),
+      Paint()..color = FabFilterColors.bgVoid.withValues(alpha: 0.8),
+    );
+
+    // Normalize timings
+    final totalMs = attack + hold + release;
+    if (totalMs <= 0) return;
+    final attFrac = attack / totalMs;
+    final holdFrac = hold / totalMs;
+
+    final envPath = Path();
+    final startX = envX + 2;
+    final endX = envX + envW - 2;
+    final topY = envY + 3;
+    final botY = envY + envH - 3;
+    final envWidth = endX - startX;
+
+    // Attack ramp up
+    envPath.moveTo(startX, botY);
+    envPath.lineTo(startX + envWidth * attFrac, topY);
+    // Hold plateau
+    envPath.lineTo(startX + envWidth * (attFrac + holdFrac), topY);
+    // Release ramp down
+    envPath.lineTo(endX, botY);
+
+    // Fill
+    final fillPath = Path.from(envPath);
+    fillPath.lineTo(startX, botY);
+    fillPath.close();
+    canvas.drawPath(fillPath, Paint()
+      ..color = FabFilterColors.green.withValues(alpha: 0.15));
+
+    // Stroke
+    canvas.drawPath(envPath, Paint()
+      ..color = FabFilterColors.green.withValues(alpha: 0.7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeJoin = StrokeJoin.round);
+
+    // Phase dots
+    final phases = [
+      (startX + envWidth * attFrac * 0.5, (topY + botY) / 2, 'A', FabFilterColors.cyan),
+      (startX + envWidth * (attFrac + holdFrac * 0.5), topY + 2, 'H', FabFilterColors.blue),
+      (startX + envWidth * (attFrac + holdFrac + (1 - attFrac - holdFrac) * 0.5), (topY + botY) / 2, 'R', FabFilterColors.cyan),
+    ];
+    for (final (px, py, label, color) in phases) {
+      canvas.drawCircle(Offset(px, py), 2, Paint()..color = color);
+      final tp = TextPainter(
+        text: TextSpan(text: label, style: TextStyle(color: color, fontSize: 6, fontWeight: FontWeight.bold)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(px - tp.width / 2, py + 3));
+    }
   }
 
   void _drawLabel(Canvas canvas, String text, Offset offset, Color color) {
     final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(color: color, fontSize: 9),
-      ),
+      text: TextSpan(text: text, style: TextStyle(color: color, fontSize: 9, fontFeatures: const [FontFeature.tabularFigures()])),
       textDirection: TextDirection.ltr,
     );
     painter.layout();
@@ -714,7 +935,7 @@ class _GateDisplayPainter extends CustomPainter {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TRANSFER CURVE PAINTER — Input vs Output characteristic
+// TRANSFER CURVE PAINTER — Glass-style input vs output characteristic
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _TransferCurvePainter extends CustomPainter {
@@ -724,6 +945,7 @@ class _TransferCurvePainter extends CustomPainter {
   final double hysteresis;
   final GateMode mode;
   final double inputLevel;
+  final double gateOpen;
 
   _TransferCurvePainter({
     required this.threshold,
@@ -732,6 +954,7 @@ class _TransferCurvePainter extends CustomPainter {
     required this.hysteresis,
     required this.mode,
     required this.inputLevel,
+    required this.gateOpen,
   });
 
   @override
@@ -740,31 +963,41 @@ class _TransferCurvePainter extends CustomPainter {
     final h = size.height;
 
     // Background
-    canvas.drawRect(Offset.zero & size, Paint()..color = FabFilterColors.bgVoid);
+    canvas.drawRect(Offset.zero & size, Paint()
+      ..shader = ui.Gradient.linear(
+        Offset.zero, Offset(w, h),
+        [FabFilterColors.bgVoid, FabFilterColors.bgDeep],
+      ));
 
-    // Unity line (diagonal — input=output)
-    canvas.drawLine(
-      Offset(0, h),
-      Offset(w, 0),
-      Paint()
-        ..color = FabFilterColors.grid
-        ..strokeWidth = 0.5,
-    );
+    // Grid
+    final gridPaint = Paint()..color = FabFilterColors.grid..strokeWidth = 0.5;
+    for (var i = 1; i < 4; i++) {
+      final v = i / 4;
+      canvas.drawLine(Offset(v * w, 0), Offset(v * w, h), gridPaint);
+      canvas.drawLine(Offset(0, v * h), Offset(w, v * h), gridPaint);
+    }
+
+    // Unity line (diagonal)
+    canvas.drawLine(Offset(0, h), Offset(w, 0), Paint()
+      ..color = FabFilterColors.textMuted.withValues(alpha: 0.2)
+      ..strokeWidth = 1);
 
     // Transfer curve
-    final curvePath = Path();
     const dbMin = -80.0;
     const dbMax = 0.0;
     const dbRange = dbMax - dbMin;
+
+    // Fill area between curve and unity (shows attenuation)
+    final fillPath = Path();
+    final curvePath = Path();
 
     for (var i = 0; i <= w.toInt(); i++) {
       final inputDb = dbMin + (i / w) * dbRange;
       double outputDb;
 
       if (inputDb >= threshold) {
-        outputDb = inputDb; // Above threshold — pass through
+        outputDb = inputDb;
       } else {
-        // Below threshold — apply range
         final belowDb = threshold - inputDb;
         final attenuation = (range / 80.0) * belowDb * (ratio / 100.0);
         outputDb = inputDb + attenuation;
@@ -772,34 +1005,52 @@ class _TransferCurvePainter extends CustomPainter {
 
       final x = i.toDouble();
       final y = h - ((outputDb - dbMin) / dbRange) * h;
+      final unityY = h - ((inputDb - dbMin) / dbRange) * h;
 
       if (i == 0) {
         curvePath.moveTo(x, y.clamp(0.0, h));
+        fillPath.moveTo(x, unityY.clamp(0.0, h));
       } else {
         curvePath.lineTo(x, y.clamp(0.0, h));
       }
+      fillPath.lineTo(x, y.clamp(0.0, h));
     }
 
-    canvas.drawPath(
-      curvePath,
-      Paint()
-        ..color = FabFilterColors.green
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.round,
-    );
+    // Close fill path back along unity line
+    for (var i = w.toInt(); i >= 0; i--) {
+      final inputDb = dbMin + (i / w) * dbRange;
+      final unityY = h - ((inputDb - dbMin) / dbRange) * h;
+      fillPath.lineTo(i.toDouble(), unityY.clamp(0.0, h));
+    }
+    fillPath.close();
+
+    // Attenuation zone fill
+    canvas.drawPath(fillPath, Paint()
+      ..color = FabFilterColors.red.withValues(alpha: 0.08));
+
+    // Curve line with glow
+    canvas.drawPath(curvePath, Paint()
+      ..color = FabFilterColors.green.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+
+    canvas.drawPath(curvePath, Paint()
+      ..color = FabFilterColors.green
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round);
 
     // Threshold marker
     final threshX = ((threshold - dbMin) / dbRange) * w;
     canvas.drawLine(
-      Offset(threshX, 0),
-      Offset(threshX, h),
+      Offset(threshX, 0), Offset(threshX, h),
       Paint()
-        ..color = FabFilterColors.green.withValues(alpha: 0.3)
+        ..color = FabFilterColors.green.withValues(alpha: 0.25)
         ..strokeWidth = 1,
     );
 
-    // Input level dot on curve
+    // ─── Glass input dot with crosshair ──────────────────────────────
     final inputNorm = ((inputLevel - dbMin) / dbRange).clamp(0.0, 1.0);
     double outDb;
     if (inputLevel >= threshold) {
@@ -812,24 +1063,103 @@ class _TransferCurvePainter extends CustomPainter {
 
     final dotX = inputNorm * w;
     final dotY = h - outNorm * h;
-    canvas.drawCircle(
-      Offset(dotX, dotY),
-      4,
-      Paint()..color = FabFilterColors.green,
-    );
-    canvas.drawCircle(
-      Offset(dotX, dotY),
-      4,
-      Paint()
-        ..color = FabFilterColors.green.withValues(alpha: 0.3)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-    );
+
+    // Crosshair lines
+    canvas.drawLine(
+      Offset(dotX, 0), Offset(dotX, h),
+      Paint()..color = FabFilterColors.green.withValues(alpha: 0.15)..strokeWidth = 0.5);
+    canvas.drawLine(
+      Offset(0, dotY), Offset(w, dotY),
+      Paint()..color = FabFilterColors.green.withValues(alpha: 0.15)..strokeWidth = 0.5);
+
+    // Outer glow
+    canvas.drawCircle(Offset(dotX, dotY), 8, Paint()
+      ..color = FabFilterColors.green.withValues(alpha: 0.15)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+
+    // Glass effect (radial gradient)
+    canvas.drawCircle(Offset(dotX, dotY), 5, Paint()
+      ..shader = ui.Gradient.radial(
+        Offset(dotX - 1, dotY - 1), 5,
+        [
+          Colors.white.withValues(alpha: 0.4),
+          FabFilterColors.green.withValues(alpha: 0.8),
+          FabFilterColors.green.withValues(alpha: 0.3),
+        ],
+        [0.0, 0.5, 1.0],
+      ));
+
+    // Core dot
+    canvas.drawCircle(Offset(dotX, dotY), 3, Paint()..color = FabFilterColors.green);
   }
 
   @override
   bool shouldRepaint(covariant _TransferCurvePainter old) {
     return threshold != old.threshold || range != old.range ||
         ratio != old.ratio || inputLevel != old.inputLevel ||
-        mode != old.mode;
+        mode != old.mode || gateOpen != old.gateOpen;
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SIDECHAIN FILTER RESPONSE PAINTER — Mini frequency curve
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _SidechainFilterPainter extends CustomPainter {
+  final double hpf;
+  final double lpf;
+
+  _SidechainFilterPainter({required this.hpf, required this.lpf});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Grid
+    canvas.drawLine(Offset(0, h / 2), Offset(w, h / 2), Paint()..color = FabFilterColors.grid..strokeWidth = 0.5);
+
+    // Calculate filter response
+    final path = Path();
+    for (var i = 0; i <= w.toInt(); i++) {
+      final freq = 20.0 * math.pow(20000 / 20, i / w);
+      double gain = 1.0;
+
+      // HPF (12dB/oct approximation)
+      if (freq < hpf) {
+        final ratio = freq / hpf;
+        gain *= ratio * ratio;
+      }
+      // LPF (12dB/oct approximation)
+      if (freq > lpf) {
+        final ratio = lpf / freq;
+        gain *= ratio * ratio;
+      }
+
+      final y = h * (1 - gain.clamp(0.0, 1.0));
+      if (i == 0) {
+        path.moveTo(0, y);
+      } else {
+        path.lineTo(i.toDouble(), y);
+      }
+    }
+
+    // Fill
+    final fillPath = Path.from(path);
+    fillPath.lineTo(w, h);
+    fillPath.lineTo(0, h);
+    fillPath.close();
+    canvas.drawPath(fillPath, Paint()
+      ..color = FabFilterColors.green.withValues(alpha: 0.1));
+
+    // Stroke
+    canvas.drawPath(path, Paint()
+      ..color = FabFilterColors.green.withValues(alpha: 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SidechainFilterPainter old) =>
+      old.hpf != hpf || old.lpf != lpf;
 }
