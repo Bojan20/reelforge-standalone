@@ -1042,6 +1042,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Global keyboard handler — handles Space + Timeline shortcuts
   /// This fixes the bug where Space stops working after clicking on other elements
   bool _globalKeyHandler(KeyEvent event) {
+    if (!mounted) return false;
     // Only handle KeyDown, not KeyUp or KeyRepeat
     if (event is! KeyDownEvent) return false;
 

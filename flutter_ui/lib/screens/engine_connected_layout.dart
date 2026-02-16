@@ -222,7 +222,8 @@ class EngineConnectedLayout extends StatefulWidget {
   State<EngineConnectedLayout> createState() => _EngineConnectedLayoutState();
 }
 
-class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
+class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
+    with WidgetsBindingObserver {
   // Native menu channel
   static const _menuChannel = MethodChannel('fluxforge/menu');
 
@@ -525,6 +526,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // Set initial editor mode (from widget parameter or default to DAW)
     _editorMode = widget.initialEditorMode ?? EditorMode.daw;
@@ -886,7 +888,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Dispose Lower Zone controllers
     _dawLowerZoneController.dispose();
     _middlewareLowerZoneController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      // macOS window restored from minimize — reset focus to prevent UI blocking.
+      // Without this, stale FocusNodes or modal barriers can absorb all input.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // Pop any stale dialogs/overlays that survived minimization
+        final nav = Navigator.of(context, rootNavigator: true);
+        while (nav.canPop()) {
+          nav.pop();
+        }
+        // Reset focus to root scope so input isn't trapped
+        FocusScope.of(context).unfocus();
+        FocusScope.of(context).requestFocus();
+      });
+    }
   }
 
   void _initEmptyTimeline() {
@@ -4401,7 +4423,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           ),
         },
         child: FocusScope(
-          autofocus: true,
+          autofocus: false,
           child: Focus(
             autofocus: true,
             canRequestFocus: true,
