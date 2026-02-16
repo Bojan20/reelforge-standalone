@@ -590,8 +590,18 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     return GestureDetector(
       onTap: () {
         final next = CharacterMode.values[(_character.index + 1) % CharacterMode.values.length];
-        setState(() => _character = next);
+        setState(() {
+          _character = next;
+          // Auto-set drive to 6 dB when enabling character saturation
+          // Rust guard: character != Off && drive_db > 0.01
+          if (next != CharacterMode.off && _drive < 0.1) {
+            _drive = 6.0;
+          }
+        });
         _setParam(_P.character, next.index.toDouble());
+        if (next != CharacterMode.off && _drive >= 0.1) {
+          _setParam(_P.drive, _drive);
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6),

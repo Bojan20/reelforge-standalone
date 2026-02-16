@@ -2302,11 +2302,18 @@ Professional DSP panel suite inspired by FabFilter's design language.
 | `fabfilter_gate_panel.dart` | Pro-G | State indicator, threshold viz, sidechain filter | ✅ |
 | `fabfilter_reverb_panel.dart` | Pro-R | Decay display, pre-delay, 8 space types, EQ | ✅ |
 
+**DSP Sub-Panels (FabFilter Style):**
+
+| Panel | Location | Features | FFI |
+|-------|----------|----------|-----|
+| `sidechain_panel.dart` | `widgets/dsp/` | FabFilter knobs (FREQ/Q/MIX/GAIN), source selector (INT/TRK/BUS/EXT/MID/SIDE), key filter (HPF/LPF/BPF), monitor toggle | ✅ sidechainSet* |
+
 **Shared Components:**
 - `fabfilter_theme.dart` — Colors, gradients, text styles
-- `fabfilter_knob.dart` — Pro knob with modulation ring, fine control
+- `fabfilter_knob.dart` — Pro knob with modulation ring, fine control, conditional label rendering
 - `fabfilter_panel_base.dart` — A/B comparison, undo/redo, bypass
 - `fabfilter_preset_browser.dart` — Categories, search, favorites
+- `fabfilter_widgets.dart` — 11 reusable widgets (FabTinyButton, FabCompactToggle, FabSectionLabel, etc.)
 
 **Total:** ~5,450 LOC
 

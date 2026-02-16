@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/plugin_provider.dart';
+import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 
 /// Floating plugin editor window
@@ -155,8 +156,9 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
   }
 
   Widget _buildEditorArea(PluginInstance instance, double width, double height) {
-    // In a real implementation, this would host the native plugin GUI
-    // using platform views or embedding native windows
+    final provider = context.read<PluginProvider>();
+    final params = provider.getPluginParams(instance.instanceId);
+
     return Container(
       width: width,
       height: height,
@@ -167,43 +169,85 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
           bottomRight: Radius.circular(7),
         ),
       ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.extension,
-              size: 64,
-              color: FluxForgeTheme.textSecondary.withOpacity(0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              instance.name,
-              style: TextStyle(
-                color: FluxForgeTheme.textSecondary.withOpacity(0.7),
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Native plugin GUI embedding',
-              style: TextStyle(
-                color: FluxForgeTheme.textSecondary.withOpacity(0.5),
-                fontSize: 12,
-              ),
-            ),
-            Text(
-              '(requires platform view implementation)',
-              style: TextStyle(
-                color: FluxForgeTheme.textSecondary.withOpacity(0.4),
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
+      child: params.isEmpty
+          ? _buildNoParamsPlaceholder(instance)
+          : _buildParameterGrid(instance, provider, params, width),
+    );
+  }
+
+  Widget _buildNoParamsPlaceholder(PluginInstance instance) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.extension, size: 48,
+              color: FluxForgeTheme.textSecondary.withOpacity(0.3)),
+          const SizedBox(height: 12),
+          Text(instance.name, style: TextStyle(
+            color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+            fontSize: 16, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 4),
+          Text('No parameters exposed', style: TextStyle(
+            color: FluxForgeTheme.textSecondary.withOpacity(0.4),
+            fontSize: 11)),
+        ],
       ),
     );
+  }
+
+  Widget _buildParameterGrid(
+    PluginInstance instance,
+    PluginProvider provider,
+    List<NativePluginParamInfo> params,
+    double width,
+  ) {
+    return Column(
+      children: [
+        // Parameter count header
+        Container(
+          height: 24,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          color: FluxForgeTheme.bgMid.withOpacity(0.5),
+          child: Row(
+            children: [
+              Text('${params.length} Parameters',
+                style: TextStyle(color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+                  fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => _resetAllParams(provider, instance.instanceId, params),
+                child: Text('Reset All', style: TextStyle(
+                  color: FluxForgeTheme.accentBlue.withOpacity(0.7), fontSize: 10)),
+              ),
+            ],
+          ),
+        ),
+        // Scrollable parameter list
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            itemCount: params.length,
+            itemBuilder: (context, index) {
+              final param = params[index];
+              return _PluginParamSlider(
+                key: ValueKey('param_${param.id}'),
+                param: param,
+                instanceId: instance.instanceId,
+                provider: provider,
+                accentColor: _getFormatColor(instance.format),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _resetAllParams(PluginProvider provider, String instanceId, List<NativePluginParamInfo> params) {
+    for (final param in params) {
+      provider.setPluginParam(instanceId, param.id, param.defaultValue);
+    }
+    setState(() {});
   }
 
   void _showPresetMenu(
@@ -242,7 +286,29 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
     PluginInstance instance,
     PluginProvider provider,
   ) async {
-    // In real implementation, show file save dialog
+    final nameController = TextEditingController(text: instance.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Save Preset'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(labelText: 'Preset Name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, nameController.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty && context.mounted) {
+      final path = '${instance.pluginId}_$name.ffpreset';
+      await provider.savePluginPreset(instance.instanceId, path, name);
+    }
   }
 
   Future<void> _loadPreset(
@@ -250,7 +316,10 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
     PluginInstance instance,
     PluginProvider provider,
   ) async {
-    // In real implementation, show file open dialog
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Load Preset: Use File > Load Preset to browse')),
+    );
   }
 
   String _getFormatName(PluginFormat format) {
@@ -281,6 +350,126 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
       case PluginFormat.internal:
         return FluxForgeTheme.accentCyan;
     }
+  }
+}
+
+/// Single parameter slider row for generic plugin editor
+class _PluginParamSlider extends StatefulWidget {
+  final NativePluginParamInfo param;
+  final String instanceId;
+  final PluginProvider provider;
+  final Color accentColor;
+
+  const _PluginParamSlider({
+    super.key,
+    required this.param,
+    required this.instanceId,
+    required this.provider,
+    required this.accentColor,
+  });
+
+  @override
+  State<_PluginParamSlider> createState() => _PluginParamSliderState();
+}
+
+class _PluginParamSliderState extends State<_PluginParamSlider> {
+  late double _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.param.value;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PluginParamSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.param.value != widget.param.value) {
+      _value = widget.param.value;
+    }
+  }
+
+  String _formatValue(double v) {
+    final range = widget.param.max - widget.param.min;
+    if (range == 0) return v.toStringAsFixed(2);
+    if (range <= 1.0) return v.toStringAsFixed(3);
+    if (range <= 100) return v.toStringAsFixed(1);
+    return v.toStringAsFixed(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.param;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: SizedBox(
+        height: 28,
+        child: Row(
+          children: [
+            // Parameter name
+            SizedBox(
+              width: 120,
+              child: Text(
+                p.name,
+                style: TextStyle(
+                  color: FluxForgeTheme.textSecondary.withOpacity(0.8),
+                  fontSize: 10,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // Slider
+            Expanded(
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 3,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                  overlayShape: SliderComponentShape.noOverlay,
+                  activeTrackColor: widget.accentColor,
+                  inactiveTrackColor: FluxForgeTheme.bgSurface,
+                  thumbColor: widget.accentColor,
+                ),
+                child: Slider(
+                  value: _value.clamp(p.min, p.max),
+                  min: p.min,
+                  max: p.max,
+                  onChanged: (v) {
+                    setState(() => _value = v);
+                    widget.provider.setPluginParam(widget.instanceId, p.id, v);
+                  },
+                ),
+              ),
+            ),
+            // Value display
+            SizedBox(
+              width: 50,
+              child: Text(
+                '${_formatValue(_value)}${p.unit.isNotEmpty ? ' ${p.unit}' : ''}',
+                style: TextStyle(
+                  color: FluxForgeTheme.textPrimary.withOpacity(0.7),
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                ),
+                textAlign: TextAlign.right,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // Reset button
+            GestureDetector(
+              onTap: () {
+                setState(() => _value = p.defaultValue);
+                widget.provider.setPluginParam(widget.instanceId, p.id, p.defaultValue);
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Icon(Icons.restart_alt, size: 12,
+                  color: FluxForgeTheme.textSecondary.withOpacity(0.4)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

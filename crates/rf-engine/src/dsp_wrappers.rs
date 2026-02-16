@@ -258,32 +258,14 @@ impl InsertProcessor for ProEqWrapper {
             let band_idx = index / per_band;
             let param_idx = index % per_band;
 
-            // For params 0-4 that need set_band, read values first then drop borrow
+            // Per-parameter setters — do NOT use set_band() which implicitly enables
             if param_idx <= 4 {
-                let (freq, gain, q, shape) = if let Some(band) = self.eq.band(band_idx) {
-                    (band.frequency, band.gain_db, band.q, band.shape)
-                } else {
-                    return;
-                };
-
                 match param_idx {
-                    0 => self
-                        .eq
-                        .set_band(band_idx, value.clamp(10.0, 30000.0), gain, q, shape),
-                    1 => self
-                        .eq
-                        .set_band(band_idx, freq, value.clamp(-30.0, 30.0), q, shape),
-                    2 => self
-                        .eq
-                        .set_band(band_idx, freq, gain, value.clamp(0.05, 50.0), shape),
+                    0 => self.eq.set_band_frequency(band_idx, value.clamp(10.0, 30000.0)),
+                    1 => self.eq.set_band_gain(band_idx, value.clamp(-30.0, 30.0)),
+                    2 => self.eq.set_band_q(band_idx, value.clamp(0.05, 50.0)),
                     3 => self.eq.enable_band(band_idx, value > 0.5),
-                    4 => self.eq.set_band(
-                        band_idx,
-                        freq,
-                        gain,
-                        q,
-                        FilterShape::from_index(value as usize),
-                    ),
+                    4 => self.eq.set_band_shape(band_idx, FilterShape::from_index(value as usize)),
                     _ => {}
                 }
             } else {

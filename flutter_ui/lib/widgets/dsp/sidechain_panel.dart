@@ -1,23 +1,26 @@
-/// Sidechain Selector Panel
+/// Sidechain Selector Panel — FabFilter Style
 ///
 /// Configure sidechain input for dynamics processors:
 /// - Source selection (track, bus, external)
-/// - Filter controls (HPF/LPF/BPF)
+/// - Filter controls (HPF/LPF/BPF) with knobs
 /// - Monitor (listen to key signal)
-/// - Mix control
+/// - Mix/Gain controls with knobs
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/fluxforge_theme.dart';
+import '../fabfilter/fabfilter_theme.dart';
+import '../fabfilter/fabfilter_knob.dart';
+import '../fabfilter/fabfilter_widgets.dart';
 
 /// Sidechain source type
 enum SidechainSource {
-  internal(0, 'Internal'),
-  track(1, 'Track'),
-  bus(2, 'Bus'),
-  external(3, 'External'),
-  mid(4, 'Mid'),     // M/S mid component
-  side(5, 'Side');   // M/S side component
+  internal(0, 'INT'),
+  track(1, 'TRK'),
+  bus(2, 'BUS'),
+  external(3, 'EXT'),
+  mid(4, 'MID'),
+  side(5, 'SIDE');
 
   final int value;
   final String label;
@@ -36,7 +39,7 @@ enum SidechainFilterMode {
   const SidechainFilterMode(this.value, this.label);
 }
 
-/// Sidechain Panel Widget
+/// Sidechain Panel Widget — FabFilter Pro-C style
 class SidechainPanel extends StatefulWidget {
   final int processorId;
   final List<SidechainSourceInfo> availableSources;
@@ -66,6 +69,13 @@ class SidechainSourceInfo {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ACCENT COLOR — Cyan (matching FabFilter Pro-C sidechain)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const Color _accent = FabFilterColors.cyan;
+const Color _filterColor = FabFilterColors.orange;
+
 class _SidechainPanelState extends State<SidechainPanel> {
   final _ffi = NativeFFI.instance;
 
@@ -74,7 +84,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
   SidechainFilterMode _filterMode = SidechainFilterMode.off;
   double _filterFreq = 200.0;
   double _filterQ = 1.0;
-  double _mix = 0.0; // 0 = internal only, 1 = external only
+  double _mix = 0.0;
   double _gainDb = 0.0;
   bool _monitoring = false;
 
@@ -102,31 +112,51 @@ class _SidechainPanelState extends State<SidechainPanel> {
     widget.onSettingsChanged?.call();
   }
 
+  // ─── Normalized value helpers ────────────────────────────────────────
+
+  double get _freqNorm => _logNorm(_filterFreq, 20, 20000);
+  double get _qNorm => _logNorm(_filterQ, 0.1, 10);
+  double get _mixNorm => _mix;
+  double get _gainNorm => ((_gainDb + 24) / 48).clamp(0.0, 1.0);
+
+  double _logNorm(double value, double min, double max) {
+    if (value <= min) return 0.0;
+    if (value >= max) return 1.0;
+    return (math.log(value / min) / math.log(max / min)).clamp(0.0, 1.0);
+  }
+
+  double _logDenorm(double norm, double min, double max) {
+    return min * math.pow(max / min, norm.clamp(0.0, 1.0));
+  }
+
+  String _freqDisplay(double hz) {
+    if (hz >= 1000) return '${(hz / 1000).toStringAsFixed(1)}k';
+    return '${hz.toStringAsFixed(0)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: FluxForgeTheme.bgVoid,
-        border: Border.all(color: FluxForgeTheme.borderSubtle),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: FabFilterDecorations.panel(),
+      clipBehavior: Clip.hardEdge,
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSourceSection(),
-                  const SizedBox(height: 24),
+                  _buildSourceRow(),
+                  if (_source != SidechainSource.internal && widget.availableSources.isNotEmpty)
+                    _buildExternalSelector(),
+                  const SizedBox(height: 6),
                   _buildFilterSection(),
-                  const SizedBox(height: 24),
-                  _buildMixSection(),
-                  const SizedBox(height: 24),
-                  _buildMonitorSection(),
+                  const SizedBox(height: 6),
+                  _buildKnobRow(),
+                  const SizedBox(height: 6),
+                  _buildMonitorRow(),
                 ],
               ),
             ),
@@ -136,364 +166,281 @@ class _SidechainPanelState extends State<SidechainPanel> {
     );
   }
 
+  // ─── Header ──────────────────────────────────────────────────────────
+
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: FabFilterColors.bgDeep,
+        border: Border(bottom: BorderSide(color: _accent.withValues(alpha: 0.3))),
+      ),
       child: Row(
         children: [
-          const Icon(Icons.call_split, color: FluxForgeTheme.accentCyan, size: 20),
-          const SizedBox(width: 8),
-          const Text(
-            'SIDECHAIN',
-            style: TextStyle(
-              color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const Spacer(),
+          Icon(Icons.call_split, color: _accent, size: 12),
+          const SizedBox(width: 4),
+          Text('SIDECHAIN', style: FabFilterText.sectionHeader.copyWith(
+            color: _accent, fontSize: 10, letterSpacing: 1.2,
+          )),
+          const SizedBox(width: 6),
           if (_source != SidechainSource.internal)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(4),
+                color: _accent.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(3),
               ),
-              child: const Text(
-                'EXT',
-                style: TextStyle(
-                  color: FluxForgeTheme.accentCyan,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: Text(_source.label, style: TextStyle(
+                color: _accent, fontSize: 8, fontWeight: FontWeight.bold,
+              )),
             ),
+          const Spacer(),
+          // Listen toggle
+          FabCompactToggle(
+            label: 'AUD',
+            active: _monitoring,
+            onToggle: () {
+              setState(() => _monitoring = !_monitoring);
+              _ffi.sidechainSetMonitor(widget.processorId, _monitoring);
+              widget.onSettingsChanged?.call();
+            },
+            color: FabFilterColors.orange,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSourceSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader('KEY INPUT SOURCE'),
-        const SizedBox(height: 12),
-        // Source type buttons
-        Row(
-          children: SidechainSource.values.map((source) {
-            final isSelected = source == _source;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() => _source = source);
-                    _ffi.sidechainSetSource(widget.processorId, source.value, externalId: _selectedExternalId);
-                    widget.onSettingsChanged?.call();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? FluxForgeTheme.accentCyan : FluxForgeTheme.bgMid,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: isSelected ? FluxForgeTheme.accentCyan : FluxForgeTheme.borderMedium,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        source.label,
-                        style: TextStyle(
-                          color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        // External source selector
-        if (_source != SidechainSource.internal && widget.availableSources.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: FluxForgeTheme.bgMid,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: FluxForgeTheme.borderMedium),
+  // ─── Source selector row ─────────────────────────────────────────────
+
+  Widget _buildSourceRow() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          FabSectionLabel('SOURCE'),
+          const Spacer(),
+          ...SidechainSource.values.map((source) => Padding(
+            padding: const EdgeInsets.only(left: 2),
+            child: FabTinyButton(
+              label: source.label,
+              active: _source == source,
+              color: _accent,
+              onTap: () {
+                setState(() => _source = source);
+                _ffi.sidechainSetSource(widget.processorId, source.value, externalId: _selectedExternalId);
+                widget.onSettingsChanged?.call();
+              },
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                value: _selectedExternalId,
-                isExpanded: true,
-                dropdownColor: FluxForgeTheme.bgMid,
-                style: const TextStyle(
-                  color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                ),
-                items: widget.availableSources
-                    .where((s) => s.type == _source)
-                    .map((s) => DropdownMenuItem(
-                          value: s.id,
-                          child: Text(s.name),
-                        ))
-                    .toList(),
-                onChanged: (id) {
-                  if (id != null) {
-                    setState(() => _selectedExternalId = id);
-                    _ffi.sidechainSetSource(widget.processorId, _source.value, externalId: id);
-                    widget.onSettingsChanged?.call();
-                  }
-                },
-              ),
-            ),
-          ),
+          )),
         ],
-      ],
+      ),
     );
   }
+
+  // ─── External source dropdown ────────────────────────────────────────
+
+  Widget _buildExternalSelector() {
+    final filtered = widget.availableSources.where((s) => s.type == _source).toList();
+    if (filtered.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Container(
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: FabFilterColors.borderSubtle),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<int>(
+            value: filtered.any((s) => s.id == _selectedExternalId) ? _selectedExternalId : filtered.first.id,
+            isExpanded: true,
+            isDense: true,
+            dropdownColor: FabFilterColors.bgMid,
+            style: FabFilterText.paramLabel.copyWith(fontSize: 9, color: FabFilterColors.textPrimary),
+            icon: Icon(Icons.keyboard_arrow_down, size: 12, color: FabFilterColors.textTertiary),
+            items: filtered.map((s) => DropdownMenuItem(
+              value: s.id,
+              child: Text(s.name, style: TextStyle(fontSize: 9)),
+            )).toList(),
+            onChanged: (id) {
+              if (id != null) {
+                setState(() => _selectedExternalId = id);
+                _ffi.sidechainSetSource(widget.processorId, _source.value, externalId: id);
+                widget.onSettingsChanged?.call();
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Filter section ──────────────────────────────────────────────────
 
   Widget _buildFilterSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('KEY FILTER'),
-        const SizedBox(height: 12),
-        // Filter mode buttons
         Row(
-          children: SidechainFilterMode.values.map((mode) {
-            final isSelected = mode == _filterMode;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() => _filterMode = mode);
-                    _ffi.sidechainSetFilterMode(widget.processorId, mode.value);
-                    widget.onSettingsChanged?.call();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.bgMid,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderMedium,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        mode.label,
-                        style: TextStyle(
-                          color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+          children: [
+            FabSectionLabel('KEY FILTER'),
+            const Spacer(),
+            ...SidechainFilterMode.values.map((mode) => Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: FabTinyButton(
+                label: mode.label,
+                active: _filterMode == mode,
+                color: _filterColor,
+                onTap: () {
+                  setState(() => _filterMode = mode);
+                  _ffi.sidechainSetFilterMode(widget.processorId, mode.value);
+                  widget.onSettingsChanged?.call();
+                },
               ),
-            );
-          }).toList(),
+            )),
+          ],
         ),
-        // Filter controls
         if (_filterMode != SidechainFilterMode.off) ...[
-          const SizedBox(height: 16),
-          _buildSlider('FREQ', _filterFreq, 20, 20000, 'Hz', (v) {
-            setState(() => _filterFreq = v);
-            _ffi.sidechainSetFilterFreq(widget.processorId, v);
-            widget.onSettingsChanged?.call();
-          }, isLog: true),
-          const SizedBox(height: 12),
-          _buildSlider('Q', _filterQ, 0.1, 10, '', (v) {
-            setState(() => _filterQ = v);
-            _ffi.sidechainSetFilterQ(widget.processorId, v);
-            widget.onSettingsChanged?.call();
-          }),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildParamKnob(
+                label: 'FREQ',
+                value: _freqNorm,
+                display: _freqDisplay(_filterFreq),
+                color: _filterColor,
+                onChanged: (v) {
+                  final freq = _logDenorm(v, 20, 20000);
+                  setState(() => _filterFreq = freq);
+                  _ffi.sidechainSetFilterFreq(widget.processorId, freq);
+                  widget.onSettingsChanged?.call();
+                },
+              ),
+              _buildParamKnob(
+                label: 'Q',
+                value: _qNorm,
+                display: _filterQ.toStringAsFixed(1),
+                color: _filterColor,
+                onChanged: (v) {
+                  final q = _logDenorm(v, 0.1, 10);
+                  setState(() => _filterQ = q);
+                  _ffi.sidechainSetFilterQ(widget.processorId, q);
+                  widget.onSettingsChanged?.call();
+                },
+              ),
+            ],
+          ),
         ],
       ],
     );
   }
 
-  Widget _buildMixSection() {
+  // ─── Main knob row (Mix + Gain) ─────────────────────────────────────
+
+  Widget _buildKnobRow() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('KEY MIX'),
-        const SizedBox(height: 12),
+        FabSectionLabel('KEY MIX'),
+        const SizedBox(height: 4),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            const Text(
-              'INT',
-              style: TextStyle(
-                color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildSlider('', _mix * 100, 0, 100, '%', (v) {
-                setState(() => _mix = v / 100);
-                _ffi.sidechainSetMix(widget.processorId, v / 100);
+            _buildParamKnob(
+              label: 'MIX',
+              value: _mixNorm,
+              display: '${(_mix * 100).toStringAsFixed(0)}%',
+              color: _accent,
+              onChanged: (v) {
+                setState(() => _mix = v);
+                _ffi.sidechainSetMix(widget.processorId, v);
                 widget.onSettingsChanged?.call();
-              }),
+              },
             ),
-            const SizedBox(width: 8),
-            const Text(
-              'EXT',
+            _buildParamKnob(
+              label: 'GAIN',
+              value: _gainNorm,
+              display: '${_gainDb.toStringAsFixed(1)}dB',
+              color: _accent,
+              onChanged: (v) {
+                final db = (v * 48) - 24;
+                setState(() => _gainDb = db);
+                _ffi.sidechainSetGainDb(widget.processorId, db);
+                widget.onSettingsChanged?.call();
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ─── Monitor row ─────────────────────────────────────────────────────
+
+  Widget _buildMonitorRow() {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _monitoring = !_monitoring);
+        _ffi.sidechainSetMonitor(widget.processorId, _monitoring);
+        widget.onSettingsChanged?.call();
+      },
+      child: Container(
+        height: 24,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: _monitoring ? FabFilterColors.orange.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: _monitoring ? FabFilterColors.orange : FabFilterColors.borderSubtle,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _monitoring ? Icons.headphones : Icons.headphones_outlined,
+              size: 12,
+              color: _monitoring ? FabFilterColors.orange : FabFilterColors.textTertiary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              _monitoring ? 'LISTENING TO KEY' : 'LISTEN TO KEY SIGNAL',
               style: TextStyle(
-                color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                color: _monitoring ? FabFilterColors.orange : FabFilterColors.textTertiary,
+                fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        _buildSlider('GAIN', _gainDb, -24, 24, 'dB', (v) {
-          setState(() => _gainDb = v);
-          _ffi.sidechainSetGainDb(widget.processorId, v);
-          widget.onSettingsChanged?.call();
-        }),
-      ],
-    );
-  }
-
-  Widget _buildMonitorSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader('MONITOR'),
-        const SizedBox(height: 12),
-        GestureDetector(
-          onTap: () {
-            setState(() => _monitoring = !_monitoring);
-            _ffi.sidechainSetMonitor(widget.processorId, _monitoring);
-            widget.onSettingsChanged?.call();
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: _monitoring
-                  ? FluxForgeTheme.accentOrange.withValues(alpha: 0.3)
-                  : FluxForgeTheme.bgMid,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: _monitoring
-                    ? FluxForgeTheme.accentOrange
-                    : FluxForgeTheme.borderMedium,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  _monitoring ? Icons.headphones : Icons.headphones_outlined,
-                  color: _monitoring
-                      ? FluxForgeTheme.accentOrange
-                      : FluxForgeTheme.textTertiary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _monitoring ? 'LISTENING TO KEY' : 'LISTEN TO KEY SIGNAL',
-                  style: TextStyle(
-                    color: _monitoring
-                        ? FluxForgeTheme.accentOrange
-                        : FluxForgeTheme.textTertiary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Solo the sidechain signal to hear what the compressor is responding to.',
-          style: TextStyle(
-            color: FluxForgeTheme.textTertiary,
-            fontSize: 10,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: FluxForgeTheme.textTertiary,
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 1.0,
       ),
     );
   }
 
-  Widget _buildSlider(
-    String label,
-    double value,
-    double min,
-    double max,
-    String unit,
-    void Function(double) onChanged, {
-    bool isLog = false,
+  // ─── Reusable param knob ─────────────────────────────────────────────
+
+  Widget _buildParamKnob({
+    required String label,
+    required double value,
+    required String display,
+    required Color color,
+    required ValueChanged<double> onChanged,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (label.isNotEmpty)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: FluxForgeTheme.textTertiary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              Text(
-                '${value.toStringAsFixed(value < 10 ? 1 : 0)} $unit',
-                style: const TextStyle(
-                  color: FluxForgeTheme.accentCyan,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        if (label.isNotEmpty) const SizedBox(height: 4),
-        SliderTheme(
-          data: SliderThemeData(
-            trackHeight: 4,
-            activeTrackColor: FluxForgeTheme.accentCyan,
-            inactiveTrackColor: FluxForgeTheme.borderSubtle,
-            thumbColor: FluxForgeTheme.accentCyan,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-            overlayColor: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
-          ),
-          child: Slider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            onChanged: onChanged,
-          ),
-        ),
-      ],
+    return SizedBox(
+      width: 70,
+      child: FabFilterKnob(
+        value: value.clamp(0.0, 1.0),
+        onChanged: onChanged,
+        color: color,
+        size: 40,
+        label: label,
+        display: display,
+      ),
     );
   }
 }

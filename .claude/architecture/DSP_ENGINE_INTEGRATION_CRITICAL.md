@@ -567,6 +567,27 @@ All FabFilter panels now use `insertSetParam(trackId, slotIndex, paramIndex, val
 | 1 | Low Gain | -16..16 | dB |
 | 2 | High Gain | -16..16 | dB |
 
+### SaturatorWrapper (`dsp_wrappers.rs`) — FF-SAT Saturn 2
+
+| Index | Parameter | Range | Unit |
+|-------|-----------|-------|------|
+| 0 | Drive | -24..40 | dB |
+| 1 | Type | 0..5 | SaturationType enum |
+| 2 | Tone | -100..100 | tilt |
+| 3 | Mix | 0..100 | % |
+| 4 | Output | -24..24 | dB |
+| 5 | TapeBias | 0..100 | % |
+| 6 | Oversampling | 0..3 | 0=1x, 1=2x, 2=4x, 3=8x |
+| 7 | InputTrim | -12..12 | dB |
+| 8 | MSMode | 0/1 | bool (Mid/Side) |
+| 9 | StereoLink | 0/1 | bool |
+
+**SaturationType enum:** 0=Tape, 1=Tube, 2=Transistor, 3=SoftClip, 4=HardClip, 5=Foldback
+
+**Meters:** 0=InputPeakL, 1=InputPeakR, 2=OutputPeakL, 3=OutputPeakR
+
+**DAW Tab:** `DawProcessSubTab.saturation` (shortcut: Y) — wired via `SaturationPanelWrapper` in `daw/process/saturation_panel_wrapper.dart`
+
 ---
 
 ### P1.8: Vintage EQ DspChainProvider Integration (2026-02-15) — ✅ COMPLETE
@@ -615,6 +636,41 @@ DSP Plugin Audit revealed Gate had 5 unwired UI controls and EQ had 2 dead butto
 - [x] 5 new Rust tests (auto_gain_param, solo_band_param, solo_restores, auto_gain_processing, output_gain)
 
 **Result:** All 6 FabFilter panels are now 100% FFI connected. No dead UI controls remain.
+
+### P2.0: EQ Per-Band Enable Fix (2026-02-15) — ✅ COMPLETE
+
+**Problem:** EQ per-band ON button visually disabled bands but sound remained modified — Cubase disables band from DSP processing entirely, our code didn't.
+
+**Root Cause:** `ProEq::set_band()` at `eq_pro.rs:1900` unconditionally sets `band.enabled = true`. This is correct for band CREATION but wrong for parameter updates. When `_syncBand()` sent all params sequentially (freq→gain→q→enabled→shape), the `set_band()` call for shape (param index 4) RE-ENABLED the band after `enable_band(false)` (param index 3) disabled it.
+
+**Fix (4 files):**
+
+- [x] `crates/rf-dsp/src/eq_pro.rs` — Added `set_band_shape()` method that modifies shape WITHOUT touching enabled flag
+- [x] `crates/rf-engine/src/dsp_wrappers.rs` — ProEqWrapper `set_param()` now uses per-parameter setters instead of `set_band()`:
+  ```rust
+  match param_idx {
+      0 => self.eq.set_band_frequency(band_idx, value),
+      1 => self.eq.set_band_gain(band_idx, value),
+      2 => self.eq.set_band_q(band_idx, value),
+      3 => self.eq.enable_band(band_idx, value > 0.5),
+      4 => self.eq.set_band_shape(band_idx, FilterShape::from_index(value as usize)),
+      _ => {}
+  }
+  ```
+- [x] `flutter_ui/lib/widgets/fabfilter/fabfilter_eq_panel.dart` — ON button sends ONLY enabled param (not full `_syncBand()`)
+- [x] `flutter_ui/lib/widgets/fabfilter/fabfilter_eq_panel.dart` — `_readBandsFromEngine()` loads disabled bands too (`freq > 10.0`)
+
+**Per-parameter setters available in ProEq:**
+| Method | Touches enabled? |
+|--------|-----------------|
+| `set_band()` | ✅ YES — sets `enabled = true` |
+| `set_band_frequency()` | ❌ No |
+| `set_band_gain()` | ❌ No |
+| `set_band_q()` | ❌ No |
+| `set_band_shape()` | ❌ No (NEW) |
+| `enable_band()` | ✅ YES — this is the ONLY correct way to toggle |
+
+**UltraEq note:** Same `set_band()` implicit enable exists at `eq_ultra.rs:1359`, but UltraEqWrapper doesn't expose per-band params via `InsertProcessor::set_param()`, so not affected.
 
 ---
 

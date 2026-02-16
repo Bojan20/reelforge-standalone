@@ -1,10 +1,11 @@
 // Comping Panel — DAW Lower Zone EDIT tab
-// Professional take lanes and comp region management (Pro Tools/Cubase style)
+// FabFilter-style take lane management & comping (Pro Tools/Cubase style)
 
 import 'package:flutter/material.dart';
 import '../../../../providers/comping_provider.dart';
 import '../../../../models/comping_models.dart';
-import '../../lower_zone_types.dart';
+import '../../../fabfilter/fabfilter_theme.dart';
+import '../../../fabfilter/fabfilter_widgets.dart';
 
 class CompingPanel extends StatefulWidget {
   final int? selectedTrackId;
@@ -37,121 +38,150 @@ class _CompingPanelState extends State<CompingPanel> {
     if (mounted) setState(() {});
   }
 
+  String get _trackId => widget.selectedTrackId?.toString() ?? '';
+
   CompState? get _trackState {
-    final trackId = widget.selectedTrackId;
-    if (trackId == null) return null;
-    return _provider.getCompState(trackId.toString());
+    if (widget.selectedTrackId == null) return null;
+    return _provider.getCompState(_trackId);
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUILD
+  // ═══════════════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
-    final trackState = _trackState;
-    if (widget.selectedTrackId == null) {
-      return _buildNoTrack();
-    }
+    if (widget.selectedTrackId == null) return _buildNoTrack();
 
-    return Padding(
-      padding: const EdgeInsets.all(8),
+    final state = _trackState;
+
+    return Container(
+      decoration: FabFilterDecorations.panel(),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(trackState),
-          const SizedBox(height: 8),
+          _buildHeader(state),
           Expanded(
-            child: trackState == null || trackState.lanes.isEmpty
+            child: state == null || state.lanes.isEmpty
                 ? _buildEmptyState()
-                : _buildLanesView(trackState),
+                : _buildLanesView(state),
           ),
+          if (state != null && state.lanes.isNotEmpty) _buildActionBar(state),
         ],
       ),
     );
   }
 
-  Widget _buildNoTrack() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.layers, size: 32, color: Colors.white24),
-          const SizedBox(height: 8),
-          Text('Select a track to manage takes',
-              style: LowerZoneTypography.label.copyWith(color: Colors.white38)),
-        ],
-      ),
-    );
-  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HEADER
+  // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildHeader(CompState? state) {
-    return Row(
-      children: [
-        const Icon(Icons.layers, size: 16, color: Colors.cyan),
-        const SizedBox(width: 6),
-        Text('COMPING', style: LowerZoneTypography.title.copyWith(color: Colors.white70)),
-        const SizedBox(width: 8),
-        if (state != null) ...[
-          _buildModeBadge(state.mode),
-          const Spacer(),
-          // Lane count
-          Text('${state.lanes.length} lanes',
-              style: LowerZoneTypography.badge.copyWith(color: Colors.white38)),
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: FabFilterColors.bgDeep,
+        border: Border(
+          bottom: BorderSide(color: FabFilterColors.cyan.withValues(alpha: 0.3)),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Title
+          Text('FF COMP', style: FabFilterText.sectionHeader.copyWith(
+            color: FabFilterColors.cyan, fontSize: 10, letterSpacing: 1.2,
+          )),
           const SizedBox(width: 8),
-          // Quick actions
-          _buildActionButton(Icons.add, 'Add Lane', () {
-            _provider.createLane(widget.selectedTrackId!.toString(), name: 'Lane ${(state.lanes.length) + 1}');
-          }),
-          _buildActionButton(Icons.auto_fix_high, 'Promote Best', () {
-            _provider.promoteBestTakes(widget.selectedTrackId!.toString());
-          }),
-          _buildActionButton(Icons.delete_sweep, 'Delete Bad', () {
-            _provider.deleteBadTakes(widget.selectedTrackId!.toString());
-          }),
-          _buildActionButton(Icons.call_merge, 'Flatten', () {
-            _provider.flattenComp(widget.selectedTrackId!.toString(), '/tmp/comp_output.wav');
-            widget.onAction?.call('flattenComp', {'trackId': widget.selectedTrackId});
-          }),
-        ] else ...[
+          // Mode selector
+          if (state != null)
+            _buildModeSelector(state.mode)
+          else
+            Text('NO STATE', style: FabFilterText.paramLabel.copyWith(
+              color: FabFilterColors.textDisabled, fontSize: 8,
+            )),
           const Spacer(),
-          _buildActionButton(Icons.add, 'Create First Lane', () {
-            _provider.createLane(widget.selectedTrackId!.toString(), name: 'Lane 1');
+          // Lane count badge
+          if (state != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: FabFilterColors.bgMid,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: FabFilterColors.borderSubtle),
+              ),
+              child: Text('${state.lanes.length} LN',
+                style: FabFilterText.paramLabel.copyWith(
+                  color: FabFilterColors.textSecondary, fontSize: 8,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+          // Add lane
+          _buildHeaderAction(Icons.add, 'Add Lane', () {
+            final st = _trackState;
+            _provider.createLane(_trackId,
+              name: 'Lane ${(st?.lanes.length ?? 0) + 1}',
+            );
           }),
         ],
-      ],
-    );
-  }
-
-  Widget _buildModeBadge(CompMode mode) {
-    final (label, color) = switch (mode) {
-      CompMode.single => ('SINGLE', Colors.blue),
-      CompMode.comp => ('COMP', Colors.orange),
-      CompMode.auditAll => ('AUDIT ALL', Colors.green),
-    };
-    return GestureDetector(
-      onTap: () {
-        final next = CompMode.values[(mode.index + 1) % CompMode.values.length];
-        _provider.setCompMode(widget.selectedTrackId!.toString(), next);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.4)),
-        ),
-        child: Text(label,
-            style: LowerZoneTypography.badge.copyWith(color: color, fontWeight: FontWeight.bold)),
       ),
     );
   }
 
-  Widget _buildActionButton(IconData icon, String tooltip, VoidCallback onTap) {
+  Widget _buildModeSelector(CompMode mode) {
+    return FabEnumSelector(
+      label: '',
+      value: mode.index,
+      options: const ['SGL', 'CMP', 'ALL'],
+      color: FabFilterColors.cyan,
+      onChanged: (i) => _provider.setCompMode(_trackId, CompMode.values[i]),
+    );
+  }
+
+  Widget _buildHeaderAction(IconData icon, String tooltip, VoidCallback onTap) {
     return Tooltip(
       message: tooltip,
-      child: InkWell(
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Icon(icon, size: 16, color: Colors.white54),
+        child: Container(
+          width: 20, height: 20,
+          decoration: BoxDecoration(
+            color: FabFilterColors.bgMid,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: FabFilterColors.borderSubtle),
+          ),
+          child: Icon(icon, size: 12, color: FabFilterColors.textSecondary),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EMPTY / NO TRACK
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildNoTrack() {
+    return Container(
+      decoration: FabFilterDecorations.panel(),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.layers, size: 28, color: FabFilterColors.textDisabled),
+            const SizedBox(height: 6),
+            Text('SELECT A TRACK',
+              style: FabFilterText.sectionHeader.copyWith(
+                color: FabFilterColors.textTertiary, letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text('to manage take lanes',
+              style: FabFilterText.paramLabel.copyWith(
+                color: FabFilterColors.textDisabled, fontSize: 8,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -162,100 +192,157 @@ class _CompingPanelState extends State<CompingPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.library_add, size: 32, color: Colors.white24),
-          const SizedBox(height: 8),
-          Text('No recording lanes',
-              style: LowerZoneTypography.label.copyWith(color: Colors.white38)),
+          Icon(Icons.library_add, size: 28, color: FabFilterColors.textDisabled),
+          const SizedBox(height: 6),
+          Text('NO RECORDING LANES',
+            style: FabFilterText.sectionHeader.copyWith(
+              color: FabFilterColors.textTertiary, letterSpacing: 0.8,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text('Add a lane to start recording takes',
-              style: LowerZoneTypography.badge.copyWith(color: Colors.white24)),
+          GestureDetector(
+            onTap: () => _provider.createLane(_trackId, name: 'Lane 1'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: FabFilterDecorations.toggleActive(FabFilterColors.cyan),
+              child: Text('+ CREATE LANE', style: FabFilterText.paramLabel.copyWith(
+                color: FabFilterColors.cyan, fontSize: 9, fontWeight: FontWeight.bold,
+              )),
+            ),
+          ),
         ],
       ),
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LANES LIST
+  // ═══════════════════════════════════════════════════════════════════════════
+
   Widget _buildLanesView(CompState state) {
     return ListView.builder(
+      padding: const EdgeInsets.all(6),
       itemCount: state.lanes.length,
       itemBuilder: (context, index) {
         final lane = state.lanes[index];
-        return _buildLaneRow(lane, index, state);
+        return _buildLaneCard(lane, index, state);
       },
     );
   }
 
-  Widget _buildLaneRow(RecordingLane lane, int index, CompState state) {
+  Widget _buildLaneCard(RecordingLane lane, int index, CompState state) {
     final isSelected = _selectedLaneId == lane.id;
     final isActive = state.activeLane?.id == lane.id;
+    final laneColor = lane.color ?? getLaneColor(index);
+    final totalTakes = lane.takes.length;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: isSelected
-            ? Colors.cyan.withOpacity(0.1)
-            : Colors.white.withOpacity(0.03),
+        color: isSelected ? FabFilterColors.bgElevated : FabFilterColors.bgMid,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: isActive
-              ? Colors.cyan.withOpacity(0.5)
+              ? laneColor.withValues(alpha: 0.6)
               : isSelected
-                  ? Colors.cyan.withOpacity(0.3)
-                  : Colors.white.withOpacity(0.06),
+                  ? FabFilterColors.cyan.withValues(alpha: 0.3)
+                  : FabFilterColors.borderSubtle,
+          width: isActive ? 1.5 : 1,
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Lane header
-          InkWell(
+          // Lane header row
+          GestureDetector(
             onTap: () => setState(() => _selectedLaneId = isSelected ? null : lane.id),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Container(
+              height: 24,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Row(
                 children: [
-                  // Active indicator
+                  // Active radio
                   GestureDetector(
-                    onTap: () => _provider.setActiveLane(widget.selectedTrackId!.toString(), index),
-                    child: Icon(
-                      isActive ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                      size: 14,
-                      color: isActive ? Colors.cyan : Colors.white38,
+                    onTap: () => _provider.setActiveLane(_trackId, index),
+                    child: Container(
+                      width: 10, height: 10,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isActive ? laneColor : Colors.transparent,
+                        border: Border.all(
+                          color: isActive ? laneColor : FabFilterColors.textTertiary,
+                          width: 1.5,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text(lane.name,
-                      style: LowerZoneTypography.label.copyWith(
-                          color: isActive ? Colors.cyan : Colors.white70)),
-                  const Spacer(),
-                  // Take count
-                  Text('${lane.takes.length} takes',
-                      style: LowerZoneTypography.badge.copyWith(color: Colors.white38)),
-                  const SizedBox(width: 6),
-                  // Mute
-                  GestureDetector(
-                    onTap: () => _provider.toggleLaneMute(widget.selectedTrackId!.toString(), lane.id),
-                    child: Icon(
-                      lane.muted ? Icons.volume_off : Icons.volume_up,
-                      size: 14,
-                      color: lane.muted ? Colors.red : Colors.white38,
+                  // Lane name
+                  Expanded(
+                    child: Text(lane.displayName,
+                      style: FabFilterText.paramLabel.copyWith(
+                        color: isActive ? laneColor : FabFilterColors.textSecondary,
+                        fontSize: 9, fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  // Take count meter
+                  if (totalTakes > 0)
+                    SizedBox(
+                      width: 50,
+                      child: FabHorizontalMeter(
+                        label: '',
+                        value: totalTakes.toDouble(),
+                        maxValue: 10,
+                        color: laneColor,
+                        height: 8,
+                        showLabel: false,
+                        displayText: '$totalTakes',
+                      ),
+                    ),
                   const SizedBox(width: 4),
-                  // Delete
+                  // Mute toggle
                   GestureDetector(
-                    onTap: () => _provider.deleteLane(widget.selectedTrackId!.toString(), lane.id),
-                    child: const Icon(Icons.close, size: 14, color: Colors.white24),
+                    onTap: () => _provider.toggleLaneMute(_trackId, lane.id),
+                    child: Container(
+                      width: 16, height: 16,
+                      decoration: BoxDecoration(
+                        color: lane.muted
+                            ? FabFilterColors.red.withValues(alpha: 0.2)
+                            : FabFilterColors.bgSurface,
+                        borderRadius: BorderRadius.circular(2),
+                        border: Border.all(
+                          color: lane.muted ? FabFilterColors.red : FabFilterColors.borderSubtle,
+                        ),
+                      ),
+                      child: Icon(
+                        lane.muted ? Icons.volume_off : Icons.volume_up,
+                        size: 10,
+                        color: lane.muted ? FabFilterColors.red : FabFilterColors.textTertiary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  // Delete lane
+                  GestureDetector(
+                    onTap: () => _provider.deleteLane(_trackId, lane.id),
+                    child: Icon(Icons.close, size: 12, color: FabFilterColors.textDisabled),
                   ),
                 ],
               ),
             ),
           ),
-          // Takes list (expanded)
+          // Expanded take list
           if (isSelected && lane.takes.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 8, 4),
+            Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: FabFilterColors.borderSubtle),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(18, 3, 6, 4),
               child: Column(
-                children: lane.takes.map((take) => _buildTakeItem(take, lane)).toList(),
+                children: lane.takes.map((take) => _buildTakeRow(take, laneColor)).toList(),
               ),
             ),
         ],
@@ -263,55 +350,149 @@ class _CompingPanelState extends State<CompingPanel> {
     );
   }
 
-  Widget _buildTakeItem(Take take, RecordingLane lane) {
-    final isSelected = _selectedTakeId == take.id;
-    final ratingColor = switch (take.rating) {
-      TakeRating.best => Colors.green,
-      TakeRating.good => Colors.lightGreen,
-      TakeRating.okay => Colors.yellow,
-      TakeRating.bad => Colors.red,
-      TakeRating.none => Colors.white38,
-    };
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAKE ROW
+  // ═══════════════════════════════════════════════════════════════════════════
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.cyan.withOpacity(0.08) : Colors.transparent,
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: InkWell(
-        onTap: () => setState(() => _selectedTakeId = isSelected ? null : take.id),
+  Widget _buildTakeRow(Take take, Color laneColor) {
+    final isSelected = _selectedTakeId == take.id;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTakeId = isSelected ? null : take.id),
+      child: Container(
+        height: 22,
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? FabFilterColors.cyan.withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(3),
+        ),
         child: Row(
           children: [
-            // Rating star
-            GestureDetector(
-              onTap: () {
-                final next = TakeRating.values[(take.rating.index + 1) % TakeRating.values.length];
-                _provider.setTakeRating(widget.selectedTrackId!.toString(), take.id, next);
-              },
-              child: Icon(Icons.star, size: 12, color: ratingColor),
+            // Rating buttons row
+            _buildRatingButton(take, TakeRating.best, '\u2605', FabFilterColors.yellow),
+            _buildRatingButton(take, TakeRating.good, '\u2713', FabFilterColors.green),
+            _buildRatingButton(take, TakeRating.okay, '\u25CB', FabFilterColors.orange),
+            _buildRatingButton(take, TakeRating.bad, '\u2717', FabFilterColors.red),
+            _buildRatingButton(take, TakeRating.none, '\u2014', FabFilterColors.textDisabled),
+            const SizedBox(width: 6),
+            // Take name
+            Expanded(
+              child: Text(take.displayName,
+                style: FabFilterText.paramLabel.copyWith(
+                  color: take.muted ? FabFilterColors.textDisabled : FabFilterColors.textSecondary,
+                  fontSize: 9,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const SizedBox(width: 4),
-            Text(take.displayName,
-                style: LowerZoneTypography.badge.copyWith(
-                    color: take.muted ? Colors.white24 : Colors.white54)),
-            const Spacer(),
-            // Gain
+            // Gain display
             Text('${(take.gain * 100).toInt()}%',
-                style: LowerZoneTypography.badge.copyWith(color: Colors.white24)),
+              style: FabFilterText.paramLabel.copyWith(
+                color: FabFilterColors.textDisabled, fontSize: 7,
+              ),
+            ),
             const SizedBox(width: 4),
             // Mute toggle
             GestureDetector(
-              onTap: () => _provider.toggleTakeMute(widget.selectedTrackId!.toString(), take.id),
+              onTap: () => _provider.toggleTakeMute(_trackId, take.id),
               child: Icon(
                 take.muted ? Icons.visibility_off : Icons.visibility,
-                size: 12,
-                color: take.muted ? Colors.red.shade300 : Colors.white30,
+                size: 11,
+                color: take.muted ? FabFilterColors.red : FabFilterColors.textDisabled,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRatingButton(Take take, TakeRating rating, String symbol, Color color) {
+    final isActive = take.rating == rating;
+    return GestureDetector(
+      onTap: () => _provider.setTakeRating(_trackId, take.id, rating),
+      child: Container(
+        width: 16, height: 14,
+        margin: const EdgeInsets.only(right: 2),
+        decoration: BoxDecoration(
+          color: isActive ? color.withValues(alpha: 0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(
+            color: isActive ? color : FabFilterColors.borderSubtle,
+            width: isActive ? 1 : 0.5,
+          ),
+        ),
+        child: Center(
+          child: Text(symbol, style: TextStyle(
+            color: isActive ? color : FabFilterColors.textDisabled,
+            fontSize: 8, fontWeight: FontWeight.bold,
+          )),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ACTION BAR
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildActionBar(CompState state) {
+    final hasBest = state.allTakes.any((t) => t.rating == TakeRating.best);
+    final hasBad = state.allTakes.any((t) => t.rating == TakeRating.bad);
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: FabFilterColors.bgDeep,
+        border: Border(
+          top: BorderSide(color: FabFilterColors.borderSubtle),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Promote Best
+          FabCompactToggle(
+            label: 'PROMOTE',
+            active: hasBest,
+            color: FabFilterColors.green,
+            onToggle: hasBest
+                ? () => _provider.promoteBestTakes(_trackId)
+                : () {},
+          ),
+          const SizedBox(width: 4),
+          // Delete Bad
+          FabCompactToggle(
+            label: 'DEL BAD',
+            active: hasBad,
+            color: FabFilterColors.red,
+            onToggle: hasBad
+                ? () => _provider.deleteBadTakes(_trackId)
+                : () {},
+          ),
+          const SizedBox(width: 4),
+          // Flatten
+          FabCompactToggle(
+            label: 'FLATTEN',
+            active: state.compRegions.isNotEmpty,
+            color: FabFilterColors.orange,
+            onToggle: () {
+              _provider.flattenComp(_trackId, '/tmp/comp_output.wav');
+              widget.onAction?.call('flattenComp', {'trackId': widget.selectedTrackId});
+            },
+          ),
+          const Spacer(),
+          // Summary stats
+          Text(
+            '${state.allTakes.length} takes',
+            style: FabFilterText.paramLabel.copyWith(
+              color: FabFilterColors.textDisabled, fontSize: 8,
+            ),
+          ),
+        ],
       ),
     );
   }

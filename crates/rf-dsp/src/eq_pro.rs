@@ -1930,6 +1930,15 @@ impl ProEq {
         }
     }
 
+    /// Set band filter shape only (does NOT change enabled state)
+    pub fn set_band_shape(&mut self, index: usize, shape: FilterShape) {
+        if let Some(band) = self.bands.get_mut(index) {
+            band.shape = shape;
+            band.needs_update = true;
+            self.linear_phase_dirty = true;
+        }
+    }
+
     /// Get enabled band count
     pub fn enabled_band_count(&self) -> usize {
         self.bands.iter().filter(|b| b.enabled).count()

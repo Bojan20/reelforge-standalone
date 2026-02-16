@@ -476,6 +476,9 @@ class PluginProvider extends ChangeNotifier {
       // Activate plugin
       _ffi.pluginActivate(instanceId);
 
+      // Connect plugin to audio insert chain so signal flows through it
+      _ffi.pluginInsertLoad(trackId, pluginId);
+
       notifyListeners();
     }
     return instanceId;

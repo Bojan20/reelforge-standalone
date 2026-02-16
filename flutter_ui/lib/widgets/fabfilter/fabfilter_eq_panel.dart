@@ -197,10 +197,13 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     final restored = <EqBand>[];
     for (int i = 0; i < 64; i++) {
       final en = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.enabled);
-      if (en >= 0.5) {
+      final freq = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.freq);
+      // Skip empty/uninitialized bands (freq == 0 means slot was never used)
+      if (en >= 0.5 || freq > 10.0) {
         restored.add(EqBand(
           index: i,
-          freq: _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.freq),
+          enabled: en >= 0.5,
+          freq: freq,
           gain: _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.gain),
           q: _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.q),
           shape: _intToShape(_ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.shape).round()),
@@ -403,7 +406,10 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
             final c = _shapeColor(b.shape);
             return GestureDetector(
               onTap: () => setState(() => _selectedBandIndex = i),
-              onDoubleTap: () { setState(() => b.enabled = !b.enabled); _syncBand(i); },
+              onDoubleTap: () {
+                setState(() => b.enabled = !b.enabled);
+                _setP(b.index, _P.enabled, b.enabled ? 1.0 : 0.0);
+              },
               onLongPress: () => _removeBand(i),
               child: AnimatedContainer(
                 duration: FabFilterDurations.fast,
@@ -541,7 +547,11 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           // Enable
           FabTinyButton(label: b.enabled ? 'ON' : '-',
             active: b.enabled,
-            onTap: () { setState(() => b.enabled = !b.enabled); _syncBand(_selectedBandIndex!); },
+            onTap: () {
+              setState(() => b.enabled = !b.enabled);
+              // Send ONLY enabled param — _syncBand() would re-send all params
+              _setP(b.index, _P.enabled, b.enabled ? 1.0 : 0.0);
+            },
             color: FabFilterColors.green),
           const SizedBox(width: 2),
           // Delete
@@ -552,7 +562,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         ])),
         const SizedBox(height: 4),
         // Row 2: knobs — Freq, Gain, Q (+ dynamic if expert)
-        SizedBox(height: 56, child: Row(children: [
+        SizedBox(height: 68, child: Row(children: [
           _editorKnob('FREQ', _freqToNorm(b.freq), _fmtFreq(b.freq), c, (v) {
             setState(() => b.freq = _normToFreq(v));
             _syncBand(_selectedBandIndex!);
@@ -593,16 +603,14 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   }
 
   Widget _editorKnob(String label, double norm, String display, Color c, ValueChanged<double> onChanged) {
-    return Expanded(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      SizedBox(height: 36, width: 36, child: FabFilterKnob(
-        value: norm.clamp(0.0, 1.0),
-        onChanged: onChanged,
-        color: c,
-        size: 36,
-        label: label,
-        display: display,
-      )),
-    ]));
+    return Expanded(child: FabFilterKnob(
+      value: norm.clamp(0.0, 1.0),
+      onChanged: onChanged,
+      color: c,
+      size: 36,
+      label: label,
+      display: display,
+    ));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

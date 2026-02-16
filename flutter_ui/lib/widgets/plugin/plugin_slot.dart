@@ -126,6 +126,8 @@ class PluginSlot extends StatelessWidget {
             // Bypass button
             _BypassButton(
               instanceId: instance.instanceId,
+              trackId: trackId,
+              slotIndex: slotIndex,
             ),
           ],
         ),
@@ -227,7 +229,29 @@ class PluginSlot extends StatelessWidget {
     PluginProvider provider,
     PluginInstance instance,
   ) async {
-    // In real implementation, show file save dialog
+    final nameController = TextEditingController(text: instance.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Save Preset'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(labelText: 'Preset Name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, nameController.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty && context.mounted) {
+      final path = '${instance.pluginId}_$name.ffpreset';
+      await provider.savePluginPreset(instance.instanceId, path, name);
+    }
   }
 
   Future<void> _loadPreset(
@@ -235,7 +259,12 @@ class PluginSlot extends StatelessWidget {
     PluginProvider provider,
     PluginInstance instance,
   ) async {
-    // In real implementation, show file open dialog
+    // Use file picker to select a preset file
+    // For now, show a placeholder dialog
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Load Preset: Use File > Load Preset to browse')),
+    );
   }
 
   Color _getFormatColor(PluginFormat format) {
@@ -257,8 +286,14 @@ class PluginSlot extends StatelessWidget {
 /// Bypass button for plugin slot
 class _BypassButton extends StatefulWidget {
   final String instanceId;
+  final int trackId;
+  final int slotIndex;
 
-  const _BypassButton({required this.instanceId});
+  const _BypassButton({
+    required this.instanceId,
+    required this.trackId,
+    required this.slotIndex,
+  });
 
   @override
   State<_BypassButton> createState() => _BypassButtonState();
@@ -271,8 +306,13 @@ class _BypassButtonState extends State<_BypassButton> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        setState(() => _bypassed = !_bypassed);
-        // TODO: Call FFI to bypass plugin
+        final newState = !_bypassed;
+        setState(() => _bypassed = newState);
+        context.read<PluginProvider>().setInsertBypass(
+          widget.trackId,
+          widget.slotIndex,
+          newState,
+        );
       },
       child: Container(
         width: 20,

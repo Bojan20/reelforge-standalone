@@ -70,15 +70,43 @@ trait RackPluginTrait {
     fn get_state(&self) -> Result<Vec<u8>, String>;
     fn set_state(&mut self, data: &[u8]) -> Result<(), String>;
     fn latency(&self) -> Option<u32>;
+
+    /// Whether this plugin supports native GUI (AudioUnit on macOS).
+    fn supports_gui(&self) -> bool { false }
+
+    /// Open a standalone window for the plugin's native GUI.
+    /// Returns (width, height) if GUI was created successfully.
+    /// Default: not supported.
+    #[cfg(target_os = "macos")]
+    fn open_gui_window(&mut self, _title: &str) -> Result<(f32, f32), String> {
+        Err("GUI not supported for this plugin format".into())
+    }
+
+    /// Close and drop the native GUI window.
+    #[cfg(target_os = "macos")]
+    fn close_gui_window(&mut self) {
+        // no-op by default
+    }
+
+    /// Get the native GUI size (width, height) in points.
+    #[cfg(target_os = "macos")]
+    fn gui_size(&self) -> Option<(f32, f32)> {
+        None
+    }
 }
 
 /// Wrapper for rack::PluginInstance
-struct RackPluginWrapper<P: rack::PluginInstance + Send> {
+struct RackPluginWrapper<P: rack::PluginInstance + Send + 'static> {
     plugin: P,
     latency_samples: u32,
+    /// Native GUI handle (macOS AudioUnit only). Stored here because
+    /// create_gui() requires the concrete AudioUnitPlugin type which
+    /// is erased when we box as dyn RackPluginTrait.
+    #[cfg(target_os = "macos")]
+    gui: Option<rack::au::AudioUnitGui>,
 }
 
-impl<P: rack::PluginInstance + Send> RackPluginTrait for RackPluginWrapper<P> {
+impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWrapper<P> {
     fn initialize(&mut self, sample_rate: f64, max_block_size: usize) -> Result<(), String> {
         self.plugin
             .initialize(sample_rate, max_block_size)
@@ -127,6 +155,84 @@ impl<P: rack::PluginInstance + Send> RackPluginTrait for RackPluginWrapper<P> {
     fn latency(&self) -> Option<u32> {
         Some(self.latency_samples)
     }
+
+    fn supports_gui(&self) -> bool {
+        // On macOS, AudioUnitPlugin supports GUI via create_gui()
+        #[cfg(target_os = "macos")]
+        {
+            use std::any::TypeId;
+            TypeId::of::<P>() == TypeId::of::<rack::au::AudioUnitPlugin>()
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            false
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn open_gui_window(&mut self, title: &str) -> Result<(f32, f32), String> {
+        use std::any::TypeId;
+        use std::sync::mpsc;
+
+        if TypeId::of::<P>() != TypeId::of::<rack::au::AudioUnitPlugin>() {
+            return Err("GUI not supported for this plugin format (VST3 GUI not available in rack 0.4)".into());
+        }
+
+        // SAFETY: We verified P == AudioUnitPlugin via TypeId check above.
+        // This is the standard Rust pattern for type-erased downcasting.
+        let au_plugin: &mut rack::au::AudioUnitPlugin = unsafe {
+            &mut *(&mut self.plugin as *mut P as *mut rack::au::AudioUnitPlugin)
+        };
+
+        // Use a channel to receive the GUI from the async callback
+        let (tx, rx) = mpsc::channel();
+        let title_owned = title.to_string();
+
+        au_plugin.create_gui(move |result| {
+            match result {
+                Ok(gui) => {
+                    // Show as standalone window (must be on main thread)
+                    if let Err(e) = gui.show_window(Some(&title_owned)) {
+                        log::error!("Failed to show plugin GUI window: {:?}", e);
+                        let _ = tx.send(Err(format!("Failed to show window: {:?}", e)));
+                        return Ok(());
+                    }
+                    let size = gui.get_size().unwrap_or((800.0, 600.0));
+                    let _ = tx.send(Ok((gui, size)));
+                    Ok(())
+                }
+                Err(e) => {
+                    let _ = tx.send(Err(format!("create_gui failed: {:?}", e)));
+                    Ok(())
+                }
+            }
+        });
+
+        // Wait for the callback (with timeout)
+        match rx.recv_timeout(std::time::Duration::from_secs(5)) {
+            Ok(Ok((gui, size))) => {
+                self.gui = Some(gui);
+                Ok(size)
+            }
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err("Timeout waiting for plugin GUI creation".into()),
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn close_gui_window(&mut self) {
+        if let Some(gui) = self.gui.take() {
+            if let Err(e) = gui.hide_window() {
+                log::warn!("Failed to hide plugin GUI window: {:?}", e);
+            }
+            // GUI handle is dropped here, cleaning up native resources
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn gui_size(&self) -> Option<(f32, f32)> {
+        self.gui.as_ref().and_then(|gui| gui.get_size().ok())
+    }
 }
 
 /// VST3 plugin host implementation using rack crate
@@ -161,6 +267,9 @@ pub struct Vst3Host {
     input_buffers: Mutex<Vec<Vec<f32>>>,
     /// Temporary output buffers for format conversion
     output_buffers: Mutex<Vec<Vec<f32>>>,
+    /// macOS AudioUnit GUI handle (kept alive while editor is open)
+    #[cfg(target_os = "macos")]
+    au_gui: Mutex<Option<rack::au::AudioUnitGui>>,
 }
 
 // SAFETY: All fields are either Sync+Send or protected by atomics/mutexes
@@ -247,6 +356,8 @@ impl Vst3Host {
             plugin_path: path.to_path_buf(),
             input_buffers: Mutex::new(input_buffers),
             output_buffers: Mutex::new(output_buffers),
+            #[cfg(target_os = "macos")]
+            au_gui: Mutex::new(None),
         })
     }
 
@@ -319,6 +430,8 @@ impl Vst3Host {
         let wrapper = RackPluginWrapper {
             plugin,
             latency_samples: 0,
+            #[cfg(target_os = "macos")]
+            gui: None,
         };
 
         let rack_plugin = RackPlugin {
@@ -718,6 +831,17 @@ impl PluginInstance for Vst3Host {
             return Ok(());
         }
 
+        // Close native GUI window if open
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(ref rp) = self.rack_plugin {
+                let mut lock = rp.lock();
+                lock.inner.close_gui_window();
+            }
+            // Also clear the holder in case it was stored separately
+            *self.au_gui.lock() = None;
+        }
+
         self.editor_open.store(false, Ordering::SeqCst);
         log::info!("Closed editor for plugin: {}", self.info.name);
         Ok(())
@@ -727,7 +851,19 @@ impl PluginInstance for Vst3Host {
         if !self.editor_open.load(Ordering::SeqCst) {
             return None;
         }
-        // Default size - real implementation would query plugin
+
+        // Query real plugin GUI size on macOS
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(ref rp) = self.rack_plugin {
+                let lock = rp.lock();
+                if let Some((w, h)) = lock.inner.gui_size() {
+                    return Some((w as u32, h as u32));
+                }
+            }
+        }
+
+        // Fallback default size
         Some((800, 600))
     }
 
@@ -745,50 +881,58 @@ impl PluginInstance for Vst3Host {
 
 #[cfg(target_os = "macos")]
 impl Vst3Host {
-    fn open_editor_macos(&mut self, parent: *mut c_void) -> PluginResult<()> {
-        if parent.is_null() {
-            return Err(PluginError::InitError("Null parent window handle".into()));
-        }
-
+    fn open_editor_macos(&mut self, _parent: *mut c_void) -> PluginResult<()> {
         log::info!(
-            "macOS plugin editor hosting for {} - parent NSView: {:?}",
-            self.info.name,
-            parent
+            "macOS plugin editor: opening GUI for {}",
+            self.info.name
         );
 
-        // macOS plugin GUI embedding via AudioUnit's view API
-        // The parent is an NSView* that we need to embed the plugin's view into
-        //
-        // For AudioUnit plugins (via rack):
-        // 1. rack::PluginInstance doesn't expose AudioUnitViewClass directly
-        // 2. We need to use the AudioUnit C API to request the view
-        //
-        // For VST3 plugins:
-        // 1. VST3 uses IPlugView interface with platform-specific attach()
-        // 2. The vst3 crate provides the IPlugView trait
-        //
-        // Current limitation: rack crate doesn't expose GUI APIs
-        // Full implementation would require:
-        // - Direct access to underlying AudioUnit/VST3 instance
-        // - Platform-specific view creation
-        // - Window management and resize handling
+        // Use rack's AudioUnit GUI API (production-ready in rack 0.4.8).
+        // For AudioUnit plugins: create_gui() + show_window() opens a standalone window.
+        // For VST3 plugins on macOS: rack 0.4.8 does NOT support VST3 GUI, so we
+        // fall through to the generic parameter editor on the Dart side.
 
-        // For now, log success - actual embedding needs rack crate GUI support
-        // or direct AudioUnit/VST3 API access
+        if let Some(ref rp) = self.rack_plugin {
+            let mut lock = rp.lock();
 
-        log::warn!(
-            "Plugin GUI embedding not yet fully implemented for macOS. \
-             Awaiting rack crate GUI API or direct platform integration."
-        );
+            if lock.inner.supports_gui() {
+                match lock.inner.open_gui_window(&self.info.name) {
+                    Ok((w, h)) => {
+                        log::info!(
+                            "Plugin GUI window opened: {}x{} for {}",
+                            w, h, self.info.name
+                        );
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        log::warn!(
+                            "Failed to open native GUI for {}: {}. Will use generic parameter editor.",
+                            self.info.name, e
+                        );
+                        // Don't return error — Dart side will show generic param editor
+                        return Ok(());
+                    }
+                }
+            } else {
+                log::info!(
+                    "Plugin {} does not support native GUI (VST3 GUI not available in rack 0.4). \
+                     Dart side will show generic parameter editor.",
+                    self.info.name
+                );
+            }
+        }
 
         Ok(())
     }
 
     /// Get the preferred editor size for this plugin
     pub fn preferred_editor_size(&self) -> Option<(u32, u32)> {
-        // Default size for plugins without explicit size
-        // Real implementation would query IPlugView::getSize() for VST3
-        // or AudioUnitCocoaViewInfo for AudioUnit
+        if let Some(ref rp) = self.rack_plugin {
+            let lock = rp.lock();
+            if let Some((w, h)) = lock.inner.gui_size() {
+                return Some((w as u32, h as u32));
+            }
+        }
         Some((800, 600))
     }
 }

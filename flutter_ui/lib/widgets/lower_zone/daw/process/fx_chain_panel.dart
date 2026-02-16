@@ -287,6 +287,7 @@ class FxChainPanel extends StatelessWidget {
       DspNodeType.limiter => DawProcessSubTab.limiter,
       DspNodeType.reverb => DawProcessSubTab.reverb,
       DspNodeType.gate => DawProcessSubTab.gate,
+      DspNodeType.saturation => DawProcessSubTab.saturation,
       _ => null,
     };
     if (subTab != null) onNavigateToSubTab?.call(subTab);

@@ -212,9 +212,11 @@ class _FabFilterKnobState extends State<FabFilterKnob>
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildKnob(),
-              const SizedBox(height: 4),
-              _buildLabel(),
-              _buildDisplay(),
+              if (widget.label.isNotEmpty || widget.display.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                if (widget.label.isNotEmpty) _buildLabel(),
+                if (widget.display.isNotEmpty) _buildDisplay(),
+              ],
             ],
           ),
         ),

@@ -1,9 +1,16 @@
-// Elastic Audio Panel — DAW Lower Zone EDIT tab
-// Pitch correction and time manipulation per clip (Pro Tools Elastic Audio style)
+// Elastic Audio Panel — FabFilter-style pitch shifting with real Rust FFI
+//
+// Direct FFI via ElasticPro API (rf-engine PLAYBACK_ENGINE):
+//   elasticProCreate / elasticProDestroy
+//   elasticProSetPitch / elasticProSetMode
+//   elasticProSetPreserveFormants / elasticProSetPreserveTransients
+//   elasticProReset / elasticApplyToClip
 
 import 'package:flutter/material.dart';
-import '../../../../services/elastic_audio_service.dart';
-import '../../lower_zone_types.dart';
+import '../../../../src/rust/native_ffi.dart';
+import '../../../fabfilter/fabfilter_theme.dart';
+import '../../../fabfilter/fabfilter_knob.dart';
+import '../../../fabfilter/fabfilter_widgets.dart';
 
 class ElasticAudioPanel extends StatefulWidget {
   final int? selectedTrackId;
@@ -16,355 +23,428 @@ class ElasticAudioPanel extends StatefulWidget {
 }
 
 class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
-  final _service = ElasticAudioService.instance;
+  final _ffi = NativeFFI.instance;
 
-  ElasticMode _mode = ElasticMode.polyphonic;
-  double _pitchShift = 0.0; // semitones
-  double _finePitch = 0.0; // cents (-50 to +50)
+  // ── Parameter state ──────────────────────────────────────────────────────
+  double _pitchSemitones = 0.0;   // -24 to +24
+  double _fineCents = 0.0;        // -50 to +50
+  int _modeIndex = 0;             // ElasticMode enum index
   bool _preserveFormants = true;
-  bool _enabled = false;
+  bool _preserveTransients = true;
+  bool _engineCreated = false;
+
+  // ── FabCompactHeader state ───────────────────────────────────────────────
+  bool _isStateB = false;
+  bool _bypassed = false;
+  bool _showExpert = false;
+
+  // ── A/B snapshot ─────────────────────────────────────────────────────────
+  double _snapshotPitch = 0.0;
+  double _snapshotCents = 0.0;
+  int _snapshotMode = 0;
+  bool _snapshotFormants = true;
+  bool _snapshotTransients = true;
+
+  int get _trackId => widget.selectedTrackId ?? 0;
+
+  // ════════════════════════════════════════════════════════════════════════
+  // LIFECYCLE
+  // ════════════════════════════════════════════════════════════════════════
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureEngine();
+  }
+
+  @override
+  void didUpdateWidget(covariant ElasticAudioPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedTrackId != widget.selectedTrackId) {
+      _destroyEngine();
+      _ensureEngine();
+    }
+  }
+
+  @override
+  void dispose() {
+    _destroyEngine();
+    super.dispose();
+  }
+
+  void _ensureEngine() {
+    if (widget.selectedTrackId == null) return;
+    _engineCreated = _ffi.elasticProCreate(_trackId, sampleRate: 48000.0);
+    if (_engineCreated) {
+      _syncAllToEngine();
+    }
+  }
+
+  void _destroyEngine() {
+    if (_engineCreated) {
+      _ffi.elasticProDestroy(_trackId);
+      _engineCreated = false;
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // FFI SYNC
+  // ════════════════════════════════════════════════════════════════════════
+
+  void _syncAllToEngine() {
+    if (!_engineCreated) return;
+    _ffi.elasticProSetPitch(_trackId, _pitchSemitones + _fineCents / 100.0);
+    _ffi.elasticProSetMode(_trackId, ElasticMode.values[_modeIndex]);
+    _ffi.elasticProSetPreserveFormants(_trackId, _preserveFormants);
+    _ffi.elasticProSetPreserveTransients(_trackId, _preserveTransients);
+  }
+
+  void _onPitchChanged(double semitones) {
+    setState(() => _pitchSemitones = semitones);
+    if (_engineCreated) {
+      _ffi.elasticProSetPitch(_trackId, _pitchSemitones + _fineCents / 100.0);
+    }
+  }
+
+  void _onFineChanged(double cents) {
+    setState(() => _fineCents = cents);
+    if (_engineCreated) {
+      _ffi.elasticProSetPitch(_trackId, _pitchSemitones + _fineCents / 100.0);
+    }
+  }
+
+  void _onModeChanged(int index) {
+    setState(() => _modeIndex = index);
+    if (_engineCreated) {
+      _ffi.elasticProSetMode(_trackId, ElasticMode.values[index]);
+    }
+  }
+
+  void _onFormantsToggled() {
+    setState(() => _preserveFormants = !_preserveFormants);
+    if (_engineCreated) {
+      _ffi.elasticProSetPreserveFormants(_trackId, _preserveFormants);
+    }
+  }
+
+  void _onTransientsToggled() {
+    setState(() => _preserveTransients = !_preserveTransients);
+    if (_engineCreated) {
+      _ffi.elasticProSetPreserveTransients(_trackId, _preserveTransients);
+    }
+  }
+
+  void _onApply() {
+    if (!_engineCreated) return;
+    _ffi.elasticApplyToClip(_trackId);
+    widget.onAction?.call('elasticApply', {
+      'trackId': _trackId,
+      'pitch': _pitchSemitones + _fineCents / 100.0,
+      'mode': ElasticMode.values[_modeIndex].name,
+    });
+  }
+
+  void _onReset() {
+    setState(() {
+      _pitchSemitones = 0.0;
+      _fineCents = 0.0;
+      _modeIndex = 0;
+      _preserveFormants = true;
+      _preserveTransients = true;
+    });
+    if (_engineCreated) {
+      _ffi.elasticProReset(_trackId);
+      _syncAllToEngine();
+    }
+  }
+
+  // ── A/B ──────────────────────────────────────────────────────────────────
+
+  void _toggleAB() {
+    if (!_isStateB) {
+      // Save A, load B snapshot
+      _snapshotPitch = _pitchSemitones;
+      _snapshotCents = _fineCents;
+      _snapshotMode = _modeIndex;
+      _snapshotFormants = _preserveFormants;
+      _snapshotTransients = _preserveTransients;
+    }
+    setState(() {
+      final tmpP = _pitchSemitones;
+      final tmpC = _fineCents;
+      final tmpM = _modeIndex;
+      final tmpF = _preserveFormants;
+      final tmpT = _preserveTransients;
+      _pitchSemitones = _snapshotPitch;
+      _fineCents = _snapshotCents;
+      _modeIndex = _snapshotMode;
+      _preserveFormants = _snapshotFormants;
+      _preserveTransients = _snapshotTransients;
+      _snapshotPitch = tmpP;
+      _snapshotCents = tmpC;
+      _snapshotMode = tmpM;
+      _snapshotFormants = tmpF;
+      _snapshotTransients = tmpT;
+      _isStateB = !_isStateB;
+    });
+    _syncAllToEngine();
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // BUILD
+  // ════════════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
-    if (widget.selectedTrackId == null) {
-      return _buildNoSelection();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(8),
+    if (widget.selectedTrackId == null) return _buildNoSelection();
+    return Container(
+      decoration: FabFilterDecorations.panel(),
+      clipBehavior: Clip.hardEdge,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(),
-          const SizedBox(height: 8),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildModeSelector(),
-                  const SizedBox(height: 12),
-                  _buildPitchControls(),
-                  const SizedBox(height: 12),
-                  _buildFinePitchControl(),
-                  const SizedBox(height: 12),
-                  _buildOptions(),
-                  const SizedBox(height: 12),
-                  _buildPitchPresets(),
-                  const SizedBox(height: 12),
-                  _buildAnalysisInfo(),
-                ],
-              ),
-            ),
-          ),
+          Expanded(child: _buildBody()),
         ],
       ),
     );
   }
 
   Widget _buildNoSelection() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    return Container(
+      decoration: FabFilterDecorations.panel(),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.waves, size: 28, color: FabFilterColors.textDisabled),
+            const SizedBox(height: 6),
+            Text('Select a clip for pitch shifting',
+                style: FabFilterText.paramLabel.copyWith(color: FabFilterColors.textTertiary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Header ───────────────────────────────────────────────────────────────
+
+  Widget _buildHeader() {
+    return FabCompactHeader(
+      title: 'FF PITCH',
+      accentColor: FabFilterColors.cyan,
+      isStateB: _isStateB,
+      onToggleAB: _toggleAB,
+      bypassed: _bypassed,
+      onToggleBypass: () => setState(() => _bypassed = !_bypassed),
+      showExpert: _showExpert,
+      onToggleExpert: () => setState(() => _showExpert = !_showExpert),
+      onClose: () => widget.onAction?.call('close', null),
+      statusWidget: _buildStatusChip(),
+    );
+  }
+
+  Widget _buildStatusChip() {
+    final total = _pitchSemitones + _fineCents / 100.0;
+    if (total == 0.0) return const SizedBox.shrink();
+    final sign = total > 0 ? '+' : '';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: FabFilterColors.cyan.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text('$sign${total.toStringAsFixed(2)} st',
+          style: TextStyle(color: FabFilterColors.cyan, fontSize: 8, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  // ── Body ──────────────────────────────────────────────────────────────────
+
+  Widget _buildBody() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.waves, size: 32, color: Colors.white24),
-          const SizedBox(height: 8),
-          Text('Select a clip for Elastic Audio',
-              style: LowerZoneTypography.label.copyWith(color: Colors.white38)),
+          // Left column — Pitch knob + quick semitone buttons
+          Expanded(flex: 3, child: _buildPitchColumn()),
+          const SizedBox(width: 8),
+          // Right column — Fine knob + toggles + apply
+          Expanded(flex: 2, child: _buildControlColumn()),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Row(
+  // ── Left: Pitch knob + quick buttons ─────────────────────────────────────
+
+  Widget _buildPitchColumn() {
+    final normalized = (_pitchSemitones + 24.0) / 48.0; // map -24..+24 to 0..1
+    final sign = _pitchSemitones > 0 ? '+' : '';
+    final display = _pitchSemitones == _pitchSemitones.roundToDouble()
+        ? '$sign${_pitchSemitones.toInt()} st'
+        : '$sign${_pitchSemitones.toStringAsFixed(1)} st';
+
+    return Column(
       children: [
-        const Icon(Icons.waves, size: 16, color: Colors.purple),
-        const SizedBox(width: 6),
-        Text('ELASTIC AUDIO', style: LowerZoneTypography.title.copyWith(color: Colors.white70)),
-        const Spacer(),
-        // Enable toggle
-        Switch(
-          value: _enabled,
-          activeColor: Colors.purple,
-          onChanged: (v) {
-            setState(() => _enabled = v);
-            if (v) {
-              _service.setClipConfig(widget.selectedTrackId!.toString(), ElasticAudioConfig(
-                mode: _mode,
-                pitchShift: _pitchShift + _finePitch / 100.0,
-                preserveFormants: _preserveFormants,
-              ));
-            } else {
-              _service.removeClipConfig(widget.selectedTrackId!.toString());
-            }
-            widget.onAction?.call('elasticAudio', {'enabled': v});
-          },
+        FabFilterKnob(
+          value: normalized.clamp(0.0, 1.0),
+          label: 'PITCH',
+          display: display,
+          color: FabFilterColors.cyan,
+          size: 72,
+          defaultValue: 0.5,
+          onChanged: (v) => _onPitchChanged((v * 48.0 - 24.0).roundToDouble()),
         ),
+        const SizedBox(height: 8),
+        _buildQuickSemitoneRow(),
+        if (_showExpert) ...[
+          const SizedBox(height: 8),
+          _buildModeSelector(),
+        ],
       ],
+    );
+  }
+
+  Widget _buildQuickSemitoneRow() {
+    const presets = [-12, -7, -5, 0, 5, 7, 12];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: presets.map((st) {
+        final isActive = _pitchSemitones == st.toDouble();
+        final label = st > 0 ? '+$st' : '$st';
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1),
+          child: GestureDetector(
+            onTap: () => _onPitchChanged(st.toDouble()),
+            child: Container(
+              width: 28,
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? FabFilterColors.cyan.withValues(alpha: 0.25)
+                    : FabFilterColors.bgMid,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: isActive ? FabFilterColors.cyan : FabFilterColors.border,
+                ),
+              ),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  color: isActive ? FabFilterColors.cyan : FabFilterColors.textTertiary,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
   Widget _buildModeSelector() {
-    final modes = [
-      (ElasticMode.polyphonic, 'Polyphonic', Icons.music_note, 'Best for chords, pads, complex audio'),
-      (ElasticMode.monophonic, 'Monophonic', Icons.mic, 'Best for solo vocals, instruments'),
-      (ElasticMode.rhythmic, 'Rhythmic', Icons.surround_sound, 'Best for drums, percussion, loops'),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Processing Mode', style: LowerZoneTypography.label.copyWith(color: Colors.white54)),
-        const SizedBox(height: 4),
-        Row(
-          children: modes.map((m) {
-            final isActive = _mode == m.$1;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Tooltip(
-                  message: m.$4,
-                  child: InkWell(
-                    onTap: () {
-                      setState(() => _mode = m.$1);
-                      _applyConfig();
-                    },
-                    borderRadius: BorderRadius.circular(4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: (isActive ? Colors.purple : Colors.white).withOpacity(isActive ? 0.2 : 0.05),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: isActive ? Colors.purple.withOpacity(0.5) : Colors.transparent,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(m.$3, size: 16, color: isActive ? Colors.purple : Colors.white38),
-                          const SizedBox(height: 2),
-                          Text(m.$2, style: LowerZoneTypography.badge.copyWith(
-                              color: isActive ? Colors.purple : Colors.white54)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
+    return FabEnumSelector(
+      label: 'MODE',
+      value: _modeIndex,
+      options: const ['A', 'P', 'M', 'R', 'S'],
+      onChanged: _onModeChanged,
+      color: FabFilterColors.cyan,
     );
   }
 
-  Widget _buildPitchControls() {
+  // ── Right: Fine knob + toggles + apply ───────────────────────────────────
+
+  Widget _buildControlColumn() {
+    final fineNorm = (_fineCents + 50.0) / 100.0; // map -50..+50 to 0..1
+    final fineSign = _fineCents > 0 ? '+' : '';
+    final fineDisplay = '${fineSign}${_fineCents.toInt()} ct';
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text('Pitch Shift', style: LowerZoneTypography.label.copyWith(color: Colors.white54)),
-            const Spacer(),
-            Text(_formatPitch(_pitchShift),
-                style: LowerZoneTypography.value.copyWith(
-                    color: _pitchShift != 0 ? Colors.purple : Colors.white54,
-                    fontWeight: FontWeight.bold)),
-          ],
+        FabFilterKnob(
+          value: fineNorm.clamp(0.0, 1.0),
+          label: 'FINE',
+          display: fineDisplay,
+          color: FabFilterColors.purple,
+          size: 52,
+          defaultValue: 0.5,
+          onChanged: (v) => _onFineChanged((v * 100.0 - 50.0).roundToDouble()),
+        ),
+        const SizedBox(height: 8),
+        FabCompactToggle(
+          label: 'FORMANT',
+          active: _preserveFormants,
+          onToggle: _onFormantsToggled,
+          color: FabFilterColors.green,
         ),
         const SizedBox(height: 4),
-        Row(
-          children: [
-            Expanded(
-              child: Slider(
-                value: _pitchShift,
-                min: -24,
-                max: 24,
-                divisions: 48,
-                activeColor: Colors.purple,
-                onChanged: (v) {
-                  setState(() => _pitchShift = v);
-                  _applyConfig();
-                },
-              ),
-            ),
-          ],
+        FabCompactToggle(
+          label: 'TRANSNT',
+          active: _preserveTransients,
+          onToggle: _onTransientsToggled,
+          color: FabFilterColors.yellow,
         ),
-        // Quick semitone buttons
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [-12, -7, -5, -3, -1, 0, 1, 3, 5, 7, 12].map((st) {
-            final isActive = _pitchShift == st.toDouble();
-            return GestureDetector(
-              onTap: () {
-                setState(() => _pitchShift = st.toDouble());
-                _applyConfig();
-              },
-              child: Container(
-                width: 28,
-                margin: const EdgeInsets.symmetric(horizontal: 1),
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                decoration: BoxDecoration(
-                  color: (isActive ? Colors.purple : Colors.white).withOpacity(isActive ? 0.3 : 0.05),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: Text(
-                  st > 0 ? '+$st' : '$st',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: isActive ? Colors.purple : Colors.white38,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
+        const SizedBox(height: 8),
+        if (!_showExpert) _buildModeCompact(),
+        const Spacer(),
+        _buildActionRow(),
       ],
     );
   }
 
-  Widget _buildFinePitchControl() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text('Fine Tune (cents)', style: LowerZoneTypography.label.copyWith(color: Colors.white54)),
-            const Spacer(),
-            Text('${_finePitch > 0 ? '+' : ''}${_finePitch.toStringAsFixed(0)}¢',
-                style: LowerZoneTypography.value.copyWith(
-                    color: _finePitch != 0 ? Colors.purple.shade200 : Colors.white54)),
-          ],
-        ),
-        Slider(
-          value: _finePitch,
-          min: -50,
-          max: 50,
-          divisions: 100,
-          activeColor: Colors.purple.shade300,
-          onChanged: (v) {
-            setState(() => _finePitch = v);
-            _applyConfig();
-          },
-        ),
-      ],
+  Widget _buildModeCompact() {
+    const names = ['Auto', 'Poly', 'Mono', 'Rhythm', 'Speech', 'Creatv'];
+    return Text(
+      names[_modeIndex],
+      style: FabFilterText.paramLabel.copyWith(color: FabFilterColors.textSecondary),
     );
   }
 
-  Widget _buildOptions() {
+  Widget _buildActionRow() {
     return Row(
       children: [
-        Switch(
-          value: _preserveFormants,
-          activeColor: Colors.purple,
-          onChanged: (v) {
-            setState(() => _preserveFormants = v);
-            _applyConfig();
-          },
+        Expanded(
+          child: GestureDetector(
+            onTap: _onReset,
+            child: Container(
+              height: 22,
+              decoration: BoxDecoration(
+                color: FabFilterColors.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: FabFilterColors.border),
+              ),
+              child: Center(
+                child: Text('RST', style: TextStyle(
+                  color: FabFilterColors.textTertiary, fontSize: 8, fontWeight: FontWeight.bold,
+                )),
+              ),
+            ),
+          ),
         ),
-        Text('Preserve Formants', style: LowerZoneTypography.label.copyWith(color: Colors.white70)),
-        const SizedBox(width: 6),
-        Tooltip(
-          message: 'Prevents chipmunk effect when pitch shifting vocals',
-          child: Icon(Icons.info_outline, size: 14, color: Colors.white24),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPitchPresets() {
-    final presets = [
-      ('Octave Down', -12.0),
-      ('5th Down', -7.0),
-      ('Original', 0.0),
-      ('5th Up', 7.0),
-      ('Octave Up', 12.0),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Presets', style: LowerZoneTypography.label.copyWith(color: Colors.white54)),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 4,
-          children: presets.map((p) {
-            return ActionChip(
-              label: Text(p.$1, style: TextStyle(
-                fontSize: LowerZoneTypography.sizeBadge,
-                color: _pitchShift == p.$2 ? Colors.white : Colors.white54,
-              )),
-              backgroundColor: _pitchShift == p.$2
-                  ? Colors.purple.withOpacity(0.3)
-                  : Colors.white.withOpacity(0.05),
-              onPressed: () {
-                setState(() => _pitchShift = p.$2);
-                _applyConfig();
-              },
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-            );
-          }).toList(),
+        const SizedBox(width: 4),
+        Expanded(
+          flex: 2,
+          child: GestureDetector(
+            onTap: _onApply,
+            child: Container(
+              height: 22,
+              decoration: BoxDecoration(
+                color: FabFilterColors.cyan.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: FabFilterColors.cyan),
+              ),
+              child: Center(
+                child: Text('APPLY', style: TextStyle(
+                  color: FabFilterColors.cyan, fontSize: 9, fontWeight: FontWeight.bold,
+                )),
+              ),
+            ),
+          ),
         ),
       ],
     );
-  }
-
-  Widget _buildAnalysisInfo() {
-    if (!_enabled) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.purple.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.purple.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Analysis', style: LowerZoneTypography.label.copyWith(color: Colors.purple.shade200)),
-          const SizedBox(height: 4),
-          _infoRow('Mode', _mode.name),
-          _infoRow('Total Shift', _formatPitch(_pitchShift + _finePitch / 100.0)),
-          _infoRow('Formant Preservation', _preserveFormants ? 'On' : 'Off'),
-          _infoRow('Latency', _mode == ElasticMode.rhythmic ? '~5ms' : '~10ms'),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Row(
-        children: [
-          Text(label, style: LowerZoneTypography.badge.copyWith(color: Colors.white38)),
-          const Spacer(),
-          Text(value, style: LowerZoneTypography.badge.copyWith(color: Colors.white54)),
-        ],
-      ),
-    );
-  }
-
-  String _formatPitch(double semitones) {
-    if (semitones == 0) return '0 st';
-    return '${semitones > 0 ? '+' : ''}${semitones.toStringAsFixed(1)} st';
-  }
-
-  void _applyConfig() {
-    if (!_enabled) return;
-    _service.setClipConfig(widget.selectedTrackId!.toString(), ElasticAudioConfig(
-      mode: _mode,
-      pitchShift: _pitchShift + _finePitch / 100.0,
-      preserveFormants: _preserveFormants,
-    ));
-    widget.onAction?.call('elasticAudioUpdate', {
-      'mode': _mode.name,
-      'pitchShift': _pitchShift,
-      'finePitch': _finePitch,
-      'preserveFormants': _preserveFormants,
-    });
   }
 }
