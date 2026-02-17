@@ -1452,8 +1452,8 @@ impl Default for BusState {
     fn default() -> Self {
         Self {
             volume: 1.0,
-            pan: 0.0,
-            pan_right: 0.0, // Default to center (same as pan)
+            pan: -1.0,       // Stereo bus: L channel hard left
+            pan_right: 1.0,  // Stereo bus: R channel hard right
             muted: false,
             soloed: false,
         }
@@ -3855,11 +3855,17 @@ impl PlaybackEngine {
 
             // Mix ALL bus outputs to main output (for one-shot when transport stopped)
             // One-shot voices can route to any bus (0=Sfx, 1=Music, 2=Voice, etc.)
-            for (bus_l, bus_r) in bus_buffers.buffers.iter() {
+            for (bus_idx, (bus_l, bus_r)) in bus_buffers.buffers.iter().enumerate() {
+                // Per-bus peak metering (one-shot path)
+                let mut bp_l: f64 = 0.0;
+                let mut bp_r: f64 = 0.0;
                 for i in 0..frames {
                     output_l[i] += bus_l[i];
                     output_r[i] += bus_r[i];
+                    bp_l = bp_l.max(bus_l[i].abs());
+                    bp_r = bp_r.max(bus_r[i].abs());
                 }
+                crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bp_l, bp_r);
             }
         }
 
@@ -4407,6 +4413,8 @@ impl PlaybackEngine {
         for (bus_idx, state) in bus_states.iter().enumerate() {
             // Skip if muted, or if solo is active and this bus isn't soloed
             if state.muted || (any_solo && !state.soloed) {
+                // Reset metering for muted/inactive buses (smooth decay in UI)
+                crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, 0.0, 0.0);
                 continue;
             }
 
@@ -4449,6 +4457,19 @@ impl PlaybackEngine {
             // Process inserts AFTER bus fader — typical EQ/Compressor placement
             if let Some(ref mut inserts) = bus_inserts {
                 inserts[bus_idx].process_post_fader(bus_l, bus_r);
+            }
+
+            // ═══ PER-BUS PEAK METERING ═══
+            // Calculate peak levels after all processing (volume, pan, inserts)
+            // and store in SHARED_METERS for UI display
+            {
+                let mut bp_l: f64 = 0.0;
+                let mut bp_r: f64 = 0.0;
+                for i in 0..frames {
+                    bp_l = bp_l.max(bus_l[i].abs());
+                    bp_r = bp_r.max(bus_r[i].abs());
+                }
+                crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bp_l, bp_r);
             }
 
             // Sum processed bus to master output

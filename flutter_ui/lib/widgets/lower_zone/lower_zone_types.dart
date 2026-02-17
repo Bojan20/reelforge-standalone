@@ -53,14 +53,112 @@ const double kSplitViewDefaultRatio = 0.5;
 /// Width of the split view divider
 const double kSplitDividerWidth = 6.0;
 
+/// Minimum ratio for each pane in multi-panel mode (prevents pane from being too small)
+const double kSplitViewMinPaneRatio = 0.15;
+
 // ═══════════════════════════════════════════════════════════════════════════════
-// SPLIT VIEW — P2.1 Split View Mode for viewing 2 panels simultaneously
+// SPLIT VIEW — Multi-panel mode (2, 3, or 4 panels simultaneously)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Direction of the split view divider
 enum SplitDirection {
   horizontal, // Left | Right
   vertical,   // Top / Bottom
+}
+
+/// Default split ratios for each panel count
+List<double> defaultSplitRatios(int panelCount) {
+  return switch (panelCount) {
+    2 => [0.5],
+    3 => [0.33, 0.66],
+    4 => [0.5, 0.5], // [horizontal ratio, vertical ratio] for 2x2 grid
+    _ => [],
+  };
+}
+
+/// Tab state for a single pane (used for panels 2, 3, 4)
+class PaneTabState {
+  DawSuperTab superTab;
+  DawBrowseSubTab browseSubTab;
+  DawEditSubTab editSubTab;
+  DawMixSubTab mixSubTab;
+  DawProcessSubTab processSubTab;
+  DawDeliverSubTab deliverSubTab;
+
+  PaneTabState({
+    this.superTab = DawSuperTab.browse,
+    this.browseSubTab = DawBrowseSubTab.files,
+    this.editSubTab = DawEditSubTab.timeline,
+    this.mixSubTab = DawMixSubTab.mixer,
+    this.processSubTab = DawProcessSubTab.eq,
+    this.deliverSubTab = DawDeliverSubTab.export,
+  });
+
+  int get currentSubTabIndex => switch (superTab) {
+    DawSuperTab.browse => browseSubTab.index,
+    DawSuperTab.edit => editSubTab.index,
+    DawSuperTab.mix => mixSubTab.index,
+    DawSuperTab.process => processSubTab.index,
+    DawSuperTab.deliver => deliverSubTab.index,
+  };
+
+  void setSubTabIndex(int index) {
+    switch (superTab) {
+      case DawSuperTab.browse:
+        browseSubTab = DawBrowseSubTab.values[index.clamp(0, 3)];
+      case DawSuperTab.edit:
+        editSubTab = DawEditSubTab.values[index.clamp(0, DawEditSubTab.values.length - 1)];
+      case DawSuperTab.mix:
+        mixSubTab = DawMixSubTab.values[index.clamp(0, 3)];
+      case DawSuperTab.process:
+        processSubTab = DawProcessSubTab.values[index.clamp(0, DawProcessSubTab.values.length - 1)];
+      case DawSuperTab.deliver:
+        deliverSubTab = DawDeliverSubTab.values[index.clamp(0, 3)];
+    }
+  }
+
+  List<String> get subTabLabels => switch (superTab) {
+    DawSuperTab.browse => DawBrowseSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.edit => DawEditSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.mix => DawMixSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.process => DawProcessSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.deliver => DawDeliverSubTab.values.map((e) => e.label).toList(),
+  };
+
+  PaneTabState copy() => PaneTabState(
+    superTab: superTab,
+    browseSubTab: browseSubTab,
+    editSubTab: editSubTab,
+    mixSubTab: mixSubTab,
+    processSubTab: processSubTab,
+    deliverSubTab: deliverSubTab,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'superTab': superTab.index,
+    'browseSubTab': browseSubTab.index,
+    'editSubTab': editSubTab.index,
+    'mixSubTab': mixSubTab.index,
+    'processSubTab': processSubTab.index,
+    'deliverSubTab': deliverSubTab.index,
+  };
+
+  factory PaneTabState.fromJson(Map<String, dynamic> json) => PaneTabState(
+    superTab: DawSuperTab.values[(json['superTab'] as int? ?? 0).clamp(0, DawSuperTab.values.length - 1)],
+    browseSubTab: DawBrowseSubTab.values[(json['browseSubTab'] as int? ?? 0).clamp(0, 3)],
+    editSubTab: DawEditSubTab.values[(json['editSubTab'] as int? ?? 0).clamp(0, DawEditSubTab.values.length - 1)],
+    mixSubTab: DawMixSubTab.values[(json['mixSubTab'] as int? ?? 0).clamp(0, 3)],
+    processSubTab: DawProcessSubTab.values[(json['processSubTab'] as int? ?? 0).clamp(0, DawProcessSubTab.values.length - 1)],
+    deliverSubTab: DawDeliverSubTab.values[(json['deliverSubTab'] as int? ?? 0).clamp(0, 3)],
+  );
+
+  /// Default tab states for each pane index (different tabs for usefulness)
+  static PaneTabState defaultForIndex(int index) => switch (index) {
+    0 => PaneTabState(superTab: DawSuperTab.mix),
+    1 => PaneTabState(superTab: DawSuperTab.process),
+    2 => PaneTabState(superTab: DawSuperTab.edit),
+    _ => PaneTabState(),
+  };
 }
 
 extension SplitDirectionX on SplitDirection {
@@ -283,14 +381,26 @@ class DawLowerZoneState {
   double height;
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // P2.1: Split View Mode — View 2 panels simultaneously
+  // Split View Mode — View 2, 3, or 4 panels simultaneously
   // ═══════════════════════════════════════════════════════════════════════════
   bool splitEnabled;
   SplitDirection splitDirection;
-  double splitRatio; // 0.0-1.0, position of divider
+  double splitRatio; // 0.0-1.0, position of divider (legacy, used for 2-panel)
   bool syncScrollEnabled; // Linked scrolling between panes
 
-  // Second pane tabs (independent selection)
+  /// Number of panels (1=single, 2/3/4=multi-panel)
+  int panelCount;
+
+  /// Split ratios for dividers.
+  /// 2 panels: [ratio] (1 divider)
+  /// 3 panels: [ratio1, ratio2] (2 dividers, cumulative positions 0-1)
+  /// 4 panels: [hRatio, vRatio] (horizontal split, vertical split for 2x2 grid)
+  List<double> splitRatios;
+
+  /// Tab state for extra panes (index 0 = pane 2, index 1 = pane 3, index 2 = pane 4)
+  List<PaneTabState> extraPanes;
+
+  // Legacy second pane tabs (kept for backward compatibility with existing JSON)
   DawSuperTab secondPaneSuperTab;
   DawBrowseSubTab secondPaneBrowseSubTab;
   DawEditSubTab secondPaneEditSubTab;
@@ -312,14 +422,22 @@ class DawLowerZoneState {
     this.splitDirection = SplitDirection.horizontal,
     this.splitRatio = kSplitViewDefaultRatio,
     this.syncScrollEnabled = false,
-    // Second pane defaults (different from first pane for usefulness)
+    this.panelCount = 1,
+    List<double>? splitRatios,
+    List<PaneTabState>? extraPanes,
+    // Legacy second pane defaults (backward compat)
     this.secondPaneSuperTab = DawSuperTab.mix,
     this.secondPaneBrowseSubTab = DawBrowseSubTab.files,
     this.secondPaneEditSubTab = DawEditSubTab.timeline,
     this.secondPaneMixSubTab = DawMixSubTab.mixer,
     this.secondPaneProcessSubTab = DawProcessSubTab.eq,
     this.secondPaneDeliverSubTab = DawDeliverSubTab.export,
-  });
+  }) : splitRatios = splitRatios ?? defaultSplitRatios(2),
+       extraPanes = extraPanes ?? [
+         PaneTabState.defaultForIndex(0),
+         PaneTabState.defaultForIndex(1),
+         PaneTabState.defaultForIndex(2),
+       ];
 
   /// Get current sub-tab index for active super-tab
   int get currentSubTabIndex => switch (superTab) {
@@ -407,6 +525,9 @@ class DawLowerZoneState {
     SplitDirection? splitDirection,
     double? splitRatio,
     bool? syncScrollEnabled,
+    int? panelCount,
+    List<double>? splitRatios,
+    List<PaneTabState>? extraPanes,
     DawSuperTab? secondPaneSuperTab,
     DawBrowseSubTab? secondPaneBrowseSubTab,
     DawEditSubTab? secondPaneEditSubTab,
@@ -428,6 +549,9 @@ class DawLowerZoneState {
       splitDirection: splitDirection ?? this.splitDirection,
       splitRatio: splitRatio ?? this.splitRatio,
       syncScrollEnabled: syncScrollEnabled ?? this.syncScrollEnabled,
+      panelCount: panelCount ?? this.panelCount,
+      splitRatios: splitRatios ?? List<double>.from(this.splitRatios),
+      extraPanes: extraPanes ?? this.extraPanes.map((p) => p.copy()).toList(),
       secondPaneSuperTab: secondPaneSuperTab ?? this.secondPaneSuperTab,
       secondPaneBrowseSubTab: secondPaneBrowseSubTab ?? this.secondPaneBrowseSubTab,
       secondPaneEditSubTab: secondPaneEditSubTab ?? this.secondPaneEditSubTab,
@@ -452,6 +576,10 @@ class DawLowerZoneState {
     'splitDirection': splitDirection.index,
     'splitRatio': splitRatio,
     'syncScrollEnabled': syncScrollEnabled,
+    // Multi-pane
+    'panelCount': panelCount,
+    'splitRatios': splitRatios,
+    'extraPanes': extraPanes.map((p) => p.toJson()).toList(),
     'secondPaneSuperTab': secondPaneSuperTab.index,
     'secondPaneBrowseSubTab': secondPaneBrowseSubTab.index,
     'secondPaneEditSubTab': secondPaneEditSubTab.index,
@@ -462,6 +590,16 @@ class DawLowerZoneState {
 
   /// Deserialize from JSON
   factory DawLowerZoneState.fromJson(Map<String, dynamic> json) {
+    // Parse extraPanes (backward compatible — old JSON won't have this)
+    final extraPanesJson = json['extraPanes'] as List<dynamic>?;
+    final extraPanes = extraPanesJson
+        ?.map((e) => PaneTabState.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    // Parse splitRatios (backward compatible)
+    final splitRatiosJson = json['splitRatios'] as List<dynamic>?;
+    final splitRatios = splitRatiosJson?.map((e) => (e as num).toDouble()).toList();
+
     return DawLowerZoneState(
       superTab: DawSuperTab.values[json['superTab'] as int? ?? 0],
       browseSubTab: DawBrowseSubTab.values[json['browseSubTab'] as int? ?? 0],
@@ -476,6 +614,10 @@ class DawLowerZoneState {
       splitDirection: SplitDirection.values[json['splitDirection'] as int? ?? 0],
       splitRatio: (json['splitRatio'] as num?)?.toDouble() ?? kSplitViewDefaultRatio,
       syncScrollEnabled: json['syncScrollEnabled'] as bool? ?? false,
+      // Multi-pane (backward compatible — defaults if missing)
+      panelCount: json['panelCount'] as int? ?? 1,
+      splitRatios: splitRatios,
+      extraPanes: extraPanes,
       secondPaneSuperTab: DawSuperTab.values[json['secondPaneSuperTab'] as int? ?? 2],
       secondPaneBrowseSubTab: DawBrowseSubTab.values[json['secondPaneBrowseSubTab'] as int? ?? 0],
       secondPaneEditSubTab: DawEditSubTab.values[(json['secondPaneEditSubTab'] as int? ?? 0).clamp(0, DawEditSubTab.values.length - 1)],

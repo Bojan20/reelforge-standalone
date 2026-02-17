@@ -83,6 +83,12 @@ class LowerZoneContextBar extends StatelessWidget {
   /// Callback to swap pane contents
   final VoidCallback? onSwapPanes;
 
+  /// Current panel count (1-4)
+  final int? panelCount;
+
+  /// Callback to set panel count
+  final ValueChanged<int>? onPanelCountChanged;
+
   const LowerZoneContextBar({
     super.key,
     required this.superTabLabels,
@@ -108,6 +114,8 @@ class LowerZoneContextBar extends StatelessWidget {
     this.onSplitToggle,
     this.onSplitDirectionToggle,
     this.onSwapPanes,
+    this.panelCount,
+    this.onPanelCountChanged,
   });
 
   @override
@@ -452,71 +460,47 @@ class LowerZoneContextBar extends StatelessWidget {
     return tabWidget;
   }
 
-  /// P2.1: Build split view control buttons
+  /// Build split view / multi-pane control buttons
   Widget _buildSplitViewControls() {
-    final isEnabled = splitEnabled ?? false;
+    final count = panelCount ?? 1;
+    final isMulti = count > 1;
     final direction = splitDirection ?? SplitDirection.horizontal;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Split toggle button
-        Tooltip(
-          message: isEnabled ? 'Disable Split View' : 'Enable Split View (⇧S)',
-          waitDuration: const Duration(milliseconds: 300),
-          child: GestureDetector(
-            onTap: onSplitToggle,
-            child: Container(
-              width: 28,
-              height: 22,
-              decoration: BoxDecoration(
-                color: isEnabled
-                    ? accentColor.withValues(alpha: 0.2)
-                    : LowerZoneColors.bgMid,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: isEnabled
-                      ? accentColor.withValues(alpha: 0.5)
-                      : LowerZoneColors.border,
-                ),
-              ),
-              child: Icon(
-                Icons.vertical_split,
-                size: 14,
-                color: isEnabled ? accentColor : LowerZoneColors.textSecondary,
-              ),
-            ),
-          ),
-        ),
-        // Direction and swap buttons only shown when split is enabled
-        if (isEnabled) ...[
+        // Panel count selector: [1] [2] [3] [4]
+        _buildPanelCountSelector(count),
+        // Direction and swap buttons only shown when multi-pane
+        if (isMulti) ...[
           const SizedBox(width: 4),
-          // Direction toggle
-          Tooltip(
-            message: direction == SplitDirection.horizontal
-                ? 'Switch to Vertical Split (⇧D)'
-                : 'Switch to Horizontal Split (⇧D)',
-            waitDuration: const Duration(milliseconds: 300),
-            child: GestureDetector(
-              onTap: onSplitDirectionToggle,
-              child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: LowerZoneColors.bgMid,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: LowerZoneColors.border),
-                ),
-                child: Icon(
-                  direction == SplitDirection.horizontal
-                      ? Icons.view_column
-                      : Icons.view_agenda,
-                  size: 12,
-                  color: LowerZoneColors.textSecondary,
+          // Direction toggle (only for 2 and 3 panels — 4 is always 2x2 grid)
+          if (count <= 3)
+            Tooltip(
+              message: direction == SplitDirection.horizontal
+                  ? 'Switch to Vertical Split (⇧D)'
+                  : 'Switch to Horizontal Split (⇧D)',
+              waitDuration: const Duration(milliseconds: 300),
+              child: GestureDetector(
+                onTap: onSplitDirectionToggle,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: LowerZoneColors.bgMid,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: LowerZoneColors.border),
+                  ),
+                  child: Icon(
+                    direction == SplitDirection.horizontal
+                        ? Icons.view_column
+                        : Icons.view_agenda,
+                    size: 12,
+                    color: LowerZoneColors.textSecondary,
+                  ),
                 ),
               ),
             ),
-          ),
           const SizedBox(width: 4),
           // Swap panes button
           Tooltip(
@@ -542,6 +526,60 @@ class LowerZoneContextBar extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+
+  /// Build segmented panel count selector [1] [2] [3] [4]
+  Widget _buildPanelCountSelector(int currentCount) {
+    return Container(
+      height: 22,
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgMid,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(4, (index) {
+          final count = index + 1;
+          final isSelected = count == currentCount;
+          return Tooltip(
+            message: count == 1
+                ? 'Single Panel (⇧S)'
+                : '$count Panels (⇧S)',
+            waitDuration: const Duration(milliseconds: 300),
+            child: GestureDetector(
+              onTap: () {
+                if (onPanelCountChanged != null) {
+                  onPanelCountChanged!(count);
+                } else {
+                  onSplitToggle?.call();
+                }
+              },
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? accentColor.withValues(alpha: 0.25)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Center(
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected ? accentColor : LowerZoneColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
     );
   }
 }

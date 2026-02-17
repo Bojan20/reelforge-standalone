@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-17 (ProEq ← UltraEq Integration + Independent Floating Editor Windows + EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
-**Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational, all 9 FabFilter DSP panels 100% FFI connected with A/B snapshots, ~1,200 LOC dead EQ code removed, ProEq unified superset EQ (+1,463 LOC)
+**Updated:** 2026-02-17 (Bus Metering FFI + Bus Stereo Pan Defaults + Master Meter Smooth Decay + Action Strip Wiring + ProEq ← UltraEq Integration + Independent Floating Editor Windows + EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
+**Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational, all 9 FabFilter DSP panels 100% FFI connected with A/B snapshots, ~1,200 LOC dead EQ code removed, ProEq unified superset EQ (+1,463 LOC), per-bus peak metering FFI, stereo bus pan defaults
 
 ---
 
@@ -31,6 +31,24 @@ EQ INTEGRATION: ProEq ← UltraEq unified superset (+1,463 LOC)
 ```
 
 **All 386 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades + 1 DeEsser PROCESS tab + 1 ProEq ← UltraEq integration). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). 10 PROCESS subtabs. Repo cleaned. ~1,200 LOC dead EQ code removed. Independent floating editor windows for all processors. ProEq now unified superset EQ with all UltraEq features. SHIP READY.**
+
+### Mixer Bus Fixes (2026-02-17) ✅
+
+Three mixer/bus fixes:
+
+**1. Master Meter Smooth Decay** — Removed `isPlaying ? value : 0` guards from metering in 4 locations in `engine_connected_layout.dart`. GpuMeter already handles smooth 300ms release decay — the instant-to-zero jump was bypassing it. Engine naturally outputs 0 when not playing.
+
+**2. Per-Bus Peak Metering FFI** — Buses other than master now show real signal meters:
+- Rust: Added per-bus peak calculation in both audio paths (transport playing + transport stopped) in `playback.rs`
+- Rust: New `engine_get_bus_peak(bus_id, out_left, out_right)` FFI function in `ffi.rs`
+- Dart: `NativeFFI.getBusPeak(busId)` returns `(double, double)` linear amplitude
+- UI: `_buildMiddlewareMixerContent()` maps busId string → engine bus index via `_busIdToEngineBusIndex()`
+- `SHARED_METERS` made `pub` for cross-module access from `playback.rs`
+
+**3. Stereo Bus Pan Defaults** — New buses now default to hard L/R stereo pan:
+- Rust `BusState::default()`: `pan: -1.0, pan_right: 1.0` (was `0.0, 0.0`)
+- Dart `MixerProvider.createBus()`: `pan: -1.0, panRight: 1.0, isStereo: true`
+- UI fallback already correct: `_busPan[busId] ?? -1.0`, `_busPanRight[busId] ?? 1.0`
 
 ### Independent Floating Processor Editor Windows (2026-02-16) ✅
 

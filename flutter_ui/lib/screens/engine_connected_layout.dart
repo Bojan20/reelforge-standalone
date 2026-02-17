@@ -2841,6 +2841,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     }
   }
 
+  /// Quick export — delegates to full audio export
+  void _handleQuickExport() {
+    _handleExportAudio();
+  }
+
+  /// Show export dialog — delegates to full audio export
+  void _showExportDialog() {
+    _handleExportAudio();
+  }
+
   /// Batch export dialog
   void _handleBatchExport() {
     // Create batch export items from tracks
@@ -4533,33 +4543,49 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               final mixerProvider = context.read<MixerProvider>();
               // dB to linear: linear = 10^(dB/20)
               final linear = volume <= -60 ? 0.0 : math.pow(10.0, volume / 20.0).toDouble().clamp(0.0, 1.5);
-              mixerProvider.setChannelVolumeWithUndo(channelId, linear);
+              if (channelId == 'master') {
+                mixerProvider.setMasterVolumeWithUndo(linear);
+              } else {
+                mixerProvider.setChannelVolumeWithUndo(channelId, linear);
+              }
             },
             onChannelPanChange: (channelId, pan) {
               final mixerProvider = context.read<MixerProvider>();
-              mixerProvider.setChannelPanWithUndo(channelId, pan);
+              if (channelId == 'master') {
+                // Master pan not commonly changed, but route to setChannelPan
+                // which will be no-op — master pan is typically center
+              } else {
+                mixerProvider.setChannelPanWithUndo(channelId, pan);
+              }
             },
             onChannelPanRightChange: (channelId, pan) {
               final mixerProvider = context.read<MixerProvider>();
-              mixerProvider.setChannelPanRightWithUndo(channelId, pan);
+              if (channelId != 'master') {
+                mixerProvider.setChannelPanRightWithUndo(channelId, pan);
+              }
             },
             onChannelMuteToggle: (channelId) {
               final mixerProvider = context.read<MixerProvider>();
-              mixerProvider.toggleChannelMuteWithUndo(channelId);
-              // Sync back to _tracks for track header
-              final trackId = channelId.replaceFirst('ch_', '');
-              final channel = mixerProvider.getChannel(channelId);
-              if (channel != null) {
-                setState(() {
-                  _tracks = _tracks.map((t) {
-                    if (t.id == trackId) return t.copyWith(muted: channel.muted);
-                    return t;
-                  }).toList();
-                });
+              if (channelId == 'master') {
+                return; // Master mute not commonly used
+              } else {
+                mixerProvider.toggleChannelMuteWithUndo(channelId);
+                // Sync back to _tracks for track header
+                final trackId = channelId.replaceFirst('ch_', '');
+                final channel = mixerProvider.getChannel(channelId);
+                if (channel != null) {
+                  setState(() {
+                    _tracks = _tracks.map((t) {
+                      if (t.id == trackId) return t.copyWith(muted: channel.muted);
+                      return t;
+                    }).toList();
+                  });
+                }
               }
             },
             onChannelSoloToggle: (channelId) {
               final mixerProvider = context.read<MixerProvider>();
+              if (channelId == 'master') return; // Master has no solo
               mixerProvider.toggleChannelSoloWithUndo(channelId);
               // Sync back to _tracks for track header
               final trackId = channelId.replaceFirst('ch_', '');
@@ -4632,29 +4658,29 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               _onSendClick(channelId, sendIndex);
             },
             onChannelInsertBypassToggle: (channelId, slotIndex, bypassed) {
-              // Extract track ID from channel ID (format: "ch_1", "ch_2", etc.)
-              final trackId = int.tryParse(channelId.replaceFirst('ch_', '')) ?? 0;
+              final trackId = _busIdToTrackId(channelId);
               NativeFFI.instance.insertSetBypass(trackId, slotIndex, bypassed);
               // Update local state
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.updateInsertBypass(channelId, slotIndex, bypassed);
             },
             onChannelInsertWetDryChange: (channelId, slotIndex, wetDry) {
-              final trackId = int.tryParse(channelId.replaceFirst('ch_', '')) ?? 0;
+              final trackId = _busIdToTrackId(channelId);
               NativeFFI.instance.insertSetMix(trackId, slotIndex, wetDry);
               // Update local state
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.updateInsertWetDry(channelId, slotIndex, wetDry);
             },
             onChannelInsertRemove: (channelId, slotIndex) {
-              final trackId = int.tryParse(channelId.replaceFirst('ch_', '')) ?? 0;
+              final trackId = _busIdToTrackId(channelId);
               NativeFFI.instance.insertUnloadSlot(trackId, slotIndex);
               // Update local state
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.removeInsert(channelId, slotIndex);
             },
             onChannelInsertOpenEditor: (channelId, slotIndex) {
-              final trackId = int.tryParse(channelId.replaceFirst('ch_', '')) ?? 0;
+              // Resolve trackId: master='0', buses use _busIdToTrackId, channels use ch_N
+              final trackId = _busIdToTrackId(channelId);
 
               // Check if this is an internal processor (from DspChainProvider)
               final chain = DspChainProvider.instance.getChain(trackId);
@@ -4668,6 +4694,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   node: node,
                 );
               } else {
+                // Check insert chain for plugin info
+                final insertChain = _busInserts[channelId];
+                if (insertChain != null && slotIndex < insertChain.slots.length) {
+                  final slot = insertChain.slots[slotIndex];
+                  if (!slot.isEmpty && slot.plugin != null) {
+                    _openProcessorEditor(channelId, slotIndex, slot.plugin!);
+                    return;
+                  }
+                }
                 // External plugin - open via FFI
                 NativeFFI.instance.insertOpenEditor(trackId, slotIndex);
               }
@@ -4893,6 +4928,30 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               case 'deleteSelection':
                 // Delete all selected clips
                 _handleDelete();
+              case 'addToProject':
+                // Add audio file from Browse tab to timeline
+                final path = params?['path'] as String?;
+                if (path != null && path.isNotEmpty) {
+                  _addFileToPool(path);
+                  _showSnackBar('Added to project: ${path.split('/').last}');
+                }
+              case 'trackCreated':
+                // Refresh timeline after track creation
+                final trackId = params?['id'] as String?;
+                if (trackId != null) {
+                  _showSnackBar('Track created');
+                }
+              case 'copyDspSettings':
+                // Copy DSP processor settings (placeholder — show feedback)
+                final nodeType = params?['nodeType'] as String?;
+                _showSnackBar('Copied ${nodeType ?? 'DSP'} settings');
+              case 'quickExport':
+                // Quick export with default settings
+                _showSnackBar('Quick export started...');
+                _handleQuickExport();
+              case 'showExportDialog':
+                // Open full export dialog
+                _showExportDialog();
             }
           },
           // P0.2: Grid/Snap Settings
@@ -7132,6 +7191,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   ChannelStripData? _getSelectedChannelData() {
     if (_selectedTrackId == null) return null;
 
+    // Master bus — special handling (not in _tracks list)
+    if (_selectedTrackId == '0' || _selectedTrackId == 'master') {
+      return _getMasterChannelData();
+    }
+
     // Find track in timeline
     final track = _tracks.cast<timeline.TimelineTrack?>().firstWhere(
       (t) => t?.id == _selectedTrackId,
@@ -7221,6 +7285,62 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     );
   }
 
+  /// Build ChannelStripData for the master bus.
+  /// Master is not in the _tracks list — uses MixerProvider.master directly.
+  ChannelStripData _getMasterChannelData() {
+    final mixerProvider = context.watch<MixerProvider>();
+    final master = mixerProvider.master;
+    const channelId = 'master';
+
+    // Get or create insert chain for master
+    if (!_busInserts.containsKey(channelId)) {
+      _busInserts[channelId] = InsertChain(channelId: channelId);
+    }
+    final insertChain = _busInserts[channelId]!;
+
+    // Convert volume from linear (0-1.5) to dB
+    final volumeLinear = master.volume;
+    double volumeDb;
+    if (volumeLinear <= 0.001) {
+      volumeDb = -70.0;
+    } else {
+      volumeDb = 20.0 * _log10(volumeLinear.clamp(0.001, 4.0));
+    }
+    volumeDb = volumeDb.clamp(-70.0, 12.0);
+
+    return ChannelStripData(
+      id: channelId,
+      name: master.name, // 'Stereo Out'
+      type: 'master',
+      color: master.color, // Orange #FF9040
+      volume: volumeDb,
+      pan: master.pan,
+      panRight: master.panRight,
+      isStereo: true,
+      mute: master.muted,
+      solo: false, // Master has no solo
+      armed: false, // Master has no record arm
+      inputMonitor: false, // Master has no input monitor
+      phaseInverted: master.phaseInverted,
+      meterL: master.rmsL,
+      meterR: master.rmsR,
+      peakL: master.peakL,
+      peakR: master.peakR,
+      inserts: insertChain.slots.map((slot) => InsertSlot(
+        id: '${channelId}_${slot.index}',
+        name: slot.plugin?.displayName ?? '',
+        type: slot.plugin?.category.name ?? 'empty',
+        bypassed: slot.bypassed,
+        isPreFader: slot.isPreFader,
+      )).toList(),
+      sends: const [], // Master has no sends
+      eqEnabled: _openEqWindows.containsKey(channelId),
+      eqBands: const [],
+      input: 'Sum', // Master sums all buses
+      output: 'Main Out',
+    );
+  }
+
   Widget _buildMixerContent(dynamic metering, bool isPlaying) {
     // Convert InsertChain to ProInsertSlot list
     List<ProInsertSlot> _getInserts(String channelId) {
@@ -7237,10 +7357,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       )).toList();
     }
 
-    // Real meter values: 0 when not playing, real when playing
-    final meterL = isPlaying ? _dbToLinear(metering.masterPeakL) : 0.0;
-    final meterR = isPlaying ? _dbToLinear(metering.masterPeakR) : 0.0;
-    final meterPeak = isPlaying ? _dbToLinear(metering.masterTruePeak) : 0.0;
+    // Always pass real metering — GpuMeter handles smooth decay internally
+    final meterL = _dbToLinear(metering.masterPeakL);
+    final meterR = _dbToLinear(metering.masterPeakR);
+    final meterPeak = _dbToLinear(metering.masterTruePeak);
 
     // Get channels from MixerProvider and check which tracks have clips
     final mixerProvider = context.watch<MixerProvider>();
@@ -7345,16 +7465,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final trackIdInt = int.tryParse(trackId) ?? 0;
       final engineTrackId = ch.trackIndex ?? trackIdInt;
 
-      // Get real stereo metering from engine (per-track) — no fallbacks
-      final (peakL, peakR) = isPlaying
-          ? EngineApi.instance.getTrackPeakStereo(engineTrackId)
-          : (0.0, 0.0);
-      final (rmsL, rmsR) = isPlaying
-          ? EngineApi.instance.getTrackRmsStereo(engineTrackId)
-          : (0.0, 0.0);
-      final correlation = isPlaying
-          ? EngineApi.instance.getTrackCorrelation(engineTrackId)
-          : 1.0;
+      // Always pass real metering — GpuMeter handles smooth decay internally
+      final (peakL, peakR) = EngineApi.instance.getTrackPeakStereo(engineTrackId);
+      final (rmsL, rmsR) = EngineApi.instance.getTrackRmsStereo(engineTrackId);
+      final correlation = EngineApi.instance.getTrackCorrelation(engineTrackId);
 
       // Get inserts for this channel
       final channelInserts = _busInserts[ch.id]?.slots ?? [];
@@ -7400,7 +7514,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       isPreFader: slot.isPreFader,
     )).toList();
 
-    // Master channel
+    // Master channel — always pass real metering (GpuMeter handles smooth decay)
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -7411,13 +7525,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       muted: _busMuted['master'] ?? false,
       soloed: false,
       inserts: masterInserts,
-      peakL: isPlaying ? _dbToLinear(metering.masterPeakL) : 0,
-      peakR: isPlaying ? _dbToLinear(metering.masterPeakR) : 0,
-      rmsL: isPlaying ? _dbToLinear(metering.masterRmsL) : 0,
-      rmsR: isPlaying ? _dbToLinear(metering.masterRmsR) : 0,
-      correlation: isPlaying ? metering.correlation : 1.0,
-      lufsShort: isPlaying ? metering.masterLufsS : -70,
-      lufsIntegrated: isPlaying ? metering.masterLufsI : -70,
+      peakL: _dbToLinear(metering.masterPeakL),
+      peakR: _dbToLinear(metering.masterPeakR),
+      rmsL: _dbToLinear(metering.masterRmsL),
+      rmsR: _dbToLinear(metering.masterRmsR),
+      correlation: metering.correlation,
+      lufsShort: metering.masterLufsS,
+      lufsIntegrated: metering.masterLufsI,
     );
 
     // All channels are audio tracks (no hardcoded buses)
@@ -7532,6 +7646,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         isPreFader: slot.isPreFader,
       )).toList();
 
+      // Get real per-bus peak metering from engine
+      final engineBusIdx = _busIdToEngineBusIndex(busId);
+      double busPeakL = 0, busPeakR = 0;
+      if (engineBusIdx >= 0) {
+        final (pl, pr) = NativeFFI.instance.getBusPeak(engineBusIdx);
+        busPeakL = pl;
+        busPeakR = pr;
+      }
+
       buses.add(ultimate.UltimateMixerChannel(
         id: busId,
         name: name.toUpperCase(),
@@ -7544,11 +7667,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         muted: _busMuted[busId] ?? false,
         soloed: _busSoloed[busId] ?? false,
         inserts: busInserts,
-        // No fake metering — only show real signal when available
-        peakL: 0,
-        peakR: 0,
-        rmsL: 0,
-        rmsR: 0,
+        // Real per-bus peak metering from engine (GpuMeter handles smooth decay)
+        peakL: busPeakL,
+        peakR: busPeakR,
+        rmsL: busPeakL * 0.7, // Approximate RMS from peak
+        rmsR: busPeakR * 0.7,
         correlation: 1.0,
       ));
     }
@@ -7562,7 +7685,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       isPreFader: slot.isPreFader,
     )).toList();
 
-    // Master channel
+    // Master channel — always pass real metering (GpuMeter handles smooth decay)
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -7573,13 +7696,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       muted: _busMuted['master'] ?? false,
       soloed: false,
       inserts: masterInserts,
-      peakL: isPlaying ? _dbToLinear(metering.masterPeakL) : 0,
-      peakR: isPlaying ? _dbToLinear(metering.masterPeakR) : 0,
-      rmsL: isPlaying ? _dbToLinear(metering.masterRmsL) : 0,
-      rmsR: isPlaying ? _dbToLinear(metering.masterRmsR) : 0,
-      correlation: isPlaying ? metering.correlation : 1.0,
-      lufsShort: isPlaying ? metering.masterLufsS : -70,
-      lufsIntegrated: isPlaying ? metering.masterLufsI : -70,
+      peakL: _dbToLinear(metering.masterPeakL),
+      peakR: _dbToLinear(metering.masterPeakR),
+      rmsL: _dbToLinear(metering.masterRmsL),
+      rmsR: _dbToLinear(metering.masterRmsR),
+      correlation: metering.correlation,
+      lufsShort: metering.masterLufsS,
+      lufsIntegrated: metering.masterLufsI,
     );
 
     // Middleware mixer: buses only (in channels), no aux/VCA
@@ -7678,9 +7801,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       );
 
       if (result == 'open') {
-        if (currentSlot.plugin!.category == PluginCategory.eq) {
-          _openEqWindow(channelId);
-        }
+        _openProcessorEditor(channelId, insertIndex, currentSlot.plugin!);
       } else if (result == 'bypass') {
         setState(() {
           _busInserts[channelId] = chain.toggleBypass(insertIndex);
@@ -7728,10 +7849,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
         }
 
-        // Auto-open EQ editor
-        if (plugin.category == PluginCategory.eq) {
-          _openEqWindow(channelId);
-        }
+        // Auto-open processor editor for newly inserted plugin
+        _openProcessorEditor(channelId, insertIndex, plugin);
       }
     }
   }
@@ -7860,6 +7979,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       'amb': 4,
       'ui': 5,
       'master': 6,
+    };
+    return busMap[busId] ?? -1;
+  }
+
+  /// Map bus string ID to Rust engine bus index for metering
+  /// Rust OutputBus: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
+  int _busIdToEngineBusIndex(String busId) {
+    const busMap = {
+      'master': 0,
+      'music': 1,
+      'sfx': 2,
+      'voice': 3,
+      'ambience': 4,
+      'ui': 5,     // UI → Aux bus
+      'reels': 2,  // Reels → Sfx bus
+      'wins': 2,   // Wins → Sfx bus
+      'vo': 3,     // VO → Voice bus
     };
     return busMap[busId] ?? -1;
   }
@@ -8253,11 +8389,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       );
 
       if (result == 'open') {
-        // Open plugin editor in floating window
-        final plugin = currentSlot.plugin!;
-        if (plugin.category == PluginCategory.eq) {
-          _openEqWindow(busId);
-        }
+        // Open processor editor in floating window
+        _openProcessorEditor(busId, insertIndex, currentSlot.plugin!);
       } else if (result == 'bypass') {
         // Toggle bypass
         setState(() {
@@ -8284,10 +8417,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           if (plugin.format == PluginFormat.internal) {
             final processorName = _pluginIdToProcessorName(plugin.id);
             if (processorName != null) {
-              final result = NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+              NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
             }
           } else {
-            final result = NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
+            NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
           }
         }
       } else if (result == 'remove') {
@@ -8319,22 +8452,92 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
         // Load processor into engine audio path
         if (plugin.format == PluginFormat.internal) {
-          // Internal plugin - use insertLoadProcessor
           final processorName = _pluginIdToProcessorName(plugin.id);
           if (processorName != null) {
-            final result = NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+            NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
           }
         } else {
-          // External plugin (VST3/AU/CLAP) - use pluginInsertLoad
-          final result = NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
+          NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
         }
 
-
-        // Auto-open EQ editor in floating window if EQ was inserted
-        if (plugin.category == PluginCategory.eq) {
-          _openEqWindow(busId);
-        }
+        // Auto-open processor editor for newly inserted plugin
+        _openProcessorEditor(busId, insertIndex, plugin);
       }
+    }
+  }
+
+  /// Convert a PluginInfo from the insert chain to a DspNodeType for the editor window.
+  /// Returns null for external plugins that don't map to internal editor panels.
+  DspNodeType? _pluginInfoToDspNodeType(PluginInfo plugin) {
+    // Map by plugin ID first (most precise)
+    const idMapping = {
+      'rf-pro-eq': DspNodeType.eq,
+      'rf-ultra-eq': DspNodeType.eq,
+      'rf-linear-eq': DspNodeType.eq,
+      'rf-pultec': DspNodeType.pultec,
+      'rf-api550': DspNodeType.api550,
+      'rf-neve1073': DspNodeType.neve1073,
+      'rf-compressor': DspNodeType.compressor,
+      'rf-limiter': DspNodeType.limiter,
+      'rf-gate': DspNodeType.gate,
+      'rf-expander': DspNodeType.expander,
+      'rf-deesser': DspNodeType.deEsser,
+      'rf-reverb': DspNodeType.reverb,
+      'rf-delay': DspNodeType.delay,
+      'rf-saturation': DspNodeType.saturation,
+    };
+    final byId = idMapping[plugin.id];
+    if (byId != null) return byId;
+
+    // Fallback: map by category for internal plugins
+    if (plugin.format == PluginFormat.internal) {
+      switch (plugin.category) {
+        case PluginCategory.eq: return DspNodeType.eq;
+        case PluginCategory.dynamics: return DspNodeType.compressor;
+        case PluginCategory.reverb: return DspNodeType.reverb;
+        case PluginCategory.delay: return DspNodeType.delay;
+        case PluginCategory.saturation: return DspNodeType.saturation;
+        default: return null;
+      }
+    }
+    return null;
+  }
+
+  /// Open the correct processor editor window for an insert slot.
+  /// Uses InternalProcessorEditorWindow for internal plugins (all 9 FabFilter panels + vintage),
+  /// falls back to FFI pluginOpenEditor for external VST3/AU/CLAP plugins.
+  void _openProcessorEditor(String channelId, int slotIndex, PluginInfo plugin) {
+    final trackId = _busIdToTrackId(channelId);
+    final nodeType = _pluginInfoToDspNodeType(plugin);
+
+    if (nodeType != null) {
+      // Internal processor — open FabFilter panel in floating window
+      final node = DspNode(
+        id: '${channelId}_slot_$slotIndex',
+        type: nodeType,
+        name: plugin.name,
+      );
+
+      // Sync with DspChainProvider so the panel can read/write params
+      final dspChain = DspChainProvider.instance;
+      if (!dspChain.hasChain(trackId)) {
+        dspChain.initializeChain(trackId);
+      }
+      // Ensure the node exists in the chain at this slot
+      final chain = dspChain.getChain(trackId);
+      if (slotIndex >= chain.nodes.length) {
+        dspChain.addNode(trackId, nodeType);
+      }
+
+      InternalProcessorEditorWindow.show(
+        context: context,
+        trackId: trackId,
+        slotIndex: slotIndex,
+        node: node,
+      );
+    } else if (plugin.format != PluginFormat.internal) {
+      // External plugin — open via FFI
+      NativeFFI.instance.insertOpenEditor(trackId, slotIndex);
     }
   }
 

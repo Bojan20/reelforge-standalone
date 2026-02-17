@@ -629,6 +629,9 @@ typedef EngineGetMemoryUsageDart = double Function();
 typedef EngineGetPeakMetersNative = Void Function(Pointer<Double> outLeft, Pointer<Double> outRight);
 typedef EngineGetPeakMetersDart = void Function(Pointer<Double> outLeft, Pointer<Double> outRight);
 
+typedef EngineGetBusPeakNative = Void Function(Uint32 busId, Pointer<Double> outLeft, Pointer<Double> outRight);
+typedef EngineGetBusPeakDart = void Function(int busId, Pointer<Double> outLeft, Pointer<Double> outRight);
+
 typedef EngineGetRmsMetersNative = Void Function(Pointer<Double> outLeft, Pointer<Double> outRight);
 typedef EngineGetRmsMetersDart = void Function(Pointer<Double> outLeft, Pointer<Double> outRight);
 
@@ -2266,6 +2269,7 @@ class NativeFFI {
 
   // Metering
   late final EngineGetPeakMetersDart _getPeakMeters;
+  late final EngineGetBusPeakDart _getBusPeak;
   late final EngineGetRmsMetersDart _getRmsMeters;
   late final EngineGetLufsMetersDart _getLufsMeters;
   late final EngineGetTruePeakMetersDart _getTruePeakMeters;
@@ -2940,6 +2944,7 @@ class NativeFFI {
 
     // Metering
     _getPeakMeters = _lib.lookupFunction<EngineGetPeakMetersNative, EngineGetPeakMetersDart>('engine_get_peak_meters');
+    _getBusPeak = _lib.lookupFunction<EngineGetBusPeakNative, EngineGetBusPeakDart>('engine_get_bus_peak');
     _getRmsMeters = _lib.lookupFunction<EngineGetRmsMetersNative, EngineGetRmsMetersDart>('engine_get_rms_meters');
     _getLufsMeters = _lib.lookupFunction<EngineGetLufsMetersNative, EngineGetLufsMetersDart>('engine_get_lufs_meters');
     _getTruePeakMeters = _lib.lookupFunction<EngineGetTruePeakMetersNative, EngineGetTruePeakMetersDart>('engine_get_true_peak_meters');
@@ -4833,6 +4838,22 @@ class NativeFFI {
     final rightPtr = calloc<Double>();
     try {
       _getRmsMeters(leftPtr, rightPtr);
+      return (leftPtr.value, rightPtr.value);
+    } finally {
+      calloc.free(leftPtr);
+      calloc.free(rightPtr);
+    }
+  }
+
+  /// Get per-bus peak meter values (left, right) as linear amplitude
+  /// bus_id: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
+  /// Returns (0.0, 0.0) if not loaded or bus_id out of range
+  (double, double) getBusPeak(int busId) {
+    if (!_loaded) return (0.0, 0.0);
+    final leftPtr = calloc<Double>();
+    final rightPtr = calloc<Double>();
+    try {
+      _getBusPeak(busId, leftPtr, rightPtr);
       return (leftPtr.value, rightPtr.value);
     } finally {
       calloc.free(leftPtr);

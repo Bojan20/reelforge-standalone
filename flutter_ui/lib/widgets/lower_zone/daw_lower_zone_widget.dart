@@ -235,6 +235,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             onSplitToggle: widget.controller.toggleSplitView,
             onSplitDirectionToggle: widget.controller.toggleSplitDirection,
             onSwapPanes: widget.controller.swapPanes,
+            // Multi-pane panel count
+            panelCount: widget.controller.panelCount,
+            onPanelCountChanged: widget.controller.setPanelCount,
           ),
           // Content panel (only when expanded)
           if (widget.controller.isExpanded) ...[
@@ -273,9 +276,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   Widget _buildContentPanel() {
-    // P2.1: Split View Mode
-    if (widget.controller.splitEnabled) {
-      return _buildSplitViewContent();
+    // Multi-pane mode (2, 3, or 4 panels)
+    if (widget.controller.panelCount > 1) {
+      return _buildMultiPaneContent();
     }
 
     return Container(
@@ -304,51 +307,165 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   // P2.1: SPLIT VIEW MODE — View 2 panels simultaneously
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildSplitViewContent() {
+  /// Build multi-pane content for 2, 3, or 4 panels
+  Widget _buildMultiPaneContent() {
+    final panelCount = widget.controller.panelCount;
+    final ratios = widget.controller.splitRatios;
+
+    if (panelCount == 4) {
+      return _build4PaneGrid(ratios);
+    }
+
+    // 2 or 3 panels: linear layout (horizontal or vertical)
     final isHorizontal = widget.controller.splitDirection == SplitDirection.horizontal;
-    final ratio = widget.controller.splitRatio;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalSize = isHorizontal ? constraints.maxWidth : constraints.maxHeight;
-        final dividerSize = kSplitDividerWidth;
-        final availableSize = totalSize - dividerSize;
-        final firstPaneSize = availableSize * ratio;
-        final secondPaneSize = availableSize * (1 - ratio);
+        final dividerCount = panelCount - 1;
+        final availableSize = totalSize - (dividerCount * kSplitDividerWidth);
 
-        final children = <Widget>[
-          // First pane (uses main tabs)
-          SizedBox(
-            width: isHorizontal ? firstPaneSize : null,
-            height: isHorizontal ? null : firstPaneSize,
-            child: _buildPaneWithHeader(
-              superTab: widget.controller.superTab,
-              subTabIndex: widget.controller.currentSubTabIndex,
-              onSuperTabChanged: widget.controller.setSuperTab,
-              onSubTabChanged: widget.controller.setSubTabIndex,
-              paneIndex: 0,
-            ),
-          ),
-          // Draggable divider
-          _buildSplitDivider(isHorizontal, constraints),
-          // Second pane (uses second pane tabs)
-          SizedBox(
-            width: isHorizontal ? secondPaneSize : null,
-            height: isHorizontal ? null : secondPaneSize,
-            child: _buildPaneWithHeader(
-              superTab: widget.controller.secondPaneSuperTab,
-              subTabIndex: widget.controller.secondPaneCurrentSubTabIndex,
-              onSuperTabChanged: widget.controller.setSecondPaneSuperTab,
-              onSubTabChanged: widget.controller.setSecondPaneSubTabIndex,
-              paneIndex: 1,
-            ),
-          ),
-        ];
+        // Calculate pane sizes from cumulative ratios
+        final paneSizes = <double>[];
+        double prevRatio = 0.0;
+        for (int i = 0; i < panelCount; i++) {
+          final nextRatio = i < ratios.length ? ratios[i] : 1.0;
+          paneSizes.add(availableSize * (nextRatio - prevRatio));
+          prevRatio = nextRatio;
+        }
+        // Last pane gets remaining space
+        if (paneSizes.length == panelCount) {
+          paneSizes[panelCount - 1] = availableSize * (1.0 - (ratios.isNotEmpty ? ratios.last : 0.0));
+        }
+
+        final children = <Widget>[];
+        for (int i = 0; i < panelCount; i++) {
+          if (i > 0) {
+            children.add(_buildSplitDividerIndexed(
+              isHorizontal: isHorizontal,
+              dividerIndex: i - 1,
+              constraints: constraints,
+            ));
+          }
+          children.add(SizedBox(
+            width: isHorizontal ? paneSizes[i] : null,
+            height: isHorizontal ? null : paneSizes[i],
+            child: _buildPaneForIndex(i),
+          ));
+        }
 
         return isHorizontal
             ? Row(children: children)
             : Column(children: children);
       },
+    );
+  }
+
+  /// Build 2x2 grid layout for 4 panels
+  Widget _build4PaneGrid(List<double> ratios) {
+    final hRatio = ratios.isNotEmpty ? ratios[0] : 0.5;
+    final vRatio = ratios.length > 1 ? ratios[1] : 0.5;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalW = constraints.maxWidth;
+        final totalH = constraints.maxHeight;
+        final availW = totalW - kSplitDividerWidth;
+        final availH = totalH - kSplitDividerWidth;
+        final leftW = availW * hRatio;
+        final rightW = availW * (1 - hRatio);
+        final topH = availH * vRatio;
+        final bottomH = availH * (1 - vRatio);
+
+        return Column(
+          children: [
+            // Top row: Pane 0 | Pane 1
+            SizedBox(
+              height: topH,
+              child: Row(
+                children: [
+                  SizedBox(width: leftW, child: _buildPaneForIndex(0)),
+                  _buildSplitDividerIndexed(
+                    isHorizontal: true,
+                    dividerIndex: 0,
+                    constraints: constraints,
+                  ),
+                  SizedBox(width: rightW, child: _buildPaneForIndex(1)),
+                ],
+              ),
+            ),
+            // Horizontal divider between rows
+            _buildSplitDividerIndexed(
+              isHorizontal: false,
+              dividerIndex: 1,
+              constraints: constraints,
+            ),
+            // Bottom row: Pane 2 | Pane 3
+            SizedBox(
+              height: bottomH,
+              child: Row(
+                children: [
+                  SizedBox(width: leftW, child: _buildPaneForIndex(2)),
+                  _buildSplitDividerIndexed(
+                    isHorizontal: true,
+                    dividerIndex: 0,
+                    constraints: constraints,
+                  ),
+                  SizedBox(width: rightW, child: _buildPaneForIndex(3)),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Build a pane widget for a given index using controller's per-pane state
+  Widget _buildPaneForIndex(int paneIndex) {
+    return _buildPaneWithHeader(
+      superTab: widget.controller.getPaneSuperTab(paneIndex),
+      subTabIndex: widget.controller.getPaneSubTabIndex(paneIndex),
+      onSuperTabChanged: (tab) => widget.controller.setPaneSuperTab(paneIndex, tab),
+      onSubTabChanged: (idx) => widget.controller.setPaneSubTabIndex(paneIndex, idx),
+      paneIndex: paneIndex,
+    );
+  }
+
+  /// Build a draggable divider at a specific index
+  Widget _buildSplitDividerIndexed({
+    required bool isHorizontal,
+    required int dividerIndex,
+    required BoxConstraints constraints,
+  }) {
+    return GestureDetector(
+      onPanUpdate: (details) {
+        final totalSize = isHorizontal ? constraints.maxWidth : constraints.maxHeight;
+        final delta = isHorizontal ? details.delta.dx : details.delta.dy;
+        final currentRatios = widget.controller.splitRatios;
+        if (dividerIndex < currentRatios.length) {
+          final newRatio = currentRatios[dividerIndex] + (delta / totalSize);
+          widget.controller.setSplitRatioAtIndex(dividerIndex, newRatio);
+        }
+      },
+      child: MouseRegion(
+        cursor: isHorizontal ? SystemMouseCursors.resizeColumn : SystemMouseCursors.resizeRow,
+        child: Container(
+          width: isHorizontal ? kSplitDividerWidth : null,
+          height: isHorizontal ? null : kSplitDividerWidth,
+          color: LowerZoneColors.bgMid,
+          child: Center(
+            child: Container(
+              width: isHorizontal ? 2 : 24,
+              height: isHorizontal ? 24 : 2,
+              decoration: BoxDecoration(
+                color: LowerZoneColors.border,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -495,34 +612,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  Widget _buildSplitDivider(bool isHorizontal, BoxConstraints constraints) {
-    return GestureDetector(
-      onPanUpdate: (details) {
-        final totalSize = isHorizontal ? constraints.maxWidth : constraints.maxHeight;
-        final delta = isHorizontal ? details.delta.dx : details.delta.dy;
-        final newRatio = widget.controller.splitRatio + (delta / totalSize);
-        widget.controller.setSplitRatio(newRatio);
-      },
-      child: MouseRegion(
-        cursor: isHorizontal ? SystemMouseCursors.resizeColumn : SystemMouseCursors.resizeRow,
-        child: Container(
-          width: isHorizontal ? kSplitDividerWidth : null,
-          height: isHorizontal ? null : kSplitDividerWidth,
-          color: LowerZoneColors.bgMid,
-          child: Center(
-            child: Container(
-              width: isHorizontal ? 2 : 24,
-              height: isHorizontal ? 24 : 2,
-              decoration: BoxDecoration(
-                color: LowerZoneColors.border,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // NOTE: _buildSplitDivider replaced by _buildSplitDividerIndexed above
 
   List<String> _getSubTabLabelsForSuperTab(DawSuperTab superTab) {
     return switch (superTab) {
@@ -1298,6 +1388,90 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   // ACTION STRIP
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Map PROCESS subtab to DspNodeType for insert chain operations
+  DspNodeType? _nodeTypeForCurrentSubTab() {
+    return switch (widget.controller.state.processSubTab) {
+      DawProcessSubTab.eq => DspNodeType.eq,
+      DawProcessSubTab.comp => DspNodeType.compressor,
+      DawProcessSubTab.limiter => DspNodeType.limiter,
+      DawProcessSubTab.reverb => DspNodeType.reverb,
+      DawProcessSubTab.gate => DspNodeType.gate,
+      DawProcessSubTab.delay => DspNodeType.delay,
+      DawProcessSubTab.saturation => DspNodeType.multibandSaturation,
+      DawProcessSubTab.deEsser => DspNodeType.deEsser,
+      DawProcessSubTab.fxChain => null,
+      DawProcessSubTab.sidechain => null,
+    };
+  }
+
+  /// Dynamic label for the Add button based on current PROCESS subtab
+  String _addLabelForCurrentSubTab() {
+    return switch (widget.controller.state.processSubTab) {
+      DawProcessSubTab.eq => 'Add EQ',
+      DawProcessSubTab.comp => 'Add Comp',
+      DawProcessSubTab.limiter => 'Add Limiter',
+      DawProcessSubTab.reverb => 'Add Reverb',
+      DawProcessSubTab.gate => 'Add Gate',
+      DawProcessSubTab.delay => 'Add Delay',
+      DawProcessSubTab.saturation => 'Add Saturn',
+      DawProcessSubTab.deEsser => 'Add DeEss',
+      DawProcessSubTab.fxChain => 'Add Insert',
+      DawProcessSubTab.sidechain => 'Sidechain',
+    };
+  }
+
+  /// Build PROCESS tab actions — subtab-aware
+  List<LowerZoneAction> _buildProcessActions() {
+    final trackId = widget.selectedTrackId;
+    final nodeType = _nodeTypeForCurrentSubTab();
+    final dspChain = context.read<DspChainProvider>();
+
+    return DawActions.forProcess(
+      addLabel: _addLabelForCurrentSubTab(),
+      onAdd: trackId != null && nodeType != null ? () {
+        dspChain.addNode(trackId, nodeType);
+      } : null,
+      onRemove: trackId != null ? () {
+        final chain = dspChain.getChain(trackId);
+        // Remove the processor matching current subtab, or last if none found
+        if (chain.nodes.isNotEmpty) {
+          final matching = chain.nodes.where((n) => n.type == nodeType).toList();
+          if (matching.isNotEmpty) {
+            dspChain.removeNode(trackId, matching.last.id);
+          } else {
+            dspChain.removeNode(trackId, chain.nodes.last.id);
+          }
+        }
+      } : null,
+      onCopy: trackId != null ? () {
+        // Copy current processor settings to clipboard
+        final chain = dspChain.getChain(trackId);
+        final matching = chain.nodes.where((n) => n.type == nodeType).toList();
+        if (matching.isNotEmpty) {
+          widget.onDspAction?.call('copyDspSettings', {
+            'trackId': trackId,
+            'nodeType': nodeType?.name,
+          });
+        }
+      } : null,
+      onBypass: trackId != null ? () {
+        final chain = dspChain.getChain(trackId);
+        // Toggle bypass only on matching processor type, not all
+        final matching = chain.nodes.where((n) => n.type == nodeType).toList();
+        if (matching.isNotEmpty) {
+          for (final node in matching) {
+            dspChain.toggleNodeBypass(trackId, node.id);
+          }
+        } else {
+          // Fallback: toggle all if no matching type
+          for (final node in chain.nodes) {
+            dspChain.toggleNodeBypass(trackId, node.id);
+          }
+        }
+      } : null,
+    );
+  }
+
   Widget _buildActionStrip() {
     final actions = switch (widget.controller.superTab) {
       DawSuperTab.browse => DawActions.forBrowse(
@@ -1419,38 +1593,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           }
         },
       ),
-      DawSuperTab.process => DawActions.forProcess(
-        onAddBand: () {
-          // Add EQ processor to selected track
-          final trackId = widget.selectedTrackId ?? 0;
-          final dspChain = context.read<DspChainProvider>();
-          dspChain.addNode(trackId, DspNodeType.eq);
-        },
-        onRemove: () {
-          // Remove selected processor
-          final trackId = widget.selectedTrackId ?? 0;
-          final dspChain = context.read<DspChainProvider>();
-          final chain = dspChain.getChain(trackId);
-          if (chain.nodes.isNotEmpty) {
-            dspChain.removeNode(trackId, chain.nodes.last.id);
-          }
-        },
-        onCopy: () {
-          // Copy DSP chain settings via callback
-          widget.onDspAction?.call('copyDspSettings', {
-            'trackId': widget.selectedTrackId,
-          });
-        },
-        onBypass: () {
-          // Toggle bypass on all processors
-          final trackId = widget.selectedTrackId ?? 0;
-          final dspChain = context.read<DspChainProvider>();
-          final chain = dspChain.getChain(trackId);
-          for (final node in chain.nodes) {
-            dspChain.toggleNodeBypass(trackId, node.id);
-          }
-        },
-      ),
+      DawSuperTab.process => _buildProcessActions(),
       DawSuperTab.deliver => DawActions.forDeliver(
         onQuickExport: () {
           // Quick export with last used settings

@@ -21374,7 +21374,7 @@ impl SharedMeterBuffer {
 }
 
 /// Global shared meter buffer instance
-static SHARED_METERS: SharedMeterBuffer = SharedMeterBuffer::new();
+pub static SHARED_METERS: SharedMeterBuffer = SharedMeterBuffer::new();
 
 /// Get pointer to shared meter buffer
 /// Dart can use this pointer to read meters directly without FFI calls
@@ -21506,6 +21506,28 @@ pub extern "C" fn metering_update_shared(
 #[unsafe(no_mangle)]
 pub extern "C" fn metering_update_channel(channel: u32, peak_l: f64, peak_r: f64) {
     SHARED_METERS.update_channel_peak(channel as usize, peak_l, peak_r);
+}
+
+/// Get bus peak levels (linear amplitude 0.0 - 1.0+)
+/// bus_id: 0=Master routing, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
+/// Returns peak_l via out_left, peak_r via out_right
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_bus_peak(bus_id: u32, out_left: *mut f64, out_right: *mut f64) {
+    let (peak_l, peak_r) = if (bus_id as usize) < 6 {
+        let idx = bus_id as usize * 2;
+        (
+            SharedMeterBuffer::read_f64(&SHARED_METERS.channel_peaks[idx]),
+            SharedMeterBuffer::read_f64(&SHARED_METERS.channel_peaks[idx + 1]),
+        )
+    } else {
+        (0.0, 0.0)
+    };
+    if !out_left.is_null() {
+        unsafe { *out_left = peak_l; }
+    }
+    if !out_right.is_null() {
+        unsafe { *out_right = peak_r; }
+    }
 }
 
 /// Update spectrum band (0-31)

@@ -338,6 +338,126 @@ class DawLowerZoneController extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // MULTI-PANE (2, 3, 4 panela)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Current panel count (1 = single, 2-4 = multi-pane)
+  int get panelCount => _state.panelCount;
+
+  /// Current split ratios for dividers
+  List<double> get splitRatios => _state.splitRatios;
+
+  /// Set panel count (1 = single, 2, 3, or 4)
+  void setPanelCount(int count) {
+    final clamped = count.clamp(1, 4);
+    final isSplit = clamped > 1;
+    _updateAndSave(_state.copyWith(
+      panelCount: clamped,
+      splitEnabled: isSplit,
+      splitRatios: defaultSplitRatios(clamped),
+      isExpanded: isSplit ? true : _state.isExpanded,
+    ));
+  }
+
+  /// Cycle panel count: 1→2→3→4→1
+  void cyclePanelCount() {
+    final next = (_state.panelCount % 4) + 1;
+    setPanelCount(next);
+  }
+
+  /// Set split ratio at a specific divider index
+  void setSplitRatioAtIndex(int index, double ratio) {
+    if (index < 0 || index >= _state.splitRatios.length) return;
+    final newRatios = List<double>.from(_state.splitRatios);
+
+    if (_state.panelCount <= 3) {
+      // Linear layout: cumulative ratios must stay ordered
+      final clamped = ratio.clamp(kSplitViewMinPaneRatio, 1.0 - kSplitViewMinPaneRatio);
+      newRatios[index] = clamped;
+      // Ensure ordering for 3-panel: ratio[0] < ratio[1]
+      if (newRatios.length == 2) {
+        if (index == 0 && newRatios[0] >= newRatios[1] - kSplitViewMinPaneRatio) {
+          newRatios[0] = newRatios[1] - kSplitViewMinPaneRatio;
+        }
+        if (index == 1 && newRatios[1] <= newRatios[0] + kSplitViewMinPaneRatio) {
+          newRatios[1] = newRatios[0] + kSplitViewMinPaneRatio;
+        }
+      }
+    } else {
+      // 4-panel 2x2 grid: ratio[0] = horizontal, ratio[1] = vertical
+      newRatios[index] = ratio.clamp(kSplitViewMinPaneRatio, 1.0 - kSplitViewMinPaneRatio);
+    }
+
+    _updateAndSave(_state.copyWith(splitRatios: newRatios));
+  }
+
+  /// Get super-tab for any pane by index (0 = primary, 1+ = extraPanes)
+  DawSuperTab getPaneSuperTab(int paneIndex) {
+    if (paneIndex == 0) return _state.superTab;
+    final extraIdx = paneIndex - 1;
+    if (extraIdx < _state.extraPanes.length) {
+      return _state.extraPanes[extraIdx].superTab;
+    }
+    return DawSuperTab.browse;
+  }
+
+  /// Get sub-tab index for any pane by index
+  int getPaneSubTabIndex(int paneIndex) {
+    if (paneIndex == 0) return _state.currentSubTabIndex;
+    final extraIdx = paneIndex - 1;
+    if (extraIdx < _state.extraPanes.length) {
+      return _state.extraPanes[extraIdx].currentSubTabIndex;
+    }
+    return 0;
+  }
+
+  /// Get sub-tab labels for any pane by index
+  List<String> getPaneSubTabLabels(int paneIndex) {
+    if (paneIndex == 0) return _state.subTabLabels;
+    final extraIdx = paneIndex - 1;
+    if (extraIdx < _state.extraPanes.length) {
+      return _state.extraPanes[extraIdx].subTabLabels;
+    }
+    return DawBrowseSubTab.values.map((e) => e.label).toList();
+  }
+
+  /// Set super-tab for any pane by index
+  void setPaneSuperTab(int paneIndex, DawSuperTab tab) {
+    if (paneIndex == 0) {
+      setSuperTab(tab);
+      return;
+    }
+    if (paneIndex == 1) {
+      // Keep backward compatibility with secondPane* fields
+      setSecondPaneSuperTab(tab);
+    }
+    final extraIdx = paneIndex - 1;
+    if (extraIdx < _state.extraPanes.length) {
+      final newPanes = _state.extraPanes.map((p) => p.copy()).toList();
+      newPanes[extraIdx].superTab = tab;
+      _updateAndSave(_state.copyWith(extraPanes: newPanes));
+    }
+  }
+
+  /// Set sub-tab index for any pane by index
+  void setPaneSubTabIndex(int paneIndex, int index) {
+    if (paneIndex == 0) {
+      setSubTabIndex(index);
+      return;
+    }
+    if (paneIndex == 1) {
+      setSecondPaneSubTabIndex(index);
+      return;
+    }
+    final extraIdx = paneIndex - 1;
+    if (extraIdx < _state.extraPanes.length) {
+      final newPanes = _state.extraPanes.map((p) => p.copy()).toList();
+      newPanes[extraIdx].setSubTabIndex(index);
+      _updateAndSave(_state.copyWith(extraPanes: newPanes));
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // HEIGHT
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -428,16 +548,17 @@ class DawLowerZoneController extends ChangeNotifier {
         !HardwareKeyboard.instance.isMetaPressed &&
         !HardwareKeyboard.instance.isControlPressed) {
       if (event.logicalKey == LogicalKeyboardKey.keyS) {
-        toggleSplitView();
+        cyclePanelCount();
         return KeyEventResult.handled;
       }
-      // Shift+D = Toggle split direction
-      if (event.logicalKey == LogicalKeyboardKey.keyD && _state.splitEnabled) {
+      // Shift+D = Toggle split direction (2 and 3 panels only)
+      if (event.logicalKey == LogicalKeyboardKey.keyD &&
+          _state.panelCount >= 2 && _state.panelCount <= 3) {
         toggleSplitDirection();
         return KeyEventResult.handled;
       }
       // Shift+X = Swap panes
-      if (event.logicalKey == LogicalKeyboardKey.keyX && _state.splitEnabled) {
+      if (event.logicalKey == LogicalKeyboardKey.keyX && _state.panelCount >= 2) {
         swapPanes();
         return KeyEventResult.handled;
       }
@@ -466,8 +587,8 @@ class DawLowerZoneController extends ChangeNotifier {
   Future<bool> loadFromStorage() async {
     _state = await LowerZonePersistenceService.instance.loadDawState();
     // Always start with split view disabled — it's an explicit user action
-    if (_state.splitEnabled) {
-      _state = _state.copyWith(splitEnabled: false);
+    if (_state.splitEnabled || _state.panelCount > 1) {
+      _state = _state.copyWith(splitEnabled: false, panelCount: 1);
     }
     // Always start on BROWSE tab — EDIT tab panels can render blank on cold start
     // before track/DSP state is initialized. User navigates to EDIT explicitly.

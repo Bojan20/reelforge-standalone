@@ -278,15 +278,17 @@ class _BeatDetectivePanelState extends State<BeatDetectivePanel> {
     return Container(
       decoration: FabFilterDecorations.display(),
       clipBehavior: Clip.antiAlias,
-      child: CustomPaint(
-        painter: _FabTransientPainter(
-          transients: _detectedTransients,
-          showTransients: _showTransients,
-          tempo: widget.tempo,
-          quantizeGrid: _gridLabels[_quantizeGridIndex],
-          accentColor: FabFilterColors.yellow,
+      child: LayoutBuilder(
+        builder: (context, constraints) => CustomPaint(
+          painter: _FabTransientPainter(
+            transients: _detectedTransients,
+            showTransients: _showTransients,
+            tempo: widget.tempo,
+            quantizeGrid: _gridLabels[_quantizeGridIndex],
+            accentColor: FabFilterColors.yellow,
+          ),
+          size: Size(constraints.maxWidth, constraints.maxHeight),
         ),
-        size: Size.infinite,
       ),
     );
   }
@@ -299,16 +301,12 @@ class _BeatDetectivePanelState extends State<BeatDetectivePanel> {
     return Column(
       children: [
         // Quantize grid selector
-        Row(
-          children: [
-            FabEnumSelector(
-              label: 'GRID',
-              value: _quantizeGridIndex,
-              options: _gridLabels,
-              onChanged: (v) => setState(() => _quantizeGridIndex = v),
-              color: FabFilterColors.cyan,
-            ),
-          ],
+        FabEnumSelector(
+          label: 'GRID',
+          value: _quantizeGridIndex,
+          options: _gridLabels,
+          onChanged: (v) => setState(() => _quantizeGridIndex = v),
+          color: FabFilterColors.cyan,
         ),
         const SizedBox(height: 4),
         // Strength slider + groove + quantize

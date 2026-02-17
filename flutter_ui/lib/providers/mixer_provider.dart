@@ -892,6 +892,9 @@ class MixerProvider extends ChangeNotifier {
       type: ChannelType.bus,
       color: color ?? const Color(0xFF9B59B6),
       outputBus: outputBus ?? 'master',
+      pan: -1.0,        // Stereo bus: L channel hard left
+      panRight: 1.0,    // Stereo bus: R channel hard right
+      isStereo: true,
     );
 
     _buses[id] = bus;

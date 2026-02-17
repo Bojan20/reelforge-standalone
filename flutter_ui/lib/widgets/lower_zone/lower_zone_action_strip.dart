@@ -183,13 +183,14 @@ class DawActions {
   ];
 
   static List<LowerZoneAction> forProcess({
-    VoidCallback? onAddBand,
+    VoidCallback? onAdd,
     VoidCallback? onRemove,
     VoidCallback? onCopy,
     VoidCallback? onBypass,
+    String addLabel = 'Add',
   }) => [
-    LowerZoneAction(label: 'Add Band', icon: Icons.add, onTap: onAddBand, isPrimary: true),
-    LowerZoneAction(label: 'Remove', icon: Icons.remove, onTap: onRemove),
+    LowerZoneAction(label: addLabel, icon: Icons.add, onTap: onAdd, isPrimary: true),
+    LowerZoneAction(label: 'Remove', icon: Icons.remove, onTap: onRemove, isDestructive: true),
     LowerZoneAction(label: 'Copy', icon: Icons.copy, onTap: onCopy),
     LowerZoneAction(label: 'Bypass', icon: Icons.do_not_disturb, onTap: onBypass),
   ];
