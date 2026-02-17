@@ -10,7 +10,7 @@ use rf_dsp::eq_room::RoomCorrectionEq;
 use rf_dsp::linear_phase::{LinearPhaseBand, LinearPhaseEQ, LinearPhaseFilterType};
 use rf_dsp::{
     FilterShape, OversampleMode, ProEq, Processor, ProcessorConfig, StereoApi550, StereoNeve1073,
-    StereoProcessor, StereoPultec, UltraEq, UltraFilterType,
+    StereoProcessor, StereoPultec,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -359,39 +359,57 @@ impl InsertProcessor for ProEqWrapper {
     }
 }
 
-// ============ UltraEQ Wrapper ============
+// ============ UltraEQ Wrapper (backed by ProEq with Ultra features) ============
 
-/// Ultimate 256-band EQ wrapper
+/// Ultimate EQ wrapper — uses ProEq with MZT/Oversampling/Saturation enabled by default.
+/// 18 params per band: 12 base (same as ProEqWrapper) + 6 Ultra-specific.
+/// Param layout per band:
+///   0=Freq, 1=Gain, 2=Q, 3=Enabled, 4=Shape, 5=DynEnabled, 6=DynThreshold,
+///   7=DynRatio, 8=DynAttack, 9=DynRelease, 10=DynKnee, 11=Placement,
+///   12=UseMZT, 13=TransientAware, 14=TransientQReduction,
+///   15=SaturatorDrive, 16=SaturatorMix, 17=SaturatorType
+/// Global params (after all bands):
+///   0=OutputGain, 1=AutoGain, 2=SoloBand, 3=EqualLoudness, 4=GlobalOversample
 pub struct UltraEqWrapper {
-    eq: UltraEq,
+    eq: ProEq,
     sample_rate: f64,
+    bypassed: bool,
+    auto_gain: bool,
+    solo_band: i32,
+    solo_saved_enabled: [bool; 64],
+    solo_applied: bool,
 }
+
+/// Params per band for UltraEqWrapper
+const ULTRA_PARAMS_PER_BAND: usize = 18;
+/// Global params count for UltraEqWrapper
+const ULTRA_GLOBAL_PARAMS: usize = 5;
 
 impl UltraEqWrapper {
     pub fn new(sample_rate: f64) -> Self {
+        let mut eq = ProEq::new(sample_rate);
+        // Enable MZT by default on all bands for Ultra mode
+        eq.global_oversample = OversampleMode::X2;
         Self {
-            eq: UltraEq::new(sample_rate),
+            eq,
             sample_rate,
+            bypassed: false,
+            auto_gain: false,
+            solo_band: -1,
+            solo_saved_enabled: [false; 64],
+            solo_applied: false,
         }
     }
 
-    pub fn add_band(
-        &mut self,
-        freq: f64,
-        gain: f64,
-        q: f64,
-        filter_type: UltraFilterType,
-    ) -> Option<usize> {
-        // Find free band
-        for i in 0..rf_dsp::ULTRA_MAX_BANDS {
-            if let Some(band) = self.eq.band(i)
-                && !band.enabled
-            {
-                self.eq.set_band(i, freq, gain, q, filter_type);
-                return Some(i);
-            }
+    pub fn add_band(&mut self, freq: f64, gain: f64, q: f64, shape: FilterShape) -> Option<usize> {
+        if let Some(index) = self.eq.find_free_band() {
+            self.eq.set_band(index, freq, gain, q, shape);
+            // Enable MZT by default for Ultra bands
+            self.eq.set_band_mzt(index, true);
+            Some(index)
+        } else {
+            None
         }
-        None
     }
 
     pub fn remove_band(&mut self, index: usize) -> bool {
@@ -399,35 +417,55 @@ impl UltraEqWrapper {
         true
     }
 
-    pub fn update_band(
-        &mut self,
-        index: usize,
-        freq: f64,
-        gain: f64,
-        q: f64,
-        filter_type: UltraFilterType,
-    ) {
-        self.eq.set_band(index, freq, gain, q, filter_type);
+    pub fn update_band(&mut self, index: usize, freq: f64, gain: f64, q: f64, shape: FilterShape) {
+        self.eq.set_band(index, freq, gain, q, shape);
     }
 
     pub fn set_oversample_mode(&mut self, mode: OversampleMode) {
-        self.eq.set_oversample(mode);
+        self.eq.set_global_oversample(mode);
     }
 
     pub fn band_count(&self) -> usize {
-        (0..rf_dsp::ULTRA_MAX_BANDS)
-            .filter(|&i| self.eq.band(i).map(|b| b.enabled).unwrap_or(false))
-            .count()
+        self.eq.enabled_band_count()
     }
 }
 
 impl InsertProcessor for UltraEqWrapper {
     fn name(&self) -> &str {
-        "FluxForge Studio Ultra-EQ 256"
+        "FluxForge Studio Ultra-EQ"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
-        self.eq.process_block(left, right);
+        if self.bypassed {
+            return;
+        }
+        if self.auto_gain {
+            let len = left.len() as f64;
+            let in_rms = if len > 0.0 {
+                let sum: f64 = left.iter().chain(right.iter()).map(|s| s * s).sum();
+                (sum / (len * 2.0)).sqrt()
+            } else {
+                0.0
+            };
+            self.eq.process_block(left, right);
+            let out_rms = if len > 0.0 {
+                let sum: f64 = left.iter().chain(right.iter()).map(|s| s * s).sum();
+                (sum / (len * 2.0)).sqrt()
+            } else {
+                0.0
+            };
+            if out_rms > 1e-10 && in_rms > 1e-10 {
+                let comp_clamped = (in_rms / out_rms).clamp(0.25, 4.0);
+                for s in left.iter_mut() {
+                    *s *= comp_clamped;
+                }
+                for s in right.iter_mut() {
+                    *s *= comp_clamped;
+                }
+            }
+        } else {
+            self.eq.process_block(left, right);
+        }
     }
 
     fn latency(&self) -> LatencySamples {
@@ -441,6 +479,226 @@ impl InsertProcessor for UltraEqWrapper {
     fn set_sample_rate(&mut self, sample_rate: f64) {
         self.sample_rate = sample_rate;
         self.eq.set_sample_rate(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        rf_dsp::PRO_EQ_MAX_BANDS * ULTRA_PARAMS_PER_BAND + ULTRA_GLOBAL_PARAMS
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        let max_bands = rf_dsp::PRO_EQ_MAX_BANDS;
+
+        if index < max_bands * ULTRA_PARAMS_PER_BAND {
+            let band_idx = index / ULTRA_PARAMS_PER_BAND;
+            let param_idx = index % ULTRA_PARAMS_PER_BAND;
+            if let Some(band) = self.eq.band(band_idx) {
+                match param_idx {
+                    0 => band.frequency,
+                    1 => band.gain_db,
+                    2 => band.q,
+                    3 => if band.enabled { 1.0 } else { 0.0 },
+                    4 => band.shape as u8 as f64,
+                    5 => if band.dynamic.enabled { 1.0 } else { 0.0 },
+                    6 => band.dynamic.threshold_db,
+                    7 => band.dynamic.ratio,
+                    8 => band.dynamic.attack_ms,
+                    9 => band.dynamic.release_ms,
+                    10 => band.dynamic.knee_db,
+                    11 => match band.placement {
+                        rf_dsp::StereoPlacement::Stereo => 0.0,
+                        rf_dsp::StereoPlacement::Left => 1.0,
+                        rf_dsp::StereoPlacement::Right => 2.0,
+                        rf_dsp::StereoPlacement::Mid => 3.0,
+                        rf_dsp::StereoPlacement::Side => 4.0,
+                    },
+                    // Ultra-specific params
+                    12 => if band.use_mzt { 1.0 } else { 0.0 },
+                    13 => if band.transient_aware { 1.0 } else { 0.0 },
+                    14 => band.transient_q_reduction,
+                    15 => band.saturator.drive,
+                    16 => band.saturator.mix,
+                    17 => band.saturator.saturation_type as u8 as f64,
+                    _ => 0.0,
+                }
+            } else {
+                0.0
+            }
+        } else {
+            let global_idx = index - max_bands * ULTRA_PARAMS_PER_BAND;
+            match global_idx {
+                0 => self.eq.output_gain_db,
+                1 => if self.auto_gain { 1.0 } else { 0.0 },
+                2 => self.solo_band as f64,
+                3 => if self.eq.equal_loudness_enabled { 1.0 } else { 0.0 },
+                4 => match self.eq.global_oversample {
+                    OversampleMode::Off => 0.0,
+                    OversampleMode::X2 => 1.0,
+                    OversampleMode::X4 => 2.0,
+                    OversampleMode::X8 => 3.0,
+                    OversampleMode::Adaptive => 1.0, // Adaptive starts at 2x
+                },
+                _ => 0.0,
+            }
+        }
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        let max_bands = rf_dsp::PRO_EQ_MAX_BANDS;
+
+        if index < max_bands * ULTRA_PARAMS_PER_BAND {
+            let band_idx = index / ULTRA_PARAMS_PER_BAND;
+            let param_idx = index % ULTRA_PARAMS_PER_BAND;
+
+            match param_idx {
+                // Base params — use per-parameter setters (never set_band!)
+                0 => self.eq.set_band_frequency(band_idx, value.clamp(10.0, 30000.0)),
+                1 => self.eq.set_band_gain(band_idx, value.clamp(-30.0, 30.0)),
+                2 => self.eq.set_band_q(band_idx, value.clamp(0.05, 50.0)),
+                3 => self.eq.enable_band(band_idx, value > 0.5),
+                4 => self.eq.set_band_shape(band_idx, FilterShape::from_index(value as usize)),
+                // Dynamic EQ + placement
+                5..=11 => {
+                    if let Some(band) = self.eq.band_mut(band_idx) {
+                        match param_idx {
+                            5 => band.dynamic.enabled = value > 0.5,
+                            6 => band.dynamic.threshold_db = value.clamp(-60.0, 0.0),
+                            7 => band.dynamic.ratio = value.clamp(1.0, 20.0),
+                            8 => band.dynamic.attack_ms = value.clamp(0.1, 500.0),
+                            9 => band.dynamic.release_ms = value.clamp(1.0, 5000.0),
+                            10 => band.dynamic.knee_db = value.clamp(0.0, 24.0),
+                            11 => {
+                                band.placement = match value as u32 {
+                                    1 => rf_dsp::StereoPlacement::Left,
+                                    2 => rf_dsp::StereoPlacement::Right,
+                                    3 => rf_dsp::StereoPlacement::Mid,
+                                    4 => rf_dsp::StereoPlacement::Side,
+                                    _ => rf_dsp::StereoPlacement::Stereo,
+                                };
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                // Ultra-specific params
+                12 => self.eq.set_band_mzt(band_idx, value > 0.5),
+                13 => {
+                    let q_red = self.eq.band(band_idx).map(|b| b.transient_q_reduction).unwrap_or(0.5);
+                    self.eq.set_band_transient_aware(band_idx, value > 0.5, q_red);
+                }
+                14 => {
+                    if let Some(band) = self.eq.band_mut(band_idx) {
+                        band.transient_q_reduction = value.clamp(0.0, 1.0);
+                    }
+                }
+                15 => {
+                    self.eq.set_band_saturator(
+                        band_idx,
+                        value.clamp(0.0, 36.0),
+                        self.eq.band(band_idx).map(|b| b.saturator.mix).unwrap_or(0.5),
+                        self.eq.band(band_idx).map(|b| b.saturator.saturation_type).unwrap_or(rf_dsp::SaturationType::Tape),
+                    );
+                }
+                16 => {
+                    self.eq.set_band_saturator(
+                        band_idx,
+                        self.eq.band(band_idx).map(|b| b.saturator.drive).unwrap_or(0.0),
+                        value.clamp(0.0, 1.0),
+                        self.eq.band(band_idx).map(|b| b.saturator.saturation_type).unwrap_or(rf_dsp::SaturationType::Tape),
+                    );
+                }
+                17 => {
+                    let sat_type = match value as u32 {
+                        1 => rf_dsp::SaturationType::Tube,
+                        2 => rf_dsp::SaturationType::Transistor,
+                        _ => rf_dsp::SaturationType::Tape,
+                    };
+                    self.eq.set_band_saturator(
+                        band_idx,
+                        self.eq.band(band_idx).map(|b| b.saturator.drive).unwrap_or(0.0),
+                        self.eq.band(band_idx).map(|b| b.saturator.mix).unwrap_or(0.5),
+                        sat_type,
+                    );
+                }
+                _ => {}
+            }
+        } else {
+            let global_idx = index - max_bands * ULTRA_PARAMS_PER_BAND;
+            match global_idx {
+                0 => self.eq.output_gain_db = value.clamp(-24.0, 24.0),
+                1 => self.auto_gain = value > 0.5,
+                2 => {
+                    let new_solo = (value as i32).clamp(-1, 63);
+                    if new_solo != self.solo_band {
+                        if self.solo_applied {
+                            for i in 0..rf_dsp::PRO_EQ_MAX_BANDS {
+                                self.eq.enable_band(i, self.solo_saved_enabled[i]);
+                            }
+                            self.solo_applied = false;
+                        }
+                        self.solo_band = new_solo;
+                        if new_solo >= 0 {
+                            for i in 0..rf_dsp::PRO_EQ_MAX_BANDS {
+                                if let Some(band) = self.eq.band(i) {
+                                    self.solo_saved_enabled[i] = band.enabled;
+                                }
+                            }
+                            for i in 0..rf_dsp::PRO_EQ_MAX_BANDS {
+                                self.eq.enable_band(i, i == new_solo as usize);
+                            }
+                            self.solo_applied = true;
+                        }
+                    }
+                }
+                3 => self.eq.set_equal_loudness(value > 0.5),
+                4 => {
+                    let mode = match value as u32 {
+                        1 => OversampleMode::X2,
+                        2 => OversampleMode::X4,
+                        3 => OversampleMode::X8,
+                        _ => OversampleMode::Off,
+                    };
+                    self.eq.set_global_oversample(mode);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        let max_bands = rf_dsp::PRO_EQ_MAX_BANDS;
+        if index >= max_bands * ULTRA_PARAMS_PER_BAND {
+            let global_idx = index - max_bands * ULTRA_PARAMS_PER_BAND;
+            return match global_idx {
+                0 => "Output Gain",
+                1 => "Auto-Gain",
+                2 => "Solo Band",
+                3 => "Equal Loudness",
+                4 => "Global Oversample",
+                _ => "",
+            };
+        }
+        let param_idx = index % ULTRA_PARAMS_PER_BAND;
+        match param_idx {
+            0 => "Frequency",
+            1 => "Gain",
+            2 => "Q",
+            3 => "Enabled",
+            4 => "Shape",
+            5 => "Dynamic Enabled",
+            6 => "Dynamic Threshold",
+            7 => "Dynamic Ratio",
+            8 => "Dynamic Attack",
+            9 => "Dynamic Release",
+            10 => "Dynamic Knee",
+            11 => "Placement",
+            12 => "MZT Mode",
+            13 => "Transient Aware",
+            14 => "Transient Q Reduction",
+            15 => "Saturator Drive",
+            16 => "Saturator Mix",
+            17 => "Saturator Type",
+            _ => "",
+        }
     }
 }
 

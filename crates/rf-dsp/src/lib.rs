@@ -113,18 +113,17 @@ pub use spectral::{
     SpectralSelection,
 };
 
-// Re-export Professional EQ
+// Re-export Professional EQ (now includes Ultra features: MZT, Oversampling, Saturation, etc.)
 pub use eq_pro::{
-    AnalyzerMode, AutoGain, CollisionDetector, DynamicParams as ProDynamicParams,
-    EqBand as ProEqBand, EqMatch, FilterShape, MAX_BANDS as PRO_EQ_MAX_BANDS,
-    PhaseMode as ProPhaseMode, ProEq, Slope as FilterSlope2, SpectrumAnalyzer, StereoPlacement,
-    SvfCoeffs, SvfCore,
+    AnalyzerMode, AutoGain, CollisionDetector, CorrelationMeter, DynamicParams as ProDynamicParams,
+    EqBand as ProEqBand, EqMatch, EqualLoudness, FilterShape, FrequencyAnalyzer,
+    FrequencySuggestion, HarmonicSaturator, MAX_BANDS as PRO_EQ_MAX_BANDS, MztCoeffs, MztFilter,
+    OversampleMode, Oversampler, PhaseMode as ProPhaseMode, ProEq, SaturationType,
+    Slope as FilterSlope2, SpectrumAnalyzer, StereoPlacement, SvfCoeffs, SvfCore,
 };
 
-// Re-export Ultimate EQ
+// Re-export Ultimate EQ (legacy — UltraEqWrapper now uses ProEq internally)
 pub use eq_ultra::{
-    CorrelationMeter, EqualLoudness, FrequencyAnalyzer, FrequencySuggestion, HarmonicSaturator,
-    MztCoeffs, MztFilter, OversampleMode, Oversampler, SaturationType,
     TransientDetector as UltraTransientDetector, ULTRA_MAX_BANDS, UltraBand, UltraEq,
     UltraFilterType,
 };
@@ -202,7 +201,7 @@ pub use saturation::{
     BandSaturator, BitCrusher, MultibandSaturator, OversampledSaturator, Saturator,
     StereoSaturator, Waveshaper, WaveshaperCurve,
 };
-// Note: SaturationType is already exported from eq_ultra
+// Note: SaturationType is exported from eq_pro (canonical source)
 
 use rf_core::Sample;
 

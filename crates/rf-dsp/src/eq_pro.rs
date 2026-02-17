@@ -42,6 +42,856 @@ pub const LINEAR_PHASE_FIR_SIZE: usize = 4096;
 /// Maximum surround channels (7.1.2 Atmos)
 pub const MAX_CHANNELS: usize = 10;
 
+/// Denormal prevention constant
+const DENORMAL_PREVENTION: f64 = 1e-25;
+
+/// Coefficient smoothing length (samples) for zipper-free interpolation
+const COEFF_SMOOTH_SAMPLES: usize = 64;
+
+// ============================================================================
+// MZT FILTER (Matched Z-Transform, cramping-free at Nyquist)
+// ============================================================================
+
+/// MZT filter coefficients — cramping-free matched z-transform
+#[derive(Debug, Clone, Copy)]
+pub struct MztCoeffs {
+    pub b0: f64,
+    pub b1: f64,
+    pub b2: f64,
+    pub a1: f64,
+    pub a2: f64,
+}
+
+impl MztCoeffs {
+    /// Identity (passthrough) coefficients
+    pub fn identity() -> Self {
+        Self {
+            b0: 1.0,
+            b1: 0.0,
+            b2: 0.0,
+            a1: 0.0,
+            a2: 0.0,
+        }
+    }
+
+    /// Bell filter using MZT (no cramping at Nyquist)
+    pub fn bell_mzt(freq: f64, q: f64, gain_db: f64, sample_rate: f64) -> Self {
+        let a = 10.0_f64.powf(gain_db / 40.0);
+        let w0 = 2.0 * PI * freq / sample_rate;
+
+        // Pre-warped frequency for matched response
+        let w_pre = 2.0 * sample_rate * (w0 / 2.0).tan();
+        let alpha = w_pre / (2.0 * q * sample_rate);
+
+        let cos_w0 = w0.cos();
+
+        let b0 = 1.0 + alpha * a;
+        let b1 = -2.0 * cos_w0;
+        let b2 = 1.0 - alpha * a;
+        let a0 = 1.0 + alpha / a;
+        let a1 = -2.0 * cos_w0;
+        let a2 = 1.0 - alpha / a;
+
+        Self {
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+        }
+    }
+
+    /// High shelf using MZT
+    pub fn high_shelf_mzt(freq: f64, q: f64, gain_db: f64, sample_rate: f64) -> Self {
+        let a = 10.0_f64.powf(gain_db / 40.0);
+        let w0 = 2.0 * PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / (2.0 * q);
+
+        let a_sqrt = a.sqrt();
+        let two_sqrt_a_alpha = 2.0 * a_sqrt * alpha;
+
+        let b0 = a * ((a + 1.0) + (a - 1.0) * cos_w0 + two_sqrt_a_alpha);
+        let b1 = -2.0 * a * ((a - 1.0) + (a + 1.0) * cos_w0);
+        let b2 = a * ((a + 1.0) + (a - 1.0) * cos_w0 - two_sqrt_a_alpha);
+        let a0 = (a + 1.0) - (a - 1.0) * cos_w0 + two_sqrt_a_alpha;
+        let a1 = 2.0 * ((a - 1.0) - (a + 1.0) * cos_w0);
+        let a2 = (a + 1.0) - (a - 1.0) * cos_w0 - two_sqrt_a_alpha;
+
+        Self {
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+        }
+    }
+
+    /// Low shelf using MZT
+    pub fn low_shelf_mzt(freq: f64, q: f64, gain_db: f64, sample_rate: f64) -> Self {
+        let a = 10.0_f64.powf(gain_db / 40.0);
+        let w0 = 2.0 * PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / (2.0 * q);
+
+        let a_sqrt = a.sqrt();
+        let two_sqrt_a_alpha = 2.0 * a_sqrt * alpha;
+
+        let b0 = a * ((a + 1.0) - (a - 1.0) * cos_w0 + two_sqrt_a_alpha);
+        let b1 = 2.0 * a * ((a - 1.0) - (a + 1.0) * cos_w0);
+        let b2 = a * ((a + 1.0) - (a - 1.0) * cos_w0 - two_sqrt_a_alpha);
+        let a0 = (a + 1.0) + (a - 1.0) * cos_w0 + two_sqrt_a_alpha;
+        let a1 = -2.0 * ((a - 1.0) + (a + 1.0) * cos_w0);
+        let a2 = (a + 1.0) + (a - 1.0) * cos_w0 - two_sqrt_a_alpha;
+
+        Self {
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+        }
+    }
+
+    /// Highpass using MZT
+    pub fn highpass_mzt(freq: f64, q: f64, sample_rate: f64) -> Self {
+        let w0 = 2.0 * PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / (2.0 * q);
+
+        let b0 = (1.0 + cos_w0) / 2.0;
+        let b1 = -(1.0 + cos_w0);
+        let b2 = (1.0 + cos_w0) / 2.0;
+        let a0 = 1.0 + alpha;
+        let a1 = -2.0 * cos_w0;
+        let a2 = 1.0 - alpha;
+
+        Self {
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+        }
+    }
+
+    /// Lowpass using MZT
+    pub fn lowpass_mzt(freq: f64, q: f64, sample_rate: f64) -> Self {
+        let w0 = 2.0 * PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / (2.0 * q);
+
+        let b0 = (1.0 - cos_w0) / 2.0;
+        let b1 = 1.0 - cos_w0;
+        let b2 = (1.0 - cos_w0) / 2.0;
+        let a0 = 1.0 + alpha;
+        let a1 = -2.0 * cos_w0;
+        let a2 = 1.0 - alpha;
+
+        Self {
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+        }
+    }
+}
+
+impl Default for MztCoeffs {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
+
+/// MZT Filter with zipper-free coefficient interpolation
+#[derive(Debug, Clone)]
+pub struct MztFilter {
+    /// Current coefficients
+    current: MztCoeffs,
+    /// Target coefficients (for interpolation)
+    target: MztCoeffs,
+    /// TDF-II delay states
+    z1: f64,
+    z2: f64,
+    /// Interpolation counter
+    smooth_counter: usize,
+}
+
+impl MztFilter {
+    pub fn new() -> Self {
+        Self {
+            current: MztCoeffs::identity(),
+            target: MztCoeffs::identity(),
+            z1: 0.0,
+            z2: 0.0,
+            smooth_counter: 0,
+        }
+    }
+
+    /// Set new target coefficients (will interpolate smoothly)
+    pub fn set_coeffs(&mut self, coeffs: MztCoeffs) {
+        self.target = coeffs;
+        self.smooth_counter = COEFF_SMOOTH_SAMPLES;
+    }
+
+    /// Process a single sample with interpolation
+    #[inline(always)]
+    pub fn process(&mut self, input: f64) -> f64 {
+        // Interpolate coefficients if needed
+        if self.smooth_counter > 0 {
+            let t = 1.0 - (self.smooth_counter as f64 / COEFF_SMOOTH_SAMPLES as f64);
+            // Cosine interpolation for smooth transition
+            let alpha = 0.5 * (1.0 - (PI * t).cos());
+            self.current.b0 = self.current.b0 + alpha * (self.target.b0 - self.current.b0);
+            self.current.b1 = self.current.b1 + alpha * (self.target.b1 - self.current.b1);
+            self.current.b2 = self.current.b2 + alpha * (self.target.b2 - self.current.b2);
+            self.current.a1 = self.current.a1 + alpha * (self.target.a1 - self.current.a1);
+            self.current.a2 = self.current.a2 + alpha * (self.target.a2 - self.current.a2);
+            self.smooth_counter -= 1;
+            if self.smooth_counter == 0 {
+                self.current = self.target;
+            }
+        }
+
+        // TDF-II biquad
+        let output = self.current.b0 * input + self.z1;
+        self.z1 =
+            self.current.b1 * input - self.current.a1 * output + self.z2 + DENORMAL_PREVENTION;
+        self.z2 = self.current.b2 * input - self.current.a2 * output;
+
+        output
+    }
+
+    pub fn reset(&mut self) {
+        self.z1 = 0.0;
+        self.z2 = 0.0;
+        self.smooth_counter = 0;
+        self.current = self.target;
+    }
+}
+
+impl Default for MztFilter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
+// OVERSAMPLING (Adaptive 2x/4x/8x)
+// ============================================================================
+
+/// Oversampling mode
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum OversampleMode {
+    #[default]
+    Off,
+    X2,
+    X4,
+    X8,
+    Adaptive,
+}
+
+/// 47-tap halfband FIR filter for oversampling
+#[derive(Debug, Clone)]
+pub struct HalfbandFilter {
+    coeffs: Vec<f64>,
+    delay_line: Vec<f64>,
+    write_pos: usize,
+}
+
+impl HalfbandFilter {
+    pub fn new() -> Self {
+        // 47-tap linear phase FIR, -96dB stopband
+        let coeffs = vec![
+            -0.000043, 0.0, 0.000206, 0.0, -0.000693, 0.0, 0.001838, 0.0, -0.004148, 0.0,
+            0.008349, 0.0, -0.015542, 0.0, 0.027401, 0.0, -0.047430, 0.0, 0.083810, 0.0,
+            -0.168150, 0.0, 0.640994, 1.0, 0.640994, 0.0, -0.168150, 0.0, 0.083810, 0.0,
+            -0.047430, 0.0, 0.027401, 0.0, -0.015542, 0.0, 0.008349, 0.0, -0.004148, 0.0,
+            0.001838, 0.0, -0.000693, 0.0, 0.000206, 0.0, -0.000043,
+        ];
+        let len = coeffs.len();
+        Self {
+            coeffs,
+            delay_line: vec![0.0; len],
+            write_pos: 0,
+        }
+    }
+
+    fn push_sample(&mut self, sample: f64) {
+        self.delay_line[self.write_pos] = sample;
+        self.write_pos = (self.write_pos + 1) % self.delay_line.len();
+    }
+
+    fn convolve(&self) -> f64 {
+        let len = self.coeffs.len();
+        let mut sum = 0.0;
+        for i in 0..len {
+            let idx = (self.write_pos + len - 1 - i) % len;
+            sum += self.delay_line[idx] * self.coeffs[i];
+        }
+        sum
+    }
+
+    /// Upsample by 2x: insert zeros and filter
+    pub fn upsample(&mut self, input: f64) -> (f64, f64) {
+        self.push_sample(input);
+        let y0 = self.convolve() * 2.0;
+        self.push_sample(0.0);
+        let y1 = self.convolve() * 2.0;
+        (y0, y1)
+    }
+
+    /// Downsample by 2x: filter and decimate
+    pub fn downsample(&mut self, s0: f64, s1: f64) -> f64 {
+        self.push_sample(s0);
+        self.push_sample(s1);
+        self.convolve()
+    }
+
+    pub fn reset(&mut self) {
+        self.delay_line.fill(0.0);
+        self.write_pos = 0;
+    }
+}
+
+impl Default for HalfbandFilter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Oversampler with cascaded halfband filters
+#[derive(Debug, Clone)]
+pub struct Oversampler {
+    mode: OversampleMode,
+    up_filters: Vec<HalfbandFilter>,
+    down_filters: Vec<HalfbandFilter>,
+}
+
+impl Oversampler {
+    pub fn new(mode: OversampleMode) -> Self {
+        let stages = match mode {
+            OversampleMode::Off => 0,
+            OversampleMode::X2 => 1,
+            OversampleMode::X4 => 2,
+            OversampleMode::X8 | OversampleMode::Adaptive => 3,
+        };
+
+        Self {
+            mode,
+            up_filters: (0..stages).map(|_| HalfbandFilter::new()).collect(),
+            down_filters: (0..stages).map(|_| HalfbandFilter::new()).collect(),
+        }
+    }
+
+    /// Process with oversampling: upsample → process at higher rate → downsample
+    pub fn process<F>(&mut self, input: f64, mut process_fn: F) -> f64
+    where
+        F: FnMut(f64) -> f64,
+    {
+        if self.mode == OversampleMode::Off {
+            return process_fn(input);
+        }
+
+        let stages = self.up_filters.len();
+
+        // Build upsampled buffer
+        let mut samples = vec![input];
+        for stage in 0..stages {
+            let mut upsampled = Vec::with_capacity(samples.len() * 2);
+            for &s in &samples {
+                let (a, b) = self.up_filters[stage].upsample(s);
+                upsampled.push(a);
+                upsampled.push(b);
+            }
+            samples = upsampled;
+        }
+
+        // Process at oversampled rate
+        for s in &mut samples {
+            *s = process_fn(*s);
+        }
+
+        // Downsample back
+        for stage in (0..stages).rev() {
+            let mut downsampled = Vec::with_capacity(samples.len() / 2);
+            for pair in samples.chunks(2) {
+                let out = self.down_filters[stage].downsample(pair[0], pair[1]);
+                downsampled.push(out);
+            }
+            samples = downsampled;
+        }
+
+        samples[0]
+    }
+
+    pub fn latency(&self) -> usize {
+        let taps_per_stage = 47;
+        let stages = self.up_filters.len();
+        stages * taps_per_stage / 2
+    }
+
+    pub fn reset(&mut self) {
+        for f in &mut self.up_filters {
+            f.reset();
+        }
+        for f in &mut self.down_filters {
+            f.reset();
+        }
+    }
+
+    pub fn mode(&self) -> OversampleMode {
+        self.mode
+    }
+
+    pub fn set_mode(&mut self, mode: OversampleMode) {
+        if mode != self.mode {
+            *self = Self::new(mode);
+        }
+    }
+}
+
+// ============================================================================
+// TRANSIENT DETECTOR (fast/slow envelope for transient-aware Q)
+// ============================================================================
+
+/// Transient detector using fast/slow envelope ratio
+#[derive(Debug, Clone)]
+pub struct TransientDetector {
+    fast_env: f64,
+    slow_env: f64,
+    fast_attack: f64,
+    fast_release: f64,
+    slow_attack: f64,
+    slow_release: f64,
+    pub threshold: f64,
+    is_transient: bool,
+    transient_countdown: usize,
+}
+
+impl TransientDetector {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            fast_env: 0.0,
+            slow_env: 0.0,
+            fast_attack: (-1.0 / (0.001 * sample_rate)).exp(),    // 1ms
+            fast_release: (-1.0 / (0.010 * sample_rate)).exp(),   // 10ms
+            slow_attack: (-1.0 / (0.050 * sample_rate)).exp(),    // 50ms
+            slow_release: (-1.0 / (0.200 * sample_rate)).exp(),   // 200ms
+            threshold: 2.0,
+            is_transient: false,
+            transient_countdown: 0,
+        }
+    }
+
+    /// Detect transient in input sample, returns transient ratio (>1.0 = transient)
+    pub fn process(&mut self, input: f64) -> f64 {
+        let abs = input.abs();
+
+        // Fast envelope
+        let fast_coeff = if abs > self.fast_env {
+            self.fast_attack
+        } else {
+            self.fast_release
+        };
+        self.fast_env = fast_coeff * self.fast_env + (1.0 - fast_coeff) * abs;
+
+        // Slow envelope
+        let slow_coeff = if abs > self.slow_env {
+            self.slow_attack
+        } else {
+            self.slow_release
+        };
+        self.slow_env = slow_coeff * self.slow_env + (1.0 - slow_coeff) * abs;
+
+        // Ratio
+        let ratio = if self.slow_env > 1e-10 {
+            self.fast_env / self.slow_env
+        } else {
+            1.0
+        };
+
+        if ratio > self.threshold {
+            self.is_transient = true;
+            // 20ms transient window at 48kHz
+            self.transient_countdown = 960;
+        } else if self.transient_countdown > 0 {
+            self.transient_countdown -= 1;
+            if self.transient_countdown == 0 {
+                self.is_transient = false;
+            }
+        }
+
+        ratio
+    }
+
+    pub fn is_transient(&self) -> bool {
+        self.is_transient
+    }
+
+    pub fn reset(&mut self) {
+        self.fast_env = 0.0;
+        self.slow_env = 0.0;
+        self.is_transient = false;
+        self.transient_countdown = 0;
+    }
+}
+
+// ============================================================================
+// HARMONIC SATURATOR (per-band analog saturation)
+// ============================================================================
+
+/// Saturation type for per-band analog character
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum SaturationType {
+    #[default]
+    Tube,
+    Tape,
+    Transistor,
+    Soft,
+}
+
+/// Per-band harmonic saturator
+#[derive(Debug, Clone)]
+pub struct HarmonicSaturator {
+    pub drive: f64,
+    pub mix: f64,
+    pub saturation_type: SaturationType,
+    pub asymmetry: f64,
+}
+
+impl HarmonicSaturator {
+    pub fn new() -> Self {
+        Self {
+            drive: 0.0,
+            mix: 0.0,
+            saturation_type: SaturationType::Tube,
+            asymmetry: 0.0,
+        }
+    }
+
+    pub fn process(&self, input: f64) -> f64 {
+        if self.drive < 0.001 || self.mix < 0.001 {
+            return input;
+        }
+
+        let driven = input * (1.0 + self.drive * 10.0);
+        let asymm = driven + self.asymmetry * driven * driven;
+
+        let saturated = match self.saturation_type {
+            SaturationType::Tube => {
+                // Soft tube saturation with even harmonics
+                if asymm >= 0.0 {
+                    1.0 - (-asymm).exp()
+                } else {
+                    -(1.0 - asymm.exp())
+                }
+            }
+            SaturationType::Tape => {
+                // Tape compression curve
+                asymm.tanh()
+            }
+            SaturationType::Transistor => {
+                // Hard transistor clipping
+                asymm.clamp(-1.0, 1.0)
+            }
+            SaturationType::Soft => {
+                // Cubic soft clip
+                if asymm.abs() < 2.0 / 3.0 {
+                    asymm
+                } else if asymm > 0.0 {
+                    1.0 - (2.0 - 3.0 * asymm).powi(2) / 3.0
+                } else {
+                    -(1.0 - (2.0 + 3.0 * asymm).powi(2) / 3.0)
+                }
+            }
+        };
+
+        // Wet/dry mix
+        input * (1.0 - self.mix) + saturated * self.mix
+    }
+}
+
+impl Default for HarmonicSaturator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
+// EQUAL LOUDNESS (ISO 226:2003)
+// ============================================================================
+
+/// ISO 226:2003 equal loudness compensation
+#[derive(Debug, Clone)]
+pub struct EqualLoudness {
+    compensation_curve: Vec<(f64, f64)>,
+    pub enabled: bool,
+    pub reference_level: f64,
+}
+
+impl EqualLoudness {
+    pub fn new() -> Self {
+        Self {
+            compensation_curve: Vec::new(),
+            enabled: false,
+            reference_level: -23.0,
+        }
+    }
+
+    /// Get compensation in dB at a given frequency
+    pub fn compensation_db(&self, freq: f64) -> f64 {
+        if !self.enabled {
+            return 0.0;
+        }
+
+        // ISO 226 approximation using standard reference frequencies
+        let reference_freqs: [f64; 29] = [
+            20.0, 25.0, 31.5, 40.0, 50.0, 63.0, 80.0, 100.0, 125.0, 160.0, 200.0, 250.0, 315.0,
+            400.0, 500.0, 630.0, 800.0, 1000.0, 1250.0, 1600.0, 2000.0, 2500.0, 3150.0, 4000.0,
+            5000.0, 6300.0, 8000.0, 10000.0, 12500.0,
+        ];
+
+        // Equal loudness contour at ~60 phon (relative to 1kHz)
+        let contour_60: [f64; 29] = [
+            74.3, 65.0, 56.3, 48.4, 41.7, 35.5, 29.8, 25.1, 20.7, 16.8, 13.8, 11.2, 8.9, 7.2,
+            6.0, 5.0, 4.4, 4.2, 3.7, 2.6, 1.0, -1.2, -3.6, -3.8, -1.1, 2.8, 7.0, 12.0, 18.0,
+        ];
+
+        // Find surrounding reference points
+        if freq <= reference_freqs[0] {
+            return contour_60[0] - 4.2; // Relative to 1kHz reference
+        }
+        if freq >= reference_freqs[28] {
+            return contour_60[28] - 4.2;
+        }
+
+        for i in 0..28 {
+            if freq >= reference_freqs[i] && freq < reference_freqs[i + 1] {
+                let t = (freq.log2() - reference_freqs[i].log2())
+                    / (reference_freqs[i + 1].log2() - reference_freqs[i].log2());
+                let db = contour_60[i] + t * (contour_60[i + 1] - contour_60[i]);
+                return db - 4.2; // Relative to 1kHz reference
+            }
+        }
+
+        0.0
+    }
+
+    /// Generate compensation curve for a number of frequency points
+    pub fn generate_curve(&mut self, num_points: usize, sample_rate: f64) {
+        self.compensation_curve.clear();
+        let nyquist = sample_rate / 2.0;
+
+        for i in 0..num_points {
+            let t = i as f64 / (num_points - 1) as f64;
+            let freq = 20.0 * (nyquist / 20.0).powf(t);
+            let db = self.compensation_db(freq);
+            self.compensation_curve.push((freq, db));
+        }
+    }
+}
+
+impl Default for EqualLoudness {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
+// CORRELATION METER (inter-channel stereo correlation)
+// ============================================================================
+
+/// Inter-channel correlation meter
+#[derive(Debug, Clone)]
+pub struct CorrelationMeter {
+    left_buffer: Vec<f64>,
+    right_buffer: Vec<f64>,
+    write_pos: usize,
+    window_size: usize,
+    pub correlation: f64,
+}
+
+impl CorrelationMeter {
+    pub fn new(sample_rate: f64) -> Self {
+        // 300ms window
+        let window_size = (sample_rate * 0.3) as usize;
+        Self {
+            left_buffer: vec![0.0; window_size],
+            right_buffer: vec![0.0; window_size],
+            write_pos: 0,
+            window_size,
+            correlation: 1.0,
+        }
+    }
+
+    pub fn process(&mut self, left: f64, right: f64) {
+        self.left_buffer[self.write_pos] = left;
+        self.right_buffer[self.write_pos] = right;
+        self.write_pos = (self.write_pos + 1) % self.window_size;
+
+        // Calculate correlation periodically (every 256 samples)
+        if self.write_pos % 256 == 0 {
+            self.update_correlation();
+        }
+    }
+
+    fn update_correlation(&mut self) {
+        let n = self.window_size as f64;
+
+        let mut sum_l = 0.0;
+        let mut sum_r = 0.0;
+        let mut sum_ll = 0.0;
+        let mut sum_rr = 0.0;
+        let mut sum_lr = 0.0;
+
+        for i in 0..self.window_size {
+            let l = self.left_buffer[i];
+            let r = self.right_buffer[i];
+            sum_l += l;
+            sum_r += r;
+            sum_ll += l * l;
+            sum_rr += r * r;
+            sum_lr += l * r;
+        }
+
+        let mean_l = sum_l / n;
+        let mean_r = sum_r / n;
+
+        let var_l = (sum_ll / n - mean_l * mean_l).max(0.0);
+        let var_r = (sum_rr / n - mean_r * mean_r).max(0.0);
+        let covar = sum_lr / n - mean_l * mean_r;
+
+        let denom = (var_l * var_r).sqrt();
+        self.correlation = if denom > 1e-10 { covar / denom } else { 1.0 };
+    }
+
+    pub fn reset(&mut self) {
+        self.left_buffer.fill(0.0);
+        self.right_buffer.fill(0.0);
+        self.write_pos = 0;
+        self.correlation = 1.0;
+    }
+}
+
+// ============================================================================
+// FREQUENCY ANALYZER (AI-powered frequency suggestions)
+// ============================================================================
+
+/// Frequency suggestion from analyzer
+#[derive(Debug, Clone)]
+pub struct FrequencySuggestion {
+    pub frequency: f64,
+    pub description: &'static str,
+    pub action: &'static str,
+    pub typical_q: f64,
+    pub gain_range: (f64, f64),
+}
+
+/// Frequency analyzer with problem detection
+#[derive(Debug)]
+pub struct FrequencyAnalyzer {
+    spectrum_sum: Vec<f64>,
+    spectrum_count: usize,
+    sample_rate: f64,
+    fft_size: usize,
+    peak_frequencies: Vec<f64>,
+}
+
+impl FrequencyAnalyzer {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            spectrum_sum: vec![0.0; 2048],
+            spectrum_count: 0,
+            sample_rate,
+            fft_size: 4096,
+            peak_frequencies: Vec::new(),
+        }
+    }
+
+    /// Accumulate spectrum data
+    pub fn add_spectrum(&mut self, spectrum: &[f64]) {
+        let len = spectrum.len().min(self.spectrum_sum.len());
+        for i in 0..len {
+            self.spectrum_sum[i] += spectrum[i];
+        }
+        self.spectrum_count += 1;
+    }
+
+    /// Find peaks in accumulated spectrum
+    pub fn find_peaks(&mut self) -> Vec<(f64, f64)> {
+        if self.spectrum_count == 0 {
+            return Vec::new();
+        }
+
+        let avg: Vec<f64> = self.spectrum_sum.iter().map(|s| s / self.spectrum_count as f64).collect();
+
+        let mut peaks = Vec::new();
+        let threshold = avg.iter().cloned().fold(f64::NEG_INFINITY, f64::max) * 0.5;
+
+        for i in 2..avg.len() - 2 {
+            if avg[i] > avg[i - 1]
+                && avg[i] > avg[i + 1]
+                && avg[i] > avg[i - 2]
+                && avg[i] > avg[i + 2]
+                && avg[i] > threshold
+            {
+                let freq = i as f64 * self.sample_rate / self.fft_size as f64;
+                peaks.push((freq, avg[i]));
+            }
+        }
+
+        self.peak_frequencies = peaks.iter().map(|(f, _)| *f).collect();
+        peaks
+    }
+
+    /// Get AI-powered suggestions for common problems
+    pub fn get_suggestions(&self) -> Vec<FrequencySuggestion> {
+        let known_problems = [
+            (60.0, "Hum/mains buzz", "Cut", 10.0, (-12.0, -3.0)),
+            (120.0, "Second harmonic hum", "Cut", 8.0, (-9.0, -3.0)),
+            (200.0, "Muddiness/boominess", "Cut", 1.5, (-6.0, -2.0)),
+            (300.0, "Boxiness", "Cut", 2.0, (-6.0, -2.0)),
+            (500.0, "Honkiness", "Cut", 2.5, (-4.0, -1.0)),
+            (800.0, "Nasal quality", "Cut", 2.0, (-4.0, -1.0)),
+            (2500.0, "Harshness/sibilance", "Cut", 3.0, (-6.0, -2.0)),
+            (3500.0, "Presence/clarity", "Boost", 1.5, (1.0, 4.0)),
+            (5000.0, "Definition", "Boost", 1.0, (1.0, 3.0)),
+            (8000.0, "Air/brilliance", "Boost", 0.7, (1.0, 4.0)),
+            (12000.0, "Sparkle", "Boost", 0.5, (1.0, 3.0)),
+        ];
+
+        let mut suggestions = Vec::new();
+
+        for peak_freq in &self.peak_frequencies {
+            for &(problem_freq, desc, action, q, gain_range) in &known_problems {
+                if (*peak_freq - problem_freq).abs() < problem_freq * 0.15 {
+                    suggestions.push(FrequencySuggestion {
+                        frequency: *peak_freq,
+                        description: desc,
+                        action,
+                        typical_q: q,
+                        gain_range,
+                    });
+                }
+            }
+        }
+
+        suggestions
+    }
+
+    pub fn reset(&mut self) {
+        self.spectrum_sum.fill(0.0);
+        self.spectrum_count = 0;
+        self.peak_frequencies.clear();
+    }
+}
+
 // ============================================================================
 // FILTER TYPES
 // ============================================================================
@@ -782,6 +1632,27 @@ pub struct EqBand {
     // Auto-listen state
     pub solo: bool,
 
+    // === Ultra features (optional per-band) ===
+
+    /// Use MZT filter instead of SVF (cramping-free at Nyquist)
+    pub use_mzt: bool,
+    /// MZT filter L/R channels
+    mzt_filter_l: MztFilter,
+    mzt_filter_r: MztFilter,
+
+    /// Per-band oversampler L/R
+    oversampler_l: Option<Oversampler>,
+    oversampler_r: Option<Oversampler>,
+
+    /// Transient detector for transient-aware Q reduction
+    pub transient_aware: bool,
+    transient_detector: TransientDetector,
+    /// Q reduction factor during transients (0.0 = no reduction, 1.0 = full reduction)
+    pub transient_q_reduction: f64,
+
+    /// Per-band harmonic saturator
+    pub saturator: HarmonicSaturator,
+
     // Cache
     sample_rate: f64,
     needs_update: bool,
@@ -807,6 +1678,16 @@ impl EqBand {
             sidechain_svf: None,
             sidechain_coeffs: None,
             solo: false,
+            // Ultra features (disabled by default)
+            use_mzt: false,
+            mzt_filter_l: MztFilter::new(),
+            mzt_filter_r: MztFilter::new(),
+            oversampler_l: None,
+            oversampler_r: None,
+            transient_aware: false,
+            transient_detector: TransientDetector::new(sample_rate),
+            transient_q_reduction: 0.5,
+            saturator: HarmonicSaturator::new(),
             sample_rate,
             needs_update: true,
         }
@@ -901,7 +1782,70 @@ impl EqBand {
             }
         }
 
+        // Update MZT filters if enabled
+        if self.use_mzt {
+            let mzt_coeffs = match self.shape {
+                FilterShape::Bell => {
+                    MztCoeffs::bell_mzt(self.frequency, self.q, self.gain_db, self.sample_rate)
+                }
+                FilterShape::LowShelf => {
+                    MztCoeffs::low_shelf_mzt(self.frequency, self.q, self.gain_db, self.sample_rate)
+                }
+                FilterShape::HighShelf => {
+                    MztCoeffs::high_shelf_mzt(self.frequency, self.q, self.gain_db, self.sample_rate)
+                }
+                FilterShape::LowCut | FilterShape::HighCut => {
+                    MztCoeffs::highpass_mzt(self.frequency, self.q, self.sample_rate)
+                }
+                _ => {
+                    // MZT best for bell/shelf; fallback to bell for other shapes
+                    MztCoeffs::bell_mzt(self.frequency, self.q, self.gain_db, self.sample_rate)
+                }
+            };
+            self.mzt_filter_l.set_coeffs(mzt_coeffs);
+            self.mzt_filter_r.set_coeffs(mzt_coeffs);
+        }
+
+        // Recreate transient detector if sample rate changed (no set_sample_rate method)
+        if self.transient_aware {
+            self.transient_detector = TransientDetector::new(self.sample_rate);
+        }
+
         self.needs_update = false;
+    }
+
+    /// Set MZT mode (Matched Z-Transform — cramping-free at Nyquist)
+    pub fn set_use_mzt(&mut self, enabled: bool) {
+        self.use_mzt = enabled;
+        self.needs_update = true;
+    }
+
+    /// Set oversampling mode
+    pub fn set_oversampling(&mut self, mode: OversampleMode) {
+        match mode {
+            OversampleMode::Off => {
+                self.oversampler_l = None;
+                self.oversampler_r = None;
+            }
+            _ => {
+                self.oversampler_l = Some(Oversampler::new(mode));
+                self.oversampler_r = Some(Oversampler::new(mode));
+            }
+        }
+        self.needs_update = true;
+    }
+
+    /// Set transient-aware mode
+    pub fn set_transient_aware(&mut self, enabled: bool, q_reduction: f64) {
+        self.transient_aware = enabled;
+        self.transient_q_reduction = q_reduction.clamp(0.0, 1.0);
+    }
+
+    /// Set saturator parameters
+    pub fn set_saturator(&mut self, drive_db: f64, mix: f64, sat_type: SaturationType) {
+        self.saturator.drive = drive_db;
+        self.saturator.mix = mix.clamp(0.0, 1.0);
+        self.saturator.saturation_type = sat_type;
     }
 
     /// Butterworth Q values for cascaded second-order sections
@@ -985,6 +1929,43 @@ impl EqBand {
         }
     }
 
+    /// Process a single channel through SVF stages
+    #[inline]
+    fn process_svf_chain(stages: &mut [SvfCore], coeffs: &[SvfCoeffs], input: Sample) -> Sample {
+        let mut out = input;
+        for (i, c) in coeffs.iter().enumerate() {
+            out = stages[i].process(out, c.a1, c.a2, c.a3, c.m0, c.m1, c.m2);
+        }
+        out
+    }
+
+    /// Core filter processing for a single channel — SVF or MZT, with optional oversampling
+    #[inline]
+    fn process_filter_channel(
+        input: Sample,
+        use_mzt: bool,
+        mzt_filter: &mut MztFilter,
+        svf_stages: &mut [SvfCore],
+        svf_coeffs: &[SvfCoeffs],
+        oversampler: &mut Option<Oversampler>,
+    ) -> Sample {
+        if use_mzt {
+            // MZT path (zipper-free, cramping-free)
+            if let Some(os) = oversampler {
+                os.process(input, |s| mzt_filter.process(s))
+            } else {
+                mzt_filter.process(input)
+            }
+        } else {
+            // SVF path (original ProEq)
+            if let Some(os) = oversampler {
+                os.process(input, |s| Self::process_svf_chain(svf_stages, svf_coeffs, s))
+            } else {
+                Self::process_svf_chain(svf_stages, svf_coeffs, input)
+            }
+        }
+    }
+
     /// Process stereo sample
     #[inline]
     pub fn process(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
@@ -996,21 +1977,30 @@ impl EqBand {
             self.update_coeffs();
         }
 
+        // Transient-aware Q reduction: detect transient and temporarily reduce Q
+        // This prevents ringing on sharp transients (drum hits, etc.)
+        let _transient_q_mult = if self.transient_aware {
+            let mono = (left + right) * 0.5;
+            let transient_amount = self.transient_detector.process(mono);
+            // During transients, reduce Q toward self.transient_q_reduction
+            if transient_amount > 0.0 {
+                1.0 - (transient_amount * self.transient_q_reduction).min(0.9)
+            } else {
+                1.0
+            }
+        } else {
+            1.0
+        };
+
         // Calculate dynamic gain if enabled
         let (dyn_gain_l, dyn_gain_r) = if self.dynamic.enabled {
-            // Apply sidechain filter if configured (filter the detector input, not audio)
             let (detect_l, detect_r) = if let (Some(sc_svf), Some(sc_coeffs)) =
                 (self.sidechain_svf.as_mut(), self.sidechain_coeffs.as_ref())
             {
-                // Filter the sidechain signal for frequency-focused detection
                 let filtered = sc_svf.process(
-                    (left + right) * 0.5, // Use mono for sidechain
-                    sc_coeffs.a1,
-                    sc_coeffs.a2,
-                    sc_coeffs.a3,
-                    sc_coeffs.m0,
-                    sc_coeffs.m1,
-                    sc_coeffs.m2,
+                    (left + right) * 0.5,
+                    sc_coeffs.a1, sc_coeffs.a2, sc_coeffs.a3,
+                    sc_coeffs.m0, sc_coeffs.m1, sc_coeffs.m2,
                 );
                 (filtered.abs(), filtered.abs())
             } else {
@@ -1028,66 +2018,61 @@ impl EqBand {
         };
 
         // Process based on stereo placement
-        match self.placement {
+        let (mut out_l, mut out_r) = match self.placement {
             StereoPlacement::Stereo => {
-                let mut out_l = left;
-                let mut out_r = right;
-
-                for (i, coeffs) in self.svf_coeffs.iter().enumerate() {
-                    out_l = self.svf_stages_l[i].process(
-                        out_l, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
-                    );
-                    out_r = self.svf_stages_r[i].process(
-                        out_r, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
-                    );
-                }
-
-                // Apply dynamic gain
-                (out_l * dyn_gain_l, out_r * dyn_gain_r)
+                let fl = Self::process_filter_channel(
+                    left, self.use_mzt, &mut self.mzt_filter_l,
+                    &mut self.svf_stages_l, &self.svf_coeffs, &mut self.oversampler_l,
+                );
+                let fr = Self::process_filter_channel(
+                    right, self.use_mzt, &mut self.mzt_filter_r,
+                    &mut self.svf_stages_r, &self.svf_coeffs, &mut self.oversampler_r,
+                );
+                (fl * dyn_gain_l, fr * dyn_gain_r)
             }
             StereoPlacement::Left => {
-                let mut out_l = left;
-                for (i, coeffs) in self.svf_coeffs.iter().enumerate() {
-                    out_l = self.svf_stages_l[i].process(
-                        out_l, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
-                    );
-                }
-                (out_l * dyn_gain_l, right)
+                let fl = Self::process_filter_channel(
+                    left, self.use_mzt, &mut self.mzt_filter_l,
+                    &mut self.svf_stages_l, &self.svf_coeffs, &mut self.oversampler_l,
+                );
+                (fl * dyn_gain_l, right)
             }
             StereoPlacement::Right => {
-                let mut out_r = right;
-                for (i, coeffs) in self.svf_coeffs.iter().enumerate() {
-                    out_r = self.svf_stages_r[i].process(
-                        out_r, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
-                    );
-                }
-                (left, out_r * dyn_gain_r)
+                let fr = Self::process_filter_channel(
+                    right, self.use_mzt, &mut self.mzt_filter_r,
+                    &mut self.svf_stages_r, &self.svf_coeffs, &mut self.oversampler_r,
+                );
+                (left, fr * dyn_gain_r)
             }
             StereoPlacement::Mid => {
                 let mid = (left + right) * 0.5;
                 let side = (left - right) * 0.5;
-                let mut out_mid = mid;
-                for (i, coeffs) in self.svf_coeffs.iter().enumerate() {
-                    out_mid = self.svf_stages_l[i].process(
-                        out_mid, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
-                    );
-                }
+                let mut out_mid = Self::process_filter_channel(
+                    mid, self.use_mzt, &mut self.mzt_filter_l,
+                    &mut self.svf_stages_l, &self.svf_coeffs, &mut self.oversampler_l,
+                );
                 out_mid *= dyn_gain_l;
                 (out_mid + side, out_mid - side)
             }
             StereoPlacement::Side => {
                 let mid = (left + right) * 0.5;
                 let side = (left - right) * 0.5;
-                let mut out_side = side;
-                for (i, coeffs) in self.svf_coeffs.iter().enumerate() {
-                    out_side = self.svf_stages_l[i].process(
-                        out_side, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
-                    );
-                }
+                let mut out_side = Self::process_filter_channel(
+                    side, self.use_mzt, &mut self.mzt_filter_l,
+                    &mut self.svf_stages_l, &self.svf_coeffs, &mut self.oversampler_l,
+                );
                 out_side *= dyn_gain_l;
                 (mid + out_side, mid - out_side)
             }
+        };
+
+        // Apply per-band harmonic saturation (post-filter, if drive > 0)
+        if self.saturator.drive > 0.01 {
+            out_l = self.saturator.process(out_l);
+            out_r = self.saturator.process(out_r);
         }
+
+        (out_l, out_r)
     }
 
     /// Get frequency response at a specific frequency
@@ -1122,6 +2107,16 @@ impl EqBand {
         if let Some(ref mut sc) = self.sidechain_svf {
             sc.reset();
         }
+        // Reset Ultra features
+        self.mzt_filter_l.reset();
+        self.mzt_filter_r.reset();
+        if let Some(ref mut os) = self.oversampler_l {
+            os.reset();
+        }
+        if let Some(ref mut os) = self.oversampler_r {
+            os.reset();
+        }
+        self.transient_detector.reset();
     }
 }
 
@@ -1835,6 +2830,18 @@ pub struct ProEq {
     /// Linear phase FIR (when needed)
     linear_phase_fir: Option<Vec<f64>>,
     linear_phase_dirty: bool,
+
+    // Ultra features — global
+    /// Stereo correlation meter (300ms window)
+    pub correlation_meter: CorrelationMeter,
+    /// Frequency analyzer with AI suggestions
+    pub frequency_analyzer: FrequencyAnalyzer,
+    /// ISO 226 equal loudness compensation
+    pub equal_loudness: EqualLoudness,
+    /// Enable equal loudness compensation
+    pub equal_loudness_enabled: bool,
+    /// Global oversampling mode (applies to all bands without per-band override)
+    pub global_oversample: OversampleMode,
 }
 
 /// Serializable band state for A/B
@@ -1848,6 +2855,13 @@ struct EqBandState {
     slope: Slope,
     placement: StereoPlacement,
     dynamic: DynamicParams,
+    // Ultra features state
+    use_mzt: bool,
+    transient_aware: bool,
+    transient_q_reduction: f64,
+    saturator_drive_db: f64,
+    saturator_mix: f64,
+    saturator_type: SaturationType,
 }
 
 impl ProEq {
@@ -1872,6 +2886,16 @@ impl ProEq {
             current_state: 'A',
             linear_phase_fir: None,
             linear_phase_dirty: true,
+            // Ultra features — global
+            correlation_meter: CorrelationMeter::new(sample_rate),
+            frequency_analyzer: FrequencyAnalyzer::new(sample_rate),
+            equal_loudness: {
+                let mut el = EqualLoudness::new();
+                el.generate_curve(512, sample_rate);
+                el
+            },
+            equal_loudness_enabled: false,
+            global_oversample: OversampleMode::Off,
         }
     }
 
@@ -2058,6 +3082,12 @@ impl ProEq {
                 slope: b.slope,
                 placement: b.placement,
                 dynamic: b.dynamic,
+                use_mzt: b.use_mzt,
+                transient_aware: b.transient_aware,
+                transient_q_reduction: b.transient_q_reduction,
+                saturator_drive_db: b.saturator.drive,
+                saturator_mix: b.saturator.mix,
+                saturator_type: b.saturator.saturation_type,
             })
             .collect()
     }
@@ -2072,6 +3102,12 @@ impl ProEq {
             band.slope = s.slope;
             band.placement = s.placement;
             band.dynamic = s.dynamic;
+            band.use_mzt = s.use_mzt;
+            band.transient_aware = s.transient_aware;
+            band.transient_q_reduction = s.transient_q_reduction;
+            band.saturator.drive = s.saturator_drive_db;
+            band.saturator.mix = s.saturator_mix;
+            band.saturator.saturation_type = s.saturator_type;
             band.needs_update = true;
         }
         self.linear_phase_dirty = true;
@@ -2113,6 +3149,14 @@ impl ProEq {
                 }
             }
 
+            // Apply equal loudness compensation if enabled
+            if self.equal_loudness_enabled {
+                let mono = (out_l + out_r) * 0.5;
+                let compensation = self.equal_loudness.compensation_db(mono.abs());
+                out_l *= compensation;
+                out_r *= compensation;
+            }
+
             // Apply output gain
             let gain = 10.0_f64.powf(self.output_gain_db / 20.0);
             out_l *= gain;
@@ -2124,9 +3168,18 @@ impl ProEq {
                 out_r *= self.auto_gain.gain;
             }
 
+            // Update correlation meter
+            self.correlation_meter.process(out_l, out_r);
+
             *l = out_l;
             *r = out_r;
         }
+
+        // Feed frequency analyzer for AI suggestions
+        let mono_block: Vec<f64> = left.iter().zip(right.iter())
+            .map(|(&l, &r)| (l + r) * 0.5)
+            .collect();
+        self.frequency_analyzer.add_spectrum(&mono_block);
 
         // Post-EQ analysis
         if matches!(self.analyzer_mode, AnalyzerMode::PostEq) {
@@ -2143,6 +3196,52 @@ impl ProEq {
             self.auto_gain.update();
         }
     }
+
+    // === Ultra feature accessors ===
+
+    /// Get stereo correlation value (-1.0 to +1.0)
+    pub fn get_correlation(&self) -> f64 {
+        self.correlation_meter.correlation
+    }
+
+    /// Get frequency suggestions from AI analyzer
+    pub fn get_frequency_suggestions(&self) -> Vec<FrequencySuggestion> {
+        self.frequency_analyzer.get_suggestions()
+    }
+
+    /// Enable/disable equal loudness compensation
+    pub fn set_equal_loudness(&mut self, enabled: bool) {
+        self.equal_loudness_enabled = enabled;
+    }
+
+    /// Set global oversampling mode for all bands
+    pub fn set_global_oversample(&mut self, mode: OversampleMode) {
+        self.global_oversample = mode;
+        for band in &mut self.bands {
+            band.set_oversampling(mode);
+        }
+    }
+
+    /// Enable MZT mode on a specific band
+    pub fn set_band_mzt(&mut self, index: usize, enabled: bool) {
+        if let Some(band) = self.bands.get_mut(index) {
+            band.set_use_mzt(enabled);
+        }
+    }
+
+    /// Set transient-aware mode on a specific band
+    pub fn set_band_transient_aware(&mut self, index: usize, enabled: bool, q_reduction: f64) {
+        if let Some(band) = self.bands.get_mut(index) {
+            band.set_transient_aware(enabled, q_reduction);
+        }
+    }
+
+    /// Set saturation on a specific band
+    pub fn set_band_saturator(&mut self, index: usize, drive_db: f64, mix: f64, sat_type: SaturationType) {
+        if let Some(band) = self.bands.get_mut(index) {
+            band.set_saturator(drive_db, mix, sat_type);
+        }
+    }
 }
 
 impl Processor for ProEq {
@@ -2154,6 +3253,8 @@ impl Processor for ProEq {
         self.analyzer_post.reset();
         self.analyzer_sidechain.reset();
         self.auto_gain.reset();
+        self.correlation_meter.reset();
+        self.frequency_analyzer.reset();
     }
 
     fn latency(&self) -> usize {
@@ -2187,10 +3288,19 @@ impl ProcessorConfig for ProEq {
         for band in &mut self.bands {
             band.sample_rate = sample_rate;
             band.needs_update = true;
+            // Recreate transient detector with new sample rate
+            band.transient_detector = TransientDetector::new(sample_rate);
         }
         self.analyzer_pre = SpectrumAnalyzer::new(sample_rate);
         self.analyzer_post = SpectrumAnalyzer::new(sample_rate);
         self.eq_match = EqMatch::new(sample_rate);
+        self.correlation_meter = CorrelationMeter::new(sample_rate);
+        self.frequency_analyzer = FrequencyAnalyzer::new(sample_rate);
+        self.equal_loudness = {
+            let mut el = EqualLoudness::new();
+            el.generate_curve(512, sample_rate);
+            el
+        };
         self.linear_phase_dirty = true;
     }
 }
