@@ -3970,6 +3970,18 @@ impl PlaybackEngine {
                     }
                 }
             }
+
+            // Master metering for stopped/tail path
+            let mut mp_l: f64 = 0.0;
+            let mut mp_r: f64 = 0.0;
+            for i in 0..frames {
+                mp_l = mp_l.max(output_l[i].abs());
+                mp_r = mp_r.max(output_r[i].abs());
+            }
+            self.peak_l.store(mp_l.to_bits(), Ordering::Relaxed);
+            self.peak_r.store(mp_r.to_bits(), Ordering::Relaxed);
+            crate::ffi::SHARED_METERS.update_channel_peak(0, mp_l, mp_r);
+
             return;
         }
 
@@ -4522,6 +4534,7 @@ impl PlaybackEngine {
         // Store peaks
         self.peak_l.store(peak_l.to_bits(), Ordering::Relaxed);
         self.peak_r.store(peak_r.to_bits(), Ordering::Relaxed);
+        crate::ffi::SHARED_METERS.update_channel_peak(0, peak_l, peak_r);
 
         // RMS
         let rms_l = (sum_sq_l / frames as f64).sqrt();

@@ -345,6 +345,9 @@ class MixerProvider extends ChangeNotifier {
   // Solo state tracking
   final Set<String> _soloedChannels = {};
 
+  // Drag anchor tracking: captures pre-drag value for undo on drag-end
+  final Map<String, double> _panDragAnchors = {};
+
   MixerProvider() {
     _initializeDefaultBuses();
     _subscribeToMetering();
@@ -1353,11 +1356,13 @@ class MixerProvider extends ChangeNotifier {
   }
 
   /// Set channel pan WITH undo recording
+  /// Called on drag END — uses saved anchor as oldPan for correct undo
   void setChannelPanWithUndo(String id, double pan, {bool propagateGroup = true}) {
     final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
     if (channel == null) return;
 
-    final oldPan = channel.pan;
+    // Use drag anchor (pre-drag value) if available, otherwise current
+    final oldPan = _panDragAnchors.remove(id) ?? channel.pan;
     if ((oldPan - pan).abs() < 0.001) return;
 
     _undoManager.record(PanChangeAction(
@@ -1368,7 +1373,7 @@ class MixerProvider extends ChangeNotifier {
       applyPan: (cId, p) => setChannelPan(cId, p, propagateGroup: false),
     ));
 
-    setChannelPan(id, pan, propagateGroup: propagateGroup);
+    // Pan is already applied during drag via setChannelPan(), no need to re-apply
   }
 
   /// Set channel pan right (stereo) WITH undo recording
@@ -1665,6 +1670,11 @@ class MixerProvider extends ChangeNotifier {
   void setChannelPan(String id, double pan, {bool propagateGroup = true}) {
     final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
     if (channel == null) return;
+
+    // Save pre-drag anchor for undo (first call in a drag gesture)
+    if (!_panDragAnchors.containsKey(id)) {
+      _panDragAnchors[id] = channel.pan;
+    }
 
     // ✅ P0.3: FFI bounds checking (NaN/Infinite protection)
     if (!FFIBoundsChecker.validatePan(pan)) {

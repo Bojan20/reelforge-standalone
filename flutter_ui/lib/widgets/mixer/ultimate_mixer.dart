@@ -178,6 +178,7 @@ class UltimateMixer extends StatefulWidget {
   final ValueChanged<String>? onChannelSelect;
   final void Function(String channelId, double volume)? onVolumeChange;
   final void Function(String channelId, double pan)? onPanChange;
+  final void Function(String channelId, double pan)? onPanChangeEnd;
   final void Function(String channelId, double pan)? onPanRightChange; // Pro Tools stereo pan
   final void Function(String channelId)? onMuteToggle;
   final void Function(String channelId)? onSoloToggle;
@@ -209,6 +210,7 @@ class UltimateMixer extends StatefulWidget {
     this.onChannelSelect,
     this.onVolumeChange,
     this.onPanChange,
+    this.onPanChangeEnd,
     this.onPanRightChange,
     this.onMuteToggle,
     this.onSoloToggle,
@@ -312,6 +314,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                           hasSoloActive: hasSolo,
                           onVolumeChange: (v) => widget.onVolumeChange?.call(ch.id, v),
                           onPanChange: (p) => widget.onPanChange?.call(ch.id, p),
+                          onPanChangeEnd: (p) => widget.onPanChangeEnd?.call(ch.id, p),
                           onPanRightChange: (p) => widget.onPanRightChange?.call(ch.id, p),
                           onMuteToggle: () => widget.onMuteToggle?.call(ch.id),
                           onSoloToggle: () => widget.onSoloToggle?.call(ch.id),
@@ -344,6 +347,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         hasSoloActive: hasSolo,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(aux.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(aux.id, p),
+                        onPanChangeEnd: (p) => widget.onPanChangeEnd?.call(aux.id, p),
                         onPanRightChange: (p) => widget.onPanRightChange?.call(aux.id, p),
                         onMuteToggle: () => widget.onMuteToggle?.call(aux.id),
                         onSoloToggle: () => widget.onSoloToggle?.call(aux.id),
@@ -366,6 +370,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         hasSoloActive: hasSolo,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(bus.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(bus.id, p),
+                        onPanChangeEnd: (p) => widget.onPanChangeEnd?.call(bus.id, p),
                         onPanRightChange: (p) => widget.onPanRightChange?.call(bus.id, p),
                         onMuteToggle: () => widget.onMuteToggle?.call(bus.id),
                         onSoloToggle: () => widget.onSoloToggle?.call(bus.id),
@@ -462,6 +467,7 @@ class _UltimateChannelStrip extends StatefulWidget {
   final bool hasSoloActive;
   final ValueChanged<double>? onVolumeChange;
   final ValueChanged<double>? onPanChange;
+  final ValueChanged<double>? onPanChangeEnd;
   final ValueChanged<double>? onPanRightChange; // Pro Tools stereo pan
   final VoidCallback? onMuteToggle;
   final VoidCallback? onSoloToggle;
@@ -486,6 +492,7 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.hasSoloActive = false,
     this.onVolumeChange,
     this.onPanChange,
+    this.onPanChangeEnd,
     this.onPanRightChange,
     this.onMuteToggle,
     this.onSoloToggle,
@@ -759,6 +766,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         value: ch.pan,
         size: widget.compact ? 24 : 32,
         onChanged: widget.onPanChange,
+        onChangeEnd: widget.onPanChangeEnd,
       ),
     );
   }
@@ -1123,11 +1131,13 @@ class _PanKnob extends StatefulWidget {
   final double value;
   final double size;
   final ValueChanged<double>? onChanged;
+  final ValueChanged<double>? onChangeEnd;
 
   const _PanKnob({
     required this.value,
     this.size = 32,
     this.onChanged,
+    this.onChangeEnd,
   });
 
   @override
@@ -1156,6 +1166,7 @@ class _PanKnobState extends State<_PanKnob> {
 
   void _handleDragEnd(DragEndDetails details) {
     setState(() => _isDragging = false);
+    widget.onChangeEnd?.call(widget.value);
   }
 
   @override

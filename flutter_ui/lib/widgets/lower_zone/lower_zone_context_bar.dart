@@ -58,6 +58,9 @@ class LowerZoneContextBar extends StatelessWidget {
   /// Optional preset dropdown widget
   final Widget? presetDropdown;
 
+  /// Optional track indicator widget (e.g., track name badge)
+  final Widget? trackIndicator;
+
   /// P1.5: Recent tabs for quick access (max 3 shown)
   final List<RecentTabEntry>? recentTabs;
 
@@ -106,6 +109,7 @@ class LowerZoneContextBar extends StatelessWidget {
     required this.onSubTabSelected,
     required this.onToggle,
     this.presetDropdown,
+    this.trackIndicator,
     this.recentTabs,
     this.onRecentTabSelected,
     // P2.1: Split view
@@ -163,6 +167,11 @@ class LowerZoneContextBar extends StatelessWidget {
                 child: _buildSuperTab(index),
               );
             }),
+            // Track indicator badge (if provided)
+            if (trackIndicator != null) ...[
+              const SizedBox(width: 8),
+              trackIndicator!,
+            ],
             const SizedBox(width: 16), // Spacer replacement
             // P1.5: Recent tabs quick access
             if (recentTabs != null && recentTabs!.isNotEmpty) ...[

@@ -4856,13 +4856,30 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   Widget? _buildCustomLowerZone() {
     switch (_editorMode) {
       case EditorMode.daw:
-        // Get selected track ID for DSP panels
+        // Get selected track info for DSP panels and display
         final selectedTrackId = _selectedTrackId != null
             ? int.tryParse(_selectedTrackId!)
             : null;
+        String? selectedTrackName;
+        Color? selectedTrackColor;
+        if (_selectedTrackId == '0' || _selectedTrackId == 'master') {
+          selectedTrackName = 'Stereo Out';
+          selectedTrackColor = const Color(0xFFFF9040);
+        } else if (_selectedTrackId != null) {
+          final track = _tracks.cast<timeline.TimelineTrack?>().firstWhere(
+            (t) => t?.id == _selectedTrackId,
+            orElse: () => null,
+          );
+          if (track != null) {
+            selectedTrackName = track.name;
+            selectedTrackColor = track.color;
+          }
+        }
         return DawLowerZoneWidget(
           controller: _dawLowerZoneController,
           selectedTrackId: selectedTrackId,
+          selectedTrackName: selectedTrackName,
+          selectedTrackColor: selectedTrackColor,
           onDspAction: (action, params) {
             switch (action) {
               case 'splitClip':
@@ -7358,9 +7375,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     }
 
     // Always pass real metering — GpuMeter handles smooth decay internally
-    final meterL = _dbToLinear(metering.masterPeakL);
-    final meterR = _dbToLinear(metering.masterPeakR);
-    final meterPeak = _dbToLinear(metering.masterTruePeak);
+    // Use direct FFI for linear amplitude (no dB conversion)
+    final (tMeterL, tMeterR) = NativeFFI.instance.getBusPeak(0);
+    final meterL = tMeterL;
+    final meterR = tMeterR;
+    final meterPeak = (tMeterL > tMeterR) ? tMeterL : tMeterR;
 
     // Get channels from MixerProvider and check which tracks have clips
     final mixerProvider = context.watch<MixerProvider>();
@@ -7370,10 +7389,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final trackIdInt = int.tryParse(trackId) ?? 0;
       final engineTrackId = ch.trackIndex ?? trackIdInt;
 
-      // Get real per-track metering from engine — no fakes
-      final (peakL, peakR) = isPlaying
-          ? EngineApi.instance.getTrackPeakStereo(engineTrackId)
-          : (0.0, 0.0);
+      // Get real per-track metering from engine — no fakes, no isPlaying guard
+      // GpuMeter handles smooth decay when engine naturally outputs 0
+      final (peakL, peakR) = EngineApi.instance.getTrackPeakStereo(engineTrackId);
 
       return ProMixerStripData(
         id: ch.id,
@@ -7514,7 +7532,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       isPreFader: slot.isPreFader,
     )).toList();
 
-    // Master channel — always pass real metering (GpuMeter handles smooth decay)
+    // Master channel — read DIRECT FFI linear amplitude (same as tracks)
+    // getBusPeak(0) = master bus, returns linear amplitude 0.0-1.0+
+    final (dMasterPeakL, dMasterPeakR) = NativeFFI.instance.getBusPeak(0);
+    final (dMasterRmsL, dMasterRmsR) = NativeFFI.instance.getRmsMeters();
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -7525,10 +7546,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       muted: _busMuted['master'] ?? false,
       soloed: false,
       inserts: masterInserts,
-      peakL: _dbToLinear(metering.masterPeakL),
-      peakR: _dbToLinear(metering.masterPeakR),
-      rmsL: _dbToLinear(metering.masterRmsL),
-      rmsR: _dbToLinear(metering.masterRmsR),
+      peakL: dMasterPeakL,
+      peakR: dMasterPeakR,
+      rmsL: dMasterRmsL,
+      rmsR: dMasterRmsR,
       correlation: metering.correlation,
       lufsShort: metering.masterLufsS,
       lufsIntegrated: metering.masterLufsI,
@@ -7550,6 +7571,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         }
       },
       onPanChange: (id, pan) {
+        if (id != 'master') {
+          mixerProvider.setChannelPan(id, pan);
+        }
+      },
+      onPanChangeEnd: (id, pan) {
         if (id != 'master') {
           mixerProvider.setChannelPanWithUndo(id, pan);
         }
@@ -7685,7 +7711,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       isPreFader: slot.isPreFader,
     )).toList();
 
-    // Master channel — always pass real metering (GpuMeter handles smooth decay)
+    // Master channel — read DIRECT FFI linear amplitude (same as tracks)
+    final (mwMasterPeakL, mwMasterPeakR) = NativeFFI.instance.getBusPeak(0);
+    final (mwMasterRmsL, mwMasterRmsR) = NativeFFI.instance.getRmsMeters();
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -7696,10 +7724,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       muted: _busMuted['master'] ?? false,
       soloed: false,
       inserts: masterInserts,
-      peakL: _dbToLinear(metering.masterPeakL),
-      peakR: _dbToLinear(metering.masterPeakR),
-      rmsL: _dbToLinear(metering.masterRmsL),
-      rmsR: _dbToLinear(metering.masterRmsR),
+      peakL: mwMasterPeakL,
+      peakR: mwMasterPeakR,
+      rmsL: mwMasterRmsL,
+      rmsR: mwMasterRmsR,
       correlation: metering.correlation,
       lufsShort: metering.masterLufsS,
       lufsIntegrated: metering.masterLufsI,
@@ -7868,13 +7896,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Build Metering Bridge content with K-System and Goniometer
   Widget _buildMeteringBridgeContent(dynamic metering, bool isPlaying) {
-    // Get real metering data
-    final peakL = isPlaying ? _dbToLinear(metering.masterPeakL) : 0.0;
-    final peakR = isPlaying ? _dbToLinear(metering.masterPeakR) : 0.0;
-    final rmsL = isPlaying ? _dbToLinear(metering.masterRmsL) : 0.0;
-    final rmsR = isPlaying ? _dbToLinear(metering.masterRmsR) : 0.0;
-    final truePeakL = isPlaying ? _dbToLinear(metering.masterTruePeak) : 0.0;
-    final truePeakR = isPlaying ? _dbToLinear(metering.masterTruePeak) : 0.0;
+    // Get real metering data — direct FFI, linear amplitude, no isPlaying guard
+    // GpuMeter handles smooth decay when engine naturally outputs 0
+    final (mbPeakL, mbPeakR) = NativeFFI.instance.getBusPeak(0);
+    final (mbRmsL, mbRmsR) = NativeFFI.instance.getRmsMeters();
+    // True peak returns dBTP — convert to linear for MeteringBridge widget
+    final (mbTpLdB, mbTpRdB) = NativeFFI.instance.getTruePeakMeters();
+    final peakL = mbPeakL;
+    final peakR = mbPeakR;
+    final rmsL = mbRmsL;
+    final rmsR = mbRmsR;
+    final truePeakL = mbTpLdB <= -60 ? 0.0 : math.pow(10, mbTpLdB / 20).toDouble();
+    final truePeakR = mbTpRdB <= -60 ? 0.0 : math.pow(10, mbTpRdB / 20).toDouble();
 
     return MeteringBridge(
       peakL: peakL,
@@ -8644,12 +8677,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final channelId = entry.key;
       final channelName = channelId == 'master' ? 'Master' : channelId;
 
-      // Calculate signal level from metering
-      double signalLevel = 0.0;
-      if (isPlaying) {
-        final peakDb = (metering.masterPeakL + metering.masterPeakR) / 2;
-        signalLevel = peakDb > -60 ? _dbToLinear(peakDb) : 0.0;
-      }
+      // Calculate signal level from direct FFI — linear amplitude
+      final (eqPeakL, eqPeakR) = NativeFFI.instance.getBusPeak(0);
+      final signalLevel = (eqPeakL + eqPeakR) / 2;
 
       final engineApi = EngineApi.instance;
 
@@ -8818,15 +8848,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// Build Pro EQ content - RF-EQ 64 (64-Band Parametric Equalizer)
   /// Uses DspCommand queue for real-time audio processing (NOT PRO_EQS HashMap!)
   Widget _buildProEqContent(dynamic metering, bool isPlaying) {
-    // Signal level for EQ analyzer
-    // ONLY show signal when actively playing AND real signal present
-    // Use strict threshold to avoid showing noise floor
-    double signalLevel = 0.0;
-    if (isPlaying) {
-      final peakDb = (metering.masterPeakL + metering.masterPeakR) / 2;
-      // -40dB threshold: ignore noise floor, only show real signal
-      signalLevel = peakDb > -40 ? _dbToLinear(peakDb) : 0.0;
-    }
+    // Signal level for EQ analyzer — direct FFI, linear amplitude
+    final (eqSigL, eqSigR) = NativeFFI.instance.getBusPeak(0);
+    final signalLevel = (eqSigL + eqSigR) / 2;
 
     // Use NativeFFI for real-time DSP command queue
     // IMPORTANT: eqSetBand* goes through DspCommand queue → audio callback
@@ -10259,10 +10283,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     return filterTabGroupsForMode(allGroups, _editorMode, (g) => g.id);
   }
 
-  double _dbToLinear(double db) {
-    if (db <= -60) return 0;
-    return ((db + 60) / 60).clamp(0.0, 1.0);
-  }
 }
 
 // ignore: unused_element

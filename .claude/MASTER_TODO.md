@@ -1,14 +1,14 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-17 (Bus Metering FFI + Bus Stereo Pan Defaults + Master Meter Smooth Decay + Action Strip Wiring + ProEq ← UltraEq Integration + Independent Floating Editor Windows + EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
-**Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational, all 9 FabFilter DSP panels 100% FFI connected with A/B snapshots, ~1,200 LOC dead EQ code removed, ProEq unified superset EQ (+1,463 LOC), per-bus peak metering FFI, stereo bus pan defaults
+**Updated:** 2026-02-17 (Direct FFI Metering Fix + Bus Metering FFI + Bus Stereo Pan Defaults + Master Meter Smooth Decay + Action Strip Wiring + ProEq ← UltraEq Integration + Independent Floating Editor Windows + EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
+**Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational, all 9 FabFilter DSP panels 100% FFI connected with A/B snapshots, ~1,200 LOC dead EQ code removed, ProEq unified superset EQ (+1,463 LOC), per-bus peak metering FFI, stereo bus pan defaults, direct FFI metering (all broken _dbToLinear paths replaced)
 
 ---
 
 ## 🎯 CURRENT STATE
 
 ```
-FEATURE PROGRESS: 100% COMPLETE (385/385 tasks)
+FEATURE PROGRESS: 100% COMPLETE (387/387 tasks)
 CODE QUALITY AUDIT: 11/11 FIXED ✅ (4 CRITICAL, 4 HIGH, 3 MEDIUM)
 ANALYZER WARNINGS: 0 errors, 0 warnings ✅
 DEAD CODE CLEANUP: ~1,200 LOC removed (4 legacy EQ panels)
@@ -30,7 +30,35 @@ EQ INTEGRATION: ProEq ← UltraEq unified superset (+1,463 LOC)
 ✅ DEAD CODE CLEANUP:   ~1,200 LOC     ✅ 4 legacy EQ panels removed
 ```
 
-**All 386 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades + 1 DeEsser PROCESS tab + 1 ProEq ← UltraEq integration). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). 10 PROCESS subtabs. Repo cleaned. ~1,200 LOC dead EQ code removed. Independent floating editor windows for all processors. ProEq now unified superset EQ with all UltraEq features. SHIP READY.**
+**All 387 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades + 1 DeEsser PROCESS tab + 1 ProEq ← UltraEq integration + 1 Direct FFI Metering Fix). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). 10 PROCESS subtabs. Repo cleaned. ~1,200 LOC dead EQ code removed. Independent floating editor windows for all processors. ProEq now unified superset EQ with all UltraEq features. Direct FFI metering on all meters (master, track, bus, EQ signal). SHIP READY.**
+
+### Direct FFI Metering Fix (2026-02-17) ✅
+
+Replaced all broken `_dbToLinear()` metering paths with direct FFI linear amplitude reads. Removed stale `MeteringState` dB→linear conversion chain and `isPlaying` guards that caused instant-to-zero jumps.
+
+**Root Cause:** `_dbToLinear()` function used WRONG formula `((db + 60) / 60)` — this is NOT real dB→linear conversion. Real formula is `math.pow(10, dB / 20)`. Additionally, `isPlaying` guards set meters to 0 instantly when transport stopped, bypassing GpuMeter's smooth 300ms release decay.
+
+**All Metering Paths Fixed:**
+
+| Location | Old (Broken) | New (Fixed) |
+|----------|-------------|-------------|
+| DAW mixer master | `_dbToLinear(metering.masterPeakL)` | `NativeFFI.instance.getBusPeak(0)` linear |
+| MW mixer master | `_dbToLinear(metering.masterPeakL)` | `NativeFFI.instance.getBusPeak(0)` linear |
+| Transport bar | `_dbToLinear(...)` + `isPlaying` guard | `getBusPeak(0)` no guard |
+| Track metering | `isPlaying ? getTrackPeakStereo(...) : (0.0, 0.0)` | `getTrackPeakStereo(...)` no guard |
+| MeteringBridge true peak | `pow(10, dB/20)` (missing `math.` prefix) | `math.pow(10, dB/20)` |
+| MeteringBridge true peak L/R | Same value for both channels | Separate L/R from FFI |
+| Floating EQ signal level | `_dbToLinear(peakDb)` + `isPlaying` guard | `getBusPeak(0)` linear |
+| ProEQ signal level | `_dbToLinear(peakDb)` + `isPlaying` guard | `getBusPeak(0)` linear |
+
+**Dead Code Removed:**
+- `_dbToLinear()` function deleted (~4 LOC) — no remaining callers
+
+**Key Pattern:** All metering now reads directly from `NativeFFI.instance.getBusPeak(busId)` or `getTrackPeakStereo(trackId)` which return LINEAR amplitude. Never go through `MeteringState` dB values for meter display.
+
+**File:** `flutter_ui/lib/screens/engine_connected_layout.dart`
+
+---
 
 ### Mixer Bus Fixes (2026-02-17) ✅
 

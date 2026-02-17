@@ -78,6 +78,12 @@ class DawLowerZoneWidget extends StatefulWidget {
   /// If null, DSP panels will show "No track selected"
   final int? selectedTrackId;
 
+  /// Currently selected track name for display in context bar
+  final String? selectedTrackName;
+
+  /// Currently selected track color for display badge
+  final Color? selectedTrackColor;
+
   /// Callback when a DSP panel action is triggered
   final void Function(String action, Map<String, dynamic>? params)? onDspAction;
 
@@ -134,6 +140,8 @@ class DawLowerZoneWidget extends StatefulWidget {
     super.key,
     required this.controller,
     this.selectedTrackId,
+    this.selectedTrackName,
+    this.selectedTrackColor,
     this.onDspAction,
     this.snapEnabled = true,
     this.snapValue = 0.25,
@@ -219,6 +227,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             onSuperTabSelected: widget.controller.setSuperTabIndex,
             onSubTabSelected: widget.controller.setSubTabIndex,
             onToggle: widget.controller.toggle,
+            trackIndicator: _buildTrackIndicator(),
             // P1.5: Recent tabs quick access
             recentTabs: widget.controller.recentTabs,
             onRecentTabSelected: widget.controller.goToRecentTab,
@@ -245,6 +254,46 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             // Action strip
             _buildActionStrip(),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// Build track name indicator badge for the context bar
+  Widget? _buildTrackIndicator() {
+    final name = widget.selectedTrackName;
+    if (name == null || name.isEmpty) return null;
+
+    final color = widget.selectedTrackColor ?? widget.controller.accentColor;
+
+    return Container(
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            name,
+            style: TextStyle(
+              fontSize: LowerZoneTypography.sizeLabel,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -1424,7 +1473,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   List<LowerZoneAction> _buildProcessActions() {
     final trackId = widget.selectedTrackId;
     final nodeType = _nodeTypeForCurrentSubTab();
-    final dspChain = context.read<DspChainProvider>();
+    final dspChain = DspChainProvider.instance;
 
     return DawActions.forProcess(
       addLabel: _addLabelForCurrentSubTab(),
@@ -1619,8 +1668,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     // Add track info to status when in PROCESS tab
     String statusText = 'DAW Ready';
     if (widget.controller.superTab == DawSuperTab.process) {
-      final trackId = widget.selectedTrackId;
-      statusText = trackId != null ? 'Track $trackId' : 'No track selected';
+      statusText = widget.selectedTrackName ?? 'No track selected';
     }
 
     return LowerZoneActionStrip(
