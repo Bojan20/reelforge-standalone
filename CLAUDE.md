@@ -1276,7 +1276,7 @@ cargo xtask bundle rf-plugin --release  # VST3/AU/CLAP
 
 ---
 
-## EQ Specifications
+## EQ Specifications (ProEq — Unified Superset, 2026-02-17)
 
 | Feature      | Spec                                                  |
 | ------------ | ----------------------------------------------------- |
@@ -1284,11 +1284,19 @@ cargo xtask bundle rf-plugin --release  # VST3/AU/CLAP
 | Filter types | 10 (bell, shelf, cut, notch, tilt, bandpass, allpass) |
 | Phase modes  | Minimum, Linear, Hybrid (blend)                       |
 | Precision    | 64-bit double internal                                |
-| Oversampling | 1x, 2x, 4x, 8x, 16x                                   |
+| Oversampling | 1x, 2x, 4x, 8x, 16x (per-band, OversampleMode enum)  |
 | Spectrum     | 512-bin FFT, 60fps, 1/3 octave smoothing, Catmull-Rom spline |
 | Dynamic EQ   | Per-band threshold, ratio, attack, release            |
 | Mid/Side     | Full M/S processing                                   |
 | Auto-gain    | ITU-R BS.1770-4 loudness matching                     |
+| MZT Filters  | Per-band Matched Z-Transform (optional, from UltraEq) |
+| Transient-Aware | Per-band Q reduction during transients (TransientDetector) |
+| Per-band Saturation | HarmonicSaturator per band (drive/mix/type)     |
+| Equal Loudness | Global Fletcher-Munson curve compensation            |
+| Correlation  | Global L/R phase correlation metering                  |
+| Freq Analysis | Global spectral analysis with suggestions             |
+
+**Note:** ProEq is now the ONLY production EQ — UltraEq features integrated as optional per-band/global fields. UltraEqWrapper instantiates ProEq with Ultra features enabled by default.
 
 ---
 
@@ -2305,11 +2313,11 @@ Complete rewrite of `_previewEvent()` in `engine_connected_layout.dart` — Pan,
 - ✅ Sample-accurate playback
 
 ### DSP
-- ✅ 64-band EQ (TDF-II biquads, SIMD)
+- ✅ 64-band Unified EQ — ProEq superset (SVF + MZT + Oversampling + Saturation + Transient-Aware)
 - ✅ Dynamics (Compressor, Limiter, Gate, Expander)
 - ✅ Reverb (convolution + algorithmic)
 - ✅ Spatial (Panner, Width, M/S)
-- ✅ Analysis (FFT, LUFS, True Peak)
+- ✅ Analysis (FFT, LUFS, True Peak, Correlation, Frequency)
 
 ### Cubase-Style Fader Law (2026-02-16) ✅
 
@@ -2473,6 +2481,8 @@ Panel.toggleBypass() → onBypassChanged(bypassed)
 | FabFilterSaturationPanel | MultibandSaturatorWrapper | 65 (11 global + 6×9 per-band) | ✅ Done |
 | FabFilterDelayPanel | DelayWrapper | 14 | ✅ Done |
 | DynamicsPanel | CompressorWrapper | 15 | ✅ Done |
+
+**Note (2026-02-17):** UltraEqWrapper also uses ProEq internally (18 params/band + 5 global). ProEq is the unified superset EQ — see "ProEq ← UltraEq Integration" in MASTER_TODO.
 
 **Deleted Ghost Code:**
 - `DYNAMICS_*` HashMaps from `ffi.rs` — ~650 LOC deleted

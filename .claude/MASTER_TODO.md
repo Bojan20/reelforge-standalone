@@ -1,17 +1,18 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-16 (Independent Floating Editor Windows + EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
-**Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational, all 9 FabFilter DSP panels 100% FFI connected with A/B snapshots, ~1,200 LOC dead EQ code removed
+**Updated:** 2026-02-17 (ProEq ← UltraEq Integration + Independent Floating Editor Windows + EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
+**Status:** ✅ **SHIP READY** — All features complete, all issues fixed, 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, performance profiled, all 16 remaining P2 tasks implemented, plugin hosting fully operational, all 9 FabFilter DSP panels 100% FFI connected with A/B snapshots, ~1,200 LOC dead EQ code removed, ProEq unified superset EQ (+1,463 LOC)
 
 ---
 
 ## 🎯 CURRENT STATE
 
 ```
-FEATURE PROGRESS: 100% COMPLETE (384/384 tasks)
+FEATURE PROGRESS: 100% COMPLETE (385/385 tasks)
 CODE QUALITY AUDIT: 11/11 FIXED ✅ (4 CRITICAL, 4 HIGH, 3 MEDIUM)
 ANALYZER WARNINGS: 0 errors, 0 warnings ✅
 DEAD CODE CLEANUP: ~1,200 LOC removed (4 legacy EQ panels)
+EQ INTEGRATION: ProEq ← UltraEq unified superset (+1,463 LOC)
 
 ✅ P0-P9 Legacy:        100% (171/171) ✅ FEATURES DONE
 ✅ Phase A (P0):        100% (10/10)   ✅ MVP FEATURES DONE
@@ -29,7 +30,7 @@ DEAD CODE CLEANUP: ~1,200 LOC removed (4 legacy EQ panels)
 ✅ DEAD CODE CLEANUP:   ~1,200 LOC     ✅ 4 legacy EQ panels removed
 ```
 
-**All 385 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades + 1 DeEsser PROCESS tab). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). 10 PROCESS subtabs. Repo cleaned. ~1,200 LOC dead EQ code removed. Independent floating editor windows for all processors. SHIP READY.**
+**All 386 feature tasks delivered (362 original + 16 P2 remaining + 2 win skip fixes + 1 timeline bridge + 3 DSP upgrades + 1 DeEsser PROCESS tab + 1 ProEq ← UltraEq integration). All 11 code quality issues fixed. 4,532 tests pass. All 9 FabFilter DSP panels 100% FFI connected with A/B snapshots (EQ, Compressor, Limiter, Gate, Reverb, DeEsser, Saturator, Delay, Saturation Multiband). 10 PROCESS subtabs. Repo cleaned. ~1,200 LOC dead EQ code removed. Independent floating editor windows for all processors. ProEq now unified superset EQ with all UltraEq features. SHIP READY.**
 
 ### Independent Floating Processor Editor Windows (2026-02-16) ✅
 
@@ -131,6 +132,66 @@ All 9 PROCESS subtab panels now show by default without requiring a track in the
 | Sidechain | `process/sidechain_panel.dart` | Empty state | `SidechainPanel(processorId: 0)` |
 
 **Pattern:** `selectedTrackId ?? 0` — uses selected track when available, defaults to master bus (0)
+
+---
+
+### ProEq ← UltraEq Unified Superset Integration (2026-02-17) ✅
+
+Integrated ALL UltraEq features into ProEq, creating a single unified superset EQ. UltraEqWrapper now instantiates ProEq internally with Ultra features enabled by default. +1,463 LOC across 3 files.
+
+**Architecture:**
+```
+ProEq (eq_pro.rs) — NOW THE ONLY PRODUCTION EQ
+├── Original ProEq features (64 bands, SVF, Dynamic EQ, Spectrum, EqMatch, etc.)
+└── NEW: UltraEq features (all optional, per-band + global)
+    ├── Per-band: MZT filters, Oversampling, TransientDetector, HarmonicSaturator
+    └── Global: EqualLoudness, CorrelationMeter, FrequencyAnalyzer
+```
+
+**Per-Band Ultra Fields (ProBand):**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `use_mzt` | bool | false | Use MZT filter instead of SVF |
+| `mzt_filter` | Option<MztFilter> | None | MZT filter instance |
+| `transient_aware` | bool | false | Transient-aware processing |
+| `transient_q_reduction` | f64 | 0.5 | Q reduction during transients |
+| `saturator` | HarmonicSaturator | default | Per-band harmonic saturation |
+| `oversampler` | Option<Oversampler> | None | Per-band oversampling |
+
+**Global Ultra Fields (ProEq):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `equal_loudness` | Option<EqualLoudness> | Fletcher-Munson compensation |
+| `correlation_meter` | CorrelationMeter | L/R correlation |
+| `frequency_analyzer` | FrequencyAnalyzer | Frequency analysis + suggestions |
+| `transient_detector` | TransientDetector | Global transient detection |
+
+**UltraEqWrapper InsertProcessor Mapping (dsp_wrappers.rs):**
+- 18 params per band (12 base + 6 Ultra: MZT, TransientAware, TransientQReduction, SaturatorDrive, SaturatorMix, SaturatorType)
+- 5 global params (OutputGain, AutoGain, SoloBand, EqualLoudness, GlobalOversample)
+- Maps to ProEq internal methods: `set_band_mzt()`, `set_band_transient_aware()`, `set_band_saturator_drive()`, etc.
+
+**Key API Fixes During Integration:**
+- `Oversampler::process` changed from `Fn(f64) -> f64` to `FnMut(f64) -> f64` (mutable filter access)
+- `EqualLoudness::new()` takes 0 args + `generate_curve(512, sr)` post-construction
+- `TransientDetector` — no `set_sample_rate()`, must recreate via `new(sr)`
+- `HarmonicSaturator` field is `drive` (NOT `drive_db`)
+- `CorrelationMeter` — read `.correlation` field directly (no getter method)
+- `FrequencyAnalyzer` — use `add_spectrum()` (no `analyze()` method)
+
+**Files Changed:**
+
+| File | Delta | Description |
+|------|-------|-------------|
+| `crates/rf-dsp/src/eq_pro.rs` | +1,210 | Ultra features integrated into ProEq/ProBand |
+| `crates/rf-engine/src/dsp_wrappers.rs` | +236 | UltraEqWrapper rewritten to use ProEq |
+| `crates/rf-dsp/src/lib.rs` | +17 | Updated re-exports (canonical types from eq_pro) |
+
+**Backward Compatibility:** Old `ultra_eq_*` FFI functions in rf-engine/ffi.rs still work (use UltraEq from eq_ultra.rs directly). New UltraEqWrapper works through InsertProcessor param system using ProEq internally.
+
+**Verification:** `cargo test -p rf-dsp` (14/14), `cargo test -p rf-engine` (53/53), `cargo test -p rf-fuzz` (120/120), `flutter analyze` — No issues found!
 
 ---
 
@@ -1858,4 +1919,30 @@ Two critical bugs fixed in SlotLab win presentation skip system.
 
 ---
 
-*Last Updated: 2026-02-16 — Gate Panel 100% FFI (Hysteresis+Ratio+SC Audition, 13/13 params, 5 new tests). All 7 DSP panels 100% FFI connected. Total: 381/381 features, 4,532 tests, 0 errors. SHIP READY*
+---
+
+## 🎛️ PROEQ ← ULTRAEQ UNIFIED INTEGRATION (2026-02-17) ✅
+
+Integrated ALL UltraEq features into ProEq as optional per-band and global capabilities. ProEq is now the single unified superset EQ. UltraEqWrapper uses ProEq internally.
+
+**Integrated Features:**
+
+| Feature | Scope | Description |
+|---------|-------|-------------|
+| MZT Filters | Per-band | Matched Z-Transform for improved frequency response |
+| Oversampling | Per-band | OversampleMode (None/2x/4x/8x/16x/Adaptive) |
+| Transient-Aware Processing | Per-band | Q reduction during transients via TransientDetector |
+| Harmonic Saturation | Per-band | Drive/Mix/Type per band (HarmonicSaturator) |
+| Equal Loudness | Global | Fletcher-Munson curve compensation |
+| Correlation Meter | Global | L/R phase correlation monitoring |
+| Frequency Analyzer | Global | Spectral analysis with suggestions |
+
+**UltraEqWrapper Param Mapping:** 18 params/band (12 ProEq + 6 Ultra) + 5 global
+
+**Files Changed:** `eq_pro.rs` (+1,210), `dsp_wrappers.rs` (+236), `lib.rs` (+17) = **+1,463 LOC total**
+
+**Tests:** rf-dsp 14/14, rf-engine 53/53, rf-fuzz 120/120 — all pass
+
+---
+
+*Last Updated: 2026-02-17 — ProEq ← UltraEq unified superset integration (+1,463 LOC). Total: 386/386 features, 4,532 tests, 0 errors. SHIP READY*
