@@ -10,6 +10,7 @@
 /// Hybrid design taking the best from each.
 
 import 'dart:math' as math;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/recent_projects_provider.dart';
@@ -929,10 +930,15 @@ class _DawHubScreenState extends State<DawHubScreen>
     );
   }
 
-  void _showOpenDialog() {
-    // In real implementation, this would show file picker
-    // For now, we'll just demonstrate with a dummy path
-    widget.onOpenProject('/path/to/project.rfp');
+  Future<void> _showOpenDialog() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['rfp'],
+      dialogTitle: 'Open DAW Project',
+    );
+    if (result != null && result.files.single.path != null) {
+      widget.onOpenProject(result.files.single.path!);
+    }
   }
 }
 
