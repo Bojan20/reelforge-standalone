@@ -366,15 +366,15 @@ class _DawHubScreenState extends State<DawHubScreen>
       children: [
         // Mini logo
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           child: Image.asset(
-            'assets/branding/fluxforge_icon_256.png',
-            width: 36,
-            height: 36,
+            'assets/branding/fluxforge_icon.png',
+            width: 80,
+            height: 80,
             fit: BoxFit.contain,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

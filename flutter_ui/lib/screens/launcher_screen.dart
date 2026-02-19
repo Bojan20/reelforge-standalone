@@ -470,37 +470,11 @@ class _LauncherScreenState extends State<LauncherScreen>
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 40),
+        padding: const EdgeInsets.only(top: 20, bottom: 8),
         child: Column(
           children: [
-            // Logo
+            // Logo with title baked directly underneath the icon
             _buildLogo(),
-            const SizedBox(height: 20),
-            // Title
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFF4A9EFF), Color(0xFFFF9040)],
-              ).createShader(bounds),
-              child: const Text(
-                'FluxForge Studio',
-                style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 6,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'SELECT YOUR WORKSPACE',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 4,
-                color: Color(0xFF666666),
-              ),
-            ),
           ],
         ),
       ),
@@ -508,40 +482,72 @@ class _LauncherScreenState extends State<LauncherScreen>
   }
 
   Widget _buildLogo() {
-    return AnimatedBuilder(
-      animation: _pulseController,
-      builder: (context, child) {
-        final glow = 0.3 + 0.2 * _pulseController.value;
-        return Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF4A9EFF).withValues(alpha: glow * 0.5),
-                blurRadius: 30,
-                spreadRadius: 5,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Icon with glow
+        AnimatedBuilder(
+          animation: _pulseController,
+          builder: (context, child) {
+            final glow = 0.3 + 0.2 * _pulseController.value;
+            return Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4A9EFF).withValues(alpha: glow * 0.5),
+                    blurRadius: 40,
+                    spreadRadius: 8,
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFFFF9040).withValues(alpha: glow * 0.3),
+                    blurRadius: 40,
+                    spreadRadius: 8,
+                  ),
+                ],
               ),
-              BoxShadow(
-                color: const Color(0xFFFF9040).withValues(alpha: glow * 0.3),
-                blurRadius: 30,
-                spreadRadius: 5,
-              ),
-            ],
+              child: child,
+            );
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: Image.asset(
+              'assets/branding/fluxforge_icon.png',
+              width: 180,
+              height: 180,
+              fit: BoxFit.contain,
+            ),
           ),
-          child: child,
-        );
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Image.asset(
-          'assets/branding/fluxforge_icon_256.png',
-          width: 120,
-          height: 120,
-          fit: BoxFit.contain,
         ),
-      ),
+        // Title tight under the anvil icon
+        const SizedBox(height: 10),
+        ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [Color(0xFF4A9EFF), Color(0xFFFF9040)],
+          ).createShader(bounds),
+          child: const Text(
+            'FluxForge Studio',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w300,
+              letterSpacing: 5,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'SELECT YOUR WORKSPACE',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 4,
+            color: Color(0xFF666666),
+          ),
+        ),
+      ],
     );
   }
 
@@ -663,33 +669,33 @@ class _LauncherScreenState extends State<LauncherScreen>
             child: Opacity(
               opacity: _isExiting ? 1.0 : (1.0 - otherFade * 0.5),
               child: Padding(
-                padding: const EdgeInsets.all(32),
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
                 child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Icon with visualization
                   _buildModeIcon(mode, icon, accentColor, secondaryColor, isActive),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 20),
 
                   // Title
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 32,
+                      fontSize: 28,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 8,
                       color: Color.lerp(Colors.white, accentColor, isSelected ? 1.0 : hoverIntensity),
                     ),
                   ),
 
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
 
                   // Subtitle
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 3,
                       color: Color.lerp(
@@ -700,30 +706,30 @@ class _LauncherScreenState extends State<LauncherScreen>
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 14),
 
                   // Description
                   Text(
                     description,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.5,
+                      fontSize: 13,
+                      height: 1.4,
                       color: Color(0xFF999999),
                     ),
                   ),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 18),
 
                   // Features list
                   ...features.map((feature) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 3),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.check_circle_outline,
-                          size: 14,
+                          size: 13,
                           color: Color.lerp(
                             const Color(0xFF555555),
                             accentColor,
@@ -734,7 +740,7 @@ class _LauncherScreenState extends State<LauncherScreen>
                         Text(
                           feature,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: Color.lerp(
                               const Color(0xFF777777),
                               Colors.white.withValues(alpha: 0.9),
@@ -746,11 +752,11 @@ class _LauncherScreenState extends State<LauncherScreen>
                     ),
                   )),
 
-                  const Spacer(),
+                  const SizedBox(height: 20),
 
                   // Enter button
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
                       gradient: isActive
@@ -818,8 +824,8 @@ class _LauncherScreenState extends State<LauncherScreen>
     bool isHovered,
   ) {
     return SizedBox(
-      width: 120,
-      height: 120,
+      width: 90,
+      height: 90,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -832,8 +838,8 @@ class _LauncherScreenState extends State<LauncherScreen>
           // Icon
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: 70,
-            height: 70,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: const Color(0xFF0A0A0C),
@@ -868,7 +874,7 @@ class _LauncherScreenState extends State<LauncherScreen>
       animation: _waveController,
       builder: (context, _) {
         return CustomPaint(
-          size: const Size(120, 120),
+          size: const Size(90, 90),
           painter: _WaveformPainter(
             progress: _waveController.value,
             color: color,
@@ -884,7 +890,7 @@ class _LauncherScreenState extends State<LauncherScreen>
       animation: _waveController,
       builder: (context, _) {
         return CustomPaint(
-          size: const Size(120, 120),
+          size: const Size(90, 90),
           painter: _NodePainter(
             progress: _waveController.value,
             primaryColor: color,
@@ -898,7 +904,7 @@ class _LauncherScreenState extends State<LauncherScreen>
 
   Widget _buildFooter() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         children: [
           // Loading / Error indicator

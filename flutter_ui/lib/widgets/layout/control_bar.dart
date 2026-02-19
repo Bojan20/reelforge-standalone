@@ -462,24 +462,24 @@ class _Logo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 28,
-          height: 28,
+          width: 56,
+          height: 56,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(10),
             boxShadow: [
               BoxShadow(
                 color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
-                blurRadius: 8,
+                blurRadius: 12,
                 spreadRadius: 0,
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(10),
             child: Image.asset(
-              'assets/branding/fluxforge_icon_256.png',
-              width: 28,
-              height: 28,
+              'assets/branding/fluxforge_icon.png',
+              width: 56,
+              height: 56,
               fit: BoxFit.contain,
             ),
           ),

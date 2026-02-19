@@ -298,15 +298,15 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       children: [
         // Logo icon
         ClipRRect(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(32),
           child: Image.asset(
-            'assets/branding/fluxforge_icon_256.png',
-            width: 80,
-            height: 80,
+            'assets/branding/fluxforge_icon.png',
+            width: 220,
+            height: 220,
             fit: BoxFit.contain,
           ),
         ),
-        const SizedBox(width: 20),
+        const SizedBox(width: 32),
         // Title
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,9 +321,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               child: Text(
                 'FluxForge Studio',
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: 40,
                   fontWeight: FontWeight.w300,
-                  letterSpacing: 4,
+                  letterSpacing: 5,
                   color: FluxForgeTheme.textPrimary,
                 ),
               ),
@@ -331,9 +331,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             Text(
               'AUTHORING TOOL & DAW',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
-                letterSpacing: 3,
+                letterSpacing: 4,
                 color: FluxForgeTheme.textSecondary.withAlpha(179),
               ),
             ),

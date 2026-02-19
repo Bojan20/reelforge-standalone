@@ -187,16 +187,16 @@ class _SplashScreenState extends State<SplashScreen>
                       child: Transform.scale(
                         scale: _logoScale.value,
                         child: Container(
-                          width: 200,
-                          height: 200,
+                          width: 500,
+                          height: 500,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: FluxForgeTheme.accentBlue
                                     .withAlpha((255 * _glowIntensity.value * 0.6).round()),
-                                blurRadius: 40 * _glowIntensity.value,
-                                spreadRadius: 10 * _glowIntensity.value,
+                                blurRadius: 80 * _glowIntensity.value,
+                                spreadRadius: 20 * _glowIntensity.value,
                               ),
                             ],
                           ),
@@ -316,11 +316,11 @@ class _SplashScreenState extends State<SplashScreen>
 
   Widget _buildLogo() {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(48),
       child: Image.asset(
-        'assets/branding/fluxforge_icon_256.png',
-        width: 200,
-        height: 200,
+        'assets/branding/fluxforge_icon.png',
+        width: 500,
+        height: 500,
         fit: BoxFit.contain,
       ),
     );
