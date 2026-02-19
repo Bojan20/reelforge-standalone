@@ -1,10 +1,8 @@
 {
   "repo_root": ".",
   "watch": [
-    "src/**",
-    "ts/**",
-    "contexts/**",
-    "dsp/**",
+    "crates/**",
+    "flutter_ui/lib/**",
     "AI_BRAIN/**",
     "STATE_LOCK.json"
   ],
@@ -21,7 +19,7 @@
   "history_dir": "AI_BRAIN/snapshots/history",
   "gates": {
     "run_git_status_clean_before_apply": false,
-    "run_typecheck": false,
+    "run_typecheck": true,
     "run_tests": false
   },
   "providers": {

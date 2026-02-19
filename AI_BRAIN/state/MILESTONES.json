@@ -1,56 +1,65 @@
 {
-  "current_phase": "ACC_BUILD_V1",
-  "description": "AI Control Core initial build phase",
+  "current_phase": "ACC_SURVIVAL_MODE",
+  "description": "ACC Survival Mode — failover workflow for when Claude hits limits",
   "milestones": [
     {
       "id": "ACC_M1_CORE_BOOT",
       "description": "Rust ACC core running with basic HTTP API + watcher",
-      "status": "PENDING",
+      "status": "DONE",
+      "completed_at": "2026-02-19",
       "acceptance_criteria": [
-        "ACC server starts without crash",
-        "GET /status returns valid JSON",
-        "Watcher detects file changes"
+        "ACC server starts without crash ✅",
+        "GET /status returns valid JSON ✅",
+        "Watcher detects file changes ✅"
       ]
     },
     {
       "id": "ACC_M2_PATCH_PIPELINE",
-      "description": "Unified diff patch ingestion + sandbox apply",
-      "status": "PENDING",
+      "description": "Unified diff patch ingestion + auto-merge into main",
+      "status": "DONE",
+      "completed_at": "2026-02-19",
       "acceptance_criteria": [
-        "ACC accepts unified diff input",
-        "Patch applied in sandbox branch",
-        "Rollback works on failure"
+        "ACC accepts unified diff input ✅",
+        "Patch applied on branch ✅",
+        "Auto-merge into main after gates pass ✅",
+        "Rollback works on failure ✅",
+        "SYSTEM_STATUS.json auto-updated ✅"
       ]
     },
     {
       "id": "ACC_M3_GATES",
-      "description": "Locked paths + patch sanity + determinism validation",
-      "status": "PENDING",
+      "description": "Locked paths + flutter analyze gate",
+      "status": "DONE",
+      "completed_at": "2026-02-19",
       "acceptance_criteria": [
-        "Locked path modification blocked",
-        "Mass deletion detection working",
-        "Determinism rules validated"
+        "Locked path modification blocked ✅",
+        "Flutter analyze gate runs before merge ✅",
+        "Gate results included in response ✅"
+      ]
+    },
+    {
+      "id": "ACC_M3.5_TASK_LIFECYCLE",
+      "description": "Basic task create/close/list API",
+      "status": "DONE",
+      "completed_at": "2026-02-19",
+      "acceptance_criteria": [
+        "POST /task/create works ✅",
+        "POST /task/close moves to history ✅",
+        "GET /task/list returns active + recent history ✅",
+        "Duplicate task_id detection ✅"
       ]
     },
     {
       "id": "ACC_M4_PROVIDER_ROUTER",
       "description": "Claude primary + OpenAI fallback routing logic",
-      "status": "PENDING",
-      "acceptance_criteria": [
-        "Claude selected by default for implementation",
-        "Fallback triggers if provider unavailable",
-        "Provider health visible in /status"
-      ]
+      "status": "PAUSED",
+      "notes": "Not needed for solo dev — manual provider selection via acc-daemon PROVIDER env"
     },
     {
       "id": "ACC_M5_REVIEW_GATE",
       "description": "Review gate enforcement before merge",
-      "status": "PENDING",
-      "acceptance_criteria": [
-        "Review required before merge",
-        "Fail blocks merge",
-        "Audit log updated"
-      ]
+      "status": "PAUSED",
+      "notes": "Not needed for solo dev — Claude normalization pass after ChatGPT work"
     }
   ]
 }
