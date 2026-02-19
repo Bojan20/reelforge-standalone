@@ -30,5 +30,6 @@
       "enabled": true
     }
   },
-  "listen_addr": "127.0.0.1:8787"
+  "listen_addr": "127.0.0.1:8787",
+  "api_key": "fluxforge-acc-2026"
 }

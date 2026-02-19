@@ -1,0 +1,394 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FluxForge ACC — AI Control Core",
+    "description": "API for reading project files, searching code, and applying patches to FluxForge Studio. Used by ChatGPT Custom GPT as a failover when Claude Code is unavailable.",
+    "version": "0.2.0"
+  },
+  "servers": [
+    {
+      "url": "https://YOUR_NGROK_URL.ngrok-free.app",
+      "description": "ACC server via ngrok tunnel"
+    }
+  ],
+  "paths": {
+    "/gpt/context": {
+      "get": {
+        "operationId": "getProjectContext",
+        "summary": "Get full project context — architecture, constraints, active tasks, template",
+        "description": "Returns everything needed to understand the FluxForge project: architecture docs, coding constraints, active tasks, milestones, and the ChatGPT task template. ALWAYS call this FIRST when starting a new task.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Project context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "project": {"type": "string"},
+                    "architecture": {"type": "string"},
+                    "constraints": {"type": "string"},
+                    "glossary": {"type": "string"},
+                    "chatgpt_template": {"type": "string"},
+                    "active_tasks": {"type": "array"},
+                    "milestones": {"type": "object"},
+                    "available_endpoints": {"type": "object"},
+                    "rules": {"type": "array", "items": {"type": "string"}}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gpt/files/read": {
+      "get": {
+        "operationId": "readFile",
+        "summary": "Read a file from the project",
+        "description": "Read the contents of a file. Path must be relative to repo root (e.g. 'crates/rf-engine/src/ffi.rs'). For large files, use line_start and line_end to read a specific range.",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "Relative path from repo root (e.g. 'flutter_ui/lib/providers/mixer_provider.dart')"
+          },
+          {
+            "name": "line_start",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "integer"},
+            "description": "First line to read (1-indexed)"
+          },
+          {
+            "name": "line_end",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "integer"},
+            "description": "Last line to read (inclusive)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File content with line numbers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "path": {"type": "string"},
+                    "total_lines": {"type": "integer"},
+                    "showing_lines": {"type": "array", "items": {"type": "integer"}},
+                    "content": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gpt/files/tree": {
+      "get": {
+        "operationId": "listDirectory",
+        "summary": "List directory contents as a tree",
+        "description": "List files and subdirectories. Use to explore project structure before reading specific files.",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string", "default": "."},
+            "description": "Relative directory path (default: repo root)"
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "integer", "default": 2, "minimum": 1, "maximum": 4},
+            "description": "How deep to recurse (1-4)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Directory listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "root": {"type": "string"},
+                    "count": {"type": "integer"},
+                    "truncated": {"type": "boolean"},
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {"type": "string"},
+                          "type": {"type": "string", "enum": ["file", "dir"]},
+                          "size": {"type": "integer"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gpt/files/search": {
+      "get": {
+        "operationId": "searchCode",
+        "summary": "Search code by text (grep)",
+        "description": "Search for text in project files. Returns matching lines with context. Use glob to filter file types (e.g. '*.rs' for Rust, '*.dart' for Dart).",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string", "minLength": 2},
+            "description": "Search text (min 2 chars)"
+          },
+          {
+            "name": "glob",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "File pattern filter (e.g. '*.rs', '*.dart', '*.toml')"
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "Search within this subdirectory (e.g. 'crates/' or 'flutter_ui/lib/')"
+          },
+          {
+            "name": "context",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "integer", "default": 2, "minimum": 0, "maximum": 5},
+            "description": "Lines of context around each match"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "query": {"type": "string"},
+                    "match_count": {"type": "integer"},
+                    "files_matched": {"type": "integer"},
+                    "files": {"type": "array", "items": {"type": "string"}},
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "file": {"type": "string"},
+                          "line": {"type": "integer"},
+                          "content": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patch/apply": {
+      "post": {
+        "operationId": "applyPatch",
+        "summary": "Apply a unified diff patch to the codebase",
+        "description": "Submit a unified diff patch. ACC will: create branch, apply patch, run gates (locked paths + flutter analyze), and auto-merge into main if all gates pass.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["provider", "task_id", "patch"],
+                "properties": {
+                  "provider": {"type": "string", "enum": ["claude", "openai"], "description": "Which AI provider is submitting"},
+                  "task_id": {"type": "string", "description": "Task ID (e.g. 'TASK_042')"},
+                  "reason": {"type": "string", "description": "Short description of the change"},
+                  "patch": {"type": "string", "description": "Unified diff format patch (must start with 'diff --git')"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Patch result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "merged": {"type": "boolean"},
+                    "branch": {"type": "string"},
+                    "changed_files": {"type": "array", "items": {"type": "string"}},
+                    "blocked_files": {"type": "array", "items": {"type": "string"}},
+                    "gate_results": {"type": "object"},
+                    "error": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/task/create": {
+      "post": {
+        "operationId": "createTask",
+        "summary": "Create a new task",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["task_id", "description"],
+                "properties": {
+                  "task_id": {"type": "string"},
+                  "description": {"type": "string"},
+                  "provider": {"type": "string", "default": "openai"},
+                  "acceptance_criteria": {"type": "array", "items": {"type": "string"}}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "task_id": {"type": "string"},
+                    "error": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/task/close": {
+      "post": {
+        "operationId": "closeTask",
+        "summary": "Close a task with result",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["task_id", "result"],
+                "properties": {
+                  "task_id": {"type": "string"},
+                  "result": {"type": "string", "enum": ["PASS", "FAIL", "SKIPPED"]},
+                  "notes": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "task_id": {"type": "string"},
+                    "error": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/task/list": {
+      "get": {
+        "operationId": "listTasks",
+        "summary": "List active tasks and recent history",
+        "responses": {
+          "200": {
+            "description": "Task list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "active_tasks": {"type": "array"},
+                    "history_count": {"type": "integer"},
+                    "recent_history": {"type": "array"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "operationId": "getStatus",
+        "summary": "Get ACC server status, milestones, and providers",
+        "responses": {
+          "200": {
+            "description": "Server status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-acc-key"
+      }
+    }
+  },
+  "security": [
+    {"apiKey": []}
+  ]
+}

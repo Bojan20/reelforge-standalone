@@ -1,6 +1,7 @@
 mod config;
 mod diffpack;
 mod gitops;
+mod gpt_api;
 mod logging;
 mod server;
 mod state;

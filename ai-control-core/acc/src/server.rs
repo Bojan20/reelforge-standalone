@@ -12,6 +12,7 @@ use std::{collections::BTreeSet, net::SocketAddr, sync::Arc};
 use crate::config::AccConfig;
 use crate::diffpack::{write_diffpack, DiffpackPokeRequest, DiffpackPokeResponse};
 use crate::gitops::{apply_patch_on_branch, PatchApplyRequest, PatchApplyResponse};
+use crate::gpt_api::{gpt_router, GptState};
 use crate::state::{read_json, write_json};
 
 #[derive(Clone)]
@@ -25,7 +26,10 @@ pub async fn run_server(cfg: AccConfig) -> Result<(), String> {
         .parse()
         .map_err(|e| format!("Invalid listen_addr: {e}"))?;
 
-    let state = AppState { cfg: Arc::new(cfg) };
+    let cfg_arc = Arc::new(cfg);
+
+    let state = AppState { cfg: cfg_arc.clone() };
+    let gpt_state = GptState { cfg: cfg_arc };
 
     let app = Router::new()
         .route("/status", get(status))
@@ -34,7 +38,8 @@ pub async fn run_server(cfg: AccConfig) -> Result<(), String> {
         .route("/task/create", post(task_create))
         .route("/task/close", post(task_close))
         .route("/task/list", get(task_list))
-        .with_state(state);
+        .with_state(state)
+        .merge(gpt_router().with_state(gpt_state));
 
     tracing::info!(%addr, "ACC HTTP server listening");
 

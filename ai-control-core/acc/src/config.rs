@@ -31,6 +31,7 @@ pub struct AccConfigFile {
     pub gates: GatesConfig,
     pub providers: ProvidersConfig,
     pub listen_addr: Option<String>,
+    pub api_key: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +45,7 @@ pub struct AccConfig {
     pub gates: GatesConfig,
     pub providers: ProvidersConfig,
     pub listen_addr: String,
+    pub api_key: Option<String>,
     pub ignore_globset: GlobSet,
     pub locked_globset: GlobSet,
 }
@@ -86,6 +88,7 @@ impl AccConfig {
         let history_dir = repo_root.join(&file_cfg.history_dir);
 
         let listen_addr = file_cfg.listen_addr.unwrap_or_else(|| "127.0.0.1:8787".to_string());
+        let api_key = file_cfg.api_key;
 
         let ignore_globset = build_globset(&file_cfg.ignore)?;
         let locked_globset = build_globset(&file_cfg.locked_paths)?;
@@ -100,6 +103,7 @@ impl AccConfig {
             gates: file_cfg.gates,
             providers: file_cfg.providers,
             listen_addr,
+            api_key,
             ignore_globset,
             locked_globset,
         })
