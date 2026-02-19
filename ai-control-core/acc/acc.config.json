@@ -1,5 +1,5 @@
 {
-  "repo_root": ".",
+  "repo_root": "../..",
   "watch": [
     "crates/**",
     "flutter_ui/lib/**",

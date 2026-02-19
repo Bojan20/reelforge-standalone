@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://YOUR_NGROK_URL.ngrok-free.app",
+      "url": "https://cytotrophoblastic-deloise-unglossy.ngrok-free.dev",
       "description": "ACC server via ngrok tunnel"
     }
   ],
@@ -370,7 +370,16 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "acc_version": {"type": "string"},
+                    "listen_addr": {"type": "string"},
+                    "providers": {"type": "object", "properties": {}},
+                    "milestones": {"type": "object", "properties": {}},
+                    "system_status": {"type": "object", "properties": {}},
+                    "active_tasks": {"type": "array", "items": {"type": "object"}}
+                  }
                 }
               }
             }
@@ -380,6 +389,7 @@
     }
   },
   "components": {
+    "schemas": {},
     "securitySchemes": {
       "apiKey": {
         "type": "apiKey",
