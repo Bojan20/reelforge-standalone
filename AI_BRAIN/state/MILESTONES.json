@@ -1,0 +1,56 @@
+{
+  "current_phase": "ACC_BUILD_V1",
+  "description": "AI Control Core initial build phase",
+  "milestones": [
+    {
+      "id": "ACC_M1_CORE_BOOT",
+      "description": "Rust ACC core running with basic HTTP API + watcher",
+      "status": "PENDING",
+      "acceptance_criteria": [
+        "ACC server starts without crash",
+        "GET /status returns valid JSON",
+        "Watcher detects file changes"
+      ]
+    },
+    {
+      "id": "ACC_M2_PATCH_PIPELINE",
+      "description": "Unified diff patch ingestion + sandbox apply",
+      "status": "PENDING",
+      "acceptance_criteria": [
+        "ACC accepts unified diff input",
+        "Patch applied in sandbox branch",
+        "Rollback works on failure"
+      ]
+    },
+    {
+      "id": "ACC_M3_GATES",
+      "description": "Locked paths + patch sanity + determinism validation",
+      "status": "PENDING",
+      "acceptance_criteria": [
+        "Locked path modification blocked",
+        "Mass deletion detection working",
+        "Determinism rules validated"
+      ]
+    },
+    {
+      "id": "ACC_M4_PROVIDER_ROUTER",
+      "description": "Claude primary + OpenAI fallback routing logic",
+      "status": "PENDING",
+      "acceptance_criteria": [
+        "Claude selected by default for implementation",
+        "Fallback triggers if provider unavailable",
+        "Provider health visible in /status"
+      ]
+    },
+    {
+      "id": "ACC_M5_REVIEW_GATE",
+      "description": "Review gate enforcement before merge",
+      "status": "PENDING",
+      "acceptance_criteria": [
+        "Review required before merge",
+        "Fail blocks merge",
+        "Audit log updated"
+      ]
+    }
+  ]
+}

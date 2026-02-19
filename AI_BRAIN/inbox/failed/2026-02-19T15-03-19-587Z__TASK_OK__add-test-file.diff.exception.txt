@@ -1,0 +1,4 @@
+Error: ENOENT: no such file or directory, rename '/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio/AI_BRAIN/inbox/patches/TASK_OK__add-test-file.diff' -> '/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio/AI_BRAIN/inbox/applied/2026-02-19T15-03-19-584Z__TASK_OK__add-test-file.diff'
+    at Object.renameSync (node:fs:1014:11)
+    at handleFile (file:///Volumes/Bojan%20-%20T7/DevVault/Projects/fluxforge-studio/ai-control-core/acc-daemon/acc-daemon.mjs:111:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)

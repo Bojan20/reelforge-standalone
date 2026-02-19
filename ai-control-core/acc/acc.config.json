@@ -1,0 +1,36 @@
+{
+  "repo_root": ".",
+  "watch": [
+    "src/**",
+    "ts/**",
+    "contexts/**",
+    "dsp/**",
+    "AI_BRAIN/**",
+    "STATE_LOCK.json"
+  ],
+  "ignore": [
+    "**/node_modules/**",
+    "**/.git/**",
+    "AI_BRAIN/snapshots/history/**",
+    "target/**"
+  ],
+  "locked_paths": [
+    "AI_BRAIN/memory/**"
+  ],
+  "diffpack_path": "AI_BRAIN/snapshots/diffpack_latest.json",
+  "history_dir": "AI_BRAIN/snapshots/history",
+  "gates": {
+    "run_git_status_clean_before_apply": false,
+    "run_typecheck": false,
+    "run_tests": false
+  },
+  "providers": {
+    "claude": {
+      "enabled": true
+    },
+    "openai": {
+      "enabled": true
+    }
+  },
+  "listen_addr": "127.0.0.1:8787"
+}

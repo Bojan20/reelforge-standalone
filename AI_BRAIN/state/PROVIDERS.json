@@ -1,0 +1,24 @@
+{
+  "providers": {
+    "claude": {
+      "role": "PRIMARY_IMPLEMENTER",
+      "enabled": true,
+      "priority": 1,
+      "status": "UNKNOWN",
+      "last_check": null
+    },
+    "openai": {
+      "role": "ARCHITECT_REVIEW_FALLBACK",
+      "enabled": true,
+      "priority": 2,
+      "status": "UNKNOWN",
+      "last_check": null
+    }
+  },
+  "routing_policy": {
+    "implementation": "claude",
+    "review": "openai",
+    "fallback_on_failure": "openai",
+    "require_claude_normalization_after_fallback": true
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "acc_version": "0.1.0",
+  "environment": "LOCAL",
+  "last_start_time": null,
+  "git_clean": null,
+  "current_provider": null,
+  "emergency_mode": false,
+  "notes": "Automatically maintained by ACC runtime."
+}

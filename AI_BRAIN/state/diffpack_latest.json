@@ -1,0 +1,12 @@
+{
+  "task_id": null,
+  "snapshot_id": null,
+  "timestamp": null,
+  "provider": null,
+  "changed_files": [],
+  "patch": "",
+  "hash_before": null,
+  "hash_after": null,
+  "gate_results": null,
+  "review_result": null
+}

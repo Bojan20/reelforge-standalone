@@ -1,0 +1,15 @@
+{
+  "changed_files": [
+    "AI_BRAIN/state/PROVIDERS.json"
+  ],
+  "gate_results": null,
+  "hash_after": null,
+  "hash_before": null,
+  "patch": "",
+  "provider": null,
+  "reason": "manual-test",
+  "review_result": null,
+  "snapshot_id": null,
+  "task_id": null,
+  "timestamp": "2026-02-19T14:14:35.443418Z"
+}
