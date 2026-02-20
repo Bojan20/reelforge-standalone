@@ -18,7 +18,6 @@ rustflags = [
 [target.aarch64-apple-darwin]
 rustflags = [
     "-C", "target-cpu=native",
-    "-C", "target-feature=+neon",
     "-L", "/opt/homebrew/opt/flac/lib",
 ]
 

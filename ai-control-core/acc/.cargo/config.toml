@@ -1,0 +1,9 @@
+# ACC-specific cargo config
+# Overrides root .cargo/config.toml to avoid LLVM crash on nightly
+# caused by target-feature=+neon with target-cpu=native on aarch64.
+# ACC has no DSP/SIMD code and doesn't need these flags.
+
+[target.aarch64-apple-darwin]
+rustflags = [
+    "-L", "/opt/homebrew/opt/flac/lib",
+]
