@@ -1,9 +1,32 @@
 {
-  "acc_version": "0.1.0",
-  "environment": "LOCAL",
-  "last_start_time": null,
-  "git_clean": null,
-  "current_provider": null,
+  "acc_version": "0.2.0",
+  "current_provider": "openai",
   "emergency_mode": false,
+  "environment": "LOCAL",
+  "git_clean": null,
+  "last_apply": {
+    "branch": null,
+    "changed_files_count": 0,
+    "error": "git apply failed: error: patch with only garbage at line 4\n",
+    "gate_results": {
+      "flutter_analyze": {
+        "detail": null,
+        "passed": false,
+        "ran": false
+      },
+      "locked_paths": {
+        "detail": null,
+        "passed": false,
+        "ran": false
+      }
+    },
+    "merged": false,
+    "ok": false,
+    "provider": "openai",
+    "reason": "Add_daw_mixer_mod_registration",
+    "task_id": "TASK_MIXER_PHASE_1_DAW_MODULE_SKELETON",
+    "timestamp": "2026-02-20T06:48:52.82959Z"
+  },
+  "last_start_time": "2026-02-20T06:48:52.82959Z",
   "notes": "Automatically maintained by ACC runtime."
 }

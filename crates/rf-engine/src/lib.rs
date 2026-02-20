@@ -60,6 +60,9 @@ pub mod link;
 // Phase 7: DSP Wrappers
 pub mod dsp_wrappers;
 
+// Phase 18: DAW Mixer Orchestration (Pro Tools 2026-class)
+pub mod daw_mixer;
+
 // Phase 8: Automation Engine
 pub mod automation;
 pub mod param_smoother;
