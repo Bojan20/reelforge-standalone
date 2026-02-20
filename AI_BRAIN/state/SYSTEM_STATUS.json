@@ -10,7 +10,7 @@
     "error": null,
     "gate_results": {
       "flutter_analyze": {
-        "detail": "Analyzing flutter_ui...                                         \nNo issues found! (ran in 2.1s)",
+        "detail": "Analyzing flutter_ui...                                         \nNo issues found! (ran in 1.9s)",
         "passed": true,
         "ran": true
       },
@@ -23,10 +23,10 @@
     "merged": true,
     "ok": true,
     "provider": "openai",
-    "reason": "append_single_line_after_placeholder",
+    "reason": "append_status_scope_identity_block",
     "task_id": "TASK_ENGINE_DOC_01_ENGINE_CONSTITUTION",
-    "timestamp": "2026-02-20T07:42:39.65374Z"
+    "timestamp": "2026-02-20T07:43:14.533023Z"
   },
-  "last_start_time": "2026-02-20T07:42:39.65374Z",
+  "last_start_time": "2026-02-20T07:43:14.533023Z",
   "notes": "Automatically maintained by ACC runtime."
 }

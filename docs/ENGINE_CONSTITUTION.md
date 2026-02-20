@@ -13,3 +13,14 @@ Not a marketplace.
 Not feature-driven.
 
 Engine-first architecture.
+
+## 2. Thread Model
+
+UI Thread
+↓
+SessionGraph (Command / Orchestration Layer)
+↓
+RoutingGraph (Compiled DSP State)
+↓
+Audio Thread (Execution Kernel)
+
