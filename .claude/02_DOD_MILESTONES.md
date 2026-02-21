@@ -2,7 +2,28 @@
 
 These are production gates. "Works" is not "Done".
 
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-02-21
+
+---
+
+## ✅ COMPLETE — SafeFilePicker Migration (2026-02-21)
+
+**Scope:** All file picker calls migrated from NSOpenPanel to in-app dart:io browser
+
+Exit Criteria:
+
+- ✅ SafeFilePicker wrapper (drop-in replacement for FilePicker.platform)
+- ✅ InAppFileBrowser dialog (Cubase/Pro Tools-style, ~650 LOC)
+- ✅ 25 files migrated to SafeFilePicker
+- ✅ iCloud Desktop & Documents sync deadlock eliminated
+- ✅ L10n dead code removed (4 files, ~2,409 LOC)
+- ✅ Mixer strip overflow fix (SingleChildScrollView + Clip.hardEdge)
+- ✅ `flutter analyze` passes (0 errors)
+
+Files Created:
+
+- `flutter_ui/lib/utils/safe_file_picker.dart` — SafeFilePicker wrapper
+- `flutter_ui/lib/widgets/common/in_app_file_browser.dart` — Full file browser dialog
 
 ---
 

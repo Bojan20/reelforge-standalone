@@ -569,8 +569,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       }
     });
 
-    // Initialize mixer view controller
+    // Initialize mixer view controller — listen for changes to rebuild inline mixer
     _mixerViewController = MixerViewController();
+    _mixerViewController.addListener(_onMixerViewChanged);
     _mixerViewController.loadFromStorage();
 
     // Initialize empty timeline (no demo data)
@@ -665,6 +666,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   }
 
   /// Handle mixer channel reorder → sync to timeline tracks
+  /// Rebuild when mixer view state changes (strip sections, metering mode, etc.)
+  void _onMixerViewChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _onMixerChannelOrderChanged(List<String> channelIds) {
     if (!mounted) return;
     // Map channel IDs back to track IDs (ch_xxx → xxx)
@@ -898,6 +904,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // Provider may not be available during dispose
     }
     // Dispose Mixer View Controller
+    _mixerViewController.removeListener(_onMixerViewChanged);
     _mixerViewController.dispose();
     // Dispose Lower Zone controllers
     _dawLowerZoneController.dispose();

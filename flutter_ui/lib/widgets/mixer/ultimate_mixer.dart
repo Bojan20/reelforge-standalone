@@ -898,6 +898,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                     : FluxForgeTheme.textPrimary.withOpacity(0.05),
               ),
             ),
+            clipBehavior: Clip.hardEdge,
             child: Column(
               children: [
                 // ── 1. Track Color Bar (4px) — toggleable via View ──
@@ -914,50 +915,61 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                   ),
                 // ── 2. Track Number (16px) ──
                 _buildTrackNumber(),
-                // ── 3. I/O Selectors ──
-                if (widget.showInput && ch.type != ChannelType.bus && ch.type != ChannelType.aux) ...[
-                  _buildIOSelector(ch.inputName.isEmpty ? 'In 1-2' : ch.inputName, isInput: true),
-                  _buildIOSelector(ch.outputBus.isEmpty ? 'Master' : ch.outputBus, isInput: false),
-                ],
-                // Bus: output selector only (no hardware input)
-                if (widget.showInput && ch.type == ChannelType.bus) ...[
-                  _buildIOSelector(ch.outputBus.isEmpty ? 'Master' : ch.outputBus, isInput: false),
-                ],
-                // Aux: source bus input + output selector
-                if (widget.showInput && ch.type == ChannelType.aux) ...[
-                  _buildIOSelector(ch.inputName.isEmpty ? 'Bus 1' : ch.inputName, isInput: true),
-                  _buildIOSelector(ch.outputBus.isEmpty ? 'Master' : ch.outputBus, isInput: false),
-                ],
-                // ── 4. Automation Mode ──
-                if (widget.showInput)
-                  _buildAutomationBadge(),
-                // ── 5. Group ID ──
-                if (widget.showInput && ch.groupId.isNotEmpty)
-                  _buildGroupBadge(),
-                // ── 6. Input section (gain + phase invert + PDC) — not for bus/aux ──
-                if (widget.showInput && ch.type != ChannelType.bus && ch.type != ChannelType.aux)
-                  _buildInputSection(),
-                // ── 7. Insert slots A-E (first 5) ──
-                if (widget.showInserts && widget.visibleStripSections.contains(MixerStripSection.insertsAE))
-                  _buildInsertSection(startIndex: 0, label: 'A-E'),
-                // ── 8. Insert slots F-J (next 5) ──
-                if (widget.showInserts && widget.visibleStripSections.contains(MixerStripSection.insertsFJ) && _hasInsertsAbove(5))
-                  _buildInsertSection(startIndex: 5, label: 'F-J'),
-                // ── 9. Send slots A-E (first 5) ──
-                if (widget.showSends && widget.visibleStripSections.contains(MixerStripSection.sendsAE))
-                  _buildSendSection(startIndex: 0, label: 'A-E'),
-                // ── 10. Send slots F-J (next 5) ──
-                if (widget.showSends && widget.visibleStripSections.contains(MixerStripSection.sendsFJ) && _hasSendsAbove(5))
-                  _buildSendSection(startIndex: 5, label: 'F-J'),
-                // ── 10a. EQ Curve Thumbnail ──
-                if (widget.visibleStripSections.contains(MixerStripSection.eqCurve))
-                  _buildEqCurveThumbnail(),
-                // ── 10b. Delay Compensation display ──
-                if (widget.visibleStripSections.contains(MixerStripSection.delayComp))
-                  _buildDelayCompDisplay(),
-                // ── 10c. Comments section ──
-                if (widget.visibleStripSections.contains(MixerStripSection.comments))
-                  _buildCommentsSection(),
+                // ── Upper sections (scrollable when many are visible) ──
+                Flexible(
+                  flex: 0,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // ── 3. I/O Selectors ──
+                        if (widget.showInput && ch.type != ChannelType.bus && ch.type != ChannelType.aux) ...[
+                          _buildIOSelector(ch.inputName.isEmpty ? 'In 1-2' : ch.inputName, isInput: true),
+                          _buildIOSelector(ch.outputBus.isEmpty ? 'Master' : ch.outputBus, isInput: false),
+                        ],
+                        // Bus: output selector only (no hardware input)
+                        if (widget.showInput && ch.type == ChannelType.bus) ...[
+                          _buildIOSelector(ch.outputBus.isEmpty ? 'Master' : ch.outputBus, isInput: false),
+                        ],
+                        // Aux: source bus input + output selector
+                        if (widget.showInput && ch.type == ChannelType.aux) ...[
+                          _buildIOSelector(ch.inputName.isEmpty ? 'Bus 1' : ch.inputName, isInput: true),
+                          _buildIOSelector(ch.outputBus.isEmpty ? 'Master' : ch.outputBus, isInput: false),
+                        ],
+                        // ── 4. Automation Mode ──
+                        if (widget.showInput)
+                          _buildAutomationBadge(),
+                        // ── 5. Group ID ──
+                        if (widget.showInput && ch.groupId.isNotEmpty)
+                          _buildGroupBadge(),
+                        // ── 6. Input section (gain + phase invert + PDC) — not for bus/aux ──
+                        if (widget.showInput && ch.type != ChannelType.bus && ch.type != ChannelType.aux)
+                          _buildInputSection(),
+                        // ── 7. Insert slots A-E (first 5) ──
+                        if (widget.showInserts && widget.visibleStripSections.contains(MixerStripSection.insertsAE))
+                          _buildInsertSection(startIndex: 0, label: 'A-E'),
+                        // ── 8. Insert slots F-J (next 5) ──
+                        if (widget.showInserts && widget.visibleStripSections.contains(MixerStripSection.insertsFJ) && _hasInsertsAbove(5))
+                          _buildInsertSection(startIndex: 5, label: 'F-J'),
+                        // ── 9. Send slots A-E (first 5) ──
+                        if (widget.showSends && widget.visibleStripSections.contains(MixerStripSection.sendsAE))
+                          _buildSendSection(startIndex: 0, label: 'A-E'),
+                        // ── 10. Send slots F-J (next 5) ──
+                        if (widget.showSends && widget.visibleStripSections.contains(MixerStripSection.sendsFJ) && _hasSendsAbove(5))
+                          _buildSendSection(startIndex: 5, label: 'F-J'),
+                        // ── 10a. EQ Curve Thumbnail ──
+                        if (widget.visibleStripSections.contains(MixerStripSection.eqCurve))
+                          _buildEqCurveThumbnail(),
+                        // ── 10b. Delay Compensation display ──
+                        if (widget.visibleStripSections.contains(MixerStripSection.delayComp))
+                          _buildDelayCompDisplay(),
+                        // ── 10c. Comments section ──
+                        if (widget.visibleStripSections.contains(MixerStripSection.comments))
+                          _buildCommentsSection(),
+                      ],
+                    ),
+                  ),
+                ),
                 // ── 11. Pan control ──
                 _buildPanControl(),
                 // ── 12. Fader + Meter (Expanded) ──
@@ -1720,57 +1732,58 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                     ),
                   ),
                 ),
-                // Fader cap — Pro DAW standard: 32px height for easy grab
+                // Fader cap — Pro Tools style: dark metallic knurled cap
                 Positioned(
                   left: meterWidth - 4,
                   right: meterWidth - 4,
                   top: 4 + (1.0 - _volumeToPosition(widget.volume)) * (height - 40),
                   child: Container(
-                    height: 32,
+                    height: 28,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                         colors: [
-                          Colors.grey.shade200,
-                          Colors.grey.shade400,
-                          Colors.grey.shade500,
-                          Colors.grey.shade400,
-                          Colors.grey.shade300,
+                          const Color(0xFF3A3A3E),
+                          const Color(0xFF505058),
+                          const Color(0xFF606068),
+                          const Color(0xFF505058),
+                          const Color(0xFF3A3A3E),
                         ],
                         stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
                       ),
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.circular(2),
                       border: Border.all(
                         color: _isDragging
                             ? FluxForgeTheme.accentBlue
-                            : Colors.grey.shade600,
+                            : const Color(0xFF2A2A2E),
                         width: 0.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: FluxForgeTheme.bgVoid.withOpacity(0.4),
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 2,
+                          offset: const Offset(0, 1),
+                        ),
+                        BoxShadow(
+                          color: const Color(0xFF707078).withOpacity(0.15),
+                          blurRadius: 0,
+                          offset: const Offset(0, -1),
                         ),
                       ],
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Fader cap grip lines (3 lines for tactile feel)
-                        for (int i = 0; i < 3; i++) ...[
-                          Container(
-                            width: 12,
-                            height: 1,
-                            margin: const EdgeInsets.symmetric(vertical: 2),
-                            decoration: BoxDecoration(
-                              color: FluxForgeTheme.bgVoid.withOpacity(0.4),
-                              borderRadius: BorderRadius.circular(0.5),
-                            ),
-                          ),
-                        ],
-                      ],
+                    child: Center(
+                      // Single center indicator line (Pro Tools style)
+                      child: Container(
+                        width: 14,
+                        height: 2,
+                        decoration: BoxDecoration(
+                          color: _isDragging
+                              ? FluxForgeTheme.accentBlue.withOpacity(0.8)
+                              : const Color(0xFF808088),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
                     ),
                   ),
                 ),

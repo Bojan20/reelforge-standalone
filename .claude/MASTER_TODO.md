@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-21 (Pro Tools 2026 DAW Mixer ALL 5 PHASES COMPLETE + Direct FFI Metering Fix + Bus Metering FFI + Bus Stereo Pan Defaults + Master Meter Smooth Decay + Action Strip Wiring + ProEq ← UltraEq Integration + Independent Floating Editor Windows + EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
-**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ, direct FFI metering
+**Updated:** 2026-02-21 (SafeFilePicker migration + InAppFileBrowser + L10n cleanup + Mixer overflow fix + iCloud NSOpenPanel deadlock bypass)
+**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ, direct FFI metering, SafeFilePicker for iCloud stability
 
 ---
 
@@ -34,9 +34,12 @@ DAW MIXER: Pro Tools 2026-class — ALL 5 PHASES COMPLETE (11 new files + floati
 ✅ DAW MIXER Phase 3:   4/4 steps      ✅ COMPLETE (commit 5f99ff53)
 ✅ DAW MIXER Phase 4:   8/8 steps      ✅ COMPLETE (Advanced Features)
 ✅ DAW MIXER Phase 5:   5/5 steps      ✅ COMPLETE (Polish — commit c5365cd1)
+✅ SAFE FILE PICKER:    25 files migrated ✅ iCloud deadlock bypass
+✅ L10N CLEANUP:        4 files removed  ✅ Dead code removal
+✅ MIXER OVERFLOW FIX:  ScrollView wrap  ✅ Strip section overflow solved
 ```
 
-**414 total tasks (387 original + 27 DAW Mixer ALL 5 phases). All code quality issues fixed. 4,532 tests pass. DAW Mixer ALL 5 PHASES complete: MixerScreen with Cmd+= toggle, MixerViewController, MixerTopBar, MixerStatusBar, IoSelectorPopup, SendSlotWidget, AutomationModeBadge, GroupIdBadge, SpillController, Bus/Aux/VCA strip variants, section show/hide, Solo Safe, Folder tracks, EQ curve thumbnail, Delay comp display, Comments section, View presets, Strip section visibility (9 sections), All metering modes (VU/K-14/K-20), Global Undo (SoloSafe/Comments/Folder), Trim Automation (delta dB), Floating Send Windows (OverlayEntry), Per-Strip Context Menu (8 actions), Keyboard Shortcuts (Cmd+S/M/Shift+N) — all integrated. SHIP READY.**
+**417 total tasks (387 original + 27 DAW Mixer + 3 stability fixes). All code quality issues fixed. 4,532 tests pass. SafeFilePicker replaces NSOpenPanel across 25 files — prevents iCloud Desktop & Documents sync deadlock. Mixer strip sections wrapped in SingleChildScrollView to prevent overflow. L10n auto-generated files removed (dead code). SHIP READY.**
 
 ### Pro Tools 2026 DAW Mixer (2026-02-20 — 2026-02-21) ✅ ALL 5 PHASES COMPLETE
 
@@ -147,6 +150,33 @@ Three mixer/bus fixes:
 - Rust `BusState::default()`: `pan: -1.0, pan_right: 1.0` (was `0.0, 0.0`)
 - Dart `MixerProvider.createBus()`: `pan: -1.0, panRight: 1.0, isStereo: true`
 - UI fallback already correct: `_busPan[busId] ?? -1.0`, `_busPanRight[busId] ?? 1.0`
+
+### SafeFilePicker Migration + iCloud Deadlock Fix (2026-02-21) ✅
+
+Replaced all `FilePicker.platform` calls with `SafeFilePicker` — a dart:io-based in-app file browser that bypasses NSOpenPanel, which deadlocks when iCloud Desktop & Documents sync has exceeded quota.
+
+**Root Cause:** macOS NSOpenPanel hangs indefinitely when iCloud sync is stuck, making all file picker operations block the UI thread forever.
+
+**Solution:** `InAppFileBrowser` — Cubase/Pro Tools-style in-app file browser using `dart:io` Directory/File APIs:
+
+| Component | File | LOC | Description |
+|-----------|------|-----|-------------|
+| `SafeFilePicker` | `utils/safe_file_picker.dart` | ~113 | Drop-in `FilePicker.platform` replacement |
+| `InAppFileBrowser` | `widgets/common/in_app_file_browser.dart` | ~650 | Full file browser dialog (tree nav, search, multi-select) |
+
+**Files Migrated (25):**
+
+| Category | Files |
+|----------|-------|
+| Dialogs | `export_audio_dialog.dart`, `export_dialog.dart` |
+| Screens | `daw_hub_screen.dart`, `engine_connected_layout.dart`, `middleware_hub_screen.dart`, `recording_settings_screen.dart`, `slot_lab_screen.dart`, `welcome_screen.dart` |
+| Widgets | `audio_pool_panel.dart`, `archive_panel.dart`, `daw_lower_zone_widget.dart`, `export_panels.dart`, `middleware_lower_zone_widget.dart`, `slotlab_lower_zone_widget.dart`, `container_import_export_dialog.dart`, `container_preset_library_panel.dart`, `recording_panel.dart`, `session_replay_panel.dart`, `events_panel_widget.dart`, `gdd_import_panel.dart`, `gdd_import_wizard.dart`, `group_batch_import_panel.dart`, `batch_export_panel.dart`, `project_dashboard_dialog.dart`, `slot_lab_settings_panel.dart`, `stage_trace_widget.dart`, `soundbank_panel.dart` |
+
+**Additional Changes:**
+- **L10n Cleanup:** Removed 4 auto-generated localization files (~2,409 LOC dead code)
+- **Mixer Overflow Fix:** Wrapped strip upper sections in `SingleChildScrollView` + `Clip.hardEdge` to prevent overflow when many sections are visible
+
+---
 
 ### Independent Floating Processor Editor Windows (2026-02-16) ✅
 
