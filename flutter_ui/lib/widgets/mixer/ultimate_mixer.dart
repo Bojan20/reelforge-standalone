@@ -20,10 +20,10 @@ import '../metering/gpu_meter_widget.dart';
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-const int kMaxSends = 8;
-const int kMaxInserts = 8;
-const double kStripWidthCompact = 70.0;
-const double kStripWidthExpanded = 100.0;
+const int kMaxSends = 10;
+const int kMaxInserts = 10;
+const double kStripWidthCompact = 56.0;   // Pro Tools Narrow mode
+const double kStripWidthExpanded = 90.0;  // Pro Tools Regular mode
 const double kMasterStripWidth = 120.0;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -127,6 +127,13 @@ class UltimateMixerChannel {
   final double lufsIntegrated;
   // PDC (Plugin Delay Compensation) — numeric track index for FFI calls
   final int trackIndex;
+  // Pro Tools strip metadata
+  final int trackNumber;           // Sequential "#01", "#02", etc.
+  final String automationMode;     // "off", "read", "tch", "ltch", "wrt", "trim"
+  final String groupId;            // "a", "b", "a,c" — group membership
+  final String comments;           // User notes per track
+  final String inputName;          // Input selector label
+  final String channelFormat;      // "Mono", "Stereo", "5.1", etc.
 
   const UltimateMixerChannel({
     required this.id,
@@ -153,6 +160,12 @@ class UltimateMixerChannel {
     this.lufsShort = -70.0,
     this.lufsIntegrated = -70.0,
     this.trackIndex = 0,
+    this.trackNumber = 0,
+    this.automationMode = 'read',
+    this.groupId = '',
+    this.comments = '',
+    this.inputName = '',
+    this.channelFormat = 'Stereo',
   });
 
   bool get isMaster => type == ChannelType.master;
@@ -562,34 +575,57 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             ),
             child: Column(
               children: [
-                // Track color bar - tappable to select channel
+                // ── 1. Track Color Bar (4px) ──
                 GestureDetector(
                   onTap: widget.onSelect,
                   child: Container(
-                    height: 3,
+                    height: 4,
                     decoration: BoxDecoration(
                       color: ch.color,
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
                     ),
                   ),
                 ),
-                // Input section (gain + phase invert)
+                // ── 2. Track Number (16px) ──
+                _buildTrackNumber(),
+                // ── 3. I/O Selectors ──
+                if (widget.showInput) ...[
+                  _buildIOSelector(ch.inputName.isEmpty ? 'In 1-2' : ch.inputName, isInput: true),
+                  _buildIOSelector(ch.outputBus.isEmpty ? 'Master' : ch.outputBus, isInput: false),
+                ],
+                // ── 4. Automation Mode ──
+                if (widget.showInput)
+                  _buildAutomationBadge(),
+                // ── 5. Group ID ──
+                if (widget.showInput && ch.groupId.isNotEmpty)
+                  _buildGroupBadge(),
+                // ── 6. Input section (gain + phase invert + PDC) ──
                 if (widget.showInput)
                   _buildInputSection(),
-                // Insert slots (always shown when enabled)
+                // ── 7. Insert slots A-E (first 5) ──
                 if (widget.showInserts)
-                  _buildInsertSection(),
-                // Send slots (always shown when enabled)
+                  _buildInsertSection(startIndex: 0, label: 'A-E'),
+                // ── 8. Insert slots F-J (next 5) ──
+                if (widget.showInserts && _hasInsertsAbove(5))
+                  _buildInsertSection(startIndex: 5, label: 'F-J'),
+                // ── 9. Send slots A-E (first 5) ──
                 if (widget.showSends)
-                  _buildSendSection(),
-                // Pan control
+                  _buildSendSection(startIndex: 0, label: 'A-E'),
+                // ── 10. Send slots F-J (next 5) ──
+                if (widget.showSends && _hasSendsAbove(5))
+                  _buildSendSection(startIndex: 5, label: 'F-J'),
+                // ── 11. Pan control ──
                 _buildPanControl(),
-                // Fader + Meter section
+                // ── 12. Fader + Meter (Expanded) ──
                 Expanded(child: _buildFaderMeter()),
-                // M/S/R buttons
+                // ── 13. Numeric dB display ──
+                _buildNumericDisplay(),
+                // ── 14. M/S/R buttons ──
                 _buildButtons(),
-                // Channel name - tappable to select channel
+                // ── 15. Track Name ──
                 _buildNameLabel(),
+                // ── 16. Channel Format badge ──
+                _buildChannelFormatBadge(),
               ],
             ),
           ),
@@ -677,53 +713,248 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
     );
   }
 
-  Widget _buildInsertSection() {
-    // Dynamic slots: show used + 1 empty, min 1, max 8
-    int lastUsedInsert = -1;
-    for (int i = 0; i < widget.channel.inserts.length; i++) {
+  /// Track number badge: "#01", "#02", etc.
+  Widget _buildTrackNumber() {
+    final num = widget.channel.trackNumber;
+    return GestureDetector(
+      onTap: widget.onSelect,
+      child: Container(
+        height: 16,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.2)),
+          ),
+        ),
+        child: Text(
+          '#${num.toString().padLeft(2, '0')}',
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'monospace',
+            color: FluxForgeTheme.textTertiary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// I/O selector row — click to open popup
+  Widget _buildIOSelector(String label, {required bool isInput}) {
+    return GestureDetector(
+      onTap: () {
+        // TODO Phase 2: show input/output routing popup
+      },
+      child: Container(
+        height: 16,
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.bgVoid.withOpacity(0.2),
+          border: Border(
+            bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.15)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 8,
+                  color: isInput ? FluxForgeTheme.accentCyan.withOpacity(0.7) : FluxForgeTheme.textTertiary,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 10,
+              color: FluxForgeTheme.textTertiary.withOpacity(0.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Automation mode badge: off / read / tch / ltch / wrt / trim
+  Widget _buildAutomationBadge() {
+    final mode = widget.channel.automationMode;
+    final isActive = mode != 'off' && mode != 'read';
+    final Color badgeColor;
+    switch (mode) {
+      case 'wrt':
+        badgeColor = const Color(0xFFFF4444);
+        break;
+      case 'tch':
+      case 'ltch':
+        badgeColor = const Color(0xFFFF9040);
+        break;
+      case 'trim':
+        badgeColor = const Color(0xFF40FF90);
+        break;
+      default:
+        badgeColor = FluxForgeTheme.textTertiary;
+    }
+    return Container(
+      height: 14,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isActive ? badgeColor.withOpacity(0.15) : Colors.transparent,
+        border: Border(
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.15)),
+        ),
+      ),
+      child: Text(
+        mode,
+        style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.w600,
+          color: badgeColor,
+        ),
+      ),
+    );
+  }
+
+  /// Group membership badge: "a", "b", "a,c"
+  Widget _buildGroupBadge() {
+    return Container(
+      height: 14,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.accentPurple.withOpacity(0.1),
+        border: Border(
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.15)),
+        ),
+      ),
+      child: Text(
+        widget.channel.groupId,
+        style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.w600,
+          color: FluxForgeTheme.accentPurple.withOpacity(0.8),
+        ),
+      ),
+    );
+  }
+
+  /// Check if there are inserts above a given index
+  bool _hasInsertsAbove(int startIndex) {
+    for (int i = startIndex; i < widget.channel.inserts.length; i++) {
+      if (widget.channel.inserts[i].pluginName != null) return true;
+    }
+    return false;
+  }
+
+  /// Check if there are sends above a given index
+  bool _hasSendsAbove(int startIndex) {
+    for (int i = startIndex; i < widget.channel.sends.length; i++) {
+      if (widget.channel.sends[i].destination != null) return true;
+    }
+    return false;
+  }
+
+  Widget _buildInsertSection({int startIndex = 0, String label = 'A-E'}) {
+    // Dynamic slots within this bank: show used + 1 empty within range
+    final endIndex = startIndex + 5;
+    int lastUsedInsert = startIndex - 1;
+    for (int i = startIndex; i < widget.channel.inserts.length && i < endIndex; i++) {
       if (widget.channel.inserts[i].pluginName != null) lastUsedInsert = i;
     }
-    final visibleInserts = (lastUsedInsert + 2).clamp(1, 8);
+    final visibleInserts = ((lastUsedInsert - startIndex) + 2).clamp(1, 5);
 
     return Container(
       padding: const EdgeInsets.all(2),
       child: Column(
         children: List.generate(visibleInserts, (i) {
-          final insert = i < widget.channel.inserts.length
-              ? widget.channel.inserts[i]
-              : InsertData(index: i);
+          final idx = startIndex + i;
+          final insert = idx < widget.channel.inserts.length
+              ? widget.channel.inserts[idx]
+              : InsertData(index: idx);
           return _InsertSlot(
             insert: insert,
-            onTap: () => widget.onInsertClick?.call(i),
+            onTap: () => widget.onInsertClick?.call(idx),
           );
         }),
       ),
     );
   }
 
-  Widget _buildSendSection() {
-    // Dynamic slots: show used + 1 empty, min 1, max 8
-    int lastUsedSend = -1;
-    for (int i = 0; i < widget.channel.sends.length; i++) {
+  Widget _buildSendSection({int startIndex = 0, String label = 'A-E'}) {
+    // Dynamic slots within this bank: show used + 1 empty within range
+    final endIndex = startIndex + 5;
+    int lastUsedSend = startIndex - 1;
+    for (int i = startIndex; i < widget.channel.sends.length && i < endIndex; i++) {
       if (widget.channel.sends[i].destination != null) lastUsedSend = i;
     }
-    final visibleSends = (lastUsedSend + 2).clamp(1, 8);
+    final visibleSends = ((lastUsedSend - startIndex) + 2).clamp(1, 5);
 
     return Container(
       padding: const EdgeInsets.all(2),
       child: Column(
         children: List.generate(visibleSends, (i) {
-          final send = i < widget.channel.sends.length
-              ? widget.channel.sends[i]
-              : SendData(index: i);
+          final idx = startIndex + i;
+          final send = idx < widget.channel.sends.length
+              ? widget.channel.sends[idx]
+              : SendData(index: idx);
           return _SendSlot(
             send: send,
-            onLevelChange: (lvl) => widget.onSendLevelChange?.call(i, lvl),
-            onMuteToggle: (muted) => widget.onSendMuteToggle?.call(i, muted),
-            onPreFaderToggle: (pre) => widget.onSendPreFaderToggle?.call(i, pre),
-            onDestChange: (dest) => widget.onSendDestChange?.call(i, dest),
+            onLevelChange: (lvl) => widget.onSendLevelChange?.call(idx, lvl),
+            onMuteToggle: (muted) => widget.onSendMuteToggle?.call(idx, muted),
+            onPreFaderToggle: (pre) => widget.onSendPreFaderToggle?.call(idx, pre),
+            onDestChange: (dest) => widget.onSendDestChange?.call(idx, dest),
           );
         }),
+      ),
+    );
+  }
+
+  /// Numeric dB display below fader
+  Widget _buildNumericDisplay() {
+    final vol = widget.channel.volume;
+    String dbText;
+    if (vol <= 0.001) {
+      dbText = '-∞';
+    } else {
+      final db = 20 * math.log(vol) / math.ln10;
+      dbText = '${db >= 0 ? '+' : ''}${db.toStringAsFixed(1)}';
+    }
+    return Container(
+      height: 16,
+      alignment: Alignment.center,
+      child: Text(
+        dbText,
+        style: TextStyle(
+          fontSize: 9,
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.w500,
+          color: widget.channel.muted
+              ? FluxForgeTheme.textTertiary
+              : FluxForgeTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  /// Channel format badge: Mono / Stereo / 5.1
+  Widget _buildChannelFormatBadge() {
+    final fmt = widget.channel.channelFormat;
+    return Container(
+      height: 14,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.15)),
+        ),
+      ),
+      child: Text(
+        fmt,
+        style: TextStyle(
+          fontSize: 7,
+          fontWeight: FontWeight.w500,
+          color: FluxForgeTheme.textTertiary.withOpacity(0.6),
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }

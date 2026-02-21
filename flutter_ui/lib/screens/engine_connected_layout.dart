@@ -164,6 +164,9 @@ import '../widgets/lower_zone/daw_lower_zone_controller.dart';
 import '../widgets/lower_zone/lower_zone_types.dart';
 import '../widgets/lower_zone/middleware_lower_zone_widget.dart';
 import '../widgets/lower_zone/middleware_lower_zone_controller.dart';
+import '../controllers/mixer/mixer_view_controller.dart';
+import '../models/mixer_view_models.dart';
+import 'mixer_screen.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -238,6 +241,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   // SlotLab uses its own fullscreen layout with dedicated bottom panel
   late final DawLowerZoneController _dawLowerZoneController;
   late final MiddlewareLowerZoneController _middlewareLowerZoneController;
+
+  // Mixer view controller (dedicated mixer window state)
+  late final MixerViewController _mixerViewController;
+  AppViewMode _appViewMode = AppViewMode.edit;
 
   // Local UI state
   late EditorMode _editorMode;
@@ -560,6 +567,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         });
       }
     });
+
+    // Initialize mixer view controller
+    _mixerViewController = MixerViewController();
+    _mixerViewController.loadFromStorage();
 
     // Initialize empty timeline (no demo data)
     _initEmptyTimeline();
@@ -885,6 +896,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     } catch (_) {
       // Provider may not be available during dispose
     }
+    // Dispose Mixer View Controller
+    _mixerViewController.dispose();
     // Dispose Lower Zone controllers
     _dawLowerZoneController.dispose();
     _middlewareLowerZoneController.dispose();
@@ -4445,10 +4458,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 _previewEvent();
                 return KeyEventResult.handled;
               }
+              // Cmd+= (Mac) / Ctrl+= — Toggle Edit ↔ Mixer view
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.equal &&
+                  (HardwareKeyboard.instance.isMetaPressed ||
+                   HardwareKeyboard.instance.isControlPressed) &&
+                  _editorMode == EditorMode.daw) {
+                setState(() {
+                  _appViewMode = _appViewMode == AppViewMode.edit
+                      ? AppViewMode.mixer
+                      : AppViewMode.edit;
+                });
+                return KeyEventResult.handled;
+              }
               return KeyEventResult.ignored;
             },
+            // MIXER VIEW MODE: Full-screen mixer (Pro Tools Mix Window)
+            // Activated via Cmd+= when in DAW mode
+            child: _appViewMode == AppViewMode.mixer && _editorMode == EditorMode.daw
+                ? Builder(
+                    builder: (context) {
+                      final engine = context.watch<EngineProvider>();
+                      return _buildMixerScreenView(engine.metering);
+                    },
+                  )
             // SLOT LAB MODE: Fullscreen slot lab when slot mode is active
-            child: _editorMode == EditorMode.slot
+                : _editorMode == EditorMode.slot
                 ? Builder(
                     builder: (context) {
                       return SlotLabScreen(
@@ -4479,6 +4514,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   _editorMode = mode;
                   _activeLowerTab = getDefaultTabForMode(mode);
                   _activeLeftTab = LeftZoneTab.project;
+                  // Reset to Edit view when leaving DAW mode
+                  if (mode != EditorMode.daw) {
+                    _appViewMode = AppViewMode.edit;
+                  }
                 });
               },
               timeDisplayMode: _timeDisplayMode,
@@ -7468,6 +7507,166 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           ),
         ],
       ),
+    );
+  }
+
+  /// Build dedicated full-screen MixerScreen (Pro Tools Mix Window)
+  /// Activated via Cmd+= when AppViewMode.mixer
+  Widget _buildMixerScreenView(dynamic metering) {
+    final mixerProvider = context.watch<MixerProvider>();
+    final channels = <ultimate.UltimateMixerChannel>[];
+
+    for (final ch in mixerProvider.channels) {
+      final trackId = ch.id.startsWith('ch_') ? ch.id.substring(3) : ch.id;
+      final trackIdInt = int.tryParse(trackId) ?? 0;
+      final engineTrackId = ch.trackIndex ?? trackIdInt;
+
+      final (peakL, peakR) = EngineApi.instance.getTrackPeakStereo(engineTrackId);
+      final (rmsL, rmsR) = EngineApi.instance.getTrackRmsStereo(engineTrackId);
+      final correlation = EngineApi.instance.getTrackCorrelation(engineTrackId);
+
+      final channelInserts = _busInserts[ch.id]?.slots ?? [];
+      final inserts = channelInserts.map((slot) => ultimate.InsertData(
+        index: slot.index,
+        pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
+        bypassed: slot.bypassed,
+        isPreFader: slot.isPreFader,
+      )).toList();
+
+      channels.add(ultimate.UltimateMixerChannel(
+        id: ch.id,
+        name: ch.name,
+        type: ultimate.ChannelType.audio,
+        color: ch.color,
+        volume: ch.volume,
+        pan: ch.pan,
+        panRight: ch.panRight,
+        isStereo: ch.isStereo,
+        muted: ch.muted,
+        soloed: ch.soloed,
+        armed: ch.armed,
+        input: ultimate.InputSection(phaseInvert: ch.phaseInverted),
+        inserts: inserts,
+        trackIndex: engineTrackId,
+        peakL: peakL,
+        peakR: peakR,
+        rmsL: rmsL,
+        rmsR: rmsR,
+        correlation: correlation,
+      ));
+    }
+
+    final masterInsertChain = _busInserts['master']?.slots ?? [];
+    final masterInserts = masterInsertChain.map((slot) => ultimate.InsertData(
+      index: slot.index,
+      pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
+      bypassed: slot.bypassed,
+      isPreFader: slot.isPreFader,
+    )).toList();
+
+    final (dMasterPeakL, dMasterPeakR) = NativeFFI.instance.getBusPeak(0);
+    final (dMasterRmsL, dMasterRmsR) = NativeFFI.instance.getRmsMeters();
+    final masterChannel = ultimate.UltimateMixerChannel(
+      id: 'master',
+      name: 'MASTER',
+      type: ultimate.ChannelType.master,
+      color: FluxForgeTheme.warningOrange,
+      volume: _busVolumes['master'] ?? 1.0,
+      pan: 0,
+      muted: _busMuted['master'] ?? false,
+      soloed: false,
+      inserts: masterInserts,
+      peakL: dMasterPeakL,
+      peakR: dMasterPeakR,
+      rmsL: dMasterRmsL,
+      rmsR: dMasterRmsR,
+      correlation: metering.correlation,
+      lufsShort: metering.masterLufsS,
+      lufsIntegrated: metering.masterLufsI,
+    );
+
+    return MixerScreen(
+      viewController: _mixerViewController,
+      channels: channels,
+      buses: const [],
+      auxes: const [],
+      vcas: const [],
+      master: masterChannel,
+      onSwitchToEdit: () => setState(() => _appViewMode = AppViewMode.edit),
+      onChannelSelect: (id) {
+        setState(() {
+          _selectedTrackId = id == 'master' ? '0' : id;
+        });
+      },
+      onVolumeChange: (id, vol) {
+        if (id == 'master') {
+          _onBusVolumeChange(id, vol);
+        } else {
+          mixerProvider.setChannelVolumeWithUndo(id, vol);
+        }
+      },
+      onPanChange: (id, pan) {
+        if (id != 'master') {
+          mixerProvider.setChannelPan(id, pan);
+        }
+      },
+      onPanChangeEnd: (id, pan) {
+        if (id != 'master') {
+          mixerProvider.setChannelPanWithUndo(id, pan);
+        }
+      },
+      onPanRightChange: (id, pan) {
+        if (id != 'master') {
+          mixerProvider.setChannelPanRightWithUndo(id, pan);
+        }
+      },
+      onMuteToggle: (id) {
+        if (id == 'master') {
+          _onBusMuteToggle(id);
+        } else {
+          mixerProvider.toggleChannelMuteWithUndo(id);
+        }
+      },
+      onSoloToggle: (id) {
+        if (id == 'master') {
+          _onBusSoloToggle(id);
+        } else {
+          mixerProvider.toggleChannelSoloWithUndo(id);
+        }
+      },
+      onArmToggle: (id) {
+        if (id != 'master') {
+          mixerProvider.toggleChannelArm(id);
+        }
+      },
+      onInsertClick: (channelId, insertIndex) {
+        _handleUltimateMixerInsertClick(channelId, insertIndex);
+      },
+      onSendLevelChange: (channelId, sendIndex, level) {
+        engine.setSendLevel(channelId, sendIndex, level);
+      },
+      onSendMuteToggle: (channelId, sendIndex, muted) {
+        engine.setSendMuted(channelId, sendIndex, muted);
+      },
+      onSendPreFaderToggle: (channelId, sendIndex, preFader) {
+        engine.setSendPreFader(channelId, sendIndex, preFader);
+      },
+      onSendDestChange: (channelId, sendIndex, destination) {
+        engine.setSendDestinationById(channelId, sendIndex, destination);
+      },
+      onPhaseToggle: (id) {
+        if (id != 'master') {
+          mixerProvider.togglePhaseInvert(id);
+        }
+      },
+      onGainChange: (id, gain) {
+        if (id != 'master') {
+          mixerProvider.setInputGain(id, gain);
+        }
+      },
+      onChannelReorder: (oldIndex, newIndex) {
+        mixerProvider.reorderChannel(oldIndex, newIndex);
+      },
     );
   }
 
