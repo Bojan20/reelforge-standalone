@@ -1,9 +1,9 @@
 // Internal Processor Editor Window
 //
 // Floating window for editing internal DSP processor parameters.
-// Uses premium FabFilter panels (EQ, Comp, Limiter, Gate, Reverb,
-// Delay, Saturation, DeEsser) when available.
-// Falls back to generic parameter sliders for vintage EQs and expander.
+// Uses premium FabFilter panels (EQ, Comp, Limiter, Gate, Expander,
+// Reverb, Delay, Saturation, DeEsser) when available.
+// Falls back to generic parameter sliders for vintage EQs.
 
 import 'package:flutter/material.dart';
 import '../../providers/dsp_chain_provider.dart';
@@ -17,6 +17,10 @@ import '../fabfilter/fabfilter_reverb_panel.dart';
 import '../fabfilter/fabfilter_delay_panel.dart';
 import '../fabfilter/fabfilter_saturation_panel.dart';
 import '../fabfilter/fabfilter_deesser_panel.dart';
+import '../fabfilter/fabfilter_expander_panel.dart';
+import '../eq/pultec_eq.dart';
+import '../eq/api550_eq.dart';
+import '../eq/neve1073_eq.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // OPEN EDITOR REGISTRY — tracks all open floating editor windows
@@ -62,11 +66,11 @@ class ProcessorEditorRegistry {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// FABFILTER PANEL SUPPORT CHECK
+// PREMIUM PANEL SUPPORT CHECK
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Node types that have premium FabFilter panels
-bool _hasFabFilterPanel(DspNodeType type) {
+/// Node types that have premium panels (FabFilter or vintage hardware)
+bool _hasPremiumPanel(DspNodeType type) {
   switch (type) {
     case DspNodeType.eq:
     case DspNodeType.compressor:
@@ -77,41 +81,46 @@ bool _hasFabFilterPanel(DspNodeType type) {
     case DspNodeType.saturation:
     case DspNodeType.deEsser:
     case DspNodeType.multibandSaturation:
-      return true;
-    case DspNodeType.expander:
     case DspNodeType.pultec:
     case DspNodeType.api550:
     case DspNodeType.neve1073:
-      return false;
+      return true;
+    case DspNodeType.expander:
+      return true;
   }
 }
 
 /// Window dimensions based on panel type
 Size _windowSizeForType(DspNodeType type) {
-  if (_hasFabFilterPanel(type)) {
-    switch (type) {
-      case DspNodeType.eq:
-        return const Size(700, 520);
-      case DspNodeType.compressor:
-        return const Size(660, 500);
-      case DspNodeType.limiter:
-        return const Size(620, 480);
-      case DspNodeType.gate:
-        return const Size(620, 480);
-      case DspNodeType.reverb:
-        return const Size(660, 500);
-      case DspNodeType.delay:
-        return const Size(620, 480);
-      case DspNodeType.saturation:
-      case DspNodeType.multibandSaturation:
-        return const Size(600, 460);
-      case DspNodeType.deEsser:
-        return const Size(560, 440);
-      default:
-        return const Size(600, 480);
-    }
+  switch (type) {
+    // FabFilter premium panels
+    case DspNodeType.eq:
+      return const Size(700, 520);
+    case DspNodeType.compressor:
+      return const Size(660, 500);
+    case DspNodeType.limiter:
+      return const Size(620, 480);
+    case DspNodeType.gate:
+      return const Size(620, 480);
+    case DspNodeType.reverb:
+      return const Size(660, 500);
+    case DspNodeType.delay:
+      return const Size(620, 480);
+    case DspNodeType.saturation:
+    case DspNodeType.multibandSaturation:
+      return const Size(600, 460);
+    case DspNodeType.deEsser:
+      return const Size(560, 440);
+    // Vintage hardware panels
+    case DspNodeType.pultec:
+      return const Size(680, 520);
+    case DspNodeType.api550:
+      return const Size(540, 500);
+    case DspNodeType.neve1073:
+      return const Size(640, 520);
+    case DspNodeType.expander:
+      return const Size(620, 480);
   }
-  return const Size(400, 350); // Generic slider fallback
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -218,7 +227,10 @@ class _InternalProcessorEditorWindowState
   @override
   Widget build(BuildContext context) {
     final size = _windowSizeForType(widget.node.type);
-    final hasFab = _hasFabFilterPanel(widget.node.type);
+    final hasPremium = _hasPremiumPanel(widget.node.type);
+    final isVintage = widget.node.type == DspNodeType.pultec ||
+        widget.node.type == DspNodeType.api550 ||
+        widget.node.type == DspNodeType.neve1073;
 
     return Positioned(
       left: _position.dx,
@@ -226,9 +238,11 @@ class _InternalProcessorEditorWindowState
       child: Material(
         elevation: 24,
         borderRadius: BorderRadius.circular(8),
-        color: hasFab
-            ? const Color(0xFF0D0D11) // FabFilter dark bg
-            : FluxForgeTheme.bgDeep,
+        color: isVintage
+            ? const Color(0xFF1A1A1E)
+            : hasPremium
+                ? const Color(0xFF0D0D11)
+                : FluxForgeTheme.bgDeep,
         child: Container(
           width: size.width,
           constraints: BoxConstraints(
@@ -236,10 +250,10 @@ class _InternalProcessorEditorWindowState
           ),
           decoration: BoxDecoration(
             border: Border.all(
-              color: hasFab
+              color: hasPremium
                   ? _getTypeColor(widget.node.type).withValues(alpha: 0.3)
                   : FluxForgeTheme.bgSurface,
-              width: hasFab ? 1.5 : 1,
+              width: hasPremium ? 1.5 : 1,
             ),
             borderRadius: BorderRadius.circular(8),
           ),
@@ -264,7 +278,7 @@ class _InternalProcessorEditorWindowState
 
   Widget _buildTitleBar() {
     final typeColor = _getTypeColor(widget.node.type);
-    final hasFab = _hasFabFilterPanel(widget.node.type);
+    final hasPremium = _hasPremiumPanel(widget.node.type);
 
     return GestureDetector(
       onPanStart: (_) => setState(() => _isDragging = true),
@@ -283,7 +297,7 @@ class _InternalProcessorEditorWindowState
         height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          gradient: hasFab
+          gradient: hasPremium
               ? LinearGradient(
                   colors: [
                     typeColor.withValues(alpha: 0.15),
@@ -291,7 +305,7 @@ class _InternalProcessorEditorWindowState
                   ],
                 )
               : null,
-          color: hasFab ? null : FluxForgeTheme.bgMid,
+          color: hasPremium ? null : FluxForgeTheme.bgMid,
         ),
         child: Row(
           children: [
@@ -401,7 +415,7 @@ class _InternalProcessorEditorWindowState
   // ═════════════════════════════════════════════════════════════════════════════
 
   Widget _buildContent() {
-    if (_hasFabFilterPanel(widget.node.type)) {
+    if (_hasPremiumPanel(widget.node.type)) {
       return Flexible(
         child: _buildFabFilterPanel(),
       );
@@ -436,8 +450,34 @@ class _InternalProcessorEditorWindowState
         return FabFilterSaturationPanel(trackId: widget.trackId);
       case DspNodeType.deEsser:
         return FabFilterDeEsserPanel(trackId: widget.trackId);
-      default:
-        return const SizedBox.shrink();
+      case DspNodeType.expander:
+        return FabFilterExpanderPanel(trackId: widget.trackId);
+      case DspNodeType.pultec:
+        return PultecEq(
+          onParamsChanged: (params) {
+            // Sync key params to FFI insert chain
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, params.lowBoost);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, params.lowAtten);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, params.highBoost);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 3, params.highAtten);
+          },
+        );
+      case DspNodeType.api550:
+        return Api550Eq(
+          onParamsChanged: (params) {
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, params.lowGain);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, params.midGain);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, params.highGain);
+          },
+        );
+      case DspNodeType.neve1073:
+        return Neve1073Eq(
+          onParamsChanged: (params) {
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, params.hpfEnabled ? 1.0 : 0.0);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, params.lfGain);
+            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, params.hfGain);
+          },
+        );
     }
   }
 
@@ -446,185 +486,9 @@ class _InternalProcessorEditorWindowState
   // ═════════════════════════════════════════════════════════════════════════════
 
   Widget _buildGenericParamsForType() {
-    switch (widget.node.type) {
-      case DspNodeType.expander:
-        return _buildExpanderParams();
-      case DspNodeType.pultec:
-        return _buildPultecParams();
-      case DspNodeType.api550:
-        return _buildApi550Params();
-      case DspNodeType.neve1073:
-        return _buildNeve1073Params();
-      default:
-        return const Text(
-          'No editor available',
-          style: TextStyle(color: FluxForgeTheme.textDisabled),
-        );
-    }
-  }
-
-  Widget _buildExpanderParams() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ParamSlider(
-          label: 'Threshold',
-          value: (_params['threshold'] as num?)?.toDouble() ?? -30.0,
-          min: -60, max: 0, unit: 'dB',
-          onChanged: (v) => _updateParam('threshold', v, 0),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Ratio',
-          value: (_params['ratio'] as num?)?.toDouble() ?? 2.0,
-          min: 1, max: 10, unit: ':1',
-          onChanged: (v) => _updateParam('ratio', v, 1),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Attack',
-          value: (_params['attack'] as num?)?.toDouble() ?? 5.0,
-          min: 0.1, max: 100, unit: 'ms',
-          onChanged: (v) => _updateParam('attack', v, 2),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Release',
-          value: (_params['release'] as num?)?.toDouble() ?? 50.0,
-          min: 5, max: 500, unit: 'ms',
-          onChanged: (v) => _updateParam('release', v, 3),
-        ),
-        const SizedBox(height: 12),
-        _ParamSlider(
-          label: 'Knee',
-          value: (_params['knee'] as num?)?.toDouble() ?? 3.0,
-          min: 0, max: 12, unit: 'dB',
-          onChanged: (v) => _updateParam('knee', v, 4),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPultecParams() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ParamSlider(
-          label: 'Low Boost',
-          value: (_params['lowBoost'] as num?)?.toDouble() ?? 0.0,
-          min: 0, max: 10, unit: '',
-          onChanged: (v) {
-            setState(() => _params['lowBoost'] = v);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, v);
-          },
-        ),
-        _ParamSlider(
-          label: 'Low Atten',
-          value: (_params['lowAtten'] as num?)?.toDouble() ?? 0.0,
-          min: 0, max: 10, unit: '',
-          onChanged: (v) {
-            setState(() => _params['lowAtten'] = v);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, v);
-          },
-        ),
-        _ParamSlider(
-          label: 'High Boost',
-          value: (_params['highBoost'] as num?)?.toDouble() ?? 0.0,
-          min: 0, max: 10, unit: '',
-          onChanged: (v) {
-            setState(() => _params['highBoost'] = v);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, v);
-          },
-        ),
-        _ParamSlider(
-          label: 'High Atten',
-          value: (_params['highAtten'] as num?)?.toDouble() ?? 0.0,
-          min: 0, max: 10, unit: '',
-          onChanged: (v) {
-            setState(() => _params['highAtten'] = v);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 3, v);
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildApi550Params() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ParamSlider(
-          label: 'Low',
-          value: (_params['lowGain'] as num?)?.toDouble() ?? 0.0,
-          min: -12, max: 12, unit: 'dB',
-          onChanged: (v) {
-            setState(() => _params['lowGain'] = v);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, v);
-          },
-        ),
-        _ParamSlider(
-          label: 'Mid',
-          value: (_params['midGain'] as num?)?.toDouble() ?? 0.0,
-          min: -12, max: 12, unit: 'dB',
-          onChanged: (v) {
-            setState(() => _params['midGain'] = v);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, v);
-          },
-        ),
-        _ParamSlider(
-          label: 'High',
-          value: (_params['highGain'] as num?)?.toDouble() ?? 0.0,
-          min: -12, max: 12, unit: 'dB',
-          onChanged: (v) {
-            setState(() => _params['highGain'] = v);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, v);
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNeve1073Params() {
-    final hpEnabled = ((_params['hpEnabled'] as num?)?.toDouble() ?? 0.0) > 0.5;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Row(
-            children: [
-              const Text('HP Filter', style: TextStyle(color: Color(0xFFB0B0B0), fontSize: 12)),
-              const Spacer(),
-              Switch(
-                value: hpEnabled,
-                onChanged: (v) {
-                  setState(() => _params['hpEnabled'] = v ? 1.0 : 0.0);
-                  NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, v ? 1.0 : 0.0);
-                },
-                activeColor: const Color(0xFF8B4513),
-              ),
-            ],
-          ),
-        ),
-        _ParamSlider(
-          label: 'Low Gain',
-          value: (_params['lowGain'] as num?)?.toDouble() ?? 0.0,
-          min: -16, max: 16, unit: 'dB',
-          onChanged: (v) {
-            setState(() => _params['lowGain'] = v);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, v);
-          },
-        ),
-        _ParamSlider(
-          label: 'High Gain',
-          value: (_params['highGain'] as num?)?.toDouble() ?? 0.0,
-          min: -16, max: 16, unit: 'dB',
-          onChanged: (v) {
-            setState(() => _params['highGain'] = v);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, v);
-          },
-        ),
-      ],
+    return const Text(
+      'No editor available',
+      style: TextStyle(color: FluxForgeTheme.textDisabled),
     );
   }
 

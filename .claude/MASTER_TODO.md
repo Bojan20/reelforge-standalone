@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-21 (CoreAudio stereo fix + One-shot voice stereo pan + Pro Tools routing gap analysis + SafeFilePicker migration)
-**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ, direct FFI metering, SafeFilePicker for iCloud stability, CoreAudio stereo properly handled
+**Updated:** 2026-02-21 (CoreAudio stereo fix + One-shot voice stereo pan + Pro Tools routing gap analysis + SafeFilePicker migration + EQ naming unification + Unified FaderCurve across ALL 11 fader widgets)
+**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ (FF-Q 64), direct FFI metering, SafeFilePicker for iCloud stability, CoreAudio stereo properly handled, FaderCurve unified across all volume controls
 
 ---
 
@@ -40,9 +40,11 @@ DAW MIXER: Pro Tools 2026-class — ALL 5 PHASES COMPLETE (11 new files + floati
 ✅ COREAUDIO STEREO:    Non-interleaved  ✅ L/R buffer deinterleaving
 ✅ ONESHOT STEREO PAN:  Balance pan      ✅ Pro Tools-style stereo preserve
 ✅ LZ BUS OVERFLOW:     10px fix         ✅ ScrollView padding refactor
+✅ EQ NAMING:           FF-Q 64 unified  ✅ ProEqEditor→FabFilterEqPanel + naming cleanup
+✅ FADER CURVE UNIFY:   11 widgets       ✅ Single FaderCurve class, all volume controls unified
 ```
 
-**420 total tasks (387 original + 27 DAW Mixer + 3 stability fixes + 3 stereo/routing fixes). All code quality issues fixed. 4,532 tests pass. SafeFilePicker replaces NSOpenPanel across 25 files — prevents iCloud Desktop & Documents sync deadlock. CoreAudio non-interleaved stereo properly handled. One-shot voices preserve stereo width (Pro Tools-style balance pan). Lower Zone bus overflow fixed. SHIP READY.**
+**421 total tasks (387 original + 27 DAW Mixer + 3 stability fixes + 3 stereo/routing fixes + 1 fader curve unification). All code quality issues fixed. 4,532 tests pass. SafeFilePicker replaces NSOpenPanel across 25 files — prevents iCloud Desktop & Documents sync deadlock. CoreAudio non-interleaved stereo properly handled. One-shot voices preserve stereo width (Pro Tools-style balance pan). Lower Zone bus overflow fixed. Unified FaderCurve class (`audio_math.dart`) replaces 11 inconsistent volume curve implementations. SHIP READY.**
 
 ### Pro Tools 2026 DAW Mixer (2026-02-20 — 2026-02-21) ✅ ALL 5 PHASES COMPLETE
 
@@ -105,6 +107,31 @@ Complete Pro Tools 2026-class mixer implementation. Spec: `docs/architecture/FLU
 | 5.5 | Keyboard shortcuts — CallbackShortcuts+Focus, Cmd+S solo, Cmd+M mute, Cmd+Shift+N narrow toggle | ✅ |
 
 **ALL 5 PHASES COMPLETE** — Pro Tools 2026-class mixer fully implemented.
+
+---
+
+### EQ Naming Unification — FF-Q 64 (2026-02-21) ✅
+
+Unified all EQ UI names to `FF-Q 64` (full) / `FF-Q` (short), matching the plugin naming convention (`FF-C`, `FF-L`, `FF-G`, `FF-R`, `FF-D`, `FF-SAT`, `FF-E`). Replaced old ProEqEditor with FabFilterEqPanel across all entry points.
+
+**Changes:**
+
+| File | Before | After |
+|------|--------|-------|
+| `plugin_models.dart` | `'FF Ultra EQ'` / `'EQ'`, duplicate `rf-pro-eq` entry | `'FF-Q 64'` / `'FF-Q'`, single `rf-ultra-eq` entry |
+| `engine_connected_layout.dart` | ProEqEditor with manual FFI routing (~56 LOC), duplicate `'eq'` Lower Zone tab | FabFilterEqPanel (self-contained), removed duplicate tab, removed `_buildEqContent()` |
+| `eq_test_screen.dart` | `'Ultra EQ'` tab, ProEqEditor widget | `'FF-Q 64'` tab, FabFilterEqPanel |
+| `timeline_models.dart` | `ClipFxType.proEq/ultraEq` → `'Ultra EQ'` | Both → `'FF-Q 64'` |
+| `pro_mixer_strip.dart` | `'FF Ultra EQ'`, `'RF-COMP'`, `'RF-LIMIT'` etc. | `'FF-Q 64'`, `'FF-C'`, `'FF-L'` etc. |
+
+**Key Decisions:**
+- `ProEq` is the Rust DSP engine (superset with UltraEq features integrated) — internal name, not user-facing
+- `UltraEqWrapper` wraps ProEq with MZT + Oversampling X2 enabled by default — also internal
+- UI shows only `FF-Q 64` (full) or `FF-Q` (short) — consistent with all other FF plugins
+- Rust processor ID `'pro-eq'` / `'ultra-eq'` unchanged (internal identifiers)
+- Old `ProEqEditor` widget no longer imported anywhere (replaced by FabFilterEqPanel)
+
+**Verification:** `flutter analyze` — No issues found!
 
 ---
 
@@ -252,7 +279,8 @@ Every DSP processor now has its own independent floating editor window with full
 │  ├── Draggable title bar (GestureDetector.onPanUpdate)          │
 │  ├── Collapse/Bypass/Close buttons                               │
 │  ├── FabFilter panel routing (9 premium types)                  │
-│  └── Generic slider fallback (4 vintage types)                   │
+│  ├── Vintage hardware panels (3 types: Pultec/API/Neve)         │
+│  └── Generic slider fallback (1 type: Expander)                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -278,14 +306,19 @@ Every DSP processor now has its own independent floating editor window with full
 | `multibandSaturation` | FabFilterSaturationPanel | 600×460 |
 | `deEsser` | FabFilterDeEsserPanel | 560×440 |
 
-**Generic Slider Fallback (4 vintage types):**
+**Vintage Hardware Panels (3 types — authentic knob UIs):**
+
+| DspNodeType | Panel | Window Size | Knob Style |
+|-------------|-------|-------------|------------|
+| `pultec` | PultecEq | 680×520 | Cream/bronze rotary, VU meter, tube glow |
+| `api550` | Api550Eq | 540×500 | Dark metallic, blue arc, LED indicators |
+| `neve1073` | Neve1073Eq | 640×520 | Silver/burgundy rotary, mini meters |
+
+**Generic Slider Fallback (1 type):**
 
 | DspNodeType | Params | Window Size |
 |-------------|--------|-------------|
-| `expander` | 10 sliders | 400×350 |
-| `pultec` | 4 sliders | 400×350 |
-| `api550` | 3 sliders | 400×350 |
-| `neve1073` | 3 sliders | 400×350 |
+| `expander` | 5 sliders | 400×350 |
 
 **Key Features:**
 - **No duplicate windows** — clicking an already-open processor toggles it closed
@@ -310,7 +343,7 @@ InternalProcessorEditorWindow.show(
 
 | File | LOC | Changes |
 |------|-----|---------|
-| `internal_processor_editor_window.dart` | 751 | Full rewrite — ProcessorEditorRegistry + FabFilter panels |
+| `internal_processor_editor_window.dart` | ~670 | Full rewrite — ProcessorEditorRegistry + FabFilter + Vintage panels |
 | `fx_chain_panel.dart` | +20 | Double-tap to open editor, slot index tracking, visual hint |
 | `signal_analyzer_widget.dart` | +10 | Click-to-open editor on processor nodes |
 
@@ -415,11 +448,11 @@ Removed 4 legacy EQ panel files (~1,200 LOC) that were never instantiated anywhe
 | Panel | LOC | Purpose |
 |-------|-----|---------|
 | `fabfilter_eq_panel.dart` | ~4,100 | Primary production EQ (Pro-Q 3 style) |
-| `pultec_eq.dart` | ~250 | Vintage Pultec EQP-1A character |
-| `api550_eq.dart` | ~200 | Vintage API 550A character |
-| `neve1073_eq.dart` | ~250 | Vintage Neve 1073 character |
+| `pultec_eq.dart` | ~842 | Authentic Pultec EQP-1A — cream/bronze knobs, VU meter, tube glow |
+| `api550_eq.dart` | ~592 | Authentic API 550A — dark metallic knobs, blue arc, LED indicators |
+| `neve1073_eq.dart` | ~907 | Authentic Neve 1073 — silver/burgundy knobs, HPF, mini meters |
 | `analog_eq_panel.dart` | ~600 | Vintage EQ tab switcher (Pultec/API/Neve) |
-| `internal_processor_editor_window.dart` | ~751 | Floating FabFilter editor windows (9 panel types + 4 vintage fallback) |
+| `internal_processor_editor_window.dart` | ~670 | Floating editor windows (9 FabFilter + 3 vintage + 1 generic) |
 
 **Verification:** `flutter analyze` — No issues found!
 
@@ -535,6 +568,60 @@ Three critical audio UX fixes:
 **4. Cubase-Style Meter Decay:**
 - Meters smoothly decay to complete invisibility with noise floor gate at -80dB
 - Files: `gpu_meter_widget.dart`, `meter_provider.dart`, `ultimate_mixer.dart`
+
+### Unified FaderCurve — Volume Curve Consolidation (2026-02-21) ✅
+
+All volume faders, knobs, and dB display formatters unified under a single `FaderCurve` class in `audio_math.dart`.
+
+**Problem:** 11 different volume curve implementations existed across the codebase — some used Cubase 5-segment log curve, others used pure linear mapping. Channel inspector fader felt different from mixer fader felt different from mini mixer fader.
+
+**Critical Bugs Found & Fixed:**
+- `mixer/channel_strip.dart` `faderDb` getter used `(faderLevel / 0.75 - 1) * 60` — broken pseudo-linear, NOT real dB
+- `mixer/channel_strip.dart` `_dbToPosition` used `(db + 60) / 72` — pure linear, no curve
+- `slotlab_bus_mixer.dart` fader used `volume.clamp(0.0, 1.0)` — pure linear
+- `mini_mixer_panel.dart` had hand-rolled Taylor series natural log approximation + dead variable
+- `mini_mixer_view.dart` fader used `normalized * 1.5` — pure linear
+
+**Solution:** Single `FaderCurve` class with 6 static methods:
+
+| Method | Domain | Description |
+|--------|--------|-------------|
+| `dbToPosition(db)` | dB → position | Segmented log curve |
+| `positionToDb(position)` | position → dB | Inverse segmented curve |
+| `linearToPosition(volume)` | amplitude → position | Via dB internally |
+| `positionToLinear(position)` | position → amplitude | Via dB internally |
+| `linearToDbString(volume)` | amplitude → string | Display formatting |
+| `dbToString(db)` | dB → string | Display formatting |
+
+**11 Files Updated:**
+
+| File | Widget/Method | Before | After |
+|------|---------------|--------|-------|
+| `ultimate_mixer.dart` | `_FaderWithMeter` | 5-segment (inline) | `FaderCurve` delegate |
+| `channel/channel_strip.dart` | `_VerticalFader` | 5-segment (static) | `FaderCurve` delegate |
+| `mixer/channel_strip.dart` | `faderDb`, `_dbToPosition` | **BROKEN linear** | `FaderCurve` (fixed) |
+| `channel_inspector_panel.dart` | `_FaderRow` | 5-segment (instance) | `FaderCurve` delegate |
+| `slotlab_bus_mixer.dart` | `_BusStrip` | **Pure linear** | `FaderCurve` (fixed) |
+| `mini_mixer_panel.dart` | `_MiniFader` | **Taylor series + linear** | `FaderCurve` (fixed) |
+| `mini_mixer_view.dart` | `_MiniChannelStrip` | **Pure linear** | `FaderCurve` (fixed) |
+| `mixer_undo_actions.dart` | `volumeToDb()` | Inline 20*log10 | `FaderCurve` delegate |
+| `event_editor_panel.dart` | `gainToDb()` | Inline 20*log10 | `FaderCurve` delegate |
+| `daw_lower_zone_widget.dart` | `_gainToDb()` | Inline 20*log10 | `FaderCurve` delegate |
+| `clip_properties_panel.dart` | `_gainToDb()` | Inline 20*log10 | `FaderCurve` delegate |
+
+**Current Curve (5-segment, Cubase-style):**
+
+| Segment | dB Range | Fader Travel | Notes |
+|---------|----------|--------------|-------|
+| Silence | -∞ to -60 dB | 0–5% | Dead zone |
+| Low | -60 to -20 dB | 5–25% | Compressed |
+| Build-up | -20 to -6 dB | 25–55% | Expanding |
+| Sweet spot | -6 to 0 dB | 55–75% | Max resolution |
+| Boost | 0 to +max dB | 75–100% | Post-unity |
+
+**Planned Upgrade:** Ultimate hybrid curve (Neve/SSL/Harrison-class) — 0 dB at 78%, sweet spot from -12 to 0 dB (38% travel), dead zone reduced to 3%. See CLAUDE.md for spec.
+
+---
 
 ### Plugin Hosting Fix (2026-02-16) ✅
 
@@ -1592,6 +1679,48 @@ Kada engine i FFI budu povezani (svi parametri i meteri rade), uraditi finalni U
 
 ## 🏆 SESSION HISTORY
 
+### Session 2026-02-21 — Vintage EQ Authentic Hardware UIs + QA Verification
+
+**Tasks Delivered:** Authentic hardware knob UIs for 3 vintage EQ processors + full QA verification
+**Files Changed:** 4 (pultec_eq.dart, api550_eq.dart, neve1073_eq.dart, internal_processor_editor_window.dart)
+**LOC Changed:** ~450 (slider→knob replacements + dead code cleanup)
+**flutter analyze:** 0 errors, 0 warnings ✅
+
+**Changes:**
+
+1. **Pultec EQP-1A** (`pultec_eq.dart`) — Replaced footer OUTPUT Slider with authentic cream/bronze rotary knob
+   - New: `_buildFooterKnob()` method + `_PultecKnobPainter` CustomPainter
+   - 270° rotation range, cream/bronze radial gradient body, dark pointer line
+
+2. **API 550A** (`api550_eq.dart`) — Replaced ALL Sliders with authentic dark metallic knobs
+   - New: `_buildApiKnob()` method + `_ApiKnobPainter` CustomPainter
+   - Band gain knobs (52×52), footer DRIVE + OUT knobs (40×40)
+   - Blue accent arc showing value, blue pointer dot
+
+3. **Neve 1073** (`neve1073_eq.dart`) — Replaced footer OUTPUT Slider with authentic silver/burgundy knob
+   - New: `_buildNeveFooterKnob()` method + `_NeveFooterKnobPainter` CustomPainter
+   - Silver radial gradient body, burgundy pointer line
+
+4. **Editor Window** (`internal_processor_editor_window.dart`) — Upgraded vintage types from generic sliders to premium panels
+   - Vintage types now return `true` from `_hasPremiumPanel()` → routed to real panel widgets
+   - Fixed `_windowSizeForType()` dead code bug — vintage sizes were unreachable (always hit default 600×480)
+   - Replaced two-phase if/switch with single exhaustive switch (Pultec: 680×520, API: 540×500, Neve: 640×520)
+   - Removed ~120 LOC dead code: `_buildPultecParams()`, `_buildApi550Params()`, `_buildNeve1073Params()` methods
+   - Vintage panels get warm dark bg (`#1A1410`) instead of FabFilter gray
+
+**QA Verification Results (6 checks):**
+
+| Check | Result |
+|-------|--------|
+| `_windowSizeForType()` dead code bug | ✅ Fixed — vintage types now get correct window sizes |
+| FFI param index mapping (Dart→Rust) | ✅ Verified — Pultec (0-3), API (0-2), Neve (0-2) match Rust `set_param()` |
+| Generic `insertSetParam()` routing | ✅ Verified — ring buffer → InsertChain → Wrapper → DSP filters |
+| DspChainProvider.addNode() | ✅ Verified — correct processor names, default params |
+| `_restoreNodeParameters()` consistency | ✅ Verified — same indices as editor window |
+| `flutter analyze` | ✅ No issues found |
+
+---
+
 ### Session 2026-02-16e — FF-E DeEsser Panel + PROCESS Subtab Connection
 
 **Tasks Delivered:** FF-E DeEsser FabFilter panel created and fully connected in DAW PROCESS tab
@@ -1861,9 +1990,10 @@ Kada engine i FFI budu povezani (svi parametri i meteri rade), uraditi finalni U
    - `DspNodeType.pultec` (FF EQP1A) — 4 params: Low Boost/Atten, High Boost/Atten
    - `DspNodeType.api550` (FF 550A) — 3 params: Low/Mid/High Gain (±12 dB)
    - `DspNodeType.neve1073` (FF 1073) — 3 params: HP Filter, Low/High Gain (±16 dB)
-   - Full editor panels in `internal_processor_editor_window.dart`
+   - Generic slider editor panels in `internal_processor_editor_window.dart`
    - Updated exhaustive switches in 8 files (icons, colors, RTPC targets, CPU meter, signal analyzer)
    - Rust backend already supported (`create_processor_extended()`)
+   - **Upgraded to authentic hardware knob UIs (2026-02-21)** — see Session 2026-02-21
 6. **Smart Tool Integration** — Wired SmartToolProvider to ClipWidget for Cubase/Pro Tools-style context-dependent cursor and drag routing
 
 ---

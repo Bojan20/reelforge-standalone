@@ -728,6 +728,29 @@ class _Neve1073EqState extends State<Neve1073Eq> {
     );
   }
 
+  Widget _buildNeveFooterKnob({
+    required double value,
+    required double min,
+    required double max,
+    required ValueChanged<double> onChanged,
+  }) {
+    return GestureDetector(
+      onPanUpdate: (details) {
+        final delta = -details.delta.dy * (max - min) / 100;
+        final newValue = (value + delta).clamp(min, max);
+        onChanged(newValue);
+      },
+      child: CustomPaint(
+        size: const Size(32, 32),
+        painter: _NeveFooterKnobPainter(
+          value: value,
+          min: min,
+          max: max,
+        ),
+      ),
+    );
+  }
+
   Widget _buildFooter() {
     return Container(
       height: 40,
@@ -738,22 +761,28 @@ class _Neve1073EqState extends State<Neve1073Eq> {
       ),
       child: Row(
         children: [
-          const Text(
-            'OUTPUT',
-            style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary),
+          // Output knob
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'OUTPUT',
+                style: TextStyle(fontSize: 8, color: FluxForgeTheme.textSecondary, letterSpacing: 1),
+              ),
+              const SizedBox(height: 1),
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: _buildNeveFooterKnob(
+                  value: _params.outputLevel,
+                  min: -20,
+                  max: 20,
+                  onChanged: (v) => _updateParams(_params.copyWith(outputLevel: v)),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 80,
-            child: Slider(
-              value: _params.outputLevel,
-              min: -20,
-              max: 20,
-              onChanged: (v) => _updateParams(_params.copyWith(outputLevel: v)),
-              activeColor: _neveSilver,
-              inactiveColor: _nevePanel,
-            ),
-          ),
+          const SizedBox(width: 6),
           SizedBox(
             width: 50,
             child: Text(
@@ -821,4 +850,57 @@ class _Neve1073EqState extends State<Neve1073Eq> {
       ],
     );
   }
+}
+
+// Neve-style footer knob — silver with burgundy accent
+class _NeveFooterKnobPainter extends CustomPainter {
+  final double value;
+  final double min;
+  final double max;
+
+  _NeveFooterKnobPainter({required this.value, required this.min, required this.max});
+
+  static const _neveSilver = Color(0xFFC0C0C0);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+    final normalized = (value - min) / (max - min);
+    final angle = (225 - normalized * 270) * math.pi / 180;
+
+    // Outer ring
+    canvas.drawCircle(
+      center, radius,
+      Paint()..color = const Color(0xFF1A1A20)..style = PaintingStyle.fill,
+    );
+
+    // Silver knob body
+    final gradient = RadialGradient(
+      center: const Alignment(-0.3, -0.3),
+      colors: const [Color(0xFFD8D8D8), Color(0xFFA0A0A0), Color(0xFF707070)],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    canvas.drawCircle(
+      center, radius - 2,
+      Paint()..shader = gradient.createShader(Rect.fromCircle(center: center, radius: radius - 2)),
+    );
+
+    // Pointer line
+    final pointerStart = Offset(
+      center.dx + math.cos(angle) * (radius * 0.25),
+      center.dy - math.sin(angle) * (radius * 0.25),
+    );
+    final pointerEnd = Offset(
+      center.dx + math.cos(angle) * (radius - 4),
+      center.dy - math.sin(angle) * (radius - 4),
+    );
+    canvas.drawLine(pointerStart, pointerEnd,
+      Paint()..color = const Color(0xFF4A1520)..strokeWidth = 2..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_NeveFooterKnobPainter old) =>
+      old.value != value || old.min != min || old.max != max;
 }

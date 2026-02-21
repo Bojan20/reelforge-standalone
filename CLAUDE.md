@@ -2319,29 +2319,62 @@ Complete rewrite of `_previewEvent()` in `engine_connected_layout.dart` — Pan,
 - ✅ Spatial (Panner, Width, M/S)
 - ✅ Analysis (FFT, LUFS, True Peak, Correlation, Frequency)
 
-### Cubase-Style Fader Law (2026-02-16) ✅
+### Unified FaderCurve — All Volume Controls (2026-02-21) ✅
 
-All mixer/channel faders use segmented logarithmic curve matching Cubase/Nuendo behavior.
+**Single source of truth:** `FaderCurve` class in `flutter_ui/lib/utils/audio_math.dart`
 
-**Principle:** Unity gain (0 dB) at **75% of fader travel** — more resolution in mixing sweet spot.
+ALL 11 volume faders, knobs, and dB formatters use this one class. No inline curve code anywhere.
 
-**5-Segment Curve:**
+**API:**
+
+| Method | Input → Output | Usage |
+|--------|----------------|-------|
+| `FaderCurve.dbToPosition(db)` | dB → 0.0–1.0 | dB-domain faders |
+| `FaderCurve.positionToDb(pos)` | 0.0–1.0 → dB | dB-domain drag |
+| `FaderCurve.linearToPosition(vol)` | amplitude → 0.0–1.0 | Linear-domain faders |
+| `FaderCurve.positionToLinear(pos)` | 0.0–1.0 → amplitude | Linear-domain drag |
+| `FaderCurve.linearToDbString(vol)` | amplitude → "-12.3" | Display |
+| `FaderCurve.dbToString(db)` | dB → "-12.3" | Display |
+
+**Current Curve (5-segment, Cubase-style):**
 
 | Segment | dB Range | Fader Travel | Resolution |
 |---------|----------|--------------|------------|
-| Silence | -∞ to -60 dB | 0-5% | Low (inaudible) |
-| Low | -60 to -20 dB | 5-25% | Compressed |
-| Build-up | -20 to -6 dB | 25-55% | 30% travel for 14 dB |
-| Sweet spot | -6 to 0 dB | 55-75% | 20% travel for 6 dB |
-| Boost | 0 to +max dB | 75-100% | Post-unity boost |
+| Silence | -∞ to -60 dB | 0–5% | Dead zone |
+| Low | -60 to -20 dB | 5–25% | Compressed |
+| Build-up | -20 to -6 dB | 25–55% | 30% travel for 14 dB |
+| Sweet spot | -6 to 0 dB | 55–75% | 20% travel for 6 dB |
+| Boost | 0 to +max dB | 75–100% | Post-unity boost |
 
-**Widgets Updated:**
+**Planned Upgrade — Ultimate Hybrid Curve (Neve/SSL/Harrison-class):**
 
-| Widget | File | Space | Notes |
-|--------|------|-------|-------|
-| `_FaderWithMeter` | `ultimate_mixer.dart` | Amplitude (0.0-1.5) | `_volumeToPosition()` / `_positionToVolume()` |
-| `_VerticalFader` | `channel_strip.dart` | dB (-60 to +12) | `dbToPosition()` / `positionToDb()` (static) |
-| `_FaderRow` | `channel_inspector_panel.dart` | dB (parameterized) | Cubase curve for Volume only, linear for Pan/other |
+| Zona | dB raspon | Hod | Razlog |
+|------|-----------|-----|--------|
+| Dead zone | -∞ do -60 dB | 0–3% | Nečujno, minimalan prostor |
+| Low | -60 do -20 dB | 3–20% | Kompresovana, nije mixing zona |
+| Build-up | -20 do -12 dB | 20–40% | Priprema za sweet spot |
+| **Sweet spot** | **-12 do 0 dB** | **40–78%** | **38% hoda za 12 dB** |
+| Boost | 0 do +12 dB | 78–100% | Retko treba preciznost |
+
+Key differences: 0 dB at 78% (vs 75%), sweet spot from -12 dB (vs -6 dB), dead zone 3% (vs 5%).
+
+**11 Widgets Using FaderCurve:**
+
+| Widget | File | Domain |
+|--------|------|--------|
+| `_FaderWithMeter` | `ultimate_mixer.dart` | Amplitude (0.0–1.5) |
+| `_VerticalFader` | `channel/channel_strip.dart` | dB (-60 to +12) |
+| `_FaderRow` | `channel_inspector_panel.dart` | dB (parameterized) |
+| `ChannelStripModel` | `mixer/channel_strip.dart` | dB (faderDb getter) |
+| `_BusStrip` | `slotlab_bus_mixer.dart` | Amplitude (0.0–1.0) |
+| `_MiniFader` | `mini_mixer_panel.dart` | Amplitude (0.0–1.5) |
+| `_MiniChannelStrip` | `mini_mixer_view.dart` | Amplitude (0.0–1.5) |
+| `MixerUndoAction` | `mixer_undo_actions.dart` | Display only |
+| Event Editor | `event_editor_panel.dart` | Display only |
+| DAW Lower Zone | `daw_lower_zone_widget.dart` | Display only |
+| Clip Properties | `clip_properties_panel.dart` | Display only |
+
+**VAŽNO:** Kada menjaš volume krivu, menjaj SAMO `FaderCurve` klasu — svi widgeti automatski koriste novu krivu.
 
 ### Meter Decay & Noise Floor Gate (2026-02-16) ✅
 
@@ -2371,22 +2404,24 @@ Processors now start **enabled** (audible) when loaded into insert chain.
 | `ffi_insert_bypass_all` | `track_insert_bypass_all` |
 | `ffi_insert_get_total_latency` | `track_insert_get_total_latency` |
 
-### FabFilter-Style Premium DSP Panels (2026-01-22, Updated 2026-02-16) ✅
+### FabFilter-Style Premium DSP Panels (2026-01-22, Updated 2026-02-21) ✅
 
 Professional DSP panel suite inspired by FabFilter's design language — **9 panels total**, all with A/B snapshots.
 
 **Location:** `flutter_ui/lib/widgets/fabfilter/`
 
-| Panel | Inspiration | Features | FFI | A/B |
-|-------|-------------|----------|-----|-----|
-| `fabfilter_eq_panel.dart` | Pro-Q 3 | 8-band parametric, I/O metering, spectrum, shapes | ✅ | ✅ EqSnapshot (66 fields) |
-| `fabfilter_compressor_panel.dart` | Pro-C 2 | Transfer curve, knee display, 14 styles, sidechain EQ | ✅ | ✅ CompressorSnapshot (15 fields) |
-| `fabfilter_limiter_panel.dart` | Pro-L 2 | LUFS metering, 8 styles, true peak, GR history | ✅ | ✅ LimiterSnapshot (6 fields) |
-| `fabfilter_gate_panel.dart` | Pro-G | State indicator, threshold viz, hysteresis, sidechain filter | ✅ | ✅ GateSnapshot (16 fields) |
-| `fabfilter_reverb_panel.dart` | Pro-R | Decay display, pre-delay, 8 space types, EQ | ✅ | ✅ ReverbSnapshot (11 fields) |
-| `fabfilter_deesser_panel.dart` | Pro-DS | Frequency display, listen mode, 8 params | ✅ | ✅ DeEsserSnapshot (8 fields) |
-| `fabfilter_saturation_panel.dart` | Saturn 2 | 6-band multiband, per-band drive/type/dynamics, crossover | ✅ | ✅ SaturationSnapshot (65 fields) |
-| `fabfilter_delay_panel.dart` | Timeless 3 | Ping-pong, tempo sync, mod, filter, duck, freeze | ✅ | ✅ DelaySnapshot (14 fields) |
+**UI Naming Convention:** `FF-X` (short) / `FF-X Name` (full) — e.g., `FF-Q` / `FF-Q 64`, `FF-C` / `FF Compressor`
+
+| Panel | UI Name | Inspiration | Features | FFI | A/B |
+|-------|---------|-------------|----------|-----|-----|
+| `fabfilter_eq_panel.dart` | FF-Q 64 | Pro-Q 3 | 8-band parametric, I/O metering, spectrum, shapes | ✅ | ✅ EqSnapshot (66 fields) |
+| `fabfilter_compressor_panel.dart` | FF-C | Pro-C 2 | Transfer curve, knee display, 14 styles, sidechain EQ | ✅ | ✅ CompressorSnapshot (15 fields) |
+| `fabfilter_limiter_panel.dart` | FF-L | Pro-L 2 | LUFS metering, 8 styles, true peak, GR history | ✅ | ✅ LimiterSnapshot (6 fields) |
+| `fabfilter_gate_panel.dart` | FF-G | Pro-G | State indicator, threshold viz, hysteresis, sidechain filter | ✅ | ✅ GateSnapshot (16 fields) |
+| `fabfilter_reverb_panel.dart` | FF-R | Pro-R | Decay display, pre-delay, 8 space types, EQ | ✅ | ✅ ReverbSnapshot (11 fields) |
+| `fabfilter_deesser_panel.dart` | FF-E | Pro-DS | Frequency display, listen mode, 8 params | ✅ | ✅ DeEsserSnapshot (8 fields) |
+| `fabfilter_saturation_panel.dart` | FF-SAT | Saturn 2 | 6-band multiband, per-band drive/type/dynamics, crossover | ✅ | ✅ SaturationSnapshot (65 fields) |
+| `fabfilter_delay_panel.dart` | FF-DLY | Timeless 3 | Ping-pong, tempo sync, mod, filter, duck, freeze | ✅ | ✅ DelaySnapshot (14 fields) |
 
 **DSP Sub-Panels (FabFilter Style):**
 
@@ -3477,10 +3512,11 @@ track_set_input_monitor(track_id: u64, enabled: i32)
 track_get_input_monitor(track_id: u64) -> i32
 ```
 
-#### P0.4: Independent Floating Processor Editor Windows ✅ (Updated 2026-02-16)
-- Rewritten [internal_processor_editor_window.dart](flutter_ui/lib/widgets/dsp/internal_processor_editor_window.dart) (~751 LOC)
+#### P0.4: Independent Floating Processor Editor Windows ✅ (Updated 2026-02-21)
+- Rewritten [internal_processor_editor_window.dart](flutter_ui/lib/widgets/dsp/internal_processor_editor_window.dart) (~670 LOC)
 - **Full FabFilter panels** embedded in floating OverlayEntry windows (9 premium panel types)
-- **Generic slider fallback** for 4 vintage types (Expander, Pultec, API550, Neve1073)
+- **Authentic vintage hardware panels** for 3 vintage EQ types (Pultec, API550, Neve1073) — hardware-style knobs, CustomPainter per brand
+- **Generic slider fallback** for 1 type (Expander)
 - **ProcessorEditorRegistry** singleton — tracks open windows, prevents duplicates, staggered positioning
 - Draggable title bar, collapse toggle, bypass button, close button
 
@@ -3492,7 +3528,8 @@ track_get_input_monitor(track_id: u64) -> i32
 | Signal Analyzer node | Single click | `signal_analyzer_widget.dart:397` |
 
 **FabFilter Panels (9 types):** EQ (700×520), Compressor (660×500), Limiter/Gate/Reverb/Delay (620×480), Saturation (600×460), DeEsser (560×440)
-**Generic Sliders (4 types):** Expander, Pultec, API550, Neve1073 (400×350)
+**Vintage Hardware Panels (3 types):** Pultec (680×520), API550 (540×500), Neve1073 (640×520) — authentic rotary knobs
+**Generic Sliders (1 type):** Expander (400×350)
 
 **Usage:**
 ```dart

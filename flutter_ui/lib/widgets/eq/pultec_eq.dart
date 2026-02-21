@@ -648,6 +648,29 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
     );
   }
 
+  Widget _buildFooterKnob({
+    required double value,
+    required double min,
+    required double max,
+    required ValueChanged<double> onChanged,
+  }) {
+    return GestureDetector(
+      onPanUpdate: (details) {
+        final delta = -details.delta.dy * (max - min) / 100;
+        final newValue = (value + delta).clamp(min, max);
+        onChanged(newValue);
+      },
+      child: CustomPaint(
+        size: const Size(36, 36),
+        painter: _PultecKnobPainter(
+          value: value,
+          min: min,
+          max: max,
+        ),
+      ),
+    );
+  }
+
   Widget _buildFooter() {
     return Container(
       height: 50,
@@ -677,45 +700,99 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
 
           const Spacer(),
 
-          // Output level
-          Row(
+          // Output level knob
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
                 'OUTPUT',
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 8,
                   color: Color(0xFF8A8070),
+                  letterSpacing: 1,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(height: 2),
               SizedBox(
-                width: 100,
-                child: Slider(
+                width: 36,
+                height: 36,
+                child: _buildFooterKnob(
                   value: _params.outputLevel,
                   min: -12,
                   max: 12,
                   onChanged: (v) => _updateParams(_params.copyWith(outputLevel: v)),
-                  activeColor: const Color(0xFFD4C5A0),
-                  inactiveColor: const Color(0xFF2A2520),
-                ),
-              ),
-              SizedBox(
-                width: 50,
-                child: Text(
-                  '${_params.outputLevel >= 0 ? '+' : ''}${_params.outputLevel.toStringAsFixed(1)} dB',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFFD4C5A0),
-                    fontFamily: 'monospace',
-                  ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 50,
+            child: Text(
+              '${_params.outputLevel >= 0 ? '+' : ''}${_params.outputLevel.toStringAsFixed(1)} dB',
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFFD4C5A0),
+                fontFamily: 'monospace',
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+// Pultec-style knob painter for footer controls
+class _PultecKnobPainter extends CustomPainter {
+  final double value;
+  final double min;
+  final double max;
+
+  _PultecKnobPainter({required this.value, required this.min, required this.max});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+    final normalized = (value - min) / (max - min);
+    // Knob rotation: 225° to -45° (270° range)
+    final angle = (225 - normalized * 270) * math.pi / 180;
+
+    // Outer ring
+    canvas.drawCircle(
+      center, radius,
+      Paint()..color = const Color(0xFF1A1510)..style = PaintingStyle.fill,
+    );
+
+    // Knob body gradient
+    final gradient = RadialGradient(
+      center: const Alignment(-0.3, -0.3),
+      colors: const [Color(0xFFC8B898), Color(0xFF8A7A60), Color(0xFF6A5A40)],
+      stops: const [0.0, 0.6, 1.0],
+    );
+    canvas.drawCircle(
+      center, radius - 2,
+      Paint()..shader = gradient.createShader(Rect.fromCircle(center: center, radius: radius - 2)),
+    );
+
+    // Pointer line
+    final pointerStart = Offset(
+      center.dx + math.cos(angle) * (radius * 0.3),
+      center.dy - math.sin(angle) * (radius * 0.3),
+    );
+    final pointerEnd = Offset(
+      center.dx + math.cos(angle) * (radius - 4),
+      center.dy - math.sin(angle) * (radius - 4),
+    );
+    canvas.drawLine(pointerStart, pointerEnd,
+      Paint()..color = const Color(0xFF1A1510)..strokeWidth = 2..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PultecKnobPainter old) =>
+      old.value != value || old.min != min || old.max != max;
 }
 
 // VU meter scale painter

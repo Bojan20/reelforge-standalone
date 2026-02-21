@@ -666,18 +666,37 @@ All FabFilter panels now use `insertSetParam(trackId, slotIndex, paramIndex, val
 
 ---
 
-### P1.8: Vintage EQ DspChainProvider Integration (2026-02-15) — ✅ COMPLETE
+### P1.8: Vintage EQ DspChainProvider Integration (2026-02-15, Updated 2026-02-21) — ✅ COMPLETE
 
 Vintage EQs (Pultec, API 550A, Neve 1073) were already supported in Rust backend (`create_processor_extended()`) but had NO exposure in the DAW insert chain UI.
 
-**Changes (8 files):**
+**Phase 1 — DspChainProvider Integration (2026-02-15):**
 
 - [x] Added `DspNodeType.pultec`, `DspNodeType.api550`, `DspNodeType.neve1073` to enum
 - [x] Added `_typeToProcessorName()` mappings: pultec→'pultec', api550→'api550', neve1073→'neve1073'
 - [x] Added `_defaultParams()` for all 3 vintage EQ types
 - [x] Added `_restoreNodeParameters()` for drag-drop reorder preservation
-- [x] Added editor panels in `internal_processor_editor_window.dart` (`_buildPultecParams`, `_buildApi550Params`, `_buildNeve1073Params`)
 - [x] Updated exhaustive switches in: `fx_chain_panel.dart`, `rtpc_system_provider.dart`, `processor_graph_widget.dart`, `signal_analyzer_widget.dart`, `slotlab_lower_zone_widget.dart`, `processor_cpu_meter.dart`
+
+**Phase 2 — Authentic Hardware Knob UIs (2026-02-21):**
+
+Replaced all Sliders with authentic hardware-style rotary knobs + CustomPainter per brand.
+
+- [x] `pultec_eq.dart` (~842 LOC) — `_PultecKnobPainter`: cream/bronze radial gradient, VU meter, tube glow
+- [x] `api550_eq.dart` (~592 LOC) — `_ApiKnobPainter`: dark metallic body, blue accent arc, LED indicators
+- [x] `neve1073_eq.dart` (~907 LOC) — `_NeveFooterKnobPainter`: silver radial gradient, burgundy pointer
+- [x] `internal_processor_editor_window.dart` — Vintage types upgraded to premium panel path (`_hasPremiumPanel()` returns true)
+- [x] Fixed `_windowSizeForType()` dead code bug — vintage types now get correct sizes (680×520, 540×500, 640×520)
+- [x] Removed ~120 LOC dead code (generic slider methods for vintage types)
+
+**QA Verification (2026-02-21):**
+
+| Check | Result |
+|-------|--------|
+| FFI param indices (Dart→Rust `set_param()`) | ✅ Pultec (0-3), API (0-2), Neve (0-2) — all correct |
+| Generic `insertSetParam()` routing | ✅ ring buffer → InsertChain → Wrapper → DSP filters |
+| DspChainProvider.addNode() | ✅ Correct processor names + default params |
+| `_restoreNodeParameters()` consistency | ✅ Same indices as editor window |
 
 **Naming convention:** `FF EQP1A`, `FF 550A`, `FF 1073` (FluxForge-branded)
 
