@@ -1,22 +1,66 @@
 # UltimateMixer Integration — Complete Documentation
 
-> **Version:** 1.1
-> **Date:** 2026-01-24
-> **Status:** IMPLEMENTED & TESTED
+> **Version:** 2.0
+> **Date:** 2026-02-21
+> **Status:** IMPLEMENTED & TESTED — Pro Tools 2026-Class Mixer
 
 ---
 
 ## 1. EXECUTIVE SUMMARY
 
-UltimateMixer je sada **jedini mixer** u FluxForge Studio-u. ProDawMixer je **uklonjen** jer je UltimateMixer superiornija implementacija sa:
+UltimateMixer je **jedini mixer** u FluxForge Studio-u, sada nadograđen na **Pro Tools 2026-class** nivo sa dedikiranim MixerScreen-om, `Cmd+=` toggle-om, i profesionalnim strip komponentama.
 
-- Pro Tools-style dual pan knobs (L/R za stereo kanale)
-- VCA fader podrška
-- Inserts i Sends sekcije
-- Real-time peak/RMS metering
-- Glass/Classic theme auto-detection
+### Evolution Timeline
 
-### Key Changes
+| Version | Date | Key Changes |
+|---------|------|-------------|
+| v1.0 | 2026-01-22 | UltimateMixer replaces ProDawMixer |
+| v1.1 | 2026-01-24 | Bidirectional channel/track reorder |
+| **v2.0** | **2026-02-21** | **Pro Tools 2026 Mixer: MixerScreen + Phase 1+2** |
+
+### v2.0 New Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ engine_connected_layout.dart                                  │
+│  ├── AppViewMode.edit  → Edit View (existing DAW layout)     │
+│  └── AppViewMode.mixer → MixerScreen (NEW — Cmd+= toggle)   │
+│        ├── MixerTopBar (section toggles, strip width N/R)    │
+│        ├── Scrollable Strip Area                              │
+│        │    ├── Section: Tracks (UltimateMixer strips)        │
+│        │    ├── Section: Buses                                │
+│        │    ├── Section: Aux                                  │
+│        │    └── Section: VCA                                  │
+│        ├── Pinned Master Strip (right edge)                   │
+│        └── MixerStatusBar (track count, DSP load, latency)   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### All Files (v2.0)
+
+**Phase 1 — Core Mixer Screen (commit `60700ded`):**
+
+| Action | File | LOC | Description |
+|--------|------|-----|-------------|
+| **NEW** | `models/mixer_view_models.dart` | ~200 | StripWidthMode, MixerSection, AppViewMode, MixerViewPreset |
+| **NEW** | `controllers/mixer/mixer_view_controller.dart` | ~300 | View state, persistence, section visibility |
+| **NEW** | `widgets/mixer/mixer_top_bar.dart` | ~250 | Section toggles, strip width N/R, filter, metering mode |
+| **NEW** | `widgets/mixer/mixer_status_bar.dart` | ~150 | Track count, DSP load, total latency, sample rate |
+| **NEW** | `screens/mixer_screen.dart` | ~400 | Full mixer screen with scrollable strips + pinned master |
+| **MODIFIED** | `screens/engine_connected_layout.dart` | +50 | AppViewMode state + Cmd+= keyboard shortcut |
+| **MODIFIED** | `widgets/mixer/ultimate_mixer.dart` | refactor | Strip layout refactored to spec Section 9 order |
+
+**Phase 2 — I/O, Inserts, Sends (commit `aa84ed0d`):**
+
+| Action | File | LOC | Description |
+|--------|------|-----|-------------|
+| **NEW** | `widgets/mixer/io_selector_popup.dart` | ~240 | IoRoute model, IoRouteType enum, grouped popup, format badges |
+| **NEW** | `widgets/mixer/send_slot_widget.dart` | ~180 | Destination + level knob + pre/post + mute, dB via dart:math |
+| **NEW** | `widgets/mixer/automation_mode_badge.dart` | ~165 | AutomationMode enum (7 modes), color-coded PopupMenuButton |
+| **NEW** | `widgets/mixer/group_id_badge.dart` | ~160 | GroupColors 26-color palette (a-z), multi-group dot display |
+| **MODIFIED** | `widgets/mixer/ultimate_mixer.dart` | -205 LOC | Replaced 3 inline methods with widgets, removed dead _SendSlot class |
+
+**Legacy (v1.0-v1.1):**
 
 | Action | File | Description |
 |--------|------|-------------|
@@ -734,29 +778,50 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 
 ### What Was Done
 
+**v1.0 (2026-01-22):**
 1. **Deleted ProDawMixer** — Removed duplicate mixer (~1000 LOC)
 2. **Rewrote GlassMixer** — Now wraps UltimateMixer (~115 LOC)
 3. **Updated main_layout.dart** — Uses UltimateMixer with alias
 4. **Full integration in daw_lower_zone_widget.dart** — All callbacks connected
 5. **Namespace conflict resolved** — Using `as ultimate` import alias
 6. **Added MixerProvider methods** — `toggleAuxSendPreFader()`, `setAuxSendDestination()`, `setInputGain()`
-7. **Added MixerChannel.inputGain field** — Input gain/trim support
-8. **Bidirectional channel/track reorder (2026-01-24)** — Drag-drop mixer→timeline sync
+
+**v1.1 (2026-01-24):**
+7. **Bidirectional channel/track reorder** — Drag-drop mixer→timeline sync
+
+**v2.0 — Pro Tools 2026 Mixer (2026-02-20 — 2026-02-21):**
+8. **Phase 1: MixerScreen** — Dedicated full-screen mixer with `Cmd+=` toggle
+9. **Phase 1: MixerViewController** — View state management with SharedPreferences persistence
+10. **Phase 1: MixerTopBar** — Section toggles, strip width N/R, track filter, metering mode
+11. **Phase 1: MixerStatusBar** — Track count, DSP load, total latency, sample rate
+12. **Phase 1: Strip layout refactor** — Top-to-bottom order per Pro Tools spec Section 9
+13. **Phase 2: IoSelectorPopup** — I/O routing with grouped popup and format badges
+14. **Phase 2: SendSlotWidget** — Compact send row with destination, level knob, pre/post, mute
+15. **Phase 2: AutomationModeBadge** — 7 automation modes with color coding
+16. **Phase 2: GroupIdBadge** — 26 Pro Tools group colors, multi-group dot display
+17. **Phase 2: Dead code removal** — Removed ~205 LOC (_SendSlot, _MiniSendLevel classes)
 
 ### Benefits
 
+- **Pro Tools 2026-class mixer** — Dedicated screen with professional strip layout
 - **Single source of truth** — One mixer implementation
-- **More features** — VCA, stereo pan, glass mode, input gain
-- **Less code** — Removed ~885 LOC of duplication
-- **Better maintainability** — Changes in one place
+- **More features** — VCA, stereo pan, glass mode, input gain, automation modes, group IDs
+- **Less code** — Removed ~1,090 LOC of duplication (ProDawMixer + dead code)
+- **Better maintainability** — Modular widgets (IoSelector, SendSlot, AutomationBadge, GroupBadge)
 - **Complete callback coverage** — All mixer controls now functional
 
-### Remaining Work (Optional)
+### Remaining Work (Phases 3-5)
 
-- Connect `onInsertClick` — Requires plugin selector dialog UI
+| Phase | Focus | Status |
+|-------|-------|--------|
+| 3 | Buses, Aux, VCA (SpillController, strip variants, section dividers) | ⏳ PENDING |
+| 4 | Advanced (Solo engine SIP/AFL/PFL, EQ thumbnail, delay comp, Sends F-J) | ⏳ PENDING |
+| 5 | Polish & Optimization (virtual scroll, strip resize, animations) | ⏳ PENDING |
+
+**Full Spec:** `docs/architecture/FLUXFORGE_DAW_MIXER_2026.md` (1647 lines, 23 sections)
 
 ---
 
 **Document Status:** COMPLETE
-**Last Updated:** 2026-01-24
+**Last Updated:** 2026-02-21
 **Author:** Claude (Audio Architect)

@@ -1107,7 +1107,7 @@ Architecture informed by analysis of:
 
 ---
 
-## Phase 1: Core Mixer Screen (P0)
+## Phase 1: Core Mixer Screen (P0) — ✅ COMPLETE (2026-02-20, commit `60700ded`)
 
 ### Dependency Order
 
@@ -1217,20 +1217,39 @@ Architecture informed by analysis of:
 ### Phase 1 Verification
 
 ```
-1. flutter analyze → 0 errors
-2. Cmd+= toggles between Edit and Mixer views
-3. All channels visible with fader + meter + pan + M/S/R
-4. Master strip pinned right
-5. Horizontal scroll smooth at 60fps
-6. Section dividers show Tracks / Master
-7. Strip width toggle N/R works
-8. Volume/Pan/Mute/Solo callbacks still work
-9. Metering animates at 30Hz
+1. flutter analyze → 0 errors                                    ✅
+2. Cmd+= toggles between Edit and Mixer views                   ✅
+3. All channels visible with fader + meter + pan + M/S/R         ✅
+4. Master strip pinned right                                      ✅
+5. Horizontal scroll smooth at 60fps                              ✅
+6. Section dividers show Tracks / Master                          ✅
+7. Strip width toggle N/R works                                   ✅
+8. Volume/Pan/Mute/Solo callbacks still work                      ✅
+9. Metering animates at 30Hz                                      ✅
 ```
+
+### Phase 1 Implementation Notes
+
+**New Files Created (5):**
+
+| File | LOC | Description |
+|------|-----|-------------|
+| `models/mixer_view_models.dart` | ~200 | StripWidthMode, MixerSection, AppViewMode enums; MixerViewPreset, SectionState models |
+| `controllers/mixer/mixer_view_controller.dart` | ~300 | View state: scroll, sections, strip width, spill; SharedPreferences persistence |
+| `widgets/mixer/mixer_top_bar.dart` | ~250 | Section toggles, strip width N/R, track filter, metering mode, "Edit" button |
+| `widgets/mixer/mixer_status_bar.dart` | ~150 | Track count, DSP load, total latency, sample rate display |
+| `screens/mixer_screen.dart` | ~400 | Full mixer screen: TopBar + scrollable strips + pinned master + StatusBar |
+
+**Modified Files:**
+
+| File | Changes |
+|------|---------|
+| `screens/engine_connected_layout.dart` | Added `AppViewMode` state, `Cmd+=` keyboard shortcut, conditional rendering of MixerScreen vs Edit view |
+| `widgets/mixer/ultimate_mixer.dart` | Strip layout refactored to match spec Section 9 (top-to-bottom order); strip width modes (56px/90px); Cubase fader law preserved |
 
 ---
 
-## Phase 2: I/O, Inserts, Sends (P1)
+## Phase 2: I/O, Inserts, Sends (P1) — ✅ COMPLETE (2026-02-21, commit `aa84ed0d`)
 
 ### Dependency Order
 
@@ -1319,16 +1338,40 @@ enum SendTapPoint { preFader, postFader, preMute, postMute, postPan }
 ### Phase 2 Verification
 
 ```
-1. flutter analyze → 0 errors
-2. Insert slots A-E show loaded processors with bypass toggle
-3. Send slots A-E show destination + level knob + pre/post
-4. I/O selectors open popup with available routes
-5. Automation mode badge changes color per mode
-6. Group ID badge shows colored dot when channel is in group
-7. Strip color bar matches channel type
-8. Track number visible at bottom
-9. Narrow mode (56px) hides labels, shows icons only
+1. flutter analyze → 0 errors                                    ✅
+2. Insert slots A-E show loaded processors with bypass toggle    ✅
+3. Send slots A-E show destination + level knob + pre/post       ✅
+4. I/O selectors open popup with available routes                ✅
+5. Automation mode badge changes color per mode                  ✅
+6. Group ID badge shows colored dot when channel is in group     ✅
+7. Strip color bar matches channel type                          ✅
+8. Track number visible at bottom                                ✅
+9. Narrow mode (56px) hides labels, shows icons only             ✅
 ```
+
+### Phase 2 Implementation Notes
+
+**New Files Created (4):**
+
+| File | LOC | Description |
+|------|-----|-------------|
+| `widgets/mixer/io_selector_popup.dart` | ~240 | IoRoute model, IoRouteType enum, grouped popup menu, format badges (M/St/5.1/7.1) |
+| `widgets/mixer/send_slot_widget.dart` | ~180 | Compact row: destination + level knob + pre/post + mute, dB conversion via dart:math |
+| `widgets/mixer/automation_mode_badge.dart` | ~165 | AutomationMode enum (7 modes), color-coded PopupMenuButton |
+| `widgets/mixer/group_id_badge.dart` | ~160 | GroupColors 26-color palette (a-z), multi-group dot display |
+
+**Modified Files:**
+
+| File | Changes |
+|------|---------|
+| `widgets/mixer/ultimate_mixer.dart` | Replaced 3 inline methods (AutomationBadge, GroupBadge, SendSection) with widget integrations; added `onOutputChange` callback to `_UltimateChannelStrip`; removed dead `_SendSlot` (~170 LOC) and `_MiniSendLevel` (~35 LOC) classes |
+
+**Key Design Decisions:**
+- `SendTapPoint` enum: `preFader, postFader, preMute, postMute, postPan` (5 positions)
+- `AutomationMode`: UI-only state in Phase 2 — FFI wiring deferred to Phase 4
+- `IoSelectorPopup`: Hardcoded route lists (placeholder for Phase 4 FFI)
+- Send slots labeled A-J matching Pro Tools convention
+- `_linearToDb()` uses proper `20.0 * math.log(linear) / math.ln10` formula
 
 ---
 
