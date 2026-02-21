@@ -10,7 +10,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
+import '../../utils/safe_file_picker.dart';
 import '../../providers/recording_provider.dart';
 import '../../providers/track_provider.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -330,7 +330,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
   }
 
   Future<void> _selectOutputDirectory(RecordingProvider recording) async {
-    final result = await FilePicker.platform.getDirectoryPath(
+    final result = await SafeFilePicker.getDirectoryPath(context,
       dialogTitle: 'Select Recording Output Directory',
       initialDirectory: recording.outputDir,
     );

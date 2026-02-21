@@ -11,7 +11,7 @@
 /// - Export to Markdown report
 
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
+import '../../utils/safe_file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/slot_lab_project_provider.dart';
@@ -1176,7 +1176,7 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
     final report = _generateMarkdownReport(projectProvider, middlewareProvider);
 
     // Pick save location
-    final result = await FilePicker.platform.saveFile(
+    final result = await SafeFilePicker.saveFile(context,
       dialogTitle: 'Export Project Report',
       fileName: 'slotlab_project_report.md',
       type: FileType.custom,

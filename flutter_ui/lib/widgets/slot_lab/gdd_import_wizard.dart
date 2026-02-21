@@ -20,7 +20,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:file_picker/file_picker.dart';
+import '../../utils/safe_file_picker.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../../services/gdd_import_service.dart';
 import '../../services/stage_configuration_service.dart';
@@ -629,7 +629,7 @@ class _GddImportWizardState extends State<GddImportWizard>
   }
 
   Future<void> _loadFromFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await SafeFilePicker.pickFiles(context,
       type: FileType.custom,
       allowedExtensions: ['json', 'pdf'],
     );

@@ -18,7 +18,7 @@ import '../../models/soundbank_models.dart';
 import '../../providers/soundbank_provider.dart';
 import '../../providers/middleware_provider.dart';
 import '../../theme/fluxforge_theme.dart';
-import '../../services/native_file_picker.dart';
+import '../common/in_app_file_browser.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -893,7 +893,7 @@ class _AssetsTab extends StatelessWidget {
 
   Future<void> _addAssets(BuildContext context) async {
     try {
-      final files = await NativeFilePicker.pickAudioFiles();
+      final files = await InAppFileBrowser.pickAudioFiles(context);
       if (files.isNotEmpty) {
         final provider = context.read<SoundbankProvider>();
         await provider.addAssets(bank.manifest.id, files);
@@ -1695,7 +1695,7 @@ class _ExportTabState extends State<_ExportTab> {
 
   Future<void> _selectOutputPath() async {
     try {
-      final directory = await NativeFilePicker.pickAudioFolder();
+      final directory = await InAppFileBrowser.pickDirectory(context, title: 'Select Output Folder');
       if (directory != null) {
         setState(() => _outputPath = directory);
       }

@@ -8,7 +8,7 @@
 /// Tailored for game audio authoring workflow.
 
 import 'dart:math' as math;
-import 'package:file_picker/file_picker.dart';
+import '../utils/safe_file_picker.dart';
 import 'package:flutter/material.dart';
 
 class MiddlewareHubScreen extends StatefulWidget {
@@ -1134,7 +1134,7 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
   }
 
   Future<void> _showOpenDialog() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await SafeFilePicker.pickFiles(context,
       type: FileType.custom,
       allowedExtensions: ['fxm'],
       dialogTitle: 'Open Middleware Project',

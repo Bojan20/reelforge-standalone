@@ -12,7 +12,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
+import '../../utils/safe_file_picker.dart';
 import '../../utils/path_validator.dart';
 import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_audio_events.dart';
@@ -410,7 +410,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   /// Import audio files via file picker and add to AudioAssetManager
   /// ⚡ INSTANT IMPORT — Files appear immediately, metadata loads in background
   Future<void> _importAudioFiles() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await SafeFilePicker.pickFiles(context,
       type: FileType.custom,
       allowedExtensions: PathValidator.allowedExtensions,
       allowMultiple: true,
@@ -450,7 +450,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   /// Import entire folder of audio files
   /// ⚡ INSTANT IMPORT — Files appear immediately, metadata loads in background
   Future<void> _importAudioFolder() async {
-    final result = await FilePicker.platform.getDirectoryPath();
+    final result = await SafeFilePicker.getDirectoryPath(context);
 
     if (result != null) {
       final dir = Directory(result);

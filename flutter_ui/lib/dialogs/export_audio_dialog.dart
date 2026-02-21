@@ -11,7 +11,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+import '../utils/safe_file_picker.dart';
 import '../src/rust/engine_api.dart' as api;
 
 /// Export format options
@@ -1513,7 +1513,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
   }
 
   Future<void> _browseOutputPath() async {
-    final result = await FilePicker.platform.saveFile(
+    final result = await SafeFilePicker.saveFile(context,
       dialogTitle: 'Export Audio',
       fileName: '${widget.projectName}.$_formatExtension',
       type: FileType.custom,

@@ -12,7 +12,7 @@ import 'dart:math' as math;
 import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
+import '../../utils/safe_file_picker.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../providers/recording_provider.dart';
 import '../../src/rust/native_ffi.dart';
@@ -685,7 +685,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
   }
 
   void _browseOutputDir() async {
-    final result = await FilePicker.platform.getDirectoryPath(
+    final result = await SafeFilePicker.getDirectoryPath(context,
       dialogTitle: 'Select Recording Output Directory',
     );
 

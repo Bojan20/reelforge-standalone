@@ -10,7 +10,7 @@
 /// Hybrid design taking the best from each.
 
 import 'dart:math' as math;
-import 'package:file_picker/file_picker.dart';
+import '../utils/safe_file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/recent_projects_provider.dart';
@@ -931,7 +931,7 @@ class _DawHubScreenState extends State<DawHubScreen>
   }
 
   Future<void> _showOpenDialog() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await SafeFilePicker.pickFiles(context,
       type: FileType.custom,
       allowedExtensions: ['rfp'],
       dialogTitle: 'Open DAW Project',

@@ -55,7 +55,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../services/native_file_picker.dart';
+import '../widgets/common/in_app_file_browser.dart';
 import '../services/audio_playback_service.dart';
 import '../services/service_locator.dart';
 import '../services/unified_search_service.dart';
@@ -2152,10 +2152,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Open Project - file picker for .rfp files
   Future<void> _handleOpenProject(EngineProvider engine) async {
-    final path = await NativeFilePicker.pickJsonFile();
-    if (path == null) return;
+    final paths = await InAppFileBrowser.pickFiles(context, title: 'Open Project', allowMultiple: false, allowedExtensions: {'json', 'rfp'});
+    if (paths.isEmpty) return;
 
-    await engine.loadProject(path);
+    await engine.loadProject(paths.first);
   }
 
   /// Save Project
@@ -2167,10 +2167,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Save Project As - file picker for save location
   Future<void> _handleSaveProjectAs(EngineProvider engine) async {
-    final path = await NativeFilePicker.saveFile(
-      suggestedName: '${engine.project.name}.rfp',
-      fileType: 'json',
-    );
+    final path = await InAppFileBrowser.saveFile(context, title: 'Save Project As', suggestedName: '${engine.project.name}.rfp');
 
     if (path == null) return;
     await engine.saveProject(path);
@@ -2194,8 +2191,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Import JSON routes (Middleware mode)
   Future<void> _handleImportJSON() async {
-    final path = await NativeFilePicker.pickJsonFile();
-    if (path == null) return;
+    final jsonPaths = await InAppFileBrowser.pickFiles(context, title: 'Import JSON', allowMultiple: false, allowedExtensions: {'json'});
+    if (jsonPaths.isEmpty) return;
+    final path = jsonPaths.first;
 
     // Read and parse JSON
     // TODO: Load routes from file
@@ -2210,7 +2208,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Import entire audio folder to Pool
   Future<void> _handleImportAudioFolder() async {
-    final result = await NativeFilePicker.pickAudioFolder();
+    final result = await InAppFileBrowser.pickDirectory(context, title: 'Select Audio Folder');
 
     if (result == null) {
       return;
@@ -3331,7 +3329,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   ///
   /// **INSTANT IMPORT** — Files appear immediately, metadata loads in background
   Future<void> _openFilePicker() async {
-    final paths = await NativeFilePicker.pickAudioFiles();
+    final paths = await InAppFileBrowser.pickAudioFiles(context);
 
     if (paths.isEmpty) {
       return;

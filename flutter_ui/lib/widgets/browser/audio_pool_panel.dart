@@ -14,7 +14,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../services/native_file_picker.dart';
+import '../common/in_app_file_browser.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../debug/debug_console.dart';
@@ -403,7 +403,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
 
   Future<void> _importFiles() async {
     // Use native file picker for multiple file selection
-    final paths = await NativeFilePicker.pickAudioFiles();
+    final paths = await InAppFileBrowser.pickAudioFiles(context);
     if (paths.isEmpty) return;
 
     debugLog('Importing ${paths.length} files instantly...', source: 'AudioPool');

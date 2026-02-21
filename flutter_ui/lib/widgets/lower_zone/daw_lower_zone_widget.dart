@@ -23,7 +23,7 @@ import 'daw_files_browser.dart';
 import '../../services/track_preset_service.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../providers/timeline_playback_provider.dart' show TimelineClipData;
-import 'package:file_picker/file_picker.dart';
+import '../../utils/safe_file_picker.dart';
 import '../../services/service_locator.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
@@ -1526,7 +1526,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawSuperTab.browse => DawActions.forBrowse(
         onImport: () async {
           // Import audio files via FilePicker
-          final result = await FilePicker.platform.pickFiles(
+          final result = await SafeFilePicker.pickFiles(context,
             type: FileType.custom,
             allowedExtensions: pv.PathValidator.allowedExtensions,
             allowMultiple: true,

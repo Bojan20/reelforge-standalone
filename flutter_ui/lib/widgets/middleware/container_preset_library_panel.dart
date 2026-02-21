@@ -11,7 +11,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
+import '../../utils/safe_file_picker.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/container_preset_service.dart';
@@ -1500,7 +1500,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
 
   Future<void> _importPreset() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await SafeFilePicker.pickFiles(context,
         type: FileType.custom,
         allowedExtensions: ['ffxcontainer', 'json'],
         dialogTitle: 'Import Container Preset',
@@ -1526,7 +1526,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
 
   Future<void> _exportUserPreset(ContainerPreset preset) async {
     try {
-      final result = await FilePicker.platform.saveFile(
+      final result = await SafeFilePicker.saveFile(context,
         dialogTitle: 'Export Container Preset',
         fileName: '${preset.name}$kPresetExtension',
         type: FileType.custom,

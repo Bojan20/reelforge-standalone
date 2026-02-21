@@ -52,7 +52,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../services/native_file_picker.dart';
+import '../widgets/common/in_app_file_browser.dart';
 import '../services/audio_playback_service.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/stage_provider.dart';
@@ -2080,7 +2080,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// **INSTANT IMPORT** — Files appear immediately, metadata loads in background
   Future<void> _importAudioFiles() async {
     try {
-      final paths = await NativeFilePicker.pickAudioFiles();
+      final paths = await InAppFileBrowser.pickAudioFiles(context);
 
       if (paths.isEmpty) return;
 
@@ -2116,7 +2116,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// **INSTANT IMPORT** — Files appear immediately, metadata loads in background
   Future<void> _importAudioFolder() async {
     try {
-      final result = await NativeFilePicker.pickAudioFolder();
+      final result = await InAppFileBrowser.pickDirectory(context, title: 'Select Audio Folder');
 
       if (result == null) return;
 

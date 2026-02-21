@@ -25,7 +25,7 @@ import '../../src/rust/native_ffi.dart';
 import '../../config/stage_config.dart'; // P1.16 + P1.17
 import '../../theme/fluxforge_theme.dart';
 import 'audio_hover_preview.dart';
-import 'package:file_picker/file_picker.dart'; // P2.1: Batch assign file picker
+import '../../utils/safe_file_picker.dart'; // P2.1: Batch assign file picker
 import '../../utils/path_validator.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -841,7 +841,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
   /// P1.5: Show file picker for assigning audio to a single stage
   Future<void> _showAssignAudioFilePicker(String stageType) async {
     // Use file_picker to select audio file
-    final result = await FilePicker.platform.pickFiles(
+    final result = await SafeFilePicker.pickFiles(context,
       type: FileType.custom,
       allowedExtensions: PathValidator.allowedExtensions,
       dialogTitle: 'Select audio for ${_formatStageName(stageType)}',
@@ -1625,7 +1625,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
     if (_selectedStageIndices.isEmpty) return;
 
     // Use file_picker to select audio file
-    final result = await FilePicker.platform.pickFiles(
+    final result = await SafeFilePicker.pickFiles(context,
       type: FileType.custom,
       allowedExtensions: PathValidator.allowedExtensions,
       dialogTitle: 'Select audio for ${_selectedStageIndices.length} stages',

@@ -7,7 +7,7 @@
 /// - Quick start templates
 
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+import '../utils/safe_file_picker.dart';
 import 'package:provider/provider.dart';
 import '../theme/fluxforge_theme.dart';
 import '../providers/recent_projects_provider.dart';
@@ -74,7 +74,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   }
 
   Future<void> _handleOpenProject() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await SafeFilePicker.pickFiles(context,
       dialogTitle: 'Open Project',
       type: FileType.custom,
       allowedExtensions: ['rfp', 'json'],
@@ -205,7 +205,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   label: 'Import Audio',
                   sublabel: 'Create project from audio files',
                   onTap: () async {
-                    final result = await FilePicker.platform.pickFiles(
+                    final result = await SafeFilePicker.pickFiles(context,
                       dialogTitle: 'Import Audio Files',
                       type: FileType.audio,
                       allowMultiple: true,

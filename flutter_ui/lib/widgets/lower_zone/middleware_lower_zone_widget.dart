@@ -12,7 +12,7 @@ import 'dart:convert';
 import 'dart:io' show Directory, File;
 import 'dart:math' as math;
 
-import 'package:file_picker/file_picker.dart';
+import '../../utils/safe_file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../utils/path_validator.dart';
 import 'package:provider/provider.dart';
@@ -1291,7 +1291,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: events.isEmpty ? null : () async {
-                        final result = await FilePicker.platform.saveFile(
+                        final result = await SafeFilePicker.saveFile(context,
                           dialogTitle: 'Export Events',
                           fileName: 'events_export.json',
                           type: FileType.custom,
@@ -1579,7 +1579,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () async {
-                        final result = await FilePicker.platform.getDirectoryPath(
+                        final result = await SafeFilePicker.getDirectoryPath(context,
                           dialogTitle: 'Select Output Directory',
                         );
                         if (result != null && context.mounted) {
@@ -1726,7 +1726,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
         onAddSound: () async {
           // Pick audio file and add to current container type
           final subTab = widget.controller.state.containersSubTab;
-          final result = await FilePicker.platform.pickFiles(
+          final result = await SafeFilePicker.pickFiles(context,
             type: FileType.custom,
             allowedExtensions: PathValidator.allowedExtensions,
           );
@@ -1898,7 +1898,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
         onBake: () async {
           // Export events to JSON file
           if (middleware != null) {
-            final result = await FilePicker.platform.saveFile(
+            final result = await SafeFilePicker.saveFile(context,
               dialogTitle: 'Export Events',
               fileName: 'events_export.json',
               type: FileType.custom,
@@ -1912,7 +1912,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
         },
         onPackage: () async {
           // Create soundbank package
-          final result = await FilePicker.platform.getDirectoryPath(
+          final result = await SafeFilePicker.getDirectoryPath(context,
             dialogTitle: 'Select Output Directory',
           );
           if (result != null && middleware != null) {
