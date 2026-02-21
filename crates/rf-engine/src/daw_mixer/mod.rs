@@ -86,3 +86,21 @@ impl VcaEngine {
 // ==========================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpillMode {
+    Vca,
+    Folder,
+}
+
+pub struct SpillEngine {
+    mode: SpillMode,
+    spill_targets: HashSet<DawChannelId>,
+}
+
+impl SpillEngine {
+    pub fn new() -> Self {
+        Self {
+            mode: SpillMode::Vca,
+            spill_targets: HashSet::new(),
+        }
+    }
+}
