@@ -136,7 +136,7 @@ lazy_static::lazy_static! {
     /// Project dirty state tracking
     static ref PROJECT_STATE: ProjectState = ProjectState::new();
     /// Click track / metronome
-    static ref CLICK_TRACK: RwLock<crate::click::ClickTrack> = RwLock::new(crate::click::ClickTrack::new(48000));
+    pub(crate) static ref CLICK_TRACK: RwLock<crate::click::ClickTrack> = RwLock::new(crate::click::ClickTrack::new(48000));
     /// Export engine (Phase 12)
     static ref EXPORT_ENGINE: crate::export::ExportEngine = crate::export::ExportEngine::new(
         Arc::clone(&PLAYBACK_ENGINE),
@@ -3301,6 +3301,66 @@ pub extern "C" fn click_set_count_in(mode: u8) {
 #[unsafe(no_mangle)]
 pub extern "C" fn click_set_pan(pan: f64) {
     CLICK_TRACK.write().set_pan(pan as f32);
+}
+
+/// Get click volume (0.0 - 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_volume() -> f64 {
+    CLICK_TRACK.read().get_volume() as f64
+}
+
+/// Get click pattern (0=Quarter, 1=Eighth, 2=Sixteenth, 3=Triplet, 4=DownbeatOnly)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_pattern() -> u8 {
+    CLICK_TRACK.read().get_pattern()
+}
+
+/// Get count-in mode (0=Off, 1=OneBar, 2=TwoBars, 3=FourBeats)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_count_in() -> u8 {
+    CLICK_TRACK.read().get_count_in()
+}
+
+/// Get click pan (-1.0 left, 0.0 center, 1.0 right)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_pan() -> f64 {
+    CLICK_TRACK.read().get_pan() as f64
+}
+
+/// Set click tempo (BPM) — thread-safe
+#[unsafe(no_mangle)]
+pub extern "C" fn click_set_tempo(bpm: f64) {
+    CLICK_TRACK.read().set_tempo(bpm);
+}
+
+/// Get click tempo (BPM)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_tempo() -> f64 {
+    CLICK_TRACK.read().get_tempo()
+}
+
+/// Set beats per bar (time signature numerator, 1-16)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_set_beats_per_bar(beats: u8) {
+    CLICK_TRACK.write().set_beats_per_bar(beats);
+}
+
+/// Get beats per bar
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_beats_per_bar() -> u8 {
+    CLICK_TRACK.read().get_beats_per_bar()
+}
+
+/// Set "only during recording" mode (Pro Tools Click Options behavior)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_set_only_during_record(enabled: i32) {
+    CLICK_TRACK.read().set_only_during_record(enabled != 0);
+}
+
+/// Get "only during recording" mode
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_only_during_record() -> i32 {
+    if CLICK_TRACK.read().get_only_during_record() { 1 } else { 0 }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

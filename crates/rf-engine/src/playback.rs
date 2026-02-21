@@ -4661,6 +4661,18 @@ impl PlaybackEngine {
             }
         }
 
+        // === METRONOME / CLICK TRACK ===
+        // Process click track when transport is playing (like Cubase/Pro Tools).
+        // Uses try_write() to avoid blocking the audio thread if UI is changing settings.
+        // Passes is_recording so click can implement "only during record" mode.
+        if self.position.is_playing() {
+            if let Some(mut click) = crate::ffi::CLICK_TRACK.try_write() {
+                let start_sample = self.position.samples().saturating_sub(frames as u64);
+                let is_recording = self.position.is_recording();
+                click.process_block(output_l, output_r, start_sample, frames, is_recording);
+            }
+        }
+
         // === CONTROL ROOM MONITOR PROCESSING ===
         // Process monitor output (applies dim, mono, speaker cal, routes solo/cue)
         self.control_room.process_monitor_output(output_l, output_r);

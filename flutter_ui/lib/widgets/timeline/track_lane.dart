@@ -48,6 +48,12 @@ class TrackLane extends StatefulWidget {
   final void Function(String clipId, String newName)? onClipRename;
   final void Function(String clipId, double newSourceOffset)? onClipSlipEdit;
   final void Function(String clipId)? onClipOpenAudioEditor;
+  /// Tool callbacks for clip operations (split, delete, mute)
+  final ValueChanged<String>? onClipSplit;
+  final ValueChanged<String>? onClipDelete;
+  final ValueChanged<String>? onClipMute;
+  /// Shuffle mode: move clip and push adjacent clips
+  final void Function(String clipId, double newStartTime)? onClipShuffleMove;
   final void Function(String crossfadeId, double duration)? onCrossfadeUpdate;
   /// Full crossfade update with startTime and duration
   final void Function(String crossfadeId, double startTime, double duration)? onCrossfadeFullUpdate;
@@ -90,6 +96,10 @@ class TrackLane extends StatefulWidget {
     this.onClipRename,
     this.onClipSlipEdit,
     this.onClipOpenAudioEditor,
+    this.onClipSplit,
+    this.onClipDelete,
+    this.onClipMute,
+    this.onClipShuffleMove,
     this.onCrossfadeUpdate,
     this.onCrossfadeFullUpdate,
     this.onCrossfadeDelete,
@@ -186,6 +196,11 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                           widget.onClipSlipEdit?.call(clip.id, offset),
                       onOpenAudioEditor: () =>
                           widget.onClipOpenAudioEditor?.call(clip.id),
+                      onSplit: () => widget.onClipSplit?.call(clip.id),
+                      onDelete: () => widget.onClipDelete?.call(clip.id),
+                      onMute: () => widget.onClipMute?.call(clip.id),
+                      onShuffleMove: (newStart) =>
+                          widget.onClipShuffleMove?.call(clip.id, newStart),
                       onPlayheadMove: widget.onPlayheadMove,
                       snapEnabled: widget.snapEnabled,
                       snapValue: widget.snapValue,

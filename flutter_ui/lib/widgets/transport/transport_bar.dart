@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../theme/fluxforge_theme.dart';
+import 'metronome_settings_popup.dart';
 import '../dsp/dsd_indicator.dart';
 import '../dsp/gpu_settings_panel.dart';
 
@@ -260,13 +261,27 @@ class TransportBar extends StatelessWidget {
 
           const SizedBox(width: 8),
 
-          _ToggleButton(
-            icon: Icons.music_note_rounded,
-            label: 'CLICK',
-            isActive: metronomeEnabled,
-            onTap: onMetronomeToggle,
-            activeColor: FluxForgeTheme.accentOrange,
-          ),
+          Builder(builder: (ctx) {
+            return GestureDetector(
+              onSecondaryTapUp: (details) {
+                final box = ctx.findRenderObject() as RenderBox;
+                final pos = box.localToGlobal(Offset(box.size.width / 2, box.size.height));
+                showMetronomeSettings(
+                  ctx,
+                  anchor: pos,
+                  enabled: metronomeEnabled,
+                  onToggle: () => onMetronomeToggle?.call(),
+                );
+              },
+              child: _ToggleButton(
+                icon: Icons.music_note_rounded,
+                label: 'CLICK',
+                isActive: metronomeEnabled,
+                onTap: onMetronomeToggle,
+                activeColor: FluxForgeTheme.accentOrange,
+              ),
+            );
+          }),
         ],
       ),
     );

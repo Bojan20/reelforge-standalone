@@ -16,6 +16,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/fluxforge_theme.dart';
+import 'metronome_settings_popup.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENUMS & TYPES
@@ -294,13 +295,27 @@ class _UltimateClassicTransportBarState extends State<UltimateClassicTransportBa
             onTap: c.onLoopToggle,
           ),
           const SizedBox(width: 6),
-          _ClassicToggle(
-            label: 'CLICK',
-            icon: Icons.music_note_rounded,
-            isActive: s.metronomeEnabled,
-            activeColor: FluxForgeTheme.accentOrange,
-            onTap: c.onMetronomeToggle,
-          ),
+          Builder(builder: (ctx) {
+            return GestureDetector(
+              onSecondaryTapUp: (details) {
+                final box = ctx.findRenderObject() as RenderBox;
+                final pos = box.localToGlobal(Offset(box.size.width / 2, box.size.height));
+                showMetronomeSettings(
+                  ctx,
+                  anchor: pos,
+                  enabled: s.metronomeEnabled,
+                  onToggle: () => c.onMetronomeToggle?.call(),
+                );
+              },
+              child: _ClassicToggle(
+                label: 'CLICK',
+                icon: Icons.music_note_rounded,
+                isActive: s.metronomeEnabled,
+                activeColor: FluxForgeTheme.accentOrange,
+                onTap: c.onMetronomeToggle,
+              ),
+            );
+          }),
           const SizedBox(width: 6),
           _ClassicToggle(
             label: 'PRE',

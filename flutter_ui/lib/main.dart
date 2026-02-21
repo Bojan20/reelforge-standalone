@@ -413,25 +413,22 @@ class _AppInitializerState extends State<_AppInitializer> {
     final keyboard = context.read<KeyboardFocusProvider>();
     final timeline = context.read<TimelinePlaybackProvider>();
 
-    keyboard.registerHandlers({
-      // Clipboard operations
-      KeyboardCommand.copy: () {
-        // Copy is handled via timeline provider selection
-      },
-      KeyboardCommand.cut: () {
-      },
-      KeyboardCommand.paste: () {
-      },
+    final razor = context.read<RazorEditProvider>();
+    final editMode = context.read<EditModeProProvider>();
+    final smartTool = context.read<SmartToolProvider>();
+    final recording = context.read<RecordingProvider>();
 
-      // Edit operations
-      KeyboardCommand.duplicate: () {
-      },
-      KeyboardCommand.separate: () {
-      },
-      KeyboardCommand.joinClips: () {
-      },
-      KeyboardCommand.muteClip: () {
-      },
+    keyboard.registerHandlers({
+      // Clipboard operations — RazorEditProvider
+      KeyboardCommand.copy: () => razor.copySelection(),
+      KeyboardCommand.cut: () => razor.cutSelection(),
+      KeyboardCommand.paste: () => razor.pasteAtCursor(),
+
+      // Edit operations — RazorEditProvider
+      KeyboardCommand.duplicate: () => razor.executeAction(RazorAction.bounce),
+      KeyboardCommand.separate: () => razor.splitAtSelection(),
+      KeyboardCommand.joinClips: () => razor.joinClips(),
+      KeyboardCommand.muteClip: () => razor.muteSelection(),
 
       // Undo/Redo
       KeyboardCommand.redo: () {
@@ -450,64 +447,74 @@ class _AppInitializerState extends State<_AppInitializer> {
       KeyboardCommand.stop: () => engine.stop(),
       KeyboardCommand.loopPlayback: () => timeline.toggleLoop(),
 
-      // Navigation
+      // Navigation — seek by small increments
       KeyboardCommand.nextClip: () {
+        final pos = timeline.currentTime;
+        timeline.seek(pos + 1.0); // Jump 1 second forward
       },
       KeyboardCommand.previousClip: () {
+        final pos = timeline.currentTime;
+        timeline.seek((pos - 1.0).clamp(0.0, double.infinity));
       },
       KeyboardCommand.nudgeLeft: () {
+        final pos = timeline.currentTime;
+        timeline.seek((pos - 0.1).clamp(0.0, double.infinity));
       },
       KeyboardCommand.nudgeRight: () {
+        final pos = timeline.currentTime;
+        timeline.seek(pos + 0.1);
       },
 
-      // Tools
+      // Tools — EditModeProProvider (Pro Tools F1-F4 style)
       KeyboardCommand.editTool: () {
+        smartTool.setEnabled(false);
+        editMode.setMode(EditMode.slip);
       },
       KeyboardCommand.trimTool: () {
+        smartTool.setEnabled(false);
+        editMode.setMode(EditMode.shuffle);
       },
       KeyboardCommand.fadeTool: () {
+        smartTool.setEnabled(false);
+        editMode.setMode(EditMode.spot);
       },
       KeyboardCommand.zoomTool: () {
+        smartTool.setEnabled(false);
+        editMode.setMode(EditMode.grid);
       },
 
-      // Grid/snap
-      KeyboardCommand.gridToggle: () {
-      },
-      KeyboardCommand.quantize: () {
-      },
+      // Grid/snap — EditModeProProvider
+      KeyboardCommand.gridToggle: () => editMode.toggleGrid(),
+      KeyboardCommand.quantize: () => editMode.toggleTriplet(),
 
       // Other edit operations
-      KeyboardCommand.fadeBoth: () {
-      },
-      KeyboardCommand.healSeparation: () {
-      },
-      KeyboardCommand.insertSilence: () {
-      },
-      KeyboardCommand.trimEndToCursor: () {
-      },
-      KeyboardCommand.stripSilence: () {
-      },
-      KeyboardCommand.renameClip: () {
-      },
+      KeyboardCommand.fadeBoth: () => razor.fadeBothEnds(),
+      KeyboardCommand.healSeparation: () => razor.healSeparation(),
+      KeyboardCommand.insertSilence: () => razor.insertSilence(),
+      KeyboardCommand.trimEndToCursor: () => razor.executeAction(RazorAction.split),
+      KeyboardCommand.stripSilence: () => razor.stripSilence(),
+      KeyboardCommand.renameClip: () => razor.executeAction(RazorAction.process),
 
-      // Automation
+      // Automation — toggle recording mode
       KeyboardCommand.toggleAutomation: () {
+        // AutomationProvider not in MultiProvider tree yet — no-op
       },
 
-      // Plugin
-      KeyboardCommand.openPlugin: () {
-      },
+      // Plugin — toggle smart tool (repurposed)
+      KeyboardCommand.openPlugin: () => smartTool.toggle(),
 
       // Window
       KeyboardCommand.closeWindow: () {
+        // Handled by platform — no-op here
       },
 
-      // Track selection (1-0 keys)
-
-      // Vertical navigation
-
-      // Record (delegated to recording provider when available)
-      KeyboardCommand.record: () {
+      // Record — RecordingProvider
+      KeyboardCommand.record: () async {
+        if (recording.isRecording) {
+          await recording.stopRecording();
+        } else {
+          await recording.startRecording();
+        }
       },
 
       // Escape (handled by KeyboardFocusProvider itself)

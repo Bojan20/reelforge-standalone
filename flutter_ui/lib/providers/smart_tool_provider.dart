@@ -36,6 +36,65 @@ import 'package:flutter/services.dart';
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// Cubase-style clip movement constraint mode
+///
+/// Controls HOW clips behave during drag/move operations.
+/// Separate concept from tool selection — modes modify drag behavior.
+///
+/// ┌──────────┬──────────┬──────────┬──────────┐
+/// │ Shuffle  │  Slip    │  Spot    │  Grid    │
+/// └──────────┴──────────┴──────────┴──────────┘
+enum TimelineEditMode {
+  /// Shuffle: Moving a clip pushes adjacent clips to make room.
+  /// Maintains relative order — clips never overlap.
+  shuffle,
+
+  /// Slip: Drag adjusts audio content within clip boundaries.
+  /// Clip position stays fixed, sourceOffset changes.
+  slip,
+
+  /// Spot: Clips snap to absolute timecode position on drop.
+  /// Uses SMPTE-style positioning (frame-accurate).
+  spot,
+
+  /// Grid: Clips snap to grid positions during movement.
+  /// Uses the snap grid value from the toolbar.
+  grid,
+}
+
+/// Cubase-style explicit tool selection (toolbar buttons / number keys)
+enum TimelineEditTool {
+  /// Smart Tool — context-aware (Pro Tools style, combines all modes)
+  smart,
+
+  /// Object Selection (V / 1) — select, move, resize clips
+  objectSelect,
+
+  /// Range Selection (R / 2) — select time ranges across tracks
+  rangeSelect,
+
+  /// Split / Scissors (S / 3) — split clips at click position
+  split,
+
+  /// Glue (G / 4) — join adjacent clips
+  glue,
+
+  /// Erase (E / 5) — delete clips on click
+  erase,
+
+  /// Zoom (Z / 6) — click to zoom in, Alt+click to zoom out
+  zoom,
+
+  /// Mute (M / 7) — mute/unmute clips on click
+  mute,
+
+  /// Draw / Pencil (D / 8) — draw automation, create empty clips
+  draw,
+
+  /// Play (P / 9) — click timeline position to start playback
+  play,
+}
+
 /// Current tool determined by cursor position
 enum SmartToolMode {
   /// Selection/move tool (middle of clip)
@@ -207,6 +266,12 @@ class SmartToolProvider extends ChangeNotifier {
   // Smart tool enabled
   bool _enabled = true;
 
+  // ═══ Cubase-style explicit tool selection ═══
+  TimelineEditTool _activeTool = TimelineEditTool.smart;
+
+  // ═══ Cubase-style edit mode (clip movement constraint) ═══
+  TimelineEditMode _activeEditMode = TimelineEditMode.grid;
+
   // Callbacks
   void Function(SmartToolDragState)? onDragStart;
   void Function(SmartToolDragState)? onDragUpdate;
@@ -227,6 +292,14 @@ class SmartToolProvider extends ChangeNotifier {
   SmartToolHitResult? get lastHitResult => _lastHitResult;
   bool get enabled => _enabled;
   bool get isDragging => _dragState != null;
+  TimelineEditTool get activeTool => _activeTool;
+  TimelineEditMode get activeEditMode => _activeEditMode;
+
+  /// Whether the active tool is Smart Tool (context-aware)
+  bool get isSmartToolActive => _activeTool == TimelineEditTool.smart;
+
+  /// Whether the active tool is Object Select (acts like smart tool but explicit)
+  bool get isObjectSelectActive => _activeTool == TimelineEditTool.objectSelect;
 
   // ═══ Configuration ═══
 
@@ -250,6 +323,138 @@ class SmartToolProvider extends ChangeNotifier {
 
   /// Toggle smart tool
   void toggle() => setEnabled(!_enabled);
+
+  // ═══ Cubase Tool Selection ═══
+
+  /// Set active edit tool (Cubase-style toolbar)
+  void setActiveTool(TimelineEditTool tool) {
+    if (_activeTool != tool) {
+      _activeTool = tool;
+      // Smart tool and object select use context-aware mode
+      // All others override cursor
+      if (tool == TimelineEditTool.smart || tool == TimelineEditTool.objectSelect) {
+        _enabled = true;
+      }
+      notifyListeners();
+    }
+  }
+
+  // ═══ Edit Mode (Clip Movement Constraint) ═══
+
+  /// Set active edit mode (Shuffle/Slip/Spot/Grid)
+  void setActiveEditMode(TimelineEditMode mode) {
+    if (_activeEditMode != mode) {
+      _activeEditMode = mode;
+      notifyListeners();
+    }
+  }
+
+  /// Get display name for an edit mode
+  static String editModeDisplayName(TimelineEditMode mode) {
+    switch (mode) {
+      case TimelineEditMode.shuffle: return 'Shuffle';
+      case TimelineEditMode.slip: return 'Slip';
+      case TimelineEditMode.spot: return 'Spot';
+      case TimelineEditMode.grid: return 'Grid';
+    }
+  }
+
+  /// Get icon for an edit mode
+  static IconData editModeIcon(TimelineEditMode mode) {
+    switch (mode) {
+      case TimelineEditMode.shuffle: return Icons.swap_horiz;
+      case TimelineEditMode.slip: return Icons.unfold_more;
+      case TimelineEditMode.spot: return Icons.my_location;
+      case TimelineEditMode.grid: return Icons.grid_4x4;
+    }
+  }
+
+  /// Get tooltip for an edit mode
+  static String editModeTooltip(TimelineEditMode mode) {
+    switch (mode) {
+      case TimelineEditMode.shuffle:
+        return 'Shuffle — clips push adjacent clips when moved';
+      case TimelineEditMode.slip:
+        return 'Slip — drag adjusts audio content within clip';
+      case TimelineEditMode.spot:
+        return 'Spot — clips snap to absolute timecode position';
+      case TimelineEditMode.grid:
+        return 'Grid — clips snap to grid lines during movement';
+    }
+  }
+
+  /// Get cursor for active tool (when not in smart/objectSelect mode)
+  MouseCursor get activeToolCursor {
+    switch (_activeTool) {
+      case TimelineEditTool.smart:
+      case TimelineEditTool.objectSelect:
+        return _currentCursor; // Context-aware
+      case TimelineEditTool.rangeSelect:
+        return SystemMouseCursors.cell;
+      case TimelineEditTool.split:
+        return SystemMouseCursors.click;
+      case TimelineEditTool.glue:
+        return SystemMouseCursors.click;
+      case TimelineEditTool.erase:
+        return SystemMouseCursors.disappearing;
+      case TimelineEditTool.zoom:
+        return SystemMouseCursors.zoomIn;
+      case TimelineEditTool.mute:
+        return SystemMouseCursors.click;
+      case TimelineEditTool.draw:
+        return SystemMouseCursors.precise;
+      case TimelineEditTool.play:
+        return SystemMouseCursors.click;
+    }
+  }
+
+  /// Get display name for a tool
+  static String toolDisplayName(TimelineEditTool tool) {
+    switch (tool) {
+      case TimelineEditTool.smart: return 'Smart Tool';
+      case TimelineEditTool.objectSelect: return 'Select';
+      case TimelineEditTool.rangeSelect: return 'Range';
+      case TimelineEditTool.split: return 'Split';
+      case TimelineEditTool.glue: return 'Glue';
+      case TimelineEditTool.erase: return 'Erase';
+      case TimelineEditTool.zoom: return 'Zoom';
+      case TimelineEditTool.mute: return 'Mute';
+      case TimelineEditTool.draw: return 'Draw';
+      case TimelineEditTool.play: return 'Play';
+    }
+  }
+
+  /// Get icon for a tool
+  static IconData toolIcon(TimelineEditTool tool) {
+    switch (tool) {
+      case TimelineEditTool.smart: return Icons.smart_button;
+      case TimelineEditTool.objectSelect: return Icons.near_me;
+      case TimelineEditTool.rangeSelect: return Icons.select_all;
+      case TimelineEditTool.split: return Icons.content_cut;
+      case TimelineEditTool.glue: return Icons.link;
+      case TimelineEditTool.erase: return Icons.auto_fix_off;
+      case TimelineEditTool.zoom: return Icons.zoom_in;
+      case TimelineEditTool.mute: return Icons.volume_off;
+      case TimelineEditTool.draw: return Icons.edit;
+      case TimelineEditTool.play: return Icons.play_arrow;
+    }
+  }
+
+  /// Get keyboard shortcut label for a tool
+  static String toolShortcut(TimelineEditTool tool) {
+    switch (tool) {
+      case TimelineEditTool.smart: return '1';
+      case TimelineEditTool.objectSelect: return '2';
+      case TimelineEditTool.rangeSelect: return '3';
+      case TimelineEditTool.split: return '4';
+      case TimelineEditTool.glue: return '5';
+      case TimelineEditTool.erase: return '6';
+      case TimelineEditTool.zoom: return '7';
+      case TimelineEditTool.mute: return '8';
+      case TimelineEditTool.draw: return '9';
+      case TimelineEditTool.play: return '0';
+    }
+  }
 
   // ═══ Hit Testing ═══
 

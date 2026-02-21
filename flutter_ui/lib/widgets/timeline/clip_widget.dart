@@ -65,6 +65,8 @@ class ClipWidget extends StatefulWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onSplit;
   final VoidCallback? onMute;
+  /// Called when clip is moved in Shuffle mode — clips should push neighbors
+  final ValueChanged<double>? onShuffleMove;
   final ValueChanged<double>? onPlayheadMove;
   final bool snapEnabled;
   final double snapValue;
@@ -96,6 +98,7 @@ class ClipWidget extends StatefulWidget {
     this.onDuplicate,
     this.onSplit,
     this.onMute,
+    this.onShuffleMove,
     this.onPlayheadMove,
     this.snapEnabled = false,
     this.snapValue = 1,
@@ -362,11 +365,17 @@ class _ClipWidgetState extends State<ClipWidget> {
       child: Consumer<SmartToolProvider>(
         builder: (context, smartTool, child) {
           final smartEnabled = smartTool.enabled;
+          final activeTool = smartTool.activeTool;
+          // Explicit tool mode: use tool-specific cursor over clips
+          final bool isExplicitTool = activeTool != TimelineEditTool.smart &&
+              activeTool != TimelineEditTool.objectSelect;
           return MouseRegion(
-            cursor: smartEnabled && _smartToolHitResult != null
-                ? _smartToolHitResult!.cursor
-                : MouseCursor.defer,
-            onHover: smartEnabled
+            cursor: isExplicitTool
+                ? smartTool.activeToolCursor
+                : (smartEnabled && _smartToolHitResult != null
+                    ? _smartToolHitResult!.cursor
+                    : MouseCursor.defer),
+            onHover: smartEnabled && !isExplicitTool
                 ? (event) {
                     final localPos = event.localPosition;
                     final clipBounds = Rect.fromLTWH(0, 0, clampedWidth, clipHeight);
@@ -412,7 +421,47 @@ class _ClipWidgetState extends State<ClipWidget> {
                 return;
               }
             }
-            // Just select clip, don't move playhead
+
+            // ═══ Cubase-style tool dispatch on clip click ═══
+            if (isExplicitTool) {
+              switch (activeTool) {
+                case TimelineEditTool.split:
+                  // Split at click position — move playhead there first
+                  if (!clip.locked) {
+                    final clickTime = widget.scrollOffset + clickX / widget.zoom + clip.startTime;
+                    widget.onPlayheadMove?.call(clickTime);
+                    widget.onSplit?.call();
+                  }
+                  return;
+                case TimelineEditTool.erase:
+                  // Delete clip on click
+                  if (!clip.locked) {
+                    widget.onDelete?.call();
+                  }
+                  return;
+                case TimelineEditTool.mute:
+                  // Toggle mute on click
+                  widget.onMute?.call();
+                  return;
+                case TimelineEditTool.glue:
+                  // Glue: select clip (glue requires two adjacent clips — handled at timeline level)
+                  widget.onSelect?.call(false);
+                  return;
+                case TimelineEditTool.zoom:
+                  // Zoom tool on clip: zoom in centered at click
+                  // Alt+click = zoom out (handled in Timeline)
+                  return;
+                case TimelineEditTool.play:
+                  // Play tool: move playhead to click position and trigger playback
+                  final clickTime = widget.scrollOffset + clickX / widget.zoom + clip.startTime;
+                  widget.onPlayheadMove?.call(clickTime);
+                  return;
+                default:
+                  break; // smart, objectSelect, rangeSelect, draw — fall through to select
+              }
+            }
+
+            // Default: select clip
             widget.onSelect?.call(false);
           },
           onDoubleTap: _startEditing,
@@ -431,6 +480,17 @@ class _ClipWidgetState extends State<ClipWidget> {
 
             // IGNORE if fade handle is being dragged
             if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal) {
+              return;
+            }
+
+            // IGNORE drag for click-only tools (split, erase, mute, glue, play)
+            if (isExplicitTool && (
+              activeTool == TimelineEditTool.split ||
+              activeTool == TimelineEditTool.erase ||
+              activeTool == TimelineEditTool.mute ||
+              activeTool == TimelineEditTool.glue ||
+              activeTool == TimelineEditTool.play
+            )) {
               return;
             }
 
@@ -470,8 +530,12 @@ class _ClipWidgetState extends State<ClipWidget> {
               }
             }
 
+            // Edit Mode: Slip mode forces slip edit (no modifier needed)
+            final editMode = smartTool.activeEditMode;
+            final isSlipMode = editMode == TimelineEditMode.slip;
             // Check for modifier keys for slip edit (works with or without smart tool)
-            if (HardwareKeyboard.instance.isMetaPressed ||
+            if (isSlipMode ||
+                HardwareKeyboard.instance.isMetaPressed ||
                 HardwareKeyboard.instance.isControlPressed) {
               _dragStartSourceOffset = clip.sourceOffset;
               _dragStartMouseX = details.globalPosition.dx;
@@ -582,13 +646,29 @@ class _ClipWidgetState extends State<ClipWidget> {
           } else if (_isDraggingMove) {
             // Cubase-style drag - only show ghost, don't move original until drop
             double rawNewStartTime = _dragStartTime + deltaTime;
-            final snappedTime = applySnap(
-              rawNewStartTime,
-              widget.snapEnabled,
-              widget.snapValue,
-              widget.tempo,
-              widget.allClips,
-            );
+
+            // Edit Mode determines snapping behavior:
+            // - Grid: Force snap even if snap toggle is off
+            // - Spot: Snap to absolute timecode (1-second grid)
+            // - Shuffle: Normal snap, push logic handled on drop
+            // - Slip: Won't reach here (handled above as _isSlipEditing)
+            final editMode = smartTool.activeEditMode;
+            final bool forceSnap = editMode == TimelineEditMode.grid;
+            final bool isSpotMode = editMode == TimelineEditMode.spot;
+
+            double snappedTime;
+            if (isSpotMode) {
+              // Spot mode: snap to absolute 1-second grid (frame-level precision)
+              snappedTime = (rawNewStartTime * 10).roundToDouble() / 10; // 0.1s grid
+            } else {
+              snappedTime = applySnap(
+                rawNewStartTime,
+                widget.snapEnabled || forceSnap,
+                widget.snapValue,
+                widget.tempo,
+                widget.allClips,
+              );
+            }
             _lastSnappedTime = snappedTime.clamp(0.0, double.infinity);
 
             // Update ghost position (visual feedback)
@@ -622,7 +702,13 @@ class _ClipWidgetState extends State<ClipWidget> {
             }
             // Always call onMove for same-track or if cross-track resulted in same track
             if (!_isCrossTrackDrag) {
-              widget.onMove?.call(_lastSnappedTime);
+              // Shuffle mode: use shuffle callback to push adjacent clips
+              final editMode = smartTool.activeEditMode;
+              if (editMode == TimelineEditMode.shuffle && widget.onShuffleMove != null) {
+                widget.onShuffleMove!(_lastSnappedTime);
+              } else {
+                widget.onMove?.call(_lastSnappedTime);
+              }
             }
           }
           // ALWAYS call onDragEnd to clear ghost in timeline - no conditions
@@ -973,6 +1059,79 @@ class _ClipWidgetState extends State<ClipWidget> {
                   bottom: 2,
                   child: StretchIndicatorBadge(
                     stretchRatio: _getStretchRatio(clip),
+                  ),
+                ),
+
+              // ═══ Tool-specific visual overlays ═══
+              // Erase tool: red danger tint on hover
+              if (isExplicitTool && activeTool == TimelineEditTool.erase)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.accentRed.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: FluxForgeTheme.accentRed.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.delete_forever, color: Colors.red, size: 20),
+                    ),
+                  ),
+                ),
+              // Mute tool: mute icon overlay
+              if (isExplicitTool && activeTool == TimelineEditTool.mute)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: Colors.orange.withValues(alpha: 0.5),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        clip.muted ? Icons.volume_up : Icons.volume_off,
+                        color: Colors.orange,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              // Split tool: scissors icon
+              if (isExplicitTool && activeTool == TimelineEditTool.split && !clip.locked)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.content_cut, color: Colors.white70, size: 18),
+                    ),
+                  ),
+                ),
+              // Glue tool: link icon
+              if (isExplicitTool && activeTool == TimelineEditTool.glue)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: Colors.green.withValues(alpha: 0.5),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.link, color: Colors.green, size: 18),
+                    ),
                   ),
                 ),
 

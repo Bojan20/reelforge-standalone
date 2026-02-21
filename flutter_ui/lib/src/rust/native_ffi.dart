@@ -864,6 +864,36 @@ typedef ClickSetCountInDart = void Function(int mode);
 typedef ClickSetPanNative = Void Function(Double pan);
 typedef ClickSetPanDart = void Function(double pan);
 
+typedef ClickGetVolumeNative = Double Function();
+typedef ClickGetVolumeDart = double Function();
+
+typedef ClickGetPatternNative = Uint8 Function();
+typedef ClickGetPatternDart = int Function();
+
+typedef ClickGetCountInNative = Uint8 Function();
+typedef ClickGetCountInDart = int Function();
+
+typedef ClickGetPanNative = Double Function();
+typedef ClickGetPanDart = double Function();
+
+typedef ClickSetTempoNative = Void Function(Double bpm);
+typedef ClickSetTempoDart = void Function(double bpm);
+
+typedef ClickGetTempoNative = Double Function();
+typedef ClickGetTempoDart = double Function();
+
+typedef ClickSetBeatsPerBarNative = Void Function(Uint8 beats);
+typedef ClickSetBeatsPerBarDart = void Function(int beats);
+
+typedef ClickGetBeatsPerBarNative = Uint8 Function();
+typedef ClickGetBeatsPerBarDart = int Function();
+
+typedef ClickSetOnlyDuringRecordNative = Void Function(Int32 enabled);
+typedef ClickSetOnlyDuringRecordDart = void Function(int enabled);
+
+typedef ClickGetOnlyDuringRecordNative = Int32 Function();
+typedef ClickGetOnlyDuringRecordDart = int Function();
+
 // Send functions
 typedef SendSetLevelNative = Void Function(Uint64 trackId, Uint32 sendIndex, Double level);
 typedef SendSetLevelDart = void Function(int trackId, int sendIndex, double level);
@@ -2372,6 +2402,16 @@ class NativeFFI {
   late final ClickSetPatternDart _clickSetPattern;
   late final ClickSetCountInDart _clickSetCountIn;
   late final ClickSetPanDart _clickSetPan;
+  late final ClickGetVolumeDart _clickGetVolume;
+  late final ClickGetPatternDart _clickGetPattern;
+  late final ClickGetCountInDart _clickGetCountIn;
+  late final ClickGetPanDart _clickGetPan;
+  late final ClickSetTempoDart _clickSetTempo;
+  late final ClickGetTempoDart _clickGetTempo;
+  late final ClickSetBeatsPerBarDart _clickSetBeatsPerBar;
+  late final ClickGetBeatsPerBarDart _clickGetBeatsPerBar;
+  late final ClickSetOnlyDuringRecordDart _clickSetOnlyDuringRecord;
+  late final ClickGetOnlyDuringRecordDart _clickGetOnlyDuringRecord;
 
   // Send functions
   late final SendSetLevelDart _sendSetLevel;
@@ -3051,6 +3091,16 @@ class NativeFFI {
     _clickSetPattern = _lib.lookupFunction<ClickSetPatternNative, ClickSetPatternDart>('click_set_pattern');
     _clickSetCountIn = _lib.lookupFunction<ClickSetCountInNative, ClickSetCountInDart>('click_set_count_in');
     _clickSetPan = _lib.lookupFunction<ClickSetPanNative, ClickSetPanDart>('click_set_pan');
+    _clickGetVolume = _lib.lookupFunction<ClickGetVolumeNative, ClickGetVolumeDart>('click_get_volume');
+    _clickGetPattern = _lib.lookupFunction<ClickGetPatternNative, ClickGetPatternDart>('click_get_pattern');
+    _clickGetCountIn = _lib.lookupFunction<ClickGetCountInNative, ClickGetCountInDart>('click_get_count_in');
+    _clickGetPan = _lib.lookupFunction<ClickGetPanNative, ClickGetPanDart>('click_get_pan');
+    _clickSetTempo = _lib.lookupFunction<ClickSetTempoNative, ClickSetTempoDart>('click_set_tempo');
+    _clickGetTempo = _lib.lookupFunction<ClickGetTempoNative, ClickGetTempoDart>('click_get_tempo');
+    _clickSetBeatsPerBar = _lib.lookupFunction<ClickSetBeatsPerBarNative, ClickSetBeatsPerBarDart>('click_set_beats_per_bar');
+    _clickGetBeatsPerBar = _lib.lookupFunction<ClickGetBeatsPerBarNative, ClickGetBeatsPerBarDart>('click_get_beats_per_bar');
+    _clickSetOnlyDuringRecord = _lib.lookupFunction<ClickSetOnlyDuringRecordNative, ClickSetOnlyDuringRecordDart>('click_set_only_during_record');
+    _clickGetOnlyDuringRecord = _lib.lookupFunction<ClickGetOnlyDuringRecordNative, ClickGetOnlyDuringRecordDart>('click_get_only_during_record');
 
     // Send functions
     _sendSetLevel = _lib.lookupFunction<SendSetLevelNative, SendSetLevelDart>('send_set_level');
@@ -5572,6 +5622,66 @@ class NativeFFI {
   void clickSetPan(double pan) {
     if (!_loaded) return;
     _clickSetPan(pan);
+  }
+
+  /// Get click track volume (0.0 - 1.0)
+  double clickGetVolume() {
+    if (!_loaded) return 0.7;
+    return _clickGetVolume();
+  }
+
+  /// Get click pattern (0=Quarter, 1=Eighth, 2=Sixteenth, 3=Triplet, 4=DownbeatOnly)
+  int clickGetPattern() {
+    if (!_loaded) return 0;
+    return _clickGetPattern();
+  }
+
+  /// Get count-in mode (0=Off, 1=OneBar, 2=TwoBars, 3=FourBeats)
+  int clickGetCountIn() {
+    if (!_loaded) return 0;
+    return _clickGetCountIn();
+  }
+
+  /// Get click pan (-1.0 left, 0.0 center, 1.0 right)
+  double clickGetPan() {
+    if (!_loaded) return 0.0;
+    return _clickGetPan();
+  }
+
+  /// Set click tempo (BPM)
+  void clickSetTempo(double bpm) {
+    if (!_loaded) return;
+    _clickSetTempo(bpm);
+  }
+
+  /// Get click tempo (BPM)
+  double clickGetTempo() {
+    if (!_loaded) return 120.0;
+    return _clickGetTempo();
+  }
+
+  /// Set beats per bar (time signature numerator)
+  void clickSetBeatsPerBar(int beats) {
+    if (!_loaded) return;
+    _clickSetBeatsPerBar(beats);
+  }
+
+  /// Get beats per bar
+  int clickGetBeatsPerBar() {
+    if (!_loaded) return 4;
+    return _clickGetBeatsPerBar();
+  }
+
+  /// Set "only during recording" mode
+  void clickSetOnlyDuringRecord(bool enabled) {
+    if (!_loaded) return;
+    _clickSetOnlyDuringRecord(enabled ? 1 : 0);
+  }
+
+  /// Get "only during recording" mode
+  bool clickGetOnlyDuringRecord() {
+    if (!_loaded) return false;
+    return _clickGetOnlyDuringRecord() != 0;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

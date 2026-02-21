@@ -158,6 +158,24 @@ enum RazorAction {
 
   /// Create new clip from selection
   createClip,
+
+  /// Paste from clipboard at cursor position
+  paste,
+
+  /// Join adjacent clips into one
+  join,
+
+  /// Apply fade in + fade out to selection
+  fadeBoth,
+
+  /// Heal separation (close gap between clips)
+  healSeparation,
+
+  /// Insert silence at cursor position
+  insertSilence,
+
+  /// Strip silence from selection
+  stripSilence,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -377,6 +395,24 @@ class RazorEditProvider extends ChangeNotifier {
 
   /// Bounce selection to new clip
   void bounceSelection() => executeAction(RazorAction.bounce);
+
+  /// Paste from clipboard at cursor
+  void pasteAtCursor() => executeAction(RazorAction.paste);
+
+  /// Join adjacent clips
+  void joinClips() => executeAction(RazorAction.join);
+
+  /// Apply fade in + fade out to selection
+  void fadeBothEnds() => executeAction(RazorAction.fadeBoth);
+
+  /// Close gap between clips
+  void healSeparation() => executeAction(RazorAction.healSeparation);
+
+  /// Insert silence at cursor
+  void insertSilence() => executeAction(RazorAction.insertSilence);
+
+  /// Strip silence from selection
+  void stripSilence() => executeAction(RazorAction.stripSilence);
 
   // ═══ Helpers ═══
 

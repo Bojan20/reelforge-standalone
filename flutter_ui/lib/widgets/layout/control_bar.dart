@@ -29,6 +29,7 @@ import '../../providers/groove_quantize_provider.dart';
 import '../../providers/scale_assistant_provider.dart';
 // P3 Cloud Services
 import '../../services/cloud_sync_service.dart';
+import '../transport/metronome_settings_popup.dart';
 import '../../services/collaboration_service.dart';
 import '../../services/crdt_sync_service.dart';
 
@@ -347,13 +348,27 @@ class _ControlBarState extends State<ControlBar> {
                               onTap: widget.onLoopToggle,
                               tooltip: 'Loop',
                             ),
-                            _IconBtn(
-                              icon: Icons.timer,
-                              isActive: widget.metronomeEnabled,
-                              activeColor: FluxForgeTheme.accentOrange,
-                              onTap: widget.onMetronomeToggle,
-                              tooltip: 'Metronome',
-                            ),
+                            Builder(builder: (ctx) {
+                              return GestureDetector(
+                                onSecondaryTapUp: (details) {
+                                  final box = ctx.findRenderObject() as RenderBox;
+                                  final pos = box.localToGlobal(Offset(box.size.width / 2, box.size.height));
+                                  showMetronomeSettings(
+                                    ctx,
+                                    anchor: pos,
+                                    enabled: widget.metronomeEnabled,
+                                    onToggle: () => widget.onMetronomeToggle?.call(),
+                                  );
+                                },
+                                child: _IconBtn(
+                                  icon: Icons.timer,
+                                  isActive: widget.metronomeEnabled,
+                                  activeColor: FluxForgeTheme.accentOrange,
+                                  onTap: widget.onMetronomeToggle,
+                                  tooltip: 'Metronome (K) — Right-click for settings',
+                                ),
+                              );
+                            }),
                           ],
 
                           _Divider(),
@@ -684,12 +699,26 @@ class _TransportControls extends StatelessWidget {
             tooltip: 'Loop (L)',
             isActive: loopEnabled,
           ),
-          _TransportBtn(
-            icon: '🎵',
-            onPressed: onMetronomeToggle,
-            tooltip: 'Metronome (K)',
-            isActive: metronomeEnabled,
-          ),
+          Builder(builder: (ctx) {
+            return GestureDetector(
+              onSecondaryTapUp: (details) {
+                final box = ctx.findRenderObject() as RenderBox;
+                final pos = box.localToGlobal(Offset(box.size.width / 2, box.size.height));
+                showMetronomeSettings(
+                  ctx,
+                  anchor: pos,
+                  enabled: metronomeEnabled,
+                  onToggle: () => onMetronomeToggle?.call(),
+                );
+              },
+              child: _TransportBtn(
+                icon: '🎵',
+                onPressed: onMetronomeToggle,
+                tooltip: 'Metronome (K) — Right-click for settings',
+                isActive: metronomeEnabled,
+              ),
+            );
+          }),
 
           _Divider(),
 

@@ -23,11 +23,13 @@ import '../../models/timeline_models.dart';
 import '../../models/comping_models.dart';
 import '../../src/rust/engine_api.dart';
 import 'time_ruler.dart';
+import 'timeline_edit_toolbar.dart';
 import 'track_header_simple.dart';
 // import 'track_header_fluxforge.dart'; // Alternative: richer track headers
 import 'track_lane.dart';
 import 'automation_lane.dart';
 import 'comping_lane.dart';
+import '../../providers/smart_tool_provider.dart';
 
 class Timeline extends StatefulWidget {
   /// Tracks
@@ -103,6 +105,10 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onClipSplit;
   final ValueChanged<String>? onClipDuplicate;
   final ValueChanged<String>? onClipDelete;
+  /// Toggle clip mute (from Mute tool)
+  final ValueChanged<String>? onClipMute;
+  /// Shuffle mode: move clip and push adjacent clips
+  final void Function(String clipId, double newStartTime)? onClipShuffleMove;
   final ValueChanged<String>? onClipCopy;
   final VoidCallback? onClipPaste;
   final ValueChanged<String>? onMarkerClick;
@@ -202,6 +208,14 @@ class Timeline extends StatefulWidget {
   /// Create comp region from selection
   final void Function(String trackId, String takeId, double start, double end)? onCompRegionCreate;
 
+  /// SmartToolProvider for Cubase-style toolbar
+  final SmartToolProvider? smartToolProvider;
+
+  /// Snap toggle callback (from toolbar)
+  final ValueChanged<bool>? onSnapToggle;
+  /// Snap value change callback (from toolbar)
+  final ValueChanged<double>? onSnapValueChange;
+
   const Timeline({
     super.key,
     required this.tracks,
@@ -252,6 +266,8 @@ class Timeline extends StatefulWidget {
     this.onClipSplit,
     this.onClipDuplicate,
     this.onClipDelete,
+    this.onClipMute,
+    this.onClipShuffleMove,
     this.onClipCopy,
     this.onClipPaste,
     this.onMarkerClick,
@@ -297,6 +313,9 @@ class Timeline extends StatefulWidget {
     this.onCompingTakeTap,
     this.onCompingTakeDoubleTap,
     this.onCompRegionCreate,
+    this.smartToolProvider,
+    this.onSnapToggle,
+    this.onSnapValueChange,
   });
 
   @override
@@ -312,6 +331,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   // Logic Pro style: taller tracks for better waveform visibility
   static const double _defaultTrackHeight = 100;
   static const double _rulerHeight = 28;
+  static const double _toolbarHeight = TimelineEditToolbar.toolbarHeight;
 
   // Selected track for highlighting (use widget.selectedTrackId if provided, else internal)
   String? _internalSelectedTrackId;
@@ -817,7 +837,44 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   void _handleTimelineClick(TapDownDetails details) {
     // Request focus for keyboard shortcuts (G, H, L, etc.)
     _focusNode.requestFocus();
-    // Playhead only moves when clicking ON clips, not empty space
+
+    final activeTool = widget.smartToolProvider?.activeTool;
+    if (activeTool == null) return;
+
+    final localX = details.localPosition.dx;
+    if (localX <= _headerWidth) return;
+    final timeAtClick = widget.scrollOffset + (localX - _headerWidth) / _effectiveZoom;
+
+    switch (activeTool) {
+      case TimelineEditTool.zoom:
+        // Zoom tool: click = zoom in, Alt+click = zoom out (Cubase-style)
+        final isAlt = HardwareKeyboard.instance.isAltPressed;
+        final factor = isAlt ? 0.7 : 1.4;
+        final newZoom = (_effectiveZoom * factor).clamp(1.0, 500.0);
+        _notifyZoomChange(newZoom);
+        break;
+
+      case TimelineEditTool.play:
+        // Play tool: move playhead to click position and toggle play
+        widget.onPlayheadChange?.call(timeAtClick);
+        widget.onPlayPause?.call();
+        break;
+
+      case TimelineEditTool.split:
+        // Split tool on empty area: move playhead to position (split point)
+        widget.onPlayheadChange?.call(timeAtClick);
+        break;
+
+      case TimelineEditTool.rangeSelect:
+      case TimelineEditTool.smart:
+      case TimelineEditTool.objectSelect:
+      case TimelineEditTool.glue:
+      case TimelineEditTool.erase:
+      case TimelineEditTool.mute:
+      case TimelineEditTool.draw:
+        // These tools don't have special empty-area click behavior
+        break;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -836,14 +893,24 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     final localX = details.localPosition.dx;
     if (localX <= _headerWidth) return;
 
+    // Tool-aware: only allow rubber band for select-like tools
+    final activeTool = widget.smartToolProvider?.activeTool ?? TimelineEditTool.smart;
+    final allowsRubberBand = activeTool == TimelineEditTool.smart ||
+        activeTool == TimelineEditTool.objectSelect ||
+        activeTool == TimelineEditTool.rangeSelect;
+    if (!allowsRubberBand) return;
+
     // Check if we're clicking on an empty area (not on a clip)
     // Convert position to time
     final timeAtClick = widget.scrollOffset + (localX - _headerWidth) / _effectiveZoom;
     final yInContent = details.localPosition.dy - _rulerHeight;
     final trackIndex = (yInContent / _defaultTrackHeight).floor();
 
+    // Range select tool: always start rubber band (even over clips)
+    final forceRubberBand = activeTool == TimelineEditTool.rangeSelect;
+
     // Check if there's a clip under the click
-    if (trackIndex >= 0 && trackIndex < _visibleTracks.length) {
+    if (!forceRubberBand && trackIndex >= 0 && trackIndex < _visibleTracks.length) {
       final track = _visibleTracks[trackIndex];
       final clipsOnTrack = widget.clips.where((c) => c.trackId == track.id);
 
@@ -930,6 +997,21 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     }
 
     return selectedClips;
+  }
+
+  /// Wraps child with a tool-cursor-aware MouseRegion that updates reactively
+  Widget _buildToolCursorRegion({required Widget child}) {
+    final provider = widget.smartToolProvider;
+    if (provider == null) return child;
+    return ListenableBuilder(
+      listenable: provider,
+      builder: (context, _) {
+        return MouseRegion(
+          cursor: provider.activeToolCursor,
+          child: child,
+        );
+      },
+    );
   }
 
   /// Build the rubber band selection rectangle overlay
@@ -1335,6 +1417,31 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // TOOL SHORTCUTS (number keys 1-0, Cubase-style)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    if (!isCmd && !isShift && !isAlt && widget.smartToolProvider != null) {
+      final toolMap = <LogicalKeyboardKey, TimelineEditTool>{
+        LogicalKeyboardKey.digit1: TimelineEditTool.smart,
+        LogicalKeyboardKey.digit2: TimelineEditTool.objectSelect,
+        LogicalKeyboardKey.digit3: TimelineEditTool.rangeSelect,
+        LogicalKeyboardKey.digit4: TimelineEditTool.split,
+        LogicalKeyboardKey.digit5: TimelineEditTool.glue,
+        LogicalKeyboardKey.digit6: TimelineEditTool.erase,
+        LogicalKeyboardKey.digit7: TimelineEditTool.zoom,
+        LogicalKeyboardKey.digit8: TimelineEditTool.mute,
+        LogicalKeyboardKey.digit9: TimelineEditTool.draw,
+        LogicalKeyboardKey.digit0: TimelineEditTool.play,
+      };
+
+      final tool = toolMap[event.logicalKey];
+      if (tool != null) {
+        widget.smartToolProvider!.setActiveTool(tool);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // ARROW KEYS
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -1658,6 +1765,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipRename: widget.onClipRename,
                     onClipSlipEdit: widget.onClipSlipEdit,
                     onClipOpenAudioEditor: widget.onClipOpenAudioEditor,
+                    onClipSplit: widget.onClipSplit,
+                    onClipDelete: widget.onClipDelete,
+                    onClipMute: widget.onClipMute,
+                    onClipShuffleMove: widget.onClipShuffleMove,
                     onPlayheadMove: widget.onPlayheadChange,
                     onCrossfadeUpdate: widget.onCrossfadeUpdate,
                     onCrossfadeFullUpdate: widget.onCrossfadeFullUpdate,
@@ -1825,6 +1936,19 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                   children: [
                     Column(
                 children: [
+                  // ═══ Cubase-style edit toolbar ═══
+                  if (widget.smartToolProvider != null)
+                    SizedBox(
+                      height: _toolbarHeight,
+                      child: TimelineEditToolbar(
+                        provider: widget.smartToolProvider!,
+                        snapEnabled: widget.snapEnabled,
+                        snapValue: widget.snapValue,
+                        onSnapToggle: widget.onSnapToggle,
+                        onSnapValueChange: widget.onSnapValueChange,
+                      ),
+                    ),
+
                   // Ruler row
                   SizedBox(
                     height: _rulerHeight,
@@ -1870,7 +1994,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
                   // Tracks
                   Expanded(
-                    child: GestureDetector(
+                    child: _buildToolCursorRegion(
+                      child: GestureDetector(
                       // IMPORTANT: deferToChild allows child widgets (clips, fade handles)
                       // to handle taps first. Only unhandled taps move the playhead.
                       behavior: HitTestBehavior.deferToChild,
@@ -2192,6 +2317,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                         ],
                       ),
                     ),
+                    ), // _buildToolCursorRegion
                   ),
 
                   // Zoom indicator

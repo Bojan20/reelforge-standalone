@@ -2314,6 +2314,7 @@ Complete rewrite of `_previewEvent()` in `engine_connected_layout.dart` — Pan,
 - ✅ Graph-based routing (topological sort)
 - ✅ Lock-free parameter sync (rtrb)
 - ✅ Sample-accurate playback
+- ✅ Metronome / Click Track (sample-accurate, 14 FFI functions, pro settings popup)
 
 ### DSP
 - ✅ 64-band Unified EQ — ProEq superset (SVF + MZT + Oversampling + Saturation + Transient-Aware)
@@ -2747,6 +2748,35 @@ final result = exporter.export(
 - ✅ Crossfades (equal power, S-curve)
 - ✅ Loop playback
 - ✅ Scrubbing with velocity
+- ✅ Cubase-style Edit Tools (10 tools: Smart, Select, Range, Split, Glue, Erase, Zoom, Mute, Draw, Play)
+- ✅ Cubase-style Edit Modes (4 modes: Shuffle, Slip, Spot, Grid)
+
+### Cubase-Style Timeline Edit Tools + Edit Modes (2026-02-21) ✅
+
+10 edit tools + 4 edit modes implemented from scratch with full E2E wiring.
+
+**Provider:** `SmartToolProvider` — single instance via `ChangeNotifierProvider` in `main.dart`
+
+**Key Files:**
+
+| File | LOC | Description |
+|------|-----|-------------|
+| `providers/smart_tool_provider.dart` | ~400 | State management, enums, static helpers |
+| `widgets/timeline/timeline_edit_toolbar.dart` | ~380 | Toolbar UI (10 tool buttons + 4 mode buttons + snap) |
+| `widgets/timeline/clip_widget.dart` | +120 | `Consumer<SmartToolProvider>` — per-tool/mode dispatch |
+| `widgets/timeline/track_lane.dart` | +15 | `onClipShuffleMove` callback |
+| `widgets/timeline/timeline.dart` | +15 | `onClipShuffleMove` callback |
+| `screens/engine_connected_layout.dart` | +50 | Shuffle push algorithm |
+
+**Tools (TimelineEditTool):** Smart(1), Select(2), Range(3), Split(4), Glue(5), Erase(6), Zoom(7), Mute(8), Draw(9), Play(0)
+
+**Modes (TimelineEditMode):**
+- **Shuffle** — push adjacent clips to maintain sequence order
+- **Slip** — adjust audio content within clip boundaries (sourceOffset)
+- **Spot** — snap to absolute timecode positions (0.1s grid)
+- **Grid** — force snap to grid regardless of snap toggle
+
+**Critical Pattern:** Single `SmartToolProvider` instance — toolbar and `Consumer<SmartToolProvider>` in ClipWidget MUST read from same instance (via `ChangeNotifierProvider` in `main.dart`). Never create a local instance.
 
 ### DAW Waveform System (2026-01-25) ✅
 

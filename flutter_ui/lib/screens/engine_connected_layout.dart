@@ -69,6 +69,7 @@ import '../providers/middleware_provider.dart';
 import '../providers/mixer_provider.dart';
 import '../providers/recording_provider.dart';
 import '../providers/slot_lab/slot_lab_coordinator.dart';
+import '../providers/smart_tool_provider.dart';
 import '../providers/stage_provider.dart';
 import '../services/audio_asset_manager.dart';
 import '../models/stage_models.dart' as stage;
@@ -263,6 +264,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   PultecParams _pultecParams = const PultecParams();
   Api550Params _apiParams = const Api550Params();
   Neve1073Params _neveParams = const Neve1073Params();
+
+  // Cubase-style edit toolbar — uses Provider from main.dart widget tree
 
   // Timeline state
   double _timelineZoom = 50; // pixels per second
@@ -5108,6 +5111,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       snapValue: _snapValue,
       isPlaying: transport.isPlaying, // For R button pulsing animation
       selectedTrackId: _selectedTrackId, // Sync track selection with Timeline
+      // Cubase-style edit toolbar
+      smartToolProvider: context.read<SmartToolProvider>(),
+      onSnapToggle: (enabled) => setState(() => _snapEnabled = enabled),
+      onSnapValueChange: (value) => setState(() => _snapValue = value),
       // Import audio shortcut (Shift+Cmd+I)
       onImportAudio: _openFilePicker,
       // Export audio shortcut (Alt+Cmd+E)
@@ -5513,6 +5520,69 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         WaveformCache().remove(clipId);
         setState(() {
           _clips = _clips.where((c) => c.id != clipId).toList();
+        });
+      },
+      onClipMute: (clipId) {
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id != clipId) return;
+        final newMuted = !clip.muted;
+        // Sync to engine FFI
+        engine.setClipMuted(clipId, newMuted);
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(muted: newMuted);
+            }
+            return c;
+          }).toList();
+        });
+      },
+      onClipShuffleMove: (clipId, newStartTime) {
+        // Shuffle mode: move clip AND push adjacent clips to prevent overlaps
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id != clipId) return;
+
+        // Get all clips on the same track, sorted by start time
+        final trackClips = _clips
+            .where((c) => c.trackId == clip.trackId && c.id != clipId)
+            .toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+        final movedEnd = newStartTime + clip.duration;
+        final List<MapEntry<String, double>> shifts = [];
+
+        // Push clips AFTER the moved clip to the right
+        double pushPoint = movedEnd;
+        for (final tc in trackClips) {
+          if (tc.startTime >= newStartTime && tc.startTime < pushPoint) {
+            // This clip overlaps — push it right
+            shifts.add(MapEntry(tc.id, pushPoint));
+            pushPoint = pushPoint + tc.duration;
+          } else if (tc.startTime >= pushPoint) {
+            break; // No more overlaps
+          }
+        }
+
+        // Push clips BEFORE the moved clip to the left
+        final clipsBefore = trackClips.where((c) => c.startTime + c.duration > newStartTime && c.startTime < newStartTime).toList();
+        for (final tc in clipsBefore.reversed) {
+          final pushTo = (newStartTime - tc.duration).clamp(0.0, double.infinity);
+          shifts.add(MapEntry(tc.id, pushTo));
+        }
+
+        // Apply all moves
+        engine.moveClip(clipId: clipId, targetTrackId: clip.trackId, startTime: newStartTime);
+        for (final shift in shifts) {
+          engine.moveClip(clipId: shift.key, targetTrackId: clip.trackId, startTime: shift.value);
+        }
+
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) return c.copyWith(startTime: newStartTime);
+            final shift = shifts.firstWhere((s) => s.key == c.id, orElse: () => MapEntry('', -1));
+            if (shift.value >= 0) return c.copyWith(startTime: shift.value);
+            return c;
+          }).toList();
         });
       },
       // Track callbacks - SYNC both _tracks AND MixerProvider
