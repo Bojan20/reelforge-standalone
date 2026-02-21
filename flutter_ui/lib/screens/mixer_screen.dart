@@ -139,40 +139,45 @@ class _MixerScreenState extends State<MixerScreen> {
     final filteredAuxes = _filterChannels(widget.auxes);
     final filteredVcas = _filterChannels(widget.vcas);
 
-    return Container(
-      color: const Color(0xFF0A0A0C),
-      child: Column(
-        children: [
-          // Top bar
-          MixerTopBar(
-            controller: vc,
-            onSwitchToEdit: widget.onSwitchToEdit,
-          ),
-          // Mixer body
-          Expanded(
-            child: Row(
-              children: [
-                // Scrollable strip sections
-                Expanded(
-                  child: _buildMixerBody(
-                    showTracks: showTracks,
-                    showBuses: showBuses,
-                    showAuxes: showAuxes,
-                    showVcas: showVcas,
-                    channels: filteredChannels,
-                    buses: filteredBuses,
-                    auxes: filteredAuxes,
-                    vcas: filteredVcas,
-                  ),
-                ),
-                // Master strip — pinned to right
-                _buildPinnedMaster(),
-              ],
+    // Material ancestor required for TextField, PopupMenuButton, Tooltip,
+    // IconButton, showMenu, showDialog used throughout the mixer widgets
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        color: const Color(0xFF0A0A0C),
+        child: Column(
+          children: [
+            // Top bar
+            MixerTopBar(
+              controller: vc,
+              onSwitchToEdit: widget.onSwitchToEdit,
             ),
-          ),
-          // Status bar
-          const MixerStatusBar(),
-        ],
+            // Mixer body
+            Expanded(
+              child: Row(
+                children: [
+                  // Scrollable strip sections
+                  Expanded(
+                    child: _buildMixerBody(
+                      showTracks: showTracks,
+                      showBuses: showBuses,
+                      showAuxes: showAuxes,
+                      showVcas: showVcas,
+                      channels: filteredChannels,
+                      buses: filteredBuses,
+                      auxes: filteredAuxes,
+                      vcas: filteredVcas,
+                    ),
+                  ),
+                  // Master strip — pinned to right
+                  _buildPinnedMaster(),
+                ],
+              ),
+            ),
+            // Status bar
+            const MixerStatusBar(),
+          ],
+        ),
       ),
     );
   }

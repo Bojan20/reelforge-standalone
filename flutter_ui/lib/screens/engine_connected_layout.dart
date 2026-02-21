@@ -7748,6 +7748,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.toggleChannelArm(id);
         }
       },
+      onOutputChange: (channelId, outputBus) {
+        mixerProvider.setChannelOutputWithUndo(channelId, outputBus);
+      },
       onInsertClick: (channelId, insertIndex) {
         _handleUltimateMixerInsertClick(channelId, insertIndex);
       },
@@ -7772,6 +7775,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         if (!_isBusId(id) && !id.startsWith('vca_')) {
           mixerProvider.setInputGain(id, gain);
         }
+      },
+      onAddBus: () {
+        final busCount = mixerProvider.buses.length + 1;
+        mixerProvider.createBus(name: 'Bus $busCount');
       },
       onChannelReorder: (oldIndex, newIndex) {
         mixerProvider.reorderChannel(oldIndex, newIndex);
@@ -8393,6 +8400,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.toggleChannelArm(id);
         }
       },
+      onOutputChange: (channelId, outputBus) {
+        mixerProvider.setChannelOutputWithUndo(channelId, outputBus);
+      },
       onChannelSelect: (id) {
         setState(() {
           if (id == 'master') {
@@ -8421,6 +8431,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         if (!_isBusId(id) && !id.startsWith('vca_')) {
           mixerProvider.togglePhaseInvert(id);
         }
+      },
+      onGainChange: (id, gain) {
+        if (!_isBusId(id) && !id.startsWith('vca_')) {
+          mixerProvider.setInputGain(id, gain);
+        }
+      },
+      onAddBus: () {
+        final busCount = mixerProvider.buses.length + 1;
+        mixerProvider.createBus(name: 'Bus $busCount');
       },
       // Channel reorder (bidirectional sync with timeline tracks)
       onChannelReorder: (oldIndex, newIndex) {

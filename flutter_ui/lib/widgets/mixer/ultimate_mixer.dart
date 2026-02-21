@@ -604,21 +604,26 @@ class _UltimateMixerState extends State<UltimateMixer> {
       ),
     );
 
-    return CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
-        // Cmd+S / Ctrl+S — Solo selected channel
-        const SingleActivator(LogicalKeyboardKey.keyS, meta: true):
-            () => widget.onSoloSelectedShortcut?.call(),
-        // Cmd+M / Ctrl+M — Mute selected channel
-        const SingleActivator(LogicalKeyboardKey.keyM, meta: true):
-            () => widget.onMuteSelectedShortcut?.call(),
-        // Cmd+Shift+N — Narrow all strips
-        const SingleActivator(LogicalKeyboardKey.keyN, meta: true, shift: true):
-            () => widget.onNarrowAllShortcut?.call(),
-      },
-      child: Focus(
-        autofocus: false,
-        child: mixerContent,
+    // Material ancestor required for PopupMenuButton, IconButton, Tooltip,
+    // showMenu, showDialog used within the mixer toolbar and channel strips
+    return Material(
+      type: MaterialType.transparency,
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          // Cmd+S / Ctrl+S — Solo selected channel
+          const SingleActivator(LogicalKeyboardKey.keyS, meta: true):
+              () => widget.onSoloSelectedShortcut?.call(),
+          // Cmd+M / Ctrl+M — Mute selected channel
+          const SingleActivator(LogicalKeyboardKey.keyM, meta: true):
+              () => widget.onMuteSelectedShortcut?.call(),
+          // Cmd+Shift+N — Narrow all strips
+          const SingleActivator(LogicalKeyboardKey.keyN, meta: true, shift: true):
+              () => widget.onNarrowAllShortcut?.call(),
+        },
+        child: Focus(
+          autofocus: false,
+          child: mixerContent,
+        ),
       ),
     );
   }
@@ -2464,10 +2469,9 @@ class _VcaStrip extends StatelessWidget {
                 onTap: onSpillToggle,
               ),
             ),
-            const Spacer(),
+            const SizedBox(height: 8),
             // VCA fader (no meter — VCA controls group volume, not audio)
             Expanded(
-              flex: 3,
               child: _VcaFader(
                 volume: channel.volume,
                 onChanged: onVolumeChange,
@@ -2628,55 +2632,62 @@ class _MasterStrip extends StatelessWidget {
             ),
           ),
           // Insert section — 12 slots: 8 pre-fader + 4 post-fader
+          // Wrapped in Flexible to prevent overflow when window is small
           if (!compact)
-            Padding(
-              padding: const EdgeInsets.all(2),
-              child: Column(
-                children: [
-                  // PRE-FADER label
-                  Container(
-                    height: 12,
-                    alignment: Alignment.center,
-                    child: const Text('PRE', style: TextStyle(
-                      color: FluxForgeTheme.textTertiary, fontSize: 7,
-                      fontWeight: FontWeight.w600, letterSpacing: 1)),
+            Flexible(
+              flex: 0,
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // PRE-FADER label
+                      Container(
+                        height: 12,
+                        alignment: Alignment.center,
+                        child: const Text('PRE', style: TextStyle(
+                          color: FluxForgeTheme.textTertiary, fontSize: 7,
+                          fontWeight: FontWeight.w600, letterSpacing: 1)),
+                      ),
+                      // 8 pre-fader insert slots (0-7)
+                      ...List.generate(8, (i) {
+                        final insert = i < channel.inserts.length
+                            ? channel.inserts[i]
+                            : InsertData(index: i);
+                        return _InsertSlot(
+                          insert: insert,
+                          onTap: () => onInsertClick?.call(i),
+                        );
+                      }),
+                      // Divider between pre/post
+                      Container(
+                        height: 1,
+                        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                        color: FluxForgeTheme.warningOrange.withOpacity(0.3),
+                      ),
+                      // POST-FADER label
+                      Container(
+                        height: 12,
+                        alignment: Alignment.center,
+                        child: const Text('POST', style: TextStyle(
+                          color: FluxForgeTheme.textTertiary, fontSize: 7,
+                          fontWeight: FontWeight.w600, letterSpacing: 1)),
+                      ),
+                      // 4 post-fader insert slots (8-11)
+                      ...List.generate(4, (i) {
+                        final idx = 8 + i;
+                        final insert = idx < channel.inserts.length
+                            ? channel.inserts[idx]
+                            : InsertData(index: idx);
+                        return _InsertSlot(
+                          insert: insert,
+                          onTap: () => onInsertClick?.call(idx),
+                        );
+                      }),
+                    ],
                   ),
-                  // 8 pre-fader insert slots (0-7)
-                  ...List.generate(8, (i) {
-                    final insert = i < channel.inserts.length
-                        ? channel.inserts[i]
-                        : InsertData(index: i);
-                    return _InsertSlot(
-                      insert: insert,
-                      onTap: () => onInsertClick?.call(i),
-                    );
-                  }),
-                  // Divider between pre/post
-                  Container(
-                    height: 1,
-                    margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                    color: FluxForgeTheme.warningOrange.withOpacity(0.3),
-                  ),
-                  // POST-FADER label
-                  Container(
-                    height: 12,
-                    alignment: Alignment.center,
-                    child: const Text('POST', style: TextStyle(
-                      color: FluxForgeTheme.textTertiary, fontSize: 7,
-                      fontWeight: FontWeight.w600, letterSpacing: 1)),
-                  ),
-                  // 4 post-fader insert slots (8-11)
-                  ...List.generate(4, (i) {
-                    final idx = 8 + i;
-                    final insert = idx < channel.inserts.length
-                        ? channel.inserts[idx]
-                        : InsertData(index: idx);
-                    return _InsertSlot(
-                      insert: insert,
-                      onTap: () => onInsertClick?.call(idx),
-                    );
-                  }),
-                ],
+                ),
               ),
             ),
           // Stereo meter + fader
@@ -3041,6 +3052,7 @@ class _DraggableChannelStrip extends StatelessWidget {
                   opacity: 0.9,
                   child: SizedBox(
                     width: stripWidth,
+                    height: 300, // Fixed height for drag feedback to avoid unconstrained Column
                     child: child,
                   ),
                 ),
