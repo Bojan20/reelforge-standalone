@@ -894,6 +894,44 @@ typedef ClickSetOnlyDuringRecordDart = void Function(int enabled);
 typedef ClickGetOnlyDuringRecordNative = Int32 Function();
 typedef ClickGetOnlyDuringRecordDart = int Function();
 
+// Click track — per-sound volumes
+typedef ClickSetAccentVolumeNative = Void Function(Double volume);
+typedef ClickSetAccentVolumeDart = void Function(double volume);
+typedef ClickGetAccentVolumeNative = Double Function();
+typedef ClickGetAccentVolumeDart = double Function();
+typedef ClickSetBeatVolumeNative = Void Function(Double volume);
+typedef ClickSetBeatVolumeDart = void Function(double volume);
+typedef ClickGetBeatVolumeNative = Double Function();
+typedef ClickGetBeatVolumeDart = double Function();
+typedef ClickSetSubdivisionVolumeNative = Void Function(Double volume);
+typedef ClickSetSubdivisionVolumeDart = void Function(double volume);
+typedef ClickGetSubdivisionVolumeNative = Double Function();
+typedef ClickGetSubdivisionVolumeDart = double Function();
+
+// Click track — preset
+typedef ClickSetPresetNative = Void Function(Uint8 presetId);
+typedef ClickSetPresetDart = void Function(int presetId);
+typedef ClickGetPresetNative = Uint8 Function();
+typedef ClickGetPresetDart = int Function();
+
+// Click track — count-in
+typedef ClickStartCountInNative = Void Function();
+typedef ClickStartCountInDart = void Function();
+typedef ClickIsCountInActiveNative = Int32 Function();
+typedef ClickIsCountInActiveDart = int Function();
+typedef ClickGetCountInBeatNative = Int32 Function();
+typedef ClickGetCountInBeatDart = int Function();
+
+// Click track — tap tempo
+typedef ClickTapTempoNative = Double Function();
+typedef ClickTapTempoDart = double Function();
+
+// Click track — audibility mode
+typedef ClickSetAudibilityModeNative = Void Function(Uint8 mode);
+typedef ClickSetAudibilityModeDart = void Function(int mode);
+typedef ClickGetAudibilityModeNative = Uint8 Function();
+typedef ClickGetAudibilityModeDart = int Function();
+
 // Send functions
 typedef SendSetLevelNative = Void Function(Uint64 trackId, Uint32 sendIndex, Double level);
 typedef SendSetLevelDart = void Function(int trackId, int sendIndex, double level);
@@ -2413,6 +2451,26 @@ class NativeFFI {
   late final ClickSetOnlyDuringRecordDart _clickSetOnlyDuringRecord;
   late final ClickGetOnlyDuringRecordDart _clickGetOnlyDuringRecord;
 
+  // Click track — per-sound volumes
+  late final ClickSetAccentVolumeDart _clickSetAccentVolume;
+  late final ClickGetAccentVolumeDart _clickGetAccentVolume;
+  late final ClickSetBeatVolumeDart _clickSetBeatVolume;
+  late final ClickGetBeatVolumeDart _clickGetBeatVolume;
+  late final ClickSetSubdivisionVolumeDart _clickSetSubdivisionVolume;
+  late final ClickGetSubdivisionVolumeDart _clickGetSubdivisionVolume;
+  // Click track — preset
+  late final ClickSetPresetDart _clickSetPreset;
+  late final ClickGetPresetDart _clickGetPreset;
+  // Click track — count-in
+  late final ClickStartCountInDart _clickStartCountIn;
+  late final ClickIsCountInActiveDart _clickIsCountInActive;
+  late final ClickGetCountInBeatDart _clickGetCountInBeat;
+  // Click track — tap tempo
+  late final ClickTapTempoDart _clickTapTempo;
+  // Click track — audibility mode
+  late final ClickSetAudibilityModeDart _clickSetAudibilityMode;
+  late final ClickGetAudibilityModeDart _clickGetAudibilityMode;
+
   // Send functions
   late final SendSetLevelDart _sendSetLevel;
   late final SendSetLevelDbDart _sendSetLevelDb;
@@ -3102,6 +3160,26 @@ class NativeFFI {
     _clickSetOnlyDuringRecord = _lib.lookupFunction<ClickSetOnlyDuringRecordNative, ClickSetOnlyDuringRecordDart>('click_set_only_during_record');
     _clickGetOnlyDuringRecord = _lib.lookupFunction<ClickGetOnlyDuringRecordNative, ClickGetOnlyDuringRecordDart>('click_get_only_during_record');
 
+    // Click track — per-sound volumes
+    _clickSetAccentVolume = _lib.lookupFunction<ClickSetAccentVolumeNative, ClickSetAccentVolumeDart>('click_set_accent_volume');
+    _clickGetAccentVolume = _lib.lookupFunction<ClickGetAccentVolumeNative, ClickGetAccentVolumeDart>('click_get_accent_volume');
+    _clickSetBeatVolume = _lib.lookupFunction<ClickSetBeatVolumeNative, ClickSetBeatVolumeDart>('click_set_beat_volume');
+    _clickGetBeatVolume = _lib.lookupFunction<ClickGetBeatVolumeNative, ClickGetBeatVolumeDart>('click_get_beat_volume');
+    _clickSetSubdivisionVolume = _lib.lookupFunction<ClickSetSubdivisionVolumeNative, ClickSetSubdivisionVolumeDart>('click_set_subdivision_volume');
+    _clickGetSubdivisionVolume = _lib.lookupFunction<ClickGetSubdivisionVolumeNative, ClickGetSubdivisionVolumeDart>('click_get_subdivision_volume');
+    // Click track — preset
+    _clickSetPreset = _lib.lookupFunction<ClickSetPresetNative, ClickSetPresetDart>('click_set_preset');
+    _clickGetPreset = _lib.lookupFunction<ClickGetPresetNative, ClickGetPresetDart>('click_get_preset');
+    // Click track — count-in
+    _clickStartCountIn = _lib.lookupFunction<ClickStartCountInNative, ClickStartCountInDart>('click_start_count_in');
+    _clickIsCountInActive = _lib.lookupFunction<ClickIsCountInActiveNative, ClickIsCountInActiveDart>('click_is_count_in_active');
+    _clickGetCountInBeat = _lib.lookupFunction<ClickGetCountInBeatNative, ClickGetCountInBeatDart>('click_get_count_in_beat');
+    // Click track — tap tempo
+    _clickTapTempo = _lib.lookupFunction<ClickTapTempoNative, ClickTapTempoDart>('click_tap_tempo');
+    // Click track — audibility mode
+    _clickSetAudibilityMode = _lib.lookupFunction<ClickSetAudibilityModeNative, ClickSetAudibilityModeDart>('click_set_audibility_mode');
+    _clickGetAudibilityMode = _lib.lookupFunction<ClickGetAudibilityModeNative, ClickGetAudibilityModeDart>('click_get_audibility_mode');
+
     // Send functions
     _sendSetLevel = _lib.lookupFunction<SendSetLevelNative, SendSetLevelDart>('send_set_level');
     _sendSetLevelDb = _lib.lookupFunction<SendSetLevelDbNative, SendSetLevelDbDart>('send_set_level_db');
@@ -3766,7 +3844,7 @@ class NativeFFI {
     return _setTrackBus(trackId, busId) != 0;
   }
 
-  /// Set send level for a track (0.0 to 1.5)
+  /// Set send level for a track (0.0 to 2.0, where 1.0 = 0dB, 2.0 = +6dB)
   bool setSendLevel(int trackId, int sendIndex, double level) {
     if (!_loaded) return false;
     return _setSendLevel(trackId, sendIndex, level) != 0;
@@ -4885,7 +4963,7 @@ class NativeFFI {
     return _playbackSetVoicePitch(voiceId, semitones) == 1;
   }
 
-  /// Set volume for active voice in real-time (0.0 to 1.5)
+  /// Set volume for active voice in real-time (0.0 to 2.0, where 1.0 = 0dB, 2.0 = +6dB)
   bool setVoiceVolume(int voiceId, double volume) {
     if (!_loaded) return false;
     return _playbackSetVoiceVolume(voiceId, volume) == 1;
@@ -5682,6 +5760,90 @@ class NativeFFI {
   bool clickGetOnlyDuringRecord() {
     if (!_loaded) return false;
     return _clickGetOnlyDuringRecord() != 0;
+  }
+
+  /// Set accent click volume (0.0 - 1.0)
+  void clickSetAccentVolume(double volume) {
+    if (!_loaded) return;
+    _clickSetAccentVolume(volume);
+  }
+
+  /// Get accent click volume
+  double clickGetAccentVolume() {
+    if (!_loaded) return 1.0;
+    return _clickGetAccentVolume();
+  }
+
+  /// Set beat click volume (0.0 - 1.0)
+  void clickSetBeatVolume(double volume) {
+    if (!_loaded) return;
+    _clickSetBeatVolume(volume);
+  }
+
+  /// Get beat click volume
+  double clickGetBeatVolume() {
+    if (!_loaded) return 0.7;
+    return _clickGetBeatVolume();
+  }
+
+  /// Set subdivision click volume (0.0 - 1.0)
+  void clickSetSubdivisionVolume(double volume) {
+    if (!_loaded) return;
+    _clickSetSubdivisionVolume(volume);
+  }
+
+  /// Get subdivision click volume
+  double clickGetSubdivisionVolume() {
+    if (!_loaded) return 0.4;
+    return _clickGetSubdivisionVolume();
+  }
+
+  /// Set click preset (0=Sine, 1=Woodblock, ... 11=Metronome)
+  void clickSetPreset(int presetId) {
+    if (!_loaded) return;
+    _clickSetPreset(presetId);
+  }
+
+  /// Get current click preset ID
+  int clickGetPreset() {
+    if (!_loaded) return 0;
+    return _clickGetPreset();
+  }
+
+  /// Start count-in sequence (pre-roll click before transport)
+  void clickStartCountIn() {
+    if (!_loaded) return;
+    _clickStartCountIn();
+  }
+
+  /// Check if count-in is currently active
+  bool clickIsCountInActive() {
+    if (!_loaded) return false;
+    return _clickIsCountInActive() != 0;
+  }
+
+  /// Get current count-in beat number (-1 if inactive)
+  int clickGetCountInBeat() {
+    if (!_loaded) return -1;
+    return _clickGetCountInBeat();
+  }
+
+  /// Tap tempo — call on each tap, returns calculated BPM
+  double clickTapTempo() {
+    if (!_loaded) return 0.0;
+    return _clickTapTempo();
+  }
+
+  /// Set audibility mode (0=Always, 1=RecordOnly, 2=CountInOnly)
+  void clickSetAudibilityMode(int mode) {
+    if (!_loaded) return;
+    _clickSetAudibilityMode(mode);
+  }
+
+  /// Get audibility mode
+  int clickGetAudibilityMode() {
+    if (!_loaded) return 0;
+    return _clickGetAudibilityMode();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

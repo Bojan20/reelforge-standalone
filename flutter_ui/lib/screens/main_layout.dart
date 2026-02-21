@@ -78,7 +78,9 @@ class MainLayout extends StatefulWidget {
   final ChannelStripData? channelData;
   final void Function(String channelId, double volume)? onChannelVolumeChange;
   final void Function(String channelId, double pan)? onChannelPanChange;
+  final void Function(String channelId, double pan)? onChannelPanChangeEnd;
   final void Function(String channelId, double pan)? onChannelPanRightChange;
+  final void Function(String channelId, double pan)? onChannelPanRightChangeEnd;
   final void Function(String channelId)? onChannelMuteToggle;
   final void Function(String channelId)? onChannelSoloToggle;
   final void Function(String channelId)? onChannelArmToggle;
@@ -177,7 +179,9 @@ class MainLayout extends StatefulWidget {
     this.channelData,
     this.onChannelVolumeChange,
     this.onChannelPanChange,
+    this.onChannelPanChangeEnd,
     this.onChannelPanRightChange,
+    this.onChannelPanRightChangeEnd,
     this.onChannelMuteToggle,
     this.onChannelSoloToggle,
     this.onChannelArmToggle,
@@ -458,7 +462,9 @@ class _MainLayoutState extends State<MainLayout>
                 channelData: widget.channelData,
                 onChannelVolumeChange: widget.onChannelVolumeChange,
                 onChannelPanChange: widget.onChannelPanChange,
+                onChannelPanChangeEnd: widget.onChannelPanChangeEnd,
                 onChannelPanRightChange: widget.onChannelPanRightChange,
+                onChannelPanRightChangeEnd: widget.onChannelPanRightChangeEnd,
                 onChannelMuteToggle: widget.onChannelMuteToggle,
                 onChannelSoloToggle: widget.onChannelSoloToggle,
                 onChannelArmToggle: widget.onChannelArmToggle,

@@ -22,7 +22,9 @@ class ChannelInspectorPanel extends StatefulWidget {
   final ChannelStripData? channel;
   final void Function(String channelId, double volume)? onVolumeChange;
   final void Function(String channelId, double pan)? onPanChange;
+  final void Function(String channelId, double pan)? onPanChangeEnd;
   final void Function(String channelId, double panRight)? onPanRightChange;
+  final void Function(String channelId, double panRight)? onPanRightChangeEnd;
   final void Function(String channelId)? onMuteToggle;
   final void Function(String channelId)? onSoloToggle;
   final void Function(String channelId)? onArmToggle;
@@ -50,7 +52,9 @@ class ChannelInspectorPanel extends StatefulWidget {
     this.channel,
     this.onVolumeChange,
     this.onPanChange,
+    this.onPanChangeEnd,
     this.onPanRightChange,
+    this.onPanRightChangeEnd,
     this.onMuteToggle,
     this.onSoloToggle,
     this.onArmToggle,
@@ -88,6 +92,19 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   bool _clipExpanded = true;
   bool _clipGainExpanded = true;
   bool _clipTimeStretchExpanded = false;
+
+  bool _isEqBypassed(ChannelStripData ch) {
+    final eqSlotIndex = ch.inserts.indexWhere((i) => i.name.contains('EQ'));
+    if (eqSlotIndex == -1) return false;
+    return ch.inserts[eqSlotIndex].bypassed;
+  }
+
+  void _toggleEqBypass(ChannelStripData ch) {
+    final eqSlotIndex = ch.inserts.indexWhere((i) => i.name.contains('EQ'));
+    if (eqSlotIndex == -1) return;
+    final currentBypassed = ch.inserts[eqSlotIndex].bypassed;
+    widget.onInsertBypassToggle?.call(ch.id, eqSlotIndex, !currentBypassed);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -260,12 +277,12 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                     ],
                   ),
                 ),
-                // EQ Quick Access
-                _QuickButton(
-                  icon: Icons.graphic_eq,
-                  label: 'EQ',
-                  active: ch.inserts.any((i) => i.name.contains('EQ')),
+                // EQ Quick Access with bypass toggle
+                _EqQuickButton(
+                  hasEq: ch.inserts.any((i) => i.name.contains('EQ')),
+                  bypassed: _isEqBypassed(ch),
                   onTap: () => widget.onEqClick?.call(ch.id),
+                  onBypassToggle: () => _toggleEqBypass(ch),
                 ),
               ],
             ),
@@ -417,6 +434,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                             _ProToolsPanKnob(
                               value: ch.pan,
                               onChanged: (v) => widget.onPanChange?.call(ch.id, v),
+                              onChangeEnd: (v) => widget.onPanChangeEnd?.call(ch.id, v),
                               label: 'L',
                               defaultValue: -1.0,
                             ),
@@ -441,6 +459,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                             _ProToolsPanKnob(
                               value: ch.panRight,
                               onChanged: (v) => widget.onPanRightChange?.call(ch.id, v),
+                              onChangeEnd: (v) => widget.onPanRightChangeEnd?.call(ch.id, v),
                               label: 'R',
                               defaultValue: 1.0,
                             ),
@@ -477,6 +496,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                     child: _ProToolsPanKnob(
                       value: ch.pan,
                       onChanged: (v) => widget.onPanChange?.call(ch.id, v),
+                      onChangeEnd: (v) => widget.onPanChangeEnd?.call(ch.id, v),
                     ),
                   ),
                 ),
@@ -1575,6 +1595,88 @@ class _StateButtonState extends State<_StateButton> {
   }
 }
 
+/// EQ quick-access button with integrated bypass toggle.
+/// Click opens EQ editor, secondary click (right-click) toggles bypass.
+/// Visual: dim + strikethrough line when bypassed (Pro Tools style).
+class _EqQuickButton extends StatelessWidget {
+  final bool hasEq;
+  final bool bypassed;
+  final VoidCallback? onTap;
+  final VoidCallback? onBypassToggle;
+
+  const _EqQuickButton({
+    required this.hasEq,
+    required this.bypassed,
+    this.onTap,
+    this.onBypassToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = hasEq && !bypassed;
+
+    return GestureDetector(
+      onTap: onTap,
+      onSecondaryTap: onBypassToggle,
+      child: Tooltip(
+        message: bypassed ? 'EQ bypassed — right-click to enable' : 'EQ — right-click to bypass',
+        waitDuration: const Duration(milliseconds: 600),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: active
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+                : FluxForgeTheme.bgDeepest,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: active
+                  ? FluxForgeTheme.accentBlue
+                  : (bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.4) : FluxForgeTheme.borderSubtle),
+            ),
+          ),
+          child: Stack(
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.graphic_eq,
+                    size: 14,
+                    color: active
+                        ? FluxForgeTheme.accentBlue
+                        : (bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5) : FluxForgeTheme.textSecondary),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'EQ',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: active
+                          ? FluxForgeTheme.accentBlue
+                          : (bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5) : FluxForgeTheme.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
+              // Strikethrough line when bypassed
+              if (bypassed)
+                Positioned.fill(
+                  child: Center(
+                    child: Container(
+                      height: 1.5,
+                      color: FluxForgeTheme.accentOrange.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _QuickButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -2169,12 +2271,14 @@ class _InfoRow extends StatelessWidget {
 class _ProToolsPanKnob extends StatefulWidget {
   final double value; // -1.0 to 1.0
   final ValueChanged<double>? onChanged;
+  final ValueChanged<double>? onChangeEnd;
   final String? label; // Optional label (e.g., 'L' or 'R' for stereo)
   final double defaultValue; // Default value on double-tap reset
 
   const _ProToolsPanKnob({
     required this.value,
     this.onChanged,
+    this.onChangeEnd,
     this.label,
     this.defaultValue = 0.0, // Default: center for mono, override for stereo L/R
   });
@@ -2184,27 +2288,33 @@ class _ProToolsPanKnob extends StatefulWidget {
 }
 
 class _ProToolsPanKnobState extends State<_ProToolsPanKnob> {
-  double _dragStartY = 0;
-  double _dragStartValue = 0;
+  double _localValue = 0;
+  bool _isDragging = false;
+
+  double get _displayValue => _isDragging ? _localValue : widget.value;
 
   void _handleDragStart(DragStartDetails details) {
-    _dragStartY = details.localPosition.dy;
-    _dragStartValue = widget.value;
+    _localValue = widget.value;
+    setState(() => _isDragging = true);
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
     if (widget.onChanged == null) return;
-    // Vertical drag: up = right, down = left (Pro Tools style)
-    final deltaY = _dragStartY - details.localPosition.dy;
-    final sensitivity = 0.01; // Adjust for feel
-    final newValue = (_dragStartValue + deltaY * sensitivity).clamp(-1.0, 1.0);
-    widget.onChanged!(newValue);
+    final delta = -details.delta.dy * 0.007;
+    _localValue = (_localValue + delta).clamp(-1.0, 1.0);
+    setState(() {});
+    widget.onChanged!(_localValue);
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    setState(() => _isDragging = false);
+    widget.onChangeEnd?.call(_localValue);
   }
 
   @override
   Widget build(BuildContext context) {
     // Rotation: -135° to +135° (270° range)
-    final rotation = widget.value * 135 * (math.pi / 180);
+    final rotation = _displayValue * 135 * (math.pi / 180);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -2222,13 +2332,14 @@ class _ProToolsPanKnobState extends State<_ProToolsPanKnob> {
         GestureDetector(
           onVerticalDragStart: _handleDragStart,
           onVerticalDragUpdate: _handleDragUpdate,
+          onVerticalDragEnd: _handleDragEnd,
           onDoubleTap: () => widget.onChanged?.call(widget.defaultValue), // Reset to default
           child: SizedBox(
             width: 32,
             height: 32,
             child: CustomPaint(
               painter: _PanKnobPainter(
-                value: widget.value,
+                value: _displayValue,
                 rotation: rotation,
               ),
             ),

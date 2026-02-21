@@ -672,7 +672,7 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
   }
 
   Widget _buildResizeButton() {
-    return PopupMenuButton<double>(
+    return PopupMenuButton<FabFilterSize>(
       tooltip: 'Interface Size',
       icon: const Icon(
         Icons.aspect_ratio,
@@ -681,20 +681,17 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
       ),
       color: FabFilterColors.bgMid,
       itemBuilder: (context) => [
-        _buildResizeItem('Small', 0.8),
-        _buildResizeItem('Medium', 1.0),
-        _buildResizeItem('Large', 1.2),
-        _buildResizeItem('Extra Large', 1.5),
+        _buildResizeItem('Small  (S)', FabFilterSize.small),
+        _buildResizeItem('Medium (M)', FabFilterSize.medium),
+        _buildResizeItem('Large  (L)', FabFilterSize.large),
       ],
-      onSelected: (scale) {
-        // Handle resize
-      },
+      onSelected: onSizeChanged,
     );
   }
 
-  PopupMenuItem<double> _buildResizeItem(String label, double scale) {
+  PopupMenuItem<FabFilterSize> _buildResizeItem(String label, FabFilterSize size) {
     return PopupMenuItem(
-      value: scale,
+      value: size,
       child: Text(
         label,
         style: const TextStyle(
@@ -704,6 +701,9 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
       ),
     );
   }
+
+  /// Override to handle size change from bottom bar menu
+  void onSizeChanged(FabFilterSize size) {}
 
   /// Build a section with label
   Widget buildSection(String label, Widget child) {

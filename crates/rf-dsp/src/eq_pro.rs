@@ -2914,6 +2914,7 @@ impl ProEq {
     pub fn enable_band(&mut self, index: usize, enabled: bool) {
         if let Some(band) = self.bands.get_mut(index) {
             band.enabled = enabled;
+            band.needs_update = true;
             self.linear_phase_dirty = true;
         }
     }

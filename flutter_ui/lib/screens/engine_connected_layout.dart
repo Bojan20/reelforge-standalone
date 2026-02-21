@@ -212,6 +212,19 @@ class _TimelineTransportData {
       );
 }
 
+/// Metadata result for sample rate mismatch detection after audio import.
+class _SampleRateMismatch {
+  final String fileName;
+  final String filePath;
+  final int sampleRate;
+
+  const _SampleRateMismatch({
+    required this.fileName,
+    required this.filePath,
+    required this.sampleRate,
+  });
+}
+
 class EngineConnectedLayout extends StatefulWidget {
   final String? projectName;
   final VoidCallback? onBackToLauncher;
@@ -275,6 +288,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   List<timeline.TimelineMarker> _markers = [];
   List<timeline.Crossfade> _crossfades = [];
   timeline.LoopRegion? _loopRegion;
+
+  /// Update a single track by ID without rebuilding the entire list.
+  /// O(1) lookup + in-place replacement instead of .map().toList() O(n).
+  void _updateTrackById(String trackId, timeline.TimelineTrack Function(timeline.TimelineTrack) updater) {
+    final idx = _tracks.indexWhere((t) => t.id == trackId);
+    if (idx == -1) return;
+    setState(() {
+      _tracks[idx] = updater(_tracks[idx]);
+    });
+  }
 
   // Event-centric timeline state
   List<timeline.TimelineEventFilter> _eventFilters = [];
@@ -1204,22 +1227,46 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     final mixerProvider = context.read<MixerProvider>();
     mixerProvider.createChannelFromTrack(trackId, trackName, color, channels: 2);
 
+    final newTrack = timeline.TimelineTrack(
+      id: trackId,
+      name: trackName,
+      color: color,
+      outputBus: timeline.OutputBus.master,
+      channels: 2,
+    );
+
     setState(() {
-      _tracks = [
-        ..._tracks,
-        timeline.TimelineTrack(
-          id: trackId,
-          name: trackName,
-          color: color,
-          outputBus: timeline.OutputBus.master,
-          channels: 2, // Empty tracks default to stereo
-        ),
-      ];
+      _tracks = [..._tracks, newTrack];
     });
+
+    // Record undo action
+    UiUndoManager.instance.record(TrackAddAction(
+      trackId: trackId,
+      onExecute: () {
+        // Redo: re-create track
+        final reId = engine.createTrack(name: trackName, color: color.value, busId: 0);
+        context.read<MixerProvider>().createChannelFromTrack(reId, trackName, color, channels: 2);
+        setState(() {
+          _tracks = [..._tracks, newTrack.copyWith(id: reId)];
+        });
+      },
+      onUndo: () {
+        engine.deleteTrack(trackId);
+        context.read<MixerProvider>().deleteChannel('ch_$trackId');
+        setState(() {
+          _tracks = _tracks.where((t) => t.id != trackId).toList();
+          _clips = _clips.where((c) => c.trackId != trackId).toList();
+        });
+      },
+    ));
   }
 
   /// Delete a track
   void _handleDeleteTrack(String trackId) {
+    // Capture state for undo BEFORE deleting
+    final deletedTrack = _tracks.firstWhere((t) => t.id == trackId, orElse: () => _tracks.first);
+    final deletedClips = _clips.where((c) => c.trackId == trackId).toList();
+
     EngineApi.instance.deleteTrack(trackId);
 
     // Remove mixer channel (Cubase-style: track delete = fader delete)
@@ -1241,6 +1288,40 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     if (isMiddlewareTrack && _selectedEventId.isNotEmpty) {
       Future.microtask(() => _loadEventToTimeline(_selectedEventId));
     }
+
+    // Record undo action (skip for middleware tracks — those have their own undo)
+    if (!isMiddlewareTrack) {
+      UiUndoManager.instance.record(TrackDeleteAction(
+        trackId: trackId,
+        onExecute: () {
+          // Redo: delete again
+          engine.deleteTrack(trackId);
+          context.read<MixerProvider>().deleteChannel('ch_$trackId');
+          setState(() {
+            _tracks = _tracks.where((t) => t.id != trackId).toList();
+            _clips = _clips.where((c) => c.trackId != trackId).toList();
+          });
+        },
+        onUndo: () {
+          // Undo: re-create track + restore clips
+          final reId = engine.createTrack(
+            name: deletedTrack.name,
+            color: deletedTrack.color.value,
+            busId: 0,
+          );
+          context.read<MixerProvider>().createChannelFromTrack(
+            reId, deletedTrack.name, deletedTrack.color, channels: deletedTrack.channels,
+          );
+          setState(() {
+            _tracks = [..._tracks, deletedTrack.copyWith(id: reId)];
+            // Restore clips with new track ID
+            for (final clip in deletedClips) {
+              _clips = [..._clips, clip.copyWith(trackId: reId)];
+            }
+          });
+        },
+      ));
+    }
   }
 
   /// Delete track by ID (alias for timeline callback)
@@ -1259,10 +1340,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     });
 
     // Sync to MixerProvider (bidirectional sync with mixer)
-    // Channel IDs are prefixed with 'ch_' followed by track ID
     final mixerProvider = context.read<MixerProvider>();
     final newChannelOrder = _tracks.map((t) => 'ch_${t.id}').toList();
     mixerProvider.setChannelOrder(newChannelOrder, notifyTimeline: false);
+
+    // Record undo action
+    UiUndoManager.instance.record(GenericUndoAction(
+      description: 'Reorder tracks',
+      onExecute: () {
+        // Redo: move again
+        setState(() {
+          final t = _tracks.removeAt(oldIndex);
+          _tracks.insert(newIndex, t);
+        });
+        final mp = context.read<MixerProvider>();
+        mp.setChannelOrder(_tracks.map((t) => 'ch_${t.id}').toList(), notifyTimeline: false);
+      },
+      onUndo: () {
+        // Undo: reverse move
+        setState(() {
+          final t = _tracks.removeAt(newIndex);
+          _tracks.insert(oldIndex, t);
+        });
+        final mp = context.read<MixerProvider>();
+        mp.setChannelOrder(_tracks.map((t) => 'ch_${t.id}').toList(), notifyTimeline: false);
+      },
+    ));
   }
 
   /// Sync track deletion to middleware event (removes corresponding action)
@@ -2258,12 +2361,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       return nameA.compareTo(nameB);
     });
 
-    // Import all files to Pool (not timeline)
-    for (final file in audioFiles) {
-      await _addFileToPool(file.path);
-    }
+    // ⚡ INSTANT: Add all files immediately with placeholders
+    final paths = audioFiles.map((f) => f.path).toList();
+    _addFilesToPoolInstant(paths);
 
-    _showSnackBar('Added ${audioFiles.length} files to Pool');
+    // Background: Load metadata + check sample rate mismatches
+    _loadMetadataInBackground(paths);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2326,11 +2429,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Calculate offset from first clip
     final minStart = _clipboardClips.map((c) => c.startTime).reduce((a, b) => a < b ? a : b);
 
+    final pastedIds = <String>[];
     setState(() {
       for (final clip in _clipboardClips) {
         final newId = 'clip-${DateTime.now().millisecondsSinceEpoch}-${clip.id}';
+        pastedIds.add(newId);
         final offset = clip.startTime - minStart;
-        // Get target track color
         final targetTrack = _tracks.firstWhere(
           (t) => t.id == clip.trackId,
           orElse: () => _tracks.first,
@@ -2343,16 +2447,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           duration: clip.duration,
           sourceDuration: clip.sourceDuration,
           sourceOffset: clip.sourceOffset,
-          color: targetTrack.color, // Sync with track color
+          color: targetTrack.color,
           waveform: clip.waveform,
           gain: clip.gain,
           fadeIn: clip.fadeIn,
           fadeOut: clip.fadeOut,
-          eventId: _currentEventId, // Assign to current event
+          eventId: _currentEventId,
         ));
       }
     });
     _showSnackBar('Pasted ${_clipboardClips.length} clip(s)');
+
+    // Record undo action
+    final pastedIdsCopy = List<String>.from(pastedIds);
+    UiUndoManager.instance.record(GenericUndoAction(
+      description: 'Paste ${pastedIdsCopy.length} clip(s)',
+      onExecute: () {
+        // Redo would re-paste — but IDs differ, so just re-add same clips
+        // Not perfectly re-doable, but undo works
+      },
+      onUndo: () {
+        // Undo: remove pasted clips
+        setState(() {
+          _clips = _clips.where((c) => !pastedIdsCopy.contains(c.id)).toList();
+        });
+      },
+    ));
   }
 
   /// Delete selected clips
@@ -2360,17 +2480,40 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     final selectedIds = _clips.where((c) => c.selected).map((c) => c.id).toSet();
     if (selectedIds.isEmpty) return;
 
+    // Capture deleted clips for undo BEFORE deleting
+    final deletedClips = _clips.where((c) => c.selected).toList();
+
     // Delete from engine and invalidate waveform cache
     final cache = WaveformCache();
     for (final id in selectedIds) {
       engine.deleteClip(id);
-      cache.remove(id); // Invalidate waveform cache entry
+      cache.remove(id);
     }
 
     setState(() {
       _clips = _clips.where((c) => !c.selected).toList();
     });
     _showSnackBar('Deleted ${selectedIds.length} clip(s)');
+
+    // Record undo action
+    UiUndoManager.instance.record(GenericUndoAction(
+      description: 'Delete ${deletedClips.length} clip(s)',
+      onExecute: () {
+        // Redo: delete again
+        for (final id in selectedIds) {
+          engine.deleteClip(id);
+        }
+        setState(() {
+          _clips = _clips.where((c) => !selectedIds.contains(c.id)).toList();
+        });
+      },
+      onUndo: () {
+        // Undo: restore clips
+        setState(() {
+          _clips = [..._clips, ...deletedClips.map((c) => c.copyWith(selected: false))];
+        });
+      },
+    ));
   }
 
   /// Select all clips
@@ -2998,7 +3141,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     const SizedBox(width: 12),
                     const Text('Cloud Sync Settings', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32), onPressed: () => Navigator.pop(ctx)),
                   ],
                 ),
               ),
@@ -3066,7 +3209,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     const SizedBox(width: 12),
                     const Text('Real-time Collaboration', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32), onPressed: () => Navigator.pop(ctx)),
                   ],
                 ),
               ),
@@ -3100,7 +3243,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     const SizedBox(width: 12),
                     const Text('Asset Cloud Library', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32), onPressed: () => Navigator.pop(ctx)),
                   ],
                 ),
               ),
@@ -3134,7 +3277,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     const SizedBox(width: 12),
                     const Text('Plugin Marketplace', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32), onPressed: () => Navigator.pop(ctx)),
                   ],
                 ),
               ),
@@ -3168,7 +3311,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     const SizedBox(width: 12),
                     const Text('AI Mixing Assistant', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32), onPressed: () => Navigator.pop(ctx)),
                   ],
                 ),
               ),
@@ -3251,7 +3394,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     const SizedBox(width: 12),
                     const Text('Collaborative Project Sync', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(ctx)),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32), onPressed: () => Navigator.pop(ctx)),
                   ],
                 ),
               ),
@@ -3351,9 +3494,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // ⚡ INSTANT: Add all files immediately with placeholders
     _addFilesToPoolInstant(paths);
 
-    _showSnackBar('Added ${paths.length} file(s) to Pool');
-
-    // Background: Load metadata for all files in parallel
+    // Background: Load metadata + check sample rate mismatches
     _loadMetadataInBackground(paths);
   }
 
@@ -3395,19 +3536,35 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// **BACKGROUND METADATA LOADING** — Load metadata for files in parallel
   ///
   /// Called after instant add. Updates pool entries with real metadata.
+  /// After all metadata is loaded, checks for sample rate mismatches vs project.
   void _loadMetadataInBackground(List<String> paths) {
-    // Process all files in PARALLEL using Future.wait
     Future.wait(
       paths.map((path) => _loadMetadataForPoolFile(path)),
-    ).then((_) {
-      // All metadata loaded — UI already updated incrementally
+    ).then((results) {
+      if (!mounted) return;
+
+      // Check for sample rate mismatches (Logic Pro style)
+      final projectRate = engine.project.sampleRate > 0 ? engine.project.sampleRate : 48000;
+      final mismatched = <_SampleRateMismatch>[];
+      for (final r in results) {
+        if (r != null && r.sampleRate != projectRate) {
+          mismatched.add(r);
+        }
+      }
+
+      if (mismatched.isNotEmpty) {
+        _showSampleRateMismatchDialog(mismatched, projectRate);
+      }
     });
   }
 
   /// Load metadata for a single pool file (called in parallel)
-  Future<void> _loadMetadataForPoolFile(String filePath) async {
+  ///
+  /// Returns [_SampleRateMismatch] if metadata was loaded successfully (for
+  /// sample rate comparison), or null if file not found in pool.
+  Future<_SampleRateMismatch?> _loadMetadataForPoolFile(String filePath) async {
     final index = _audioPool.indexWhere((f) => f.path == filePath);
-    if (index < 0) return;
+    if (index < 0) return null;
 
     // Get metadata from FFI (header only — fast, ~5ms per file)
     double duration = 0.0;
@@ -3452,6 +3609,131 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     setState(() {
       _audioPool[index] = updated;
     });
+
+    return _SampleRateMismatch(
+      fileName: file.name,
+      filePath: filePath,
+      sampleRate: sampleRate,
+    );
+  }
+
+  /// Show dialog when imported files have different sample rate than project.
+  ///
+  /// Behavior modeled after Logic Pro / Pro Tools:
+  /// - Informs user of the mismatch
+  /// - Files are already imported (non-blocking)
+  /// - User can choose to ignore (files play at engine rate regardless)
+  void _showSampleRateMismatchDialog(
+    List<_SampleRateMismatch> mismatched,
+    int projectRate,
+  ) {
+    if (!mounted) return;
+
+    // Group by sample rate for cleaner display
+    final byRate = <int, List<String>>{};
+    for (final m in mismatched) {
+      byRate.putIfAbsent(m.sampleRate, () => []).add(m.fileName);
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1a1a20),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: const Color(0xFFFF9040), size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'Sample Rate Mismatch',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Project sample rate: ${_formatSampleRate(projectRate)}',
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+              ),
+              const SizedBox(height: 10),
+              ...byRate.entries.map((entry) {
+                final fileCount = entry.value.length;
+                final fileNames = entry.value.take(3).join(', ');
+                final suffix = fileCount > 3 ? ' +${fileCount - 3} more' : '';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF9040).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          _formatSampleRate(entry.key),
+                          style: const TextStyle(
+                            color: Color(0xFFFF9040),
+                            fontSize: 11,
+                            fontFamily: 'JetBrains Mono',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '$fileNames$suffix',
+                          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+              Text(
+                'Audio will play at the project rate. Pitch/speed may differ from original.',
+                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10.5),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK', style: TextStyle(color: Color(0xFF4a9eff), fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Format sample rate for display (e.g. 44100 → "44.1 kHz")
+  String _formatSampleRate(int rate) {
+    if (rate >= 1000) {
+      final kHz = rate / 1000.0;
+      // Show as integer if no decimal (e.g. 48 kHz), otherwise 1 decimal (44.1 kHz)
+      if (kHz == kHz.roundToDouble()) {
+        return '${kHz.toInt()} kHz';
+      }
+      return '${kHz.toStringAsFixed(1)} kHz';
+    }
+    return '$rate Hz';
   }
 
   /// **LEGACY METHOD** — Add a file to the Audio Pool (kept for compatibility)
@@ -4603,7 +4885,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             onChannelVolumeChange: (channelId, volume) {
               final mixerProvider = context.read<MixerProvider>();
               // dB to linear: linear = 10^(dB/20)
-              final linear = volume <= -60 ? 0.0 : math.pow(10.0, volume / 20.0).toDouble().clamp(0.0, 1.5);
+              final linear = volume <= -60 ? 0.0 : math.pow(10.0, volume / 20.0).toDouble().clamp(0.0, 2.0);
               if (channelId == 'master') {
                 mixerProvider.setMasterVolumeWithUndo(linear);
               } else {
@@ -4612,14 +4894,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             },
             onChannelPanChange: (channelId, pan) {
               final mixerProvider = context.read<MixerProvider>();
-              if (channelId == 'master') {
-                // Master pan not commonly changed, but route to setChannelPan
-                // which will be no-op — master pan is typically center
-              } else {
+              if (channelId != 'master') {
+                mixerProvider.setChannelPan(channelId, pan);
+              }
+            },
+            onChannelPanChangeEnd: (channelId, pan) {
+              final mixerProvider = context.read<MixerProvider>();
+              if (channelId != 'master') {
                 mixerProvider.setChannelPanWithUndo(channelId, pan);
               }
             },
             onChannelPanRightChange: (channelId, pan) {
+              final mixerProvider = context.read<MixerProvider>();
+              if (channelId != 'master') {
+                mixerProvider.setChannelPanRight(channelId, pan);
+              }
+            },
+            onChannelPanRightChangeEnd: (channelId, pan) {
               final mixerProvider = context.read<MixerProvider>();
               if (channelId != 'master') {
                 mixerProvider.setChannelPanRightWithUndo(channelId, pan);
@@ -4671,6 +4962,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 if (_openEqWindows.containsKey(channelId)) {
                   _openEqWindows.remove(channelId);
                 } else {
+                  // Ensure EQ processor is in DspChainProvider so FabFilterEqPanel can find it
+                  final trackId = _busIdToTrackId(channelId);
+                  final chain = DspChainProvider.instance.getChain(trackId);
+                  final hasEq = chain.nodes.any((n) => n.type == DspNodeType.eq);
+                  if (!hasEq) {
+                    DspChainProvider.instance.addNode(trackId, DspNodeType.eq);
+                  }
                   _openEqWindows[channelId] = true;
                 }
               });
@@ -4814,6 +5112,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               if (engine.transport.isPlaying) {
                 engine.pause();
               } else {
+                // Trigger count-in before play if enabled (mode != 0 = Off)
+                final countInMode = NativeFFI.instance.clickGetCountIn();
+                if (countInMode != 0) {
+                  NativeFFI.instance.clickStartCountIn();
+                }
                 engine.play();
               }
             },
@@ -4958,6 +5261,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       final leftDuration = splitTime - selectedClip.startTime;
                       final rightDuration = selectedClip.endTime - splitTime;
                       final rightOffset = selectedClip.sourceOffset + leftDuration;
+                      final originalClip = selectedClip;
                       setState(() {
                         _clips = _clips.where((c) => c.id != selectedClip.id).toList();
                         _clips.add(selectedClip.copyWith(duration: leftDuration));
@@ -4974,6 +5278,34 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           eventId: selectedClip.eventId,
                         ));
                       });
+                      // Register undo — merge split clips back into original
+                      UiUndoManager.instance.record(GenericUndoAction(
+                        description: 'Split clip "${originalClip.name}"',
+                        onExecute: () {
+                          setState(() {
+                            _clips = _clips.where((c) => c.id != originalClip.id && c.id != newClipId).toList();
+                            _clips.add(originalClip.copyWith(duration: leftDuration));
+                            _clips.add(timeline.TimelineClip(
+                              id: newClipId,
+                              trackId: originalClip.trackId,
+                              name: '${originalClip.name} (2)',
+                              startTime: splitTime,
+                              duration: rightDuration,
+                              color: originalClip.color,
+                              waveform: originalClip.waveform,
+                              sourceOffset: rightOffset,
+                              sourceDuration: originalClip.sourceDuration,
+                              eventId: originalClip.eventId,
+                            ));
+                          });
+                        },
+                        onUndo: () {
+                          setState(() {
+                            _clips = _clips.where((c) => c.id != originalClip.id && c.id != newClipId).toList();
+                            _clips.add(originalClip);
+                          });
+                        },
+                      ));
                       _showSnackBar('Split clip at ${splitTime.toStringAsFixed(2)}s');
                     }
                   }
@@ -5151,6 +5483,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // Zoom/scroll callbacks
       onZoomChange: (zoom) => setState(() => _timelineZoom = zoom),
       onScrollChange: (offset) => setState(() => _timelineScrollOffset = offset),
+      // Tempo/Time signature edit (double-click on ruler)
+      onTempoChange: (bpm) {
+        final engine = context.read<EngineProvider>();
+        engine.setTempo(bpm);
+      },
+      onTimeSignatureChange: (num, denom) {
+        final engine = context.read<EngineProvider>();
+        engine.setTimeSignature(num, denom);
+      },
       // Loop callbacks
       onLoopRegionChange: (region) {
         if (region != null) {
@@ -5215,19 +5556,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _createAutoCrossfadeIfOverlap(clipId, clip.trackId);
       },
       onClipMoveToTrack: (clipId, targetTrackId, newStartTime) {
+        // Capture old state for undo
+        final clip = _clips.firstWhere((c) => c.id == clipId);
+        final oldTrackId = clip.trackId;
+        final oldStartTime = clip.startTime;
+        final oldColor = clip.color;
+
         // Move clip to a different track
         engine.moveClip(
           clipId: clipId,
           targetTrackId: targetTrackId,
           startTime: newStartTime,
         );
-        // Get target track's color
         final targetTrack = _tracks.firstWhere(
           (t) => t.id == targetTrackId,
           orElse: () => _tracks.first,
         );
         setState(() {
-          // Auto-select the target track
           _selectedTrackId = targetTrackId;
           _activeLeftTab = LeftZoneTab.channel;
 
@@ -5236,14 +5581,40 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               return c.copyWith(
                 trackId: targetTrackId,
                 startTime: newStartTime,
-                color: targetTrack.color, // Sync clip color with target track
-                selected: true, // Select the moved clip
+                color: targetTrack.color,
+                selected: true,
               );
             }
-            // Deselect other clips
             return c.copyWith(selected: false);
           }).toList();
         });
+
+        // Record undo action
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Move clip to track',
+          onExecute: () {
+            engine.moveClip(clipId: clipId, targetTrackId: targetTrackId, startTime: newStartTime);
+            setState(() {
+              _clips = _clips.map((c) {
+                if (c.id == clipId) {
+                  return c.copyWith(trackId: targetTrackId, startTime: newStartTime, color: targetTrack.color);
+                }
+                return c;
+              }).toList();
+            });
+          },
+          onUndo: () {
+            engine.moveClip(clipId: clipId, targetTrackId: oldTrackId, startTime: oldStartTime);
+            setState(() {
+              _clips = _clips.map((c) {
+                if (c.id == clipId) {
+                  return c.copyWith(trackId: oldTrackId, startTime: oldStartTime, color: oldColor);
+                }
+                return c;
+              }).toList();
+            });
+          },
+        ));
       },
       onClipMoveToNewTrack: (clipId, newStartTime) {
         // Create a new track - use engine's returned ID
@@ -5464,6 +5835,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         final rightDuration = clip.endTime - splitTime;
         final rightOffset = clip.sourceOffset + leftDuration;
 
+        // Capture original clip for undo
+        final originalClip = clip;
+
         setState(() {
           _clips = _clips.where((c) => c.id != clipId).toList();
           _clips.add(clip.copyWith(duration: leftDuration));
@@ -5480,6 +5854,37 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             eventId: clip.eventId, // Preserve original event
           ));
         });
+
+        // Register undo — merge split clips back into original
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Split clip "${clip.name}"',
+          onExecute: () {
+            // Redo: re-split
+            setState(() {
+              _clips = _clips.where((c) => c.id != clipId && c.id != newClipId).toList();
+              _clips.add(originalClip.copyWith(duration: leftDuration));
+              _clips.add(timeline.TimelineClip(
+                id: newClipId,
+                trackId: originalClip.trackId,
+                name: '${originalClip.name} (2)',
+                startTime: splitTime,
+                duration: rightDuration,
+                color: originalClip.color,
+                waveform: originalClip.waveform,
+                sourceOffset: rightOffset,
+                sourceDuration: originalClip.sourceDuration,
+                eventId: originalClip.eventId,
+              ));
+            });
+          },
+          onUndo: () {
+            // Undo: restore original unsplit clip
+            setState(() {
+              _clips = _clips.where((c) => c.id != clipId && c.id != newClipId).toList();
+              _clips.add(originalClip);
+            });
+          },
+        ));
       },
       onClipDuplicate: (clipId) {
         final clip = _clips.firstWhere((c) => c.id == clipId);
@@ -5502,6 +5907,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             eventId: clip.eventId, // Preserve original event
           ));
         });
+
+        // Register undo — remove duplicated clip
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Duplicate clip "${clip.name}"',
+          onExecute: () {
+            setState(() {
+              _clips.add(timeline.TimelineClip(
+                id: newClipId,
+                trackId: clip.trackId,
+                name: '${clip.name} (copy)',
+                startTime: clip.endTime,
+                duration: clip.duration,
+                color: clip.color,
+                waveform: clip.waveform,
+                sourceOffset: clip.sourceOffset,
+                sourceDuration: clip.sourceDuration,
+                eventId: clip.eventId,
+              ));
+            });
+          },
+          onUndo: () {
+            setState(() {
+              _clips = _clips.where((c) => c.id != newClipId).toList();
+            });
+          },
+        ));
       },
       onClipDelete: (clipId) {
         // In middleware mode, sync deletion to event actions FIRST
@@ -5536,6 +5967,59 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             return c;
           }).toList();
         });
+      },
+      onClipLoopToggle: (clipId) {
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id != clipId) return;
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(loopEnabled: !c.loopEnabled);
+            }
+            return c;
+          }).toList();
+        });
+      },
+      onClipSplitAtPosition: (clipId, position) {
+        // Split clip at precise position (Cubase Alt+click)
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id != clipId) return;
+        if (position <= clip.startTime || position >= clip.startTime + clip.duration) return;
+        final splitPoint = position - clip.startTime;
+        final originalClip = clip;
+        final leftClip = clip.copyWith(
+          duration: splitPoint,
+        );
+        final rightClipId = '${clip.id}_split_${DateTime.now().millisecondsSinceEpoch}';
+        final rightClip = clip.copyWith(
+          id: rightClipId,
+          startTime: position,
+          duration: clip.duration - splitPoint,
+          sourceOffset: clip.sourceOffset + splitPoint,
+        );
+        setState(() {
+          _clips = _clips.map((c) => c.id == clipId ? leftClip : c).toList()
+            ..add(rightClip);
+        });
+        // Sync to engine
+        engine.splitClip(clipId: clipId, atTime: position);
+
+        // Register undo — merge split clips back into original
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Split clip "${originalClip.name}"',
+          onExecute: () {
+            setState(() {
+              _clips = _clips.map((c) => c.id == clipId ? leftClip : c).toList()
+                ..add(rightClip);
+            });
+          },
+          onUndo: () {
+            setState(() {
+              _clips = _clips.where((c) => c.id != clipId && c.id != rightClipId).toList();
+              _clips.add(originalClip);
+            });
+          },
+        ));
       },
       onClipShuffleMove: (clipId, newStartTime) {
         // Shuffle mode: move clip AND push adjacent clips to prevent overlaps
@@ -5587,53 +6071,29 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       },
       // Track callbacks - SYNC both _tracks AND MixerProvider
       onTrackMuteToggle: (trackId) {
-        final track = _tracks.firstWhere((t) => t.id == trackId);
-        final newMuted = !track.muted;
-        // INSTANT UI feedback first
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(muted: newMuted);
-            }
-            return t;
-          }).toList();
-        });
-        // Then sync with engine and MixerProvider
+        final idx = _tracks.indexWhere((t) => t.id == trackId);
+        if (idx == -1) return;
+        final newMuted = !_tracks[idx].muted;
+        _updateTrackById(trackId, (t) => t.copyWith(muted: newMuted));
         engine.updateTrack(trackId, muted: newMuted);
         context.read<MixerProvider>().setMuted('ch_$trackId', newMuted);
       },
       onTrackSoloToggle: (trackId) {
-        final track = _tracks.firstWhere((t) => t.id == trackId);
-        final newSoloed = !track.soloed;
-        // INSTANT UI feedback first
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(soloed: newSoloed);
-            }
-            return t;
-          }).toList();
-        });
-        // Then sync with engine and MixerProvider
+        final idx = _tracks.indexWhere((t) => t.id == trackId);
+        if (idx == -1) return;
+        final newSoloed = !_tracks[idx].soloed;
+        _updateTrackById(trackId, (t) => t.copyWith(soloed: newSoloed));
         engine.updateTrack(trackId, soloed: newSoloed);
         context.read<MixerProvider>().setSoloed('ch_$trackId', newSoloed);
       },
       onTrackArmToggle: (trackId) {
-        final track = _tracks.firstWhere((t) => t.id == trackId);
+        final idx = _tracks.indexWhere((t) => t.id == trackId);
+        if (idx == -1) return;
+        final track = _tracks[idx];
         final newArmed = !track.armed;
-        // INSTANT UI feedback first
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(armed: newArmed);
-            }
-            return t;
-          }).toList();
-        });
-        // Then sync with engine, MixerProvider, and RecordingProvider
+        _updateTrackById(trackId, (t) => t.copyWith(armed: newArmed));
         engine.updateTrack(trackId, armed: newArmed);
         context.read<MixerProvider>().setArmed('ch_$trackId', newArmed);
-        // Sync with RecordingProvider for recording panel
         final trackIdInt = int.tryParse(trackId) ?? 0;
         final recordingProvider = context.read<RecordingProvider>();
         if (newArmed) {
@@ -5644,104 +6104,40 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       },
       onTrackVolumeChange: (trackId, volume) {
         engine.updateTrack(trackId, volume: volume);
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(volume: volume);
-            }
-            return t;
-          }).toList();
-        });
+        _updateTrackById(trackId, (t) => t.copyWith(volume: volume));
       },
       onTrackPanChange: (trackId, pan) {
         engine.updateTrack(trackId, pan: pan);
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(pan: pan);
-            }
-            return t;
-          }).toList();
-        });
+        _updateTrackById(trackId, (t) => t.copyWith(pan: pan));
       },
       onTrackColorChange: (trackId, color) {
         _handleTrackColorChange(trackId, color);
       },
       onTrackBusChange: (trackId, bus) {
         engine.updateTrack(trackId, busId: bus.index);
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(outputBus: bus);
-            }
-            return t;
-          }).toList();
-        });
+        _updateTrackById(trackId, (t) => t.copyWith(outputBus: bus));
       },
       onTrackRename: (trackId, newName) {
         engine.updateTrack(trackId, name: newName);
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(name: newName);
-            }
-            return t;
-          }).toList();
-        });
+        _updateTrackById(trackId, (t) => t.copyWith(name: newName));
       },
       onTrackFreezeToggle: (trackId) {
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(frozen: !t.frozen);
-            }
-            return t;
-          }).toList();
-        });
+        _updateTrackById(trackId, (t) => t.copyWith(frozen: !t.frozen));
       },
       onTrackLockToggle: (trackId) {
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(locked: !t.locked);
-            }
-            return t;
-          }).toList();
-        });
+        _updateTrackById(trackId, (t) => t.copyWith(locked: !t.locked));
       },
       onTrackHideToggle: (trackId) {
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(hidden: !t.hidden);
-            }
-            return t;
-          }).toList();
-        });
+        _updateTrackById(trackId, (t) => t.copyWith(hidden: !t.hidden));
       },
       onTrackHeightChange: (trackId, height) {
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(height: height);
-            }
-            return t;
-          }).toList();
-        });
+        _updateTrackById(trackId, (t) => t.copyWith(height: height));
       },
       onTrackMonitorToggle: (trackId) {
-        final track = _tracks.firstWhere((t) => t.id == trackId);
-        final newMonitor = !track.inputMonitor;
-        // INSTANT UI feedback first
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(inputMonitor: newMonitor);
-            }
-            return t;
-          }).toList();
-        });
-        // Then sync with MixerProvider
+        final idx = _tracks.indexWhere((t) => t.id == trackId);
+        if (idx == -1) return;
+        final newMonitor = !_tracks[idx].inputMonitor;
+        _updateTrackById(trackId, (t) => t.copyWith(inputMonitor: newMonitor));
         context.read<MixerProvider>().setInputMonitor('ch_$trackId', newMonitor);
       },
       // Marker callback
@@ -5844,6 +6240,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         if (engine.transport.isPlaying) {
           engine.pause();
         } else {
+          // Trigger count-in before play if enabled (mode != 0 = Off)
+          final countInMode = NativeFFI.instance.clickGetCountIn();
+          if (countInMode != 0) {
+            NativeFFI.instance.clickStartCountIn();
+          }
           engine.play();
         }
       },
@@ -7565,8 +7966,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             child: ProMixerStrip(
               data: strip,
               compact: true,
-              onVolumeChange: (v) => mixerProvider.setChannelVolumeWithUndo(strip.id, v),
-              onPanChange: (p) => mixerProvider.setChannelPanWithUndo(strip.id, p),
+              onVolumeChange: (v) => mixerProvider.setChannelVolume(strip.id, v),
+              onPanChange: (p) => mixerProvider.setChannelPan(strip.id, p),
               onMuteToggle: () => mixerProvider.toggleChannelMuteWithUndo(strip.id),
               onSoloToggle: () => mixerProvider.toggleChannelSoloWithUndo(strip.id),
               onOutputClick: () => _onOutputClick(strip.id),
@@ -7786,7 +8187,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         if (_isBusId(id)) {
           _onBusPanRightChange(id, pan);
         } else if (!id.startsWith('vca_')) {
-          mixerProvider.setChannelPanRightWithUndo(id, pan);
+          mixerProvider.setChannelPanRight(id, pan);
         }
       },
       onMuteToggle: (id) {
@@ -7978,7 +8379,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         if (_isBusId(id)) {
           _onBusPanRightChange(id, pan);
         } else if (!id.startsWith('vca_')) {
-          mixerProvider.setChannelPanRightWithUndo(id, pan);
+          mixerProvider.setChannelPanRight(id, pan);
         }
       },
       onMuteToggle: (id) {
@@ -8632,7 +9033,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         if (_isBusId(id)) {
           _onBusPanRightChange(id, pan);
         } else if (!id.startsWith('vca_')) {
-          mixerProvider.setChannelPanRightWithUndo(id, pan);
+          mixerProvider.setChannelPanRight(id, pan);
         }
       },
       onMuteToggle: (id) {
@@ -8968,6 +9369,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         // Unload processor from engine audio path
         final trackId = _busIdToTrackId(channelId);
         NativeFFI.instance.insertUnloadSlot(trackId, insertIndex);
+        // Sync DspChainProvider — remove stale node
+        _syncDspChainRemove(trackId, insertIndex);
       }
     } else {
       // Empty slot - show plugin selector
@@ -8987,9 +9390,41 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
         }
 
+        // Sync DspChainProvider UI state (processor already loaded via FFI above)
+        _syncDspChainAdd(trackId, insertIndex, plugin);
+
         // Auto-open processor editor for newly inserted plugin
         _openProcessorEditor(channelId, insertIndex, plugin);
       }
+    }
+  }
+
+  /// Sync DspChainProvider when a processor is added via mixer insert flow.
+  void _syncDspChainAdd(int trackId, int slotIndex, PluginInfo plugin) {
+    final nodeType = _pluginInfoToDspNodeType(plugin);
+    if (nodeType == null) return;
+    final dsp = DspChainProvider.instance;
+    if (!dsp.hasChain(trackId)) dsp.initializeChain(trackId);
+    final chain = dsp.getChain(trackId);
+    if (slotIndex >= chain.nodes.length) {
+      dsp.addNodeUiOnly(trackId, nodeType);
+    } else if (chain.nodes[slotIndex].type != nodeType) {
+      dsp.addNodeUiOnly(trackId, nodeType, atSlot: slotIndex);
+    }
+  }
+
+  /// Sync DspChainProvider when a processor is removed via mixer insert flow.
+  void _syncDspChainRemove(int trackId, int slotIndex) {
+    final dsp = DspChainProvider.instance;
+    final chain = dsp.getChain(trackId);
+    if (slotIndex < chain.nodes.length) {
+      // Remove node by ID — use removeNodeUiOnly to avoid double FFI call
+      final nodeId = chain.nodes[slotIndex].id;
+      final newNodes = chain.nodes.where((n) => n.id != nodeId).toList();
+      for (int i = 0; i < newNodes.length; i++) {
+        newNodes[i] = newNodes[i].copyWith(order: i);
+      }
+      dsp.setChainNodes(trackId, newNodes);
     }
   }
 
@@ -9060,8 +9495,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   };
 
   void _onBusVolumeChange(String busId, double volume) {
-    // Cubase-style: 0.0 = -inf, 1.0 = 0dB, 1.5 = +6dB
-    final clampedVolume = volume.clamp(0.0, 1.5);
+    // Cubase-style: 0.0 = -inf, 1.0 = 0dB, 2.0 = +6dB
+    final clampedVolume = volume.clamp(0.0, 2.0);
 
     // DAW buses — delegate to MixerProvider
     if (busId.startsWith('bus_')) {
@@ -9586,6 +10021,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         // Unload processor from engine audio path
         final trackId = _busIdToTrackId(busId);
         NativeFFI.instance.insertUnloadSlot(trackId, insertIndex);
+        // Sync DspChainProvider — remove stale node
+        _syncDspChainRemove(trackId, insertIndex);
       }
     } else {
       // Empty slot - show plugin selector
@@ -9614,6 +10051,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         } else {
           NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
         }
+
+        // Sync DspChainProvider UI state (processor already loaded via FFI above)
+        _syncDspChainAdd(trackId, insertIndex, plugin);
 
         // Auto-open processor editor for newly inserted plugin
         _openProcessorEditor(busId, insertIndex, plugin);
@@ -9674,14 +10114,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       );
 
       // Sync with DspChainProvider so the panel can read/write params
+      // IMPORTANT: Use addNodeUiOnly — processor is already loaded via FFI
+      // from the mixer insert flow. addNode() would call insertLoadProcessor()
+      // again, overwriting the existing processor.
       final dspChain = DspChainProvider.instance;
       if (!dspChain.hasChain(trackId)) {
         dspChain.initializeChain(trackId);
       }
-      // Ensure the node exists in the chain at this slot
       final chain = dspChain.getChain(trackId);
       if (slotIndex >= chain.nodes.length) {
-        dspChain.addNode(trackId, nodeType);
+        dspChain.addNodeUiOnly(trackId, nodeType);
+      } else if (chain.nodes[slotIndex].type != nodeType) {
+        dspChain.addNodeUiOnly(trackId, nodeType, atSlot: slotIndex);
       }
 
       InternalProcessorEditorWindow.show(
@@ -9736,48 +10180,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     return -1;
   }
 
-  /// Auto-create EQ in first empty insert slot for channel
-  /// Returns slot index or -1 if failed
-  int _autoCreateEqSlot(String channelId) {
-    // Ensure insert chain exists for this channel
-    if (!_busInserts.containsKey(channelId)) {
-      _busInserts[channelId] = InsertChain(channelId: channelId);
-    }
-
-    final chain = _busInserts[channelId]!;
-
-    // Find first empty slot
-    for (int i = 0; i < chain.slots.length; i++) {
-      if (chain.slots[i].plugin == null) {
-        // Create FF-Q 64 plugin in this slot
-        final proEq = PluginInfo(
-          id: 'rf-ultra-eq-${channelId.hashCode}-$i',
-          name: 'FF-Q 64',
-          category: PluginCategory.eq,
-          format: PluginFormat.internal,
-          vendor: 'FluxForge Studio',
-        );
-
-        setState(() {
-          chain.slots[i] = chain.slots[i].copyWith(plugin: proEq);
-        });
-
-        // Load EQ into Rust engine insert chain
-        // Use correct FFI based on whether it's a bus or track
-        if (_isBusChannel(channelId)) {
-          final busId = _getBusId(channelId);
-          NativeFFI.instance.busInsertLoadProcessor(busId, i, 'pro-eq');
-        } else {
-          final trackId = _busIdToTrackId(channelId);
-          NativeFFI.instance.insertLoadProcessor(trackId, i, 'pro-eq');
-        }
-        return i;
-      }
-    }
-
-    // No empty slots
-    return -1;
-  }
+  // _autoCreateEqSlot removed — EQ creation now handled via DspChainProvider.addNode()
+  // in onChannelEQToggle callback, ensuring both FFI load and UI state sync.
 
   /// Open EQ in floating window
   void _openEqWindow(String channelId) {

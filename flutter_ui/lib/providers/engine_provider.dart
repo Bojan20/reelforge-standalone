@@ -225,6 +225,11 @@ class EngineProvider extends ChangeNotifier {
     engine.setTempo(bpm);
   }
 
+  void setTimeSignature(int numerator, int denominator) {
+    if (!isRunning) return;
+    engine.setTimeSignature(numerator, denominator);
+  }
+
   void toggleLoop() {
     if (!isRunning) return;
     engine.toggleLoop();

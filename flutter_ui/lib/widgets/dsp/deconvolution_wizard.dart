@@ -151,8 +151,10 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
+            icon: const Icon(Icons.close, size: 18, color: Colors.white),
             onPressed: widget.onClose,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
           ),
         ],
       ),

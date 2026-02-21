@@ -14,6 +14,7 @@
 //! - Custom: user-defined patterns
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rf_core::Sample;
 
@@ -81,6 +82,243 @@ impl ClickSound {
     pub fn from_file(_path: &str, sample_rate: u32) -> Self {
         // In real implementation, load and resample audio file
         Self::default_accent(sample_rate)
+    }
+
+    /// Generate a noise-based click (for rimshot, sticks, hi-hat presets)
+    fn generate_noise_click(sample_rate: u32, duration: f32, gain: f32, hp_cutoff: f32) -> Self {
+        let num_samples = (sample_rate as f32 * duration) as usize;
+        let mut samples = Vec::with_capacity(num_samples);
+
+        // Simple LCG pseudo-random for deterministic noise (no allocations)
+        let mut rng_state: u32 = 0xDEAD_BEEF;
+
+        // One-pole HP filter state
+        let rc = 1.0 / (hp_cutoff * std::f32::consts::TAU);
+        let dt = 1.0 / sample_rate as f32;
+        let alpha = rc / (rc + dt);
+        let mut prev_input = 0.0f32;
+        let mut prev_output = 0.0f32;
+
+        for i in 0..num_samples {
+            let t = i as f32 / sample_rate as f32;
+            let envelope = (-t * 60.0).exp(); // Sharp decay
+
+            // LCG noise [-1, 1]
+            rng_state = rng_state.wrapping_mul(1103515245).wrapping_add(12345);
+            let noise = (rng_state as f32 / u32::MAX as f32) * 2.0 - 1.0;
+
+            // HP filter
+            let filtered = alpha * (prev_output + noise - prev_input);
+            prev_input = noise;
+            prev_output = filtered;
+
+            samples.push(filtered * envelope * gain);
+        }
+
+        Self {
+            samples,
+            sample_rate,
+            gain: 1.0,
+        }
+    }
+
+    /// Generate a square wave click (for beep preset)
+    fn generate_square_click(sample_rate: u32, freq: f32, duration: f32, gain: f32) -> Self {
+        let num_samples = (sample_rate as f32 * duration) as usize;
+        let mut samples = Vec::with_capacity(num_samples);
+
+        for i in 0..num_samples {
+            let t = i as f32 / sample_rate as f32;
+            let envelope = (-t * 50.0).exp();
+            let phase = (t * freq * std::f32::consts::TAU).sin();
+            let square = if phase >= 0.0 { 1.0 } else { -1.0 };
+            samples.push(square * envelope * gain * 0.5); // -6dB to avoid harshness
+        }
+
+        Self {
+            samples,
+            sample_rate,
+            gain: 1.0,
+        }
+    }
+
+    /// Generate a combined sine + noise transient click (for woodblock, clave, sidestick)
+    fn generate_transient_click(
+        sample_rate: u32,
+        freq: f32,
+        duration: f32,
+        gain: f32,
+        noise_amount: f32,
+        noise_decay: f32,
+    ) -> Self {
+        let num_samples = (sample_rate as f32 * duration) as usize;
+        let mut samples = Vec::with_capacity(num_samples);
+
+        let mut rng_state: u32 = 0xCAFE_BABE;
+
+        for i in 0..num_samples {
+            let t = i as f32 / sample_rate as f32;
+            let sine_env = (-t * 40.0).exp();
+            let noise_env = (-t * noise_decay).exp();
+
+            let sine = (t * freq * std::f32::consts::TAU).sin() * sine_env;
+
+            rng_state = rng_state.wrapping_mul(1103515245).wrapping_add(12345);
+            let noise = (rng_state as f32 / u32::MAX as f32) * 2.0 - 1.0;
+
+            let mixed = sine * (1.0 - noise_amount) + noise * noise_env * noise_amount;
+            samples.push(mixed * gain);
+        }
+
+        Self {
+            samples,
+            sample_rate,
+            gain: 1.0,
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CLICK PRESETS (Pro Tools Click II-style)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Click sound preset (12 built-in presets like Pro Tools Click II)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub enum ClickPreset {
+    /// Pure sine with exponential decay (default — clean studio click)
+    #[default]
+    Sine = 0,
+    /// Sharp high-frequency hit (2200/1800 Hz)
+    Woodblock = 1,
+    /// White noise burst + sine body
+    Rimshot = 2,
+    /// Lower frequency, longer sustain (560/420 Hz)
+    Cowbell = 3,
+    /// Soft round tone (900/700 Hz)
+    Marimba = 4,
+    /// Filtered noise burst (percussive)
+    Sticks = 5,
+    /// Very short high-pitched click (2500/2000 Hz)
+    Clave = 6,
+    /// Square wave pulse
+    Beep = 7,
+    /// Ultra-short tick (5ms)
+    Click = 8,
+    /// Filtered noise + body resonance
+    SideStick = 9,
+    /// Noise + HP filter (bright)
+    HiHat = 10,
+    /// Traditional analog metronome (warm sine)
+    Metronome = 11,
+}
+
+impl ClickPreset {
+    /// Total number of presets
+    pub const COUNT: u8 = 12;
+
+    /// Get preset name
+    pub fn name(&self) -> &'static str {
+        match self {
+            ClickPreset::Sine => "Sine",
+            ClickPreset::Woodblock => "Woodblock",
+            ClickPreset::Rimshot => "Rimshot",
+            ClickPreset::Cowbell => "Cowbell",
+            ClickPreset::Marimba => "Marimba",
+            ClickPreset::Sticks => "Sticks",
+            ClickPreset::Clave => "Clave",
+            ClickPreset::Beep => "Beep",
+            ClickPreset::Click => "Click",
+            ClickPreset::SideStick => "SideStick",
+            ClickPreset::HiHat => "HiHat",
+            ClickPreset::Metronome => "Metronome",
+        }
+    }
+
+    /// Convert from u8
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            0 => ClickPreset::Sine,
+            1 => ClickPreset::Woodblock,
+            2 => ClickPreset::Rimshot,
+            3 => ClickPreset::Cowbell,
+            4 => ClickPreset::Marimba,
+            5 => ClickPreset::Sticks,
+            6 => ClickPreset::Clave,
+            7 => ClickPreset::Beep,
+            8 => ClickPreset::Click,
+            9 => ClickPreset::SideStick,
+            10 => ClickPreset::HiHat,
+            11 => ClickPreset::Metronome,
+            _ => ClickPreset::Sine,
+        }
+    }
+
+    /// Generate accent, beat, and subdivision sounds for this preset.
+    /// All synthesis is pre-computed (safe to call from any thread).
+    pub fn generate(&self, sample_rate: u32) -> (ClickSound, ClickSound, ClickSound) {
+        match self {
+            ClickPreset::Sine => (
+                ClickSound::generate_click(sample_rate, 1000.0, 0.015, 0.8),
+                ClickSound::generate_click(sample_rate, 800.0, 0.012, 0.5),
+                ClickSound::generate_click(sample_rate, 600.0, 0.008, 0.3),
+            ),
+            ClickPreset::Woodblock => (
+                ClickSound::generate_transient_click(sample_rate, 2200.0, 0.012, 0.85, 0.3, 120.0),
+                ClickSound::generate_transient_click(sample_rate, 1800.0, 0.010, 0.55, 0.25, 120.0),
+                ClickSound::generate_transient_click(sample_rate, 1500.0, 0.008, 0.35, 0.2, 120.0),
+            ),
+            ClickPreset::Rimshot => (
+                ClickSound::generate_transient_click(sample_rate, 900.0, 0.020, 0.85, 0.6, 80.0),
+                ClickSound::generate_transient_click(sample_rate, 700.0, 0.015, 0.55, 0.5, 80.0),
+                ClickSound::generate_transient_click(sample_rate, 500.0, 0.010, 0.35, 0.4, 80.0),
+            ),
+            ClickPreset::Cowbell => (
+                ClickSound::generate_click(sample_rate, 560.0, 0.040, 0.8),
+                ClickSound::generate_click(sample_rate, 420.0, 0.030, 0.5),
+                ClickSound::generate_click(sample_rate, 350.0, 0.020, 0.3),
+            ),
+            ClickPreset::Marimba => (
+                ClickSound::generate_click(sample_rate, 900.0, 0.025, 0.75),
+                ClickSound::generate_click(sample_rate, 700.0, 0.020, 0.48),
+                ClickSound::generate_click(sample_rate, 550.0, 0.015, 0.28),
+            ),
+            ClickPreset::Sticks => (
+                ClickSound::generate_noise_click(sample_rate, 0.008, 0.85, 3000.0),
+                ClickSound::generate_noise_click(sample_rate, 0.006, 0.55, 2500.0),
+                ClickSound::generate_noise_click(sample_rate, 0.004, 0.35, 2000.0),
+            ),
+            ClickPreset::Clave => (
+                ClickSound::generate_transient_click(sample_rate, 2500.0, 0.008, 0.85, 0.15, 150.0),
+                ClickSound::generate_transient_click(sample_rate, 2000.0, 0.006, 0.55, 0.1, 150.0),
+                ClickSound::generate_transient_click(sample_rate, 1600.0, 0.005, 0.35, 0.08, 150.0),
+            ),
+            ClickPreset::Beep => (
+                ClickSound::generate_square_click(sample_rate, 1200.0, 0.012, 0.75),
+                ClickSound::generate_square_click(sample_rate, 900.0, 0.010, 0.48),
+                ClickSound::generate_square_click(sample_rate, 700.0, 0.008, 0.3),
+            ),
+            ClickPreset::Click => (
+                ClickSound::generate_click(sample_rate, 4000.0, 0.005, 0.9),
+                ClickSound::generate_click(sample_rate, 3200.0, 0.004, 0.6),
+                ClickSound::generate_click(sample_rate, 2500.0, 0.003, 0.35),
+            ),
+            ClickPreset::SideStick => (
+                ClickSound::generate_transient_click(sample_rate, 1200.0, 0.018, 0.85, 0.45, 90.0),
+                ClickSound::generate_transient_click(sample_rate, 950.0, 0.014, 0.55, 0.35, 90.0),
+                ClickSound::generate_transient_click(sample_rate, 750.0, 0.010, 0.35, 0.25, 90.0),
+            ),
+            ClickPreset::HiHat => (
+                ClickSound::generate_noise_click(sample_rate, 0.025, 0.8, 6000.0),
+                ClickSound::generate_noise_click(sample_rate, 0.015, 0.5, 5000.0),
+                ClickSound::generate_noise_click(sample_rate, 0.010, 0.3, 4000.0),
+            ),
+            ClickPreset::Metronome => (
+                ClickSound::generate_click(sample_rate, 600.0, 0.030, 0.85),
+                ClickSound::generate_click(sample_rate, 480.0, 0.025, 0.55),
+                ClickSound::generate_click(sample_rate, 400.0, 0.018, 0.3),
+            ),
+        }
     }
 }
 
@@ -151,6 +389,29 @@ impl CountInMode {
 // CLICK TRACK
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// Audibility mode — when should the click be heard?
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub enum AudibilityMode {
+    /// Click during both playback and recording
+    #[default]
+    Always = 0,
+    /// Click only during recording
+    RecordOnly = 1,
+    /// Click only during count-in, silent during playback/recording
+    CountInOnly = 2,
+}
+
+impl AudibilityMode {
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => AudibilityMode::RecordOnly,
+            2 => AudibilityMode::CountInOnly,
+            _ => AudibilityMode::Always,
+        }
+    }
+}
+
 /// Metronome/Click track generator
 #[allow(dead_code)]
 pub struct ClickTrack {
@@ -164,10 +425,18 @@ pub struct ClickTrack {
     subdivision_sound: ClickSound,
     /// Master volume (linear)
     volume: f32,
+    /// Per-sound volumes (Pro Tools Click II style)
+    accent_volume: f32,
+    beat_volume: f32,
+    subdivision_volume: f32,
+    /// Current preset
+    preset: ClickPreset,
     /// Click pattern
     pattern: ClickPattern,
     /// Count-in mode
     count_in: CountInMode,
+    /// Audibility mode (Always / RecordOnly / CountInOnly)
+    audibility_mode: u8, // stored as u8 for lock-free atomicity
     /// Current playback position in click sound
     playback_pos: usize,
     /// Current sound being played
@@ -176,7 +445,7 @@ pub struct ClickTrack {
     sample_rate: u32,
     /// PPQ (pulses per quarter note)
     ppq: u32,
-    /// Only during recording (AtomicBool — set from UI, read from audio thread)
+    /// Only during recording (legacy — superseded by audibility_mode, kept for FFI compat)
     only_during_record: AtomicBool,
     /// Pan position (-1.0 to 1.0)
     pan: f32,
@@ -186,6 +455,24 @@ pub struct ClickTrack {
     beats_per_bar: u8,
     /// Last tick that triggered a click (prevents double-triggers within same beat)
     last_trigger_tick: u64,
+
+    // ── Count-in state ──
+    /// Count-in is currently active
+    count_in_active: AtomicBool,
+    /// Total count-in beats to play
+    count_in_total_beats: u32,
+    /// Count-in beats played so far
+    count_in_beats_played: u32,
+    /// Sample position within count-in (independent from transport)
+    count_in_sample_pos: u64,
+    /// Last tick that triggered during count-in
+    count_in_last_tick: u64,
+
+    // ── Tap tempo state ──
+    /// Last 8 tap timestamps (milliseconds since epoch)
+    tap_times: [u64; 8],
+    /// Number of valid taps in buffer
+    tap_count: usize,
 }
 
 impl ClickTrack {
@@ -196,8 +483,13 @@ impl ClickTrack {
             beat_sound: ClickSound::default_beat(sample_rate),
             subdivision_sound: ClickSound::default_subdivision(sample_rate),
             volume: 0.7,
+            accent_volume: 1.0,
+            beat_volume: 0.7,
+            subdivision_volume: 0.4,
+            preset: ClickPreset::Sine,
             pattern: ClickPattern::Quarter,
             count_in: CountInMode::Off,
+            audibility_mode: 0, // Always
             playback_pos: 0,
             current_sound: None,
             sample_rate,
@@ -207,6 +499,15 @@ impl ClickTrack {
             tempo_bpm: AtomicU64::new(120.0_f64.to_bits()),
             beats_per_bar: 4,
             last_trigger_tick: u64::MAX,
+            // Count-in
+            count_in_active: AtomicBool::new(false),
+            count_in_total_beats: 0,
+            count_in_beats_played: 0,
+            count_in_sample_pos: 0,
+            count_in_last_tick: u64::MAX,
+            // Tap tempo
+            tap_times: [0; 8],
+            tap_count: 0,
         }
     }
 
@@ -300,6 +601,213 @@ impl ClickTrack {
         self.only_during_record.load(Ordering::Relaxed)
     }
 
+    // ── Per-Sound Volumes ──
+
+    pub fn set_accent_volume(&mut self, v: f32) {
+        self.accent_volume = v.clamp(0.0, 1.0);
+    }
+    pub fn get_accent_volume(&self) -> f32 {
+        self.accent_volume
+    }
+    pub fn set_beat_volume(&mut self, v: f32) {
+        self.beat_volume = v.clamp(0.0, 1.0);
+    }
+    pub fn get_beat_volume(&self) -> f32 {
+        self.beat_volume
+    }
+    pub fn set_subdivision_volume(&mut self, v: f32) {
+        self.subdivision_volume = v.clamp(0.0, 1.0);
+    }
+    pub fn get_subdivision_volume(&self) -> f32 {
+        self.subdivision_volume
+    }
+
+    // ── Preset ──
+
+    pub fn set_preset(&mut self, preset_id: u8) {
+        let preset = ClickPreset::from_u8(preset_id);
+        self.preset = preset;
+        let (accent, beat, sub) = preset.generate(self.sample_rate);
+        self.accent_sound = accent;
+        self.beat_sound = beat;
+        self.subdivision_sound = sub;
+    }
+    pub fn get_preset(&self) -> u8 {
+        self.preset as u8
+    }
+
+    // ── Audibility Mode ──
+
+    pub fn set_audibility_mode(&mut self, mode: u8) {
+        self.audibility_mode = mode.min(2);
+        // Sync legacy field for backward compat
+        self.only_during_record.store(mode == 1, Ordering::Relaxed);
+    }
+    pub fn get_audibility_mode(&self) -> u8 {
+        self.audibility_mode
+    }
+
+    // ── Count-In ──
+
+    /// Start a count-in sequence (called from FFI before transport starts)
+    pub fn start_count_in(&mut self) {
+        let total = self.count_in.beats(self.beats_per_bar);
+        if total == 0 {
+            return; // Count-in is Off
+        }
+        self.count_in_total_beats = total;
+        self.count_in_beats_played = 0;
+        self.count_in_sample_pos = 0;
+        self.count_in_last_tick = u64::MAX;
+        self.count_in_active.store(true, Ordering::Release);
+    }
+
+    /// Check if count-in is currently active
+    pub fn is_count_in_active(&self) -> bool {
+        self.count_in_active.load(Ordering::Acquire)
+    }
+
+    /// Get current count-in beat number (0-based, -1 if inactive)
+    pub fn get_count_in_beat(&self) -> i32 {
+        if !self.is_count_in_active() {
+            return -1;
+        }
+        self.count_in_beats_played as i32
+    }
+
+    /// Process count-in audio (independent sample position, no transport advance).
+    /// Returns true when count-in is complete.
+    fn process_count_in_block(
+        &mut self,
+        output_l: &mut [Sample],
+        output_r: &mut [Sample],
+        frames: usize,
+    ) -> bool {
+        let tempo = self.get_tempo();
+        if tempo <= 0.0 {
+            return false;
+        }
+
+        let sample_rate = self.sample_rate as f64;
+        let ppq = self.ppq as f64;
+        let samples_per_tick = (sample_rate * 60.0) / (tempo * ppq);
+        let ticks_per_beat = self.ppq as u64;
+
+        for frame in 0..frames {
+            let sample_pos = self.count_in_sample_pos;
+            let tick = (sample_pos as f64 / samples_per_tick) as u64;
+
+            if tick != self.count_in_last_tick && tick.is_multiple_of(ticks_per_beat) {
+                // A new beat in count-in
+                let beat_in_bar = (self.count_in_beats_played % self.beats_per_bar as u32) as u8;
+                let is_downbeat = beat_in_bar == 0;
+                self.trigger(beat_in_bar, is_downbeat, false);
+                self.count_in_last_tick = tick;
+                self.count_in_beats_played += 1;
+
+                if self.count_in_beats_played >= self.count_in_total_beats {
+                    // Count-in complete — render remaining sound then signal done
+                    self.render_sample(output_l, output_r, frame);
+                    self.count_in_sample_pos += 1;
+                    // Render rest of block
+                    for f2 in (frame + 1)..frames {
+                        self.render_sample(output_l, output_r, f2);
+                        self.count_in_sample_pos += 1;
+                    }
+                    self.count_in_active.store(false, Ordering::Release);
+                    return true;
+                }
+            }
+
+            self.render_sample(output_l, output_r, frame);
+            self.count_in_sample_pos += 1;
+        }
+
+        false
+    }
+
+    /// Render one sample of the current click sound at frame index
+    fn render_sample(&mut self, output_l: &mut [Sample], output_r: &mut [Sample], frame: usize) {
+        if let Some(ref sound_type) = self.current_sound {
+            let (sound, per_vol) = match sound_type {
+                ClickSoundType::Accent => (&self.accent_sound, self.accent_volume),
+                ClickSoundType::Beat => (&self.beat_sound, self.beat_volume),
+                ClickSoundType::Subdivision => (&self.subdivision_sound, self.subdivision_volume),
+            };
+
+            if self.playback_pos < sound.samples.len() {
+                let s = sound.samples[self.playback_pos] as f64
+                    * sound.gain as f64
+                    * self.volume as f64
+                    * per_vol as f64;
+
+                let left_gain = if self.pan <= 0.0 { 1.0 } else { 1.0 - self.pan as f64 };
+                let right_gain = if self.pan >= 0.0 { 1.0 } else { 1.0 + self.pan as f64 };
+
+                output_l[frame] += s * left_gain;
+                output_r[frame] += s * right_gain;
+                self.playback_pos += 1;
+            } else {
+                self.current_sound = None;
+            }
+        }
+    }
+
+    // ── Tap Tempo ──
+
+    /// Record a tap and return the calculated BPM (or current BPM if not enough taps)
+    pub fn tap_tempo(&mut self) -> f64 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        // Reset if gap > 2 seconds since last tap
+        if self.tap_count > 0 {
+            let last = self.tap_times[(self.tap_count - 1) % 8];
+            if now.saturating_sub(last) > 2000 {
+                self.tap_count = 0;
+            }
+        }
+
+        self.tap_times[self.tap_count % 8] = now;
+        self.tap_count += 1;
+
+        // Need at least 2 taps to calculate
+        if self.tap_count < 2 {
+            return self.get_tempo();
+        }
+
+        // Average intervals from last N taps (max 8)
+        let usable = self.tap_count.min(8);
+        let start_idx = if self.tap_count > 8 {
+            self.tap_count - 8
+        } else {
+            0
+        };
+
+        let mut total_interval = 0u64;
+        let mut count = 0u64;
+        for i in (start_idx + 1)..self.tap_count {
+            let prev = self.tap_times[(i - 1) % 8];
+            let curr = self.tap_times[i % 8];
+            let interval = curr.saturating_sub(prev);
+            if interval > 0 && interval < 2000 {
+                total_interval += interval;
+                count += 1;
+            }
+        }
+
+        if count == 0 {
+            return self.get_tempo();
+        }
+
+        let avg_ms = total_interval as f64 / count as f64;
+        let bpm = (60000.0 / avg_ms).clamp(20.0, 999.0);
+        self.set_tempo(bpm);
+        bpm
+    }
+
     /// Process an entire audio block — converts sample position to ticks,
     /// detects click positions, triggers, and renders audio.
     /// Called from the audio callback with the current transport sample position.
@@ -307,6 +815,8 @@ impl ClickTrack {
     /// This is the MAIN entry point for the metronome in the audio thread.
     /// It handles sample-accurate click triggering by scanning each sample
     /// in the block for tick boundaries.
+    ///
+    /// Returns true if a count-in just completed (signal to transport to start).
     pub fn process_block(
         &mut self,
         output_l: &mut [Sample],
@@ -314,20 +824,34 @@ impl ClickTrack {
         start_sample: u64,
         frames: usize,
         is_recording: bool,
-    ) {
+    ) -> bool {
         if !self.is_enabled() {
-            return;
+            return false;
         }
 
-        // Pro Tools behavior: when "only during record" is on,
-        // click track is silent during normal playback
-        if self.get_only_during_record() && !is_recording {
-            return;
+        // Handle count-in phase (independent from transport)
+        if self.is_count_in_active() {
+            return self.process_count_in_block(output_l, output_r, frames);
+        }
+
+        // Audibility mode check
+        let mode = AudibilityMode::from_u8(self.audibility_mode);
+        match mode {
+            AudibilityMode::Always => {} // Always play
+            AudibilityMode::RecordOnly => {
+                if !is_recording {
+                    return false;
+                }
+            }
+            AudibilityMode::CountInOnly => {
+                // Only play during count-in (handled above), silent during transport
+                return false;
+            }
         }
 
         let tempo = self.get_tempo();
         if tempo <= 0.0 {
-            return;
+            return false;
         }
 
         let sample_rate = self.sample_rate as f64;
@@ -356,32 +880,11 @@ impl ClickTrack {
                 }
             }
 
-            // Render current click sound sample-by-sample for sample-accurate timing
-            if let Some(ref sound_type) = self.current_sound {
-                let sound = match sound_type {
-                    ClickSoundType::Accent => &self.accent_sound,
-                    ClickSoundType::Beat => &self.beat_sound,
-                    ClickSoundType::Subdivision => &self.subdivision_sound,
-                };
-
-                if self.playback_pos < sound.samples.len() {
-                    let s = sound.samples[self.playback_pos] as f64
-                        * sound.gain as f64
-                        * self.volume as f64;
-
-                    let left_gain =
-                        if self.pan <= 0.0 { 1.0 } else { 1.0 - self.pan as f64 };
-                    let right_gain =
-                        if self.pan >= 0.0 { 1.0 } else { 1.0 + self.pan as f64 };
-
-                    output_l[frame] += s * left_gain;
-                    output_r[frame] += s * right_gain;
-                    self.playback_pos += 1;
-                } else {
-                    self.current_sound = None;
-                }
-            }
+            // Render current click sound sample-by-sample with per-sound volumes
+            self.render_sample(output_l, output_r, frame);
         }
+
+        false
     }
 
     /// Set custom accent sound
@@ -452,44 +955,15 @@ impl ClickTrack {
         None
     }
 
-    /// Process audio block
+    /// Process audio block (legacy entry point — uses render_sample for per-sound volumes)
     pub fn process(&mut self, left: &mut [Sample], right: &mut [Sample]) {
         if !self.is_enabled() || self.current_sound.is_none() {
             return;
         }
 
-        let sound = match self.current_sound {
-            Some(ClickSoundType::Accent) => &self.accent_sound,
-            Some(ClickSoundType::Beat) => &self.beat_sound,
-            Some(ClickSoundType::Subdivision) => &self.subdivision_sound,
-            None => return,
-        };
-
-        let samples_left = sound.samples.len().saturating_sub(self.playback_pos);
-        if samples_left == 0 {
-            self.current_sound = None;
-            return;
-        }
-
-        // Calculate pan gains
-        let left_gain = if self.pan <= 0.0 { 1.0 } else { 1.0 - self.pan };
-        let right_gain = if self.pan >= 0.0 { 1.0 } else { 1.0 + self.pan };
-
-        let to_process = samples_left.min(left.len());
-
+        let to_process = left.len();
         for i in 0..to_process {
-            let sample = sound.samples[self.playback_pos + i] as f64
-                * sound.gain as f64
-                * self.volume as f64;
-
-            left[i] += sample * left_gain as f64;
-            right[i] += sample * right_gain as f64;
-        }
-
-        self.playback_pos += to_process;
-
-        if self.playback_pos >= sound.samples.len() {
-            self.current_sound = None;
+            self.render_sample(left, right, i);
         }
     }
 
@@ -509,12 +983,20 @@ impl ClickTrack {
 pub struct ClickTrackSettings {
     pub enabled: bool,
     pub volume: f32,
+    pub accent_volume: f32,
+    pub beat_volume: f32,
+    pub subdivision_volume: f32,
     pub pattern: u8, // 0=Quarter, 1=Eighth, etc
     pub count_in: u8,
     pub pan: f32,
+    pub preset: u8,
+    pub audibility_mode: u8, // 0=Always, 1=RecordOnly, 2=CountInOnly
+    pub tempo: f64,
+    pub beats_per_bar: u8,
     pub accent_sound_path: Option<String>,
     pub beat_sound_path: Option<String>,
-    pub only_during_record: bool,
+    #[serde(default)]
+    pub only_during_record: bool, // legacy, superseded by audibility_mode
 }
 
 impl Default for ClickTrackSettings {
@@ -522,9 +1004,16 @@ impl Default for ClickTrackSettings {
         Self {
             enabled: false,
             volume: 0.7,
+            accent_volume: 1.0,
+            beat_volume: 0.7,
+            subdivision_volume: 0.4,
             pattern: 0,
             count_in: 0,
             pan: 0.0,
+            preset: 0,
+            audibility_mode: 0,
+            tempo: 120.0,
+            beats_per_bar: 4,
             accent_sound_path: None,
             beat_sound_path: None,
             only_during_record: false,

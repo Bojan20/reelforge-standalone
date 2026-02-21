@@ -10,6 +10,8 @@
 /// - Zone toggles
 /// - System meters
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -32,6 +34,7 @@ import '../../services/cloud_sync_service.dart';
 import '../transport/metronome_settings_popup.dart';
 import '../../services/collaboration_service.dart';
 import '../../services/crdt_sync_service.dart';
+import '../../src/rust/native_ffi.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // TIME FORMATTING
@@ -369,6 +372,9 @@ class _ControlBarState extends State<ControlBar> {
                                 ),
                               );
                             }),
+
+                            // Count-in beat indicator (self-polling FFI)
+                            const _CountInBeatIndicatorLive(),
                           ],
 
                           _Divider(),
@@ -2910,6 +2916,106 @@ class _BackButtonState extends State<_BackButton> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// COUNT-IN BEAT INDICATOR (Self-Polling FFI)
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Self-contained count-in beat indicator that polls FFI directly.
+/// Shows animated beat dots next to the metronome button during count-in.
+class _CountInBeatIndicatorLive extends StatefulWidget {
+  const _CountInBeatIndicatorLive();
+
+  @override
+  State<_CountInBeatIndicatorLive> createState() => _CountInBeatIndicatorLiveState();
+}
+
+class _CountInBeatIndicatorLiveState extends State<_CountInBeatIndicatorLive> {
+  late final Timer _pollTimer;
+  bool _isActive = false;
+  int _currentBeat = -1;
+  int _totalBeats = 4;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 50), (_) => _poll());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer.cancel();
+    super.dispose();
+  }
+
+  void _poll() {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return;
+
+    final active = ffi.clickIsCountInActive();
+    final beat = ffi.clickGetCountInBeat();
+
+    if (active != _isActive || beat != _currentBeat) {
+      // Calculate total beats from count-in mode + beats per bar
+      if (active && !_isActive) {
+        final mode = ffi.clickGetCountIn(); // 0=Off, 1=1Bar, 2=2Bars, 3=4Bars
+        final beatsPerBar = ffi.clickGetBeatsPerBar();
+        final bars = mode == 1 ? 1 : mode == 2 ? 2 : mode == 3 ? 4 : 1;
+        _totalBeats = beatsPerBar * bars;
+      }
+      setState(() {
+        _isActive = active;
+        _currentBeat = beat;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isActive) return const SizedBox.shrink();
+
+    final displayBeats = _totalBeats.clamp(1, 16);
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(displayBeats, (i) {
+          final isActive = i <= _currentBeat && _currentBeat >= 0;
+          final isCurrent = i == _currentBeat;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 1.5),
+            child: Container(
+              width: isCurrent ? 10 : 7,
+              height: isCurrent ? 10 : 7,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isActive
+                    ? FluxForgeTheme.accentOrange
+                    : FluxForgeTheme.bgDeep,
+                border: Border.all(
+                  color: isActive
+                      ? FluxForgeTheme.accentOrange
+                      : FluxForgeTheme.borderSubtle,
+                  width: 1,
+                ),
+                boxShadow: isCurrent
+                    ? [
+                        BoxShadow(
+                          color: FluxForgeTheme.accentOrange
+                              .withValues(alpha: 0.6),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+          );
+        }),
       ),
     );
   }

@@ -411,3 +411,82 @@ class FabFilterBreakpoints {
   /// Standard panel height
   static const double standardHeight = 300;
 }
+
+/// FabFilter-style S/M/L window sizes per processor type.
+enum FabFilterSize { small, medium, large }
+
+class FabFilterSizePresets {
+  FabFilterSizePresets._();
+
+  static const Map<FabFilterSize, Size> eq = {
+    FabFilterSize.small: Size(520, 380),
+    FabFilterSize.medium: Size(700, 520),
+    FabFilterSize.large: Size(920, 680),
+  };
+
+  static const Map<FabFilterSize, Size> compressor = {
+    FabFilterSize.small: Size(480, 360),
+    FabFilterSize.medium: Size(660, 500),
+    FabFilterSize.large: Size(860, 660),
+  };
+
+  static const Map<FabFilterSize, Size> limiter = {
+    FabFilterSize.small: Size(460, 350),
+    FabFilterSize.medium: Size(620, 480),
+    FabFilterSize.large: Size(820, 640),
+  };
+
+  static const Map<FabFilterSize, Size> gate = {
+    FabFilterSize.small: Size(460, 350),
+    FabFilterSize.medium: Size(620, 480),
+    FabFilterSize.large: Size(820, 640),
+  };
+
+  static const Map<FabFilterSize, Size> reverb = {
+    FabFilterSize.small: Size(480, 370),
+    FabFilterSize.medium: Size(660, 500),
+    FabFilterSize.large: Size(860, 660),
+  };
+
+  static const Map<FabFilterSize, Size> delay = {
+    FabFilterSize.small: Size(460, 350),
+    FabFilterSize.medium: Size(620, 480),
+    FabFilterSize.large: Size(820, 640),
+  };
+
+  static const Map<FabFilterSize, Size> saturation = {
+    FabFilterSize.small: Size(440, 340),
+    FabFilterSize.medium: Size(600, 460),
+    FabFilterSize.large: Size(800, 620),
+  };
+
+  static const Map<FabFilterSize, Size> deEsser = {
+    FabFilterSize.small: Size(420, 320),
+    FabFilterSize.medium: Size(560, 440),
+    FabFilterSize.large: Size(740, 580),
+  };
+
+  static const Map<FabFilterSize, Size> expander = {
+    FabFilterSize.small: Size(460, 350),
+    FabFilterSize.medium: Size(620, 480),
+    FabFilterSize.large: Size(820, 640),
+  };
+
+  static const Map<FabFilterSize, Size> pultec = {
+    FabFilterSize.small: Size(500, 380),
+    FabFilterSize.medium: Size(680, 520),
+    FabFilterSize.large: Size(880, 680),
+  };
+
+  static const Map<FabFilterSize, Size> api550 = {
+    FabFilterSize.small: Size(400, 360),
+    FabFilterSize.medium: Size(540, 500),
+    FabFilterSize.large: Size(720, 660),
+  };
+
+  static const Map<FabFilterSize, Size> neve1073 = {
+    FabFilterSize.small: Size(480, 380),
+    FabFilterSize.medium: Size(640, 520),
+    FabFilterSize.large: Size(840, 680),
+  };
+}

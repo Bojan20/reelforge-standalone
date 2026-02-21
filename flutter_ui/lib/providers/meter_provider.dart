@@ -97,10 +97,10 @@ class BusMeterState {
 
 // ============ Constants ============
 
-const double kPeakHoldTime = 1500; // ms to hold peak
-const double kPeakDecayRate = 0.05; // decay per frame
-const double kMeterDecay = 0.85; // multiplier for meter decay
-const double kPeakHoldDecay = 0.9; // multiplier for peak hold decay
+const double kPeakHoldTime = 1500; // ms to hold peak before decay (Pro Tools: 1.5s, was 3s)
+const double kPeakDecayRate = 0.006; // decay per frame (~26 dB/s at 60fps — faster peak hold drop)
+const double kMeterDecay = 0.65; // multiplier for meter decay per tick (~300ms to silence at 16ms/tick)
+const double kPeakHoldDecay = 0.9; // multiplier for peak hold decay (used ONLY by _decayMeters for meter levels, NOT peak hold)
 const double kActivityThreshold = 0.001; // below this = silent
 
 // ============ Provider ============
@@ -403,7 +403,7 @@ class MeterProvider extends ChangeNotifier {
   void _decayMeters() {
     bool hasActivity = false;
 
-    // Decay master
+    // Decay master — peak hold is managed by _convertToMeterState, NOT here
     if (_masterState.hasActivity) {
       hasActivity = true;
       _masterState = _masterState.copyWith(
@@ -411,13 +411,11 @@ class MeterProvider extends ChangeNotifier {
         peakR: _snapToZero(_masterState.peakR * kMeterDecay),
         rms: _snapToZero(_masterState.rms * kMeterDecay),
         rmsR: _snapToZero(_masterState.rmsR * kMeterDecay),
-        peakHold: _snapToZero(_masterState.peakHold * kPeakHoldDecay),
-        peakHoldR: _snapToZero(_masterState.peakHoldR * kPeakHoldDecay),
         isClipping: false,
       );
     }
 
-    // Decay buses (only active ones)
+    // Decay buses (only active ones) — peak hold managed by _convertToMeterState
     for (int i = 0; i < _activeBusCount; i++) {
       final state = _busStates[i];
       if (state.hasActivity) {
@@ -427,14 +425,12 @@ class MeterProvider extends ChangeNotifier {
           peakR: _snapToZero(state.peakR * kMeterDecay),
           rms: _snapToZero(state.rms * kMeterDecay),
           rmsR: _snapToZero(state.rmsR * kMeterDecay),
-          peakHold: _snapToZero(state.peakHold * kPeakHoldDecay),
-          peakHoldR: _snapToZero(state.peakHoldR * kPeakHoldDecay),
           isClipping: false,
         );
       }
     }
 
-    // OPTIMIZED: Iterate directly, no toList() copy
+    // OPTIMIZED: Iterate directly, no toList() copy — peak hold managed by _convertToMeterState
     _meterStates.forEach((meterId, state) {
       if (state.hasActivity) {
         hasActivity = true;
@@ -443,8 +439,6 @@ class MeterProvider extends ChangeNotifier {
           peakR: _snapToZero(state.peakR * kMeterDecay),
           rms: _snapToZero(state.rms * kMeterDecay),
           rmsR: _snapToZero(state.rmsR * kMeterDecay),
-          peakHold: _snapToZero(state.peakHold * kPeakHoldDecay),
-          peakHoldR: _snapToZero(state.peakHoldR * kPeakHoldDecay),
           isClipping: false,
         );
       }

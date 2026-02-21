@@ -25,6 +25,10 @@ import 'dart:math' as math;
 // Dead zone: Only 3% (vs 5% Cubase) — tighter silence→audible transition.
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// Maximum linear volume for all faders/knobs/sliders.
+/// 2.0 = +6.02 dB (Pro Tools standard).
+const double kMaxVolume = 2.0;
+
 class FaderCurve {
   FaderCurve._();
 
@@ -85,15 +89,15 @@ class FaderCurve {
 
   /// Convert linear amplitude (0.0–maxLinear) to fader position (0.0–1.0).
   /// Converts to dB internally, then uses the segmented curve.
-  static double linearToPosition(double volume, {double maxLinear = 1.5}) {
-    if (volume <= 0.0001) return 0.0;
+  static double linearToPosition(double volume, {double maxLinear = kMaxVolume}) {
+    if (volume <= 0.0) return 0.0;
     final db = 20.0 * math.log(volume) / math.ln10;
-    final maxDb = 20.0 * math.log(maxLinear) / math.ln10; // +3.52 dB for 1.5
+    final maxDb = 20.0 * math.log(maxLinear) / math.ln10; // +6.02 dB for 2.0
     return dbToPosition(db, maxDb: maxDb);
   }
 
   /// Convert fader position (0.0–1.0) to linear amplitude (0.0–maxLinear).
-  static double positionToLinear(double position, {double maxLinear = 1.5}) {
+  static double positionToLinear(double position, {double maxLinear = kMaxVolume}) {
     if (position <= 0.0) return 0.0;
     final maxDb = 20.0 * math.log(maxLinear) / math.ln10;
     final db = positionToDb(position, maxDb: maxDb);

@@ -425,7 +425,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
               child: Text(_spaceType.label.toUpperCase(), style: TextStyle(
                 color: FabFilterColors.purple,
                 fontSize: 8, fontWeight: FontWeight.bold,
-              )),
+              ), overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 6),
             // Decay readout
@@ -433,7 +433,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
               color: FabFilterProcessorColors.reverbDecay,
               fontSize: 9, fontWeight: FontWeight.bold,
               fontFeatures: const [FontFeature.tabularFigures()],
-            )),
+            ), overflow: TextOverflow.ellipsis),
             const Spacer(),
             // Mini I/O meters
             _buildMiniMeter('IN', _inputLevel, FabFilterColors.cyan),

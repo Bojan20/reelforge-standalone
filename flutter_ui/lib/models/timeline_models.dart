@@ -53,6 +53,8 @@ class TimelineClip {
   final bool selected;
   /// Clip FX chain (non-destructive per-clip processing)
   final ClipFxChain fxChain;
+  /// Loop enabled (Logic Pro X style — repeat clip content)
+  final bool loopEnabled;
   /// Event ID this clip belongs to (null = global/all events)
   final String? eventId;
 
@@ -77,6 +79,7 @@ class TimelineClip {
     this.locked = false,
     this.selected = false,
     this.fxChain = const ClipFxChain(),
+    this.loopEnabled = false,
     this.eventId,
   });
 
@@ -106,6 +109,7 @@ class TimelineClip {
     bool? locked,
     bool? selected,
     ClipFxChain? fxChain,
+    bool? loopEnabled,
     String? eventId,
   }) {
     return TimelineClip(
@@ -129,6 +133,7 @@ class TimelineClip {
       locked: locked ?? this.locked,
       selected: selected ?? this.selected,
       fxChain: fxChain ?? this.fxChain,
+      loopEnabled: loopEnabled ?? this.loopEnabled,
       eventId: eventId ?? this.eventId,
     );
   }

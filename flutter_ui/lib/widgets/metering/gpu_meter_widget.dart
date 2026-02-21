@@ -186,12 +186,13 @@ class GpuMeterConfig {
   });
 
   /// Pro Tools-style peak meter
+  /// 3-second peak hold, ~13 dB/s PPM Type I decay, instant attack, 1.5s release
   static const proTools = GpuMeterConfig(
     minDb: -60,
     maxDb: 6,
-    peakHoldMs: 2000,
-    peakDecayDbPerSec: 20,
-    attackMs: 0.01,
+    peakHoldMs: 3000,
+    peakDecayDbPerSec: 13,
+    attackMs: 0,
     releaseMs: 1500,
   );
 
@@ -216,12 +217,15 @@ class GpuMeterConfig {
     showRms: true,
   );
 
-  /// Compact mixer (no scale)
+  /// Compact mixer — Pro Tools ballistics, no scale labels
+  /// 3-second peak hold, 13 dB/s decay (PPM Type I), instant attack, 1.5s release
   static const compact = GpuMeterConfig(
     minDb: -60,
     maxDb: 6,
-    peakHoldMs: 1000,
-    peakDecayDbPerSec: 40,
+    peakHoldMs: 3000,
+    peakDecayDbPerSec: 13,
+    attackMs: 0,
+    releaseMs: 1500,
     showScale: false,
   );
 }
@@ -334,11 +338,9 @@ class _GpuMeterState extends State<GpuMeter>
   DateTime _peakHoldTimeL = DateTime.now();
   DateTime _peakHoldTimeR = DateTime.now();
 
-  // Clip state
+  // Clip state — Pro Tools: infinite hold, click to clear
   bool _clippedL = false;
   bool _clippedR = false;
-  DateTime _clipTimeL = DateTime.now();
-  DateTime _clipTimeR = DateTime.now();
 
   // Last frame time for delta calculation
   Duration _lastFrameTime = Duration.zero;
@@ -402,7 +404,7 @@ class _GpuMeterState extends State<GpuMeter>
     // Update peak hold
     final now = DateTime.now();
     _updatePeakHold(targetL, targetR, now, deltaMs, config);
-    _updateClipState(targetL, targetR, now);
+    _updateClipState(targetL, targetR);
 
     // Trigger repaint only if values changed significantly
     if (mounted) {
@@ -455,20 +457,13 @@ class _GpuMeterState extends State<GpuMeter>
     }
   }
 
-  void _updateClipState(double targetL, double targetR, DateTime now) {
-    // Clip detection with 2 second hold
+  void _updateClipState(double targetL, double targetR) {
+    // Pro Tools behavior: clip indicator holds FOREVER until user clicks to clear
     if (widget.levels.clipped || targetL >= 1.0) {
       _clippedL = true;
-      _clipTimeL = now;
-    } else if (now.difference(_clipTimeL).inMilliseconds > 2000) {
-      _clippedL = false;
     }
-
     if (widget.levels.clipped || targetR >= 1.0) {
       _clippedR = true;
-      _clipTimeR = now;
-    } else if (now.difference(_clipTimeR).inMilliseconds > 2000) {
-      _clippedR = false;
     }
   }
 
@@ -923,20 +918,50 @@ class _GpuMeterPainter extends CustomPainter {
     return ((db - config.minDb) / (config.maxDb - config.minDb)).clamp(0.0, 1.0);
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // Pro Tools 3-zone color scheme:
+  //   Green (#22B14C → #55CC55)  — safe zone (up to -12 dB, ~73% of range)
+  //   Yellow (#CCCC00 → #FFCC00) — caution (-12 dB to -3 dB)
+  //   Red (#FF2020 → #FF4040)    — danger (-3 dB to clip)
+  //
+  // dB-to-normalized breakpoints (with minDb=-60, maxDb=6):
+  //   -12 dB → (−12 − (−60)) / (6 − (−60)) = 48/66 ≈ 0.727
+  //    -3 dB → (−3 − (−60)) / (6 − (−60)) = 57/66 ≈ 0.864
+  //     0 dB → (0 − (−60)) / (6 − (−60))  = 60/66 ≈ 0.909
+  // ═══════════════════════════════════════════════════════════════════════
+
+  static const _kGreen = Color(0xFF22B14C);
+  static const _kGreenBright = Color(0xFF55CC55);
+  static const _kYellow = Color(0xFFCCCC00);
+  static const _kYellowBright = Color(0xFFFFCC00);
+  static const _kRed = Color(0xFFFF2020);
+  static const _kRedBright = Color(0xFFFF4040);
+
+  // Normalized positions for zone boundaries
+  static const _kYellowStart = 0.727; // -12 dB
+  static const _kRedStart = 0.864; // -3 dB
+
   LinearGradient _getGradient(bool isVertical) {
-    // Cache gradients for performance
     if (isVertical) {
       _cachedGradientV ??= const LinearGradient(
         begin: Alignment.bottomCenter,
         end: Alignment.topCenter,
         colors: [
-          Color(0xFF40C8FF), // Cyan (low)
-          Color(0xFF40FF90), // Green
-          Color(0xFFFFFF40), // Yellow
-          Color(0xFFFF9040), // Orange
-          Color(0xFFFF4040), // Red (clip)
+          _kGreen,
+          _kGreenBright,
+          _kYellow,
+          _kYellowBright,
+          _kRed,
+          _kRedBright,
         ],
-        stops: [0.0, 0.35, 0.65, 0.85, 1.0],
+        stops: [
+          0.0,
+          _kYellowStart - 0.01, // green zone
+          _kYellowStart,         // yellow starts
+          _kRedStart - 0.01,     // yellow zone
+          _kRedStart,            // red starts
+          1.0,                   // red zone
+        ],
       );
       return _cachedGradientV!;
     } else {
@@ -944,42 +969,44 @@ class _GpuMeterPainter extends CustomPainter {
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          Color(0xFF40C8FF),
-          Color(0xFF40FF90),
-          Color(0xFFFFFF40),
-          Color(0xFFFF9040),
-          Color(0xFFFF4040),
+          _kGreen,
+          _kGreenBright,
+          _kYellow,
+          _kYellowBright,
+          _kRed,
+          _kRedBright,
         ],
-        stops: [0.0, 0.35, 0.65, 0.85, 1.0],
+        stops: [
+          0.0,
+          _kYellowStart - 0.01,
+          _kYellowStart,
+          _kRedStart - 0.01,
+          _kRedStart,
+          1.0,
+        ],
       );
       return _cachedGradientH!;
     }
   }
 
   Color _getColorForLevel(double normalized) {
-    if (normalized < 0.35) {
+    if (normalized < _kYellowStart) {
       return Color.lerp(
-        const Color(0xFF40C8FF),
-        const Color(0xFF40FF90),
-        normalized / 0.35,
+        _kGreen,
+        _kGreenBright,
+        normalized / _kYellowStart,
       )!;
-    } else if (normalized < 0.65) {
+    } else if (normalized < _kRedStart) {
       return Color.lerp(
-        const Color(0xFF40FF90),
-        const Color(0xFFFFFF40),
-        (normalized - 0.35) / 0.30,
-      )!;
-    } else if (normalized < 0.85) {
-      return Color.lerp(
-        const Color(0xFFFFFF40),
-        const Color(0xFFFF9040),
-        (normalized - 0.65) / 0.20,
+        _kYellow,
+        _kYellowBright,
+        (normalized - _kYellowStart) / (_kRedStart - _kYellowStart),
       )!;
     } else {
       return Color.lerp(
-        const Color(0xFFFF9040),
-        const Color(0xFFFF4040),
-        (normalized - 0.85) / 0.15,
+        _kRed,
+        _kRedBright,
+        (normalized - _kRedStart) / (1.0 - _kRedStart),
       )!;
     }
   }

@@ -53,7 +53,7 @@ class MixerChannel {
   final Color color;
 
   // Levels
-  double volume;      // 0.0 - 1.5 (0dB = 1.0)
+  double volume;      // 0.0 - 2.0 (0dB = 1.0, +6dB = 2.0)
   double pan;         // -1.0 to 1.0 (left channel for stereo)
   double panRight;    // -1.0 to 1.0 (right channel for stereo, Pro Tools dual-pan)
   bool isStereo;      // true = dual pan (stereo), false = single pan (mono)
@@ -195,7 +195,7 @@ class MixerChannel {
     );
   }
 
-  /// Convert volume (0-1.5) to dB string
+  /// Convert volume (0-2.0) to dB string
   String get volumeDbString {
     if (volume <= 0) return '-∞';
     final db = 20 * _log10(volume);
@@ -246,7 +246,7 @@ class VcaFader {
   final String id;
   final String name;
   final Color color;
-  double level;       // Multiplier 0.0 - 1.5
+  double level;       // Multiplier 0.0 - 2.0
   bool muted;
   bool soloed;
   List<String> memberIds;  // Channel IDs assigned to this VCA
@@ -744,7 +744,7 @@ class MixerProvider extends ChangeNotifier {
 
   double _dbToLinear(double db) {
     if (db <= -60) return 0.0;
-    return pow(10, db / 20).toDouble().clamp(0.0, 1.5);
+    return pow(10, db / 20).toDouble().clamp(0.0, 2.0);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -887,15 +887,15 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set channel volume (0.0 - 1.5, where 1.0 = 0dB)
+  /// Set channel volume (0.0 - 2.0, where 1.0 = 0dB, 2.0 = +6dB)
   void setVolume(String id, double volume) {
     final channel = _channels[id] ?? _buses[id];
     if (channel == null) return;
 
-    channel.volume = volume.clamp(0.0, 1.5);
+    channel.volume = volume.clamp(0.0, 2.0);
 
     // Send to engine if track channel
-    // Rust engine_set_track_volume expects LINEAR value (0.0-1.5), NOT dB!
+    // Rust engine_set_track_volume expects LINEAR value (0.0-2.0), NOT dB!
     if (channel.trackIndex != null) {
       NativeFFI.instance.setTrackVolume(channel.trackIndex!, channel.volume);
     }
@@ -1419,7 +1419,7 @@ class MixerProvider extends ChangeNotifier {
       } else {
         // Relative mode - add delta
         newValue = switch (param) {
-          GroupLinkParameter.volume => (member.volume + delta).clamp(0.0, 1.5),
+          GroupLinkParameter.volume => (member.volume + delta).clamp(0.0, 2.0),
           GroupLinkParameter.pan => (member.pan + delta).clamp(-1.0, 1.0),
           _ => value,
         };
@@ -2120,7 +2120,7 @@ class MixerProvider extends ChangeNotifier {
     final vca = _vcas[id];
     if (vca == null) return;
 
-    final clampedLevel = level.clamp(0.0, 1.5);
+    final clampedLevel = level.clamp(0.0, 2.0);
     _vcas[id] = vca.copyWith(level: clampedLevel);
 
     // Update engine
@@ -2161,7 +2161,7 @@ class MixerProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   void setMasterVolume(double volume) {
-    final clampedVolume = volume.clamp(0.0, 1.5);
+    final clampedVolume = volume.clamp(0.0, 2.0);
     _master = _master.copyWith(volume: clampedVolume);
     // Use EngineApi which handles both FFI and mock mode
     engine.setMasterVolume(clampedVolume);

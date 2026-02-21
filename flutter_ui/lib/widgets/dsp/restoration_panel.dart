@@ -395,6 +395,8 @@ class _RestorationPanelState extends State<RestorationPanel> {
                   setState(() => _noiseProfileLearned = false);
                   // Would call: restorationClearNoiseProfile()
                 },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
               ),
             ],
           ],

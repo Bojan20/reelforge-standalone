@@ -40,7 +40,9 @@ class LeftZone extends StatefulWidget {
   final ChannelStripData? channelData;
   final void Function(String channelId, double volume)? onChannelVolumeChange;
   final void Function(String channelId, double pan)? onChannelPanChange;
+  final void Function(String channelId, double pan)? onChannelPanChangeEnd;
   final void Function(String channelId, double pan)? onChannelPanRightChange;
+  final void Function(String channelId, double pan)? onChannelPanRightChangeEnd;
   final void Function(String channelId)? onChannelMuteToggle;
   final void Function(String channelId)? onChannelSoloToggle;
   final void Function(String channelId, int slotIndex)? onChannelInsertClick;
@@ -83,7 +85,9 @@ class LeftZone extends StatefulWidget {
     this.channelData,
     this.onChannelVolumeChange,
     this.onChannelPanChange,
+    this.onChannelPanChangeEnd,
     this.onChannelPanRightChange,
+    this.onChannelPanRightChangeEnd,
     this.onChannelMuteToggle,
     this.onChannelSoloToggle,
     this.onChannelInsertClick,
@@ -296,7 +300,9 @@ class _LeftZoneState extends State<LeftZone> {
       channel: widget.channelData,
       onVolumeChange: widget.onChannelVolumeChange,
       onPanChange: widget.onChannelPanChange,
+      onPanChangeEnd: widget.onChannelPanChangeEnd,
       onPanRightChange: widget.onChannelPanRightChange,
+      onPanRightChangeEnd: widget.onChannelPanRightChangeEnd,
       onMuteToggle: widget.onChannelMuteToggle,
       onSoloToggle: widget.onChannelSoloToggle,
       onArmToggle: widget.onChannelArmToggle,

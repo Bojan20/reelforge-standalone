@@ -477,7 +477,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
         children: [
           Icon(widget.icon, color: widget.accentColor, size: 14),
           const SizedBox(width: 6),
-          Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11)),
+          Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11), overflow: TextOverflow.ellipsis),
           const SizedBox(width: 12),
           // Mode selector with animated chips
           ...GateMode.values.map((m) => Padding(

@@ -523,7 +523,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
 
   double _dbToLinear(double db) {
     if (db <= -60) return 0.0;
-    return math.pow(10, db / 20).toDouble().clamp(0.0, 1.5);
+    return math.pow(10, db / 20).toDouble().clamp(0.0, 2.0);
   }
 
   @override

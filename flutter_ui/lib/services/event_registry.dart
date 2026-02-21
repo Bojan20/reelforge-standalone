@@ -1855,7 +1855,7 @@ class EventRegistry extends ChangeNotifier {
         final cascadeVolume = 0.9 + (stepIndex * 0.04);
         context = context != null ? Map.from(context) : {};
         context['cascade_pitch'] = cascadePitch;
-        context['cascade_volume'] = cascadeVolume.clamp(0.0, 1.5);
+        context['cascade_volume'] = cascadeVolume.clamp(0.0, 2.0);
       }
     }
 

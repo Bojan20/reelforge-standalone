@@ -381,7 +381,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 7)),
+        Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 7), overflow: TextOverflow.ellipsis),
         const SizedBox(width: 2),
         SizedBox(
           width: 24,

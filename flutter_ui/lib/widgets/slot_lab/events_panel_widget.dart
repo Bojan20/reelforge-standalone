@@ -440,9 +440,6 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       if (importedCount > 0 && mounted) {
         // Switch to pool mode to show imported files
         setState(() => _isPoolMode = true);
-
-        // Show confirmation
-        widget.onToast?.call('Imported $importedCount audio file${importedCount > 1 ? 's' : ''}', isWarning: false);
       }
     }
   }
@@ -491,9 +488,6 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       if (importedCount > 0 && mounted) {
         // Switch to pool mode to show imported files
         setState(() => _isPoolMode = true);
-
-        // Show confirmation
-        widget.onToast?.call('Imported $importedCount audio file${importedCount > 1 ? 's' : ''} from "$folderName"', isWarning: false);
       }
     }
   }

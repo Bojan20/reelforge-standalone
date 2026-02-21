@@ -3363,6 +3363,100 @@ pub extern "C" fn click_get_only_during_record() -> i32 {
     if CLICK_TRACK.read().get_only_during_record() { 1 } else { 0 }
 }
 
+// ── Per-Sound Volumes ──
+
+/// Set accent click volume (0.0 - 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_set_accent_volume(volume: f64) {
+    CLICK_TRACK.write().set_accent_volume(volume as f32);
+}
+
+/// Get accent click volume
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_accent_volume() -> f64 {
+    CLICK_TRACK.read().get_accent_volume() as f64
+}
+
+/// Set beat click volume (0.0 - 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_set_beat_volume(volume: f64) {
+    CLICK_TRACK.write().set_beat_volume(volume as f32);
+}
+
+/// Get beat click volume
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_beat_volume() -> f64 {
+    CLICK_TRACK.read().get_beat_volume() as f64
+}
+
+/// Set subdivision click volume (0.0 - 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_set_subdivision_volume(volume: f64) {
+    CLICK_TRACK.write().set_subdivision_volume(volume as f32);
+}
+
+/// Get subdivision click volume
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_subdivision_volume() -> f64 {
+    CLICK_TRACK.read().get_subdivision_volume() as f64
+}
+
+// ── Preset Selection ──
+
+/// Set click sound preset (0-11)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_set_preset(preset_id: u8) {
+    CLICK_TRACK.write().set_preset(preset_id);
+}
+
+/// Get current click sound preset ID
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_preset() -> u8 {
+    CLICK_TRACK.read().get_preset()
+}
+
+// ── Count-In ──
+
+/// Start count-in sequence (call before transport play/record)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_start_count_in() {
+    CLICK_TRACK.write().start_count_in();
+}
+
+/// Check if count-in is currently active (1=active, 0=inactive)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_is_count_in_active() -> i32 {
+    if CLICK_TRACK.read().is_count_in_active() { 1 } else { 0 }
+}
+
+/// Get current count-in beat number (0-based, returns -1 if inactive)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_count_in_beat() -> i32 {
+    CLICK_TRACK.read().get_count_in_beat()
+}
+
+// ── Tap Tempo ──
+
+/// Record a tap and return calculated BPM
+#[unsafe(no_mangle)]
+pub extern "C" fn click_tap_tempo() -> f64 {
+    CLICK_TRACK.write().tap_tempo()
+}
+
+// ── Audibility Mode ──
+
+/// Set audibility mode (0=Always, 1=RecordOnly, 2=CountInOnly)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_set_audibility_mode(mode: u8) {
+    CLICK_TRACK.write().set_audibility_mode(mode);
+}
+
+/// Get audibility mode (0=Always, 1=RecordOnly, 2=CountInOnly)
+#[unsafe(no_mangle)]
+pub extern "C" fn click_get_audibility_mode() -> u8 {
+    CLICK_TRACK.read().get_audibility_mode()
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SEND/RETURN FFI
 // ═══════════════════════════════════════════════════════════════════════════
@@ -6049,20 +6143,9 @@ pub extern "C" fn insert_load_processor(
                 // Audio tracks use per-track insert chains
                 PLAYBACK_ENGINE.load_track_insert(track_id_u64, slot_index, processor)
             };
-            log::info!(
-                "[EQ FFI] Loaded '{}' into {} slot {} -> success={}",
-                name,
-                if track_id == 0 {
-                    "master".to_string()
-                } else {
-                    format!("track {}", track_id)
-                },
-                slot_index,
-                success
-            );
             1
         } else {
-            log::warn!("[EQ FFI] Unknown processor: {}", name);
+            eprintln!("[EQ FFI] insert_load_processor: UNKNOWN processor: '{}'", name);
             0
         }
     })

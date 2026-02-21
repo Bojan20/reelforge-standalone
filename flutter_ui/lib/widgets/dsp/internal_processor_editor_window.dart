@@ -4,11 +4,14 @@
 // Uses premium FabFilter panels (EQ, Comp, Limiter, Gate, Expander,
 // Reverb, Delay, Saturation, DeEsser) when available.
 // Falls back to generic parameter sliders for vintage EQs.
+//
+// Supports S/M/L sizing like FabFilter Pro series.
 
 import 'package:flutter/material.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/native_ffi.dart';
+import '../fabfilter/fabfilter_theme.dart';
 import '../fabfilter/fabfilter_eq_panel.dart';
 import '../fabfilter/fabfilter_compressor_panel.dart';
 import '../fabfilter/fabfilter_limiter_panel.dart';
@@ -90,36 +93,34 @@ bool _hasPremiumPanel(DspNodeType type) {
   }
 }
 
-/// Window dimensions based on panel type
-Size _windowSizeForType(DspNodeType type) {
+/// S/M/L size presets per processor type
+Map<FabFilterSize, Size> _sizesForType(DspNodeType type) {
   switch (type) {
-    // FabFilter premium panels
     case DspNodeType.eq:
-      return const Size(700, 520);
+      return FabFilterSizePresets.eq;
     case DspNodeType.compressor:
-      return const Size(660, 500);
+      return FabFilterSizePresets.compressor;
     case DspNodeType.limiter:
-      return const Size(620, 480);
+      return FabFilterSizePresets.limiter;
     case DspNodeType.gate:
-      return const Size(620, 480);
+      return FabFilterSizePresets.gate;
     case DspNodeType.reverb:
-      return const Size(660, 500);
+      return FabFilterSizePresets.reverb;
     case DspNodeType.delay:
-      return const Size(620, 480);
+      return FabFilterSizePresets.delay;
     case DspNodeType.saturation:
     case DspNodeType.multibandSaturation:
-      return const Size(600, 460);
+      return FabFilterSizePresets.saturation;
     case DspNodeType.deEsser:
-      return const Size(560, 440);
-    // Vintage hardware panels
-    case DspNodeType.pultec:
-      return const Size(680, 520);
-    case DspNodeType.api550:
-      return const Size(540, 500);
-    case DspNodeType.neve1073:
-      return const Size(640, 520);
+      return FabFilterSizePresets.deEsser;
     case DspNodeType.expander:
-      return const Size(620, 480);
+      return FabFilterSizePresets.expander;
+    case DspNodeType.pultec:
+      return FabFilterSizePresets.pultec;
+    case DspNodeType.api550:
+      return FabFilterSizePresets.api550;
+    case DspNodeType.neve1073:
+      return FabFilterSizePresets.neve1073;
   }
 }
 
@@ -132,6 +133,8 @@ Size _windowSizeForType(DspNodeType type) {
 /// Opens as an [OverlayEntry] that can be dragged, resized, and closed
 /// independently of the Lower Zone. Uses premium FabFilter panels when
 /// available, falls back to generic parameter sliders otherwise.
+///
+/// Supports S/M/L sizing like FabFilter Pro series.
 class InternalProcessorEditorWindow extends StatefulWidget {
   final int trackId;
   final int slotIndex;
@@ -149,9 +152,6 @@ class InternalProcessorEditorWindow extends StatefulWidget {
   });
 
   /// Show the editor as a floating overlay.
-  ///
-  /// If an editor for this track+slot is already open, it is brought
-  /// to the front instead of opening a duplicate.
   static OverlayEntry? show({
     required BuildContext context,
     required int trackId,
@@ -202,12 +202,18 @@ class _InternalProcessorEditorWindowState
   bool _isDragging = false;
   late Map<String, dynamic> _params;
   bool _isCollapsed = false;
+  FabFilterSize _currentSize = FabFilterSize.medium;
 
   @override
   void initState() {
     super.initState();
     _position = widget.initialPosition;
     _params = Map<String, dynamic>.from(widget.node.params);
+  }
+
+  Size get _windowSize {
+    final sizes = _sizesForType(widget.node.type);
+    return sizes[_currentSize] ?? sizes[FabFilterSize.medium]!;
   }
 
   void _updateParam(String key, dynamic value, int paramIndex) {
@@ -226,7 +232,7 @@ class _InternalProcessorEditorWindowState
 
   @override
   Widget build(BuildContext context) {
-    final size = _windowSizeForType(widget.node.type);
+    final size = _windowSize;
     final hasPremium = _hasPremiumPanel(widget.node.type);
     final isVintage = widget.node.type == DspNodeType.pultec ||
         widget.node.type == DspNodeType.api550 ||
@@ -243,7 +249,9 @@ class _InternalProcessorEditorWindowState
             : hasPremium
                 ? const Color(0xFF0D0D11)
                 : FluxForgeTheme.bgDeep,
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
           width: size.width,
           constraints: BoxConstraints(
             maxHeight: _isCollapsed ? 36 : size.height,
@@ -263,7 +271,7 @@ class _InternalProcessorEditorWindowState
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildTitleBar(),
-                if (!_isCollapsed) _buildContent(),
+                if (!_isCollapsed) Flexible(child: _buildContent()),
               ],
             ),
           ),
@@ -273,7 +281,7 @@ class _InternalProcessorEditorWindowState
   }
 
   // ═════════════════════════════════════════════════════════════════════════════
-  // TITLE BAR (draggable)
+  // TITLE BAR (draggable) — with S/M/L size buttons
   // ═════════════════════════════════════════════════════════════════════════════
 
   Widget _buildTitleBar() {
@@ -295,7 +303,7 @@ class _InternalProcessorEditorWindowState
       onPanEnd: (_) => setState(() => _isDragging = false),
       child: Container(
         height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.only(left: 10, right: 4),
         decoration: BoxDecoration(
           gradient: hasPremium
               ? LinearGradient(
@@ -342,23 +350,19 @@ class _InternalProcessorEditorWindowState
               ),
             ),
 
-            // Track badge
+            // S / M / L size buttons
+            _buildSizeButton('S', FabFilterSize.small),
+            _buildSizeButton('M', FabFilterSize.medium),
+            _buildSizeButton('L', FabFilterSize.large),
+
+            const SizedBox(width: 4),
+
+            // Separator
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Text(
-                'T${widget.trackId}:${widget.slotIndex}',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
-                  fontSize: 9,
-                  fontFamily: 'JetBrains Mono',
-                ),
-              ),
+              width: 1,
+              height: 18,
+              color: Colors.white.withValues(alpha: 0.08),
             ),
-            const SizedBox(width: 6),
 
             // Collapse toggle
             _buildTitleButton(
@@ -395,18 +399,60 @@ class _InternalProcessorEditorWindowState
     );
   }
 
+  Widget _buildSizeButton(String label, FabFilterSize size) {
+    final isActive = _currentSize == size;
+    final typeColor = _getTypeColor(widget.node.type);
+
+    return GestureDetector(
+      onTap: () => setState(() => _currentSize = size),
+      child: Container(
+        width: 22,
+        height: 22,
+        margin: const EdgeInsets.symmetric(horizontal: 1),
+        decoration: BoxDecoration(
+          color: isActive
+              ? typeColor.withValues(alpha: 0.25)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(3),
+          border: isActive
+              ? Border.all(color: typeColor.withValues(alpha: 0.5), width: 1)
+              : null,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? typeColor : Colors.white.withValues(alpha: 0.35),
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTitleButton({
     required IconData icon,
     required String tooltip,
     Color? color,
     VoidCallback? onPressed,
   }) {
-    return IconButton(
-      icon: Icon(icon, size: 16, color: color ?? FluxForgeTheme.textTertiary),
-      tooltip: tooltip,
-      onPressed: onPressed,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 500),
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          child: Icon(
+            icon,
+            size: 16,
+            color: color ?? FluxForgeTheme.textTertiary,
+          ),
+        ),
+      ),
     );
   }
 
@@ -416,9 +462,7 @@ class _InternalProcessorEditorWindowState
 
   Widget _buildContent() {
     if (_hasPremiumPanel(widget.node.type)) {
-      return Flexible(
-        child: _buildFabFilterPanel(),
-      );
+      return _buildFabFilterPanel();
     }
     // Generic slider fallback
     return Container(
@@ -455,7 +499,6 @@ class _InternalProcessorEditorWindowState
       case DspNodeType.pultec:
         return PultecEq(
           onParamsChanged: (params) {
-            // Sync key params to FFI insert chain
             NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, params.lowBoost);
             NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, params.lowAtten);
             NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, params.highBoost);

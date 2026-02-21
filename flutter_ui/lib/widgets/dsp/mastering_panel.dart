@@ -436,6 +436,8 @@ class _MasteringPanelState extends State<MasteringPanel>
                     size: 16,
                     color: FluxForgeTheme.textSecondary,
                   ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                   onPressed: () {
                     setState(() {
                       _referenceLoaded = false;

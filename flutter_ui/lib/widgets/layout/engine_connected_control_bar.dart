@@ -100,6 +100,11 @@ class EngineConnectedControlBar extends StatelessWidget {
           if (data.isPlaying) {
             engine.pause();
           } else {
+            // Trigger count-in before play if enabled (mode != 0 = Off)
+            final countInMode = NativeFFI.instance.clickGetCountIn();
+            if (countInMode != 0) {
+              NativeFFI.instance.clickStartCountIn();
+            }
             engine.play();
           }
         }

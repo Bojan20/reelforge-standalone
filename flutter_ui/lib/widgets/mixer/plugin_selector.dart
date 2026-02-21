@@ -241,7 +241,8 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
           IconButton(
             icon: Icon(Icons.close, size: 18, color: FluxForgeTheme.textSecondary),
             onPressed: () => Navigator.of(context).pop(),
-            splashRadius: 16,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
           ),
         ],
       ),

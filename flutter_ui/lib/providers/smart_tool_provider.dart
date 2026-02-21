@@ -1,33 +1,56 @@
-// Smart Tool Provider
+// Smart Tool Provider — Ultimate Edition
 //
-// Pro Tools-style Smart Tool that combines multiple tools into one
-// with context-aware cursor behavior based on position within clip.
+// Combined best-of-all from Cubase + Pro Tools + Logic Pro X:
+// - Pro Tools 6-zone Smart Tool (upper=range, lower=move)
+// - Cubase volume handle (top-center) + sizing sub-modes
+// - Logic Pro X loop handle (mid-right) + auto-crossfade mode
 //
-// ┌────────────────────────────────────────────────────────────────┐
-// │  CLIP                                                          │
-// │  ┌──────┬──────────────────────────────────────────────┬──────┤
-// │  │ TRIM │              SELECT/MOVE                     │ TRIM │
-// │  │ LEFT │              (middle zone)                   │RIGHT │
-// │  │      │                                              │      │
-// │  └──────┴──────────────────────────────────────────────┴──────┤
-// │  ├─10%──┼────────────────80%──────────────────────────┼──10%─┤
-// │                                                                │
-// │  ┌─────────────────────────FADE ZONE───────────────────────────┤
-// │  │ Top 20% of clip = Fade handles                              │
-// │  │ Drag to create/adjust fades                                 │
-// │  └─────────────────────────────────────────────────────────────┤
-// └────────────────────────────────────────────────────────────────┘
+// ┌──────────────────────────────────────────────────────────────────┐
+// │ ◢ FADE IN        ● VOLUME HANDLE            FADE OUT ◣          │ ← Zone 1-3: Top row (20%)
+// │                                                                  │
+// │              RANGE SELECT / SCRUB                                │ ← Zone 4: Upper body (30%)
+// │              (I-beam cursor)                                     │
+// ├──────────────────────────────────────────────────────────────────┤ ← 50% midpoint
+// │              MOVE / SELECT                                       │ ← Zone 5: Lower body (30%)
+// │              (Arrow/Hand cursor)                                 │
+// │                                                                  │
+// │ ◣ TRIM L ◢              ● LOOP                   ◢ TRIM R ◣     │ ← Zone 6-8: Bottom row (20%)
+// └──────────────────────────────────────────────────────────────────┘
+//                    ↕ CROSSFADE (between clips)                       ← Zone 9
 //
-// Tool Zones:
-// 1. SELECT (middle 80%): Click to select, drag to move
-// 2. TRIM (left/right 10%): Drag to trim clip boundaries
-// 3. FADE (top 20%): Drag to create/adjust fade in/out
-// 4. CROSSFADE (between two clips): Drag to adjust crossfade
+// 9 Zones (priority order):
+// 1. FADE IN (top-left corner)         — Drag = adjust fade in
+// 2. FADE OUT (top-right corner)       — Drag = adjust fade out
+// 3. VOLUME (top-center edge)          — Drag vertical = clip gain (Cubase)
+// 4. TRIM LEFT (bottom-left edge)      — Drag = trim start
+// 5. TRIM RIGHT (bottom-right edge)    — Drag = trim end
+// 6. LOOP (bottom-center-right)        — Click = toggle loop (Logic)
+// 7. CROSSFADE (between clips)         — Drag = crossfade duration
+// 8. RANGE SELECT (upper body 50%)     — Click+drag = range selection (Pro Tools)
+// 9. MOVE/SELECT (lower body 50%)      — Click = select, drag = move
 //
-// Modifiers:
+// Modifiers (Combined best of Cubase + Pro Tools + Logic):
 // - Shift: Constrain to time/track axis
-// - Alt/Option: Copy while dragging
-// - Cmd/Ctrl: Fine adjustment (disable snap)
+// - Alt/Option + drag (Move): Copy clip
+// - Alt/Option + click (Move): Split at cursor (Cubase)
+// - Alt+Shift + drag (Move): Slip content (Cubase)
+// - Alt + drag (Trim): Sizing moves contents (Cubase)
+// - Ctrl/Cmd + drag: Fine adjustment (bypass snap)
+// - Ctrl + click (Range): Scrub audio (Pro Tools)
+//
+// Edit Modes (5):
+// - Shuffle (F1): True ripple — delete closes gap, insert pushes (Pro Tools)
+// - Slip (F2): Free movement, overlap allowed
+// - Spot (F3): Timecode dialog popup
+// - Grid (F4): Snap to grid (absolute/relative sub-modes) (Cubase)
+// - X-Fade (F5): Overlap auto-creates crossfade (Logic Pro X)
+//
+// Snap System (Combined):
+// - Smart Snap: Adaptive to zoom level (Logic)
+// - Grid snap: Bar/beat/division
+// - Events snap: To other clip edges (Cubase)
+// - Cursor snap: To playhead (Cubase)
+// - Relative snap: Maintain offset from grid (Cubase Grid Relative)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,8 +68,8 @@ import 'package:flutter/services.dart';
 /// │ Shuffle  │  Slip    │  Spot    │  Grid    │
 /// └──────────┴──────────┴──────────┴──────────┘
 enum TimelineEditMode {
-  /// Shuffle: Moving a clip pushes adjacent clips to make room.
-  /// Maintains relative order — clips never overlap.
+  /// Shuffle: True ripple editing (Pro Tools).
+  /// Move pushes adjacent clips. Delete closes gap. Insert pushes right.
   shuffle,
 
   /// Slip: Drag adjusts audio content within clip boundaries.
@@ -58,8 +81,57 @@ enum TimelineEditMode {
   spot,
 
   /// Grid: Clips snap to grid positions during movement.
-  /// Uses the snap grid value from the toolbar.
+  /// Sub-modes: Absolute (snap TO grid) or Relative (maintain offset FROM grid).
   grid,
+
+  /// X-Fade: Like Slip but overlap auto-creates crossfade (Logic Pro X).
+  /// When two clips overlap, a crossfade is automatically generated.
+  xFade,
+}
+
+/// Grid snap sub-mode (Cubase)
+enum GridSnapMode {
+  /// Snap clip TO exact grid positions
+  absolute,
+
+  /// Maintain clip's offset FROM grid during movement (Cubase Grid Relative)
+  relative,
+}
+
+/// Snap targets — can be combined (Cubase-style cumulative snap)
+enum SnapTarget {
+  /// Snap to grid lines (bar/beat/division)
+  grid,
+
+  /// Snap to other clip edges (Cubase Events snap)
+  events,
+
+  /// Snap to playhead position (Cubase Magnetic Cursor)
+  cursor,
+
+  /// Snap to markers
+  markers,
+
+  /// Snap to detected transients (Pro Tools)
+  transients,
+}
+
+/// Smart snap resolution — adaptive to zoom level (Logic Pro X)
+enum SmartSnapResolution {
+  /// Very far zoom: snap to bar boundaries
+  bar,
+
+  /// Far zoom: snap to beat boundaries
+  beat,
+
+  /// Medium zoom: snap to sub-beat divisions
+  division,
+
+  /// Close zoom: snap to ticks
+  tick,
+
+  /// Very close zoom: sample-level precision
+  sample,
 }
 
 /// Cubase-style explicit tool selection (toolbar buttons / number keys)
@@ -95,15 +167,18 @@ enum TimelineEditTool {
   play,
 }
 
-/// Current tool determined by cursor position
+/// Current tool determined by cursor position (9-zone system)
 enum SmartToolMode {
-  /// Selection/move tool (middle of clip)
+  /// Move/select tool (lower body of clip — Pro Tools Grabber)
   select,
 
-  /// Trim left edge
+  /// Range select (upper body of clip — Pro Tools Selector)
+  rangeSelectBody,
+
+  /// Trim left edge (bottom-left)
   trimLeft,
 
-  /// Trim right edge
+  /// Trim right edge (bottom-right)
   trimRight,
 
   /// Fade in handle (top-left corner)
@@ -112,13 +187,22 @@ enum SmartToolMode {
   /// Fade out handle (top-right corner)
   fadeOut,
 
+  /// Volume handle (top-center edge — Cubase exclusive)
+  volumeHandle,
+
+  /// Loop handle (bottom-center-right — Logic Pro X exclusive)
+  loopHandle,
+
   /// Crossfade between clips
   crossfade,
 
-  /// Range selection (timeline background)
+  /// Range selection (timeline background, outside clips)
   rangeSelect,
 
-  /// Scrub (Command+click)
+  /// Slip content (Alt+Shift drag — Cubase)
+  slipContent,
+
+  /// Scrub (Ctrl+click in range zone — Pro Tools)
   scrub,
 
   /// No specific tool (default arrow)
@@ -128,36 +212,59 @@ enum SmartToolMode {
 /// Mouse cursor for each tool mode
 const Map<SmartToolMode, MouseCursor> kSmartToolCursors = {
   SmartToolMode.select: SystemMouseCursors.move,
+  SmartToolMode.rangeSelectBody: SystemMouseCursors.text, // I-beam like Pro Tools Selector
   SmartToolMode.trimLeft: SystemMouseCursors.resizeLeft,
   SmartToolMode.trimRight: SystemMouseCursors.resizeRight,
   SmartToolMode.fadeIn: SystemMouseCursors.resizeUpLeft,
   SmartToolMode.fadeOut: SystemMouseCursors.resizeUpRight,
+  SmartToolMode.volumeHandle: SystemMouseCursors.resizeUpDown, // Vertical drag for volume
+  SmartToolMode.loopHandle: SystemMouseCursors.resizeRight, // Drag right to extend loop
   SmartToolMode.crossfade: SystemMouseCursors.resizeColumn,
   SmartToolMode.rangeSelect: SystemMouseCursors.cell,
-  SmartToolMode.scrub: SystemMouseCursors.text, // Vertical bar like scrub
+  SmartToolMode.slipContent: SystemMouseCursors.resizeLeftRight, // H-resize for slip
+  SmartToolMode.scrub: SystemMouseCursors.text,
   SmartToolMode.none: SystemMouseCursors.basic,
 };
 
-/// Zone configuration for smart tool detection
+/// Zone configuration for smart tool detection (9-zone system)
 class SmartToolZones {
   /// Percentage of clip width for trim zones (left/right edges)
   final double trimZonePercent;
 
-  /// Percentage of clip height for fade zone (top)
-  final double fadeZonePercent;
+  /// Percentage of clip height for top row (fades + volume)
+  final double topRowPercent;
+
+  /// Percentage of clip height for bottom row (trim + loop)
+  final double bottomRowPercent;
+
+  /// Percentage of clip width for fade handle corners
+  final double fadeCornerPercent;
+
+  /// Percentage of clip width for loop handle zone (from right edge)
+  final double loopZonePercent;
 
   /// Minimum pixel width for trim zone (even on short clips)
   final double minTrimZonePixels;
 
-  /// Minimum pixel height for fade zone
-  final double minFadeZonePixels;
+  /// Minimum pixel height for zone rows
+  final double minZoneRowPixels;
+
+  /// Body midpoint — above = range select, below = move/select (Pro Tools split)
+  final double bodyMidpoint;
 
   const SmartToolZones({
-    this.trimZonePercent = 0.10, // 10% each side
-    this.fadeZonePercent = 0.20, // Top 20%
+    this.trimZonePercent = 0.12, // 12% each side for trim
+    this.topRowPercent = 0.20, // Top 20% for fades + volume
+    this.bottomRowPercent = 0.20, // Bottom 20% for trim + loop
+    this.fadeCornerPercent = 0.20, // 20% width for fade corners
+    this.loopZonePercent = 0.15, // 15% width for loop handle
     this.minTrimZonePixels = 8.0,
-    this.minFadeZonePixels = 10.0,
+    this.minZoneRowPixels = 10.0,
+    this.bodyMidpoint = 0.50, // 50% of body = range/select split
   });
+
+  /// Get fadeZonePercent (backwards compatibility)
+  double get fadeZonePercent => topRowPercent;
 }
 
 /// Result of smart tool hit test
@@ -269,19 +376,13 @@ class SmartToolProvider extends ChangeNotifier {
   // ═══ Cubase-style explicit tool selection ═══
   TimelineEditTool _activeTool = TimelineEditTool.smart;
 
-  // ═══ Cubase-style edit mode (clip movement constraint) ═══
+  // ═══ Edit mode (clip movement constraint) — 5 modes ═══
   TimelineEditMode _activeEditMode = TimelineEditMode.grid;
 
-  // Callbacks
-  void Function(SmartToolDragState)? onDragStart;
-  void Function(SmartToolDragState)? onDragUpdate;
-  void Function(SmartToolDragState)? onDragEnd;
-  void Function(String clipId)? onClipSelected;
-  void Function(String clipId, bool copyMode)? onClipMoved;
-  void Function(String clipId, double newStart)? onClipTrimLeft;
-  void Function(String clipId, double newEnd)? onClipTrimRight;
-  void Function(String clipId, double fadeInDuration)? onFadeInChanged;
-  void Function(String clipId, double fadeOutDuration)? onFadeOutChanged;
+  // ═══ Snap system ═══
+  GridSnapMode _gridSnapMode = GridSnapMode.absolute;
+  Set<SnapTarget> _activeSnapTargets = {SnapTarget.grid};
+  bool _smartSnapEnabled = true; // Logic-style adaptive snap
 
   // ═══ Getters ═══
 
@@ -294,6 +395,9 @@ class SmartToolProvider extends ChangeNotifier {
   bool get isDragging => _dragState != null;
   TimelineEditTool get activeTool => _activeTool;
   TimelineEditMode get activeEditMode => _activeEditMode;
+  GridSnapMode get gridSnapMode => _gridSnapMode;
+  Set<SnapTarget> get activeSnapTargets => _activeSnapTargets;
+  bool get smartSnapEnabled => _smartSnapEnabled;
 
   /// Whether the active tool is Smart Tool (context-aware)
   bool get isSmartToolActive => _activeTool == TimelineEditTool.smart;
@@ -356,6 +460,7 @@ class SmartToolProvider extends ChangeNotifier {
       case TimelineEditMode.slip: return 'Slip';
       case TimelineEditMode.spot: return 'Spot';
       case TimelineEditMode.grid: return 'Grid';
+      case TimelineEditMode.xFade: return 'X-Fade';
     }
   }
 
@@ -366,6 +471,7 @@ class SmartToolProvider extends ChangeNotifier {
       case TimelineEditMode.slip: return Icons.unfold_more;
       case TimelineEditMode.spot: return Icons.my_location;
       case TimelineEditMode.grid: return Icons.grid_4x4;
+      case TimelineEditMode.xFade: return Icons.compare_arrows;
     }
   }
 
@@ -373,13 +479,71 @@ class SmartToolProvider extends ChangeNotifier {
   static String editModeTooltip(TimelineEditMode mode) {
     switch (mode) {
       case TimelineEditMode.shuffle:
-        return 'Shuffle — clips push adjacent clips when moved';
+        return 'Shuffle — true ripple: move pushes, delete closes gap (Pro Tools)';
       case TimelineEditMode.slip:
         return 'Slip — drag adjusts audio content within clip';
       case TimelineEditMode.spot:
         return 'Spot — clips snap to absolute timecode position';
       case TimelineEditMode.grid:
-        return 'Grid — clips snap to grid lines during movement';
+        return 'Grid — clips snap to grid lines (Absolute/Relative)';
+      case TimelineEditMode.xFade:
+        return 'X-Fade — overlap auto-creates crossfade (Logic Pro X)';
+    }
+  }
+
+  // ═══ Snap System ═══
+
+  /// Set grid snap sub-mode (Absolute/Relative)
+  void setGridSnapMode(GridSnapMode mode) {
+    if (_gridSnapMode != mode) {
+      _gridSnapMode = mode;
+      notifyListeners();
+    }
+  }
+
+  /// Toggle a snap target on/off
+  void toggleSnapTarget(SnapTarget target) {
+    if (_activeSnapTargets.contains(target)) {
+      _activeSnapTargets = Set.from(_activeSnapTargets)..remove(target);
+    } else {
+      _activeSnapTargets = Set.from(_activeSnapTargets)..add(target);
+    }
+    notifyListeners();
+  }
+
+  /// Set snap targets
+  void setSnapTargets(Set<SnapTarget> targets) {
+    _activeSnapTargets = Set.from(targets);
+    notifyListeners();
+  }
+
+  /// Toggle smart snap (Logic-style adaptive to zoom)
+  void toggleSmartSnap() {
+    _smartSnapEnabled = !_smartSnapEnabled;
+    notifyListeners();
+  }
+
+  /// Get smart snap resolution based on zoom level (Logic Pro X)
+  SmartSnapResolution getSmartSnapResolution(double pixelsPerBeat) {
+    if (pixelsPerBeat < 5) return SmartSnapResolution.bar;
+    if (pixelsPerBeat < 15) return SmartSnapResolution.beat;
+    if (pixelsPerBeat < 50) return SmartSnapResolution.division;
+    if (pixelsPerBeat < 200) return SmartSnapResolution.tick;
+    return SmartSnapResolution.sample;
+  }
+
+  /// Check if a specific snap target is active
+  bool isSnapTargetActive(SnapTarget target) =>
+      _activeSnapTargets.contains(target);
+
+  /// Get display name for snap target
+  static String snapTargetName(SnapTarget target) {
+    switch (target) {
+      case SnapTarget.grid: return 'Grid';
+      case SnapTarget.events: return 'Events';
+      case SnapTarget.cursor: return 'Cursor';
+      case SnapTarget.markers: return 'Markers';
+      case SnapTarget.transients: return 'Transients';
     }
   }
 
@@ -456,9 +620,20 @@ class SmartToolProvider extends ChangeNotifier {
     }
   }
 
-  // ═══ Hit Testing ═══
+  // ═══ Hit Testing (9-Zone System) ═══
 
-  /// Determine tool mode based on position within clip
+  /// Determine tool mode based on position within clip.
+  ///
+  /// 9-zone priority order (highest to lowest):
+  /// 1. Fade In (top-left corner)
+  /// 2. Fade Out (top-right corner)
+  /// 3. Volume Handle (top-center)
+  /// 4. Trim Left (bottom-left edge)
+  /// 5. Trim Right (bottom-right edge)
+  /// 6. Loop Handle (bottom-center-right)
+  /// 7. Crossfade (between clips)
+  /// 8. Range Select (upper body)
+  /// 9. Move/Select (lower body)
   SmartToolHitResult hitTest({
     required Offset position,
     required Rect clipBounds,
@@ -468,6 +643,7 @@ class SmartToolProvider extends ChangeNotifier {
     bool hasRightNeighbor = false,
     double? fadeInEnd,
     double? fadeOutStart,
+    bool isLooping = false,
   }) {
     if (!_enabled) {
       return SmartToolHitResult.none;
@@ -492,16 +668,28 @@ class SmartToolProvider extends ChangeNotifier {
     final height = clipBounds.height;
 
     // Calculate zone boundaries
+    final topRowHeight = (height * _zones.topRowPercent)
+        .clamp(_zones.minZoneRowPixels, height * 0.35);
+    final bottomRowHeight = (height * _zones.bottomRowPercent)
+        .clamp(_zones.minZoneRowPixels, height * 0.35);
+    final bottomRowTop = height - bottomRowHeight;
+    final fadeCornerWidth = (width * _zones.fadeCornerPercent)
+        .clamp(_zones.minTrimZonePixels, width * 0.30);
     final trimZoneWidth = (width * _zones.trimZonePercent)
         .clamp(_zones.minTrimZonePixels, width * 0.25);
-    final fadeZoneHeight = (height * _zones.fadeZonePercent)
-        .clamp(_zones.minFadeZonePixels, height * 0.4);
+    final loopZoneWidth = (width * _zones.loopZonePercent)
+        .clamp(_zones.minTrimZonePixels, width * 0.20);
 
-    // Check fade zones first (top priority)
-    if (local.dy < fadeZoneHeight) {
-      // In fade zone
-      if (local.dx < width * 0.5) {
-        // Fade in (left half)
+    // Body zone (between top and bottom rows)
+    final bodyTop = topRowHeight;
+    final bodyBottom = bottomRowTop;
+    final bodyHeight = bodyBottom - bodyTop;
+    final bodyMidY = bodyTop + bodyHeight * _zones.bodyMidpoint;
+
+    // ─── ZONE 1-3: TOP ROW (fades + volume) ───
+    if (local.dy < topRowHeight) {
+      // Fade In — top-left corner
+      if (local.dx < fadeCornerWidth) {
         return SmartToolHitResult(
           mode: SmartToolMode.fadeIn,
           cursor: SystemMouseCursors.resizeUpLeft,
@@ -510,8 +698,10 @@ class SmartToolProvider extends ChangeNotifier {
           localPosition: local,
           clipBounds: clipBounds,
         );
-      } else {
-        // Fade out (right half)
+      }
+
+      // Fade Out — top-right corner
+      if (local.dx > width - fadeCornerWidth) {
         return SmartToolHitResult(
           mode: SmartToolMode.fadeOut,
           cursor: SystemMouseCursors.resizeUpRight,
@@ -521,26 +711,11 @@ class SmartToolProvider extends ChangeNotifier {
           clipBounds: clipBounds,
         );
       }
-    }
 
-    // Check trim zones (edges)
-    if (local.dx < trimZoneWidth) {
-      // Left trim zone
-      // Check for crossfade with left neighbor
-      if (hasLeftNeighbor && local.dx < trimZoneWidth * 0.5) {
-        return SmartToolHitResult(
-          mode: SmartToolMode.crossfade,
-          cursor: SystemMouseCursors.resizeColumn,
-          clipId: clipId,
-          trackId: trackId,
-          localPosition: local,
-          clipBounds: clipBounds,
-        );
-      }
-
+      // Volume Handle — top-center (between fade corners)
       return SmartToolHitResult(
-        mode: SmartToolMode.trimLeft,
-        cursor: SystemMouseCursors.resizeLeft,
+        mode: SmartToolMode.volumeHandle,
+        cursor: SystemMouseCursors.resizeUpDown,
         clipId: clipId,
         trackId: trackId,
         localPosition: local,
@@ -548,13 +723,24 @@ class SmartToolProvider extends ChangeNotifier {
       );
     }
 
-    if (local.dx > width - trimZoneWidth) {
-      // Right trim zone
-      // Check for crossfade with right neighbor
-      if (hasRightNeighbor && local.dx > width - trimZoneWidth * 0.5) {
+    // ─── ZONE 6-8: BOTTOM ROW (trim + loop) ───
+    if (local.dy > bottomRowTop) {
+      // Trim Left — bottom-left edge
+      if (local.dx < trimZoneWidth) {
+        // Check for crossfade with left neighbor
+        if (hasLeftNeighbor && local.dx < trimZoneWidth * 0.5) {
+          return SmartToolHitResult(
+            mode: SmartToolMode.crossfade,
+            cursor: SystemMouseCursors.resizeColumn,
+            clipId: clipId,
+            trackId: trackId,
+            localPosition: local,
+            clipBounds: clipBounds,
+          );
+        }
         return SmartToolHitResult(
-          mode: SmartToolMode.crossfade,
-          cursor: SystemMouseCursors.resizeColumn,
+          mode: SmartToolMode.trimLeft,
+          cursor: SystemMouseCursors.resizeLeft,
           clipId: clipId,
           trackId: trackId,
           localPosition: local,
@@ -562,9 +748,46 @@ class SmartToolProvider extends ChangeNotifier {
         );
       }
 
+      // Trim Right — bottom-right edge
+      if (local.dx > width - trimZoneWidth) {
+        // Check for crossfade with right neighbor
+        if (hasRightNeighbor && local.dx > width - trimZoneWidth * 0.5) {
+          return SmartToolHitResult(
+            mode: SmartToolMode.crossfade,
+            cursor: SystemMouseCursors.resizeColumn,
+            clipId: clipId,
+            trackId: trackId,
+            localPosition: local,
+            clipBounds: clipBounds,
+          );
+        }
+        return SmartToolHitResult(
+          mode: SmartToolMode.trimRight,
+          cursor: SystemMouseCursors.resizeRight,
+          clipId: clipId,
+          trackId: trackId,
+          localPosition: local,
+          clipBounds: clipBounds,
+        );
+      }
+
+      // Loop Handle — bottom-center-right area
+      if (local.dx > width - trimZoneWidth - loopZoneWidth &&
+          local.dx < width - trimZoneWidth) {
+        return SmartToolHitResult(
+          mode: SmartToolMode.loopHandle,
+          cursor: SystemMouseCursors.resizeRight,
+          clipId: clipId,
+          trackId: trackId,
+          localPosition: local,
+          clipBounds: clipBounds,
+        );
+      }
+
+      // Bottom body area (between trim zones) — defaults to move
       return SmartToolHitResult(
-        mode: SmartToolMode.trimRight,
-        cursor: SystemMouseCursors.resizeRight,
+        mode: SmartToolMode.select,
+        cursor: SystemMouseCursors.move,
         clipId: clipId,
         trackId: trackId,
         localPosition: local,
@@ -572,7 +795,21 @@ class SmartToolProvider extends ChangeNotifier {
       );
     }
 
-    // Default: Select/Move zone (middle)
+    // ─── ZONE 4-5: BODY (range select upper / move lower) ───
+    // Pro Tools-style upper/lower body split
+    if (local.dy < bodyMidY) {
+      // Upper body — Range Select (Pro Tools Selector / I-beam)
+      return SmartToolHitResult(
+        mode: SmartToolMode.rangeSelectBody,
+        cursor: SystemMouseCursors.text,
+        clipId: clipId,
+        trackId: trackId,
+        localPosition: local,
+        clipBounds: clipBounds,
+      );
+    }
+
+    // Lower body — Move/Select (Pro Tools Grabber / hand)
     return SmartToolHitResult(
       mode: SmartToolMode.select,
       cursor: SystemMouseCursors.move,
@@ -602,6 +839,12 @@ class SmartToolProvider extends ChangeNotifier {
   // ═══ Drag Operations ═══
 
   /// Start drag operation
+  ///
+  /// Modifier key combinations (Cubase + Pro Tools):
+  /// - Alt + drag in Move zone = Copy clip
+  /// - Alt + Shift + drag in Move zone = Slip content (Cubase)
+  /// - Alt + drag in Trim zone = Sizing moves contents
+  /// - Ctrl + click in Range zone = Scrub (Pro Tools)
   void startDrag({
     required SmartToolHitResult hitResult,
     required Offset position,
@@ -614,8 +857,21 @@ class SmartToolProvider extends ChangeNotifier {
     final isCmd = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
 
+    // Modifier-based mode overrides
+    SmartToolMode resolvedMode = hitResult.mode;
+
+    // Alt+Shift in move zone = Slip Content (Cubase)
+    if (resolvedMode == SmartToolMode.select && isAlt && isShift) {
+      resolvedMode = SmartToolMode.slipContent;
+    }
+
+    // Ctrl+click in range zone = Scrub (Pro Tools)
+    if (resolvedMode == SmartToolMode.rangeSelectBody && isCmd) {
+      resolvedMode = SmartToolMode.scrub;
+    }
+
     _dragState = SmartToolDragState(
-      mode: hitResult.mode,
+      mode: resolvedMode,
       clipId: hitResult.clipId,
       startPosition: position,
       currentPosition: position,
@@ -625,7 +881,6 @@ class SmartToolProvider extends ChangeNotifier {
       isCmdHeld: isCmd,
     );
 
-    onDragStart?.call(_dragState!);
     notifyListeners();
   }
 
@@ -645,20 +900,12 @@ class SmartToolProvider extends ChangeNotifier {
       isCmdHeld: isCmd,
     );
 
-    onDragUpdate?.call(_dragState!);
     notifyListeners();
   }
 
   /// End drag operation
   void endDrag() {
     if (_dragState == null) return;
-
-    final finalState = _dragState!;
-    onDragEnd?.call(finalState);
-
-    // Apply the operation based on mode
-    _applyDragOperation(finalState);
-
     _dragState = null;
     notifyListeners();
   }
@@ -669,64 +916,15 @@ class SmartToolProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Apply the drag operation based on mode
-  void _applyDragOperation(SmartToolDragState state) {
-    if (state.clipId == null) return;
-
-    final delta = state.constrainedDelta;
-
-    switch (state.mode) {
-      case SmartToolMode.select:
-        // Move operation
-        onClipMoved?.call(state.clipId!, state.isAltHeld);
-        break;
-
-      case SmartToolMode.trimLeft:
-        final newStart = state.originalBounds.left + delta.dx;
-        onClipTrimLeft?.call(state.clipId!, newStart);
-        break;
-
-      case SmartToolMode.trimRight:
-        final newEnd = state.originalBounds.right + delta.dx;
-        onClipTrimRight?.call(state.clipId!, newEnd);
-        break;
-
-      case SmartToolMode.fadeIn:
-        // Calculate fade duration from drag
-        final fadeInDuration = delta.dx.abs();
-        onFadeInChanged?.call(state.clipId!, fadeInDuration);
-        break;
-
-      case SmartToolMode.fadeOut:
-        final fadeOutDuration = (-delta.dx).abs();
-        onFadeOutChanged?.call(state.clipId!, fadeOutDuration);
-        break;
-
-      case SmartToolMode.crossfade:
-        // Crossfade adjustment handled separately
-        break;
-
-      default:
-        break;
-    }
-  }
-
-  // ═══ Selection ═══
-
-  /// Handle click (for selection)
-  void handleClick(SmartToolHitResult hitResult) {
-    if (hitResult.clipId != null) {
-      onClipSelected?.call(hitResult.clipId!);
-    }
-  }
-
   // ═══ UI Helpers ═══
 
   /// Get display name for current mode
   String get modeDisplayName {
     switch (_currentMode) {
       case SmartToolMode.select:
-        return 'Select/Move';
+        return 'Move';
+      case SmartToolMode.rangeSelectBody:
+        return 'Range';
       case SmartToolMode.trimLeft:
         return 'Trim Left';
       case SmartToolMode.trimRight:
@@ -735,10 +933,16 @@ class SmartToolProvider extends ChangeNotifier {
         return 'Fade In';
       case SmartToolMode.fadeOut:
         return 'Fade Out';
+      case SmartToolMode.volumeHandle:
+        return 'Volume';
+      case SmartToolMode.loopHandle:
+        return 'Loop';
       case SmartToolMode.crossfade:
         return 'Crossfade';
       case SmartToolMode.rangeSelect:
         return 'Range Select';
+      case SmartToolMode.slipContent:
+        return 'Slip';
       case SmartToolMode.scrub:
         return 'Scrub';
       case SmartToolMode.none:
@@ -751,16 +955,24 @@ class SmartToolProvider extends ChangeNotifier {
     switch (_currentMode) {
       case SmartToolMode.select:
         return Icons.open_with;
+      case SmartToolMode.rangeSelectBody:
+        return Icons.select_all;
       case SmartToolMode.trimLeft:
       case SmartToolMode.trimRight:
         return Icons.content_cut;
       case SmartToolMode.fadeIn:
       case SmartToolMode.fadeOut:
         return Icons.gradient;
+      case SmartToolMode.volumeHandle:
+        return Icons.volume_up;
+      case SmartToolMode.loopHandle:
+        return Icons.loop;
       case SmartToolMode.crossfade:
         return Icons.compare_arrows;
       case SmartToolMode.rangeSelect:
         return Icons.select_all;
+      case SmartToolMode.slipContent:
+        return Icons.unfold_more;
       case SmartToolMode.scrub:
         return Icons.swap_horiz;
       case SmartToolMode.none:
@@ -870,90 +1082,3 @@ class SmartToolCursor extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// WIDGET: Smart Tool Gesture Detector
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/// Complete gesture detector for smart tool operations
-class SmartToolGestureDetector extends StatelessWidget {
-  final SmartToolProvider provider;
-  final Widget child;
-  final Rect Function(Offset position)? getClipBoundsAt;
-  final String? Function(Offset position)? getClipIdAt;
-  final bool Function(String clipId)? hasLeftNeighbor;
-  final bool Function(String clipId)? hasRightNeighbor;
-
-  const SmartToolGestureDetector({
-    super.key,
-    required this.provider,
-    required this.child,
-    this.getClipBoundsAt,
-    this.getClipIdAt,
-    this.hasLeftNeighbor,
-    this.hasRightNeighbor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: (event) {
-        if (!provider.enabled) return;
-
-        final position = event.localPosition;
-        final clipId = getClipIdAt?.call(position);
-        final clipBounds = getClipBoundsAt?.call(position);
-
-        if (clipId != null && clipBounds != null) {
-          final hitResult = provider.hitTest(
-            position: position,
-            clipBounds: clipBounds,
-            clipId: clipId,
-            hasLeftNeighbor: hasLeftNeighbor?.call(clipId) ?? false,
-            hasRightNeighbor: hasRightNeighbor?.call(clipId) ?? false,
-          );
-
-          provider.startDrag(
-            hitResult: hitResult,
-            position: position,
-            clipBounds: clipBounds,
-          );
-        }
-      },
-      onPointerMove: (event) {
-        if (provider.isDragging) {
-          provider.updateDrag(event.localPosition);
-        } else {
-          // Update hover
-          final position = event.localPosition;
-          final clipId = getClipIdAt?.call(position);
-          final clipBounds = getClipBoundsAt?.call(position);
-
-          if (clipId != null && clipBounds != null) {
-            final hitResult = provider.hitTest(
-              position: position,
-              clipBounds: clipBounds,
-              clipId: clipId,
-              hasLeftNeighbor: hasLeftNeighbor?.call(clipId) ?? false,
-              hasRightNeighbor: hasRightNeighbor?.call(clipId) ?? false,
-            );
-            provider.updateHover(hitResult);
-          } else {
-            provider.clearHover();
-          }
-        }
-      },
-      onPointerUp: (event) {
-        if (provider.isDragging) {
-          provider.endDrag();
-        }
-      },
-      onPointerCancel: (event) {
-        provider.cancelDrag();
-      },
-      child: SmartToolCursor(
-        provider: provider,
-        child: child,
-      ),
-    );
-  }
-}

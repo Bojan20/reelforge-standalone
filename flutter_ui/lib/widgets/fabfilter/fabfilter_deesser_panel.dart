@@ -482,11 +482,13 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
           Text(
             _freqStr(_frequency),
             style: FabFilterText.paramLabel.copyWith(fontSize: 8, color: FabFilterColors.pink),
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(width: 8),
           Text(
             _modeLabels[_mode],
             style: FabFilterText.paramLabel.copyWith(fontSize: 8, color: FabFilterColors.cyan),
+            overflow: TextOverflow.ellipsis,
           ),
           const Spacer(),
           if (_listen)
@@ -500,6 +502,7 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
               child: Text(
                 'LISTEN',
                 style: FabFilterText.paramLabel.copyWith(fontSize: 7, color: FabFilterColors.yellow),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           if (_listen) const SizedBox(width: 8),
@@ -509,6 +512,7 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
               fontSize: 8,
               color: _gainReduction < -3 ? FabFilterColors.orange : FabFilterColors.textTertiary,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

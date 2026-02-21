@@ -2,6 +2,12 @@
 
 ---
 
+## 🚫 NIKAD PLAN MODE 🚫
+
+**NIKADA ne koristi `EnterPlanMode` tool.** Direktno radi — istraži, analiziraj, implementiraj. Bez planiranja, bez čekanja potvrde plana. Korisnik želi akciju, ne planove.
+
+---
+
 ## 🚫 APSOLUTNA ZABRANA SHIPOVANJA 🚫
 
 **NEMA SHIPOVANJA DOK:**
@@ -1108,6 +1114,137 @@ Listener(
 - **Modifier key detection** → `Listener.onPointerDown`
 - **Simple taps/double-taps** → `GestureDetector`
 - **NIKADA** ne kombinovati `GestureDetector.onTap` + `HardwareKeyboard.instance` za modifier keys
+
+### Nested Drag — Listener Bypass Pattern (Gain Drag Fix)
+
+**Problem:** Nested `GestureDetector` za gain drag (child) unutar clip move `GestureDetector` (parent) — parent gesture arena krade vertikalne drag evente od child-a nakon prvog uspešnog drag-a.
+
+**Root Cause:** Flutter Gesture Arena daje prioritet parent-u kada oba detektuju isti gest (vertikalni drag). Child pobedi prvi put, ali parent preuzima naredne pokušaje.
+
+**Rešenje:** `Listener` widget zaobilazi gesture arena u potpunosti — prima raw pointer evente bez kompeticije.
+
+```dart
+// ❌ LOŠE — parent GestureDetector krade drag od child-a
+GestureDetector(  // Parent: clip move
+  onPanStart: ...,
+  child: GestureDetector(  // Child: gain drag
+    onVerticalDragStart: ...,  // RADI JEDANPUT, zatim parent preuzima
+  ),
+)
+
+// ✅ DOBRO — Listener zaobilazi arena, uvek prima evente
+GestureDetector(  // Parent: clip move
+  onPanStart: ...,
+  child: Listener(  // Child: gain drag via raw pointer events
+    onPointerDown: _onGainPointerDown,
+    onPointerMove: _onGainPointerMove,
+    onPointerUp: _onGainPointerUp,
+    child: GestureDetector(
+      onDoubleTap: () => resetGain(),  // Double-tap OK (ne kompetira sa drag-om)
+      child: gainHandleWidget,
+    ),
+  ),
+)
+```
+
+**Pravilo:**
+- **Nested drag controls** → `Listener.onPointerDown/Move/Up`
+- **Parent NOT affected** — parent GestureDetector i dalje prima svoje evente normalno
+- Koristiti `HitTestBehavior.opaque` na Listener-u za pravilan hit testing
+- Double-tap reset funkcioniše unutar nested GestureDetector (ne kompetira sa drag-om)
+
+### Stereo Waveform Display — Track Height Threshold
+
+**Problem:** `_StereoWaveformPainter` postoji ali se nikada ne prikazuje.
+
+**Root Cause:** Default `TimelineTrack.height = 80` (timeline_models.dart), a stereo split uslov bio `trackHeight > 80` — striktno veće, 80 > 80 = false.
+
+**Rešenje:** Promeniti threshold na `> 60`:
+```dart
+// clip_widget.dart
+final showStereoSplit = widget.channels >= 2 && widget.trackHeight > 60;
+```
+
+**Track Height Ranges:**
+| Visina | Prikaz |
+|--------|--------|
+| < 60px | Combined mono (L+R merged) |
+| ≥ 60px | Stereo L/R split sa labelama i separatorom |
+
+**Resize range:** 32px–160px (track_header_simple.dart clamp)
+
+### Optimistic State Pattern — Instant Button Feedback
+
+**Problem:** Dugmad u dubokim widget tree-ovima (npr. Track Header M/S/I/R) imaju delay jer parent `setState` sa `_tracks.map().toList()` prolazi ceo tree pre nego što child dobije novi `widget.active`.
+
+**Rešenje:** Nullable optimistic state — instant vizuelni toggle pre nego što parent potvrdi.
+
+```dart
+class _MiniButtonState extends State<_MiniButton> {
+  bool? _optimisticActive;  // null = koristi widget.active
+
+  @override
+  void didUpdateWidget(_MiniButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) {
+      _optimisticActive = null;  // Parent potvrdio → očisti optimistic
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showActive = _optimisticActive ?? widget.active;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _optimisticActive = !widget.active);  // INSTANT
+        widget.onTap?.call();  // Pokreni parent chain
+      },
+      child: Container(/* koristi showActive za boje */),
+    );
+  }
+}
+```
+
+**Pravila:**
+- `_optimistic*` je uvek `bool?` (nullable) — `null` znači "koristi parent vrednost"
+- `didUpdateWidget` čisti optimistic čim parent pošalje novu vrednost
+- Koristiti `RepaintBoundary` oko svakog dugmeta za paint izolaciju
+- **NIKADA** ne koristiti `Timer` ili `Future.delayed` za UI feedback — optimistic state je sinhroni
+
+### FocusNode Lifecycle — NIKAD inline u build()
+
+**Problem:** `FocusNode()` kreiran inline u `build()` metodi uzrokuje memory leak — svaki rebuild kreira novi node koji se nikad ne dispose-uje.
+
+```dart
+// ❌ LOŠE — memory leak (novi FocusNode svaki build)
+Widget build(BuildContext context) {
+  return TextField(focusNode: FocusNode());
+}
+
+// ✅ DOBRO — jedan FocusNode, pravilno dispose
+class _MyWidgetState extends State<MyWidget> {
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(focusNode: _focusNode);
+  }
+}
+```
+
+**Pravilo:** FocusNode, TextEditingController, ScrollController, AnimationController — SVE mora biti u `initState()` + `dispose()`, NIKADA inline u `build()`.
 
 ---
 
@@ -2750,6 +2887,8 @@ final result = exporter.export(
 - ✅ Scrubbing with velocity
 - ✅ Cubase-style Edit Tools (10 tools: Smart, Select, Range, Split, Glue, Erase, Zoom, Mute, Draw, Play)
 - ✅ Cubase-style Edit Modes (4 modes: Shuffle, Slip, Spot, Grid)
+- ✅ Stereo Waveform Display (Logic Pro style L/R split with labels, threshold > 60px)
+- ✅ Per-Clip Gain Drag (Listener pattern, double-tap reset to 0dB, 0.0–4.0 range)
 
 ### Cubase-Style Timeline Edit Tools + Edit Modes (2026-02-21) ✅
 
@@ -2834,6 +2973,31 @@ Audio File Import → NativeFFI.generateWaveformFromFile(path, cacheKey)
 | `engine_connected_layout.dart` | ~2408 | `_handleAudioPoolFileDoubleClick()` |
 
 **Fallback:** Ako FFI ne vrati waveform, waveform ostaje `null` — UI gracefully handluje null.
+
+**Stereo Waveform Display (2026-02-21) ✅ — Logic Pro Style:**
+
+Kada je track height ≥ 60px, prikazuje se stereo L/R split sa labelama i separatorom.
+
+| Komponenta | Opis |
+|------------|------|
+| `_StereoWaveformPainter` | CustomPainter sa L na 25%, R na 75% vertikalne pozicije |
+| Threshold | `widget.trackHeight > 60` (bilo `> 80`, default 80px = nikad prikazano) |
+| L/R labele | Pre-alocirani TextPainter-i (JetBrains Mono, 8px), sa background rect-om |
+| Separator | Dashed linija (6px dash, 3px gap), alpha 0.3 |
+| Height guard | Labele se renderuju samo kada `size.height > 50` |
+| Pipeline | `queryWaveformPixelsStereo()` → `StereoWaveformPixelData` → `_cachedStereoData` → painter |
+
+**Gain Drag on Clips (2026-02-21) ✅:**
+
+Per-clip gain kontrola na timeline-u sa Listener pattern-om (zaobilazi gesture arena).
+
+| Feature | Implementacija |
+|---------|----------------|
+| Drag handle | `Listener.onPointerDown/Move/Up` (raw pointer events, ne kompetira sa parent-om) |
+| Double-tap reset | `GestureDetector.onDoubleTap` → gain = 1.0 (0dB) |
+| Range | 0.0–4.0 (−∞ to +12dB) |
+| Display | `gainToDb()` helper, orange linija + dB label |
+| File | `clip_widget.dart` |
 
 ### Advanced
 - ✅ Video sync (SMPTE timecode)

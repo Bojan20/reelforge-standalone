@@ -140,7 +140,7 @@ class SendSlotWidget extends StatelessWidget {
               onHorizontalDragUpdate: (details) {
                 // Drag to adjust send level
                 final delta = details.primaryDelta ?? 0;
-                final newLevel = (send.level + delta * 0.005).clamp(0.0, 1.5);
+                final newLevel = (send.level + delta * 0.005).clamp(0.0, 2.0);
                 onLevelChanged?.call(newLevel);
               },
               child: Container(

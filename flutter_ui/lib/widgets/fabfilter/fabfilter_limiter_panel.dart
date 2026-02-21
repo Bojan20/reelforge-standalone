@@ -796,7 +796,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       child: Column(
         children: [
           Text('GR', style: TextStyle(
-            color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.w600)),
+            color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
           Expanded(
             child: Container(

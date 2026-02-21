@@ -52,6 +52,10 @@ class TrackLane extends StatefulWidget {
   final ValueChanged<String>? onClipSplit;
   final ValueChanged<String>? onClipDelete;
   final ValueChanged<String>? onClipMute;
+  /// Loop toggle on clip (Logic Pro X style)
+  final void Function(String clipId)? onClipLoopToggle;
+  /// Split clip at precise position (Cubase Alt+click)
+  final void Function(String clipId, double position)? onClipSplitAtPosition;
   /// Shuffle mode: move clip and push adjacent clips
   final void Function(String clipId, double newStartTime)? onClipShuffleMove;
   final void Function(String crossfadeId, double duration)? onCrossfadeUpdate;
@@ -99,6 +103,8 @@ class TrackLane extends StatefulWidget {
     this.onClipSplit,
     this.onClipDelete,
     this.onClipMute,
+    this.onClipLoopToggle,
+    this.onClipSplitAtPosition,
     this.onClipShuffleMove,
     this.onCrossfadeUpdate,
     this.onCrossfadeFullUpdate,
@@ -199,6 +205,8 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                       onSplit: () => widget.onClipSplit?.call(clip.id),
                       onDelete: () => widget.onClipDelete?.call(clip.id),
                       onMute: () => widget.onClipMute?.call(clip.id),
+                      onLoopToggle: () => widget.onClipLoopToggle?.call(clip.id),
+                      onSplitAtPosition: (pos) => widget.onClipSplitAtPosition?.call(clip.id, pos),
                       onShuffleMove: (newStart) =>
                           widget.onClipShuffleMove?.call(clip.id, newStart),
                       onPlayheadMove: widget.onPlayheadMove,

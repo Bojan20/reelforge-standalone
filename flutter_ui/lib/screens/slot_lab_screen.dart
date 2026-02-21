@@ -2099,9 +2099,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _audioPool.addAll(newEntries);
       });
 
-      // ⚡ INSTANT: Show feedback immediately
-      _showImportToast(newEntries.length);
-
       // 🔄 BACKGROUND: Persist state without blocking UI
       Future.microtask(() => _persistState());
 
@@ -2163,9 +2160,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _audioPool.addAll(newEntries);
       });
 
-      // ⚡ INSTANT: Show feedback immediately
-      _showImportToast(newEntries.length);
-
       // 🔄 BACKGROUND: Persist state without blocking UI
       Future.microtask(() => _persistState());
 
@@ -2197,12 +2191,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       'duration': 2.0, // Default, actual duration determined when played
       'folder': folder,
     };
-  }
-
-  /// Show inline toast for import feedback
-  void _showImportToast(int count) {
-    if (!mounted) return;
-    showToast('Added $count file${count > 1 ? 's' : ''} to Pool');
   }
 
   /// Load metadata in background (duration, sampleRate, channels)
@@ -3447,6 +3435,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ],
@@ -6045,11 +6035,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     const Text('Music Layers: ', style: TextStyle(color: Colors.white54, fontSize: 11)),
                     IconButton(
                       icon: const Icon(Icons.remove, size: 16, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                       onPressed: () => setDialogState(() => layerCount = (layerCount - 1).clamp(1, 8)),
                     ),
                     Text('$layerCount', style: const TextStyle(color: Colors.white, fontSize: 12)),
                     IconButton(
                       icon: const Icon(Icons.add, size: 16, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                       onPressed: () => setDialogState(() => layerCount = (layerCount + 1).clamp(1, 8)),
                     ),
                   ],
@@ -10270,6 +10264,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -10318,6 +10314,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -10356,6 +10354,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -10394,6 +10394,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],

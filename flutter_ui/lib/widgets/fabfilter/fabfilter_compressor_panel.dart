@@ -575,6 +575,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                           color: FabFilterProcessorColors.compAccent.withValues(alpha: 0.5),
                           fontSize: 7, fontWeight: FontWeight.bold,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -630,7 +631,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 Text(s.label, style: TextStyle(
                   color: active ? FabFilterProcessorColors.compAccent : FabFilterColors.textSecondary,
                   fontSize: 9, fontWeight: active ? FontWeight.bold : FontWeight.w500,
-                )),
+                ), overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -676,7 +677,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
             const SizedBox(width: 3),
             Text(_character.label, style: TextStyle(
               color: _character.color, fontSize: 9, fontWeight: FontWeight.bold,
-            )),
+            ), overflow: TextOverflow.ellipsis),
           ],
         ),
       ),

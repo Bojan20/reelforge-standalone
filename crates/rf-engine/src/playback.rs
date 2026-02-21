@@ -2696,7 +2696,7 @@ impl PlaybackEngine {
             None => return, // Skip this block - lock contended
         };
 
-        // Drain all pending changes (non-blocking, no logging)
+        // Drain all pending changes
         while let Ok(change) = rx.pop() {
             // Check if this is a bus insert param (encoded as 0xFFFF_0000 | bus_id)
             if change.track_id & 0xFFFF_0000 == 0xFFFF_0000 {
@@ -3982,16 +3982,83 @@ impl PlaybackEngine {
                 }
             }
 
-            // Master metering for stopped/tail path
-            let mut mp_l: f64 = 0.0;
-            let mut mp_r: f64 = 0.0;
+            // ═══ PRO TOOLS-STYLE METER DECAY ON STOP ═══
+            // When transport stops, ALL meters must smoothly decay to zero
+            // instead of freezing at their last value.
+            // Same decay formula as the playing path (~300ms to -60dB at 48kHz/256).
+            let decay = 0.9995_f64.powf(frames as f64 / 8.0);
+
+            // --- Master peak metering with decay ---
+            let prev_peak_l = f64::from_bits(self.peak_l.load(Ordering::Relaxed));
+            let prev_peak_r = f64::from_bits(self.peak_r.load(Ordering::Relaxed));
+            let mut mp_l = prev_peak_l * decay;
+            let mut mp_r = prev_peak_r * decay;
+            // Mix in any tail audio that's still playing
             for i in 0..frames {
                 mp_l = mp_l.max(output_l[i].abs());
                 mp_r = mp_r.max(output_r[i].abs());
             }
+            // Clamp to zero below noise floor
+            if mp_l < 1e-10 { mp_l = 0.0; }
+            if mp_r < 1e-10 { mp_r = 0.0; }
             self.peak_l.store(mp_l.to_bits(), Ordering::Relaxed);
             self.peak_r.store(mp_r.to_bits(), Ordering::Relaxed);
             crate::ffi::SHARED_METERS.update_channel_peak(0, mp_l, mp_r);
+
+            // --- Master RMS decay ---
+            let prev_rms_l = f64::from_bits(self.rms_l.load(Ordering::Relaxed));
+            let prev_rms_r = f64::from_bits(self.rms_r.load(Ordering::Relaxed));
+            let rms_l = (prev_rms_l * decay).max(0.0);
+            let rms_r = (prev_rms_r * decay).max(0.0);
+            self.rms_l.store(if rms_l < 1e-10 { 0.0_f64 } else { rms_l }.to_bits(), Ordering::Relaxed);
+            self.rms_r.store(if rms_r < 1e-10 { 0.0_f64 } else { rms_r }.to_bits(), Ordering::Relaxed);
+
+            // --- Per-bus peak decay ---
+            // Decay all 6 bus meters so they don't freeze
+            for bus_idx in 0..6 {
+                let idx = bus_idx * 2;
+                let prev_bl = f64::from_bits(
+                    crate::ffi::SHARED_METERS.channel_peaks[idx].load(Ordering::Relaxed),
+                );
+                let prev_br = f64::from_bits(
+                    crate::ffi::SHARED_METERS.channel_peaks[idx + 1].load(Ordering::Relaxed),
+                );
+                let bl = if prev_bl * decay < 1e-10 { 0.0 } else { prev_bl * decay };
+                let br = if prev_br * decay < 1e-10 { 0.0 } else { prev_br * decay };
+                crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bl, br);
+            }
+
+            // --- Correlation/balance decay toward defaults ---
+            let prev_corr = f64::from_bits(self.correlation.load(Ordering::Relaxed));
+            let smoothed_corr = prev_corr * decay + 1.0 * (1.0 - decay); // Decay toward 1.0 (mono)
+            self.correlation.store(smoothed_corr.to_bits(), Ordering::Relaxed);
+
+            let prev_bal = f64::from_bits(self.balance.load(Ordering::Relaxed));
+            let smoothed_bal = prev_bal * decay; // Decay toward 0.0 (center)
+            self.balance.store(if smoothed_bal.abs() < 1e-10 { 0.0_f64 } else { smoothed_bal }.to_bits(), Ordering::Relaxed);
+
+            // --- SHARED_METERS master update ---
+            crate::ffi::SHARED_METERS.update_master(mp_l, mp_r, rms_l, rms_r);
+
+            // --- Spectrum bands decay ---
+            for band_idx in 0..32 {
+                let prev = f64::from_bits(
+                    crate::ffi::SHARED_METERS.spectrum_bands[band_idx].load(Ordering::Relaxed),
+                );
+                let decayed = if prev * decay < 1e-10 { 0.0 } else { prev * decay };
+                crate::ffi::SHARED_METERS.spectrum_bands[band_idx]
+                    .store(decayed.to_bits(), Ordering::Relaxed);
+            }
+
+            // Signal Dart that meter values changed (decay updates)
+            // Without this, SharedMeterReader sees stale sequence and skips reading.
+            // Always increment during decay — stops naturally when all values hit zero
+            // (decay block won't change anything once all meters are 0.0).
+            let any_activity = mp_l > 0.0 || mp_r > 0.0 || rms_l > 0.0 || rms_r > 0.0
+                || prev_peak_l > 0.0 || prev_peak_r > 0.0;
+            if any_activity {
+                crate::ffi::SHARED_METERS.increment_sequence();
+            }
 
             return;
         }
@@ -4460,20 +4527,23 @@ impl PlaybackEngine {
                 inserts[bus_idx].process_pre_fader(bus_l, bus_r);
             }
 
-            // Apply bus volume and pan (fader stage)
+            // Apply bus volume and dual-pan (fader stage)
+            // Dual-pan: pan controls L channel placement, pan_right controls R channel placement
+            // Default: pan=-1 (L stays left), pan_right=1 (R stays right) = stereo pass-through
             let volume = state.volume;
-            let pan = state.pan;
-            // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
-            let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
-            let pan_l = pan_angle.cos();
-            let pan_r = pan_angle.sin();
+            let pan_l_angle = (state.pan + 1.0) * std::f64::consts::FRAC_PI_4;
+            let pan_r_angle = (state.pan_right + 1.0) * std::f64::consts::FRAC_PI_4;
+            let l_to_l = pan_l_angle.cos();
+            let l_to_r = pan_l_angle.sin();
+            let r_to_l = pan_r_angle.cos();
+            let r_to_r = pan_r_angle.sin();
 
-            // Apply volume and pan in-place
+            // Apply volume and dual-pan in-place
             for i in 0..frames {
                 let l = bus_l[i] * volume;
                 let r = bus_r[i] * volume;
-                bus_l[i] = l * pan_l;
-                bus_r[i] = r * pan_r;
+                bus_l[i] = l * l_to_l + r * r_to_l;
+                bus_r[i] = l * l_to_r + r * r_to_r;
             }
 
             // ═══ BUS INSERT CHAIN (POST-FADER) ═══
@@ -4662,14 +4732,23 @@ impl PlaybackEngine {
         }
 
         // === METRONOME / CLICK TRACK ===
-        // Process click track when transport is playing (like Cubase/Pro Tools).
+        // Process click track when transport is playing OR during count-in.
         // Uses try_write() to avoid blocking the audio thread if UI is changing settings.
         // Passes is_recording so click can implement "only during record" mode.
-        if self.position.is_playing() {
-            if let Some(mut click) = crate::ffi::CLICK_TRACK.try_write() {
+        // process_block() returns true when count-in completes → signal transport to start.
+        if let Some(mut click) = crate::ffi::CLICK_TRACK.try_write() {
+            let is_count_in = click.is_count_in_active();
+            if self.position.is_playing() || is_count_in {
                 let start_sample = self.position.samples().saturating_sub(frames as u64);
                 let is_recording = self.position.is_recording();
-                click.process_block(output_l, output_r, start_sample, frames, is_recording);
+                let count_in_done = click.process_block(
+                    output_l, output_r, start_sample, frames, is_recording,
+                );
+                if count_in_done {
+                    // Count-in completed — transport should now begin playing.
+                    // The transport start is handled by the UI layer polling
+                    // click_is_count_in_active() which will return false.
+                }
             }
         }
 
@@ -4682,8 +4761,13 @@ impl PlaybackEngine {
             cue.update_peaks();
         }
 
+        // CRITICAL: Don't advance transport during count-in (count-in has independent timing)
+        let count_in_blocks_advance = crate::ffi::CLICK_TRACK
+            .try_read()
+            .is_some_and(|ct| ct.is_count_in_active());
+
         // Advance position (only if not scrubbing - scrub position is controlled externally)
-        if self.position.should_advance() {
+        if self.position.should_advance() && !count_in_blocks_advance {
             let varispeed_rate = self.effective_playback_rate();
             self.position
                 .advance_with_rate(frames as u64, varispeed_rate);
@@ -5087,21 +5171,6 @@ impl PlaybackEngine {
             let final_volume = track_volume * vca_gain;
 
             // Pro Tools dual-pan for stereo, single pan for mono
-            // Debug: Log pan values periodically
-            static DEBUG_COUNTER: std::sync::atomic::AtomicU64 =
-                std::sync::atomic::AtomicU64::new(0);
-            let count = DEBUG_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            if count.is_multiple_of(48000) {
-                eprintln!(
-                    "[PLAYBACK] Track {} channels={}, is_stereo={}, pan={:.2}, pan_right={:.2}",
-                    track.id.0,
-                    track.channels,
-                    track.is_stereo(),
-                    track.pan,
-                    track.pan_right
-                );
-            }
-
             if track.is_stereo() {
                 // Dual pan: L channel controlled by pan, R channel by pan_right
                 // Constant power pan for each channel independently

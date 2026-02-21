@@ -414,9 +414,11 @@ class _FabFilterExpanderPanelState extends State<FabFilterExpanderPanel>
           const SizedBox(width: 6),
           Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11)),
           const SizedBox(width: 8),
-          Text('Downward Expander', style: TextStyle(
-            color: FabFilterColors.textTertiary, fontSize: 9,
-          )),
+          Flexible(
+            child: Text('Downward Expander', style: TextStyle(
+              color: FabFilterColors.textTertiary, fontSize: 9,
+            ), overflow: TextOverflow.ellipsis),
+          ),
           const Spacer(),
           // Expansion amount indicator
           Container(

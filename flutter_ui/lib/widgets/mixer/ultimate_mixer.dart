@@ -129,7 +129,7 @@ class UltimateMixerChannel {
   final String name;
   final ChannelType type;
   final Color color;
-  final double volume; // 0.0 to 1.5 (+6dB)
+  final double volume; // 0.0 to 2.0 (+6dB)
   final double pan; // -1.0 to 1.0 (mono) or LEFT channel pan (stereo)
   final double panRight; // RIGHT channel pan for stereo (Pro Tools style)
   final bool isStereo; // true = dual pan (stereo), false = single pan (mono)
@@ -858,27 +858,6 @@ class _UltimateChannelStrip extends StatefulWidget {
 
 class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
   bool _isHovered = false;
-  double _peakHoldL = 0.0;
-  double _peakHoldR = 0.0;
-
-  @override
-  void didUpdateWidget(_UltimateChannelStrip oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Update peak hold — track new peaks, decay toward zero when signal drops
-    if (widget.channel.peakL > _peakHoldL) {
-      _peakHoldL = widget.channel.peakL;
-    } else {
-      // Cubase-style decay: multiplicative release with snap-to-zero
-      _peakHoldL *= 0.92;
-      if (_peakHoldL < 0.0001) _peakHoldL = 0;
-    }
-    if (widget.channel.peakR > _peakHoldR) {
-      _peakHoldR = widget.channel.peakR;
-    } else {
-      _peakHoldR *= 0.92;
-      if (_peakHoldR < 0.0001) _peakHoldR = 0;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1467,14 +1446,8 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         volume: widget.channel.volume,
         peakL: widget.channel.peakL,
         peakR: widget.channel.peakR,
-        peakHoldL: _peakHoldL,
-        peakHoldR: _peakHoldR,
         muted: widget.channel.muted,
         onChanged: widget.onVolumeChange,
-        onResetPeaks: () => setState(() {
-          _peakHoldL = 0;
-          _peakHoldR = 0;
-        }),
       ),
     );
   }
@@ -1594,8 +1567,6 @@ class _FaderWithMeter extends StatefulWidget {
   final double volume;
   final double peakL;
   final double peakR;
-  final double peakHoldL;
-  final double peakHoldR;
   final bool muted;
   final ValueChanged<double>? onChanged;
   final VoidCallback? onResetPeaks;
@@ -1604,8 +1575,6 @@ class _FaderWithMeter extends StatefulWidget {
     required this.volume,
     this.peakL = 0,
     this.peakR = 0,
-    this.peakHoldL = 0,
-    this.peakHoldR = 0,
     this.muted = false,
     this.onChanged,
     this.onResetPeaks,
@@ -1659,7 +1628,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
     final text = _dbEditController.text.trim();
     final db = double.tryParse(text);
     if (db != null && widget.onChanged != null) {
-      final linear = db <= -80 ? 0.0 : math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 1.5);
+      final linear = db <= -80 ? 0.0 : math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 2.0);
       widget.onChanged!(linear);
     }
     setState(() => _isEditingDb = false);
@@ -1671,11 +1640,11 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
   // Unity gain (0 dB / volume=1.0) sits at ~75% of fader travel
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// Convert linear volume (0.0–1.5) to fader position (0.0–1.0)
+  /// Convert linear volume (0.0–2.0) to fader position (0.0–1.0)
   static double _volumeToPosition(double volume) =>
       FaderCurve.linearToPosition(volume);
 
-  /// Convert fader position (0.0–1.0) to linear volume (0.0–1.5)
+  /// Convert fader position (0.0–1.0) to linear volume (0.0–2.0)
   static double _positionToVolume(double position) =>
       FaderCurve.positionToLinear(position);
 
@@ -1723,8 +1692,8 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                   width: meterWidth,
                   child: _MeterBar(
                     peak: widget.peakL,
-                    peakHold: widget.peakHoldL,
                     muted: widget.muted,
+                    onTap: widget.onResetPeaks,
                   ),
                 ),
                 // Right meter
@@ -1735,8 +1704,8 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                   width: meterWidth,
                   child: _MeterBar(
                     peak: widget.peakR,
-                    peakHold: widget.peakHoldR,
                     muted: widget.muted,
+                    onTap: widget.onResetPeaks,
                   ),
                 ),
                 // Fader track (center)
@@ -1868,13 +1837,13 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
 
 class _MeterBar extends StatelessWidget {
   final double peak;
-  final double peakHold;
   final bool muted;
+  final VoidCallback? onTap;
 
   const _MeterBar({
     required this.peak,
-    this.peakHold = 0,
     this.muted = false,
+    this.onTap,
   });
 
   @override
@@ -1887,6 +1856,7 @@ class _MeterBar extends StatelessWidget {
           height: constraints.maxHeight,
           muted: muted,
           config: GpuMeterConfig.compact,
+          onTap: onTap,
         );
       },
     );
@@ -1915,28 +1885,27 @@ class _PanKnob extends StatefulWidget {
 }
 
 class _PanKnobState extends State<_PanKnob> {
-  double _dragStartY = 0;
-  double _dragStartValue = 0;
+  double _localValue = 0;
   bool _isDragging = false;
 
+  double get _displayValue => _isDragging ? _localValue : widget.value;
+
   void _handleDragStart(DragStartDetails details) {
-    _dragStartY = details.localPosition.dy;
-    _dragStartValue = widget.value;
+    _localValue = widget.value;
     setState(() => _isDragging = true);
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
     if (widget.onChanged == null) return;
-    // Up = increase value (more right), down = decrease (more left)
-    final deltaY = _dragStartY - details.localPosition.dy;
-    final sensitivity = 0.015;
-    final newValue = (_dragStartValue + deltaY * sensitivity).clamp(-1.0, 1.0);
-    widget.onChanged!(newValue);
+    final delta = -details.delta.dy * 0.007;
+    _localValue = (_localValue + delta).clamp(-1.0, 1.0);
+    setState(() {});
+    widget.onChanged!(_localValue);
   }
 
   void _handleDragEnd(DragEndDetails details) {
     setState(() => _isDragging = false);
-    widget.onChangeEnd?.call(widget.value);
+    widget.onChangeEnd?.call(_localValue);
   }
 
   @override
@@ -1967,7 +1936,7 @@ class _PanKnobState extends State<_PanKnob> {
               : null,
         ),
         child: CustomPaint(
-          painter: _PanKnobPainter(value: widget.value),
+          painter: _PanKnobPainter(value: _displayValue),
         ),
       ),
     );
@@ -2067,8 +2036,7 @@ class _StereoPanKnob extends StatefulWidget {
 }
 
 class _StereoPanKnobState extends State<_StereoPanKnob> {
-  double _dragStartY = 0;
-  double _dragStartValue = 0;
+  double _localValue = 0;
   bool _isDragging = false;
 
   // Double-tap detection via raw pointer events
@@ -2083,6 +2051,8 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
     if (percent < 2) return 'C';
     return v < 0 ? '<$percent' : '$percent>';
   }
+
+  double get _displayValue => _isDragging ? _localValue : widget.value;
 
   void _handlePointerDown(PointerDownEvent event) {
     final now = DateTime.now();
@@ -2106,7 +2076,7 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
 
   @override
   Widget build(BuildContext context) {
-    final rotation = widget.value * 135 * (math.pi / 180);
+    final rotation = _displayValue * 135 * (math.pi / 180);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -2127,18 +2097,16 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
           onPointerDown: _handlePointerDown,
           child: GestureDetector(
             onVerticalDragStart: (details) {
-              _dragStartY = details.localPosition.dy;
-              _dragStartValue = widget.value;
+              _localValue = widget.value;
               setState(() => _isDragging = true);
             },
             onVerticalDragEnd: (_) => setState(() => _isDragging = false),
             onVerticalDragUpdate: (details) {
               if (widget.onChanged == null) return;
-              // Negative because drag up (negative deltaY) should increase value
-              final deltaY = _dragStartY - details.localPosition.dy;
-              final sensitivity = 0.015;
-              final newValue = (_dragStartValue + deltaY * sensitivity).clamp(-1.0, 1.0);
-              widget.onChanged!(newValue);
+              final delta = -details.delta.dy * 0.007;
+              _localValue = (_localValue + delta).clamp(-1.0, 1.0);
+              setState(() {});
+              widget.onChanged!(_localValue);
             },
             child: Container(
             width: widget.size,
@@ -2166,7 +2134,7 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
                 // Pan arc indicator
                 CustomPaint(
                   size: Size(widget.size, widget.size),
-                  painter: _StereoPanKnobPainter(value: widget.value),
+                  painter: _StereoPanKnobPainter(value: _displayValue),
                 ),
                 // Knob pointer
                 Center(
@@ -2196,7 +2164,7 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
         const SizedBox(height: 3),
         // Value - Pro DAW standard: 9px for pan values
         Text(
-          _formatPan(widget.value),
+          _formatPan(_displayValue),
           style: TextStyle(
             fontSize: 9,
             fontFamily: 'JetBrains Mono',
@@ -2571,7 +2539,7 @@ class _VcaFader extends StatelessWidget {
       onVerticalDragUpdate: (details) {
         if (onChanged != null) {
           final delta = -details.delta.dy / 100;
-          final newVolume = (volume + delta).clamp(0.0, 1.5);
+          final newVolume = (volume + delta).clamp(0.0, 2.0);
           onChanged!(newVolume);
         }
       },
@@ -2584,7 +2552,7 @@ class _VcaFader extends StatelessWidget {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final capY = (1.0 - volume / 1.5) * (constraints.maxHeight - 16);
+            final capY = (1.0 - volume / 2.0) * (constraints.maxHeight - 16);
             return Stack(
               children: [
                 Positioned(
@@ -2732,8 +2700,6 @@ class _MasterStrip extends StatelessWidget {
                 volume: channel.volume,
                 peakL: channel.peakL,
                 peakR: channel.peakR,
-                peakHoldL: channel.peakL,
-                peakHoldR: channel.peakR,
                 muted: channel.muted,
                 onChanged: onVolumeChange,
               ),

@@ -394,6 +394,8 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
               widget.onSettingsChanged?.call();
             },
             tooltip: 'Reset correction',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
           ),
         ],
       ),

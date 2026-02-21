@@ -621,7 +621,11 @@ struct ApiProportionalQ {
 
 impl ApiProportionalQ {
     fn new() -> Self {
-        Self::default()
+        // b0 = 1.0 for unity pass-through (Default derives b0 = 0.0 which is silence)
+        Self {
+            b0: 1.0,
+            ..Self::default()
+        }
     }
 
     /// Set as peaking filter with proportional Q
@@ -907,7 +911,11 @@ struct NeveInductorFilter {
 
 impl NeveInductorFilter {
     fn new() -> Self {
-        Self::default()
+        // b0 = 1.0 for unity pass-through (Default derives b0 = 0.0 which is silence)
+        Self {
+            b0: 1.0,
+            ..Self::default()
+        }
     }
 
     /// High-pass with inductor characteristics

@@ -866,13 +866,16 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
       child: Row(
         children: [
           Text('IN ${inDb.toStringAsFixed(1)} dB',
-            style: FabFilterText.paramLabel.copyWith(fontSize: 8, color: FabFilterColors.cyan)),
+            style: FabFilterText.paramLabel.copyWith(fontSize: 8, color: FabFilterColors.cyan),
+            overflow: TextOverflow.ellipsis),
           const SizedBox(width: 12),
           Text('OUT ${outDb.toStringAsFixed(1)} dB',
-            style: FabFilterText.paramLabel.copyWith(fontSize: 8, color: FabFilterColors.green)),
+            style: FabFilterText.paramLabel.copyWith(fontSize: 8, color: FabFilterColors.green),
+            overflow: TextOverflow.ellipsis),
           const Spacer(),
           Text('${_satTypeLabels[_bands[_selectedBand].type]} | B${_selectedBand + 1}/${_numBands}',
-            style: FabFilterText.paramLabel.copyWith(fontSize: 8, color: _bandColor)),
+            style: FabFilterText.paramLabel.copyWith(fontSize: 8, color: _bandColor),
+            overflow: TextOverflow.ellipsis),
         ],
       ),
     );

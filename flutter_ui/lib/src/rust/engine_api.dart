@@ -35,7 +35,7 @@ class EngineApi {
   final Map<int, double> _activeBuses = {};
 
   // Mock volume state (used when native FFI not available)
-  double _mockMasterVolume = 1.0; // 0-1.5 linear
+  double _mockMasterVolume = 1.0; // 0-2.0 linear
   final Map<int, double> _mockTrackVolumes = {}; // trackId -> volume
   final Map<int, double> _mockBusVolumes = {}; // busIndex -> volume
 
@@ -164,9 +164,9 @@ class EngineApi {
   // VOLUME CONTROLS (for mock mode metering)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Set master volume (0.0 - 1.5, where 1.0 = 0dB)
+  /// Set master volume (0.0 - 2.0, where 1.0 = 0dB, 2.0 = +6dB)
   void setMasterVolume(double volume) {
-    _mockMasterVolume = volume.clamp(0.0, 1.5);
+    _mockMasterVolume = volume.clamp(0.0, 2.0);
     if (!_useMock) {
       final db = volume <= 0.0001 ? -60.0 : 20.0 * log(volume) / ln10;
       _ffi.mixerSetMasterVolume(db);
@@ -222,9 +222,9 @@ class EngineApi {
     return _ffi.getEffectivePlaybackRate();
   }
 
-  /// Set track volume (0.0 - 1.5, where 1.0 = 0dB)
+  /// Set track volume (0.0 - 2.0, where 1.0 = 0dB, 2.0 = +6dB)
   void setTrackVolume(int trackId, double volume) {
-    _mockTrackVolumes[trackId] = volume.clamp(0.0, 1.5);
+    _mockTrackVolumes[trackId] = volume.clamp(0.0, 2.0);
     if (!_useMock) {
       _ffi.setTrackVolume(trackId, volume);
     }
@@ -254,9 +254,9 @@ class EngineApi {
     return _ffi.getTrackChannels(trackId);
   }
 
-  /// Set bus volume (0.0 - 1.5, where 1.0 = 0dB)
+  /// Set bus volume (0.0 - 2.0, where 1.0 = 0dB, 2.0 = +6dB)
   void setBusVolume(int busIndex, double volume) {
-    _mockBusVolumes[busIndex] = volume.clamp(0.0, 1.5);
+    _mockBusVolumes[busIndex] = volume.clamp(0.0, 2.0);
     if (!_useMock) {
       final db = volume <= 0.0001 ? -60.0 : 20.0 * log(volume) / ln10;
       _ffi.mixerSetBusVolume(busIndex, db);
@@ -455,6 +455,23 @@ class EngineApi {
       tempo: bpm.clamp(20.0, 999.0),
       timeSigNum: _transport.timeSigNum,
       timeSigDenom: _transport.timeSigDenom,
+      loopEnabled: _transport.loopEnabled,
+      loopStart: _transport.loopStart,
+      loopEnd: _transport.loopEnd,
+    );
+    _transportController.add(_transport);
+  }
+
+  /// Set time signature
+  void setTimeSignature(int numerator, int denominator) {
+    _transport = TransportState(
+      isPlaying: _transport.isPlaying,
+      isRecording: _transport.isRecording,
+      positionSamples: _transport.positionSamples,
+      positionSeconds: _transport.positionSeconds,
+      tempo: _transport.tempo,
+      timeSigNum: numerator.clamp(1, 32),
+      timeSigDenom: denominator.clamp(1, 32),
       loopEnabled: _transport.loopEnabled,
       loopStart: _transport.loopStart,
       loopEnd: _transport.loopEnd,
@@ -2534,7 +2551,7 @@ class EngineApi {
             : 0.0;
 
         // Apply master volume to metering (fader affects meter display)
-        final volumeScale = _mockMasterVolume.clamp(0.0, 1.5);
+        final volumeScale = _mockMasterVolume.clamp(0.0, 2.0);
         final volumeDb = volumeScale <= 0.0001 ? -60.0 : 20.0 * log(volumeScale) / ln10;
 
         if (masterActivity > 0 && volumeScale > 0.001) {

@@ -304,9 +304,9 @@ class _FloatingSendWindowWidgetState extends State<_FloatingSendWindowWidget> {
                                   overlayShape: SliderComponentShape.noOverlay,
                                 ),
                                 child: Slider(
-                                  value: _level.clamp(0.0, 1.5),
+                                  value: _level.clamp(0.0, 2.0),
                                   min: 0.0,
-                                  max: 1.5,
+                                  max: 2.0,
                                   onChanged: (v) {
                                     setState(() => _level = v);
                                     widget.onLevelChanged?.call(v);

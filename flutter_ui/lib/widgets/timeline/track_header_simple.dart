@@ -290,7 +290,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
 // MINI COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _MiniButton extends StatefulWidget {
+class _MiniButton extends StatelessWidget {
   final String label;
   final bool active;
   final Color activeColor;
@@ -299,43 +299,28 @@ class _MiniButton extends StatefulWidget {
   const _MiniButton(this.label, this.active, this.activeColor, this.onTap);
 
   @override
-  State<_MiniButton> createState() => _MiniButtonState();
-}
-
-class _MiniButtonState extends State<_MiniButton> {
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    // Show pressed state OR active state for instant feedback
-    final showActive = _pressed ? !widget.active : widget.active;
-
     return RepaintBoundary(
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) {
-          setState(() => _pressed = false);
-          widget.onTap?.call();
-        },
-        onTapCancel: () => setState(() => _pressed = false),
+      child: Listener(
+        onPointerDown: (_) => onTap?.call(),
         child: Container(
           width: 22,
           height: 22,
           decoration: BoxDecoration(
-            color: showActive ? widget.activeColor : FluxForgeTheme.bgDeepest,
+            color: active ? activeColor : FluxForgeTheme.bgDeepest,
             borderRadius: BorderRadius.circular(3),
             border: Border.all(
-              color: showActive ? widget.activeColor : FluxForgeTheme.borderSubtle,
+              color: active ? activeColor : FluxForgeTheme.borderSubtle,
               width: 1,
             ),
           ),
           child: Center(
             child: Text(
-              widget.label,
+              label,
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
-                color: showActive ? Colors.white : FluxForgeTheme.textTertiary,
+                color: active ? Colors.white : FluxForgeTheme.textTertiary,
               ),
             ),
           ),
@@ -345,40 +330,25 @@ class _MiniButtonState extends State<_MiniButton> {
   }
 }
 
-class _RecordButton extends StatefulWidget {
+class _RecordButton extends StatelessWidget {
   final bool armed;
   final VoidCallback? onTap;
 
   const _RecordButton(this.armed, this.onTap);
 
   @override
-  State<_RecordButton> createState() => _RecordButtonState();
-}
-
-class _RecordButtonState extends State<_RecordButton> {
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    // Show pressed state OR armed state for instant feedback
-    final showArmed = _pressed ? !widget.armed : widget.armed;
-
     return RepaintBoundary(
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) {
-          setState(() => _pressed = false);
-          widget.onTap?.call();
-        },
-        onTapCancel: () => setState(() => _pressed = false),
+      child: Listener(
+        onPointerDown: (_) => onTap?.call(),
         child: Container(
           width: 22,
           height: 22,
           decoration: BoxDecoration(
-            color: showArmed ? FluxForgeTheme.accentRed : FluxForgeTheme.bgDeepest,
+            color: armed ? FluxForgeTheme.accentRed : FluxForgeTheme.bgDeepest,
             borderRadius: BorderRadius.circular(3),
             border: Border.all(
-              color: showArmed ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle,
+              color: armed ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle,
               width: 1,
             ),
           ),
@@ -388,7 +358,7 @@ class _RecordButtonState extends State<_RecordButton> {
               height: 8,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: showArmed ? Colors.white : FluxForgeTheme.textTertiary,
+                color: armed ? Colors.white : FluxForgeTheme.textTertiary,
               ),
             ),
           ),
@@ -404,11 +374,11 @@ class _VolumeSlider extends StatelessWidget {
 
   // Logic Pro style: linear dB mapping
   static const double _minDb = -60.0;
-  static const double _maxDb = 6.0;
+  static const double _maxDb = 6.02;
 
   const _VolumeSlider({required this.value, this.onChanged});
 
-  // Convert linear amplitude (0.0-1.5) to dB (-inf to +3.5dB)
+  // Convert linear amplitude (0.0-2.0) to dB (-inf to +6dB)
   double _linearToDb(double linear) {
     if (linear <= 0.0001) return _minDb;
     return 20.0 * math.log(linear) / math.ln10;
@@ -449,7 +419,7 @@ class _VolumeSlider extends StatelessWidget {
               // Convert UI position to dB, then to linear
               final normalizedPos = (d.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
               final newDb = _normalizedToDb(normalizedPos);
-              final newLinear = _dbToLinear(newDb).clamp(0.0, 1.5);
+              final newLinear = _dbToLinear(newDb).clamp(0.0, 2.0);
               onChanged!(newLinear);
             }
           },

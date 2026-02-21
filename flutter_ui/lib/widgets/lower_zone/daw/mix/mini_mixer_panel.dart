@@ -512,7 +512,7 @@ class _MiniFader extends StatelessWidget {
                 Positioned(
                   left: 4,
                   right: 4,
-                  top: height * (1 - 1.0 / 1.5) - 0.5,
+                  top: height * (1 - FaderCurve.linearToPosition(1.0)) - 0.5,
                   child: Container(
                     height: 1,
                     color: FluxForgeTheme.textSecondary.withAlpha(50),

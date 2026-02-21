@@ -806,8 +806,8 @@ class MixerStrip extends StatelessWidget {
   }
 
   Widget _buildFader() {
-    // Convert volume (0-1.5) to fader position (0-1)
-    final faderPos = (volume / 1.5).clamp(0.0, 1.0);
+    // Convert volume (0-2.0) to fader position (0-1)
+    final faderPos = (volume / 2.0).clamp(0.0, 1.0);
 
     return LayoutBuilder(builder: (context, constraints) {
       return GestureDetector(
@@ -815,7 +815,7 @@ class MixerStrip extends StatelessWidget {
           if (onVolumeChange == null) return;
           final height = constraints.maxHeight;
           final delta = -details.delta.dy / height;
-          final newVolume = (volume + delta * 1.5).clamp(0.0, 1.5);
+          final newVolume = (volume + delta * 2.0).clamp(0.0, 2.0);
           onVolumeChange!(newVolume);
         },
         onDoubleTap: () => onVolumeChange?.call(1.0), // Reset to 0dB

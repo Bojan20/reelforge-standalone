@@ -470,6 +470,31 @@ class DspChainProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set chain nodes directly — NO FFI calls.
+  /// Used by mixer insert flow to sync DspChainProvider after direct FFI operations.
+  void setChainNodes(int trackId, List<DspNode> nodes) {
+    final chain = getChain(trackId);
+    _chains[trackId] = chain.copyWith(nodes: nodes);
+    notifyListeners();
+  }
+
+  /// Add node to chain UI state only — NO FFI call.
+  /// Used when processor was already loaded via direct FFI (e.g., from mixer insert flow).
+  void addNodeUiOnly(int trackId, DspNodeType type, {int? atSlot}) {
+    final chain = getChain(trackId);
+    final order = chain.nodes.isEmpty ? 0 : chain.nodes.map((n) => n.order).reduce((a, b) => a > b ? a : b) + 1;
+    final node = DspNode.create(type, order: order, bypass: false);
+    if (atSlot != null && atSlot < chain.nodes.length) {
+      // Replace existing node at slot
+      final newNodes = List<DspNode>.from(chain.nodes);
+      newNodes[atSlot] = node;
+      _chains[trackId] = chain.copyWith(nodes: newNodes);
+    } else {
+      _chains[trackId] = chain.copyWith(nodes: [...chain.nodes, node]);
+    }
+    notifyListeners();
+  }
+
   /// Set node bypass UI state only (no FFI call).
   /// Used when bypass was already sent via direct FFI.
   void setNodeBypassUiOnly(int trackId, DspNodeType nodeType, bool bypassed) {

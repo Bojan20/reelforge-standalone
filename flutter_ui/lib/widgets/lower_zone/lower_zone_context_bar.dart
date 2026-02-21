@@ -153,45 +153,52 @@ class LowerZoneContextBar extends StatelessWidget {
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            // Toggle button
-            _buildToggleButton(),
-            const SizedBox(width: 8),
-            // Super-tabs
-            ...List.generate(superTabLabels.length, (index) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: _buildSuperTab(index),
-              );
-            }),
-            // Track indicator badge (if provided)
-            if (trackIndicator != null) ...[
-              const SizedBox(width: 8),
-              trackIndicator!,
-            ],
-            const SizedBox(width: 16), // Spacer replacement
-            // P1.5: Recent tabs quick access
-            if (recentTabs != null && recentTabs!.isNotEmpty) ...[
-              _buildRecentTabs(),
-              const SizedBox(width: 8),
-            ],
-            // Preset dropdown (optional)
-            if (presetDropdown != null) ...[
-              presetDropdown!,
-              const SizedBox(width: 8),
-            ],
-            // P2.1: Split view controls (if available)
-            if (onSplitToggle != null) ...[
-              _buildSplitViewControls(),
-              const SizedBox(width: 8),
-            ],
-            // Search (placeholder)
-            _buildSearchField(),
+      child: Row(
+        children: [
+          // Track indicator — OUTSIDE scrollable tab container, fixed left
+          if (trackIndicator != null) ...[
+            trackIndicator!,
+            const SizedBox(width: 6),
           ],
-        ),
+          // Toggle button — fixed, not scrollable
+          _buildToggleButton(),
+          const SizedBox(width: 8),
+          // Scrollable tabs area
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  // Super-tabs
+                  ...List.generate(superTabLabels.length, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: _buildSuperTab(index),
+                    );
+                  }),
+                  const SizedBox(width: 16), // Spacer replacement
+                  // P1.5: Recent tabs quick access
+                  if (recentTabs != null && recentTabs!.isNotEmpty) ...[
+                    _buildRecentTabs(),
+                    const SizedBox(width: 8),
+                  ],
+                  // Preset dropdown (optional)
+                  if (presetDropdown != null) ...[
+                    presetDropdown!,
+                    const SizedBox(width: 8),
+                  ],
+                  // P2.1: Split view controls (if available)
+                  if (onSplitToggle != null) ...[
+                    _buildSplitViewControls(),
+                    const SizedBox(width: 8),
+                  ],
+                  // Search (placeholder)
+                  _buildSearchField(),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

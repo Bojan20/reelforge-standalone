@@ -76,6 +76,8 @@ class TransportState {
   final double cpuLoad; // 0-1
   final double diskLoad; // 0-1
   final double sampleRate;
+  final bool isCountInActive; // Count-in currently playing
+  final int countInBeat; // Current count-in beat (0-based), -1 if inactive
 
   const TransportState({
     this.isPlaying = false,
@@ -102,6 +104,8 @@ class TransportState {
     this.cpuLoad = 0,
     this.diskLoad = 0,
     this.sampleRate = 48000,
+    this.isCountInActive = false,
+    this.countInBeat = -1,
   });
 }
 
@@ -332,6 +336,14 @@ class _UltimateClassicTransportBarState extends State<UltimateClassicTransportBa
             activeColor: FluxForgeTheme.accentOrange,
             onTap: c.onCountInToggle,
           ),
+          // Count-in beat indicator dots (visible during count-in)
+          if (s.isCountInActive) ...[
+            const SizedBox(width: 4),
+            _CountInBeatIndicator(
+              totalBeats: s.timeSigNumerator * s.countInBars,
+              currentBeat: s.countInBeat,
+            ),
+          ],
 
           const SizedBox(width: 12),
 
@@ -788,6 +800,60 @@ class _Meter extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COUNT-IN BEAT INDICATOR
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _CountInBeatIndicator extends StatelessWidget {
+  final int totalBeats;
+  final int currentBeat;
+
+  const _CountInBeatIndicator({
+    required this.totalBeats,
+    required this.currentBeat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final displayBeats = totalBeats.clamp(1, 16);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(displayBeats, (i) {
+        final isActive = i <= currentBeat && currentBeat >= 0;
+        final isCurrent = i == currentBeat;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1.5),
+          child: Container(
+            width: isCurrent ? 10 : 7,
+            height: isCurrent ? 10 : 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive
+                  ? FluxForgeTheme.accentOrange
+                  : FluxForgeTheme.bgDeep,
+              border: Border.all(
+                color: isActive
+                    ? FluxForgeTheme.accentOrange
+                    : FluxForgeTheme.borderSubtle,
+                width: 1,
+              ),
+              boxShadow: isCurrent
+                  ? [
+                      BoxShadow(
+                        color: FluxForgeTheme.accentOrange.withValues(alpha: 0.6),
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
+            ),
+          ),
+        );
+      }),
     );
   }
 }

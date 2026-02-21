@@ -257,9 +257,12 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       _globalPlacement = EqPlacement.values[snapshot.globalPlacementIdx.clamp(0, EqPlacement.values.length - 1)];
       _selectedBandIndex = _bands.isNotEmpty ? 0 : null;
     });
-    // Push all params to engine — disable all first, then sync active bands
+    // Push snapshot bands to engine — disable only unused band indices
+    final usedIndices = _bands.map((b) => b.index).toSet();
     for (int i = 0; i < 64; i++) {
-      _setP(i, _P.enabled, 0.0);
+      if (!usedIndices.contains(i)) {
+        _setP(i, _P.enabled, 0.0);
+      }
     }
     for (int i = 0; i < _bands.length; i++) {
       _syncBand(i);
@@ -463,6 +466,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                   color: _globalPlacement == p ? p.color : FabFilterColors.textTertiary,
                   fontSize: 9, fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
+                  overflow: TextOverflow.ellipsis,
                 )),
               ]),
             ),
@@ -519,10 +523,11 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
               Text('OUT', style: TextStyle(
                 color: FabFilterColors.textTertiary, fontSize: 7,
                 fontWeight: FontWeight.bold, letterSpacing: 1,
-              )),
+              ), overflow: TextOverflow.ellipsis),
               Text(
                 '${_outputGain >= 0 ? '+' : ''}${_outputGain.toStringAsFixed(1)} dB',
                 style: FabFilterText.paramValue(FabFilterColors.blue),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -545,7 +550,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           Text('IN', style: TextStyle(
             color: FabFilterColors.textDisabled, fontSize: 6,
             fontWeight: FontWeight.bold, letterSpacing: 0.5,
-          )),
+          ), overflow: TextOverflow.ellipsis),
           const SizedBox(height: 1),
           Row(children: [
             _meterBar(_inPeakL, 14),
@@ -559,7 +564,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           Text('OUT', style: TextStyle(
             color: FabFilterColors.textDisabled, fontSize: 6,
             fontWeight: FontWeight.bold, letterSpacing: 0.5,
-          )),
+          ), overflow: TextOverflow.ellipsis),
           const SizedBox(height: 1),
           Row(children: [
             _meterBar(_outPeakL, 14),

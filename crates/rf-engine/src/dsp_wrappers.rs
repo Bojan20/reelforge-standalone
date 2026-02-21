@@ -141,6 +141,7 @@ impl InsertProcessor for ProEqWrapper {
         if self.bypassed {
             return;
         }
+
         if self.auto_gain {
             // Measure input RMS
             let len = left.len() as f64;

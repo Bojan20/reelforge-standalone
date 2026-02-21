@@ -9,6 +9,7 @@
 
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
 
@@ -32,6 +33,10 @@ class TimeRuler extends StatefulWidget {
   final List<StageMarker> stageMarkers;
   /// Called when user clicks a stage marker
   final ValueChanged<StageMarker>? onStageMarkerClick;
+  /// Called when user double-clicks to edit BPM
+  final ValueChanged<double>? onTempoChange;
+  /// Called when user double-clicks to edit time signature
+  final void Function(int numerator, int denominator)? onTimeSignatureChange;
 
   const TimeRuler({
     super.key,
@@ -51,6 +56,8 @@ class TimeRuler extends StatefulWidget {
     this.onLoopToggle,
     this.stageMarkers = const [],
     this.onStageMarkerClick,
+    this.onTempoChange,
+    this.onTimeSignatureChange,
   });
 
   @override
@@ -61,12 +68,49 @@ class _TimeRulerState extends State<TimeRuler> {
   bool _isDragging = false;
   bool _isHovering = false;
   double _hoverX = -1;
+  // Inline edit state
+  bool _isEditingTempo = false;
+  bool _isEditingTimeSig = false;
+  double _editX = 0;
+  late TextEditingController _editController;
+  late FocusNode _editFocusNode;
+  late FocusNode _keyboardListenerFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _editController = TextEditingController();
+    _editFocusNode = FocusNode();
+    _keyboardListenerFocusNode = FocusNode();
+    _editFocusNode.addListener(() {
+      // Auto-commit on focus loss
+      if (!_editFocusNode.hasFocus) {
+        if (_isEditingTempo) _commitTempoEdit();
+        if (_isEditingTimeSig) _commitTimeSigEdit();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _editController.dispose();
+    _editFocusNode.dispose();
+    _keyboardListenerFocusNode.dispose();
+    super.dispose();
+  }
 
   double _xToTime(double x) {
     return widget.scrollOffset + x / widget.zoom;
   }
 
   void _handleTapDown(TapDownDetails details) {
+    // If editing, commit and return
+    if (_isEditingTempo || _isEditingTimeSig) {
+      if (_isEditingTempo) _commitTempoEdit();
+      if (_isEditingTimeSig) _commitTimeSigEdit();
+      return;
+    }
+
     final x = details.localPosition.dx;
     final y = details.localPosition.dy;
     final time = _xToTime(x);
@@ -89,7 +133,85 @@ class _TimeRulerState extends State<TimeRuler> {
     widget.onTimeClick?.call(time.clamp(0, double.infinity));
   }
 
+  void _handleDoubleTap(TapDownDetails details) {
+    final x = details.localPosition.dx;
+    final y = details.localPosition.dy;
+
+    // Upper area (y < 14) = time signature edit
+    // Lower area (y >= 14) = BPM edit
+    if (y < 14 && widget.onTimeSignatureChange != null) {
+      _startTimeSigEdit(x);
+    } else if (widget.onTempoChange != null) {
+      _startTempoEdit(x);
+    }
+  }
+
+  void _startTempoEdit(double x) {
+    setState(() {
+      _isEditingTempo = true;
+      _isEditingTimeSig = false;
+      _editX = x;
+      _editController.text = widget.tempo.toStringAsFixed(
+        widget.tempo == widget.tempo.roundToDouble() ? 0 : 1,
+      );
+      _editController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _editController.text.length,
+      );
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _editFocusNode.requestFocus();
+    });
+  }
+
+  void _startTimeSigEdit(double x) {
+    setState(() {
+      _isEditingTimeSig = true;
+      _isEditingTempo = false;
+      _editX = x;
+      _editController.text = '${widget.timeSignatureNum}/${widget.timeSignatureDenom}';
+      _editController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _editController.text.length,
+      );
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _editFocusNode.requestFocus();
+    });
+  }
+
+  void _commitTempoEdit() {
+    final text = _editController.text.trim();
+    final newTempo = double.tryParse(text);
+    if (newTempo != null && newTempo >= 20 && newTempo <= 999) {
+      widget.onTempoChange?.call(newTempo);
+    }
+    setState(() => _isEditingTempo = false);
+  }
+
+  void _commitTimeSigEdit() {
+    final text = _editController.text.trim();
+    // Parse "N/D" format
+    final parts = text.split('/');
+    if (parts.length == 2) {
+      final num = int.tryParse(parts[0].trim());
+      final denom = int.tryParse(parts[1].trim());
+      if (num != null && denom != null && num >= 1 && num <= 32 && denom >= 1 && denom <= 32) {
+        widget.onTimeSignatureChange?.call(num, denom);
+      }
+    }
+    setState(() => _isEditingTimeSig = false);
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _isEditingTempo = false;
+      _isEditingTimeSig = false;
+    });
+  }
+
   void _handleDragStart(DragStartDetails details) {
+    if (_isEditingTempo || _isEditingTimeSig) return;
     setState(() => _isDragging = true);
     final time = _xToTime(details.localPosition.dx);
     // Start scrubbing
@@ -119,6 +241,7 @@ class _TimeRulerState extends State<TimeRuler> {
       cursor: _isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.click,
       child: GestureDetector(
         onTapDown: _handleTapDown,
+        onDoubleTapDown: _handleDoubleTap,
         onHorizontalDragStart: _handleDragStart,
         onHorizontalDragUpdate: _handleDragUpdate,
         onHorizontalDragEnd: _handleDragEnd,
@@ -141,6 +264,80 @@ class _TimeRulerState extends State<TimeRuler> {
         ),
       ),
     );
+
+    // Overlay inline text field when editing
+    if (_isEditingTempo || _isEditingTimeSig) {
+      final editY = _isEditingTempo ? 12.0 : 0.0;
+      final editWidth = _isEditingTempo ? 60.0 : 50.0;
+      final editHeight = _isEditingTempo ? 16.0 : 14.0;
+      final hint = _isEditingTempo ? 'BPM' : 'N/D';
+
+      ruler = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ruler,
+          Positioned(
+            left: (_editX - editWidth / 2).clamp(0, widget.width - editWidth),
+            top: editY,
+            child: Container(
+              width: editWidth,
+              height: editHeight,
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.bgMid,
+                border: Border.all(
+                  color: FluxForgeTheme.accentOrange,
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: KeyboardListener(
+                focusNode: _keyboardListenerFocusNode,
+                onKeyEvent: (event) {
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.escape) {
+                    _cancelEdit();
+                  }
+                },
+                child: TextField(
+                  controller: _editController,
+                  focusNode: _editFocusNode,
+                  style: TextStyle(
+                    color: FluxForgeTheme.textPrimary,
+                    fontSize: _isEditingTempo ? 11 : 10,
+                    fontFamily: 'JetBrains Mono',
+                    height: 1.0,
+                  ),
+                  textAlign: TextAlign.center,
+                  textAlignVertical: TextAlignVertical.center,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
+                    isDense: true,
+                    hintText: hint,
+                    hintStyle: TextStyle(
+                      color: FluxForgeTheme.textTertiary,
+                      fontSize: _isEditingTempo ? 11 : 10,
+                      fontFamily: 'JetBrains Mono',
+                    ),
+                  ),
+                  keyboardType: _isEditingTempo
+                      ? const TextInputType.numberWithOptions(decimal: true)
+                      : TextInputType.text,
+                  onSubmitted: (_) {
+                    if (_isEditingTempo) _commitTempoEdit();
+                    if (_isEditingTimeSig) _commitTimeSigEdit();
+                  },
+                  onTapOutside: (_) {
+                    if (_isEditingTempo) _commitTempoEdit();
+                    if (_isEditingTimeSig) _commitTimeSigEdit();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     return ruler;
   }
