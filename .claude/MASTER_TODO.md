@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-21 (Pro Tools 2026 DAW Mixer Phase 1+2 + Direct FFI Metering Fix + Bus Metering FFI + Bus Stereo Pan Defaults + Master Meter Smooth Decay + Action Strip Wiring + ProEq ← UltraEq Integration + Independent Floating Editor Windows + EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
-**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer Phase 1+2 implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ, direct FFI metering
+**Updated:** 2026-02-21 (Pro Tools 2026 DAW Mixer Phase 1+2+3 + Direct FFI Metering Fix + Bus Metering FFI + Bus Stereo Pan Defaults + Master Meter Smooth Decay + Action Strip Wiring + ProEq ← UltraEq Integration + Independent Floating Editor Windows + EQ Dead Code Cleanup + Master Bus Chain Design + PROCESS Subtab Default Visibility Fix + EDIT Subtab Track→Clip FFI Fix + Saturn 2 Multiband + Timeless 3 Delay + FabFilter Bundle A/B Snapshots + P0 Click Fix + Split View Default + Gate 100% FFI + DSP Default Fix + Cubase Fader Law + Meter Decay + Plugin Hosting Fix)
+**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer Phase 1+2+3 implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ, direct FFI metering
 
 ---
 
@@ -13,7 +13,7 @@ CODE QUALITY AUDIT: 11/11 FIXED ✅ (4 CRITICAL, 4 HIGH, 3 MEDIUM)
 ANALYZER WARNINGS: 0 errors, 0 warnings ✅
 DEAD CODE CLEANUP: ~1,200 LOC removed (4 legacy EQ panels)
 EQ INTEGRATION: ProEq ← UltraEq unified superset (+1,463 LOC)
-DAW MIXER: Pro Tools 2026-class — Phase 1+2 complete (10 new files, ~2,045 LOC)
+DAW MIXER: Pro Tools 2026-class — Phase 1+2+3 complete (11 new files, ~2,520 LOC)
 
 ✅ P0-P9 Legacy:        100% (171/171) ✅ FEATURES DONE
 ✅ Phase A (P0):        100% (10/10)   ✅ MVP FEATURES DONE
@@ -31,14 +31,14 @@ DAW MIXER: Pro Tools 2026-class — Phase 1+2 complete (10 new files, ~2,045 LOC
 ✅ DEAD CODE CLEANUP:   ~1,200 LOC     ✅ 4 legacy EQ panels removed
 ✅ DAW MIXER Phase 1:   8/8 steps      ✅ COMPLETE (commit 60700ded)
 ✅ DAW MIXER Phase 2:   6/6 steps      ✅ COMPLETE (commit aa84ed0d)
-⏳ DAW MIXER Phase 3:   0/4 steps      ⏳ PENDING (Buses, Aux, VCA)
+✅ DAW MIXER Phase 3:   4/4 steps      ✅ COMPLETE (commit 5f99ff53)
 ⏳ DAW MIXER Phase 4:   0/5 steps      ⏳ PENDING (Advanced Features)
 ⏳ DAW MIXER Phase 5:   0/3 steps      ⏳ PENDING (Polish & Optimization)
 ```
 
-**397 total tasks (387 original + 10 DAW Mixer Phase 1+2 tasks). All code quality issues fixed. 4,532 tests pass. DAW Mixer Phases 1-2 complete: MixerScreen with Cmd+= toggle, MixerViewController, MixerTopBar, MixerStatusBar, IoSelectorPopup, SendSlotWidget, AutomationModeBadge, GroupIdBadge — all integrated into strip. SHIP READY.**
+**401 total tasks (387 original + 14 DAW Mixer Phase 1+2+3 tasks). All code quality issues fixed. 4,532 tests pass. DAW Mixer Phases 1-3 complete: MixerScreen with Cmd+= toggle, MixerViewController, MixerTopBar, MixerStatusBar, IoSelectorPopup, SendSlotWidget, AutomationModeBadge, GroupIdBadge, SpillController, Bus/Aux/VCA strip variants, section show/hide — all integrated. SHIP READY.**
 
-### Pro Tools 2026 DAW Mixer (2026-02-20 — 2026-02-21) ✅ Phase 1+2
+### Pro Tools 2026 DAW Mixer (2026-02-20 — 2026-02-21) ✅ Phase 1+2+3
 
 Complete Pro Tools 2026-class mixer implementation. Spec: `docs/architecture/FLUXFORGE_DAW_MIXER_2026.md` (1647 lines, 23 sections, 5 phases).
 
@@ -66,11 +66,19 @@ Complete Pro Tools 2026-class mixer implementation. Spec: `docs/architecture/FLU
 | 2.5 | Model updates — SendTapPoint enum, InsertData fields (isInstalled, pdcSamples) | ✅ |
 | 2.6 | Strip integration — replaced 3 inline methods, removed ~205 LOC dead code, added onOutputChange | ✅ |
 
+**Phase 3: Buses, Aux, VCA** (commit `5f99ff53`) ✅
+
+| Step | Task | Status |
+|------|------|--------|
+| 3.1 | SpillController — VCA/Folder channel filtering (Dart-only, no FFI) | ✅ |
+| 3.2 | Populate buses/auxes/VCAs from MixerProvider with full callback routing | ✅ |
+| 3.3 | Bus/Aux/VCA strip variants — type-aware I/O, gain/phase/PDC gating per channel type | ✅ |
+| 3.4 | Section show/hide — collapsed indicators with count, clickable headers, `_CollapsedSectionIndicator` | ✅ |
+
 **Remaining Phases:**
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| 3 | Buses, Aux, VCA (SpillController, bus/aux/vca strip variants) | ⏳ PENDING |
 | 4 | Advanced (Solo engine, EQ thumbnail, delay comp, Sends F-J, view presets) | ⏳ PENDING |
 | 5 | Polish & Optimization (virtual scroll, resize, animations) | ⏳ PENDING |
 

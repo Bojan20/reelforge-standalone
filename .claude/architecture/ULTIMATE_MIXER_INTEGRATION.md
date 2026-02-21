@@ -1,8 +1,8 @@
 # UltimateMixer Integration — Complete Documentation
 
-> **Version:** 2.0
+> **Version:** 2.1
 > **Date:** 2026-02-21
-> **Status:** IMPLEMENTED & TESTED — Pro Tools 2026-Class Mixer
+> **Status:** IMPLEMENTED & TESTED — Pro Tools 2026-Class Mixer (Phase 1+2+3)
 
 ---
 
@@ -16,7 +16,8 @@ UltimateMixer je **jedini mixer** u FluxForge Studio-u, sada nadograđen na **Pr
 |---------|------|-------------|
 | v1.0 | 2026-01-22 | UltimateMixer replaces ProDawMixer |
 | v1.1 | 2026-01-24 | Bidirectional channel/track reorder |
-| **v2.0** | **2026-02-21** | **Pro Tools 2026 Mixer: MixerScreen + Phase 1+2** |
+| v2.0 | 2026-02-21 | Pro Tools 2026 Mixer: MixerScreen + Phase 1+2 |
+| **v2.1** | **2026-02-21** | **Phase 3: Buses, Aux, VCA — SpillController, strip variants, section show/hide** |
 
 ### v2.0 New Architecture
 
@@ -59,6 +60,16 @@ UltimateMixer je **jedini mixer** u FluxForge Studio-u, sada nadograđen na **Pr
 | **NEW** | `widgets/mixer/automation_mode_badge.dart` | ~165 | AutomationMode enum (7 modes), color-coded PopupMenuButton |
 | **NEW** | `widgets/mixer/group_id_badge.dart` | ~160 | GroupColors 26-color palette (a-z), multi-group dot display |
 | **MODIFIED** | `widgets/mixer/ultimate_mixer.dart` | -205 LOC | Replaced 3 inline methods with widgets, removed dead _SendSlot class |
+
+**Phase 3 — Buses, Aux, VCA (commit `5f99ff53`):**
+
+| Action | File | LOC | Description |
+|--------|------|-----|-------------|
+| **NEW** | `controllers/mixer/spill_controller.dart` | ~75 | VCA/Folder spill filtering (Dart-only, no FFI) |
+| **MODIFIED** | `screens/engine_connected_layout.dart` | +170 | Bus/Aux/VCA population from MixerProvider, callback routing |
+| **MODIFIED** | `widgets/mixer/ultimate_mixer.dart` | +200 | Type-aware strip I/O, collapsed section indicators, VCA solo/spill |
+| **MODIFIED** | `screens/mixer_screen.dart` | +13 | Section toggle wiring, total counts for collapsed indicators |
+| **MODIFIED** | `providers/mixer_provider.dart` | +13 | VCA solo toggle method |
 
 **Legacy (v1.0-v1.1):**
 
@@ -801,6 +812,13 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 16. **Phase 2: GroupIdBadge** — 26 Pro Tools group colors, multi-group dot display
 17. **Phase 2: Dead code removal** — Removed ~205 LOC (_SendSlot, _MiniSendLevel classes)
 
+**v2.1 — Phase 3: Buses, Aux, VCA (2026-02-21):**
+18. **Phase 3: SpillController** — VCA/Folder channel filtering (spillVca, unspill, toggleSpillVca, isChannelVisible)
+19. **Phase 3: Bus/Aux/VCA population** — MixerProvider data → UltimateMixerChannel with full callback routing
+20. **Phase 3: Type-aware strip rendering** — Bus: output only, Aux: bus input + output, Audio: full I/O + gain/phase/PDC
+21. **Phase 3: VCA strip** — Solo + spill button wired, no inserts/sends/pan
+22. **Phase 3: Section show/hide** — Collapsed indicators with count ("BUS (5)"), clickable section headers
+
 ### Benefits
 
 - **Pro Tools 2026-class mixer** — Dedicated screen with professional strip layout
@@ -810,11 +828,11 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 - **Better maintainability** — Modular widgets (IoSelector, SendSlot, AutomationBadge, GroupBadge)
 - **Complete callback coverage** — All mixer controls now functional
 
-### Remaining Work (Phases 3-5)
+### Remaining Work (Phases 4-5)
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| 3 | Buses, Aux, VCA (SpillController, strip variants, section dividers) | ⏳ PENDING |
+| 3 | Buses, Aux, VCA (SpillController, strip variants, section show/hide) | ✅ COMPLETE (`5f99ff53`) |
 | 4 | Advanced (Solo engine SIP/AFL/PFL, EQ thumbnail, delay comp, Sends F-J) | ⏳ PENDING |
 | 5 | Polish & Optimization (virtual scroll, strip resize, animations) | ⏳ PENDING |
 
@@ -823,5 +841,5 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 ---
 
 **Document Status:** COMPLETE
-**Last Updated:** 2026-02-21
+**Last Updated:** 2026-02-21 (Phase 3 added)
 **Author:** Claude (Audio Architect)

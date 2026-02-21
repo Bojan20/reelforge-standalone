@@ -937,14 +937,14 @@ Similar to Aux Input strip, plus:
 - [ ] Group ID display
 - [ ] Narrow/Regular width toggle
 
-## Phase 3: Buses, Aux, VCA (P1)
+## Phase 3: Buses, Aux, VCA (P1) ✅ (commit `5f99ff53`)
 
-- [ ] Wire buses from MixerProvider (currently `const []`)
-- [ ] Wire auxes from MixerProvider
-- [ ] VCA strip implementation
-- [ ] VCA fader remote-control logic
-- [ ] Spill functionality
-- [ ] Section show/hide
+- [x] Wire buses from MixerProvider (currently `const []`)
+- [x] Wire auxes from MixerProvider
+- [x] VCA strip implementation
+- [x] VCA fader remote-control logic
+- [x] Spill functionality (SpillController — Dart-only, no FFI)
+- [x] Section show/hide (collapsed indicators with count, clickable headers)
 
 ## Phase 4: Advanced Features (P2)
 
